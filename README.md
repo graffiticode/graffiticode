@@ -1,0 +1,2 @@
+# root
+Graffiticode monorepo root
