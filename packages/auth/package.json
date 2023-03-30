@@ -1,0 +1,52 @@
+{
+  "name": "@graffiticode/auth",
+  "version": "1.0.2",
+  "type": "module",
+  "description": "Auth service for GC applications",
+  "author": "Art Compiler LLC",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/graffiticode/auth.git"
+  },
+  "keywords": [
+    "graffiticode"
+  ],
+  "bugs": {
+    "url": "https://github.com/graffiticode/auth/issues"
+  },
+  "homepage": "https://github.com/graffiticode/auth#readme",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "firebase emulators:exec --ui \"nodemon src/main.js\"",
+    "lint": "eslint src/",
+    "lint:fix": "eslint --fix src/",
+    "start": "node -r @graffiticode/tracing src/main.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec --ui \"jest --runInBand\""
+  },
+  "dependencies": {
+    "@ethereumjs/util": "^8.0.0",
+    "@graffiticode/tracing": "^0.3.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "firebase-admin": "^11.1.0",
+    "jose": "^4.11.2",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "bent": "^7.3.12",
+    "eslint": "^8.25.0",
+    "eslint-config-standard": "^17.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-n": "^15.3.0",
+    "eslint-plugin-promise": "^6.1.0",
+    "firebase": "^9.12.1",
+    "firebase-tools": "^11.14.4",
+    "jest": "^29.2.0",
+    "nodemon": "^2.0.20",
+    "supertest": "^6.3.0"
+  }
+}
