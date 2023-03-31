@@ -1,0 +1,19 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "refreshTokens",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "refreshToken",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
