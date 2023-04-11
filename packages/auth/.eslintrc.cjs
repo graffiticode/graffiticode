@@ -13,18 +13,19 @@ module.exports = {
   },
   plugins: ["import"],
   rules: {
+    "camelcase": [2, {
+      "allow": ["grant_type", "refresh_token", "access_token"],
+    }],
+    "comma-dangle": ["error", "only-multiline"],
+    "import/extensions": [2, "ignorePackages"],
+    "import/no-commonjs": 2,
+    "import/no-unresolved": 2,
+    "no-mixed-operators": 0,
     "quotes": [2, "double"],
     "semi": [2, "always"],
     "space-before-function-paren": ["error", {
       "anonymous": "always",
       "named": "never",
-    }],
-    "import/no-unresolved": 2,
-    "import/no-commonjs": 2,
-    "import/extensions": [2, "ignorePackages"],
-    "no-mixed-operators": 0,
-    "camelcase": [2, {
-      "allow": ["grant_type", "refresh_token", "access_token"],
     }],
   }
 };
