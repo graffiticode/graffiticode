@@ -1,0 +1,30 @@
+title Single Task Unauthorized
+
+actor User A
+actor User B
+participant Auth
+participant GC API
+participant L0
+
+note over User A: Authenticate\nUser A receives JWT containing the UserId (uid).
+User A-->>Auth: Authenticate Request
+Auth-->>User A: {JWT-A}
+
+note over User B: Authenticate\nUser B receives JWT containing the UserId (uid).
+User B-->>Auth: Authenticate Request
+Auth-->>User B: {JWT-B}
+
+note over User A: Create Task\nUser A creates a task using the JWT-A.
+User A-#00cc00>GC API: POST /task {JWT-A, Task}
+GC API-#ffaa00>>GC API: Creates task and adds user to ACL
+GC API-#00cc00>User A: {Id}
+
+note over User B: Read Task\nUser B reads the task using the JWT-B
+User B-#00cc00>GC API: GET /task?id=Id {JWT-B}
+GC API-#ffaa00>>GC API: Reads task and checks ACL
+GC API-#cc0000xUser B: 401 Unauthorized
+
+note over User B: Read Data\nUser B reads the data for the task using the JWT-B
+User B-#00cc00>GC API: GET /data?id=Id {JWT-B}
+GC API-#ffaa00>>GC API: Reads task and checks ACL
+GC API-#cc0000xUser B: 401 Unauthorized

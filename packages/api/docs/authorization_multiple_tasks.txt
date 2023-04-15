@@ -1,0 +1,30 @@
+title Multiple Tasks
+
+actor User
+participant Auth
+participant GC API
+participant L0
+
+note over User: Authenticate\nUser receives JWT containing the UserId (uid).
+User-->>Auth: Authenticate Request
+Auth-->>User: {JWT}
+
+note over User: Create Task 1\nUser creates task 1 using the JWT.
+User-#00cc00>GC API: POST /task {JWT, Task1}
+GC API-#ffaa00>>GC API: Creates task and adds user to ACL
+GC API-#00cc00>User: {Id1}
+
+note over User: Create Task 2\nUser creates task 2 using the JWT.
+User-#00cc00>GC API: POST /task {JWT, Task2}
+GC API-#ffaa00>>GC API: Creates task and adds user to ACL
+GC API-#00cc00>User: {Id2}
+
+note over User: Read Combined Data\nUser reads the data for task 1 and task 2 using the JWT
+User-#00cc00>GC API: GET /data?id=Id1+Id2 {JWT}
+GC API-#ffaa00>>GC API: Read task 2 and checks ACL
+GC API-#ffaa00>>GC API: Read task 1 and checks ACL
+GC API-#aa00aa>L0: POST /compile {lang2,code2,data=null}
+L0-#aa00aa>GC API: {Obj2}
+GC API-#aa00aa>L0: POST /compile {lang1,code1,data=Obj2}
+L0-#aa00aa>GC API: {Obj1}
+GC API-#00cc00>User: {Obj1}

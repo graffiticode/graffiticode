@@ -1,0 +1,17 @@
+# graffiticode/api
+build/
+
+# NodeJS
+node_modules
+*~
+
+# AWS Lambda
+function.zip
+
+# nyc (coverage)
+.nyc_output
+
+# Firebase
+firestore-debug.log
+ui-debug.log
+firebase-debug.log

@@ -1,0 +1,27 @@
+title Single Task
+
+actor User
+participant Auth
+participant GC API
+participant L0
+
+note over User: Authenticate\nUser receives JWT containing the UserId (uid).
+User-->>Auth: Authenticate Request
+Auth-->>User: {JWT}
+
+note over User: Create Task\nUser creates a task using the JWT.
+User-#00cc00>GC API: POST /task {JWT, Task}
+GC API-#ffaa00>>GC API: Creates task and adds user to ACL
+GC API-#00cc00>User: {Id}
+
+note over User: Read Task\nUser reads the task using the JWT
+User-#00cc00>GC API: GET /task?id=Id {JWT}
+GC API-#ffaa00>>GC API: Reads task and checks ACL
+GC API-#00cc00>User: {Task}
+
+note over User: Read Data\nUser reads the data for the task using the JWT
+User-#00cc00>GC API: GET /data?id=Id {JWT}
+GC API-#ffaa00>>GC API: Reads task and checks ACL
+GC API-#aa00aa>L0: POST /compile {lang,code,data=null}
+L0-#aa00aa>GC API: {Obj}
+GC API-#00cc00>User: {Obj}

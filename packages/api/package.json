@@ -1,0 +1,54 @@
+{
+  "name": "@graffiticode/api",
+  "version": "0.0.2",
+  "type": "module",
+  "description": "Gateway for compilers as a service.",
+  "author": "Art Compiler LLC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/graffiticode/api"
+  },
+  "main": "src/app.js",
+  "dependencies": {
+    "@graffiticode/auth": "*",
+    "@graffiticode/tracing": "^0.3.0",
+    "bent": "^7.3.12",
+    "child_process": "^1.0.2",
+    "cors": "^2.8.5",
+    "errorhandler": "^1.5.1",
+    "express": "^4.18.1",
+    "firebase-admin": "^11.5.0",
+    "graceful-fs": "^4.2.9",
+    "graphql-request": "^5.2.0",
+    "hashids": "^2.2.10",
+    "jose": "^4.11.4",
+    "method-override": "^3.0.0",
+    "morgan": "^1.10.0",
+    "redis": "^4.0.4"
+  },
+  "scripts": {
+    "start": "node -r @graffiticode/tracing src/app.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec --ui \"jest --runInBand\"",
+    "dev": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec --ui \"nodemon --exec \\\"node src/app.js\\\"\"",
+    "coverage": "nyc npm run test",
+    "lint": "eslint src/ tools/",
+    "lint:fix": "eslint --fix src/ tools/"
+  },
+  "engines": {
+    "node": "^16.13.1"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.1.2",
+    "eslint": "^8.24.0",
+    "eslint-config-standard": "^17.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-n": "^15.3.0",
+    "eslint-plugin-promise": "^6.0.1",
+    "firebase-tools": "^11.16.1",
+    "jest": "^27.5.1",
+    "nodemon": "^2.0.15",
+    "nyc": "^15.1.0",
+    "supertest": "^6.2.2"
+  }
+}

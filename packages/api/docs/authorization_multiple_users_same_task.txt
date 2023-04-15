@@ -1,0 +1,34 @@
+title Multiple Tasks
+
+actor User A
+actor User B
+participant Auth
+participant GC API
+
+note over User A: Authenticate\nUser A receives JWT containing the UserId (uid).
+User A-->>Auth: Authenticate Request
+Auth-->>User A: {JWT-A}
+
+note over User B: Authenticate\nUser B receives JWT containing the UserId (uid).
+User B-->>Auth: Authenticate Request
+Auth-->>User B: {JWT-B}
+
+note over User A: Create Task 1\nUser A creates task 1 using the JWT-A.
+User A-#00cc00>GC API: POST /task {JWT-A, Task1}
+GC API-#ffaa00>>GC API: Creates task and adds user to ACL
+GC API-#00cc00>User A: {Id1}
+
+note over User B: Create Task 1\nUser B creates task 1 using the JWT-B.
+User B-#00cc00>GC API: POST /task {JWT-B, Task1}
+GC API-#ffaa00>>GC API: Creates task and adds user to ACL
+GC API-#00cc00>User B: {Id1}
+
+note over User A: Read Task 1\nUser A reads the task using JWT-A
+User A-#00cc00>GC API: GET /task?id=Id1 {JWT-A}
+GC API-#ffaa00>>GC API: Reads task and checks ACL
+GC API-#00cc00>User A: {Task1}
+
+note over User B: Read Task 1\nUser B reads the task using JWT-B
+User B-#00cc00>GC API: GET /task?id=Id1 {JWT-B}
+GC API-#ffaa00>>GC API: Reads task and checks ACL
+GC API-#00cc00>User B: {Task1}
