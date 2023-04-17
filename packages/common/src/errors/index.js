@@ -16,7 +16,7 @@ export class UnauthorizedError extends Error { }
 
 export class UnavailableError extends Error { }
 
-export const error = (errorClass, args) => new (errorClass)(...args);
+export const error = (ErrorClass, args) => new (ErrorClass)(...args);
 export const assert = (condition, error) => {
   if (!condition) {
     throw error;

@@ -7,7 +7,7 @@ import {
   UnauthenticatedError,
   UnauthorizedError,
   UnavailableError
-} from "../errors";
+} from "../errors/index.js";
 
 export const createError = (code, message) => ({ code, message });
 
@@ -43,7 +43,7 @@ export const translateError = (err) => {
     return createError(503, err.message);
   }
   return createError(500, err.message);
-}
+};
 
 const handleError = (err, res) => {
   const error = translateError(err);
