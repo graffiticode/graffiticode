@@ -1,5 +1,8 @@
-import { translateError } from ".";
-import { InvalidArgumentError, NotFoundError, UnauthenticatedError, UnauthorizedError, NotImplementedError } from "../errors/index.js";
+import express from "express";
+import request from "supertest";
+
+import { buildHttpHandler, createError, createErrorResponse, createSuccessResponse, errorHandler, translateError } from "./http.js";
+import { InvalidArgumentError, NotFoundError, UnauthenticatedError, UnauthorizedError, NotImplementedError } from "./errors.js";
 
 describe("http", () => {
   describe("translateError", () => {
@@ -38,6 +41,33 @@ describe("http", () => {
         code: 501,
         message: "must provide have foo",
       });
+    });
+  });
+
+  describe("buildHttpHandler", () => {
+    it("should send data returned from handler", async () => {
+      const handler = async () => 42;
+      const app = express();
+      app.use(buildHttpHandler(handler));
+      app.use(errorHandler);
+
+      await request(app)
+        .get("/")
+        .expect(200, createSuccessResponse(42));
+    });
+
+    it("should send error returned from handler", async () => {
+      const err = new InvalidArgumentError();
+      const handler = async () => {
+        throw err;
+      };
+      const app = express();
+      app.use(buildHttpHandler(handler));
+      app.use(errorHandler);
+
+      await request(app)
+        .get("/")
+        .expect(400, createErrorResponse(createError(400, "")));
     });
   });
 });

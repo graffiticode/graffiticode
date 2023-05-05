@@ -1,4 +1,4 @@
-import { checkArgument, checkState, IllegalStateError, InvalidArgumentError } from ".";
+import { checkArgument, checkState, IllegalStateError, InvalidArgumentError } from "./errors.js";
 
 describe("errors", () => {
   it("checkArgument should throw InvalidArgumentError if condition false", async () => {

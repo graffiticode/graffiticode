@@ -1,3 +1,6 @@
+import cors from "cors";
+import express from "express";
+import morgan from "morgan";
 import {
   DeadlineExceededError,
   InvalidArgumentError,
@@ -7,7 +10,7 @@ import {
   UnauthenticatedError,
   UnauthorizedError,
   UnavailableError
-} from "../errors/index.js";
+} from "./errors.js";
 
 export const createError = (code, message) => ({ code, message });
 
@@ -52,7 +55,12 @@ const handleError = (err, res) => {
 
 export const buildHttpHandler = handler => async (req, res, next) => {
   try {
-    await handler(req, res, next);
+    const data = await handler(req, res, next);
+    if (data !== undefined && !res.headersSent) {
+      sendSuccessResponse(res, data);
+    } else {
+      // TODO(kevindy) add metric to track which handler is sending data
+    }
   } catch (err) {
     next(err);
   }
@@ -64,4 +72,25 @@ export const errorHandler = (err, req, res, next) => {
   } else {
     handleError(err, res);
   }
+};
+
+export const createHttpApp = addRoutesFn => {
+  const app = express();
+
+  if (process.env.NODE_ENV === "production") {
+    app.use(morgan("combined"));
+  } else {
+    app.use(morgan("dev"));
+  }
+  app.use(cors());
+  app.use(express.json({ limit: "50mb" }));
+
+  // Add Routes
+  app.get("/", (req, res) => res.sendStatus(200));
+  addRoutesFn(app);
+
+  // Handle errors
+  app.use(errorHandler);
+
+  return app;
 };
