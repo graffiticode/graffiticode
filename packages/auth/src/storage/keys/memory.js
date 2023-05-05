@@ -1,5 +1,5 @@
+import { NotFoundError } from "@graffiticode/common/src/errors.js";
 import admin from "firebase-admin";
-import { NotFoundError } from "../../errors/http.js";
 import { generateNonce } from "../../utils.js";
 
 const buildList = ({ keys }) => async () => {

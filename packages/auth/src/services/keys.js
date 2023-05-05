@@ -1,5 +1,5 @@
+import { NotFoundError } from "@graffiticode/common/src/errors.js";
 import { exportJWK, generateKeyPair } from "jose";
-import { NotFoundError } from "../errors/http.js";
 
 export const generateKey = async (alg = "ES256") => {
   const { privateKey, publicKey } = await generateKeyPair(alg);

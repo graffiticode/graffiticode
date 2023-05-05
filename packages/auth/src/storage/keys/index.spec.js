@@ -1,4 +1,4 @@
-import { NotFoundError } from "../../errors/http.js";
+import { NotFoundError } from "@graffiticode/common/src/errors.js";
 import { generateKey } from "../../services/keys.js";
 import { cleanUpFirebase } from "../../testing/firebase.js";
 import { createKeyStorer } from "./index.js";

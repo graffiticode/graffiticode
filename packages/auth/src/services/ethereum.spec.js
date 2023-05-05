@@ -1,6 +1,6 @@
 import { privateToAddress } from "@ethereumjs/util";
+import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/src/errors.js";
 import { NonceMismatchError } from "../errors/ethereum.js";
-import { InvalidArgumentError, UnauthenticatedError } from "../errors/http.js";
 import { buildMemoryEthereumStorer } from "../storage/ethereum/memory.js";
 import { buildEthereumService, createSignature } from "./ethereum.js";
 

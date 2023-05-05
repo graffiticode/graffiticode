@@ -1,8 +1,7 @@
-import { ETHEREUM_NONCE_MISMATCH } from "./codes.js";
-import { HttpError } from "./http.js";
+import { InvalidArgumentError } from "@graffiticode/common/src/errors.js";
 
-export class NonceMismatchError extends HttpError {
+export class NonceMismatchError extends InvalidArgumentError {
   constructor() {
-    super({ code: ETHEREUM_NONCE_MISMATCH, statusCode: 400, message: "nonce does not match" });
+    super("nonce does not match");
   }
 }
