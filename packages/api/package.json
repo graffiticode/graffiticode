@@ -1,6 +1,6 @@
 {
   "name": "@graffiticode/api",
-  "version": "0.0.2",
+  "version": "1.0.0",
   "type": "module",
   "description": "Gateway for compilers as a service.",
   "author": "Art Compiler LLC",
