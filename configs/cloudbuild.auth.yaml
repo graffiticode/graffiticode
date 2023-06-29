@@ -4,17 +4,17 @@ steps:
       - GOOGLE_ENTRYPOINT=$_ENTRYPOINT
     args:
       - build
-      - '$_GCR_HOSTNAME/$PROJECT_ID/graffiticode-auth:$COMMIT_SHA'
+      - '$_GCR_HOSTNAME/$PROJECT_ID/auth/graffiticode-auth:$COMMIT_SHA'
       - '--builder=gcr.io/buildpacks/builder:v1'
       - '--network=cloudbuild'
-      - '--path=.'
+      - '--path=packages/auth'
       - '--env=GOOGLE_ENTRYPOINT'
     id: Buildpack
     entrypoint: pack
   - name: gcr.io/cloud-builders/docker
     args:
       - push
-      - '$_GCR_HOSTNAME/$PROJECT_ID/graffiticode-auth:$COMMIT_SHA'
+      - '$_GCR_HOSTNAME/$PROJECT_ID/auth/graffiticode-auth:$COMMIT_SHA'
     id: Push
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     args:
@@ -24,15 +24,15 @@ steps:
       - graffiticode-auth
       - '--platform=managed'
       - '--no-traffic'
-      - '--image=$_GCR_HOSTNAME/$PROJECT_ID/graffiticode-auth:$COMMIT_SHA'
+      - '--image=$_GCR_HOSTNAME/$PROJECT_ID/auth/graffiticode-auth:$COMMIT_SHA'
       - >-
-        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+        --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID,$_LABELS
       - '--region=$_DEPLOY_REGION'
       - '--quiet'
     id: Deploy
     entrypoint: gcloud
 images:
-  - '$_GCR_HOSTNAME/$PROJECT_ID/graffiticode-auth:$COMMIT_SHA'
+  - '$_GCR_HOSTNAME/$PROJECT_ID/auth/graffiticode-auth:$COMMIT_SHA'
 options:
   substitutionOption: ALLOW_LOOSE
 substitutions:

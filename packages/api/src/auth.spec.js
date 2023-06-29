@@ -1,6 +1,6 @@
 import { describe } from "@jest/globals";
 import { buildValidateToken } from "./auth.js";
-import { startAuthApp } from "@graffiticode/auth/src/testing/app.js";
+import { startAuthApp } from "@graffiticode/auth/testing";
 
 describe("auth", () => {
   let authApp;

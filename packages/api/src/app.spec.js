@@ -1,4 +1,4 @@
-import { startAuthApp } from "@graffiticode/auth/src/testing/app.js";
+import { startAuthApp } from "@graffiticode/auth/testing";
 import request from "supertest";
 import { createApp } from "./app.js";
 

@@ -1,4 +1,4 @@
-import { createClient } from "@graffiticode/auth/src/client/remote.js";
+import { createClient } from "@graffiticode/auth/client";
 import { UnauthenticatedError } from "./errors/http.js";
 
 export const buildValidateToken = ({ authUrl = "https://auth.graffiticode.com" }) => {
