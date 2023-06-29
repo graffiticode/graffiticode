@@ -2,6 +2,9 @@
   "name": "@graffiticode/common",
   "version": "1.0.0",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "src/index.js",
   "devDependencies": {
     "eslint": "^8.38.0",
