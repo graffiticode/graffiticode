@@ -18,6 +18,23 @@ const createCodeHash = ({ lang, code }) =>
     .update(JSON.stringify({ lang, code }))
     .digest("hex");
 
+const buildCheckAuth = () => ({ taskDoc, auth }) => {
+  const acls = taskDoc.get("acls");
+  if (!acls) {
+    return;
+  }
+  if (acls.public) {
+    return;
+  }
+  if (!auth) {
+    throw new NotFoundError();
+  }
+  if (acls.uids[auth.uid]) {
+    return;
+  }
+  throw new NotFoundError();
+};
+
 export const encodeId = ({ taskIds }) => {
   const idObj = { taskIds };
   return Buffer.from(JSON.stringify(idObj), "utf8").toString("base64url");
@@ -94,23 +111,6 @@ const buildTaskCreate = ({ db }) => async ({ task, auth }) => {
   return encodeId({ taskIds: [taskId] });
 };
 
-const buildCheckAuth = () => ({ taskDoc, auth }) => {
-  const acls = taskDoc.get("acls");
-  if (!acls) {
-    return;
-  }
-  if (acls.public) {
-    return;
-  }
-  if (!auth) {
-    throw new NotFoundError();
-  }
-  if (acls.uids[auth.uid]) {
-    return;
-  }
-  throw new NotFoundError();
-};
-
 const buildTaskGet = ({ db }) => {
   const checkAuth = buildCheckAuth();
   return async ({ id, auth }) => {
@@ -139,3 +139,31 @@ export const buildFirestoreTaskDao = ({ db }) => {
 };
 
 export const createFirestoreDb = () => admin.firestore();
+
+// Compiles
+
+const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
+  const compileRef = db.doc(`compiles/${id}`);
+  const compileDoc = await compileRef.get();
+
+  if (!compileDoc.exists) {
+    await compileRef.set(compile);
+  }
+  return id;
+};
+
+const buildCompileGet = ({ db }) => async ({ id, auth }) => {
+  const compileRef = db.doc(`compiles/${id}`);
+  const compileDoc = await compileRef.get();
+
+  if (!compileDoc.exists) {
+    return undefined;
+  }
+  return compileDoc.data();
+};
+
+export const buildFirestoreCompileDao = ({ db }) => {
+  const create = buildCompileCreate({ db });
+  const get = buildCompileGet({ db });
+  return { create, get };
+};

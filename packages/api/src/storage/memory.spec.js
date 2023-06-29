@@ -1,7 +1,7 @@
-import { buildMemoryTaskDao } from "./memory.js";
-import { TASK1, TASK1_ID, TASK2 } from "../testing/fixture.js";
+import { buildMemoryTaskDao, buildMemoryCompileDao } from "./memory.js";
+import { TASK1, TASK1_ID, TASK2, DATA1 } from "../testing/fixture.js";
 
-describe("storage/memory", () => {
+describe("storage/memory tasks", () => {
   let taskDao = null;
   beforeEach(() => {
     taskDao = buildMemoryTaskDao();
@@ -94,5 +94,42 @@ describe("storage/memory", () => {
     const id = taskDao.appendIds(id1, id2);
 
     await expect(taskDao.get({ id, auth: myAuth })).rejects.toThrow();
+  });
+});
+
+describe("storage/memory compiles", () => {
+  let compileDao = null;
+  let taskDao = null;
+
+  beforeEach(() => {
+    taskDao = buildMemoryTaskDao();
+    compileDao = buildMemoryCompileDao();
+  });
+
+  it("should return null if compile is not created", async () => {
+    await expect(compileDao.get({ id: TASK1_ID })).resolves.toBe(undefined);
+  });
+
+  it("should return created compile", async () => {
+    const id = await compileDao.create({ id: TASK1_ID, compile: { data: DATA1 } });
+
+    await expect(compileDao.get({ id })).resolves.toStrictEqual({ data: DATA1 });
+  });
+
+  it("should use separate maps to store values", async () => {
+    const id = await taskDao.create({ task: TASK1 });
+    await compileDao.create({ id, compile: { data: DATA1 } });
+
+    await expect(taskDao.get({ id })).resolves.toStrictEqual([TASK1]);
+    await expect(compileDao.get({ id })).resolves.toStrictEqual({ data: DATA1 });
+  });
+
+  it("should handle multi task id", async () => {
+    const id1 = await taskDao.create({ task: TASK1 });
+    const id2 = await taskDao.create({ task: TASK2 });
+    const id = taskDao.appendIds(id1, id2);
+
+    await compileDao.create({ id, compile: { data: DATA1 } });
+    await expect(compileDao.get({ id })).resolves.toStrictEqual({ data: DATA1 });
   });
 });

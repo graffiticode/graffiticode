@@ -88,6 +88,9 @@ export const getStorageTypeForId = id => {
 export const buildGetTaskDaoForId = taskDaoFactory => id =>
   taskDaoFactory.create({ type: getStorageTypeForId(id) });
 
+export const buildGetCompileDaoForId = compileDaoFactory => id =>
+  compileDaoFactory.create({ type: getStorageTypeForId(id) });
+
 export const optionsHandler = buildHttpHandler(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Request-Methods", "POST, GET, OPTIONS");
@@ -101,7 +104,6 @@ export const buildCompileLogger = () => {
   const port = getClientPort();
   const protocol = host.indexOf("localhost") >= 0 && "http" || "https";
   const endpoint = `${protocol}://${host}:${port}/api`;
-  console.log("buildCompileLogger() endpoint=" + endpoint);
   return ({ token, id, status, timestamp, data }) => {
     if (!token) {
       return;
@@ -116,7 +118,6 @@ export const buildCompileLogger = () => {
       logCompile(id: $id, status: $status, timestamp: $timestamp, data: $data)
     }
   `;
-    console.log("logCompile() data=" + JSON.stringify(data, null, 2));
     client.request(query, { id, status, timestamp, data: JSON.stringify(data) }).then((data) => console.log(data));
   };
 };

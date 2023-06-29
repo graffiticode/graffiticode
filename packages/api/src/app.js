@@ -11,7 +11,7 @@ import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
 import { compile as langCompile } from "./lang/index.js";
 import * as routes from "./routes/index.js";
-import { buildTaskDaoFactory } from "./storage/index.js";
+import { buildTaskDaoFactory, buildCompileDaoFactory } from "./storage/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const require = createRequire(import.meta.url);
@@ -26,12 +26,12 @@ EventEmitter.defaultMaxListeners = 15;
 
 global.config = require(process.env.CONFIG || "./../config/config.json");
 global.config.useLocalCompiles = process.env.LOCAL_COMPILES === "true";
-console.log("global.config=" + JSON.stringify(global.config, null, 2));
 const env = process.env.NODE_ENV || "development";
 
 export const createApp = ({ authUrl } = {}) => {
   const compile = buildCompile({ langCompile });
   const taskDaoFactory = buildTaskDaoFactory();
+  const compileDaoFactory = buildCompileDaoFactory();
   const dataApi = buildDataApi({ compile });
 
   const app = express();
@@ -66,9 +66,9 @@ export const createApp = ({ authUrl } = {}) => {
 
   // Routes
   app.use("/", routes.root());
-  app.use("/compile", routes.compile({ taskDaoFactory, dataApi, compile }));
+  app.use("/compile", routes.compile({ taskDaoFactory, compileDaoFactory, dataApi }));
   app.use("/config", routes.configHandler);
-  app.use("/data", routes.data({ taskDaoFactory, dataApi }));
+  app.use("/data", routes.data({ taskDaoFactory, compileDaoFactory, dataApi }));
   app.use("/lang", routes.langRouter);
   app.use("/L*", routes.langRouter);
   app.use("/form", routes.formRouter({ taskDaoFactory }));

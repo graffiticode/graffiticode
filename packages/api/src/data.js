@@ -1,6 +1,13 @@
 const buildGetData = ({ compile }) =>
-  async ({ taskDao, id, auth, authToken, options }) => {
+  async ({ taskDao, compileDao, id, auth, authToken, options }) => {
     const tasks = await taskDao.get({ id, auth });
+    if (tasks) {
+      // There exists a task that we are authorized to see.
+      const compile = await compileDao.get({ id, auth });
+      if (compile && compile.data) {
+        return JSON.parse(compile.data);
+      }
+    }
     const obj = await tasks.reduceRight(
       async (dataPromise, task) => {
         const data = await dataPromise;
@@ -21,6 +28,14 @@ const buildGetData = ({ compile }) =>
       },
       Promise.resolve({})
     );
+    // FIXME store compile here.
+    compileDao.create({
+      id,
+      compile: {
+        timestamp: Date.now(),
+        data: JSON.stringify(obj)
+      }
+    });
     return obj;
   };
 

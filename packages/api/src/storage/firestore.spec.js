@@ -1,5 +1,10 @@
-import { buildFirestoreTaskDao, encodeId, createFirestoreDb } from "./firestore.js";
-import { TASK1, TASK2 } from "../testing/fixture.js";
+import {
+  buildFirestoreTaskDao,
+  encodeId,
+  createFirestoreDb,
+  buildFirestoreCompileDao
+} from "./firestore.js";
+import { TASK1, TASK2, DATA1 } from "../testing/fixture.js";
 import { clearFirestore } from "../testing/firestore.js";
 
 describe("storage/firestore", () => {
@@ -109,5 +114,48 @@ describe("storage/firestore", () => {
     const id = taskDao.appendIds(id1, id2);
 
     await expect(taskDao.get({ id, auth: myAuth })).rejects.toThrow();
+  });
+});
+
+describe("storage/firestore compile", () => {
+  beforeEach(async () => {
+    await clearFirestore();
+  });
+
+  let taskDao;
+  let compileDao;
+  beforeEach(async () => {
+    const db = createFirestoreDb({});
+    taskDao = buildFirestoreTaskDao({ db });
+    compileDao = buildFirestoreCompileDao({ db });
+  });
+
+  it("should return undefined if compile is not created", async () => {
+    const id = await taskDao.create({ task: TASK1 });
+    await expect(compileDao.get({ id })).resolves.toBe(undefined);
+  });
+
+  it("should return created compile", async () => {
+    const id = await taskDao.create({ task: TASK1 });
+    await compileDao.create({ id, compile: { data: DATA1 } });
+
+    await expect(compileDao.get({ id })).resolves.toStrictEqual({ data: DATA1 });
+  });
+
+  it("should use separate maps to store values", async () => {
+    const id = await taskDao.create({ task: TASK1 });
+    await compileDao.create({ id, compile: { data: DATA1 } });
+
+    await expect(taskDao.get({ id })).resolves.toStrictEqual([TASK1]);
+    await expect(compileDao.get({ id })).resolves.toStrictEqual({ data: DATA1 });
+  });
+
+  it("should handle multi task id", async () => {
+    const id1 = await taskDao.create({ task: TASK1 });
+    const id2 = await taskDao.create({ task: TASK2 });
+    const id = taskDao.appendIds(id1, id2);
+
+    await compileDao.create({ id, compile: { data: DATA1 } });
+    await expect(compileDao.get({ id })).resolves.toStrictEqual({ data: DATA1 });
   });
 });

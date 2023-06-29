@@ -44,7 +44,7 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskDaoF
     lang = await checkLangParam({ lang, pingLang });
     const baseUrl = getBaseUrlForLanguage(lang);
     const formUrl = `${baseUrl}/form?${params.toString()}`;
-    console.log("getFormHandler() formUrl=" + formUrl);
+    // console.log("getFormHandler() formUrl=" + formUrl);
     res.redirect(formUrl);
   });
 };

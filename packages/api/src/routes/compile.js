@@ -4,6 +4,7 @@ import { buildGetData } from "./data.js";
 
 import {
   buildGetTaskDaoForId,
+  buildGetCompileDaoForId,
   buildHttpHandler,
   createSuccessResponse,
   parseAuthFromRequest,
@@ -31,9 +32,10 @@ function getItemsFromRequest(req) {
 
 const getTaskFromData = data => ({ lang: "1", code: `${JSON.stringify(data)}..` });
 
-const buildPostCompileHandler = ({ taskDaoFactory, dataApi, compile }) => {
+const buildPostCompileHandler = ({ taskDaoFactory, compileDaoFactory, dataApi }) => {
   const getTaskDaoForId = buildGetTaskDaoForId(taskDaoFactory);
-  const getData = buildGetData({ getTaskDaoForId, dataApi });
+  const getCompileDaoForId = buildGetCompileDaoForId(compileDaoFactory);
+  const getData = buildGetData({ getTaskDaoForId, getCompileDaoForId, dataApi });
   return buildHttpHandler(async (req, res) => {
     const postTasks = buildPostTasks({ taskDaoFactory, req });
     const auth = req.auth.context;
@@ -57,9 +59,9 @@ const buildPostCompileHandler = ({ taskDaoFactory, dataApi, compile }) => {
   });
 };
 
-export default ({ taskDaoFactory, dataApi, compile }) => {
+export default ({ taskDaoFactory, compileDaoFactory, dataApi, compile }) => {
   const router = new Router();
-  router.post("/", buildPostCompileHandler({ taskDaoFactory, dataApi, compile }));
+  router.post("/", buildPostCompileHandler({ taskDaoFactory, compileDaoFactory, dataApi, compile }));
   router.options("/", optionsHandler);
   return router;
 };

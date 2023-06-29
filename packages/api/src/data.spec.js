@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 import { buildDataApi } from "./data.js";
-import { buildTaskDaoFactory } from "./storage/index.js";
+import { buildTaskDaoFactory, buildCompileDaoFactory } from "./storage/index.js";
 import { clearFirestore } from "./testing/firestore.js";
 import { DATA1, DATA2, TASK1, TASK1_WITH_DATA, TASK2 } from "./testing/fixture.js";
 
@@ -10,10 +10,12 @@ describe("data", () => {
   });
 
   let taskDao;
+  let compileDao;
   let compile;
   let dataApi;
   beforeEach(() => {
     taskDao = buildTaskDaoFactory({}).create({ type: "memory" });
+    compileDao = buildCompileDaoFactory({}).create({ type: "memory" });
     compile = jest.fn();
     dataApi = buildDataApi({ compile });
   });
@@ -25,7 +27,7 @@ describe("data", () => {
     const id = await taskDao.create({ task: TASK1 });
     mockCompileData(DATA1);
 
-    await expect(dataApi.get({ taskDao, id })).resolves.toStrictEqual(DATA1);
+    await expect(dataApi.get({ taskDao, compileDao, id })).resolves.toStrictEqual(DATA1);
 
     expect(compile).toHaveBeenCalledTimes(1);
     expect(compile).toHaveBeenNthCalledWith(
@@ -40,7 +42,7 @@ describe("data", () => {
   it("should not compile a created task with src data as code", async () => {
     const id = await taskDao.create({ task: TASK1_WITH_DATA });
     mockCompileData(DATA1);
-    await expect(dataApi.get({ taskDao, id })).resolves.toStrictEqual(DATA1);
+    await expect(dataApi.get({ taskDao, compileDao, id })).resolves.toStrictEqual(DATA1);
     expect(compile).toHaveBeenCalledTimes(1);
     expect(compile).toHaveBeenNthCalledWith(
       1,
@@ -56,7 +58,7 @@ describe("data", () => {
   it("should not compile a created task with data as code", async () => {
     const id = await taskDao.create({ task: TASK_WITH_CODE_AS_DATA });
     mockCompileData(CODE_AS_DATA);
-    await expect(dataApi.get({ taskDao, id })).resolves.toStrictEqual(CODE_AS_DATA);
+    await expect(dataApi.get({ taskDao, compileDao, id })).resolves.toStrictEqual(CODE_AS_DATA);
     expect(compile).toHaveBeenCalledTimes(0);
     // FIXME
     // expect(compile).toHaveBeenNthCalledWith(
@@ -75,7 +77,7 @@ describe("data", () => {
     mockCompileData(DATA1);
     mockCompileData(DATA2);
 
-    await expect(dataApi.get({ taskDao, id })).resolves.toStrictEqual(DATA2);
+    await expect(dataApi.get({ taskDao, compileDao, id })).resolves.toStrictEqual(DATA2);
 
     expect(compile).toHaveBeenCalledTimes(2);
     expect(compile).toHaveBeenNthCalledWith(

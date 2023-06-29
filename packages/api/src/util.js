@@ -96,8 +96,6 @@ export function getCompilerPort(lang, config) {
 }
 
 export function getClientHost(lang, config) {
-  console.log("getClientHost() global.config=" + JSON.stringify(global.config));
-  console.log("getClientHost() config=" + JSON.stringify(config));
   config = config || global.config || {};
   if (config.useLocalCompiles) {
     return "localhost";
