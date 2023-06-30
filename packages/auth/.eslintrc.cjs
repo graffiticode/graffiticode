@@ -19,7 +19,6 @@ module.exports = {
     "comma-dangle": ["error", "only-multiline"],
     "import/extensions": [2, "ignorePackages"],
     "import/no-commonjs": 2,
-    "import/no-unresolved": 2,
     "no-mixed-operators": 0,
     "quotes": [2, "double"],
     "semi": [2, "always"],

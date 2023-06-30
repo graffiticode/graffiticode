@@ -5,7 +5,11 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "src/index.js",
+  "exports": {
+    "./errors": "./src/errors.js",
+    "./http": "./src/http.js",
+    "./utils": "./src/utils.js"
+  },
   "devDependencies": {
     "eslint": "^8.38.0",
     "jest": "^29.5.0",

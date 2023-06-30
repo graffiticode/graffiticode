@@ -1,4 +1,4 @@
-import { NotFoundError } from "@graffiticode/common/src/errors.js";
+import { NotFoundError } from "@graffiticode/common/errors";
 import admin from "firebase-admin";
 import { generateNonce } from "../../utils.js";
 

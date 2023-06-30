@@ -1,5 +1,5 @@
 import { ecrecover, ecsign, fromRpcSig, hashPersonalMessage, isValidSignature, publicToAddress, toRpcSig } from "@ethereumjs/util";
-import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/src/errors.js";
+import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { NonceMismatchError } from "../errors/ethereum.js";
 
 const buildGetNonce = ({ ethereumStorer }) => async ({ address }) => ethereumStorer.getNonce({ address });

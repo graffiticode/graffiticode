@@ -1,4 +1,4 @@
-import { NotFoundError, UnauthenticatedError } from "@graffiticode/common/src/errors.js";
+import { NotFoundError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { importJWK, SignJWT } from "jose";
 
 const buildGenerateRefreshToken = ({ tokenStorer }) => async ({ uid }) => {

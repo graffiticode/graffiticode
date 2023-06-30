@@ -1,4 +1,4 @@
-import { NotFoundError } from "@graffiticode/common/src/errors.js";
+import { NotFoundError } from "@graffiticode/common/errors";
 import { generateNonce } from "../../utils.js";
 
 const buildCreateRefreshToken = ({ refreshTokens }) => async ({ uid }) => {

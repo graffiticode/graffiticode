@@ -1,4 +1,4 @@
-import { createHttpApp } from "@graffiticode/common/src/http.js";
+import { createHttpApp } from "@graffiticode/common/http";
 
 import { buildAuthenticateRouter } from "./authenticate.js";
 import { buildCertsRouter } from "./certs.js";

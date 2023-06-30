@@ -1,4 +1,4 @@
-import { NotFoundError } from "@graffiticode/common/src/errors.js";
+import { NotFoundError } from "@graffiticode/common/errors";
 import { cleanUpFirebase } from "../../testing/firebase.js";
 import { createTokenStorer } from "./index.js";
 

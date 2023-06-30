@@ -1,7 +1,7 @@
 import { addHexPrefix, isValidAddress } from "@ethereumjs/util";
-import { InvalidArgumentError } from "@graffiticode/common/src/errors.js";
-import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/src/http.js";
-import { isNonEmptyString } from "@graffiticode/common/src/utils.js";
+import { InvalidArgumentError } from "@graffiticode/common/errors";
+import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http";
+import { isNonEmptyString } from "@graffiticode/common/utils";
 import { Router } from "express";
 
 const buildEthereumGetNonce = ({ ethereum }) => buildHttpHandler(async (req, res) => {

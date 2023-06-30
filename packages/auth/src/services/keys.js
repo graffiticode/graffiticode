@@ -1,4 +1,4 @@
-import { NotFoundError } from "@graffiticode/common/src/errors.js";
+import { NotFoundError } from "@graffiticode/common/errors";
 import { exportJWK, generateKeyPair } from "jose";
 
 export const generateKey = async (alg = "ES256") => {

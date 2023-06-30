@@ -1,4 +1,4 @@
-import { InvalidArgumentError } from "@graffiticode/common/src/errors.js";
+import { InvalidArgumentError } from "@graffiticode/common/errors";
 
 export class NonceMismatchError extends InvalidArgumentError {
   constructor() {

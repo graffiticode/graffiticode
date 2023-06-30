@@ -1,4 +1,4 @@
-import { buildHttpHandler } from "@graffiticode/common/src/http.js";
+import { buildHttpHandler } from "@graffiticode/common/http";
 import { Router } from "express";
 
 const buildGetKeys = ({ keys }) => buildHttpHandler(async (req, res) => {
