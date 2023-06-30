@@ -1,20 +1,26 @@
 steps:
-  - name: gcr.io/k8s-skaffold/pack
-    env:
-      - GOOGLE_ENTRYPOINT=$_ENTRYPOINT
+  - name: 'node'
+    entrypoint: 'npm'
     args:
-      - build
-      - '$_GCR_HOSTNAME/$PROJECT_ID/auth/graffiticode-auth:$COMMIT_SHA'
-      - '--builder=gcr.io/buildpacks/builder:v1'
-      - '--network=cloudbuild'
-      - '--path=packages/auth'
-      - '--env=GOOGLE_ENTRYPOINT'
-    id: Buildpack
-    entrypoint: pack
+      - 'install'
+  - name: 'gcr.io/graffiticode/firebase'
+    entrypoint: 'npm'
+    args:
+      - 'test'
+      - '-w'
+      - 'packages/auth'
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/auth:COMMIT_SHA'
+      - '-f'
+      - 'configs/Dockerfile.auth.yaml'
+      - '.'
   - name: gcr.io/cloud-builders/docker
     args:
       - push
-      - '$_GCR_HOSTNAME/$PROJECT_ID/auth/graffiticode-auth:$COMMIT_SHA'
+      - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/auth:$COMMIT_SHA'
     id: Push
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     args:
@@ -24,20 +30,18 @@ steps:
       - graffiticode-auth
       - '--platform=managed'
       - '--no-traffic'
-      - '--image=$_GCR_HOSTNAME/$PROJECT_ID/auth/graffiticode-auth:$COMMIT_SHA'
+      - '--image=us-central1-docker.pkg.dev/graffiticode/graffiticode/auth:$COMMIT_SHA'
       - >-
-        --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID,$_LABELS
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
       - '--region=$_DEPLOY_REGION'
       - '--quiet'
     id: Deploy
     entrypoint: gcloud
 images:
-  - '$_GCR_HOSTNAME/$PROJECT_ID/auth/graffiticode-auth:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/auth:$COMMIT_SHA'
 options:
   substitutionOption: ALLOW_LOOSE
 substitutions:
-  _ENTRYPOINT: npx @graffiticode/auth
   _DEPLOY_REGION: us-central1
-  _GCR_HOSTNAME: us.gcr.io
 tags:
   - graffiticode-auth
