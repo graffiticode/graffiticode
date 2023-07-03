@@ -1,0 +1,11 @@
+FROM node:alpine
+
+WORKDIR /usr/src/app
+
+ENV NODE_ENV=production
+
+COPY . .
+RUN npm ci --production
+
+EXPOSE 4100
+CMD [ "npx", "@graffiticode/api" ]

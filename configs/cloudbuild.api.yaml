@@ -1,0 +1,47 @@
+steps:
+  - name: 'node'
+    entrypoint: 'npm'
+    args:
+      - 'install'
+  - name: 'gcr.io/graffiticode/firebase'
+    entrypoint: 'npm'
+    args:
+      - 'test'
+      - '-w'
+      - 'packages/api'
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/api:COMMIT_SHA'
+      - '-f'
+      - 'configs/Dockerfile.api.yaml'
+      - '.'
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/api:$COMMIT_SHA'
+    id: Push
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - run
+      - services
+      - update
+      - graffiticode-api
+      - '--platform=managed'
+      - '--no-traffic'
+      - '--image=us-central1-docker.pkg.dev/graffiticode/graffiticode/api:$COMMIT_SHA'
+      - >-
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+    id: Deploy
+    entrypoint: gcloud
+images:
+  - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/api:$COMMIT_SHA'
+options:
+  substitutionOption: ALLOW_LOOSE
+substitutions:
+  _DEPLOY_REGION: us-central1
+tags:
+  - graffiticode-api
