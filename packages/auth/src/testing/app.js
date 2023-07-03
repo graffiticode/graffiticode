@@ -1,8 +1,8 @@
-import { createAppWithMemoryStorage } from "../app.js";
+import { createApp } from "../app.js";
 import { createClient } from "../client/remote.js";
 
 export const startAuthApp = async () => {
-  const deps = createAppWithMemoryStorage();
+  const deps = createApp();
   let server;
 
   await new Promise(resolve => {

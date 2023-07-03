@@ -1,11 +1,11 @@
 import { NotFoundError } from "@graffiticode/common/errors";
-import { cleanUpFirebase } from "../../testing/firebase.js";
-import { createTokenStorer } from "./index.js";
+import { cleanUpFirebase } from "../testing/firebase.js";
+import { buildRefreshTokenStorer } from "./refresh-tokens.js";
 
-describe.each(["memory", "firestore"])("storage/tokens[%s]", (type) => {
+describe("storage/refresh-tokens", () => {
   let storer;
   beforeEach(async () => {
-    storer = createTokenStorer(type);
+    storer = buildRefreshTokenStorer();
   });
 
   afterEach(cleanUpFirebase);

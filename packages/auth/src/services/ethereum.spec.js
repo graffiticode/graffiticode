@@ -1,7 +1,8 @@
 import { privateToAddress } from "@ethereumjs/util";
 import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { NonceMismatchError } from "../errors/ethereum.js";
-import { buildMemoryEthereumStorer } from "../storage/ethereum/memory.js";
+import { buildEthereumStorer } from "../storage/ethereum.js";
+import { cleanUpFirebase } from "../testing/firebase.js";
 import { buildEthereumService, createSignature } from "./ethereum.js";
 
 describe("authenticators/ethereum", () => {
@@ -10,7 +11,11 @@ describe("authenticators/ethereum", () => {
 
   let ethereumService;
   beforeEach(() => {
-    ethereumService = buildEthereumService({ ethereumStorer: buildMemoryEthereumStorer() });
+    ethereumService = buildEthereumService({ ethereumStorer: buildEthereumStorer() });
+  });
+
+  afterEach(async () => {
+    await cleanUpFirebase();
   });
 
   it("should authenticate valid signature", async () => {

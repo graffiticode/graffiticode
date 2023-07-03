@@ -1,35 +1,15 @@
 import admin from "firebase-admin";
 
-const buildGetApp = () => {
-  let app;
-  return () => {
-    if (!app) {
-      app = admin.initializeApp();
-    }
-    return app;
-  };
-};
+const ALLOWED_INITIALIZE_ERROR_CODES = ["app/duplicate-app"];
 
-const buildGetAuth = ({ getApp }) => {
-  let auth;
-  return () => {
-    if (!auth) {
-      auth = admin.auth(getApp());
-    }
-    return auth;
-  };
-};
+try {
+  admin.initializeApp();
+} catch (err) {
+  if (!ALLOWED_INITIALIZE_ERROR_CODES.includes(err.code)) {
+    console.log(err.code);
+    throw err;
+  }
+}
 
-const buildGetFirestore = ({ getApp }) => {
-  let firestore;
-  return () => {
-    if (!firestore) {
-      firestore = admin.firestore(getApp());
-    }
-    return firestore;
-  };
-};
-
-const getApp = buildGetApp();
-export const getAuth = buildGetAuth({ getApp });
-export const getFirestore = buildGetFirestore({ getApp });
+export const getAuth = () => admin.auth();
+export const getFirestore = () => admin.firestore();

@@ -132,7 +132,8 @@ const buildTaskGet = ({ db }) => {
   };
 };
 
-export const buildFirestoreTaskDao = ({ db }) => {
+export const buildFirestoreTaskDao = () => {
+  const db = admin.firestore();
   const create = buildTaskCreate({ db });
   const get = buildTaskGet({ db });
   return { create, get, appendIds };
@@ -147,6 +148,7 @@ const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
   const compileDoc = await compileRef.get();
 
   if (!compileDoc.exists) {
+    console.log(auth);
     await compileRef.set(compile);
   }
   return id;
@@ -162,7 +164,8 @@ const buildCompileGet = ({ db }) => async ({ id, auth }) => {
   return compileDoc.data();
 };
 
-export const buildFirestoreCompileDao = ({ db }) => {
+export const buildFirestoreCompileDao = () => {
+  const db = admin.firestore();
   const create = buildCompileCreate({ db });
   const get = buildCompileGet({ db });
   return { create, get };

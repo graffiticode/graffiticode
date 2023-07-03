@@ -1,5 +1,5 @@
-import { getFirestore } from "../../firebase.js";
-import { generateNonce } from "../../utils.js";
+import { getFirestore } from "../firebase.js";
+import { generateNonce } from "../utils.js";
 
 const buildRotateNonce = ({ db }) => async ({ address }) => {
   address = address.toLowerCase();
@@ -22,7 +22,7 @@ const buildGetNonce = ({ db, rotateNonce }) => async ({ address }) => {
   return nonce;
 };
 
-export const buildFirestoreEthereumStorer = () => {
+export const buildEthereumStorer = () => {
   const db = getFirestore();
   const rotateNonce = buildRotateNonce({ db });
   const getNonce = buildGetNonce({ db, rotateNonce });

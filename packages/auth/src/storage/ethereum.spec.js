@@ -1,13 +1,13 @@
-import { cleanUpFirebase } from "../../testing/firebase.js";
-import { createEthereumStorer } from "./index.js";
+import { cleanUpFirebase } from "../testing/firebase.js";
+import { buildEthereumStorer } from "./ethereum.js";
 
-describe.each(["memory", "firestore"])("storage/ethereum[%s]", (type) => {
+describe("storage/ethereum", () => {
   const myAddress = "abc123";
   const otherAddress = "def456";
 
   let storer;
   beforeEach(async () => {
-    storer = createEthereumStorer(type);
+    storer = buildEthereumStorer();
   });
 
   afterEach(cleanUpFirebase);

@@ -32,7 +32,7 @@ const getIdFromIds = ids => {
   }
 };
 
-export const buildGetTasks = ({ taskDaoFactory, req }) => {
+export const buildGetTasks = ({ taskDaoFactory }) => {
   const getTaskDaoForId = buildGetTaskDaoForId(taskDaoFactory);
   return async ({ auth, ids }) => {
     if (ids.length < 1) {
@@ -52,7 +52,7 @@ export const buildGetTasks = ({ taskDaoFactory, req }) => {
 
 const buildGetTaskHandler = ({ taskDaoFactory }) => {
   return buildHttpHandler(async (req, res) => {
-    const getTasks = buildGetTasks({ taskDaoFactory, req });
+    const getTasks = buildGetTasks({ taskDaoFactory });
     const auth = req.auth.context;
     const ids = parseIdsFromRequest(req);
     if (ids.length < 1) {

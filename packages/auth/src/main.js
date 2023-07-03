@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { createAppWithFirestoreStorage } from "./app.js";
+import { createApp } from "./app.js";
 
-const { app } = createAppWithFirestoreStorage();
+const { app } = createApp();
 
 const port = process.env.PORT || "4100";
 app.listen(port, () => {

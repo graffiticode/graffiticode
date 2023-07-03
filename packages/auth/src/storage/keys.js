@@ -1,6 +1,6 @@
 import { NotFoundError } from "@graffiticode/common/errors";
 import admin from "firebase-admin";
-import { getFirestore } from "../../firebase.js";
+import { getFirestore } from "../firebase.js";
 
 const buildList = ({ db }) => async () => {
   const query = db.collection("keys").orderBy("createdAt", "desc");
@@ -45,7 +45,7 @@ const buildGetCurrent = ({ db }) => async () => {
   return { kid, ...keyDoc.data() };
 };
 
-export const buildFirestoreKeyStorer = () => {
+export const buildKeyStorer = () => {
   const db = getFirestore();
 
   const list = buildList({ db });

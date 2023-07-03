@@ -1,12 +1,12 @@
 import { NotFoundError } from "@graffiticode/common/errors";
-import { generateKey } from "../../services/keys.js";
-import { cleanUpFirebase } from "../../testing/firebase.js";
-import { createKeyStorer } from "./index.js";
+import { generateKey } from "../services/keys.js";
+import { cleanUpFirebase } from "../testing/firebase.js";
+import { buildKeyStorer } from "./keys.js";
 
-describe.each(["memory", "firestore"])("storage/keys[%s]", (type) => {
+describe("storage/keys", () => {
   let keyStorer;
   beforeEach(async () => {
-    keyStorer = createKeyStorer(type);
+    keyStorer = buildKeyStorer();
   });
 
   afterEach(cleanUpFirebase);

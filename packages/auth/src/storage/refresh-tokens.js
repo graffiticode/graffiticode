@@ -1,7 +1,7 @@
 import { NotFoundError } from "@graffiticode/common/errors";
 import admin from "firebase-admin";
-import { getFirestore } from "../../firebase.js";
-import { generateNonce } from "../../utils.js";
+import { getFirestore } from "../firebase.js";
+import { generateNonce } from "../utils.js";
 
 const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 
@@ -42,7 +42,7 @@ const buildDeleteRefreshToken = ({ db }) => async (refreshToken) => {
   await Promise.all(querySnapshot.docs.map(documentSnapshot => documentSnapshot.ref.delete()));
 };
 
-export const buildFirestoreTokenStorer = () => {
+export const buildRefreshTokenStorer = () => {
   const db = getFirestore();
   const createRefreshToken = buildCreateRefreshToken({ db });
   const deleteRefreshToken = buildDeleteRefreshToken({ db });
