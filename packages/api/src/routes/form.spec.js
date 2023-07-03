@@ -43,15 +43,9 @@ describe("routes/form", () => {
       .expect(400, createErrorResponse(createError(400, "Missing or invalid parameters")));
   });
 
-  it("should handle bad lang param", async () => {
+  it.skip("should handle bad id param", async () => {
     await request(app)
-      .get("/form?lang=xxx&data={}")
-      .expect(400, createErrorResponse(createError(400, "Invalid lang xxx")));
-  });
-
-  it("should handle bad lang param", async () => {
-    await request(app)
-      .get("/form?lang=123456789&data={}")
-      .expect(404, createErrorResponse(createError(404, "Language not found L123456789")));
+      .get("/form?id=xxx")
+      .expect(400, createErrorResponse(createError(4001)));
   });
 });

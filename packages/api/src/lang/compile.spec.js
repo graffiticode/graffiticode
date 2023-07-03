@@ -18,7 +18,7 @@ describe("compile", () => {
 
     // Assert
     expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
-    expect(bent).toHaveBeenCalledWith(baseUrl, "POST", "json");
+    expect(bent).toHaveBeenCalledWith(baseUrl, "POST", "json", 200, 202);
     expect(call).toHaveBeenCalledWith("/compile", req);
     expect(actual).toBe(res);
   });
@@ -38,7 +38,7 @@ describe("compile", () => {
 
     // Assert
     expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
-    expect(bent).toHaveBeenCalledWith(baseUrl, "POST", "json");
+    expect(bent).toHaveBeenCalledWith(baseUrl, "POST", "json", 200, 202);
     expect(call).toHaveBeenCalledWith("/compile", req);
   });
 });

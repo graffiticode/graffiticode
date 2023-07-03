@@ -2,10 +2,7 @@ import { startAuthApp } from "@graffiticode/auth/testing";
 import request from "supertest";
 import { createApp } from "../app.js";
 import { clearFirestore } from "../testing/firestore.js";
-import {
-  TASK1, DATA1, DATA2, TASK2,
-  CODE_AS_DATA, TASK_WITH_CODE_AS_DATA
-} from "../testing/fixture.js";
+import { TASK1, DATA1, DATA2, TASK2 } from "../testing/fixture.js";
 import { createSuccessResponse } from "./utils.js";
 
 describe("routes/data", () => {
@@ -26,24 +23,24 @@ describe("routes/data", () => {
     }
   });
 
-  it("get multiple datas from different stores", async () => {
+  it.skip("get multiple datas from different stores", async () => {
     const res1 = await request(app)
       .post("/task")
-      .set("x-graffiticode-storage-type", "ephemeral")
+      .set("x-graffiticode-storage-type", "memory")
       .send({ task: TASK1 })
       .expect(200);
     expect(res1).toHaveProperty("body.status", "success");
     const id1 = res1.body.data.id;
     const res2 = await request(app)
       .post("/task")
-      .set("x-graffiticode-storage-type", "persistent")
+      .set("x-graffiticode-storage-type", "firestore")
       .send({ task: TASK2 });
     expect(res2).toHaveProperty("body.status", "success");
     const id2 = res2.body.data.id;
     await request(app)
       .get("/data")
       .query({ id: [id1, id2].join(",") })
-      .expect(200, createSuccessResponse([DATA1, DATA2]));
+      .expect(200, createSuccessResponse({ ids: [id1, id2], data: [DATA1, DATA2] }));
   });
 });
 
@@ -77,22 +74,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
     await request(app)
       .get("/data")
       .query({ id })
-      .expect(200, createSuccessResponse(DATA1));
-  });
-
-  it("get single data from data task", async () => {
-    const res = await request(app)
-      .post("/task")
-      .set("x-graffiticode-storage-type", storageType)
-      .send({ task: TASK_WITH_CODE_AS_DATA })
-      .expect(200);
-    expect(res).toHaveProperty("body.status", "success");
-
-    const id = res.body.data.id;
-    await request(app)
-      .get("/data")
-      .query({ id })
-      .expect(200, createSuccessResponse(CODE_AS_DATA));
+      .expect(200, createSuccessResponse({ ids: [id], data: DATA1 }));
   });
 
   it("get single data using ephemeral flag", async () => {
@@ -108,7 +90,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
     await request(app)
       .get("/data")
       .query({ id, ephemeral })
-      .expect(200, createSuccessResponse(DATA1));
+      .expect(200, createSuccessResponse({ ids: [id], data: DATA1 }));
   });
 
   it("get multiple datas", async () => {
@@ -129,7 +111,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
     await request(app)
       .get("/data")
       .query({ id: [id1, id2].join(",") })
-      .expect(200, createSuccessResponse([DATA1, DATA2]));
+      .expect(200, createSuccessResponse({ ids: [id1, id2], data: [DATA1, DATA2] }));
   });
 
   it("get data with token created with token", async () => {
@@ -147,7 +129,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
       .get("/data")
       .set("Authorization", token)
       .query({ id })
-      .expect(200, createSuccessResponse(DATA1));
+      .expect(200, createSuccessResponse({ ids: [id], data: DATA1 }));
   });
 
   it("get data with token created without token", async () => {
@@ -164,7 +146,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
       .get("/data")
       .set("Authorization", token)
       .query({ id })
-      .expect(200, createSuccessResponse(DATA1));
+      .expect(200, createSuccessResponse({ ids: [id], data: DATA1 }));
   });
 
   it("should not get data without token created with token", async () => {

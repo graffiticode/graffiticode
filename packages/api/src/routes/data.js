@@ -18,12 +18,14 @@ export const buildGetData = ({ getTaskDaoForId, getCompileDaoForId, dataApi }) =
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
     }
+    const action = {};
     const objs = await Promise.all(ids.map(id => dataApi.get({
       taskDao: getTaskDaoForId(id),
       compileDao: getCompileDaoForId(id),
       id,
       auth,
-      authToken
+      authToken,
+      action
     })));
     let data;
     if (objs.length > 1) {
@@ -31,13 +33,15 @@ export const buildGetData = ({ getTaskDaoForId, getCompileDaoForId, dataApi }) =
     } else {
       data = objs[0];
     }
-    logCompile({
-      token: authToken,
-      id: ids.join(" "),
-      status: "success",
-      timestamp: String(Date.now()),
-      data: JSON.stringify(data)
-    });
+    if (action.compiled) {
+      logCompile({
+        token: authToken,
+        id: ids.join(" "),
+        status: "success",
+        timestamp: String(Date.now()),
+        data: JSON.stringify(data)
+      });
+    }
     return data;
   };
 };
@@ -51,7 +55,7 @@ const buildGetDataHandler = ({ taskDaoFactory, compileDaoFactory, dataApi }) => 
     const authToken = parseAuthFromRequest(req);
     const ids = parseIdsFromRequest(req);
     const data = await getData({ auth, authToken, ids });
-    res.status(200).json(createSuccessResponse(data));
+    res.status(200).json(createSuccessResponse({ ids, data }));
   });
 };
 

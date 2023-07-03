@@ -4,9 +4,9 @@ import { buildFirestoreTaskDao, buildFirestoreCompileDao, createFirestoreDb } fr
 const buildCreateTask = ({ cache }) => ({ type = "persistent" } = {}) => {
   if (!cache.has(type)) {
     let taskDao;
-    if (type === "ephemeral" || type === "memory") {
+    if (type === "memory") {
       taskDao = buildMemoryTaskDao();
-    } else if (type === "persistent" || type === "firestore") {
+    } else if (type === "ephemeral" || type === "persistent" || type === "firestore") {
       const db = createFirestoreDb({});
       taskDao = buildFirestoreTaskDao({ db });
     } else {
@@ -20,9 +20,12 @@ const buildCreateTask = ({ cache }) => ({ type = "persistent" } = {}) => {
 const buildCreateCompile = ({ cache }) => ({ type = "persistent" } = {}) => {
   if (!cache.has(type)) {
     let compileDao;
-    if (type === "ephemeral" || type === "memory") {
+    if (type === "memory") {
       compileDao = buildMemoryCompileDao();
-    } else if (type === "persistent" || type === "firestore") {
+    } else if (
+      type === "persistent" ||
+        type === "ephemeral" ||
+        type === "firestore") {
       const db = createFirestoreDb({});
       compileDao = buildFirestoreCompileDao({ db });
     } else {

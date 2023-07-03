@@ -19,12 +19,13 @@ const checkLangParam = async ({ lang, pingLang }) => {
 
 const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskDaoFactory }) => {
   return buildHttpHandler(async (req, res) => {
-    let { id, lang, data } = req.query;
+    const { id, data } = req.query;
     const params = new URLSearchParams();
     if (req.auth.token) {
       params.set("access_token", req.auth.token);
     }
     const protocol = req.headers.host.indexOf("localhost") !== -1 && "http" || "https";
+    let lang;
     if (isNonEmptyString(id)) {
       const dataParams = new URLSearchParams();
       dataParams.set("id", id);
@@ -35,6 +36,7 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskDaoF
       const auth = req.auth.context;
       const tasks = await getTasks({ auth, ids: [id] });
       lang = tasks[0].lang;
+      params.set("id", id);
       params.set("url", `${protocol}://${req.headers.host}/data?${dataParams.toString()}`);
     } else if (isNonEmptyString(data)) {
       params.set("data", data);
@@ -44,7 +46,6 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskDaoF
     lang = await checkLangParam({ lang, pingLang });
     const baseUrl = getBaseUrlForLanguage(lang);
     const formUrl = `${baseUrl}/form?${params.toString()}`;
-    // console.log("getFormHandler() formUrl=" + formUrl);
     res.redirect(formUrl);
   });
 };

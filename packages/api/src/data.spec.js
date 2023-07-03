@@ -39,7 +39,7 @@ describe("data", () => {
     );
   });
 
-  it("should not compile a created task with src data as code", async () => {
+  it("should compile a created task with src data as code", async () => {
     const id = await taskDao.create({ task: TASK1_WITH_DATA });
     mockCompileData(DATA1);
     await expect(dataApi.get({ taskDao, compileDao, id })).resolves.toStrictEqual(DATA1);
@@ -59,7 +59,7 @@ describe("data", () => {
     const id = await taskDao.create({ task: TASK_WITH_CODE_AS_DATA });
     mockCompileData(CODE_AS_DATA);
     await expect(dataApi.get({ taskDao, compileDao, id })).resolves.toStrictEqual(CODE_AS_DATA);
-    expect(compile).toHaveBeenCalledTimes(0);
+    expect(compile).toHaveBeenCalledTimes(1);
     // FIXME
     // expect(compile).toHaveBeenNthCalledWith(
     //   1,

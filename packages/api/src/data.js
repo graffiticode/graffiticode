@@ -1,5 +1,5 @@
 const buildGetData = ({ compile }) =>
-  async ({ taskDao, compileDao, id, auth, authToken, options }) => {
+  async ({ taskDao, compileDao, id, auth, authToken, options, action }) => {
     const tasks = await taskDao.get({ id, auth });
     if (tasks) {
       // There exists a task that we are authorized to see.
@@ -8,23 +8,23 @@ const buildGetData = ({ compile }) =>
         return JSON.parse(compile.data);
       }
     }
+    if (typeof action === "object") {
+      action.compiled = true;
+    }
     const obj = await tasks.reduceRight(
+      // OPTIMIZATION Call getData recursively using the longest id suffix to
+      // use any existing compiles.
       async (dataPromise, task) => {
         const data = await dataPromise;
         const { lang, code } = task;
-        if (+lang === 1 && !Number.isInteger(+code.root)) {
-          // If lang is 1 and root is not an integer, then the code is the data.
-          return code;
-        } else {
-          const obj = await compile({
-            lang,
-            code,
-            data,
-            auth: authToken,
-            options
-          });
-          return obj;
-        }
+        const obj = await compile({
+          lang,
+          code,
+          data,
+          auth: authToken,
+          options
+        });
+        return obj;
       },
       Promise.resolve({})
     );

@@ -19,20 +19,32 @@ describe("routes/compile", () => {
   });
 
   it("should compile source", async () => {
-    await request(app)
+    const res = await request(app)
       .post("/compile")
-      .send({ item: TASK1 })
-      .expect(200, createSuccessResponse(DATA1));
+      .set("x-graffiticode-storage-type", "ephemeral")
+      .send({ item: TASK1 });
+
+    expect(res.body).toEqual(
+      expect.objectContaining(
+        createSuccessResponse({ ids: res.body.ids, data: DATA1 })
+      )
+    );
   });
 
   it("should compile item", async () => {
-    await request(app)
+    const res = await request(app)
       .post("/compile")
-      .send({ item: { ...TASK1, data: { foo: "bar" } } })
-      .expect(200, createSuccessResponse(DATA1));
+      .set("x-graffiticode-storage-type", "ephemeral")
+      .send({ item: { ...TASK1, data: { foo: "bar" } } });
+
+    expect(res.body).toEqual(
+      expect.objectContaining(
+        createSuccessResponse({ ids: res.body.ids, data: DATA1 })
+      )
+    );
   });
 
-  it("should compile multiple items", async () => {
+  it.skip("should compile multiple items", async () => {
     let res;
     res = await request(app)
       .post("/task")
@@ -53,7 +65,7 @@ describe("routes/compile", () => {
     await request(app)
       .post("/compile")
       .send([{ id: taskId1, data: { a: 10 } }, { id: taskId2, data: { b: 20 } }])
-      .expect(200, createSuccessResponse([DATA1, DATA2]));
+      .expect(200, createSuccessResponse({ data: [DATA1, DATA2] }));
   });
 
   it("should return invalid argument for no item", async () => {

@@ -29,33 +29,33 @@ describe("routes/tasks", () => {
   it("should create a task", async () => {
     await request(app)
       .post("/task")
-      .set("x-graffiticode-storage-type", "ephemeral")
+      .set("x-graffiticode-storage-type", "memory")
       .send({ task: TASK1 })
-      .expect(200, createSuccessResponse({ id: TASK1_ID }));
+      .expect(200, createSuccessResponse({ ids: TASK1_ID, data: { id: TASK1_ID } }));
   });
 
   it("should create a task with code as data", async () => {
     await request(app)
       .post("/tasks")
-      .set("x-graffiticode-storage-type", "ephemeral")
+      .set("x-graffiticode-storage-type", "memory")
       .send({ tasks: TASK_WITH_CODE_AS_DATA })
-      .expect(200, createSuccessResponse({ id: TASK1_ID }));
+      .expect(200, createSuccessResponse({ ids: TASK1_ID, data: { id: TASK1_ID } }));
   });
 
   it("should create a task with source code", async () => {
     await request(app)
       .post("/tasks")
-      .set("x-graffiticode-storage-type", "ephemeral")
+      .set("x-graffiticode-storage-type", "memory")
       .send({ tasks: TASK1_WITH_SRC })
-      .expect(200, createSuccessResponse({ id: TASK1_ID }));
+      .expect(200, createSuccessResponse({ ids: TASK1_ID, data: { id: TASK1_ID } }));
   });
 
   it("should create multiple tasks", async () => {
     await request(app)
       .post("/tasks")
-      .set("x-graffiticode-storage-type", "ephemeral")
+      .set("x-graffiticode-storage-type", "memory")
       .send({ tasks: [TASK1, TASK2] })
-      .expect(200, createSuccessResponse({ id: [TASK1_ID, TASK2_ID] }));
+      .expect(200, createSuccessResponse({ ids: [TASK1_ID, TASK2_ID], data: { id: [TASK1_ID, TASK2_ID] } }));
   });
 
   it("should handle no task ids", async () => {
@@ -76,7 +76,7 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id })
-      .expect(200, createSuccessResponse([TASK1]));
+      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
   });
 
   it("should get a task that has been created with code as data", async () => {
@@ -105,7 +105,7 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id })
-      .expect(200, createSuccessResponse([TASK1]));
+      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
   });
 
   it("should get a task with token that has been created with token", async () => {
@@ -113,6 +113,7 @@ describe("routes/tasks", () => {
     const res = await request(app)
       .post("/tasks")
       .set("Authorization", token)
+      .set("x-graffiticode-storage-type", "ephemeral")
       .send({ tasks: TASK1 })
       .expect(200);
     expect(res).toHaveProperty("body.status", "success");
@@ -122,7 +123,7 @@ describe("routes/tasks", () => {
       .get("/tasks")
       .set("Authorization", token)
       .query({ id })
-      .expect(200, createSuccessResponse([TASK1]));
+      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
   });
 
   it("should return not found for a task that has been created with token", async () => {
@@ -130,6 +131,7 @@ describe("routes/tasks", () => {
     const res = await request(app)
       .post("/tasks")
       .set("Authorization", token)
+      .set("x-graffiticode-storage-type", "ephemeral")
       .send({ tasks: TASK1 })
       .expect(200);
     expect(res).toHaveProperty("body.status", "success");
@@ -145,6 +147,7 @@ describe("routes/tasks", () => {
     const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
     const res = await request(app)
       .post("/tasks")
+      .set("x-graffiticode-storage-type", "ephemeral")
       .send({ tasks: TASK1 })
       .expect(200);
     expect(res).toHaveProperty("body.status", "success");
@@ -154,21 +157,27 @@ describe("routes/tasks", () => {
       .get("/tasks")
       .set("Authorization", token)
       .query({ id })
-      .expect(200, createSuccessResponse([TASK1]));
+      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
   });
 
   it("should get multiple tasks that have been created", async () => {
-    const res1 = await request(app).post("/tasks").send({ tasks: TASK1 });
+    const res1 = await request(app)
+      .post("/tasks")
+      .set("x-graffiticode-storage-type", "ephemeral")
+      .send({ tasks: TASK1 });
     expect(res1).toHaveProperty("body.status", "success");
     const id1 = res1.body.data.id;
-    const res2 = await request(app).post("/tasks").send({ tasks: TASK2 });
+    const res2 = await request(app)
+      .post("/tasks")
+      .set("x-graffiticode-storage-type", "ephemeral")
+      .send({ tasks: TASK2 });
     expect(res2).toHaveProperty("body.status", "success");
     const id2 = res2.body.data.id;
 
     await request(app)
       .get("/tasks")
       .query({ id: [id1, id2].join(",") })
-      .expect(200, createSuccessResponse([TASK1, TASK2]));
+      .expect(200, createSuccessResponse({ ids: [id1, id2], data: [TASK1, TASK2] }));
   });
 
   it("get from same storage type", async () => {
@@ -183,6 +192,6 @@ describe("routes/tasks", () => {
       .get("/tasks")
       .query({ id })
       .set("x-graffiticode-storage-type", "persistent")
-      .expect(200, createSuccessResponse([TASK1]));
+      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
   });
 });

@@ -76,7 +76,7 @@ const appendIds = (id, ...otherIds) => {
   return encodeId({ taskIds });
 };
 
-const buildTaskCreate = ({ db }) => async ({ task, auth }) => {
+const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" }) => {
   const { lang, code } = task;
   const codeHash = createCodeHash({ lang, code });
 
@@ -103,7 +103,7 @@ const buildTaskCreate = ({ db }) => async ({ task, auth }) => {
       acls = { public: true, uids: {} };
     }
     const tasksCol = db.collection("tasks");
-    const task = { lang, code, codeHash, count: 1, acls };
+    const task = { lang, code, codeHash, count: 1, acls, storageType };
     const taskRef = await tasksCol.add(task);
     taskId = taskRef.id;
     await codeHashRef.set({ taskId });

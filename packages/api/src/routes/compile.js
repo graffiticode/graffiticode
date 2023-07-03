@@ -7,7 +7,7 @@ import {
   buildGetCompileDaoForId,
   buildHttpHandler,
   createSuccessResponse,
-  parseAuthFromRequest,
+  parseAuthTokenFromRequest,
   optionsHandler
 } from "./utils.js";
 
@@ -30,7 +30,8 @@ function getItemsFromRequest(req) {
   return items;
 }
 
-const getTaskFromData = data => ({ lang: "1", code: `${JSON.stringify(data)}..` });
+const getTaskFromData = data => ({ lang: "1", code: `data ${JSON.stringify(data)}..` });
+let EMPTY_OBJECT_ID;
 
 const buildPostCompileHandler = ({ taskDaoFactory, compileDaoFactory, dataApi }) => {
   const getTaskDaoForId = buildGetTaskDaoForId(taskDaoFactory);
@@ -39,8 +40,12 @@ const buildPostCompileHandler = ({ taskDaoFactory, compileDaoFactory, dataApi })
   return buildHttpHandler(async (req, res) => {
     const postTasks = buildPostTasks({ taskDaoFactory, req });
     const auth = req.auth.context;
-    const authToken = parseAuthFromRequest(req);
+    const authToken = parseAuthTokenFromRequest(req);
     const items = getItemsFromRequest(req);
+    const ids = [];
+    EMPTY_OBJECT_ID =
+      EMPTY_OBJECT_ID ||
+      await postTasks({ auth, tasks: getTaskFromData({}) });
     let data = await Promise.all(items.map(async item => {
       let { id, lang, code, data } = item;
       if (!id) {
@@ -48,14 +53,17 @@ const buildPostCompileHandler = ({ taskDaoFactory, compileDaoFactory, dataApi })
       }
       data = data || {};
       const dataId = await postTasks({ auth, tasks: getTaskFromData(data) });
-      const taskId = [id, dataId].join("+");
-      return await getData({ auth, authToken, ids: [taskId] });
+      if (dataId !== EMPTY_OBJECT_ID && id.indexOf(dataId) < 0) {
+        id = [id, dataId].join("+");
+      }
+      ids.push(id);
+      return await getData({ auth, authToken, ids: [id] });
     }));
     if (data.length === 1) {
       data = data[0];
     }
     res.set("Access-Control-Allow-Origin", "*");
-    res.status(200).json(createSuccessResponse(data));
+    res.status(200).json(createSuccessResponse({ ids, data }));
   });
 };
 

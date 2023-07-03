@@ -1795,7 +1795,7 @@ export const parse = (function () {
         stream.next();
       }
     } catch (x) {
-      // console.log("catch() x=" + x);
+      console.log("catch() x=" + x);
       if (x instanceof Error) {
         if (x.message === "comment") {
           cls = x;
@@ -1804,7 +1804,7 @@ export const parse = (function () {
           addError(ctx, x.message);
           state.cc = null; // done for now.
           cls = "error";
-          throw new Error(window.gcexports.errors);
+          throw new Error(JSON.stringify(window.gcexports.errors, null, 2));
         }
       } else {
         // throw x
