@@ -13,7 +13,7 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/api:COMMIT_SHA'
+      - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/api:$COMMIT_SHA'
       - '-f'
       - 'configs/Dockerfile.api.yaml'
       - '.'
