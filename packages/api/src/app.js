@@ -5,7 +5,6 @@ import methodOverride from "method-override";
 import { createRequire } from "module";
 import morgan from "morgan";
 import cors from "cors";
-import { fileURLToPath } from "url";
 import { buildValidateToken } from "./auth.js";
 import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
@@ -13,7 +12,6 @@ import { compile as langCompile } from "./lang/index.js";
 import * as routes from "./routes/index.js";
 import { createStorers } from "./storage/index.js";
 
-const __filename = fileURLToPath(import.meta.url);
 const require = createRequire(import.meta.url);
 
 // This line is required to ensure the typescript compiler moves the default
@@ -82,23 +80,3 @@ export const createApp = ({ authUrl } = {}) => {
 
   return app;
 };
-
-const run = async () => {
-  const port = global.port = process.env.PORT || 3100;
-  const authUrl = process.env.AUTH_URL || "https://auth.graffiticode.org";
-  const authProvider = process.env.AUTH_PROVIDER || "graffiticode";
-
-  const app = createApp({ authUrl, authProvider });
-  app.listen(port, () => {
-    console.log(`Listening on ${port}...`);
-  });
-
-  process.on("uncaughtException", (err) => {
-    console.log(`ERROR Caught exception: ${err.stack}`);
-  });
-};
-
-const entryFile = process.argv?.[1];
-if (entryFile === __filename) {
-  run();
-}

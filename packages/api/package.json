@@ -9,10 +9,11 @@
     "type": "git",
     "url": "https://github.com/graffiticode/api"
   },
-  "main": "./src/apps.js",
+  "main": "./src/app.js",
   "exports": {
-    ".": "./src/apps.js"
+    ".": "./src/app.js"
   },
+  "bin": "./src/main.js",
   "dependencies": {
     "@graffiticode/auth": "*",
     "@graffiticode/tracing": "^0.3.0",
