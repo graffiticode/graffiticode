@@ -17,7 +17,7 @@ const checkLangParam = async ({ lang, pingLang }) => {
   return lang;
 };
 
-const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskDaoFactory }) => {
+const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStorer }) => {
   return buildHttpHandler(async (req, res) => {
     const { id, data } = req.query;
     const params = new URLSearchParams();
@@ -32,9 +32,9 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskDaoF
       if (req.auth.token) {
         dataParams.set("access_token", req.auth.token);
       }
-      const getTasks = buildGetTasks({ taskDaoFactory, req });
+      const getTasks = buildGetTasks({ taskStorer });
       const auth = req.auth.context;
-      const tasks = await getTasks({ auth, ids: [id] });
+      const tasks = await getTasks({ auth, ids: [id], req });
       lang = tasks[0].lang;
       params.set("id", id);
       params.set("url", `${protocol}://${req.headers.host}/data?${dataParams.toString()}`);
@@ -50,9 +50,9 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskDaoF
   });
 };
 
-export const buildFormRouter = ({ pingLang, getBaseUrlForLanguage }) => ({ taskDaoFactory }) => {
+export const buildFormRouter = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStorer }) => {
   const router = new Router();
-  router.get("/", buildGetFormHandler({ pingLang, getBaseUrlForLanguage })({ taskDaoFactory }));
+  router.get("/", buildGetFormHandler({ pingLang, getBaseUrlForLanguage })({ taskStorer }));
   router.options("/", optionsHandler);
   return router;
 };

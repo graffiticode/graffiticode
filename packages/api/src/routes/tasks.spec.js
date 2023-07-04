@@ -3,7 +3,7 @@ import request from "supertest";
 import { createApp } from "../app.js";
 import { clearFirestore } from "../testing/firestore.js";
 import {
-  TASK1, TASK1_WITH_SRC, TASK2, TASK1_ID, TASK2_ID,
+  TASK1, TASK1_WITH_SRC, TASK2,
   CODE_AS_DATA, TASK_WITH_CODE_AS_DATA
 } from "../testing/fixture.js";
 import { createError, createErrorResponse, createSuccessResponse } from "./utils.js";
@@ -27,35 +27,63 @@ describe("routes/tasks", () => {
   });
 
   it("should create a task", async () => {
-    await request(app)
-      .post("/task")
-      .set("x-graffiticode-storage-type", "memory")
+    const res = await request(app)
+      .post("/tasks")
       .send({ task: TASK1 })
-      .expect(200, createSuccessResponse({ ids: TASK1_ID, data: { id: TASK1_ID } }));
+      .expect(200);
+    expect(res).toHaveProperty("body.status", "success");
+    const id = res.body.data.id;
+
+    await request(app)
+      .get("/tasks")
+      .query({ id })
+      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
   });
 
   it("should create a task with code as data", async () => {
-    await request(app)
+    const res = await request(app)
       .post("/tasks")
-      .set("x-graffiticode-storage-type", "memory")
       .send({ tasks: TASK_WITH_CODE_AS_DATA })
-      .expect(200, createSuccessResponse({ ids: TASK1_ID, data: { id: TASK1_ID } }));
+      .expect(200);
+    expect(res).toHaveProperty("body.status", "success");
+    const id = res.body.data.id;
+
+    await request(app)
+      .get("/tasks")
+      .query({ id })
+      .expect(200, createSuccessResponse({ ids: [id], data: [TASK_WITH_CODE_AS_DATA] }));
   });
 
   it("should create a task with source code", async () => {
-    await request(app)
+    const res = await request(app)
       .post("/tasks")
-      .set("x-graffiticode-storage-type", "memory")
       .send({ tasks: TASK1_WITH_SRC })
-      .expect(200, createSuccessResponse({ ids: TASK1_ID, data: { id: TASK1_ID } }));
+      .expect(200);
+    expect(res).toHaveProperty("body.status", "success");
+    const id = res.body.data.id;
+
+    await request(app)
+      .get("/tasks")
+      .query({ id })
+      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
   });
 
   it("should create multiple tasks", async () => {
-    await request(app)
+    const res = await request(app)
       .post("/tasks")
-      .set("x-graffiticode-storage-type", "memory")
       .send({ tasks: [TASK1, TASK2] })
-      .expect(200, createSuccessResponse({ ids: [TASK1_ID, TASK2_ID], data: { id: [TASK1_ID, TASK2_ID] } }));
+      .expect(200);
+    expect(res).toHaveProperty("body.status", "success");
+    const [id1, id2] = res.body.data.id;
+
+    await request(app)
+      .get("/tasks")
+      .query({ id: id1 })
+      .expect(200, createSuccessResponse({ ids: [id1], data: [TASK1] }));
+    await request(app)
+      .get("/tasks")
+      .query({ id: id2 })
+      .expect(200, createSuccessResponse({ ids: [id2], data: [TASK2] }));
   });
 
   it("should handle no task ids", async () => {

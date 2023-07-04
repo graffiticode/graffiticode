@@ -4,8 +4,6 @@ import { parser } from "../lang/parser.js";
 import { isNonEmptyString } from "../util.js";
 import {
   getStorageTypeForRequest,
-  buildGetTaskDaoForRequest,
-  buildGetTaskDaoForId,
   buildHttpHandler,
   createSuccessResponse,
   parseIdsFromRequest,
@@ -32,15 +30,13 @@ const getIdFromIds = ids => {
   }
 };
 
-export const buildGetTasks = ({ taskDaoFactory }) => {
-  const getTaskDaoForId = buildGetTaskDaoForId(taskDaoFactory);
+export const buildGetTasks = ({ taskStorer }) => {
   return async ({ auth, ids }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one task id");
     }
     const tasksForIds = await Promise.all(ids.map(id => {
-      const taskDao = getTaskDaoForId(id);
-      return taskDao.get({ id, auth });
+      return taskStorer.get({ id, auth });
     }));
     const tasks = tasksForIds.reduce((tasks, tasksForId) => {
       tasks.push(...tasksForId);
@@ -50,9 +46,9 @@ export const buildGetTasks = ({ taskDaoFactory }) => {
   };
 };
 
-const buildGetTaskHandler = ({ taskDaoFactory }) => {
+const buildGetTaskHandler = ({ taskStorer }) => {
+  const getTasks = buildGetTasks({ taskStorer });
   return buildHttpHandler(async (req, res) => {
-    const getTasks = buildGetTasks({ taskDaoFactory });
     const auth = req.auth.context;
     const ids = parseIdsFromRequest(req);
     if (ids.length < 1) {
@@ -63,35 +59,33 @@ const buildGetTaskHandler = ({ taskDaoFactory }) => {
   });
 };
 
-export const buildPostTasks = ({ taskDaoFactory, req }) => {
-  const getTaskDaoForRequest = buildGetTaskDaoForRequest(taskDaoFactory);
-  return async ({ auth, tasks }) => {
+export const buildPostTasks = ({ taskStorer }) => {
+  return async ({ auth, tasks, req }) => {
     tasks = await normalizeTasksParameter(tasks);
     if (tasks.length < 1) {
       throw new InvalidArgumentError("must provide at least one task");
     }
-    const taskDao = getTaskDaoForRequest(req);
     const storageType = getStorageTypeForRequest(req);
-    const ids = await Promise.all(tasks.map(task => taskDao.create({ auth, task, storageType })));
+    const ids = await Promise.all(tasks.map(task => taskStorer.create({ auth, task, storageType })));
     const id = getIdFromIds(ids);
     return id;
   };
 };
 
-const buildPostTaskHandler = ({ taskDaoFactory }) => {
+const buildPostTaskHandler = ({ taskStorer }) => {
+  const postTasks = buildPostTasks({ taskStorer });
   return buildHttpHandler(async (req, res) => {
-    const postTasks = buildPostTasks({ taskDaoFactory, req });
     const auth = req.auth.context;
     const tasks = req.body.tasks || req.body.task;
-    const ids = await postTasks({ auth, tasks });
+    const ids = await postTasks({ auth, tasks, req });
     res.status(200).json(createSuccessResponse({ ids, data: { id: ids } }));
   });
 };
 
-export default ({ taskDaoFactory }) => {
+export default ({ taskStorer }) => {
   const router = new Router();
-  router.get("/", buildGetTaskHandler({ taskDaoFactory }));
-  router.post("/", buildPostTaskHandler({ taskDaoFactory }));
+  router.get("/", buildGetTaskHandler({ taskStorer }));
+  router.post("/", buildPostTaskHandler({ taskStorer }));
   router.options("/", optionsHandler);
   return router;
 };

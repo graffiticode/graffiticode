@@ -3,8 +3,6 @@ import { buildPostTasks } from "./tasks.js";
 import { buildGetData } from "./data.js";
 
 import {
-  buildGetTaskDaoForId,
-  buildGetCompileDaoForId,
   buildHttpHandler,
   createSuccessResponse,
   parseAuthTokenFromRequest,
@@ -33,26 +31,24 @@ function getItemsFromRequest(req) {
 const getTaskFromData = data => ({ lang: "1", code: `data ${JSON.stringify(data)}..` });
 let EMPTY_OBJECT_ID;
 
-const buildPostCompileHandler = ({ taskDaoFactory, compileDaoFactory, dataApi }) => {
-  const getTaskDaoForId = buildGetTaskDaoForId(taskDaoFactory);
-  const getCompileDaoForId = buildGetCompileDaoForId(compileDaoFactory);
-  const getData = buildGetData({ getTaskDaoForId, getCompileDaoForId, dataApi });
+const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
+  const getData = buildGetData({ taskStorer, compileStorer, dataApi });
+  const postTasks = buildPostTasks({ taskStorer });
   return buildHttpHandler(async (req, res) => {
-    const postTasks = buildPostTasks({ taskDaoFactory, req });
     const auth = req.auth.context;
     const authToken = parseAuthTokenFromRequest(req);
     const items = getItemsFromRequest(req);
     const ids = [];
     EMPTY_OBJECT_ID =
       EMPTY_OBJECT_ID ||
-      await postTasks({ auth, tasks: getTaskFromData({}) });
+      await postTasks({ auth, tasks: getTaskFromData({}), req });
     let data = await Promise.all(items.map(async item => {
       let { id, lang, code, data } = item;
       if (!id) {
-        id = await postTasks({ auth, tasks: { lang, code } });
+        id = await postTasks({ auth, tasks: { lang, code }, req });
       }
       data = data || {};
-      const dataId = await postTasks({ auth, tasks: getTaskFromData(data) });
+      const dataId = await postTasks({ auth, tasks: getTaskFromData(data), req });
       if (dataId !== EMPTY_OBJECT_ID && id.indexOf(dataId) < 0) {
         id = [id, dataId].join("+");
       }
@@ -67,9 +63,9 @@ const buildPostCompileHandler = ({ taskDaoFactory, compileDaoFactory, dataApi })
   });
 };
 
-export default ({ taskDaoFactory, compileDaoFactory, dataApi, compile }) => {
+export default ({ taskStorer, compileStorer, dataApi, compile }) => {
   const router = new Router();
-  router.post("/", buildPostCompileHandler({ taskDaoFactory, compileDaoFactory, dataApi, compile }));
+  router.post("/", buildPostCompileHandler({ taskStorer, compileStorer, dataApi, compile }));
   router.options("/", optionsHandler);
   return router;
 };

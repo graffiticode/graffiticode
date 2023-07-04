@@ -1,9 +1,6 @@
 import { Router } from "express";
 import { InvalidArgumentError } from "../errors/http.js";
-
 import {
-  buildGetTaskDaoForId,
-  buildGetCompileDaoForId,
   buildHttpHandler,
   createSuccessResponse,
   parseIdsFromRequest,
@@ -12,7 +9,7 @@ import {
   buildCompileLogger
 } from "./utils.js";
 
-export const buildGetData = ({ getTaskDaoForId, getCompileDaoForId, dataApi }) => {
+export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   const logCompile = buildCompileLogger();
   return async ({ auth, authToken, ids }) => {
     if (ids.length < 1) {
@@ -20,12 +17,7 @@ export const buildGetData = ({ getTaskDaoForId, getCompileDaoForId, dataApi }) =
     }
     const action = {};
     const objs = await Promise.all(ids.map(id => dataApi.get({
-      taskDao: getTaskDaoForId(id),
-      compileDao: getCompileDaoForId(id),
-      id,
-      auth,
-      authToken,
-      action
+      taskStorer, compileStorer, id, auth, authToken, action
     })));
     let data;
     if (objs.length > 1) {
@@ -46,10 +38,8 @@ export const buildGetData = ({ getTaskDaoForId, getCompileDaoForId, dataApi }) =
   };
 };
 
-const buildGetDataHandler = ({ taskDaoFactory, compileDaoFactory, dataApi }) => {
-  const getTaskDaoForId = buildGetTaskDaoForId(taskDaoFactory);
-  const getCompileDaoForId = buildGetCompileDaoForId(compileDaoFactory);
-  const getData = buildGetData({ getTaskDaoForId, getCompileDaoForId, dataApi });
+const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
+  const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   return buildHttpHandler(async (req, res) => {
     const auth = req.auth.context;
     const authToken = parseAuthFromRequest(req);
@@ -59,9 +49,9 @@ const buildGetDataHandler = ({ taskDaoFactory, compileDaoFactory, dataApi }) => 
   });
 };
 
-export default ({ taskDaoFactory, compileDaoFactory, dataApi }) => {
+export default ({ taskStorer, compileStorer, dataApi }) => {
   const router = new Router();
-  router.get("/", buildGetDataHandler({ taskDaoFactory, compileDaoFactory, dataApi }));
+  router.get("/", buildGetDataHandler({ taskStorer, compileStorer, dataApi }));
   router.options("/", optionsHandler);
   return router;
 };

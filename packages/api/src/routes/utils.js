@@ -64,12 +64,9 @@ export const createSuccessResponse = ({ ids, data }) => ({ status: "success", er
 
 export const getStorageTypeForRequest = req => {
   return (
-    req.get("x-graffiticode-storage-type") || "memory"
+    req.get("x-graffiticode-storage-type") || "ephemeral"
   );
 };
-
-export const buildGetTaskDaoForRequest = taskDaoFactory => req =>
-  taskDaoFactory.create({ type: getStorageTypeForRequest(req) });
 
 export const getStorageTypeForId = id => {
   try {
@@ -84,12 +81,6 @@ export const getStorageTypeForId = id => {
     return "persistent";
   }
 };
-
-export const buildGetTaskDaoForId = taskDaoFactory => id =>
-  taskDaoFactory.create({ type: getStorageTypeForId(id) });
-
-export const buildGetCompileDaoForId = compileDaoFactory => id =>
-  compileDaoFactory.create({ type: getStorageTypeForId(id) });
 
 export const optionsHandler = buildHttpHandler(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
