@@ -12,7 +12,6 @@ import {
 export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   const logCompile = buildCompileLogger();
   return async ({ auth, authToken, ids }) => {
-    console.log("getData() ids=" + JSON.stringify(ids));
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
     }
@@ -29,7 +28,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
     if (action.compiled) {
       logCompile({
         token: authToken,
-        id: ids.join(" "),
+        id: ids.join("+"),
         status: "success",
         timestamp: String(Date.now()),
         data: JSON.stringify(data)

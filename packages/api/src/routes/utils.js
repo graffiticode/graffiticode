@@ -3,10 +3,12 @@ import { HttpError } from "./../errors/http.js";
 import { decodeID } from "./../id.js";
 import { gql, GraphQLClient } from "graphql-request";
 
+const normalizeIds = ids => ids.map(id => id.split(/[ ]/g).join("+"));
+
 export const parseIdsFromRequest = req => {
   const id = req.query.id;
   if (isNonEmptyString(id)) {
-    return id.split(",");
+    return normalizeIds(id.split(","));
   }
   return [];
 };
