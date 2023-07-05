@@ -13,14 +13,14 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/auth:$COMMIT_SHA'
+      - 'gcr.io/graffiticode/auth:$COMMIT_SHA'
       - '-f'
       - 'configs/Dockerfile.auth.yaml'
       - '.'
   - name: gcr.io/cloud-builders/docker
     args:
       - push
-      - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/auth:$COMMIT_SHA'
+      - 'gcr.io/graffiticode/auth:$COMMIT_SHA'
     id: Push
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     args:
@@ -30,7 +30,7 @@ steps:
       - graffiticode-auth
       - '--platform=managed'
       - '--no-traffic'
-      - '--image=us-central1-docker.pkg.dev/graffiticode/graffiticode/auth:$COMMIT_SHA'
+      - '--image=gcr.io/graffiticode/auth:$COMMIT_SHA'
       - >-
         --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
       - '--region=$_DEPLOY_REGION'
@@ -38,7 +38,7 @@ steps:
     id: Deploy
     entrypoint: gcloud
 images:
-  - 'us-central1-docker.pkg.dev/graffiticode/graffiticode/auth:$COMMIT_SHA'
+  - 'gcr.io/graffiticode/auth:$COMMIT_SHA'
 options:
   substitutionOption: ALLOW_LOOSE
 substitutions:
