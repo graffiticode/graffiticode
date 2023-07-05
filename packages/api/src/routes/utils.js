@@ -60,7 +60,7 @@ export const createError = (code, message) => ({ code, message });
 
 export const createErrorResponse = error => ({ status: "error", error, data: null });
 
-export const createSuccessResponse = ({ ids, data }) => ({ status: "success", error: null, ids, data });
+export const createSuccessResponse = ({ data }) => ({ status: "success", error: null, data });
 
 export const getStorageTypeForRequest = req => {
   return (

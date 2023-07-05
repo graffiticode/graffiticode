@@ -55,7 +55,7 @@ const buildGetTaskHandler = ({ taskStorer }) => {
       throw new InvalidArgumentError("must provide at least one id");
     }
     const tasks = await getTasks({ auth, ids });
-    res.status(200).json(createSuccessResponse({ ids, data: tasks }));
+    res.status(200).json(createSuccessResponse({ data: tasks }));
   });
 };
 
@@ -78,7 +78,7 @@ const buildPostTaskHandler = ({ taskStorer }) => {
     const auth = req.auth.context;
     const tasks = req.body.tasks || req.body.task;
     const ids = await postTasks({ auth, tasks, req });
-    res.status(200).json(createSuccessResponse({ ids, data: { id: ids } }));
+    res.status(200).json(createSuccessResponse({ data: { id: ids } }));
   });
 };
 

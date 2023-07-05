@@ -26,7 +26,7 @@ describe("routes/compile", () => {
 
     expect(res.body).toEqual(
       expect.objectContaining(
-        createSuccessResponse({ ids: res.body.ids, data: DATA1 })
+        createSuccessResponse({ data: DATA1 })
       )
     );
   });
@@ -39,7 +39,7 @@ describe("routes/compile", () => {
 
     expect(res.body).toEqual(
       expect.objectContaining(
-        createSuccessResponse({ ids: res.body.ids, data: DATA1 })
+        createSuccessResponse({ data: DATA1 })
       )
     );
   });

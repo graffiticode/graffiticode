@@ -37,7 +37,7 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
+      .expect(200, createSuccessResponse({ data: [TASK1] }));
   });
 
   it("should create a task with code as data", async () => {
@@ -51,7 +51,7 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: [TASK_WITH_CODE_AS_DATA] }));
+      .expect(200, createSuccessResponse({ data: [TASK_WITH_CODE_AS_DATA] }));
   });
 
   it("should create a task with source code", async () => {
@@ -65,7 +65,7 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
+      .expect(200, createSuccessResponse({ data: [TASK1] }));
   });
 
   it("should create multiple tasks", async () => {
@@ -79,11 +79,11 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id: id1 })
-      .expect(200, createSuccessResponse({ ids: [id1], data: [TASK1] }));
+      .expect(200, createSuccessResponse({ data: [TASK1] }));
     await request(app)
       .get("/tasks")
       .query({ id: id2 })
-      .expect(200, createSuccessResponse({ ids: [id2], data: [TASK2] }));
+      .expect(200, createSuccessResponse({ data: [TASK2] }));
   });
 
   it("should handle no task ids", async () => {
@@ -104,7 +104,7 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
+      .expect(200, createSuccessResponse({ data: [TASK1] }));
   });
 
   it("should get a task that has been created with code as data", async () => {
@@ -133,7 +133,7 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
+      .expect(200, createSuccessResponse({ data: [TASK1] }));
   });
 
   it("should get a task with token that has been created with token", async () => {
@@ -151,7 +151,7 @@ describe("routes/tasks", () => {
       .get("/tasks")
       .set("Authorization", token)
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
+      .expect(200, createSuccessResponse({ data: [TASK1] }));
   });
 
   it("should return not found for a task that has been created with token", async () => {
@@ -185,7 +185,7 @@ describe("routes/tasks", () => {
       .get("/tasks")
       .set("Authorization", token)
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
+      .expect(200, createSuccessResponse({ data: [TASK1] }));
   });
 
   it("should get multiple tasks that have been created", async () => {
@@ -205,7 +205,7 @@ describe("routes/tasks", () => {
     await request(app)
       .get("/tasks")
       .query({ id: [id1, id2].join(",") })
-      .expect(200, createSuccessResponse({ ids: [id1, id2], data: [TASK1, TASK2] }));
+      .expect(200, createSuccessResponse({ data: [TASK1, TASK2] }));
   });
 
   it("get from same storage type", async () => {
@@ -220,6 +220,6 @@ describe("routes/tasks", () => {
       .get("/tasks")
       .query({ id })
       .set("x-graffiticode-storage-type", "persistent")
-      .expect(200, createSuccessResponse({ ids: [id], data: [TASK1] }));
+      .expect(200, createSuccessResponse({ data: [TASK1] }));
   });
 });
