@@ -3,10 +3,12 @@ import { HttpError } from "./../errors/http.js";
 import { decodeID } from "./../id.js";
 import { gql, GraphQLClient } from "graphql-request";
 
+const normalizeIds = ids => ids.map(id => id.split(/[ ]/g).join("+"));
+
 export const parseIdsFromRequest = req => {
   const id = req.query.id;
   if (isNonEmptyString(id)) {
-    return id.split(",");
+    return normalizeIds(id.split(","));
   }
   return [];
 };
@@ -60,7 +62,7 @@ export const createError = (code, message) => ({ code, message });
 
 export const createErrorResponse = error => ({ status: "error", error, data: null });
 
-export const createSuccessResponse = ({ ids, data }) => ({ status: "success", error: null, ids, data });
+export const createSuccessResponse = ({ data }) => ({ status: "success", error: null, data });
 
 export const getStorageTypeForRequest = req => {
   return (

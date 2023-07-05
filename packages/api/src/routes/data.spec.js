@@ -40,7 +40,7 @@ describe("routes/data", () => {
     await request(app)
       .get("/data")
       .query({ id: [id1, id2].join(",") })
-      .expect(200, createSuccessResponse({ ids: [id1, id2], data: [DATA1, DATA2] }));
+      .expect(200, createSuccessResponse({ data: [DATA1, DATA2] }));
   });
 });
 
@@ -74,7 +74,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
     await request(app)
       .get("/data")
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: DATA1 }));
+      .expect(200, createSuccessResponse({ data: DATA1 }));
   });
 
   it("get single data using ephemeral flag", async () => {
@@ -90,7 +90,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
     await request(app)
       .get("/data")
       .query({ id, ephemeral })
-      .expect(200, createSuccessResponse({ ids: [id], data: DATA1 }));
+      .expect(200, createSuccessResponse({ data: DATA1 }));
   });
 
   it("get multiple datas", async () => {
@@ -111,7 +111,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
     await request(app)
       .get("/data")
       .query({ id: [id1, id2].join(",") })
-      .expect(200, createSuccessResponse({ ids: [id1, id2], data: [DATA1, DATA2] }));
+      .expect(200, createSuccessResponse({ data: [DATA1, DATA2] }));
   });
 
   it("get data with token created with token", async () => {
@@ -129,7 +129,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
       .get("/data")
       .set("Authorization", token)
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: DATA1 }));
+      .expect(200, createSuccessResponse({ data: DATA1 }));
   });
 
   it("get data with token created without token", async () => {
@@ -146,7 +146,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
       .get("/data")
       .set("Authorization", token)
       .query({ id })
-      .expect(200, createSuccessResponse({ ids: [id], data: DATA1 }));
+      .expect(200, createSuccessResponse({ data: DATA1 }));
   });
 
   it("should not get data without token created with token", async () => {

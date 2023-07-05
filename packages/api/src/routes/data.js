@@ -28,7 +28,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
     if (action.compiled) {
       logCompile({
         token: authToken,
-        id: ids.join(" "),
+        id: ids.join("+"),
         status: "success",
         timestamp: String(Date.now()),
         data: JSON.stringify(data)
@@ -45,7 +45,7 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const authToken = parseAuthFromRequest(req);
     const ids = parseIdsFromRequest(req);
     const data = await getData({ auth, authToken, ids });
-    res.status(200).json(createSuccessResponse({ ids, data }));
+    res.status(200).json(createSuccessResponse({ data }));
   });
 };
 
