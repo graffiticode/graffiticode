@@ -1,6 +1,9 @@
 # Graffiticode
 
-Graffiticode monorepo root
+Graffiticode is a platform for developing and deploying task oriented
+web APIs. APIs are defined with task specific language, either manually
+through the Graffiticode web app or programmatically through the
+Graffiticode API.
 
 # Run Graffiticode Locally
 
