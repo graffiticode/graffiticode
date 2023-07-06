@@ -1,9 +1,8 @@
 # Graffiticode
 
 Graffiticode is a platform for developing and deploying task oriented
-web APIs. APIs are defined with task specific language. Language is 
-created with the Graffiticode web app, or programmatically through the
-Graffiticode API.
+web APIs. APIs are defined with task specific language manually through
+the Graffiticode web app or programmatically through the Graffiticode API.
 
 # Run Graffiticode Locally
 
