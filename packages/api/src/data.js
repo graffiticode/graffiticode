@@ -5,7 +5,7 @@ const buildGetData = ({ compile }) =>
       // There exists a task that we are authorized to see.
       const compile = await compileStorer.get({ id, auth });
       if (compile && compile.data) {
-        return JSON.parse(compile.data);
+        return compile.data;
       }
     }
     if (typeof action === "object") {
@@ -28,12 +28,11 @@ const buildGetData = ({ compile }) =>
       },
       Promise.resolve({})
     );
-    // FIXME store compile here.
     await compileStorer.create({
       id,
       compile: {
         timestamp: Date.now(),
-        data: JSON.stringify(obj)
+        data: obj,
       }
     });
     return obj;

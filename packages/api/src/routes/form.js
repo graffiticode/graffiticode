@@ -1,8 +1,12 @@
 import { Router } from "express";
 import { InvalidArgumentError, NotFoundError } from "../errors/http.js";
 import { isNonEmptyString } from "../util.js";
-import { buildHttpHandler, optionsHandler } from "./utils.js";
 import { buildGetTasks } from "./tasks.js";
+import {
+  buildHttpHandler,
+  optionsHandler,
+  parseIdsFromRequest,
+} from "./utils.js";
 
 const checkLangParam = async ({ lang, pingLang }) => {
   if (/^\d+$/.test(lang)) {
@@ -18,28 +22,27 @@ const checkLangParam = async ({ lang, pingLang }) => {
 };
 
 const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStorer }) => {
+  const getTasks = buildGetTasks({ taskStorer });
   return buildHttpHandler(async (req, res) => {
-    const { id, data } = req.query;
+    const ids = parseIdsFromRequest(req);
     const params = new URLSearchParams();
     if (req.auth.token) {
       params.set("access_token", req.auth.token);
     }
     const protocol = req.headers.host.indexOf("localhost") !== -1 && "http" || "https";
     let lang;
-    if (isNonEmptyString(id)) {
+    if (ids.length === 1) {
+      const id = ids[0];
       const dataParams = new URLSearchParams();
       dataParams.set("id", id);
       if (req.auth.token) {
         dataParams.set("access_token", req.auth.token);
       }
-      const getTasks = buildGetTasks({ taskStorer });
       const auth = req.auth.context;
-      const tasks = await getTasks({ auth, ids: [id], req });
+      const tasks = await getTasks({ auth, ids, req });
       lang = tasks[0].lang;
       params.set("id", id);
       params.set("url", `${protocol}://${req.headers.host}/data?${dataParams.toString()}`);
-    } else if (isNonEmptyString(data)) {
-      params.set("data", data);
     } else {
       throw new InvalidArgumentError("Missing or invalid parameters");
     }

@@ -28,7 +28,7 @@ function getItemsFromRequest(req) {
   return items;
 }
 
-const getTaskFromData = data => ({ lang: "1", code: `data ${JSON.stringify(data)}..` });
+const getTaskFromData = data => ({ lang: "1", code: data });
 let EMPTY_OBJECT_ID;
 
 const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
