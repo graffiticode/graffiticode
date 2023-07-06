@@ -1,11 +1,10 @@
 import { Router } from "express";
 import { InvalidArgumentError, NotFoundError } from "../errors/http.js";
-import { isNonEmptyString } from "../util.js";
 import { buildGetTasks } from "./tasks.js";
 import {
   buildHttpHandler,
   optionsHandler,
-  parseIdsFromRequest,
+  parseIdsFromRequest
 } from "./utils.js";
 
 const checkLangParam = async ({ lang, pingLang }) => {

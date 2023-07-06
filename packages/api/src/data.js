@@ -32,7 +32,7 @@ const buildGetData = ({ compile }) =>
       id,
       compile: {
         timestamp: Date.now(),
-        data: obj,
+        data: obj
       }
     });
     return obj;
