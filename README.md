@@ -1,4 +1,4 @@
-# root
+# Graffiticode
 
 Graffiticode monorepo root
 
