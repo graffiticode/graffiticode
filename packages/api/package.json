@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Gateway for compilers as a service.",
-  "author": "Art Compiler LLC",
+  "author": "Artcompiler Inc",
   "license": "MIT",
   "repository": {
     "type": "git",
