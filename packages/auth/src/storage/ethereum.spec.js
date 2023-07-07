@@ -48,7 +48,7 @@ describe("storage/ethereum", () => {
 
   it("should get different nonce after reset", async () => {
     const nonce1 = await storer.getNonce({ address: myAddress });
-    storer.rotateNonce({ address: myAddress });
+    await storer.rotateNonce({ address: myAddress });
     const nonce2 = await storer.getNonce({ address: myAddress });
 
     expect(nonce1).not.toEqual(nonce2);
