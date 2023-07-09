@@ -11,6 +11,7 @@ import {
   UnauthorizedError,
   UnavailableError
 } from "./errors.js";
+import { isNonEmptyString } from "./utils.js";
 
 export const createError = (code, message) => ({ code, message });
 
@@ -55,12 +56,7 @@ const handleError = (err, res) => {
 
 export const buildHttpHandler = handler => async (req, res, next) => {
   try {
-    const data = await handler(req, res, next);
-    if (data !== undefined && !res.headersSent) {
-      sendSuccessResponse(res, data);
-    } else {
-      // TODO(kevindy) add metric to track which handler is sending data
-    }
+    await handler(req, res, next);
   } catch (err) {
     next(err);
   }
@@ -86,11 +82,26 @@ export const createHttpApp = addRoutesFn => {
   app.use(express.json({ limit: "50mb" }));
 
   // Add Routes
-  app.get("/", (req, res) => res.sendStatus(200));
   addRoutesFn(app);
+  app.get("/", (req, res) => res.sendStatus(200));
 
   // Handle errors
   app.use(errorHandler);
 
   return app;
+};
+
+export const parseTokenFromRequest = req => {
+  const { access_token: queryAccessToken } = req.query;
+  if (isNonEmptyString(queryAccessToken)) {
+    return queryAccessToken;
+  }
+  let headerAuthToken = req.get("Authorization");
+  if (isNonEmptyString(headerAuthToken)) {
+    if (headerAuthToken.startsWith("Bearer ")) {
+      headerAuthToken = headerAuthToken.slice("Bearer ".length);
+    }
+    return headerAuthToken;
+  }
+  return null;
 };

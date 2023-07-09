@@ -1,5 +1,6 @@
 import { UnauthenticatedError } from "@graffiticode/common/errors";
 import { createStorers } from "../storage/index.js";
+import { cleanUpFirebase } from "../testing/firebase.js";
 import { buildApiKeyService } from "./api-key.js";
 
 describe("services/api-key", () => {
@@ -8,6 +9,10 @@ describe("services/api-key", () => {
   beforeEach(() => {
     const storers = createStorers();
     apiKeyService = buildApiKeyService(storers);
+  });
+
+  afterEach(async () => {
+    await cleanUpFirebase();
   });
 
   it("should throw UnauthenticatedError is apiKey does not exist", async () => {
@@ -23,5 +28,6 @@ describe("services/api-key", () => {
     const authContext = await apiKeyService.authenticate({ apiKey });
 
     expect(authContext).toHaveProperty("uid", uid);
+    expect(authContext).toHaveProperty("additionalClaims.apiKey", true);
   });
 });

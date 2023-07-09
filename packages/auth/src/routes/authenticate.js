@@ -12,9 +12,10 @@ const buildApiKeyAuthenticate = ({ apiKeyService, authService }) => buildHttpHan
 
   const authContext = await apiKeyService.authenticate({ apiKey });
 
-  const { refreshToken: refresh_token, accessToken: access_token } = await authService.generateTokens(authContext);
+  const { refreshToken, accessToken: access_token } = await authService.generateTokens(authContext);
+  await authService.revokeRefreshToken(refreshToken);
 
-  sendSuccessResponse(res, { refresh_token, access_token });
+  sendSuccessResponse(res, { access_token });
 });
 
 const buildApiKeyRouter = (deps) => {

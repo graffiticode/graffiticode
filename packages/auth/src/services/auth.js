@@ -1,8 +1,15 @@
 import { NotFoundError, UnauthenticatedError } from "@graffiticode/common/errors";
-import { importJWK, SignJWT } from "jose";
+import { importJWK, jwtVerify, SignJWT } from "jose";
 
-const buildGenerateRefreshToken = ({ refreshTokenStorer }) => async ({ uid }) => {
-  const refreshToken = await refreshTokenStorer.createRefreshToken({ uid });
+const ISSUER = "urn:graffiticode:auth";
+
+export const buildVerifyAccessToken = ({ JWKS }) => async (token) => {
+  const { payload, protectedHeader } = await jwtVerify(token, JWKS, { issuer: ISSUER });
+  return { payload, protectedHeader };
+};
+
+const buildGenerateRefreshToken = ({ refreshTokenStorer }) => async ({ uid, additionalClaims }) => {
+  const refreshToken = await refreshTokenStorer.createRefreshToken({ uid, additionalClaims });
   console.log(`Generated refreshToken for ${uid}`);
   return refreshToken;
 };
@@ -23,13 +30,13 @@ const buildRevokeRefreshToken = ({ refreshTokenStorer }) => async (refreshToken)
 };
 
 const buildGenerateAccessToken = ({ getRefreshToken, keysService }) => async ({ refreshToken }) => {
-  const { uid } = await getRefreshToken(refreshToken);
+  const { uid, additionalClaims } = await getRefreshToken(refreshToken);
   const { kid, alg, privateJwk } = await keysService.getCurrentKey();
 
   const privateKey = await importJWK(privateJwk, alg);
-  const jwt = await new SignJWT({})
+  const jwt = await new SignJWT({ ...additionalClaims })
     .setProtectedHeader({ typ: "JWT", alg, kid })
-    .setIssuer("urn:graffiticode:auth")
+    .setIssuer(ISSUER)
     .setSubject(uid)
     .setIssuedAt()
     .setExpirationTime("5m")
@@ -39,8 +46,8 @@ const buildGenerateAccessToken = ({ getRefreshToken, keysService }) => async ({ 
   return jwt;
 };
 
-const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, generateAccessToken }) => async ({ uid }) => {
-  const refreshToken = await generateRefreshToken({ uid });
+const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, generateAccessToken }) => async ({ uid, additionalClaims }) => {
+  const refreshToken = await generateRefreshToken({ uid, additionalClaims });
   let accessToken;
   try {
     accessToken = await generateAccessToken({ refreshToken });

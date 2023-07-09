@@ -34,4 +34,14 @@ describe("storage/refresh-tokens", () => {
   it("should delete a non-existing refresh token", async () => {
     await expect(storer.deleteRefreshToken("does-not-exist")).resolves.toBe();
   });
+
+  it("should create refresh token that can retrieve additional claims data", async () => {
+    const uid = "abc123";
+    const refreshToken = await storer.createRefreshToken({ uid, additionalClaims: { apiKey: true } });
+
+    const data = await storer.getRefreshToken(refreshToken);
+
+    expect(data).toHaveProperty("uid", uid);
+    expect(data).toHaveProperty("additionalClaims.apiKey", true);
+  });
 });

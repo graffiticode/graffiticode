@@ -5,12 +5,12 @@ import { generateNonce } from "../utils.js";
 
 const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 
-const buildCreateRefreshToken = ({ db }) => async ({ uid }) => {
+const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {} }) => {
   const refreshToken = await generateNonce(64);
   await db.collection("refreshTokens").add({
     refreshToken,
     uid,
-    count: 0,
+    additionalClaims,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
   return refreshToken;
@@ -27,8 +27,8 @@ const buildGetRefreshToken = ({ db }) => async (refreshToken) => {
   if (querySnapshot.size > 1) {
     console.warn(`Trying to get multiple refresh tokens for ${refreshToken}`);
   }
-  const { uid } = querySnapshot.docs[0].data();
-  return { uid };
+  const { uid, additionalClaims } = querySnapshot.docs[0].data();
+  return { uid, additionalClaims };
 };
 
 const buildDeleteRefreshToken = ({ db }) => async (refreshToken) => {

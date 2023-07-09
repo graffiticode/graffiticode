@@ -1,16 +1,16 @@
 import bent from "bent";
-import { createRemoteJWKSet, jwtVerify } from "jose";
-import { buildApiKeyClient } from "./api-keys.js";
+import { createRemoteJWKSet } from "jose";
+import { buildVerifyAccessToken } from "../services/auth.js";
+import { buildApiKeysClient } from "./api-keys.js";
 import { getDataOrThrowError } from "./utils.js";
 import { buildEthereumClient } from "./ethereum.js";
 
-const buildVerifyAccessToken = ({ JWKS }) => async (access_token) => {
-  const { payload: { sub: uid } } = await jwtVerify(
-    access_token,
-    JWKS,
-    { issuer: "urn:graffiticode:auth" }
-  );
-  return { uid };
+const buildClientVerifyAccessToken = ({ JWKS }) => {
+  const verifyAccessToken = buildVerifyAccessToken({ JWKS });
+  return async (token) => {
+    const { payload, protectedHeader } = await verifyAccessToken(token);
+    return { uid: payload.sub, token: { ...payload, ...protectedHeader } };
+  };
 };
 
 const buildExchangeRefreshToken = ({ postJSON }) => async (refresh_token) => {
@@ -29,13 +29,14 @@ export const createClient = (url = "https://auth.graffiticode.com") => {
   const JWKS = createRemoteJWKSet(new URL(`${url}/certs`));
   const getJSON = bent(url, "GET", "json", 200, 400, 401);
   const postJSON = bent(url, "POST", "json", 200, 400, 401);
+  const deleteJSON = bent(url, "DELETE", "json", 200, 400);
   return {
-    verifyAccessToken: buildVerifyAccessToken({ JWKS }),
+    verifyAccessToken: buildClientVerifyAccessToken({ JWKS }),
 
     exchangeRefreshToken: buildExchangeRefreshToken({ postJSON }),
     revokeRefreshToken: buildRevokeRefreshToken({ postJSON }),
 
     ethereum: buildEthereumClient({ getJSON, postJSON }),
-    apiKey: buildApiKeyClient({ postJSON }),
+    apiKeys: buildApiKeysClient({ postJSON, deleteJSON }),
   };
 };

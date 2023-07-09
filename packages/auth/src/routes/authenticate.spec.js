@@ -128,12 +128,25 @@ describe("routes/authenticate", () => {
 
   describe("api-key", () => {
     it("should return 400 is missing apiKey", async () => {
-      await expect(client.apiKey.authenticate({})).rejects.toThrow("must provide an api-key");
+      await expect(client.apiKeys.authenticate({})).rejects.toThrow("must provide an api-key");
     });
+
     it("should return 401 if apiKey does not exist", async () => {
       const apiKey = "does-not-exist";
 
-      await expect(client.apiKey.authenticate({ apiKey })).rejects.toThrow("invalid api-key");
+      await expect(client.apiKeys.authenticate({ apiKey })).rejects.toThrow("invalid api-key");
+    });
+
+    it("should return tokens for valid api key", async () => {
+      const uid = "abc123";
+      const { accessToken } = await authApp.authService.generateTokens({ uid });
+      const { apiKey } = await client.apiKeys.create(accessToken);
+
+      const { access_token } = await client.apiKeys.authenticate({ apiKey });
+
+      const authContext = await client.verifyAccessToken(access_token);
+      expect(authContext).toHaveProperty("uid", uid);
+      expect(authContext).toHaveProperty("token.apiKey", true);
     });
   });
 });
