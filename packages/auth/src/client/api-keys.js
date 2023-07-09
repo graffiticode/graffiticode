@@ -1,4 +1,4 @@
-import { isNonEmptyString } from "../utils.js";
+import { isNonEmptyString } from "@graffiticode/common/utils";
 import { getDataOrThrowError } from "./utils.js";
 
 const buildAuthenticate = ({ postJSON }) => async ({ apiKey }) => {

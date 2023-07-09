@@ -1,7 +1,7 @@
 import express from "express";
 import request from "supertest";
 
-import { buildHttpHandler, createError, createErrorResponse, createSuccessResponse, errorHandler, translateError } from "./http.js";
+import { buildHttpHandler, createError, createErrorResponse, createSuccessResponse, errorHandler, sendSuccessResponse, translateError } from "./http.js";
 import { InvalidArgumentError, NotFoundError, UnauthenticatedError, UnauthorizedError, NotImplementedError } from "./errors.js";
 
 describe("http", () => {
@@ -46,7 +46,7 @@ describe("http", () => {
 
   describe("buildHttpHandler", () => {
     it("should send data returned from handler", async () => {
-      const handler = async () => 42;
+      const handler = async (req, res) => sendSuccessResponse(res, 42);
       const app = express();
       app.use(buildHttpHandler(handler));
       app.use(errorHandler);
