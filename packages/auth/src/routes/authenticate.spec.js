@@ -106,7 +106,7 @@ describe("routes/authenticate", () => {
         const signature = createSignature({ privateKey, nonce });
 
         const { refresh_token, access_token } = await client.ethereum.authenticate({ address, nonce, signature });
-        await authApp.keys.rotateKey();
+        await authApp.keysService.rotateKey();
 
         await expect(client.verifyAccessToken(access_token)).resolves.toHaveProperty("uid", address);
         const { access_token: access_token2 } = await client.exchangeRefreshToken(refresh_token);

@@ -23,7 +23,7 @@ describe("auth", () => {
   });
 
   it("should return uid from auth app", async () => {
-    const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
 
     await expect(validateToken(token)).resolves.toStrictEqual({ uid: "1" });
   });

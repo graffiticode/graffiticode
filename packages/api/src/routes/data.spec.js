@@ -115,7 +115,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
   });
 
   it("get data with token created with token", async () => {
-    const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
     const res = await request(app)
       .post("/task")
       .set("Authorization", token)
@@ -133,7 +133,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
   });
 
   it("get data with token created without token", async () => {
-    const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
     const res = await request(app)
       .post("/task")
       .set("x-graffiticode-storage-type", storageType)
@@ -150,7 +150,7 @@ describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
   });
 
   it("should not get data without token created with token", async () => {
-    const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
     const res = await request(app)
       .post("/task")
       .set("Authorization", token)

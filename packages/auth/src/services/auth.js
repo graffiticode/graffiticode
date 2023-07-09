@@ -22,9 +22,9 @@ const buildRevokeRefreshToken = ({ refreshTokenStorer }) => async (refreshToken)
   await refreshTokenStorer.deleteRefreshToken(refreshToken);
 };
 
-const buildGenerateAccessToken = ({ getRefreshToken, keys }) => async ({ refreshToken }) => {
+const buildGenerateAccessToken = ({ getRefreshToken, keysService }) => async ({ refreshToken }) => {
   const { uid } = await getRefreshToken(refreshToken);
-  const { kid, alg, privateJwk } = await keys.getCurrentKey();
+  const { kid, alg, privateJwk } = await keysService.getCurrentKey();
 
   const privateKey = await importJWK(privateJwk, alg);
   const jwt = await new SignJWT({})
@@ -53,11 +53,11 @@ const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, generat
   return { refreshToken, accessToken };
 };
 
-export const buildAuthService = ({ refreshTokenStorer, keys }) => {
+export const buildAuthService = ({ refreshTokenStorer, keysService }) => {
   const generateRefreshToken = buildGenerateRefreshToken({ refreshTokenStorer });
   const getRefreshToken = buildGetRefreshToken({ refreshTokenStorer });
   const revokeRefreshToken = buildRevokeRefreshToken({ refreshTokenStorer });
-  const generateAccessToken = buildGenerateAccessToken({ getRefreshToken, keys });
+  const generateAccessToken = buildGenerateAccessToken({ getRefreshToken, keysService });
   const generateTokens = buildGenerateTokens({ refreshTokenStorer, generateRefreshToken, generateAccessToken });
   return { revokeRefreshToken, generateAccessToken, generateTokens };
 };

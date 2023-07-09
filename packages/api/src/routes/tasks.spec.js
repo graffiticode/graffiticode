@@ -137,7 +137,7 @@ describe("routes/tasks", () => {
   });
 
   it("should get a task with token that has been created with token", async () => {
-    const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
     const res = await request(app)
       .post("/tasks")
       .set("Authorization", token)
@@ -155,7 +155,7 @@ describe("routes/tasks", () => {
   });
 
   it("should return not found for a task that has been created with token", async () => {
-    const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
     const res = await request(app)
       .post("/tasks")
       .set("Authorization", token)
@@ -172,7 +172,7 @@ describe("routes/tasks", () => {
   });
 
   it("should get a task with token that has been created without a token", async () => {
-    const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
     const res = await request(app)
       .post("/tasks")
       .set("x-graffiticode-storage-type", "ephemeral")

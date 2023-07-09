@@ -35,7 +35,7 @@ describe("routes/oauth", () => {
 
     describe("refresh_token", () => {
       it("should return valid access token", async () => {
-        const { refreshToken } = await authApp.auth.generateTokens({ uid });
+        const { refreshToken } = await authApp.authService.generateTokens({ uid });
 
         const { access_token } = await authApp.client.exchangeRefreshToken(refreshToken);
 
@@ -63,7 +63,7 @@ describe("routes/oauth", () => {
     });
 
     it("should return not found for non-existing refresh token", async () => {
-      const { refreshToken } = await authApp.auth.generateTokens({ uid });
+      const { refreshToken } = await authApp.authService.generateTokens({ uid });
 
       await authApp.client.revokeRefreshToken(refreshToken);
 

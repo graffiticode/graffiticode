@@ -23,7 +23,7 @@ describe("api", () => {
   });
 
   it("GET / with auth token", async () => {
-    const { accessToken: token } = await authApp.auth.generateTokens({ uid: "1" });
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
 
     await request(app)
       .get("/")

@@ -3,7 +3,7 @@ import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { Router } from "express";
 
-const buildRefreshTokenCommand = ({ auth }) => ({
+const buildRefreshTokenCommand = ({ authService }) => ({
   async validate(req) {
     const { refresh_token } = req.body;
     if (!isNonEmptyString(refresh_token)) {
@@ -12,7 +12,7 @@ const buildRefreshTokenCommand = ({ auth }) => ({
     return { refresh_token };
   },
   async execute({ refresh_token }) {
-    const access_token = await auth.generateAccessToken({ refreshToken: refresh_token });
+    const access_token = await authService.generateAccessToken({ refreshToken: refresh_token });
     return { access_token };
   }
 });
@@ -41,13 +41,13 @@ const buildTokenRouter = (deps) => {
   return router;
 };
 
-const buildRevokeToken = ({ auth }) => buildHttpHandler(async (req, res) => {
+const buildRevokeToken = ({ authService }) => buildHttpHandler(async (req, res) => {
   const { token } = req.body;
   if (!isNonEmptyString(token)) {
     throw new InvalidArgumentError("must provide a token");
   }
 
-  await auth.revokeRefreshToken(token);
+  await authService.revokeRefreshToken(token);
 
   sendSuccessResponse(res, null);
 });
