@@ -125,4 +125,15 @@ describe("routes/authenticate", () => {
       });
     });
   });
+
+  describe("api-key", () => {
+    it("should return 400 is missing apiKey", async () => {
+      await expect(client.apiKey.authenticate({})).rejects.toThrow("must provide an api-key");
+    });
+    it("should return 401 if apiKey does not exist", async () => {
+      const apiKey = "does-not-exist";
+
+      await expect(client.apiKey.authenticate({ apiKey })).rejects.toThrow("invalid api-key");
+    });
+  });
 });

@@ -43,6 +43,12 @@ const buildEthereumAuthenticate = ({ postJSON }) => async ({ address, nonce, sig
   return { refresh_token, access_token };
 };
 
+const buildApiKeyAuthenticate = ({ postJSON }) => async ({ apiKey }) => {
+  const res = await postJSON("/authenticate/api-key", { apiKey });
+  const { refresh_token, access_token } = await getDataOrThrowError(res);
+  return { refresh_token, access_token };
+};
+
 export const createClient = (url = "https://auth.graffiticode.com") => {
   const JWKS = createRemoteJWKSet(new URL(`${url}/certs`));
   const getJSON = bent(url, "GET", "json", 200, 400, 401);
@@ -55,7 +61,11 @@ export const createClient = (url = "https://auth.graffiticode.com") => {
 
     ethereum: {
       getNonce: buidlGetNonce({ getJSON }),
-      authenticate: buildEthereumAuthenticate({ postJSON })
-    }
+      authenticate: buildEthereumAuthenticate({ postJSON }),
+    },
+
+    apiKey: {
+      authenticate: buildApiKeyAuthenticate({ postJSON }),
+    },
   };
 };
