@@ -18,7 +18,7 @@ resource "google_cloudbuild_trigger" "graffiticode-auth-staging-trigger" {
 
   github {
     owner = "graffiticode"
-    name  = "root"
+    name  = "graffiticode"
     push {
       branch = "^main$"
     }
@@ -38,7 +38,7 @@ resource "google_cloudbuild_trigger" "graffiticode-api-staging-trigger" {
 
   github {
     owner = "graffiticode"
-    name  = "root"
+    name  = "graffiticode"
     push {
       branch = "^main$"
     }
