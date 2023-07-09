@@ -1,14 +1,8 @@
 import bent from "bent";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-
-const getDataOrThrowError = async ({ status, error, data }) => {
-  if (status !== "success") {
-    const err = new Error(error.message);
-    err.code = error.code;
-    throw err;
-  }
-  return data;
-};
+import { buildApiKeyClient } from "./api-keys.js";
+import { getDataOrThrowError } from "./utils.js";
+import { buildEthereumClient } from "./ethereum.js";
 
 const buildVerifyAccessToken = ({ JWKS }) => async (access_token) => {
   const { payload: { sub: uid } } = await jwtVerify(
@@ -31,24 +25,6 @@ const buildRevokeRefreshToken = ({ postJSON }) => async (token) => {
   await getDataOrThrowError(res);
 };
 
-const buidlGetNonce = ({ getJSON }) => async ({ address }) => {
-  const res = await getJSON(`/authenticate/ethereum/${address}`);
-  const nonce = await getDataOrThrowError(res);
-  return nonce;
-};
-
-const buildEthereumAuthenticate = ({ postJSON }) => async ({ address, nonce, signature }) => {
-  const res = await postJSON(`/authenticate/ethereum/${address}`, { nonce, signature });
-  const { refresh_token, access_token } = await getDataOrThrowError(res);
-  return { refresh_token, access_token };
-};
-
-const buildApiKeyAuthenticate = ({ postJSON }) => async ({ apiKey }) => {
-  const res = await postJSON("/authenticate/api-key", { apiKey });
-  const { refresh_token, access_token } = await getDataOrThrowError(res);
-  return { refresh_token, access_token };
-};
-
 export const createClient = (url = "https://auth.graffiticode.com") => {
   const JWKS = createRemoteJWKSet(new URL(`${url}/certs`));
   const getJSON = bent(url, "GET", "json", 200, 400, 401);
@@ -59,13 +35,7 @@ export const createClient = (url = "https://auth.graffiticode.com") => {
     exchangeRefreshToken: buildExchangeRefreshToken({ postJSON }),
     revokeRefreshToken: buildRevokeRefreshToken({ postJSON }),
 
-    ethereum: {
-      getNonce: buidlGetNonce({ getJSON }),
-      authenticate: buildEthereumAuthenticate({ postJSON }),
-    },
-
-    apiKey: {
-      authenticate: buildApiKeyAuthenticate({ postJSON }),
-    },
+    ethereum: buildEthereumClient({ getJSON, postJSON }),
+    apiKey: buildApiKeyClient({ postJSON }),
   };
 };
