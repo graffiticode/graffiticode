@@ -11,7 +11,6 @@ const buildRotateKey = ({ keyStorer }) => async () => {
   const key = await generateKey();
   const kid = await keyStorer.create(key);
   await keyStorer.setCurrent(kid);
-  console.log(`Set current key: ${kid}`);
 };
 
 const buildGetCurrentKey = ({ keyStorer, rotateKey }) => {
@@ -22,7 +21,6 @@ const buildGetCurrentKey = ({ keyStorer, rotateKey }) => {
     } catch (err) {
       if (err instanceof NotFoundError) {
         if (!rotateKeyProm) {
-          console.warn("Missing current key, performing key rotation");
           rotateKeyProm = rotateKey();
           rotateKeyProm
             .catch(err => console.error(`Failed to rotate signing key:\n${err.message}`))

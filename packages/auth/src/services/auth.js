@@ -1,6 +1,5 @@
 import { NotFoundError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { createLocalJWKSet, importJWK, jwtVerify, SignJWT } from "jose";
-import { getAuth } from "../firebase.js";
 
 const ISSUER = "urn:graffiticode:auth";
 
@@ -93,16 +92,16 @@ const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, createA
     ]);
     return { refreshToken, accessToken, firebaseCustomToken };
   } catch (err) {
-    console.warn(`Failed to generate ephemeral tokens, removing refreshToken ${refreshToken}`);
+    console.log(err);
+    console.log(err.stack);
+    console.warn("Failed to generate ephemeral tokens, removing refreshToken");
     refreshTokenStorer.deleteRefreshToken(refreshToken)
       .catch(err => console.error(`Failed to remove refreshToken ${refreshToken}: ${err.message}`));
     throw err;
   }
 };
 
-export const buildAuthService = ({ refreshTokenStorer, keysService }) => {
-  const firebaseAuth = getAuth();
-
+export const buildAuthService = ({ firebaseAuth, refreshTokenStorer, keysService }) => {
   const verifyToken = buildVerifyToken({ firebaseAuth, keysService });
 
   const generateRefreshToken = buildGenerateRefreshToken({ refreshTokenStorer });
