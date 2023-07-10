@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwnerOrAdmin(resource) {
+    function isOwnerOrAdmin() {
       let isOwner = request.auth != null && resource.data.uid == request.auth.uid;
       let isAdmin = request.auth != null && request.auth.token.isAdmin == true;
       return isOwner || isAdmin;
@@ -16,7 +16,16 @@ service cloud.firestore {
     }
 
     match /refreshTokens/{refreshToken} {
-      allow read: if isOwnerOrAdmin(resource);
+      allow read: if isOwnerOrAdmin();
+      allow write: if false;
+
+      match /private/{key} {
+        allow read, write: if false;
+      }
+    }
+
+    match /api-keys/{apiKey} {
+      allow read: if isOwnerOrAdmin();
       allow write: if false;
 
       match /private/{key} {
