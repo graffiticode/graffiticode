@@ -3,8 +3,8 @@ import { getDataOrThrowError } from "./utils.js";
 
 const buildAuthenticate = ({ postJSON }) => async ({ apiKey }) => {
   const res = await postJSON("/authenticate/api-key", { apiKey });
-  const { access_token } = await getDataOrThrowError(res);
-  return { access_token };
+  const data = await getDataOrThrowError(res);
+  return data;
 };
 
 const buildCreate = ({ postJSON }) => async (token) => {

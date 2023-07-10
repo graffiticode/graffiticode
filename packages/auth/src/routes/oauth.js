@@ -5,15 +5,18 @@ import { Router } from "express";
 
 const buildRefreshTokenCommand = ({ authService }) => ({
   async validate(req) {
-    const { refresh_token } = req.body;
-    if (!isNonEmptyString(refresh_token)) {
+    const { refresh_token: refreshToken } = req.body;
+    if (!isNonEmptyString(refreshToken)) {
       throw new InvalidArgumentError("must provide a refresh_token");
     }
-    return { refresh_token };
+    return { refreshToken };
   },
-  async execute({ refresh_token }) {
-    const access_token = await authService.generateAccessToken({ refreshToken: refresh_token });
-    return { access_token };
+  async execute({ refreshToken }) {
+    const [accessToken, firebaseCustomToken] = await Promise.all([
+      authService.generateAccessToken({ refreshToken }),
+      authService.generateFirebaseCustomToken({ refreshToken }),
+    ]);
+    return { access_token: accessToken, firebaseCustomToken };
   }
 });
 

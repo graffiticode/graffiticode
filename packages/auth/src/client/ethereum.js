@@ -8,8 +8,8 @@ const buidlGetNonce = ({ getJSON }) => async ({ address }) => {
 
 const buildAuthenticate = ({ postJSON }) => async ({ address, nonce, signature }) => {
   const res = await postJSON(`/authenticate/ethereum/${address}`, { nonce, signature });
-  const { refresh_token, access_token } = await getDataOrThrowError(res);
-  return { refresh_token, access_token };
+  const data = await getDataOrThrowError(res);
+  return data;
 };
 
 export const buildEthereumClient = ({ getJSON, postJSON }) => {

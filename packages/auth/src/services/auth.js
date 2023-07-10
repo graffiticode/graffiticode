@@ -1,5 +1,6 @@
 import { NotFoundError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { importJWK, jwtVerify, SignJWT } from "jose";
+import { getAuth } from "../firebase.js";
 
 const ISSUER = "urn:graffiticode:auth";
 
@@ -29,8 +30,7 @@ const buildRevokeRefreshToken = ({ refreshTokenStorer }) => async (refreshToken)
   await refreshTokenStorer.deleteRefreshToken(refreshToken);
 };
 
-const buildGenerateAccessToken = ({ getRefreshToken, keysService }) => async ({ refreshToken }) => {
-  const { uid, additionalClaims } = await getRefreshToken(refreshToken);
+const buildCreateAccessToken = ({ keysService }) => async ({ uid, additionalClaims }) => {
   const { kid, alg, privateJwk } = await keysService.getCurrentKey();
 
   const privateKey = await importJWK(privateJwk, alg);
@@ -46,25 +46,51 @@ const buildGenerateAccessToken = ({ getRefreshToken, keysService }) => async ({ 
   return jwt;
 };
 
-const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, generateAccessToken }) => async ({ uid, additionalClaims }) => {
+const buildGenerateAccessToken = ({ getRefreshToken, createAccessToken }) => async ({ refreshToken }) => {
+  const { uid, additionalClaims } = await getRefreshToken(refreshToken);
+  return createAccessToken({ uid, additionalClaims });
+};
+
+const buildCreateFirebaseCustomToken = ({ firebaseAuth }) => async ({ uid, additionalClaims }) => {
+  const firebaseCustomToken = await firebaseAuth.createCustomToken(uid, additionalClaims);
+  return firebaseCustomToken;
+};
+
+const buildGenerateFirebaseCustomToken = ({ getRefreshToken, createFirebaseCustomToken }) => async ({ refreshToken }) => {
+  const { uid, additionalClaims } = await getRefreshToken(refreshToken);
+  return createFirebaseCustomToken({ uid, additionalClaims });
+};
+
+const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, createAccessToken, createFirebaseCustomToken }) => async ({ uid, additionalClaims }) => {
   const refreshToken = await generateRefreshToken({ uid, additionalClaims });
-  let accessToken;
+
   try {
-    accessToken = await generateAccessToken({ refreshToken });
+    const [accessToken, firebaseCustomToken] = await Promise.all([
+      createAccessToken({ uid, additionalClaims }),
+      createFirebaseCustomToken({ uid, additionalClaims }),
+    ]);
+    return { refreshToken, accessToken, firebaseCustomToken };
   } catch (err) {
-    console.warn(`Failed to generate accessToken, removing refreshToken ${refreshToken}`);
+    console.warn(`Failed to generate ephemeral tokens, removing refreshToken ${refreshToken}`);
     refreshTokenStorer.deleteRefreshToken(refreshToken)
       .catch(err => console.error(`Failed to remove refreshToken ${refreshToken}: ${err.message}`));
     throw err;
   }
-  return { refreshToken, accessToken };
 };
 
 export const buildAuthService = ({ refreshTokenStorer, keysService }) => {
+  const firebaseAuth = getAuth();
+
   const generateRefreshToken = buildGenerateRefreshToken({ refreshTokenStorer });
   const getRefreshToken = buildGetRefreshToken({ refreshTokenStorer });
   const revokeRefreshToken = buildRevokeRefreshToken({ refreshTokenStorer });
-  const generateAccessToken = buildGenerateAccessToken({ getRefreshToken, keysService });
-  const generateTokens = buildGenerateTokens({ refreshTokenStorer, generateRefreshToken, generateAccessToken });
-  return { revokeRefreshToken, generateAccessToken, generateTokens };
+
+  const createAccessToken = buildCreateAccessToken({ keysService });
+  const generateAccessToken = buildGenerateAccessToken({ getRefreshToken, createAccessToken });
+
+  const createFirebaseCustomToken = buildCreateFirebaseCustomToken({ firebaseAuth });
+  const generateFirebaseCustomToken = buildGenerateFirebaseCustomToken({ getRefreshToken, createFirebaseCustomToken });
+
+  const generateTokens = buildGenerateTokens({ refreshTokenStorer, generateRefreshToken, createAccessToken, createFirebaseCustomToken });
+  return { revokeRefreshToken, generateAccessToken, generateFirebaseCustomToken, generateTokens };
 };

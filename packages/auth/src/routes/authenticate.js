@@ -12,10 +12,10 @@ const buildApiKeyAuthenticate = ({ apiKeyService, authService }) => buildHttpHan
 
   const authContext = await apiKeyService.authenticate({ apiKey });
 
-  const { refreshToken, accessToken: access_token } = await authService.generateTokens(authContext);
+  const { refreshToken, accessToken, firebaseCustomToken } = await authService.generateTokens(authContext);
   await authService.revokeRefreshToken(refreshToken);
 
-  sendSuccessResponse(res, { access_token });
+  sendSuccessResponse(res, { access_token: accessToken, firebaseCustomToken });
 });
 
 const buildApiKeyRouter = (deps) => {
@@ -49,9 +49,9 @@ const buildEthereumAuthenticate = ({ authService, ethereumService }) => buildHtt
 
   const authContext = await ethereumService.authenticate({ address, nonce, signature });
 
-  const { refreshToken: refresh_token, accessToken: access_token } = await authService.generateTokens(authContext);
+  const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens(authContext);
 
-  sendSuccessResponse(res, { refresh_token, access_token });
+  sendSuccessResponse(res, { access_token: accessToken, refresh_token: refreshToken, firebaseCustomToken });
 });
 
 const buildEthereumRouter = (deps) => {

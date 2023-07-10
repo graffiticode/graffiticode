@@ -16,8 +16,8 @@ const buildClientVerifyAccessToken = ({ JWKS }) => {
 const buildExchangeRefreshToken = ({ postJSON }) => async (refresh_token) => {
   const grant_type = "refresh_token";
   const res = await postJSON("/oauth/token", { grant_type, refresh_token });
-  const { access_token } = await getDataOrThrowError(res);
-  return { access_token };
+  const data = await getDataOrThrowError(res);
+  return data;
 };
 
 const buildRevokeRefreshToken = ({ postJSON }) => async (token) => {
