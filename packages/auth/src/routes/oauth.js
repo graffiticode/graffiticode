@@ -61,9 +61,27 @@ const buildRevokeRouter = (deps) => {
   return router;
 };
 
+const buildVerifyHandler = ({ authService }) => buildHttpHandler(async (req, res) => {
+  const { idToken } = req.body;
+  if (!isNonEmptyString(idToken)) {
+    throw new InvalidArgumentError("must provide a idToken");
+  }
+
+  try {
+    const token = await authService.verifyToken({ token: idToken });
+
+    sendSuccessResponse(res, { uid: token.uid, token });
+  } catch (error) {
+    console.log(error);
+    console.log(error.stack);
+    throw error;
+  }
+});
+
 export const buildOAuthRouter = deps => {
   const router = new Router();
   router.use("/token", buildTokenRouter(deps));
   router.use("/revoke", buildRevokeRouter(deps));
+  router.post("/verify", buildVerifyHandler(deps));
   return router;
 };

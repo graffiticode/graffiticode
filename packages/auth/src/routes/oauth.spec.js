@@ -1,5 +1,6 @@
 import bent from "bent";
 import { startAuthApp } from "../testing/app.js";
+import { signInAndGetIdToken } from "../testing/firebase.js";
 
 describe("routes/oauth", () => {
   const uid = "abc123";
@@ -69,6 +70,31 @@ describe("routes/oauth", () => {
 
       await expect(authApp.client.exchangeRefreshToken(refreshToken))
         .rejects.toThrow(/does not exist/);
+    });
+  });
+
+  describe("verify", () => {
+    it("should return invalid argument if missing idToken when calling verify", async () => {
+      await expect(authApp.client.verifyToken(null)).rejects.toThrow("must provide a idToken");
+    });
+
+    it("should verify access token", async () => {
+      const { accessToken } = await authApp.authService.generateTokens({ uid, additionalClaims: { isAdmin: true } });
+
+      const authContext = await authApp.client.verifyToken(accessToken);
+
+      expect(authContext).toHaveProperty("uid", uid);
+      expect(authContext).toHaveProperty("token.isAdmin", true);
+    });
+
+    it("should verify firebase id token", async () => {
+      const { firebaseCustomToken } = await authApp.authService.generateTokens({ uid, additionalClaims: { isAdmin: true } });
+      const idToken = await signInAndGetIdToken(firebaseCustomToken);
+
+      const authContext = await authApp.client.verifyToken(idToken);
+
+      expect(authContext).toHaveProperty("uid", uid);
+      expect(authContext).toHaveProperty("token.isAdmin", true);
     });
   });
 });

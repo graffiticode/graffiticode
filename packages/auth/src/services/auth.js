@@ -1,5 +1,5 @@
 import { NotFoundError, UnauthenticatedError } from "@graffiticode/common/errors";
-import { importJWK, jwtVerify, SignJWT } from "jose";
+import { createLocalJWKSet, importJWK, jwtVerify, SignJWT } from "jose";
 import { getAuth } from "../firebase.js";
 
 const ISSUER = "urn:graffiticode:auth";
@@ -9,9 +9,32 @@ export const buildVerifyAccessToken = ({ JWKS }) => async (token) => {
   return { payload, protectedHeader };
 };
 
+const buildVerifyToken = ({ firebaseAuth, keysService }) => async ({ token }) => {
+  try {
+    const decodedToken = await firebaseAuth.verifyIdToken(token, true);
+    return decodedToken;
+  } catch (err) {
+    if (err.code !== "auth/argument-error") {
+      console.warn(`Failed to verify token with firebase: ${err.code}`);
+      throw err;
+    }
+  }
+
+  try {
+    const certs = await keysService.getPublicCerts();
+    const JWKS = createLocalJWKSet({ keys: certs });
+    const verifyAccessToken = buildVerifyAccessToken({ JWKS });
+    const { payload, protectedHeader } = await verifyAccessToken(token);
+    return { ...payload, ...protectedHeader, uid: payload.sub };
+  } catch (err) {
+    console.warn(`Failed to verify token with JOSE: ${err.code}`);
+  }
+
+  throw new UnauthenticatedError();
+};
+
 const buildGenerateRefreshToken = ({ refreshTokenStorer }) => async ({ uid, additionalClaims }) => {
   const refreshToken = await refreshTokenStorer.createRefreshToken({ uid, additionalClaims });
-  console.log(`Generated refreshToken for ${uid}`);
   return refreshToken;
 };
 
@@ -41,7 +64,6 @@ const buildCreateAccessToken = ({ keysService }) => async ({ uid, additionalClai
     .setIssuedAt()
     .setExpirationTime("5m")
     .sign(privateKey);
-  console.log(`Generated access token for ${uid} signed with key ${kid}`);
 
   return jwt;
 };
@@ -81,6 +103,8 @@ const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, createA
 export const buildAuthService = ({ refreshTokenStorer, keysService }) => {
   const firebaseAuth = getAuth();
 
+  const verifyToken = buildVerifyToken({ firebaseAuth, keysService });
+
   const generateRefreshToken = buildGenerateRefreshToken({ refreshTokenStorer });
   const getRefreshToken = buildGetRefreshToken({ refreshTokenStorer });
   const revokeRefreshToken = buildRevokeRefreshToken({ refreshTokenStorer });
@@ -92,5 +116,6 @@ export const buildAuthService = ({ refreshTokenStorer, keysService }) => {
   const generateFirebaseCustomToken = buildGenerateFirebaseCustomToken({ getRefreshToken, createFirebaseCustomToken });
 
   const generateTokens = buildGenerateTokens({ refreshTokenStorer, generateRefreshToken, createAccessToken, createFirebaseCustomToken });
-  return { revokeRefreshToken, generateAccessToken, generateFirebaseCustomToken, generateTokens };
+
+  return { verifyToken, revokeRefreshToken, generateAccessToken, generateFirebaseCustomToken, generateTokens };
 };

@@ -13,6 +13,12 @@ const buildClientVerifyAccessToken = ({ JWKS }) => {
   };
 };
 
+const buildVerifyToken = ({ postJSON }) => async (idToken) => {
+  const res = await postJSON("/oauth/verify", { idToken });
+  const data = await getDataOrThrowError(res);
+  return data;
+};
+
 const buildExchangeRefreshToken = ({ postJSON }) => async (refresh_token) => {
   const grant_type = "refresh_token";
   const res = await postJSON("/oauth/token", { grant_type, refresh_token });
@@ -32,6 +38,7 @@ export const createClient = (url = "https://auth.graffiticode.com") => {
   const deleteJSON = bent(url, "DELETE", "json", 200, 400);
   return {
     verifyAccessToken: buildClientVerifyAccessToken({ JWKS }),
+    verifyToken: buildVerifyToken({ postJSON }),
 
     exchangeRefreshToken: buildExchangeRefreshToken({ postJSON }),
     revokeRefreshToken: buildRevokeRefreshToken({ postJSON }),
