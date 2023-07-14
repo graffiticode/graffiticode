@@ -4,7 +4,7 @@ module.exports = {
     jest: true,
     node: true,
   },
-  extends: "standard",
+  extends: 'standard',
   overrides: [
   ],
   parserOptions: {
@@ -27,4 +27,4 @@ module.exports = {
       "named": "never",
     }],
   }
-};
+}

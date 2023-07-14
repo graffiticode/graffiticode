@@ -7,30 +7,14 @@ service cloud.firestore {
       return isOwner || isAdmin;
     }
 
-    match /keys/{key} {
-      allow read, write: if false;
-    }
-
-    match /nonces/{nonce} {
-      allow read, write: if false;
-    }
-
-    match /refreshTokens/{refreshToken} {
+    match /refresh-tokens/{refreshToken} {
       allow read: if isOwnerOrAdmin();
       allow write: if false;
-
-      match /private/{key} {
-        allow read, write: if false;
-      }
     }
 
     match /api-keys/{apiKey} {
       allow read: if isOwnerOrAdmin();
       allow write: if false;
-
-      match /private/{key} {
-        allow read, write: if false;
-      }
     }
   }
 }
