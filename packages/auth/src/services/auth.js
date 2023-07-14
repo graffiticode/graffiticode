@@ -33,8 +33,8 @@ const buildVerifyToken = ({ firebaseAuth, keysService }) => async ({ token }) =>
 };
 
 const buildGenerateRefreshToken = ({ refreshTokenStorer }) => async ({ uid, additionalClaims }) => {
-  const refreshToken = await refreshTokenStorer.createRefreshToken({ uid, additionalClaims });
-  return refreshToken;
+  const { token } = await refreshTokenStorer.createRefreshToken({ uid, additionalClaims });
+  return token;
 };
 
 const buildGetRefreshToken = ({ refreshTokenStorer }) => async (refreshToken) => {

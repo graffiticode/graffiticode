@@ -16,19 +16,20 @@ describe("storage/refresh-tokens", () => {
 
   it("should create refresh token that can retrieve data", async () => {
     const uid = "abc123";
-    const refreshToken = await storer.createRefreshToken({ uid });
+    const { token } = await storer.createRefreshToken({ uid });
+    console.log(token);
 
-    const data = await storer.getRefreshToken(refreshToken);
+    const data = await storer.getRefreshToken(token);
 
     expect(data).toHaveProperty("uid", uid);
   });
 
   it("should throw NotFoundError for delete refresh token", async () => {
     const uid = "abc123";
-    const refreshToken = await storer.createRefreshToken({ uid });
-    await storer.deleteRefreshToken(refreshToken);
+    const { token } = await storer.createRefreshToken({ uid });
+    await storer.deleteRefreshToken(token);
 
-    await expect(storer.getRefreshToken(refreshToken)).rejects.toThrow(NotFoundError);
+    await expect(storer.getRefreshToken(token)).rejects.toThrow(NotFoundError);
   });
 
   it("should delete a non-existing refresh token", async () => {
@@ -37,9 +38,9 @@ describe("storage/refresh-tokens", () => {
 
   it("should create refresh token that can retrieve additional claims data", async () => {
     const uid = "abc123";
-    const refreshToken = await storer.createRefreshToken({ uid, additionalClaims: { apiKey: true } });
+    const { token } = await storer.createRefreshToken({ uid, additionalClaims: { apiKey: true } });
 
-    const data = await storer.getRefreshToken(refreshToken);
+    const data = await storer.getRefreshToken(token);
 
     expect(data).toHaveProperty("uid", uid);
     expect(data).toHaveProperty("additionalClaims.apiKey", true);

@@ -20,6 +20,7 @@ npx firebase emulators:start
 ## Auth
 
 ```shell
+export GOOGLE_CLOUD_PROJECT="graffiticode"
 export FIREBASE_AUTH_EMULATOR_HOST="127.0.0.1:9099"
 export FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
 npx @graffiticode/auth

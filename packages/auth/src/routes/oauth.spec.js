@@ -49,7 +49,7 @@ describe("routes/oauth", () => {
       });
 
       it("should return unauthorized if invalid refreshToken", async () => {
-        await expect(authApp.client.exchangeRefreshToken("foo")).rejects.toThrow("foo does not exist");
+        await expect(authApp.client.exchangeRefreshToken("foo")).rejects.toThrow("token does not exist");
       });
     });
   });
