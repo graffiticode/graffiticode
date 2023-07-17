@@ -23,7 +23,7 @@ describe("services/api-key", () => {
 
   it("should authenticate valid api-key", async () => {
     const uid = "abc123";
-    const apiKey = await apiKeyService.create({ uid });
+    const { token: apiKey } = await apiKeyService.create({ uid });
 
     const authContext = await apiKeyService.authenticate({ apiKey });
 

@@ -12,7 +12,7 @@ const buildCreate = ({ apiKeyService }) => buildHttpHandler(async (req, res) => 
   }
   const { uid } = req.auth;
 
-  const apiKey = await apiKeyService.create({ uid });
+  const { token: apiKey } = await apiKeyService.create({ uid });
 
   sendSuccessResponse(res, { apiKey });
 });

@@ -16,7 +16,7 @@ describe("storage/api-keys", () => {
 
   it("should create api-key that can retrieve data", async () => {
     const uid = "abc123";
-    const apiKey = await storer.createApiKey({ uid });
+    const { token: apiKey } = await storer.createApiKey({ uid });
 
     const data = await storer.getApiKey(apiKey);
 
@@ -25,7 +25,7 @@ describe("storage/api-keys", () => {
 
   it("should throw NotFoundError for delete api-key", async () => {
     const uid = "abc123";
-    const apiKey = await storer.createApiKey({ uid });
+    const { token: apiKey } = await storer.createApiKey({ uid });
     await storer.deleteApiKey(apiKey);
 
     await expect(storer.getApiKey(apiKey)).rejects.toThrow(NotFoundError);

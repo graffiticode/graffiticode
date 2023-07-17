@@ -29,7 +29,6 @@ const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {} 
 };
 
 const buildGetRefreshToken = ({ db }) => async (token) => {
-  const db = getFirestore();
   const querySnapshot = await db.collection("refresh-tokens-private")
     .where("token", "==", token)
     .get();
