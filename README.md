@@ -5,31 +5,26 @@ web APIs. APIs are defined with task specific language, either manually
 through the Graffiticode web app or programmatically through the
 Graffiticode API.
 
-# Run Graffiticode Locally
+## Run Graffiticode Locally
 
 ```shell
 npm install
 ```
 
-## Firebase emulators
+### Firebase emulators
 
 ```shell
 npx firebase emulators:start
 ```
 
-## Auth
+### Auth
 
 ```shell
-export GOOGLE_CLOUD_PROJECT="graffiticode"
-export FIREBASE_AUTH_EMULATOR_HOST="127.0.0.1:9099"
-export FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
-npx @graffiticode/auth
+npm run -w packages/auth dev
 ```
 
-## API
+### API
 
 ```shell
-export FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
-export AUTH_URL="http://localhost:4100"
-npx @graffiticode/api
+npm run -w packages/api dev
 ```

@@ -27,7 +27,7 @@
   },
   "bin": "./src/main.js",
   "scripts": {
-    "dev": "firebase emulators:exec --ui \"nodemon src/main.js\"",
+    "dev": "GOOGLE_CLOUD_PROJECT=\"graffiticode\" FIREBASE_AUTH_EMULATOR_HOST=\"127.0.0.1:9099\" FIRESTORE_EMULATOR_HOST=\"127.0.0.1:8080\" nodemon --exec \"npx @graffiticode/auth\"",
     "lint": "eslint src/",
     "lint:fix": "eslint --fix src/",
     "start": "node -r @graffiticode/tracing src/main.js",
