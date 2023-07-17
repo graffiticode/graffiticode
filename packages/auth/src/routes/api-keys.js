@@ -12,9 +12,9 @@ const buildCreate = ({ apiKeyService }) => buildHttpHandler(async (req, res) => 
   }
   const { uid } = req.auth;
 
-  const { token: apiKey } = await apiKeyService.create({ uid });
+  const { id, token } = await apiKeyService.create({ uid });
 
-  sendSuccessResponse(res, { apiKey });
+  sendSuccessResponse(res, { id, token });
 });
 
 const buildDelete = ({ apiKeyService }) => buildHttpHandler(async (req, res) => {
@@ -26,12 +26,12 @@ const buildDelete = ({ apiKeyService }) => buildHttpHandler(async (req, res) => 
   }
   const { uid } = req.auth;
 
-  const { apiKey } = req.params;
-  if (!isNonEmptyString(apiKey)) {
-    throw new InvalidArgumentError("must provide an apiKey");
+  const { id } = req.params;
+  if (!isNonEmptyString(id)) {
+    throw new InvalidArgumentError("must provide an id");
   }
 
-  await apiKeyService.remove({ requestingUid: uid, apiKey });
+  await apiKeyService.remove({ requestingUid: uid, id });
 
   sendSuccessResponse(res, {});
 });
@@ -39,6 +39,6 @@ const buildDelete = ({ apiKeyService }) => buildHttpHandler(async (req, res) => 
 export const buildApiKeysRouter = deps => {
   const router = new Router();
   router.post("/", buildCreate(deps));
-  router.delete("/:apiKey", buildDelete(deps));
+  router.delete("/:id", buildDelete(deps));
   return router;
 };

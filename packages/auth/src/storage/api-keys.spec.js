@@ -10,28 +10,45 @@ describe("storage/api-keys", () => {
 
   afterEach(cleanUpFirebase);
 
-  it("should throw NotFoundError if api-key does not exist", async () => {
-    await expect(storer.getApiKey("abc123")).rejects.toThrow(NotFoundError);
+  describe("storage/api-keys/findById", () => {
+    it("should throw NotFoundError if does not exist", async () => {
+      await expect(storer.findById("abc123")).rejects.toThrow(NotFoundError);
+    });
+
+    it("should be retrieved by id", async () => {
+      const uid = "abc123";
+      const { id } = await storer.create({ uid });
+
+      const data = await storer.findById(id);
+
+      expect(data).toHaveProperty("uid", uid);
+    });
   });
 
-  it("should create api-key that can retrieve data", async () => {
-    const uid = "abc123";
-    const { token: apiKey } = await storer.createApiKey({ uid });
+  describe("storage/api-keys/findByToken", () => {
+    it("should throw NotFoundError if does not exist", async () => {
+      await expect(storer.findByToken("abc123")).rejects.toThrow(NotFoundError);
+    });
 
-    const data = await storer.getApiKey(apiKey);
+    it("should be retrieved by token", async () => {
+      const uid = "abc123";
+      const { token } = await storer.create({ uid });
 
-    expect(data).toHaveProperty("uid", uid);
+      const data = await storer.findByToken(token);
+
+      expect(data).toHaveProperty("uid", uid);
+    });
   });
 
   it("should throw NotFoundError for delete api-key", async () => {
     const uid = "abc123";
-    const { token: apiKey } = await storer.createApiKey({ uid });
-    await storer.deleteApiKey(apiKey);
+    const { id } = await storer.create({ uid });
+    await storer.removeById(id);
 
-    await expect(storer.getApiKey(apiKey)).rejects.toThrow(NotFoundError);
+    await expect(storer.findById(id)).rejects.toThrow(NotFoundError);
   });
 
   it("should delete a non-existing api-key", async () => {
-    await expect(storer.deleteApiKey("does-not-exist")).resolves.toBe();
+    await expect(storer.removeById("does-not-exist")).resolves.toBe();
   });
 });

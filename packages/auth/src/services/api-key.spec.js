@@ -15,17 +15,17 @@ describe("services/api-key", () => {
     await cleanUpFirebase();
   });
 
-  it("should throw UnauthenticatedError is apiKey does not exist", async () => {
-    const apiKey = "does-not-exist";
+  it("should throw UnauthenticatedError if the api-key does not exist", async () => {
+    const token = "does-not-exist";
 
-    await expect(apiKeyService.authenticate({ apiKey })).rejects.toThrow(UnauthenticatedError);
+    await expect(apiKeyService.authenticate({ token })).rejects.toThrow(UnauthenticatedError);
   });
 
   it("should authenticate valid api-key", async () => {
     const uid = "abc123";
-    const { token: apiKey } = await apiKeyService.create({ uid });
+    const { token } = await apiKeyService.create({ uid });
 
-    const authContext = await apiKeyService.authenticate({ apiKey });
+    const authContext = await apiKeyService.authenticate({ token });
 
     expect(authContext).toHaveProperty("uid", uid);
     expect(authContext).toHaveProperty("additionalClaims.apiKey", true);

@@ -20,17 +20,17 @@ describe("routes/api-keys", () => {
     const uid = "abc123";
     const { accessToken } = await authApp.authService.generateTokens({ uid });
 
-    const { apiKey } = await client.apiKeys.create(accessToken);
+    const { token } = await client.apiKeys.create(accessToken);
 
-    const { access_token } = await client.apiKeys.authenticate({ apiKey });
+    const { access_token } = await client.apiKeys.authenticate({ token });
     await expect(client.verifyAccessToken(access_token)).resolves.toHaveProperty("uid", uid);
   });
 
   it("should return unauthorized when calling create with an api key token", async () => {
     const uid = "abc123";
     const { accessToken } = await authApp.authService.generateTokens({ uid });
-    const { apiKey } = await client.apiKeys.create(accessToken);
-    const { access_token: apiKeyAccessToken } = await client.apiKeys.authenticate({ apiKey });
+    const { token } = await client.apiKeys.create(accessToken);
+    const { access_token: apiKeyAccessToken } = await client.apiKeys.authenticate({ token });
 
     await expect(client.apiKeys.create(apiKeyAccessToken)).rejects.toThrow("Forbidden");
   });
@@ -38,28 +38,28 @@ describe("routes/api-keys", () => {
   it("should remove valid api key", async () => {
     const uid = "abc123";
     const { accessToken } = await authApp.authService.generateTokens({ uid });
-    const { apiKey } = await client.apiKeys.create(accessToken);
+    const { id, token } = await client.apiKeys.create(accessToken);
 
-    await client.apiKeys.remove({ token: accessToken, apiKey });
+    await client.apiKeys.remove({ token: accessToken, id });
 
-    await expect(client.apiKeys.authenticate({ apiKey })).rejects.toThrow("invalid api-key");
+    await expect(client.apiKeys.authenticate({ token })).rejects.toThrow("invalid api-key");
   });
 
   it("should throw error if no token is provided when calling remove", async () => {
     await expect(client.apiKeys.remove({ apiKey: "foo" })).rejects.toThrow("must provide a token");
   });
 
-  it("should throw error if no apiKey is provided when calling remove", async () => {
-    await expect(client.apiKeys.remove({ token: "foo" })).rejects.toThrow("must provide a apiKey");
+  it("should throw error if no id is provided when calling remove", async () => {
+    await expect(client.apiKeys.remove({ token: "foo" })).rejects.toThrow("must provide an id");
   });
 
   it("should return unauthorized when calling remove with an api key token", async () => {
     const uid = "abc123";
     const { accessToken } = await authApp.authService.generateTokens({ uid });
-    const { apiKey } = await client.apiKeys.create(accessToken);
-    const { access_token: apiKeyAccessToken } = await client.apiKeys.authenticate({ apiKey });
+    const { id, token } = await client.apiKeys.create(accessToken);
+    const { access_token: apiKeyAccessToken } = await client.apiKeys.authenticate({ token });
 
-    await expect(client.apiKeys.remove({ token: apiKeyAccessToken, apiKey })).rejects.toThrow("Forbidden");
+    await expect(client.apiKeys.remove({ token: apiKeyAccessToken, id })).rejects.toThrow("Forbidden");
   });
 
   it("should return unauthorized when calling remove for another user", async () => {
@@ -67,8 +67,8 @@ describe("routes/api-keys", () => {
     const otherUid = "def456";
     const { accessToken } = await authApp.authService.generateTokens({ uid });
     const { accessToken: otherAccessToken } = await authApp.authService.generateTokens({ uid: otherUid });
-    const { apiKey } = await client.apiKeys.create(accessToken);
+    const { id } = await client.apiKeys.create(accessToken);
 
-    await expect(client.apiKeys.remove({ token: otherAccessToken, apiKey })).rejects.toThrow("Forbidden");
+    await expect(client.apiKeys.remove({ token: otherAccessToken, id })).rejects.toThrow("Forbidden");
   });
 });

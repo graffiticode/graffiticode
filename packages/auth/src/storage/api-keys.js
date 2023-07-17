@@ -4,9 +4,10 @@ import { v4 } from "uuid";
 import { getFirestore } from "../firebase.js";
 import { generateNonce } from "../utils.js";
 
-const buildCreateApiKey = ({ db }) => async ({ uid }) => {
+const buildCreate = ({ db }) => async ({ uid }) => {
   const id = v4();
   const token = await generateNonce(64);
+  const createdAt = admin.firestore.FieldValue.serverTimestamp();
 
   const batchWriter = db.batch();
 
@@ -14,19 +15,16 @@ const buildCreateApiKey = ({ db }) => async ({ uid }) => {
   batchWriter.create(apiKeyPrivateRef, { token });
 
   const apiKeyRef = db.doc(`api-keys/${id}`);
-  batchWriter.create(apiKeyRef, {
-    uid,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  batchWriter.create(apiKeyRef, { uid, createdAt });
 
   await batchWriter.commit();
 
-  return { uid, token };
+  return { id, uid, token };
 };
 
-const buildGetApiKey = ({ db }) => async (apiKey) => {
+const buildFindByToken = ({ db }) => async (token) => {
   const querySnapshot = await db.collection("api-keys-private")
-    .where("token", "==", apiKey)
+    .where("token", "==", token)
     .get();
   if (querySnapshot.empty) {
     throw new NotFoundError("api-key does not exist");
@@ -41,26 +39,28 @@ const buildGetApiKey = ({ db }) => async (apiKey) => {
   return { uid };
 };
 
-const buildDeleteApiKey = ({ db }) => async (apiKey) => {
-  const querySnapshot = await db.collection("api-keys-private")
-    .where("token", "==", apiKey)
-    .get();
-  if (querySnapshot.size > 1) {
-    console.warn("Trying to delete multiple api-keys");
+const buildFindById = ({ db }) => async (id) => {
+  const apiKeyRef = db.doc(`api-keys/${id}`);
+  const apiKeyDoc = await apiKeyRef.get();
+  if (!apiKeyDoc.exists) {
+    throw new NotFoundError();
   }
+  const { uid, createdAt } = apiKeyDoc.data();
+  return { uid, createdAt };
+};
 
+const buildRemoveById = ({ db }) => async (id) => {
   const batchWriter = db.batch();
-  querySnapshot.docs.forEach(documentSnapshot => {
-    batchWriter.delete(documentSnapshot.ref);
-    batchWriter.delete(db.doc(`api-keys/${documentSnapshot.id}`));
-  });
+  batchWriter.delete(db.doc(`api-keys/${id}`));
+  batchWriter.delete(db.doc(`api-keys-private/${id}`));
   await batchWriter.commit();
 };
 
 export const buildApiKeyStorer = () => {
   const db = getFirestore();
-  const createApiKey = buildCreateApiKey({ db });
-  const deleteApiKey = buildDeleteApiKey({ db });
-  const getApiKey = buildGetApiKey({ db });
-  return { createApiKey, deleteApiKey, getApiKey };
+  const create = buildCreate({ db });
+  const findById = buildFindById({ db });
+  const findByToken = buildFindByToken({ db });
+  const removeById = buildRemoveById({ db });
+  return { create, findById, findByToken, removeById };
 };
