@@ -60,9 +60,9 @@ export const buildHttpHandler = handler => async (req, res, next) => {
 
 export const createError = (code, message) => ({ code, message });
 
-export const createErrorResponse = error => ({ status: "error", error, data: null });
+export const createErrorResponse = error => ({ status: "error", error });
 
-export const createSuccessResponse = ({ data }) => ({ status: "success", error: null, data });
+export const createSuccessResponse = ({ data }) => ({ status: "success", data });
 
 export const getStorageTypeForRequest = req => {
   return (
