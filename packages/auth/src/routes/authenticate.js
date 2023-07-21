@@ -11,11 +11,9 @@ const buildApiKeyAuthenticate = ({ apiKeyService, authService }) => buildHttpHan
   }
 
   const authContext = await apiKeyService.authenticate({ token });
+  const firebaseCustomToken = await authService.createFirebaseCustomToken(authContext);
 
-  const { refreshToken, accessToken, firebaseCustomToken } = await authService.generateTokens(authContext);
-  await authService.revokeRefreshToken(refreshToken);
-
-  sendSuccessResponse(res, { access_token: accessToken, firebaseCustomToken });
+  sendSuccessResponse(res, { firebaseCustomToken });
 });
 
 const buildApiKeyRouter = (deps) => {

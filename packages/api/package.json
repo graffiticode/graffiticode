@@ -39,9 +39,6 @@
     "lint": "eslint src/ tools/",
     "lint:fix": "eslint --fix src/ tools/"
   },
-  "engines": {
-    "node": "^16.13.1"
-  },
   "devDependencies": {
     "@jest/globals": "^29.1.2",
     "eslint": "^8.44.0",

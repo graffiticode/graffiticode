@@ -2,6 +2,7 @@ import { privateToAddress, stripHexPrefix } from "@ethereumjs/util";
 import { createSignature } from "../services/ethereum.js";
 import { startAuthApp } from "../testing/app.js";
 import { generateNonce } from "../utils.js";
+import { signInAndGetIdToken } from "../testing/firebase.js";
 
 describe("routes/authenticate", () => {
   const privateKey = Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "hex");
@@ -137,14 +138,15 @@ describe("routes/authenticate", () => {
       await expect(client.apiKeys.authenticate({ token })).rejects.toThrow("invalid api-key");
     });
 
-    it("should return tokens for valid api key", async () => {
+    it("should return firebase custom token for valid api key", async () => {
       const uid = "abc123";
       const { accessToken } = await authApp.authService.generateTokens({ uid });
       const { token } = await client.apiKeys.create(accessToken);
 
-      const { access_token } = await client.apiKeys.authenticate({ token });
+      const { firebaseCustomToken } = await client.apiKeys.authenticate({ token });
 
-      const authContext = await client.verifyAccessToken(access_token);
+      const idToken = await signInAndGetIdToken(firebaseCustomToken);
+      const authContext = await client.verifyToken(idToken);
       expect(authContext).toHaveProperty("uid", uid);
       expect(authContext).toHaveProperty("token.apiKey", true);
     });

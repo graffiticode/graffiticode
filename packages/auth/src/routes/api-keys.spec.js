@@ -1,4 +1,5 @@
 import { startAuthApp } from "../testing/app.js";
+import { signInAndGetIdToken } from "../testing/firebase.js";
 
 describe("routes/api-keys", () => {
   let authApp;
@@ -22,15 +23,17 @@ describe("routes/api-keys", () => {
 
     const { token } = await client.apiKeys.create(accessToken);
 
-    const { access_token } = await client.apiKeys.authenticate({ token });
-    await expect(client.verifyAccessToken(access_token)).resolves.toHaveProperty("uid", uid);
+    const { firebaseCustomToken } = await client.apiKeys.authenticate({ token });
+    const apiKeyAccessToken = await signInAndGetIdToken(firebaseCustomToken);
+    await expect(client.verifyToken(apiKeyAccessToken)).resolves.toHaveProperty("uid", uid);
   });
 
   it("should return unauthorized when calling create with an api key token", async () => {
     const uid = "abc123";
     const { accessToken } = await authApp.authService.generateTokens({ uid });
     const { token } = await client.apiKeys.create(accessToken);
-    const { access_token: apiKeyAccessToken } = await client.apiKeys.authenticate({ token });
+    const { firebaseCustomToken } = await client.apiKeys.authenticate({ token });
+    const apiKeyAccessToken = await signInAndGetIdToken(firebaseCustomToken);
 
     await expect(client.apiKeys.create(apiKeyAccessToken)).rejects.toThrow("Forbidden");
   });
@@ -57,7 +60,8 @@ describe("routes/api-keys", () => {
     const uid = "abc123";
     const { accessToken } = await authApp.authService.generateTokens({ uid });
     const { id, token } = await client.apiKeys.create(accessToken);
-    const { access_token: apiKeyAccessToken } = await client.apiKeys.authenticate({ token });
+    const { firebaseCustomToken } = await client.apiKeys.authenticate({ token });
+    const apiKeyAccessToken = await signInAndGetIdToken(firebaseCustomToken);
 
     await expect(client.apiKeys.remove({ token: apiKeyAccessToken, id })).rejects.toThrow("Forbidden");
   });
