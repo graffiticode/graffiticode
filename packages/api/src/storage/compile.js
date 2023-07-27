@@ -10,10 +10,15 @@ function encodeCompileData(compile) {
 }
 
 function decodeCompileData(compile) {
-  return {
-    ...compile,
-    data: JSON.parse(compile.data),
-  };
+  try {
+    return {
+      ...compile,
+      data: JSON.parse(compile.data),
+    };
+  } catch (x) {
+    console.log("decodeCompileData() legacy compile=" + JSON.stringify(compile, null, 2));
+    return compile;
+  }
 }
 
 const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
