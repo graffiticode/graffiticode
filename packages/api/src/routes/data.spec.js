@@ -3,63 +3,32 @@ import request from "supertest";
 import { createApp } from "../app.js";
 import { clearFirestore } from "../testing/firestore.js";
 import { TASK1, DATA1, DATA2, TASK2 } from "../testing/fixture.js";
+import { startLangApp } from "../testing/lang.js";
 import { createSuccessResponse } from "./utils.js";
 
-describe("routes/data", () => {
+describe.each(["ephemeral", "persistent"])("routes/data[%s]", (storageType) => {
   beforeEach(async () => {
     await clearFirestore();
   });
 
+  let langApp;
   let authApp;
   let app;
   beforeEach(async () => {
+    langApp = await startLangApp();
+    langApp.setData(TASK1.code, DATA1);
+    langApp.setData(TASK2.code, DATA2);
+
     authApp = await startAuthApp();
     app = createApp({ authUrl: authApp.url });
+
+    process.env.BASE_URL_L0 = langApp.url;
+    process.env.BASE_URL_L1 = langApp.url;
   });
 
   afterEach(async () => {
-    if (authApp) {
-      await authApp.cleanUp();
-    }
-  });
-
-  it.skip("get multiple datas from different stores", async () => {
-    const res1 = await request(app)
-      .post("/task")
-      .set("x-graffiticode-storage-type", "memory")
-      .send({ task: TASK1 })
-      .expect(200);
-    expect(res1).toHaveProperty("body.status", "success");
-    const id1 = res1.body.data.id;
-    const res2 = await request(app)
-      .post("/task")
-      .set("x-graffiticode-storage-type", "firestore")
-      .send({ task: TASK2 });
-    expect(res2).toHaveProperty("body.status", "success");
-    const id2 = res2.body.data.id;
-    await request(app)
-      .get("/data")
-      .query({ id: [id1, id2].join(",") })
-      .expect(200, createSuccessResponse({ data: [DATA1, DATA2] }));
-  });
-});
-
-describe.each(["ephemeral", "persistent"])("/data[%s]", (storageType) => {
-  beforeEach(async () => {
-    await clearFirestore();
-  });
-
-  let authApp;
-  let app;
-  beforeEach(async () => {
-    authApp = await startAuthApp();
-    app = createApp({ authUrl: authApp.url });
-  });
-
-  afterEach(async () => {
-    if (authApp) {
-      await authApp.cleanUp();
-    }
+    await authApp.cleanUp();
+    await langApp.cleanUp();
   });
 
   it("get single data", async () => {
