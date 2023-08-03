@@ -24,8 +24,8 @@ function decodeCompileData(compile) {
 const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
   const compileRef = db.doc(`compiles/${id}`);
   const compileDoc = await compileRef.get();
-  console.log("compileCreate() id=" + id);
-  console.log("compileCreate() compile=" + JSON.stringify(compile, null, 2));
+  // console.log("compileCreate() id=" + id);
+  // console.log("compileCreate() compile=" + JSON.stringify(compile, null, 2));
   if (!compileDoc.exists) {
     await compileRef.set(encodeCompileData(compile));
   }

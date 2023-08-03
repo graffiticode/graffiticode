@@ -5,6 +5,9 @@ export const buildGetBaseUrlForLanguage = ({
   getCompilerHost,
   getCompilerPort
 }) => (lang) => {
+  if (Number.isInteger(Number.parseInt(lang, 10))) {
+    lang = `L${lang}`;
+  }
   if (!isNonEmptyString(lang)) {
     throw new Error("lang must be a non empty string");
   }

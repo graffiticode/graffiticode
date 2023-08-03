@@ -38,25 +38,16 @@ describe("baseUrl", () => {
 
   it("should return env override", async () => {
     // Arrange
-    const env = { BASE_URL_LTEST: "http://localhost:5000" };
-    const config = { protocol: "https" };
-    const getConfig = jest.fn().mockReturnValue(config);
-    const getCompilerHost = jest.fn().mockReturnValue("ltest.artcompiler.com");
-    const getCompilerPort = jest.fn().mockReturnValue("443");
-    const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
-      isNonEmptyString,
-      env,
-      getConfig,
-      getCompilerHost,
-      getCompilerPort
-    });
-    const lang = "LTest";
+    const envBaseUrl = "http://localhost:5000";
+    const env = { BASE_URL_L1: envBaseUrl };
+    const getLanguageBaseUrl = buildGetBaseUrlForLanguage({ isNonEmptyString, env });
+    const lang = "L1";
 
     // Act
     const baseUrl = getLanguageBaseUrl(lang);
 
     // Assert
-    expect(baseUrl).toBe("http://localhost:5000");
+    expect(baseUrl).toBe(envBaseUrl);
   });
 
   it("should return configured compiler values", async () => {
@@ -107,5 +98,19 @@ describe("baseUrl", () => {
     expect(getCompilerHost).toHaveBeenCalledWith(lang, config);
     expect(getCompilerPort).toHaveBeenCalledWith(lang, config);
     expect(baseUrl).toBe("http://localhost:5000");
+  });
+
+  it("should prefix is L if lang is only a number", async () => {
+    // Arrange
+    const envBaseUrl = "http://localhost:5000";
+    const env = { BASE_URL_L1: envBaseUrl };
+    const getLanguageBaseUrl = buildGetBaseUrlForLanguage({ isNonEmptyString, env });
+    const lang = "1";
+
+    // Act
+    const baseUrl = getLanguageBaseUrl(lang);
+
+    // Assert
+    expect(baseUrl).toBe(envBaseUrl);
   });
 });

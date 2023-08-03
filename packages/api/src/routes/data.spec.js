@@ -7,14 +7,12 @@ import { startLangApp } from "../testing/lang.js";
 import { createSuccessResponse } from "./utils.js";
 
 describe.each(["ephemeral", "persistent"])("routes/data[%s]", (storageType) => {
-  beforeEach(async () => {
-    await clearFirestore();
-  });
-
   let langApp;
   let authApp;
   let app;
   beforeEach(async () => {
+    await clearFirestore();
+
     langApp = await startLangApp();
     langApp.setData(TASK1.code, DATA1);
     langApp.setData(TASK2.code, DATA2);
