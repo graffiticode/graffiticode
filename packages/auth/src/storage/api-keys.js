@@ -11,11 +11,11 @@ const buildCreate = ({ db }) => async ({ uid }) => {
 
   const batchWriter = db.batch();
 
-  const apiKeyPrivateRef = db.doc(`api-keys-private/${id}`);
-  batchWriter.create(apiKeyPrivateRef, { token });
-
   const apiKeyRef = db.doc(`api-keys/${id}`);
   batchWriter.create(apiKeyRef, { uid, createdAt });
+
+  const apiKeyPrivateRef = db.doc(`api-keys/${id}/private/key`);
+  batchWriter.create(apiKeyPrivateRef, { token });
 
   await batchWriter.commit();
 
@@ -23,7 +23,7 @@ const buildCreate = ({ db }) => async ({ uid }) => {
 };
 
 const buildFindByToken = ({ db }) => async (token) => {
-  const querySnapshot = await db.collection("api-keys-private")
+  const querySnapshot = await db.collectionGroup("private")
     .where("token", "==", token)
     .get();
   if (querySnapshot.empty) {
@@ -33,7 +33,14 @@ const buildFindByToken = ({ db }) => async (token) => {
     console.warn("Trying to get multiple api-keys");
   }
   const apiKeyPrivateDoc = querySnapshot.docs[0];
-  const apiKeyRef = db.doc(`api-keys/${apiKeyPrivateDoc.id}`);
+  if (apiKeyPrivateDoc.ref.parent.parent === null) {
+    throw new Error("API Key private doc is not in a sub collection");
+  }
+  if (apiKeyPrivateDoc.ref.parent.parent.parent.id !== "api-keys") {
+    throw new Error("API Key private doc is not in the api-keys collection");
+  }
+
+  const apiKeyRef = apiKeyPrivateDoc.ref.parent.parent;
   const apiKeyDoc = await apiKeyRef.get();
   const { uid } = apiKeyDoc.data();
   return { uid };
@@ -52,7 +59,7 @@ const buildFindById = ({ db }) => async (id) => {
 const buildRemoveById = ({ db }) => async (id) => {
   const batchWriter = db.batch();
   batchWriter.delete(db.doc(`api-keys/${id}`));
-  batchWriter.delete(db.doc(`api-keys-private/${id}`));
+  batchWriter.delete(db.doc(`api-keys/${id}/private/key`));
   await batchWriter.commit();
 };
 
