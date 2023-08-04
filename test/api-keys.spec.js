@@ -63,5 +63,22 @@ describe("firestore", () => {
 
       await assertSucceeds(getDoc(doc(otherUser.firestore(), "api-keys/foo")));
     });
+
+    describe("api-keys/private", () => {
+      it("should not allow read", async () => {
+        await testEnv.withSecurityRulesDisabled(async (context) => {
+          await assertSucceeds(setDoc(doc(context.firestore(), "api-keys/foo/private/key"), { apiKey: "supersecret" }));
+        });
+        const myUser = testEnv.authenticatedContext(MY_UID, { isAdmin: true });
+
+        await assertFails(getDoc(doc(myUser.firestore(), "api-keys/foo/private/key")));
+      });
+
+      it("should not allow write", async () => {
+        const myUser = testEnv.authenticatedContext(MY_UID, { isAdmin: true });
+
+        await assertFails(setDoc(doc(myUser.firestore(), "api-keys/foo/private/key"), { apiKey: "supersecret" }));
+      });
+    });
   });
 });
