@@ -56,8 +56,9 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     if (data.length === 1) {
       data = data[0];
     }
+    data.ids = ids;
     res.set("Access-Control-Allow-Origin", "*");
-    res.status(200).json(createSuccessResponse({ data }));
+    res.status(200).json(createSuccessResponse({ id: ids[0], data }));
   });
 };
 
