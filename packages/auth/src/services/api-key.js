@@ -1,21 +1,21 @@
 import { NotFoundError, UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
 
 const buildCreate = ({ apiKeyStorer }) => async ({ uid }) => {
-  const apiKey = await apiKeyStorer.createApiKey({ uid });
+  const apiKey = await apiKeyStorer.create({ uid });
   return apiKey;
 };
 
-const buildRemove = ({ apiKeyStorer }) => async ({ requestingUid, apiKey }) => {
-  const { uid } = await apiKeyStorer.getApiKey(apiKey);
+const buildRemove = ({ apiKeyStorer }) => async ({ requestingUid, id }) => {
+  const { uid } = await apiKeyStorer.findById(id);
   if (uid !== requestingUid) {
     throw new UnauthorizedError();
   }
-  await apiKeyStorer.deleteApiKey(apiKey);
+  await apiKeyStorer.removeById(id);
 };
 
-const buildAuthenticate = ({ apiKeyStorer }) => async ({ apiKey }) => {
+const buildAuthenticate = ({ apiKeyStorer }) => async ({ token }) => {
   try {
-    const { uid } = await apiKeyStorer.getApiKey(apiKey);
+    const { uid } = await apiKeyStorer.findByToken(token);
     const additionalClaims = { apiKey: true };
     return { uid, additionalClaims };
   } catch (err) {

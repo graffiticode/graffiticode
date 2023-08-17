@@ -10,6 +10,7 @@ describe("routes/auth", () => {
     const authApp = createApp();
     authService = authApp.authService;
     app = authApp.app;
+    auth = null;
     authApp.app.use("/for-testing", (req, res) => {
       auth = req.auth;
       res.sendStatus(200);

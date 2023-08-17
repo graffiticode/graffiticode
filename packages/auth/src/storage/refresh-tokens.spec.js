@@ -17,7 +17,6 @@ describe("storage/refresh-tokens", () => {
   it("should create refresh token that can retrieve data", async () => {
     const uid = "abc123";
     const { token } = await storer.createRefreshToken({ uid });
-    console.log(token);
 
     const data = await storer.getRefreshToken(token);
 

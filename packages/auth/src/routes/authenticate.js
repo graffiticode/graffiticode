@@ -5,17 +5,15 @@ import { isNonEmptyString } from "@graffiticode/common/utils";
 import { Router } from "express";
 
 const buildApiKeyAuthenticate = ({ apiKeyService, authService }) => buildHttpHandler(async (req, res) => {
-  const { apiKey } = req.body;
-  if (!isNonEmptyString(apiKey)) {
-    throw new InvalidArgumentError("must provide an api-key");
+  const { token } = req.body;
+  if (!isNonEmptyString(token)) {
+    throw new InvalidArgumentError("must provide a token");
   }
 
-  const authContext = await apiKeyService.authenticate({ apiKey });
+  const authContext = await apiKeyService.authenticate({ token });
+  const firebaseCustomToken = await authService.createFirebaseCustomToken(authContext);
 
-  const { refreshToken, accessToken, firebaseCustomToken } = await authService.generateTokens(authContext);
-  await authService.revokeRefreshToken(refreshToken);
-
-  sendSuccessResponse(res, { access_token: accessToken, firebaseCustomToken });
+  sendSuccessResponse(res, { firebaseCustomToken });
 });
 
 const buildApiKeyRouter = (deps) => {

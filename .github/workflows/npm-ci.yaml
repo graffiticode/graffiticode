@@ -17,8 +17,8 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version }}
-    - run: npm install --workspaces
-    - run: npm run --if-present --workspaces lint
-    - run: npm test --workspaces
+    - run: npm install
+    - run: npm run --if-present --workspaces --include-workspace-root lint
+    - run: npm test --workspaces --include-workspace-root
       env:
         CI: true

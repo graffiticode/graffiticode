@@ -9,6 +9,8 @@ const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {} }) => {
   const id = v4();
   const token = await generateNonce(64);
+  const createdAt = admin.firestore.FieldValue.serverTimestamp();
+  const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + THIRTY_DAYS);
 
   const batchWriter = db.batch();
 
@@ -16,12 +18,7 @@ const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {} 
   batchWriter.create(refreshTokenPrivateRef, { token });
 
   const refreshTokenRef = db.doc(`refresh-tokens/${id}`);
-  batchWriter.create(refreshTokenRef, {
-    uid,
-    additionalClaims,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + THIRTY_DAYS),
-  });
+  batchWriter.create(refreshTokenRef, { uid, additionalClaims, createdAt, expiresAt });
 
   await batchWriter.commit();
 
@@ -29,7 +26,6 @@ const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {} 
 };
 
 const buildGetRefreshToken = ({ db }) => async (token) => {
-  const db = getFirestore();
   const querySnapshot = await db.collection("refresh-tokens-private")
     .where("token", "==", token)
     .get();

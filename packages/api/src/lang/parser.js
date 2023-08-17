@@ -49,9 +49,7 @@ export const buildParser = ({
 }) => {
   return {
     async parse(lang, src) {
-      if (cache.has(lang)) {
-        return main.parse(src, cache.get(lang));
-      } else {
+      if (!cache.has(lang)) {
         let data = await getLangAsset(lang, "/lexicon.js");
         // TODO Make lexicon JSON.
         if (data instanceof Buffer) {
@@ -80,8 +78,9 @@ export const buildParser = ({
           }
         }
         cache.set(lang, lexicon);
-        return await main.parse(src, lexicon);
       };
+      const lexicon = cache.get(lang);
+      return await main.parse(src, lexicon);
     }
   };
 };

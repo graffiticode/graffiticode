@@ -7,23 +7,27 @@ import {
   CODE_AS_DATA, TASK_WITH_CODE_AS_DATA
 } from "../testing/fixture.js";
 import { createError, createErrorResponse, createSuccessResponse } from "./utils.js";
+import { startLangApp } from "../testing/lang.js";
 
 describe("routes/tasks", () => {
-  beforeEach(async () => {
-    await clearFirestore();
-  });
-
+  let langApp;
   let authApp;
   let app;
   beforeEach(async () => {
+    await clearFirestore();
+
+    langApp = await startLangApp();
+
     authApp = await startAuthApp();
     app = createApp({ authUrl: authApp.url });
+
+    process.env.BASE_URL_L0 = langApp.url;
+    process.env.BASE_URL_L1 = langApp.url;
   });
 
   afterEach(async () => {
-    if (authApp) {
-      await authApp.cleanUp();
-    }
+    await authApp.cleanUp();
+    await langApp.cleanUp();
   });
 
   it("should create a task", async () => {

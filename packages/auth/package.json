@@ -1,6 +1,6 @@
 {
   "name": "@graffiticode/auth",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "type": "module",
   "description": "Auth service for GC applications",
   "author": "Art Compiler LLC",
@@ -27,7 +27,7 @@
   },
   "bin": "./src/main.js",
   "scripts": {
-    "dev": "firebase emulators:exec --ui \"nodemon src/main.js\"",
+    "dev": "GOOGLE_CLOUD_PROJECT=\"graffiticode\" FIREBASE_AUTH_EMULATOR_HOST=\"127.0.0.1:9099\" FIRESTORE_EMULATOR_HOST=\"127.0.0.1:8080\" nodemon --exec \"npx @graffiticode/auth\"",
     "lint": "eslint src/",
     "lint:fix": "eslint --fix src/",
     "start": "node -r @graffiticode/tracing src/main.js",
