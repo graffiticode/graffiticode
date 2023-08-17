@@ -3,7 +3,6 @@ import { buildPostTasks } from "./tasks.js";
 import { buildGetData } from "./data.js";
 import {
   buildHttpHandler,
-  createSuccessResponse,
   createCompileSuccessResponse,
   parseAuthTokenFromRequest,
   optionsHandler
@@ -57,7 +56,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     if (data.length === 1) {
       data = data[0];
     }
-    const [ id ] = ids;
+    const [id] = ids;
     res.set("Access-Control-Allow-Origin", "*");
     res.status(200).json(createCompileSuccessResponse({ id, data }));
   });
