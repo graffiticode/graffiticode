@@ -42,8 +42,8 @@ const buildFindByToken = ({ db }) => async (token) => {
 
   const apiKeyRef = apiKeyPrivateDoc.ref.parent.parent;
   const apiKeyDoc = await apiKeyRef.get();
-  const { uid } = apiKeyDoc.data();
-  return { uid };
+  const { uid, createdAt } = apiKeyDoc.data();
+  return { id: apiKeyRef.id, uid, createdAt };
 };
 
 const buildFindById = ({ db }) => async (id) => {
@@ -53,7 +53,7 @@ const buildFindById = ({ db }) => async (id) => {
     throw new NotFoundError();
   }
   const { uid, createdAt } = apiKeyDoc.data();
-  return { uid, createdAt };
+  return { id, uid, createdAt };
 };
 
 const buildRemoveById = ({ db }) => async (id) => {

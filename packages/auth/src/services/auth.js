@@ -116,5 +116,5 @@ export const buildAuthService = ({ firebaseAuth, refreshTokenStorer, keysService
 
   const generateTokens = buildGenerateTokens({ refreshTokenStorer, generateRefreshToken, createAccessToken, createFirebaseCustomToken });
 
-  return { verifyToken, revokeRefreshToken, createFirebaseCustomToken, generateAccessToken, generateFirebaseCustomToken, generateTokens };
+  return { verifyToken, revokeRefreshToken, createFirebaseCustomToken, createAccessToken, generateAccessToken, generateFirebaseCustomToken, generateTokens };
 };

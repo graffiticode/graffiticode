@@ -26,9 +26,26 @@ const buildAuthenticate = ({ apiKeyStorer }) => async ({ token }) => {
   }
 };
 
+const buildAuthenticateWithId = ({ apiKeyStorer }) => async ({ id, token }) => {
+  try {
+    const { id: tokenId, uid } = await apiKeyStorer.findByToken(token);
+    if (tokenId !== id) {
+      throw new UnauthenticatedError();
+    }
+    const additionalClaims = { apiKey: true, apiKeyId: tokenId };
+    return { uid, additionalClaims };
+  } catch (err) {
+    if (err instanceof NotFoundError) {
+      throw new UnauthenticatedError();
+    }
+    throw err;
+  }
+};
+
 export const buildApiKeyService = (deps) => {
   return {
     authenticate: buildAuthenticate(deps),
+    authenticateWithId: buildAuthenticateWithId(deps),
     create: buildCreate(deps),
     remove: buildRemove(deps),
   };
