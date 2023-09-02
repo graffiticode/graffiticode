@@ -10,7 +10,7 @@ describe("storage/api-keys", () => {
 
   afterEach(cleanUpFirebase);
 
-  describe("storage/api-keys/findById", () => {
+  describe("findById", () => {
     it("should throw NotFoundError if does not exist", async () => {
       await expect(storer.findById("abc123")).rejects.toThrow(NotFoundError);
     });
@@ -21,22 +21,26 @@ describe("storage/api-keys", () => {
 
       const data = await storer.findById(id);
 
+      expect(data).toHaveProperty("id", id);
       expect(data).toHaveProperty("uid", uid);
+      expect(data).toHaveProperty("createdAt");
     });
   });
 
-  describe("storage/api-keys/findByToken", () => {
+  describe("findByToken", () => {
     it("should throw NotFoundError if does not exist", async () => {
       await expect(storer.findByToken("abc123")).rejects.toThrow(NotFoundError);
     });
 
     it("should be retrieved by token", async () => {
       const uid = "abc123";
-      const { token } = await storer.create({ uid });
+      const { id, token } = await storer.create({ uid });
 
       const data = await storer.findByToken(token);
 
+      expect(data).toHaveProperty("id", id);
       expect(data).toHaveProperty("uid", uid);
+      expect(data).toHaveProperty("createdAt");
     });
   });
 
