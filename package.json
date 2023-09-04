@@ -4,7 +4,8 @@
   "workspaces": [
     "packages/api",
     "packages/auth",
-    "packages/common"
+    "packages/common",
+    "packages/auth-client"
   ],
   "scripts": {
     "lint": "eslint test/",
