@@ -49,7 +49,7 @@ describe("routes/oauth", () => {
       });
 
       it("should return unauthorized if invalid refreshToken", async () => {
-        await expect(authApp.client.exchangeRefreshToken("foo")).rejects.toThrow("token does not exist");
+        await expect(authApp.client.exchangeRefreshToken("foo")).rejects.toThrow("Unauthorized");
       });
     });
   });
@@ -59,17 +59,18 @@ describe("routes/oauth", () => {
       await expect(authApp.client.revokeRefreshToken(null)).rejects.toThrow("must provide a token");
     });
 
-    it("should not throw an erro for revoking non-existing refresh token", async () => {
+    it("should not throw an error for revoking non-existing refresh token", async () => {
       await expect(authApp.client.revokeRefreshToken("foo")).resolves.toBe();
     });
 
-    it("should return not found for non-existing refresh token", async () => {
+    it("should revoke a valid refresh token", async () => {
       const { refreshToken } = await authApp.authService.generateTokens({ uid });
 
       await authApp.client.revokeRefreshToken(refreshToken);
 
+      // Should not be able to exchange the refreshToken after being revoked
       await expect(authApp.client.exchangeRefreshToken(refreshToken))
-        .rejects.toThrow(/does not exist/);
+        .rejects.toThrow("Unauthorized");
     });
   });
 
