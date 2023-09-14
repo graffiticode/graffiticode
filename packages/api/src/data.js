@@ -5,6 +5,7 @@ const buildGetData = ({ compile }) =>
       // There exists a task that we are authorized to see.
       const compile = await compileStorer.get({ id, auth });
       if (compile && compile.data) {
+        console.log("[1] getData() data=" + JSON.stringify(compile.data, null, 2));
         return compile.data;
       }
     }
@@ -16,7 +17,7 @@ const buildGetData = ({ compile }) =>
       // use any existing compiles.
       async (dataPromise, task) => {
         const data = await dataPromise;
-        console.log("getData() data=" + JSON.stringify(data, null, 2));
+        console.log("[2] getData() data=" + JSON.stringify(data, null, 2));
         const { lang, code } = task;
         const obj = await compile({
           lang,
