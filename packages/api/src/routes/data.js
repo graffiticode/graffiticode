@@ -35,6 +35,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
         data: JSON.stringify(data)
       });
     }
+    console.log("getData() data=" + JSON.stringify(data, null, 2));
     return data;
   };
 };
