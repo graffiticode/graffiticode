@@ -16,6 +16,7 @@ const buildGetData = ({ compile }) =>
       // use any existing compiles.
       async (dataPromise, task) => {
         const data = await dataPromise;
+        console.log("getData() data=" + JSON.stringify(data, null, 2));
         const { lang, code } = task;
         const obj = await compile({
           lang,
