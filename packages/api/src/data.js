@@ -31,6 +31,7 @@ const buildGetData = ({ compile }) =>
       },
       Promise.resolve({})
     );
+    console.log("[4] getData() id=" + id + " data=" + JSON.stringify(data, null, 2));
     await compileStorer.create({
       id,
       compile: {
