@@ -12,7 +12,6 @@ import {
 export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   const logCompile = buildCompileLogger();
   return async ({ auth, authToken, ids }) => {
-    // console.log("getData() ids=" + ids);
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
     }
@@ -35,7 +34,6 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
         data: JSON.stringify(data)
       });
     }
-    console.log("getData() data=" + JSON.stringify(data, null, 2));
     return data;
   };
 };
@@ -43,7 +41,6 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
 const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   return buildHttpHandler(async (req, res) => {
-    // console.log("GET /data ");
     const auth = req.auth.context;
     const authToken = parseAuthFromRequest(req);
     const ids = parseIdsFromRequest(req);
