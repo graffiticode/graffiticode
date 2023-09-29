@@ -24,7 +24,7 @@ describe("routes/v1/api-keys", () => {
 
     it("should return unauthorized if access token is derived from an API Key", async () => {
       const { id, token } = await authApp.apiKeyService.create({ uid });
-      const authContext = await authApp.apiKeyService.authenticate({ id, token });
+      const authContext = await authApp.apiKeyService.authenticateWithId({ id, token });
       const accessToken = await authApp.authService.createAccessToken(authContext);
 
       await request(authApp.app)
@@ -43,7 +43,7 @@ describe("routes/v1/api-keys", () => {
 
       expect(res.body).toHaveProperty("status", "success");
       const { id, token } = res.body.data;
-      await expect(authApp.apiKeyService.authenticate({ id, token })).resolves.toHaveProperty("uid", uid);
+      await expect(authApp.apiKeyService.authenticateWithId({ id, token })).resolves.toHaveProperty("uid", uid);
     });
   });
 
@@ -58,7 +58,7 @@ describe("routes/v1/api-keys", () => {
 
     it("should return unauthorized if access token is derived from an API Key", async () => {
       const { id, token } = await authApp.apiKeyService.create({ uid });
-      const authContext = await authApp.apiKeyService.authenticate({ id, token });
+      const authContext = await authApp.apiKeyService.authenticateWithId({ id, token });
       const accessToken = await authApp.authService.createAccessToken(authContext);
 
       await request(authApp.app)
@@ -95,7 +95,7 @@ describe("routes/v1/api-keys", () => {
         .set("Authorization", accessToken)
         .expect(200);
 
-      await expect(authApp.apiKeyService.authenticate({ id, token }))
+      await expect(authApp.apiKeyService.authenticateWithId({ id, token }))
         .rejects.toThrow(UnauthenticatedError);
     });
   });
