@@ -19,17 +19,17 @@ describe("v1/tokens", () => {
 
   describe("verifyAccessToken", () => {
     it("should throw error if not token is provided", async () => {
-      await expect(client.verifyAccessToken()).rejects.toThrow("must provide a token");
+      await expect(client.verifyAccessToken()).rejects.toThrow("must provide an accessToken");
     });
 
     it("should throw error if invalid token is provided", async () => {
-      await expect(client.verifyAccessToken("invalid-token")).rejects.toThrow(UnauthenticatedError);
+      await expect(client.verifyAccessToken({ accessToken: "invalid-token" })).rejects.toThrow(UnauthenticatedError);
     });
 
     it("should verify given token", async () => {
       const accessToken = await authApp.authService.createAccessToken({ uid });
 
-      await expect(client.verifyAccessToken(accessToken)).resolves.toHaveProperty("uid", uid);
+      await expect(client.verifyAccessToken({ accessToken })).resolves.toHaveProperty("uid", uid);
     });
   });
 });

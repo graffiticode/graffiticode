@@ -9,7 +9,7 @@
     "access": "public"
   },
   "exports": {
-    "v1": "./src/v1/index.js"
+    "./v1": "./src/v1/index.js"
   },
   "scripts": {
     "lint": "eslint src/",

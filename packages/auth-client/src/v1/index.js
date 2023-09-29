@@ -2,16 +2,10 @@ import { isNonEmptyString } from "@graffiticode/common/utils";
 import bent from "bent";
 import { createRemoteJWKSet } from "jose";
 import "dotenv/config";
-import {
-  buildCreateApiKey,
-  buildDeleteApiKey,
-  buildSignInWithApiKey,
-} from "./api-keys.js";
-import {
-  buildGetEthereumNonce,
-  buildSignInWithEthereum,
-} from "./ethereum.js";
-import { buildVerifyAccessToken } from "./tokens.js";
+import { buildVerifyAccessToken } from "./access-tokens.js";
+import { buildCreateApiKey, buildDeleteApiKey, buildSignInWithApiKey } from "./api-keys.js";
+import { buildGetEthereumNonce, buildSignInWithEthereum } from "./ethereum.js";
+import { buildExchangeRefreshToken, buildRevokeRefreshToken } from "./refresh-tokens.js";
 
 const initializeContext = ({ apiKeyId, apiKeyToken } = {}) => {
   const context = new Map();
@@ -39,13 +33,23 @@ const createDeps = ({ url }) => {
   return deps;
 };
 
+const buildUnimplemented = () => async () => {
+  throw new Error("Unimplemented");
+};
+
 export const createClient = ({ url = "https://auth.graffiticode.com", apiKeyId, apiKeyToken }) => {
   const context = initializeContext({ apiKeyId, apiKeyToken });
   const deps = createDeps({ url });
 
   return {
-    // Tokens
+    _context: context,
+
+    // Access Tokens
     verifyAccessToken: buildVerifyAccessToken(context, deps),
+
+    // Refresh Tokens
+    exchangeRefreshToken: buildExchangeRefreshToken(context, deps),
+    revokeRefreshToken: buildRevokeRefreshToken(context, deps),
 
     // Ethereum
     getEthereumNonce: buildGetEthereumNonce(context, deps),
@@ -54,6 +58,7 @@ export const createClient = ({ url = "https://auth.graffiticode.com", apiKeyId, 
     // Api Keys
     createApiKey: buildCreateApiKey(context, deps),
     deleteApiKey: buildDeleteApiKey(context, deps),
+    listApiKeys: buildUnimplemented(context, deps),
     signInWithApiKey: buildSignInWithApiKey(context, deps),
   };
 };
