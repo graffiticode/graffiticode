@@ -37,18 +37,18 @@ const buildGenerateRefreshToken = ({ refreshTokenStorer }) => async ({ uid, addi
   return token;
 };
 
-const buildGetRefreshToken = ({ refreshTokenStorer }) => async (refreshToken) => {
+const buildGetRefreshToken = ({ refreshTokenStorer }) => async ({ refreshToken }) => {
   try {
     return await refreshTokenStorer.getRefreshToken(refreshToken);
   } catch (err) {
     if (err instanceof NotFoundError) {
-      throw new UnauthenticatedError(err.message);
+      throw new UnauthenticatedError("Unauthorized");
     }
     throw err;
   }
 };
 
-const buildRevokeRefreshToken = ({ refreshTokenStorer }) => async (refreshToken) => {
+const buildRevokeRefreshToken = ({ refreshTokenStorer }) => async ({ refreshToken }) => {
   await refreshTokenStorer.deleteRefreshToken(refreshToken);
 };
 
@@ -68,7 +68,7 @@ const buildCreateAccessToken = ({ keysService }) => async ({ uid, additionalClai
 };
 
 const buildGenerateAccessToken = ({ getRefreshToken, createAccessToken }) => async ({ refreshToken }) => {
-  const { uid, additionalClaims } = await getRefreshToken(refreshToken);
+  const { uid, additionalClaims } = await getRefreshToken({ refreshToken });
   return createAccessToken({ uid, additionalClaims });
 };
 
@@ -78,7 +78,7 @@ const buildCreateFirebaseCustomToken = ({ firebaseAuth }) => async ({ uid, addit
 };
 
 const buildGenerateFirebaseCustomToken = ({ getRefreshToken, createFirebaseCustomToken }) => async ({ refreshToken }) => {
-  const { uid, additionalClaims } = await getRefreshToken(refreshToken);
+  const { uid, additionalClaims } = await getRefreshToken({ refreshToken });
   return createFirebaseCustomToken({ uid, additionalClaims });
 };
 

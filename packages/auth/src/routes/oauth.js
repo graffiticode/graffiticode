@@ -50,7 +50,7 @@ const buildRevokeToken = ({ authService }) => buildHttpHandler(async (req, res) 
     throw new InvalidArgumentError("must provide a token");
   }
 
-  await authService.revokeRefreshToken(token);
+  await authService.revokeRefreshToken({ refreshToken: token });
 
   sendSuccessResponse(res, null);
 });
