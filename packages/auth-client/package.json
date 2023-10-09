@@ -1,6 +1,6 @@
 {
   "name": "@graffiticode/auth-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Graffiticode Auth Client",
   "author": "Art Compiler LLC",
