@@ -1,14 +1,18 @@
-import { NotFoundError } from "@graffiticode/common/errors";
+import { InvalidArgumentError, NotFoundError } from "@graffiticode/common/errors";
 import admin from "firebase-admin";
 import { v4 } from "uuid";
 import { getFirestore } from "../firebase.js";
 import { generateNonce } from "../utils.js";
 
+const FieldValue = admin.firestore.FieldValue;
+const Timestamp = admin.firestore.Timestamp;
+
 const buildCreate = ({ db }) => async ({ uid }) => {
   const id = v4();
   const token = await generateNonce(64);
-  const createdAt = admin.firestore.FieldValue.serverTimestamp();
+  const createdAt = FieldValue.serverTimestamp();
 
+  const db = getFirestore();
   const batchWriter = db.batch();
 
   const apiKeyRef = db.doc(`api-keys/${id}`);
@@ -20,6 +24,13 @@ const buildCreate = ({ db }) => async ({ uid }) => {
   await batchWriter.commit();
 
   return { id, uid, token };
+};
+
+const buildRemoveById = ({ db }) => async (id) => {
+  const batchWriter = db.batch();
+  batchWriter.delete(db.doc(`api-keys/${id}`));
+  batchWriter.delete(db.doc(`api-keys/${id}/private/key`));
+  await batchWriter.commit();
 };
 
 const buildFindByToken = ({ db }) => async (token) => {
@@ -63,18 +74,41 @@ const buildFindById = ({ db }) => async (id) => {
   return { id, uid, createdAt };
 };
 
-const buildRemoveById = ({ db }) => async (id) => {
-  const batchWriter = db.batch();
-  batchWriter.delete(db.doc(`api-keys/${id}`));
-  batchWriter.delete(db.doc(`api-keys/${id}/private/key`));
-  await batchWriter.commit();
+const buildList = ({ db }) => async ({ uid, limit, createdAfterMillis }) => {
+  if (!Number.isInteger(limit)) {
+    limit = 100;
+  } else if (limit < 5) {
+    limit = 5;
+  }
+
+  const db = getFirestore();
+  let query = db.collection("api-keys")
+    .where("uid", "==", uid)
+    .orderBy("createdAt")
+    .limit(limit);
+  if (Number.isInteger(createdAfterMillis)) {
+    if (createdAfterMillis < 0) {
+      throw new InvalidArgumentError("must provide positive createdAfterMillis");
+    }
+    query = query.startAfter(Timestamp.fromMillis(createdAfterMillis));
+  }
+  const apiKeysSnap = await query.get();
+
+  const apiKeys = apiKeysSnap.docs.map(apiKeySnap => ({
+    id: apiKeySnap.id,
+    uid: apiKeySnap.get("uid"),
+    createdAt: apiKeySnap.get("createdAt"),
+  }));
+
+  return apiKeys;
 };
 
 export const buildApiKeyStorer = () => {
   const db = getFirestore();
   const create = buildCreate({ db });
+  const removeById = buildRemoveById({ db });
   const findById = buildFindById({ db });
   const findByToken = buildFindByToken({ db });
-  const removeById = buildRemoveById({ db });
-  return { create, findById, findByToken, removeById };
+  const list = buildList({ db });
+  return { create, removeById, findById, findByToken, list };
 };
