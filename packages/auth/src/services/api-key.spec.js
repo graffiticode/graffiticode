@@ -1,8 +1,10 @@
 import { UnauthenticatedError } from "@graffiticode/common/errors";
+import admin from "firebase-admin";
 import { createStorers } from "../storage/index.js";
 import { cleanUpFirebase } from "../testing/firebase.js";
 import { buildApiKeyService } from "./api-key.js";
 
+const Timestamp = admin.firestore.Timestamp;
 const uid = "abc123";
 
 describe("services/api-key", () => {
@@ -55,6 +57,53 @@ describe("services/api-key", () => {
       expect(authContext).toHaveProperty("uid", uid);
       expect(authContext).toHaveProperty("additionalClaims.apiKey", true);
       expect(authContext).toHaveProperty("additionalClaims.apiKeyId", id);
+    });
+  });
+
+  describe("list", () => {
+    const createApiKeys = async (uid, num) => {
+      const apiKeys = [];
+      for (let i = 0; i < num; i++) {
+        apiKeys.push(await apiKeyService.create({ uid }));
+      }
+      return apiKeys;
+    };
+
+    const expectApiKeys = (actual, expectedApiKeys) => {
+      expect(actual).toHaveProperty(
+        "apiKeys",
+        expectedApiKeys.map(({ id, uid }) => ({ id, uid, createdAt: expect.any(Timestamp) }))
+      );
+    };
+
+    it("should return list of api keys for user", async () => {
+      const apiKeys = await createApiKeys(uid, 2);
+      await apiKeyService.create({ uid: "should-not-be-returned" });
+
+      const actual = await apiKeyService.list({ uid });
+
+      expectApiKeys(actual, apiKeys);
+    });
+
+    it("should return list of api keys limited to pageSize", async () => {
+      const apiKeys = await createApiKeys(uid, 20);
+      const pageSize = 7;
+
+      const actual = await apiKeyService.list({ uid, pageSize });
+
+      expectApiKeys(actual, apiKeys.slice(0, pageSize));
+      expect(actual).toHaveProperty("nextPageToken");
+    });
+
+    it("should return nextPageToken that gets the next page", async () => {
+      const apiKeys = await createApiKeys(uid, 15);
+      const pageSize = 5;
+      const { nextPageToken } = await apiKeyService.list({ uid, pageSize });
+
+      const actual = await apiKeyService.list({ uid, pageSize, pageToken: nextPageToken });
+
+      expectApiKeys(actual, apiKeys.slice(5, pageSize));
+      expect(actual).toHaveProperty("nextPageToken");
     });
   });
 });

@@ -3,6 +3,8 @@ import admin from "firebase-admin";
 import { cleanUpFirebase } from "../testing/firebase.js";
 import { buildApiKeyStorer } from "./api-keys.js";
 
+const Timestamp = admin.firestore.Timestamp;
+
 describe("storage/api-keys", () => {
   let storer;
   beforeEach(async () => {
@@ -64,7 +66,7 @@ describe("storage/api-keys", () => {
 
     const expectIdsAndUid = (actual, expectedApiKeys) => {
       expect(actual).toEqual(expectedApiKeys.map(({ id, uid }) =>
-        ({ id, uid, createdAt: expect.any(admin.firestore.Timestamp) })));
+        ({ id, uid, createdAt: expect.any(Timestamp) })));
     };
 
     it("should return list of API keys", async () => {
