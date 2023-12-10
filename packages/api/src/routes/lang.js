@@ -14,8 +14,8 @@ const getLangIdFromRequest = (req) => {
   if (!match) {
     throw new InvalidArgumentError("must provide a language identifier");
   }
-  id = Number.parseInt(match[1]);
-  if (!Number.isInteger(id)) {
+  id = match[1];
+  if (!Number.isInteger(Number.parseInt(id))) {
     const err = new Error("should not be possible");
     err.statusCode = 500;
     throw err;
