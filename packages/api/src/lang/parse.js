@@ -1795,11 +1795,12 @@ export const parse = (function () {
         stream.next();
       }
     } catch (x) {
-      console.log("catch() x=" + x);
+      // console.log("catch() x=" + x);
       if (x instanceof Error) {
         if (x.message === "comment") {
           cls = x;
         } else {
+          console.log("catch() x=" + x.stack);
           next(ctx);
           addError(ctx, x.message);
           state.cc = null; // done for now.
@@ -2117,7 +2118,7 @@ const folder = (function () {
 
   function visit(nid) {
     const node = nodePool[nid];
-    if (node === null) {
+    if (!node) {
       return null;
     }
     if (node.tag === undefined) {

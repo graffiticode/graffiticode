@@ -5,8 +5,8 @@ import { buildHttpHandler } from "./utils.js";
 
 const getLangIdFromRequest = (req) => {
   const [, base] = req.baseUrl.split("/");
-  let id = Number.parseInt(req.query.id);
-  if (base === "lang" && Number.isInteger(id)) {
+  let id = req.query.id;
+  if (base === "lang" && Number.isInteger(Number.parseInt(req.query.id))) {
     return id;
   }
   const re = /^[Ll](\d+)$/;
