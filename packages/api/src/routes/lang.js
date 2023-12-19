@@ -36,12 +36,14 @@ export const buildLangRouter = ({ pingLang, getLangAsset }) => {
       const asset = await getLangAsset(lang, `/${path}`);
       if (path.indexOf(".jp") > 0) {
         res.setHeader("Content-Type", "image/jpeg");
-      if (path.indexOf(".png") > 0) {
+      } else if (path.indexOf(".png") > 0) {
         res.setHeader("Content-Type", "image/png");
-      if (path.indexOf(".svg") > 0) {
+      } else if (path.indexOf(".svg") > 0) {
         res.setHeader("Content-Type", "image/svg+xml");
       } else if (path.indexOf(".js") > 0) {
         res.setHeader("Content-Type", "application/javascript");
+      } else if (path.indexOf(".json") > 0) {
+        res.setHeader("Content-Type", "application/json");
       }
       res.send(asset);
     } else {
