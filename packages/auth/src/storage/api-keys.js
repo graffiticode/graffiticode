@@ -34,6 +34,7 @@ const buildFindByToken = ({ db }) => async (token) => {
     console.warn("Trying to get multiple api-keys");
   }
   const apiKeyPrivateDoc = querySnapshot.docs[0];
+  console.log("buildFindByToken() apiKeyPrivateDoc=" + JSON.stringify(apiKeyPrivateDoc, null, 2));
   if (apiKeyPrivateDoc.ref.parent.parent === null) {
     throw new Error("API Key private doc is not in a sub collection");
   }
