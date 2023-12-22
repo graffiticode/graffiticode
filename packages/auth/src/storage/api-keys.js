@@ -23,6 +23,7 @@ const buildCreate = ({ db }) => async ({ uid }) => {
 };
 
 const buildFindByToken = ({ db }) => async (token) => {
+  console.log("buildFindByToken() token=" + token);
   const querySnapshot = await db.collectionGroup("private")
     .where("token", "==", token)
     .get();
@@ -47,7 +48,6 @@ const buildFindByToken = ({ db }) => async (token) => {
 };
 
 const buildFindById = ({ db }) => async (id) => {
-  console.log("buildFindById() id=" + id);
   const apiKeyRef = db.doc(`api-keys/${id}`);
   const apiKeyDoc = await apiKeyRef.get();
   if (!apiKeyDoc.exists) {
