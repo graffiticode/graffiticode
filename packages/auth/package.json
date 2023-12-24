@@ -39,7 +39,7 @@
     "@graffiticode/tracing": "^0.3.0",
     "bent": "^7.3.12",
     "express": "^4.18.2",
-    "firebase-admin": "^11.10.0",
+    "firebase-admin": "^12.0.0",
     "jose": "^4.14.4",
     "uuid": "^9.0.0"
   },

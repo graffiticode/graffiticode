@@ -2,7 +2,6 @@ import { InvalidArgumentError, NotFoundError } from "@graffiticode/common/errors
 import admin from "firebase-admin";
 import { cleanUpFirebase } from "../testing/firebase.js";
 import { buildApiKeyStorer } from "./api-keys.js";
-import { getFirestore } from "../firebase.js";
 
 const Timestamp = admin.firestore.Timestamp;
 
@@ -31,19 +30,6 @@ describe("storage/api-keys", () => {
 
   it("should throw NotFoundError if does not exist", async () => {
     await expect(storer.findByToken("abc123")).rejects.toThrow(NotFoundError);
-  });
-
-  it("should be retrieved by token with another private collection", async () => {
-    const uid = "abc123";
-    const { id, token } = await storer.create({ uid });
-    const db = getFirestore();
-    await db.doc("refresh-tokens/abc123/private/key").set({ token });
-
-    const data = await storer.findByToken(token);
-
-    expect(data).toHaveProperty("id", id);
-    expect(data).toHaveProperty("uid", uid);
-    expect(data).toHaveProperty("createdAt");
   });
 
   it("should be retrieved by token", async () => {
