@@ -20,49 +20,45 @@ const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {} 
   const refreshTokenPrivateRef = db.doc(`refresh-tokens/${id}/private/key`);
   batchWriter.create(refreshTokenPrivateRef, { token });
 
+  const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${token}`);
+  batchWriter.create(tokenToIdRef, { id });
+
   await batchWriter.commit();
 
   return { uid, additionalClaims, token };
 };
 
 const buildGetRefreshToken = ({ db }) => async (token) => {
-  const querySnapshot = await db.collectionGroup("private")
-    .where("token", "==", token)
-    .get();
-  if (querySnapshot.empty) {
+  const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${token}`);
+  const tokenToIdDoc = await tokenToIdRef.get();
+  if (!tokenToIdDoc.exists) {
     throw new NotFoundError("token does not exist");
   }
-  if (querySnapshot.size > 1) {
-    console.warn("Trying to get multiple refresh tokens");
-  }
-  const refreshTokenPrivateDoc = querySnapshot.docs[0];
-  if (refreshTokenPrivateDoc.ref.parent.parent === null) {
-    throw new Error("Refresh Token private doc is not in a sub collection");
-  }
-  if (refreshTokenPrivateDoc.ref.parent.parent.parent.id !== "refresh-tokens") {
-    throw new Error("Refresh Token private doc is not in the refresh-tokens collection");
-  }
 
-  const refreshTokenRef = refreshTokenPrivateDoc.ref.parent.parent;
+  const id = tokenToIdDoc.get("id");
+  const refreshTokenRef = db.doc(`refresh-tokens/${id}`);
   const refreshTokenDoc = await refreshTokenRef.get();
   const { uid, additionalClaims, expiresAt } = refreshTokenDoc.data();
   return { uid, additionalClaims, expiresAt };
 };
 
 const buildDeleteRefreshToken = ({ db }) => async (token) => {
-  const querySnapshot = await db.collectionGroup("private")
-    .where("token", "==", token)
-    .get();
-  if (querySnapshot.size > 1) {
-    console.warn("Trying to delete multiple refresh tokens");
+  const db = getFirestore();
+  const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${token}`);
+  const tokenToIdDoc = await tokenToIdRef.get();
+  if (!tokenToIdDoc.exists) {
+    return;
   }
 
-  const batchWriter = db.batch();
-  querySnapshot.docs.forEach(documentSnapshot => {
-    batchWriter.delete(documentSnapshot.ref);
-    batchWriter.delete(db.doc(`refresh-tokens/${documentSnapshot.ref.parent.parent}`));
-  });
-  await batchWriter.commit();
+  const id = tokenToIdDoc.get("id");
+  const refreshTokenRef = db.doc(`refresh-tokens/${id}`);
+  const refreshTokenPrivateRef = db.doc(`refresh-tokens/${id}/private/key`);
+
+  await db.batch()
+    .delete(tokenToIdRef)
+    .delete(refreshTokenPrivateRef)
+    .delete(refreshTokenRef)
+    .commit();
 };
 
 export const buildRefreshTokenStorer = () => {
