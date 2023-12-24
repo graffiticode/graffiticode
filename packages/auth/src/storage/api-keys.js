@@ -7,12 +7,12 @@ import { generateNonce } from "../utils.js";
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
 
-const buildCreate = ({ db }) => async ({ uid }) => {
+const buildCreate = () => async ({ uid }) => {
+  const db = getFirestore();
   const id = v4();
   const token = await generateNonce(64);
   const createdAt = FieldValue.serverTimestamp();
 
-  const db = getFirestore();
   const batchWriter = db.batch();
 
   const apiKeyRef = db.doc(`api-keys/${id}`);
@@ -21,50 +21,45 @@ const buildCreate = ({ db }) => async ({ uid }) => {
   const apiKeyPrivateRef = db.doc(`api-keys/${id}/private/key`);
   batchWriter.create(apiKeyPrivateRef, { token });
 
+  const tokenToIdRef = db.doc(`api-keys/-indexes-/token-to-id/${token}`);
+  batchWriter.create(tokenToIdRef, { id });
+
   await batchWriter.commit();
 
   return { id, uid, token };
 };
 
-const buildRemoveById = ({ db }) => async (id) => {
-  const batchWriter = db.batch();
-  batchWriter.delete(db.doc(`api-keys/${id}`));
-  batchWriter.delete(db.doc(`api-keys/${id}/private/key`));
-  await batchWriter.commit();
+const buildRemoveById = () => async (id) => {
+  const db = getFirestore();
+  const apiKeyRef = db.doc(`api-keys/${id}`);
+  const apiKeyPrivateRef = db.doc(`api-keys/${id}/private/key`);
+  await db.runTransaction(async t => {
+    const apiKeyPrivateDoc = await t.get(apiKeyPrivateRef);
+    const token = apiKeyPrivateDoc.get("token");
+    const tokenToIdRef = db.doc(`api-keys/-indexes-/token-to-id/${token}`);
+    t.delete(tokenToIdRef)
+      .delete(apiKeyPrivateRef)
+      .delete(apiKeyRef);
+  });
 };
 
-const buildFindByToken = ({ db }) => async (token) => {
-  try {
-    console.log("buildFindByToken() token=" + token);
-    const querySnapshot = await db.collectionGroup("private")
-          .where("token", "==", token)
-          .get();
-    console.log("buildFindByToken() querySnapshot=" + JSON.stringify(querySnapshot, null, 2));
-    if (querySnapshot.empty) {
-      throw new NotFoundError("api-key does not exist");
-    }
-    if (querySnapshot.size > 1) {
-      console.warn("Trying to get multiple api-keys");
-    }
-    const apiKeyPrivateDoc = querySnapshot.docs[0];
-    if (apiKeyPrivateDoc.ref.parent.parent === null) {
-      throw new Error("API Key private doc is not in a sub collection");
-    }
-    if (apiKeyPrivateDoc.ref.parent.parent.parent.id !== "api-keys") {
-      throw new Error("API Key private doc is not in the api-keys collection");
-    }
-
-    const apiKeyRef = apiKeyPrivateDoc.ref.parent.parent;
-    const apiKeyDoc = await apiKeyRef.get();
-    const { uid, createdAt } = apiKeyDoc.data();
-    return { id: apiKeyRef.id, uid, createdAt };
-  } catch (x) {
-    console.log("buildFindByToken() x=" + x.stack);
-    throw x;
+const buildFindByToken = () => async (token) => {
+  const db = getFirestore();
+  const tokenToIdRef = db.doc(`api-keys/-indexes-/token-to-id/${token}`);
+  const tokenToIdDoc = await tokenToIdRef.get();
+  if (!tokenToIdDoc.exists) {
+    throw new NotFoundError("api-key does not exist");
   }
+
+  const id = tokenToIdDoc.get("id");
+  const apiKeyRef = db.doc(`api-keys/${id}`);
+  const apiKeyDoc = await apiKeyRef.get();
+  const { uid, createdAt } = apiKeyDoc.data();
+  return { id, uid, createdAt };
 };
 
-const buildFindById = ({ db }) => async (id) => {
+const buildFindById = () => async (id) => {
+  const db = getFirestore();
   const apiKeyRef = db.doc(`api-keys/${id}`);
   const apiKeyDoc = await apiKeyRef.get();
   if (!apiKeyDoc.exists) {
@@ -74,14 +69,14 @@ const buildFindById = ({ db }) => async (id) => {
   return { id, uid, createdAt };
 };
 
-const buildList = ({ db }) => async ({ uid, limit, createdAfterMillis }) => {
+const buildList = () => async ({ uid, limit, createdAfterMillis }) => {
+  const db = getFirestore();
   if (!Number.isInteger(limit)) {
     limit = 100;
   } else if (limit < 5) {
     limit = 5;
   }
 
-  const db = getFirestore();
   let query = db.collection("api-keys")
     .where("uid", "==", uid)
     .orderBy("createdAt")
@@ -104,11 +99,10 @@ const buildList = ({ db }) => async ({ uid, limit, createdAfterMillis }) => {
 };
 
 export const buildApiKeyStorer = () => {
-  const db = getFirestore();
-  const create = buildCreate({ db });
-  const removeById = buildRemoveById({ db });
-  const findById = buildFindById({ db });
-  const findByToken = buildFindByToken({ db });
-  const list = buildList({ db });
+  const create = buildCreate();
+  const removeById = buildRemoveById();
+  const findById = buildFindById();
+  const findByToken = buildFindByToken();
+  const list = buildList();
   return { create, removeById, findById, findByToken, list };
 };
