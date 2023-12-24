@@ -1,4 +1,4 @@
-import { UnauthenticatedError } from "@graffiticode/common/errors";
+import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/errors";
 import admin from "firebase-admin";
 import { createStorers } from "../storage/index.js";
 import { cleanUpFirebase } from "../testing/firebase.js";
@@ -85,6 +85,12 @@ describe("services/api-key", () => {
       expectApiKeys(actual, apiKeys);
     });
 
+    it("should throw invalid argument is no uid is given", async () => {
+      await createApiKeys(uid, 2);
+
+      await expect(apiKeyService.list({})).rejects.toThrow(InvalidArgumentError);
+    });
+
     it("should return list of api keys limited to pageSize", async () => {
       const apiKeys = await createApiKeys(uid, 20);
       const pageSize = 7;
@@ -95,15 +101,87 @@ describe("services/api-key", () => {
       expect(actual).toHaveProperty("nextPageToken");
     });
 
+    it("should default pageSize to 100", async () => {
+      const apiKeys = await createApiKeys(uid, 102);
+
+      const actual = await apiKeyService.list({ uid });
+
+      expectApiKeys(actual, apiKeys.slice(0, 100));
+      expect(actual).toHaveProperty("nextPageToken");
+    });
+
     it("should return nextPageToken that gets the next page", async () => {
       const apiKeys = await createApiKeys(uid, 15);
       const pageSize = 5;
-      const { nextPageToken } = await apiKeyService.list({ uid, pageSize });
+      const { nextPageToken: pageToken } = await apiKeyService.list({ uid, pageSize });
 
-      const actual = await apiKeyService.list({ uid, pageSize, pageToken: nextPageToken });
+      const actual = await apiKeyService.list({ uid, pageSize, pageToken });
 
-      expectApiKeys(actual, apiKeys.slice(5, pageSize));
+      expectApiKeys(actual, apiKeys.slice(5, 5 + pageSize));
       expect(actual).toHaveProperty("nextPageToken");
+    });
+
+    it("should throw InvalidArgument if uid is different in the pageToken", async () => {
+      await createApiKeys(uid, 15);
+      const pageSize = 5;
+      const { nextPageToken: pageToken } = await apiKeyService.list({ uid, pageSize });
+
+      await expect(apiKeyService.list({ uid: "different-uid", pageSize, pageToken }))
+        .rejects.toThrow(InvalidArgumentError);
+    });
+
+    it("should throw InvalidArgument if pageSize is different in the pageToken", async () => {
+      await createApiKeys(uid, 15);
+      const pageSize = 5;
+      const { nextPageToken: pageToken } = await apiKeyService.list({ uid, pageSize });
+
+      await expect(apiKeyService.list({ uid, pageSize: 10, pageToken }))
+        .rejects.toThrow(InvalidArgumentError);
+    });
+
+    const updatePageToken = (rawPageToken, applyFn) => {
+      const decodedPageToken = Buffer.from(rawPageToken, "base64url").toString();
+      const pageToken = JSON.parse(decodedPageToken);
+      const newPageToken = applyFn(pageToken);
+      const encodedNewPageToken = JSON.stringify(newPageToken);
+      const rawNewPageToken = Buffer.from(encodedNewPageToken).toString("base64url");
+      return rawNewPageToken;
+    };
+
+    it("should throw InvalidArgument if lastCreatedAtMillis is not a number", async () => {
+      await createApiKeys(uid, 15);
+      const pageSize = 5;
+      let { nextPageToken: pageToken } = await apiKeyService.list({ uid, pageSize });
+      pageToken = updatePageToken(pageToken, pageToken => ({ ...pageToken, lastCreatedAtMillis: "foo" }));
+
+      await expect(apiKeyService.list({ uid, pageSize, pageToken }))
+        .rejects.toThrow(InvalidArgumentError);
+    });
+
+    it("should throw InvalidArgument if lastCreatedAtMillis is less than zero", async () => {
+      await createApiKeys(uid, 15);
+      const pageSize = 5;
+      let { nextPageToken: pageToken } = await apiKeyService.list({ uid, pageSize });
+      pageToken = updatePageToken(pageToken, pageToken => ({ ...pageToken, lastCreatedAtMillis: -1 }));
+
+      await expect(apiKeyService.list({ uid, pageSize, pageToken }))
+        .rejects.toThrow(InvalidArgumentError);
+    });
+
+    it("should return page token that can be used to retrieve all results", async () => {
+      await createApiKeys(uid, 14);
+      const pageSize = 5;
+
+      let count = 0;
+      let pageToken;
+      do {
+        const { nextPageToken } = await apiKeyService.list({ uid, pageSize, pageToken });
+        count++;
+        pageToken = nextPageToken;
+      } while (pageToken);
+
+      // Count should be
+      expect(count).toBe(3);
     });
   });
 });
