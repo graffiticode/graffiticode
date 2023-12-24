@@ -15,7 +15,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, { disableWarnings: true });
 
 export const signInAndGetIdToken = async (customToken) => {
   const { user } = await signInWithCustomToken(auth, customToken);
