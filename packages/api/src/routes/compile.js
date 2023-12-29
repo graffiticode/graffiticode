@@ -26,10 +26,24 @@ function getItemsFromRequest(req) {
   return items;
 }
 
-const getTaskFromData = data => ({ lang: "0001", code: {
-  tag: "JSON",
-  args: [JSON.stringify(data)],
-}});
+const getTaskFromData = data => ({
+  lang: "0001",
+  code: {
+    "1": {
+      "elts": [
+        JSON.stringify(data)
+      ],
+      "tag": "STR"
+    },
+    "2": {
+      "elts": [
+        1
+      ],
+      "tag": "JSON"
+    },
+    "root": 2
+  }
+});
 
 let EMPTY_OBJECT_ID;
 
@@ -50,6 +64,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
         id = await postTasks({ auth, tasks: { lang, code }, req });
       }
       data = data || {};
+      const tasks = getTaskFromData(data);
       const dataId = await postTasks({ auth, tasks: getTaskFromData(data), req });
       if (dataId !== EMPTY_OBJECT_ID && id.indexOf(dataId) < 0) {
         id = [id, dataId].join("+");
