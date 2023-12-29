@@ -23,34 +23,27 @@ const buildCreate = ({ db }) => async ({ uid }) => {
 };
 
 const buildFindByToken = ({ db }) => async (token) => {
-  try {
-    console.log("buildFindByToken() token=" + token);
-    const querySnapshot = await db.collectionGroup("private")
-          .where("token", "==", token)
-          .get();
-    console.log("buildFindByToken() querySnapshot=" + JSON.stringify(querySnapshot, null, 2));
-    if (querySnapshot.empty) {
-      throw new NotFoundError("api-key does not exist");
-    }
-    if (querySnapshot.size > 1) {
-      console.warn("Trying to get multiple api-keys");
-    }
-    const apiKeyPrivateDoc = querySnapshot.docs[0];
-    if (apiKeyPrivateDoc.ref.parent.parent === null) {
-      throw new Error("API Key private doc is not in a sub collection");
-    }
-    if (apiKeyPrivateDoc.ref.parent.parent.parent.id !== "api-keys") {
-      throw new Error("API Key private doc is not in the api-keys collection");
-    }
-
-    const apiKeyRef = apiKeyPrivateDoc.ref.parent.parent;
-    const apiKeyDoc = await apiKeyRef.get();
-    const { uid, createdAt } = apiKeyDoc.data();
-    return { id: apiKeyRef.id, uid, createdAt };
-  } catch (x) {
-    console.log("buildFindByToken() x=" + x.stack);
-    throw x;
+  const querySnapshot = await db.collectionGroup("private")
+    .where("token", "==", token)
+    .get();
+  if (querySnapshot.empty) {
+    throw new NotFoundError("api-key does not exist");
   }
+  if (querySnapshot.size > 1) {
+    console.warn("Trying to get multiple api-keys");
+  }
+  const apiKeyPrivateDoc = querySnapshot.docs[0];
+  if (apiKeyPrivateDoc.ref.parent.parent === null) {
+    throw new Error("API Key private doc is not in a sub collection");
+  }
+  if (apiKeyPrivateDoc.ref.parent.parent.parent.id !== "api-keys") {
+    throw new Error("API Key private doc is not in the api-keys collection");
+  }
+
+  const apiKeyRef = apiKeyPrivateDoc.ref.parent.parent;
+  const apiKeyDoc = await apiKeyRef.get();
+  const { uid, createdAt } = apiKeyDoc.data();
+  return { id: apiKeyRef.id, uid, createdAt };
 };
 
 const buildFindById = ({ db }) => async (id) => {
