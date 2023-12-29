@@ -949,7 +949,8 @@ export const parse = (function () {
     apply: { tk: 1, name: "APPLY", cls: "function", length: 2, arity: 2 },
     in: { tk: 1, name: "IN", cls: "function", length: 0, arity: 0 },
     arg: { tk: 1, name: "ARG", cls: "function", length: 1, arity: 1 },
-    data: { tk: 1, name: "DATA", cls: "function", length: 1, arity: 1 }
+    data: { tk: 1, name: "DATA", cls: "function", length: 1, arity: 1 },
+    json: { tk: 1, name: "JSON", cls: "function", length: 1, arity: 1 },
   };
 
   function addError(ctx, str) {
