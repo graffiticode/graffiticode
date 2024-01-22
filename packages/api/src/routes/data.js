@@ -25,15 +25,13 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
     } else {
       data = objs[0];
     }
-    if (action.compiled) {
-      logCompile({
-        token: authToken,
-        id: ids.join("+"),
-        status: "success",
-        timestamp: String(Date.now()),
-        data: JSON.stringify(data)
-      });
-    }
+    logCompile({
+      token: authToken,
+      id: ids.join("+"),
+      status: "success",
+      timestamp: String(Date.now()),
+      data: JSON.stringify(data)
+    });
     return data;
   };
 };
