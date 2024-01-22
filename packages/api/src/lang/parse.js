@@ -1962,7 +1962,10 @@ export const parse = (function () {
       c = nextCC();
       // const inTemplateLiteral = quoteChar === CC_BACKTICK;
       // while (c !== quoteChar && c !== 0 && (inTemplateLiteral || !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE))) {
-      while (c !== quoteChar && c !== 0) {
+      while (
+        c !== quoteChar &&
+          c !== 0 &&
+          !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE)) {
         lexeme += String.fromCharCode(c);
         c = nextCC();
       }
