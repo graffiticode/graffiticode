@@ -819,6 +819,7 @@ const StringStream = (function () {
     },
     backUp: function (n) { this.pos -= n; },
     match: function (pattern, consume, caseInsensitive) {
+      assert(false, "Should not get here");
       if (typeof pattern === "string") {
         const cased = function (str) { return caseInsensitive ? str.toLowerCase() : str; };
         if (cased(this.string).indexOf(cased(pattern), this.pos) === this.pos) {
@@ -2253,10 +2254,10 @@ const folder = (function () {
     const name = node.elts[0];
     const word = env.findWord(ctx, name);
     if (word) {
+      console.log("ident() word=" + JSON.stringify(word, null, 2));
       if (word.cls === "val") {
         if (word.val) {
-          Ast.push(ctx, word.val);
-          visit(Ast.pop(ctx)); // reduce the val expr
+          Ast.string(ctx, word.val); // strip quotes;
         } else if (word.nid) {
           let wrd;
           if ((wrd = Ast.node(ctx, word.nid)).tag === "LAMBDA") {
