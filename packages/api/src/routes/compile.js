@@ -65,7 +65,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
       }
       data = data || {};
       const tasks = getTaskFromData(data);
-      const dataId = await postTasks({ auth, tasks: getTaskFromData(data), req });
+      const dataId = await postTasks({ auth, tasks, req });
       if (dataId !== EMPTY_OBJECT_ID && id.indexOf(dataId) < 0) {
         id = [id, dataId].join("+");
       }
