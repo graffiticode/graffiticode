@@ -20,8 +20,7 @@ describe.each(["ephemeral", "persistent"])("routes/data[%s]", (storageType) => {
     authApp = await startAuthApp();
     app = createApp({ authUrl: authApp.url });
 
-    process.env.BASE_URL_L0 = langApp.url;
-    process.env.BASE_URL_L1 = langApp.url;
+    process.env.BASE_URL_L0001 = langApp.url;
   });
 
   afterEach(async () => {
