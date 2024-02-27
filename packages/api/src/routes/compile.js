@@ -29,19 +29,19 @@ function getItemsFromRequest(req) {
 const getTaskFromData = data => ({
   lang: "0001",
   code: {
-    "1": {
-      "elts": [
+    1: {
+      elts: [
         JSON.stringify(data)
       ],
-      "tag": "STR"
+      tag: "STR"
     },
-    "2": {
-      "elts": [
+    2: {
+      elts: [
         1
       ],
-      "tag": "JSON"
+      tag: "JSON"
     },
-    "root": 2
+    root: 2
   }
 });
 
