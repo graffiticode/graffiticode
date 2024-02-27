@@ -39,9 +39,9 @@ describe("baseUrl", () => {
   it("should return env override", async () => {
     // Arrange
     const envBaseUrl = "http://localhost:5000";
-    const env = { BASE_URL_L0001: envBaseUrl };
+    const env = { BASE_URL_L1: envBaseUrl };
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({ isNonEmptyString, env });
-    const lang = "L0001";
+    const lang = "L1";
 
     // Act
     const baseUrl = getLanguageBaseUrl(lang);
@@ -103,7 +103,7 @@ describe("baseUrl", () => {
   it("should prefix is L if lang is only a number", async () => {
     // Arrange
     const envBaseUrl = "http://localhost:5000";
-    const env = { BASE_URL_L0001: envBaseUrl };
+    const env = { BASE_URL_L1: envBaseUrl };
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({ isNonEmptyString, env });
     const lang = "1";
 

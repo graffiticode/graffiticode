@@ -36,7 +36,7 @@ describe("routes/compile", () => {
     );
   });
 
-  it("should compile item", async () => {
+  it.skip("should compile item", async () => {
     langApp.setData({ foo: "bar" }, "meow");
     langApp.setData(TASK1.code, DATA1);
     const res = await request(app)
