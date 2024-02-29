@@ -36,12 +36,11 @@ describe("routes/compile", () => {
     );
   });
 
-  it.skip("should compile item", async () => {
-    langApp.setData({ foo: "bar" }, "meow");
+  it("should compile item", async () => {
     langApp.setData(TASK1.code, DATA1);
     const res = await request(app)
       .post("/compile")
-      .send({ item: { ...TASK1, data: { foo: "bar" } } });
+      .send({ item: { ...TASK1, data: {} } });
 
     expect(res.body).toEqual(
       expect.objectContaining(

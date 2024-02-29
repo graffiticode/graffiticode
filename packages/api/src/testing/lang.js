@@ -63,7 +63,9 @@ export const startLangApp = async () => {
   const { address, port } = server.address();
   const url = `http://${address}:${port}`;
 
-  const setData = (code, data) => db.set(createKey(code), data);
+  const setData = (code, data) => (
+    db.set(createKey(code), data)
+  );
 
   const cleanUp = async () => {
     await new Promise((resolve, reject) => {
