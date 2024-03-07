@@ -1954,15 +1954,14 @@ export const parse = (function () {
       return TK_NUM;
     }
 
-    // "abc" --> "abc"
-    // "a${x}c" --> concat ["a", x, "b"]
+    // `abc` --> "abc"
+    // `a${x}c` --> concat ["a", x, "b"]
     function string(ctx, c) {
       const quoteChar = c;
       ctx.state.quoteCharStack.push(c);
       lexeme += String.fromCharCode(c);
       c = nextCC();
       const inTemplateLiteral = quoteChar === CC_BACKTICK;
-      // while (c !== quoteChar && c !== 0 && (inTemplateLiteral || !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE))) {
       if (inTemplateLiteral) {
         while (
           c !== quoteChar &&
