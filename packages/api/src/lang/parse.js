@@ -1965,12 +1965,12 @@ export const parse = (function () {
       // while (c !== quoteChar && c !== 0 && (inTemplateLiteral || !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE))) {
       while (
         c !== quoteChar &&
-          c !== 0 &&
-          !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE)) {
+        c !== 0 &&
+        !(quoteChar === CC_BACKTICK && c === CC_DOLLAR && peekCC() === CC_LEFTBRACE)) {
         lexeme += String.fromCharCode(c);
         c = nextCC();
       }
-      if (c === CC_DOLLAR &&
+      if (quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
           peekCC() === CC_LEFTBRACE) {
         nextCC(); // Eat CC_LEFTBRACE
         lexeme = lexeme.substring(1); // Strip off punct.
@@ -1989,12 +1989,12 @@ export const parse = (function () {
       const quoteChar = quoteCharStack[quoteCharStack.length - 1];
       c = nextCC();
       while (c !== quoteChar && c !== 0 &&
-             !(c === CC_DOLLAR &&
+             !(quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
                peekCC() === CC_LEFTBRACE)) {
         lexeme += String.fromCharCode(c);
         c = nextCC();
       }
-      if (c === CC_DOLLAR &&
+      if (quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
           peekCC() === CC_LEFTBRACE) {
         nextCC(); // Eat brace.
         lexeme = lexeme.substring(1); // Strip off leading brace and trailing brace.

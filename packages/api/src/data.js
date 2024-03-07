@@ -23,11 +23,12 @@ const buildGetData = ({ compile }) =>
           data,
           auth: authToken,
           options
-        });
+          });
         return obj;
       },
       Promise.resolve({})
     );
+
     await compileStorer.create({
       id,
       compile: {
