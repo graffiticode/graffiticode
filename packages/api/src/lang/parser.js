@@ -50,15 +50,10 @@ export const buildParser = ({
   return {
     async parse(lang, src) {
       if (!cache.has(lang)) {
-        let data;
-        try {
-          data = await getLangAsset(lang, "/lexicon.js");
-          // TODO Make lexicon JSON.
-          if (data instanceof Buffer) {
-            data = data.toString();
-          }
-        } catch (x) {
-          log(`Language ${lang} is unavailable`, typeof (data), data);
+        let data = await getLangAsset(lang, "/lexicon.js");
+        // TODO Make lexicon JSON.
+        if (data instanceof Buffer) {
+          data = data.toString();
         }
         if (typeof (data) !== "string") {
           log(`Failed to get usable lexicon for ${lang}`, typeof (data), data);
