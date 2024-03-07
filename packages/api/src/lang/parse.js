@@ -1961,14 +1961,21 @@ export const parse = (function () {
       ctx.state.quoteCharStack.push(c);
       lexeme += String.fromCharCode(c);
       c = nextCC();
-      // const inTemplateLiteral = quoteChar === CC_BACKTICK;
+      const inTemplateLiteral = quoteChar === CC_BACKTICK;
       // while (c !== quoteChar && c !== 0 && (inTemplateLiteral || !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE))) {
-      while (
-        c !== quoteChar &&
-        c !== 0 &&
-        !(quoteChar === CC_BACKTICK && c === CC_DOLLAR && peekCC() === CC_LEFTBRACE)) {
-        lexeme += String.fromCharCode(c);
-        c = nextCC();
+      if (inTemplateLiteral) {
+        while (
+          c !== quoteChar &&
+          c !== 0 &&
+          !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE)) {
+          lexeme += String.fromCharCode(c);
+          c = nextCC();
+        }
+      } else {
+        while (c !== quoteChar && c !== 0) {
+          lexeme += String.fromCharCode(c);
+          c = nextCC();
+        }
       }
       if (quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
           peekCC() === CC_LEFTBRACE) {
@@ -1988,11 +1995,19 @@ export const parse = (function () {
       const quoteCharStack = ctx.state.quoteCharStack;
       const quoteChar = quoteCharStack[quoteCharStack.length - 1];
       c = nextCC();
-      while (c !== quoteChar && c !== 0 &&
-             !(quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
+      const inTemplateLiteral = quoteChar === CC_BACKTICK;
+      if (inTemplateLiteral) {
+        while (c !== quoteChar && c !== 0 &&
+             !(c === CC_DOLLAR &&
                peekCC() === CC_LEFTBRACE)) {
-        lexeme += String.fromCharCode(c);
-        c = nextCC();
+          lexeme += String.fromCharCode(c);
+          c = nextCC();
+        }
+      } else {
+        while (c !== quoteChar && c !== 0) {
+          lexeme += String.fromCharCode(c);
+          c = nextCC();
+        }
       }
       if (quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
           peekCC() === CC_LEFTBRACE) {

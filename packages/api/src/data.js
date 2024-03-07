@@ -23,7 +23,7 @@ const buildGetData = ({ compile }) =>
           data,
           auth: authToken,
           options
-          });
+        });
         return obj;
       },
       Promise.resolve({})
