@@ -8,6 +8,9 @@
     "packages/auth-client"
   ],
   "scripts": {
+    "emulator": "npx firebase emulators:start",
+    "auth": "npm run -w packages/auth dev",
+    "api": "npm run -w packages/api dev",
     "lint": "eslint test/",
     "lint:fix": "eslint --fix test/",
     "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec jest"
