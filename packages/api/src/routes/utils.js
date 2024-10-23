@@ -13,6 +13,10 @@ export const parseIdsFromRequest = req => {
   return [];
 };
 
+export const parseOriginFromRequest = req => {
+  return req.query.origin;
+};
+
 export const parseAuthFromRequest = req => {
   const { access_token: queryAuth } = req.query;
   if (isNonEmptyString(queryAuth)) {

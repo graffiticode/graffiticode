@@ -4,7 +4,8 @@ import { buildGetTasks } from "./tasks.js";
 import {
   buildHttpHandler,
   optionsHandler,
-  parseIdsFromRequest
+  parseIdsFromRequest,
+  parseOriginFromRequest,
 } from "./utils.js";
 
 const checkLangParam = async ({ lang, pingLang }) => {
@@ -27,6 +28,10 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
     const params = new URLSearchParams();
     if (req.auth.token) {
       params.set("access_token", req.auth.token);
+    }
+    const origin = parseOriginFromRequest(req);
+    if (origin) {
+      params.set("origin", origin);
     }
     const protocol = req.headers.host.indexOf("localhost") !== -1 && "http" || "https";
     let lang;

@@ -2268,7 +2268,7 @@ const folder = (function () {
     const name = node.elts[0];
     const word = env.findWord(ctx, name);
     if (word) {
-      console.log("ident() word=" + JSON.stringify(word, null, 2));
+//      console.log("ident() word=" + JSON.stringify(word, null, 2));
       if (word.cls === "val") {
         if (word.val) {
           Ast.string(ctx, word.val); // strip quotes;

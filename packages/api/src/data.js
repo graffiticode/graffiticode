@@ -1,6 +1,7 @@
 const buildGetData = ({ compile }) =>
   async ({ taskStorer, compileStorer, id, auth, authToken, options, action }) => {
     const tasks = await taskStorer.get({ id, auth });
+//    console.log("getData() id=" + id);
     if (tasks) {
       // There exists a task that we are authorized to see.
       const compile = await compileStorer.get({ id, auth });
@@ -36,6 +37,7 @@ const buildGetData = ({ compile }) =>
         data: obj
       }
     });
+//    console.log("getData() obj=" + JSON.stringify(obj, null, 2));
     return obj;
   };
 
