@@ -33,7 +33,6 @@ const main = {
       ast = next();
     }
     if (state.cc) {
-//      console.log("parse() src=" + src);
       throw new Error("End of program reached.");
     }
     return ast;
@@ -80,7 +79,6 @@ export const buildParser = ({
         cache.set(lang, lexicon);
       };
       const lexicon = cache.get(lang);
-//      console.log("parse() lexicon=" + JSON.stringify(lexicon, null, 2));
       return await main.parse(src, lexicon);
     }
   };
