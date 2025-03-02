@@ -141,13 +141,13 @@ npm run -w packages/auth dev
 npm run -w packages/api dev
 ```
 
-### L0001
+### L0002
 
-*L0001* is a starter language that is useful for writing a 'hello, world!' web API or developing a new language.
+*L0002* is a starter language that is useful for writing a 'hello, world!' web API or developing a new language.
 
 ```shell
-git clone git@github.com:graffiticode/l0001.git
-cd l0001
+git clone git@github.com:graffiticode/l0002.git
+cd l0002
 npm install
 npm run dev
 ```
