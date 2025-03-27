@@ -1561,7 +1561,6 @@ export const parse = (function () {
       }
       return cc(ctx);
     });
-    return cc(ctx);
   }
 
   function ofClause(ctx, cc) {
