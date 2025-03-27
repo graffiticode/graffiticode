@@ -62,6 +62,7 @@ const Ast = (function () {
     lambda,
     applyLate,
     letDef,
+    ifExpr,
     caseExpr,
     ofClause,
     record,
@@ -662,12 +663,19 @@ const Ast = (function () {
     const v1 = +node(ctx, pop(ctx)).elts[0];
     bool(ctx, v1 >= v2);
   }
+  function ifExpr(ctx) {
+    const elts = [];
+    elts.push(pop(ctx)); // if
+    elts.push(pop(ctx)); // then
+    elts.push(pop(ctx)); // else
+    push(ctx, { tag: "IF", elts: elts.reverse() });
+  }
   function caseExpr(ctx, n) {
     const elts = [];
+    elts.push(pop(ctx)); // val
     for (let i = n; i > 0; i--) {
       elts.push(pop(ctx)); // of
     }
-    elts.push(pop(ctx)); // exprs
     push(ctx, { tag: "CASE", elts: elts.reverse() });
   }
   function ofClause(ctx) {
@@ -1501,6 +1509,9 @@ export const parse = (function () {
     if (match(ctx, TK_CASE)) {
       return caseExpr(ctx, cc);
     }
+    if (match(ctx, TK_IF)) {
+      return ifExpr(ctx, cc);
+    }
     return relationalExpr(ctx, cc);
   }
 
@@ -1508,6 +1519,7 @@ export const parse = (function () {
     eat(ctx, TK_CASE);
     const ret = function (ctx) {
       return expr(ctx, function (ctx) {
+        eat(ctx, TK_OF);
         startCounter(ctx);
         return ofClauses(ctx, function (ctx) {
           Ast.caseExpr(ctx, ctx.state.exprc);
@@ -1522,26 +1534,42 @@ export const parse = (function () {
     return ret;
   }
 
-  function ofClauses(ctx, cc) {
-    if (match(ctx, TK_OF)) {
-      return ofClause(ctx, function (ctx) {
-        countCounter(ctx);
-        if (match(ctx, TK_OF)) {
-          return ofClauses(ctx, cc);
-        }
-        return cc(ctx);
+  function ifExpr(ctx, cc) {
+    eat(ctx, TK_IF);
+    const ret = function (ctx) {
+      return expr(ctx, function (ctx) {
+        eat(ctx, TK_THEN);
+        return expr(ctx, function (ctx) {
+          eat(ctx, TK_ELSE);
+          return expr(ctx, function (ctx) {
+            Ast.ifExpr(ctx);
+            cc.cls = "keyword";
+            return cc;
+          });
+        });
       });
-    }
+    };
+    ret.cls = "keyword";
+    return ret;
+  }
+
+  function ofClauses(ctx, cc) {
+    return ofClause(ctx, function (ctx) {
+      countCounter(ctx);
+      if (!match(ctx, TK_END)) {
+        return ofClauses(ctx, cc);
+      }
+      return cc(ctx);
+    });
     return cc(ctx);
   }
 
   function ofClause(ctx, cc) {
-    eat(ctx, TK_OF);
     const ret = function (ctx) {
       return pattern(ctx, function (ctx) {
         eat(ctx, TK_COLON);
         const ret = function (ctx) {
-          return exprsStart(ctx, TK_OF, function (ctx) {
+          return expr(ctx, function (ctx) {
             Ast.ofClause(ctx);
             return cc(ctx);
           });
