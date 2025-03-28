@@ -883,6 +883,10 @@ const env = (function () {
   function enterEnv(ctx, name) {
     // recursion guard
     if (ctx.state.env.length > 380) {
+      console.trace(
+        "enterEnv()",
+        "name=" + name,
+      );
       // return;  // just stop recursing
       throw new Error("runaway recursion");
     }
@@ -1206,7 +1210,7 @@ export const parse = (function () {
     cc.cls = "variable";
     return cc;
   }
-  function identOrString(ctx, cc) {
+  function bindingName(ctx, cc) {
     if (match(ctx, TK_IDENT)) {
       return ident(ctx, cc);
     }
@@ -1306,7 +1310,7 @@ export const parse = (function () {
     });
   }
   function binding(ctx, cc) {
-    return identOrString(ctx, function (ctx) {
+    return bindingName(ctx, function (ctx) {
       eat(ctx, TK_COLON);
       const ret = function (ctx) {
         countCounter(ctx);
@@ -1583,7 +1587,16 @@ export const parse = (function () {
 
   function pattern(ctx, cc) {
     // FIXME only matches idents and literals for now
-    return identOrString(ctx, cc);
+    if (match(ctx, TK_IDENT)) {
+      return ident(ctx, cc);
+    }
+    if (match(ctx, TK_NUM)) {
+      return number(ctx, cc);
+    }
+    if (match(ctx, TK_BOOL)) {
+      return bool(ctx, cc);
+    }
+    return str(ctx, cc);
   }
 
   // function thenClause(ctx, cc) {
