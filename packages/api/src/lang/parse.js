@@ -1212,7 +1212,10 @@ export const parse = (function () {
   }
   function bindingName(ctx, cc) {
     if (match(ctx, TK_IDENT)) {
-      return ident(ctx, cc);
+      eat(ctx, TK_IDENT);
+      Ast.string(ctx, lexeme, getCoord(ctx));
+      cc.cls = "variable";
+      return cc;
     }
     if (match(ctx, TK_NUM)) {
       return number(ctx, cc);
