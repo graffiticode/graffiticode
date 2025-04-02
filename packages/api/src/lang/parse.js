@@ -1544,7 +1544,7 @@ export const parse = (function () {
   function caseExpr(ctx, cc) {
     eat(ctx, TK_CASE);
     const ret = function (ctx) {
-      return expr(ctx, function (ctx) {
+      return exprsStart(ctx, TK_OF, function (ctx) {
         eat(ctx, TK_OF);
         startCounter(ctx);
         return ofClauses(ctx, function (ctx) {
