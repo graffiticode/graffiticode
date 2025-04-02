@@ -1522,6 +1522,25 @@ export const parse = (function () {
     return relationalExpr(ctx, cc);
   }
 
+  function ifExpr(ctx, cc) {
+    eat(ctx, TK_IF);
+    const ret = function (ctx) {
+      return exprsStart(ctx, TK_THEN, function (ctx) {
+        eat(ctx, TK_THEN);
+        return exprsStart(ctx, TK_ELSE, function (ctx) {
+          eat(ctx, TK_ELSE);
+          return expr(ctx, function (ctx) {
+            Ast.ifExpr(ctx);
+            cc.cls = "keyword";
+            return cc;
+          });
+        });
+      });
+    };
+    ret.cls = "keyword";
+    return ret;
+  }
+
   function caseExpr(ctx, cc) {
     eat(ctx, TK_CASE);
     const ret = function (ctx) {
@@ -1534,25 +1553,6 @@ export const parse = (function () {
           eat(ctx, TK_END);
           cc.cls = "keyword";
           return cc;
-        });
-      });
-    };
-    ret.cls = "keyword";
-    return ret;
-  }
-
-  function ifExpr(ctx, cc) {
-    eat(ctx, TK_IF);
-    const ret = function (ctx) {
-      return expr(ctx, function (ctx) {
-        eat(ctx, TK_THEN);
-        return expr(ctx, function (ctx) {
-          eat(ctx, TK_ELSE);
-          return expr(ctx, function (ctx) {
-            Ast.ifExpr(ctx);
-            cc.cls = "keyword";
-            return cc;
-          });
         });
       });
     };
