@@ -2,97 +2,69 @@ import { Env } from "./env.js";
 import { folder } from "./fold.js";
 import { assertErr } from "./parse.js";
 
-export const Ast = (function () {
-  const ASSERT = true;
-  const assert = function (val, str) {
-    if (!ASSERT) {
-      return;
+const ASSERT = true;
+const assert = function (val, str) {
+  if (!ASSERT) {
+    return;
+  }
+  if (str === undefined) {
+    str = "failed!";
+  }
+  if (!val) {
+    throw new Error(str);
+  }
+};
+
+// Helper function not part of the class
+function nodeToJSON(n) {
+  let obj;
+  if (typeof n === "object") {
+    switch (n.tag) {
+      case "num":
+        obj = n.elts[0];
+        break;
+      case "str":
+        obj = n.elts[0];
+        break;
+      default:
+        obj = {};
+        obj.tag = n.tag;
+        obj.elts = [];
+        for (let i = 0; i < n.elts.length; i++) {
+          obj.elts[i] = nodeToJSON(n.elts[i]);
+        }
+        break;
     }
-    if (str === undefined) {
-      str = "failed!";
-    }
-    if (!val) {
-      throw new Error(str);
-    }
-  };
+  } else if (typeof n === "string") {
+    obj = n;
+  } else {
+    obj = n;
+  }
+  return obj;
+}
 
-  const AstClass = function () { };
-
-  AstClass.prototype = {
-    intern,
-    node,
-    dump,
-    dumpAll,
-    poolToJSON,
-    number,
-    string,
-    name,
-    apply,
-    fold,
-    expr,
-    binaryExpr,
-    unaryExpr,
-    parenExpr,
-    prefixExpr,
-    lambda,
-    applyLate,
-    letDef,
-    ifExpr,
-    caseExpr,
-    ofClause,
-    record,
-    binding,
-    exprs,
-    program,
-    pop,
-    topNode,
-    peek,
-    push,
-    mod,
-    add,
-    sub,
-    //    mul,
-    div,
-    pow,
-    concat,
-    eq,
-    ne,
-    lt,
-    gt,
-    le,
-    ge,
-    neg,
-    list,
-    bool,
-    nul,
-    error,
-  };
-
-  return new AstClass();
-
-  // private implementation
-
-  function push(ctx, node) {
+export class Ast {
+  static push(ctx, node) {
     let nid;
     if (typeof node === "number") { // if already interned
       nid = node;
     } else {
-      nid = intern(ctx, node);
+      nid = Ast.intern(ctx, node);
     }
     ctx.state.nodeStack.push(nid);
   }
 
-  function topNode(ctx) {
+  static topNode(ctx) {
     const nodeStack = ctx.state.nodeStack;
     return nodeStack[nodeStack.length - 1];
   }
 
-  function pop(ctx) {
+  static pop(ctx) {
     const nodeStack = ctx.state.nodeStack;
     return nodeStack.pop();
   }
 
-  function peek(ctx, n) {
+  static peek(ctx, n) {
     if (n === undefined) {
       n = 0;
     }
@@ -100,7 +72,7 @@ export const Ast = (function () {
     return nodeStack[nodeStack.length - 1 - n];
   }
 
-  function intern(ctx, n) {
+  static intern(ctx, n) {
     if (!n) {
       return 0;
     }
@@ -111,7 +83,7 @@ export const Ast = (function () {
     const count = n.elts.length;
     for (let i = 0; i < count; i++) {
       if (typeof n.elts[i] === "object") {
-        n.elts[i] = intern(ctx, n.elts[i]);
+        n.elts[i] = Ast.intern(ctx, n.elts[i]);
       }
       elts += n.elts[i];
     }
@@ -128,7 +100,7 @@ export const Ast = (function () {
     return nid;
   }
 
-  function node(ctx, nid) {
+  static node(ctx, nid) {
     const n = ctx.state.nodePool[nid];
     if (!nid) {
       return null;
@@ -147,7 +119,7 @@ export const Ast = (function () {
         break;
       default:
         for (let i = 0; i < n.elts.length; i++) {
-          elts[i] = node(ctx, n.elts[i]);
+          elts[i] = Ast.node(ctx, n.elts[i]);
         }
         break;
     }
@@ -157,19 +129,19 @@ export const Ast = (function () {
     };
   }
 
-  function dumpAll(ctx) {
+  static dumpAll(ctx) {
     const nodePool = ctx.state.nodePool;
     let s = "\n{";
     for (let i = 1; i < nodePool.length; i++) {
       const n = nodePool[i];
-      s = s + "\n  " + i + ": " + dump(n) + ",";
+      s = s + "\n  " + i + ": " + Ast.dump(n) + ",";
     }
     s += "\n  root: " + (nodePool.length - 1);
     s += "\n}\n";
     return s;
   }
 
-  function poolToJSON(ctx) {
+  static poolToJSON(ctx) {
     const nodePool = ctx.state.nodePool;
     const obj = {};
     for (let i = 1; i < nodePool.length; i++) {
@@ -180,34 +152,7 @@ export const Ast = (function () {
     return obj;
   }
 
-  function nodeToJSON(n) {
-    let obj;
-    if (typeof n === "object") {
-      switch (n.tag) {
-        case "num":
-          obj = n.elts[0];
-          break;
-        case "str":
-          obj = n.elts[0];
-          break;
-        default:
-          obj = {};
-          obj.tag = n.tag;
-          obj.elts = [];
-          for (let i = 0; i < n.elts.length; i++) {
-            obj.elts[i] = nodeToJSON(n.elts[i]);
-          }
-          break;
-      }
-    } else if (typeof n === "string") {
-      obj = n;
-    } else {
-      obj = n;
-    }
-    return obj;
-  }
-
-  function dump(n) {
+  static dump(n) {
     let s;
     if (typeof n === "object") {
       switch (n.tag) {
@@ -226,7 +171,7 @@ export const Ast = (function () {
               if (i > 0) {
                 s += " , ";
               }
-              s += dump(n.elts[i]);
+              s += Ast.dump(n.elts[i]);
             }
             s += " ] }";
           }
@@ -240,7 +185,7 @@ export const Ast = (function () {
     return s;
   }
 
-  function fold(ctx, fn, args) {
+  static fold(ctx, fn, args) {
     // Local defs:
     // -- put bindings in env
     // Three cases:
@@ -305,30 +250,30 @@ export const Ast = (function () {
       }
       folder.fold(ctx, fn.nid);
       if (outerEnv) {
-        lambda(ctx, {
+        Ast.lambda(ctx, {
           lexicon: outerEnv,
           pattern // FIXME need to trim pattern if some args where applied.
-        }, pop(ctx));
+        }, Ast.pop(ctx));
       }
     }
     Env.exitEnv(ctx);
   }
 
-  function applyLate(ctx, count) {
+  static applyLate(ctx, count) {
     // Ast.applyLate
     const elts = [];
     for (let i = count; i > 0; i--) {
-      elts.push(pop(ctx));
+      elts.push(Ast.pop(ctx));
     }
-    push(ctx, {
+    Ast.push(ctx, {
       tag: "APPLY",
       elts
     });
   }
 
-  function apply(ctx, fnId, argc) {
+  static apply(ctx, fnId, argc) {
     // Construct function and apply available arguments.
-    const fn = node(ctx, fnId);
+    const fn = Ast.node(ctx, fnId);
     // if (fn.tag !== "LAMBDA") {
     //   // Construct an APPLY node for compiling later.
     //   return {
@@ -367,15 +312,15 @@ export const Ast = (function () {
     const elts = [];
     // While there are args on the stack, pop them.
     while (argc-- > 0 && paramc-- > 0) {
-      const elt = pop(ctx);
+      const elt = Ast.pop(ctx);
       elts.unshift(elt); // Get the order right.
     }
-    fold(ctx, def, elts);
+    Ast.fold(ctx, def, elts);
   }
 
   // Node constructors
 
-  function error(ctx, str, coord) {
+  static error(ctx, str, coord) {
     console.log(
       "error()",
       "str=" + str,
@@ -383,66 +328,66 @@ export const Ast = (function () {
     );
     const from = coord?.from !== undefined ? coord.from : -1;
     const to = coord?.to !== undefined ? coord.to : -1;
-    number(ctx, to);
-    number(ctx, from);
-    string(ctx, str, coord);
-    push(ctx, {
+    Ast.number(ctx, to);
+    Ast.number(ctx, from);
+    Ast.string(ctx, str, coord);
+    Ast.push(ctx, {
       tag: "ERROR",
       elts: [
-        pop(ctx),
-        pop(ctx),
-        pop(ctx),
+        Ast.pop(ctx),
+        Ast.pop(ctx),
+        Ast.pop(ctx),
       ],
       coord
     });
   }
 
-  function bool(ctx, val) {
+  static bool(ctx, val) {
     let b;
     if (val) {
       b = true;
     } else {
       b = false;
     }
-    push(ctx, {
+    Ast.push(ctx, {
       tag: "BOOL",
       elts: [b]
     });
   }
 
-  function nul(ctx) {
-    push(ctx, {
+  static nul(ctx) {
+    Ast.push(ctx, {
       tag: "NULL",
       elts: []
     });
   }
 
-  function number(ctx, num, coord) {
+  static number(ctx, num, coord) {
     assert(typeof num === "string" || typeof num === "number");
-    push(ctx, {
+    Ast.push(ctx, {
       tag: "NUM",
       elts: [String(num)],
       coord
     });
   }
 
-  function string(ctx, str, coord) {
-    push(ctx, {
+  static string(ctx, str, coord) {
+    Ast.push(ctx, {
       tag: "STR",
       elts: [str],
       coord
     });
   }
 
-  function name(ctx, name, coord) {
-    push(ctx, {
+  static name(ctx, name, coord) {
+    Ast.push(ctx, {
       tag: "IDENT",
       elts: [name],
       coord
     });
   }
 
-  function expr(ctx, argc) {
+  static expr(ctx, argc) {
     // Ast.expr -- construct a expr node for the compiler.
     const elts = [];
     const pos = 1; // FIXME
@@ -455,116 +400,117 @@ export const Ast = (function () {
       from: pos - 1, to: pos
     });
     while (argc--) {
-      const elt = pop(ctx);
+      const elt = Ast.pop(ctx);
       elts.push(elt);
     }
-    const nameId = pop(ctx);
+    const nameId = Ast.pop(ctx);
     console.log(
       "expr()",
       "nameId=" + nameId,
     );
     assertErr(ctx, nameId, "Ill formed node.");
-    const e = node(ctx, nameId).elts;
+    const e = Ast.node(ctx, nameId).elts;
     assertErr(ctx, e && e.length > 0, "Ill formed node.");
     const name = e[0];
-    push(ctx, {
+    Ast.push(ctx, {
       tag: name,
       elts,
     });
   }
 
-  function parenExpr(ctx, coord) {
+  static parenExpr(ctx, coord) {
     // Ast.parenExpr
     const elts = [];
-    const elt = pop(ctx);
+    const elt = Ast.pop(ctx);
     elts.push(elt);
-    push(ctx, {
+    Ast.push(ctx, {
       tag: "PAREN",
       elts,
       coord
     });
   }
 
-  function list(ctx, count, coord, reverse) {
+  static list(ctx, count, coord, reverse) {
     // Ast.list
     const elts = [];
     for (let i = count; i > 0; i--) {
-      const elt = pop(ctx);
+      const elt = Ast.pop(ctx);
       if (elt !== undefined) {
         elts.push(elt);
       }
     }
-    push(ctx, {
+    Ast.push(ctx, {
       tag: "LIST",
       elts: reverse ? elts : elts.reverse(),
       coord
     });
   }
 
-  function binaryExpr(ctx, name) {
+  static binaryExpr(ctx, name) {
     const elts = [];
     // args are in the order produced by the parser
-    elts.push(pop(ctx));
-    elts.push(pop(ctx));
-    push(ctx, {
+    elts.push(Ast.pop(ctx));
+    elts.push(Ast.pop(ctx));
+    Ast.push(ctx, {
       tag: name,
       elts: elts.reverse()
     });
   }
-  function unaryExpr(ctx, name) {
+
+  static unaryExpr(ctx, name) {
     const elts = [];
-    elts.push(pop(ctx));
-    push(ctx, {
+    elts.push(Ast.pop(ctx));
+    Ast.push(ctx, {
       tag: name,
       elts
     });
   }
 
-  function prefixExpr(ctx, name) {
+  static prefixExpr(ctx, name) {
     const elts = [];
-    elts.push(pop(ctx));
-    push(ctx, {
+    elts.push(Ast.pop(ctx));
+    Ast.push(ctx, {
       tag: name,
       elts
     });
   }
 
-  function neg(ctx) {
-    const v1 = +node(ctx, pop(ctx)).elts[0];
-    number(ctx, -1 * v1);
+  static neg(ctx) {
+    const v1 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    Ast.number(ctx, -1 * v1);
   }
 
-  function add(ctx, coord) {
-    const n2 = node(ctx, pop(ctx));
-    const n1 = node(ctx, pop(ctx));
+  static add(ctx, coord) {
+    const n2 = Ast.node(ctx, Ast.pop(ctx));
+    const n1 = Ast.node(ctx, Ast.pop(ctx));
     const v2 = n2.elts[0];
     const v1 = n1.elts[0];
     if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      push(ctx, {
+      Ast.push(ctx, {
         tag: "ADD",
         elts: [n1, n2],
         coord
       });
     } else {
-      number(ctx, +v1 + +v2);
+      Ast.number(ctx, +v1 + +v2);
     }
   }
 
-  function sub(ctx) {
-    const n2 = node(ctx, pop(ctx));
-    const n1 = node(ctx, pop(ctx));
+  static sub(ctx) {
+    const n2 = Ast.node(ctx, Ast.pop(ctx));
+    const n1 = Ast.node(ctx, Ast.pop(ctx));
     const v2 = n2.elts[0];
     const v1 = n1.elts[0];
     if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      push(ctx, { tag: "SUB", elts: [n1, n2] });
+      Ast.push(ctx, { tag: "SUB", elts: [n1, n2] });
     } else {
-      number(ctx, +v1 - +v2);
+      Ast.number(ctx, +v1 - +v2);
     }
   }
 
-  // function mul(ctx) {
-  //   let n2 = node(ctx, pop(ctx));
-  //   let n1 = node(ctx, pop(ctx));
+  // static mul(ctx) {
+  //   let n2 = Ast.node(ctx, Ast.pop(ctx));
+  //   let n1 = Ast.node(ctx, Ast.pop(ctx));
   //   const v2 = n2.elts[0];
   //   const v1 = n1.elts[0];
   //   if (n1.tag === undefined) {
@@ -574,140 +520,144 @@ export const Ast = (function () {
   //     n2 = n2.elts[0];
   //   }
   //   if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-  //     push(ctx, { tag: "MUL", elts: [n2, n1] });
+  //     Ast.push(ctx, { tag: "MUL", elts: [n2, n1] });
   //   } else {
-  //     number(ctx, +v1 * +v2);
+  //     Ast.number(ctx, +v1 * +v2);
   //   }
   // }
 
-  function div(ctx) {
-    const n2 = node(ctx, pop(ctx));
-    const n1 = node(ctx, pop(ctx));
+  static div(ctx) {
+    const n2 = Ast.node(ctx, Ast.pop(ctx));
+    const n1 = Ast.node(ctx, Ast.pop(ctx));
     const v2 = n2.elts[0];
     const v1 = n1.elts[0];
     if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      push(ctx, { tag: "DIV", elts: [n1, n2] });
+      Ast.push(ctx, { tag: "DIV", elts: [n1, n2] });
     } else {
-      number(ctx, +v1 / +v2);
+      Ast.number(ctx, +v1 / +v2);
     }
   }
 
-  function mod(ctx) {
-    const n2 = node(ctx, pop(ctx));
-    const n1 = node(ctx, pop(ctx));
+  static mod(ctx) {
+    const n2 = Ast.node(ctx, Ast.pop(ctx));
+    const n1 = Ast.node(ctx, Ast.pop(ctx));
     const v1 = n1.elts[0];
     const v2 = n2.elts[0];
     if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      push(ctx, { tag: "MOD", elts: [n1, n2] });
+      Ast.push(ctx, { tag: "MOD", elts: [n1, n2] });
     } else {
-      number(ctx, +v1 % +v2);
+      Ast.number(ctx, +v1 % +v2);
     }
   }
 
-  function pow(ctx) {
-    const n2 = node(ctx, pop(ctx));
-    const n1 = node(ctx, pop(ctx));
+  static pow(ctx) {
+    const n2 = Ast.node(ctx, Ast.pop(ctx));
+    const n1 = Ast.node(ctx, Ast.pop(ctx));
     const v2 = n2.elts[0];
     const v1 = n1.elts[0];
     if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      push(ctx, { tag: "POW", elts: [n1, n2] });
+      Ast.push(ctx, { tag: "POW", elts: [n1, n2] });
     } else {
-      number(ctx, Math.pow(+v1, +v2));
+      Ast.number(ctx, Math.pow(+v1, +v2));
     }
   }
 
-  function concat(ctx) {
-    const n1 = node(ctx, pop(ctx));
-    push(ctx, {
+  static concat(ctx) {
+    const n1 = Ast.node(ctx, Ast.pop(ctx));
+    Ast.push(ctx, {
       tag: "CONCAT",
       elts: [n1]
     });
   }
 
-  function eq(ctx) {
-    const v2 = node(ctx, pop(ctx)).elts[0];
-    const v1 = node(ctx, pop(ctx)).elts[0];
-    bool(ctx, v1 === v2);
+  static eq(ctx) {
+    const v2 = Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    const v1 = Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    Ast.bool(ctx, v1 === v2);
   }
 
-  function ne(ctx) {
-    const v2 = +node(ctx, pop(ctx)).elts[0];
-    const v1 = +node(ctx, pop(ctx)).elts[0];
-    bool(ctx, v1 !== v2);
+  static ne(ctx) {
+    const v2 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    const v1 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    Ast.bool(ctx, v1 !== v2);
   }
 
-  function lt(ctx) {
-    const v2 = +node(ctx, pop(ctx)).elts[0];
-    const v1 = +node(ctx, pop(ctx)).elts[0];
-    bool(ctx, v1 < v2);
+  static lt(ctx) {
+    const v2 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    const v1 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    Ast.bool(ctx, v1 < v2);
   }
 
-  function gt(ctx) {
-    const v2 = +node(ctx, pop(ctx)).elts[0];
-    const v1 = +node(ctx, pop(ctx)).elts[0];
-    bool(ctx, v1 > v2);
+  static gt(ctx) {
+    const v2 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    const v1 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    Ast.bool(ctx, v1 > v2);
   }
 
-  function le(ctx) {
-    const v2 = +node(ctx, pop(ctx)).elts[0];
-    const v1 = +node(ctx, pop(ctx)).elts[0];
-    bool(ctx, v1 <= v2);
+  static le(ctx) {
+    const v2 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    const v1 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    Ast.bool(ctx, v1 <= v2);
   }
-  function ge(ctx) {
-    const v2 = +node(ctx, pop(ctx)).elts[0];
-    const v1 = +node(ctx, pop(ctx)).elts[0];
-    bool(ctx, v1 >= v2);
+
+  static ge(ctx) {
+    const v2 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    const v1 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
+    Ast.bool(ctx, v1 >= v2);
   }
-  function ifExpr(ctx) {
+
+  static ifExpr(ctx) {
     const elts = [];
-    elts.push(pop(ctx)); // if
-    elts.push(pop(ctx)); // then
-    elts.push(pop(ctx)); // else
-    push(ctx, { tag: "IF", elts: elts.reverse() });
+    elts.push(Ast.pop(ctx)); // if
+    elts.push(Ast.pop(ctx)); // then
+    elts.push(Ast.pop(ctx)); // else
+    Ast.push(ctx, { tag: "IF", elts: elts.reverse() });
   }
-  function caseExpr(ctx, n) {
+
+  static caseExpr(ctx, n) {
     const elts = [];
-    elts.push(pop(ctx)); // val
+    elts.push(Ast.pop(ctx)); // val
     for (let i = n; i > 0; i--) {
-      elts.push(pop(ctx)); // of
+      elts.push(Ast.pop(ctx)); // of
     }
-    push(ctx, { tag: "CASE", elts: elts.reverse() });
-  }
-  function ofClause(ctx) {
-    const elts = [];
-    elts.push(pop(ctx));
-    elts.push(pop(ctx));
-    push(ctx, { tag: "OF", elts: elts.reverse() });
+    Ast.push(ctx, { tag: "CASE", elts: elts.reverse() });
   }
 
-  function record(ctx) {
+  static ofClause(ctx) {
+    const elts = [];
+    elts.push(Ast.pop(ctx));
+    elts.push(Ast.pop(ctx));
+    Ast.push(ctx, { tag: "OF", elts: elts.reverse() });
+  }
+
+  static record(ctx) {
     // Ast.record
     const count = ctx.state.exprc;
     const elts = [];
     for (let i = count; i > 0; i--) {
-      const elt = pop(ctx);
+      const elt = Ast.pop(ctx);
       if (elt !== undefined) {
         elts.push(elt);
       }
     }
-    push(ctx, {
+    Ast.push(ctx, {
       tag: "RECORD",
       elts
     });
   }
 
-  function binding(ctx) {
+  static binding(ctx) {
     // Ast.binding
     const elts = [];
-    elts.push(pop(ctx));
-    elts.push(pop(ctx));
-    push(ctx, {
+    elts.push(Ast.pop(ctx));
+    elts.push(Ast.pop(ctx));
+    Ast.push(ctx, {
       tag: "BINDING",
       elts: elts.reverse()
     });
   }
 
-  function lambda(ctx, env, nid) {
+  static lambda(ctx, env, nid) {
     // Ast.lambda
     const names = [];
     const nids = [];
@@ -720,7 +670,7 @@ export const Ast = (function () {
       nids.push(word.nid || 0);
     }
     const pattern = env.pattern;
-    push(ctx, {
+    Ast.push(ctx, {
       tag: "LAMBDA",
       elts: [{
         tag: "LIST",
@@ -735,44 +685,44 @@ export const Ast = (function () {
     });
   }
 
-  function exprs(ctx, count, inReverse) {
+  static exprs(ctx, count, inReverse) {
     // Ast.exprs
     let elts = [];
     assert(ctx.state.nodeStack.length >= count);
     if (inReverse) {
       for (let i = count; i > 0; i--) {
-        const elt = pop(ctx);
+        const elt = Ast.pop(ctx);
         elts.push(elt); // Reverse order.
       }
     } else {
       for (let i = count; i > 0; i--) {
-        const elt = pop(ctx);
+        const elt = Ast.pop(ctx);
         elts.push(elt); // Reverse order.
       }
       elts = elts.reverse();
     }
-    push(ctx, {
+    Ast.push(ctx, {
       tag: "EXPRS",
       elts
     });
   }
 
-  function letDef(ctx) {
+  static letDef(ctx) {
     // Clean up stack and produce initializer.
-    pop(ctx); // body
-    pop(ctx); // name
+    Ast.pop(ctx); // body
+    Ast.pop(ctx); // name
     for (let i = 0; i < ctx.state.paramc; i++) {
-      pop(ctx); // params
+      Ast.pop(ctx); // params
     }
     ctx.state.exprc--; // don't count as expr.
   }
 
-  function program(ctx) {
+  static program(ctx) {
     const elts = [];
-    elts.push(pop(ctx));
-    push(ctx, {
+    elts.push(Ast.pop(ctx));
+    Ast.push(ctx, {
       tag: "PROG",
       elts
     });
   }
-})();
+}
