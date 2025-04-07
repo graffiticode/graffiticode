@@ -1,5 +1,6 @@
 import assert from "assert";
-import { Ast, env } from "./parse.js";
+import { Ast } from "./ast.js";
+import { env } from "./env.js";
 
 export const folder = (function () {
   const table = {
