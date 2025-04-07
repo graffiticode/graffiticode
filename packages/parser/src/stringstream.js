@@ -1,64 +1,94 @@
-import assert from "assert";
-
-// The following code for StreamString was copied from CodeMirror.
-export const StringStream = (function () {
-  // The character stream used by a mode's parser.
-  function StringStream(string, tabSize) {
-    this.pos = this.start = 0;
+export class StringStream {
+  constructor(string, tabSize = 8) {
+    this.pos = 0;
+    this.start = 0;
     this.string = string;
-    this.tabSize = tabSize || 8;
+    this.tabSize = tabSize;
   }
 
-  StringStream.prototype = {
-    eol: function () { return this.pos >= this.string.length; },
-    sol: function () { return this.pos === 0; },
-    peek: function () { return this.string.charAt(this.pos) || undefined; },
-    next: function () {
-      if (this.pos < this.string.length) { return this.string.charAt(this.pos++); }
-    },
-    eat: function (match) {
-      const ch = this.string.charAt(this.pos);
-      let ok;
-      if (typeof match === "string") {
-        ok = ch === match;
-      } else {
-        ok = ch && (match.test ? match.test(ch) : match(ch));
-      }
-      if (ok) { ++this.pos; return ch; }
-    },
-    eatWhile: function (match) {
-      const start = this.pos;
-      while (this.eat(match));
-      return this.pos > start;
-    },
-    eatSpace: function () {
-      const start = this.pos;
-      while (/[\s\u00a0]/.test(this.string.charAt(this.pos))) ++this.pos;
-      return this.pos > start;
-    },
-    skipToEnd: function () { this.pos = this.string.length; },
-    skipTo: function (ch) {
-      const found = this.string.indexOf(ch, this.pos);
-      if (found > -1) { this.pos = found; return true; }
-    },
-    backUp: function (n) { this.pos -= n; },
-    match: function (pattern, consume, caseInsensitive) {
-      assert(false, "Should not get here");
-      if (typeof pattern === "string") {
-        const cased = function (str) { return caseInsensitive ? str.toLowerCase() : str; };
-        if (cased(this.string).indexOf(cased(pattern), this.pos) === this.pos) {
-          if (consume !== false) this.pos += pattern.length;
-          return true;
-        }
-      } else {
-        const match = this.string.slice(this.pos).match(pattern);
-        if (match && match.index > 0) return null;
-        if (match && consume !== false) this.pos += match[0].length;
-        return match;
-      }
-    },
-    current: function () { return this.string.slice(this.start, this.pos); }
-  };
+  eol() {
+    return this.pos >= this.string.length;
+  }
 
-  return StringStream;
-})();
+  sol() {
+    return this.pos === 0;
+  }
+
+  peek() {
+    return this.string.charAt(this.pos) || undefined;
+  }
+
+  next() {
+    if (this.pos < this.string.length) {
+      return this.string.charAt(this.pos++);
+    }
+  }
+
+  eat(match) {
+    const ch = this.string.charAt(this.pos);
+    let ok;
+
+    if (typeof match === "string") {
+      ok = ch === match;
+    } else if (match instanceof RegExp) {
+      ok = match.test(ch);
+    } else {
+      ok = match(ch);
+    }
+
+    if (ok) {
+      ++this.pos;
+      return ch;
+    }
+  }
+
+  eatWhile(match) {
+    const start = this.pos;
+    while (this.eat(match));
+    return this.pos > start;
+  }
+
+  eatSpace() {
+    const start = this.pos;
+    while (/[\s\u00a0]/.test(this.string.charAt(this.pos))) {
+      ++this.pos;
+    }
+    return this.pos > start;
+  }
+
+  skipToEnd() {
+    this.pos = this.string.length;
+  }
+
+  skipTo(ch) {
+    const found = this.string.indexOf(ch, this.pos);
+    if (found > -1) {
+      this.pos = found;
+      return true;
+    }
+  }
+
+  backUp(n) {
+    this.pos -= n;
+  }
+
+  match(pattern, consume = true, caseInsensitive = false) {
+    if (typeof pattern === "string") {
+      const cased = str => (caseInsensitive ? str.toLowerCase() : str);
+      if (cased(this.string).indexOf(cased(pattern), this.pos) === this.pos) {
+        if (consume) this.pos += pattern.length;
+        return true;
+      }
+      return false;
+    } else {
+      const match = this.string.slice(this.pos).match(pattern);
+      if (!match || match.index !== 0) return null;
+      if (consume) this.pos += match[0].length;
+      return match;
+    }
+  }
+
+  current() {
+    return this.string.slice(this.start, this.pos);
+  }
+}
