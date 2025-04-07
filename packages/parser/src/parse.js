@@ -58,8 +58,9 @@ window.gcexports.parseCount = function () {
 };
 
 function getCoord(ctx) {
+  // FIXME
   return {
-    from: ctx.scan.stream.start,
+    from: ctx.scan.stream.pos - 1,
     to: ctx.scan.stream.pos,
   };
 }
