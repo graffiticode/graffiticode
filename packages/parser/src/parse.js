@@ -58,11 +58,11 @@ window.gcexports.parseCount = function () {
 };
 
 function getCoord(ctx) {
-  // FIXME
-  return {
-    from: ctx.scan.stream.pos - 1,
-    to: ctx.scan.stream.pos,
-  };
+  console.log(
+    "getCoord()",
+    "nextTokenCoord=" + JSON.stringify(ctx.state.nextTokenCoord),
+  );
+  return ctx.state.nextTokenCoord;
 }
 
 function getPos(ctx) {
@@ -70,11 +70,11 @@ function getPos(ctx) {
 }
 
 export function assertErr(ctx, b, str, coord) {
-  console.log(
-    "assertErr()",
-    "str=" + str,
-  );
   if (!b) {
+    console.log(
+      "assertErr()",
+      "str=" + str,
+    );
     const pos = getPos(ctx);
     Ast.error(ctx, str, { from: pos - 1, to: pos });
     throw new Error(str);
@@ -237,11 +237,14 @@ export const parse = (function () {
     let tk;
     const nextToken = ctx.state.nextToken;
     if (nextToken < 0) {
+      const from = getPos(ctx);
       const t0 = new Date();
       tk = ctx.scan.start(ctx);
       const t1 = new Date();
       scanTime += (t1 - t0);
       ctx.state.nextToken = tk;
+      const to = getPos(ctx);
+      ctx.state.nextTokenCoord = {from, to};
     } else {
       tk = nextToken;
     }
@@ -417,11 +420,6 @@ export const parse = (function () {
       }
     } else {
       cc.cls = "error";
-      console.log(
-        "name()",
-        "lexeme=" + lexeme,
-        "coord=" + JSON.stringify(coord),
-      );
       Ast.error(ctx, "Name '" + lexeme + "' not found.", coord);
     }
     // assert(cc, "name");
@@ -866,7 +864,7 @@ export const parse = (function () {
       let nid;
       while (Ast.peek(ctx) !== nid) {
         nid = Ast.pop(ctx);
-        folder.fold(ctx, nid); // fold the exprs on top
+        folder.fold(ctx, nid); // Fold the exprs on top
       }
       Ast.exprs(ctx, ctx.state.nodeStack.length, true);
       Ast.program(ctx);
@@ -998,10 +996,10 @@ export const parse = (function () {
         } else {
           console.log("catch() x=" + x.stack);
           // next(ctx);
-          return Ast.poolToJSON(ctx);
-          // state.cc = null; // done for now.
-          // cls = "error";
-          //          throw new Error(JSON.stringify(window.gcexports.errors, null, 2));
+          //return Ast.poolToJSON(ctx);
+          state.cc = null; // done for now.
+          cls = "error";
+          // throw new Error(JSON.stringify(window.gcexports.errors, null, 2));
         }
       } else {
         // throw x

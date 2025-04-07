@@ -154,6 +154,10 @@ export class Folder {
   }
 
   static add(node) {
+    console.log(
+      "Folder.add()",
+      "node=" + JSON.stringify(node, null, 2),
+    );
     Folder.#visit(node.elts[0]);
     Folder.#visit(node.elts[1]);
     Ast.add(Folder.#ctx);

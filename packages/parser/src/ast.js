@@ -185,7 +185,7 @@ export class Ast {
     return s;
   }
 
-  static fold(ctx, fn, args) {
+  static foldApply(ctx, fn, args) {
     // Local defs:
     // -- put bindings in env
     // Three cases:
@@ -315,7 +315,7 @@ export class Ast {
       const elt = Ast.pop(ctx);
       elts.unshift(elt); // Get the order right.
     }
-    Ast.fold(ctx, def, elts);
+    Ast.foldApply(ctx, def, elts);
   }
 
   // Node constructors
@@ -686,9 +686,8 @@ export class Ast {
   }
 
   static exprs(ctx, count, inReverse) {
-    // Ast.exprs
     let elts = [];
-    assert(ctx.state.nodeStack.length >= count);
+    assert(ctx.state.nodeStack.length >= count, `exprs() need ${count} args, got ${ctx.state.nodeStack.length}`);
     if (inReverse) {
       for (let i = count; i > 0; i--) {
         const elt = Ast.pop(ctx);
