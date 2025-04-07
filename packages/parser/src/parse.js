@@ -13,7 +13,7 @@
 
 import { folder } from "./fold.js";
 import { Ast } from "./ast.js";
-import { env } from "./env.js";
+import { Env } from "./env.js";
 import { StringStream } from "./stringstream.js";
 
 let CodeMirror;
@@ -383,7 +383,7 @@ export const parse = (function () {
       return defList(ctx, cc);
     } else {
       eat(ctx, TK_IDENT);
-      env.addWord(ctx, lexeme, {
+      Env.addWord(ctx, lexeme, {
         tk: TK_IDENT,
         cls: "val",
         name: lexeme,
@@ -400,7 +400,7 @@ export const parse = (function () {
     const to = getPos(ctx);
     const from = to - lexeme.length;
     const coord = { from, to };
-    const word = env.findWord(ctx, lexeme);
+    const word = Env.findWord(ctx, lexeme);
     if (word) {
       cc.cls = word.cls;
       if (word.cls === "number" && word.val) {
@@ -477,7 +477,7 @@ export const parse = (function () {
     eat(ctx, TK_LEFTANGLE);
     const ret = function (ctx) {
       ctx.state.paramc = 0;
-      env.enterEnv(ctx, "lambda");
+      Env.enterEnv(ctx, "lambda");
       return params(ctx, TK_COLON, function (ctx) {
         eat(ctx, TK_COLON);
         const ret = function (ctx) {
@@ -485,7 +485,7 @@ export const parse = (function () {
             eat(ctx, TK_RIGHTANGLE);
             const nid = Ast.pop(ctx); // save body node id for aliased code
             Ast.lambda(ctx, topEnv(ctx), nid);
-            env.exitEnv(ctx);
+            Env.exitEnv(ctx);
             return cc;
           });
         };
@@ -624,7 +624,7 @@ export const parse = (function () {
       if (match(ctx, TK_BINOP)) {
         eat(ctx, TK_BINOP);
         const ret = function (ctx) {
-          let op = env.findWord(ctx, lexeme).name;
+          let op = Env.findWord(ctx, lexeme).name;
           if (getPrecedence(prevOp) < getPrecedence(op)) {
             return binaryExpr(ctx, op, function (ctx, prevOp) {
               // This continuation's purpose is to construct a right recursive
@@ -889,7 +889,7 @@ export const parse = (function () {
         const ret = defName(ctx, function (ctx) {
           const name = Ast.node(ctx, Ast.pop(ctx)).elts[0];
           // nid=0 means def not finished yet
-          env.addWord(ctx, name, {
+          Env.addWord(ctx, name, {
             tk: TK_IDENT,
             cls: "function",
             length: 0,
@@ -897,17 +897,17 @@ export const parse = (function () {
             name
           });
           ctx.state.paramc = 0;
-          env.enterEnv(ctx, name); // FIXME need to link to outer env
+          Env.enterEnv(ctx, name); // FIXME need to link to outer env
           return params(ctx, TK_EQUAL, function (ctx) {
-            const func = env.findWord(ctx, topEnv(ctx).name);
+            const func = Env.findWord(ctx, topEnv(ctx).name);
             func.length = ctx.state.paramc;
             func.env = topEnv(ctx);
             eat(ctx, TK_EQUAL);
             const ret = function (ctx) {
               return exprsStart(ctx, TK_DOT, function (ctx) {
-                const def = env.findWord(ctx, topEnv(ctx).name);
+                const def = Env.findWord(ctx, topEnv(ctx).name);
                 def.nid = Ast.peek(ctx); // save node id for aliased code
-                env.exitEnv(ctx);
+                Env.exitEnv(ctx);
                 Ast.letDef(ctx); // Clean up stack
                 return cc;
               });

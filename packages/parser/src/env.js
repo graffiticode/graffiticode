@@ -1,17 +1,7 @@
 // env
 
-export const env = (function () {
-  return {
-    findWord,
-    addWord,
-    enterEnv,
-    exitEnv,
-    addPattern
-  };
-
-  // private functions
-
-  function findWord(ctx, lexeme) {
+export class Env {
+  static findWord(ctx, lexeme) {
     const env = ctx.state.env;
     for (let i = env.length - 1; i >= 0; i--) {
       const word = env[i].lexicon[lexeme];
@@ -22,16 +12,16 @@ export const env = (function () {
     return null;
   }
 
-  function addWord(ctx, lexeme, entry) {
+  static addWord(ctx, lexeme, entry) {
     window.gcexports.topEnv(ctx).lexicon[lexeme] = entry;
     return null;
   }
 
-  function addPattern(ctx, pattern) {
+  static addPattern(ctx, pattern) {
     window.gcexports.topEnv(ctx).pattern.push(pattern);
   }
 
-  function enterEnv(ctx, name) {
+  static enterEnv(ctx, name) {
     // recursion guard
     if (ctx.state.env.length > 380) {
       console.trace(
@@ -49,8 +39,8 @@ export const env = (function () {
     });
   }
 
-  function exitEnv(ctx) {
+  static exitEnv(ctx) {
     ctx.state.env.pop();
     ctx.state.paramc = window.gcexports.topEnv(ctx).paramc;
   }
-})();
+}

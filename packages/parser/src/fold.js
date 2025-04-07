@@ -1,6 +1,6 @@
 import assert from "assert";
 import { Ast } from "./ast.js";
-import { env } from "./env.js";
+import { Env } from "./env.js";
 
 export const folder = (function () {
   const table = {
@@ -175,7 +175,7 @@ export const folder = (function () {
 
   function ident(node) {
     const name = node.elts[0];
-    const word = env.findWord(ctx, name);
+    const word = Env.findWord(ctx, name);
     if (word) {
       if (word.cls === "val") {
         if (word.val) {

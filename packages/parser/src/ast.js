@@ -1,4 +1,4 @@
-import { env } from "./env.js";
+import { Env } from "./env.js";
 import { folder } from "./fold.js";
 import { assertErr } from "./parse.js";
 
@@ -250,7 +250,7 @@ export const Ast = (function () {
     //        apply <[x y]: add x y> data..
     //    x: val 0 data
     //    y: val 1 data
-    env.enterEnv(ctx, fn.name);
+    Env.enterEnv(ctx, fn.name);
     if (fn.env) {
       const lexicon = fn.env.lexicon;
       const pattern = Ast.node(ctx, fn.env.pattern);
@@ -301,7 +301,7 @@ export const Ast = (function () {
           }
           outerEnv[id] = word;
         }
-        env.addWord(ctx, id, word);
+        Env.addWord(ctx, id, word);
       }
       folder.fold(ctx, fn.nid);
       if (outerEnv) {
@@ -311,7 +311,7 @@ export const Ast = (function () {
         }, pop(ctx));
       }
     }
-    env.exitEnv(ctx);
+    Env.exitEnv(ctx);
   }
 
   function applyLate(ctx, count) {
