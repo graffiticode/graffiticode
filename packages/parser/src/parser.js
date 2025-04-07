@@ -1,5 +1,5 @@
 import vm from "vm";
-import { getLangAsset } from "./index.js";
+import { getLangAsset } from "../../api/src/lang/index.js";
 import { parse } from "./parse.js";
 
 // commonjs export
@@ -35,6 +35,10 @@ const main = {
     if (state.cc) {
       throw new Error("End of program reached.");
     }
+    console.log(
+      "parse()",
+      "ast=" + JSON.stringify(ast, null, 2),
+    );
     return ast;
   }
 };

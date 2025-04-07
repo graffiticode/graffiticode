@@ -131,3 +131,6 @@ dist
 
 # Firebase
 firestore-coverage.html
+
+# Emacs auto save
+*~

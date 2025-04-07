@@ -1,4 +1,18 @@
 // Copyright 2021, ARTCOMPILER INC
+/*
+  Error handling
+  -- every range points to a node
+  -- multiple ranges can point to the same node
+  -- errors are associated with ranges
+  -- errors are determined by nodes in context
+
+  -- parser returns an ast which might compile to a list of errors of the form
+     {from, to, message, severity}
+  -- compiler checkers report these errors in the err callback arg
+*/
+
+import assert from "assert";
+import { folder } from "./fold.js";
 
 let CodeMirror;
 if (typeof CodeMirror === "undefined") {
@@ -21,13 +35,9 @@ if (typeof window === "undefined") {
   };
 }
 
-function assert(b, str) {
-  if (!b) throw str;
-}
-
 // ast module
 
-const Ast = (function () {
+export const Ast = (function () {
   const ASSERT = true;
   const assert = function (val, str) {
     if (!ASSERT) {
@@ -76,12 +86,10 @@ const Ast = (function () {
     mod,
     add,
     sub,
-    //    mul: mul,
+    //    mul,
     div,
     pow,
     concat,
-    orelse,
-    andalso,
     eq,
     ne,
     lt,
@@ -91,7 +99,8 @@ const Ast = (function () {
     neg,
     list,
     bool,
-    nul
+    nul,
+    error,
   };
 
   return new AstClass();
@@ -198,7 +207,7 @@ const Ast = (function () {
 
   function poolToJSON(ctx) {
     const nodePool = ctx.state.nodePool;
-    const obj = { };
+    const obj = {};
     for (let i = 1; i < nodePool.length; i++) {
       const n = nodePool[i];
       obj[i] = nodeToJSON(n);
@@ -402,6 +411,28 @@ const Ast = (function () {
 
   // Node constructors
 
+  function error(ctx, str, coord) {
+    console.log(
+      "error()",
+      "str=" + str,
+      "coord=" + JSON.stringify(coord),
+    );
+    const from = coord?.from !== undefined ? coord.from : -1;
+    const to = coord?.to !== undefined ? coord.to : -1;
+    number(ctx, to);
+    number(ctx, from);
+    string(ctx, str, coord);
+    push(ctx, {
+      tag: "ERROR",
+      elts: [
+        pop(ctx),
+        pop(ctx),
+        pop(ctx),
+      ],
+      coord
+    });
+  }
+
   function bool(ctx, val) {
     let b;
     if (val) {
@@ -422,11 +453,11 @@ const Ast = (function () {
     });
   }
 
-  function number(ctx, str, coord) {
-    assert(typeof str === "string" || typeof str === "number");
+  function number(ctx, num, coord) {
+    assert(typeof num === "string" || typeof num === "number");
     push(ctx, {
       tag: "NUM",
-      elts: [String(str)],
+      elts: [String(num)],
       coord
     });
   }
@@ -450,14 +481,27 @@ const Ast = (function () {
   function expr(ctx, argc) {
     // Ast.expr -- construct a expr node for the compiler.
     const elts = [];
+    const pos = getPos(ctx);
+    console.trace(
+      "expr()",
+      "argc=" + argc,
+      "nodeStack=" + JSON.stringify(ctx.state.nodeStack, null, 2),
+    );
+    assertErr(ctx, argc <= ctx.state.nodeStack.length - 1, `Too few arguments. Expected ${argc} got ${ctx.state.nodeStack.length - 1}.`, {
+      from: pos - 1, to: pos
+    });
     while (argc--) {
       const elt = pop(ctx);
       elts.push(elt);
     }
     const nameId = pop(ctx);
-    assert(nameId, "Ill formed node.");
+    console.log(
+      "expr()",
+      "nameId=" + nameId,
+    );
+    assertErr(ctx, nameId, "Ill formed node.");
     const e = node(ctx, nameId).elts;
-    assert(e && e.length > 0, "Ill formed node.");
+    assertErr(ctx, e && e.length > 0, "Ill formed node.");
     const name = e[0];
     push(ctx, {
       tag: name,
@@ -615,18 +659,6 @@ const Ast = (function () {
       tag: "CONCAT",
       elts: [n1]
     });
-  }
-
-  function orelse(ctx) {
-    // const v2 = +node(ctx, pop(ctx)).elts[0];
-    // const v1 = +node(ctx, pop(ctx)).elts[0];
-    throw new Error("not implemented");
-  }
-
-  function andalso(ctx) {
-    // const v2 = +node(ctx, pop(ctx)).elts[0];
-    // const v1 = +node(ctx, pop(ctx)).elts[0];
-    throw new Error("not implemented");
   }
 
   function eq(ctx) {
@@ -849,7 +881,7 @@ const StringStream = (function () {
 
 // env
 
-const env = (function () {
+export const env = (function () {
   return {
     findWord,
     addWord,
@@ -925,11 +957,26 @@ window.gcexports.parseCount = function () {
 };
 
 function getCoord(ctx) {
-  const ln = ctx.scan.stream.lineOracle && ctx.scan.stream.lineOracle.line || 0;
   return {
-    from: CodeMirror.Pos(ln, ctx.scan.stream.start),
-    to: CodeMirror.Pos(ln, ctx.scan.stream.pos)
+    from: ctx.scan.stream.start,
+    to: ctx.scan.stream.pos,
   };
+}
+
+function getPos(ctx) {
+  return ctx.scan.stream.pos;
+}
+
+function assertErr(ctx, b, str, coord) {
+  console.log(
+    "assertErr()",
+    "str=" + str,
+  );
+  if (!b) {
+    const pos = getPos(ctx);
+    Ast.error(ctx, str, { from: pos - 1, to: pos });
+    throw new Error(str);
+  }
 }
 
 export const parse = (function () {
@@ -965,16 +1012,6 @@ export const parse = (function () {
     data: { tk: 1, name: "DATA", cls: "function", length: 1, arity: 1 },
     json: { tk: 1, name: "JSON", cls: "function", length: 1, arity: 1 },
   };
-
-  function addError(ctx, str) {
-    const ln = ctx.scan.stream.lineOracle && ctx.scan.stream.lineOracle.line || 0;
-    window.gcexports.errors.push({
-      from: CodeMirror.Pos(ln, ctx.scan.stream.start),
-      to: CodeMirror.Pos(ln, ctx.scan.stream.pos),
-      message: str,
-      severity: "error"
-    });
-  }
 
   const CC_DOUBLEQUOTE = 0x22;
   const CC_DOLLAR = 0x24;
@@ -1069,6 +1106,11 @@ export const parse = (function () {
   function eat(ctx, tk) {
     const nextToken = next(ctx);
     if (nextToken !== tk) {
+      const to = getPos(ctx);
+      const from = to - lexeme.length;
+      Ast.error(ctx, "Expecting " + tokenToLexeme(tk) +
+                ", found " + tokenToLexeme(nextToken) + ".", { from, to });
+      next(ctx); // Advance past error.
       throw new Error("Expecting " + tokenToLexeme(tk) +
                       ", found " + tokenToLexeme(nextToken) + ".");
     }
@@ -1254,7 +1296,9 @@ export const parse = (function () {
   }
   function name(ctx, cc) {
     eat(ctx, TK_IDENT);
-    const coord = getCoord(ctx);
+    const to = getPos(ctx);
+    const from = to - lexeme.length;
+    const coord = { from, to };
     const word = env.findWord(ctx, lexeme);
     if (word) {
       cc.cls = word.cls;
@@ -1270,10 +1314,15 @@ export const parse = (function () {
         }
       }
     } else {
-      cc.cls = "comment";
-      addError(ctx, "Name '" + lexeme + "' not found.");
+      cc.cls = "error";
+      console.log(
+        "name()",
+        "lexeme=" + lexeme,
+        "coord=" + JSON.stringify(coord),
+      );
+      Ast.error(ctx, "Name '" + lexeme + "' not found.", coord);
     }
-    assert(cc, "name");
+    // assert(cc, "name");
     return cc;
   }
   function record(ctx, cc) {
@@ -1840,17 +1889,17 @@ export const parse = (function () {
         stream.next();
       }
     } catch (x) {
-      // console.log("catch() x=" + x);
+      console.log("catch() x=" + x);
       if (x instanceof Error) {
         if (x.message === "comment") {
           cls = x;
         } else {
           console.log("catch() x=" + x.stack);
-          next(ctx);
-          addError(ctx, x.message);
-          state.cc = null; // done for now.
-          cls = "error";
-          throw new Error(JSON.stringify(window.gcexports.errors, null, 2));
+          // next(ctx);
+          return Ast.poolToJSON(ctx);
+          // state.cc = null; // done for now.
+          // cls = "error";
+          //          throw new Error(JSON.stringify(window.gcexports.errors, null, 2));
         }
       } else {
         // throw x
@@ -2126,247 +2175,3 @@ export const parse = (function () {
 
   return parser;
 })(); // end parser
-
-let foldTime = 0;
-
-window.gcexports.foldTime = function () {
-  return foldTime;
-};
-
-const folder = (function () {
-  const table = {
-    PROG: program,
-    EXPRS: exprs,
-    PAREN: parenExpr,
-    IDENT: ident,
-    BOOL: bool,
-    NUM: num,
-    STR: str,
-    PARENS: unaryExpr,
-    APPLY: apply,
-    LAMBDA: lambda,
-    // "MUL": mul,
-    // "DIV": div,
-    // "SUB": sub,
-    ADD: add,
-    POW: pow,
-    MOD: mod,
-    CONCAT: concat,
-    // "OR": orelse,
-    // "AND": andalso,
-    // "NE": ne,
-    // "EQ": eq,
-    // "LT": lt,
-    // "GT": gt,
-    // "LE": le,
-    // "GE": ge,
-    NEG: neg,
-    LIST: list
-    // "CASE": caseExpr,
-    // "OF": ofClause,
-  };
-
-  let nodePool;
-  let ctx;
-
-  function fold(cx, nid) {
-    ctx = cx;
-    nodePool = ctx.state.nodePool;
-    const t0 = new Date();
-    visit(nid);
-    const t1 = new Date();
-    foldTime += (t1 - t0);
-  }
-
-  function visit(nid) {
-    const node = nodePool[nid];
-    if (!node) {
-      return null;
-    }
-    if (node.tag === undefined) {
-      return []; // clean up stubs;
-    } else if (isFunction(table[node.tag])) {
-      // Have a primitive operation so apply it to construct a new node.
-      const ret = table[node.tag](node);
-      return ret;
-    }
-    expr(node);
-  }
-
-  function isFunction(v) {
-    return v instanceof Function;
-  }
-
-  // BEGIN VISITOR METHODS
-
-  function program(node) {
-    visit(node.elts[0]);
-    Ast.program(ctx);
-  }
-
-  function pushNodeStack(ctx) {
-    ctx.state.nodeStackStack.push(ctx.state.nodeStack);
-    ctx.state.nodeStack = [];
-  }
-  function popNodeStack(ctx) {
-    const stack = ctx.state.nodeStack;
-    ctx.state.nodeStack = ctx.state.nodeStackStack.pop().concat(stack);
-  }
-
-  function list(node) {
-    // Fold list
-    // for (var i = 0; i < node.elts.length; i++) {
-    //   visit(node.elts[i]);
-    // }
-    pushNodeStack(ctx);
-    for (let i = node.elts.length - 1; i >= 0; i--) {
-      visit(node.elts[i]); // Keep original order.
-    }
-    Ast.list(ctx, ctx.state.nodeStack.length, null, true);
-    popNodeStack(ctx);
-  }
-
-  function exprs(node) {
-    // Fold exprs in reverse order to get precedence right.
-    for (let i = node.elts.length - 1; i >= 0; i--) {
-      visit(node.elts[i]); // Keep original order.
-    }
-    ctx.state.exprc = node.elts.length;
-  }
-
-  function lambda(node) {
-    // Fold initializers and apply args.
-    const inits = Ast.node(ctx, node.elts[3]).elts;
-    inits.forEach((init, i) => {
-      if (init) {
-        // If we have an init then fold it and replace in inits list.
-        folder.fold(ctx, Ast.intern(ctx, init));
-        inits[i] = Ast.pop(ctx);
-      }
-    });
-    // FIXME don't patch old node. construct a new one.
-    node.elts[3] = Ast.intern(ctx, { tag: "LIST", elts: inits });
-    const fnId = Ast.intern(ctx, node);
-    const argc = ctx.state.nodeStack.length;
-    Ast.apply(ctx, fnId, argc);
-  }
-
-  function apply(node) {
-    for (let i = node.elts.length - 1; i >= 0; i--) {
-      visit(node.elts[i]);
-    }
-    Ast.applyLate(ctx, node.elts.length);
-  }
-
-  function expr(node) {
-    // Construct an expression node for the compiler.
-    Ast.name(ctx, node.tag, getCoord(ctx));
-    for (let i = node.elts.length - 1; i >= 0; i--) {
-      visit(node.elts[i]);
-    }
-    Ast.expr(ctx, node.elts.length);
-  }
-
-  function neg(node) {
-    visit(node.elts[0]);
-    Ast.neg(ctx);
-  }
-
-  function parenExpr(node) {
-    pushNodeStack(ctx);
-    visit(node.elts[0]);
-    Ast.parenExpr(ctx);
-    popNodeStack(ctx);
-  }
-
-  function unaryExpr(node) {
-    visit(node.elts[0]);
-    Ast.unaryExpr(ctx, node.tag);
-  }
-
-  function add(node) {
-    visit(node.elts[0]);
-    visit(node.elts[1]);
-    Ast.add(ctx);
-  }
-
-  function pow(node) {
-    visit(node.elts[0]);
-    visit(node.elts[1]);
-    Ast.pow(ctx);
-  }
-
-  function concat(node) {
-    visit(node.elts[0]);
-    Ast.concat(ctx);
-  }
-
-  function mod(node) {
-    visit(node.elts[0]);
-    visit(node.elts[1]);
-    Ast.mod(ctx);
-  }
-
-  function ident(node) {
-    const name = node.elts[0];
-    const word = env.findWord(ctx, name);
-    if (word) {
-      if (word.cls === "val") {
-        if (word.val) {
-          Ast.string(ctx, word.val); // strip quotes;
-        } else if (word.nid) {
-          let wrd;
-          if ((wrd = Ast.node(ctx, word.nid)).tag === "LAMBDA") {
-            const argc = wrd.elts[0].elts.length;
-            Ast.apply(ctx, word.nid, argc);
-          } else {
-            Ast.push(ctx, word.nid);
-          }
-        } else if (word.name) {
-          Ast.push(ctx, node);
-        } else {
-          // push the original node to be resolved later.
-          Ast.push(ctx, node);
-        }
-      } else if (word.cls === "function") {
-        const coord = getCoord(ctx);
-        const elts = [];
-        for (let i = 0; i < word.length; i++) {
-          const elt = Ast.pop(ctx);
-          elts.push(elt);
-        }
-        if (word.nid) {
-          Ast.fold(ctx, word, elts);
-        } else {
-          Ast.push(ctx, {
-            tag: word.name,
-            elts,
-            coord
-          });
-          folder.fold(ctx, Ast.pop(ctx));
-        }
-      } else {
-        assert(false);
-      }
-    } else {
-      // assert(false, "unresolved ident "+name);
-      Ast.push(ctx, node);
-    }
-  }
-
-  function num(node) {
-    Ast.number(ctx, node.elts[0]);
-  }
-
-  function str(node) {
-    Ast.string(ctx, node.elts[0]);
-  }
-
-  function bool(node) {
-    Ast.bool(ctx, node.elts[0]);
-  }
-
-  return {
-    fold
-  };
-}());

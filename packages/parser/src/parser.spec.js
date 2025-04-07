@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 import { parser, buildParser } from "./parser.js";
-import { mockPromiseValue, mockPromiseError } from "../testing/index.js";
+import { mockPromiseValue, mockPromiseError } from "./testing/index.js";
 
 describe("lang/parser", () => {
   const log = jest.fn();

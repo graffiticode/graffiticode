@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { InvalidArgumentError } from "../errors/http.js";
-import { parser } from "../lang/parser.js";
+import { parser } from "../../../common/src/parser/index.js";
 import { isNonEmptyString } from "../util.js";
 import {
   getStorageTypeForRequest,
