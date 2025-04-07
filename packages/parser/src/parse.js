@@ -11,7 +11,7 @@
   -- compiler checkers report these errors in the err callback arg
 */
 
-import { folder } from "./fold.js";
+import { folder } from "./folder.js";
 import { Ast } from "./ast.js";
 import { Env } from "./env.js";
 import { StringStream } from "./stringstream.js";
