@@ -20,26 +20,34 @@ function nodeToJSON(n) {
   let obj;
   if (typeof n === "object") {
     switch (n.tag) {
-      case "num":
-        obj = n.elts[0];
-        break;
-      case "str":
-        obj = n.elts[0];
-        break;
-      default:
-        obj = {};
-        obj.tag = n.tag;
-        obj.elts = [];
-        for (let i = 0; i < n.elts.length; i++) {
-          obj.elts[i] = nodeToJSON(n.elts[i]);
-        }
-        break;
+    case "num":
+      obj = n.elts[0];
+      break;
+    case "str":
+      obj = n.elts[0];
+      break;
+    default:
+      obj = {};
+      obj.tag = n.tag;
+      obj.elts = [];
+      if (n.coord) {
+        obj.coord = n.coord;
+      }
+      for (let i = 0; i < n.elts.length; i++) {
+        obj.elts[i] = nodeToJSON(n.elts[i]);
+      }
+      break;
     }
   } else if (typeof n === "string") {
     obj = n;
   } else {
     obj = n;
   }
+  // console.log(
+  //   "nodeToJSON()",
+  //   "n=" + JSON.stringify(n, null, 2),
+  //   "obj=" + JSON.stringify(obj, null, 2),
+  // );
   return obj;
 }
 
@@ -79,23 +87,20 @@ export class Ast {
     const nodeMap = ctx.state.nodeMap;
     const nodePool = ctx.state.nodePool;
     const tag = n.tag;
-    let elts = "";
     const count = n.elts.length;
-    for (let i = 0; i < count; i++) {
-      if (typeof n.elts[i] === "object") {
-        n.elts[i] = Ast.intern(ctx, n.elts[i]);
+    const eltsHash = n.elts.reduce((hash, elt, i) => {
+      if (typeof elt === "object") {
+        n.elts[i] = Ast.intern(ctx, elt);
       }
-      elts += n.elts[i];
-    }
-    const key = tag + count + elts;
+      return `${hash}#${n.elts[i]}`;
+    }, "");
+    const coordHash = n.coord && JSON.stringify(n.coord) || "";
+    const key = `${tag}#${count}#${eltsHash}###${coordHash}`;
     let nid = nodeMap[key];
     if (nid === undefined) {
-      nodePool.push({ tag, elts: n.elts });
+      nodePool.push({ tag, elts: n.elts, coord: n.coord });
       nid = nodePool.length - 1;
       nodeMap[key] = nid;
-      if (n.coord) {
-        ctx.state.coords[nid] = n.coord;
-      }
     }
     return nid;
   }
@@ -380,6 +385,11 @@ export class Ast {
   }
 
   static name(ctx, name, coord) {
+    console.trace(
+      "Ast.name()",
+      "name=" + name,
+      "coord=" + JSON.stringify(coord),
+    );
     Ast.push(ctx, {
       tag: "IDENT",
       elts: [name],
@@ -387,15 +397,10 @@ export class Ast {
     });
   }
 
-  static expr(ctx, argc) {
+  static expr(ctx, argc, coord) {
     // Ast.expr -- construct a expr node for the compiler.
     const elts = [];
     const pos = 1; // FIXME
-    console.trace(
-      "expr()",
-      "argc=" + argc,
-      "nodeStack=" + JSON.stringify(ctx.state.nodeStack, null, 2),
-    );
     assertErr(ctx, argc <= ctx.state.nodeStack.length - 1, `Too few arguments. Expected ${argc} got ${ctx.state.nodeStack.length - 1}.`, {
       from: pos - 1, to: pos
     });
@@ -404,10 +409,6 @@ export class Ast {
       elts.push(elt);
     }
     const nameId = Ast.pop(ctx);
-    console.log(
-      "expr()",
-      "nameId=" + nameId,
-    );
     assertErr(ctx, nameId, "Ill formed node.");
     const e = Ast.node(ctx, nameId).elts;
     assertErr(ctx, e && e.length > 0, "Ill formed node.");
@@ -415,6 +416,7 @@ export class Ast {
     Ast.push(ctx, {
       tag: name,
       elts,
+      coord,
     });
   }
 

@@ -1,6 +1,7 @@
 import assert from "assert";
 import { Ast } from "./ast.js";
 import { Env } from "./env.js";
+import { assertErr } from "./parse.js";
 
 // Helper to check if a value is a function
 function isFunction(v) {
@@ -49,6 +50,11 @@ export class Folder {
   static fold(cx, nid) {
     Folder.#ctx = cx;
     Folder.#nodePool = cx.state.nodePool;
+    console.log(
+      "Folder.fold()",
+      "nid=" + nid,
+      "nodePool=" + JSON.stringify(Folder.#nodePool, null, 2),
+    );
     Folder.#visit(nid);
   }
 
@@ -128,12 +134,16 @@ export class Folder {
   }
 
   static #expr(node) {
+    console.log(
+      "Folder.#expr()",
+      "node=" + JSON.stringify(node, null, 2),
+    );
     // Construct an expression node for the compiler.
-    Ast.name(Folder.#ctx, node.tag);
+    Ast.name(Folder.#ctx, node.tag, node.coord);
     for (let i = node.elts.length - 1; i >= 0; i--) {
       Folder.#visit(node.elts[i]);
     }
-    Ast.expr(Folder.#ctx, node.elts.length);
+    Ast.expr(Folder.#ctx, node.elts.length, node.coord);
   }
 
   static neg(node) {
@@ -154,10 +164,6 @@ export class Folder {
   }
 
   static add(node) {
-    console.log(
-      "Folder.add()",
-      "node=" + JSON.stringify(node, null, 2),
-    );
     Folder.#visit(node.elts[0]);
     Folder.#visit(node.elts[1]);
     Ast.add(Folder.#ctx);
@@ -181,52 +187,55 @@ export class Folder {
   }
 
   static ident(node) {
+    const ctx = Folder.#ctx;
     const name = node.elts[0];
-    const word = Env.findWord(Folder.#ctx, name);
+    const word = Env.findWord(ctx, name);
     if (word) {
       if (word.cls === "val") {
         if (word.val) {
-          Ast.string(Folder.#ctx, word.val); // strip quotes;
+          Ast.string(ctx, word.val); // strip quotes;
         } else if (word.nid) {
           let wrd;
-          if ((wrd = Ast.node(Folder.#ctx, word.nid)).tag === "LAMBDA") {
+          if ((wrd = Ast.node(ctx, word.nid)).tag === "LAMBDA") {
             const argc = wrd.elts[0].elts.length;
-            Ast.apply(Folder.#ctx, word.nid, argc);
+            Ast.apply(ctx, word.nid, argc);
           } else {
-            Ast.push(Folder.#ctx, word.nid);
+            Ast.push(ctx, word.nid);
           }
         } else if (word.name) {
-          Ast.push(Folder.#ctx, node);
+          Ast.push(ctx, node);
         } else {
           // push the original node to be resolved later.
-          Ast.push(Folder.#ctx, node);
+          Ast.push(ctx, node);
         }
       } else if (word.cls === "function") {
         const elts = [];
         for (let i = 0; i < word.length; i++) {
-          const elt = Ast.pop(Folder.#ctx);
+          const elt = Ast.pop(ctx);
+          assertErr(ctx, elt, "Too few arguments for " + word.name, node.coord);
           elts.push(elt);
         }
         if (word.nid) {
-          Ast.fold(Folder.#ctx, word, elts);
+          Ast.fold(ctx, word, elts);
         } else {
-          Ast.push(Folder.#ctx, {
+          Ast.push(ctx, {
             tag: word.name,
-            elts
+            elts,
+            coord: node.coord,
           });
-          Folder.fold(Folder.#ctx, Ast.pop(Folder.#ctx));
+          Folder.fold(ctx, Ast.pop(ctx));
         }
       } else {
         assert(false);
       }
     } else {
       // assert(false, "unresolved ident "+name);
-      Ast.push(Folder.#ctx, node);
+      Ast.push(ctx, node);
     }
   }
 
   static num(node) {
-    Ast.number(Folder.#ctx, node.elts[0]);
+    Ast.number(Folder.#ctx, node.elts[0], node.coord);
   }
 
   static str(node) {

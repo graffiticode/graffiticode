@@ -75,8 +75,7 @@ export function assertErr(ctx, b, str, coord) {
       "assertErr()",
       "str=" + str,
     );
-    const pos = getPos(ctx);
-    Ast.error(ctx, str, { from: pos - 1, to: pos });
+    Ast.error(ctx, str, coord);
     throw new Error(str);
   }
 }
@@ -989,16 +988,16 @@ export const parse = (function () {
         stream.next();
       }
     } catch (x) {
-      console.log("catch() x=" + x);
+      // console.log("catch() x=" + x);
       if (x instanceof Error) {
         if (x.message === "comment") {
           cls = x;
         } else {
           console.log("catch() x=" + x.stack);
           // next(ctx);
-          //return Ast.poolToJSON(ctx);
           state.cc = null; // done for now.
-          cls = "error";
+          return Ast.poolToJSON(ctx);
+          // cls = "error";
           // throw new Error(JSON.stringify(window.gcexports.errors, null, 2));
         }
       } else {
