@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { InvalidArgumentError } from "../errors/http.js";
-//import { parser } from "@graffiticode/parser";
-import { parser } from "../../../parser/src/parser.js";
+import { parser } from "@graffiticode/parser";
 import { isNonEmptyString } from "../util.js";
 import {
   getStorageTypeForRequest,
