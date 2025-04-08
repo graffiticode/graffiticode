@@ -50,11 +50,6 @@ export class Folder {
   static fold(cx, nid) {
     Folder.#ctx = cx;
     Folder.#nodePool = cx.state.nodePool;
-    console.log(
-      "Folder.fold()",
-      "nid=" + nid,
-      "nodePool=" + JSON.stringify(Folder.#nodePool, null, 2),
-    );
     Folder.#visit(nid);
   }
 
@@ -134,10 +129,6 @@ export class Folder {
   }
 
   static #expr(node) {
-    console.log(
-      "Folder.#expr()",
-      "node=" + JSON.stringify(node, null, 2),
-    );
     // Construct an expression node for the compiler.
     Ast.name(Folder.#ctx, node.tag, node.coord);
     for (let i = node.elts.length - 1; i >= 0; i--) {
@@ -212,7 +203,7 @@ export class Folder {
         const elts = [];
         for (let i = 0; i < word.length; i++) {
           const elt = Ast.pop(ctx);
-          assertErr(ctx, elt, "Too few arguments for " + word.name, node.coord);
+          assertErr(ctx, elt, `Too few arguments for ${word.name}. Expected ${word.length}.`, node.coord);
           elts.push(elt);
         }
         if (word.nid) {

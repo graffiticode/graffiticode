@@ -385,11 +385,6 @@ export class Ast {
   }
 
   static name(ctx, name, coord) {
-    console.trace(
-      "Ast.name()",
-      "name=" + name,
-      "coord=" + JSON.stringify(coord),
-    );
     Ast.push(ctx, {
       tag: "IDENT",
       elts: [name],

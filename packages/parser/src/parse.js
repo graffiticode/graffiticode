@@ -58,10 +58,6 @@ window.gcexports.parseCount = function () {
 };
 
 function getCoord(ctx) {
-  console.log(
-    "getCoord()",
-    "nextTokenCoord=" + JSON.stringify(ctx.state.nextTokenCoord),
-  );
   return ctx.state.nextTokenCoord;
 }
 
@@ -984,8 +980,11 @@ export const parse = (function () {
         }
       }
       while ((c = stream.peek()) &&
-           (c === " " || c === "\t")) {
+           (c === " " || c === "\t" || c === "\n")) {
         stream.next();
+      }
+      if (cc && !stream.peek()) {
+        assertErr(ctx, false, "End of progam reached.", getCoord(ctx));
       }
     } catch (x) {
       // console.log("catch() x=" + x);
@@ -1167,6 +1166,8 @@ export const parse = (function () {
           c = nextCC();
         }
       }
+      const coord = {from: getPos(ctx) - lexeme.length, to: getPos(ctx)};
+      assertErr(ctx, c !== 0, `Unterminated string: ${lexeme}`, coord);
       if (quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
           peekCC() === CC_LEFTBRACE) {
         nextCC(); // Eat CC_LEFTBRACE
