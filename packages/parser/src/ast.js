@@ -84,6 +84,10 @@ export class Ast {
     if (!n) {
       return 0;
     }
+    console.trace(
+      "Ast.intern()",
+      "n=" + JSON.stringify(n, null, 2),
+    );
     const nodeMap = ctx.state.nodeMap;
     const nodePool = ctx.state.nodePool;
     const tag = n.tag;

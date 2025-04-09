@@ -1,5 +1,9 @@
 // env
 
+function topEnv(ctx) {
+  return ctx.state.env[ctx.state.env.length - 1];
+}
+
 export class Env {
   static findWord(ctx, lexeme) {
     const env = ctx.state.env;
@@ -13,12 +17,12 @@ export class Env {
   }
 
   static addWord(ctx, lexeme, entry) {
-    window.gcexports.topEnv(ctx).lexicon[lexeme] = entry;
+    topEnv(ctx).lexicon[lexeme] = entry;
     return null;
   }
 
   static addPattern(ctx, pattern) {
-    window.gcexports.topEnv(ctx).pattern.push(pattern);
+    topEnv(ctx).pattern.push(pattern);
   }
 
   static enterEnv(ctx, name) {
@@ -31,7 +35,7 @@ export class Env {
       // return;  // just stop recursing
       throw new Error("runaway recursion");
     }
-    window.gcexports.topEnv(ctx).paramc = ctx.state.paramc;
+    topEnv(ctx).paramc = ctx.state.paramc;
     ctx.state.env.push({
       name,
       lexicon: {},
@@ -41,6 +45,6 @@ export class Env {
 
   static exitEnv(ctx) {
     ctx.state.env.pop();
-    ctx.state.paramc = window.gcexports.topEnv(ctx).paramc;
+    ctx.state.paramc = topEnv(ctx).paramc;
   }
 }
