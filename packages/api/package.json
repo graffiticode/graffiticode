@@ -16,7 +16,7 @@
   "bin": "./src/main.js",
   "dependencies": {
     "@graffiticode/auth": "*",
-    "@graffiticode/parser": "file:../parser",
+    "@graffiticode/parser": "^0.1.2",
     "@graffiticode/tracing": "^0.3.0",
     "bent": "^7.3.12",
     "child_process": "^1.0.2",
