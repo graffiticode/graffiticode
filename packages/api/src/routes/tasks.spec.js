@@ -64,11 +64,11 @@ describe("routes/tasks", () => {
       .expect(200);
     expect(res).toHaveProperty("body.status", "success");
     const id = res.body.data.id;
-
-    await request(app)
-      .get("/tasks")
-      .query({ id })
-      .expect(200, createSuccessResponse({ data: [TASK1] }));
+    const response = await request(app)
+          .get("/tasks")
+          .query({ id });
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(createSuccessResponse({ data: [TASK1] }));
   });
 
   it("should create multiple tasks", async () => {
