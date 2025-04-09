@@ -203,7 +203,12 @@ export class Folder {
         const elts = [];
         for (let i = 0; i < word.length; i++) {
           const elt = Ast.pop(ctx);
-          assertErr(ctx, elt, `Too few arguments for ${word.name}. Expected ${word.length}.`, node.coord);
+          assertErr(
+            ctx,
+            elt,
+            `Too few arguments for ${word.name}. Expected ${word.length}.`,
+            node.coord
+          );
           elts.push(elt);
         }
         if (word.nid) {
@@ -220,8 +225,7 @@ export class Folder {
         assert(false);
       }
     } else {
-      // assert(false, "unresolved ident "+name);
-      Ast.push(ctx, node);
+      assertErr(ctx, false, "unresolved ident " + name, node.coord);
     }
   }
 

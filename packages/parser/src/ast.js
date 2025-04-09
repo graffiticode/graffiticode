@@ -20,23 +20,23 @@ function nodeToJSON(n) {
   let obj;
   if (typeof n === "object") {
     switch (n.tag) {
-    case "num":
-      obj = n.elts[0];
-      break;
-    case "str":
-      obj = n.elts[0];
-      break;
-    default:
-      obj = {};
-      obj.tag = n.tag;
-      obj.elts = [];
-      if (n.coord) {
-        obj.coord = n.coord;
-      }
-      for (let i = 0; i < n.elts.length; i++) {
-        obj.elts[i] = nodeToJSON(n.elts[i]);
-      }
-      break;
+      case "num":
+        obj = n.elts[0];
+        break;
+      case "str":
+        obj = n.elts[0];
+        break;
+      default:
+        obj = {};
+        obj.tag = n.tag;
+        obj.elts = [];
+        if (n.coord) {
+          obj.coord = n.coord;
+        }
+        for (let i = 0; i < n.elts.length; i++) {
+          obj.elts[i] = nodeToJSON(n.elts[i]);
+        }
+        break;
     }
   } else if (typeof n === "string") {
     obj = n;
@@ -84,10 +84,6 @@ export class Ast {
     if (!n) {
       return 0;
     }
-    console.trace(
-      "Ast.intern()",
-      "n=" + JSON.stringify(n, null, 2),
-    );
     const nodeMap = ctx.state.nodeMap;
     const nodePool = ctx.state.nodePool;
     const tag = n.tag;
@@ -671,6 +667,10 @@ export class Ast {
       nids.push(word.nid || 0);
     }
     const pattern = env.pattern;
+    console.log(
+      "lambda()",
+      "pattern=" + JSON.stringify(pattern, null, 2),
+    );
     Ast.push(ctx, {
       tag: "LAMBDA",
       elts: [{
@@ -678,7 +678,9 @@ export class Ast {
         elts: names
       }, nid, {
         tag: "LIST",
-        elts: pattern
+        elts: [
+          // pattern   // FIXME
+        ],
       }, {
         tag: "LIST",
         elts: nids

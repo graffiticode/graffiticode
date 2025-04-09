@@ -239,7 +239,7 @@ export const parse = (function () {
       scanTime += (t1 - t0);
       ctx.state.nextToken = tk;
       const to = getPos(ctx);
-      ctx.state.nextTokenCoord = {from, to};
+      ctx.state.nextTokenCoord = { from, to };
     } else {
       tk = nextToken;
     }
@@ -1166,7 +1166,7 @@ export const parse = (function () {
           c = nextCC();
         }
       }
-      const coord = {from: getPos(ctx) - lexeme.length, to: getPos(ctx)};
+      const coord = { from: getPos(ctx) - lexeme.length, to: getPos(ctx) };
       assertErr(ctx, c !== 0, `Unterminated string: ${lexeme}`, coord);
       if (quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
           peekCC() === CC_LEFTBRACE) {

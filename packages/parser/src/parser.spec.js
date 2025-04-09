@@ -1,5 +1,5 @@
 import { jest } from "@jest/globals";
-import { parser, buildParser } from "./parser.js";
+import { buildParser } from "./parser.js";
 import { mockPromiseValue, mockPromiseError } from "./testing/index.js";
 
 describe("lang/parser", () => {
@@ -135,41 +135,17 @@ describe("lang/parser", () => {
     expect(vm.createContext).toHaveBeenCalled();
     expect(vm.runInContext).toHaveBeenCalledWith(rawLexicon, expect.anything());
   });
-  it.skip("should parse 'hello, world!'", async () => {
-    const lang = "0";
-    const src = "'hello, world'..";
-    const ast = {
-      1: {
-        elts: [
-          "hello, world"
-        ],
-        tag: "STR"
-      },
-      2: {
-        elts: [
-          1
-        ],
-        tag: "EXPRS"
-      },
-      3: {
-        elts: [
-          2
-        ],
-        tag: "PROG"
-      },
-      root: 3
-    };
-    await expect(parser.parse(lang, src)).resolves.toStrictEqual(ast);
-  });
-  it.skip("should parse error", async () => {
+  it("should parse error", async () => {
+    // Arrange
+    const cache = new Map();
+    const getLangAsset = mockPromiseValue("{}");
+    const err = new Error("End of program reached.");
+    const main = { parse: mockPromiseError(err) };
+    const parser = buildParser({ log, cache, getLangAsset, main });
     const lang = "0";
     const src = "'hello, world'";
-    await expect(parser.parse(lang, src)).rejects.toThrow("End of program reached");
+
+    // Act & Assert
+    await expect(parser.parse(lang, src)).rejects.toBe(err);
   });
-  // it("should parse error", async () => {
-  //   const lang = "0";
-  //   const src = "'hello, world..";
-  //   const ast = {};
-  //   await expect(parser.parse(lang, src)).rejects.toThrow("End of program reached");
-  // });
 });
