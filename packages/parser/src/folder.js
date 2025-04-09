@@ -212,7 +212,7 @@ export class Folder {
           elts.push(elt);
         }
         if (word.nid) {
-          Ast.fold(ctx, word, elts);
+          Ast.foldApply(ctx, word, elts);
         } else {
           Ast.push(ctx, {
             tag: word.name,
@@ -225,7 +225,8 @@ export class Folder {
         assert(false);
       }
     } else {
-      assertErr(ctx, false, "unresolved ident " + name, node.coord);
+      // assertErr(ctx, false, "unresolved ident " + name, node.coord);
+      Ast.push(ctx, node);
     }
   }
 
