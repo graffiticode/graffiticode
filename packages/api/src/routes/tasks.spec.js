@@ -65,8 +65,8 @@ describe("routes/tasks", () => {
     expect(res).toHaveProperty("body.status", "success");
     const id = res.body.data.id;
     const response = await request(app)
-          .get("/tasks")
-          .query({ id });
+      .get("/tasks")
+      .query({ id });
     expect(response.status).toBe(200);
     expect(response.body).toEqual(createSuccessResponse({ data: [TASK1] }));
   });
