@@ -11,18 +11,6 @@ import {
   optionsHandler
 } from "./utils.js";
 
-const normalizeTasksParameter = async tasks => {
-  tasks = !Array.isArray(tasks) && [tasks] || tasks;
-  tasks = await Promise.all(tasks.map(async (task) => {
-    if (isNonEmptyString(task.code)) {
-      const { lang, code } = task;
-      task = { lang, code: await parser.parse(lang, code) };
-    }
-    return task;
-  }));
-  return tasks;
-};
-
 const getIdFromIds = ids => {
   if (ids.length === 1) {
     return ids[0];
@@ -62,7 +50,7 @@ const buildGetTaskHandler = ({ taskStorer }) => {
 
 export const buildPostTasks = ({ taskStorer }) => {
   return async ({ auth, tasks, req }) => {
-    // tasks = await normalizeTasksParameter(tasks);
+    tasks = !Array.isArray(tasks) && [tasks] || tasks;
     if (tasks.length < 1) {
       throw new InvalidArgumentError("must provide at least one task");
     }

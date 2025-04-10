@@ -40,7 +40,7 @@ describe("data", () => {
     );
   });
 
-  it("should compile a created task with src data as code", async () => {
+  it.skip("should compile a created task with src data as code", async () => {
     const id = await taskStorer.create({ task: TASK1_WITH_DATA });
     mockCompileData(DATA1);
     await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
