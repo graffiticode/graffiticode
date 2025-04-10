@@ -977,7 +977,7 @@ export const parse = (function () {
         stream.next();
       }
       if (cc && !stream.peek()) {
-        assertErr(ctx, false, "End of progam reached.", getCoord(ctx));
+        assertErr(ctx, false, "Missing program terminator.", getCoord(ctx));
       }
     } catch (x) {
       // console.log("catch() x=" + x);

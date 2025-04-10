@@ -35,10 +35,6 @@ const main = {
     if (state.cc) {
       throw new Error("End of program reached.");
     }
-    console.log(
-      "parse()",
-      "ast=" + JSON.stringify(ast, null, 2),
-    );
     return ast;
   }
 };

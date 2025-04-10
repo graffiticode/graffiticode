@@ -149,7 +149,6 @@ export class Ast {
   static poolToJSON(ctx) {
     const nodePool = ctx.state.nodePool;
     const rootId = nodePool.length - 1;
-
     // Find all nodes transitively referenced from root
     const referencedNodes = new Set();
     const collectReferences = (nodeId) => {
@@ -163,15 +162,7 @@ export class Ast {
         });
       }
     };
-
     collectReferences(rootId);
-
-    console.log(
-      "poolToJSON()",
-      "referencedNodes=" + JSON.stringify([...referencedNodes]),
-      "nodePool=" + JSON.stringify(nodePool, null, 2),
-    );
-
     return {
       ...Object.fromEntries(
         Array.from(referencedNodes).map(id => [id, nodeToJSON(nodePool[id])])
@@ -689,11 +680,7 @@ export class Ast {
       });
       nids.push(word.nid || 0);
     }
-    const pattern = env.pattern;
-    console.log(
-      "lambda()",
-      "pattern=" + JSON.stringify(pattern, null, 2),
-    );
+    // const pattern = env.pattern;
     Ast.push(ctx, {
       tag: "LAMBDA",
       elts: [{
