@@ -2,48 +2,11 @@ export const TASK1_ID = "WmHjCp";
 export const TASK1 = {
   lang: "0001",
   code: {
-    1: {
-      tag: "STR",
-      elts: [
-        "hello, world!"
-      ],
-      coord: {
-        from: 0,
-        to: 15
-      }
-    },
-    2: {
-      tag: "EXPRS",
-      elts: [
-        1
-      ]
-    },
-    3: {
-      tag: "STR",
-      elts: [
-        "hello, world!"
-      ]
-    },
-    4: {
-      tag: "EXPRS",
-      elts: [
-        3
-      ]
-    },
-    5: {
-      tag: "PROG",
-      elts: [
-        4
-      ]
-    },
-    root: 5
+    1: { tag: "STR", elts: ["hello, world!"] },
+    2: { tag: "EXPRS", elts: [1] },
+    3: { tag: "PROG", elts: [2] },
+    root: 3
   }
-  // {
-  //   1: { tag: "STR", elts: ["hello, world!"] },
-  //   2: { tag: "EXPRS", elts: [1] },
-  //   3: { tag: "PROG", elts: [2] },
-  //   root: 3
-  // }
 };
 
 export const TASK1_WITH_SRC = {

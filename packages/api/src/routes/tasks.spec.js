@@ -67,6 +67,7 @@ describe("routes/tasks", () => {
     const response = await request(app)
       .get("/tasks")
       .query({ id });
+    console.log("response=" + JSON.stringify(JSON.parse(response.text), null, 2));
     expect(response.status).toBe(200);
     expect(response.body).toEqual(createSuccessResponse({ data: [TASK1] }));
   });
