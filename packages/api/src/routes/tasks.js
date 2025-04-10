@@ -62,7 +62,7 @@ const buildGetTaskHandler = ({ taskStorer }) => {
 
 export const buildPostTasks = ({ taskStorer }) => {
   return async ({ auth, tasks, req }) => {
-    tasks = await normalizeTasksParameter(tasks);
+    // tasks = await normalizeTasksParameter(tasks);
     if (tasks.length < 1) {
       throw new InvalidArgumentError("must provide at least one task");
     }

@@ -1,6 +1,9 @@
 import { createHash } from "crypto";
 import { NotFoundError, DecodeIdError } from "../errors/http.js";
 import { admin } from "./firebase.js";
+import { isNonEmptyString } from "../util.js";
+import { parser } from "@graffiticode/parser";
+// import { parser } from "../../../parser/src/index.js";
 
 const createCodeHash = ({ lang, code }) =>
   createHash("sha256")
@@ -65,13 +68,29 @@ const appendIds = (id, ...otherIds) => {
   return encodeId({ taskIds });
 };
 
-const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" }) => {
-  const { lang, code } = task;
-  const codeHash = createCodeHash({ lang, code });
+const normalizeTask = async task => {
+  if (isNonEmptyString(task.code)) {
+    const { lang, code } = task;
+    task = { lang, code: await parser.parse(lang, code) };
+  }
+  console.log(
+    "normalizeTask()",
+    "task=" + JSON.stringify(task, null, 2),
+  );
+  return task;
+};
 
+const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" }) => {
+  // TODO
+  // -- if code is a string, parse here
+  // -- strip coords from code and store task to get id
+  // -- do a test compile with coords to check for errors
+  // -- store object data for id
+  // -- return id
+  task = await normalizeTask(task);
+  const codeHash = createCodeHash(task);
   const codeHashRef = db.doc(`code-hashes/${codeHash}`);
   const codeHashDoc = await codeHashRef.get();
-
   let taskId;
   let taskRef;
   if (codeHashDoc.exists) {
