@@ -1,6 +1,7 @@
 import { jest } from "@jest/globals";
-import { buildParser } from "./parser.js";
+import { buildParser, parser } from "./parser.js";
 import { mockPromiseValue, mockPromiseError } from "./testing/index.js";
+import vm from "vm";
 
 describe("lang/parser", () => {
   const log = jest.fn();
@@ -147,5 +148,255 @@ describe("lang/parser", () => {
 
     // Act & Assert
     await expect(parser.parse(lang, src)).rejects.toBe(err);
+  });
+});
+
+describe("parser integration tests", () => {
+  // Tests using the actual parser
+  it("should parse string literals", async () => {
+    // Arrange & Act
+    const result = await parser.parse(0, "'hello, world'..");
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Find the STR node
+    let strNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "STR" && node.elts[0] === "hello, world") {
+          strNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(strNode).not.toBeNull();
+    expect(strNode.tag).toBe("STR");
+    expect(strNode.elts).toEqual(["hello, world"]);
+
+    // Program structure verification
+    const rootId = result.root;
+    const rootNode = result[rootId];
+    expect(rootNode.tag).toBe("PROG");
+  });
+
+  it("should parse numeric literals", async () => {
+    // Arrange & Act
+    const result = await parser.parse(0, "42..");
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Find the NUM node
+    let numNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "NUM" && node.elts[0] === "42") {
+          numNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(numNode).not.toBeNull();
+    expect(numNode.tag).toBe("NUM");
+    expect(numNode.elts).toEqual(["42"]);
+  });
+
+  it("should have a PROG node at the root", async () => {
+    // Let's test the most basic structure that should always work
+    const result = await parser.parse(0, "123..");
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Verify the structure: we need to have a PROG node at the root
+    const rootId = result.root;
+    const rootNode = result[rootId];
+    expect(rootNode.tag).toBe("PROG");
+
+    // Find the NUM node for 123
+    let numNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "NUM" && node.elts[0] === "123") {
+          numNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(numNode).not.toBeNull();
+    expect(numNode.tag).toBe("NUM");
+    expect(numNode.elts[0]).toBe("123");
+  });
+
+  it("should parse complex program: apply (<a b: add a b>) [10 20]..", async () => {
+    // Create parser with custom lexicon
+    const customLexiconCache = new Map();
+    customLexiconCache.set(0, {
+      add: {
+        tk: 2,
+        name: "add",
+        cls: "function",
+        length: 2
+      },
+      apply: {
+        tk: 40,
+        name: "apply",
+        cls: "function",
+        length: 2
+      }
+    });
+
+    // Use the parser with our custom cache
+    const customParser = buildParser({
+      log: console.log,
+      cache: customLexiconCache,
+      getLangAsset: async () => ({}),
+      main: {
+        parse: (src, lexicon) => {
+          return Promise.resolve(parser.parse(0, src));
+        }
+      },
+      vm
+    });
+
+    // Act
+    const result = await customParser.parse(0, "apply (<a b: add a b>) [10 20]..");
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Verify basic structure
+    const rootId = result.root;
+    const rootNode = result[rootId];
+    expect(rootNode.tag).toBe("PROG");
+
+    // Find NUM nodes with values 10 and 20
+    let num10Node = null;
+    let num20Node = null;
+
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "NUM") {
+          if (node.elts[0] === "10") {
+            num10Node = node;
+          } else if (node.elts[0] === "20") {
+            num20Node = node;
+          }
+        }
+      }
+    }
+
+    // At minimum, we should be able to find the number values
+    expect(num10Node).not.toBeNull();
+    expect(num20Node).not.toBeNull();
+
+    // Find IDENT nodes with names 'a' and 'b'
+    let identNodeA = null;
+    let identNodeB = null;
+
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "IDENT") {
+          if (node.elts[0] === "a") {
+            identNodeA = node;
+          } else if (node.elts[0] === "b") {
+            identNodeB = node;
+          }
+        }
+      }
+    }
+
+    // Check that we found the identifiers
+    expect(identNodeA).not.toBeNull();
+    expect(identNodeB).not.toBeNull();
+  });
+
+  it("should perform parse-time evaluation for adding two numbers", async () => {
+    // Create parser with custom lexicon that defines 'add' function
+    const customLexiconCache = new Map();
+    customLexiconCache.set(0, {
+      add: {
+        tk: 2,
+        name: "add",
+        cls: "function",
+        length: 2
+      }
+    });
+
+    // Use the parser with our custom cache
+    const customParser = buildParser({
+      log: console.log,
+      cache: customLexiconCache,
+      getLangAsset: async () => ({}),
+      main: {
+        parse: (src, lexicon) => {
+          return Promise.resolve(parser.parse(0, src));
+        }
+      },
+      vm
+    });
+
+    // Act - parse a simple addition expression
+    const result = await customParser.parse(0, "add 123 456..");
+    console.log(
+      "TEST",
+      "result=" + JSON.stringify(result, null, 2),
+    );
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Verify basic structure
+    const rootId = result.root;
+    const rootNode = result[rootId];
+    expect(rootNode.tag).toBe("PROG");
+
+    // Find the result node - expecting a single NUM node with the sum
+    let resultNode = null;
+
+    // Check all nodes for the result of evaluation (123 + 456 = 579)
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "NUM" && node.elts[0] === "579") {
+          resultNode = node;
+          break;
+        }
+      }
+    }
+
+    // We should find a node with the computed value (579)
+    expect(resultNode).not.toBeNull();
+    expect(resultNode.tag).toBe("NUM");
+    expect(resultNode.elts[0]).toBe("579");
+
+    // The original numbers should not be in the final AST
+    // if parse-time evaluation is working correctly
+    let found123 = false;
+    let found456 = false;
+
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "NUM") {
+          if (node.elts[0] === "123") found123 = true;
+          if (node.elts[0] === "456") found456 = true;
+        }
+      }
+    }
+
+    // The original operands should not be in the final AST
+    // if they were properly evaluated at parse time
+    expect(found123).toBe(false);
+    expect(found456).toBe(false);
   });
 });

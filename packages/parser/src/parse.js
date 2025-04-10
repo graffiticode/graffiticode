@@ -266,7 +266,7 @@ export const parse = (function () {
   function number(ctx, cc) {
     eat(ctx, TK_NUM);
     cc.cls = "number";
-    Ast.number(ctx, lexeme, getCoord(ctx));
+    Ast.number(ctx, lexeme);
     return cc;
   }
 
@@ -281,28 +281,24 @@ export const parse = (function () {
   */
 
   function str(ctx, cc) {
-    let coord;
     if (match(ctx, TK_STR)) {
       eat(ctx, TK_STR);
-      coord = getCoord(ctx);
-      Ast.string(ctx, lexeme, coord); // strip quotes;
+      Ast.string(ctx, lexeme); // strip quotes;
       cc.cls = "string";
       return cc;
     } else if (match(ctx, TK_STRPREFIX)) {
       ctx.state.inStr++;
       eat(ctx, TK_STRPREFIX);
       startCounter(ctx);
-      coord = getCoord(ctx);
-      Ast.string(ctx, lexeme, coord); // strip quotes;
+      Ast.string(ctx, lexeme); // strip quotes;
       countCounter(ctx);
       const ret = function (ctx) {
         return strSuffix(ctx, function (ctx) {
           ctx.state.inStr--;
           eat(ctx, TK_STRSUFFIX);
-          const coord = getCoord(ctx);
-          Ast.string(ctx, lexeme, coord); // strip quotes;
+          Ast.string(ctx, lexeme); // strip quotes;
           countCounter(ctx);
-          Ast.list(ctx, ctx.state.exprc, getCoord(ctx));
+          Ast.list(ctx, ctx.state.exprc);
           stopCounter(ctx);
           Ast.concat(ctx);
           cc.cls = "string";
@@ -324,8 +320,7 @@ export const parse = (function () {
       if (match(ctx, TK_STRMIDDLE)) {
         // Not done yet.
         eat(ctx, TK_STRMIDDLE);
-        const coord = getCoord(ctx);
-        Ast.string(ctx, lexeme, coord); // strip quotes;
+        Ast.string(ctx, lexeme); // strip quotes;
         countCounter(ctx);
         ret = function (ctx) {
           return strSuffix(ctx, resume);
@@ -355,7 +350,7 @@ export const parse = (function () {
   function bindingName(ctx, cc) {
     if (match(ctx, TK_IDENT)) {
       eat(ctx, TK_IDENT);
-      Ast.string(ctx, lexeme, getCoord(ctx));
+      Ast.string(ctx, lexeme);
       cc.cls = "variable";
       return cc;
     }
@@ -389,7 +384,7 @@ export const parse = (function () {
         offset: ctx.state.paramc,
         nid: 0
       });
-      Ast.name(ctx, lexeme, getCoord(ctx));
+      Ast.name(ctx, lexeme);
       cc.cls = "val";
       return cc;
     }
@@ -505,14 +500,12 @@ export const parse = (function () {
     return ret;
   }
   function list(ctx, cc) {
-    const coord = getCoord(ctx);
     eat(ctx, TK_LEFTBRACKET);
     startCounter(ctx);
     const ret = function (ctx) {
       return elements(ctx, function (ctx) {
         eat(ctx, TK_RIGHTBRACKET);
-        coord.to = getCoord(ctx).to;
-        Ast.list(ctx, ctx.state.exprc, coord);
+        Ast.list(ctx, ctx.state.exprc);
         stopCounter(ctx);
         cc.cls = "punc";
         return cc;

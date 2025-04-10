@@ -14,7 +14,8 @@
   "scripts": {
     "lint": "eslint src/",
     "lint:fix": "eslint --fix src/",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "console-test": "node console-output-test.js"
   },
   "keywords": [],
   "author": "",

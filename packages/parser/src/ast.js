@@ -148,13 +148,36 @@ export class Ast {
 
   static poolToJSON(ctx) {
     const nodePool = ctx.state.nodePool;
-    const obj = {};
-    for (let i = 1; i < nodePool.length; i++) {
-      const n = nodePool[i];
-      obj[i] = nodeToJSON(n);
-    }
-    obj.root = (nodePool.length - 1);
-    return obj;
+    const rootId = nodePool.length - 1;
+
+    // Find all nodes transitively referenced from root
+    const referencedNodes = new Set();
+    const collectReferences = (nodeId) => {
+      if (!nodeId || referencedNodes.has(nodeId)) return;
+      referencedNodes.add(nodeId);
+
+      const node = nodePool[nodeId];
+      if (node && node.elts) {
+        node.elts.forEach(elt => {
+          if (typeof elt === "number") collectReferences(elt);
+        });
+      }
+    };
+
+    collectReferences(rootId);
+
+    console.log(
+      "poolToJSON()",
+      "referencedNodes=" + JSON.stringify([...referencedNodes]),
+      "nodePool=" + JSON.stringify(nodePool, null, 2),
+    );
+
+    return {
+      ...Object.fromEntries(
+        Array.from(referencedNodes).map(id => [id, nodeToJSON(nodePool[id])])
+      ),
+      root: rootId
+    };
   }
 
   static dump(n) {

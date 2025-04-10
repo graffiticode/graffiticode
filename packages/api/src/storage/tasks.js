@@ -81,12 +81,6 @@ const normalizeTask = async task => {
 };
 
 const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" }) => {
-  // TODO
-  // [x] if code is a string, parse here
-  // [ ] strip coords from code and store task to get id
-  // [ ] do a test compile with coords to check for errors
-  // [ ] store object data for id
-  // [ ] return id
   task = await normalizeTask(task);
   const codeHash = createCodeHash(task);
   const codeHashRef = db.doc(`code-hashes/${codeHash}`);
