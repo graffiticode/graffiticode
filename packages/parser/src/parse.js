@@ -409,8 +409,8 @@ export const parse = (function () {
         }
       }
     } else {
-      cc.cls = "error";
-      Ast.error(ctx, "Name '" + lexeme + "' not found.", coord);
+      // Create a tag value.
+      Ast.name(ctx, lexeme, coord);
     }
     // assert(cc, "name");
     return cc;

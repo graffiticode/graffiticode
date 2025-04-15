@@ -225,8 +225,11 @@ export class Folder {
         assert(false);
       }
     } else {
-      // assertErr(ctx, false, "unresolved ident " + name, node.coord);
-      Ast.push(ctx, node);
+      // Tag value.
+      Ast.push(ctx, {
+        tag: name,
+        elts: [],
+      });
     }
   }
 
