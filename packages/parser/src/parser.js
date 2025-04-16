@@ -7,7 +7,7 @@ const main = {
   parse(src, lexicon) {
     const stream = new parse.StringStream(src);
     const state = {
-      cc: parse.program, // top level parsing function
+      cc: parse.program, // top level parsig function
       argc: 0,
       argcStack: [0],
       paramc: 0,

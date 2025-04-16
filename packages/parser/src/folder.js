@@ -184,7 +184,7 @@ export class Folder {
     if (word) {
       if (word.cls === "val") {
         if (word.val) {
-          Ast.string(ctx, word.val); // strip quotes;
+          Ast.string(ctx, word.val, node.coord); // strip quotes;
         } else if (word.nid) {
           let wrd;
           if ((wrd = Ast.node(ctx, word.nid)).tag === "LAMBDA") {
@@ -229,6 +229,7 @@ export class Folder {
       Ast.push(ctx, {
         tag: name,
         elts: [],
+        coord: node.coord,
       });
     }
   }
@@ -238,7 +239,7 @@ export class Folder {
   }
 
   static str(node) {
-    Ast.string(Folder.#ctx, node.elts[0]);
+    Ast.string(Folder.#ctx, node.elts[0], node.coord);
   }
 
   static bool(node) {

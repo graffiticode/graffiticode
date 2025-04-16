@@ -283,20 +283,20 @@ export const parse = (function () {
   function str(ctx, cc) {
     if (match(ctx, TK_STR)) {
       eat(ctx, TK_STR);
-      Ast.string(ctx, lexeme); // strip quotes;
+      Ast.string(ctx, lexeme, getCoord(ctx)); // strip quotes;
       cc.cls = "string";
       return cc;
     } else if (match(ctx, TK_STRPREFIX)) {
       ctx.state.inStr++;
       eat(ctx, TK_STRPREFIX);
       startCounter(ctx);
-      Ast.string(ctx, lexeme); // strip quotes;
+      Ast.string(ctx, lexeme, getCoord(ctx)); // strip quotes;
       countCounter(ctx);
       const ret = function (ctx) {
         return strSuffix(ctx, function (ctx) {
           ctx.state.inStr--;
           eat(ctx, TK_STRSUFFIX);
-          Ast.string(ctx, lexeme); // strip quotes;
+          Ast.string(ctx, lexeme, getCoord(ctx)); // strip quotes;
           countCounter(ctx);
           Ast.list(ctx, ctx.state.exprc);
           stopCounter(ctx);
@@ -320,7 +320,7 @@ export const parse = (function () {
       if (match(ctx, TK_STRMIDDLE)) {
         // Not done yet.
         eat(ctx, TK_STRMIDDLE);
-        Ast.string(ctx, lexeme); // strip quotes;
+        Ast.string(ctx, lexeme, getCoord(ctx)); // strip quotes;
         countCounter(ctx);
         ret = function (ctx) {
           return strSuffix(ctx, resume);
@@ -350,7 +350,7 @@ export const parse = (function () {
   function bindingName(ctx, cc) {
     if (match(ctx, TK_IDENT)) {
       eat(ctx, TK_IDENT);
-      Ast.string(ctx, lexeme);
+      Ast.string(ctx, lexeme, getCoord(ctx));
       cc.cls = "variable";
       return cc;
     }
