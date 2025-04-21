@@ -160,6 +160,7 @@ export const parse = (function () {
   const TK_STRPREFIX = 0xB2;
   const TK_STRMIDDLE = 0xB3;
   const TK_STRSUFFIX = 0xB4;
+  const TK_DOTDOT = 0xB5;
 
   function tokenToLexeme(tk) {
     switch (tk) {
@@ -191,6 +192,7 @@ export const parse = (function () {
       case TK_PLUS: return "a '+'";
       case TK_MINUS: return "a '-'";
       case TK_DOT: return "a '.'";
+      case TK_DOTDOT: return "a '..'";
       case TK_COLON: return "a ':'";
       case TK_COMMA: return "a ','";
       case TK_BACKQUOTE: return "a '`'";
@@ -851,9 +853,17 @@ export const parse = (function () {
     return exprsStart(ctx, TK_DOT, function (ctx) {
       let nid;
       while (Ast.peek(ctx) !== nid) {
+        console.log(
+          "program()",
+          "peek()=" + Ast.peek(ctx),
+        );
         nid = Ast.pop(ctx);
         folder.fold(ctx, nid); // Fold the exprs on top
       }
+      console.log(
+        "program()",
+        "nodeStack.length=" + ctx.state.nodeStack.length,
+      );
       Ast.exprs(ctx, ctx.state.nodeStack.length, true);
       Ast.program(ctx);
       assert(cc === null, "internal error, expecting null continuation");
@@ -1041,6 +1051,11 @@ export const parse = (function () {
           case 46: // dot
             if (isNumeric(stream.peek())) {
               return number(c);
+            // } else if (stream.peek() === 46) {
+            // TODO
+            //   stream.next();
+            //   lexeme += String.fromCharCode(c);
+            //   return TK_DOTDOT;
             }
             lexeme += String.fromCharCode(c);
             return TK_DOT;
