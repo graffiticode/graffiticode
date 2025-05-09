@@ -47,6 +47,10 @@ const buildGetTaskHandler = ({ taskStorer }) => {
 
 export const buildPostTasks = ({ taskStorer }) => {
   return async ({ auth, tasks, req }) => {
+    console.log(
+      "postTasks()",
+      "tasks=" + JSON.stringify(tasks, null, 2),
+    );
     tasks = !Array.isArray(tasks) && [tasks] || tasks;
     if (tasks.length < 1) {
       throw new InvalidArgumentError("must provide at least one task");
