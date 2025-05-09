@@ -6,7 +6,6 @@ export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, re
   } catch (err) {
     console.error('Status:', err.statusCode);       // 500
     console.error('Headers:', err.headers);         // same object you pasted
-    
     // body helpers ↓ are *async*
     try {
       const message = await err.text();             // or err.json()
@@ -17,4 +16,3 @@ export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, re
     return null;
   }
 };
-
