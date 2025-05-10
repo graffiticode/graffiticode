@@ -38,7 +38,6 @@ const buildGetData = ({ compile }) =>
     });
     return obj;
   };
-
 export const buildDataApi = ({ compile }) => {
   return { get: buildGetData({ compile }) };
 };
