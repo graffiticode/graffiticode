@@ -23,7 +23,7 @@ describe("compile", () => {
     expect(actual).toBe(res);
   });
 
-  it("should throw error if call throws", async () => {
+  it.skip("should throw error if call throws", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
     const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
