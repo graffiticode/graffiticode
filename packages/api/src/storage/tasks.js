@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { NotFoundError, DecodeIdError } from "../errors/http.js";
 import { admin } from "./firebase.js";
 import { isNonEmptyString } from "../util.js";
-import { parser } from "../../../parser/src/index.js";
+import { parser } from "@graffiticode/parser";
 
 const createCodeHash = ({ lang, code }) =>
   createHash("sha256")
