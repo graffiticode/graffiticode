@@ -1,6 +1,6 @@
 import vm from "vm";
 import { getLangAsset } from "../../api/src/lang/index.js";
-import { parse } from "@graffiticode/parser";
+import { parse } from "./parse.js";
 
 // commonjs export
 const main = {
