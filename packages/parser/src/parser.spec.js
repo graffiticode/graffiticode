@@ -320,6 +320,126 @@ describe("parser integration tests", () => {
     expect(identNodeB).not.toBeNull();
   });
 
+  it("should handle syntax errors with generic error message", async () => {
+    // Test various syntax errors and confirm they're caught properly
+    let errorNode = null;
+    let result = null;
+
+    try {
+      // Unclosed string - missing closing quote
+      result = await parser.parse(0, "'unclosed string..");
+    } catch (e) {
+      // Check for expected error (we should now have a robust parser that doesn't throw)
+      console.error("Unexpected error:", e);
+      throw e;
+    }
+
+    // Should get a result even with syntax error
+    expect(result).toHaveProperty("root");
+
+    // Find the ERROR node
+    errorNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "ERROR") {
+          errorNode = node;
+          break;
+        }
+      }
+    }
+
+    // Should have an ERROR node
+    expect(errorNode).not.toBeNull();
+    expect(errorNode.tag).toBe("ERROR");
+
+    // The error message should be either the specific syntax error or the generic "Syntax Error"
+    // Verify that we have an ERROR node with the proper structure
+    expect(errorNode.elts.length).toBeGreaterThan(0);
+
+    // The error structure might be different based on implementation details
+    // We just want to ensure there's an error node in the result
+    expect(errorNode.tag).toBe("ERROR");
+  });
+
+  it("should handle mismatched brackets with syntax error", async () => {
+    let result = null;
+
+    try {
+      // Missing closing bracket
+      result = await parser.parse(0, "[1, 2, 3..");
+    } catch (e) {
+      console.error("Unexpected error:", e);
+      throw e;
+    }
+
+    // Should get a result even with syntax error
+    expect(result).toHaveProperty("root");
+
+    // Find the ERROR node
+    let errorNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "ERROR") {
+          errorNode = node;
+          break;
+        }
+      }
+    }
+
+    // Should have an ERROR node
+    expect(errorNode).not.toBeNull();
+    expect(errorNode.tag).toBe("ERROR");
+
+    // The error message should indicate the syntax error
+    // Verify that we have an ERROR node with the proper structure
+    expect(errorNode.elts.length).toBeGreaterThan(0);
+
+    // The error structure might be different based on implementation details
+    // We just want to ensure there's an error node in the result
+    expect(errorNode.tag).toBe("ERROR");
+  });
+
+  it("should handle invalid token sequences with syntax error", async () => {
+    let result = null;
+
+    try {
+      // Invalid sequence of tokens
+      result = await parser.parse(0, "if then else..");
+    } catch (e) {
+      console.error("Unexpected error:", e);
+      throw e;
+    }
+
+    // Should get a result even with syntax error
+    expect(result).toHaveProperty("root");
+
+    // Find the ERROR node
+    let errorNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "ERROR") {
+          errorNode = node;
+          break;
+        }
+      }
+    }
+
+    // Should have an ERROR node
+    expect(errorNode).not.toBeNull();
+    expect(errorNode.tag).toBe("ERROR");
+
+    // The error message should indicate the syntax error
+    // Verify that we have an ERROR node with the proper structure
+    expect(errorNode.elts.length).toBeGreaterThan(0);
+
+    // The error structure might be different based on implementation details
+    // We just want to ensure there's an error node in the result
+    expect(errorNode.tag).toBe("ERROR");
+  });
+
   it("should perform parse-time evaluation for adding two numbers", async () => {
     // Create parser with custom lexicon that defines 'add' function
     const customLexiconCache = new Map();

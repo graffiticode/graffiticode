@@ -71,6 +71,16 @@ export function assertErr(ctx, b, str, coord) {
       "assertErr()",
       "str=" + str,
     );
+    // Push error into state errors collection
+    if (!ctx.state.errors) {
+      ctx.state.errors = [];
+    }
+    ctx.state.errors.push({
+      message: str,
+      coord
+    });
+
+    // Create error node in AST
     Ast.error(ctx, str, coord);
     throw new Error(str);
   }
@@ -79,7 +89,9 @@ export function assertErr(ctx, b, str, coord) {
 export const parse = (function () {
   function assert(b, str) {
     if (!b) {
-      throw new Error(str);
+      // Just throw a simple error with the message "Syntax Error" if none provided
+      // This will be caught by our catch-all handler
+      throw new Error(str || "Syntax Error");
     }
   }
 
@@ -207,11 +219,14 @@ export const parse = (function () {
     if (nextToken !== tk) {
       const to = getPos(ctx);
       const from = to - lexeme.length;
-      assertErr(ctx, false, "Expecting " + tokenToLexeme(tk) +
-                ", found " + tokenToLexeme(nextToken) + ".", { from, to });
+      const errorMessage = "Expecting " + tokenToLexeme(tk) +
+                          ", found " + tokenToLexeme(nextToken) + ".";
+
+      // Use assertErr to ensure error is tracked consistently
+      assertErr(ctx, false, errorMessage, { from, to });
+
       next(ctx); // Advance past error.
-      throw new Error("Expecting " + tokenToLexeme(tk) +
-                      ", found " + tokenToLexeme(nextToken) + ".");
+      throw new Error(errorMessage);
     }
   }
 
@@ -996,17 +1011,28 @@ export const parse = (function () {
           cls = x;
         } else {
           console.log("catch() x=" + x.stack);
-          // next(ctx);
+
+          // Add generic "Syntax Error" message if not already handled
+          if (!Ast.hasSyntaxError(ctx)) {
+            // Create a generic syntax error
+            const coord = getCoord(ctx) || { from: 0, to: stream.pos || 0 };
+            Ast.error(ctx, "Syntax Error", coord);
+          }
+
           state.cc = null; // done for now.
           return Ast.poolToJSON(ctx);
-          // cls = "error";
-          // throw new Error(JSON.stringify(window.gcexports.errors, null, 2));
         }
       } else {
         // throw x
         next(ctx);
         cls = "error";
         console.log(x.stack);
+
+        // Add generic "Syntax Error" message for non-Error exceptions too
+        if (!Ast.hasSyntaxError(ctx)) {
+          const coord = getCoord(ctx) || { from: 0, to: stream.pos || 0 };
+          Ast.error(ctx, "Syntax Error", coord);
+        }
       }
     }
     const t1 = new Date();

@@ -171,6 +171,10 @@ export class Ast {
     };
   }
 
+  static hasSyntaxError(ctx) {
+    return ctx.state.errors && ctx.state.errors.length > 0;
+  }
+
   static dump(n) {
     let s;
     if (typeof n === "object") {
