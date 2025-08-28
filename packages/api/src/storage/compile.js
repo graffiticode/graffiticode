@@ -38,10 +38,17 @@ const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
     // Existing document - increment count (default to 1 if no count field) and update lastCompile
     const currentData = compileDoc.data();
     const currentCount = currentData.count || 1;
-    await compileRef.update({
+    const updateData = {
       count: currentCount + 1,
       lastCompile: now,
-    });
+    };
+
+    // Add firstCompile if missing, using existing timestamp field
+    if (!currentData.firstCompile && currentData.timestamp) {
+      updateData.firstCompile = new Date(currentData.timestamp).toISOString();
+    }
+
+    await compileRef.update(updateData);
   }
   return id;
 };
@@ -56,10 +63,17 @@ const buildCompileGet = ({ db }) => async ({ id, auth }) => {
   const currentData = compileDoc.data();
   const currentCount = currentData.count || 1;
   const now = new Date().toISOString();
-  await compileRef.update({
+  const updateData = {
     count: currentCount + 1,
     lastCompile: now,
-  });
+  };
+
+  // Add firstCompile if missing, using existing timestamp field
+  if (!currentData.firstCompile && currentData.timestamp) {
+    updateData.firstCompile = new Date(currentData.timestamp).toISOString();
+  }
+
+  await compileRef.update(updateData);
   // Get the updated document
   const updatedDoc = await compileRef.get();
   return decodeCompileData(updatedDoc.data());
