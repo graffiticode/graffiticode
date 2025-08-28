@@ -24,10 +24,19 @@ function decodeCompileData(compile) {
 const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
   const compileRef = db.doc(`compiles/${id}`);
   const compileDoc = await compileRef.get();
-  // console.log("compileCreate() id=" + id);
-  // console.log("compileCreate() compile=" + JSON.stringify(compile, null, 2));
   if (!compileDoc.exists) {
-    await compileRef.set(encodeCompileData(compile));
+    // New document - set count to 1
+    await compileRef.set({
+      ...encodeCompileData(compile),
+      count: 1,
+    });
+  } else {
+    // Existing document - increment count (default to 1 if no count field)
+    const currentData = compileDoc.data();
+    const currentCount = currentData.count || 1;
+    await compileRef.update({
+      count: currentCount + 1,
+    });
   }
   return id;
 };
@@ -35,10 +44,15 @@ const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
 const buildCompileGet = ({ db }) => async ({ id, auth }) => {
   const compileRef = db.doc(`compiles/${id}`);
   const compileDoc = await compileRef.get();
-
   if (!compileDoc.exists) {
     return undefined;
   }
+  // Increment count (default to 1 if no count field)
+  const currentData = compileDoc.data();
+  const currentCount = currentData.count || 1;
+  await compileRef.update({
+    count: currentCount + 1,
+  });
   return decodeCompileData(compileDoc.data());
 };
 

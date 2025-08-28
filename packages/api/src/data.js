@@ -27,8 +27,7 @@ const buildGetData = ({ compile }) =>
         return obj;
       },
       Promise.resolve({})
-    );
-
+    )
     await compileStorer.create({
       id,
       compile: {

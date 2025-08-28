@@ -469,14 +469,27 @@ export const parse = (function () {
     });
   }
   function binding(ctx, cc) {
+    // Save the current lexeme before bindingName consumes it
+    const savedLexeme = lexeme;
+    const savedCoord = getCoord(ctx);
     return bindingName(ctx, function (ctx) {
-      eat(ctx, TK_COLON);
-      const ret = function (ctx) {
+      // Check if we have a colon for full syntax, otherwise use shorthand
+      if (match(ctx, TK_COLON)) {
+        eat(ctx, TK_COLON);
+        const ret = function (ctx) {
+          countCounter(ctx);
+          return expr(ctx, cc);
+        };
+        ret.cls = "punc";
+        return ret;
+      } else {
+        // Shorthand syntax - create a name reference for the value
+        // The binding name was already pushed as a string by bindingName
+        // Now we need to push a name reference (identifier) as the value
+        Ast.name(ctx, savedLexeme, savedCoord);
         countCounter(ctx);
-        return expr(ctx, cc);
-      };
-      ret.cls = "punc";
-      return ret;
+        return cc;
+      }
     });
   }
   function lambda(ctx, cc) {
