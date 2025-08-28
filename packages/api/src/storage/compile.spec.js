@@ -24,7 +24,7 @@ describe("storage/compile", () => {
     const id = await taskStorer.create({ task: TASK1 });
     await compileStorer.create({ id, compile: { data: DATA1 } });
 
-    await expect(compileStorer.get({ id })).resolves.toStrictEqual({ data: DATA1 });
+    await expect(compileStorer.get({ id })).resolves.toStrictEqual({ count: 1, data: DATA1 });
   });
 
   it("should use separate maps to store values", async () => {
@@ -32,7 +32,7 @@ describe("storage/compile", () => {
     await compileStorer.create({ id, compile: { data: DATA1 } });
 
     await expect(taskStorer.get({ id })).resolves.toStrictEqual([TASK1]);
-    await expect(compileStorer.get({ id })).resolves.toStrictEqual({ data: DATA1 });
+    await expect(compileStorer.get({ id })).resolves.toStrictEqual({ count: 1, data: DATA1 });
   });
 
   it("should handle multi task id", async () => {
@@ -41,6 +41,6 @@ describe("storage/compile", () => {
     const id = taskStorer.appendIds(id1, id2);
 
     await compileStorer.create({ id, compile: { data: DATA1 } });
-    await expect(compileStorer.get({ id })).resolves.toStrictEqual({ data: DATA1 });
+    await expect(compileStorer.get({ id })).resolves.toStrictEqual({ count: 1, data: DATA1 });
   });
 });
