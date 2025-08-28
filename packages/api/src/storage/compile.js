@@ -24,18 +24,23 @@ function decodeCompileData(compile) {
 const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
   const compileRef = db.doc(`compiles/${id}`);
   const compileDoc = await compileRef.get();
+  const now = new Date().toISOString();
+
   if (!compileDoc.exists) {
-    // New document - set count to 1
+    // New document - set count to 1, firstCompile and lastCompile timestamps
     await compileRef.set({
       ...encodeCompileData(compile),
       count: 1,
+      firstCompile: now,
+      lastCompile: now,
     });
   } else {
-    // Existing document - increment count (default to 1 if no count field)
+    // Existing document - increment count (default to 1 if no count field) and update lastCompile
     const currentData = compileDoc.data();
     const currentCount = currentData.count || 1;
     await compileRef.update({
       count: currentCount + 1,
+      lastCompile: now,
     });
   }
   return id;
@@ -47,13 +52,17 @@ const buildCompileGet = ({ db }) => async ({ id, auth }) => {
   if (!compileDoc.exists) {
     return undefined;
   }
-  // Increment count (default to 1 if no count field)
+  // Increment count (default to 1 if no count field) and update lastCompile
   const currentData = compileDoc.data();
   const currentCount = currentData.count || 1;
+  const now = new Date().toISOString();
   await compileRef.update({
     count: currentCount + 1,
+    lastCompile: now,
   });
-  return decodeCompileData(compileDoc.data());
+  // Get the updated document
+  const updatedDoc = await compileRef.get();
+  return decodeCompileData(updatedDoc.data());
 };
 
 export const buildCompileStorer = () => {
