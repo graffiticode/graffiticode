@@ -118,7 +118,7 @@ export const buildCompileLogger = () => {
     }
   `;
     client.request(query, { id, status, timestamp, data: JSON.stringify(data) })
-      .catch((err) => {
+      .catch(() => {
         // Silently ignore logging errors - this is fire-and-forget telemetry
         // Logging failures should never break the actual compilation flow
       });
