@@ -4,7 +4,7 @@ import {
   buildHttpHandler,
   createSuccessResponse,
   parseIdsFromRequest,
-  parseAuthFromRequest,
+  parseAuthTokenFromRequest,
   optionsHandler,
   buildCompileLogger
 } from "./utils.js";
@@ -43,7 +43,7 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   return buildHttpHandler(async (req, res) => {
     const auth = req.auth.context;
-    const authToken = parseAuthFromRequest(req);
+    const authToken = parseAuthTokenFromRequest(req);
     const ids = parseIdsFromRequest(req);
     const data = await getData({ auth, authToken, ids });
     res.status(200).json(createSuccessResponse({ data }));

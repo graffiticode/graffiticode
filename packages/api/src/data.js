@@ -8,9 +8,6 @@ const buildGetData = ({ compile }) =>
         return compile.data;
       }
     }
-    if (typeof action === "object") {
-      action.compiled = true;
-    }
     const obj = await tasks.reduceRight(
       // OPTIMIZATION Call getData recursively using the longest id suffix to
       // use any existing compiles.
@@ -28,6 +25,10 @@ const buildGetData = ({ compile }) =>
       },
       Promise.resolve({})
     );
+    if (!obj.errors?.length && typeof action === "object") {
+      // If a successful compile, then log it.
+      action.compiled = true;
+    }
     await compileStorer.create({
       id,
       compile: {

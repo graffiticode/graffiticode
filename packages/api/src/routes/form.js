@@ -6,6 +6,7 @@ import {
   optionsHandler,
   parseIdsFromRequest,
   parseOriginFromRequest,
+  parseAuthFromRequest,
 } from "./utils.js";
 
 const checkLangParam = async ({ lang, pingLang }) => {
@@ -37,10 +38,11 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
     let lang;
     if (ids.length === 1) {
       const id = ids[0];
+      const authToken = parseAuthFromRequest(req);
       const dataParams = new URLSearchParams();
       dataParams.set("id", id);
       if (req.auth.token) {
-        dataParams.set("access_token", req.auth.token);
+        dataParams.set("access_token", authToken);
       }
       const auth = req.auth.context;
       const tasks = await getTasks({ auth, ids, req });
