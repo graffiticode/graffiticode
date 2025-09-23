@@ -101,3 +101,9 @@ export const parser = buildParser({
 
 // Add unparse as a property of parser
 parser.unparse = unparse;
+
+// Add reformat function that parses and unparses code
+parser.reformat = async function(lang, src, lexicon, options = {}) {
+  const ast = await this.parse(lang, src, lexicon);
+  return unparse(ast, lexicon, options);
+};

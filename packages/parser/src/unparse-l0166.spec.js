@@ -339,4 +339,23 @@ cells [
     console.log(lines.slice(-10).join("\n"));
     console.log(unparsed);
   });
+
+  it("should reformat L0166 code using parser.reformat", async () => {
+    const source = `columns [column A width 100 {}] rows [row 1 {}] cells [cell A1 text "Hello" {}] {v: "0.0.1"}..`;
+
+    // Reformat with L0166 lexicon
+    const reformatted = await parser.reformat("0166", source, l0166Lexicon);
+
+    // Check that it produces valid output
+    expect(reformatted).toBeDefined();
+    expect(reformatted.endsWith("..")).toBe(true);
+
+    // Check for pretty printing
+    expect(reformatted).toContain("columns [\n");
+    expect(reformatted).toContain("rows [\n");
+    expect(reformatted).toContain("cells [\n");
+
+    console.log("Reformatted L0166 code:");
+    console.log(reformatted);
+  });
 });
