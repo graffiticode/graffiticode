@@ -117,6 +117,13 @@ describe("unparse with L0166 lexicon", () => {
       "length": 2,
       "arity": 2,
     },
+    "row": {
+      "tk": 1,
+      "name": "ROW",
+      "cls": "function",
+      "length": 2,
+      "arity": 2,
+    },
     "column": {
       "tk": 1,
       "name": "COLUMN",

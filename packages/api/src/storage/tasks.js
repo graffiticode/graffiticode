@@ -3,6 +3,7 @@ import { NotFoundError, DecodeIdError } from "../errors/http.js";
 import { admin } from "./firebase.js";
 import { isNonEmptyString } from "../util.js";
 import { parser } from "@graffiticode/parser";
+import { getLangAsset } from "../lang/index.js";
 
 const createCodeHash = ({ lang, code }) =>
   createHash("sha256")
@@ -67,10 +68,37 @@ const appendIds = (id, ...otherIds) => {
   return encodeId({ taskIds });
 };
 
+const cache = new Map();
+
+const getLexicon = async (lang) => {
+  // Otherwise, load from cache or remote
+  if (!cache.has(lang)) {
+    let data = await getLangAsset(lang, "/lexicon.js");
+    // TODO Make lexicon JSON.
+    if (data instanceof Buffer) {
+      data = data.toString();
+    }
+    if (typeof (data) !== "string") {
+      log(`Failed to get usable lexicon for ${lang}`, typeof (data), data);
+      throw new Error("unable to use lexicon");
+    }
+    const lstr = data.substring(data.indexOf("{"));
+    let loadedLexicon;
+    try {
+      loadedLexicon = JSON.parse(lstr);
+    } catch (err) {
+      throw new Error("Malformed or unavailable lexicon");
+    }
+    cache.set(lang, loadedLexicon);
+  };
+  return cache.get(lang);
+};
+
 const normalizeTask = async task => {
   if (isNonEmptyString(task.code)) {
     const { lang, code } = task;
-    task = { lang, code: await parser.parse(lang, code) };
+    const lexicon = await getLexicon(lang);
+    task = { lang, code: await parser.parse(lang, code, lexicon) };
   }
   return task;
 };
