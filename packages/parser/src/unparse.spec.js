@@ -1,11 +1,14 @@
 import { parser } from "./parser.js";
 import { unparse } from "./unparse.js";
+import { lexicon as basisLexicon } from "@graffiticode/basis";
 
 describe("unparse", () => {
   // Helper function to test round-trip parsing
-  async function testRoundTrip(source, lexicon = {}, options = { compact: true }) {
-    const ast = await parser.parse(0, source);
-    const unparsed = unparse(ast, lexicon, options);
+  async function testRoundTrip(source, dialectLexicon = {}, options = { compact: true }) {
+    // Merge basis lexicon with dialect lexicon for parsing
+    const lexicon = { ...basisLexicon, ...dialectLexicon };
+    const ast = await parser.parse(0, source, lexicon);
+    const unparsed = unparse(ast, dialectLexicon, options);
     return unparsed;
   }
 
@@ -293,13 +296,13 @@ describe("unparse", () => {
   describe("parser.reformat", () => {
     it("should reformat simple expressions", async () => {
       const source = "42..";
-      const reformatted = await parser.reformat(0, source, {});
+      const reformatted = await parser.reformat(0, source, basisLexicon);
       expect(reformatted).toBe("42..");
     });
 
     it("should reformat and pretty print lists", async () => {
       const source = "[1,2,3]..";
-      const reformatted = await parser.reformat(0, source, {});
+      const reformatted = await parser.reformat(0, source, basisLexicon);
       expect(reformatted).toContain("[\n");
       expect(reformatted).toContain("  1");
       expect(reformatted).toContain("  2");
@@ -324,7 +327,7 @@ describe("unparse", () => {
 
     it("should reformat multiple expressions", async () => {
       const source = "'hello'.[1, 2].{x: 10}..";
-      const reformatted = await parser.reformat(0, source, {});
+      const reformatted = await parser.reformat(0, source, basisLexicon);
       expect(reformatted).toContain("'hello'");
       expect(reformatted).toContain("[\n  1");
       expect(reformatted).toContain("{\n  x: 10");
@@ -333,13 +336,13 @@ describe("unparse", () => {
 
     it("should support compact option", async () => {
       const source = "[1, 2, 3]..";
-      const reformatted = await parser.reformat(0, source, {}, { compact: true });
+      const reformatted = await parser.reformat(0, source, basisLexicon, { compact: true });
       expect(reformatted).toBe("[1, 2, 3]..");
     });
 
     it("should support custom indent size", async () => {
       const source = "[1, 2]..";
-      const reformatted = await parser.reformat(0, source, {}, { indentSize: 4 });
+      const reformatted = await parser.reformat(0, source, basisLexicon, { indentSize: 4 });
       expect(reformatted).toContain("    1"); // 4 spaces
       expect(reformatted).toContain("    2"); // 4 spaces
     });

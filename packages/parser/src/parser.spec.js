@@ -1,18 +1,16 @@
 import { jest } from "@jest/globals";
 import { buildParser, parser } from "./parser.js";
 import { mockPromiseValue, mockPromiseError } from "./testing/index.js";
-import vm from "vm";
+import { lexicon as basisLexicon } from "@graffiticode/basis";
 
 describe("lang/parser", () => {
   const log = jest.fn();
-  it("should use provided lexicon directly", async () => {
+  it("should use provided lexicon", async () => {
     // Arrange
-    const cache = new Map();
-    const getLangAsset = jest.fn(); // Should not be called
     const main = {
       parse: mockPromiseValue({ root: "0" })
     };
-    const parser = buildParser({ log, cache, getLangAsset, main });
+    const parser = buildParser({ main });
     const lang = "0";
     const src = "'foo'..";
     const providedLexicon = { test: "lexicon" };
@@ -21,154 +19,78 @@ describe("lang/parser", () => {
     await expect(parser.parse(lang, src, providedLexicon)).resolves.toStrictEqual({ root: "0" });
 
     // Assert
-    expect(getLangAsset).not.toHaveBeenCalled(); // Should not fetch when lexicon is provided
     expect(main.parse).toHaveBeenCalledWith(src, providedLexicon);
-    expect(cache.has(lang)).toBe(false); // Should not cache when lexicon is provided
   });
 
-  it("should call main parser language lexicon", async () => {
+  it("should throw error when lexicon is missing", async () => {
     // Arrange
-    const cache = new Map();
-    const getLangAsset = mockPromiseValue("{}");
     const main = {
       parse: mockPromiseValue({ root: "0" })
     };
-    const parser = buildParser({ log, cache, getLangAsset, main });
+    const parser = buildParser({ main });
     const lang = "0";
     const src = "'foo'..";
 
-    // Act
-    await expect(parser.parse(lang, src)).resolves.toStrictEqual({ root: "0" });
-
-    // Assert
-    expect(getLangAsset).toHaveBeenCalledWith(lang, "/lexicon.js");
-    expect(main.parse).toHaveBeenCalledWith(src, {});
-    expect(cache.has(lang)).toBe(true);
-    expect(cache.get(lang)).toStrictEqual({});
+    // Act & Assert
+    await expect(parser.parse(lang, src)).rejects.toThrow("Lexicon is required for parsing");
   });
-  it("should call main parser cached lexicon", async () => {
+  it("should pass lexicon to main parser", async () => {
     // Arrange
-    const cache = new Map();
     const main = {
       parse: mockPromiseValue({ root: "0" })
     };
-    const parser = buildParser({
-      cache,
-      main
-    });
+    const parser = buildParser({ main });
     const lang = "0";
     const src = "'foo'..";
-    cache.set(lang, {});
+    const lexicon = { someFunc: { name: "SOMEFUNC" } };
 
     // Act
-    await expect(parser.parse(lang, src)).resolves.toStrictEqual({ root: "0" });
+    await expect(parser.parse(lang, src, lexicon)).resolves.toStrictEqual({ root: "0" });
 
     // Assert
-    expect(main.parse).toHaveBeenCalledWith(src, {});
+    expect(main.parse).toHaveBeenCalledWith(src, lexicon);
   });
-  it("should return error if get language asset fails", async () => {
+  it("should return error if main parser fails with lexicon", async () => {
     // Arrange
-    const cache = new Map();
-    const err = new Error("failed to get lexicon");
-    const getLangAsset = mockPromiseError(err);
-    const parser = buildParser({
-      cache,
-      getLangAsset
-    });
+    const err = new Error("parser failed");
+    const main = { parse: mockPromiseError(err) };
+    const parser = buildParser({ main });
     const lang = "00";
     const src = "'foo'..";
+    const lexicon = {};
 
     // Act
-    await expect(parser.parse(lang, src)).rejects.toBe(err);
+    await expect(parser.parse(lang, src, lexicon)).rejects.toBe(err);
 
     // Assert
-    expect(getLangAsset).toHaveBeenCalledWith(lang, "/lexicon.js");
+    expect(main.parse).toHaveBeenCalledWith(src, lexicon);
   });
   it("should return error if main parser fails", async () => {
     // Arrange
-    const log = jest.fn();
-    const cache = new Map();
-    const getLangAsset = mockPromiseValue("{}");
     const err = new Error("main parser failed");
     const main = { parse: mockPromiseError(err) };
-    const parser = buildParser({ log, cache, getLangAsset, main });
+    const parser = buildParser({ main });
     const lang = "0";
     const src = "'foo'..";
+    const lexicon = {};
 
     // Act
-    await expect(parser.parse(lang, src)).rejects.toBe(err);
+    await expect(parser.parse(lang, src, lexicon)).rejects.toBe(err);
 
     // Assert
-    expect(getLangAsset).toHaveBeenCalledWith(lang, "/lexicon.js");
-    expect(main.parse).toHaveBeenCalledWith(src, {});
-    expect(cache.has(lang)).toBe(true);
-    expect(cache.get(lang)).toStrictEqual({});
-  });
-  it("should return succeed if lexicon is a buffer", async () => {
-    // Arrange
-    const log = jest.fn();
-    const cache = new Map();
-    const getLangAsset = mockPromiseValue(Buffer.from("{}"));
-    const ast = { root: "0" };
-    const main = { parse: mockPromiseValue(ast) };
-    const parser = buildParser({ log, cache, getLangAsset, main });
-    const lang = "0";
-    const src = "'foo'..";
-
-    // Act
-    await expect(parser.parse(lang, src)).resolves.toStrictEqual(ast);
-
-    // Assert
-    expect(getLangAsset).toHaveBeenCalledWith(lang, "/lexicon.js");
-    expect(main.parse).toHaveBeenCalledWith(src, {});
-    expect(cache.has(lang)).toBe(true);
-    expect(cache.get(lang)).toStrictEqual({});
-  });
-  it("should try vm if lexicon cannot parse JSON", async () => {
-    // Arrange
-    const log = jest.fn();
-    const cache = new Map();
-    const rawLexicon = `
-    (() => {
-      window.gcexports.globalLexicon = {};
-    })();
-    `;
-    const getLangAsset = mockPromiseValue(rawLexicon);
-    const ast = { root: "0" };
-    const main = { parse: mockPromiseValue(ast) };
-    const vm = {
-      createContext: jest.fn(),
-      runInContext: jest.fn().mockImplementation((data, context) => {
-        context.window.gcexports.globalLexicon = {};
-      })
-    };
-    const parser = buildParser({ log, cache, getLangAsset, main, vm });
-    const lang = "0";
-    const src = "'foo'..";
-
-    // Act
-    await expect(parser.parse(lang, src)).resolves.toStrictEqual(ast);
-
-    // Assert
-    expect(getLangAsset).toHaveBeenCalledWith(lang, "/lexicon.js");
-    expect(main.parse).toHaveBeenCalledWith(src, {});
-    expect(cache.has(lang)).toBe(true);
-    expect(cache.get(lang)).toStrictEqual({});
-    expect(vm.createContext).toHaveBeenCalled();
-    expect(vm.runInContext).toHaveBeenCalledWith(rawLexicon, expect.anything());
+    expect(main.parse).toHaveBeenCalledWith(src, lexicon);
   });
   it("should parse error", async () => {
     // Arrange
-    const cache = new Map();
-    const getLangAsset = mockPromiseValue("{}");
     const err = new Error("End of program reached.");
     const main = { parse: mockPromiseError(err) };
-    const parser = buildParser({ log, cache, getLangAsset, main });
+    const parser = buildParser({ main });
     const lang = "0";
     const src = "'hello, world'";
+    const lexicon = {};
 
     // Act & Assert
-    await expect(parser.parse(lang, src)).rejects.toBe(err);
+    await expect(parser.parse(lang, src, lexicon)).rejects.toBe(err);
   });
 });
 
@@ -176,7 +98,7 @@ describe("parser integration tests", () => {
   // Tests using the actual parser
   it("should parse string literals", async () => {
     // Arrange & Act
-    const result = await parser.parse(0, "'hello, world'..");
+    const result = await parser.parse(0, "'hello, world'..", basisLexicon);
 
     // Assert
     expect(result).toHaveProperty("root");
@@ -205,7 +127,7 @@ describe("parser integration tests", () => {
 
   it("should parse numeric literals", async () => {
     // Arrange & Act
-    const result = await parser.parse(0, "42..");
+    const result = await parser.parse(0, "42..", basisLexicon);
 
     // Assert
     expect(result).toHaveProperty("root");
@@ -229,7 +151,7 @@ describe("parser integration tests", () => {
 
   it("should have a PROG node at the root", async () => {
     // Let's test the most basic structure that should always work
-    const result = await parser.parse(0, "123..");
+    const result = await parser.parse(0, "123..", basisLexicon);
 
     // Assert
     expect(result).toHaveProperty("root");
@@ -257,9 +179,8 @@ describe("parser integration tests", () => {
   });
 
   it("should parse complex program: apply (<a b: add a b>) [10 20]..", async () => {
-    // Create parser with custom lexicon
-    const customLexiconCache = new Map();
-    customLexiconCache.set(0, {
+    // Create custom lexicon
+    const customLexicon = {
       add: {
         tk: 2,
         name: "add",
@@ -272,23 +193,10 @@ describe("parser integration tests", () => {
         cls: "function",
         length: 2
       }
-    });
-
-    // Use the parser with our custom cache
-    const customParser = buildParser({
-      log: console.log,
-      cache: customLexiconCache,
-      getLangAsset: async () => ({}),
-      main: {
-        parse: (src, lexicon) => {
-          return Promise.resolve(parser.parse(0, src));
-        }
-      },
-      vm
-    });
+    };
 
     // Act
-    const result = await customParser.parse(0, "apply (<a b: add a b>) [10 20]..");
+    const result = await parser.parse(0, "apply (<a b: add a b>) [10 20]..", customLexicon);
 
     // Assert
     expect(result).toHaveProperty("root");
@@ -348,7 +256,7 @@ describe("parser integration tests", () => {
 
     try {
       // Unclosed string - missing closing quote
-      result = await parser.parse(0, "'unclosed string..");
+      result = await parser.parse(0, "'unclosed string..", basisLexicon);
     } catch (e) {
       // Check for expected error (we should now have a robust parser that doesn't throw)
       console.error("Unexpected error:", e);
@@ -388,7 +296,7 @@ describe("parser integration tests", () => {
 
     try {
       // Missing closing bracket
-      result = await parser.parse(0, "[1, 2, 3..");
+      result = await parser.parse(0, "[1, 2, 3..", basisLexicon);
     } catch (e) {
       console.error("Unexpected error:", e);
       throw e;
@@ -427,7 +335,7 @@ describe("parser integration tests", () => {
 
     try {
       // Invalid sequence of tokens
-      result = await parser.parse(0, "if then else..");
+      result = await parser.parse(0, "if then else..", basisLexicon);
     } catch (e) {
       console.error("Unexpected error:", e);
       throw e;
@@ -462,32 +370,9 @@ describe("parser integration tests", () => {
   });
 
   it("should perform parse-time evaluation for adding two numbers", async () => {
-    // Create parser with custom lexicon that defines 'add' function
-    const customLexiconCache = new Map();
-    customLexiconCache.set(0, {
-      add: {
-        tk: 2,
-        name: "add",
-        cls: "function",
-        length: 2
-      }
-    });
-
-    // Use the parser with our custom cache
-    const customParser = buildParser({
-      log: console.log,
-      cache: customLexiconCache,
-      getLangAsset: async () => ({}),
-      main: {
-        parse: (src, lexicon) => {
-          return Promise.resolve(parser.parse(0, src));
-        }
-      },
-      vm
-    });
-
+    // Use basis lexicon which includes add function
     // Act - parse a simple addition expression
-    const result = await customParser.parse(0, "add 123 456..");
+    const result = await parser.parse(0, "add 123 456..", basisLexicon);
     console.log(
       "TEST",
       "result=" + JSON.stringify(result, null, 2),

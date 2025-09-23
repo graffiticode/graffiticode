@@ -1,5 +1,6 @@
 import { parser } from "./parser.js";
 import { unparse } from "./unparse.js";
+import { lexicon as basisLexicon } from "@graffiticode/basis";
 
 describe("unparse with L0166 lexicon", () => {
   // L0166 lexicon for spreadsheet operations (from l0166/packages/api/src/lexicon.js)
@@ -132,6 +133,9 @@ describe("unparse with L0166 lexicon", () => {
     }
   };
 
+  // Merge basis and L0166 lexicons
+  const mergedLexicon = { ...basisLexicon, ...l0166Lexicon };
+
   it("should unparse L0166 spreadsheet code", async () => {
     const source = `columns [
   column A width 100 align "center" protected true {}
@@ -150,9 +154,8 @@ cells [
     // produces valid code that can be parsed again
     // Pass the lexicon directly to avoid fetching
 
-    // For complex L0166 code, we'll just parse with language 0
-    // since the specific L0166 syntax may require special handling
-    const ast = await parser.parse(0, source);
+    // Parse with merged lexicon
+    const ast = await parser.parse(0, source, mergedLexicon);
 
     // Log the AST pool
     console.log("AST Pool:", JSON.stringify(ast, null, 2));
@@ -198,7 +201,7 @@ cells [
     ];
 
     for (const { source, description } of tests) {
-      const ast = await parser.parse(166, source, l0166Lexicon);
+      const ast = await parser.parse(166, source, mergedLexicon);
       const unparsed = unparse(ast, l0166Lexicon);
 
       // Check that unparse produces output
@@ -222,7 +225,7 @@ cells [
     ];
 
     for (const source of tests) {
-      const ast = await parser.parse(0, source);
+      const ast = await parser.parse(0, source, mergedLexicon);
       const unparsed = unparse(ast, l0166Lexicon);
 
       // Should produce valid output
@@ -311,8 +314,8 @@ cells [
   v: "0.0.1"
 }..`;
 
-    // Parse with L0166 lexicon
-    const ast = await parser.parse("0166", source, l0166Lexicon);
+    // Parse with merged lexicon
+    const ast = await parser.parse("0166", source, mergedLexicon);
 
     console.log("Complex L0166 AST nodes:", Object.keys(ast).length);
 
@@ -343,8 +346,8 @@ cells [
   it("should reformat L0166 code using parser.reformat", async () => {
     const source = `columns [column A width 100 {}] rows [row 1 {}] cells [cell A1 text "Hello" {}] {v: "0.0.1"}..`;
 
-    // Reformat with L0166 lexicon
-    const reformatted = await parser.reformat("0166", source, l0166Lexicon);
+    // Reformat with merged lexicon
+    const reformatted = await parser.reformat("0166", source, mergedLexicon);
 
     // Check that it produces valid output
     expect(reformatted).toBeDefined();
