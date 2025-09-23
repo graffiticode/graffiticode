@@ -5,9 +5,10 @@ import { lexicon as basisLexicon } from "@graffiticode/basis";
  * Unparse an AST node to source code
  * @param {object} node - The AST node to unparse
  * @param {object} lexicon - The lexicon containing operator and keyword definitions
+ * @param {number} indent - The current indentation level (default 0)
  * @returns {string} The unparsed source code
  */
-function unparseNode(node, lexicon) {
+function unparseNode(node, lexicon, indent = 0) {
   if (!node) {
     return "";
   }
@@ -22,13 +23,13 @@ function unparseNode(node, lexicon) {
     case "PROG":
       // Program is a list of expressions ending with ".."
       if (node.elts && node.elts.length > 0) {
-        const exprs = unparseNode(node.elts[0], lexicon);
+        const exprs = unparseNode(node.elts[0], lexicon, indent);
         return exprs + "..";
       }
       return "..";
 
     case "EXPRS":
-      // Multiple expressions separated by periods
+      // Multiple expressions
       if (!node.elts || node.elts.length === 0) {
         return "";
       }
@@ -45,13 +46,20 @@ function unparseNode(node, lexicon) {
             const arity = lexicon[funcName].arity || 0;
             if (arity > 0 && node.elts.length === arity + 1) {
               // Treat this as a function application
-              const args = node.elts.slice(1).map(elt => unparseNode(elt, lexicon)).join(" ");
+              const args = node.elts.slice(1).map(elt => unparseNode(elt, lexicon, indent)).join(" ");
               return `${funcName} ${args}`;
             }
           }
         }
       }
-      return node.elts.map(elt => unparseNode(elt, lexicon)).join(".");
+
+      // For single expression, return as is
+      if (node.elts.length === 1) {
+        return unparseNode(node.elts[0], lexicon, indent);
+      }
+
+      // For multiple expressions, put each on its own line
+      return node.elts.map(elt => unparseNode(elt, lexicon, indent)).join("\n");
 
     case "NUM":
       return node.elts[0];
@@ -77,8 +85,14 @@ function unparseNode(node, lexicon) {
       if (!node.elts || node.elts.length === 0) {
         return "[]";
       }
-      const items = node.elts.map(elt => unparseNode(elt, lexicon));
-      return "[" + items.join(", ") + "]";
+
+      // Pretty print with each element on a new line
+      const innerIndent = indent + 2;
+      const indentStr = " ".repeat(innerIndent);
+      const items = node.elts.map(elt =>
+        indentStr + unparseNode(elt, lexicon, innerIndent)
+      );
+      return "[\n" + items.join("\n") + "\n" + " ".repeat(indent) + "]";
     }
 
     case "RECORD": {
@@ -86,8 +100,14 @@ function unparseNode(node, lexicon) {
       if (!node.elts || node.elts.length === 0) {
         return "{}";
       }
-      const bindings = node.elts.map(elt => unparseNode(elt, lexicon));
-      return "{" + bindings.join(", ") + "}";
+
+      // Pretty print with each binding on a new line
+      const innerIndent = indent + 2;
+      const indentStr = " ".repeat(innerIndent);
+      const bindings = node.elts.map(elt =>
+        indentStr + unparseNode(elt, lexicon, innerIndent)
+      );
+      return "{\n" + bindings.join("\n") + "\n" + " ".repeat(indent) + "}";
     }
 
     case "BINDING": {
@@ -98,9 +118,9 @@ function unparseNode(node, lexicon) {
         if (node.elts[0] && node.elts[0].tag === "STR") {
           key = node.elts[0].elts[0]; // Get the raw string without quotes
         } else {
-          key = unparseNode(node.elts[0], lexicon);
+          key = unparseNode(node.elts[0], lexicon, indent);
         }
-        const value = unparseNode(node.elts[1], lexicon);
+        const value = unparseNode(node.elts[1], lexicon, indent);
         return `${key}: ${value}`;
       }
       return "";
@@ -109,7 +129,7 @@ function unparseNode(node, lexicon) {
     case "PAREN":
       // Parenthesized expression
       if (node.elts && node.elts.length > 0) {
-        return "(" + unparseNode(node.elts[0], lexicon) + ")";
+        return "(" + unparseNode(node.elts[0], lexicon, indent) + ")";
       }
       return "()";
 
@@ -232,7 +252,7 @@ function unparseNode(node, lexicon) {
       if (sourceName) {
         // This is a known lexicon function - unparse in prefix notation
         if (node.elts && node.elts.length > 0) {
-          const args = node.elts.map(elt => unparseNode(elt, lexicon)).join(" ");
+          const args = node.elts.map(elt => unparseNode(elt, lexicon, indent)).join(" ");
           return `${sourceName} ${args}`;
         }
         return sourceName;

@@ -5,6 +5,27 @@ import vm from "vm";
 
 describe("lang/parser", () => {
   const log = jest.fn();
+  it("should use provided lexicon directly", async () => {
+    // Arrange
+    const cache = new Map();
+    const getLangAsset = jest.fn(); // Should not be called
+    const main = {
+      parse: mockPromiseValue({ root: "0" })
+    };
+    const parser = buildParser({ log, cache, getLangAsset, main });
+    const lang = "0";
+    const src = "'foo'..";
+    const providedLexicon = { test: "lexicon" };
+
+    // Act
+    await expect(parser.parse(lang, src, providedLexicon)).resolves.toStrictEqual({ root: "0" });
+
+    // Assert
+    expect(getLangAsset).not.toHaveBeenCalled(); // Should not fetch when lexicon is provided
+    expect(main.parse).toHaveBeenCalledWith(src, providedLexicon);
+    expect(cache.has(lang)).toBe(false); // Should not cache when lexicon is provided
+  });
+
   it("should call main parser language lexicon", async () => {
     // Arrange
     const cache = new Map();

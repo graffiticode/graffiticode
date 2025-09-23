@@ -48,7 +48,13 @@ export const buildParser = ({
   vm
 }) => {
   return {
-    async parse(lang, src) {
+    async parse(lang, src, lexicon = null) {
+      // If lexicon is provided, use it directly
+      if (lexicon) {
+        return await main.parse(src, lexicon);
+      }
+
+      // Otherwise, load from cache or remote
       if (!cache.has(lang)) {
         let data = await getLangAsset(lang, "/lexicon.js");
         // TODO Make lexicon JSON.
@@ -60,9 +66,9 @@ export const buildParser = ({
           throw new Error("unable to use lexicon");
         }
         const lstr = data.substring(data.indexOf("{"));
-        let lexicon;
+        let loadedLexicon;
         try {
-          lexicon = JSON.parse(lstr);
+          loadedLexicon = JSON.parse(lstr);
         } catch (err) {
           if (err instanceof SyntaxError) {
             log(`failed to parse ${lang} lexicon: ${err.message}`);
@@ -70,17 +76,17 @@ export const buildParser = ({
             vm.createContext(context);
             vm.runInContext(data, context);
             if (typeof (context.window.gcexports.globalLexicon) === "object") {
-              lexicon = context.window.gcexports.globalLexicon;
+              loadedLexicon = context.window.gcexports.globalLexicon;
             }
           }
-          if (!lexicon) {
+          if (!loadedLexicon) {
             throw new Error("Malformed lexicon");
           }
         }
-        cache.set(lang, lexicon);
+        cache.set(lang, loadedLexicon);
       };
-      const lexicon = cache.get(lang);
-      return await main.parse(src, lexicon);
+      const cachedLexicon = cache.get(lang);
+      return await main.parse(src, cachedLexicon);
     }
   };
 };
