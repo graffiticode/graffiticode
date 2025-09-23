@@ -1,6 +1,7 @@
 import vm from "vm";
 import { getLangAsset } from "../../api/src/lang/index.js";
 import { parse } from "./parse.js";
+import { unparse } from "./unparse.js";
 
 // commonjs export
 const main = {
@@ -91,3 +92,6 @@ export const parser = buildParser({
   main,
   vm
 });
+
+// Add unparse as a property of parser
+parser.unparse = unparse;

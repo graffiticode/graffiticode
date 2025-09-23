@@ -1,6 +1,6 @@
 {
   "name": "@graffiticode/parser",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "publishConfig": {
     "access": "public"
@@ -20,5 +20,8 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "@graffiticode/basis": "^1.6.2"
+  }
 }
