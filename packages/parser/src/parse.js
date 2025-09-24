@@ -174,6 +174,49 @@ export const parse = (function () {
   const TK_STRSUFFIX = 0xB4;
   const TK_DOTDOT = 0xB5;
 
+  // Process escape sequences in a string lexeme
+  function processEscapeSequences(str) {
+    // The string still has backslash escape sequences
+    // Process them to get the actual string value
+    let result = "";
+    let i = 0;
+    while (i < str.length) {
+      if (str[i] === '\\' && i + 1 < str.length) {
+        // Handle escape sequence
+        const nextChar = str[i + 1];
+        switch (nextChar) {
+          case '\\':
+          case '"':
+          case "'":
+          case '`':
+            result += nextChar;
+            break;
+          case 'n':
+            result += '\n';
+            break;
+          case 't':
+            result += '\t';
+            break;
+          case 'r':
+            result += '\r';
+            break;
+          case '$':
+            result += '$';
+            break;
+          default:
+            // Unknown escape, keep the backslash and character
+            result += '\\' + nextChar;
+            break;
+        }
+        i += 2;
+      } else {
+        result += str[i];
+        i++;
+      }
+    }
+    return result;
+  }
+
   function tokenToLexeme(tk) {
     switch (tk) {
       case TK_EQUAL: return "a '=' symbol";
@@ -300,20 +343,24 @@ export const parse = (function () {
   function str(ctx, cc) {
     if (match(ctx, TK_STR)) {
       eat(ctx, TK_STR);
-      Ast.string(ctx, lexeme, getCoord(ctx)); // strip quotes;
+      // Process escape sequences in the lexeme
+      const processedStr = processEscapeSequences(lexeme);
+      Ast.string(ctx, processedStr, getCoord(ctx)); // strip quotes;
       cc.cls = "string";
       return cc;
     } else if (match(ctx, TK_STRPREFIX)) {
       ctx.state.inStr++;
       eat(ctx, TK_STRPREFIX);
       startCounter(ctx);
-      Ast.string(ctx, lexeme, getCoord(ctx)); // strip quotes;
+      const processedPrefix = processEscapeSequences(lexeme);
+      Ast.string(ctx, processedPrefix, getCoord(ctx)); // strip quotes;
       countCounter(ctx);
       const ret = function (ctx) {
         return strSuffix(ctx, function (ctx) {
           ctx.state.inStr--;
           eat(ctx, TK_STRSUFFIX);
-          Ast.string(ctx, lexeme, getCoord(ctx)); // strip quotes;
+          const processedSuffix = processEscapeSequences(lexeme);
+          Ast.string(ctx, processedSuffix, getCoord(ctx)); // strip quotes;
           countCounter(ctx);
           Ast.list(ctx, ctx.state.exprc);
           stopCounter(ctx);
@@ -337,7 +384,8 @@ export const parse = (function () {
       if (match(ctx, TK_STRMIDDLE)) {
         // Not done yet.
         eat(ctx, TK_STRMIDDLE);
-        Ast.string(ctx, lexeme, getCoord(ctx)); // strip quotes;
+        const processedMiddle = processEscapeSequences(lexeme);
+        Ast.string(ctx, processedMiddle, getCoord(ctx)); // strip quotes;
         countCounter(ctx);
         ret = function (ctx) {
           return strSuffix(ctx, resume);
@@ -1199,24 +1247,44 @@ export const parse = (function () {
       lexeme += String.fromCharCode(c);
       c = nextCC();
       const inTemplateLiteral = quoteChar === CC_BACKTICK;
+      let escaped = false;
+
       if (inTemplateLiteral) {
         while (
-          c !== quoteChar &&
+          (c !== quoteChar || escaped) &&
           c !== 0 &&
-          !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE)) {
-          lexeme += String.fromCharCode(c);
+          !(c === CC_DOLLAR && peekCC() === CC_LEFTBRACE && !escaped)) {
+          if (escaped) {
+            // Handle escaped characters
+            lexeme += String.fromCharCode(c);
+            escaped = false;
+          } else if (c === 92) { // backslash
+            lexeme += String.fromCharCode(c);
+            escaped = true;
+          } else {
+            lexeme += String.fromCharCode(c);
+          }
           c = nextCC();
         }
       } else {
-        while (c !== quoteChar && c !== 0) {
-          lexeme += String.fromCharCode(c);
+        while ((c !== quoteChar || escaped) && c !== 0) {
+          if (escaped) {
+            // Handle escaped characters
+            lexeme += String.fromCharCode(c);
+            escaped = false;
+          } else if (c === 92) { // backslash
+            lexeme += String.fromCharCode(c);
+            escaped = true;
+          } else {
+            lexeme += String.fromCharCode(c);
+          }
           c = nextCC();
         }
       }
       const coord = { from: getPos(ctx) - lexeme.length, to: getPos(ctx) };
       assertErr(ctx, c !== 0, `Unterminated string: ${lexeme}`, coord);
       if (quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
-          peekCC() === CC_LEFTBRACE) {
+          peekCC() === CC_LEFTBRACE && !escaped) {
         nextCC(); // Eat CC_LEFTBRACE
         lexeme = lexeme.substring(1); // Strip off punct.
         return TK_STRPREFIX;
@@ -1234,21 +1302,41 @@ export const parse = (function () {
       const quoteChar = quoteCharStack[quoteCharStack.length - 1];
       c = nextCC();
       const inTemplateLiteral = quoteChar === CC_BACKTICK;
+      let escaped = false;
+
       if (inTemplateLiteral) {
-        while (c !== quoteChar && c !== 0 &&
+        while ((c !== quoteChar || escaped) && c !== 0 &&
              !(c === CC_DOLLAR &&
-               peekCC() === CC_LEFTBRACE)) {
-          lexeme += String.fromCharCode(c);
+               peekCC() === CC_LEFTBRACE && !escaped)) {
+          if (escaped) {
+            // Handle escaped characters
+            lexeme += String.fromCharCode(c);
+            escaped = false;
+          } else if (c === 92) { // backslash
+            lexeme += String.fromCharCode(c);
+            escaped = true;
+          } else {
+            lexeme += String.fromCharCode(c);
+          }
           c = nextCC();
         }
       } else {
-        while (c !== quoteChar && c !== 0) {
-          lexeme += String.fromCharCode(c);
+        while ((c !== quoteChar || escaped) && c !== 0) {
+          if (escaped) {
+            // Handle escaped characters
+            lexeme += String.fromCharCode(c);
+            escaped = false;
+          } else if (c === 92) { // backslash
+            lexeme += String.fromCharCode(c);
+            escaped = true;
+          } else {
+            lexeme += String.fromCharCode(c);
+          }
           c = nextCC();
         }
       }
       if (quoteChar === CC_BACKTICK && c === CC_DOLLAR &&
-          peekCC() === CC_LEFTBRACE) {
+          peekCC() === CC_LEFTBRACE && !escaped) {
         nextCC(); // Eat brace.
         lexeme = lexeme.substring(1); // Strip off leading brace and trailing brace.
         return TK_STRMIDDLE;

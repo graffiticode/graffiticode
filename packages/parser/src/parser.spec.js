@@ -425,4 +425,149 @@ describe("parser integration tests", () => {
     expect(found123).toBe(false);
     expect(found456).toBe(false);
   });
+
+  // Tests for escaped quotes
+  it("should parse strings with escaped double quotes", async () => {
+    // Arrange & Act
+    const result = await parser.parse(0, '"He said \\"Hello\\""..', basisLexicon);
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Find the STR node
+    let strNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "STR" && node.elts[0] === 'He said "Hello"') {
+          strNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(strNode).not.toBeNull();
+    expect(strNode.tag).toBe("STR");
+    expect(strNode.elts[0]).toBe('He said "Hello"');
+  });
+
+  it("should parse strings with escaped single quotes", async () => {
+    // Arrange & Act
+    const result = await parser.parse(0, "'It\\'s working!'..", basisLexicon);
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Find the STR node
+    let strNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "STR" && node.elts[0] === "It's working!") {
+          strNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(strNode).not.toBeNull();
+    expect(strNode.tag).toBe("STR");
+    expect(strNode.elts[0]).toBe("It's working!");
+  });
+
+  it("should parse strings with escaped backticks", async () => {
+    // Arrange & Act
+    const result = await parser.parse(0, "`This has a \\` backtick`..", basisLexicon);
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Find the STR node
+    let strNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "STR" && node.elts[0] === "This has a ` backtick") {
+          strNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(strNode).not.toBeNull();
+    expect(strNode.tag).toBe("STR");
+    expect(strNode.elts[0]).toBe("This has a ` backtick");
+  });
+
+  it("should parse strings with escaped backslashes", async () => {
+    // Arrange & Act
+    const result = await parser.parse(0, '"Path: C:\\\\Users\\\\Test"..', basisLexicon);
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Find the STR node
+    let strNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "STR" && node.elts[0] === "Path: C:\\Users\\Test") {
+          strNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(strNode).not.toBeNull();
+    expect(strNode.tag).toBe("STR");
+    expect(strNode.elts[0]).toBe("Path: C:\\Users\\Test");
+  });
+
+  it("should parse template literals with escaped interpolation", async () => {
+    // Arrange & Act
+    const result = await parser.parse(0, "`Price: \\${amount}`..", basisLexicon);
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Find the STR node
+    let strNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "STR" && node.elts[0] === "Price: ${amount}") {
+          strNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(strNode).not.toBeNull();
+    expect(strNode.tag).toBe("STR");
+    expect(strNode.elts[0]).toBe("Price: ${amount}");
+  });
+
+  it("should parse strings with mixed escape sequences", async () => {
+    // Arrange & Act
+    const result = await parser.parse(0, '"Line 1\\nTab\\t\\"Quote\\""..', basisLexicon);
+
+    // Assert
+    expect(result).toHaveProperty("root");
+
+    // Find the STR node
+    let strNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "STR" && node.elts[0] === 'Line 1\nTab\t"Quote"') {
+          strNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(strNode).not.toBeNull();
+    expect(strNode.tag).toBe("STR");
+    expect(strNode.elts[0]).toBe('Line 1\nTab\t"Quote"');
+  });
 });
