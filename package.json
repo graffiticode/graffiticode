@@ -31,5 +31,8 @@
       "<rootDir>/packages/",
       "<rootDir>/node_modules/"
     ]
+  },
+  "dependencies": {
+    "@graffiticode/parser": "^1.1.0"
   }
 }
