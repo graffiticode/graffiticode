@@ -16,7 +16,7 @@ describe("unparse", () => {
     it("should unparse string literals", async () => {
       const source = "'hello, world'..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("'hello, world'..");
+      expect(unparsed).toBe('"hello, world"..');
     });
 
     it.skip("should unparse string literals with escaped quotes", async () => {
@@ -328,7 +328,7 @@ describe("unparse", () => {
     it("should reformat multiple expressions", async () => {
       const source = "'hello'.[1, 2].{x: 10}..";
       const reformatted = await parser.reformat(0, source, basisLexicon);
-      expect(reformatted).toContain("'hello'");
+      expect(reformatted).toContain('"hello"');
       expect(reformatted).toContain("[\n  1");
       expect(reformatted).toContain("{\n  x: 10");
       expect(reformatted).toContain("..");
@@ -345,6 +345,12 @@ describe("unparse", () => {
       const reformatted = await parser.reformat(0, source, basisLexicon, { indentSize: 4 });
       expect(reformatted).toContain("    1"); // 4 spaces
       expect(reformatted).toContain("    2"); // 4 spaces
+    });
+
+    it("should preserve escaped quotes in strings", async () => {
+      const source = '"\\\"hello\\\""..'
+      const reformatted = await parser.reformat(0, source, basisLexicon, { compact: true });
+      expect(reformatted).toBe('"\\\"hello\\\""..'); // Should produce identical program
     });
   });
 });

@@ -89,7 +89,6 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
     return node.elts[0];
 
   case "LIST": {
-    console.log("LIST");
     // Array literal [a, b, c]
     if (!node.elts || node.elts.length === 0) {
       return "[]";
