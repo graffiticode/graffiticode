@@ -218,14 +218,14 @@ describe("unparse", () => {
 
     it("should unparse if-then-else expression", async () => {
       const source = "if true then 1 else 2..";
-      const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("if true then 1 else 2..");
+      const unparsed = await testRoundTrip(source, {}, { compact: false });
+      expect(unparsed).toBe("if true then\n  1\nelse\n  2..");
     });
 
     it("should unparse nested if expressions", async () => {
       const source = "if true then (if false then 1 else 2) else 3..";
-      const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("if true then (if false then 1 else 2) else 3..");
+      const unparsed = await testRoundTrip(source, {}, { compact: false });
+      expect(unparsed).toBe("if true then\n  (if false then\n    1\nelse\n    2)\nelse\n  3..");
     });
   });
 

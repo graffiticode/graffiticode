@@ -212,13 +212,15 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
     // If-then-else
     if (node.elts && node.elts.length >= 2) {
       const cond = unparseNode(node.elts[0], lexicon, indent, opts);
-      const thenExpr = unparseNode(node.elts[1], lexicon, indent, opts);
+      const innerIndent = indent + opts.indentSize;
+      const indentStr = " ".repeat(innerIndent);
+      const thenExpr = unparseNode(node.elts[1], lexicon, innerIndent, opts);
 
       if (node.elts.length >= 3) {
-        const elseExpr = unparseNode(node.elts[2], lexicon, indent, opts);
-        return `if ${cond} then ${thenExpr} else ${elseExpr}`;
+        const elseExpr = unparseNode(node.elts[2], lexicon, innerIndent, opts);
+        return `if ${cond} then\n${indentStr}${thenExpr}\nelse\n${indentStr}${elseExpr}`;
       } else {
-        return `if ${cond} then ${thenExpr}`;
+        return `if ${cond} then\n${indentStr}${thenExpr}`;
       }
     }
     return "";
@@ -227,17 +229,39 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
     // Case expression
     if (node.elts && node.elts.length > 0) {
       const expr = unparseNode(node.elts[0], lexicon, indent, opts);
-      const cases = node.elts.slice(1).map(c => unparseNode(c, lexicon, indent, opts));
-      return `case ${expr} of ${cases.join(" | ")}`;
+      const innerIndent = indent + opts.indentSize;
+      const indentStr = " ".repeat(innerIndent);
+      const endIndentStr = " ".repeat(indent);
+
+      // Process each case branch with proper indentation
+      const cases = node.elts.slice(1).map(c => {
+        // Pass the inner indent to OF nodes but don't add extra indentation here
+        // The OF node will handle its own formatting
+        const caseStr = unparseNode(c, lexicon, indent, opts);
+        return caseStr;
+      });
+
+      return `case ${expr} of\n${cases.join("\n")}\n${endIndentStr}end`;
     }
     return "";
 
   case "OF":
     // Case branch
     if (node.elts && node.elts.length >= 2) {
+      const indentStr = " ".repeat(indent + opts.indentSize);
       const pattern = unparseNode(node.elts[0], lexicon, indent, opts);
-      const expr = unparseNode(node.elts[1], lexicon, indent, opts);
-      return `${pattern} => ${expr}`;
+
+      // Check if the expression is a CASE node for proper nested formatting
+      const exprNode = node.elts[1];
+      let expr;
+      if (exprNode && exprNode.tag === "CASE") {
+        // For nested case, don't add extra indent to the case keyword itself
+        expr = unparseNode(exprNode, lexicon, indent + opts.indentSize, opts);
+      } else {
+        expr = unparseNode(exprNode, lexicon, indent, opts);
+      }
+
+      return `${indentStr}${pattern}: ${expr}`;
     }
     return "";
 
