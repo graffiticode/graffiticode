@@ -29,6 +29,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       // Only log unique compiles.
       logCompile({
         token: authToken,
+        units: 1,
         id: ids.join("+"),
         status: "success",
         timestamp: String(Date.now()),

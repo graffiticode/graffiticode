@@ -103,7 +103,7 @@ export const buildCompileLogger = () => {
   const port = getClientPort();
   const protocol = host.indexOf("localhost") >= 0 && "http" || "https";
   const endpoint = `${protocol}://${host}:${port}/api`;
-  return ({ token, id, status, timestamp, data }) => {
+  return ({ token, units, id, status, timestamp, data }) => {
     if (!token) {
       return;
     }
@@ -113,11 +113,11 @@ export const buildCompileLogger = () => {
       }
     });
     const query = gql`
-    mutation post ($id: String!, $status: String!, $timestamp: String!, $data: String!) {
-      logCompile(id: $id, status: $status, timestamp: $timestamp, data: $data)
+    mutation post ($units: Int, $id: String!, $status: String!, $timestamp: String!, $data: String!) {
+      logCompile(units: $units, id: $id, status: $status, timestamp: $timestamp, data: $data)
     }
   `;
-    client.request(query, { id, status, timestamp, data: JSON.stringify(data) })
+    client.request(query, { units, id, status, timestamp, data: JSON.stringify(data) })
       .catch(() => {
         // Silently ignore logging errors - this is fire-and-forget telemetry
         // Logging failures should never break the actual compilation flow
