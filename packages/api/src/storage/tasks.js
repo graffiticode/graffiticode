@@ -79,7 +79,7 @@ const getLexicon = async (lang) => {
       data = data.toString();
     }
     if (typeof (data) !== "string") {
-      log(`Failed to get usable lexicon for ${lang}`, typeof (data), data);
+      console.log(`Failed to get usable lexicon for ${lang}`, typeof (data), data);
       throw new Error("unable to use lexicon");
     }
     const lstr = data.substring(data.indexOf("{"));
