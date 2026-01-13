@@ -5,6 +5,7 @@ import "dotenv/config";
 import { buildVerifyAccessToken } from "./access-tokens.js";
 import { buildCreateApiKey, buildDeleteApiKey, buildSignInWithApiKey } from "./api-keys.js";
 import { buildGetEthereumNonce, buildSignInWithEthereum } from "./ethereum.js";
+import { buildSignInWithGoogle, buildCreateOAuthLink, buildGetOAuthLinks, buildDeleteOAuthLink } from "./oauth.js";
 import { buildExchangeRefreshToken, buildRevokeRefreshToken } from "./refresh-tokens.js";
 
 const initializeContext = ({ apiKeyId, apiKeyToken } = {}) => {
@@ -60,5 +61,11 @@ export const createClient = ({ url = "https://auth.graffiticode.com", apiKeyId, 
     deleteApiKey: buildDeleteApiKey(context, deps),
     listApiKeys: buildUnimplemented(context, deps),
     signInWithApiKey: buildSignInWithApiKey(context, deps),
+
+    // OAuth
+    signInWithGoogle: buildSignInWithGoogle(context, deps),
+    createOAuthLink: buildCreateOAuthLink(context, deps),
+    getOAuthLinks: buildGetOAuthLinks(context, deps),
+    deleteOAuthLink: buildDeleteOAuthLink(context, deps),
   };
 };

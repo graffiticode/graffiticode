@@ -1,5 +1,5 @@
 import { addHexPrefix, isValidAddress } from "@ethereumjs/util";
-import { InvalidArgumentError } from "@graffiticode/common/errors";
+import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { Router } from "express";
@@ -59,9 +59,41 @@ const buildEthereumRouter = (deps) => {
   return router;
 };
 
+const buildGoogleAuthenticate = ({ firebaseAuth, authService, oauthService }) => buildHttpHandler(async (req, res) => {
+  const { idToken } = req.body;
+  if (!isNonEmptyString(idToken)) {
+    throw new InvalidArgumentError("must provide idToken");
+  }
+
+  // Verify the Google ID token
+  let decodedToken;
+  try {
+    decodedToken = await firebaseAuth.verifyIdToken(idToken);
+  } catch (err) {
+    throw new UnauthenticatedError("Invalid Google ID token");
+  }
+
+  const providerId = decodedToken.uid;
+
+  // Look up the linked Ethereum address
+  const authContext = await oauthService.authenticate({ provider: "google", providerId });
+
+  // Generate tokens for the linked Ethereum address
+  const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens(authContext);
+
+  sendSuccessResponse(res, { access_token: accessToken, refresh_token: refreshToken, firebaseCustomToken });
+});
+
+const buildGoogleRouter = (deps) => {
+  const router = new Router();
+  router.post("/", buildGoogleAuthenticate(deps));
+  return router;
+};
+
 export const buildAuthenticateRouter = deps => {
   const router = new Router();
   router.use("/api-key", buildApiKeyRouter(deps));
   router.use("/ethereum", buildEthereumRouter(deps));
+  router.use("/google", buildGoogleRouter(deps));
   return router;
 };
