@@ -15,6 +15,20 @@
       ]
     },
     {
+      "collectionGroup": "oauth-links",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "refreshTokens",
       "queryScope": "COLLECTION",
       "fields": [

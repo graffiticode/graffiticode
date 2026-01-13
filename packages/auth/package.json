@@ -2,6 +2,9 @@
   "name": "@graffiticode/auth",
   "version": "2.1.2",
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "description": "Auth service for GC applications",
   "author": "Art Compiler LLC",
   "license": "MIT",

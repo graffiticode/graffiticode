@@ -11,4 +11,3 @@ export const createApp = () => {
   const app = createHttpAuthApp({ firebaseAuth, ...storers, ...services });
   return { ...storers, ...services, app };
 };
-
