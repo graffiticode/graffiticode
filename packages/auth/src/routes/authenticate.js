@@ -81,7 +81,8 @@ const buildGoogleAuthenticate = ({ firebaseAuth, authService, oauthService }) =>
   // Generate tokens for the linked Ethereum address
   const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens(authContext);
 
-  sendSuccessResponse(res, { access_token: accessToken, refresh_token: refreshToken, firebaseCustomToken });
+  // Include uid in response so callers can verify the correct user is being authenticated
+  sendSuccessResponse(res, { access_token: accessToken, refresh_token: refreshToken, firebaseCustomToken, uid: authContext.uid });
 });
 
 const buildGoogleRouter = (deps) => {
