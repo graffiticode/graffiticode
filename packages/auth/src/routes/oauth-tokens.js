@@ -35,9 +35,7 @@ const buildCreate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
   if (!isNonEmptyString(firebase_id_token)) {
     throw new InvalidArgumentError("must provide firebase_id_token");
   }
-  if (!isNonEmptyString(firebase_refresh_token)) {
-    throw new InvalidArgumentError("must provide firebase_refresh_token");
-  }
+  // firebase_refresh_token is optional - may be empty for direct token usage
   if (typeof firebase_token_expires_at !== "number") {
     throw new InvalidArgumentError("must provide firebase_token_expires_at as number");
   }
