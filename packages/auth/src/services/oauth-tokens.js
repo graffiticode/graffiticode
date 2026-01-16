@@ -12,33 +12,19 @@ export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer }) =
    * Create or update a token for a given provider ID and client.
    * If a token already exists for this client, it will be replaced.
    *
-   * The providerId is used as a synthetic link ID if no oauth-link exists.
-   * This allows MCP OAuth to work without requiring users to first link
-   * their Google account to an Ethereum address.
+   * Requires an oauth-link to exist for the provider ID. Users must first
+   * sign in with Ethereum and link their Google account before using OAuth.
    */
   const createToken = async ({ providerId, tokenData }) => {
-    // Try to find an existing oauth-link by providerId
-    let linkId;
-    try {
-      const oauthLink = await oauthLinkStorer.findByProviderId({
-        provider: "google",
-        providerId,
-      });
-      linkId = oauthLink.id;
-    } catch (err) {
-      if (err instanceof NotFoundError) {
-        // No oauth-link exists - use the providerId directly as a synthetic link ID
-        // This creates a "session-only" link that doesn't map to an Ethereum address
-        // The providerId is the Firebase UID, which is stable across sessions
-        linkId = `session-${providerId}`;
-      } else {
-        throw err;
-      }
-    }
+    // Find the oauth-link by providerId - this must exist
+    const oauthLink = await oauthLinkStorer.findByProviderId({
+      provider: "google",
+      providerId,
+    });
 
     // Remove any existing token for this client (upsert behavior)
     try {
-      await oauthTokenStorer.removeByClientId(linkId, tokenData.client_id);
+      await oauthTokenStorer.removeByClientId(oauthLink.id, tokenData.client_id);
     } catch (err) {
       // Ignore if no existing token - that's expected for new sessions
       if (!(err instanceof NotFoundError)) {
@@ -47,7 +33,7 @@ export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer }) =
     }
 
     // Create the new token
-    const token = await oauthTokenStorer.create(linkId, tokenData);
+    const token = await oauthTokenStorer.create(oauthLink.id, tokenData);
 
     return token;
   };
