@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 import { NotFoundError } from "@graffiticode/common/errors";
 import { v4 } from "uuid";
 import { getFirestore } from "../firebase.js";

@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 import { InvalidArgumentError, NotFoundError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http";
