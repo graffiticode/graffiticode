@@ -1,15 +1,17 @@
 {
   "hosts": {
     "l0": "l0.graffiticode.org",
-    "l0001": "l0001.graffiticode.org",
+    "l0001": "l0001-656973052505.us-central1.run.app",
+    "l0002": "l0002-656973052505.us-central1.run.app",
     "l146": "l146.graffiticode.org",
-    "l147": "l147.graffiticode.org"
+    "l0166": "l0166-656973052505.us-central1.run.app"
   },
   "ports": {
     "l0": "443",
     "l0001": "443",
+    "l0002": "443",
     "l146": "443",
-    "l147": "443"
+    "l0166": "443"
   },
   "protocol": "https",
   "metadata": {
