@@ -25,14 +25,15 @@ steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     args:
       - run
-      - services
-      - update
-      - graffiticode-api
+      - deploy
+      - api
       - '--platform=managed'
-      - '--no-traffic'
       - '--image=gcr.io/graffiticode/api:$COMMIT_SHA'
+      - '--port=3100'
+      - '--set-env-vars=AUTH_URL=https://auth.graffiticode.org'
+      - '--allow-unauthenticated'
       - >-
-        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
       - '--region=$_DEPLOY_REGION'
       - '--quiet'
     id: Deploy
@@ -44,4 +45,4 @@ options:
 substitutions:
   _DEPLOY_REGION: us-central1
 tags:
-  - graffiticode-api
+  - api
