@@ -1,5 +1,5 @@
 steps:
-  - name: 'node'
+  - name: 'node:22'
     entrypoint: 'npm'
     args:
       - 'install'
@@ -25,14 +25,14 @@ steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     args:
       - run
-      - services
-      - update
-      - graffiticode-auth
+      - deploy
+      - auth
       - '--platform=managed'
-      - '--no-traffic'
       - '--image=gcr.io/graffiticode/auth:$COMMIT_SHA'
+      - '--port=4100'
+      - '--allow-unauthenticated'
       - >-
-        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
       - '--region=$_DEPLOY_REGION'
       - '--quiet'
     id: Deploy
@@ -44,4 +44,4 @@ options:
 substitutions:
   _DEPLOY_REGION: us-central1
 tags:
-  - graffiticode-auth
+  - auth
