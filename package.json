@@ -13,7 +13,10 @@
     "api": "npm run -w packages/api dev",
     "lint": "eslint test/",
     "lint:fix": "eslint --fix test/",
-    "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec jest"
+    "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec jest",
+    "gcp:api:build": "gcloud builds submit --config configs/cloudbuild.api.yaml --substitutions=COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')",
+    "gcp:api:deploy": "gcloud run deploy api --image gcr.io/graffiticode/api:$(git rev-parse --short HEAD 2>/dev/null || echo 'latest') --port 3100 --region us-central1 --platform managed --allow-unauthenticated --set-env-vars=AUTH_URL=https://auth.graffiticode.org",
+    "gcp:api:logs": "gcloud run logs read api --region us-central1"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.0",
