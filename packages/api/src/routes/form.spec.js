@@ -1,9 +1,17 @@
-import { startAuthApp } from "@graffiticode/auth/testing";
-import request from "supertest";
-import { createApp } from "../app.js";
-import { clearFirestore } from "../testing/firestore.js";
-import { TASK1 } from "../testing/fixture.js";
-import { createError, createErrorResponse } from "./utils.js";
+import { jest } from "@jest/globals";
+
+// Mock bent to avoid slow HTTP calls to external language compilers
+jest.unstable_mockModule("bent", () => ({
+  default: jest.fn(() => jest.fn().mockResolvedValue({})),
+}));
+
+// Dynamic imports after mock setup
+const { startAuthApp } = await import("@graffiticode/auth/testing");
+const { default: request } = await import("supertest");
+const { createApp } = await import("../app.js");
+const { clearFirestore } = await import("../testing/firestore.js");
+const { TASK1 } = await import("../testing/fixture.js");
+const { createError, createErrorResponse } = await import("./utils.js");
 
 describe("routes/form", () => {
   beforeEach(async () => {
