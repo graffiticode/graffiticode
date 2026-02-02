@@ -105,7 +105,7 @@ export const buildCompileLogger = () => {
   const endpoint = `${protocol}://${host}:${port}/api`;
   return ({ token, units, id, status, timestamp, data }) => {
     if (!token) {
-      return;
+      return Promise.resolve(null);
     }
     const client = new GraphQLClient(endpoint, {
       headers: {
@@ -117,10 +117,79 @@ export const buildCompileLogger = () => {
       logCompile(units: $units, id: $id, status: $status, timestamp: $timestamp, data: $data)
     }
   `;
-    client.request(query, { units, id, status, timestamp, data: JSON.stringify(data) })
+    return client.request(query, { units, id, status, timestamp, data: JSON.stringify(data) })
+      .then(result => {
+        // Parse the logCompile response (returns JSON string)
+        try {
+          const logResult = JSON.parse(result?.logCompile || "{}");
+          return logResult;
+        } catch {
+          return null;
+        }
+      })
       .catch(() => {
         // Silently ignore logging errors - this is fire-and-forget telemetry
         // Logging failures should never break the actual compilation flow
+        return null;
       });
   };
+};
+
+// In-memory cache for compile allowed status
+// Key: uid, Value: { allowed: boolean, expires: number }
+const compileAllowedCache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export const getCachedCompileAllowed = (uid) => {
+  const entry = compileAllowedCache.get(uid);
+  if (entry && entry.allowed && Date.now() < entry.expires) {
+    return true;
+  }
+  return null; // unknown or blocked - must verify
+};
+
+export const setCachedCompileAllowed = (uid, allowed) => {
+  if (allowed) {
+    compileAllowedCache.set(uid, { allowed: true, expires: Date.now() + CACHE_TTL_MS });
+  } else {
+    compileAllowedCache.delete(uid);
+  }
+};
+
+export const checkCompileAllowedRemote = async (token) => {
+  const host = getClientHost();
+  const port = getClientPort();
+  const protocol = host.indexOf("localhost") >= 0 ? "http" : "https";
+  const url = `${protocol}://${host}${port ? ":" + port : ""}/api`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token
+      },
+      body: JSON.stringify({
+        query: "{ checkCompileAllowed { allowed reason } }"
+      })
+    });
+
+    if (!response.ok) {
+      console.error("checkCompileAllowedRemote: HTTP error", response.status, response.statusText);
+      return { allowed: false, reason: `Usage check failed (HTTP ${response.status})` };
+    }
+
+    const data = await response.json();
+
+    // Check for GraphQL errors
+    if (data.errors?.length > 0) {
+      console.error("checkCompileAllowedRemote: GraphQL errors", data.errors);
+      return { allowed: false, reason: data.errors[0]?.message || "GraphQL error" };
+    }
+
+    return data.data?.checkCompileAllowed || { allowed: false, reason: "Unknown error" };
+  } catch (error) {
+    console.error("checkCompileAllowedRemote error:", error.message || error);
+    return { allowed: false, reason: "Failed to check usage limit" };
+  }
 };

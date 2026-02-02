@@ -4,6 +4,8 @@ import { buildGetData } from "./data.js";
 import {
   buildHttpHandler,
   createCompileSuccessResponse,
+  createErrorResponse,
+  createError,
   parseAuthTokenFromRequest,
   optionsHandler
 } from "./utils.js";
@@ -77,6 +79,14 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     }
     const [id] = ids;
     res.set("Access-Control-Allow-Origin", "*");
+
+    // Check if getData returned an error (e.g., usage limit reached)
+    if (data?.status === "error") {
+      const errorMessage = data.errors?.[0]?.message || "Compilation failed";
+      res.status(402).json(createErrorResponse(createError(402, errorMessage)));
+      return;
+    }
+
     res.status(200).json(createCompileSuccessResponse({ id, data }));
   });
 };

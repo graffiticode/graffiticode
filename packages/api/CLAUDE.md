@@ -31,6 +31,12 @@ npm run lint
 npm run lint:fix
 ```
 
+### Deployment
+```bash
+# Deploy API to Cloud Run (run from repo root ~/work/graffiticode/graffiticode)
+npm run gcp:api:build
+```
+
 ## Architecture Overview
 
 This is the Graffiticode API Gateway - a service that acts as the central compilation and task management system for the Graffiticode ecosystem.
