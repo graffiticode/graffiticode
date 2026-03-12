@@ -12,15 +12,27 @@ export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer }) =
    * Create or update a token for a given provider ID and client.
    * If a token already exists for this client, it will be replaced.
    *
-   * Requires an oauth-link to exist for the provider ID. Users must first
-   * sign in with Ethereum and link their Google account before using OAuth.
+   * Auto-creates an oauth-link if one doesn't exist for the provider ID.
    */
-  const createToken = async ({ providerId, tokenData }) => {
-    // Find the oauth-link by providerId - this must exist
-    const oauthLink = await oauthLinkStorer.findByProviderId({
-      provider: "google",
-      providerId,
-    });
+  const createToken = async ({ providerId, email, tokenData }) => {
+    let oauthLink;
+    try {
+      oauthLink = await oauthLinkStorer.findByProviderId({
+        provider: "google",
+        providerId,
+      });
+    } catch (err) {
+      if (!(err instanceof NotFoundError)) {
+        throw err;
+      }
+      // Auto-create oauth-link for new OAuth users
+      oauthLink = await oauthLinkStorer.create({
+        uid: providerId,
+        provider: "google",
+        providerId,
+        email: email || "",
+      });
+    }
 
     // Remove any existing token for this client (upsert behavior)
     try {

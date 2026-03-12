@@ -13,6 +13,7 @@ import { requireInternalAuth } from "../middleware/internal-auth.js";
 const buildCreate = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
   const {
     provider_id,
+    email,
     access_token,
     refresh_token,
     firebase_id_token,
@@ -46,6 +47,7 @@ const buildCreate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
 
   const token = await oauthTokensService.createToken({
     providerId: provider_id,
+    email: email || "",
     tokenData: {
       access_token,
       refresh_token,
