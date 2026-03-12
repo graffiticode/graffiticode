@@ -28,6 +28,7 @@ export class Folder {
       // "MUL": mul,
       // "DIV": div,
       // "SUB": sub,
+      TAG: Folder.tag,
       ADD: Folder.add,
       POW: Folder.pow,
       MOD: Folder.mod,
@@ -227,8 +228,8 @@ export class Folder {
     } else {
       // Tag value.
       Ast.push(ctx, {
-        tag: name,
-        elts: [],
+        tag: "TAG",
+        elts: [name],
         coord: node.coord,
       });
     }
@@ -244,6 +245,10 @@ export class Folder {
 
   static bool(node) {
     Ast.bool(Folder.#ctx, node.elts[0]);
+  }
+
+  static tag(node) {
+    Ast.push(Folder.#ctx, node);
   }
 }
 

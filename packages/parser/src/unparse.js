@@ -46,9 +46,9 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
     if (node.elts.length >= 3) {
       const first = node.elts[0];
       // Check if first element is an identifier that could be a function
-      if (first && first.tag && first.elts && first.elts.length === 0) {
+      if (first && first.tag === "TAG") {
         // This might be a function name followed by arguments
-        const funcName = first.tag;
+        const funcName = first.elts[0];
         // Check if this matches a lexicon function
         if (lexicon && lexicon[funcName]) {
           const arity = lexicon[funcName].arity || 0;
@@ -86,6 +86,9 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
     return "null";
 
   case "IDENT":
+    return node.elts[0];
+
+  case "TAG":
     return node.elts[0];
 
   case "LIST": {
@@ -371,6 +374,7 @@ function reconstructNode(pool, nodeId) {
   case "STR":
   case "IDENT":
   case "BOOL":
+  case "TAG":
     // These nodes have primitive values in elts[0]
     result.elts = [node.elts[0]];
     break;

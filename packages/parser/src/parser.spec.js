@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 import { buildParser, parser } from "./parser.js";
 import { mockPromiseValue, mockPromiseError } from "./testing/index.js";
 import { lexicon as basisLexicon } from "@graffiticode/basis";
+import { unparse } from "./unparse.js";
 
 describe("lang/parser", () => {
   const log = jest.fn();
@@ -545,6 +546,36 @@ describe("parser integration tests", () => {
     expect(strNode).not.toBeNull();
     expect(strNode.tag).toBe("STR");
     expect(strNode.elts[0]).toBe("Price: ${amount}");
+  });
+
+  it("should parse and unparse a tag node", async () => {
+    // Arrange - use an empty lexicon so "foo" is not recognized as a function
+    const emptyLexicon = {};
+
+    // Act - parse "foo.." where "foo" is not in the lexicon, producing a TAG node
+    const result = await parser.parse(0, "foo..", emptyLexicon);
+
+    // Assert - find the TAG node
+    expect(result).toHaveProperty("root");
+
+    let tagNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "TAG" && node.elts[0] === "foo") {
+          tagNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(tagNode).not.toBeNull();
+    expect(tagNode.tag).toBe("TAG");
+    expect(tagNode.elts).toEqual(["foo"]);
+
+    // Unparse should reproduce the original source
+    const source = unparse(result, emptyLexicon);
+    expect(source).toBe("foo..");
   });
 
   it("should parse strings with mixed escape sequences", async () => {

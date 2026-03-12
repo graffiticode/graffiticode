@@ -120,6 +120,7 @@ export class Ast {
       case "STR":
       case "IDENT":
       case "BOOL":
+      case "TAG":
         elts[0] = n.elts[0];
         break;
       default:
