@@ -25,9 +25,9 @@ export class Folder {
       PARENS: Folder.unaryExpr,
       APPLY: Folder.apply,
       LAMBDA: Folder.lambda,
-      // "MUL": mul,
-      // "DIV": div,
-      // "SUB": sub,
+      MUL: Folder.mul,
+      DIV: Folder.div,
+      SUB: Folder.sub,
       TAG: Folder.tag,
       ADD: Folder.add,
       POW: Folder.pow,
@@ -159,6 +159,24 @@ export class Folder {
     Folder.#visit(node.elts[0]);
     Folder.#visit(node.elts[1]);
     Ast.add(Folder.#ctx);
+  }
+
+  static sub(node) {
+    Folder.#visit(node.elts[0]);
+    Folder.#visit(node.elts[1]);
+    Ast.sub(Folder.#ctx);
+  }
+
+  static mul(node) {
+    Folder.#visit(node.elts[0]);
+    Folder.#visit(node.elts[1]);
+    Ast.mul(Folder.#ctx);
+  }
+
+  static div(node) {
+    Folder.#visit(node.elts[0]);
+    Folder.#visit(node.elts[1]);
+    Ast.div(Folder.#ctx);
   }
 
   static pow(node) {
