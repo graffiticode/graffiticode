@@ -202,12 +202,13 @@ export class Folder {
         }
       } else if (word.cls === "function") {
         const elts = [];
-        for (let i = 0; i < word.length; i++) {
+        const argc = word.arity !== undefined ? word.arity : word.length;
+        for (let i = 0; i < argc; i++) {
           const elt = Ast.pop(ctx);
           assertErr(
             ctx,
             elt,
-            `Too few arguments for ${word.name}. Expected ${word.length}.`,
+            `Too few arguments for ${word.name}. Expected ${argc}.`,
             node.coord
           );
           elts.push(elt);
