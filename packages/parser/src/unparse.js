@@ -166,10 +166,10 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
     return "";
 
   case "LAMBDA":
-    // Lambda function
-    if (node.elts && node.elts.length >= 3) {
-      const params = node.elts[1];
-      const body = node.elts[2];
+    // Lambda function: elts = [param_names_list, body, pattern_list, init_list]
+    if (node.elts && node.elts.length >= 2) {
+      const params = node.elts[0];
+      const body = node.elts[1];
 
       // Extract parameter names
       let paramStr = "";
