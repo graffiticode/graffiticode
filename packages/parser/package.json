@@ -22,6 +22,6 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
-    "@graffiticode/basis": "^1.6.3"
+    "@graffiticode/basis": "^1.6.4"
   }
 }
