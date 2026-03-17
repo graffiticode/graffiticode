@@ -79,13 +79,13 @@ describe("unparse", () => {
     it("should unparse list with multiple elements", async () => {
       const source = "[1, 2, 3]..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("[1, 2, 3]..");
+      expect(unparsed).toBe("[1 2 3]..");
     });
 
     it("should unparse nested lists", async () => {
       const source = "[[1, 2], [3, 4]]..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("[[1, 2], [3, 4]]..");
+      expect(unparsed).toBe("[[1 2] [3 4]]..");
     });
 
     it("should unparse empty record", async () => {
@@ -206,6 +206,12 @@ describe("unparse", () => {
       const source = "foo (bar 42)..";
       const unparsed = await testRoundTrip(source);
       expect(unparsed).toBe("foo (bar 42)..");
+    });
+
+    it("should unparse map with lambda and list", async () => {
+      const source = 'map (<x: add x 10>) [\n  1\n  2\n  3\n]..';
+      const unparsed = await testRoundTrip(source);
+      expect(unparsed).toBe("map (<x: add x 10>) [1 2 3]..");
     });
   });
 
@@ -337,7 +343,7 @@ describe("unparse", () => {
     it("should support compact option", async () => {
       const source = "[1, 2, 3]..";
       const reformatted = await parser.reformat(0, source, basisLexicon, { compact: true });
-      expect(reformatted).toBe("[1, 2, 3]..");
+      expect(reformatted).toBe("[1 2 3]..");
     });
 
     it("should support custom indent size", async () => {

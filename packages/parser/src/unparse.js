@@ -100,7 +100,7 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
     if (opts.compact) {
       // Compact mode: inline list
       const items = node.elts.map(elt => unparseNode(elt, lexicon, indent, opts));
-      return "[" + items.join(", ") + "]";
+      return "[" + items.join(" ") + "]";
     } else {
       // Pretty print with each element on a new line
       const innerIndent = indent + opts.indentSize;
@@ -181,9 +181,9 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
       const bodyStr = unparseNode(body, lexicon, indent, opts);
 
       if (paramStr) {
-        return `\\${paramStr} . ${bodyStr}`;
+        return `<${paramStr}: ${bodyStr}>`;
       } else {
-        return `\\. ${bodyStr}`;
+        return `<: ${bodyStr}>`;
       }
     }
     return "";
