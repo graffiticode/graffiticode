@@ -496,86 +496,40 @@ export class Ast {
     Ast.number(ctx, -1 * v1);
   }
 
-  static add(ctx, coord) {
-    const n2 = Ast.node(ctx, Ast.pop(ctx));
-    const n1 = Ast.node(ctx, Ast.pop(ctx));
-    const v2 = n2.elts[0];
-    const v1 = n1.elts[0];
-    if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      Ast.push(ctx, {
-        tag: "ADD",
-        elts: [n1, n2],
-        coord
-      });
-    } else {
-      Ast.number(ctx, +v1 + +v2);
-    }
+  static add(ctx) {
+    const n2 = Ast.pop(ctx);
+    const n1 = Ast.pop(ctx);
+    Ast.push(ctx, { tag: "ADD", elts: [n1, n2] });
   }
 
   static sub(ctx) {
-    const n2 = Ast.node(ctx, Ast.pop(ctx));
-    const n1 = Ast.node(ctx, Ast.pop(ctx));
-    const v2 = n2.elts[0];
-    const v1 = n1.elts[0];
-    if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      Ast.push(ctx, { tag: "SUB", elts: [n1, n2] });
-    } else {
-      Ast.number(ctx, +v1 - +v2);
-    }
+    const n2 = Ast.pop(ctx);
+    const n1 = Ast.pop(ctx);
+    Ast.push(ctx, { tag: "SUB", elts: [n1, n2] });
   }
 
-  // static mul(ctx) {
-  //   let n2 = Ast.node(ctx, Ast.pop(ctx));
-  //   let n1 = Ast.node(ctx, Ast.pop(ctx));
-  //   const v2 = n2.elts[0];
-  //   const v1 = n1.elts[0];
-  //   if (n1.tag === undefined) {
-  //     n1 = n1.elts[0];
-  //   }
-  //   if (n2.tag === undefined) {
-  //     n2 = n2.elts[0];
-  //   }
-  //   if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-  //     Ast.push(ctx, { tag: "MUL", elts: [n2, n1] });
-  //   } else {
-  //     Ast.number(ctx, +v1 * +v2);
-  //   }
-  // }
+  static mul(ctx) {
+    const n2 = Ast.pop(ctx);
+    const n1 = Ast.pop(ctx);
+    Ast.push(ctx, { tag: "MUL", elts: [n1, n2] });
+  }
 
   static div(ctx) {
-    const n2 = Ast.node(ctx, Ast.pop(ctx));
-    const n1 = Ast.node(ctx, Ast.pop(ctx));
-    const v2 = n2.elts[0];
-    const v1 = n1.elts[0];
-    if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      Ast.push(ctx, { tag: "DIV", elts: [n1, n2] });
-    } else {
-      Ast.number(ctx, +v1 / +v2);
-    }
+    const n2 = Ast.pop(ctx);
+    const n1 = Ast.pop(ctx);
+    Ast.push(ctx, { tag: "DIV", elts: [n1, n2] });
   }
 
   static mod(ctx) {
-    const n2 = Ast.node(ctx, Ast.pop(ctx));
-    const n1 = Ast.node(ctx, Ast.pop(ctx));
-    const v1 = n1.elts[0];
-    const v2 = n2.elts[0];
-    if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      Ast.push(ctx, { tag: "MOD", elts: [n1, n2] });
-    } else {
-      Ast.number(ctx, +v1 % +v2);
-    }
+    const n2 = Ast.pop(ctx);
+    const n1 = Ast.pop(ctx);
+    Ast.push(ctx, { tag: "MOD", elts: [n1, n2] });
   }
 
   static pow(ctx) {
-    const n2 = Ast.node(ctx, Ast.pop(ctx));
-    const n1 = Ast.node(ctx, Ast.pop(ctx));
-    const v2 = n2.elts[0];
-    const v1 = n1.elts[0];
-    if (n1.tag !== "NUM" || n2.tag !== "NUM") {
-      Ast.push(ctx, { tag: "POW", elts: [n1, n2] });
-    } else {
-      Ast.number(ctx, Math.pow(+v1, +v2));
-    }
+    const n2 = Ast.pop(ctx);
+    const n1 = Ast.pop(ctx);
+    Ast.push(ctx, { tag: "POW", elts: [n1, n2] });
   }
 
   static concat(ctx) {

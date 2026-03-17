@@ -370,47 +370,36 @@ describe("parser integration tests", () => {
     expect(errorNode.tag).toBe("ERROR");
   });
 
-  it("should perform parse-time evaluation for adding two numbers", async () => {
-    // Use basis lexicon which includes add function
-    // Act - parse a simple addition expression
+  it("should parse 'add 123 456' as ADD node with operands", async () => {
+    // Arithmetic is deferred to the compiler, not folded at parse time
     const result = await parser.parse(0, "add 123 456..", basisLexicon);
-    console.log(
-      "TEST",
-      "result=" + JSON.stringify(result, null, 2),
-    );
 
     // Assert
     expect(result).toHaveProperty("root");
 
-    // Verify basic structure
     const rootId = result.root;
     const rootNode = result[rootId];
     expect(rootNode.tag).toBe("PROG");
 
-    // Find the result node - expecting a single NUM node with the sum
-    let resultNode = null;
-
-    // Check all nodes for the result of evaluation (123 + 456 = 579)
+    // Find the ADD node
+    let addNode = null;
     for (const key in result) {
       if (key !== "root") {
         const node = result[key];
-        if (node.tag === "NUM" && node.elts[0] === "579") {
-          resultNode = node;
+        if (node.tag === "ADD") {
+          addNode = node;
           break;
         }
       }
     }
 
-    // We should find a node with the computed value (579)
-    expect(resultNode).not.toBeNull();
-    expect(resultNode.tag).toBe("NUM");
-    expect(resultNode.elts[0]).toBe("579");
+    expect(addNode).not.toBeNull();
+    expect(addNode.tag).toBe("ADD");
+    expect(addNode.elts.length).toBe(2);
 
-    // The original numbers should not be in the final AST
-    // if parse-time evaluation is working correctly
+    // Original operands should be preserved
     let found123 = false;
     let found456 = false;
-
     for (const key in result) {
       if (key !== "root") {
         const node = result[key];
@@ -420,11 +409,8 @@ describe("parser integration tests", () => {
         }
       }
     }
-
-    // The original operands should not be in the final AST
-    // if they were properly evaluated at parse time
-    expect(found123).toBe(false);
-    expect(found456).toBe(false);
+    expect(found123).toBe(true);
+    expect(found456).toBe(true);
   });
 
   // Tests for escaped quotes

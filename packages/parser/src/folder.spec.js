@@ -2,7 +2,7 @@ import { Folder } from "./folder.js";
 import { Ast } from "./ast.js";
 
 describe("folder", () => {
-  it("should fold 'add 2 3' to 5", () => {
+  it("should pass 'add 2 3' through as ADD node", () => {
     // Arrange
     const ctx = {
       state: {
@@ -35,8 +35,15 @@ describe("folder", () => {
     const resultId = ctx.state.nodeStack.pop();
     const resultNode = ctx.state.nodePool[resultId];
 
-    // Assert
-    expect(resultNode.tag).toBe("NUM");
-    expect(resultNode.elts[0]).toBe("5");
+    // Assert - arithmetic is deferred to compiler, not folded
+    expect(resultNode.tag).toBe("ADD");
+    expect(resultNode.elts.length).toBe(2);
+    // elts are nids (intern recursively interns object elts)
+    const n1 = Ast.node(ctx, resultNode.elts[0]);
+    const n2 = Ast.node(ctx, resultNode.elts[1]);
+    expect(n1.tag).toBe("NUM");
+    expect(n1.elts[0]).toBe("2");
+    expect(n2.tag).toBe("NUM");
+    expect(n2.elts[0]).toBe("3");
   });
 });
