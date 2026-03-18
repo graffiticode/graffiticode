@@ -108,8 +108,8 @@ export const parse = (function () {
     null: { tk: 0x15, cls: "val", length: 0 },
     val: { tk: 1, name: "VAL", cls: "function", length: 2, arity: 2 },
     key: { tk: 1, name: "KEY", cls: "function", length: 2, arity: 2 },
-    len: { tk: 1, name: "LEN", cls: "function", length: 1, arity: 1 },
-    concat: { tk: 1, name: "CONCAT", cls: "function", length: 1, arity: 1 },
+    length: { tk: 1, name: "LEN", cls: "function", length: 1, arity: 1 },
+    concat: { tk: 1, name: "CONCAT", cls: "function", length: 2, arity: 2 },
     add: { tk: 1, name: "ADD", cls: "function", length: 2, arity: 2 },
     mul: { tk: 1, name: "MUL", cls: "function", length: 2, arity: 2 },
     pow: { tk: 1, name: "POW", cls: "function", length: 2, arity: 2 },
@@ -362,9 +362,9 @@ export const parse = (function () {
           const processedSuffix = processEscapeSequences(lexeme);
           Ast.string(ctx, processedSuffix, getCoord(ctx)); // strip quotes;
           countCounter(ctx);
-          Ast.list(ctx, ctx.state.exprc);
+          const count = ctx.state.exprc;
           stopCounter(ctx);
-          Ast.concat(ctx);
+          Ast.concat(ctx, count);
           cc.cls = "string";
           return cc;
         });
@@ -1240,7 +1240,7 @@ export const parse = (function () {
     }
 
     // `abc` --> "abc"
-    // `a${x}c` --> concat ["a", x, "b"]
+    // `a${x}c` --> concat (concat "a" x) "c"
     function string(ctx, c) {
       const quoteChar = c;
       ctx.state.quoteCharStack.push(c);

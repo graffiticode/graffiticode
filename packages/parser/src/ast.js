@@ -532,12 +532,18 @@ export class Ast {
     Ast.push(ctx, { tag: "POW", elts: [n1, n2] });
   }
 
-  static concat(ctx) {
-    const n1 = Ast.node(ctx, Ast.pop(ctx));
-    Ast.push(ctx, {
-      tag: "CONCAT",
-      elts: [n1]
-    });
+  static concat(ctx, count) {
+    // Chain binary CONCATs from the parts on the stack.
+    // E.g. 3 parts [a, b, c] becomes CONCAT(CONCAT(a, b), c)
+    const parts = [];
+    for (let i = 0; i < count; i++) {
+      parts.unshift(Ast.pop(ctx));
+    }
+    let result = parts[0];
+    for (let i = 1; i < parts.length; i++) {
+      result = { tag: "CONCAT", elts: [result, parts[i]] };
+    }
+    Ast.push(ctx, result);
   }
 
   static eq(ctx) {

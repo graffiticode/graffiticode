@@ -187,7 +187,8 @@ export class Folder {
 
   static concat(node) {
     Folder.#visit(node.elts[0]);
-    Ast.concat(Folder.#ctx);
+    Folder.#visit(node.elts[1]);
+    Ast.concat(Folder.#ctx, 2);
   }
 
   static mod(node) {

@@ -162,6 +162,12 @@ describe("unparse", () => {
       expect(unparsed).toBe("concat 'hello' ' world'..");
     });
 
+    it("should unparse template literal", async () => {
+      const source = 'let x = "world"..`hello ${x}`..';
+      const unparsed = await testRoundTrip(source);
+      expect(unparsed).toBe('concat concat "hello " "world" ""..');
+    });
+
     it.skip("should unparse complex arithmetic expression", async () => {
       const source = "mul (add 1 2) 3..";
       const unparsed = await testRoundTrip(source);
