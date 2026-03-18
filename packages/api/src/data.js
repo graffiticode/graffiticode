@@ -5,9 +5,9 @@ const buildGetData = ({ compile }) =>
       return { errors: [{ message: "Task not found", statusCode: 404 }] };
     }
     // There exists a task that we are authorized to see.
-    const compile = await compileStorer.get({ id, auth });
-    if (compile && compile.data) {
-      return compile.data;
+    const cached = await compileStorer.get({ id, auth });
+    if (cached && cached.data) {
+      return cached.data;
     }
     const obj = await tasks.reduceRight(
       // OPTIMIZATION Call getData recursively using the longest id suffix to
