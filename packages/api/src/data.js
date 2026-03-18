@@ -2,7 +2,7 @@ const buildGetData = ({ compile }) =>
   async ({ taskStorer, compileStorer, id, auth, authToken, options, action }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
-      return { errors: [{ message: "Task not found", statusCode: 404 }] };
+      return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
     }
     // There exists a task that we are authorized to see.
     const cached = await compileStorer.get({ id, auth });

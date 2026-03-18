@@ -8,6 +8,6 @@ export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, re
       "ERROR",
       x,
     );
-    return null;
+    return { errors: [{ message: `Language server error: ${x.message}`, from: -1, to: -1 }] };
   }
 };

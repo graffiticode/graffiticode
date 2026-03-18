@@ -26,8 +26,8 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       data = objs[0];
     }
     if (action.compiled) {
-      // Only log unique compiles.
-      logCompile({
+      // Only log unique compiles. Await so we can report usage limits.
+      const logResult = await logCompile({
         token: authToken,
         units: 1,
         id: ids.join("+"),
@@ -35,6 +35,11 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
         timestamp: String(Date.now()),
         data: JSON.stringify(data)
       });
+      if (logResult?.usageLimitReached) {
+        if (data && typeof data === "object" && !Array.isArray(data)) {
+          data.usageLimitReached = true;
+        }
+      }
     }
     return data;
   };
