@@ -88,8 +88,25 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
   case "IDENT":
     return node.elts[0];
 
-  case "TAG":
-    return node.elts[0];
+  case "TAG": {
+    const TK_TAG = 0x16;
+    const tagName = node.elts[0];
+    // Check if tag name matches a TAG regex pattern in the lexicon
+    if (lexicon) {
+      for (const key of Object.keys(lexicon)) {
+        if (key.startsWith("^") && lexicon[key].tk === TK_TAG) {
+          try {
+            if (new RegExp(key).test(tagName)) {
+              return tagName;
+            }
+          } catch (e) {
+            // Skip invalid regex
+          }
+        }
+      }
+    }
+    return "tag " + tagName;
+  }
 
   case "LIST": {
     // Array literal [a, b, c]

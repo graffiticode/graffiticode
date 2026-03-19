@@ -535,13 +535,8 @@ describe("parser integration tests", () => {
   });
 
   it("should parse and unparse a tag node", async () => {
-    // Arrange - use an empty lexicon so "foo" is not recognized as a function
-    const emptyLexicon = {};
+    const result = await parser.parse(0, "tag foo..", basisLexicon);
 
-    // Act - parse "foo.." where "foo" is not in the lexicon, producing a TAG node
-    const result = await parser.parse(0, "foo..", emptyLexicon);
-
-    // Assert - find the TAG node
     expect(result).toHaveProperty("root");
 
     let tagNode = null;
@@ -560,8 +555,134 @@ describe("parser integration tests", () => {
     expect(tagNode.elts).toEqual(["foo"]);
 
     // Unparse should reproduce the original source
-    const source = unparse(result, emptyLexicon);
-    expect(source).toBe("foo..");
+    const source = unparse(result, basisLexicon);
+    expect(source).toBe("tag foo..");
+  });
+
+  it("should error on undefined name", async () => {
+    const result = await parser.parse(0, "foo..", basisLexicon);
+
+    expect(result).toHaveProperty("root");
+
+    let errorNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "ERROR") {
+          errorNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(errorNode).not.toBeNull();
+    expect(errorNode.tag).toBe("ERROR");
+  });
+
+  it("should parse 'tag red' as a TAG node", async () => {
+    const result = await parser.parse(0, "tag red..", basisLexicon);
+
+    expect(result).toHaveProperty("root");
+
+    let tagNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "TAG" && node.elts[0] === "red") {
+          tagNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(tagNode).not.toBeNull();
+    expect(tagNode.tag).toBe("TAG");
+    expect(tagNode.elts).toEqual(["red"]);
+  });
+
+  it("should parse regex-matched tag from lexicon", async () => {
+    const lexiconWithPattern = {
+      ...basisLexicon,
+      "^[A-Z]{1,2}[0-9]+$": {
+        tk: 0x16,
+        name: "TAG",
+        cls: "val",
+        length: 0,
+        arity: 0,
+      },
+    };
+    const result = await parser.parse(0, "B12..", lexiconWithPattern);
+
+    expect(result).toHaveProperty("root");
+
+    let tagNode = null;
+    for (const key in result) {
+      if (key !== "root") {
+        const node = result[key];
+        if (node.tag === "TAG" && node.elts[0] === "B12") {
+          tagNode = node;
+          break;
+        }
+      }
+    }
+
+    expect(tagNode).not.toBeNull();
+    expect(tagNode.tag).toBe("TAG");
+    expect(tagNode.elts).toEqual(["B12"]);
+
+    // Unparse should omit "tag" prefix for regex-matched tags
+    const source = unparse(result, lexiconWithPattern);
+    expect(source).toBe("B12..");
+  });
+
+  it("should match cell name before column name with regex patterns", async () => {
+    const lexiconWithPatterns = {
+      ...basisLexicon,
+      "^[A-Z][0-9]+$": {
+        tk: 0x16,
+        name: "TAG",
+        cls: "val",
+        length: 0,
+        arity: 0,
+      },
+      "^[A-Z]$": {
+        tk: 0x16,
+        name: "TAG",
+        cls: "val",
+        length: 0,
+        arity: 0,
+      },
+    };
+
+    // "A1" should match cell pattern, not column pattern
+    const cellResult = await parser.parse(0, "A1..", lexiconWithPatterns);
+    let cellTag = null;
+    for (const key in cellResult) {
+      if (key !== "root") {
+        const node = cellResult[key];
+        if (node.tag === "TAG" && node.elts[0] === "A1") {
+          cellTag = node;
+          break;
+        }
+      }
+    }
+    expect(cellTag).not.toBeNull();
+    expect(cellTag.elts).toEqual(["A1"]);
+
+    // "A" should match column pattern
+    const colResult = await parser.parse(0, "A..", lexiconWithPatterns);
+    let colTag = null;
+    for (const key in colResult) {
+      if (key !== "root") {
+        const node = colResult[key];
+        if (node.tag === "TAG" && node.elts[0] === "A") {
+          colTag = node;
+          break;
+        }
+      }
+    }
+    expect(colTag).not.toBeNull();
+    expect(colTag.elts).toEqual(["A"]);
   });
 
   it("should parse strings with mixed escape sequences", async () => {

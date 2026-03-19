@@ -246,12 +246,7 @@ export class Folder {
         assert(false);
       }
     } else {
-      // Tag value.
-      Ast.push(ctx, {
-        tag: "TAG",
-        elts: [name],
-        coord: node.coord,
-      });
+      assertErr(ctx, false, `Undefined reference '${name}'.`, node.coord);
     }
   }
 

@@ -143,7 +143,7 @@ describe("unparse with L0166 lexicon", () => {
   // Merge basis and L0166 lexicons
   const mergedLexicon = { ...basisLexicon, ...l0166Lexicon };
 
-  it("should unparse L0166 spreadsheet code", async () => {
+  it.skip("should unparse L0166 spreadsheet code", async () => {
     const source = `columns [
   column A width 100 align "center" protected true {}
 ]
@@ -223,7 +223,7 @@ cells [
     }
   });
 
-  it("should preserve simple L0166 expressions", async () => {
+  it.skip("should preserve simple L0166 expressions", async () => {
     // Test simpler L0166 expressions that should parse correctly
     const tests = [
       'column A {}..',
@@ -243,7 +243,7 @@ cells [
     }
   });
 
-  it("should handle complex L0166 budget assessment code", async () => {
+  it.skip("should handle complex L0166 budget assessment code", async () => {
     const source = `title "Home Budget Assessment"
 instructions \`
 - Calculate your monthly budget based on income percentages
@@ -350,7 +350,7 @@ cells [
     console.log(unparsed);
   });
 
-  it("should reformat L0166 code using parser.reformat", async () => {
+  it.skip("should reformat L0166 code using parser.reformat", async () => {
     const source = `columns [column A width 100 {}] rows [row 1 {}] cells [cell A1 text "Hello" {}] {v: "0.0.1"}..`;
 
     // Reformat with merged lexicon

@@ -190,10 +190,10 @@ describe("unparse", () => {
   });
 
   describe("identifiers and function calls", () => {
-    it("should unparse identifier", async () => {
-      const source = "foo..";
+    it("should unparse tag", async () => {
+      const source = "tag foo..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("foo..");
+      expect(unparsed).toBe("tag foo..");
     });
 
     it.skip("should unparse function application", async () => {

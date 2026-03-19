@@ -97,6 +97,7 @@ export const parse = (function () {
 
   const keywords = window.gcexports.keywords = {
     let: { tk: 0x12, cls: "keyword" },
+    tag: { tk: 0x16, cls: "keyword" },
     if: { tk: 0x05, cls: "keyword" },
     then: { tk: 0x06, cls: "keyword" },
     else: { tk: 0x07, cls: "keyword" },
@@ -150,7 +151,8 @@ export const parse = (function () {
   const TK_OR = 0x13;
   const TK_BOOL = 0x14;
   const TK_NULL = 0x15;
-  // const TK_IN = 0x16;
+  const TK_TAG = 0x16;
+  // const TK_IN = 0x17;
 
   const TK_LEFTPAREN = 0xA1;
   const TK_RIGHTPAREN = 0xA2;
@@ -231,6 +233,7 @@ export const parse = (function () {
       case TK_OF: return "the 'of' keyword";
       case TK_END: return "the 'end' keyword";
       case TK_LET: return "the 'let' keyword";
+      case TK_TAG: return "the 'tag' keyword";
       case TK_OR: return "the 'or' keyword";
       case TK_POSTOP:
       case TK_PREOP:
@@ -460,6 +463,10 @@ export const parse = (function () {
     const from = to - lexeme.length;
     const coord = { from, to };
     const word = Env.findWord(ctx, lexeme);
+    console.log(
+      "name()",
+      "word=" + JSON.stringify(word, null, 2),
+    );
     if (word) {
       cc.cls = word.cls;
       if (word.cls === "number" && word.val) {
@@ -474,8 +481,7 @@ export const parse = (function () {
         }
       }
     } else {
-      // Create a tag value.
-      Ast.name(ctx, lexeme, coord);
+      assertErr(ctx, false, `Undefined reference '${lexeme}'.`, coord);
     }
     // assert(cc, "name");
     return cc;
@@ -633,6 +639,12 @@ export const parse = (function () {
       return list(ctx, cc);
     } else if (match(ctx, TK_LEFTANGLE)) {
       return lambda(ctx, cc);
+    } else if (match(ctx, TK_TAG)) {
+      if (lexeme === "tag") {
+        return tagExpr(ctx, cc);
+      }
+      // Regex-matched tag — lexeme is already the tag name
+      return tagLiteral(ctx, cc);
     }
     return name(ctx, cc);
   }
@@ -805,6 +817,12 @@ export const parse = (function () {
 
   function pattern(ctx, cc) {
     // FIXME only matches idents and literals for now
+    if (match(ctx, TK_TAG)) {
+      if (lexeme === "tag") {
+        return tagExpr(ctx, cc);
+      }
+      return tagLiteral(ctx, cc);
+    }
     if (match(ctx, TK_IDENT)) {
       return ident(ctx, cc);
     }
@@ -954,6 +972,30 @@ export const parse = (function () {
     fn = { head, body }
 
    */
+
+  function consTag(ctx, cc) {
+    eat(ctx, TK_IDENT);
+    Ast.tag(ctx, lexeme, getCoord(ctx));
+    cc.cls = "val";
+    return cc;
+  }
+
+  function tagExpr(ctx, cc) {
+    eat(ctx, TK_TAG);
+    const ret = function (ctx) {
+      return consTag(ctx, cc);
+    };
+    ret.cls = "keyword";
+    return ret;
+  }
+
+  function tagLiteral(ctx, cc) {
+    // Regex-matched tag — single token, lexeme is the tag name
+    eat(ctx, TK_TAG);
+    Ast.tag(ctx, lexeme, getCoord(ctx));
+    cc.cls = "val";
+    return cc;
+  }
 
   function letDef(ctx, cc) {
     if (match(ctx, TK_LET)) {
@@ -1385,6 +1427,21 @@ export const parse = (function () {
         tk = keywords[lexeme].tk;
       } else if (globalLexicon[lexeme]) {
         tk = globalLexicon[lexeme].tk;
+      } else {
+        // Check regex-keyed lexicon entries (first match wins)
+        for (const key in globalLexicon) {
+          if (key.startsWith("^")) {
+            try {
+              const re = new RegExp(key);
+              if (re.test(lexeme)) {
+                tk = globalLexicon[key].tk;
+                break;
+              }
+            } catch (e) {
+              // Skip invalid regex patterns
+            }
+          }
+        }
       }
       return tk;
     }

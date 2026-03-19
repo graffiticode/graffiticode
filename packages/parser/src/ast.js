@@ -411,6 +411,14 @@ export class Ast {
     });
   }
 
+  static tag(ctx, name, coord) {
+    Ast.push(ctx, {
+      tag: "TAG",
+      elts: [name],
+      coord
+    });
+  }
+
   static expr(ctx, argc, coord) {
     // Ast.expr -- construct a expr node for the compiler.
     const elts = [];
