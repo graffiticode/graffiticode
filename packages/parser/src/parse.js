@@ -824,6 +824,11 @@ export const parse = (function () {
       return tagLiteral(ctx, cc);
     }
     if (match(ctx, TK_IDENT)) {
+      if (lexeme === "_") {
+        eat(ctx, TK_IDENT);
+        Ast.tag(ctx, "_", getCoord(ctx));
+        return cc;
+      }
       return ident(ctx, cc);
     }
     if (match(ctx, TK_NUM)) {

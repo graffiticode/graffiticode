@@ -708,4 +708,36 @@ describe("parser integration tests", () => {
     expect(strNode.tag).toBe("STR");
     expect(strNode.elts[0]).toBe('Line 1\nTab\t"Quote"');
   });
+
+  it("should parse case-of with wildcard _ pattern", async () => {
+    const src = "case 42 of 1: 'one' _: 'other' end..";
+    const result = await parser.parse(0, src, basisLexicon);
+
+    expect(result).toHaveProperty("root");
+
+    // Find nodes by walking the pool (AST uses integer IDs as references)
+    let caseNode = null;
+    let wildcardNode = null;
+    for (const key in result) {
+      if (key === "root") continue;
+      const node = result[key];
+      if (node.tag === "CASE") caseNode = node;
+      if (node.tag === "TAG" && node.elts[0] === "_") wildcardNode = node;
+    }
+
+    expect(caseNode).not.toBeNull();
+    expect(caseNode.tag).toBe("CASE");
+    // CASE elts: [expr, OF clause 1, OF clause 2]
+    expect(caseNode.elts.length).toBe(3);
+
+    // Wildcard _ is stored as a TAG node to match basis compiler's match function
+    expect(wildcardNode).not.toBeNull();
+    expect(wildcardNode.tag).toBe("TAG");
+    expect(wildcardNode.elts).toEqual(["_"]);
+
+    // Unparse should reproduce the case-of expression
+    const source = unparse(result, basisLexicon);
+    expect(source).toContain("case");
+    expect(source).toContain("_:");
+  });
 });
