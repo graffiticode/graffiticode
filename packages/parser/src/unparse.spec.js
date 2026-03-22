@@ -196,6 +196,21 @@ describe("unparse", () => {
       expect(unparsed).toBe("tag foo..");
     });
 
+    it("should unparse dialect tag keyword DARK", async () => {
+      const dialectLexicon = {
+        "DARK": {
+          "tk": 22,
+          "name": "TAG",
+          "cls": "val",
+          "length": 0,
+          "arity": 0,
+        },
+      };
+      const source = "DARK..";
+      const unparsed = await testRoundTrip(source, dialectLexicon);
+      expect(unparsed).toBe("DARK..");
+    });
+
     it.skip("should unparse function application", async () => {
       const source = "foo 42..";
       const unparsed = await testRoundTrip(source);

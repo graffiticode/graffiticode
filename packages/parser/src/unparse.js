@@ -91,8 +91,12 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
   case "TAG": {
     const TK_TAG = 0x16;
     const tagName = node.elts[0];
-    // Check if tag name matches a TAG regex pattern in the lexicon
+    // Check if tag name is a literal TAG keyword in the lexicon
     if (lexicon) {
+      if (lexicon[tagName] && lexicon[tagName].name === "TAG") {
+        return tagName;
+      }
+      // Check if tag name matches a TAG regex pattern in the lexicon
       for (const key of Object.keys(lexicon)) {
         if (key.startsWith("^") && lexicon[key].tk === TK_TAG) {
           try {
