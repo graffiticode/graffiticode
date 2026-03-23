@@ -100,6 +100,12 @@ describe("unparse", () => {
       expect(unparsed).toBe("{x: 10}..");
     });
 
+    it("should unparse record with string key", async () => {
+      const source = '{"foo-bar": 10}..';
+      const unparsed = await testRoundTrip(source);
+      expect(unparsed).toBe('{"foo-bar": 10}..');
+    });
+
     it.skip("should unparse record with multiple fields", async () => {
       const source = "{x: 10, y: 20}..";
       const unparsed = await testRoundTrip(source);

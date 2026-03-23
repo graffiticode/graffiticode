@@ -418,7 +418,7 @@ export const parse = (function () {
   function bindingName(ctx, cc) {
     if (match(ctx, TK_IDENT)) {
       eat(ctx, TK_IDENT);
-      Ast.string(ctx, lexeme, getCoord(ctx));
+      Ast.tag(ctx, lexeme, getCoord(ctx));
       cc.cls = "variable";
       return cc;
     }

@@ -157,12 +157,12 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
   case "BINDING": {
     // Key-value pair in a record
     if (node.elts && node.elts.length >= 2) {
-      // If the key is a string node, unparse it without quotes for object keys
       let key;
-      if (node.elts[0] && node.elts[0].tag === "STR") {
-        key = node.elts[0].elts[0]; // Get the raw string without quotes
+      if (node.elts[0] && node.elts[0].tag === "TAG") {
+        const tagName = node.elts[0].elts[0];
+        key = unparseNode(node.elts[0], { [tagName]: { tk: 0x16, name: "TAG" } }, indent, opts);
       } else {
-        key = unparseNode(node.elts[0], lexicon, indent);
+        key = unparseNode(node.elts[0], lexicon, indent, opts);
       }
       const value = unparseNode(node.elts[1], lexicon, indent, opts);
       return `${key}: ${value}`;
