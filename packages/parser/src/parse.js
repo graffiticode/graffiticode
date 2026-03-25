@@ -877,6 +877,21 @@ export const parse = (function () {
     }
     return expr(ctx, function (ctx) {
       countCounter(ctx);
+      if (match(ctx, TK_COLON)) {
+        // The last expr was a pattern (e.g. tag foo), not a value.
+        // Pop it, finish current clause, use it as next clause's pattern.
+        const patternNode = Ast.pop(ctx);
+        ctx.state.exprc--;
+        finishClause(ctx);
+        Ast.push(ctx, patternNode);
+        eat(ctx, TK_COLON);
+        const ret = function (ctx) {
+          startCounter(ctx);
+          return ofClauseValue(ctx, cc);
+        };
+        ret.cls = "punc";
+        return ret;
+      }
       if (isBindingStart(ctx) || match(ctx, TK_END) ||
           emptyInput(ctx) || emptyExpr(ctx)) {
         finishClause(ctx);

@@ -301,6 +301,14 @@ describe("unparse", () => {
       expect(unparsed).toContain("2: sub 5 1");
       expect(unparsed).toContain("end");
     });
+
+    it("should unparse case-of with tag pattern and multi-expression value", async () => {
+      const source = "case (tag foo) of tag foo: add 1 2 tag _: 20 end..";
+      const unparsed = await testRoundTrip(source, {}, { compact: false });
+      expect(unparsed).toContain("foo: add 1 2");
+      expect(unparsed).toContain("_: 20");
+      expect(unparsed).toContain("end");
+    });
   });
 
   describe("lambda expressions", () => {
