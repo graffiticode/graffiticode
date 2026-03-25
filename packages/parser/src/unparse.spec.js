@@ -278,6 +278,29 @@ describe("unparse", () => {
       const unparsed = await testRoundTrip(source, {}, { compact: false });
       expect(unparsed).toBe("if true then\n  (if false then\n    1\nelse\n    2)\nelse\n  3..");
     });
+
+    it("should unparse case-of with single value", async () => {
+      const source = "case 1 of 1: 10 end..";
+      const unparsed = await testRoundTrip(source, {}, { compact: false });
+      expect(unparsed).toContain("case");
+      expect(unparsed).toContain("1: 10");
+      expect(unparsed).toContain("end");
+    });
+
+    it("should unparse case-of with multi-expression value", async () => {
+      const source = "case 1 of 1: add 2 3 end..";
+      const unparsed = await testRoundTrip(source, {}, { compact: false });
+      expect(unparsed).toContain("1: add 2 3");
+      expect(unparsed).toContain("end");
+    });
+
+    it("should unparse case-of with multiple clauses and multi-expression values", async () => {
+      const source = "case 1 of 1: add 2 3 2: sub 5 1 end..";
+      const unparsed = await testRoundTrip(source, {}, { compact: false });
+      expect(unparsed).toContain("1: add 2 3");
+      expect(unparsed).toContain("2: sub 5 1");
+      expect(unparsed).toContain("end");
+    });
   });
 
   describe("lambda expressions", () => {

@@ -308,7 +308,7 @@ export const parse = (function () {
 
   function isBindingStart(ctx) {
     if (match(ctx, TK_IDENT) || match(ctx, TK_STR) || match(ctx, TK_STRPREFIX) ||
-        match(ctx, TK_TAG) || match(ctx, TK_NUM)) {
+        match(ctx, TK_TAG) || match(ctx, TK_NUM) || match(ctx, TK_BOOL)) {
       return peekNextToken(ctx) === TK_COLON;
     }
     return false;
@@ -852,8 +852,8 @@ export const parse = (function () {
       return pattern(ctx, function (ctx) {
         eat(ctx, TK_COLON);
         const ret = function (ctx) {
-          return expr(ctx, function (ctx) {
-            Ast.ofClause(ctx);
+          startCounter(ctx);
+          return ofClauseValue(ctx, function (ctx) {
             return cc(ctx);
           });
         };
@@ -863,6 +863,27 @@ export const parse = (function () {
     };
     ret.cls = "keyword";
     return ret;
+  }
+  function finishClause(ctx) {
+    Ast.exprs(ctx, ctx.state.exprc);
+    stopCounter(ctx);
+    Ast.ofClause(ctx);
+  }
+  function ofClauseValue(ctx, cc) {
+    if (isBindingStart(ctx) || match(ctx, TK_END) ||
+        emptyInput(ctx) || emptyExpr(ctx)) {
+      finishClause(ctx);
+      return cc;
+    }
+    return expr(ctx, function (ctx) {
+      countCounter(ctx);
+      if (isBindingStart(ctx) || match(ctx, TK_END) ||
+          emptyInput(ctx) || emptyExpr(ctx)) {
+        finishClause(ctx);
+        return cc;
+      }
+      return ofClauseValue(ctx, cc);
+    });
   }
 
   function pattern(ctx, cc) {
