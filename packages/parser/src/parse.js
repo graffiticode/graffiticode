@@ -291,6 +291,29 @@ export const parse = (function () {
     return tk;
   }
 
+  function peekNextToken(ctx) {
+    // 2-token lookahead: peek at the token after the current one
+    const savedNextToken = ctx.state.nextToken;
+    const savedNextTokenCoord = ctx.state.nextTokenCoord;
+    const savedLexeme = lexeme;
+    const savedPos = ctx.scan.stream.pos;
+    next(ctx);
+    const tk2 = peek(ctx);
+    ctx.state.nextToken = savedNextToken;
+    ctx.state.nextTokenCoord = savedNextTokenCoord;
+    lexeme = savedLexeme;
+    ctx.scan.stream.pos = savedPos;
+    return tk2;
+  }
+
+  function isBindingStart(ctx) {
+    if (match(ctx, TK_IDENT) || match(ctx, TK_STR) || match(ctx, TK_STRPREFIX) ||
+        match(ctx, TK_TAG) || match(ctx, TK_NUM)) {
+      return peekNextToken(ctx) === TK_COLON;
+    }
+    return false;
+  }
+
   function peek(ctx) {
     let tk;
     const nextToken = ctx.state.nextToken;
@@ -491,7 +514,14 @@ export const parse = (function () {
     eat(ctx, TK_LEFTBRACE);
     startCounter(ctx);
     const ret = function (ctx) {
-      return bindings(ctx, function (ctx) {
+      if (match(ctx, TK_RIGHTBRACE)) {
+        eat(ctx, TK_RIGHTBRACE);
+        Ast.record(ctx);
+        stopCounter(ctx);
+        cc.cls = "punc";
+        return cc;
+      }
+      return recordBinding(ctx, function (ctx) {
         eat(ctx, TK_RIGHTBRACE);
         Ast.record(ctx);
         stopCounter(ctx);
@@ -502,48 +532,68 @@ export const parse = (function () {
     ret.cls = "punc";
     return ret;
   }
-  function bindings(ctx, cc) {
-    if (match(ctx, TK_RIGHTBRACE)) {
-      return cc;
-    }
-    return binding(ctx, function (ctx) {
-      if (match(ctx, TK_COMMA)) {
-        eat(ctx, TK_COMMA);
-        Ast.binding(ctx);
-        const ret = function (ctx) {
-          return bindings(ctx, cc);
-        };
-        ret.cls = "punc";
-        return ret;
-      }
-      return function (ctx) {
-        Ast.binding(ctx);
-        return bindings(ctx, cc);
-      };
-    });
-  }
-  function binding(ctx, cc) {
-    // Save the current lexeme before bindingName consumes it
+  function recordBinding(ctx, cc) {
+    // Parse one binding: key colon value-exprs
     const savedLexeme = lexeme;
     const savedCoord = getCoord(ctx);
     return bindingName(ctx, function (ctx) {
-      // Check if we have a colon for full syntax, otherwise use shorthand
       if (match(ctx, TK_COLON)) {
         eat(ctx, TK_COLON);
         const ret = function (ctx) {
           countCounter(ctx);
-          return expr(ctx, cc);
+          startCounter(ctx);
+          return recordBindingValue(ctx, cc);
         };
         ret.cls = "punc";
         return ret;
       } else {
-        // Shorthand syntax - create a name reference for the value
-        // The binding name was already pushed as a string by bindingName
-        // Now we need to push a name reference (identifier) as the value
+        // Shorthand syntax: { x } means { x: x }
         Ast.name(ctx, savedLexeme, savedCoord);
         countCounter(ctx);
+        Ast.binding(ctx);
+        if (match(ctx, TK_COMMA)) {
+          eat(ctx, TK_COMMA);
+          const ret = function (ctx) {
+            return recordBinding(ctx, cc);
+          };
+          ret.cls = "punc";
+          return ret;
+        }
         return cc;
       }
+    });
+  }
+  function finishBinding(ctx) {
+    Ast.exprs(ctx, ctx.state.exprc);
+    stopCounter(ctx);
+    Ast.binding(ctx);
+  }
+  function recordBindingValue(ctx, cc) {
+    // Check for start of next binding before parsing expr
+    if (isBindingStart(ctx)) {
+      finishBinding(ctx);
+      return recordBinding(ctx, cc);
+    }
+    if (match(ctx, TK_RIGHTBRACE) || emptyInput(ctx) || emptyExpr(ctx)) {
+      finishBinding(ctx);
+      return cc;
+    }
+    return expr(ctx, function (ctx) {
+      countCounter(ctx);
+      if (match(ctx, TK_COMMA)) {
+        eat(ctx, TK_COMMA);
+        finishBinding(ctx);
+        const ret = function (ctx) {
+          return recordBinding(ctx, cc);
+        };
+        ret.cls = "punc";
+        return ret;
+      }
+      if (match(ctx, TK_RIGHTBRACE) || emptyInput(ctx) || emptyExpr(ctx)) {
+        finishBinding(ctx);
+        return cc;
+      }
+      return recordBindingValue(ctx, cc);
     });
   }
   function lambda(ctx, cc) {
@@ -911,6 +961,13 @@ export const parse = (function () {
     return cc(ctx);
   }
 
+  function matchBrk(ctx, brk) {
+    if (typeof brk === "function") {
+      return brk(ctx);
+    }
+    return match(ctx, brk);
+  }
+
   function exprs(ctx, brk, cc) {
     if (match(ctx, TK_DOT)) { // second dot
       eat(ctx, TK_DOT);
@@ -933,7 +990,7 @@ export const parse = (function () {
         };
         ret.cls = "punc";
         return ret;
-      } else if (match(ctx, brk)) {
+      } else if (matchBrk(ctx, brk)) {
         ret = function (ctx) {
           return exprsFinish(ctx, cc);
         };

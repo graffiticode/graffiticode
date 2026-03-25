@@ -117,6 +117,24 @@ describe("unparse", () => {
       const unparsed = await testRoundTrip(source);
       expect(unparsed).toBe("{a: {b: 1}, c: 2}..");
     });
+
+    it("should unparse record with multi-expression value", async () => {
+      const source = "{x: add 1 2}..";
+      const unparsed = await testRoundTrip(source);
+      expect(unparsed).toBe("{x: add 1 2}..");
+    });
+
+    it("should unparse record with multi-expression values and comma", async () => {
+      const source = "{x: add 1 2, y: 3}..";
+      const unparsed = await testRoundTrip(source);
+      expect(unparsed).toBe("{y: 3, x: add 1 2}..");
+    });
+
+    it("should unparse record with multi-expression values without comma", async () => {
+      const source = "{x: add 1 2 y: 3}..";
+      const unparsed = await testRoundTrip(source);
+      expect(unparsed).toBe("{y: 3, x: add 1 2}..");
+    });
   });
 
   describe("expressions", () => {
