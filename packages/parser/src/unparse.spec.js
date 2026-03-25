@@ -106,13 +106,13 @@ describe("unparse", () => {
       expect(unparsed).toBe('{"foo-bar": 10}..');
     });
 
-    it.skip("should unparse record with multiple fields", async () => {
+    it("should unparse record with multiple fields", async () => {
       const source = "{x: 10, y: 20}..";
       const unparsed = await testRoundTrip(source);
       expect(unparsed).toBe("{x: 10, y: 20}..");
     });
 
-    it.skip("should unparse nested records", async () => {
+    it("should unparse nested records", async () => {
       const source = "{a: {b: 1}, c: 2}..";
       const unparsed = await testRoundTrip(source);
       expect(unparsed).toBe("{a: {b: 1}, c: 2}..");
@@ -127,13 +127,13 @@ describe("unparse", () => {
     it("should unparse record with multi-expression values and comma", async () => {
       const source = "{x: add 1 2, y: 3}..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("{y: 3, x: add 1 2}..");
+      expect(unparsed).toBe("{x: add 1 2, y: 3}..");
     });
 
     it("should unparse record with multi-expression values without comma", async () => {
       const source = "{x: add 1 2 y: 3}..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("{y: 3, x: add 1 2}..");
+      expect(unparsed).toBe("{x: add 1 2, y: 3}..");
     });
   });
 

@@ -624,6 +624,7 @@ export class Ast {
         elts.push(elt);
       }
     }
+    elts.reverse();
     Ast.push(ctx, {
       tag: "RECORD",
       elts
