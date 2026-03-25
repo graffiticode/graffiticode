@@ -883,6 +883,7 @@ export const parse = (function () {
         const patternNode = Ast.pop(ctx);
         ctx.state.exprc--;
         finishClause(ctx);
+        countCounter(ctx); // Count finished clause in caseExpr's counter
         Ast.push(ctx, patternNode);
         eat(ctx, TK_COLON);
         const ret = function (ctx) {
