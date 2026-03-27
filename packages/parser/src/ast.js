@@ -435,6 +435,15 @@ export class Ast {
     const e = Ast.node(ctx, nameId).elts;
     assertErr(ctx, e && e.length > 0, "Ill formed node.");
     const name = e[0];
+    // If there's a callback for this tag, resolve string arguments
+    if (ctx.state.callbacks && ctx.state.callbacks[name]) {
+      for (let i = 0; i < elts.length; i++) {
+        const eltNode = Ast.node(ctx, elts[i]);
+        if (eltNode && eltNode.tag === "STR") {
+          eltNode.elts[0] = ctx.state.callbacks[name](eltNode.elts[0]);
+        }
+      }
+    }
     Ast.push(ctx, {
       tag: name,
       elts,

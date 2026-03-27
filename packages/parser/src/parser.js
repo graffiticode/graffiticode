@@ -3,7 +3,7 @@ import { unparse } from "./unparse.js";
 
 // commonjs export
 const main = {
-  parse(src, lexicon) {
+  parse(src, lexicon, callbacks) {
     const stream = new parse.StringStream(src);
     const state = {
       cc: parse.program, // top level parsig function
@@ -22,7 +22,8 @@ const main = {
       errors: [],
       coords: [],
       inStr: 0,
-      quoteCharStack: []
+      quoteCharStack: [],
+      callbacks: callbacks || {},
     };
     const next = function () {
       return parse.parse(stream, state);
@@ -40,12 +41,12 @@ const main = {
 
 export const buildParser = ({ main }) => {
   return {
-    async parse(lang, src, lexicon) {
+    async parse(lang, src, lexicon, callbacks) {
       // Lexicon is now required
       if (!lexicon) {
         throw new Error("Lexicon is required for parsing");
       }
-      return await main.parse(src, lexicon);
+      return await main.parse(src, lexicon, callbacks);
     }
   };
 };
