@@ -68,13 +68,16 @@ export class Folder {
       return ret;
     }
 
-    // If this node's tag has a callback, resolve and collapse to the result
+    // If this node's tag has a callback, reconstruct with the resolved string
     const callbacks = Folder.#ctx.state.callbacks;
-    if (callbacks && callbacks[node.tag] && node.elts.length === 1) {
+    if (callbacks && callbacks[node.tag] && node.elts.length === 2) {
       const eltNode = Folder.#nodePool[node.elts[0]];
       if (eltNode && eltNode.tag === "STR") {
         const resolved = callbacks[node.tag](eltNode.elts[0]);
+        Ast.name(Folder.#ctx, node.tag, node.coord);
         Ast.string(Folder.#ctx, resolved, node.coord);
+        Ast.string(Folder.#ctx, eltNode.elts[0], node.coord);
+        Ast.expr(Folder.#ctx, 2, node.coord);
         return;
       }
     }
