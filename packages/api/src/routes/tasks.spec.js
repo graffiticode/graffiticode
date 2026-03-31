@@ -57,19 +57,11 @@ describe("routes/tasks", () => {
       .expect(200, createSuccessResponse({ data: [TASK_WITH_CODE_AS_DATA] }));
   });
 
-  it("should create a task with source code", async () => {
-    const res = await request(app)
+  it("should reject a task with source code string", async () => {
+    await request(app)
       .post("/tasks")
       .send({ tasks: TASK1_WITH_SRC })
-      .expect(200);
-    expect(res).toHaveProperty("body.status", "success");
-    const id = res.body.data.id;
-    const response = await request(app)
-      .get("/tasks")
-      .query({ id });
-    console.log("response=" + JSON.stringify(JSON.parse(response.text), null, 2));
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual(createSuccessResponse({ data: [TASK1] }));
+      .expect(400);
   });
 
   it("should create multiple tasks", async () => {
@@ -126,18 +118,12 @@ describe("routes/tasks", () => {
     expect(res2).toHaveProperty("body.data[0].code", CODE_AS_DATA);
   });
 
-  it("should get a task that has been created from source", async () => {
-    const res = await request(app)
+  it("should reject a task created from source string", async () => {
+    await request(app)
       .post("/tasks")
       .set("x-graffiticode-storage-type", "ephemeral")
       .send({ tasks: TASK1_WITH_SRC })
-      .expect(200);
-    expect(res).toHaveProperty("body.status", "success");
-    const id = res.body.data.id;
-    await request(app)
-      .get("/tasks")
-      .query({ id })
-      .expect(200, createSuccessResponse({ data: [TASK1] }));
+      .expect(400);
   });
 
   it("should get a task with token that has been created with token", async () => {

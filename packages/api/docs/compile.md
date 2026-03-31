@@ -8,7 +8,14 @@ const composeResponse = ({ item, data }) => {
   return { data: Object.assign(item, data) };
 };
 
-const getTaskFromData = data => {lang: "1", code: `${JSON.stringify(data)}..`};
+const getTaskFromData = data => ({
+  lang: "0001",
+  code: {
+    1: { elts: [JSON.stringify(data)], tag: "STR" },
+    2: { elts: [1], tag: "JSON" },
+    root: 2
+  }
+});
 
 const items = getItemsFromRequest(req);
 const auth = getAuthFromRequest(req);

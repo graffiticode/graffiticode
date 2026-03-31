@@ -2,7 +2,7 @@ import { jest } from "@jest/globals";
 import { buildDataApi } from "./data.js";
 import { createStorers } from "./storage/index.js";
 import { clearFirestore } from "./testing/firestore.js";
-import { DATA1, DATA2, TASK1, TASK1_WITH_DATA, TASK2 } from "./testing/fixture.js";
+import { DATA1, DATA2, TASK1, TASK2 } from "./testing/fixture.js";
 
 describe("data", () => {
   beforeEach(async () => {
@@ -36,20 +36,6 @@ describe("data", () => {
       expect.objectContaining({
         lang: TASK1.lang,
         code: TASK1.code
-      })
-    );
-  });
-
-  it.skip("should compile a created task with src data as code", async () => {
-    const id = await taskStorer.create({ task: TASK1_WITH_DATA });
-    mockCompileData(DATA1);
-    await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
-    expect(compile).toHaveBeenCalledTimes(1);
-    expect(compile).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        lang: TASK1_WITH_DATA.lang,
-        code: TASK1_WITH_DATA.code
       })
     );
   });

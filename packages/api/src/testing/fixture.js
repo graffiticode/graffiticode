@@ -14,16 +14,6 @@ export const TASK1_WITH_SRC = {
   code: "\"hello, world!\".."
 };
 
-export const TASK1_WITH_STRING_DATA = {
-  lang: "0001",
-  code: "hello, world!"
-};
-
-export const TASK1_WITH_DATA = {
-  lang: "0",
-  code: "hello, world!"
-};
-
 export const DATA1 = {
   val: "hello, world!",
 };
