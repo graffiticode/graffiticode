@@ -12,18 +12,26 @@ const buildCreate = ({ firebaseAuth, oauthService }) => buildHttpHandler(async (
   }
   const { uid } = req.auth;
 
-  const { provider, idToken } = req.body;
+  const { provider, idToken, email: rawEmail } = req.body;
   if (!isNonEmptyString(provider)) {
     throw new InvalidArgumentError("must provide provider");
   }
-  if (!isNonEmptyString(idToken)) {
-    throw new InvalidArgumentError("must provide idToken");
-  }
 
-  // Verify the Google ID token
-  const decodedToken = await firebaseAuth.verifyIdToken(idToken);
-  const providerId = decodedToken.uid;
-  const email = decodedToken.email || null;
+  let providerId;
+  let email;
+
+  if (isNonEmptyString(idToken)) {
+    // Verify the Google ID token
+    const decodedToken = await firebaseAuth.verifyIdToken(idToken);
+    providerId = decodedToken.uid;
+    email = decodedToken.email || null;
+  } else if (isNonEmptyString(rawEmail)) {
+    // Accept email directly — authentication deferred to sign-in time
+    email = rawEmail.trim().toLowerCase();
+    providerId = email;
+  } else {
+    throw new InvalidArgumentError("must provide idToken or email");
+  }
 
   const oauthLink = await oauthService.createLink({ uid, provider, providerId, email });
 

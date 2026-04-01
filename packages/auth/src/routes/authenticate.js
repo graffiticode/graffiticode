@@ -74,9 +74,19 @@ const buildGoogleAuthenticate = ({ firebaseAuth, authService, oauthService }) =>
   }
 
   const providerId = decodedToken.uid;
+  const email = decodedToken.email;
 
-  // Look up the linked Ethereum address
-  const authContext = await oauthService.authenticate({ provider: "google", providerId });
+  // Look up the linked Ethereum address by providerId, then fall back to email
+  let authContext;
+  try {
+    authContext = await oauthService.authenticate({ provider: "google", providerId });
+  } catch (err) {
+    if (email) {
+      authContext = await oauthService.authenticate({ provider: "google", providerId: email });
+    } else {
+      throw err;
+    }
+  }
 
   // Generate tokens for the linked Ethereum address
   const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens(authContext);
