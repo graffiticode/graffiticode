@@ -709,6 +709,41 @@ describe("parser integration tests", () => {
     expect(strNode.elts[0]).toBe('Line 1\nTab\t"Quote"');
   });
 
+  it("should parse l0166 record with cell reference key", async () => {
+    const l0166Lexicon = {
+      ...basisLexicon,
+      "^[A-Z][0-9]+$": {
+        tk: 22,
+        name: "TAG",
+        cls: "val",
+        length: 0,
+        arity: 0,
+      },
+    };
+    const src = '{\n  A1: "foo"\n}..';
+    const result = await parser.parse(166, src, l0166Lexicon);
+
+    expect(result).toHaveProperty("root");
+
+    // Find the TAG node for A1 and the STR node for "foo"
+    let tagNode = null;
+    let strNode = null;
+    for (const key in result) {
+      if (key === "root") continue;
+      const node = result[key];
+      if (node.tag === "TAG" && node.elts[0] === "A1") tagNode = node;
+      if (node.tag === "STR" && node.elts[0] === "foo") strNode = node;
+    }
+
+    expect(tagNode).not.toBeNull();
+    expect(tagNode.tag).toBe("TAG");
+    expect(tagNode.elts).toEqual(["A1"]);
+
+    expect(strNode).not.toBeNull();
+    expect(strNode.tag).toBe("STR");
+    expect(strNode.elts[0]).toBe("foo");
+  });
+
   it("should parse case-of with wildcard _ pattern", async () => {
     const src = "case 42 of 1: 'one' _: 'other' end..";
     const result = await parser.parse(0, src, basisLexicon);

@@ -445,6 +445,12 @@ export const parse = (function () {
       cc.cls = "variable";
       return cc;
     }
+    if (match(ctx, TK_TAG)) {
+      eat(ctx, TK_TAG);
+      Ast.tag(ctx, lexeme, getCoord(ctx));
+      cc.cls = "variable";
+      return cc;
+    }
     if (match(ctx, TK_NUM)) {
       return number(ctx, cc);
     }
