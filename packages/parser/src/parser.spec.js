@@ -744,6 +744,24 @@ describe("parser integration tests", () => {
     expect(strNode.elts[0]).toBe("foo");
   });
 
+  it("should parse code with block comments", async () => {
+    const src = "/* this is a comment */ 42..";
+    const result = await parser.parse(0, src, basisLexicon);
+
+    expect(result).toHaveProperty("root");
+
+    let numNode = null;
+    for (const key in result) {
+      if (key === "root") continue;
+      const node = result[key];
+      if (node.tag === "NUM") numNode = node;
+    }
+
+    expect(numNode).not.toBeNull();
+    expect(numNode.tag).toBe("NUM");
+    expect(numNode.elts[0]).toBe("42");
+  });
+
   it("should parse case-of with wildcard _ pattern", async () => {
     const src = "case 42 of 1: 'one' _: 'other' end..";
     const result = await parser.parse(0, src, basisLexicon);

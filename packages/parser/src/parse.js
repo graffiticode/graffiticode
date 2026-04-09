@@ -1336,13 +1336,14 @@ export const parse = (function () {
           case CC_SINGLEQUOTE:
           case CC_BACKTICK:
             return string(ctx, c);
-          case 96: // backquote
           case 47: // slash
-          case 92: // backslash
-          case 33: // !
-          case 124: // |
-            comment(c);
-            throw new Error("comment");
+            if (stream.peek() && stream.peek().charCodeAt(0) === 42) { // /*
+              stream.next(); // consume *
+              blockComment();
+              continue;
+            }
+            lexeme += String.fromCharCode(c);
+            return c;
           case 94: // caret
           case 42: // asterisk
             lexeme += String.fromCharCode(c);
@@ -1496,17 +1497,18 @@ export const parse = (function () {
       }
     }
 
-    function comment(c) {
-      const quoteChar = c;
-      let s = stream.next();
-      c = (s && s.charCodeAt(0)) || 0;
-
-      while (c !== quoteChar && c !== 10 && c !== 13 && c !== 0) {
-        s = stream.next();
-        c = (s && s.charCodeAt(0)) || 0;
+    function blockComment() {
+      let prev = 0;
+      let c;
+      while ((c = stream.peek())) {
+        stream.next();
+        const cc = c.charCodeAt(0);
+        if (prev === 42 && cc === 47) { // */
+          return TK_COMMENT;
+        }
+        prev = cc;
       }
-
-      return TK_COMMENT;
+      return TK_COMMENT; // unterminated comment, treat as consumed
     }
 
     function ident(c) {
