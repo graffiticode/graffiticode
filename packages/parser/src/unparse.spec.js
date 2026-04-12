@@ -16,7 +16,7 @@ describe("unparse", () => {
     it("should unparse string literals", async () => {
       const source = "'hello, world'..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe('"hello, world"..');
+      expect(unparsed).toBe("\"hello, world\"..");
     });
 
     it.skip("should unparse string literals with escaped quotes", async () => {
@@ -101,9 +101,9 @@ describe("unparse", () => {
     });
 
     it("should unparse record with string key", async () => {
-      const source = '{"foo-bar": 10}..';
+      const source = "{\"foo-bar\": 10}..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe('{"foo-bar": 10}..');
+      expect(unparsed).toBe("{\"foo-bar\": 10}..");
     });
 
     it("should unparse record with multiple fields", async () => {
@@ -187,9 +187,9 @@ describe("unparse", () => {
     });
 
     it("should unparse template literal", async () => {
-      const source = 'let x = "world"..`hello ${x}`..';
+      const source = "let x = \"world\"..`hello ${x}`..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe('concat concat "hello " "world" ""..');
+      expect(unparsed).toBe("concat concat \"hello \" \"world\" \"\"..");
     });
 
     it.skip("should unparse complex arithmetic expression", async () => {
@@ -222,12 +222,12 @@ describe("unparse", () => {
 
     it("should unparse dialect tag keyword DARK", async () => {
       const dialectLexicon = {
-        "DARK": {
-          "tk": 22,
-          "name": "TAG",
-          "cls": "val",
-          "length": 0,
-          "arity": 0,
+        DARK: {
+          tk: 22,
+          name: "TAG",
+          cls: "val",
+          length: 0,
+          arity: 0,
         },
       };
       const source = "DARK..";
@@ -254,7 +254,7 @@ describe("unparse", () => {
     });
 
     it("should unparse map with lambda and list", async () => {
-      const source = 'map (<x: add x 10>) [\n  1\n  2\n  3\n]..';
+      const source = "map (<x: add x 10>) [\n  1\n  2\n  3\n]..";
       const unparsed = await testRoundTrip(source);
       expect(unparsed).toBe("map (<x: add x 10>) [1 2 3]..");
     });
@@ -394,12 +394,12 @@ describe("unparse", () => {
 
     it("should reformat with provided lexicon", async () => {
       const lexicon = {
-        "test": {
-          "tk": 1,
-          "name": "TEST",
-          "cls": "function",
-          "length": 1,
-          "arity": 1,
+        test: {
+          tk: 1,
+          name: "TEST",
+          cls: "function",
+          length: 1,
+          arity: 1,
         }
       };
       const source = "test 42..";
@@ -410,7 +410,7 @@ describe("unparse", () => {
     it("should reformat multiple expressions", async () => {
       const source = "'hello'.[1, 2].{x: 10}..";
       const reformatted = await parser.reformat(0, source, basisLexicon);
-      expect(reformatted).toContain('"hello"');
+      expect(reformatted).toContain("\"hello\"");
       expect(reformatted).toContain("[\n  1");
       expect(reformatted).toContain("{\n  x: 10");
       expect(reformatted).toContain("..");
@@ -430,9 +430,61 @@ describe("unparse", () => {
     });
 
     it("should preserve escaped quotes in strings", async () => {
-      const source = '"\\\"hello\\\""..'
+      const source = "\"\\\"hello\\\"\"..";
       const reformatted = await parser.reformat(0, source, basisLexicon, { compact: true });
-      expect(reformatted).toBe('"\\\"hello\\\""..'); // Should produce identical program
+      expect(reformatted).toBe("\"\\\"hello\\\"\".."); // Should produce identical program
+    });
+  });
+
+  describe("pipeline formatting", () => {
+    const pipelineLexicon = {
+      foo: { tk: 1, name: "FOO", cls: "function", length: 2, arity: 2, type: "<number: rest>" },
+      bar: { tk: 1, name: "BAR", cls: "function", length: 2, arity: 2, type: "<number: rest>" },
+      baz: { tk: 1, name: "BAZ", cls: "function", length: 2, arity: 2, type: "<list: rest>" },
+      qux: { tk: 1, name: "QUX", cls: "function", length: 2, arity: 2 }, // no type: default-on
+      notpipe: { tk: 1, name: "NOTPIPE", cls: "function", length: 2, arity: 2, type: "<any: <any: any>>" }
+    };
+
+    it("should put pipeline tail steps on new indented lines for scalar data args", async () => {
+      const source = "foo 1 bar 2 {}..";
+      const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: false });
+      expect(unparsed).toBe("foo 1\n  bar 2 {}..");
+    });
+
+    it("should attach next step to closing bracket of multi-line list data arg", async () => {
+      const source = "baz [1, 2] baz [3, 4] {}..";
+      const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: false });
+      expect(unparsed).toBe("baz [\n  1\n  2\n] baz [\n  3\n  4\n] {}..");
+    });
+
+    it("should attach non-empty record terminal to prior record closing brace", async () => {
+      const source = "baz [1, 2] {k: 1}..";
+      const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: false });
+      expect(unparsed).toBe("baz [\n  1\n  2\n] {\n  k: 1\n}..");
+    });
+
+    it("should default unannotated arity>=2 functions to pipeline formatting", async () => {
+      const source = "qux 1 qux 2 {}..";
+      const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: false });
+      expect(unparsed).toBe("qux 1\n  qux 2 {}..");
+    });
+
+    it("should leave non-pipeline calls inline when type's last arg is not rest", async () => {
+      const source = "notpipe 1 2..";
+      const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: false });
+      expect(unparsed).toBe("notpipe 1 2..");
+    });
+
+    it("should keep pipelines inline in compact mode", async () => {
+      const source = "foo 1 bar 2 {}..";
+      const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: true });
+      expect(unparsed).toBe("foo 1 bar 2 {}..");
+    });
+
+    it("should not treat basis map as a pipeline", async () => {
+      const source = "map (<x: add x 10>) [1, 2, 3]..";
+      const unparsed = await testRoundTrip(source, {}, { compact: false });
+      expect(unparsed).not.toContain("\n  [");
     });
   });
 });

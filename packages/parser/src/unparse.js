@@ -1,6 +1,90 @@
 // Pretty printer that converts an AST back to source code
 import { lexicon as basisLexicon } from "@graffiticode/basis";
 
+function parseType(s) {
+  let i = 0;
+  const skip = () => { while (i < s.length && /\s/.test(s[i])) i++; };
+  const parse = () => {
+    skip();
+    if (s[i] === "<") {
+      i++;
+      const arg = parse();
+      skip();
+      if (s[i] === ":") i++;
+      const result = parse();
+      skip();
+      if (s[i] === ">") i++;
+      return { kind: "lambda", arg, result };
+    }
+    const start = i;
+    while (i < s.length && /[A-Za-z0-9_*]/.test(s[i])) i++;
+    return { kind: "atom", name: s.slice(start, i) };
+  };
+  return parse();
+}
+
+function typeMentionsRest(t) {
+  if (!t) return false;
+  if (t.kind === "atom") return t.name === "rest";
+  if (t.kind === "lambda") return typeMentionsRest(t.arg) || typeMentionsRest(t.result);
+  return false;
+}
+
+function splitCall(node, lexicon) {
+  if (!node || typeof node !== "object" || !node.elts) return null;
+  if (node.tag === "EXPRS" && node.elts.length >= 3) {
+    const head = node.elts[0];
+    if (head && head.tag === "TAG" && head.elts && head.elts.length > 0) {
+      const funcName = head.elts[0];
+      const entry = lexicon && lexicon[funcName];
+      const arity = (entry && entry.arity) || 0;
+      if (arity >= 2 && node.elts.length === arity + 1) {
+        const args = node.elts.slice(1);
+        return { funcName, leadingArgs: args.slice(0, -1), lastArg: args[args.length - 1], entry };
+      }
+    }
+    return null;
+  }
+  if (lexicon && node.tag && node.elts.length >= 2) {
+    for (const [key, value] of Object.entries(lexicon)) {
+      if (value && value.name === node.tag && value.arity === node.elts.length) {
+        return { funcName: key, leadingArgs: node.elts.slice(0, -1), lastArg: node.elts[node.elts.length - 1], entry: value };
+      }
+    }
+  }
+  return null;
+}
+
+function isPipelineStep(node, lexicon) {
+  const call = splitCall(node, lexicon);
+  if (!call) return false;
+  const entry = call.entry;
+  if (!entry || (entry.arity || 0) < 2) return false;
+  if (!entry.type) return true;
+  return typeMentionsRest(parseType(entry.type));
+}
+
+function formatPipelineNode(step, lexicon, indent, opts, unparseNodeFn) {
+  const tailPad = " ".repeat(indent + opts.indentSize);
+  const parts = [];
+  let cur = step;
+  while (isPipelineStep(cur, lexicon)) {
+    const { funcName, leadingArgs, lastArg } = splitCall(cur, lexicon);
+    const head = [funcName, ...leadingArgs.map(a => unparseNodeFn(a, lexicon, indent, opts))].join(" ");
+    parts.push({ head, dataArg: leadingArgs[leadingArgs.length - 1] });
+    cur = lastArg;
+  }
+  let out = parts[0].head;
+  for (let i = 1; i < parts.length; i++) {
+    const prev = parts[i - 1].dataArg;
+    const attach = prev && (prev.tag === "LIST" || prev.tag === "RECORD") &&
+                   prev.elts && prev.elts.length > 0;
+    out += (attach ? " " : "\n" + tailPad) + parts[i].head;
+  }
+  out += " " + unparseNodeFn(cur, lexicon, indent, opts);
+  return out;
+}
+
 /**
  * Unparse an AST node to source code
  * @param {object} node - The AST node to unparse
@@ -28,320 +112,326 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
 
   // Handle AST nodes
   switch (node.tag) {
-  case "PROG":
+    case "PROG":
     // Program is a list of expressions ending with ".."
-    if (node.elts && node.elts.length > 0) {
-      const exprs = unparseNode(node.elts[0], lexicon, indent, opts);
-      return exprs + "..";
-    }
-    return "..";
+      if (node.elts && node.elts.length > 0) {
+        const exprs = unparseNode(node.elts[0], lexicon, indent, opts);
+        return exprs + "..";
+      }
+      return "..";
 
-  case "EXPRS":
+    case "EXPRS":
     // Multiple expressions
-    if (!node.elts || node.elts.length === 0) {
+      if (!node.elts || node.elts.length === 0) {
+        return "";
+      }
+      // Check if this looks like a function application that wasn't folded
+      // e.g., sub followed by arguments as separate expressions
+      if (node.elts.length >= 3) {
+        const first = node.elts[0];
+        // Check if first element is an identifier that could be a function
+        if (first && first.tag === "TAG") {
+        // This might be a function name followed by arguments
+          const funcName = first.elts[0];
+          // Check if this matches a lexicon function
+          if (lexicon && lexicon[funcName]) {
+            const arity = lexicon[funcName].arity || 0;
+            if (arity > 0 && node.elts.length === arity + 1) {
+              if (!opts.compact && isPipelineStep(node, lexicon)) {
+                return formatPipelineNode(node, lexicon, indent, opts, unparseNode);
+              }
+              // Treat this as a function application
+              const args = node.elts.slice(1).map(elt => unparseNode(elt, lexicon, indent, opts)).join(" ");
+              return `${funcName} ${args}`;
+            }
+          }
+        }
+      }
+
+      // For single expression, return as is
+      if (node.elts.length === 1) {
+        return unparseNode(node.elts[0], lexicon, indent, opts);
+      }
+
+      // For multiple expressions, put each on its own line
+      return node.elts.map(elt => unparseNode(elt, lexicon, indent, opts)).join("\n");
+
+    case "NUM":
+      return node.elts[0];
+
+    case "STR": {
+    // Escape quotes and backslashes in the string
+      const str = node.elts[0];
+      const escaped = str.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+      return `"${escaped}"`;
+    }
+
+    case "BOOL":
+      return node.elts[0] ? "true" : "false";
+
+    case "NULL":
+      return "null";
+
+    case "IDENT":
+      return node.elts[0];
+
+    case "TAG": {
+      const TK_TAG = 0x16;
+      const tagName = node.elts[0];
+      // Check if tag name is a literal TAG keyword in the lexicon
+      if (lexicon) {
+        if (lexicon[tagName] && lexicon[tagName].name === "TAG") {
+          return tagName;
+        }
+        // Check if tag name matches a TAG regex pattern in the lexicon
+        for (const key of Object.keys(lexicon)) {
+          if (key.startsWith("^") && lexicon[key].tk === TK_TAG) {
+            try {
+              if (new RegExp(key).test(tagName)) {
+                return tagName;
+              }
+            } catch (e) {
+            // Skip invalid regex
+            }
+          }
+        }
+      }
+      return "tag " + tagName;
+    }
+
+    case "LIST": {
+    // Array literal [a, b, c]
+      if (!node.elts || node.elts.length === 0) {
+        return "[]";
+      }
+
+      if (opts.compact) {
+      // Compact mode: inline list
+        const items = node.elts.map(elt => unparseNode(elt, lexicon, indent, opts));
+        return "[" + items.join(" ") + "]";
+      } else {
+      // Pretty print with each element on a new line
+        const innerIndent = indent + opts.indentSize;
+        const indentStr = " ".repeat(innerIndent);
+        const items = node.elts.map(elt =>
+          indentStr + unparseNode(elt, lexicon, innerIndent, opts)
+        );
+        return "[\n" + items.join("\n") + "\n" + " ".repeat(indent) + "]";
+      }
+    }
+
+    case "RECORD": {
+    // Object literal {a: 1, b: 2}
+      if (!node.elts || node.elts.length === 0) {
+        return "{}";
+      }
+
+      if (opts.compact) {
+      // Compact mode: inline record
+        const bindings = node.elts.map(elt => unparseNode(elt, lexicon, indent, opts));
+        return "{" + bindings.join(", ") + "}";
+      } else {
+      // Pretty print with each binding on a new line
+        const innerIndent = indent + opts.indentSize;
+        const indentStr = " ".repeat(innerIndent);
+        const bindings = node.elts.map(elt =>
+          indentStr + unparseNode(elt, lexicon, innerIndent, opts)
+        );
+        return "{\n" + bindings.join("\n") + "\n" + " ".repeat(indent) + "}";
+      }
+    }
+
+    case "BINDING": {
+    // Key-value pair in a record
+      if (node.elts && node.elts.length >= 2) {
+        let key;
+        if (node.elts[0] && node.elts[0].tag === "TAG") {
+          const tagName = node.elts[0].elts[0];
+          key = unparseNode(node.elts[0], { [tagName]: { tk: 0x16, name: "TAG" } }, indent, opts);
+        } else {
+          key = unparseNode(node.elts[0], lexicon, indent, opts);
+        }
+        const value = unparseNode(node.elts[1], lexicon, indent, opts);
+        return `${key}: ${value}`;
+      }
       return "";
     }
-    // Check if this looks like a function application that wasn't folded
-    // e.g., sub followed by arguments as separate expressions
-    if (node.elts.length >= 3) {
-      const first = node.elts[0];
-      // Check if first element is an identifier that could be a function
-      if (first && first.tag === "TAG") {
-        // This might be a function name followed by arguments
-        const funcName = first.elts[0];
-        // Check if this matches a lexicon function
-        if (lexicon && lexicon[funcName]) {
-          const arity = lexicon[funcName].arity || 0;
-          if (arity > 0 && node.elts.length === arity + 1) {
-            // Treat this as a function application
-            const args = node.elts.slice(1).map(elt => unparseNode(elt, lexicon, indent, opts)).join(" ");
-            return `${funcName} ${args}`;
-          }
-        }
-      }
-    }
 
-    // For single expression, return as is
-    if (node.elts.length === 1) {
-      return unparseNode(node.elts[0], lexicon, indent, opts);
-    }
-
-    // For multiple expressions, put each on its own line
-    return node.elts.map(elt => unparseNode(elt, lexicon, indent, opts)).join("\n");
-
-  case "NUM":
-    return node.elts[0];
-
-  case "STR": {
-    // Escape quotes and backslashes in the string
-    const str = node.elts[0];
-    const escaped = str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    return `"${escaped}"`;
-  }
-
-  case "BOOL":
-    return node.elts[0] ? "true" : "false";
-
-  case "NULL":
-    return "null";
-
-  case "IDENT":
-    return node.elts[0];
-
-  case "TAG": {
-    const TK_TAG = 0x16;
-    const tagName = node.elts[0];
-    // Check if tag name is a literal TAG keyword in the lexicon
-    if (lexicon) {
-      if (lexicon[tagName] && lexicon[tagName].name === "TAG") {
-        return tagName;
-      }
-      // Check if tag name matches a TAG regex pattern in the lexicon
-      for (const key of Object.keys(lexicon)) {
-        if (key.startsWith("^") && lexicon[key].tk === TK_TAG) {
-          try {
-            if (new RegExp(key).test(tagName)) {
-              return tagName;
-            }
-          } catch (e) {
-            // Skip invalid regex
-          }
-        }
-      }
-    }
-    return "tag " + tagName;
-  }
-
-  case "LIST": {
-    // Array literal [a, b, c]
-    if (!node.elts || node.elts.length === 0) {
-      return "[]";
-    }
-
-    if (opts.compact) {
-      // Compact mode: inline list
-      const items = node.elts.map(elt => unparseNode(elt, lexicon, indent, opts));
-      return "[" + items.join(" ") + "]";
-    } else {
-      // Pretty print with each element on a new line
-      const innerIndent = indent + opts.indentSize;
-      const indentStr = " ".repeat(innerIndent);
-      const items = node.elts.map(elt =>
-        indentStr + unparseNode(elt, lexicon, innerIndent, opts)
-      );
-      return "[\n" + items.join("\n") + "\n" + " ".repeat(indent) + "]";
-    }
-  }
-
-  case "RECORD": {
-    // Object literal {a: 1, b: 2}
-    if (!node.elts || node.elts.length === 0) {
-      return "{}";
-    }
-
-    if (opts.compact) {
-      // Compact mode: inline record
-      const bindings = node.elts.map(elt => unparseNode(elt, lexicon, indent, opts));
-      return "{" + bindings.join(", ") + "}";
-    } else {
-      // Pretty print with each binding on a new line
-      const innerIndent = indent + opts.indentSize;
-      const indentStr = " ".repeat(innerIndent);
-      const bindings = node.elts.map(elt =>
-        indentStr + unparseNode(elt, lexicon, innerIndent, opts)
-      );
-      return "{\n" + bindings.join("\n") + "\n" + " ".repeat(indent) + "}";
-    }
-  }
-
-  case "BINDING": {
-    // Key-value pair in a record
-    if (node.elts && node.elts.length >= 2) {
-      let key;
-      if (node.elts[0] && node.elts[0].tag === "TAG") {
-        const tagName = node.elts[0].elts[0];
-        key = unparseNode(node.elts[0], { [tagName]: { tk: 0x16, name: "TAG" } }, indent, opts);
-      } else {
-        key = unparseNode(node.elts[0], lexicon, indent, opts);
-      }
-      const value = unparseNode(node.elts[1], lexicon, indent, opts);
-      return `${key}: ${value}`;
-    }
-    return "";
-  }
-
-  case "PAREN":
+    case "PAREN":
     // Parenthesized expression
-    if (node.elts && node.elts.length > 0) {
-      return "(" + unparseNode(node.elts[0], lexicon, indent, opts) + ")";
-    }
-    return "()";
+      if (node.elts && node.elts.length > 0) {
+        return "(" + unparseNode(node.elts[0], lexicon, indent, opts) + ")";
+      }
+      return "()";
 
-  case "APPLY":
+    case "APPLY":
     // Function application
-    if (node.elts && node.elts.length >= 2) {
-      const func = unparseNode(node.elts[0], lexicon, indent, opts);
-      const args = unparseNode(node.elts[1], lexicon, indent, opts);
-      return func + " " + args;
-    }
-    return "";
+      if (node.elts && node.elts.length >= 2) {
+        const func = unparseNode(node.elts[0], lexicon, indent, opts);
+        const args = unparseNode(node.elts[1], lexicon, indent, opts);
+        return func + " " + args;
+      }
+      return "";
 
-  case "LAMBDA":
+    case "LAMBDA":
     // Lambda function: elts = [param_names_list, body, pattern_list, init_list]
-    if (node.elts && node.elts.length >= 2) {
-      const params = node.elts[0];
-      const body = node.elts[1];
+      if (node.elts && node.elts.length >= 2) {
+        const params = node.elts[0];
+        const body = node.elts[1];
 
-      // Extract parameter names
-      let paramStr = "";
-      if (params && params.elts) {
-        paramStr = params.elts.map(p => unparseNode(p, lexicon, indent, opts)).join(" ");
+        // Extract parameter names
+        let paramStr = "";
+        if (params && params.elts) {
+          paramStr = params.elts.map(p => unparseNode(p, lexicon, indent, opts)).join(" ");
+        }
+
+        // Unparse body
+        const bodyStr = unparseNode(body, lexicon, indent, opts);
+
+        if (paramStr) {
+          return `<${paramStr}: ${bodyStr}>`;
+        } else {
+          return `<: ${bodyStr}>`;
+        }
       }
+      return "";
 
-      // Unparse body
-      const bodyStr = unparseNode(body, lexicon, indent, opts);
-
-      if (paramStr) {
-        return `<${paramStr}: ${bodyStr}>`;
-      } else {
-        return `<: ${bodyStr}>`;
-      }
-    }
-    return "";
-
-  case "LET":
+    case "LET":
     // Let binding
-    if (node.elts && node.elts.length >= 2) {
-      const bindings = node.elts[0];
-      const body = node.elts[1];
+      if (node.elts && node.elts.length >= 2) {
+        const bindings = node.elts[0];
+        const body = node.elts[1];
 
-      let bindingStr = "";
-      if (bindings && bindings.elts) {
-        bindingStr = bindings.elts.map(b => {
-          if (b.elts && b.elts.length >= 2) {
-            const name = unparseNode(b.elts[0], lexicon, indent, opts);
-            const value = unparseNode(b.elts[1], lexicon, indent, opts);
-            return `${name} = ${value}`;
-          }
-          return "";
-        }).filter(s => s).join(", ");
+        let bindingStr = "";
+        if (bindings && bindings.elts) {
+          bindingStr = bindings.elts.map(b => {
+            if (b.elts && b.elts.length >= 2) {
+              const name = unparseNode(b.elts[0], lexicon, indent, opts);
+              const value = unparseNode(b.elts[1], lexicon, indent, opts);
+              return `${name} = ${value}`;
+            }
+            return "";
+          }).filter(s => s).join(", ");
+        }
+
+        const bodyStr = unparseNode(body, lexicon, indent, opts);
+        return `let ${bindingStr} in ${bodyStr}`;
       }
+      return "";
 
-      const bodyStr = unparseNode(body, lexicon, indent, opts);
-      return `let ${bindingStr} in ${bodyStr}`;
-    }
-    return "";
-
-  case "IF":
+    case "IF":
     // If-then-else
-    if (node.elts && node.elts.length >= 2) {
-      const cond = unparseNode(node.elts[0], lexicon, indent, opts);
-      const innerIndent = indent + opts.indentSize;
-      const indentStr = " ".repeat(innerIndent);
-      const thenExpr = unparseNode(node.elts[1], lexicon, innerIndent, opts);
+      if (node.elts && node.elts.length >= 2) {
+        const cond = unparseNode(node.elts[0], lexicon, indent, opts);
+        const innerIndent = indent + opts.indentSize;
+        const indentStr = " ".repeat(innerIndent);
+        const thenExpr = unparseNode(node.elts[1], lexicon, innerIndent, opts);
 
-      if (node.elts.length >= 3) {
-        const elseExpr = unparseNode(node.elts[2], lexicon, innerIndent, opts);
-        return `if ${cond} then\n${indentStr}${thenExpr}\nelse\n${indentStr}${elseExpr}`;
-      } else {
-        return `if ${cond} then\n${indentStr}${thenExpr}`;
+        if (node.elts.length >= 3) {
+          const elseExpr = unparseNode(node.elts[2], lexicon, innerIndent, opts);
+          return `if ${cond} then\n${indentStr}${thenExpr}\nelse\n${indentStr}${elseExpr}`;
+        } else {
+          return `if ${cond} then\n${indentStr}${thenExpr}`;
+        }
       }
-    }
-    return "";
+      return "";
 
-  case "CASE":
+    case "CASE":
     // Case expression
-    if (node.elts && node.elts.length > 0) {
-      const expr = unparseNode(node.elts[0], lexicon, indent, opts);
-      const innerIndent = indent + opts.indentSize;
-      const indentStr = " ".repeat(innerIndent);
-      const endIndentStr = " ".repeat(indent);
+      if (node.elts && node.elts.length > 0) {
+        const expr = unparseNode(node.elts[0], lexicon, indent, opts);
+        const innerIndent = indent + opts.indentSize;
+        const indentStr = " ".repeat(innerIndent);
+        const endIndentStr = " ".repeat(indent);
 
-      // Process each case branch with proper indentation
-      const cases = node.elts.slice(1).map(c => {
+        // Process each case branch with proper indentation
+        const cases = node.elts.slice(1).map(c => {
         // Pass the inner indent to OF nodes but don't add extra indentation here
         // The OF node will handle its own formatting
-        const caseStr = unparseNode(c, lexicon, indent, opts);
-        return caseStr;
-      });
+          const caseStr = unparseNode(c, lexicon, indent, opts);
+          return caseStr;
+        });
 
-      return `case ${expr} of\n${cases.join("\n")}\n${endIndentStr}end`;
-    }
-    return "";
-
-  case "OF":
-    // Case branch
-    if (node.elts && node.elts.length >= 2) {
-      const indentStr = " ".repeat(indent + opts.indentSize);
-      const pattern = unparseNode(node.elts[0], lexicon, indent, opts);
-
-      // Check if the expression is a CASE node for proper nested formatting
-      const exprNode = node.elts[1];
-      let expr;
-      if (exprNode && exprNode.tag === "CASE") {
-        // For nested case, don't add extra indent to the case keyword itself
-        expr = unparseNode(exprNode, lexicon, indent + opts.indentSize, opts);
-      } else {
-        expr = unparseNode(exprNode, lexicon, indent, opts);
+        return `case ${expr} of\n${cases.join("\n")}\n${endIndentStr}end`;
       }
+      return "";
 
-      return `${indentStr}${pattern}: ${expr}`;
-    }
-    return "";
+    case "OF":
+    // Case branch
+      if (node.elts && node.elts.length >= 2) {
+        const indentStr = " ".repeat(indent + opts.indentSize);
+        const pattern = unparseNode(node.elts[0], lexicon, indent, opts);
+
+        // Check if the expression is a CASE node for proper nested formatting
+        const exprNode = node.elts[1];
+        let expr;
+        if (exprNode && exprNode.tag === "CASE") {
+        // For nested case, don't add extra indent to the case keyword itself
+          expr = unparseNode(exprNode, lexicon, indent + opts.indentSize, opts);
+        } else {
+          expr = unparseNode(exprNode, lexicon, indent, opts);
+        }
+
+        return `${indentStr}${pattern}: ${expr}`;
+      }
+      return "";
 
     // Unary operator - negative
-  case "NEG":
-    if (node.elts && node.elts.length >= 1) {
-      const expr = unparseNode(node.elts[0], lexicon, indent, opts);
-      return `-${expr}`;
-    }
-    return "";
-
-  case "ERROR":
-    // Error nodes - include as comments
-    if (node.elts && node.elts.length > 0) {
-      // The first element might be a node reference or a string
-      const firstElt = node.elts[0];
-      if (typeof firstElt === "object" && firstElt.elts) {
-        // It's a node, unparse it
-        return `/* ERROR: ${unparseNode(firstElt, lexicon, indent, opts)} */`;
+    case "NEG":
+      if (node.elts && node.elts.length >= 1) {
+        const expr = unparseNode(node.elts[0], lexicon, indent, opts);
+        return `-${expr}`;
       }
-      return `/* ERROR: ${firstElt} */`;
-    }
-    return "/* ERROR */";
+      return "";
 
-  default: {
+    case "ERROR":
+    // Error nodes - include as comments
+      if (node.elts && node.elts.length > 0) {
+      // The first element might be a node reference or a string
+        const firstElt = node.elts[0];
+        if (typeof firstElt === "object" && firstElt.elts) {
+        // It's a node, unparse it
+          return `/* ERROR: ${unparseNode(firstElt, lexicon, indent, opts)} */`;
+        }
+        return `/* ERROR: ${firstElt} */`;
+      }
+      return "/* ERROR */";
+
+    default: {
     // Check if this is a lexicon-defined function
     // First, find the source name for this tag in the lexicon
-    let sourceName = null;
-    if (lexicon) {
-      for (const [key, value] of Object.entries(lexicon)) {
-        if (value && value.name === node.tag) {
-          sourceName = key;
-          break;
+      let sourceName = null;
+      if (lexicon) {
+        for (const [key, value] of Object.entries(lexicon)) {
+          if (value && value.name === node.tag) {
+            sourceName = key;
+            break;
+          }
         }
       }
-    }
 
-    if (sourceName) {
+      if (sourceName) {
       // This is a known lexicon function - unparse in prefix notation
-      if (node.elts && node.elts.length > 0) {
-        const args = node.elts.map(elt => unparseNode(elt, lexicon, indent, opts)).join(" ");
-        return `${sourceName} ${args}`;
+        if (node.elts && node.elts.length > 0) {
+          if (!opts.compact && isPipelineStep(node, lexicon)) {
+            return formatPipelineNode(node, lexicon, indent, opts, unparseNode);
+          }
+          const args = node.elts.map(elt => unparseNode(elt, lexicon, indent, opts)).join(" ");
+          return `${sourceName} ${args}`;
+        }
+        return sourceName;
       }
-      return sourceName;
-    }
 
-    // Handle identifiers that aren't in the lexicon (like lowercase "sub")
-    if (node.elts && node.elts.length === 0) {
+      // Handle identifiers that aren't in the lexicon (like lowercase "sub")
+      if (node.elts && node.elts.length === 0) {
       // This is likely an identifier
-      return node.tag;
-    }
+        return node.tag;
+      }
 
-    // Fallback for unknown nodes
-    console.warn(`Unknown node tag: ${node.tag}`);
-    return `/* ${node.tag} */`;
-  }
+      // Fallback for unknown nodes
+      console.warn(`Unknown node tag: ${node.tag}`);
+      return `/* ${node.tag} */`;
+    }
   }
 }
 
@@ -391,35 +481,35 @@ function reconstructNode(pool, nodeId) {
 
   // Handle different node types
   switch (node.tag) {
-  case "NUM":
-  case "STR":
-  case "IDENT":
-  case "BOOL":
-  case "TAG":
+    case "NUM":
+    case "STR":
+    case "IDENT":
+    case "BOOL":
+    case "TAG":
     // These nodes have primitive values in elts[0]
-    result.elts = [node.elts[0]];
-    break;
+      result.elts = [node.elts[0]];
+      break;
 
-  case "NULL":
+    case "NULL":
     // NULL nodes have no elements
-    result.elts = [];
-    break;
+      result.elts = [];
+      break;
 
-  default:
+    default:
     // For all other nodes, recursively reconstruct child nodes
-    if (node.elts && Array.isArray(node.elts)) {
-      result.elts = node.elts.map(eltId => {
+      if (node.elts && Array.isArray(node.elts)) {
+        result.elts = node.elts.map(eltId => {
         // Check if this is a node ID (number or string number)
-        if (typeof eltId === "number" || (typeof eltId === "string" && /^\d+$/.test(eltId))) {
+          if (typeof eltId === "number" || (typeof eltId === "string" && /^\d+$/.test(eltId))) {
           // This is a reference to another node in the pool
-          return reconstructNode(pool, eltId);
-        } else {
+            return reconstructNode(pool, eltId);
+          } else {
           // This is a primitive value
-          return eltId;
-        }
-      });
-    }
-    break;
+            return eltId;
+          }
+        });
+      }
+      break;
   }
 
   return result;
