@@ -486,5 +486,13 @@ describe("unparse", () => {
       const unparsed = await testRoundTrip(source, {}, { compact: false });
       expect(unparsed).not.toContain("\n  [");
     });
+
+    it("should indent list contents under a tail-step data arg", async () => {
+      // baz's data arg is a list; when baz appears as a tail step, its list
+      // contents must nest under the tail indent, not the pipeline indent.
+      const source = "foo 1 baz [2, 3] {}..";
+      const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: false });
+      expect(unparsed).toBe("foo 1\n  baz [\n    2\n    3\n  ] {}..");
+    });
   });
 });

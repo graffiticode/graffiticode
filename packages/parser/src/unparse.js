@@ -65,23 +65,31 @@ function isPipelineStep(node, lexicon) {
 }
 
 function formatPipelineNode(step, lexicon, indent, opts, unparseNodeFn) {
-  const tailPad = " ".repeat(indent + opts.indentSize);
-  const parts = [];
+  const tailIndent = indent + opts.indentSize;
+  const tailPad = " ".repeat(tailIndent);
+  const steps = [];
   let cur = step;
   while (isPipelineStep(cur, lexicon)) {
     const { funcName, leadingArgs, lastArg } = splitCall(cur, lexicon);
-    const head = [funcName, ...leadingArgs.map(a => unparseNodeFn(a, lexicon, indent, opts))].join(" ");
-    parts.push({ head, dataArg: leadingArgs[leadingArgs.length - 1] });
+    steps.push({ funcName, leadingArgs, dataArg: leadingArgs[leadingArgs.length - 1] });
     cur = lastArg;
   }
-  let out = parts[0].head;
-  for (let i = 1; i < parts.length; i++) {
-    const prev = parts[i - 1].dataArg;
-    const attach = prev && (prev.tag === "LIST" || prev.tag === "RECORD") &&
-                   prev.elts && prev.elts.length > 0;
-    out += (attach ? " " : "\n" + tailPad) + parts[i].head;
+  const attachesToPrev = (i) => {
+    if (i === 0) return false;
+    const prev = steps[i - 1].dataArg;
+    return !!(prev && (prev.tag === "LIST" || prev.tag === "RECORD") &&
+              prev.elts && prev.elts.length > 0);
+  };
+  const stepIndent = (i) => (i === 0 || attachesToPrev(i)) ? indent : tailIndent;
+  let out = "";
+  for (let i = 0; i < steps.length; i++) {
+    const si = stepIndent(i);
+    const head = [steps[i].funcName, ...steps[i].leadingArgs.map(a => unparseNodeFn(a, lexicon, si, opts))].join(" ");
+    if (i === 0) out = head;
+    else out += (attachesToPrev(i) ? " " : "\n" + tailPad) + head;
   }
-  out += " " + unparseNodeFn(cur, lexicon, indent, opts);
+  const termIndent = attachesToPrev(steps.length) ? indent : tailIndent;
+  out += " " + unparseNodeFn(cur, lexicon, termIndent, opts);
   return out;
 }
 
