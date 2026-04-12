@@ -494,5 +494,14 @@ describe("unparse", () => {
       const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: false });
       expect(unparsed).toBe("foo 1\n  baz [\n    2\n    3\n  ] {}..");
     });
+
+    it("should indent record terminal under a tail-step's list data arg", async () => {
+      // Terminal record attaches to the closing bracket of a tail step's list.
+      // Its closing brace must align with the tail step's indent, not the
+      // pipeline head's indent.
+      const source = "foo 1 baz [2, 3] {k: 1}..";
+      const unparsed = await testRoundTrip(source, pipelineLexicon, { compact: false });
+      expect(unparsed).toBe("foo 1\n  baz [\n    2\n    3\n  ] {\n    k: 1\n  }..");
+    });
   });
 });

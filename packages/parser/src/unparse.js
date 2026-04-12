@@ -88,7 +88,7 @@ function formatPipelineNode(step, lexicon, indent, opts, unparseNodeFn) {
     if (i === 0) out = head;
     else out += (attachesToPrev(i) ? " " : "\n" + tailPad) + head;
   }
-  const termIndent = attachesToPrev(steps.length) ? indent : tailIndent;
+  const termIndent = stepIndent(steps.length - 1);
   out += " " + unparseNodeFn(cur, lexicon, termIndent, opts);
   return out;
 }
