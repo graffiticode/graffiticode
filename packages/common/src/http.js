@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import morgan from "morgan";
 import {
+  ConflictError,
   DeadlineExceededError,
   InvalidArgumentError,
   NotFoundError,
@@ -13,7 +14,11 @@ import {
 } from "./errors.js";
 import { isNonEmptyString } from "./utils.js";
 
-export const createError = (code, message) => ({ code, message });
+export const createError = (code, message, details) => {
+  const err = { code, message };
+  if (details !== undefined) err.details = details;
+  return err;
+};
 
 export const createErrorResponse = error => ({ status: "error", error, data: null });
 
@@ -22,6 +27,9 @@ export const createSuccessResponse = data => ({ status: "success", error: null, 
 export const sendSuccessResponse = (res, data) => res.status(200).json(createSuccessResponse(data));
 
 export const translateError = (err) => {
+  if (err instanceof ConflictError) {
+    return createError(409, err.message, err.details);
+  }
   if (err instanceof DeadlineExceededError) {
     return createError(504, err.message);
   }

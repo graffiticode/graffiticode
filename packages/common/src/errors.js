@@ -1,3 +1,10 @@
+export class ConflictError extends Error {
+  constructor(message, details) {
+    super(message);
+    this.details = details;
+  }
+}
+
 export class DeadlineExceededError extends Error { }
 
 export class IllegalStateError extends Error { }

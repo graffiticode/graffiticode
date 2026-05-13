@@ -5,7 +5,7 @@ import {
 } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 
-const buildCreateLink = ({ oauthLinkStorer }) => async ({ uid, provider, providerId, email }) => {
+const buildCreateLink = ({ oauthLinkStorer, linkedEmailsService }) => async ({ uid, provider, providerId, email }) => {
   if (!isNonEmptyString(uid)) {
     throw new InvalidArgumentError("must provide uid");
   }
@@ -23,6 +23,27 @@ const buildCreateLink = ({ oauthLinkStorer }) => async ({ uid, provider, provide
   }
 
   const oauthLink = await oauthLinkStorer.create({ uid, provider, providerId, email });
+
+  // Mirror the email into the unified linked_emails registry so email sign-in
+  // can route into this account. Same-uid duplicates are silently absorbed by
+  // the service; cross-uid conflicts will surface as ConflictError and roll
+  // back the OAuth link below.
+  if (linkedEmailsService && isNonEmptyString(email)) {
+    try {
+      await linkedEmailsService.addVerified({ uid, email });
+    } catch (err) {
+      // Roll back the oauth-link if the email collides with another user's
+      // identity — otherwise we'd leave an OAuth link that points at a
+      // contested email.
+      try {
+        await oauthLinkStorer.removeByUidAndProvider({ uid, provider });
+      } catch {
+        // best effort
+      }
+      throw err;
+    }
+  }
+
   return oauthLink;
 };
 
