@@ -88,6 +88,25 @@ const buildLookupInternal = ({ linkedEmailsService }) => buildHttpHandler(async 
   sendSuccessResponse(res, { matched: true, uid: record.uid, id: record.id });
 });
 
+// Combined lookup + custom-token mint, used by the console's email-signin
+// resolver. The console can't mint Firebase custom tokens itself: its admin
+// SDK runs in a different project than the one the client signs into, and
+// the Cloud Run service account lacks signBlob permissions anyway. Doing it
+// here keeps the token in the same project as the client's Firebase Auth.
+const buildSignInInternal = ({ authService, linkedEmailsService }) => buildHttpHandler(async (req, res) => {
+  const { email } = req.body || {};
+  if (!isNonEmptyString(email)) {
+    throw new InvalidArgumentError("must provide email");
+  }
+  const record = await linkedEmailsService.lookup({ email });
+  if (!record) {
+    sendSuccessResponse(res, { matched: false });
+    return;
+  }
+  const firebaseCustomToken = await authService.createFirebaseCustomToken({ uid: record.uid });
+  sendSuccessResponse(res, { matched: true, uid: record.uid, firebaseCustomToken });
+});
+
 export const buildLinkedEmailsRouter = (deps) => {
   const router = new Router();
 
@@ -98,6 +117,7 @@ export const buildLinkedEmailsRouter = (deps) => {
   // Server-to-server routes (X-Internal-API-Key required).
   router.post("/internal", requireInternalAuth, buildAddInternal(deps));
   router.get("/internal/lookup", requireInternalAuth, buildLookupInternal(deps));
+  router.post("/internal/sign-in", requireInternalAuth, buildSignInInternal(deps));
 
   return router;
 };
