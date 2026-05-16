@@ -1,8 +1,10 @@
-import { addHexPrefix, isValidAddress } from "@ethereumjs/util";
+import { addHexPrefix, isValidAddress, stripHexPrefix } from "@ethereumjs/util";
 import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { Router } from "express";
+
+import { requireInternalAuth } from "../middleware/internal-auth.js";
 
 const buildApiKeyAuthenticate = ({ apiKeyService, authService }) => buildHttpHandler(async (req, res) => {
   const { token } = req.body;
@@ -52,8 +54,32 @@ const buildEthereumAuthenticate = ({ authService, ethereumService }) => buildHtt
   sendSuccessResponse(res, { access_token: accessToken, refresh_token: refreshToken, firebaseCustomToken });
 });
 
+// Server-to-server existence check. The console's admin SDK runs in a
+// different Firebase project than the one that holds wallet auth records,
+// so it can't check getUser(uid) directly; this route does the lookup
+// on the project that owns the records.
+const buildEthereumExistsInternal = ({ firebaseAuth }) => buildHttpHandler(async (req, res) => {
+  const { address } = req.params;
+  if (!isValidAddress(addHexPrefix(address))) {
+    throw new InvalidArgumentError(`invalid address: ${address}`);
+  }
+  const uid = stripHexPrefix(address).toLowerCase();
+  try {
+    await firebaseAuth.getUser(uid);
+    sendSuccessResponse(res, { exists: true });
+  } catch (err) {
+    if (err?.code === "auth/user-not-found") {
+      sendSuccessResponse(res, { exists: false });
+      return;
+    }
+    throw err;
+  }
+});
+
 const buildEthereumRouter = (deps) => {
   const router = new Router();
+  // More-specific internal route must precede the catch-all "/:address".
+  router.get("/internal/exists/:address", requireInternalAuth, buildEthereumExistsInternal(deps));
   router.get("/:address", buildEthereumGetNonce(deps));
   router.post("/:address", buildEthereumAuthenticate(deps));
   return router;
