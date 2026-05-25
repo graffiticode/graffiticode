@@ -85,7 +85,7 @@ const buildEthereumRouter = (deps) => {
   return router;
 };
 
-const buildGoogleAuthenticate = ({ firebaseAuth, authService, oauthService }) => buildHttpHandler(async (req, res) => {
+const buildGoogleAuthenticate = ({ firebaseAuth, authService, oauthLinkStorer, linkedEmailsService }) => buildHttpHandler(async (req, res) => {
   const { idToken } = req.body;
   if (!isNonEmptyString(idToken)) {
     throw new InvalidArgumentError("must provide idToken");
@@ -99,22 +99,42 @@ const buildGoogleAuthenticate = ({ firebaseAuth, authService, oauthService }) =>
     throw new UnauthenticatedError("Invalid Google ID token");
   }
 
-  const providerId = decodedToken.uid;
+  const sub = decodedToken.uid;
   const email = decodedToken.email;
+  const emailVerified = decodedToken.email_verified === true;
 
-  // Look up the linked Ethereum address by providerId, then fall back to email
-  let authContext;
-  try {
-    authContext = await oauthService.authenticate({ provider: "google", providerId });
-  } catch (err) {
-    if (email) {
-      authContext = await oauthService.authenticate({ provider: "google", providerId: email });
-    } else {
-      throw err;
+  // Resolve the account: stable Google sub -> verified email (the unified
+  // linked-emails registry) -> reject. We never auto-create here; accounts are
+  // created (wallet-anchored) by the console sign-in flows. Resolving by
+  // verified email is safe because Google is the only OAuth provider and we
+  // require email_verified, and registry emails are themselves verified.
+  let uid;
+
+  if (await oauthLinkStorer.existsByProviderId({ provider: "google", providerId: sub })) {
+    ({ uid } = await oauthLinkStorer.findByProviderId({ provider: "google", providerId: sub }));
+  } else if (emailVerified && isNonEmptyString(email)) {
+    const record = await linkedEmailsService.lookup({ email });
+    if (record) {
+      uid = record.uid;
+      // Record the stable Google sub -> uid mapping so future sign-ins resolve
+      // directly (and survive a Google-side email change). Best-effort: ignore
+      // conflicts (e.g. a concurrent sign-in) and never roll back the account.
+      try {
+        await oauthLinkStorer.create({ uid, provider: "google", providerId: sub, email });
+      } catch (err) {
+        // Already recorded — fine.
+      }
     }
   }
 
-  // Generate tokens for the linked Ethereum address
+  if (!uid) {
+    throw new UnauthenticatedError(
+      "No Graffiticode account for this email. Sign in at console.graffiticode.org first, then reconnect."
+    );
+  }
+
+  // Generate tokens for the resolved account.
+  const authContext = { uid, additionalClaims: { oauth: true, oauthProvider: "google" } };
   const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens(authContext);
 
   // Include uid in response so callers can verify the correct user is being authenticated
