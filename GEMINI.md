@@ -10,7 +10,7 @@ Your goal is to assist in building task-specific languages, compilers, and the R
     * **Integration** acts as the Controller.
 * **The Hierarchy:**
     * `Basis`: The foundational library for writing languages.
-    * `Languages` (e.g., L0001, L0002): Define specific domains (HTML, spreadsheets, JSON viewers).
+    * `Languages` (e.g., L0000, L0002): Define specific domains (HTML, spreadsheets, JSON viewers).
     * `Compilers`: Transform code + data + config into executable outputs (often JSON or HTML).
 
 ## 2. Technical Stack & Standards
@@ -26,7 +26,7 @@ Your goal is to assist in building task-specific languages, compilers, and the R
 Every language compiler **must** export a `compiler` object with this specific signature:
 ```javascript
 exports.compiler = {
-  language: 'L<ID>', // e.g., 'L0001'
+  language: 'L<ID>', // e.g., 'L0000'
   async compile(code, data, config) {
     // 1. Parse 'code' (the user's input)
     // 2. Combine with 'data' (context) and 'config' (env vars/settings)

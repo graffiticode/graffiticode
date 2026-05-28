@@ -9,7 +9,7 @@ const composeResponse = ({ item, data }) => {
 };
 
 const getTaskFromData = data => ({
-  lang: "0001",
+  lang: "0000",
   code: {
     1: { elts: [JSON.stringify(data)], tag: "STR" },
     2: { elts: [1], tag: "JSON" },

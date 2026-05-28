@@ -1,6 +1,6 @@
 export const TASK1_ID = "WmHjCp";
 export const TASK1 = {
-  lang: "0001",
+  lang: "0000",
   code: {
     1: { tag: "STR", elts: ["hello, world!"], coord: { from: 0, to: 15 } },
     2: { tag: "EXPRS", elts: [1] },
@@ -10,7 +10,7 @@ export const TASK1 = {
 };
 
 export const TASK1_WITH_SRC = {
-  lang: "0001",
+  lang: "0000",
   code: "\"hello, world!\".."
 };
 
@@ -20,7 +20,7 @@ export const DATA1 = {
 
 export const TASK2_ID = "M4HrIp";
 export const TASK2 = {
-  lang: "0001",
+  lang: "0000",
   code: {
     1: { tag: "STR", elts: ["goodbye, world!"] },
     2: { tag: "EXPRS", elts: [1] },
@@ -33,4 +33,4 @@ export const DATA2 = {
 };
 
 export const CODE_AS_DATA = { a: 1 };
-export const TASK_WITH_CODE_AS_DATA = { lang: "0001", code: CODE_AS_DATA };
+export const TASK_WITH_CODE_AS_DATA = { lang: "0000", code: CODE_AS_DATA };
