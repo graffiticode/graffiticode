@@ -5,6 +5,7 @@ import {
   buildHttpHandler,
   createSuccessResponse,
   parseIdsFromRequest,
+  setImmutableCacheHeaders,
   optionsHandler
 } from "./utils.js";
 
@@ -41,7 +42,12 @@ const buildGetTaskHandler = ({ taskStorer }) => {
       throw new InvalidArgumentError("must provide at least one id");
     }
     const tasks = await getTasks({ auth, ids });
-    res.status(200).json(createSuccessResponse({ data: tasks }));
+    // Cache as shareable only when every returned task is public; strip the
+    // internal isPublic flag so the wire shape stays { lang, code }.
+    const isPublic = tasks.every(t => t.isPublic);
+    const data = tasks.map(({ isPublic: _omit, ...task }) => task);
+    setImmutableCacheHeaders(res, { isPublic });
+    res.status(200).json(createSuccessResponse({ data }));
   });
 };
 

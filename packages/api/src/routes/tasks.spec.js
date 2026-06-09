@@ -198,6 +198,37 @@ describe("routes/tasks", () => {
       .expect(200, createSuccessResponse({ data: [TASK1, TASK2] }));
   });
 
+  it("should mark a public task as publicly cacheable", async () => {
+    const res = await request(app)
+      .post("/tasks")
+      .send({ task: TASK1 })
+      .expect(200);
+    const id = res.body.data.id;
+
+    const getRes = await request(app)
+      .get("/tasks")
+      .query({ id })
+      .expect(200);
+    expect(getRes.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
+  });
+
+  it("should mark a token-owned task as privately cacheable", async () => {
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
+    const res = await request(app)
+      .post("/tasks")
+      .set("Authorization", token)
+      .send({ task: TASK1 })
+      .expect(200);
+    const id = res.body.data.id;
+
+    const getRes = await request(app)
+      .get("/tasks")
+      .set("Authorization", token)
+      .query({ id })
+      .expect(200);
+    expect(getRes.headers["cache-control"]).toBe("private, max-age=31536000, immutable");
+  });
+
   it("get from same storage type", async () => {
     const createResponse = await request(app)
       .post("/tasks")

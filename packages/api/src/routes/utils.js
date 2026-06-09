@@ -70,6 +70,16 @@ export const createCompileSuccessResponse = ({ id, data }) => ({ status: "succes
 
 export const createSuccessResponse = ({ data }) => ({ status: "success", data });
 
+// TaskIds are content-addressed (SHA256 of {lang, code}), so a given id's
+// content never changes. Advertise that: `public` responses are byte-identical
+// for every caller and safe to share on a CDN; `private` ones are browser
+// disk-cacheable per-user only.
+export const setImmutableCacheHeaders = (res, { isPublic }) =>
+  res.set(
+    "Cache-Control",
+    `${isPublic ? "public" : "private"}, max-age=31536000, immutable`
+  );
+
 export const getStorageTypeForRequest = req => {
   return (
     req.get("x-graffiticode-storage-type") || "ephemeral"

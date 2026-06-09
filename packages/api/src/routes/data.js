@@ -5,6 +5,7 @@ import {
   createSuccessResponse,
   parseIdsFromRequest,
   parseAuthTokenFromRequest,
+  setImmutableCacheHeaders,
   optionsHandler,
   buildCompileLogger
 } from "./utils.js";
@@ -52,6 +53,9 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const authToken = parseAuthTokenFromRequest(req);
     const ids = parseIdsFromRequest(req);
     const data = await getData({ auth, authToken, ids });
+    // No auth context means the request was anonymous; a 200 can only have
+    // returned public tasks (private ones throw NotFound), so it's shareable.
+    setImmutableCacheHeaders(res, { isPublic: auth === null });
     res.status(200).json(createSuccessResponse({ data }));
   });
 };
