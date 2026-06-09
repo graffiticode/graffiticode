@@ -42,12 +42,10 @@ const buildGetTaskHandler = ({ taskStorer }) => {
       throw new InvalidArgumentError("must provide at least one id");
     }
     const tasks = await getTasks({ auth, ids });
-    // Cache as shareable only when every returned task is public; strip the
-    // internal isPublic flag so the wire shape stays { lang, code }.
-    const isPublic = tasks.every(t => t.isPublic);
-    const data = tasks.map(({ isPublic: _omit, ...task }) => task);
-    setImmutableCacheHeaders(res, { isPublic });
-    res.status(200).json(createSuccessResponse({ data }));
+    // No auth context means the request was anonymous; a 200 can only have
+    // returned public tasks (private ones throw NotFound), so it's shareable.
+    setImmutableCacheHeaders(res, { isPublic: auth === null });
+    res.status(200).json(createSuccessResponse({ data: tasks }));
   });
 };
 

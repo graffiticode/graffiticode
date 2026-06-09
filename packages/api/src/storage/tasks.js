@@ -125,9 +125,7 @@ const buildTaskGet = ({ db }) => {
         checkAuth({ taskDoc, auth });
         const lang = taskDoc.get("lang");
         const code = taskDoc.get("code");
-        const acls = taskDoc.get("acls");
-        const isPublic = !acls || !!acls.public;
-        return { lang, code, isPublic };
+        return { lang, code };
       })
     );
     return tasks;
