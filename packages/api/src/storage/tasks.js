@@ -3,9 +3,35 @@ import { NotFoundError, DecodeIdError, InvalidArgumentError } from "../errors/ht
 import { admin } from "./firebase.js";
 import { isNonEmptyString } from "../util.js";
 
+// Recursively sort object keys so serialization is independent of key order.
+// Array order is preserved (it is semantically meaningful in the AST, e.g. an
+// ADD node's operands). Scalars pass through untouched.
+const canonicalize = value => {
+  if (Array.isArray(value)) {
+    return value.map(canonicalize);
+  }
+  if (value && typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = canonicalize(value[key]);
+        return acc;
+      }, {});
+  }
+  return value;
+};
+
+// The taskId must be stable for semantically identical tasks. Firestore does
+// NOT preserve map-field key order — it returns keys lexicographically sorted —
+// so a task's `code` round-trips with a different key order than it had at
+// creation. Hashing the raw JSON.stringify({ lang, code }) was therefore
+// order-sensitive and produced a *different* id for the same AST after a
+// round-trip (breaking dedup: re-posting a stored task minted a new task
+// instead of matching the original). Canonicalizing first makes the hash
+// depend only on structure + values.
 const createCodeHash = ({ lang, code }) =>
   createHash("sha256")
-    .update(JSON.stringify({ lang, code }))
+    .update(JSON.stringify(canonicalize({ lang, code })))
     .digest("hex");
 
 const buildCheckAuth = () => ({ taskDoc, auth }) => {

@@ -54,6 +54,15 @@ describe("storage/firestore", () => {
     await expect(id1).toBe(id2);
   });
 
+  it("should get same id for same code with different key order", async () => {
+    // Firestore re-sorts map keys on read, so a stored task's code round-trips
+    // with reordered keys. The id must be stable regardless of key order.
+    const id1 = await taskStorer.create({ task: { lang: "0", code: { a: { tag: "NUM", elts: ["1"] }, root: "a" } } });
+    const id2 = await taskStorer.create({ task: { lang: "0", code: { root: "a", a: { elts: ["1"], tag: "NUM" } } } });
+
+    await expect(id1).toBe(id2);
+  });
+
   it("should get appended task ids", async () => {
     const id1 = await taskStorer.create({ task: TASK1 });
     const id2 = await taskStorer.create({ task: TASK2 });
