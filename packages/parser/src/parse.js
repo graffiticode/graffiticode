@@ -67,10 +67,6 @@ function getPos(ctx) {
 
 export function assertErr(ctx, b, str, coord) {
   if (!b) {
-    console.log(
-      "assertErr()",
-      "str=" + str,
-    );
     // Push error into state errors collection
     if (!ctx.state.errors) {
       ctx.state.errors = [];
@@ -492,10 +488,6 @@ export const parse = (function () {
     const from = to - lexeme.length;
     const coord = { from, to };
     const word = Env.findWord(ctx, lexeme);
-    console.log(
-      "name()",
-      "word=" + JSON.stringify(word, null, 2),
-    );
     if (word) {
       cc.cls = word.cls;
       if (word.cls === "number" && word.val) {
@@ -1052,17 +1044,9 @@ export const parse = (function () {
     return exprsStart(ctx, TK_DOT, function (ctx) {
       let nid;
       while (Ast.peek(ctx) !== nid) {
-        console.log(
-          "program()",
-          "peek()=" + Ast.peek(ctx),
-        );
         nid = Ast.pop(ctx);
         folder.fold(ctx, nid); // Fold the exprs on top
       }
-      console.log(
-        "program()",
-        "nodeStack.length=" + ctx.state.nodeStack.length,
-      );
       Ast.exprs(ctx, ctx.state.nodeStack.length, true);
       Ast.program(ctx);
       assert(cc === null, "internal error, expecting null continuation");
