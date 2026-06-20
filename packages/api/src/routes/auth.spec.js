@@ -12,9 +12,12 @@ describe("routes/auth", () => {
 
     app = express();
     app.use(buildAuthHandler({ validateToken }));
-    app.get("/", (req, res) => {
+    const echoAuth = (req, res) => {
       res.status(200).json({ auth: req.auth });
-    });
+    };
+    app.get("/", echoAuth);
+    // A public read path: invalid tokens degrade to anonymous here.
+    app.get("/data", echoAuth);
     app.use((err, req, res, next) => {
       console.log(err);
       res.sendStatus(500);
@@ -101,6 +104,21 @@ describe("routes/auth", () => {
       .expect(401);
 
     expect(res.body).toHaveProperty("error.message", "no context for abc123");
+    expect(validateToken).toHaveBeenCalledWith(token);
+  });
+
+  it("should degrade to anonymous on invalid token for a public read path", async () => {
+    const token = "abc123";
+    validateToken.mockRejectedValue(new UnauthenticatedError("no context for abc123"));
+
+    const res = await request(app)
+      .get("/data")
+      .set("Authorization", token)
+      .expect(200);
+
+    // Degraded request is equivalent to anonymous: no context AND no raw token.
+    expect(res.body).toHaveProperty("auth.token", null);
+    expect(res.body).toHaveProperty("auth.context", null);
     expect(validateToken).toHaveBeenCalledWith(token);
   });
 
