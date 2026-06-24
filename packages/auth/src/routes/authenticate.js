@@ -14,8 +14,13 @@ const buildApiKeyAuthenticate = ({ apiKeyService, authService }) => buildHttpHan
 
   const authContext = await apiKeyService.authenticate({ token });
   const firebaseCustomToken = await authService.createFirebaseCustomToken(authContext);
+  // Also mint a short-lived (5-min) ES256 access token. Trusted server-to-server
+  // callers (e.g. the MCP server building a render URL) need a JWT they can hand
+  // to api.graffiticode.org without exposing the raw, long-lived API key. The
+  // existing firebaseCustomToken response field is unchanged for back-compat.
+  const accessToken = await authService.createAccessToken(authContext);
 
-  sendSuccessResponse(res, { firebaseCustomToken });
+  sendSuccessResponse(res, { firebaseCustomToken, accessToken });
 });
 
 const buildApiKeyRouter = (deps) => {
