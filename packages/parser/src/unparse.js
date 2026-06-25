@@ -94,14 +94,46 @@ function formatPipelineNode(step, lexicon, indent, opts, unparseNodeFn) {
 }
 
 /**
- * Unparse an AST node to source code
+ * Apply an optional per-tag hint as a block comment around a node's source.
+ * options.hints maps node.tag -> string (emitted before the node) or
+ * { before?, after? }. Absent/empty hints leave output byte-identical.
+ * @returns {string} The (possibly annotated) source string.
+ */
+function applyHints(node, out, options) {
+  const hints = options && options.hints;
+  if (!hints || !node || typeof node !== "object" || !node.tag) {
+    return out;
+  }
+  const hint = hints[node.tag];
+  if (!hint) {
+    return out;
+  }
+  const before = typeof hint === "string" ? hint : hint.before;
+  const after = typeof hint === "string" ? undefined : hint.after;
+  let res = out;
+  if (before) {
+    res = `/* ${before} */ ${res}`;
+  }
+  if (after) {
+    res = `${res} /* ${after} */`;
+  }
+  return res;
+}
+
+/**
+ * Unparse an AST node to source code, applying optional per-tag hints.
  * @param {object} node - The AST node to unparse
  * @param {object} lexicon - The lexicon containing operator and keyword definitions
  * @param {number} indent - The current indentation level (default 0)
- * @param {object} options - Options for unparsing (e.g., indentSize, compact)
+ * @param {object} options - Options for unparsing (e.g., indentSize, compact, hints)
  * @returns {string} The unparsed source code
  */
 function unparseNode(node, lexicon, indent = 0, options = {}) {
+  const out = unparseNodeCore(node, lexicon, indent, options);
+  return applyHints(node, out, options);
+}
+
+function unparseNodeCore(node, lexicon, indent = 0, options = {}) {
   // Default options
   const opts = {
     indentSize: 2,
@@ -447,7 +479,9 @@ function unparseNode(node, lexicon, indent = 0, options = {}) {
  * Unparse an AST pool (as returned by the parser) to source code
  * @param {object} ast - The AST pool with a root property
  * @param {object} dialectLexicon - The dialect-specific lexicon (optional)
- * @param {object} options - Options for unparsing (e.g., indentSize, compact)
+ * @param {object} options - Options for unparsing (e.g., indentSize, compact, hints).
+ *   hints maps node.tag -> string | { before?, after? } and annotates matching
+ *   nodes with block comments; absent/empty leaves output unchanged.
  * @returns {string} The unparsed source code
  */
 export function unparse(ast, dialectLexicon = {}, options = {}) {

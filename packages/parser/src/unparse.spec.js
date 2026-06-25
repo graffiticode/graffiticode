@@ -504,4 +504,36 @@ describe("unparse", () => {
       expect(unparsed).toBe("foo 1\n  baz [\n    2\n    3\n  ] {\n    k: 1\n  }..");
     });
   });
+
+  describe("hints", () => {
+    it("leaves output byte-identical when no hints given", async () => {
+      const source = "42..";
+      const unparsed = await testRoundTrip(source, {}, { compact: true });
+      expect(unparsed).toBe("42..");
+    });
+
+    it("leaves output byte-identical for an empty hints map", async () => {
+      const source = "42..";
+      const unparsed = await testRoundTrip(source, {}, { compact: true, hints: {} });
+      expect(unparsed).toBe("42..");
+    });
+
+    it("emits a string hint as a comment before the matching node", async () => {
+      const source = "42..";
+      const unparsed = await testRoundTrip(source, {}, { compact: true, hints: { NUM: "a number" } });
+      expect(unparsed).toBe("/* a number */ 42..");
+    });
+
+    it("supports before/after object hints", async () => {
+      const source = "42..";
+      const unparsed = await testRoundTrip(source, {}, { compact: true, hints: { NUM: { before: "b", after: "a" } } });
+      expect(unparsed).toBe("/* b */ 42 /* a */..");
+    });
+
+    it("annotates every occurrence of a tag", async () => {
+      const source = "[1, 2]..";
+      const unparsed = await testRoundTrip(source, {}, { compact: true, hints: { NUM: "n" } });
+      expect(unparsed).toBe("[/* n */ 1 /* n */ 2]..");
+    });
+  });
 });
