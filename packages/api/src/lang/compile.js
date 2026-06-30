@@ -1,5 +1,5 @@
-export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req) => {
-  const baseUrl = getBaseUrlForLanguage(lang);
+export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid } = {}) => {
+  const baseUrl = await getBaseUrlForLanguage(lang, { uid });
   try {
     const compilePost = bent(baseUrl, "POST", "json", 200, 202);
     return await compilePost("/compile", req);

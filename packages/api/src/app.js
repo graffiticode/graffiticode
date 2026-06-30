@@ -28,8 +28,8 @@ const env = process.env.NODE_ENV || "development";
 
 export const createApp = ({ authUrl } = {}) => {
   const compile = buildCompile({ langCompile });
-  const { taskStorer, compileStorer } = createStorers();
-  const dataApi = buildDataApi({ compile });
+  const { taskStorer, compileStorer, langOverrideStorer } = createStorers();
+  const dataApi = buildDataApi({ compile, langOverrideStorer });
 
   const app = express();
   app.all("*", (req, res, next) => {
@@ -66,6 +66,7 @@ export const createApp = ({ authUrl } = {}) => {
   app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi }));
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi }));
+  app.use("/lang-overrides", routes.langOverrides({ langOverrideStorer }));
   app.use("/lang", routes.langRouter);
   app.use("/L*", routes.langRouter);
   app.use("/form", routes.formRouter({ taskStorer }));

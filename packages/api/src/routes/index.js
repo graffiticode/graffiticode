@@ -11,5 +11,6 @@ export const formRouter = buildFormRouter({ pingLang, getBaseUrlForLanguage });
 export { default as auth } from "./auth.js";
 export { default as compile } from "./compile.js";
 export { default as data } from "./data.js";
+export { default as langOverrides } from "./lang-override.js";
 export { default as root } from "./root.js";
 export { default as tasks } from "./tasks.js";

@@ -5,7 +5,7 @@ describe("compile", () => {
   it("should return language response", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
-    const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
+    const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const res = "response";
     const call = jest.fn().mockResolvedValue(res);
     const bent = jest.fn().mockReturnValue(call);
@@ -17,7 +17,7 @@ describe("compile", () => {
     const actual = await compile(lang, req);
 
     // Assert
-    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
+    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang, { uid: undefined });
     expect(bent).toHaveBeenCalledWith(baseUrl, "POST", "json", 200, 202);
     expect(call).toHaveBeenCalledWith("/compile", req);
     expect(actual).toBe(res);
@@ -26,7 +26,7 @@ describe("compile", () => {
   it.skip("should throw error if call throws", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
-    const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
+    const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const call = jest.fn().mockRejectedValue(new Error("failed to compile"));
     const bent = jest.fn().mockReturnValue(call);
     const compile = buildCompile({ getBaseUrlForLanguage, bent });
@@ -37,7 +37,7 @@ describe("compile", () => {
     await expect(compile(lang, req)).rejects.toThrow("failed to compile");
 
     // Assert
-    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
+    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang, { uid: undefined });
     expect(bent).toHaveBeenCalledWith(baseUrl, "POST", "json", 200, 202);
     expect(call).toHaveBeenCalledWith("/compile", req);
   });

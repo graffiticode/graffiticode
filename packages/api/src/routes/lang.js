@@ -29,11 +29,12 @@ export const buildLangRouter = ({ pingLang, getLangAsset }) => {
     const langId = getLangIdFromRequest(req);
     const lang = `L${langId}`;
     const [, , path] = req.baseUrl.split("/");
-    const pong = await pingLang(lang);
+    const uid = req.auth?.uid;
+    const pong = await pingLang(lang, { uid });
     if (!pong) {
       res.sendStatus(404);
     } else if (isNonEmptyString(path)) {
-      const asset = await getLangAsset(lang, `/${path}`);
+      const asset = await getLangAsset(lang, `/${path}`, { uid });
       if (path.indexOf(".jp") > 0) {
         res.setHeader("Content-Type", "image/jpeg");
       } else if (path.indexOf(".png") > 0) {
@@ -44,6 +45,12 @@ export const buildLangRouter = ({ pingLang, getLangAsset }) => {
         res.setHeader("Content-Type", "application/javascript");
       } else if (path.indexOf(".json") > 0) {
         res.setHeader("Content-Type", "application/json");
+      } else if (path.indexOf(".html") > 0) {
+        res.setHeader("Content-Type", "text/html");
+      } else if (path.indexOf(".md") > 0) {
+        res.setHeader("Content-Type", "text/markdown");
+      } else if (path.indexOf(".gc") > 0) {
+        res.setHeader("Content-Type", "text/plain");
       }
       res.send(asset);
     } else {

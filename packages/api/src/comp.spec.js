@@ -16,7 +16,7 @@ describe("comp", () => {
 
       await expect(compile({ ...TASK1 })).resolves.toBe(DATA1);
 
-      expect(langCompile).toHaveBeenCalledWith(`L${TASK1.lang}`, { code: TASK1.code, data: {}, auth: null, options: {} });
+      expect(langCompile).toHaveBeenCalledWith(`L${TASK1.lang}`, { code: TASK1.code, data: {}, auth: null, options: {} }, { uid: null });
     });
   });
 });

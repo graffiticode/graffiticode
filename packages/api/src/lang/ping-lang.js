@@ -1,10 +1,9 @@
-const noop = _ => { };
-
 export const buildPingLang = ({ getBaseUrlForLanguage, bent, log }) => {
+  // Keyed by the resolved base URL (not lang) so a per-user override pinned to a
+  // specific revision does not share a cached result with the default binding.
   const cache = new Map();
 
-  const pingLangInternal = async (lang) => {
-    const baseUrl = getBaseUrlForLanguage(lang);
+  const pingBaseUrl = async (baseUrl) => {
     try {
       const headLang = bent(baseUrl, "HEAD");
       await headLang("/");
@@ -15,20 +14,15 @@ export const buildPingLang = ({ getBaseUrlForLanguage, bent, log }) => {
     }
   };
 
-  return async (lang, resume) => {
-    if (typeof resume !== "function") {
-      resume = noop;
+  return async (lang, { uid } = {}) => {
+    const baseUrl = await getBaseUrlForLanguage(lang, { uid });
+    if (!cache.has(baseUrl)) {
+      cache.set(baseUrl, pingBaseUrl(baseUrl));
     }
-
-    if (!cache.has(lang)) {
-      cache.set(lang, pingLangInternal(lang));
-    }
-    const pong = await cache.get(lang);
+    const pong = await cache.get(baseUrl);
     if (!pong) {
-      cache.delete(lang);
+      cache.delete(baseUrl);
     }
-
-    resume(pong);
     return pong;
   };
 };

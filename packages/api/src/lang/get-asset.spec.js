@@ -5,7 +5,7 @@ describe("getAsset", () => {
   it("should returned fetched asset", async () => {
     // Arrange
     const baseUrl = "http://localhost:5000";
-    const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
+    const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const asset = "asset";
     const call = jest.fn().mockResolvedValue(asset);
     const bent = jest.fn().mockReturnValue(call);
@@ -17,7 +17,7 @@ describe("getAsset", () => {
     const actual = await getAsset(lang, path);
 
     // Assert
-    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
+    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang, { uid: undefined });
     expect(bent).toHaveBeenCalledWith(baseUrl, "string");
     expect(call).toHaveBeenCalledWith(path);
     expect(actual).toBe(asset);
@@ -26,7 +26,7 @@ describe("getAsset", () => {
   it("should throw error is fails to get asset", async () => {
     // Arrange
     const baseUrl = "http://localhost:5000";
-    const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
+    const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const call = jest.fn().mockRejectedValue(new Error("failed to get asset"));
     const bent = jest.fn().mockReturnValue(call);
     const getAsset = buildGetAsset({ getBaseUrlForLanguage, bent });
@@ -37,7 +37,7 @@ describe("getAsset", () => {
     await expect(getAsset(lang, path)).rejects.toThrow("failed to get asset");
 
     // Assert
-    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
+    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang, { uid: undefined });
     expect(bent).toHaveBeenCalledWith(baseUrl, "string");
     expect(call).toHaveBeenCalledWith(path);
   });

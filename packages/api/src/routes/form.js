@@ -9,14 +9,14 @@ import {
   parseAuthFromRequest,
 } from "./utils.js";
 
-const checkLangParam = async ({ lang, pingLang }) => {
+const checkLangParam = async ({ lang, pingLang, uid }) => {
   if (/^\d+$/.test(lang)) {
     lang = `L${lang}`;
   }
   if (!/^[Ll]\d+$/.test(lang)) {
     throw new InvalidArgumentError(`Invalid lang ${lang}`);
   }
-  if (!await pingLang(lang)) {
+  if (!await pingLang(lang, { uid })) {
     throw new NotFoundError(`Language not found ${lang}`);
   }
   return lang;
@@ -52,8 +52,9 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
     } else {
       throw new InvalidArgumentError("Missing or invalid parameters");
     }
-    lang = await checkLangParam({ lang, pingLang });
-    const baseUrl = getBaseUrlForLanguage(lang);
+    const uid = req.auth?.uid;
+    lang = await checkLangParam({ lang, pingLang, uid });
+    const baseUrl = await getBaseUrlForLanguage(lang, { uid });
     const formUrl = `${baseUrl}/form?${params.toString()}`;
     res.redirect(formUrl);
   });

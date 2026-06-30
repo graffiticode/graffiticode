@@ -8,7 +8,7 @@ describe("baseUrl", () => {
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({ isNonEmptyString });
 
     // Act
-    expect(() => getLanguageBaseUrl()).toThrow(new Error("lang must be a non empty string"));
+    await expect(getLanguageBaseUrl()).rejects.toThrow(new Error("lang must be a non empty string"));
 
     // Assert
   });
@@ -30,7 +30,7 @@ describe("baseUrl", () => {
     const lang = "LTest";
 
     // Act
-    const baseUrl = getLanguageBaseUrl(lang);
+    const baseUrl = await getLanguageBaseUrl(lang);
 
     // Assert
     expect(baseUrl).toBe("https://ltest.artcompiler.com:443");
@@ -44,7 +44,7 @@ describe("baseUrl", () => {
     const lang = "L1";
 
     // Act
-    const baseUrl = getLanguageBaseUrl(lang);
+    const baseUrl = await getLanguageBaseUrl(lang);
 
     // Assert
     expect(baseUrl).toBe(envBaseUrl);
@@ -67,7 +67,7 @@ describe("baseUrl", () => {
     const lang = "LTest";
 
     // Act
-    const baseUrl = getLanguageBaseUrl(lang);
+    const baseUrl = await getLanguageBaseUrl(lang);
 
     // Assert
     expect(getCompilerHost).toHaveBeenCalledWith(lang, config);
@@ -92,7 +92,7 @@ describe("baseUrl", () => {
     const lang = "LTest";
 
     // Act
-    const baseUrl = getLanguageBaseUrl(lang);
+    const baseUrl = await getLanguageBaseUrl(lang);
 
     // Assert
     expect(getCompilerHost).toHaveBeenCalledWith(lang, config);
@@ -108,9 +108,85 @@ describe("baseUrl", () => {
     const lang = "1";
 
     // Act
-    const baseUrl = getLanguageBaseUrl(lang);
+    const baseUrl = await getLanguageBaseUrl(lang);
 
     // Assert
     expect(baseUrl).toBe(envBaseUrl);
+  });
+
+  it("should return per-user override when present, ahead of env and config", async () => {
+    // Arrange
+    const overrideBaseUrl = "https://test42---l0175-656973052505.us-central1.run.app";
+    const env = { BASE_URL_L175: "http://should-not-win:5000" };
+    const getConfig = jest.fn().mockReturnValue({});
+    const getCompilerHost = jest.fn().mockReturnValue("l175.graffiticode.org");
+    const getCompilerPort = jest.fn().mockReturnValue("443");
+    const getOverrideBaseUrl = jest.fn().mockResolvedValue(overrideBaseUrl);
+    const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
+      isNonEmptyString,
+      env,
+      getConfig,
+      getCompilerHost,
+      getCompilerPort,
+      getOverrideBaseUrl
+    });
+    const lang = "L175";
+
+    // Act
+    const baseUrl = await getLanguageBaseUrl(lang, { uid: "user-1" });
+
+    // Assert
+    expect(getOverrideBaseUrl).toHaveBeenCalledWith({ uid: "user-1", lang });
+    expect(baseUrl).toBe(overrideBaseUrl);
+  });
+
+  it("should fall back to default when override is absent", async () => {
+    // Arrange
+    const env = {};
+    const getConfig = jest.fn().mockReturnValue({});
+    const getCompilerHost = jest.fn().mockReturnValue("l175.graffiticode.org");
+    const getCompilerPort = jest.fn().mockReturnValue("443");
+    const getOverrideBaseUrl = jest.fn().mockResolvedValue(undefined);
+    const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
+      isNonEmptyString,
+      env,
+      getConfig,
+      getCompilerHost,
+      getCompilerPort,
+      getOverrideBaseUrl
+    });
+    const lang = "L175";
+
+    // Act
+    const baseUrl = await getLanguageBaseUrl(lang, { uid: "user-1" });
+
+    // Assert
+    expect(getOverrideBaseUrl).toHaveBeenCalledWith({ uid: "user-1", lang });
+    expect(baseUrl).toBe("https://l175.graffiticode.org:443");
+  });
+
+  it("should never look up an override when uid is absent", async () => {
+    // Arrange
+    const env = {};
+    const getConfig = jest.fn().mockReturnValue({});
+    const getCompilerHost = jest.fn().mockReturnValue("l175.graffiticode.org");
+    const getCompilerPort = jest.fn().mockReturnValue("443");
+    const getOverrideBaseUrl = jest.fn().mockResolvedValue("https://should-not-be-used");
+    const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
+      isNonEmptyString,
+      env,
+      getConfig,
+      getCompilerHost,
+      getCompilerPort,
+      getOverrideBaseUrl
+    });
+    const lang = "L175";
+
+    // Act
+    const baseUrl = await getLanguageBaseUrl(lang);
+
+    // Assert
+    expect(getOverrideBaseUrl).not.toHaveBeenCalled();
+    expect(baseUrl).toBe("https://l175.graffiticode.org:443");
   });
 });

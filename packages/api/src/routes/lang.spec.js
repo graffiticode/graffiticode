@@ -35,7 +35,7 @@ describe.each([
       .expect(200);
 
     // Assert
-    expect(pingLang).toHaveBeenCalledWith("L42");
+    expect(pingLang).toHaveBeenCalledWith("L42", { uid: undefined });
     expect(res.text).toBe("asset");
   });
 
@@ -71,6 +71,6 @@ describe.each([
       .expect(404);
 
     // Assert
-    expect(pingLang).toHaveBeenCalledWith("L42");
+    expect(pingLang).toHaveBeenCalledWith("L42", { uid: undefined });
   });
 });

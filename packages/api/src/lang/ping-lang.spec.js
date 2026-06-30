@@ -6,7 +6,7 @@ describe("pingLang", () => {
   it("should return true when language pongs", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
-    const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
+    const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const call = jest.fn().mockResolvedValue();
     const bent = jest.fn().mockReturnValue(call);
     const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });
@@ -16,7 +16,7 @@ describe("pingLang", () => {
     const pong = await pingLang(lang);
 
     // Assert
-    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
+    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang, { uid: undefined });
     expect(bent).toHaveBeenCalledWith(baseUrl, "HEAD");
     expect(call).toHaveBeenCalledWith("/");
     expect(pong).toBe(true);
@@ -25,7 +25,7 @@ describe("pingLang", () => {
   it("should return false call throws", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
-    const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
+    const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const call = jest.fn().mockRejectedValue(new Error("failed to ping"));
     const bent = jest.fn().mockReturnValue(call);
     const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });
@@ -35,16 +35,16 @@ describe("pingLang", () => {
     const pong = await pingLang(lang);
 
     // Assert
-    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
+    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang, { uid: undefined });
     expect(bent).toHaveBeenCalledWith(baseUrl, "HEAD");
     expect(call).toHaveBeenCalledWith("/");
     expect(pong).toBe(false);
   });
 
-  it("should cache successful ping call", async () => {
+  it("should cache successful ping call by base url", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
-    const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
+    const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const call = jest.fn().mockResolvedValue();
     const bent = jest.fn().mockReturnValue(call);
     const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });
@@ -55,8 +55,9 @@ describe("pingLang", () => {
     const pong2 = await pingLang(lang);
 
     // Assert
-    expect(getBaseUrlForLanguage).toHaveBeenCalledTimes(1);
-    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang);
+    // The base url is resolved on each call, but the HEAD request is cached.
+    expect(getBaseUrlForLanguage).toHaveBeenCalledTimes(2);
+    expect(getBaseUrlForLanguage).toHaveBeenCalledWith(lang, { uid: undefined });
     expect(bent).toHaveBeenCalledTimes(1);
     expect(bent).toHaveBeenCalledWith(baseUrl, "HEAD");
     expect(call).toHaveBeenCalledTimes(1);
@@ -65,10 +66,33 @@ describe("pingLang", () => {
     expect(pong2).toBe(true);
   });
 
+  it("should not share a cache entry across distinct base urls", async () => {
+    // Arrange
+    const defaultBaseUrl = "http://ltest.artcompiler.com";
+    const overrideBaseUrl = "http://override.example.com";
+    const getBaseUrlForLanguage = jest.fn()
+      .mockResolvedValueOnce(defaultBaseUrl)
+      .mockResolvedValueOnce(overrideBaseUrl);
+    const call = jest.fn().mockResolvedValue();
+    const bent = jest.fn().mockReturnValue(call);
+    const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });
+    const lang = "LTest";
+
+    // Act
+    await pingLang(lang);
+    await pingLang(lang, { uid: "tester" });
+
+    // Assert
+    // Distinct resolved base urls must each be pinged (no cache collision).
+    expect(bent).toHaveBeenCalledTimes(2);
+    expect(bent).toHaveBeenNthCalledWith(1, defaultBaseUrl, "HEAD");
+    expect(bent).toHaveBeenNthCalledWith(2, overrideBaseUrl, "HEAD");
+  });
+
   it("should not cache failed ping call", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
-    const getBaseUrlForLanguage = jest.fn().mockReturnValue(baseUrl);
+    const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const call = jest.fn()
       .mockRejectedValueOnce(new Error("failed to ping"))
       .mockResolvedValue();
@@ -82,12 +106,9 @@ describe("pingLang", () => {
 
     // Assert
     expect(getBaseUrlForLanguage).toHaveBeenCalledTimes(2);
-    expect(getBaseUrlForLanguage).toHaveBeenNthCalledWith(1, lang);
-    expect(getBaseUrlForLanguage).toHaveBeenNthCalledWith(2, lang);
     expect(bent).toHaveBeenCalledTimes(2);
     expect(bent).toHaveBeenNthCalledWith(1, baseUrl, "HEAD");
     expect(bent).toHaveBeenNthCalledWith(2, baseUrl, "HEAD");
-    expect(bent).toHaveBeenCalledTimes(2);
     expect(call).toHaveBeenNthCalledWith(1, "/");
     expect(call).toHaveBeenNthCalledWith(2, "/");
     expect(pong1).toBe(false);
