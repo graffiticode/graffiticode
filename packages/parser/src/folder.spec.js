@@ -75,4 +75,55 @@ describe("folder", () => {
     expect(n2.tag).toBe("NUM");
     expect(n2.elts[0]).toBe("3");
   });
+
+  it("should fold get-val-public to the resolved string literal", () => {
+    const ctx = {
+      state: {
+        nodePool: ["unused"],
+        nodeStack: [],
+        nodeStackStack: [],
+        nodeMap: {},
+        env: [{ name: "global", lexicon: {} }],
+        callbacks: { GET_VAL_PUBLIC: (name) => `plain:${name}` },
+      }
+    };
+    const nameId = Ast.intern(ctx, { tag: "STR", elts: ["my-id"] });
+    const nodeId = Ast.intern(ctx, { tag: "GET_VAL_PUBLIC", elts: [nameId] });
+
+    Folder.fold(ctx, nodeId);
+    const resultNode = ctx.state.nodePool[ctx.state.nodeStack.pop()];
+
+    // Public values are plaintext — collapse to a STR literal.
+    expect(resultNode.tag).toBe("STR");
+    expect(resultNode.elts[0]).toBe("plain:my-id");
+  });
+
+  it("should preserve get-val-private as a node so the compiler can decrypt it", () => {
+    const ctx = {
+      state: {
+        nodePool: ["unused"],
+        nodeStack: [],
+        nodeStackStack: [],
+        nodeMap: {},
+        env: [{ name: "global", lexicon: {} }],
+        callbacks: { GET_VAL_PRIVATE: (name) => `cipher:${name}` },
+      }
+    };
+    const nameId = Ast.intern(ctx, { tag: "STR", elts: ["my-secret"] });
+    const nodeId = Ast.intern(ctx, { tag: "GET_VAL_PRIVATE", elts: [nameId] });
+
+    Folder.fold(ctx, nodeId);
+    const resultNode = ctx.state.nodePool[ctx.state.nodeStack.pop()];
+
+    // Private values are ciphertext — keep the GET_VAL_PRIVATE node with the
+    // name in elts[0] and the ciphertext in elts[1] so compile-time decrypt runs.
+    expect(resultNode.tag).toBe("GET_VAL_PRIVATE");
+    expect(resultNode.elts.length).toBe(2);
+    const e0 = Ast.node(ctx, resultNode.elts[0]);
+    const e1 = Ast.node(ctx, resultNode.elts[1]);
+    expect(e0.tag).toBe("STR");
+    expect(e0.elts[0]).toBe("my-secret");
+    expect(e1.tag).toBe("STR");
+    expect(e1.elts[0]).toBe("cipher:my-secret");
+  });
 });

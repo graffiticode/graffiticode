@@ -68,13 +68,26 @@ export class Folder {
       return ret;
     }
 
-    // If this node's tag has a callback, replace with the resolved string
+    // If this node's tag has a callback, resolve it. For get-val-public the
+    // resolved value is plaintext, so fold it to a string literal. For
+    // get-val-private the resolved value is CIPHERTEXT — preserve the
+    // GET_VAL_PRIVATE node (name in elts[0], ciphertext in elts[1]) so the
+    // compiler decrypts it at compile time. Folding it to a bare string would
+    // strip the node and leak the ciphertext into the program undecrypted.
     const callbacks = Folder.#ctx.state.callbacks;
     if (callbacks && callbacks[node.tag] && node.elts.length === 1) {
       const eltNode = Folder.#nodePool[node.elts[0]];
       if (eltNode && eltNode.tag === "STR") {
-        const resolved = callbacks[node.tag](eltNode.elts[0]);
-        Ast.string(Folder.#ctx, resolved, node.coord);
+        const name = eltNode.elts[0];
+        const resolved = callbacks[node.tag](name);
+        if (node.tag === "GET_VAL_PRIVATE") {
+          Ast.name(Folder.#ctx, node.tag, node.coord);
+          Ast.string(Folder.#ctx, resolved, node.coord); // elts[1] = ciphertext
+          Ast.string(Folder.#ctx, name, node.coord); // elts[0] = name
+          Ast.expr(Folder.#ctx, 2, node.coord);
+        } else {
+          Ast.string(Folder.#ctx, resolved, node.coord);
+        }
         return;
       }
     }
