@@ -35,6 +35,11 @@ export const buildLangRouter = ({ pingLang, getLangAsset }) => {
       res.sendStatus(404);
     } else if (isNonEmptyString(path)) {
       const asset = await getLangAsset(lang, `/${path}`, { uid });
+      if (asset === null) {
+        // The language is up (pinged) but this asset does not exist.
+        res.sendStatus(404);
+        return;
+      }
       if (path.indexOf(".jp") > 0) {
         res.setHeader("Content-Type", "image/jpeg");
       } else if (path.indexOf(".png") > 0) {

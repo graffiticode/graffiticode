@@ -39,6 +39,20 @@ describe.each([
     expect(res.text).toBe("asset");
   });
 
+  it("should return 404 if the asset is not found", async () => {
+    // Arrange
+    pingLang.mockResolvedValue(true);
+    getLangAsset.mockResolvedValue(null);
+
+    // Act
+    await request(app)
+      .get(getPath(42, "/missing.md"))
+      .expect(404);
+
+    // Assert
+    expect(getLangAsset).toHaveBeenCalledWith("L42", "/missing.md", { uid: undefined });
+  });
+
   it("should return 400 if invalid lang id", async () => {
     // Arrange
 
