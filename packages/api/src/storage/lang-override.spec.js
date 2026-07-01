@@ -53,4 +53,25 @@ describe("storage/lang-override", () => {
       await expect(langOverrideStorer.getBaseUrl({ uid: "user-1", lang: "l0175" })).resolves.toBe(url);
     });
   });
+
+  describe("memoization", () => {
+    it("serves the cached override within the TTL without re-reading", async () => {
+      await seed("user-1", { L0175: "https://first.example.run.app" });
+      await expect(langOverrideStorer.getBaseUrl({ uid: "user-1", lang: "L0175" }))
+        .resolves.toBe("https://first.example.run.app");
+
+      // Change the doc; within the memo TTL the storer keeps serving the cached
+      // value (proving the second lookup did not hit Firestore).
+      await seed("user-1", { L0175: "https://second.example.run.app" });
+      await expect(langOverrideStorer.getBaseUrl({ uid: "user-1", lang: "L0175" }))
+        .resolves.toBe("https://first.example.run.app");
+    });
+
+    it("caches the miss so a normal user does not read per lookup", async () => {
+      await expect(langOverrideStorer.get({ uid: "nobody" })).resolves.toBe(undefined);
+      // Seed after the miss is cached; within the TTL the cached miss still wins.
+      await seed("nobody", { L0175: "https://x.example.run.app" });
+      await expect(langOverrideStorer.get({ uid: "nobody" })).resolves.toBe(undefined);
+    });
+  });
 });
