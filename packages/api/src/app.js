@@ -54,6 +54,13 @@ export const createApp = ({ authUrl } = {}) => {
     }));
   }
   app.use(cors());
+  // Let the /form redirect (and any embedded response) load inside COEP-isolated
+  // hosts (claude.ai / chatgpt.com widget iframes). Without CORP the browser blocks
+  // the frame ("This content is blocked") at this first hop before the l0NNN redirect.
+  app.use((_req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  });
   app.use(express.json({ limit: "50mb" }));
   app.use(methodOverride());
 
