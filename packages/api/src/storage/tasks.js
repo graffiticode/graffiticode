@@ -106,6 +106,8 @@ const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" 
   const codeHashDoc = await codeHashRef.get();
   let taskId;
   let taskRef;
+  const isEphemeral = storageType === "memory" || storageType === "ephemeral" || !!(codeHashDoc.exists && codeHashDoc.get("expireAt"));
+
   if (codeHashDoc.exists) {
     taskId = codeHashDoc.get("taskId");
     taskRef = db.doc(`tasks/${taskId}`);
@@ -115,7 +117,44 @@ const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" 
     } else {
       taskUpdate["acls.public"] = true;
     }
-    await taskRef.update(taskUpdate);
+    const newExpireAt = isEphemeral ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
+    if (isEphemeral) {
+      taskUpdate.expireAt = newExpireAt;
+    }
+    try {
+      await taskRef.update(taskUpdate);
+      if (isEphemeral) {
+        await codeHashRef.update({ expireAt: newExpireAt });
+      }
+    } catch (err) {
+      if (err.code === 5 || err.code === "not-found" || (err.message && err.message.includes("NOT_FOUND"))) {
+        let acls;
+        if (auth) {
+          acls = { public: false, uids: { [auth.uid]: true } };
+        } else {
+          acls = { public: true, uids: {} };
+        }
+        const taskData = {
+          ...task,
+          codeHash,
+          count: 1,
+          acls,
+          storageType,
+        };
+        if (isEphemeral) {
+          taskData.expireAt = newExpireAt;
+        }
+        await taskRef.set(taskData);
+
+        const codeHashData = { taskId };
+        if (isEphemeral) {
+          codeHashData.expireAt = newExpireAt;
+        }
+        await codeHashRef.set(codeHashData);
+      } else {
+        throw err;
+      }
+    }
   } else {
     let acls;
     if (auth) {
@@ -124,15 +163,25 @@ const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" 
       acls = { public: true, uids: {} };
     }
     const tasksCol = db.collection("tasks");
-    const taskRef = await tasksCol.add({
+    const newExpireAt = isEphemeral ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
+    const taskData = {
       ...task,
       codeHash,
       count: 1,
       acls,
       storageType,
-    });
+    };
+    if (isEphemeral) {
+      taskData.expireAt = newExpireAt;
+    }
+    const taskRef = await tasksCol.add(taskData);
     taskId = taskRef.id;
-    await codeHashRef.set({ taskId });
+
+    const codeHashData = { taskId };
+    if (isEphemeral) {
+      codeHashData.expireAt = newExpireAt;
+    }
+    await codeHashRef.set(codeHashData);
   }
   return encodeId({ taskIds: [taskId] });
 };

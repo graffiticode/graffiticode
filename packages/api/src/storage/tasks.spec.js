@@ -1,6 +1,12 @@
 import { TASK1, TASK2 } from "../testing/fixture.js";
 import { clearFirestore } from "../testing/firestore.js";
 import { buildTaskStorer, encodeId } from "./tasks.js";
+import { admin } from "./firebase.js";
+
+const getTaskId = (encodedId) => {
+  const idObj = JSON.parse(Buffer.from(encodedId, "base64url").toString("utf8"));
+  return idObj.taskIds[0];
+};
 
 describe("storage/firestore", () => {
   beforeEach(async () => {
@@ -118,5 +124,101 @@ describe("storage/firestore", () => {
     const id = taskStorer.appendIds(id1, id2);
 
     await expect(taskStorer.get({ id, auth: myAuth })).rejects.toThrow();
+  });
+
+  it("should set expireAt on task and codeHash for ephemeral tasks (memory)", async () => {
+    const id = await taskStorer.create({ task: TASK1, storageType: "memory" });
+    const taskId = getTaskId(id);
+    const db = admin.firestore();
+
+    const taskDoc = await db.doc(`tasks/${taskId}`).get();
+    expect(taskDoc.exists).toBe(true);
+    expect(taskDoc.get("storageType")).toBe("memory");
+    const expireAt = taskDoc.get("expireAt");
+    expect(expireAt).toBeDefined();
+    const expireAtDate = expireAt.toDate();
+    const diff = expireAtDate.getTime() - Date.now();
+    expect(diff).toBeGreaterThan(23.9 * 60 * 60 * 1000);
+    expect(diff).toBeLessThan(24.1 * 60 * 60 * 1000);
+
+    const codeHash = taskDoc.get("codeHash");
+    const codeHashDoc = await db.doc(`code-hashes/${codeHash}`).get();
+    expect(codeHashDoc.exists).toBe(true);
+    const hashExpireAt = codeHashDoc.get("expireAt");
+    expect(hashExpireAt).toBeDefined();
+    expect(hashExpireAt.toDate().getTime()).toBe(expireAtDate.getTime());
+  });
+
+  it("should not set expireAt for persistent tasks", async () => {
+    const id = await taskStorer.create({ task: TASK1, storageType: "persistent" });
+    const taskId = getTaskId(id);
+    const db = admin.firestore();
+
+    const taskDoc = await db.doc(`tasks/${taskId}`).get();
+    expect(taskDoc.exists).toBe(true);
+    expect(taskDoc.get("storageType")).toBe("persistent");
+    expect(taskDoc.get("expireAt")).toBeUndefined();
+
+    const codeHash = taskDoc.get("codeHash");
+    const codeHashDoc = await db.doc(`code-hashes/${codeHash}`).get();
+    expect(codeHashDoc.exists).toBe(true);
+    expect(codeHashDoc.get("expireAt")).toBeUndefined();
+  });
+
+  it("should extend expireAt on update/increment of ephemeral tasks", async () => {
+    const id = await taskStorer.create({ task: TASK1, storageType: "memory" });
+    const taskId = getTaskId(id);
+    const db = admin.firestore();
+
+    const oldExpireAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour from now
+    const taskRef = db.doc(`tasks/${taskId}`);
+    const taskDoc = await taskRef.get();
+    const codeHash = taskDoc.get("codeHash");
+    const codeHashRef = db.doc(`code-hashes/${codeHash}`);
+
+    await taskRef.update({ expireAt: oldExpireAt });
+    await codeHashRef.update({ expireAt: oldExpireAt });
+
+    // Now re-create/increment the same task
+    await taskStorer.create({ task: TASK1, storageType: "memory" });
+
+    const updatedTaskDoc = await taskRef.get();
+    const updatedExpireAt = updatedTaskDoc.get("expireAt").toDate();
+    expect(updatedExpireAt.getTime()).toBeGreaterThan(oldExpireAt.getTime() + 1000 * 60 * 60); // should be extended to ~24 hours
+    const diff = updatedExpireAt.getTime() - Date.now();
+    expect(diff).toBeGreaterThan(23.9 * 60 * 60 * 1000);
+
+    const updatedCodeHashDoc = await codeHashRef.get();
+    expect(updatedCodeHashDoc.get("expireAt").toDate().getTime()).toBe(updatedExpireAt.getTime());
+  });
+
+  it("should recreate task if deleted but code-hash exists", async () => {
+    const id = await taskStorer.create({ task: TASK1, storageType: "memory" });
+    const taskId = getTaskId(id);
+    const db = admin.firestore();
+
+    const taskRef = db.doc(`tasks/${taskId}`);
+    const taskDoc = await taskRef.get();
+    const codeHash = taskDoc.get("codeHash");
+    const codeHashRef = db.doc(`code-hashes/${codeHash}`);
+
+    // Simulate TTL by deleting the task document, but keeping the code-hash document
+    await taskRef.delete();
+
+    // Now call create, which should encounter NOT_FOUND and recreate the task
+    const id2 = await taskStorer.create({ task: TASK1, storageType: "memory" });
+    expect(id2).toBe(id);
+
+    const recreatedTaskDoc = await taskRef.get();
+    expect(recreatedTaskDoc.exists).toBe(true);
+    expect(recreatedTaskDoc.get("count")).toBe(1);
+    expect(recreatedTaskDoc.get("expireAt")).toBeDefined();
+
+    const recreatedExpireAt = recreatedTaskDoc.get("expireAt").toDate();
+    const diff = recreatedExpireAt.getTime() - Date.now();
+    expect(diff).toBeGreaterThan(23.9 * 60 * 60 * 1000);
+
+    const updatedCodeHashDoc = await codeHashRef.get();
+    expect(updatedCodeHashDoc.get("expireAt").toDate().getTime()).toBe(recreatedExpireAt.getTime());
   });
 });
