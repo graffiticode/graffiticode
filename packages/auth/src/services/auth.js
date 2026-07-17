@@ -116,5 +116,10 @@ export const buildAuthService = ({ firebaseAuth, refreshTokenStorer, keysService
 
   const generateTokens = buildGenerateTokens({ refreshTokenStorer, generateRefreshToken, createAccessToken, createFirebaseCustomToken });
 
-  return { verifyToken, revokeRefreshToken, createFirebaseCustomToken, createAccessToken, generateAccessToken, generateFirebaseCustomToken, generateTokens };
+  const cleanExpiredRefreshTokens = () => refreshTokenStorer.cleanExpiredRefreshTokens();
+  const listSessions = ({ uid }) => refreshTokenStorer.listSessions({ uid });
+  const revokeSession = ({ uid, id }) => refreshTokenStorer.deleteSession({ uid, id });
+  const revokeAllSessions = ({ uid, exceptTokenId }) => refreshTokenStorer.deleteAllSessions({ uid, exceptTokenId });
+
+  return { verifyToken, getRefreshToken, revokeRefreshToken, createFirebaseCustomToken, createAccessToken, generateAccessToken, generateFirebaseCustomToken, generateTokens, cleanExpiredRefreshTokens, listSessions, revokeSession, revokeAllSessions };
 };
