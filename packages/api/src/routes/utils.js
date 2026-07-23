@@ -1,7 +1,6 @@
 import { isNonEmptyString, getClientHost, getClientPort } from "../util.js";
 import { HttpError } from "./../errors/http.js";
 import { decodeID } from "./../id.js";
-import { gql, GraphQLClient } from "graphql-request";
 
 const normalizeIds = ids => ids.map(id => id.split(/[ ]/g).join("+"));
 
@@ -107,43 +106,6 @@ export const optionsHandler = buildHttpHandler(async (req, res) => {
   res.set("Connection", "Keep-Alive");
   res.sendStatus(204);
 });
-
-export const buildCompileLogger = () => {
-  const host = getClientHost();
-  const port = getClientPort();
-  const protocol = host.indexOf("localhost") >= 0 && "http" || "https";
-  const endpoint = `${protocol}://${host}:${port}/api`;
-  return ({ token, units, id, status, timestamp, data }) => {
-    if (!token) {
-      return Promise.resolve(null);
-    }
-    const client = new GraphQLClient(endpoint, {
-      headers: {
-        Authorization: token
-      }
-    });
-    const query = gql`
-    mutation post ($units: Int, $id: String!, $status: String!, $timestamp: String!, $data: String!) {
-      logCompile(units: $units, id: $id, status: $status, timestamp: $timestamp, data: $data)
-    }
-  `;
-    return client.request(query, { units, id, status, timestamp, data: JSON.stringify(data) })
-      .then(result => {
-        // Parse the logCompile response (returns JSON string)
-        try {
-          const logResult = JSON.parse(result?.logCompile || "{}");
-          return logResult;
-        } catch {
-          return null;
-        }
-      })
-      .catch(() => {
-        // Silently ignore logging errors - this is fire-and-forget telemetry
-        // Logging failures should never break the actual compilation flow
-        return null;
-      });
-  };
-};
 
 // In-memory cache for compile allowed status
 // Key: uid, Value: { allowed: boolean, expires: number }

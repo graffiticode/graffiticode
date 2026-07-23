@@ -6,12 +6,10 @@ import {
   parseIdsFromRequest,
   parseAuthTokenFromRequest,
   setImmutableCacheHeaders,
-  optionsHandler,
-  buildCompileLogger
+  optionsHandler
 } from "./utils.js";
 
 export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
-  const logCompile = buildCompileLogger();
   return async ({ auth, authToken, ids }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
@@ -25,22 +23,6 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       data = objs;
     } else {
       data = objs[0];
-    }
-    if (action.compiled) {
-      // Only log unique compiles. Await so we can report usage limits.
-      const logResult = await logCompile({
-        token: authToken,
-        units: 1,
-        id: ids.join("+"),
-        status: "success",
-        timestamp: String(Date.now()),
-        data: JSON.stringify(data)
-      });
-      if (logResult?.usageLimitReached) {
-        if (data && typeof data === "object" && !Array.isArray(data)) {
-          data.usageLimitReached = true;
-        }
-      }
     }
     return data;
   };
