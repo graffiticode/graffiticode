@@ -1185,9 +1185,28 @@ export const parse = (function () {
         // FIXME make all paths go through a resume function.
         if (state.errors.length > 0) {
           throw new Error(state.errors);
-        } else {
-          return Ast.poolToJSON(ctx);
         }
+        // `..` ends the program. Text after it was historically ignored, which
+        // suited humans keeping scratch notes below their code. It also means a
+        // stray `..` mid-program silently discards everything that follows, and
+        // the truncated remainder is itself a valid program — so nothing
+        // downstream can tell the difference. Generated code has no use for the
+        // trailing-text affordance and every use for the diagnostic.
+        // Dots are skipped along with whitespace: the empty program `..`
+        // finishes with one of its own terminator characters still unread, and
+        // a stray extra `.` is not the mistake being caught here. Real code
+        // after the terminator always brings a non-dot character with it.
+        while ((c = stream.peek()) &&
+             (c === " " || c === "\t" || c === "\n" || c === "\r" || c === ".")) {
+          stream.next();
+        }
+        if (stream.peek() !== undefined) {
+          assertErr(ctx, false, "Text after end of program.", {
+            from: stream.pos,
+            to: stream.string.length,
+          });
+        }
+        return Ast.poolToJSON(ctx);
       }
       while ((c = stream.peek()) &&
            (c === " " || c === "\t" || c === "\n")) {

@@ -357,6 +357,32 @@ describe("unparse", () => {
     });
   });
 
+  describe("end of program", () => {
+    // `..` ends the program. Text after it used to be dropped silently, so a
+    // stray terminator mid-program truncated the code to its first expression
+    // and the remainder — itself a valid program — looked like a clean parse.
+    it("should error on code after the program terminator", async () => {
+      const unparsed = await testRoundTrip("add 1 2..\nadd 3 4..");
+      expect(unparsed).toBe('/* ERROR: "Text after end of program." */');
+    });
+
+    it("should error when a stray terminator truncates a program", async () => {
+      const unparsed = await testRoundTrip("let x = 1..\nadd x 2.. mul x 3..");
+      expect(unparsed).toBe('/* ERROR: "Text after end of program." */');
+    });
+
+    it("should accept an expression block with one terminator", async () => {
+      // Two sibling expressions, juxtaposed with no separator, one terminator.
+      const unparsed = await testRoundTrip("add 1 2 add 3 4..");
+      expect(unparsed).toBe("add 1 2\nadd 3 4..");
+    });
+
+    it("should accept trailing whitespace after the terminator", async () => {
+      const unparsed = await testRoundTrip("add 1 2..\n\n  \n");
+      expect(unparsed).toBe("add 1 2..");
+    });
+  });
+
   describe("edge cases", () => {
     it("should handle empty program", async () => {
       const source = "..";
