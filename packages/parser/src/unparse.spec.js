@@ -357,6 +357,37 @@ describe("unparse", () => {
     });
   });
 
+  describe("parse callbacks", () => {
+    // A throwing callback is a host problem (missing key, unreachable store).
+    // It used to escape into parse()'s catch-all and be relabelled a generic
+    // "Syntax Error" at the end of the program, so a server misconfiguration
+    // was indistinguishable from bad user code.
+    it("should surface the cause when a callback throws", async () => {
+      const lexicon = {
+        ...basisLexicon,
+        "get-val-private": { tk: 1, name: "GET_VAL_PRIVATE", cls: "function", arity: 1 },
+      };
+      const ast = await parser.parse(0, 'get-val-private "some-secret"..', lexicon, {
+        GET_VAL_PRIVATE: () => { throw new Error("key is not configured"); },
+      });
+      const unparsed = unparse(ast, {});
+      expect(unparsed).toContain("key is not configured");
+      expect(unparsed).toContain("some-secret");
+      expect(unparsed).not.toBe('/* ERROR: "Syntax Error" */');
+    });
+
+    it("should fold a callback value when it succeeds", async () => {
+      const lexicon = {
+        ...basisLexicon,
+        "get-val-public": { tk: 1, name: "GET_VAL_PUBLIC", cls: "function", arity: 1 },
+      };
+      const ast = await parser.parse(0, 'get-val-public "greeting"..', lexicon, {
+        GET_VAL_PUBLIC: () => "hello",
+      });
+      expect(unparse(ast, {})).toBe('"hello"..');
+    });
+  });
+
   describe("end of program", () => {
     // `..` ends the program. Text after it used to be dropped silently, so a
     // stray terminator mid-program truncated the code to its first expression

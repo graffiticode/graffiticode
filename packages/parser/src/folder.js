@@ -79,7 +79,23 @@ export class Folder {
       const eltNode = Folder.#nodePool[node.elts[0]];
       if (eltNode && eltNode.tag === "STR") {
         const name = eltNode.elts[0];
-        const resolved = callbacks[node.tag](name);
+        let resolved;
+        try {
+          resolved = callbacks[node.tag](name);
+        } catch (err) {
+          // A callback failure is a host problem — a missing signing key, an
+          // unreachable credential store — not a syntax mistake in the program.
+          // Report it as itself. Letting it escape lands in parse()'s catch-all,
+          // which relabels any stray exception "Syntax Error" and points at the
+          // end of the program, so a server misconfiguration reads as bad user
+          // code.
+          assertErr(
+            Folder.#ctx,
+            false,
+            `${node.tag} "${name}": ${(err && err.message) || err}`,
+            node.coord,
+          );
+        }
         if (node.tag === "GET_VAL_PRIVATE") {
           Ast.name(Folder.#ctx, node.tag, node.coord);
           Ast.string(Folder.#ctx, resolved, node.coord); // elts[1] = ciphertext
