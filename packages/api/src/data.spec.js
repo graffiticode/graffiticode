@@ -82,4 +82,59 @@ describe("data", () => {
       })
     );
   });
+
+  describe("a language that answers cache: false", () => {
+    it("should strip the directive and not cache the compile", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData({ ...DATA1, cache: false });
+      const action = {};
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id, action }))
+        .resolves.toStrictEqual(DATA1);
+
+      expect(action.noStore).toBe(true);
+      await expect(compileStorer.get({ id })).resolves.toBeUndefined();
+    });
+
+    it("should recompile on every get", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData({ ...DATA1, cache: false });
+      mockCompileData({ ...DATA1, cache: false });
+
+      await dataApi.get({ taskStorer, compileStorer, id });
+      await dataApi.get({ taskStorer, compileStorer, id });
+
+      expect(compile).toHaveBeenCalledTimes(2);
+    });
+
+    it("should make a composed result volatile from any one layer", async () => {
+      const id1 = await taskStorer.create({ task: TASK1 });
+      const id2 = await taskStorer.create({ task: TASK2 });
+      const id = taskStorer.appendIds(id1, id2);
+      // TASK2 compiles first (reduceRight) and is the volatile one; the head
+      // (TASK1) answers nothing, so only accumulating would catch this.
+      mockCompileData({ ...DATA1, cache: false });
+      mockCompileData(DATA2);
+      const action = {};
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id, action }))
+        .resolves.toStrictEqual(DATA2);
+
+      expect(action.noStore).toBe(true);
+      await expect(compileStorer.get({ id })).resolves.toBeUndefined();
+    });
+  });
+
+  it("should cache a compile that says nothing about caching", async () => {
+    const id = await taskStorer.create({ task: TASK1 });
+    mockCompileData(DATA1);
+    const action = {};
+
+    await dataApi.get({ taskStorer, compileStorer, id, action });
+
+    expect(action.noStore).toBeUndefined();
+    await expect(compileStorer.get({ id })).resolves.toEqual(
+      expect.objectContaining({ data: DATA1 })
+    );
+  });
 });

@@ -20,6 +20,11 @@ const buildGetData = ({ compile, langOverrideStorer }) =>
         return cached.data;
       }
     }
+    // A language whose output expires answers `cache: false` in its compile
+    // envelope (L0176 folds a time-limited Learnosity signature into every
+    // compile). One volatile layer makes the whole composed result volatile, so
+    // this accumulates across the chain rather than taking the last answer.
+    let cacheable = true;
     const obj = await tasks.reduceRight(
       // OPTIMIZATION Call getData recursively using the longest id suffix to
       // use any existing compiles.
@@ -34,6 +39,13 @@ const buildGetData = ({ compile, langOverrideStorer }) =>
           options,
           uid
         });
+        if (obj && typeof obj === "object" && obj.cache === false) {
+          cacheable = false;
+          // Strip the directive: it is for us, and would otherwise ride along
+          // into the next layer's input data and out to the client.
+          const { cache, ...rest } = obj;
+          return rest;
+        }
         return obj;
       },
       Promise.resolve({})
@@ -42,7 +54,12 @@ const buildGetData = ({ compile, langOverrideStorer }) =>
       // If a successful compile, then log it.
       action.compiled = true;
     }
-    if (!bypassCache) {
+    if (!cacheable && typeof action === "object") {
+      // Let the route drop the immutable cache headers — an expiring compile
+      // must not be held by the browser or the CDN either.
+      action.noStore = true;
+    }
+    if (!bypassCache && cacheable) {
       await compileStorer.create({
         id,
         compile: {

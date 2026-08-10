@@ -79,6 +79,13 @@ export const setImmutableCacheHeaders = (res, { isPublic }) =>
     `${isPublic ? "public" : "private"}, max-age=31536000, immutable`
   );
 
+// The counterpart for a compile whose output expires (a language answering
+// `cache: false`; see data.js). The id is still immutable, but the *data* it
+// compiles to is not, so it must not be held anywhere — not the browser disk
+// cache, not the Cloudflare cache rule on /data.
+export const setNoStoreCacheHeaders = res =>
+  res.set("Cache-Control", "no-store");
+
 export const getStorageTypeForRequest = req => {
   return (
     req.get("x-graffiticode-storage-type") || "ephemeral"
