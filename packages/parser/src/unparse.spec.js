@@ -135,6 +135,146 @@ describe("unparse", () => {
       const unparsed = await testRoundTrip(source);
       expect(unparsed).toBe("{x: add 1 2, y: 3}..");
     });
+
+    it("should unparse record with shorthand field", async () => {
+      const unparsed = await testRoundTrip("let x = 1..{x}..");
+      expect(unparsed).toBe("{x: 1}..");
+    });
+
+    it("should unparse record with multiple shorthand fields", async () => {
+      const unparsed = await testRoundTrip("let x = 1..let y = 2..let z = 3..{x, y, z}..");
+      expect(unparsed).toBe("{x: 1, y: 2, z: 3}..");
+    });
+
+    // The point of the feature: `{x}` is sugar, not a second kind of binding.
+    it("should desugar shorthand fields to explicit ones", async () => {
+      const shorthand = await testRoundTrip("let x = 1..let y = 2..{x, y}..");
+      const explicit = await testRoundTrip("let x = 1..let y = 2..{x: x, y: y}..");
+      expect(shorthand).toBe(explicit);
+    });
+
+    it("should unparse shorthand after an explicit field", async () => {
+      const unparsed = await testRoundTrip("let x = 1..{a: 1, x}..");
+      expect(unparsed).toBe("{a: 1, x: 1}..");
+    });
+
+    it("should unparse shorthand before an explicit field", async () => {
+      const unparsed = await testRoundTrip("let x = 1..{x, a: 1}..");
+      expect(unparsed).toBe("{x: 1, a: 1}..");
+    });
+
+    it("should unparse shorthand after a multi-expression field", async () => {
+      const unparsed = await testRoundTrip("let x = 1..{a: add 1 2, x}..");
+      expect(unparsed).toBe("{a: add 1 2, x: 1}..");
+    });
+
+    it("should unparse a nested record with a shorthand field", async () => {
+      const unparsed = await testRoundTrip("let b = 1..{a: {b}}..");
+      expect(unparsed).toBe("{a: {b: 1}}..");
+    });
+
+    it("should unparse shorthand fields with the comma omitted", async () => {
+      const unparsed = await testRoundTrip("let x = 1..let y = 2..{x y}..");
+      expect(unparsed).toBe("{x: 1, y: 2}..");
+    });
+
+    it("should unparse a shorthand field followed by an explicit one without a comma", async () => {
+      const unparsed = await testRoundTrip("let x = 1..{x a: 1}..");
+      expect(unparsed).toBe("{x: 1, a: 1}..");
+    });
+
+    it("should end an applied value at its arity, not at the next name", async () => {
+      // `length` is arity 1, so it takes 10 and the trailing z is a new field.
+      const unparsed = await testRoundTrip("let x = 1..let z = 2..{x y: length 10 z}..");
+      expect(unparsed).toBe("{x: 1, y: length 10, z: 2}..");
+    });
+
+    it("should end an arity-2 value at its second argument", async () => {
+      const unparsed = await testRoundTrip("let z = 2..{y: add 1 2 z}..");
+      expect(unparsed).toBe("{y: add 1 2, z: 2}..");
+    });
+
+    it("should end a let-bound lambda's application at its parameter count", async () => {
+      const unparsed = await testRoundTrip("let g = <a b: add a b>..let z = 2..{x: g 10 20 z}..");
+      expect(unparsed).toBe("{x: add 10 20, z: 2}..");
+    });
+
+    it("should end a plain value before a following shorthand field", async () => {
+      const unparsed = await testRoundTrip("let x = 1..{a: 1 x}..");
+      expect(unparsed).toBe("{a: 1, x: 1}..");
+    });
+
+    it("should keep an arity-1 call's argument in the value", async () => {
+      const unparsed = await testRoundTrip("let x = 1..{a: length x}..");
+      expect(unparsed).toBe("{a: length 1}..");
+    });
+
+    // A shorthand entry names the field by its head and takes the whole
+    // application as the value, so `{f 10}` is `{f: f 10}`.
+    it("should let a shorthand field take its arity's arguments", async () => {
+      const unparsed = await testRoundTrip("let x = 1..let z = 2..{x, length 10, z}..");
+      expect(unparsed).toBe("{x: 1, length: length 10, z: 2}..");
+    });
+
+    it("should let a shorthand field take arguments without commas", async () => {
+      const unparsed = await testRoundTrip("let x = 1..let z = 2..{x length 10 z}..");
+      expect(unparsed).toBe("{x: 1, length: length 10, z: 2}..");
+    });
+
+    it("should take a let-bound lambda's arguments in a shorthand field", async () => {
+      const unparsed = await testRoundTrip("let g = <a b: add a b>..let z = 2..{g 10 20 z}..");
+      expect(unparsed).toBe("{g: add 10 20, z: 2}..");
+    });
+
+    it("should error on a let definition in a field value", async () => {
+      const unparsed = await testRoundTrip("{a: let x = 1..x}..");
+      expect(unparsed).toBe("/* ERROR: \"A let definition is not allowed in a record field.\" */");
+    });
+
+    it("should error on a let definition in a field key", async () => {
+      const unparsed = await testRoundTrip("{let x = 1..x}..");
+      expect(unparsed).toBe("/* ERROR: \"A let definition is not allowed in a record field.\" */");
+    });
+
+    it("should error on a let definition after an earlier field", async () => {
+      const unparsed = await testRoundTrip("{a: 1, let x = 2..x}..");
+      expect(unparsed).toBe("/* ERROR: \"A let definition is not allowed in a record field.\" */");
+    });
+
+    it("should error on a let definition in a nested record", async () => {
+      const unparsed = await testRoundTrip("{a: {b: let x = 1..x}}..");
+      expect(unparsed).toBe("/* ERROR: \"A let definition is not allowed in a record field.\" */");
+    });
+
+    it("should report a field value that owes arguments", async () => {
+      const unparsed = await testRoundTrip("{a: length}..");
+      expect(unparsed).toBe("/* ERROR: \"Too few arguments for LENGTH. Expected 1.\" */");
+    });
+
+    it("should report a shorthand field that owes arguments", async () => {
+      const unparsed = await testRoundTrip("{length}..");
+      expect(unparsed).toBe("/* ERROR: \"Too few arguments for LENGTH. Expected 1.\" */");
+    });
+
+    it("should error on a field value of more than one expression", async () => {
+      const unparsed = await testRoundTrip("{a: (1) (2)}..");
+      expect(unparsed).toBe("/* ERROR: \"A record field value must be a single expression.\" */");
+    });
+
+    it("should error on an undefined shorthand field", async () => {
+      const unparsed = await testRoundTrip("{q}..");
+      expect(unparsed).toBe("/* ERROR: \"Undefined reference 'q'.\" */");
+    });
+
+    it("should error on a string key with no value", async () => {
+      const unparsed = await testRoundTrip("{\"foo\"}..");
+      expect(unparsed).toBe("/* ERROR: \"Expecting a ':' after record key.\" */");
+    });
+
+    it("should error on a number key with no value", async () => {
+      const unparsed = await testRoundTrip("{1}..");
+      expect(unparsed).toBe("/* ERROR: \"Expecting a ':' after record key.\" */");
+    });
   });
 
   describe("expressions", () => {

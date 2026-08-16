@@ -20,7 +20,7 @@ describe("lang/parser", () => {
     await expect(parser.parse(lang, src, providedLexicon)).resolves.toStrictEqual({ root: "0" });
 
     // Assert
-    expect(main.parse).toHaveBeenCalledWith(src, providedLexicon);
+    expect(main.parse).toHaveBeenCalledWith(src, providedLexicon, undefined);
   });
 
   it("should throw error when lexicon is missing", async () => {
@@ -49,7 +49,7 @@ describe("lang/parser", () => {
     await expect(parser.parse(lang, src, lexicon)).resolves.toStrictEqual({ root: "0" });
 
     // Assert
-    expect(main.parse).toHaveBeenCalledWith(src, lexicon);
+    expect(main.parse).toHaveBeenCalledWith(src, lexicon, undefined);
   });
   it("should return error if main parser fails with lexicon", async () => {
     // Arrange
@@ -64,7 +64,7 @@ describe("lang/parser", () => {
     await expect(parser.parse(lang, src, lexicon)).rejects.toBe(err);
 
     // Assert
-    expect(main.parse).toHaveBeenCalledWith(src, lexicon);
+    expect(main.parse).toHaveBeenCalledWith(src, lexicon, undefined);
   });
   it("should return error if main parser fails", async () => {
     // Arrange
@@ -79,7 +79,24 @@ describe("lang/parser", () => {
     await expect(parser.parse(lang, src, lexicon)).rejects.toBe(err);
 
     // Assert
-    expect(main.parse).toHaveBeenCalledWith(src, lexicon);
+    expect(main.parse).toHaveBeenCalledWith(src, lexicon, undefined);
+  });
+  it("should pass callbacks to main parser", async () => {
+    // Arrange
+    const main = {
+      parse: mockPromiseValue({ root: "0" })
+    };
+    const parser = buildParser({ main });
+    const lang = "0";
+    const src = "'foo'..";
+    const lexicon = {};
+    const callbacks = { GET_VAL_PUBLIC: jest.fn() };
+
+    // Act
+    await expect(parser.parse(lang, src, lexicon, callbacks)).resolves.toStrictEqual({ root: "0" });
+
+    // Assert
+    expect(main.parse).toHaveBeenCalledWith(src, lexicon, callbacks);
   });
   it("should parse error", async () => {
     // Arrange
@@ -742,6 +759,28 @@ describe("parser integration tests", () => {
     expect(strNode).not.toBeNull();
     expect(strNode.tag).toBe("STR");
     expect(strNode.elts[0]).toBe("foo");
+  });
+
+  it("should error on an l0166 cell reference key with no value", async () => {
+    // Only bare identifiers may elide their value. A cell reference scans as a
+    // TAG token, so `{A1}` is a missing colon, not a shorthand field.
+    const l0166Lexicon = {
+      ...basisLexicon,
+      "^[A-Z][0-9]+$": {
+        tk: 22,
+        name: "TAG",
+        cls: "val",
+        length: 0,
+        arity: 0,
+      },
+    };
+    const result = await parser.parse(166, "{A1}..", l0166Lexicon);
+    const errorNode = result[result.root];
+
+    expect(errorNode.tag).toBe("ERROR");
+    expect(result[errorNode.elts[0]].elts[0]).toBe("Expecting a ':' after record key.");
+    // The error points at the key, not at the closing brace.
+    expect(result[errorNode.elts[0]].coord).toEqual({ from: 1, to: 3 });
   });
 
   it("should parse code with block comments", async () => {

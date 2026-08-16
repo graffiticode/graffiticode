@@ -47,6 +47,83 @@ describe("folder", () => {
     expect(n2.elts[0]).toBe("3");
   });
 
+  it("should fold a BINDING to a key and its single value", () => {
+    const ctx = {
+      state: {
+        nodePool: ["unused"],
+        nodeStack: [],
+        nodeStackStack: [],
+        nodeMap: {},
+        env: [{ name: "global", lexicon: {} }]
+      }
+    };
+
+    const keyId = Ast.intern(ctx, { tag: "TAG", elts: ["a"] });
+    const valId = Ast.intern(ctx, { tag: "EXPRS", elts: [Ast.intern(ctx, { tag: "NUM", elts: ["1"] })] });
+    const bindingId = Ast.intern(ctx, { tag: "BINDING", elts: [keyId, valId] });
+
+    Folder.fold(ctx, bindingId);
+
+    // One node produced, and it is the binding itself -- not a node named after
+    // one of the value's expressions.
+    expect(ctx.state.nodeStack.length).toBe(1);
+    const resultNode = ctx.state.nodePool[ctx.state.nodeStack.pop()];
+    expect(resultNode.tag).toBe("BINDING");
+    expect(Ast.node(ctx, resultNode.elts[0]).tag).toBe("TAG");
+    expect(Ast.node(ctx, resultNode.elts[1]).elts[0]).toBe("1");
+  });
+
+  it("should reject a BINDING whose value is more than one expression", () => {
+    const ctx = {
+      state: {
+        nodePool: ["unused"],
+        nodeStack: [],
+        nodeStackStack: [],
+        nodeMap: {},
+        errors: [],
+        env: [{ name: "global", lexicon: {} }]
+      }
+    };
+
+    const keyId = Ast.intern(ctx, { tag: "TAG", elts: ["a"] });
+    const valId = Ast.intern(ctx, {
+      tag: "EXPRS",
+      elts: [
+        Ast.intern(ctx, { tag: "NUM", elts: ["1"] }),
+        Ast.intern(ctx, { tag: "NUM", elts: ["2"] }),
+      ]
+    });
+    const bindingId = Ast.intern(ctx, { tag: "BINDING", elts: [keyId, valId] });
+
+    expect(() => Folder.fold(ctx, bindingId))
+      .toThrow("A record field value must be a single expression.");
+  });
+
+  it("should not let an unsaturated field value take nodes from outside it", () => {
+    const ctx = {
+      state: {
+        nodePool: ["unused"],
+        nodeStack: [],
+        nodeStackStack: [],
+        nodeMap: {},
+        errors: [],
+        env: [{
+          name: "global",
+          lexicon: { length: { tk: 1, name: "LENGTH", cls: "function", length: 1, arity: 1 } }
+        }]
+      }
+    };
+
+    const keyId = Ast.intern(ctx, { tag: "TAG", elts: ["a"] });
+    // `length` with no argument: it must report the shortfall rather than reach
+    // past the field for one.
+    const valId = Ast.intern(ctx, { tag: "EXPRS", elts: [Ast.intern(ctx, { tag: "IDENT", elts: ["length"] })] });
+    const bindingId = Ast.intern(ctx, { tag: "BINDING", elts: [keyId, valId] });
+
+    expect(() => Folder.fold(ctx, bindingId))
+      .toThrow("Too few arguments for LENGTH. Expected 1.");
+  });
+
   it("should pass 'pow 2 3' through as POW node", () => {
     const ctx = {
       state: {

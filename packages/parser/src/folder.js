@@ -42,7 +42,8 @@ export class Folder {
       // "LE": le,
       // "GE": ge,
       NEG: Folder.neg,
-      LIST: Folder.list
+      LIST: Folder.list,
+      BINDING: Folder.binding
       // "CASE": caseExpr,
       // "OF": ofClause,
     };
@@ -304,6 +305,31 @@ export class Folder {
 
   static tag(node) {
     Ast.push(Folder.#ctx, node);
+  }
+
+  // A record field. Without this, BINDING fell through to #expr, which pushes
+  // the tag name onto the same stack the value then folds on: an unsaturated
+  // value ate that name as an argument, and Ast.expr popped a value expression
+  // in its place, yielding a node tagged "1" and a discarded RECORD.
+  //
+  // Fold the value on its own stack, as list/parenExpr do. Applications there
+  // draw their arguments from the value alone, so one that is short reports it
+  // ("Too few arguments ...") instead of reaching outside the field, and what
+  // remains is exactly the field's expressions.
+  static binding(node) {
+    const ctx = Folder.#ctx;
+    Folder.#visit(node.elts[0]); // key -- a TAG, STR or NUM; pushes one node
+    Folder.#pushNodeStack();
+    Folder.#visit(node.elts[1]); // value
+    const key = Folder.#nodePool[node.elts[0]];
+    assertErr(
+      ctx,
+      ctx.state.nodeStack.length === 1,
+      "A record field value must be a single expression.",
+      key && key.coord || node.coord,
+    );
+    Folder.#popNodeStack();
+    Ast.binding(ctx);
   }
 }
 

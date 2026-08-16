@@ -302,9 +302,14 @@ export const parse = (function () {
     return tk2;
   }
 
+  function isBindingKeyStart(ctx) {
+    return match(ctx, TK_IDENT) || match(ctx, TK_STR) || match(ctx, TK_STRPREFIX) ||
+           match(ctx, TK_TAG) || match(ctx, TK_NUM) || match(ctx, TK_BOOL);
+  }
+
   function isBindingStart(ctx) {
-    if (match(ctx, TK_IDENT) || match(ctx, TK_STR) || match(ctx, TK_STRPREFIX) ||
-        match(ctx, TK_TAG) || match(ctx, TK_NUM) || match(ctx, TK_BOOL)) {
+    // 2-token lookahead: a key token followed by a colon.
+    if (isBindingKeyStart(ctx)) {
       return peekNextToken(ctx) === TK_COLON;
     }
     return false;
@@ -530,10 +535,28 @@ export const parse = (function () {
     ret.cls = "punc";
     return ret;
   }
+  // A record field is an expression, not a program: `let` binds for the rest of
+  // the enclosing program, which a field has no way to delimit. Reject it where
+  // it appears instead of letting it fall through to whatever the expression
+  // grammar makes of the leftover `..`.
+  function assertNoLetDef(ctx) {
+    if (match(ctx, TK_LET)) {
+      assertErr(
+        ctx,
+        false,
+        "A let definition is not allowed in a record field.",
+        getCoord(ctx),
+      );
+    }
+  }
   function recordBinding(ctx, cc) {
-    // Parse one binding: key colon value-exprs
-    const savedLexeme = lexeme;
-    const savedCoord = getCoord(ctx);
+    // Parse one binding: `key: value-exprs`, or the shorthand `key` alone.
+    // Classify the key while it is still unread -- match() only peeks, and the
+    // token it caches is the one bindingName is about to eat. There is no way
+    // back afterwards: bindingName turns both TK_IDENT and TK_TAG keys into a
+    // TAG node, and only identifiers may elide their value.
+    assertNoLetDef(ctx);
+    const keyIsIdent = match(ctx, TK_IDENT);
     return bindingName(ctx, function (ctx) {
       if (match(ctx, TK_COLON)) {
         eat(ctx, TK_COLON);
@@ -544,21 +567,43 @@ export const parse = (function () {
         };
         ret.cls = "punc";
         return ret;
-      } else {
-        // Shorthand syntax: { x } means { x: x }
-        Ast.name(ctx, savedLexeme, savedCoord);
-        countCounter(ctx);
-        Ast.binding(ctx);
-        if (match(ctx, TK_COMMA)) {
-          eat(ctx, TK_COMMA);
-          const ret = function (ctx) {
-            return recordBinding(ctx, cc);
-          };
-          ret.cls = "punc";
-          return ret;
-        }
-        return cc;
       }
+      // Shorthand: `{x}` is sugar for `{x: x}`. Read the key back off the node
+      // stack rather than out of `lexeme`: the scanner overwrites `lexeme` on
+      // every peek -- including the match() just above and the eat() of the
+      // comma that got us here -- so by now it holds anything but the key.
+      const key = ctx.state.nodePool[Ast.peek(ctx)];
+      assertErr(
+        ctx,
+        keyIsIdent,
+        "Expecting a ':' after record key.",
+        key && key.coord || getCoord(ctx),
+      );
+      // Same counter discipline and node shape as the colon path above, so the
+      // desugared binding is indistinguishable from a hand-written `x: x`.
+      countCounter(ctx);
+      startCounter(ctx);
+      Ast.name(ctx, key.elts[0], key.coord);
+      countCounter(ctx);
+      if (!valueIsComplete(ctx)) {
+        // The elided value names a function, so it still owes arguments:
+        // `{f 10}` is `{f: f 10}`. Collect them exactly as a `key:` value is
+        // collected -- recordBindingValue stops on the same arity rule.
+        return recordBindingValue(ctx, cc);
+      }
+      finishBinding(ctx);
+      if (match(ctx, TK_COMMA)) {
+        eat(ctx, TK_COMMA);
+        const ret = function (ctx) {
+          return recordBinding(ctx, cc);
+        };
+        ret.cls = "punc";
+        return ret;
+      }
+      if (isBindingKeyStart(ctx)) {
+        return recordBinding(ctx, cc); // Commas between fields are optional.
+      }
+      return cc;
     });
   }
   function finishBinding(ctx) {
@@ -566,7 +611,66 @@ export const parse = (function () {
     stopCounter(ctx);
     Ast.binding(ctx);
   }
+  // How many operands the expression at `nid` will consume. Mirrors the arity
+  // rule Folder.ident applies when it actually performs the application: a
+  // lexicon function takes `arity` (falling back to `length`), and a let-bound
+  // lambda -- which name() pushes by nid rather than as an IDENT -- takes one
+  // per parameter. Everything else is a value and takes none.
+  function exprArity(ctx, nid, depth) {
+    depth = depth || 0;
+    if (depth > 8) {
+      // A self-referential definition (`let f = f..`) would otherwise cycle
+      // between the IDENT and the nid it resolves to.
+      return 0;
+    }
+    const n = ctx.state.nodePool[nid];
+    if (!n) {
+      return 0;
+    }
+    if (n.tag === "EXPRS" && n.elts.length === 1) {
+      // letDef stores a definition's body wrapped in EXPRS, and name() pushes
+      // that node by nid, so unwrap to reach the lambda underneath.
+      return exprArity(ctx, n.elts[0], depth + 1);
+    }
+    if (n.tag === "IDENT") {
+      const word = Env.findWord(ctx, n.elts[0]);
+      if (!word) {
+        return 0;
+      }
+      if (word.nid) {
+        // A let-bound name: its arity is its definition's. The shorthand path
+        // pushes a bare IDENT, so unlike name() it has not already followed the
+        // nid for us.
+        return exprArity(ctx, word.nid, depth + 1);
+      }
+      if (word.cls === "function") {
+        return word.arity !== undefined ? word.arity : word.length;
+      }
+      return 0;
+    }
+    if (n.tag === "LAMBDA") {
+      const params = ctx.state.nodePool[n.elts[0]];
+      return params && params.elts ? params.elts.length : 0;
+    }
+    return 0;
+  }
+  // Whether the expressions collected for the current binding's value already
+  // form one complete expression. Walking them in source order, each expression
+  // satisfies one operand and demands `arity` more; the value is complete when
+  // nothing is outstanding. `{y: f 10 z}` with `f` of arity 1 settles after
+  // `10`, which is what lets the trailing `z` be read as the next field rather
+  // than as another argument.
+  function valueIsComplete(ctx) {
+    const nodeStack = ctx.state.nodeStack;
+    const count = ctx.state.exprc;
+    let need = 1;
+    for (let i = count; i > 0; i--) {
+      need += exprArity(ctx, nodeStack[nodeStack.length - i]) - 1;
+    }
+    return need === 0;
+  }
   function recordBindingValue(ctx, cc) {
+    assertNoLetDef(ctx);
     // Check for start of next binding before parsing expr
     if (isBindingStart(ctx)) {
       finishBinding(ctx);
@@ -590,6 +694,13 @@ export const parse = (function () {
       if (match(ctx, TK_RIGHTBRACE) || emptyInput(ctx) || emptyExpr(ctx)) {
         finishBinding(ctx);
         return cc;
+      }
+      if (valueIsComplete(ctx) && isBindingKeyStart(ctx)) {
+        // The value has taken every operand its arity calls for, so a key token
+        // here starts the next field rather than another argument. Lets the
+        // comma be omitted before a shorthand field, as it can be elsewhere.
+        finishBinding(ctx);
+        return recordBinding(ctx, cc);
       }
       return recordBindingValue(ctx, cc);
     });
