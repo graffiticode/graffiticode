@@ -125,6 +125,69 @@ describe("data", () => {
     });
   });
 
+  describe("refresh", () => {
+    // The stale-compile false PASS: a taskId is content-addressed over
+    // {lang, code} and carries no compiler version, so a verdict recorded
+    // before a breaking language change keeps answering for code the checker
+    // now rejects.
+    it("should answer from the cache without it", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(DATA1);
+      await dataApi.get({ taskStorer, compileStorer, id });
+
+      // Second read must not reach the compiler at all.
+      await expect(dataApi.get({ taskStorer, compileStorer, id }))
+        .resolves.toStrictEqual(DATA1);
+      expect(compile).toHaveBeenCalledTimes(1);
+    });
+
+    it("should recompile with it, even when a result is cached", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(DATA1);
+      await dataApi.get({ taskStorer, compileStorer, id });
+
+      mockCompileData(DATA2);
+      await expect(dataApi.get({ taskStorer, compileStorer, id, refresh: true }))
+        .resolves.toStrictEqual(DATA2);
+      expect(compile).toHaveBeenCalledTimes(2);
+    });
+
+    it("should overwrite the stored verdict, not just re-read it", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(DATA1);
+      await dataApi.get({ taskStorer, compileStorer, id });
+
+      mockCompileData(DATA2);
+      await dataApi.get({ taskStorer, compileStorer, id, refresh: true });
+
+      // The point of the fix: stored data was write-once, so a stale record
+      // could only ever be deleted. A later plain read must see the new answer.
+      await expect(compileStorer.get({ id })).resolves.toEqual(
+        expect.objectContaining({ data: DATA2 })
+      );
+      await expect(dataApi.get({ taskStorer, compileStorer, id }))
+        .resolves.toStrictEqual(DATA2);
+      expect(compile).toHaveBeenCalledTimes(2);
+    });
+
+    it("should keep firstCompile when overwriting", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(DATA1);
+      await dataApi.get({ taskStorer, compileStorer, id });
+      const before = await compileStorer.get({ id });
+
+      mockCompileData(DATA2);
+      await dataApi.get({ taskStorer, compileStorer, id, refresh: true });
+      const after = await compileStorer.get({ id });
+
+      // A refresh recompiles the same task; it does not make a new one.
+      expect(after.firstCompile).toBe(before.firstCompile);
+      // `count` is deliberately not asserted: compileStorer.get() increments it
+      // on every read, so the reads in this test move it too and it measures
+      // reads rather than compiles.
+    });
+  });
+
   it("should cache a compile that says nothing about caching", async () => {
     const id = await taskStorer.create({ task: TASK1 });
     mockCompileData(DATA1);

@@ -21,10 +21,28 @@ function decodeCompileData(compile) {
   }
 }
 
-const buildCompileCreate = ({ db }) => async ({ id, compile, auth }) => {
+const buildCompileCreate = ({ db }) => async ({ id, compile, auth, overwrite = false }) => {
   const compileRef = db.doc(`compiles/${id}`);
   const compileDoc = await compileRef.get();
   const now = new Date().toISOString();
+
+  if (compileDoc.exists && overwrite) {
+    // A forced recompile (see data.js `refresh`). Without this the stored data
+    // was write-once — an existing doc only ever had count/lastCompile moved —
+    // so a verdict recorded before a breaking compiler change could never be
+    // corrected, only deleted. Keep count and firstCompile: this is the same
+    // task compiled again, not a new one.
+    const currentData = compileDoc.data();
+    await compileRef.update({
+      ...encodeCompileData(compile),
+      count: (currentData.count || 1) + 1,
+      lastCompile: now,
+      ...(currentData.firstCompile || !currentData.timestamp
+        ? {}
+        : { firstCompile: new Date(currentData.timestamp).toISOString() })
+    });
+    return id;
+  }
 
   if (!compileDoc.exists) {
     // New document - set count to 1, firstCompile and lastCompile timestamps

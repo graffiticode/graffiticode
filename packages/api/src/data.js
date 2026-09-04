@@ -1,5 +1,5 @@
 const buildGetData = ({ compile, langOverrideStorer }) =>
-  async ({ taskStorer, compileStorer, id, auth, authToken, options, action }) => {
+  async ({ taskStorer, compileStorer, id, auth, authToken, options, action, refresh }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
@@ -12,7 +12,16 @@ const buildGetData = ({ compile, langOverrideStorer }) =>
     const override = uid && langOverrideStorer
       ? await langOverrideStorer.get({ uid })
       : undefined;
-    const bypassCache = Boolean(override);
+    // `refresh` is the caller saying "compile this now", not "tell me what it
+    // once compiled to". It exists because a taskId is content-addressed over
+    // {lang, code} and says NOTHING about the compiler version: when a language
+    // ships a breaking change, every cached compile from before it keeps
+    // answering, so a program the checker now rejects still reads as a clean
+    // 200 with no errors. That is a false PASS for anything asserting "this
+    // compiles" — the daily corpus ping, the sweep, and the corpus generator
+    // all verify through this path. Unlike `override`, a refresh WRITES its
+    // result back (see below), so it repairs the record rather than dodging it.
+    const bypassCache = Boolean(override) || Boolean(refresh);
     // There exists a task that we are authorized to see.
     if (!bypassCache) {
       const cached = await compileStorer.get({ id, auth });
@@ -59,13 +68,20 @@ const buildGetData = ({ compile, langOverrideStorer }) =>
       // must not be held by the browser or the CDN either.
       action.noStore = true;
     }
-    if (!bypassCache && cacheable) {
+    // A refresh writes its fresh result back; an override must not, since its
+    // result is specific to that user's language-server revision and would
+    // pollute the shared cache for everyone else.
+    if ((!bypassCache || refresh) && cacheable) {
       await compileStorer.create({
         id,
         compile: {
           timestamp: Date.now(),
           data: obj
-        }
+        },
+        // Existing docs are otherwise never rewritten (only count/lastCompile
+        // move), which is what made a stale verdict permanent: nothing short of
+        // deleting the doc could correct it.
+        overwrite: Boolean(refresh)
       });
     }
     return obj;

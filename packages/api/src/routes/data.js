@@ -14,12 +14,12 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // `action` is an out-param the caller can supply to learn about the compile
   // (see data.js): `compiled` for logging, `noStore` when the result expires.
   // Callers that don't care (routes/compile.js) can omit it.
-  return async ({ auth, authToken, ids, action = {} }) => {
+  return async ({ auth, authToken, ids, action = {}, refresh = false }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
     }
     const objs = await Promise.all(ids.map(id => dataApi.get({
-      taskStorer, compileStorer, id, auth, authToken, action
+      taskStorer, compileStorer, id, auth, authToken, action, refresh
     })));
     let data;
     if (objs.length > 1) {
@@ -37,8 +37,30 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const auth = req.auth.context;
     const authToken = parseAuthTokenFromRequest(req);
     const ids = parseIdsFromRequest(req);
+    // ?refresh=1 recompiles instead of answering from the compile cache, and
+    // writes the fresh result back. A taskId is content-addressed over
+    // {lang, code} and carries no compiler version, so after a language ships a
+    // breaking change its cached compiles keep reporting the old verdict —
+    // clean 200s for programs the checker now rejects. Callers that ASSERT
+    // "this compiles" (the corpus ping, the sweep, the corpus generator) need
+    // the compiler, not the record.
+    //
+    // Authenticated callers only: a recompile costs real work, so an anonymous
+    // request must not be able to force one. The flag is ignored rather than
+    // rejected, which keeps a public read working instead of 401-ing on a
+    // query param.
+    const refresh = auth !== null && ["1", "true"].includes(String(req.query.refresh || ""));
     const action = {};
-    const data = await getData({ auth, authToken, ids, action });
+    const data = await getData({ auth, authToken, ids, action, refresh });
+    // A refreshed response must not be held anywhere. The id is immutable but
+    // we just proved its data is not, and the whole point of asking was to get
+    // past a stale copy — an immutable header here would plant another one in
+    // the CDN and in the caller's browser.
+    if (refresh) {
+      setNoStoreCacheHeaders(res);
+      res.status(200).json(createSuccessResponse({ data }));
+      return;
+    }
     if (action.noStore) {
       // At least one of these ids compiles to output that expires.
       setNoStoreCacheHeaders(res);
