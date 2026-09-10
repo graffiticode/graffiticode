@@ -1,0 +1,15 @@
+{
+  "id": "0014",
+  "name": "L0014",
+  "label": "L0014 (Internal)",
+  "hidden": true,
+  "summary": "Authors TransLaTeX translation rule sets — the words, types, rules and test corpus that drive @graffiticode/translatex.",
+  "authoring_guide": "L0014 is an internal language. A program declares a translation rule set and a corpus that validates it. Four statements, in any order: `words { ... }` maps a LaTeX token to its replacement; `types { ... }` names reusable pattern classes; `rules { ... }` maps a source pattern to its expansion; `tests [ ... ]` is a list of [source, expected] pairs run against the rule set the program builds. Compiling emits { options, tests } — `options` is the rule set a consumer hands to TransLaTeX.buildTranslator, and `tests` is each case scored 1 or -1. Backslashes must be doubled in string literals.",
+  "examples": [
+    {
+      "prompt": "A rule set that renders addition and multiplication with explicit spacing, with two tests.",
+      "produces": "rule set",
+      "notes": "rules maps a pattern to an expansion; %1 and %2 are the operands."
+    }
+  ]
+}

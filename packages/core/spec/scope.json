@@ -1,0 +1,16 @@
+{
+  "id": "0014",
+  "summary": "Authors TransLaTeX translation rule sets: words, types, rules, and a self-validating test corpus.",
+  "in_scope": [
+    "Word substitution tables (LaTeX token to replacement)",
+    "Named pattern types reused across rules",
+    "Pattern-to-expansion rules, including nested sub-rule maps",
+    "A [source, expected] test corpus scored against the rule set",
+    "TransLaTeX parser options (separators, intervals, text handling)"
+  ],
+  "out_of_scope": [
+    "Anything a learner sees — L0014 authors compiler input, not content",
+    "Spreadsheet, assessment or diagram authoring; those are their own dialects",
+    "Implementing the reducer functions a rule set dispatches to — those live in @graffiticode/translatex"
+  ]
+}

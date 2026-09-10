@@ -1,0 +1,36 @@
+{
+  "publishConfig": {
+    "access": "public"
+  },
+  "name": "@graffiticode/l0014",
+  "version": "0.1.0",
+  "description": "L0014 (Internal) — a Graffiticode dialect for authoring TransLaTeX translation rule sets, inheriting @graffiticode/l0000",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./spec/*": "./spec/*"
+  },
+  "files": [
+    "dist",
+    "spec"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-static": "node tools/build-static.js",
+    "test": "vitest run",
+    "lint": "eslint src tools"
+  },
+  "dependencies": {
+    "@graffiticode/l0000": "^0.1.3",
+    "@graffiticode/translatex": "^0.24.1"
+  },
+  "devDependencies": {
+    "@graffiticode/parser": "^1.6.1",
+    "spec-md": "^3.1.0"
+  }
+}
