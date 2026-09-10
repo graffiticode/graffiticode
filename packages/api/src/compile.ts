@@ -15,33 +15,14 @@ export async function compile({
   if (!code || !data) {
     throw new Error("Missing required parameters: code and data");
   }
-  // Inject Learnosity consumer credentials from the api process's environment
-  // into `config` (which the core compiler reads as `options.config`). Secrets
-  // live here, in the api process, and never at the core package's module scope.
-  // A program that supplies its own `set-var "learnosity-key"/"learnosity-secret"`
-  // still overrides these (see resolveCredentials in the core compiler).
-  const mergedConfig = {
-    ...config,
-    learnosity: {
-      key: process.env.LEARNOSITY_KEY,
-      secret: process.env.LEARNOSITY_SECRET,
-      ...(config?.learnosity ?? {}),
-    },
-  };
-  // Response envelope: success output in `data`, compile errors in `errors` (array),
-  // and `cache: false` — signForRender folds a time-limited Learnosity signature into
-  // `request` on every compile, so this output goes stale on a timer. The api strips
-  // the directive and, seeing it, neither stores the compile nor lets the `/data`
-  // response be held by the browser or the CDN. Without it a cached compile hands the
-  // browser a dead token and the form renders blank.
+  // Standard compile response envelope: success output in `data`, compile errors in `errors`
+  // (always an array). Deliberately no `cache: false` directive — unlike L0176, whose output
+  // carries a time-limited signature, an L0014 compile is a pure function of source and data,
+  // so the result stays valid and is safe for the api and the CDN to hold.
   return await new Promise((resolve) =>
-    compiler.compile(code, data, mergedConfig, (err: any, out: any) => {
+    compiler.compile(code, data, config, (err: any, out: any) => {
       const errors = Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [];
-      if (errors.length > 0) {
-        resolve({ data: null, errors, cache: false });
-      } else {
-        resolve({ data: out, errors: [], cache: false });
-      }
+      resolve({ data: errors.length ? null : out, errors });
     }),
   );
 }
