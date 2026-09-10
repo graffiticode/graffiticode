@@ -1,10 +1,21 @@
 /*
 LaTeX to LaTeX translator.
 
-Reconstructed from the compiled rule set that @graffiticode/translatex ships
-as src/rules.js, which is byte-identical to the L120 output recovered from
-artcompiler-translatex-0.15.0.tgz. src/rules.test.ts pins that identity, so
-an edit here that changes the rule set fails the build.
+The rule set @graffiticode/translatex ships as src/rules.js, as L0014 source.
+
+It is a RECONSTRUCTION. The original L120 program lived in the item store
+behind gc.acx.ac and did not survive; the compiled output did, identically,
+in two places — the shipping src/rules.js and the data.txt inside
+artcompiler-translatex-0.15.0.tgz. src/rules.test.ts compiles this file and
+requires the result to match that output exactly, key order included, so an
+edit here that changes the rule set fails the build.
+
+Rule order is precedence: translatex's match() takes the first pattern that
+matches, which is why the catch-all "?" is last. Do not reorder.
+
+Section headings come from an ancestor of this rule set preserved in
+github.com/artcompiler/L120 (tests/*.json). Regenerate with
+tools/gen-latex-rules.mjs.
 
 Backslashes are DOUBLED here and were not in L120: the modern parser reads
 "\times" as TAB + "imes". See src/pretty.ts.
@@ -67,6 +78,7 @@ types {
 }
 
 rules {
+  /* Sets */
   "\\left(?\\right]": "\\left(%1\\right]",
   "\\left[?\\right)": "\\left[%1\\right)",
   "\\left[?\\right]": "\\left[%1\\right]",
@@ -75,14 +87,24 @@ rules {
   "?\\cap?": "%1\\cap %2",
   "?\\backslash?": "%1\\backslash %2",
   "\\mathbb{?}": "\\mathbb{%2}",
+
+  /* Logarithm */
   "\\ln{?}": "\\ln{%2}",
   "\\log{?}": "\\log{%2}",
   "\\log_{?}{?}": "\\log_{%1}{%2}",
+
+  /* Matrices */
   "\\type{matrix}": { "\\begin{bmatrix}%1\\end{bmatrix}": { "\\type{row}": "%*\\\\", "\\type{column}": "%*&" } },
+
+  /* Derivative */
   "\\frac{d}{d?}?": "\\frac{d}{d%2}{%1}",
   "\\frac{d^?}{d?^?}?": "\\frac{d^%3}{d%2^%3}{%1}",
+
+  /* Integral */
   "\\int_?^? ? d?": "\\int_{%1}^{%2} %3 d%4",
   "\\int ? d?": "\\int %1 d%2",
+
+  /* Limit */
   "\\lim_? ?": {
     "\\lim_{%1}{%2}": {
       "? \\rightarrow ?": "%1 \\rightarrow %2",
@@ -90,7 +112,11 @@ rules {
       "\\left(?,?\\right)": "\\left(%1, %2\\right)"
     }
   },
+
+  /* Sum */
   "\\sum_?^? ?": "\\sum_{%1}^{%2}{%3}",
+
+  /* Trig */
   "\\sin{?}": "\\sin{%1}",
   "\\cos{?}": "\\cos{%1}",
   "\\tan{?}": "\\tan{%1}",
@@ -115,6 +141,8 @@ rules {
   "\\coth^{-1}{?}": "\\coth^{-1}{%1}",
   "\\sech^{-1}{?}": "\\sech^{-1}{%1}",
   "\\csch^{-1}{?}": "\\csch^{-1}{%1}",
+
+  /* Relational */
   "?<?": "%1<%2",
   "?\\nless?": "%1\\nless %2",
   "?\\le?": "%1\\le %2",
@@ -124,6 +152,8 @@ rules {
   "?=?": "%1=%2",
   "?\\ne?": "%1\\ne %2",
   "?\\approx?": "%1\\approx %2",
+
+  /* Various */
   "\\infty": "\\infty",
   "\\type{mixedNumber}": "%1%2",
   "?%": "{%1}%",
@@ -156,6 +186,8 @@ rules {
 }
 
 allow-interval true
+parsing-integral-expr false
+rhs false
 
 tests []
 ..

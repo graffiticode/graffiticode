@@ -33,6 +33,16 @@ const additions = {
   "allow-interval": { tk: 1, name: "ALLOW_INTERVAL", cls: "function", length: 1, arity: 1 },
   "ignore-text": { tk: 1, name: "IGNORE_TEXT", cls: "function", length: 1, arity: 1 },
   "ignore-coefficient-one": { tk: 1, name: "IGNORE_COEFFICIENT_ONE", cls: "function", length: 1, arity: 1 },
+  "parsing-integral-expr": { tk: 1, name: "PARSING_INTEGRAL_EXPR", cls: "function", length: 1, arity: 1 },
+
+  // L120 spelled these RHS / NoParens / EndRoot. As WORDS they set a parser
+  // option, and the shipping rule set carries `RHS: false`, so they are needed
+  // for it to round-trip. What is NOT ported is their other use — as context
+  // markers INSIDE a rule expansion list, `RHS {"?^?": "..."}`, which selects an
+  // alternate expansion. No shipping rule set uses that form; see compiler.ts.
+  rhs: { tk: 1, name: "RHS", cls: "function", length: 1, arity: 1 },
+  "no-parens": { tk: 1, name: "NO_PARENS", cls: "function", length: 1, arity: 1 },
+  "end-root": { tk: 1, name: "END_ROOT", cls: "function", length: 1, arity: 1 },
 };
 
 // L120 spelled these in camelCase (`allowThousandsSeparator`). Kebab-case is
@@ -42,12 +52,7 @@ const additions = {
 // different matter and are preserved exactly — see optionFields in compiler.ts.
 export const lexicon = { ...base, ...additions };
 
-// L120's context alternates, deliberately not ported. They are the source of the
-// three hard-coded context names in translatex's core.js:1001-1003, and NO
-// shipping rule set uses any of them — checked across translatex's own set and
-// all four of L0179's. The machinery there also carries a context-accumulation
-// bug (core.js:991). Port them when a rule set needs them, not on spec.
-//
-// Listed here so they are dropped from the published vocabulary while the
-// compiler can still name them in an error.
-export const deprecatedWords: string[] = ["RHS", "NoParens", "EndRoot"];
+// Nothing is retired yet. The list exists because build-static.js filters the
+// published vocabulary through it, and because a dialect always ends up needing
+// one.
+export const deprecatedWords: string[] = [];

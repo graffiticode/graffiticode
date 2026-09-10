@@ -38,8 +38,26 @@ byte-identical to the shipping `src/rules.js` (49 words, 1 type, 80 rules). Any 
 "compiles without error" — would pass on a port that reorders rules or eats a backslash, and both
 are silent mis-translations downstream.
 
+The comparison is `JSON.stringify(compiled) === JSON.stringify(shipped)` — the whole options
+object, not a field-by-field check. That distinction is not pedantic: an earlier version compared
+only `words`/`types`/`rules`, went green, and was silently dropping `parsingIntegralExpr` and `RHS`,
+both of which are in the shipping rule set.
+
 `spec/latex-to-latex.gc` is the committed reconstruction and is itself under test. **Do not edit it
-casually** — an edit that changes the rule set fails the suite.
+casually** — an edit that changes the rule set fails the suite. Regenerate it with
+`node tools/gen-latex-rules.mjs`.
+
+Its section headings (`/* Sets */`, `/* Trig */`, …) are not invented. They are lifted from a real
+L120 **source** program preserved in `github.com/artcompiler/L120` (`tests/*.json`) that is an
+ancestor of this rule set — 48/49 words, 69/80 rules — and mapped onto the target's own order via
+`src/fixtures/latex-to-latex.sections.json`. That mapping yields ten contiguous runs in exactly the
+ancestor's section order with nothing left over, which is itself evidence the shipping rule order
+IS the authored order rather than an artifact of serialization. The eleven rules newer than the
+ancestor inherit the heading above them.
+
+`optionFields` in `compiler.ts` and `optionWords` in `pretty.ts` must stay in step, in the same
+order — the first decides compiled key order, the second decides which options survive a round
+trip. They fell out of step once already; that is how the two missing keys got in.
 
 ## Two things the modern parser does that L120's did not
 

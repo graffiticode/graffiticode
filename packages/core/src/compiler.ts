@@ -90,7 +90,17 @@ const optionFields: Record<string, string> = {
   ALLOW_INTERVAL: "allowInterval",
   IGNORE_TEXT: "ignoreText",
   IGNORE_COEFFICIENT_ONE: "ignoreCoefficientOne",
+  PARSING_INTEGRAL_EXPR: "parsingIntegralExpr",
+  RHS: "RHS",
+  NO_PARENS: "NoParens",
+  END_ROOT: "EndRoot",
 };
+
+// ORDER IS PART OF THE OUTPUT. collectOptions emits these in table order, and
+// the shipping rule set's keys run allowInterval, parsingIntegralExpr, RHS — so
+// the table is ordered to reproduce it. Reordering this changes the compiled
+// JSON without changing what it means, which would break the identity test for
+// no reason.
 
 /** A single-key contribution to `options`, tagged so PROG can merge in order. */
 const contribution = (key: string, value: any) => ({ __l0014: key, value });

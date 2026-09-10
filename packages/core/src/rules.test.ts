@@ -100,18 +100,18 @@ describe("round trip against the shipping rule set", () => {
 
   test("the fixture is the rule set translatex actually ships", async () => {
     const { rules } = await import("@graffiticode/translatex/src/rules.js" as any);
-    expect(rules.words).toEqual(shipped.words);
-    expect(rules.types).toEqual(shipped.types);
-    expect(rules.rules).toEqual(shipped.rules);
-    expect(Object.keys(rules.rules)).toEqual(Object.keys(shipped.rules));
+    expect(JSON.stringify(rules)).toBe(JSON.stringify(shipped));
   });
 
   test("compiling the reconstructed source reproduces it exactly", async () => {
     const src = toSource({ options: shipped, tests: [] });
     const out = await compileSrc(src);
-    expect(out.options.words).toEqual(shipped.words);
-    expect(out.options.types).toEqual(shipped.types);
-    expect(out.options.rules).toEqual(shipped.rules);
+    // The WHOLE options object, serialized — not a field-by-field check.
+    // Comparing only words/types/rules is what let `parsingIntegralExpr` and
+    // `RHS` go missing unnoticed: both are in the shipping set, neither was in
+    // the option table, and three green assertions said the round trip was
+    // exact. JSON.stringify compares key order too, which matters here.
+    expect(JSON.stringify(out.options)).toBe(JSON.stringify(shipped));
   });
 
   test("rule order survives the round trip", async () => {
@@ -128,10 +128,20 @@ describe("round trip against the shipping rule set", () => {
     // what stops an edit silently changing the rule set.
     const src = readFileSync(new URL("../spec/latex-to-latex.gc", import.meta.url), "utf-8");
     const out = await compileSrc(src);
-    expect(out.options.words).toEqual(shipped.words);
-    expect(out.options.types).toEqual(shipped.types);
-    expect(out.options.rules).toEqual(shipped.rules);
-    expect(Object.keys(out.options.rules)).toEqual(Object.keys(shipped.rules));
+    expect(JSON.stringify(out.options)).toBe(JSON.stringify(shipped));
+  });
+
+  test("the committed source carries the section headings", async () => {
+    // The headings are lifted from an ancestor of this rule set preserved in
+    // github.com/artcompiler/L120, and mapped onto the target's own order. They
+    // are what makes the file readable as source rather than as a dump, and
+    // they are regenerable (tools/gen-latex-rules.mjs) rather than hand-placed.
+    const src = readFileSync(new URL("../spec/latex-to-latex.gc", import.meta.url), "utf-8");
+    const headings = [...src.matchAll(/^\s*\/\* (\w[\w ]*) \*\/$/gm)].map((m) => m[1]);
+    expect(headings).toEqual([
+      "Sets", "Logarithm", "Matrices", "Derivative", "Integral",
+      "Limit", "Sum", "Trig", "Relational", "Various",
+    ]);
   });
 
   test("every backslash survives — the escaping hazard the old surface had", async () => {

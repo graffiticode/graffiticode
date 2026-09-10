@@ -81,15 +81,41 @@ function block(word: string, body: string): string {
   return `${word} ${body}`;
 }
 
-function record(entries: [string, any][]): string {
+/**
+ * A record, optionally broken into commented sections.
+ *
+ * `sections` maps a key to the heading it belongs under; a heading is emitted
+ * whenever it changes, so the grouping follows the record's own order rather
+ * than reordering it. That distinction matters here: order IS precedence, so
+ * grouping must never move a rule.
+ */
+function record(entries: [string, any][], sections?: Record<string, string>): string {
   if (entries.length === 0) return "{}";
-  const parts = entries.map(([k, v]) => `  ${str(k)}: ${value(v, "  ")}`);
-  return `{\n${parts.join(",\n")}\n}`;
+  const parts: string[] = [];
+  let current: string | undefined;
+  entries.forEach(([k, v], i) => {
+    const section = sections && sections[k];
+    if (section && section !== current) {
+      parts.push(`${i === 0 ? "" : "\n"}  /* ${section} */`);
+      current = section;
+    }
+    parts.push(`  ${str(k)}: ${value(v, "  ")}`);
+  });
+  // Commas separate ENTRIES, not comment lines, so join by hand.
+  let out = "";
+  for (let i = 0; i < parts.length; i++) {
+    const isComment = parts[i].trimStart().startsWith("/*");
+    const moreEntries = parts.slice(i + 1).some((p) => !p.trimStart().startsWith("/*"));
+    out += parts[i] + (isComment ? "\n" : (moreEntries ? ",\n" : "\n"));
+  }
+  return `{\n${out}}`;
 }
 
 export interface ToSourceOptions {
   /** Emitted as a leading block comment. */
   header?: string;
+  /** Rule pattern -> section heading, for grouping the `rules` record. */
+  sections?: Record<string, string>;
 }
 
 /**
@@ -122,11 +148,15 @@ export function toSource(data: any, opts: ToSourceOptions = {}): string {
     const entries = Object.entries(options.rules).map(
       ([k, v]) => [k, unwrapRule(v)] as [string, any],
     );
-    out.push(block("rules", record(entries)));
+    out.push(block("rules", record(entries, opts.sections)));
     out.push("");
   }
 
-  // Parser options, in the order collectOptions emits them.
+  // Parser options. MUST mirror optionFields in compiler.ts, in the same order —
+  // that table decides the compiled key order, and this one decides which
+  // options survive a round trip at all. They fell out of step once already:
+  // `parsingIntegralExpr` and `RHS` are in the shipping rule set and were in
+  // neither table, so the round trip silently dropped them.
   const optionWords: [string, string][] = [
     ["allowThousandsSeparator", "allow-thousands-separator"],
     ["setDecimalSeparator", "set-decimal-separator"],
@@ -134,6 +164,10 @@ export function toSource(data: any, opts: ToSourceOptions = {}): string {
     ["allowInterval", "allow-interval"],
     ["ignoreText", "ignore-text"],
     ["ignoreCoefficientOne", "ignore-coefficient-one"],
+    ["parsingIntegralExpr", "parsing-integral-expr"],
+    ["RHS", "rhs"],
+    ["NoParens", "no-parens"],
+    ["EndRoot", "end-root"],
   ];
   let wroteOption = false;
   for (const [field, word] of optionWords) {
