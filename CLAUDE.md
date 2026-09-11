@@ -77,9 +77,21 @@ npm test                       # vitest in packages/core — includes the round-
 npm run build                  # core tsc -> build-static -> api tsc -> assemble
 npm run dev                    # language server on :50014
 npm run lint
+
+# single file / single test (from packages/core)
+npx vitest run src/rules.test.ts -t "round trip"
+
+# tools import ../dist, so run `npm run -w packages/core build` first (from packages/core)
+node tools/gen-latex-rules.mjs                 # regenerate spec/latex-to-latex.gc
+node tools/emit-translatex-rules.mjs --check   # verify ../translatex/src/rules.js matches the .gc
+node tools/emit-translatex-rules.mjs           # write it (translatex is a sibling checkout)
 ```
 
 Vitest must run with `packages/core` as cwd — the tests read `spec/*` by relative path.
+
+`docs.test.ts` compiles every fenced program in `spec/*.md` and checks that every word in
+`spec.md`'s tables exists in the lexicon. Editing the docs is editing tested code: a wrong example
+there is copied verbatim into LLM-generated programs.
 
 ## Architecture
 
@@ -93,17 +105,48 @@ Vitest must run with `packages/core` as cwd — the tests read `spec/*` by relat
     merges, then runs the corpus. Same output, no ordering rule.
   - `pretty.ts` — `toSource`, the DATA → source direction. This is what makes an existing rule set
     recoverable at all.
-- **`packages/api`** — the Express language server, port 50014. Scaffolded from L0176.
+- **`packages/api`** — the Express language server, port 50014. Scaffolded from L0176, with
+  L0176's Learnosity credential injection and `cache: false` removed: an L0014 compile is a pure
+  function of source and data, so results are safe to cache. Don't bring them back.
 
-There is no `packages/view`: L0014 authors compiler input, and nothing a learner sees.
+There is no `packages/view`: L0014 authors compiler input, and nothing a learner sees. That is
+also why the `Dockerfile` copies only the core and api manifests. A peer's Dockerfile copied
+verbatim fails on the missing `packages/view`.
+
+## Deployment
+
+The service is Cloud Run `l0014` in GCP project `graffiticode`, us-central1, built from `cloudbuild.yaml`
+via `npm run gcp:build`. The only runtime env var is `AUTH_URL`. The pipeline mirrors L0000's, not
+L0176's, which also wires Learnosity secrets.
+
+The platform resolves a compiler host with `getCompilerHost` (`graffiticode/packages/api/src/util.js`).
+L0014 has no entry in that repo's `config/config.json` `hosts`, so the platform looks for it at
+`l0014.graffiticode.org`, the Cloudflare-fronted pattern L0013 and L0179 use. The name needs a
+DNS record pointing at the Cloud Run service. Without one, deploys succeed but the platform can't
+reach them.
 
 ## Not ported, deliberately
 
-`RHS`, `NoParens` and `EndRoot` — L120's context alternates, and the source of the three
-hard-coded context names in translatex's `core.js:1001-1003`. **No shipping rule set uses them**
-(checked across translatex's own set and all four of L0179's). The machinery in translatex also
-carries a context-accumulation bug at `core.js:991`. Port them when a rule set needs them, not on
-spec. `lexicon.ts`'s `deprecatedWords` names them so the failure is legible.
+The `RHS`/`NoParens`/`EndRoot` context-alternate SYNTAX. These are L120's context alternates, and
+the source of the three hard-coded context names in translatex's `core.js:1001-1003`. **No
+shipping rule set uses them** (checked across translatex's own set and all four of L0179's). The
+machinery in translatex also carries a context-accumulation bug at `core.js:991`. Port them when a
+rule set needs them, not on spec.
+
+What does and doesn't work today:
+
+- **Nested sub-rules work.** `{ "%1+%2": { "x": "X" } }` scopes those rules to that expansion's
+  arguments. Two shipping rules use this form (`\type{matrix}`, `\lim_? ?`), and the identity test
+  covers them.
+- **Context alternates work if written as raw records**, because nested records pass through to
+  translatex unchanged: `{ "%1+%2": [ { options: { RHS: true }, value: {...} }, {...} ] }`. The
+  first alternate whose flag is set wins, and the untagged one is the fallback.
+- **`rhs {...}` inside a rule is a silent failure.** The word compiles to L0014's internal
+  `{__l0014, value}` wrapper, translatex fails to parse it as a pattern, and every corpus case
+  comes back `""`, including unrelated ones. No compile error is reported. `deprecatedWords` is
+  empty, so nothing catches it. At the top level, `rhs false` is fine: it just sets the option.
+- Only `RHS` ever changes during a translation: translatex sets it for the right operand of
+  binary and multiplicative nodes. `NoParens` and `EndRoot` are fixed by the caller's options.
 
 ## Related
 
