@@ -40,7 +40,12 @@ describe("spec programs compile", () => {
     const src = read(file);
     programs(src).forEach((program, i) => {
       test(`${file} program ${i + 1}`, async () => {
-        await expect(compileSrc(program)).resolves.toBeTruthy();
+        const out = await compileSrc(program);
+        expect(out).toBeTruthy();
+        // A doc example's expected output is a claim about what the rule set
+        // does. An empty expected asserts nothing, so only the others count.
+        const wrong = out.tests.filter((t: any) => t.expected !== "" && t.score !== 1);
+        expect(wrong, "doc program's expectations do not hold").toEqual([]);
       });
     });
   }

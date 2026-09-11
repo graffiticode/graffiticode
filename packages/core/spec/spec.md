@@ -38,14 +38,30 @@ Passed through to TransLaTeX untouched.
 
 ## Expansions
 
-A rule's expansion is a string, or a record of sub-rules applied within it:
+A rule's expansion is a string, or a record of sub-rules applied within it. Here the
+record maps the expansion `"\\lim_{%1}{%2}"` to rules that translate that expansion's operands:
 
 ```
 rules {
-  "\\ln{?}": "\\ln{%2}",
-  "\\lim_? ?": { "\\lim_{%1}{%2}": { "? \\to ?": "%1 \\to %2" } }
+  "\\lim_? ?": {
+    "\\lim_{%1}{%2}": {
+      "? \\rightarrow ?": "%1 \\to %2"
+    }
+  },
+  "?+?": "%1 + %2",
+  "? \\rightarrow ?": "%1 \\rightarrow %2",
+  "?": "%1"
 }
+tests [
+  ["\\lim_{x\\rightarrow0}x+1", "\\lim_{x \\to 0}{x} + 1"],
+  ["x\\rightarrow0", "x \\rightarrow 0"]
+]
+..
 ```
+
+The sub-rules apply only inside the limit. The first test shows `\rightarrow` becoming `\to`
+under the limit. The second shows it left as `\rightarrow` everywhere else. Sub-rules take
+precedence in the order they are written, just as top-level rules do.
 
 `%1`, `%2` are the matched operands; `%*` repeats over a sequence.
 

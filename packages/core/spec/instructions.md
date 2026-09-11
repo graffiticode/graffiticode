@@ -16,7 +16,9 @@ tests [["1+2", "1 + 2"]]
 - `words` maps a LaTeX token to its replacement.
 - `types` names a class of patterns, referenced elsewhere as `\type{name}`.
 - `rules` maps a source pattern to its expansion. `%1` and `%2` are the matched operands. An
-  expansion may be a record of sub-rules applied within it.
+  expansion may be a record that maps the expansion string to sub-rules, which apply only to that
+  expansion's operands:
+  `"\\lim_? ?": { "\\lim_{%1}{%2}": { "? \\rightarrow ?": "%1 \\to %2" } }`.
 - `tests` is a list of `[source, expected]` pairs, scored against the rule set the program builds.
 
 Rule order is precedence: the first matching pattern wins, so write specific patterns before
