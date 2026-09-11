@@ -73,8 +73,8 @@ Both bite silently, and both are why a recovered L120 source cannot be fed to L0
 ## Commands
 
 ```bash
-npm test                       # vitest in packages/core — includes the round-trip identity check
-npm run build                  # core tsc -> build-static -> api tsc -> assemble
+npm test                       # vitest in packages/core (incl. the round-trip identity check), then packages/view
+npm run build                  # core tsc -> build-static -> api tsc -> view lib + embed -> assemble
 npm run dev                    # language server on :50014
 npm run lint
 
@@ -109,9 +109,20 @@ there is copied verbatim into LLM-generated programs.
   L0176's Learnosity credential injection and `cache: false` removed: an L0014 compile is a pure
   function of source and data, so results are safe to cache. Don't bring them back.
 
-There is no `packages/view`: L0014 authors compiler input, and nothing a learner sees. That is
-also why the `Dockerfile` copies only the core and api manifests. A peer's Dockerfile copied
-verbatim fails on the missing `packages/view`.
+- **`packages/view`** (`@graffiticode/l0014-view`) — the `/form` page: the corpus results for an
+  item. Scaffolded from L0010's view. It mounts the shared `View` from `@graffiticode/l0000-view`
+  (^0.1.4, from npm; the local `../l0000` checkout is older), which fetches the compiled data and
+  calls `Form({ state: { data, errors } })` with `data` = `{options, tests}`. The Form is
+  read-only and never calls `apply`. The build copies `dist-embed/` into `packages/api/static`,
+  where `GET /form` serves it.
+  - `results.ts` classifies each case. An empty `expected` is **captured**, not failed: the
+    compiler scores it `-1`, but it asserts nothing, and a capture-style corpus would otherwise
+    show entirely red. `captured` is checked before `pass`, so an empty expected with an empty
+    actual is captured, not passed.
+  - Translations render as text, never typeset. The defects an author is looking for are a
+    dropped backslash or a changed space, and typeset math hides both.
+  - To see it without the platform: build, start the api, and open
+    `/form?data=<urlencoded {options, tests}>`. With no `id`, the View seeds itself from `data`.
 
 ## Deployment
 
