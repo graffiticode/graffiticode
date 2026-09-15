@@ -27,9 +27,9 @@
     "gcp:logs": "gcloud run logs read l0014 --project graffiticode --region us-central1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.13.0",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.7.0",
-    "eslint": "^9.13.0",
+    "eslint": "^10.10.0",
     "globals": "^15.11.0",
     "prettier": "^3.3.3",
     "shx": "^0.4.0",
