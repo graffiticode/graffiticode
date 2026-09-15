@@ -8,15 +8,19 @@ import dts from "vite-plugin-dts";
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      entry: resolve(import.meta.dirname, "src/index.ts"),
       formats: ["es"],
       fileName: () => "index.js",
+      // Keep the extracted stylesheet at dist/style.css (the "./style.css" export); since
+      // Vite 6 library mode otherwise names it after the package.
+      cssFileName: "style",
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: ["react", "react-dom", "react-dom/client", "react/jsx-runtime"],
     },
     sourcemap: true,
     emptyOutDir: true,
   },
-  plugins: [react(), dts({ rollupTypes: true })],
+  // bundleTypes emits a single dist/index.d.ts (needs @microsoft/api-extractor).
+  plugins: [react(), dts({ bundleTypes: true })],
 });
