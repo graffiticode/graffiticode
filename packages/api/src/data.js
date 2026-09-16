@@ -1,4 +1,4 @@
-const buildGetData = ({ compile, langOverrideStorer }) =>
+const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
   async ({ taskStorer, compileStorer, id, auth, authToken, options, action, refresh }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
@@ -34,6 +34,22 @@ const buildGetData = ({ compile, langOverrideStorer }) =>
     // compile). One volatile layer makes the whole composed result volatile, so
     // this accumulates across the chain rather than taking the last answer.
     let cacheable = true;
+    // Each layer is checked against its own language's schema.json, so a
+    // mismatch is reported where it started rather than where it surfaced. The
+    // data is kept — an upstream agent may still make use of it — but a result
+    // carrying a schema error is never cached: it is a compiler bug, and the
+    // next deploy should not be answered with this one's output.
+    const checkShape = async (lang, obj) => {
+      if (typeof validateOutput !== "function") {
+        return obj;
+      }
+      const schemaErrors = await validateOutput(lang, obj, { uid, id });
+      if (!schemaErrors.length) {
+        return obj;
+      }
+      cacheable = false;
+      return { ...obj, errors: [...(obj.errors ?? []), ...schemaErrors] };
+    };
     const obj = await tasks.reduceRight(
       // OPTIMIZATION Call getData recursively using the longest id suffix to
       // use any existing compiles.
@@ -53,9 +69,9 @@ const buildGetData = ({ compile, langOverrideStorer }) =>
           // Strip the directive: it is for us, and would otherwise ride along
           // into the next layer's input data and out to the client.
           const { cache, ...rest } = obj;
-          return rest;
+          return checkShape(lang, rest);
         }
-        return obj;
+        return checkShape(lang, obj);
       },
       Promise.resolve({})
     );
@@ -86,6 +102,6 @@ const buildGetData = ({ compile, langOverrideStorer }) =>
     }
     return obj;
   };
-export const buildDataApi = ({ compile, langOverrideStorer }) => {
-  return { get: buildGetData({ compile, langOverrideStorer }) };
+export const buildDataApi = ({ compile, langOverrideStorer, validateOutput }) => {
+  return { get: buildGetData({ compile, langOverrideStorer, validateOutput }) };
 };

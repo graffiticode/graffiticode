@@ -8,7 +8,7 @@ import cors from "cors";
 import { buildValidateToken } from "./auth.js";
 import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
-import { compile as langCompile } from "./lang/index.js";
+import { compile as langCompile, validateOutput } from "./lang/index.js";
 import * as routes from "./routes/index.js";
 import { createStorers } from "./storage/index.js";
 
@@ -29,7 +29,7 @@ const env = process.env.NODE_ENV || "development";
 export const createApp = ({ authUrl } = {}) => {
   const compile = buildCompile({ langCompile });
   const { taskStorer, compileStorer, langOverrideStorer } = createStorers();
-  const dataApi = buildDataApi({ compile, langOverrideStorer });
+  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput });
 
   const app = express();
   app.all("*", (req, res, next) => {

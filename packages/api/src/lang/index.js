@@ -6,6 +6,7 @@ import { buildGetBaseUrlForLanguage } from "./base-url.js";
 import { buildCompile } from "./compile.js";
 import { buildGetAsset } from "./get-asset.js";
 import { buildPingLang } from "./ping-lang.js";
+import { buildValidateOutput } from "./validate-output.js";
 
 const langOverrideStorer = buildLangOverrideStorer();
 
@@ -24,3 +25,4 @@ export const pingLang = buildPingLang({
   bent,
   log: console.log
 });
+export const validateOutput = buildValidateOutput({ getBaseUrlForLanguage, getAsset: getLangAsset });

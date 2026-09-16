@@ -188,6 +188,38 @@ describe("data", () => {
     });
   });
 
+  describe("a compile whose data does not match its language's schema", () => {
+    const SCHEMA_ERROR = { message: "L0000 compiler output does not match its schema.json", from: -1, to: -1, internal: true, kind: "schema" };
+    const RESULT = { data: { bad: true }, errors: [] };
+
+    it("should keep the data, add the errors, and not cache", async () => {
+      const validateOutput = jest.fn().mockResolvedValue([SCHEMA_ERROR]);
+      dataApi = buildDataApi({ compile, validateOutput });
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(RESULT);
+      const action = {};
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id, action }))
+        .resolves.toStrictEqual({ data: { bad: true }, errors: [SCHEMA_ERROR] });
+
+      expect(validateOutput).toHaveBeenCalledWith(TASK1.lang, RESULT, expect.objectContaining({ id }));
+      expect(action.compiled).toBeUndefined();
+      await expect(compileStorer.get({ id })).resolves.toBeUndefined();
+    });
+
+    it("should cache as before when the data matches", async () => {
+      const validateOutput = jest.fn().mockResolvedValue([]);
+      dataApi = buildDataApi({ compile, validateOutput });
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(RESULT);
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(RESULT);
+      await expect(compileStorer.get({ id })).resolves.toEqual(
+        expect.objectContaining({ data: RESULT })
+      );
+    });
+  });
+
   it("should cache a compile that says nothing about caching", async () => {
     const id = await taskStorer.create({ task: TASK1 });
     mockCompileData(DATA1);
