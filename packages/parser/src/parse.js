@@ -457,22 +457,13 @@ export const parse = (function () {
     }
     return str(ctx, cc);
   }
-  function defList(ctx, cc) {
-    eat(ctx, TK_LEFTBRACKET);
-    const ret = (ctx) => {
-      return params(ctx, TK_RIGHTBRACKET, (ctx) => {
-        eat(ctx, TK_RIGHTBRACKET);
-        Ast.list(ctx, ctx.state.paramc, null, true);
-        ctx.state.paramc = 1;
-        return cc;
-      });
-    };
-    ret.cls = "punc";
-    return ret;
-  }
   function defName(ctx, cc) {
-    if (match(ctx, TK_LEFTBRACKET)) {
-      return defList(ctx, cc);
+    if (match(ctx, TK_LEFTBRACKET) || match(ctx, TK_LEFTBRACE)) {
+      // `<[a b]: ...>` used to parse, drop the brackets, and bind the whole argument to `a`.
+      // Destructure in the body instead: `<p: case p of [a b]: ... end>`.
+      next(ctx);
+      assertErr(ctx, false, "Pattern matching on function arguments is disallowed.", getCoord(ctx));
+      throw new Error("Pattern matching on function arguments is disallowed.");
     } else {
       eat(ctx, TK_IDENT);
       Env.addWord(ctx, lexeme, {
@@ -958,6 +949,10 @@ export const parse = (function () {
 
   function ofClause(ctx, cc) {
     const ret = function (ctx) {
+      // Each clause is a scope: the pattern's variables are bound for its value only.
+      // finishClause leaves it.
+      Env.enterEnv(ctx, "case");
+      ctx.state.patternNames = new Set();
       return pattern(ctx, function (ctx) {
         eat(ctx, TK_COLON);
         const ret = function (ctx) {
@@ -977,9 +972,49 @@ export const parse = (function () {
     Ast.exprs(ctx, ctx.state.exprc);
     stopCounter(ctx);
     Ast.ofClause(ctx);
+    Env.exitEnv(ctx);
+  }
+  // Does the next token begin the NEXT clause's pattern rather than more of this clause's
+  // value? A key followed by `:` (`x:`, `1:`, `_:`), or a list/record pattern followed by `:`
+  // (`[x y]:`, `{name}:`). The latter needs the bracketed group scanned to its close.
+  function isClauseStart(ctx) {
+    return isBindingStart(ctx) || isAggregatePatternStart(ctx);
+  }
+  function isAggregatePatternStart(ctx) {
+    if (!match(ctx, TK_LEFTBRACKET) && !match(ctx, TK_LEFTBRACE)) {
+      return false;
+    }
+    // Scan ahead like peekNextToken, restoring the scanner afterwards.
+    const savedNextToken = ctx.state.nextToken;
+    const savedNextTokenCoord = ctx.state.nextTokenCoord;
+    const savedLexeme = lexeme;
+    const savedPos = ctx.scan.stream.pos;
+    let depth = 0;
+    let result = false;
+    for (;;) {
+      const tk = peek(ctx);
+      if (!tk || (depth === 0 && tk === TK_DOT)) {
+        break;
+      }
+      if (tk === TK_LEFTBRACKET || tk === TK_LEFTBRACE) {
+        depth++;
+      } else if (tk === TK_RIGHTBRACKET || tk === TK_RIGHTBRACE) {
+        depth--;
+      }
+      next(ctx);
+      if (depth === 0) {
+        result = peek(ctx) === TK_COLON;
+        break;
+      }
+    }
+    ctx.state.nextToken = savedNextToken;
+    ctx.state.nextTokenCoord = savedNextTokenCoord;
+    lexeme = savedLexeme;
+    ctx.scan.stream.pos = savedPos;
+    return result;
   }
   function ofClauseValue(ctx, cc) {
-    if (isBindingStart(ctx) || match(ctx, TK_END) ||
+    if (isClauseStart(ctx) || match(ctx, TK_END) ||
         emptyInput(ctx) || emptyExpr(ctx)) {
       finishClause(ctx);
       return cc;
@@ -993,6 +1028,9 @@ export const parse = (function () {
         ctx.state.exprc--;
         finishClause(ctx);
         countCounter(ctx); // Count finished clause in caseExpr's counter
+        // The new clause's scope. Only variable-free patterns (`tag foo`) reach this path;
+        // anything binding a variable is caught by isClauseStart and parsed by pattern().
+        Env.enterEnv(ctx, "case");
         Ast.push(ctx, patternNode);
         eat(ctx, TK_COLON);
         const ret = function (ctx) {
@@ -1002,7 +1040,7 @@ export const parse = (function () {
         ret.cls = "punc";
         return ret;
       }
-      if (isBindingStart(ctx) || match(ctx, TK_END) ||
+      if (isClauseStart(ctx) || match(ctx, TK_END) ||
           emptyInput(ctx) || emptyExpr(ctx)) {
         finishClause(ctx);
         return cc;
@@ -1011,8 +1049,11 @@ export const parse = (function () {
     });
   }
 
+  // A case pattern: a literal, a tag, `_`, a variable, or -- nesting any of these -- a list
+  // `[p ...]` (matches exactly that many elements) or a record `{k k: p ...}` (matches any
+  // record having those keys). Variables are bound in the clause's scope (see ofClause), so
+  // the clause value can refer to them; they stay IDENT nodes for the compiler to bind.
   function pattern(ctx, cc) {
-    // FIXME only matches idents and literals for now
     if (match(ctx, TK_TAG)) {
       if (lexeme === "tag") {
         return tagExpr(ctx, cc);
@@ -1025,7 +1066,14 @@ export const parse = (function () {
         Ast.tag(ctx, "_", getCoord(ctx));
         return cc;
       }
+      bindPatternVar(ctx, lexeme);
       return ident(ctx, cc);
+    }
+    if (match(ctx, TK_LEFTBRACKET)) {
+      return listPattern(ctx, cc);
+    }
+    if (match(ctx, TK_LEFTBRACE)) {
+      return recordPattern(ctx, cc);
     }
     if (match(ctx, TK_NUM)) {
       return number(ctx, cc);
@@ -1033,7 +1081,106 @@ export const parse = (function () {
     if (match(ctx, TK_BOOL)) {
       return bool(ctx, cc);
     }
+    if (match(ctx, TK_NULL)) {
+      return nul(ctx, cc);
+    }
     return str(ctx, cc);
+  }
+  function bindPatternVar(ctx, name) {
+    // Same entry shape as a lambda parameter (defName): name() resolves it to a plain IDENT.
+    // Duplicates are tracked per pattern, not per scope: a `let` pattern may rebind a name
+    // an earlier `let` bound.
+    const names = ctx.state.patternNames;
+    assertErr(
+      ctx,
+      !names.has(name),
+      `Pattern variable '${name}' is bound more than once.`,
+      getCoord(ctx),
+    );
+    names.add(name);
+    Env.addWord(ctx, name, { tk: TK_IDENT, cls: "val", name, nid: 0 });
+  }
+  function listPattern(ctx, cc) {
+    eat(ctx, TK_LEFTBRACKET);
+    startCounter(ctx);
+    const ret = function (ctx) {
+      return patternElements(ctx, function (ctx) {
+        eat(ctx, TK_RIGHTBRACKET);
+        Ast.list(ctx, ctx.state.exprc);
+        stopCounter(ctx);
+        cc.cls = "punc";
+        return cc;
+      });
+    };
+    ret.cls = "punc";
+    return ret;
+  }
+  function patternElements(ctx, cc) {
+    if (match(ctx, TK_RIGHTBRACKET)) {
+      return cc;
+    }
+    return pattern(ctx, function (ctx) {
+      countCounter(ctx);
+      if (match(ctx, TK_COMMA)) {
+        eat(ctx, TK_COMMA);
+        const ret = function (ctx) {
+          return patternElements(ctx, cc);
+        };
+        ret.cls = "punc";
+        return ret;
+      }
+      return patternElements(ctx, cc);
+    });
+  }
+  function recordPattern(ctx, cc) {
+    eat(ctx, TK_LEFTBRACE);
+    startCounter(ctx);
+    const ret = function (ctx) {
+      return patternFields(ctx, function (ctx) {
+        eat(ctx, TK_RIGHTBRACE);
+        Ast.record(ctx);
+        stopCounter(ctx);
+        cc.cls = "punc";
+        return cc;
+      });
+    };
+    ret.cls = "punc";
+    return ret;
+  }
+  // `k` binds the field to a variable named `k`; `k: p` matches the field against `p`. Either
+  // way the result is BINDING(TAG k, <pattern>), the shape record expressions use.
+  function patternFields(ctx, cc) {
+    if (match(ctx, TK_RIGHTBRACE)) {
+      return cc;
+    }
+    const shorthand = match(ctx, TK_IDENT) && peekNextToken(ctx) !== TK_COLON;
+    const name = lexeme;
+    return bindingName(ctx, function (ctx) {
+      const rest = function (ctx) {
+        Ast.binding(ctx);
+        countCounter(ctx);
+        if (match(ctx, TK_COMMA)) {
+          eat(ctx, TK_COMMA);
+          const ret = function (ctx) {
+            return patternFields(ctx, cc);
+          };
+          ret.cls = "punc";
+          return ret;
+        }
+        return patternFields(ctx, cc);
+      };
+      if (shorthand) {
+        bindPatternVar(ctx, name);
+        Ast.name(ctx, name, getCoord(ctx));
+        return rest(ctx);
+      }
+      eat(ctx, TK_COLON);
+      const ret = function (ctx) {
+        return pattern(ctx, rest);
+      };
+      ret.cls = "punc";
+      return ret;
+    });
   }
 
   // function thenClause(ctx, cc) {
@@ -1201,6 +1348,9 @@ export const parse = (function () {
     if (match(ctx, TK_LET)) {
       eat(ctx, TK_LET);
       const ret = function (ctx) {
+        if (match(ctx, TK_LEFTBRACKET) || match(ctx, TK_LEFTBRACE)) {
+          return letPattern(ctx, cc);
+        }
         const ret = defName(ctx, function (ctx) {
           const name = Ast.node(ctx, Ast.pop(ctx)).elts[0];
           // nid=0 means def not finished yet
@@ -1238,6 +1388,54 @@ export const parse = (function () {
       return ret;
     }
     return name(ctx, cc);
+  }
+
+  // `let [a b] = e..`, `let {name age} = r..`: destructuring. Each variable is bound, like any
+  // `let`, to a node the program inlines at every use -- here the part of `e` it names:
+  // `VAL(NUM i, e)` for a list element, `VAL(TAG k, e)` for a record field (nested patterns
+  // chain them). Irrefutable: a missing part is undefined, as `get` would give.
+  function letPattern(ctx, cc) {
+    ctx.state.patternNames = new Set();
+    return pattern(ctx, function (ctx) {
+      const patternNid = Ast.pop(ctx);
+      eat(ctx, TK_EQUAL);
+      const ret = function (ctx) {
+        return exprsStart(ctx, TK_DOT, function (ctx) {
+          bindLetPattern(ctx, patternNid, Ast.pop(ctx));
+          ctx.state.exprc--; // A definition is not an expression of the program.
+          return cc;
+        });
+      };
+      ret.cls = "punc";
+      return ret;
+    });
+  }
+  function bindLetPattern(ctx, patternNid, sourceNid) {
+    const node = ctx.state.nodePool[patternNid]; // raw: elts stay node ids
+    const part = (key) => Ast.intern(ctx, { tag: "VAL", elts: [key, sourceNid] });
+    switch (node.tag) {
+    case "IDENT":
+      topEnv(ctx).lexicon[node.elts[0]].nid = sourceNid;
+      break;
+    case "LIST":
+      node.elts.forEach((elt, i) => {
+        bindLetPattern(ctx, elt, part({ tag: "NUM", elts: [String(i)] }));
+      });
+      break;
+    case "RECORD":
+      node.elts.forEach((elt) => {
+        const [key, value] = ctx.state.nodePool[elt].elts;
+        bindLetPattern(ctx, value, part(key));
+      });
+      break;
+    case "TAG":
+      if (node.elts[0] === "_") {
+        break;
+      }
+      // Falls through: a tag literal binds nothing and cannot fail to match here.
+    default:
+      assertErr(ctx, false, "A let pattern can only bind variables.", node.coord);
+    }
   }
 
   // TODO add argument for specifying the break token.

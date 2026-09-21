@@ -43,9 +43,9 @@ export class Folder {
       // "GE": ge,
       NEG: Folder.neg,
       LIST: Folder.list,
-      BINDING: Folder.binding
+      BINDING: Folder.binding,
+      OF: Folder.ofClause,
       // "CASE": caseExpr,
-      // "OF": ofClause,
     };
   }
 
@@ -364,6 +364,40 @@ export class Folder {
   // draw their arguments from the value alone, so one that is short reports it
   // ("Too few arguments ...") instead of reaching outside the field, and what
   // remains is exactly the field's expressions.
+  // A case clause. The pattern is left UNFOLDED: its IDENTs are variables for the compiler
+  // to bind, not references to resolve. The value is folded in a scope holding the
+  // pattern's variables, as it was parsed -- parse-time scopes are gone by now.
+  static ofClause(node) {
+    const ctx = Folder.#ctx;
+    const [patternNid, valueNid] = node.elts;
+    Ast.name(ctx, node.tag, node.coord);
+    Env.enterEnv(ctx, "case");
+    for (const name of Folder.#patternVars(patternNid)) {
+      Env.addWord(ctx, name, { cls: "val", name, nid: 0 });
+    }
+    Folder.#visit(valueNid);
+    Env.exitEnv(ctx);
+    Ast.push(ctx, patternNid);
+    Ast.expr(ctx, 2, node.coord);
+  }
+
+  static #patternVars(nid, names = []) {
+    const node = Folder.#nodePool[nid];
+    switch (node?.tag) {
+    case "IDENT":
+      names.push(node.elts[0]);
+      break;
+    case "LIST":
+    case "RECORD":
+      node.elts.forEach(elt => Folder.#patternVars(elt, names));
+      break;
+    case "BINDING":
+      Folder.#patternVars(node.elts[1], names);
+      break;
+    }
+    return names;
+  }
+
   static binding(node) {
     const ctx = Folder.#ctx;
     Folder.#visit(node.elts[0]); // key -- a TAG, STR or NUM; pushes one node

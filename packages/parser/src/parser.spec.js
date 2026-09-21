@@ -911,3 +911,144 @@ describe("parens only group", () => {
     expect(unparse(await parser.parse(0, src, basisLexicon), basisLexicon)).toBe(src);
   });
 });
+
+describe("case patterns", () => {
+  // Rebuild the tree under `root` without pool ids so trees compare structurally.
+  const tree = (pool, id = pool.root) => {
+    const node = pool[id];
+    if (node === undefined || node === null || typeof node !== "object") {
+      return node;
+    }
+    return {
+      tag: node.tag,
+      elts: node.elts.map(elt => (typeof elt === "number" && pool[elt] !== undefined ? tree(pool, elt) : elt)),
+    };
+  };
+  const clausesOf = async (src) => {
+    const result = await parser.parse(0, src, basisLexicon);
+    const caseNode = tree(result).elts[0].elts[0];
+    expect(caseNode.tag).toBe("CASE");
+    return caseNode.elts.slice(1).map(of => of.elts);
+  };
+  const ident = name => ({ tag: "IDENT", elts: [name] });
+  const key = name => ({ tag: "TAG", elts: [name] });
+  const binding = (k, v) => ({ tag: "BINDING", elts: [key(k), v] });
+
+  it("should bind a variable pattern in its clause", async () => {
+    const [[pattern, value]] = await clausesOf("case 5 of x: add x 1 end..");
+    expect(pattern).toStrictEqual(ident("x"));
+    expect(value.tag).toBe("ADD");
+    expect(value.elts[0]).toStrictEqual(ident("x"));
+  });
+
+  it("should parse a list pattern", async () => {
+    const [[pattern]] = await clausesOf("case [3 4] of [x y]: add x y end..");
+    expect(pattern).toStrictEqual({ tag: "LIST", elts: [ident("x"), ident("y")] });
+  });
+
+  it("should parse a record pattern, shorthand and explicit", async () => {
+    const [[pattern]] = await clausesOf("case {a: 1} of {name age: years}: name end..");
+    expect(pattern).toStrictEqual({
+      tag: "RECORD",
+      elts: [binding("name", ident("name")), binding("age", ident("years"))],
+    });
+  });
+
+  it("should nest patterns and allow literals inside them", async () => {
+    const [[pattern]] = await clausesOf("case {a: 1} of {kind: tag circle pts: [0 y]}: y end..");
+    expect(pattern).toStrictEqual({
+      tag: "RECORD",
+      elts: [
+        binding("kind", { tag: "TAG", elts: ["circle"] }),
+        binding("pts", { tag: "LIST", elts: [{ tag: "NUM", elts: ["0"] }, ident("y")] }),
+      ],
+    });
+  });
+
+  it("should start a new clause at a list or record pattern", async () => {
+    const clauses = await clausesOf("case [3 4] of [0 y]: y [x, y]: x {k}: k _: 0 end..");
+    expect(clauses.map(([pattern]) => pattern.tag)).toEqual(["LIST", "LIST", "RECORD", "TAG"]);
+    expect(clauses[1][1]).toStrictEqual(ident("x"));
+  });
+
+  it("should scope a pattern variable to its own clause", async () => {
+    const result = await parser.parse(0, "case 1 of x: x _: x end..", basisLexicon);
+    expect(result[result.root].tag).toBe("ERROR");
+    expect(result[result[result.root].elts[0]].elts[0]).toBe("Undefined reference 'x'.");
+  });
+
+  it("should reject a variable bound twice in one pattern", async () => {
+    const result = await parser.parse(0, "case [1 2] of [x x]: x end..", basisLexicon);
+    expect(result[result.root].tag).toBe("ERROR");
+    expect(result[result[result.root].elts[0]].elts[0]).toBe("Pattern variable 'x' is bound more than once.");
+  });
+
+  it("should leave list values in a clause value alone", async () => {
+    const clauses = await clausesOf("case 1 of 1: [1 2] _: [3] end..");
+    expect(clauses.map(([, value]) => value.tag)).toEqual(["LIST", "LIST"]);
+  });
+
+  it.each([
+    "case [3 4] of [x y]: add x y end..",
+    "case {name: 'A'} of {name age: years}: name end..",
+    "case {a: 1} of {kind: tag circle pts: [0 y]}: y _: 0 end..",
+  ])("should round-trip %s through unparse", async (src) => {
+    const first = await parser.parse(0, src, basisLexicon);
+    const second = await parser.parse(0, unparse(first, basisLexicon), basisLexicon);
+    expect(tree(second)).toStrictEqual(tree(first));
+  });
+});
+
+describe("let destructuring", () => {
+  const errorOf = async (src) => {
+    const result = await parser.parse(0, src, basisLexicon);
+    expect(result[result.root].tag).toBe("ERROR");
+    return result[result[result.root].elts[0]].elts[0];
+  };
+  // Every use of a destructured name inlines the part of the value it names.
+  const valOf = async (src) => {
+    const result = await parser.parse(0, src, basisLexicon);
+    const exprs = result[result[result.root].elts[0]];
+    return result[exprs.elts[exprs.elts.length - 1]];
+  };
+
+  it("should bind a list element to VAL(index, value)", async () => {
+    const result = await parser.parse(0, "let [a b] = [1 2].. b..", basisLexicon);
+    const exprs = result[result[result.root].elts[0]];
+    const val = result[exprs.elts[0]];
+    expect(val.tag).toBe("VAL");
+    expect(result[val.elts[0]]).toMatchObject({ tag: "NUM", elts: ["1"] });
+    expect(result[val.elts[1]].tag).toBe("LIST");
+  });
+
+  it("should bind a record field to VAL(key, value)", async () => {
+    const val = await valOf("let {name} = {name: 'A'}.. name..");
+    expect(val.tag).toBe("VAL");
+  });
+
+  it("should not count the definition as an expression", async () => {
+    const result = await parser.parse(0, "let [a b] = [1 2].. a..", basisLexicon);
+    expect(result[result[result.root].elts[0]].elts.length).toBe(1);
+  });
+
+  it("should allow a pattern to rebind an earlier let's name", async () => {
+    const val = await valOf("let a = 1.. let [a b] = [5 6].. a..");
+    expect(val.tag).toBe("VAL");
+  });
+
+  it("should reject a literal in a let pattern", async () => {
+    expect(await errorOf("let [a 0] = [1 2].. a..")).toBe("A let pattern can only bind variables.");
+  });
+
+  it("should reject a variable bound twice", async () => {
+    expect(await errorOf("let [a a] = [1 2].. a..")).toBe("Pattern variable 'a' is bound more than once.");
+  });
+
+  it.each([
+    "<[a b]: add a b>..",
+    "<{a}: a>..",
+    "let f [a b] = add a b.. f [1 2]..",
+  ])("should reject a pattern as a function parameter: %s", async (src) => {
+    expect(await errorOf(src)).toBe("Pattern matching on function arguments is disallowed.");
+  });
+});

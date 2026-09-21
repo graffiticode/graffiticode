@@ -224,38 +224,13 @@ export class Ast {
       const lexicon = fn.env.lexicon;
       const pattern = Ast.node(ctx, fn.env.pattern);
       let outerEnv = null;
-      // let isListPattern;
-      // setup inner environment record (lexicon)
-      if (pattern && pattern.elts &&
-          pattern.elts.length === 1 &&
-          pattern.elts[0].tag === "LIST") {
-        // For now we only support one pattern per param list.
-        // isListPattern = true;
-      }
+      // Parameters are plain names: parse.js rejects a pattern in a parameter list.
       for (const id in lexicon) {
         // For each parameter, get its definition assign the value of the argument
         // used on the current function application.
         if (!id) continue;
         const word = JSON.parse(JSON.stringify(lexicon[id])); // poor man's copy.
         const index = args.length - word.offset - 1;
-        // TODO we currently ignore list patterns
-        // if (isListPattern) {
-        //   // <[x y]: ...> foo..
-        //   word.nid = Ast.intern(ctx, {
-        //     tag: "VAL",
-        //     elts: [{
-        //       tag: "NUM",
-        //       elts: [
-        //         String(word.offset),
-        //       ]}, {
-        //         tag: "ARG",
-        //         elts: [{
-        //           tag: "NUM",
-        //           elts: ["0"]
-        //         }]
-        //       }]
-        //   });
-        // } else
         if (index >= 0 && index < args.length) {
           word.nid = args[index];
         }
