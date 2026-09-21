@@ -186,9 +186,50 @@ export class Folder {
 
   static parenExpr(node) {
     Folder.#pushNodeStack();
-    Folder.#visit(node.elts[0]);
+    const builtin = Folder.#builtinRef(node.elts[0]);
+    if (builtin) {
+      // `(add)` names a built-in as a value. Built-ins have no LAMBDA node to
+      // defer, so eta-expand to the lambda `<a b: add a b>` would produce.
+      Ast.push(Folder.#ctx, Folder.#etaExpand(builtin));
+    } else {
+      Folder.#visit(node.elts[0]);
+    }
     Ast.parenExpr(Folder.#ctx);
     Folder.#popNodeStack();
+  }
+
+  // The lexicon word for `nid` if it is a bare reference to a built-in function
+  // that takes arguments, otherwise null.
+  static #builtinRef(nid) {
+    let node = Folder.#nodePool[nid];
+    if (node?.tag === "EXPRS" && node.elts.length === 1) {
+      node = Folder.#nodePool[node.elts[0]]; // `(add)` parses as PAREN(EXPRS(IDENT)).
+    }
+    if (node?.tag !== "IDENT") {
+      return null;
+    }
+    const word = Env.findWord(Folder.#ctx, node.elts[0]);
+    if (word?.cls !== "function" || word.nid) {
+      return null;
+    }
+    const argc = word.arity !== undefined ? word.arity : word.length;
+    return argc > 0 ? { name: word.name, argc } : null;
+  }
+
+  static #etaExpand({ name, argc }) {
+    // Params are named by position (a, b, c, …). They are bound only in the
+    // body, which references nothing else, so the names cannot capture.
+    const param = i => ({ tag: "IDENT", elts: [String.fromCharCode(97 + i)] });
+    const indexes = Array.from({ length: argc }, (_, i) => i);
+    return {
+      tag: "LAMBDA",
+      elts: [
+        { tag: "LIST", elts: indexes.map(param) },
+        { tag: name, elts: indexes.map(param) },
+        { tag: "LIST", elts: [] },
+        { tag: "LIST", elts: indexes.map(() => 0) },
+      ],
+    };
   }
 
   static unaryExpr(node) {

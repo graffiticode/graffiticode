@@ -833,3 +833,33 @@ describe("parser integration tests", () => {
     expect(source).toContain("_:");
   });
 });
+
+describe("built-ins as values", () => {
+  // Rebuild the tree under `root`, dropping pool ids so trees compare structurally.
+  const tree = (pool, id = pool.root) => {
+    const node = pool[id];
+    if (node === undefined || node === null || typeof node !== "object") {
+      return node;
+    }
+    return {
+      tag: node.tag,
+      elts: node.elts.map(elt => (typeof elt === "number" && pool[elt] !== undefined ? tree(pool, elt) : elt)),
+    };
+  };
+
+  it.each([
+    ["apply (add) [1 2]..", "apply (<a b: add a b>) [1 2].."],
+    ["reduce (max) 0 [3 9 2 7]..", "reduce (<a b: max a b>) 0 [3 9 2 7].."],
+    ["map (not) [true false]..", "map (<a: not a>) [true false].."],
+  ])("should parse %s as its eta-expanded lambda", async (src, expanded) => {
+    const actual = await parser.parse(0, src, basisLexicon);
+    const expected = await parser.parse(0, expanded, basisLexicon);
+    expect(tree(actual)).toStrictEqual(tree(expected));
+  });
+
+  it("should still reject an unparenthesized built-in with too few arguments", async () => {
+    const result = await parser.parse(0, "add 1..", basisLexicon);
+    expect(result[result.root].tag).toBe("ERROR");
+    expect(result[result[result.root].elts[0]].elts[0]).toBe("Too few arguments for ADD. Expected 2.");
+  });
+});
