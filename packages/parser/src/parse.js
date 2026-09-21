@@ -427,10 +427,39 @@ export const parse = (function () {
       return ret;
     });
   }
+  // One `${…}` of a template. The whole interpolation is ONE concat part: its expressions are
+  // grouped like `(…)`, so an application folds inside it -- `${add 1 2}` used to become the
+  // three parts `add`, `1`, `2`. If the language defines the built-in `str`, the part is
+  // wrapped in it so any value interpolates as text; without it, the part is left as is.
   function strPart(ctx, resume) {
-    return expr(ctx, function (ctx) {
+    const coord = getCoord(ctx);
+    startCounter(ctx);
+    return strPartExprs(ctx, function (ctx) {
+      // Group only when the interpolation holds several expressions (an application is
+      // several until folded). A single one keeps exactly the tree it always had.
+      const count = ctx.state.exprc;
+      if (count > 1) {
+        Ast.exprs(ctx, count);
+      }
+      stopCounter(ctx);
+      if (count > 1) {
+        Ast.parenExpr(ctx, coord);
+      }
+      const word = Env.findWord(ctx, "str");
+      if (word && word.cls === "function" && !word.nid) {
+        Ast.push(ctx, { tag: word.name, elts: [Ast.pop(ctx)], coord });
+      }
       countCounter(ctx);
       return resume(ctx);
+    });
+  }
+  function strPartExprs(ctx, cc) {
+    return expr(ctx, function (ctx) {
+      countCounter(ctx);
+      if (match(ctx, TK_STRMIDDLE) || match(ctx, TK_STRSUFFIX)) {
+        return cc(ctx);
+      }
+      return strPartExprs(ctx, cc);
     });
   }
   function ident(ctx, cc) {

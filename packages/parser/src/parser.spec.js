@@ -1052,3 +1052,54 @@ describe("let destructuring", () => {
     expect(await errorOf(src)).toBe("Pattern matching on function arguments is disallowed.");
   });
 });
+
+describe("template interpolation", () => {
+  const tree = (pool, id = pool.root) => {
+    const node = pool[id];
+    if (node === undefined || node === null || typeof node !== "object") {
+      return node;
+    }
+    return {
+      tag: node.tag,
+      elts: node.elts.map(elt => (typeof elt === "number" && pool[elt] !== undefined ? tree(pool, elt) : elt)),
+    };
+  };
+  const exprOf = async (src, lexicon) => tree(await parser.parse(0, src, lexicon)).elts[0].elts[0];
+  // A lexicon that defines the `str` built-in, as @graffiticode/l0000 does.
+  const withStr = {
+    ...basisLexicon,
+    str: { tk: 1, name: "STR_OF", cls: "function", length: 1, arity: 1 },
+  };
+
+  it("should fold an application inside one interpolation", async () => {
+    // `${add 1 2}` used to become three concat parts and fail with too few arguments.
+    const node = await exprOf("`a${add 1 2}b`..", basisLexicon);
+    expect(node.tag).toBe("CONCAT");
+    expect(node.elts[0].elts[1]).toStrictEqual({
+      tag: "PAREN",
+      elts: [{ tag: "ADD", elts: [{ tag: "NUM", elts: ["1"] }, { tag: "NUM", elts: ["2"] }] }],
+    });
+  });
+
+  it("should wrap each interpolation in `str` when the lexicon defines it", async () => {
+    const node = await exprOf("`a${1}b`..", withStr);
+    expect(node.elts[0].elts[1]).toStrictEqual({ tag: "STR_OF", elts: [{ tag: "NUM", elts: ["1"] }] });
+    // Literal text parts are not wrapped.
+    expect(node.elts[1]).toStrictEqual({ tag: "STR", elts: ["b"] });
+  });
+
+  it("should not wrap without `str` in the lexicon", async () => {
+    // A single-expression interpolation keeps the tree it always had.
+    const node = await exprOf("`a${1}b`..", basisLexicon);
+    expect(node.elts[0].elts[1]).toStrictEqual({ tag: "NUM", elts: ["1"] });
+  });
+
+  it("should not wrap when `str` is a user binding", async () => {
+    const result = await parser.parse(0, "let str = 5.. `a${str}b`..", withStr);
+    expect(JSON.stringify(result)).not.toContain("STR_OF");
+  });
+
+  it("should leave a plain template alone", async () => {
+    expect(await exprOf("`plain`..", withStr)).toStrictEqual({ tag: "STR", elts: ["plain"] });
+  });
+});
