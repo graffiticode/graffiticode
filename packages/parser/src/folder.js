@@ -193,6 +193,13 @@ export class Folder {
       Ast.push(Folder.#ctx, Folder.#etaExpand(builtin));
     } else {
       Folder.#visit(node.elts[0]);
+      // Folding the inner EXPRS pushes one node per expression. Parens only group, so
+      // `(1 2)` must keep both inside the group: collapse them back into one EXPRS rather
+      // than wrapping the first and spilling the rest outside it as `(1) 2`.
+      const count = Folder.#ctx.state.nodeStack.length;
+      if (count > 1) {
+        Ast.exprs(Folder.#ctx, count, true);
+      }
     }
     Ast.parenExpr(Folder.#ctx);
     Folder.#popNodeStack();

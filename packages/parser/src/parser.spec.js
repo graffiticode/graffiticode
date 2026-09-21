@@ -863,3 +863,51 @@ describe("built-ins as values", () => {
     expect(result[result[result.root].elts[0]].elts[0]).toBe("Too few arguments for ADD. Expected 2.");
   });
 });
+
+describe("parens only group", () => {
+  const tree = (pool, id = pool.root) => {
+    const node = pool[id];
+    if (node === undefined || node === null || typeof node !== "object") {
+      return node;
+    }
+    return {
+      tag: node.tag,
+      elts: node.elts.map(elt => (typeof elt === "number" && pool[elt] !== undefined ? tree(pool, elt) : elt)),
+    };
+  };
+  const exprsOf = async (src) => tree(await parser.parse(0, src, basisLexicon)).elts[0].elts;
+
+  it("should keep every expression of `(1 2)` inside the group", async () => {
+    // Folding used to wrap only the first expression and spill the rest: `(1) 2`.
+    expect(await exprsOf("(1 2)..")).toStrictEqual([
+      { tag: "PAREN", elts: [{ tag: "EXPRS", elts: [{ tag: "NUM", elts: ["1"] }, { tag: "NUM", elts: ["2"] }] }] },
+    ]);
+  });
+
+  it("should nest grouped sequences", async () => {
+    const [group] = await exprsOf("((1 2) 3)..");
+    expect(group.elts[0].tag).toBe("EXPRS");
+    expect(group.elts[0].elts.map(e => e.tag)).toEqual(["PAREN", "NUM"]);
+    expect(group.elts[0].elts[0].elts[0].tag).toBe("EXPRS");
+  });
+
+  it.each([
+    ["(add 1 2)..", ["PAREN"], "ADD"],
+    ["(add)..", ["PAREN"], "LAMBDA"],
+    ["(<x: x>) 10..", ["PAREN", "NUM"], "LAMBDA"],
+    ["(1) 2..", ["PAREN", "NUM"], "NUM"],
+  ])("should leave single-expression group %s unchanged", async (src, tags, inner) => {
+    const exprs = await exprsOf(src);
+    expect(exprs.map(e => e.tag)).toEqual(tags);
+    expect(exprs[0].elts[0].tag).toBe(inner);
+  });
+
+  it("should still reject a comma between grouped expressions", async () => {
+    const result = await parser.parse(0, "(1, 2)..", basisLexicon);
+    expect(result[result.root].tag).toBe("ERROR");
+  });
+
+  it.each(["(1 2)..", "((1 2) 3)..", "(1 add 2 3).."])("should unparse %s on one line", async (src) => {
+    expect(unparse(await parser.parse(0, src, basisLexicon), basisLexicon)).toBe(src);
+  });
+});

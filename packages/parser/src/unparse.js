@@ -300,7 +300,12 @@ function unparseNodeCore(node, lexicon, indent = 0, options = {}) {
     case "PAREN":
     // Parenthesized expression
       if (node.elts && node.elts.length > 0) {
-        return "(" + unparseNode(node.elts[0], lexicon, indent, opts) + ")";
+        const inner = node.elts[0];
+        if (inner?.tag === "EXPRS" && inner.elts?.length > 1) {
+          // A grouped sequence `(1 2)` stays on one line; EXPRS alone puts each on its own.
+          return "(" + inner.elts.map(elt => unparseNode(elt, lexicon, indent, opts)).join(" ") + ")";
+        }
+        return "(" + unparseNode(inner, lexicon, indent, opts) + ")";
       }
       return "()";
 
