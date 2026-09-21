@@ -23,6 +23,7 @@ const main = {
       coords: [],
       inStr: 0,
       quoteCharStack: [],
+      braceDepthStack: [],
       callbacks: callbacks || {},
     };
     const next = function () {

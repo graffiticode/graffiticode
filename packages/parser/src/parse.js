@@ -293,13 +293,28 @@ export const parse = (function () {
     const savedNextTokenCoord = ctx.state.nextTokenCoord;
     const savedLexeme = lexeme;
     const savedPos = ctx.scan.stream.pos;
+    const savedScan = saveScanState(ctx);
     next(ctx);
     const tk2 = peek(ctx);
     ctx.state.nextToken = savedNextToken;
     ctx.state.nextTokenCoord = savedNextTokenCoord;
     lexeme = savedLexeme;
     ctx.scan.stream.pos = savedPos;
+    restoreScanState(ctx, savedScan);
     return tk2;
+  }
+
+  // Scanning a token can enter or leave a template interpolation. Lookahead rewinds the stream
+  // and rescans, so it must rewind this bookkeeping too or the rescan applies it twice.
+  function saveScanState(ctx) {
+    return {
+      quoteCharStack: ctx.state.quoteCharStack.slice(),
+      braceDepthStack: ctx.state.braceDepthStack.slice(),
+    };
+  }
+  function restoreScanState(ctx, saved) {
+    ctx.state.quoteCharStack = saved.quoteCharStack;
+    ctx.state.braceDepthStack = saved.braceDepthStack;
   }
 
   function isBindingKeyStart(ctx) {
@@ -1018,6 +1033,7 @@ export const parse = (function () {
     const savedNextTokenCoord = ctx.state.nextTokenCoord;
     const savedLexeme = lexeme;
     const savedPos = ctx.scan.stream.pos;
+    const savedScan = saveScanState(ctx);
     let depth = 0;
     let result = false;
     for (;;) {
@@ -1040,6 +1056,7 @@ export const parse = (function () {
     ctx.state.nextTokenCoord = savedNextTokenCoord;
     lexeme = savedLexeme;
     ctx.scan.stream.pos = savedPos;
+    restoreScanState(ctx, savedScan);
     return result;
   }
   function ofClauseValue(ctx, cc) {
@@ -1664,15 +1681,26 @@ export const parse = (function () {
           case 93: // right bracket
             lexeme += String.fromCharCode(c);
             return TK_RIGHTBRACKET;
-          case 123: // left brace
+          case 123: { // left brace
             lexeme += String.fromCharCode(c);
+            const depths = ctx.state.braceDepthStack;
+            if (depths.length > 0) {
+              depths[depths.length - 1]++; // A record inside `${…}`.
+            }
             return TK_LEFTBRACE;
-          case 125: // right brace
+          }
+          case 125: { // right brace
             lexeme += String.fromCharCode(c);
-            if (ctx.state.inStr) {
-              return stringSuffix(ctx);
+            const depths = ctx.state.braceDepthStack;
+            if (depths.length > 0) {
+              if (depths[depths.length - 1] > 0) {
+                depths[depths.length - 1]--; // Closes a record inside `${…}`.
+                return TK_RIGHTBRACE;
+              }
+              return stringSuffix(ctx); // Closes the `${`: back into the template.
             }
             return TK_RIGHTBRACE;
+          }
           case CC_DOUBLEQUOTE:
           case CC_SINGLEQUOTE:
           case CC_BACKTICK:
@@ -1732,7 +1760,6 @@ export const parse = (function () {
     // `a${x}c` --> concat (concat "a" x) "c"
     function string(ctx, c) {
       const quoteChar = c;
-      ctx.state.quoteCharStack.push(c);
       lexeme += String.fromCharCode(c);
       c = nextCC();
       const inTemplateLiteral = quoteChar === CC_BACKTICK;
@@ -1776,6 +1803,11 @@ export const parse = (function () {
           peekCC() === CC_LEFTBRACE && !escaped) {
         nextCC(); // Eat CC_LEFTBRACE
         lexeme = lexeme.substring(1); // Strip off punct.
+        // Entering an interpolation. Only now is there a template to return to: pushing for
+        // every string (as this did) left a plain `"s"` inside `${…}` on top of the stack, so
+        // the closing `}` resumed scanning for `"` instead of the backtick.
+        ctx.state.quoteCharStack.push(quoteChar);
+        ctx.state.braceDepthStack.push(0);
         return TK_STRPREFIX;
       } else if (c) {
         lexeme = lexeme.substring(1); // Strip off leading quote.
@@ -1831,6 +1863,7 @@ export const parse = (function () {
         return TK_STRMIDDLE;
       } else if (c) {
         quoteCharStack.pop();
+        ctx.state.braceDepthStack.pop();
         lexeme = lexeme.substring(1); // Strip off leading braces.
         return TK_STRSUFFIX;
       } else {

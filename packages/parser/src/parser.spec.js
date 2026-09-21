@@ -1103,3 +1103,56 @@ describe("template interpolation", () => {
     expect(await exprOf("`plain`..", withStr)).toStrictEqual({ tag: "STR", elts: ["plain"] });
   });
 });
+
+describe("literals inside template interpolation", () => {
+  // A plain string used to push its quote onto the scanner's template stack and never pop it,
+  // so the `}` after `${"s"` resumed scanning for `"` instead of the backtick. And any `}`
+  // inside `${…}` ended the interpolation, so a record literal there did too.
+  const tree = (pool, id = pool.root) => {
+    const node = pool[id];
+    if (node === undefined || node === null || typeof node !== "object") {
+      return node;
+    }
+    return {
+      tag: node.tag,
+      elts: node.elts.map(elt => (typeof elt === "number" && pool[elt] !== undefined ? tree(pool, elt) : elt)),
+    };
+  };
+  const parse = async (src) => tree(await parser.parse(0, src, basisLexicon));
+
+  it.each([
+    "`x${\"s\"}y`..",
+    "`x${'s'}y`..",
+    "`x${[1 \"a\"]}y`..",
+    "`x${{a: 1}}y`..",
+    "`x${{a: {b: 1}}}y`..",
+    "`${\"a\"}${\"b\"}`..",
+    "`a${`b${\"c\"}d`}e`..",
+    "{a: \"x\" b: `y${1}`}..",
+  ])("should parse %s", async (src) => {
+    const result = await parse(src);
+    expect(result.tag).toBe("PROG");
+  });
+
+  it("should keep a string literal as one concat part", async () => {
+    const node = (await parse("`x${\"s\"}y`..")).elts[0].elts[0];
+    expect(node).toStrictEqual({
+      tag: "CONCAT",
+      elts: [
+        { tag: "CONCAT", elts: [{ tag: "STR", elts: ["x"] }, { tag: "STR", elts: ["s"] }] },
+        { tag: "STR", elts: ["y"] },
+      ],
+    });
+  });
+
+  it("should keep a record literal inside the interpolation", async () => {
+    const node = (await parse("`x${{a: 1}}y`..")).elts[0].elts[0];
+    expect(node.elts[0].elts[1].tag).toBe("RECORD");
+  });
+
+  it("should still close a record after a template field", async () => {
+    const node = (await parse("{a: `y${1}` b: 2}..")).elts[0].elts[0];
+    expect(node.tag).toBe("RECORD");
+    expect(node.elts.length).toBe(2);
+  });
+});
