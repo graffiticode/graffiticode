@@ -1,5 +1,7 @@
 {
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "name": "@graffiticode/l0014-view",
   "version": "0.1.0",
   "description": "L0014 view — renders a TransLaTeX rule set's corpus results through the shared View inherited from @graffiticode/l0000-view",
@@ -30,7 +32,7 @@
     "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "@graffiticode/l0000-view": "^0.1.4"
+    "@graffiticode/l0000-view": "^0.1.5"
   },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.59.1",
