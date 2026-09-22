@@ -222,9 +222,9 @@ export class Ast {
     Env.enterEnv(ctx, fn.name);
     if (fn.env) {
       const lexicon = fn.env.lexicon;
-      const pattern = Ast.node(ctx, fn.env.pattern);
       let outerEnv = null;
-      // Parameters are plain names: parse.js rejects a pattern in a parameter list.
+      // A pattern parameter is a hidden name like any other; its pattern variables were
+      // inlined into the body as VALs of it, so binding it binds them.
       for (const id in lexicon) {
         // For each parameter, get its definition assign the value of the argument
         // used on the current function application.
@@ -251,7 +251,6 @@ export class Ast {
       if (outerEnv) {
         Ast.lambda(ctx, {
           lexicon: outerEnv,
-          pattern // FIXME need to trim pattern if some args where applied.
         }, Ast.pop(ctx));
       }
     }
@@ -285,6 +284,7 @@ export class Ast {
     // Construct a lexicon
     const lexicon = {};
     let paramc = 0;
+    const sources = fn.elts[2].elts;
     fn.elts[0].elts.forEach(function (n, i) {
       const name = n.elts[0];
       const nid = Ast.intern(ctx, fn.elts[3].elts[i]);
@@ -294,6 +294,10 @@ export class Ast {
         offset: i,
         nid
       };
+      if (sources[i] && sources[i].tag !== "IDENT") {
+        // A pattern parameter: keep its pattern for a partially applied lambda.
+        lexicon[name].source = Ast.intern(ctx, sources[i]);
+      }
       if (!nid) {
         // Parameters don't have nids.
         // assert that there are parameters after a binding without a nid.
@@ -305,8 +309,7 @@ export class Ast {
       nid: Ast.intern(ctx, fn.elts[1]),
       env: {
         lexicon,
-        pattern: Ast.intern(ctx, fn.elts[2])
-      }
+        }
     };
     const elts = [];
     // While there are args on the stack, pop them.
@@ -619,17 +622,32 @@ export class Ast {
 
   static lambda(ctx, env, nid) {
     // Ast.lambda
+    // elts: [params, body, sources, inits]. A pattern parameter (`<[x y]: ...>`) is a hidden
+    // name in `params`; its pattern variables are env words too, but not parameters. When any
+    // parameter is a pattern, `sources` lists every parameter as written -- the pattern, or
+    // the name -- so unparse can print the source form. Otherwise it is empty.
     const names = [];
     const nids = [];
+    const sources = [];
+    let hasPattern = false;
     for (const id in env.lexicon) {
       const word = env.lexicon[id];
-      names.push({
+      if (word.pattern) {
+        continue;
+      }
+      const name = {
         tag: "IDENT",
         elts: [word.name],
-      });
+      };
+      names.push(name);
       nids.push(word.nid || 0);
+      if (word.source) {
+        hasPattern = true;
+        sources.push(word.source);
+      } else {
+        sources.push(name);
+      }
     }
-    // const pattern = env.pattern;
     Ast.push(ctx, {
       tag: "LAMBDA",
       elts: [{
@@ -637,9 +655,7 @@ export class Ast {
         elts: names
       }, nid, {
         tag: "LIST",
-        elts: [
-          // pattern   // FIXME
-        ],
+        elts: hasPattern ? sources : []
       }, {
         tag: "LIST",
         elts: nids

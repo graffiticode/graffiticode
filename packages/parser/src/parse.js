@@ -501,13 +501,14 @@ export const parse = (function () {
     }
     return str(ctx, cc);
   }
-  function defName(ctx, cc) {
+  function defName(ctx, cc, allowPattern) {
     if (match(ctx, TK_LEFTBRACKET) || match(ctx, TK_LEFTBRACE)) {
-      // `<[a b]: ...>` used to parse, drop the brackets, and bind the whole argument to `a`.
-      // Destructure in the body instead: `<p: case p of [a b]: ... end>`.
-      next(ctx);
-      assertErr(ctx, false, "Pattern matching on function arguments is disallowed.", getCoord(ctx));
-      throw new Error("Pattern matching on function arguments is disallowed.");
+      if (!allowPattern) {
+        next(ctx);
+        assertErr(ctx, false, "Pattern matching on function arguments is disallowed.", getCoord(ctx));
+        throw new Error("Pattern matching on function arguments is disallowed.");
+      }
+      return paramPattern(ctx, cc);
     } else {
       eat(ctx, TK_IDENT);
       Env.addWord(ctx, lexeme, {
@@ -521,6 +522,32 @@ export const parse = (function () {
       cc.cls = "val";
       return cc;
     }
+  }
+  // `<[x y] z: ...>`: a list or record pattern as a lambda parameter. The lambda takes a
+  // hidden parameter in the pattern's place, and each pattern variable is bound, as in a
+  // `let` pattern, to the part of that parameter it names: `x` is `VAL(NUM 0, IDENT %p0)`.
+  // Hidden names start with `%`, which no identifier can, and are unique per program: the
+  // compiler resolves names dynamically, so an inner lambda reusing one would capture an
+  // outer pattern's variables. The pattern itself is kept on the hidden word so the LAMBDA
+  // node can carry it (elts[2]) for unparse to resugar.
+  function paramPattern(ctx, cc) {
+    const hidden = `%p${ctx.state.hiddenParamc = (ctx.state.hiddenParamc || 0) + 1}`;
+    const word = {
+      tk: TK_IDENT,
+      cls: "val",
+      name: hidden,
+      offset: ctx.state.paramc,
+      nid: 0
+    };
+    Env.addWord(ctx, hidden, word);
+    return pattern(ctx, function (ctx) {
+      const patternNid = Ast.pop(ctx);
+      word.source = patternNid;
+      bindLetPattern(ctx, patternNid, Ast.intern(ctx, { tag: "IDENT", elts: [hidden] }), "parameter");
+      Ast.name(ctx, hidden); // Popped by params().
+      cc.cls = "punc";
+      return cc;
+    });
   }
   function name(ctx, cc) {
     eat(ctx, TK_IDENT);
@@ -745,6 +772,7 @@ export const parse = (function () {
     const ret = function (ctx) {
       ctx.state.paramc = 0;
       Env.enterEnv(ctx, "lambda");
+      ctx.state.patternNames = new Set(); // Shared by every pattern in the parameter list.
       return params(ctx, TK_COLON, function (ctx) {
         eat(ctx, TK_COLON);
         const ret = function (ctx) {
@@ -1456,22 +1484,25 @@ export const parse = (function () {
       return ret;
     });
   }
-  function bindLetPattern(ctx, patternNid, sourceNid) {
+  function bindLetPattern(ctx, patternNid, sourceNid, kind = "let") {
     const node = ctx.state.nodePool[patternNid]; // raw: elts stay node ids
     const part = (key) => Ast.intern(ctx, { tag: "VAL", elts: [key, sourceNid] });
     switch (node.tag) {
-    case "IDENT":
-      topEnv(ctx).lexicon[node.elts[0]].nid = sourceNid;
+    case "IDENT": {
+      const word = topEnv(ctx).lexicon[node.elts[0]];
+      word.nid = sourceNid;
+      word.pattern = true; // Not a parameter: Ast.lambda leaves it out.
       break;
+    }
     case "LIST":
       node.elts.forEach((elt, i) => {
-        bindLetPattern(ctx, elt, part({ tag: "NUM", elts: [String(i)] }));
+        bindLetPattern(ctx, elt, part({ tag: "NUM", elts: [String(i)] }), kind);
       });
       break;
     case "RECORD":
       node.elts.forEach((elt) => {
         const [key, value] = ctx.state.nodePool[elt].elts;
-        bindLetPattern(ctx, value, part(key));
+        bindLetPattern(ctx, value, part(key), kind);
       });
       break;
     case "TAG":
@@ -1480,7 +1511,7 @@ export const parse = (function () {
       }
       // Falls through: a tag literal binds nothing and cannot fail to match here.
     default:
-      assertErr(ctx, false, "A let pattern can only bind variables.", node.coord);
+      assertErr(ctx, false, `A ${kind} pattern can only bind variables.`, node.coord);
     }
   }
 
@@ -1492,11 +1523,12 @@ export const parse = (function () {
       return cc;
     }
     const ret = function (ctx) {
+      // Only lambda parameters may be patterns (see paramPattern).
       const ret = defName(ctx, (ctx) => {
         Ast.pop(ctx); // Throw away name.
         ctx.state.paramc++;
         return params(ctx, brk, cc);
-      });
+      }, brk === TK_COLON);
       ret.cls = "param";
       return ret;
     };

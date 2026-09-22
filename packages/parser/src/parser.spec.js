@@ -1044,12 +1044,109 @@ describe("let destructuring", () => {
     expect(await errorOf("let [a a] = [1 2].. a..")).toBe("Pattern variable 'a' is bound more than once.");
   });
 
+  it("should reject a pattern as a let function's parameter", async () => {
+    expect(await errorOf("let f [a b] = add a b.. f [1 2]..")).toBe("Pattern matching on function arguments is disallowed.");
+  });
+});
+
+describe("parameter patterns", () => {
+  const tree = (pool, id = pool.root) => {
+    const node = pool[id];
+    if (node === undefined || node === null || typeof node !== "object") {
+      return node;
+    }
+    return {
+      tag: node.tag,
+      elts: node.elts.map(elt => (typeof elt === "number" && pool[elt] !== undefined ? tree(pool, elt) : elt)),
+    };
+  };
+  const exprOf = async (src) => tree(await parser.parse(0, src, basisLexicon)).elts[0].elts[0];
+  const errorOf = async (src) => {
+    const result = await parser.parse(0, src, basisLexicon);
+    expect(result[result.root].tag).toBe("ERROR");
+    return result[result[result.root].elts[0]].elts[0];
+  };
+  const ident = (name) => ({ tag: "IDENT", elts: [name] });
+  const num = (n) => ({ tag: "NUM", elts: [String(n)] });
+  const val = (key, source) => ({ tag: "VAL", elts: [key, source] });
+
+  // `<[x y]: ...>` takes one hidden parameter; `x` and `y` are its parts.
+  it("should desugar a list pattern to a hidden parameter", async () => {
+    const lambda = await exprOf("<[x y]: add x y>..");
+    expect(lambda.tag).toBe("LAMBDA");
+    const [params, body, sources] = lambda.elts;
+    expect(params.elts).toStrictEqual([ident("%p1")]);
+    expect(body).toStrictEqual({ tag: "ADD", elts: [val(num(0), ident("%p1")), val(num(1), ident("%p1"))] });
+    expect(sources.elts).toStrictEqual([{ tag: "LIST", elts: [ident("x"), ident("y")] }]);
+  });
+
+  it("should keep a pattern's position among plain parameters", async () => {
+    const lambda = await exprOf("<a [b c] d: add a add b add c d>..");
+    expect(lambda.elts[0].elts).toStrictEqual([ident("a"), ident("%p1"), ident("d")]);
+    expect(lambda.elts[2].elts.map(n => n.tag)).toStrictEqual(["IDENT", "LIST", "IDENT"]);
+  });
+
+  it("should leave the sources list empty without a pattern", async () => {
+    const lambda = await exprOf("<a b: add a b>..");
+    expect(lambda.elts[2].elts).toStrictEqual([]);
+  });
+
+  it("should bind a record field to VAL(key, parameter)", async () => {
+    const lambda = await exprOf("<{name}: name>..");
+    expect(lambda.elts[1]).toStrictEqual(val({ tag: "TAG", elts: ["name"] }, ident("%p1")));
+  });
+
+  it("should chain VALs for a nested pattern", async () => {
+    const lambda = await exprOf("<[[a] b]: a>..");
+    expect(lambda.elts[1]).toStrictEqual(val(num(0), val(num(0), ident("%p1"))));
+  });
+
+  // The compiler resolves names dynamically, so an inner `%p1` would capture the outer one.
+  it("should give nested lambdas distinct hidden parameters", async () => {
+    const outer = await exprOf("<[a]: <[b]: add a b>>..");
+    const inner = outer.elts[1];
+    expect(inner.elts[0].elts).toStrictEqual([ident("%p2")]);
+    expect(inner.elts[1]).toStrictEqual({ tag: "ADD", elts: [val(num(0), ident("%p1")), val(num(0), ident("%p2"))] });
+  });
+
+  it("should fold a full application at parse time", async () => {
+    const expr = await exprOf("<[x y] z: add add x y z> [10 20] 30..");
+    const list = { tag: "LIST", elts: [num(10), num(20)] };
+    expect(expr).toStrictEqual({
+      tag: "ADD",
+      elts: [{ tag: "ADD", elts: [val(num(0), list), val(num(1), list)] }, num(30)],
+    });
+  });
+
+  it("should keep the pattern of a partially applied lambda", async () => {
+    const lambda = await exprOf("<a [b c]: add a add b c> 1..");
+    expect(lambda.elts[0].elts).toStrictEqual([ident("%p1")]);
+    expect(lambda.elts[2].elts).toStrictEqual([{ tag: "LIST", elts: [ident("b"), ident("c")] }]);
+  });
+
+  it("should reject a literal in a parameter pattern", async () => {
+    expect(await errorOf("<[a 0]: a>..")).toBe("A parameter pattern can only bind variables.");
+  });
+
   it.each([
-    "<[a b]: add a b>..",
-    "<{a}: a>..",
-    "let f [a b] = add a b.. f [1 2]..",
-  ])("should reject a pattern as a function parameter: %s", async (src) => {
-    expect(await errorOf(src)).toBe("Pattern matching on function arguments is disallowed.");
+    "<[a a]: a>..",
+    "<[a] [a]: a>..",
+  ])("should reject a variable bound twice: %s", async (src) => {
+    expect(await errorOf(src)).toBe("Pattern variable 'a' is bound more than once.");
+  });
+
+  it.each([
+    ["<[x y]: add x y>..", "<[x y]: add x y>.."],
+    ["<k [a b]: add k mul a b>..", "<k [a b]: add k mul a b>.."],
+    ["<[[a b] _] {n m: [p q]}: add a add b add n add p q>..", "<[[a b] _] {n m: [p q]}: add a add b add n add p q>.."],
+    ["<[a]: <[b]: add a b>>..", "<[a]: <[b]: add a b>>.."],
+    ["<a [b c]: add a add b c> 1..", "<[b c]: add 1 add b c>.."],
+  ])("should resugar %s on unparse", async (src, expected) => {
+    const first = await parser.parse(0, src, basisLexicon);
+    const text = unparse(first, basisLexicon);
+    expect(text).toBe(expected);
+    const second = await parser.parse(0, text, basisLexicon);
+    expect(tree(second)).toStrictEqual(tree(await parser.parse(0, expected, basisLexicon)));
   });
 });
 

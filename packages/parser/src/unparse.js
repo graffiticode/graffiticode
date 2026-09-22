@@ -324,14 +324,28 @@ function unparseNodeCore(node, lexicon, indent = 0, options = {}) {
         const params = node.elts[0];
         const body = node.elts[1];
 
-        // Extract parameter names
+        // Extract parameter names. A lambda with pattern parameters (`<[x y] z: ...>`) lists
+        // its parameters as written in elts[2]; elts[0] has a hidden name in each pattern's
+        // place, and the body refers to the pattern variables as VALs of it. Print the
+        // patterns and resugar those VALs back to the variables' names.
+        const sources = node.elts[2];
         let paramStr = "";
-        if (params && params.elts) {
+        let bodyOpts = opts;
+        if (sources && sources.elts && sources.elts.length > 0 && params && params.elts) {
+          const patternVars = new Map(opts.patternVars || []);
+          params.elts.forEach((p, i) => {
+            if (sources.elts[i] && sources.elts[i].tag !== "IDENT") {
+              collectPatternVars(sources.elts[i], p.elts[0], patternVars);
+            }
+          });
+          bodyOpts = { ...opts, patternVars };
+          paramStr = sources.elts.map(p => unparsePattern(p, lexicon, indent, opts)).join(" ");
+        } else if (params && params.elts) {
           paramStr = params.elts.map(p => unparseNode(p, lexicon, indent, opts)).join(" ");
         }
 
         // Unparse body
-        const bodyStr = unparseNode(body, lexicon, indent, opts);
+        const bodyStr = unparseNode(body, lexicon, indent, bodyOpts);
 
         if (paramStr) {
           return `<${paramStr}: ${bodyStr}>`;
@@ -442,6 +456,14 @@ function unparseNodeCore(node, lexicon, indent = 0, options = {}) {
       }
       return "/* ERROR */";
 
+    case "VAL": {
+      // A pattern parameter's variable (see LAMBDA).
+      const path = valPath(node);
+      if (path !== null && opts.patternVars && opts.patternVars.has(path)) {
+        return opts.patternVars.get(path);
+      }
+    }
+    // Falls through.
     default: {
     // Check if this is a lexicon-defined function
     // First, find the source name for this tag in the lexicon
@@ -478,6 +500,74 @@ function unparseNodeCore(node, lexicon, indent = 0, options = {}) {
       return `/* ${node.tag} */`;
     }
   }
+}
+
+// The key of one step into a pattern: a list index or a record key.
+function patternKey(node) {
+  return `${node.tag}:${node.elts[0]}`;
+}
+
+// Map the path of each variable in a pattern parameter (the hidden parameter's name, then
+// the keys leading to the variable) to the variable's name. valPath gives the same path for
+// the VAL chain the parser inlined for that variable.
+function collectPatternVars(pattern, path, vars) {
+  switch (pattern.tag) {
+    case "IDENT":
+      vars.set(path, pattern.elts[0]);
+      break;
+    case "LIST":
+      pattern.elts.forEach((elt, i) => {
+        collectPatternVars(elt, `${path}/${patternKey({ tag: "NUM", elts: [String(i)] })}`, vars);
+      });
+      break;
+    case "RECORD":
+      pattern.elts.forEach((binding) => {
+        const [key, value] = binding.elts;
+        collectPatternVars(value, `${path}/${patternKey(key)}`, vars);
+      });
+      break;
+  }
+}
+
+// `VAL(k2, VAL(k1, IDENT p))` => `p/k1/k2`; null if the chain isn't rooted at a name.
+function valPath(node) {
+  if (!node || typeof node !== "object") {
+    return null;
+  }
+  if (node.tag === "IDENT") {
+    return node.elts[0];
+  }
+  if (node.tag === "VAL" && node.elts[0] && node.elts[0].elts) {
+    const inner = valPath(node.elts[1]);
+    return inner === null ? null : `${inner}/${patternKey(node.elts[0])}`;
+  }
+  return null;
+}
+
+// A parameter as written: a name, `_`, or a list or record pattern, printed inline.
+function unparsePattern(node, lexicon, indent, opts) {
+  switch (node.tag) {
+    case "IDENT":
+      return node.elts[0];
+    case "TAG":
+      if (node.elts[0] === "_") {
+        return "_";
+      }
+      break;
+    case "LIST":
+      return "[" + node.elts.map(elt => unparsePattern(elt, lexicon, indent, opts)).join(" ") + "]";
+    case "RECORD":
+      return "{" + node.elts.map((binding) => {
+        const [key, value] = binding.elts;
+        const name = key.tag === "TAG" ? key.elts[0] : unparseNode(key, lexicon, indent, opts);
+        // `{name}` is shorthand for `{name: name}`.
+        if (value.tag === "IDENT" && value.elts[0] === name) {
+          return name;
+        }
+        return `${name}: ${unparsePattern(value, lexicon, indent, opts)}`;
+      }).join(" ") + "}";
+  }
+  return unparseNode(node, lexicon, indent, opts);
 }
 
 /**
