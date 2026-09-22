@@ -6,9 +6,9 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 
 export default defineConfig({
-  root: resolve(__dirname, "embed"),
+  root: resolve(import.meta.dirname, "embed"),
   build: {
-    outDir: resolve(__dirname, "dist-embed"),
+    outDir: resolve(import.meta.dirname, "dist-embed"),
     emptyOutDir: true,
   },
   // Dev: allow importing ../src from the embed root.
