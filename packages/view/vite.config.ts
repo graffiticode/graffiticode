@@ -16,7 +16,18 @@ export default defineConfig({
       cssFileName: "style",
     },
     rolldownOptions: {
-      external: ["react", "react-dom", "react-dom/client", "react/jsx-runtime"],
+      // @graffiticode/l0000-view is a dependency, so it stays external too. Bundled into this
+      // library (Vite 8 / rolldown), its own `swr` import drags in SWR's CommonJS
+      // use-sync-external-store shim, which rolldown turns into a runtime `require("react")`
+      // that throws in the browser -- breaking every consumer of this package (the MCP server's
+      // widgets). Consumers resolve it, and SWR with it, from node_modules.
+      external: [
+        "react",
+        "react-dom",
+        "react-dom/client",
+        "react/jsx-runtime",
+        "@graffiticode/l0000-view",
+      ],
     },
     sourcemap: true,
     emptyOutDir: true,
