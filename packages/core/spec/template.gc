@@ -1,0 +1,9 @@
+concept-web [
+  hub [text "The Cell"]
+  nodes [
+    [text "Nucleus"]
+    [assess [expected "Mitochondria"]]
+    [assess [expected "Ribosome"]]
+    [assess [expected "Cell membrane"]]
+  ] distractors ["Chlorophyll"] {}
+] title "Parts of a cell" instructions "Drag each part onto an empty node." {}..

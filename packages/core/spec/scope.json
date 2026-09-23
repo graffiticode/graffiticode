@@ -1,0 +1,23 @@
+{
+  "id": "0183",
+  "summary": "Concept webs — a hub in the centre with nodes on a circle around it and labelled lines between them, as a study diagram or as an assessment where the learner drags answers from a tray onto blank nodes and blank line labels. Succeeds L0169.",
+  "in_scope": [
+    "Concept webs, concept maps, mind maps and graphic organizers laid out as a central hub with related ideas around it",
+    "Study webs with every node and line labelled and nothing to fill in",
+    "Drag-and-drop assessments where the learner fills blank nodes, the hub included, from a tray of answers",
+    "Relation labelling, where the learner fills the blank labels on the lines between nodes",
+    "Distractors — wrong answers mixed into either tray",
+    "Scoring with partial credit per blank, points per blank, and interchangeable blanks that accept each other's answers",
+    "Lines between any two nodes, with arrows or dashes, and labels on them",
+    "Node colours, shapes and sizes; math in $…$; images given by URL",
+    "The web an L0176 Learnosity custom question embeds with lang \"0183\""
+  ],
+  "out_of_scope": [
+    "Flowcharts, timelines, trees, org charts and cycles drawn as a sequence — L0183 lays every web out as a hub and a circle, and does NOT support other layouts.",
+    "Learners adding nodes or drawing lines of their own is not built yet.",
+    "Venn diagrams are L0171; do NOT route them here.",
+    "Multiple choice, short answer, matching lists and other question types do NOT belong here — use L0180, or L0176 when the user names Learnosity.",
+    "Wrapping a web in a Learnosity item is L0176's job, never L0183's — L0183 produces the web that L0176 embeds.",
+    "L0183 does NOT accept L0169 programs: it is a different language, and existing L0169 items stay with L0169."
+  ]
+}

@@ -1,0 +1,83 @@
+# Cloud Build configuration for staging deployments (non-main branches)
+steps:
+  # Install dependencies
+  - name: "node"
+    entrypoint: "npm"
+    args:
+      - "ci"
+
+  # Build Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/l0183-staging:$COMMIT_SHA"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/l0183-staging:$BRANCH_NAME"
+      - "."
+
+  # Push image to Container Registry
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - "--all-tags"
+      - "gcr.io/$PROJECT_ID/l0183-staging"
+    id: Push
+
+  # Deploy to Cloud Run (staging service)
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    args:
+      - run
+      - deploy
+      - "l0183-$BRANCH_NAME"
+      - "--platform=managed"
+      - "--image=gcr.io/$PROJECT_ID/l0183-staging:$COMMIT_SHA"
+      - >-
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID,branch=$BRANCH_NAME
+      - "--region=$_DEPLOY_REGION"
+      - "--quiet"
+      - "--port=50183"
+      # --update-env-vars, NOT --set-env-vars: set replaces the whole ENVIRONMENT, so any
+      # variable added out of band is silently deleted by this deploy. update leaves the
+      # rest alone. Keep this rule in any new deploy path.
+      - "--update-env-vars=AUTH_URL=$_AUTH_URL,NODE_ENV=staging,BRANCH=$BRANCH_NAME"
+      - "--allow-unauthenticated"
+      # Set explicitly, and NOT merely omitted: Cloud Run carries a service's current scaling
+      # forward when the flag is absent, so leaving it out makes the scaling whatever it last
+      # was rather than what this file says. Nothing here holds state between requests.
+      # Siblings run at 20.
+      - "--max-instances=$_MAX_INSTANCES"
+      - "--memory=256Mi"
+    id: Deploy
+    entrypoint: gcloud
+
+  # Output the service URL
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    args:
+      - run
+      - services
+      - describe
+      - "l0183-$BRANCH_NAME"
+      - "--platform=managed"
+      - "--region=$_DEPLOY_REGION"
+      - "--format=value(status.url)"
+    id: Get URL
+    entrypoint: gcloud
+
+images:
+  - "gcr.io/$PROJECT_ID/l0183-staging:$COMMIT_SHA"
+  - "gcr.io/$PROJECT_ID/l0183-staging:$BRANCH_NAME"
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _MAX_INSTANCES: "20"
+  _DEPLOY_REGION: us-central1
+  _AUTH_URL: https://auth.graffiticode.org
+
+tags:
+  - l0183
+  - staging
+  - $BRANCH_NAME

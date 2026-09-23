@@ -1,0 +1,32 @@
+{
+  "id": "0183",
+  "description": "Concept webs — a hub in the centre, nodes on a circle around it, and labelled lines between them. Any node or line can be a blank the learner fills by dragging from a tray that is built from the answers plus optional distractors; blanks in interchangeable places accept each other's answers, and the web is scored with partial credit. Nodes show text, math or images and can be coloured, shaped and sized. Embeddable in Learnosity through L0176. Successor to L0169.",
+  "supported_item_types": ["concept-web"],
+  "example_prompts": [
+    {
+      "prompt": "Make a concept web of the parts of a cell with Nucleus given and three blanks to fill.",
+      "produces": "concept-web",
+      "notes": "Blank nodes are `[assess [expected \"…\"]]` with no text. The tray is built from the expected answers — they are not listed twice."
+    },
+    {
+      "prompt": "Create a food chain where students label each arrow, with one wrong label in the tray.",
+      "produces": "concept-web",
+      "notes": "Relation labelling: `edges [[from … to … style \"solid-arrow\" assess [expected \"eaten by\"]] …] distractors [\"…\"] {}`. Writing `edges` replaces the default spokes, so every line is written."
+    },
+    {
+      "prompt": "Build a study web of the causes of World War I, each cause a different colour.",
+      "produces": "concept-web",
+      "notes": "No blanks, so no tray. `color` is a closed set of eleven names."
+    },
+    {
+      "prompt": "A photosynthesis web: inputs point into the hub, outputs point out, the students fill in all of them.",
+      "produces": "concept-web",
+      "notes": "Blank nodes referred to by `id`, arrows set with `style`. Inputs sharing the same shape of lines are interchangeable and accept each other's answers."
+    },
+    {
+      "prompt": "Put that concept web in a Learnosity item.",
+      "produces": "concept-web",
+      "notes": "Not here: that is L0176, as `custom [lang \"0183\" model data use \"0183\" …]`. L0183 produces the web L0176 embeds."
+    }
+  ]
+}

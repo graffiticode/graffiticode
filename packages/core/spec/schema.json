@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0183",
+  "title": "L0183",
+  "description": "A compiled L0183 concept web. `interaction` is what the learner sees and `validation` is the answer key, in the cell-scoring shape of Graffiticode's Learnosity custom questions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["interaction", "validation"],
+  "properties": {
+    "title": { "type": "string" },
+    "instructions": { "type": "string" },
+    "theme": { "enum": ["dark", "light"] },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "hub", "nodes", "edges", "trays", "cells"],
+      "properties": {
+        "type": { "const": "concept-web" },
+        "hub": { "$ref": "#/$defs/node" },
+        "nodes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/node" } },
+        "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+        "trays": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nodes": { "$ref": "#/$defs/tray" },
+            "edges": { "$ref": "#/$defs/tray" }
+          }
+        },
+        "cells": {
+          "description": "One entry per blank, keyed by its id. `value` is the learner's answer.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": { "value": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["points", "cells"],
+      "properties": {
+        "points": { "type": "number", "minimum": 0 },
+        "cells": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["assess", "pool"],
+            "properties": {
+              "assess": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["expected", "points"],
+                "properties": {
+                  "expected": { "type": "string" },
+                  "points": { "type": "number", "exclusiveMinimum": 0 }
+                }
+              },
+              "pool": {
+                "description": "Blanks in the same pool accept each other's answers.",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "shape": { "enum": ["rounded", "rect", "pill", "circle"] },
+        "color": {
+          "enum": [
+            "gray",
+            "red",
+            "orange",
+            "amber",
+            "yellow",
+            "green",
+            "teal",
+            "blue",
+            "indigo",
+            "purple",
+            "pink"
+          ]
+        },
+        "size": { "enum": ["small", "medium", "large"] },
+        "blank": { "const": true }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "style"],
+      "properties": {
+        "id": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "style": { "enum": ["solid", "dashed", "solid-arrow", "dashed-arrow"] },
+        "label": { "type": "string" },
+        "blank": { "const": true }
+      }
+    },
+    "tray": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items", "align"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "text"],
+            "properties": { "id": { "type": "string" }, "text": { "type": "string" } }
+          }
+        },
+        "align": { "enum": ["right", "left", "top", "bottom"] }
+      }
+    }
+  }
+}
