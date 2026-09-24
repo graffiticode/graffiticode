@@ -197,7 +197,7 @@ describe("examples.md", () => {
     // A prompt that writes the program teaches the generator to echo syntax instead of reading
     // intent — and this is the retrieval corpus, so it is learned.
     const codey = prompts.filter((l) =>
-      /\b(concept-web|nodes|edges|assess) \[|\b(node|edge|hub) text "|\{\}|\.\.$|\btheme (DARK|LIGHT)\b|\bassess \[(expected|distractor)/.test(
+      /\b(concept-web|nodes|edges|assess) \[|\b(node|edge|hub) text "|\{\}|\.\.$|\btheme (DARK|LIGHT)\b|\binstant-feedback (true|false)\b|\bassess \[(expected|distractor)/.test(
         l,
       ),
     );

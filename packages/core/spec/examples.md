@@ -1,11 +1,12 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0183 RAG Training Examples
 
-112 example prompts for training a RAG model on L0183, the concept web language — covering
+120 example prompts for training a RAG model on L0183, the concept web language — covering
 study webs, titles and instructions, blank nodes and a blank hub, wrong answers in the tray and
 where the tray sits, labelling the relationships on the lines, lines between nodes with arrows
 and dashes, interchangeable answers and points, colours, shapes and sizes, math, images, and
-complete webs across school subjects. Image prompts carry real URLs, because a web built on an
+complete webs across school subjects, and whether right and wrong show as the learner works or
+only when they check. Image prompts carry real URLs, because a web built on an
 invented one renders broken.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build, never
@@ -163,3 +164,14 @@ deliberately absent.
 110. Economics: a supply-and-demand web where students label how price affects supply and demand.
 111. Health: a food groups web with colour-coded groups, one blank per group, and instructions for young learners.
 112. Earth science: a rock cycle web where students place igneous, sedimentary and metamorphic rock and label the processes between them, with a wrong label in the bank.
+
+## Category 14: When Feedback Shows (113–120)
+
+113. Make a concept web of the parts of a flower with three blanks, and show students right away whether each answer they drop in is right.
+114. A water cycle web with blank stages where each placement turns green or red as soon as it is made.
+115. Create a practice web of a food chain with instant feedback, so students can learn by trying.
+116. A self-study web of the organelles of a cell with blanks, giving immediate feedback on every answer.
+117. Make a quiz web on the causes of World War I where students only find out how they did when they press Check.
+118. A graded web on the branches of government: no hints while students work, feedback only after they check their answers.
+119. Build a vocabulary web around "Photosynthesis" with a word bank and two decoys, and let students see instantly whether they placed each word correctly.
+120. Physics: a web around "Force" with blank types of force and labelled lines, marking answers right or wrong the moment they are dropped.
