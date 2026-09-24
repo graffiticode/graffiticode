@@ -11,7 +11,8 @@
  * Moving an answer works three ways, because each one fails somebody:
  *
  * - DRAG with pointer events, not the HTML5 drag-and-drop API — HTML5 DnD never fires on touch,
- *   which is why L0169's tray did nothing on a tablet.
+ *   which is why L0169's tray did nothing on a tablet. Everything draggable is `touch-none`, or
+ *   the browser takes the finger for scrolling and cancels the pointer.
  * - SELECT THEN PLACE: activate a tray item (click, tap, Enter or Space), then activate a blank.
  *   This is the keyboard path, and it is also what a tap does.
  * - CLEAR: activate a filled blank with nothing selected, or press Delete on it, and its answer
@@ -263,6 +264,7 @@ export function Web({
           !value && !scores && "border-dashed",
           !value && !feedback(node.id) && "bg-zinc-50 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-500",
           selectable && "ring-4 ring-blue-400/60",
+          value && !disabled && "touch-none",
           "cursor-pointer focus-visible:outline focus-visible:outline-4 focus-visible:outline-blue-500 disabled:cursor-default",
         )}
         style={style}
@@ -321,6 +323,7 @@ export function Web({
               ? "border-zinc-400 bg-white text-zinc-900 dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-100"
               : "border-dashed border-zinc-400 bg-zinc-50 text-zinc-400 dark:border-zinc-500 dark:bg-zinc-900"),
           selectable && "ring-4 ring-blue-400/60",
+          value && !disabled && "touch-none",
         )}
         style={style}
         onClick={unlessDragged(() => activateBlank(edge.id))}
