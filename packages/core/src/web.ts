@@ -214,6 +214,25 @@ function buildTray(
 }
 
 /**
+ * The learner's state as it reaches the compiler through the platform API: each layer of a
+ * chained task is handed the previous layer's whole compile response, so the /form's model
+ * arrives as L0000's `{data, errors}` envelope, and the envelope has been seen to nest after a
+ * round trip. Unwrap until the model shows. The discriminator is `errors` being an array, as in
+ * L0000's `unwrapEnvelopeData` — the envelope always carries one; a model never does.
+ */
+function unwrapEnvelope(value: any): any {
+  while (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Array.isArray(value.errors)
+  ) {
+    value = value.data;
+  }
+  return value;
+}
+
+/**
  * Build the compiled model from `concept-web`'s merged attribute list and its settings.
  *
  * `data` is the learner's state carried back on a recompile. Exactly one thing is taken from it:
@@ -339,7 +358,7 @@ export function buildWeb(
   const blanks = [...nodeBlanks, ...edgeBlanks];
   const pools = assignPools(hub, edges, blanks);
 
-  const answered = data?.interaction?.cells || {};
+  const answered = unwrapEnvelope(data)?.interaction?.cells || {};
   const cells: Record<string, { value?: string }> = {};
   const keyCells: Record<string, CellKey> = {};
   let points = 0;

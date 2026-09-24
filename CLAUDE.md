@@ -118,6 +118,9 @@ compiler so the scorer stays trivial and runs server-side.
 **`PROG` takes exactly one thing from `options.data`**: each blank's `value`
 (`data.interaction.cells[id].value`). Everything else comes from the fresh compile, so a stale
 model riding back in `data` cannot shadow it. Do not reintroduce a blanket `...data` spread.
+Through `api.graffiticode.org`, `data` is not the model but L0000's compile response wrapping it
+(`{data, errors}`, sometimes nested); `buildWeb` unwraps it. Calling this server directly, as the
+tests do, hides that — a missing unwrap made every drop snap back to the tray in production.
 
 ## The view
 

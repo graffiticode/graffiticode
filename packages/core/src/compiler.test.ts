@@ -197,6 +197,16 @@ describe("the learner's answers", () => {
     });
   });
 
+  // Through api.graffiticode.org, the /form's model is compiled by L0000 first and reaches L0183
+  // as that compile's `{data, errors}` response — the bug where every drop snapped back.
+  test("ride across a recompile through the platform's {data, errors} envelope, nested or not", async () => {
+    const model = { interaction: { cells: { r: { value: "Golgi" } } } };
+    const once = await compile(CELL, { data: model, errors: [] });
+    expect(once.interaction.cells.r).toEqual({ value: "Golgi" });
+    const twice = await compile(CELL, { data: { data: model, errors: [] }, errors: [] });
+    expect(twice.interaction.cells.r).toEqual({ value: "Golgi" });
+  });
+
   test("are the only thing taken from data — a stale model cannot shadow a fresh compile", async () => {
     const data = {
       title: "STALE",
