@@ -3,8 +3,8 @@
     "access": "public"
   },
   "name": "@graffiticode/l0183-view",
-  "version": "0.1.0",
-  "description": "L0183 view \u2014 the concept web Form and its DOM-free scoring, rendered through the shared View inherited from @graffiticode/l0000-view",
+  "version": "0.2.0",
+  "description": "L0183 view — the concept web Form and its DOM-free scoring, rendered through the shared View inherited from @graffiticode/l0000-view",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
