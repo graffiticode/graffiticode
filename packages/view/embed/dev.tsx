@@ -86,7 +86,7 @@ function Fixture({ label, initial, errs = [] }: { label: string; initial: any; e
     <section style={{ marginBottom: 32 }}>
       <h2 style={{ fontFamily: "sans-serif", fontSize: 13, color: "#666" }}>{label}</h2>
       <Form state={{ data: shown, errors: errs, apply }} />
-      {result && <CheckBar result={result} checked={checked} onCheck={() => setChecked(true)} />}
+      {result && <CheckBar result={result} checked={checked} onToggle={() => setChecked((c) => !c)} />}
     </section>
   );
 }

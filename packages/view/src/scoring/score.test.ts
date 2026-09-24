@@ -106,7 +106,14 @@ describe("distractor penalties", () => {
 describe("score, the View's Check binding", () => {
   test("scores the answers in interaction.cells out of the key's points", () => {
     const data = { validation, interaction: { cells: { n1: v("Ribosome"), n3: v("Glucose") } } };
-    expect(score(data)).toEqual({ score: 3, max: 5 });
+    expect(score(data)).toEqual({ score: 3, max: 5, complete: false });
+  });
+
+  test("is complete only when every blank holds an answer", () => {
+    const all = { n1: v("Ribosome"), n2: v("Golgi"), n3: v("Glucose"), e1: v("makes") };
+    expect(score({ validation, interaction: { cells: all } })?.complete).toBe(true);
+    const cleared = { ...all, e1: v(null) };
+    expect(score({ validation, interaction: { cells: cleared } })?.complete).toBe(false);
   });
 
   test("nothing to check means no Check button", () => {

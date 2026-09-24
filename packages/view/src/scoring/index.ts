@@ -119,10 +119,20 @@ export const totalScore = (cells: any, validation: Validation | undefined): numb
 /**
  * The shared View's `score` binding: what its Check button reports. Reads the live model, where
  * the /form embed keeps the learner's answers in `interaction.cells`. Nothing to check — no answer
- * key, or no blanks — is `undefined`, and the View then shows no Check button.
+ * key, or no blanks — is `undefined`, and the View then shows no Check button. `complete` is every
+ * blank filled; until then the View keeps Check disabled.
  */
-export const score = (data: any): { score: number; max: number } | undefined => {
+export const score = (
+  data: any,
+): { score: number; max: number; complete: boolean } | undefined => {
   const validation: Validation | undefined = data?.validation;
-  if (!validation || !Object.keys(validation.cells || {}).length) return undefined;
-  return { score: totalScore(data?.interaction?.cells, validation), max: validation.points };
+  const blanks = Object.keys(validation?.cells || {});
+  if (!validation || !blanks.length) return undefined;
+  const cells = data?.interaction?.cells || {};
+  const filled = (id: string) => typeof cells[id]?.value === "string" && cells[id].value !== "";
+  return {
+    score: totalScore(cells, validation),
+    max: validation.points,
+    complete: blanks.every(filled),
+  };
 };

@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0183-view",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "L0183 view — the concept web Form and its DOM-free scoring, rendered through the shared View inherited from @graffiticode/l0000-view",
   "type": "module",
   "main": "./dist/index.js",
@@ -36,7 +36,7 @@
     "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "@graffiticode/l0000-view": "^0.2.1",
+    "@graffiticode/l0000-view": "^0.3.0",
     "katex": "^0.16.11"
   },
   "devDependencies": {
