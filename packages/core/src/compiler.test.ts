@@ -44,10 +44,19 @@ describe("the program", () => {
     expect(out.title).toBe("T");
   });
 
+  test("instant-feedback compiles to `feedback`, never to cqt's `instantFeedback`", async () => {
+    const on = await compile(`concept-web [ hub text "A" {} nodes [ node text "B" {} ] {} ] instant-feedback true {}..`);
+    expect(on.feedback).toBe("instant");
+    expect(on).not.toHaveProperty("instantFeedback");
+    const off = await compile(`concept-web [ hub text "A" {} nodes [ node text "B" {} ] {} ] instant-feedback false {}..`);
+    expect(off.feedback).toBe("check");
+  });
+
   test("omits settings it was not given", async () => {
     const out = await compile(SMALL);
     expect(out).not.toHaveProperty("title");
     expect(out).not.toHaveProperty("theme");
+    expect(out, "no word means feedback waits for a check").not.toHaveProperty("feedback");
   });
 });
 

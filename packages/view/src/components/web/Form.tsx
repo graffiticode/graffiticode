@@ -2,21 +2,26 @@
 /**
  * L0183's Form: one compiled concept web, or the compile errors that stopped it.
  *
- * It runs in two hosts, and reads the same model in both:
+ * It runs in several hosts, and reads the same model in all of them:
  *
  * - The /form embed, inside the shared View from @graffiticode/l0000-view. A placement is a
  *   `response` action; `reduce` folds it into `interaction.cells`, the View recompiles, and the
- *   compiler carries the answers back. Feedback is on demand, behind a Check button.
+ *   compiler carries the answers back.
  * - A Learnosity custom question, inside `@graffiticode/learnosity-cqt`. The same `response`
- *   action lands in `responseValue`, and Learnosity owns checking: feedback shows when it sets
- *   `showValidationUI`, and it can `disable` the question or `reset` the response.
+ *   action lands in `responseValue`, and Learnosity can `disable` the question or `reset` it.
  *
- * Which host is recognised by `questionState`, which only cqt puts in the model.
+ * Checking belongs to the host, not to this Form. Our hosts draw a Check button (the View's
+ * `score` binding); Learnosity has its own Check Answer, or none. Either way a check reaches the
+ * Form as `showValidationUI`, and that, or the program's `instant-feedback true`, is the only
+ * thing that shows right and wrong.
+ *
+ * Learnosity is recognised by `questionState`, which only cqt puts in the model; it decides only
+ * whether the theme toggle shows.
  */
 import "../../index.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CompileError, FormProps } from "@graffiticode/l0000-view";
-import { scoreResponse, totalScore } from "../../scoring";
+import { scoreResponse } from "../../scoring";
 import { RichText } from "../../lib/text";
 import { Web, type Interaction } from "./Web";
 import { ThemeToggle } from "./ThemeToggle";
@@ -63,10 +68,7 @@ export const Form = ({ state }: FormProps) => {
     return out;
   }, [interaction?.cells, data.responseValue]);
 
-  // Embed only: the learner asks for feedback, and any change after that hides it again.
-  const [checked, setChecked] = useState(false);
   const onPlace = (changes: Record<string, string | null>) => {
-    setChecked(false);
     const cells: Record<string, { value: string | null }> = {};
     for (const id of Object.keys(changes)) cells[id] = { value: changes[id] };
     state.apply({ type: "response", args: { cells } });
@@ -84,10 +86,16 @@ export const Form = ({ state }: FormProps) => {
   }, [data.reset]);
 
   const validation = data.validation;
-  const showFeedback = inLearnosity ? !!data.showValidationUI : checked;
-  const scores = showFeedback && validation ? scoreResponse(data.responseValue ?? interaction?.cells ?? {}, validation) : undefined;
-  const blanks = interaction ? Object.keys(interaction.cells).length : 0;
-  const filled = Object.values(placed).filter(Boolean).length;
+  const checked = data.showValidationUI === true;
+  const instant = data.feedback === "instant";
+  const scores = useMemo(() => {
+    if (!validation || !(checked || instant)) return undefined;
+    const all = scoreResponse(data.responseValue ?? interaction?.cells ?? {}, validation);
+    if (checked) return all;
+    // Instant feedback judges what the learner has placed. An empty blank is not wrong yet; it
+    // only counts against them when they check.
+    return Object.fromEntries(Object.entries(all).filter(([id]) => placed[id]));
+  }, [validation, checked, instant, data.responseValue, interaction?.cells, placed]);
 
   const body = () => {
     if (errors.length > 0) return renderErrors(errors);
@@ -95,32 +103,13 @@ export const Form = ({ state }: FormProps) => {
       return <pre className="text-xs text-zinc-500">{JSON.stringify(data, null, 2)}</pre>;
     }
     return (
-      <>
-        <Web
-          interaction={interaction}
-          placed={placed}
-          onPlace={onPlace}
-          scores={scores}
-          disabled={!!data.disabled}
-        />
-        {!inLearnosity && blanks > 0 && validation && (
-          <div className="flex items-center justify-center gap-3">
-            <button
-              type="button"
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-              onClick={() => setChecked(true)}
-              disabled={checked}
-            >
-              Check
-            </button>
-            <span className="text-sm text-zinc-600 dark:text-zinc-400" aria-live="polite">
-              {checked
-                ? `${totalScore(interaction.cells, validation)} of ${validation.points} points`
-                : `${filled} of ${blanks} filled`}
-            </span>
-          </div>
-        )}
-      </>
+      <Web
+        interaction={interaction}
+        placed={placed}
+        onPlace={onPlace}
+        scores={scores}
+        disabled={!!data.disabled}
+      />
     );
   };
 

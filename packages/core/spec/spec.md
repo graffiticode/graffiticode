@@ -66,6 +66,7 @@ parse. Every `hub`, `node` and `edge` ends in `{}`.
 | `title`        | `<string record: record>` | The heading |
 | `instructions` | `<string record: record>` | Guidance under the heading |
 | `theme`        | `<tag record: record>`    | `DARK` or `LIGHT` |
+| `instant-feedback` | `<boolean record: record>` | Feedback as the learner answers |
 | `tray-align`   | `<tag record: record>`    | Where a tray sits |
 
 # The diagram
@@ -193,7 +194,7 @@ first example above, the two blank spokes of "Parts of a cell" accept "Mitochond
 
 # Settings
 
-`concept-web`'s settings are `title`, `instructions` and `theme`:
+`concept-web`'s settings are `title`, `instructions`, `theme` and `instant-feedback`:
 
 ```
 concept-web [
@@ -204,6 +205,19 @@ concept-web [
 
 `theme` takes the bare tag `DARK` or `LIGHT`. A setting may also be written in the record
 literal: `] {title: "Forms of energy"}..`.
+
+`instant-feedback true` colours each blank right or wrong as soon as the learner fills it. By
+default feedback waits for a check: the Check button in Graffiticode's player, or Learnosity's
+Check Answer. The Check button is the host's, not the program's; a program cannot remove it.
+
+```
+concept-web [
+  hub text "The Cell" {}
+  nodes [ node text "Nucleus" assess [expected] {} node text "Ribosome" {} ] {}
+] instant-feedback true {}..
+```
+
+It compiles to `feedback: "instant"` (or `"check"` for `instant-feedback false`).
 
 # Output
 

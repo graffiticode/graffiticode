@@ -7,7 +7,7 @@
 // Learnosity runs the scorer server-side.
 export { Form, Web, reduce } from "./components/web";
 export type { Interaction, Tray, WebEdge, WebNode } from "./components/web";
-export { scoreCells, getCellsValidation, scoreResponse, totalScore } from "./scoring";
+export { scoreCells, getCellsValidation, scoreResponse, totalScore, score } from "./scoring";
 export type { CellKey, CellScore, Validation } from "./scoring";
-export { View } from "@graffiticode/l0000-view";
+export { View, CheckBar } from "@graffiticode/l0000-view";
 export type { FormProps, FormComponent, CompileError } from "@graffiticode/l0000-view";

@@ -4,13 +4,14 @@
  *
  * `index.html` mounts the shared View, which wants a task `id` and an API — fine for the deployed
  * /form, useless for looking at the component. Placements here are kept in local state through
- * the same `reduce` the embed uses. Vite builds only `index.html`, so this is not in the bundle.
+ * the same `reduce` the embed uses, and the View's Check button is stood in for by its CheckBar.
+ * Vite builds only `index.html`, so this is not in the bundle.
  *
  * Run: npm run -w packages/view dev, then open /dev.html
  */
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Form, reduce } from "../src";
+import { CheckBar, Form, reduce, score } from "../src";
 import "../src/index.css";
 
 const cell = {
@@ -74,11 +75,18 @@ const errors = [{ message: 'edge 1: `to "C"` names no node. The nodes are: hub (
 
 function Fixture({ label, initial, errs = [] }: { label: string; initial: any; errs?: any[] }) {
   const [data, setData] = useState(initial);
-  const apply = (action: any) => setData((d: any) => reduce(d, action) ?? { ...d, ...action.args });
+  const [checked, setChecked] = useState(false);
+  const apply = (action: any) => {
+    setChecked(false);
+    setData((d: any) => reduce(d, action) ?? { ...d, ...action.args });
+  };
+  const result = useMemo(() => score(data), [data]);
+  const shown = checked ? { ...data, showValidationUI: true } : data;
   return (
     <section style={{ marginBottom: 32 }}>
       <h2 style={{ fontFamily: "sans-serif", fontSize: 13, color: "#666" }}>{label}</h2>
-      <Form state={{ data, errors: errs, apply }} />
+      <Form state={{ data: shown, errors: errs, apply }} />
+      {result && <CheckBar result={result} checked={checked} onCheck={() => setChecked(true)} />}
     </section>
   );
 }
@@ -88,6 +96,7 @@ if (el) {
   createRoot(el).render(
     <React.StrictMode>
       <Fixture label="Blank nodes, a blank label, an image node" initial={cell} />
+      <Fixture label="The same, with instant-feedback true" initial={{ ...cell, feedback: "instant" }} />
       <Fixture label="Crowded ring, dark, styled" initial={crowded} />
       <Fixture label="Compile error" initial={{}} errs={errors} />
     </React.StrictMode>,

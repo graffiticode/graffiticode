@@ -36,7 +36,7 @@
     "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "@graffiticode/l0000-view": "^0.1.5",
+    "@graffiticode/l0000-view": "^0.2.1",
     "katex": "^0.16.11"
   },
   "devDependencies": {

@@ -36,6 +36,7 @@ L0176. Nodes can show text, math and images, and can be coloured, shaped and siz
 | "put the word bank on the left" | `tray-align left` |
 | "worth 2 points" | `points 2` |
 | "dark mode" | `theme DARK` |
+| "show right and wrong as they go", "immediate feedback" | `instant-feedback true` |
 
 ## Example Prompts
 

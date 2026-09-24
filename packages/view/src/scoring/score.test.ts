@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, test } from "vitest";
-import { getCellsValidation, scoreCells, scoreResponse, totalScore } from "./index";
+import { getCellsValidation, score, scoreCells, scoreResponse, totalScore } from "./index";
 
 // Three spokes: n1 and n2 are interchangeable (pool p1), n3 stands alone, e1 is a label.
 const validation = {
@@ -100,5 +100,17 @@ describe("distractor penalties", () => {
     expect(totalScore({ n1: v("Mitochondria"), n2: v("Chlorophyll") }, withCosts as any)).toBe(0);
     expect(totalScore({ n2: v("Ribosome"), n1: v("Chlorophyll") }, withCosts as any)).toBe(1);
     expect(totalScore({ n1: v("Chlorophyll"), e1: v("eats") }, withCosts as any)).toBe(0);
+  });
+});
+
+describe("score, the View's Check binding", () => {
+  test("scores the answers in interaction.cells out of the key's points", () => {
+    const data = { validation, interaction: { cells: { n1: v("Ribosome"), n3: v("Glucose") } } };
+    expect(score(data)).toEqual({ score: 3, max: 5 });
+  });
+
+  test("nothing to check means no Check button", () => {
+    expect(score({ interaction: { cells: {} } })).toBeUndefined();
+    expect(score({ validation: { points: 0, cells: {} }, interaction: { cells: {} } })).toBeUndefined();
   });
 });

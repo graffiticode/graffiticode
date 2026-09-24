@@ -45,8 +45,8 @@ parse error ("Too few arguments for TEXT"), because the last word swallows the `
 | a wrong answer in the tray     | a member with `assess [distractor]` — `node text "Chlorophyll" assess [distractor] {}` |
 | a setting                      | after the `]`, before the record — `] title "Cells" theme DARK {}` |
 
-**Settings go after the closing bracket, never inside it.** `title`, `instructions` and `theme`
-follow the `]` of `concept-web`; `tray-align` follows the `]` of `nodes` or `edges`. A word
+**Settings go after the closing bracket, never inside it.** `title`, `instructions`, `theme` and
+`instant-feedback` follow the `]` of `concept-web`; `tray-align` follows the `]` of `nodes` or `edges`. A word
 written in the wrong place is a compile error that says where it goes.
 
 ## Functions
@@ -75,6 +75,7 @@ written in the wrong place is a compile error that says where it goes.
 | `title`        | `<string record: record>` | Setting of `concept-web`: the heading |
 | `instructions` | `<string record: record>` | Setting of `concept-web`: guidance under the heading |
 | `theme`        | `<tag record: record>`    | Setting of `concept-web`: the bare tag `DARK` or `LIGHT` |
+| `instant-feedback` | `<boolean record: record>` | Setting of `concept-web`: `true` shows right and wrong as each blank is filled; default `false`, feedback waits for Check |
 | `tray-align`   | `<tag record: record>`    | Setting of `nodes` or `edges`: where that tray sits — the bare tag `right`, `left`, `top` or `bottom` |
 
 ## Which words each container takes
@@ -91,7 +92,7 @@ written in the wrong place is a compile error that says where it goes.
 
 | Container     | Settings |
 | :------------ | :------- |
-| `concept-web` | title, instructions, theme |
+| `concept-web` | title, instructions, theme, instant-feedback |
 | `nodes`       | tray-align |
 | `edges`       | tray-align |
 
@@ -116,6 +117,8 @@ written in the wrong place is a compile error that says where it goes.
   lines, same labels — accept each other's answers, so any arrangement of the right answers
   scores. You do not need to do anything for this.
 - `theme` and `tray-align` take bare tags, `theme DARK`, `tray-align left`, never strings.
+- `instant-feedback` takes bare `true` or `false`, never a string. Write it only when the request
+  asks for feedback as the learner works; without it, feedback waits for Check.
 - Do not shuffle the tray in the program; the view shuffles it.
 - Every program ends in `{}..` — the settings record of `concept-web`, then the terminator.
 

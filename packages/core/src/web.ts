@@ -58,6 +58,8 @@ export interface Compiled {
   title?: string;
   instructions?: string;
   theme?: string;
+  /** When feedback shows: as the learner answers, or only when checked. Absent means "check". */
+  feedback?: "instant" | "check";
   interaction: {
     type: "concept-web";
     hub: WebNode;
@@ -462,6 +464,11 @@ export function buildWeb(
     ...(settings.title !== undefined ? { title: settings.title } : {}),
     ...(settings.instructions !== undefined ? { instructions: settings.instructions } : {}),
     ...(settings.theme !== undefined ? { theme: settings.theme } : {}),
+    // Not `instantFeedback`: cqt already keeps Learnosity's own instant_feedback under that key,
+    // and the compiled model is spread over cqt's state, so the program's would overwrite it.
+    ...(settings.instantFeedback !== undefined
+      ? { feedback: settings.instantFeedback ? "instant" : "check" }
+      : {}),
     interaction: {
       type: "concept-web",
       hub,

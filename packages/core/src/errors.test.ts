@@ -92,6 +92,21 @@ describe("values", () => {
     );
   });
 
+  test("instant-feedback takes a bare boolean, and a quoted one is told to drop the quotes", async () => {
+    expect(await errorOf(web(`${HUB} ${NODES}`, `instant-feedback "true" {}`))).toBe(
+      'instant-feedback: expected true or false, written bare, got "true". Write it without quotes: instant-feedback true.',
+    );
+    expect(await errorOf(web(`${HUB} ${NODES}`, `instant-feedback 1 {}`))).toBe(
+      "instant-feedback: expected true or false, written bare, got 1.",
+    );
+  });
+
+  test("instant-feedback on a member list is told it belongs to concept-web", async () => {
+    expect(await errorOf(web(`${HUB} nodes [ ${BLANK} ] instant-feedback true {}`))).toContain(
+      "`instant-feedback` is a setting and goes after the `]` of concept-web, e.g. concept-web [ … ] instant-feedback true {}.",
+    );
+  });
+
   test("a quoted tag is told to drop the quotes", async () => {
     expect(await errorOf(web(`${HUB} ${NODES}`, `theme "dark" {}`))).toBe(
       'theme: expected the tag DARK or LIGHT, got "dark". Write it bare, without quotes: theme DARK.',

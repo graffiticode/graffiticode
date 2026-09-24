@@ -10,6 +10,10 @@
     "title": { "type": "string" },
     "instructions": { "type": "string" },
     "theme": { "enum": ["dark", "light"] },
+    "feedback": {
+      "enum": ["instant", "check"],
+      "description": "When the learner sees right and wrong: `instant` as each blank is filled, `check` only when the host checks. Absent means `check`."
+    },
     "interaction": {
       "type": "object",
       "additionalProperties": false,
