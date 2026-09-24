@@ -49,7 +49,7 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["assess", "pool"],
+            "required": ["assess", "pool", "tray"],
             "properties": {
               "assess": {
                 "type": "object",
@@ -63,14 +63,31 @@
               "pool": {
                 "description": "Blanks in the same pool accept each other's answers.",
                 "type": "string"
+              },
+              "tray": {
+                "description": "The tray the blank is filled from, and so whose distractors it can hold.",
+                "enum": ["nodes", "edges"]
               }
             }
+          }
+        },
+        "distractors": {
+          "description": "Per tray, what each distractor scores when dropped on a blank of that tray.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nodes": { "$ref": "#/$defs/costs" },
+            "edges": { "$ref": "#/$defs/costs" }
           }
         }
       }
     }
   },
   "$defs": {
+    "costs": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "maximum": 0 }
+    },
     "node": {
       "type": "object",
       "additionalProperties": false,

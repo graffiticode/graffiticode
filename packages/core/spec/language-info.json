@@ -6,12 +6,12 @@
     {
       "prompt": "Make a concept web of the parts of a cell with Nucleus given and three blanks to fill.",
       "produces": "concept-web",
-      "notes": "Blank nodes are `[assess [expected \"…\"]]` with no text. The tray is built from the expected answers — they are not listed twice."
+      "notes": "A blank node carries its answer as its text: `node text \"Mitochondria\" assess [expected] {}`. The tray is built from the blanks' answers — they are not listed twice."
     },
     {
       "prompt": "Create a food chain where students label each arrow, with one wrong label in the tray.",
       "produces": "concept-web",
-      "notes": "Relation labelling: `edges [[from … to … style \"solid-arrow\" assess [expected \"eaten by\"]] …] distractors [\"…\"] {}`. Writing `edges` replaces the default spokes, so every line is written."
+      "notes": "Relation labelling: `edges [ edge from … to … style \"solid-arrow\" label \"eaten by\" assess [expected] {} … edge label \"…\" assess [distractor] {} ] {}`. A wrong label is an edge with `assess [distractor]`. Writing `edges` replaces the default spokes, so every line is written."
     },
     {
       "prompt": "Build a study web of the causes of World War I, each cause a different colour.",
@@ -21,7 +21,7 @@
     {
       "prompt": "A photosynthesis web: inputs point into the hub, outputs point out, the students fill in all of them.",
       "produces": "concept-web",
-      "notes": "Blank nodes referred to by `id`, arrows set with `style`. Inputs sharing the same shape of lines are interchangeable and accept each other's answers."
+      "notes": "Blank nodes referred to by their text or an `id`, arrows set with `style`. Inputs sharing the same shape of lines are interchangeable and accept each other's answers."
     },
     {
       "prompt": "Put that concept web in a Learnosity item.",

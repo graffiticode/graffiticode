@@ -10,6 +10,10 @@
  *   getCellsValidation({cells, validation}) -> the answer key per cell, for "show answers"
  *
  * `cells` is the learner's response, keyed by blank id: `{n3: {value: "Receptor"}}`.
+ *
+ * A blank holding a distractor from its own tray scores that distractor's `points` (0 or
+ * below), so a program can make a tempting wrong answer cost something. The total never goes
+ * below 0.
  */
 
 export interface CellScore {
@@ -17,14 +21,20 @@ export interface CellScore {
   isValid: boolean;
 }
 
+export type TrayKind = "nodes" | "edges";
+
 export interface CellKey {
   assess: { expected: string; points: number };
   pool: string;
+  /** The tray the blank is filled from, which decides whose distractors it can hold. */
+  tray?: TrayKind;
 }
 
 export interface Validation {
   points: number;
   cells: Record<string, CellKey>;
+  /** Per tray, what each distractor scores when dropped on a blank. */
+  distractors?: Partial<Record<TrayKind, Record<string, number>>>;
 }
 
 /** How two answers are compared: exactly, after trimming and collapsing whitespace. */
@@ -69,11 +79,21 @@ export function scoreResponse(
         out[id] = { points: key[match].assess.points, isValid: true };
         open.delete(match);
       } else {
-        out[id] = { points: 0, isValid: false };
+        out[id] = { points: penalty(validation, key[id], v), isValid: false };
       }
     }
   }
   return out;
+}
+
+/** What a wrong answer costs: a distractor's own `points`, else nothing. */
+function penalty(validation: Validation | undefined, key: CellKey, value: string): number {
+  if (!value || !key.tray) return 0;
+  const costs = validation?.distractors?.[key.tray] || {};
+  for (const [text, points] of Object.entries(costs)) {
+    if (normalize(text) === value) return points;
+  }
+  return 0;
 }
 
 /** The cqt contract: the response's cells, each assessed one carrying its `score`. */
@@ -89,6 +109,9 @@ export const getCellsValidation = ({ validation }: { cells?: any; validation: an
   ...(validation?.cells || {}),
 });
 
-/** Total points a response earns. */
+/** Total points a response earns. Distractor penalties can take it to 0, never below. */
 export const totalScore = (cells: any, validation: Validation | undefined): number =>
-  Object.values(scoreResponse(cells || {}, validation)).reduce((n, s) => n + s.points, 0);
+  Math.max(
+    0,
+    Object.values(scoreResponse(cells || {}, validation)).reduce((n, s) => n + s.points, 0),
+  );

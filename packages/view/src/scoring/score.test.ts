@@ -71,3 +71,34 @@ describe("the learnosity-cqt contract", () => {
     expect(getCellsValidation({ validation }).n3.assess.expected).toBe("Glucose");
   });
 });
+
+describe("distractor penalties", () => {
+  const withCosts = {
+    points: 3,
+    cells: {
+      n1: { assess: { expected: "Mitochondria", points: 1 }, pool: "p1", tray: "nodes" },
+      n2: { assess: { expected: "Ribosome", points: 2 }, pool: "p2", tray: "nodes" },
+      e1: { assess: { expected: "makes", points: 1 }, pool: "p3", tray: "edges" },
+    },
+    distractors: { nodes: { Chlorophyll: -1, Golgi: 0 }, edges: { eats: -2 } },
+  };
+
+  test("a blank holding a distractor from its tray scores the distractor's points", () => {
+    const s = scoreResponse({ n1: v(" Chlorophyll "), n2: v("Golgi") }, withCosts as any);
+    expect(s.n1).toEqual({ points: -1, isValid: false });
+    expect(s.n2).toEqual({ points: 0, isValid: false });
+  });
+
+  test("another tray's distractor costs nothing", () => {
+    expect(scoreResponse({ e1: v("Chlorophyll") }, withCosts as any).e1).toEqual({
+      points: 0,
+      isValid: false,
+    });
+  });
+
+  test("penalties offset right answers, and the total never goes below 0", () => {
+    expect(totalScore({ n1: v("Mitochondria"), n2: v("Chlorophyll") }, withCosts as any)).toBe(0);
+    expect(totalScore({ n2: v("Ribosome"), n1: v("Chlorophyll") }, withCosts as any)).toBe(1);
+    expect(totalScore({ n1: v("Chlorophyll"), e1: v("eats") }, withCosts as any)).toBe(0);
+  });
+});

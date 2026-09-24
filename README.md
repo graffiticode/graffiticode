@@ -11,17 +11,19 @@ succeeds [L0169](https://github.com/graffiticode/l0169).
 
 ```
 concept-web [
-  hub [text "The Cell"]
+  hub text "The Cell" {}
   nodes [
-    [text "Nucleus"]
-    [assess [expected "Mitochondria"]]
-    [assess [expected "Ribosome"]]
-    [assess [expected "Cell membrane"]]
-  ] distractors ["Chlorophyll"] {}
+    node text "Nucleus" {}
+    node text "Mitochondria" assess [expected] {}
+    node text "Ribosome" assess [expected] {}
+    node text "Cell membrane" assess [expected] {}
+    node text "Chlorophyll" assess [distractor] {}
+  ] {}
 ] title "Parts of a cell" instructions "Drag each part onto an empty node." {}..
 ```
 
-- The tray is built from the answers plus `distractors`, so it can never disagree with the key.
+- A blank carries its answer as its text; the compiler hides it and builds the tray from the
+  answers plus the `assess [distractor]` members, so the tray can never disagree with the key.
 - Blanks whose places in the web cannot be told apart accept each other's answers.
 - Scoring is partial credit per blank, and the compiled output is in the cell-scoring shape of
   Graffiticode's Learnosity custom questions — an L0176 item embeds a web with

@@ -13,61 +13,69 @@ or L0176 for Learnosity items. Venn diagrams are L0171.
 
 ```
 concept-web [
-  hub [text "The Cell"]
+  hub text "The Cell" {}
   nodes [
-    [text "Nucleus"]
-    [assess [expected "Mitochondria"]]
+    node text "Nucleus" {}
+    node text "Mitochondria" assess [expected] {}
+    node text "Chlorophyll" assess [distractor] {}
   ] {}
 ] title "Parts of a cell" {}..
 ```
 
-Two kinds of list, and the difference matters:
+Everything that describes one thing is a **chain**: words, each followed by its value, ending in
+`{}`. `text "Nucleus" color "blue" {}` describes one node. Order does not matter.
 
-- An **attribute list** describes ONE thing. Its entries are different words, each applied to a
-  value, and they merge into one object: `[text "Nucleus" color "blue"]`. Order does not matter.
-- A **member list** holds several things of ONE kind, in order: `nodes [ [text "A"] [text "B"] ] {}`.
-  Each member is its own attribute list. A member list is ALWAYS followed by its settings, which
-  end in a record — write `{}` when there are none.
+- `hub`, `node` and `edge` each take one chain: `node text "Nucleus" color "blue" {}`.
+- A **member list** holds several things of ONE kind, each written with its word:
+  `nodes [ node text "A" {} node text "B" {} ]`. A member list is ALWAYS followed by its
+  settings, which are a chain too — write `{}` when there are none.
+- `concept-web` takes a list of its parts (`hub`, `nodes`, `edges`), then the program's settings
+  chain. So every program ends `] … {}..`.
+- `assess` is the one word that takes a bracket list: `assess [expected]`,
+  `assess [expected points 2]`, `assess [distractor points -1]`.
 
-`concept-web` takes an attribute list — the diagram — and then the program's settings, ending in
-a record. So every program ends `] … {}..`.
+**Every `hub`, `node` and `edge` ends in `{}`.** Leaving it off — `node text "B" ]` — is a
+parse error ("Too few arguments for TEXT"), because the last word swallows the `]`.
 
 | Target shape                   | How it is written                                             |
 | :----------------------------- | :------------------------------------------------------------ |
-| one thing                      | an attribute list — `hub [text "The Cell" color "green"]`      |
-| several things of one kind     | a member list, then settings — `nodes [ [text "A"] [text "B"] ] {}` |
-| a scalar                       | the value itself — `text "Nucleus"`, `points 2`               |
+| one thing                      | a chain ending in `{}` — `hub text "The Cell" color "green" {}` |
+| several things of one kind     | a member list of typed members, then settings — `nodes [ node text "A" {} node text "B" {} ] {}` |
+| a blank                        | the answer as its text, and `assess [expected]` — `node text "Mitochondria" assess [expected] {}` |
+| a wrong answer in the tray     | a member with `assess [distractor]` — `node text "Chlorophyll" assess [distractor] {}` |
 | a setting                      | after the `]`, before the record — `] title "Cells" theme DARK {}` |
 
 **Settings go after the closing bracket, never inside it.** `title`, `instructions` and `theme`
-follow the `]` of `concept-web`; `distractors` and `tray` follow the `]` of `nodes` or `edges`.
-A setting written inside the brackets is a compile error that says where it goes.
+follow the `]` of `concept-web`; `tray-align` follows the `]` of `nodes` or `edges`. A word
+written in the wrong place is a compile error that says where it goes.
 
 ## Functions
 
-| Function       | Signature               | Description |
-| :------------- | :---------------------- | :---------- |
-| `concept-web`  | `<list record: record>` | The program: the diagram (hub, nodes, edges), then its settings ending in a record |
-| `hub`          | `<list: record>`        | The node at the centre. Its id is always `hub` |
-| `nodes`        | `<list record: record>` | The nodes around the hub, then the node tray's settings |
-| `edges`        | `<list record: record>` | The lines between nodes, then the label tray's settings. Without it, every node gets a line from the hub |
-| `id`           | `<string: record>`      | A name for a node or edge, so an edge can refer to it |
-| `text`         | `<string: record>`      | What a node shows |
-| `shape`        | `<string: record>`      | `"rounded"` (default), `"rect"`, `"pill"` or `"circle"` |
-| `color`        | `<string: record>`      | `"gray"`, `"red"`, `"orange"`, `"amber"`, `"yellow"`, `"green"`, `"teal"`, `"blue"`, `"indigo"`, `"purple"` or `"pink"` |
-| `size`         | `<string: record>`      | `"small"`, `"medium"` or `"large"` |
-| `from`         | `<string: record>`      | Where an edge starts: a node's id or exact text |
-| `to`           | `<string: record>`      | Where an edge ends: a node's id or exact text |
-| `label`        | `<string: record>`      | The words on an edge |
-| `style`        | `<string: record>`      | `"solid"` (default), `"dashed"`, `"solid-arrow"` or `"dashed-arrow"` |
-| `assess`       | `<list: record>`        | Makes a node or edge a blank: `assess [expected "…"]` |
-| `expected`     | `<string: record>`      | The correct answer for a blank |
-| `points`       | `<number: record>`      | What a blank is worth. Defaults to 1 |
+| Function       | Signature                 | Description |
+| :------------- | :------------------------ | :---------- |
+| `concept-web`  | `<list record: record>`   | The program: its parts (hub, nodes, edges), then its settings ending in a record |
+| `hub`          | `<record: record>`        | The node at the centre. Its id is always `hub` |
+| `nodes`        | `<list record: record>`   | The `node`s around the hub, then the node tray's settings |
+| `edges`        | `<list record: record>`   | The `edge`s between nodes, then the label tray's settings. Without it, every node gets a line from the hub |
+| `node`         | `<record: record>`        | One node, described by a chain: `node text "Nucleus" {}` |
+| `edge`         | `<record: record>`        | One line, described by a chain: `edge from "hub" to "Nucleus" {}` |
+| `id`           | `<string record: record>` | A name for a node or edge, so an edge can refer to it |
+| `text`         | `<string record: record>` | What a node shows — on a blank, its answer |
+| `shape`        | `<string record: record>` | `"rounded"` (default), `"rect"`, `"pill"` or `"circle"` |
+| `color`        | `<string record: record>` | `"gray"`, `"red"`, `"orange"`, `"amber"`, `"yellow"`, `"green"`, `"teal"`, `"blue"`, `"indigo"`, `"purple"` or `"pink"` |
+| `size`         | `<string record: record>` | `"small"`, `"medium"` or `"large"` |
+| `from`         | `<string record: record>` | Where an edge starts: a node's id or exact text |
+| `to`           | `<string record: record>` | Where an edge ends: a node's id or exact text |
+| `label`        | `<string record: record>` | The words on an edge — on a blank, its answer |
+| `style`        | `<string record: record>` | `"solid"` (default), `"dashed"`, `"solid-arrow"` or `"dashed-arrow"` |
+| `assess`       | `<list record: record>`   | Scores a node or edge: `assess [expected]` or `assess [distractor]` |
+| `expected`     | `<: record>`              | In `assess`: this is a blank, and its text or label is the answer |
+| `distractor`   | `<: record>`              | In `assess`: this is a wrong answer, shown only in the tray |
+| `points`       | `<number: record>`        | In `assess`: a blank's worth (above 0, default 1), or a distractor's cost (0 or below, default 0) |
 | `title`        | `<string record: record>` | Setting of `concept-web`: the heading |
 | `instructions` | `<string record: record>` | Setting of `concept-web`: guidance under the heading |
-| `theme`        | `<tag record: record>`  | Setting of `concept-web`: the bare tag `DARK` or `LIGHT` |
-| `distractors`  | `<list record: record>` | Setting of `nodes` or `edges`: wrong answers added to that tray |
-| `tray`         | `<string record: record>` | Setting of `nodes` or `edges`: where that tray sits — `"right"`, `"left"`, `"top"` or `"bottom"` |
+| `theme`        | `<tag record: record>`    | Setting of `concept-web`: the bare tag `DARK` or `LIGHT` |
+| `tray-align`   | `<tag record: record>`    | Setting of `nodes` or `edges`: where that tray sits — the bare tag `right`, `left`, `top` or `bottom` |
 
 ## Which words each container takes
 
@@ -77,44 +85,46 @@ A setting written inside the brackets is a compile error that says where it goes
 | `hub`         | text, shape, color, size, assess |
 | `node`        | id, text, shape, color, size, assess |
 | `edge`        | id, from, to, label, style, assess |
-| `assess`      | expected, points |
+| `assess`      | expected, distractor, points |
 
 ## Which settings each container takes
 
 | Container     | Settings |
 | :------------ | :------- |
 | `concept-web` | title, instructions, theme |
-| `nodes`       | distractors, tray |
-| `edges`       | distractors, tray |
+| `nodes`       | tray-align |
+| `edges`       | tray-align |
 
 ## Guidelines
 
-- **Blanks.** A node or edge with `assess` is a blank. It shows nothing until the learner fills
-  it, so a blank node has NO `text` and a blank edge has NO `label`. Give a blank node an `id` if
-  an edge needs to refer to it; otherwise it is `n1`, `n2`, … by its position in `nodes`.
-- **The tray builds itself.** Every `expected` answer goes into the tray automatically. Do NOT
-  list the answers again. Add wrong answers with `distractors`, after the `]` of `nodes` (for
-  node answers) or of `edges` (for label answers). A distractor must not equal an answer.
+- **Blanks.** A node with `assess [expected]` is a blank: write its answer as its `text`. The
+  learner sees an empty slot; the text is kept as the answer key. A blank edge works the same way
+  with its `label`. Ids are `n1`, `n2`, … by position among the drawn nodes.
+- **The tray builds itself.** Every blank's answer goes into its tray automatically. Do NOT list
+  the answers again.
+- **Distractors are members too.** A wrong answer is a `node` (for the node tray) or an `edge`
+  (for the label tray) with `assess [distractor]`. It is not drawn: a distractor node takes only
+  `text` and `assess`, a distractor edge only `label` and `assess`. `points -1` makes dropping it
+  on a blank cost a point. A distractor must not equal an answer, and needs at least one blank of
+  its kind.
 - **Lines.** Leave out `edges` and every node gets a plain line from the hub. Write `edges` only
   to label lines, style them, join nodes to each other, or make a label a blank — and then write
   EVERY line you want, including the ones from the hub, because `edges` replaces the default.
-- **Refer to nodes by text.** `from` and `to` take a node's exact text, or its `id`. The hub is
-  `"hub"` or its text. Use an id for a blank node (it has no text) and for two nodes with the
-  same text.
+- **Refer to nodes by text.** `from` and `to` take a node's exact text — a blank's too — or its
+  `id`. The hub is `"hub"` or its text. Use an id for two nodes with the same text.
 - **Interchangeable blanks.** Blanks the learner cannot tell apart — same place in the web, same
   lines, same labels — accept each other's answers, so any arrangement of the right answers
   scores. You do not need to do anything for this.
-- `theme` takes a bare tag, `theme DARK`, never the string `theme "dark"`.
+- `theme` and `tray-align` take bare tags, `theme DARK`, `tray-align left`, never strings.
 - Do not shuffle the tray in the program; the view shuffles it.
-- Lists are space-separated: `distractors ["Golgi" "Lysosome"]`, no commas.
 - Every program ends in `{}..` — the settings record of `concept-web`, then the terminator.
 
 ### Math and images
 
 - Wrap math in `$…$`: `text "$x^2$"`. Text outside the delimiters stays prose.
-- **Double every backslash** inside a string: `text "$\\frac{1}{2}$"`, `expected "$\\sqrt{2}$"`.
+- **Double every backslash** inside a string: `text "$\\frac{1}{2}$"`, `label "$\\sqrt{2}$"`.
   A single backslash is eaten before the web ever sees it — `\t` in `\theta` becomes a tab.
-- A `text` or `expected` that is just an image URL renders as the image. There is no separate
+- A `text` that is just an image URL renders as the image. There is no separate
   word for images. An image answer goes in the tray like any other.
 - **A URL the author gave you goes in exactly as they wrote it**, whatever its domain. Never judge
   a URL by its host and never rewrite it.
@@ -128,56 +138,65 @@ A setting written inside the brackets is a compile error that says where it goes
 - A labelled web with nothing to fill in:
   ```
   concept-web [
-    hub [text "Water cycle"]
-    nodes [ [text "Evaporation"] [text "Condensation"] [text "Precipitation"] [text "Collection"] ] {}
+    hub text "Water cycle" {}
+    nodes [
+      node text "Evaporation" {}
+      node text "Condensation" {}
+      node text "Precipitation" {}
+      node text "Collection" {}
+    ] {}
   ] title "The water cycle" {}..
   ```
 - Blank nodes, with distractors in the tray:
   ```
   concept-web [
-    hub [text "Mammals"]
+    hub text "Mammals" {}
     nodes [
-      [assess [expected "Whale"]]
-      [assess [expected "Bat"]]
-      [assess [expected "Human"]]
-    ] distractors ["Shark" "Penguin"] tray "left" {}
+      node text "Whale" assess [expected] {}
+      node text "Bat" assess [expected] {}
+      node text "Human" assess [expected] {}
+      node text "Shark" assess [distractor] {}
+      node text "Penguin" assess [distractor points -1] {}
+    ] tray-align left {}
   ] instructions "Drag the mammals onto the web." {}..
   ```
 - Blank labels on the lines — relation labelling:
   ```
   concept-web [
-    hub [text "Sun"]
-    nodes [ [text "Plants"] [text "Earth"] ] {}
+    hub text "Sun" {}
+    nodes [ node text "Plants" {} node text "Earth" {} ] {}
     edges [
-      [from "Sun" to "Plants" style "solid-arrow" assess [expected "feeds"]]
-      [from "Sun" to "Earth" style "solid-arrow" assess [expected "warms"]]
-    ] distractors ["cools"] {}
+      edge from "Sun" to "Plants" style "solid-arrow" label "feeds" assess [expected] {}
+      edge from "Sun" to "Earth" style "solid-arrow" label "warms" assess [expected] {}
+      edge label "cools" assess [distractor] {}
+    ] {}
   ] {}..
   ```
-- Nodes joined to each other, with a blank node referred to by id:
+- Nodes joined to each other, with a blank node referred to by its text:
   ```
   concept-web [
-    hub [text "Food chain"]
+    hub text "Food chain" {}
     nodes [
-      [text "Grass"]
-      [id "herbivore" assess [expected "Rabbit"]]
-      [text "Fox"]
-    ] distractors ["Oak tree"] {}
+      node text "Grass" {}
+      node text "Rabbit" assess [expected] {}
+      node text "Fox" {}
+      node text "Oak tree" assess [distractor] {}
+    ] {}
     edges [
-      [from "hub" to "Grass"]
-      [from "Grass" to "herbivore" style "solid-arrow" label "eaten by"]
-      [from "herbivore" to "Fox" style "solid-arrow" label "eaten by"]
+      edge from "hub" to "Grass" {}
+      edge from "Grass" to "Rabbit" style "solid-arrow" label "eaten by" {}
+      edge from "Rabbit" to "Fox" style "solid-arrow" label "eaten by" {}
     ] {}
   ] theme DARK {}..
   ```
 - Styled nodes and math:
   ```
   concept-web [
-    hub [text "$\\pi$" shape "circle" color "indigo" size "large"]
+    hub text "$\\pi$" shape "circle" color "indigo" size "large" {}
     nodes [
-      [text "$\\pi r^2$" color "blue"]
-      [text "$2\\pi r$" color "green"]
-      [assess [expected "$\\approx 3.14159$" points 2]]
+      node text "$\\pi r^2$" color "blue" {}
+      node text "$2\\pi r$" color "green" {}
+      node text "$\\approx 3.14159$" assess [expected points 2] {}
     ] {}
   ] title "Where $\\pi$ appears" {}..
   ```

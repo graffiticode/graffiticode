@@ -4,23 +4,19 @@
  *
  * Adding a word is a row in this file: the lexicon entry, the Checker method and the
  * Transformer method are all generated from it, arity included, so a word can never be
- * declared with one arity and handled with another. Never hand-write an attribute handler.
+ * declared with one arity and handled with another. Never hand-write a word's handler.
  *
- * The style is `console/docs/language-authoring-style.md`, and it has two kinds of list:
+ * The style is `console/docs/language-authoring-style.md`. Everything that describes one thing
+ * is a CHAIN: each word takes its value and the rest of the chain, and the chain ends in a
+ * record, so `text "Nucleus" color "blue" {}` computes `{text: "Nucleus", color: "blue"}`.
+ * That is how a node, an edge and the hub are described, and how every settings record is built.
  *
- * - An ATTRIBUTE list is heterogeneous — different named properties, like an HTML element's
- *   attributes. Each word takes one argument and evaluates to a single-key record, and the
- *   enclosing word merges the list into one object: `[id "r" assess [expected "Receptor"]]`.
- * - A MEMBER list is homogeneous — children of one kind, like an element's child elements. The
- *   container word is arity 2 and takes the children AND its own configuration record:
- *   `nodes [ [text "A"] [text "B"] ] {}`. `{}` is the empty configuration, not a terminator.
+ * A MEMBER list is homogeneous and typed — `nodes [ node text "A" {} node text "B" {} ] {}` —
+ * and the container takes the list AND its own settings chain. `concept-web` is the same shape:
+ * a list of its children (`hub`, `nodes`, `edges`), then the program's settings.
  *
- * `concept-web` itself is arity 2 for the same reason: an attribute list describing the diagram,
- * then the program's configuration record.
- *
- * Configuration records are built by CHAINING, and that is the only place chaining happens. The
- * chaining words are the second table below, and it is deliberately small: each is a word the
- * generator must place outside the brackets, which is exactly the kind of thing it gets wrong.
+ * The one bracket list left inside a description is `assess [...]`, which takes the flags
+ * `expected` or `distractor` and an optional `points`.
  */
 
 /** Closed sets. Each is checked in the Transformer and named in the error when violated. */
@@ -40,7 +36,8 @@ export const COLORS = [
 ] as const;
 export const SIZES = ["small", "medium", "large"] as const;
 export const EDGE_STYLES = ["solid", "dashed", "solid-arrow", "dashed-arrow"] as const;
-export const TRAY_PLACEMENTS = ["right", "left", "top", "bottom"] as const;
+/** Written as bare lowercase tags: `tray-align left`. */
+export const TRAY_ALIGNS = ["right", "left", "top", "bottom"] as const;
 export const THEMES = ["DARK", "LIGHT"] as const;
 
 /** How a value is turned into the field it emits. */
@@ -51,10 +48,10 @@ export interface AttributeMeta {
    * The value's type, asserted in the Transformer — never the Checker, see `checkValue`.
    *
    * `text` is a string, or a number written for convenience (`text 42`), emitted as a string.
-   * `object` is an attribute list, merged here and checked against `validAttributes` by the
-   * word's own name. `tag` is a bare tag from `oneOf` (`theme DARK`).
+   * `list` is a bracket list, merged and checked by whatever reads it. `record` is a chain
+   * ending in `{}`. `tag` is a bare tag from `oneOf` (`theme DARK`). `flag` takes no value.
    */
-  expects: "text" | "number" | "texts" | "object" | "tag";
+  expects: "text" | "number" | "list" | "record" | "tag" | "flag";
   /** Closed set of legal values. */
   oneOf?: readonly string[];
   /** One line, shown in the generated spec. */
@@ -62,27 +59,22 @@ export interface AttributeMeta {
 }
 
 /**
- * Arity 1: one row per attribute word. The key is the AST tag; the source spelling is the key
- * lowercased with underscores as dashes.
+ * Arity 2: the chain words. Each takes its value AND the rest of the chain, and returns the
+ * chain's record with its own key added. Where each may appear is `validAttributes` (the
+ * descriptions) and `validSettings` (the settings records).
  */
-export const attributeFields: Record<string, AttributeMeta> = {
-  HUB: {
-    field: "hub",
-    expects: "object",
-    description:
-      'The node at the centre of the web, e.g. hub [text "The Cell"]. Every other node sits on a circle around it. Its id is always `hub`.',
-  },
+export const chainFields: Record<string, AttributeMeta> = {
   ID: {
     field: "id",
     expects: "text",
     description:
-      "A name for a node or edge, so an edge can refer to it. Needed for a blank node, which has no text to be referred to by. Defaults to n1, n2, … for nodes and e1, e2, … for edges.",
+      "A name for a node or edge, so an edge can refer to it. Defaults to n1, n2, … for nodes and e1, e2, … for edges.",
   },
   TEXT: {
     field: "text",
     expects: "text",
     description:
-      "What a node shows. $…$ spans render as math, and a text that is just an image URL renders as the image. A node with `assess` is a blank and has no text.",
+      "What a node shows. $…$ spans render as math, and a text that is just an image URL renders as the image. On a blank it is the answer, hidden until the learner fills it.",
   },
   SHAPE: {
     field: "shape",
@@ -117,7 +109,7 @@ export const attributeFields: Record<string, AttributeMeta> = {
     field: "label",
     expects: "text",
     description:
-      "The words on an edge, naming the relationship. An edge with `assess` is a blank and has no label.",
+      "The words on an edge, naming the relationship. On a blank edge it is the answer, hidden until the learner fills it.",
   },
   STYLE: {
     field: "style",
@@ -127,30 +119,10 @@ export const attributeFields: Record<string, AttributeMeta> = {
   },
   ASSESS: {
     field: "assess",
-    expects: "object",
+    expects: "list",
     description:
-      'Makes a node or edge a blank the learner fills by dragging from the tray, e.g. assess [expected "Nucleus"]. Its answer joins the tray automatically.',
+      'Scores a node or edge: assess [expected] makes it a blank whose answer is its own text or label; assess [distractor points -1] makes it a wrong answer that sits only in the tray.',
   },
-  EXPECTED: {
-    field: "expected",
-    expects: "text",
-    description: "The correct answer for a blank, exactly as it appears in the tray.",
-  },
-  POINTS: {
-    field: "points",
-    expects: "number",
-    description: "What a blank is worth when filled correctly. Defaults to 1; must be above 0.",
-  },
-};
-
-/**
- * Arity 2: the chaining words, legal only in a configuration record.
- *
- * Each takes its value AND the rest of the chain, returning the chain's record with its own key
- * added, so `] title "…" theme DARK {}` computes the configuration record the container takes as
- * its second argument. Where each may appear is `validSettings`.
- */
-export const configFields: Record<string, AttributeMeta> = {
   TITLE: {
     field: "title",
     expects: "text",
@@ -167,54 +139,103 @@ export const configFields: Record<string, AttributeMeta> = {
     oneOf: THEMES,
     description: "The colour scheme, DARK or LIGHT, written as a bare tag. Defaults to LIGHT.",
   },
-  DISTRACTORS: {
-    field: "distractors",
-    expects: "texts",
-    description:
-      'Wrong answers added to a tray, e.g. nodes [ … ] distractors ["Golgi"] {}. The right answers are added for you.',
+  TRAY_ALIGN: {
+    field: "trayAlign",
+    expects: "tag",
+    oneOf: TRAY_ALIGNS,
+    description: `Where a tray sits beside the web, written as a bare tag: ${TRAY_ALIGNS.join(", ")}. The node tray defaults to right, the label tray to bottom.`,
   },
-  TRAY: {
-    field: "tray",
-    expects: "text",
-    oneOf: TRAY_PLACEMENTS,
-    description: `Where a tray sits beside the web: ${TRAY_PLACEMENTS.join(", ")}. The node tray defaults to right, the label tray to bottom.`,
+};
+
+/** Arity 1: the typed members. Each takes a chain and returns `{[word]: record}`. */
+export const memberFields: Record<string, AttributeMeta> = {
+  HUB: {
+    field: "hub",
+    expects: "record",
+    description:
+      'The node at the centre of the web, e.g. hub text "The Cell" {}. Every other node sits on a circle around it. Its id is always `hub`.',
+  },
+  NODE: {
+    field: "node",
+    expects: "record",
+    description: 'One node around the hub, described by a chain ending in {}, e.g. node text "Nucleus" {}.',
+  },
+  EDGE: {
+    field: "edge",
+    expects: "record",
+    description:
+      'One line between nodes, described by a chain ending in {}, e.g. edge from "hub" to "Nucleus" label "contains" {}.',
+  },
+};
+
+/** The words of an `assess [...]` list: arity 1 (`points`) and arity 0 (the flags). */
+export const assessFields: Record<string, AttributeMeta> = {
+  EXPECTED: {
+    field: "expected",
+    expects: "flag",
+    description:
+      "Makes a node or edge a blank. Its own text (or label) is the answer, and joins the tray.",
+  },
+  DISTRACTOR: {
+    field: "distractor",
+    expects: "flag",
+    description:
+      "Makes a node or edge a wrong answer: its text (or label) joins the tray, and it is not drawn in the web.",
+  },
+  POINTS: {
+    field: "points",
+    expects: "number",
+    description:
+      "What a blank is worth when filled correctly (above 0, default 1), or what a distractor costs when dropped on a blank (0 or below, default 0).",
   },
 };
 
 /**
- * Which attributes each attribute list accepts, in source spelling.
+ * Which words each description accepts, in source spelling.
  *
- * The highest-value check in the language, and the reason it is maintained by hand: an
- * attribute list merges whatever it is handed, so a word written one level too high lands in
- * a record nothing reads, compiles clean, and silently does nothing.
+ * The highest-value check in the language, and the reason it is maintained by hand: a chain
+ * builds whatever record it is handed, so a word written in the wrong chain lands in a record
+ * nothing reads, compiles clean, and silently does nothing.
  */
 export const validAttributes: Record<string, string[]> = {
   "concept-web": ["hub", "nodes", "edges"],
   hub: ["text", "shape", "color", "size", "assess"],
   node: ["id", "text", "shape", "color", "size", "assess"],
   edge: ["id", "from", "to", "label", "style", "assess"],
-  assess: ["expected", "points"],
+  assess: ["expected", "distractor", "points"],
 };
 
-/** Which chaining words each configuration record accepts. */
+/** Which chain words each settings record accepts. */
 export const validSettings: Record<string, string[]> = {
   "concept-web": ["title", "instructions", "theme"],
-  nodes: ["distractors", "tray"],
-  edges: ["distractors", "tray"],
+  nodes: ["tray-align"],
+  edges: ["tray-align"],
 };
 
 export const wordOf = (name: string): string => name.toLowerCase().replace(/_/g, "-");
 
+/** The source word that emits `field`, for error messages (`trayAlign` is `tray-align`). */
+const wordByField: Record<string, string> = Object.fromEntries(
+  Object.entries({ ...chainFields, ...memberFields, ...assessFields }).map(([name, meta]) => [
+    meta.field,
+    wordOf(name),
+  ]),
+);
+export const sourceWord = (field: string): string => wordByField[field] ?? field;
+
 /** The signature string the generated spec renders, derived so it cannot drift from the row. */
-export const typeOf = (meta: AttributeMeta, arity: 1 | 2): string => {
+export const typeOf = (meta: AttributeMeta, arity: 0 | 1 | 2): string => {
   const arg =
-    meta.expects === "object" || meta.expects === "texts"
+    meta.expects === "list"
       ? "list"
-      : meta.expects === "number"
-        ? "number"
-        : meta.expects === "tag"
-          ? "tag"
-          : "string";
+      : meta.expects === "record"
+        ? "record"
+        : meta.expects === "number"
+          ? "number"
+          : meta.expects === "tag"
+            ? "tag"
+            : "string";
+  if (arity === 0) return "<: record>";
   return arity === 1 ? `<${arg}: record>` : `<${arg} record: record>`;
 };
 
@@ -256,12 +277,15 @@ export function showValue(v: any): string {
 export const isTag = (v: any): boolean =>
   v !== null && typeof v === "object" && !Array.isArray(v) && typeof v.tag === "string";
 
+export const isRecord = (v: any): boolean =>
+  v !== null && typeof v === "object" && !Array.isArray(v) && !isTag(v);
+
 /**
  * Check and normalize a value. Returns `{value}` or `{error}`.
  *
  * This runs in the TRANSFORMER, not the Checker, and that is not a style preference:
  * `Checker.LIST` visits only `elts[0]`, so a rule written as a Checker method fires on the
- * first element of a list and nowhere else — in a style built on lists, almost nowhere.
+ * first element of a list and nowhere else.
  */
 export function checkValue(
   name: string,
@@ -290,41 +314,46 @@ export function checkValue(
         return { error: `${word}: expected a number, got ${showValue(raw)}.` };
       }
       return { value: raw };
-    case "texts": {
-      const example = `${word} ["Golgi" "Lysosome"]`;
-      if (!Array.isArray(raw) || !raw.length) {
-        return { error: `${word}: expected a list of strings, e.g. ${example}.` };
-      }
-      const out: string[] = [];
-      for (let i = 0; i < raw.length; i++) {
-        const v = typeof raw[i] === "number" ? String(raw[i]) : raw[i];
-        if (typeof v !== "string" || !v.trim()) {
-          return {
-            error: `${word}: entry ${i + 1} is ${showValue(raw[i])}; every entry must be a string in "quotes", e.g. ${example}.`,
-          };
-        }
-        out.push(v);
-      }
-      return { value: out };
-    }
     case "tag": {
       if (isTag(raw) && (!meta.oneOf || meta.oneOf.includes(raw.tag))) {
         return { value: raw.tag.toLowerCase() };
       }
       const legal = (meta.oneOf || []).join(" or ");
-      const quoted =
-        typeof raw === "string" && meta.oneOf?.includes(raw.toUpperCase())
-          ? ` Write it bare, without quotes: ${word} ${raw.toUpperCase()}.`
-          : "";
+      const bare =
+        typeof raw === "string"
+          ? meta.oneOf?.find((v) => v.toLowerCase() === raw.toLowerCase())
+          : undefined;
+      const quoted = bare ? ` Write it bare, without quotes: ${word} ${bare}.` : "";
       return { error: `${word}: expected the tag ${legal}, got ${showValue(raw)}.${quoted}` };
     }
-    case "object":
-      // Merged and checked by the container that owns the word, which knows its own name.
+    case "list":
+      if (!Array.isArray(raw)) {
+        return {
+          error: `${word}: expected a list in [brackets], e.g. ${word} [expected], got ${showValue(raw)}.`,
+        };
+      }
       return { value: raw };
+    case "record":
+      if (!isRecord(raw)) {
+        return {
+          error: `${word}: expected a description ending in \`{}\`, e.g. ${memberExample(word)}, got ${showValue(raw)}.`,
+        };
+      }
+      return { value: raw };
+    case "flag":
+      return { value: true };
   }
 }
 
-/** Every container and attribute a word can be written in, for the "belongs inside" hint. */
+/** A member written the way it should be, for error messages. */
+export const memberExample = (word: string): string =>
+  word === "edge"
+    ? 'edge from "hub" to "Nucleus" label "contains" {}'
+    : word === "hub"
+      ? 'hub text "The Cell" {}'
+      : 'node text "Nucleus" {}';
+
+/** Every description a word can be written in, for the "belongs in" hint. */
 const attributeOwners: Record<string, string[]> = Object.entries(validAttributes).reduce(
   (acc: Record<string, string[]>, [container, words]) => {
     for (const w of words) (acc[w] = acc[w] || []).push(container);
@@ -339,39 +368,52 @@ const settingOwners: Record<string, string[]> = Object.entries(validSettings).re
   },
   {},
 );
+/** Which list each typed member goes in. */
+const memberOwners: Record<string, string> = { node: "nodes", edge: "edges" };
 
 /** An example of a setting written where it belongs. */
 const settingExample = (word: string, owner: string): string => {
   const value =
-    word === "theme"
-      ? "DARK"
-      : word === "tray"
-        ? '"left"'
-        : word === "distractors"
-          ? '["…"]'
-          : '"…"';
+    word === "theme" ? "DARK" : word === "tray-align" ? (owner === "edges" ? "bottom" : "left") : '"…"';
   return `${owner} [ … ] ${word} ${value} {}`;
 };
 
+/** Where a misplaced word belongs, as a sentence to append to the error. */
+function hintFor(w: string, container: string): string {
+  if (memberOwners[w]) {
+    return ` \`${w}\` is a member of \`${memberOwners[w]}\`, e.g. ${memberOwners[w]} [ ${memberExample(w)} ] {}.`;
+  }
+  // Not filtered by `container`: a setting is never unknown to its own settings record, so an
+  // owner equal to `container` means it was written among that container's children instead.
+  const settings = settingOwners[w] || [];
+  if (settings.length) {
+    return ` \`${w}\` is a setting and goes after the \`]\` of ${settings[0]}, e.g. ${settingExample(w, settings[0])}.`;
+  }
+  const owners = (attributeOwners[w] || []).filter((o) => o !== container);
+  if (!owners.length) return "";
+  if (owners.includes("assess")) {
+    const eg = w === "points" ? "assess [expected points 2]" : `assess [${w}]`;
+    return ` \`${w}\` belongs inside \`assess [ … ]\`, e.g. ${eg}.`;
+  }
+  return ` \`${w}\` belongs in ${owners.map((o) => `\`${o}\``).join(" or ")}.`;
+}
+
 /**
- * Fold an attribute list into one object. A malformed entry is a compile error, never a
- * silent drop — a dropped attribute is indistinguishable from one that did nothing.
+ * Fold a bracket list of single-key records into one object. A malformed entry is a compile
+ * error, never a silent drop — a dropped entry is indistinguishable from one that did nothing.
  */
 export function mergeAttributes(attrs: any, where: string, example: string): Record<string, any> {
   if (!Array.isArray(attrs)) {
-    throw new Error(`${where}: expected an attribute list in [brackets], e.g. ${example}.`);
+    throw new Error(`${where}: expected a list in [brackets], e.g. ${example}.`);
   }
   const out: Record<string, any> = {};
   for (const a of attrs) {
-    if (a === null || typeof a !== "object" || Array.isArray(a) || isTag(a)) {
-      throw new Error(
-        `${where}: every entry must be an attribute applied to a value, e.g. ${example}. ` +
-          `Got ${showValue(a)}.`,
-      );
+    if (!isRecord(a)) {
+      throw new Error(`${where}: every entry must be a word of the list, e.g. ${example}. Got ${showValue(a)}.`);
     }
     for (const k of Object.keys(a)) {
       if (Object.prototype.hasOwnProperty.call(out, k)) {
-        throw new Error(`${where}: \`${k}\` is given twice. Each attribute may appear once.`);
+        throw new Error(`${where}: \`${sourceWord(k)}\` is given twice. Each may appear once.`);
       }
       out[k] = a[k];
     }
@@ -380,7 +422,7 @@ export function mergeAttributes(attrs: any, where: string, example: string): Rec
 }
 
 /**
- * Reject a word an attribute list does not accept, naming the legal set and — the half that
+ * Reject a word a description does not accept, naming the legal set and — the half that
  * actually fixes the program — where the misplaced word belongs.
  *
  * The generator is an LLM that reads this message and tries again, so the wording is a
@@ -392,35 +434,21 @@ export function assertKnownAttributes(
   where = container,
 ): void {
   const allowed = validAttributes[container];
-  const unknown = Object.keys(attrs).filter((w) => !allowed.includes(w));
+  const unknown = Object.keys(attrs).map(sourceWord).filter((w) => !allowed.includes(w));
   if (!unknown.length) return;
   const w = unknown[0];
-  let hint = "";
-  if (settingOwners[w]) {
-    const owner = settingOwners[w][0];
-    hint = ` \`${w}\` is a setting and goes after the \`]\` of ${owner}, e.g. ${settingExample(w, owner)}.`;
-  } else {
-    const owners = (attributeOwners[w] || []).filter((o) => o !== container);
-    if (owners.length) hint = ` \`${w}\` belongs inside ${owners.map((o) => `\`${o}\``).join(" or ")}.`;
-  }
   throw new Error(
-    `${where}: \`${w}\` is not an attribute of ${container}. It takes: ${allowed.join(", ")}.${hint}`,
+    `${where}: \`${w}\` is not part of ${container}. It takes: ${allowed.join(", ")}.${hintFor(w, container)}`,
   );
 }
 
-/** The same check for a configuration record. */
+/** The same check for a settings record. */
 export function assertKnownSettings(container: string, settings: Record<string, any>): void {
   const allowed = validSettings[container];
-  const unknown = Object.keys(settings).filter((w) => !allowed.includes(w));
+  const unknown = Object.keys(settings).map(sourceWord).filter((w) => !allowed.includes(w));
   if (!unknown.length) return;
   const w = unknown[0];
-  const owners = (settingOwners[w] || []).filter((o) => o !== container);
-  const hint = owners.length
-    ? ` \`${w}\` goes after the \`]\` of ${owners[0]}, e.g. ${settingExample(w, owners[0])}.`
-    : attributeOwners[w]
-      ? ` \`${w}\` is an attribute and belongs inside the brackets of ${attributeOwners[w].map((o) => `\`${o}\``).join(" or ")}.`
-      : "";
   throw new Error(
-    `${container}: \`${w}\` is not a setting of ${container}. Its settings are: ${allowed.join(", ")}.${hint}`,
+    `${container}: \`${w}\` is not a setting of ${container}. Its settings are: ${allowed.join(", ")}.${hintFor(w, container)}`,
   );
 }

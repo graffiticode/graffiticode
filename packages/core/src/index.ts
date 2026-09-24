@@ -2,8 +2,9 @@
 export { Checker, Transformer, compiler } from "./compiler.js";
 export { lexicon } from "./lexicon.js";
 export {
-  attributeFields,
-  configFields,
+  chainFields,
+  memberFields,
+  assessFields,
   validAttributes,
   validSettings,
   wordOf,
@@ -12,7 +13,7 @@ export {
   COLORS,
   SIZES,
   EDGE_STYLES,
-  TRAY_PLACEMENTS,
+  TRAY_ALIGNS,
 } from "./attributes.js";
 export type { AttributeMeta } from "./attributes.js";
 export { buildWeb, HUB_ID } from "./web.js";

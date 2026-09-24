@@ -8,7 +8,7 @@ L0183 draws concept webs: a hub in the centre, nodes on a circle around it, and 
 them that may carry labels such as "eaten by" or "causes". Any node, the hub included, and any
 line can be made a blank that the learner fills by dragging an answer from a tray beside the web.
 The tray is built from the answers themselves plus any wrong answers you ask for, so the answer
-key and the tray can never disagree. Blanks that sit in interchangeable places accept each
+key and the tray can never disagree, and a wrong answer can be made to cost points. Blanks that sit in interchangeable places accept each
 other's answers, so a learner is never marked wrong for a correct arrangement. Webs are scored
 with partial credit per blank, and the same web can be embedded in a Learnosity item through
 L0176. Nodes can show text, math and images, and can be coloured, shaped and sized.
@@ -30,9 +30,10 @@ L0176. Nodes can show text, math and images, and can be coloured, shaped and siz
 | "around it", "branches", "connected ideas" | `nodes` |
 | "arrow from A to B", "A leads to B" | an edge with `style "solid-arrow"` |
 | "dotted line", "weaker link" | `style "dashed"` |
-| "blank", "students fill in", "drag onto" | `assess [expected "…"]` |
-| "wrong answers", "decoys", "extra options" | `distractors` |
-| "put the word bank on the left" | `tray "left"` |
+| "blank", "students fill in", "drag onto" | `assess [expected]` on the node holding the answer |
+| "wrong answers", "decoys", "extra options" | a node or edge with `assess [distractor]` |
+| "lose a point for picking the decoy" | `assess [distractor points -1]` |
+| "put the word bank on the left" | `tray-align left` |
 | "worth 2 points" | `points 2` |
 | "dark mode" | `theme DARK` |
 

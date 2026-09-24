@@ -156,7 +156,7 @@ describe("schema.json describes what the compiler actually emits", () => {
 
   test("a web carrying learner answers validates", async () => {
     const out = await compile(readFileSync("spec/template.gc", "utf-8"), {
-      interaction: { cells: { n2: { value: "Ribosome" } } },
+      interaction: { cells: { n2: { value: "Chlorophyll" }, n3: { value: "Ribosome" } } },
     });
     check(out, "answered");
   });
@@ -197,7 +197,7 @@ describe("examples.md", () => {
     // A prompt that writes the program teaches the generator to echo syntax instead of reading
     // intent — and this is the retrieval corpus, so it is learned.
     const codey = prompts.filter((l) =>
-      /\b(concept-web|nodes|edges|assess|distractors) \[|\{\}|\.\.$|\btheme (DARK|LIGHT)\b|\bexpected "/.test(
+      /\b(concept-web|nodes|edges|assess) \[|\b(node|edge|hub) text "|\{\}|\.\.$|\btheme (DARK|LIGHT)\b|\bassess \[(expected|distractor)/.test(
         l,
       ),
     );

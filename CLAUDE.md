@@ -39,42 +39,51 @@ and the Cloudflare zone rule are documented in L0182's CLAUDE.md, and apply here
 
 ## The dialect
 
-The style is `console/docs/language-authoring-style.md`. Read it before adding vocabulary. Two
-kinds of list, like an HTML element's attributes and its children:
+The style is `console/docs/language-authoring-style.md`. Read it before adding vocabulary.
 
-- An **attribute list** is heterogeneous: arity-1 words merged into one object —
-  `[id "r" assess [expected "Receptor"]]`.
-- A **member list** is homogeneous: children of one kind, in order. The container is arity 2
-  and takes the list AND its configuration record — `nodes [ … ] {}`. `{}` is the empty
-  configuration, not a terminator.
+- A **chain** describes one thing: arity-2 words, each taking its value and the rest of the
+  chain, ending in a record — `text "Receptor" id "r" assess [expected] {}`. Nodes, edges, the
+  hub and every settings record are chains.
+- A **typed member** wraps a chain: `hub …`, `node …`, `edge …` are arity 1 and evaluate to
+  `{node: {...}}`, so a member list can reject a member of the wrong kind.
+- A **member list** is homogeneous and typed: `nodes [ node text "A" {} node text "B" {} ] {}`.
+  The container is arity 2 and takes the list AND its settings chain. `{}` is the empty
+  settings record, not a terminator.
+- `assess` is the one chain word whose value is a bracket list: the arity-0 flags `expected`
+  or `distractor`, and arity-1 `points`.
 
-`concept-web` is arity 2 too: the diagram's attribute list (`hub`, `nodes`, `edges`), then the
-program's configuration record. Configuration records are built by **chaining**, and that is the
-only place chaining happens:
+`concept-web` is arity 2 too: its parts (`hub`, `nodes`, `edges`), then the program's settings:
 
 ```
-concept-web [ … ] title "…" instructions "…" theme DARK {}..
-nodes [ … ] distractors ["…"] tray "left" {}
+concept-web [ hub text "…" {} nodes [ … ] tray-align left {} ] title "…" theme DARK {}..
 ```
 
-### Two tables drive everything
+A blank carries its own answer: `node text "Mitochondria" assess [expected] {}`. The compiler
+moves the text into the key and strips it from the drawn node. A distractor is a member too —
+`node text "Chlorophyll" assess [distractor points -1] {}` — joins its list's tray, and is not
+drawn.
 
-`src/attributes.ts` holds `attributeFields` (arity 1) and `configFields` (arity 2, the chaining
-words). The lexicon entries and the Checker and Transformer methods are **generated** from them,
-arity included. Never hand-write an attribute handler. Only the containers (`CONCEPT_WEB`,
-`NODES`, `EDGES`) and `PROG` are written out, in `compiler.ts`.
+### The tables drive everything
 
-`validAttributes` (what each attribute list accepts) and `validSettings` (what each
-configuration record accepts) are maintained by hand, and they are the highest-value check in the
-language: an attribute list merges whatever it is handed, so a misplaced word would otherwise
-compile clean and do nothing. The error names the legal set **and where the word belongs** —
-including "is a setting and goes after the `]` of …", the mistake a generator makes most with
-chaining. `docs.test.ts` holds `instructions.md`'s two container tables equal to them.
+`src/attributes.ts` holds `chainFields` (arity 2), `memberFields` (arity 1) and `assessFields`
+(arity 1 and 0). The lexicon entries and the Checker and Transformer methods are **generated**
+from them, arity included. Never hand-write a word's handler. Only the containers
+(`CONCEPT_WEB`, `NODES`, `EDGES`) and `PROG` are written out, in `compiler.ts`.
 
-A chaining word written as the LAST word inside brackets swallows the closing bracket and dies in
-the parser ("Too few arguments for TITLE"), which no compiler error can improve. L0182 removed
-chaining over exactly this. It is kept here, confined to configuration slots, by decision; the
-instructions say "settings go after the closing bracket" prominently for that reason.
+`validAttributes` (what each description accepts) and `validSettings` (what each settings
+record accepts) are maintained by hand, and they are the highest-value check in the language: a
+chain builds whatever record it is handed, so a misplaced word would otherwise compile clean and
+do nothing. The error names the legal set **and where the word belongs** — "is a setting and
+goes after the `]` of …", "belongs inside `assess [ … ]`", "is a member of `nodes`".
+`memberList` checks each member's words as it goes, so an arity-1 word written in a chain
+(`node text "B" points 2 {}` strands the `{}`) is blamed where it was written. `docs.test.ts`
+holds `instructions.md`'s two container tables equal to them.
+
+**A chain word written last before a `]`, without its `{}`, swallows the bracket and dies in the
+parser** ("Too few arguments for TEXT"), which no compiler error can improve. L0182 removed
+chaining over exactly this. L0183 chains everywhere by decision, for one uniform way of writing
+properties; the instructions say "every `hub`, `node` and `edge` ends in `{}`" prominently for
+that reason.
 
 ### Where validation goes
 
@@ -83,11 +92,14 @@ instructions say "settings go after the closing bracket" prominently for that re
 walks, and every arity-2 Checker method visits **both** children — `elts[1]` is the rest of the
 chain, and walking only `elts[0]` silently drops every error below it.
 
-Web-level rules live in `src/web.ts` (`buildWeb`): a hub and nodes are required; a node has
-`text` or `assess`, never both; a blank edge has no `label`; ids are unique and `hub` is
-reserved; `from`/`to` resolve by id then exact text, and a reference naming nothing or two nodes
-is an error that lists the nodes; a distractor may not equal an answer. Every message names the
-fix, and `errors.test.ts` asserts the wording — the generator reads these and retries.
+Web-level rules live in `src/web.ts` (`buildWeb`): a hub and at least one drawn node are
+required; every node has `text`, and an assessed edge a `label`; `assess` has exactly one of
+`expected` (points > 0) or `distractor` (points ≤ 0); a distractor carries nothing but its
+answer and `assess`; ids are unique and `hub` is reserved; `from`/`to` resolve by id then exact
+text (a blank's too; never a distractor's), and a reference naming nothing or two nodes is an
+error that lists the nodes; a distractor may not equal an answer or appear without a blank.
+Every message names the fix, and `errors.test.ts` asserts the wording — the generator reads
+these and retries.
 
 A record inside the Transformer is still L0000's internal `Record`; run it through
 `toPlainObject` before reading it. Strings: the parser eats a single backslash before `t`, `n`
@@ -99,7 +111,8 @@ and friends (`\theta` arrives as a tab and "heta"), so the docs require doubled 
 { title?, instructions?, theme?,
   interaction: { type: "concept-web", hub, nodes, edges, trays: {nodes?, edges?},
                  cells: { <blank id>: {value?} } },
-  validation: { points, cells: { <blank id>: {assess: {expected, points}, pool} } } }
+  validation: { points, cells: { <blank id>: {assess: {expected, points}, pool, tray} },
+                distractors?: { nodes?: {<text>: points}, edges?: {<text>: points} } } }
 ```
 
 This is `@graffiticode/learnosity-cqt`'s **cell-scoring** contract, and it is not negotiable
@@ -109,6 +122,10 @@ without changing that shared package:
   `mergeResponse` folds a stored response in here.
 - `validation.cells[id].assess.expected` is what cqt's "show answers" reads.
 - The key lives only in `validation`, so a graded delivery can withhold it.
+- `validation.distractors` and each cell's `tray` are L0183's own additions: the scorer gives a
+  blank holding a distractor from its tray that distractor's (negative) `points`. `totalScore`
+  clamps at 0, but cqt's `scorer.js` sums cell points itself, so under Learnosity a response
+  can total below 0.
 
 **Pools** are computed at compile time (`assignPools`): blanks with the same kind and the same
 incident edges (direction, style, label, other endpoint) share a pool, and the scorer matches

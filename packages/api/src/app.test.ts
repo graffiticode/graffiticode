@@ -106,7 +106,7 @@ describe("POST /compile", () => {
   it("compiles a concept web, in the { data, errors } envelope", async () => {
     const code = await parser.parse(
       183,
-      `concept-web [ hub [text "A"] nodes [[assess [expected "B"]]] {} ] {}..`,
+      `concept-web [ hub text "A" {} nodes [ node text "B" assess [expected] {} ] {} ] {}..`,
       lexicon,
     );
     const res = await request(app)
@@ -119,7 +119,7 @@ describe("POST /compile", () => {
   });
 
   it("reports a compile error in the envelope, not as a failed request", async () => {
-    const code = await parser.parse(183, `concept-web [ hub [text "A"] ] {}..`, lexicon);
+    const code = await parser.parse(183, `concept-web [ hub text "A" {} ] {}..`, lexicon);
     const res = await request(app).post("/compile").send({ code, data: {} });
     expect(res.status).toBe(200);
     expect(res.body.errors[0].message).toContain("needs `nodes`");
