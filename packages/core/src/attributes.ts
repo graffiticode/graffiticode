@@ -6,7 +6,7 @@
  * Transformer method are all generated from it, arity included, so a word can never be
  * declared with one arity and handled with another. Never hand-write a word's handler.
  *
- * The style is `console/docs/language-authoring-style.md`. Everything that describes one thing
+ * The style is `console/docs/language-style-typed-chains.md`. Everything that describes one thing
  * is a CHAIN: each word takes its value and the rest of the chain, and the chain ends in a
  * record, so `text "Nucleus" color "blue" {}` computes `{text: "Nucleus", color: "blue"}`.
  * That is how a node, an edge and the hub are described, and how every settings record is built.
@@ -49,9 +49,10 @@ export interface AttributeMeta {
    *
    * `text` is a string, or a number written for convenience (`text 42`), emitted as a string.
    * `list` is a bracket list, merged and checked by whatever reads it. `record` is a chain
-   * ending in `{}`. `tag` is a bare tag from `oneOf` (`theme DARK`). `flag` takes no value.
+   * ending in `{}`. `tag` is a bare tag from `oneOf` (`theme DARK`). `boolean` is a bare `true`
+   * or `false`. `flag` takes no value.
    */
-  expects: "text" | "number" | "list" | "record" | "tag" | "flag";
+  expects: "text" | "number" | "list" | "record" | "tag" | "boolean" | "flag";
   /** Closed set of legal values. */
   oneOf?: readonly string[];
   /** One line, shown in the generated spec. */
@@ -139,6 +140,12 @@ export const chainFields: Record<string, AttributeMeta> = {
     oneOf: THEMES,
     description: "The colour scheme, DARK or LIGHT, written as a bare tag. Defaults to LIGHT.",
   },
+  INSTANT_FEEDBACK: {
+    field: "instantFeedback",
+    expects: "boolean",
+    description:
+      "true colours each blank right or wrong as the learner fills it. Defaults to false: feedback waits until the learner checks.",
+  },
   TRAY_ALIGN: {
     field: "trayAlign",
     expects: "tag",
@@ -207,7 +214,7 @@ export const validAttributes: Record<string, string[]> = {
 
 /** Which chain words each settings record accepts. */
 export const validSettings: Record<string, string[]> = {
-  "concept-web": ["title", "instructions", "theme"],
+  "concept-web": ["title", "instructions", "theme", "instant-feedback"],
   nodes: ["tray-align"],
   edges: ["tray-align"],
 };
@@ -234,7 +241,9 @@ export const typeOf = (meta: AttributeMeta, arity: 0 | 1 | 2): string => {
           ? "number"
           : meta.expects === "tag"
             ? "tag"
-            : "string";
+            : meta.expects === "boolean"
+              ? "boolean"
+              : "string";
   if (arity === 0) return "<: record>";
   return arity === 1 ? `<${arg}: record>` : `<${arg} record: record>`;
 };
@@ -326,6 +335,13 @@ export function checkValue(
       const quoted = bare ? ` Write it bare, without quotes: ${word} ${bare}.` : "";
       return { error: `${word}: expected the tag ${legal}, got ${showValue(raw)}.${quoted}` };
     }
+    case "boolean":
+      if (typeof raw === "boolean") return { value: raw };
+      return {
+        error: `${word}: expected true or false, written bare, got ${showValue(raw)}.${
+          raw === "true" || raw === "false" ? ` Write it without quotes: ${word} ${raw}.` : ""
+        }`,
+      };
     case "list":
       if (!Array.isArray(raw)) {
         return {
@@ -374,7 +390,15 @@ const memberOwners: Record<string, string> = { node: "nodes", edge: "edges" };
 /** An example of a setting written where it belongs. */
 const settingExample = (word: string, owner: string): string => {
   const value =
-    word === "theme" ? "DARK" : word === "tray-align" ? (owner === "edges" ? "bottom" : "left") : '"…"';
+    word === "theme"
+      ? "DARK"
+      : word === "tray-align"
+        ? owner === "edges"
+          ? "bottom"
+          : "left"
+        : word === "instant-feedback"
+          ? "true"
+          : '"…"';
   return `${owner} [ … ] ${word} ${value} {}`;
 };
 

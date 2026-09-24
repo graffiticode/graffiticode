@@ -39,7 +39,8 @@ and the Cloudflare zone rule are documented in L0182's CLAUDE.md, and apply here
 
 ## The dialect
 
-The style is `console/docs/language-authoring-style.md`. Read it before adding vocabulary.
+The style is `console/docs/language-style-typed-chains.md` (this dialect is its reference
+implementation). Read it before adding vocabulary.
 
 - A **chain** describes one thing: arity-2 words, each taking its value and the rest of the
   chain, ending in a record — `text "Receptor" id "r" assess [expected] {}`. Nodes, edges, the
@@ -148,8 +149,17 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   one Form serves both hosts. In the embed, `reduce.ts` folds it into `interaction.cells` (the
   shared View would otherwise merge `cells` onto the top level), and the recompile carries it
   back. Under cqt it lands in `responseValue`, which `Form` overlays on `interaction.cells`.
-- **Host detection**: `questionState`/`responseValue` in the model means cqt. There, Learnosity
-  owns checking (`showValidationUI`), `disabled` and `reset`; in the embed a Check button does.
+- **Checking is the host's, never the Form's.** The Form shows right and wrong only when
+  `showValidationUI` is true (set by whichever host checked) or the program compiled
+  `feedback: "instant"` (`instant-feedback true`; default off). Our hosts get a Check button from
+  `l0000-view` ≥ 0.2: `main.tsx` passes the `score` binding from `scoring/`, and the View shows the
+  score and overlays `showValidationUI` until the next change. Learnosity has its own Check Answer,
+  or none. Instant feedback colours only filled blanks; a check also marks empty ones wrong.
+- **`feedback`, not `instantFeedback`**: cqt keeps Learnosity's own `instant_feedback` in state
+  as `instantFeedback`, and spreads the compiled model over it, so a program key of that name
+  would overwrite it.
+- **Host detection** is left only for the theme toggle: `questionState`/`responseValue` in the
+  model means cqt, which also owns `disabled` and `reset`.
 - **Three ways to move an answer**, each because another fails somebody: pointer-event dragging
   (HTML5 drag-and-drop never fires on touch — L0169's tray did nothing on a tablet),
   select-then-place (the keyboard path, and what a tap does), and activating or Deleting a

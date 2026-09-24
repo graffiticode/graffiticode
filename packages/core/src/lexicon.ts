@@ -48,7 +48,7 @@ const words = (table: typeof chainFields, arity: (expects: string) => 0 | 1 | 2)
 
 /**
  * The containers. Each is arity 2 — its list AND its settings record — because each
- * needs that second argument role (`console/docs/language-authoring-style.md` §2).
+ * needs that second argument role (`console/docs/language-style-typed-chains.md` §3).
  */
 const containers = {
   "concept-web": fn(
