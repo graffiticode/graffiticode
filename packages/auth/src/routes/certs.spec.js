@@ -22,15 +22,38 @@ describe("routes/certs", () => {
     expect(body).toHaveProperty("keys");
   });
 
-  it("should reject key rotation without the internal api key", async () => {
+  const withInternalKey = async fn => {
     const prev = process.env.INTERNAL_API_KEY;
     process.env.INTERNAL_API_KEY = "test-internal-key";
     try {
-      const postJSON = bent(url, "POST", "json", 401);
-      await postJSON("/certs", {});
+      await fn();
     } finally {
       if (prev === undefined) delete process.env.INTERNAL_API_KEY;
       else process.env.INTERNAL_API_KEY = prev;
     }
+  };
+
+  it("should refuse key rotation without the internal api key", async () => {
+    await withInternalKey(async () => {
+      const postJSON = bent(url, "POST", "json", 403);
+      await postJSON("/certs", {});
+    });
+  });
+
+  it("should refuse key rotation with a wrong internal api key", async () => {
+    await withInternalKey(async () => {
+      const postJSON = bent(url, "POST", "json", 403);
+      await postJSON("/certs", {}, { "X-Internal-API-Key": "wrong" });
+    });
+  });
+
+  it("should rotate the key with the internal api key", async () => {
+    await withInternalKey(async () => {
+      const before = await getJSON("/certs");
+      const postJSON = bent(url, "POST", "json", 200);
+      await postJSON("/certs", {}, { "X-Internal-API-Key": "test-internal-key" });
+      const after = await getJSON("/certs");
+      expect(after.keys.length).toBeGreaterThan(before.keys.length);
+    });
   });
 });
