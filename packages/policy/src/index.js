@@ -8,3 +8,4 @@ export { createKmsSigner, derToJose } from "./kms.js";
 export { createFirestoreConnectionStore } from "./firestore.js";
 export { createConnectionManager } from "./manage.js";
 export { createBrokerAdminClient } from "./broker-admin.js";
+export { requireEnv, parseCallers, auditSink, createIdTokenSource } from "./config.js";
