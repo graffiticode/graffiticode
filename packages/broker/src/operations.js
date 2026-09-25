@@ -1,3 +1,4 @@
+/* eslint-disable camelcase -- Learnosity wire fields are snake_case */
 // Named operations. Each validates a CONSTRAINED payload and builds the
 // provider request itself — none is a general signer or proxy. The broker
 // supplies identity fields (consumer key, domain, user id); a payload can never

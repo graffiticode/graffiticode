@@ -1,9 +1,8 @@
-// Broker state, written only by the broker. The Firestore implementations
-// must make `claim` atomic with a create precondition (Admin SDK `create()`),
-// never read-then-write; the in-memory race test relies on that property.
-// The in-memory implementations here
+// Broker state, written only by the broker. The in-memory implementations here
 // define the contracts the Firestore ones must meet; every write is
-// create-if-absent (never update), so receipts are append-only.
+// create-if-absent (never update), so receipts are append-only. The Firestore
+// implementations must make `claim` atomic with a create precondition (Admin
+// SDK `create()`), never read-then-write — the race test relies on it.
 //
 //   once      jti ledger: claim(jti, expiresAt) -> true the first time only.
 //             Expiry is checked on the token itself; this ledger only needs to

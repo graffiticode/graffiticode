@@ -1,3 +1,4 @@
+/* eslint-disable camelcase -- Learnosity wire fields are snake_case */
 import { generateKeyPair, exportJWK } from "jose";
 import {
   createPolicy,
