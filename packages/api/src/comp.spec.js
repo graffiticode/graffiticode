@@ -11,6 +11,18 @@ describe("comp", () => {
       compile = buildCompile({ langCompile });
     });
 
+    it("should forward connectionId at the top level, not in options", async () => {
+      langCompile.mockResolvedValue(DATA1);
+
+      await compile({ ...TASK1, connectionId: "conn-1" });
+
+      expect(langCompile).toHaveBeenCalledWith(
+        `L${TASK1.lang}`,
+        { code: TASK1.code, data: {}, auth: null, options: {}, connectionId: "conn-1" },
+        { uid: null }
+      );
+    });
+
     it("should call langCompile", async () => {
       langCompile.mockResolvedValue(DATA1);
 

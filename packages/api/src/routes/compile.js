@@ -7,6 +7,7 @@ import {
   createErrorResponse,
   createError,
   parseAuthTokenFromRequest,
+  parseConnectionId,
   optionsHandler
 } from "./utils.js";
 import { isNonNullObject } from "../util.js";
@@ -56,6 +57,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const auth = req.auth.context;
     const authToken = parseAuthTokenFromRequest(req);
     const items = getItemsFromRequest(req);
+    const connectionId = parseConnectionId(req.body?.connectionId, { auth });
     const ids = [];
     EMPTY_OBJECT_ID =
       EMPTY_OBJECT_ID ||
@@ -72,7 +74,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
         id = [id, dataId].join("+");
       }
       ids.push(id);
-      return await getData({ auth, authToken, ids: [id] });
+      return await getData({ auth, authToken, ids: [id], connectionId });
     }));
     if (data.length === 1) {
       data = data[0];

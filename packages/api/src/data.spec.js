@@ -40,6 +40,34 @@ describe("data", () => {
     );
   });
 
+  it("should forward a selected connection and bypass the shared cache", async () => {
+    const id = await taskStorer.create({ task: TASK1 });
+    // A cached result exists for this id...
+    mockCompileData(DATA1);
+    await dataApi.get({ taskStorer, compileStorer, id });
+    // ...but a compile through a connection must not answer from it.
+    mockCompileData(DATA2);
+
+    await expect(dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" }))
+      .resolves.toStrictEqual(DATA2);
+
+    expect(compile).toHaveBeenCalledTimes(2);
+    expect(compile).toHaveBeenNthCalledWith(2, expect.objectContaining({ connectionId: "conn-1" }));
+    // And it must not overwrite the shared cache with this caller's output.
+    await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
+    expect(compile).toHaveBeenCalledTimes(2);
+  });
+
+  it("should not cache a first compile through a selected connection", async () => {
+    const id = await taskStorer.create({ task: TASK1 });
+    mockCompileData(DATA2);
+    await dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" });
+    mockCompileData(DATA1);
+
+    await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
+    expect(compile).toHaveBeenCalledTimes(2);
+  });
+
   const CODE_AS_DATA = { a: 1 };
   const TASK_WITH_CODE_AS_DATA = { lang: "1", code: CODE_AS_DATA };
   it("should not compile a created task with data as code", async () => {

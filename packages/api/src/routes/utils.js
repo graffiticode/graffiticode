@@ -1,5 +1,5 @@
 import { isNonEmptyString, getClientHost, getClientPort } from "../util.js";
-import { HttpError } from "./../errors/http.js";
+import { HttpError, InvalidArgumentError } from "./../errors/http.js";
 import { decodeID } from "./../id.js";
 
 const normalizeIds = ids => ids.map(id => id.split(/[ ]/g).join("+"));
@@ -59,6 +59,24 @@ export const buildHttpHandler = handler => async (req, res, next) => {
   } catch (err) {
     handleError(err, res, next);
   }
+};
+
+// A connection selection names an owner's external-API connection to compile
+// through. It is caller input — authorization is decided later by policy — so
+// only its shape is checked here. Anonymous callers cannot select one.
+const CONNECTION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
+export const parseConnectionId = (value, { auth } = {}) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string" || !CONNECTION_ID_RE.test(value)) {
+    throw new InvalidArgumentError("connectionId must be 1-128 characters of [A-Za-z0-9_-]");
+  }
+  if (!auth) {
+    throw new InvalidArgumentError("connectionId requires an authenticated caller");
+  }
+  return value;
 };
 
 export const createError = (code, message) => ({ code, message });

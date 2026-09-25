@@ -1,5 +1,5 @@
 const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
-  async ({ taskStorer, compileStorer, id, auth, authToken, options, action, refresh }) => {
+  async ({ taskStorer, compileStorer, id, auth, authToken, options, action, refresh, connectionId = null }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
@@ -21,7 +21,11 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
     // compiles" — the daily corpus ping, the sweep, and the corpus generator
     // all verify through this path. Unlike `override`, a refresh WRITES its
     // result back (see below), so it repairs the record rather than dodging it.
-    const bypassCache = Boolean(override) || Boolean(refresh);
+    // A compile through a selected connection is specific to that caller and
+    // connection, so it neither reads nor writes the shared, content-addressed
+    // cache (a cached result would answer without the compiler ever consulting
+    // policy, and a written one would hand this caller's output to everyone).
+    const bypassCache = Boolean(override) || Boolean(refresh) || Boolean(connectionId);
     // There exists a task that we are authorized to see.
     if (!bypassCache) {
       const cached = await compileStorer.get({ id, auth });
@@ -62,7 +66,8 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
           data,
           auth: authToken,
           options,
-          uid
+          uid,
+          connectionId
         });
         if (obj && typeof obj === "object" && obj.cache === false) {
           cacheable = false;
@@ -87,7 +92,7 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
     // A refresh writes its fresh result back; an override must not, since its
     // result is specific to that user's language-server revision and would
     // pollute the shared cache for everyone else.
-    if ((!bypassCache || refresh) && cacheable) {
+    if ((!bypassCache || refresh) && cacheable && !connectionId) {
       await compileStorer.create({
         id,
         compile: {
