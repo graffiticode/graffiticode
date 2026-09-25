@@ -99,23 +99,50 @@ const normalizeTask = task => {
   return task;
 };
 
+// Dedup is scoped by principal so that re-posting identical code can never
+// change an existing task's ACL: public (anonymous) posts dedupe among public
+// tasks, authenticated posts dedupe per uid. An authenticated post whose code
+// already exists as a public task joins that public task — its content is
+// already public, so nothing is disclosed, and ids/compiles stay shared.
+// Publishing a private task therefore requires an explicit action; no post
+// does it implicitly.
+const createScopedKey = (codeHash, scope) =>
+  createHash("sha256").update(`${codeHash}\n${scope}`).digest("hex");
+
+// Legacy `code-hashes/{codeHash}` docs predate scoping and point at tasks
+// whose ACLs may already be mixed. Reuse such a task only when this principal
+// can already read it; otherwise fall through and mint a scoped task.
+const isVisibleTo = (taskDoc, auth) => {
+  const acls = taskDoc.get("acls");
+  return !acls || !!acls.public || !!(auth && acls.uids && acls.uids[auth.uid]);
+};
+
 const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" }) => {
   task = normalizeTask(task);
   const codeHash = createCodeHash(task);
-  const codeHashRef = db.doc(`code-hashes/${codeHash}`);
-  const codeHashDoc = await codeHashRef.get();
-  let taskId;
-  let taskRef;
-  if (codeHashDoc.exists) {
-    taskId = codeHashDoc.get("taskId");
-    taskRef = db.doc(`tasks/${taskId}`);
-    const taskUpdate = { count: admin.firestore.FieldValue.increment(1) };
-    if (auth) {
-      taskUpdate[`acls.uids.${auth.uid}`] = true;
-    } else {
-      taskUpdate["acls.public"] = true;
+  const publicKey = createScopedKey(codeHash, "public");
+  const ownKey = auth ? createScopedKey(codeHash, `uid:${auth.uid}`) : publicKey;
+  const lookup = async key => {
+    const codeHashDoc = await db.doc(`code-hashes/${key}`).get();
+    if (!codeHashDoc.exists) {
+      return null;
     }
-    await taskRef.update(taskUpdate);
+    const taskId = codeHashDoc.get("taskId");
+    const taskDoc = await db.doc(`tasks/${taskId}`).get();
+    return taskDoc.exists && isVisibleTo(taskDoc, auth) ? taskId : null;
+  };
+  let taskId = await lookup(ownKey);
+  if (!taskId && auth) {
+    taskId = await lookup(publicKey);
+  }
+  if (!taskId) {
+    taskId = await lookup(codeHash);
+    if (taskId) {
+      await db.doc(`code-hashes/${ownKey}`).set({ taskId });
+    }
+  }
+  if (taskId) {
+    await db.doc(`tasks/${taskId}`).update({ count: admin.firestore.FieldValue.increment(1) });
   } else {
     let acls;
     if (auth) {
@@ -132,7 +159,7 @@ const buildTaskCreate = ({ db }) => async ({ task, auth, storageType = "memory" 
       storageType,
     });
     taskId = taskRef.id;
-    await codeHashRef.set({ taskId });
+    await db.doc(`code-hashes/${ownKey}`).set({ taskId });
   }
   return encodeId({ taskIds: [taskId] });
 };

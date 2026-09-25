@@ -1,6 +1,13 @@
 import { TASK1, TASK2 } from "../testing/fixture.js";
 import { clearFirestore } from "../testing/firestore.js";
+import { admin } from "./firebase.js";
 import { buildTaskStorer, encodeId } from "./tasks.js";
+
+const getAcls = async id => {
+  const [taskId] = JSON.parse(Buffer.from(id, "base64url").toString("utf8")).taskIds;
+  const taskDoc = await admin.firestore().doc(`tasks/${taskId}`).get();
+  return taskDoc.get("acls");
+};
 
 describe("storage/firestore", () => {
   beforeEach(async () => {
@@ -100,14 +107,62 @@ describe("storage/firestore", () => {
     await expect(taskStorer.get({ id, auth: otherAuth })).rejects.toThrow();
   });
 
-  it("should return task if retrieved by multiple auths", async () => {
+  it("should not grant another auth access by reposting private code", async () => {
     const myAuth = { uid: "1" };
     const otherAuth = { uid: "2" };
-    const id = await taskStorer.create({ task: TASK1, auth: myAuth });
-    await taskStorer.create({ task: TASK1, auth: otherAuth });
+    const id1 = await taskStorer.create({ task: TASK1, auth: myAuth });
+    const id2 = await taskStorer.create({ task: TASK1, auth: otherAuth });
 
-    await expect(taskStorer.get({ id, auth: myAuth })).resolves.toStrictEqual([TASK1]);
-    await expect(taskStorer.get({ id, auth: otherAuth })).resolves.toStrictEqual([TASK1]);
+    expect(id2).not.toBe(id1);
+    await expect(getAcls(id1)).resolves.toStrictEqual({ public: false, uids: { 1: true } });
+    await expect(taskStorer.get({ id: id1, auth: otherAuth })).rejects.toThrow();
+    await expect(taskStorer.get({ id: id2, auth: otherAuth })).resolves.toStrictEqual([TASK1]);
+  });
+
+  it("should not publish private task on anonymous repost", async () => {
+    const myAuth = { uid: "1" };
+    const id1 = await taskStorer.create({ task: TASK1, auth: myAuth });
+    const id2 = await taskStorer.create({ task: TASK1, auth: null });
+
+    expect(id2).not.toBe(id1);
+    await expect(getAcls(id1)).resolves.toStrictEqual({ public: false, uids: { 1: true } });
+    await expect(taskStorer.get({ id: id1, auth: null })).rejects.toThrow();
+    await expect(taskStorer.get({ id: id2, auth: null })).resolves.toStrictEqual([TASK1]);
+  });
+
+  it("should get same id when same auth reposts", async () => {
+    const myAuth = { uid: "1" };
+    const id1 = await taskStorer.create({ task: TASK1, auth: myAuth });
+    const id2 = await taskStorer.create({ task: TASK1, auth: myAuth });
+
+    expect(id2).toBe(id1);
+  });
+
+  it("should get same id when public task is reposted", async () => {
+    const id1 = await taskStorer.create({ task: TASK1, auth: null });
+    const id2 = await taskStorer.create({ task: TASK1, auth: null });
+    const id3 = await taskStorer.create({ task: TASK1, auth: { uid: "1" } });
+
+    expect(id2).toBe(id1);
+    expect(id3).toBe(id1);
+    await expect(getAcls(id1)).resolves.toStrictEqual({ public: true, uids: {} });
+  });
+
+  it("should reuse legacy code-hash task only when visible", async () => {
+    // Pre-scoping records live at code-hashes/{codeHash}.
+    const myAuth = { uid: "1" };
+    const id1 = await taskStorer.create({ task: TASK1, auth: myAuth });
+    const db = admin.firestore();
+    const [taskId] = JSON.parse(Buffer.from(id1, "base64url").toString("utf8")).taskIds;
+    const taskDoc = await db.doc(`tasks/${taskId}`).get();
+    await clearFirestore();
+    await db.doc(`tasks/${taskId}`).set(taskDoc.data());
+    await db.doc(`code-hashes/${taskDoc.get("codeHash")}`).set({ taskId });
+
+    await expect(taskStorer.create({ task: TASK1, auth: myAuth })).resolves.toBe(id1);
+    await expect(taskStorer.create({ task: TASK1, auth: null })).resolves.not.toBe(id1);
+    await expect(taskStorer.create({ task: TASK1, auth: { uid: "2" } })).resolves.not.toBe(id1);
+    await expect(getAcls(id1)).resolves.toStrictEqual({ public: false, uids: { 1: true } });
   });
 
   it("should throw NotFoundError if retrieved by another auth in compound id", async () => {

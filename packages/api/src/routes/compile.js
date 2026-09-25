@@ -47,8 +47,6 @@ const getTaskFromData = data => ({
   }
 });
 
-let EMPTY_OBJECT_ID;
-
 const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   const postTasks = buildPostTasks({ taskStorer });
@@ -57,19 +55,19 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const authToken = parseAuthTokenFromRequest(req);
     const items = getItemsFromRequest(req);
     const ids = [];
-    EMPTY_OBJECT_ID =
-      EMPTY_OBJECT_ID ||
-      await postTasks({ auth, tasks: getTaskFromData({}), req });
     let data = await Promise.all(items.map(async item => {
       let { id, lang, code, data } = item;
       if (!id) {
         id = await postTasks({ auth, tasks: { lang, code }, req });
       }
       data = data || {};
-      const tasks = getTaskFromData(data);
-      const dataId = await postTasks({ auth, tasks, req });
-      if (dataId !== EMPTY_OBJECT_ID && id.indexOf(dataId) < 0) {
-        id = [id, dataId].join("+");
+      // Empty data adds no data task. Compared by content, not id: task ids
+      // are scoped per principal, so a cached id would not match other callers.
+      if (JSON.stringify(data) !== "{}") {
+        const dataId = await postTasks({ auth, tasks: getTaskFromData(data), req });
+        if (id.indexOf(dataId) < 0) {
+          id = [id, dataId].join("+");
+        }
       }
       ids.push(id);
       return await getData({ auth, authToken, ids: [id] });
