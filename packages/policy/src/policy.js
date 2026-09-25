@@ -9,6 +9,12 @@
 //             lang/fn/op/backend/mode relationship against the registry, and
 //             issues a short execution token scoped to that one request.
 //
+//   intent    issued to the console when a user deliberately saves or opens
+//             the Author Site. Privileged modes (`save`, `author`) come ONLY
+//             from a verified intent bound to the same user and connection;
+//             a compiler cannot claim them. The save-action id is minted
+//             here, and a retried job carrying the same intent keeps it.
+//
 // Callers are authenticated before reaching here: `user` is the verified end
 // user and `caller.lang` the language bound to the verified calling service.
 // Every decision, allowed or denied, is audited.
@@ -19,6 +25,7 @@ import {
   isOperationAllowed,
   protectedFunctionsForLang,
 } from "@graffiticode/common/protected-registry";
+import { randomUUID } from "node:crypto";
 import { issueToken, verifyToken } from "./tokens.js";
 import { connectionRefusal } from "./connections.js";
 
@@ -29,6 +36,7 @@ export class PolicyDenied extends Error {
   }
 }
 
+const PRIVILEGED_MODES = Object.freeze(["save", "author"]);
 const ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
 const DIGEST_RE = /^[a-f0-9]{64}$/;
 const isId = v => typeof v === "string" && ID_RE.test(v);
@@ -39,13 +47,51 @@ export const createPolicy = ({ signer, jwks, connections, audit }) => {
     throw new PolicyDenied(reason);
   };
 
-  const snapshot = async ({ caller, user, lang, connectionId, fns, mode, invocationId, saveActionId = null }) => {
-    const record = { event: "snapshot", uid: user?.uid, lang, connectionId, mode, registryVersion: REGISTRY_VERSION };
+  const issueIntent = async ({ caller, user, mode, connectionId }) => {
+    const record = { event: "intent", uid: user?.uid, connectionId, mode };
+    if (caller?.role !== "console") return deny("caller-not-entry-point", record);
     if (!user?.uid) return deny("no-user", record);
-    if (!caller?.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
-    if (!EXEC_MODES.includes(mode)) return deny("bad-mode", record);
+    if (!PRIVILEGED_MODES.includes(mode)) return deny("bad-mode", record);
+    if (!isId(connectionId)) return deny("bad-request", record);
+    const connection = await connections.get(connectionId);
+    const refusal = connectionRefusal(connection, { uid: user.uid });
+    if (refusal) return deny(refusal, { ...record, ownerUid: connection?.ownerUid });
+    const saveActionId = mode === "save" ? randomUUID() : null;
+    const intentToken = await issueToken(signer, "intent", { sub: user.uid, conn: connectionId, mode, sav: saveActionId });
+    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed" });
+    return { intentToken, saveActionId };
+  };
+
+  // Resolves the session's mode. Without an intent, the caller may pick a
+  // non-privileged mode (they carry the same authority); a privileged mode
+  // requires a verified intent for this user and connection.
+  const resolveMode = async ({ mode, intentToken, user, connectionId }) => {
+    if (!intentToken) {
+      if (!EXEC_MODES.includes(mode)) return { error: "bad-mode" };
+      return PRIVILEGED_MODES.includes(mode)
+        ? { error: "privileged-mode-without-intent" }
+        : { mode, saveActionId: null };
+    }
+    let intent;
+    try {
+      ({ claims: intent } = await verifyToken(jwks, "intent", intentToken));
+    } catch {
+      return { error: "bad-intent" };
+    }
+    if (intent.sub !== user.uid || intent.conn !== connectionId) return { error: "intent-mismatch" };
+    if (!PRIVILEGED_MODES.includes(intent.mode)) return { error: "bad-intent" };
+    return { mode: intent.mode, saveActionId: intent.sav ?? null };
+  };
+
+  const snapshot = async ({ caller, user, lang, connectionId, fns, mode: requestedMode = "read", intentToken, invocationId }) => {
+    const record = { event: "snapshot", uid: user?.uid, lang, connectionId, mode: requestedMode, registryVersion: REGISTRY_VERSION };
+    if (!user?.uid) return deny("no-user", record);
+    if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
     if (!isId(connectionId) || !isId(invocationId)) return deny("bad-request", record);
-    if (saveActionId !== null && (mode !== "save" || !isId(saveActionId))) return deny("bad-save-action", record);
+    const resolved = await resolveMode({ mode: requestedMode, intentToken, user, connectionId });
+    if (resolved.error) return deny(resolved.error, record);
+    const { mode, saveActionId } = resolved;
+    record.mode = mode;
     if (!Array.isArray(fns) || !fns.every(f => typeof f === "string")) return deny("bad-request", record);
 
     const connection = await connections.get(connectionId);
@@ -100,7 +146,7 @@ export const createPolicy = ({ signer, jwks, connections, audit }) => {
       op,
       registryVersion: session.rv,
     };
-    if (!caller?.lang || caller.lang !== session.lang) return deny("caller-language-mismatch", record);
+    if (caller?.role !== "compiler" || !caller.lang || caller.lang !== session.lang) return deny("caller-language-mismatch", record);
     if (session.rv !== REGISTRY_VERSION) return deny("registry-version-changed", record);
     if (!Array.isArray(session.fns) || !session.fns.includes(fn)) return deny("fn-not-in-session", record);
     if (!isOperationAllowed({ lang: session.lang, fn, op, backend: session.backend, mode: session.mode })) {
@@ -141,5 +187,5 @@ export const createPolicy = ({ signer, jwks, connections, audit }) => {
     return { executionToken, operationId };
   };
 
-  return { snapshot, mint };
+  return { issueIntent, snapshot, mint };
 };

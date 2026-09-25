@@ -14,7 +14,8 @@ import {
 
 const OWNER = "0xowneruid";
 const OTHER = "0xotheruid";
-const L0176 = { lang: "0176" };
+const L0176 = { role: "compiler", lang: "0176" };
+const CONSOLE = { role: "console" };
 const digest = s => createHash("sha256").update(s).digest("hex");
 
 let signer;
@@ -54,6 +55,13 @@ const snap = (over = {}) => policy.snapshot({
   fns: ALL_FNS,
   mode: "read",
   invocationId: "inv-1",
+  ...over
+});
+const intent = (mode, over = {}) => policy.issueIntent({
+  caller: CONSOLE,
+  user: { uid: OWNER },
+  mode,
+  connectionId: "conn-1",
   ...over
 });
 const denied = async (promise, reason) => {
@@ -107,12 +115,14 @@ describe("token profiles", () => {
 describe("snapshot (owner-only)", () => {
   it("gives the owner the functions that run in the session's mode", async () => {
     expect((await snap({ mode: "read" })).allowed).toEqual(["preview-itembank"]);
-    expect((await snap({ mode: "author" })).allowed).toEqual(["preview-itembank", "author-itembank"]);
+    const { intentToken } = await intent("author");
+    expect((await snap({ intentToken })).allowed).toEqual(["preview-itembank", "author-itembank"]);
   });
 
-  it("gives writes only to a save session that carries a save-action id", async () => {
-    expect((await snap({ mode: "save" })).allowed).toEqual(["preview-itembank"]);
-    expect((await snap({ mode: "save", saveActionId: "sa-1" })).allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+  it("gives writes only to a session carrying a save intent", async () => {
+    const { intentToken, saveActionId } = await intent("save");
+    expect(saveActionId).toEqual(expect.any(String));
+    expect((await snap({ intentToken })).allowed).toEqual(["preview-itembank", "save-to-itembank"]);
   });
 
   it("ignores functions that are not registered for the language", async () => {
@@ -128,12 +138,34 @@ describe("snapshot (owner-only)", () => {
     ["a disabled connection", { connectionId: "conn-off" }, "connection-disabled"],
     ["a missing connection", { connectionId: "conn-none" }, "connection-not-found"],
     ["another owner's connection", { connectionId: "conn-other" }, "not-owner"],
-    ["a caller asking for another language", { caller: { lang: "0000" } }, "caller-language-mismatch"],
+    ["a caller asking for another language", { caller: { role: "compiler", lang: "0000" } }, "caller-language-mismatch"],
     ["an unknown mode", { mode: "admin" }, "bad-mode"],
-    ["a save-action id outside save mode", { mode: "read", saveActionId: "sa-1" }, "bad-save-action"],
+    ["a privileged mode claimed without an intent", { mode: "save" }, "privileged-mode-without-intent"],
+    ["author mode claimed without an intent", { mode: "author" }, "privileged-mode-without-intent"],
+    ["a malformed intent", { intentToken: "x.y.z" }, "bad-intent"],
+    ["a caller that is not a compiler", { caller: CONSOLE }, "caller-language-mismatch"],
     ["no user", { user: null }, "no-user"]
   ])("refuses %s", async (_, over, reason) => {
     await denied(snap(over), reason);
+  });
+
+  it("refuses an intent issued for another user or connection", async () => {
+    const { intentToken } = await intent("save");
+    await denied(snap({ intentToken, user: { uid: OTHER } }), "intent-mismatch");
+    const other = await policy.issueIntent({ caller: CONSOLE, user: { uid: OWNER }, mode: "save", connectionId: "conn-x" });
+    await denied(snap({ intentToken: other.intentToken }), "intent-mismatch");
+  });
+
+  it("refuses a session token presented as an intent", async () => {
+    const { sessionToken } = await snap();
+    await denied(snap({ intentToken: sessionToken }), "bad-intent");
+  });
+
+  it("issues intents only to the entry point, only for privileged modes, only to the owner", async () => {
+    await denied(intent("save", { caller: L0176 }), "caller-not-entry-point");
+    await denied(intent("read"), "bad-mode");
+    await denied(intent("save", { user: { uid: OTHER } }), "not-owner");
+    await denied(intent("save", { connectionId: "conn-off" }), "connection-disabled");
   });
 
   it("audits allowed and denied decisions with pseudonymous ids and no tokens", async () => {
@@ -189,14 +221,16 @@ describe("mint", () => {
   });
 
   it("mints a write in a save session, keyed by the save action", async () => {
-    const { sessionToken } = await snap({ mode: "save", saveActionId: "sa-1" });
+    const { intentToken, saveActionId } = await intent("save");
+    const { sessionToken } = await snap({ intentToken });
     const { operationId } = await mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" });
-    expect(operationId).toBe("sa-1/n12.0");
+    expect(operationId).toBe(`${saveActionId}/n12.0`);
   });
 
-  it("gives a retried save (new invocation, same save action) the same operation id", async () => {
-    const first = await snap({ mode: "save", saveActionId: "sa-1", invocationId: "inv-1" });
-    const retry = await snap({ mode: "save", saveActionId: "sa-1", invocationId: "inv-2" });
+  it("gives a retried save (new invocation, same intent) the same operation id", async () => {
+    const { intentToken } = await intent("save");
+    const first = await snap({ intentToken, invocationId: "inv-1" });
+    const retry = await snap({ intentToken, invocationId: "inv-2" });
     const w = { fn: "save-to-itembank", op: "learnosity.write-items" };
     const a = await mintWith(first.sessionToken, w);
     const b = await mintWith(retry.sessionToken, w);
@@ -231,7 +265,8 @@ describe("mint", () => {
 
   it("refuses a caller from another language", async () => {
     const { sessionToken } = await snap();
-    await denied(mintWith(sessionToken, { caller: { lang: "0000" } }), "caller-language-mismatch");
+    await denied(mintWith(sessionToken, { caller: { role: "compiler", lang: "0000" } }), "caller-language-mismatch");
+    await denied(mintWith(sessionToken, { caller: CONSOLE }), "caller-language-mismatch");
   });
 
   it("refuses a malformed digest or occurrence id", async () => {

@@ -1,9 +1,12 @@
-// The two token profiles the policy authority issues (RFC 8725). They share a
+// The token profiles the policy authority issues (RFC 8725). They share a
 // signing key but never a validation profile: each has its own `typ`, audience
 // and lifetime, the algorithm is fixed, and the issuer is fixed. A session
-// token presented to the broker, or an execution token presented to policy,
-// fails verification rather than being read as the other kind.
+// token presented to the broker, or an execution or session token presented
+// as an intent, fails verification rather than being read as another kind.
 //
+//   intent    aud=policy  typ=gc-intent+jwt   30 min   a user's deliberate save or
+//                                                      authoring action, issued to
+//                                                      the console (entry point)
 //   session   aud=policy  typ=gc-session+jwt  ~15 min  one compile's admission
 //   execution aud=broker  typ=gc-exec+jwt     <=60 s   one broker operation
 
@@ -14,6 +17,9 @@ export const ISSUER = "urn:graffiticode:policy";
 export const ALG = "ES256";
 
 export const PROFILES = Object.freeze({
+  // Long enough to cover a Cloud Tasks job and its re-dispatches (900 s
+  // deadline), so a retried save keeps its save-action id.
+  intent: Object.freeze({ typ: "gc-intent+jwt", audience: "urn:graffiticode:policy", ttlSeconds: 30 * 60 }),
   session: Object.freeze({ typ: "gc-session+jwt", audience: "urn:graffiticode:policy", ttlSeconds: 15 * 60 }),
   execution: Object.freeze({ typ: "gc-exec+jwt", audience: "urn:graffiticode:broker", ttlSeconds: 60 }),
 });

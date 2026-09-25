@@ -20,7 +20,8 @@ import {
 
 const OWNER = "0xowneruid";
 const SECRET = "learnosity-secret-value-xyz";
-const L0176 = { lang: "0176" };
+const L0176 = { role: "compiler", lang: "0176" };
+const CONSOLE = { role: "console" };
 
 const PREVIEW = {
   id: "t",
@@ -40,6 +41,7 @@ let routes;
 let failItems;
 let records;
 let otherSigner;
+let saveIntent;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -56,6 +58,7 @@ beforeEach(async () => {
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
   policy = createPolicy({ signer, jwks, connections, audit });
+  saveIntent = await policy.issueIntent({ caller: CONSOLE, user: { uid: OWNER }, mode: "save", connectionId: "conn-1" });
   routes = [];
   failItems = false;
   const sdk = {
@@ -95,7 +98,7 @@ const previewToken = async (payload = PREVIEW) =>
   mint(await session(), { fn: "preview-itembank", op: "learnosity.sign-questions-preview", payload });
 
 const saveToken = async ({ invocationId = "inv-1", payload = WRITE, occurrenceId } = {}) =>
-  mint(await session({ mode: "save", saveActionId: "sa-1", invocationId }), {
+  mint(await session({ intentToken: saveIntent.intentToken, invocationId }), {
     fn: "save-to-itembank",
     op: "learnosity.write-items",
     payload,
@@ -208,7 +211,7 @@ describe("item-bank writes", () => {
 
   it("reports an attempt that never finished as uncertain", async () => {
     const token = await saveToken();
-    await receipts.claim("sa-1/n1.0", {
+    await receipts.claim(`${saveIntent.saveActionId}/n1.0`, {
       principal: OWNER,
       connectionId: "conn-1",
       fn: "save-to-itembank",
@@ -237,7 +240,9 @@ describe("item-bank writes", () => {
 
 describe("author signing", () => {
   const authorToken = async payload =>
-    mint(await session({ mode: "author" }), { fn: "author-itembank", op: "learnosity.sign-author", payload });
+    mint(await session({
+      intentToken: (await policy.issueIntent({ caller: CONSOLE, user: { uid: OWNER }, mode: "author", connectionId: "conn-1" })).intentToken
+    }), { fn: "author-itembank", op: "learnosity.sign-author", payload });
 
   it("builds a fixed request from the reference and allowed widget types", async () => {
     const payload = { reference: "graffiticode-t-0", widgetTypes: ["mcq"] };
