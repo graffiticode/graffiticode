@@ -5,7 +5,8 @@
     "packages/api",
     "packages/auth",
     "packages/common",
-    "packages/auth-client"
+    "packages/auth-client",
+    "packages/policy"
   ],
   "scripts": {
     "emulator": "npx firebase emulators:start",

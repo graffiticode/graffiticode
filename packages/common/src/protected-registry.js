@@ -22,7 +22,9 @@
 
 export const REGISTRY_VERSION = 2;
 
-const ALL_MODES = Object.freeze(["save", "author", "read", "render", "verify", "corpus"]);
+// Execution modes, set by the authenticated entry point (never by a program).
+export const EXEC_MODES = Object.freeze(["save", "author", "read", "render", "verify", "corpus"]);
+const ALL_MODES = EXEC_MODES;
 
 // Broker operations. The broker builds each request itself from a constrained
 // payload; none is a general signer or proxy.
