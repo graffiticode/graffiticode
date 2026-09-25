@@ -8,13 +8,17 @@
 //
 // Shape: lang -> fn -> spec
 //   backend    connection backend the function runs against
-//   kind       read | write | sign  (write never runs outside save mode)
+//   kind       read | write | sign
+//   modes      execution modes it may run in, set by the authenticated entry
+//              point and bound into the session: a write only ever `save`
 //   ops        broker operations a token for this fn may name — nothing else
 //   tags       compiler node tags whose presence in a program requires the fn
 //   implicit   required by every compile of the language (no source node)
 //   delegable  whether an owner may grant it to another account
 
-export const REGISTRY_VERSION = 1;
+export const REGISTRY_VERSION = 2;
+
+const ALL_MODES = Object.freeze(["save", "author", "read", "render", "verify", "corpus"]);
 
 // Broker operations. The broker builds each request itself from a constrained
 // payload; none is a general signer or proxy.
@@ -24,7 +28,12 @@ export const OPERATIONS = Object.freeze({
   "learnosity.sign-items-preview": Object.freeze({ backend: "learnosity", kind: "sign" }),
   "learnosity.sign-questions-preview": Object.freeze({ backend: "learnosity", kind: "sign" }),
   // Author API signing. Its config carries edit and delete permissions
-  // (packages/core/src/author.ts), so it is NOT preview authority.
+  // (packages/core/src/author.ts), so it is NOT preview authority, and it runs
+  // only in `author` mode, which only the owner's authoring entry point sets —
+  // never a render, read, verification or corpus request. The broker accepts a
+  // constrained payload and builds the request itself: mode fixed to
+  // `item_edit`, one item `reference` (required), widget types drawn only from
+  // the L0176 allowlist, and no custom widgets or caller-supplied config.
   "learnosity.sign-author": Object.freeze({ backend: "learnosity", kind: "sign" }),
   // Data API item-bank write (two sequential provider writes; see receipts).
   "learnosity.write-items": Object.freeze({ backend: "learnosity", kind: "write" }),
@@ -40,15 +49,24 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       kind: "sign",
       ops: Object.freeze(["learnosity.sign-items-preview", "learnosity.sign-questions-preview"]),
       tags: Object.freeze(["INIT"]),
+      modes: ALL_MODES,
       implicit: true,
       delegable: true,
     }),
-    // The `save-to-itembank` member of `items [...]` / `questions [...]`.
+    // NOT YET A COMPLETE BOUNDARY. Today `save-to-itembank true` is a member
+    // of `items [...]` / `questions [...]`, and ITEMS/QUESTIONS perform the
+    // write after inspecting the evaluated member, so a record assembled by
+    // another expression can request a save without this tag, and disabling
+    // the member does not disable the enclosing write. Before L0176 is wired
+    // to the broker, the write must move to an explicit save function whose
+    // node IS the write (legacy member syntax lowered to it before admission,
+    // or rejected), and ITEMS/QUESTIONS must never write.
     "save-to-itembank": Object.freeze({
       backend: "learnosity",
       kind: "write",
       ops: Object.freeze(["learnosity.write-items"]),
       tags: Object.freeze(["SAVE_TO_ITEMBANK"]),
+      modes: Object.freeze(["save"]),
       implicit: false,
       delegable: true,
     }),
@@ -60,6 +78,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       kind: "sign",
       ops: Object.freeze(["learnosity.sign-author"]),
       tags: Object.freeze(["AUTHOR"]),
+      modes: Object.freeze(["author"]),
       implicit: false,
       delegable: false,
     }),
@@ -79,25 +98,27 @@ export const compilerConfigForLang = lang => {
   const implicitProtectedFunctions = [];
   for (const [fn, spec] of Object.entries(fns)) {
     for (const tag of spec.tags) {
-      protectedFunctions[tag] = { fn, kind: spec.kind };
+      protectedFunctions[tag] = { fn, kind: spec.kind, modes: [...spec.modes] };
     }
     if (spec.implicit) {
-      implicitProtectedFunctions.push({ fn, kind: spec.kind });
+      implicitProtectedFunctions.push({ fn, kind: spec.kind, modes: [...spec.modes] });
     }
   }
   return { protectedFunctions, implicitProtectedFunctions };
 };
 
 // Minting check: may a token for (lang, fn) name this op against this
-// connection backend? The full relationship must hold, so a preview grant can
-// never be used to sign Author requests or write items.
-export const isOperationAllowed = ({ lang, fn, op, backend }) => {
+// connection backend, in this session's mode? The full relationship must hold,
+// so a preview grant can never sign Author requests or write items, and a
+// render session can never mint an Author signature or a write.
+export const isOperationAllowed = ({ lang, fn, op, backend, mode }) => {
   const spec = protectedFunctionsForLang(lang)?.[fn];
   const operation = Object.prototype.hasOwnProperty.call(OPERATIONS, op) ? OPERATIONS[op] : null;
   return Boolean(
     spec &&
     operation &&
     spec.ops.includes(op) &&
+    spec.modes.includes(mode) &&
     spec.backend === backend &&
     operation.backend === backend &&
     operation.kind === spec.kind

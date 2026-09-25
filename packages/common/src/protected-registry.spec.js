@@ -49,10 +49,12 @@ describe("protected-registry", () => {
     }).toThrow();
   });
 
+  const base = { lang: "0176", backend: "learnosity", mode: "save" };
+
   describe("isOperationAllowed", () => {
-    const base = { lang: "0176", backend: "learnosity" };
     it("allows preview to sign Items and Questions previews", () => {
       expect(isOperationAllowed({ ...base, fn: "preview-itembank", op: "learnosity.sign-items-preview" })).toBe(true);
+      expect(isOperationAllowed({ ...base, mode: "render", fn: "preview-itembank", op: "learnosity.sign-items-preview" })).toBe(true);
       expect(isOperationAllowed({ ...base, fn: "preview-itembank", op: "learnosity.sign-questions-preview" })).toBe(true);
     });
     it("never lets preview sign Author requests or write items", () => {
@@ -74,13 +76,40 @@ describe("protected-registry", () => {
     });
   });
 
+  describe("modes", () => {
+    it("never mints a write outside save mode", () => {
+      for (const mode of ["author", "read", "render", "verify", "corpus"]) {
+        expect(isOperationAllowed({ ...base, mode, fn: "save-to-itembank", op: "learnosity.write-items" })).toBe(false);
+      }
+    });
+    it("mints Author signatures only in author mode", () => {
+      expect(isOperationAllowed({ ...base, mode: "author", fn: "author-itembank", op: "learnosity.sign-author" })).toBe(true);
+      for (const mode of ["save", "read", "render", "verify", "corpus"]) {
+        expect(isOperationAllowed({ ...base, mode, fn: "author-itembank", op: "learnosity.sign-author" })).toBe(false);
+      }
+    });
+    it("rejects a missing or unknown mode", () => {
+      expect(isOperationAllowed({ ...base, mode: undefined, fn: "save-to-itembank", op: "learnosity.write-items" })).toBe(false);
+      expect(isOperationAllowed({ ...base, mode: "admin", fn: "preview-itembank", op: "learnosity.sign-items-preview" })).toBe(false);
+    });
+    it("gives every write exactly the save mode", () => {
+      for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
+        for (const spec of Object.values(fns)) {
+          if (spec.kind === "write") {
+            expect([...spec.modes]).toEqual(["save"]);
+          }
+        }
+      }
+    });
+  });
+
   describe("compilerConfigForLang", () => {
     it("keys explicit functions by tag and lists implicit ones", () => {
       const { protectedFunctions, implicitProtectedFunctions } = compilerConfigForLang("0176");
-      expect(protectedFunctions.SAVE_TO_ITEMBANK).toEqual({ fn: "save-to-itembank", kind: "write" });
-      expect(protectedFunctions.INIT).toEqual({ fn: "preview-itembank", kind: "sign" });
-      expect(protectedFunctions.AUTHOR).toEqual({ fn: "author-itembank", kind: "sign" });
-      expect(implicitProtectedFunctions).toEqual([{ fn: "preview-itembank", kind: "sign" }]);
+      expect(protectedFunctions.SAVE_TO_ITEMBANK).toEqual({ fn: "save-to-itembank", kind: "write", modes: ["save"] });
+      expect(protectedFunctions.INIT.fn).toBe("preview-itembank");
+      expect(protectedFunctions.AUTHOR).toEqual({ fn: "author-itembank", kind: "sign", modes: ["author"] });
+      expect(implicitProtectedFunctions.map(f => f.fn)).toEqual(["preview-itembank"]);
     });
     it("is empty for an unprotected language", () => {
       expect(compilerConfigForLang("0002")).toEqual({ protectedFunctions: {}, implicitProtectedFunctions: [] });
