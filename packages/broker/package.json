@@ -1,0 +1,24 @@
+{
+  "name": "@graffiticode/broker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Graffiticode credential broker: holds connection secrets and executes named external operations under policy-issued tokens",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "lint:fix": "eslint --fix src/",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "dependencies": {
+    "@graffiticode/common": "*",
+    "@graffiticode/policy": "*"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.1.2",
+    "jest": "^29.6.1"
+  }
+}
