@@ -79,6 +79,25 @@ export const parseConnectionId = (value, { auth } = {}) => {
   return value;
 };
 
+// An intent token (issued by policy to the console for a deliberate save or
+// authoring action) is forwarded opaquely to the compiler, which hands it to
+// policy; only policy verifies it. It is accepted only on POST /compile, only
+// with a selected connection, and only in JWT shape.
+const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+
+export const parseIntentToken = (value, { connectionId } = {}) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string" || value.length > 4096 || !JWT_RE.test(value)) {
+    throw new InvalidArgumentError("intentToken is malformed");
+  }
+  if (!connectionId) {
+    throw new InvalidArgumentError("intentToken requires a connectionId");
+  }
+  return value;
+};
+
 export const createError = (code, message) => ({ code, message });
 
 export const createErrorResponse = error => ({ status: "error", error });

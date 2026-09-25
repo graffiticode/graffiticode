@@ -8,6 +8,7 @@ import {
   createError,
   parseAuthTokenFromRequest,
   parseConnectionId,
+  parseIntentToken,
   optionsHandler
 } from "./utils.js";
 import { isNonNullObject } from "../util.js";
@@ -58,6 +59,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const authToken = parseAuthTokenFromRequest(req);
     const items = getItemsFromRequest(req);
     const connectionId = parseConnectionId(req.body?.connectionId, { auth });
+    const intentToken = parseIntentToken(req.body?.intentToken, { connectionId });
     const ids = [];
     EMPTY_OBJECT_ID =
       EMPTY_OBJECT_ID ||
@@ -74,7 +76,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
         id = [id, dataId].join("+");
       }
       ids.push(id);
-      return await getData({ auth, authToken, ids: [id], connectionId });
+      return await getData({ auth, authToken, ids: [id], connectionId, intentToken });
     }));
     if (data.length === 1) {
       data = data[0];

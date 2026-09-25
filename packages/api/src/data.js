@@ -1,7 +1,7 @@
 import { taskRequiresProtected } from "@graffiticode/common/protected-registry";
 
 const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
-  async ({ taskStorer, compileStorer, id, auth, authToken, options, action, refresh, connectionId = null }) => {
+  async ({ taskStorer, compileStorer, id, auth, authToken, options, action, refresh, connectionId = null, intentToken = null }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
@@ -76,7 +76,8 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
           auth: authToken,
           options,
           uid,
-          connectionId
+          connectionId,
+          intentToken
         });
         if (obj && typeof obj === "object" && obj.cache === false) {
           cacheable = false;
