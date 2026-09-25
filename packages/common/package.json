@@ -8,6 +8,7 @@
   "exports": {
     "./errors": "./src/errors.js",
     "./http": "./src/http.js",
+    "./protected-registry": "./src/protected-registry.js",
     "./utils": "./src/utils.js",
     "./parser": "./src/parser/"
   },

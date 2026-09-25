@@ -16,6 +16,7 @@
   "bin": "./src/main.js",
   "dependencies": {
     "@graffiticode/auth": "*",
+    "@graffiticode/common": "*",
     "@graffiticode/tracing": "^0.3.0",
     "ajv": "^8.20.0",
     "bent": "^7.3.12",

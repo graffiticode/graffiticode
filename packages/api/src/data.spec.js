@@ -68,6 +68,31 @@ describe("data", () => {
     expect(compile).toHaveBeenCalledTimes(2);
   });
 
+  const PROTECTED_TASK = { lang: "0176", code: { 1: { tag: "NUM", elts: ["1"] }, root: 1 } };
+
+  it("should never answer a protected task from an existing cache entry", async () => {
+    const id = await taskStorer.create({ task: PROTECTED_TASK });
+    // An entry written before the language's functions were registered.
+    await compileStorer.create({ id, compile: { timestamp: Date.now(), data: DATA1 } });
+    mockCompileData(DATA2);
+
+    await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA2);
+
+    expect(compile).toHaveBeenCalledTimes(1);
+  });
+
+  it("should never cache a protected task, even without a selected connection", async () => {
+    const id = await taskStorer.create({ task: PROTECTED_TASK });
+    mockCompileData(DATA1);
+    const action = {};
+    await dataApi.get({ taskStorer, compileStorer, id, action });
+    mockCompileData(DATA2);
+
+    await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA2);
+    expect(compile).toHaveBeenCalledTimes(2);
+    expect(action.noStore).toBe(true);
+  });
+
   const CODE_AS_DATA = { a: 1 };
   const TASK_WITH_CODE_AS_DATA = { lang: "1", code: CODE_AS_DATA };
   it("should not compile a created task with data as code", async () => {
