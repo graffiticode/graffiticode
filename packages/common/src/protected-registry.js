@@ -1,3 +1,7 @@
+// STATUS: this manifest is the policy contract. Nothing enforces it in
+// production yet — enforcement arrives with the policy service, the broker, and
+// L0176 registering these functions with its compiler.
+//
 // The authoritative registry of protected functions: compiler functions that
 // exercise an external API through an owner's connection, and the broker
 // operations each one may be issued. Policy (minting) and the broker
@@ -70,6 +74,13 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
     // Rendering an `author [...]` activity signs for the Author API. Owners
     // may use it through their own connection; it is not delegable until its
     // edit/delete authority has its own reviewed boundary.
+    //
+    // CONTRACT ONLY — NOT YET ENFORCED. The mode and payload restrictions
+    // here (and on learnosity.sign-author) define the policy; enforcement
+    // waits for the broker integration: L0176 does not yet register protected
+    // functions with its compiler, its Author signing still merges
+    // caller-supplied data into the signed request (packages/core/src/author.ts),
+    // and the constrained broker signer does not exist yet.
     "author-itembank": Object.freeze({
       backend: "learnosity",
       kind: "sign",
