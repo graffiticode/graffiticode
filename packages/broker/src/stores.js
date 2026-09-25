@@ -57,5 +57,11 @@ export const createMemorySecretStore = (entries = {}) => {
     async get(connectionId) {
       return map.get(connectionId) ?? null;
     },
+    async put(connectionId, credential) {
+      map.set(connectionId, { ...credential });
+    },
+    async delete(connectionId) {
+      map.delete(connectionId);
+    },
   };
 };

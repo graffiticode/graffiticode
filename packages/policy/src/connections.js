@@ -19,6 +19,9 @@ export const createMemoryConnectionStore = (records = []) => {
     async delete(connectionId) {
       byId.delete(connectionId);
     },
+    async listByOwner(ownerUid) {
+      return [...byId.values()].filter(r => r.ownerUid === ownerUid).map(r => ({ ...r }));
+    },
   };
 };
 

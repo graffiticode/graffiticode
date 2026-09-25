@@ -4,6 +4,7 @@ import { generateKeyPair, exportJWK } from "jose";
 import {
   createPolicy,
   createPolicyApp,
+  createConnectionManager,
   createCallerIdentity,
   createLocalSigner,
   createMemoryConnectionStore,
@@ -38,6 +39,7 @@ const verifyUser = async token => {
 
 let app;
 let records;
+let brokerSecrets;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -58,7 +60,16 @@ beforeEach(async () => {
       [SA.console]: { role: "console" }
     }
   });
-  app = createPolicyApp({ policy, identifyCaller, verifyUser, publicJwks, audit });
+  brokerSecrets = new Map();
+  const manager = createConnectionManager({
+    connections,
+    audit,
+    brokerAdmin: {
+      putSecret: async (id, cred) => { brokerSecrets.set(id, cred); },
+      deleteSecret: async id => { brokerSecrets.delete(id); }
+    }
+  });
+  app = createPolicyApp({ policy, manager, identifyCaller, verifyUser, publicJwks, audit });
 });
 
 const as = (req, email, { identity = idt(email), invoker = email, user = `user:${OWNER}` } = {}) => {
@@ -154,5 +165,42 @@ describe("end to end: intent, snapshot, mint", () => {
     const res = await request(app).get("/v1/jwks");
     expect(res.body.keys[0]).toMatchObject({ kid: "k1", alg: "ES256" });
     expect(res.body.keys[0].d).toBeUndefined();
+  });
+});
+
+describe("connection management over http", () => {
+  const CRED = { key: "consumer-key", secret: "super-secret-value" };
+
+  it("lets the console create, list, use, disable and delete a user's connection", async () => {
+    const created = await as(request(app).post("/v1/connections"), SA.console).send({ backend: "learnosity", label: "Mine", credential: CRED });
+    expect(created.status).toBe(200);
+    const { connectionId } = created.body.data;
+    expect(JSON.stringify(created.body)).not.toContain(CRED.secret);
+    expect(brokerSecrets.get(connectionId)).toEqual(CRED);
+
+    const listed = await as(request(app).get("/v1/connections"), SA.console);
+    expect(listed.body.data.map(c => c.connectionId)).toContain(connectionId);
+
+    const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send({ ...SNAPSHOT, connectionId });
+    expect(snap.body.data.allowed).toEqual(["preview-itembank"]);
+
+    expect((await as(request(app).post(`/v1/connections/${connectionId}/disable`), SA.console).send()).status).toBe(200);
+    const after = await as(request(app).post("/v1/snapshot"), SA.l0176).send({ ...SNAPSHOT, connectionId });
+    expect(after.body.error.reason).toBe("connection-disabled");
+
+    expect((await as(request(app).delete(`/v1/connections/${connectionId}`), SA.console)).status).toBe(200);
+    expect(brokerSecrets.has(connectionId)).toBe(false);
+  });
+
+  it("refuses compilers on management routes", async () => {
+    const res = await as(request(app).post("/v1/connections"), SA.l0176).send({ backend: "learnosity", credential: CRED });
+    expect(res.status).toBe(403);
+    expect(brokerSecrets.size).toBe(0);
+  });
+
+  it("refuses another user's connection", async () => {
+    const res = await as(request(app).post("/v1/connections/conn-1/rotate"), SA.console, { user: "user:0xsomeoneelse" }).send({ credential: CRED });
+    expect(res.status).toBe(403);
+    expect(res.body.error.reason).toBe("not-owner");
   });
 });

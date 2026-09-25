@@ -15,5 +15,9 @@ export const createFirestoreConnectionStore = db => {
     async delete(connectionId) {
       await ref(connectionId).delete();
     },
+    async listByOwner(ownerUid) {
+      const snap = await db.collection("connections").where("ownerUid", "==", ownerUid).get();
+      return snap.docs.map(doc => ({ connectionId: doc.id, ...doc.data() }));
+    },
   };
 };

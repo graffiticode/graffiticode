@@ -8,6 +8,11 @@
 //                                                                 -> { allowed, sessionToken }
 //   POST /v1/mint      compiler   { sessionToken, fn, op, occurrenceId, argsDigest }
 //                                                                 -> { executionToken, operationId }
+//   GET    /v1/connections              console  the user's connections (no secrets)
+//   POST   /v1/connections              console  { backend, label?, credential: { key, secret } }
+//   POST   /v1/connections/:id/rotate   console  { credential: { key, secret } }
+//   POST   /v1/connections/:id/disable  console
+//   DELETE /v1/connections/:id          console
 //   GET  /v1/jwks      anyone     the public keys that verify policy tokens
 
 import { Router } from "express";
@@ -19,9 +24,10 @@ const ROUTE_ROLES = Object.freeze({
   intents: ["console"],
   snapshot: ["compiler"],
   mint: ["compiler"],
+  connections: ["console"],
 });
 
-export const createPolicyApp = ({ policy, identifyCaller, verifyUser, publicJwks, audit }) => {
+export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, publicJwks, audit }) => {
   const authorize = route => async req => {
     let caller;
     try {
@@ -77,6 +83,20 @@ export const createPolicyApp = ({ policy, identifyCaller, verifyUser, publicJwks
     const { sessionToken, fn, op, occurrenceId, argsDigest } = req.body ?? {};
     await decide(res, () => policy.mint({ caller, sessionToken, fn, op, occurrenceId, argsDigest }));
   }));
+  const manage = handler => buildHttpHandler(async (req, res) => {
+    const caller = await authorize("connections")(req);
+    const u = await user(req);
+    await decide(res, () => handler({ caller, user: u, body: req.body ?? {}, id: req.params.id }));
+  });
+  router.get("/connections", manage(({ caller, user }) => manager.list({ caller, user })));
+  router.post("/connections", manage(({ caller, user, body }) =>
+    manager.create({ caller, user, backend: body.backend, label: body.label ?? null, credential: body.credential })));
+  router.post("/connections/:id/rotate", manage(({ caller, user, id, body }) =>
+    manager.rotate({ caller, user, connectionId: id, credential: body.credential })));
+  router.post("/connections/:id/disable", manage(({ caller, user, id }) =>
+    manager.disable({ caller, user, connectionId: id })));
+  router.delete("/connections/:id", manage(({ caller, user, id }) =>
+    manager.remove({ caller, user, connectionId: id })));
   router.get("/jwks", (req, res) => res.status(200).json(publicJwks));
 
   return createHttpApp(app => app.use("/v1", router));

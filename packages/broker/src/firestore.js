@@ -63,5 +63,8 @@ export const createFirestoreSecretStore = (db, { box }) => {
     async put(connectionId, { key, secret }) {
       await ref(connectionId).set({ key, sealedSecret: box.seal(secret, connectionId), updatedAt: new Date().toISOString() });
     },
+    async delete(connectionId) {
+      await ref(connectionId).delete();
+    },
   };
 };

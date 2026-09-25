@@ -21,7 +21,11 @@ import {
 
 const OWNER = "0xowneruid";
 const AUD = "urn:graffiticode:broker";
-const SA = { l0176: "l0176-run@x.iam.gserviceaccount.com", l0000: "l0000-run@x.iam.gserviceaccount.com" };
+const SA = {
+  l0176: "l0176-run@x.iam.gserviceaccount.com",
+  l0000: "l0000-run@x.iam.gserviceaccount.com",
+  policy: "policy-run@x.iam.gserviceaccount.com"
+};
 const PREVIEW = { id: "t", questions: [{ response_id: "q-0", type: "mcq" }] };
 
 const verifyIdToken = async (token, audience) => {
@@ -34,6 +38,7 @@ const forwarded = email =>
 
 let app;
 let executionToken;
+let secrets;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -68,16 +73,20 @@ beforeEach(async () => {
     jwks,
     audit,
     operations: buildOperations({ sdk: { init: (service) => ({ service }) }, domain: "d", dataApi: async () => ({}) }),
-    secrets: createMemorySecretStore({ "conn-1": { key: "k", secret: "s" } }),
+    secrets: (secrets = createMemorySecretStore({ "conn-1": { key: "k", secret: "s" } })),
     once: createMemoryOnceStore(),
     receipts: createMemoryReceiptStore()
   });
   const identifyCaller = createCallerIdentity({
     verifyIdToken,
     audience: AUD,
-    callers: { [SA.l0176]: { role: "compiler", lang: "0176" }, [SA.l0000]: { role: "compiler", lang: "0000" } }
+    callers: {
+      [SA.l0176]: { role: "compiler", lang: "0176" },
+      [SA.l0000]: { role: "compiler", lang: "0000" },
+      [SA.policy]: { role: "policy" }
+    }
   });
-  app = createBrokerApp({ broker, identifyCaller, audit });
+  app = createBrokerApp({ broker, secrets, identifyCaller, audit });
 });
 
 const exec = (email, { token = executionToken, identity = `idt|${email}|${AUD}` } = {}) =>
@@ -119,5 +128,29 @@ describe("broker http", () => {
     const res = await exec(SA.l0176);
     expect(res.status).toBe(409);
     expect(res.body.error.reason).toBe("token-replayed");
+  });
+});
+
+describe("credential provisioning", () => {
+  const as = (req, email) => req.set("X-Caller-Identity", `idt|${email}|${AUD}`).set("X-Serverless-Authorization", forwarded(email));
+
+  it("lets policy store and delete a credential, never echoing it", async () => {
+    const put = await as(request(app).put("/v1/secrets/conn-9"), SA.policy).send({ key: "k9", secret: "s9-secret" });
+    expect(put.status).toBe(200);
+    expect(JSON.stringify(put.body)).not.toContain("s9-secret");
+    expect(await secrets.get("conn-9")).toEqual({ key: "k9", secret: "s9-secret" });
+    expect((await as(request(app).delete("/v1/secrets/conn-9"), SA.policy)).status).toBe(200);
+    expect(await secrets.get("conn-9")).toBeNull();
+  });
+
+  it("refuses compilers", async () => {
+    const res = await as(request(app).put("/v1/secrets/conn-1"), SA.l0176).send({ key: "evil", secret: "evil" });
+    expect(res.status).toBe(403);
+    expect(await secrets.get("conn-1")).toEqual({ key: "k", secret: "s" });
+  });
+
+  it("refuses policy on the execute route", async () => {
+    const res = await exec(SA.policy);
+    expect(res.status).toBe(403);
   });
 });
