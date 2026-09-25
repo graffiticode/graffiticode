@@ -1,0 +1,50 @@
+# Builds and deploys the policy service (delegated API permissions).
+#
+# DO NOT RUN until the IAM review (docs/capability-policy-iam-review.md) has
+# been applied and verified: the service account, its data boundary, the KMS
+# key and the secrets below must exist first. The service is PRIVATE
+# (--no-allow-unauthenticated); only the callers granted run.invoker reach it.
+# Pass _BROKER_URL (the broker's run.app URL) for policy; it refuses to start
+# without it. Env vars are added with --update-* (never --set-*), which would wipe
+# anything set out of band.
+steps:
+  - name: 'node:22'
+    entrypoint: 'npm'
+    args: ['ci']
+  - name: 'node:22'
+    entrypoint: 'npm'
+    args: ['test', '-w', 'packages/policy']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/graffiticode/policy:$COMMIT_SHA', '-f', 'configs/Dockerfile.policy.yaml', '.']
+  - name: gcr.io/cloud-builders/docker
+    args: ['push', 'gcr.io/graffiticode/policy:$COMMIT_SHA']
+    id: Push
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    id: Deploy
+    args:
+      - run
+      - deploy
+      - policy
+      - '--platform=managed'
+      - '--image=gcr.io/graffiticode/policy:$COMMIT_SHA'
+      - '--service-account=$_SERVICE_ACCOUNT'
+      - '--no-allow-unauthenticated'
+      - '--update-env-vars=POLICY_FIRESTORE_DB=policy,POLICY_KMS_KEY_VERSION=$_KMS_KEY_VERSION,POLICY_KMS_KID=$_KMS_KID,AUTH_URL=https://auth.graffiticode.org,BROKER_URL=$_BROKER_URL'
+      - '--update-secrets=POLICY_CALLERS=policy-callers:latest,AUDIT_PSEUDONYM_SECRET=audit-pseudonym-secret:latest'
+      - >-
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+images:
+  - 'gcr.io/graffiticode/policy:$COMMIT_SHA'
+options:
+  substitutionOption: ALLOW_LOOSE
+substitutions:
+  _DEPLOY_REGION: us-central1
+  _SERVICE_ACCOUNT: policy-run@graffiticode.iam.gserviceaccount.com
+  _KMS_KEY_VERSION: projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1
+  _KMS_KID: policy-1
+  _BROKER_URL: ''
+tags:
+  - policy
