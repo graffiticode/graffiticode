@@ -125,7 +125,9 @@ export const createPolicy = ({ signer, jwks, connections, audit }) => {
       fns: allowed,
     });
     await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed" });
-    return { allowed, sessionToken };
+    // The resolved mode goes back to the compiler: it decides which writes to
+    // disable from this, never from its own request.
+    return { allowed, mode, sessionToken };
   };
 
   const mint = async ({ caller, sessionToken, fn, op, occurrenceId, argsDigest }) => {

@@ -122,7 +122,10 @@ describe("snapshot (owner-only)", () => {
   it("gives writes only to a session carrying a save intent", async () => {
     const { intentToken, saveActionId } = await intent("save");
     expect(saveActionId).toEqual(expect.any(String));
-    expect((await snap({ intentToken })).allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    const result = await snap({ intentToken });
+    expect(result.allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    expect(result.mode).toBe("save");
+    expect((await snap({ mode: "render" })).mode).toBe("render");
   });
 
   it("ignores functions that are not registered for the language", async () => {
