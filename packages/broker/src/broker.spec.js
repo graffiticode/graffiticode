@@ -113,7 +113,7 @@ const refused = async (promise, reason) => {
 describe("preview signing", () => {
   it("signs a constrained preview with the broker's own identity fields", async () => {
     const token = await previewToken();
-    const { status, result } = await broker.execute({ token, op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    const { status, result } = await broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW });
     expect(status).toBe("succeeded");
     expect(result.request.service).toBe("questions");
     expect(result.request.signedWithSecret).toBe(true);
@@ -124,35 +124,41 @@ describe("preview signing", () => {
   it("rejects a payload carrying identity or config fields", async () => {
     const payload = { ...PREVIEW, user_id: "someone", security: {} };
     const token = await previewToken(payload);
-    await refused(broker.execute({ token, op: "learnosity.sign-questions-preview", payload }), "payload-rejected");
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload }), "payload-rejected");
   });
 
   it("rejects a payload other than the one the token was minted for", async () => {
     const token = await previewToken();
     const payload = { ...PREVIEW, name: "Other" };
-    await refused(broker.execute({ token, op: "learnosity.sign-questions-preview", payload }), "args-mismatch");
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload }), "args-mismatch");
   });
 
   it("rejects a token used for a different operation", async () => {
     const token = await previewToken();
-    await refused(broker.execute({ token, op: "learnosity.sign-items-preview", payload: PREVIEW }), "operation-mismatch");
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-items-preview", payload: PREVIEW }), "operation-mismatch");
   });
 
   it("never lets a preview token sign Author requests or write", async () => {
     const token = await previewToken();
-    await refused(broker.execute({ token, op: "learnosity.sign-author", payload: { reference: "r" } }), "operation-mismatch");
-    await refused(broker.execute({ token, op: "learnosity.write-items", payload: WRITE }), "operation-mismatch");
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload: { reference: "r" } }), "operation-mismatch");
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE }), "operation-mismatch");
+  });
+
+  it("rejects a token spent by a compiler of another language", async () => {
+    const token = await previewToken();
+    await refused(broker.execute({ caller: { role: "compiler", lang: "0000" }, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "caller-language-mismatch");
+    await refused(broker.execute({ caller: { role: "console" }, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "caller-language-mismatch");
   });
 
   it("rejects a replayed token", async () => {
     const token = await previewToken();
-    await broker.execute({ token, op: "learnosity.sign-questions-preview", payload: PREVIEW });
-    await refused(broker.execute({ token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "token-replayed");
+    await broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "token-replayed");
   });
 
   it("rejects a session token, and a token from another signer", async () => {
     const sessionToken = await session();
-    await refused(broker.execute({ token: sessionToken, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
+    await refused(broker.execute({ caller: L0176, token: sessionToken, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
     const forged = await issueToken(otherSigner, "execution", {
       sub: OWNER,
       conn: "conn-1",
@@ -163,22 +169,22 @@ describe("preview signing", () => {
       op: "learnosity.sign-questions-preview",
       argd: argsDigest(PREVIEW)
     });
-    await refused(broker.execute({ token: forged, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
+    await refused(broker.execute({ caller: L0176, token: forged, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
   });
 });
 
 describe("item-bank writes", () => {
   it("writes questions, then items, and records the outcome", async () => {
     const token = await saveToken();
-    const out = await broker.execute({ token, op: "learnosity.write-items", payload: WRITE });
+    const out = await broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
     expect(out.status).toBe("succeeded");
     expect(out.steps).toEqual(["questions", "items"]);
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
 
   it("returns the recorded outcome to a retry from a new request, without writing again", async () => {
-    await broker.execute({ token: await saveToken({ invocationId: "inv-1" }), op: "learnosity.write-items", payload: WRITE });
-    const retry = await broker.execute({ token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
+    await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-1" }), op: "learnosity.write-items", payload: WRITE });
+    const retry = await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
     expect(retry).toMatchObject({ status: "succeeded", replayed: true });
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
@@ -186,25 +192,25 @@ describe("item-bank writes", () => {
   it("executes once when two fresh tokens for one operation race", async () => {
     const [a, b] = await Promise.all([saveToken({ invocationId: "inv-1" }), saveToken({ invocationId: "inv-2" })]);
     const results = await Promise.all([
-      broker.execute({ token: a, op: "learnosity.write-items", payload: WRITE }),
-      broker.execute({ token: b, op: "learnosity.write-items", payload: WRITE })
+      broker.execute({ caller: L0176, token: a, op: "learnosity.write-items", payload: WRITE }),
+      broker.execute({ caller: L0176, token: b, op: "learnosity.write-items", payload: WRITE })
     ]);
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
     expect(results.filter(r => r.replayed)).toHaveLength(1);
   });
 
   it("gives distinct occurrences in one save their own executions", async () => {
-    await broker.execute({ token: await saveToken({ occurrenceId: "n1.0" }), op: "learnosity.write-items", payload: WRITE });
-    await broker.execute({ token: await saveToken({ occurrenceId: "n1.1" }), op: "learnosity.write-items", payload: WRITE });
+    await broker.execute({ caller: L0176, token: await saveToken({ occurrenceId: "n1.0" }), op: "learnosity.write-items", payload: WRITE });
+    await broker.execute({ caller: L0176, token: await saveToken({ occurrenceId: "n1.1" }), op: "learnosity.write-items", payload: WRITE });
     expect(routes).toHaveLength(4);
   });
 
   it("reports a failure after the first write as partial, and never re-runs it", async () => {
     failItems = true;
-    const first = await broker.execute({ token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    const first = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     expect(first).toMatchObject({ status: "partial", steps: ["questions"] });
     failItems = false;
-    const retry = await broker.execute({ token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
+    const retry = await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
     expect(retry).toMatchObject({ status: "partial", replayed: true });
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
@@ -218,23 +224,23 @@ describe("item-bank writes", () => {
       op: "learnosity.write-items",
       argsDigest: argsDigest(WRITE)
     });
-    const out = await broker.execute({ token, op: "learnosity.write-items", payload: WRITE });
+    const out = await broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
     expect(out).toEqual({ status: "uncertain", replayed: true });
     expect(routes).toEqual([]);
   });
 
   it("refuses an operation id reused with different arguments", async () => {
-    await broker.execute({ token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     const changed = { ...WRITE, questionRecords: [{ ...WRITE.questionRecords[0], data: { type: "mcq", stimulus: "Changed" } }] };
     const token = await saveToken({ invocationId: "inv-2", payload: changed });
-    await refused(broker.execute({ token, op: "learnosity.write-items", payload: changed }), "operation-id-reused");
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: changed }), "operation-id-reused");
     expect(routes).toHaveLength(2);
   });
 
   it("never publishes", async () => {
     const payload = { ...WRITE, itemRecords: [{ ...WRITE.itemRecords[0], status: "published" }] };
     const token = await saveToken({ payload });
-    await refused(broker.execute({ token, op: "learnosity.write-items", payload }), "payload-rejected");
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload }), "payload-rejected");
   });
 });
 
@@ -246,7 +252,7 @@ describe("author signing", () => {
 
   it("builds a fixed request from the reference and allowed widget types", async () => {
     const payload = { reference: "graffiticode-t-0", widgetTypes: ["mcq"] };
-    const { result } = await broker.execute({ token: await authorToken(payload), op: "learnosity.sign-author", payload });
+    const { result } = await broker.execute({ caller: L0176, token: await authorToken(payload), op: "learnosity.sign-author", payload });
     expect(result.request.service).toBe("author");
     expect(result.request.body.mode).toBe("item_edit");
     expect(result.request.body.reference).toBe("graffiticode-t-0");
@@ -254,17 +260,17 @@ describe("author signing", () => {
 
   it("rejects caller config and widget types outside the allowlist", async () => {
     const withConfig = { reference: "r", config: { item_list: {} } };
-    await refused(broker.execute({ token: await authorToken(withConfig), op: "learnosity.sign-author", payload: withConfig }), "payload-rejected");
+    await refused(broker.execute({ caller: L0176, token: await authorToken(withConfig), op: "learnosity.sign-author", payload: withConfig }), "payload-rejected");
     const badWidget = { reference: "r", widgetTypes: ["anything"] };
-    await refused(broker.execute({ token: await authorToken(badWidget), op: "learnosity.sign-author", payload: badWidget }), "payload-rejected");
+    await refused(broker.execute({ caller: L0176, token: await authorToken(badWidget), op: "learnosity.sign-author", payload: badWidget }), "payload-rejected");
   });
 });
 
 describe("audit", () => {
   it("records decisions without tokens, secrets or raw ids", async () => {
     const token = await previewToken();
-    await broker.execute({ token, op: "learnosity.sign-questions-preview", payload: PREVIEW });
-    await broker.execute({ token, op: "learnosity.sign-questions-preview", payload: PREVIEW }).catch(() => {});
+    await broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    await broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }).catch(() => {});
     const text = JSON.stringify(records);
     expect(text).not.toContain(token);
     expect(text).not.toContain(SECRET);

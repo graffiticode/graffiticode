@@ -35,7 +35,7 @@ const sameBinding = (a, b) =>
   a.op === b.op && a.argsDigest === b.argsDigest;
 
 export const createBroker = ({ jwks, operations, secrets, once, receipts, audit }) => {
-  const execute = async ({ token, op, payload }) => {
+  const execute = async ({ caller, token, op, payload }) => {
     let claims;
     try {
       ({ claims } = await verifyToken(jwks, "execution", token));
@@ -59,6 +59,8 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
       throw new BrokerRefused(reason, status, detail);
     };
 
+    // Only the compiler of the token's language may spend it.
+    if (caller?.role !== "compiler" || caller.lang !== claims.lang) return refuse("caller-language-mismatch");
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend, mode: claims.mode })) {
