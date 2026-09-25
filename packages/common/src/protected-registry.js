@@ -53,14 +53,11 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       implicit: true,
       delegable: true,
     }),
-    // NOT YET A COMPLETE BOUNDARY. Today `save-to-itembank true` is a member
-    // of `items [...]` / `questions [...]`, and ITEMS/QUESTIONS perform the
-    // write after inspecting the evaluated member, so a record assembled by
-    // another expression can request a save without this tag, and disabling
-    // the member does not disable the enclosing write. Before L0176 is wired
-    // to the broker, the write must move to an explicit save function whose
-    // node IS the write (legacy member syntax lowered to it before admission,
-    // or rejected), and ITEMS/QUESTIONS must never write.
+    // `save-to-itembank <activity>`: the node IS the item-bank write, and
+    // ITEMS/QUESTIONS never write. The legacy literal member
+    // (`items [save-to-itembank true ...]`) is lowered to the wrapper before
+    // checking or admission; any other way of setting the flag is refused
+    // (l0176 packages/core/src/save-lowering.ts, branch explicit-save).
     "save-to-itembank": Object.freeze({
       backend: "learnosity",
       kind: "write",
