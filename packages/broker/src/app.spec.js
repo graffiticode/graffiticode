@@ -6,6 +6,7 @@ import {
   createCallerIdentity,
   createLocalSigner,
   createMemoryConnectionStore,
+  createMemoryInvocationStore,
   createAudit,
   createPseudonymizer
 } from "@graffiticode/policy";
@@ -49,7 +50,8 @@ beforeEach(async () => {
     signer,
     jwks,
     audit,
-    connections: createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }])
+    connections: createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]),
+    invocations: createMemoryInvocationStore()
   });
   const caller = { role: "compiler", lang: "0176" };
   const { sessionToken } = await policy.snapshot({
@@ -59,7 +61,14 @@ beforeEach(async () => {
     connectionId: "conn-1",
     fns: ["preview-itembank"],
     mode: "render",
-    invocationId: "inv-1"
+    invocationToken: (await policy.allocateInvocation({
+      caller: { role: "gateway" },
+      user: { uid: OWNER },
+      connectionId: "conn-1",
+      taskId: "task-1",
+      inputDigest: argsDigest({})
+    })).invocationToken,
+    stage: "s0"
   });
   ({ executionToken } = await policy.mint({
     caller,

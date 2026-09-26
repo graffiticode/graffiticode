@@ -1,19 +1,25 @@
 // The policy authority's two decisions, owner-only for now (delegation is a
 // later phase and stays off until its own gate):
 //
+//   invocation  once per logical invocation, by the gateway before dispatch
+//             (see invocations.js): a durable id that retries share and an
+//             intentional rerun does not, in a token the compiler forwards.
 //   snapshot  once per compile: which protected functions this invocation may
 //             use through the selected connection. Returns the allowed set
 //             (for the compiler's admission pass) and a session token binding
-//             it to the user, connection, language, mode and invocation.
+//             it to the user, connection, language, mode, invocation and
+//             composition stage.
 //   mint      once per broker operation: re-checks live state and the full
 //             lang/fn/op/backend/mode relationship against the registry, and
-//             issues a short execution token scoped to that one request.
+//             issues a short execution token scoped to that one request. The
+//             operation id is invocation/stage/occurrence, so a retry of the
+//             same invocation reaches the same write receipt.
 //
 //   intent    issued to the console when a user deliberately saves or opens
 //             the Author Site. Privileged modes (`save`, `author`) come ONLY
 //             from a verified intent bound to the same user and connection;
-//             a compiler cannot claim them. The save-action id is minted
-//             here, and a retried job carrying the same intent keeps it.
+//             a compiler cannot claim them. Until intents are removed, a write
+//             still needs one; its identity comes from the invocation.
 //
 // Callers are authenticated before reaching here: `user` is the verified end
 // user and `caller.lang` the language bound to the verified calling service.
@@ -28,6 +34,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { issueToken, verifyToken } from "./tokens.js";
 import { connectionRefusal } from "./connections.js";
+import { InvocationConflict } from "./invocations.js";
 
 export class PolicyDenied extends Error {
   constructor(reason) {
@@ -40,8 +47,9 @@ const PRIVILEGED_MODES = Object.freeze(["save", "author"]);
 const ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
 const DIGEST_RE = /^[a-f0-9]{64}$/;
 const isId = v => typeof v === "string" && ID_RE.test(v);
+const isTaskId = v => typeof v === "string" && v.length > 0 && v.length <= 4096;
 
-export const createPolicy = ({ signer, jwks, connections, audit }) => {
+export const createPolicy = ({ signer, jwks, connections, invocations, audit }) => {
   const deny = async (reason, record) => {
     await audit({ ...record, outcome: "denied", reason });
     throw new PolicyDenied(reason);
@@ -83,11 +91,48 @@ export const createPolicy = ({ signer, jwks, connections, audit }) => {
     return { mode: intent.mode, saveActionId: intent.sav ?? null };
   };
 
-  const snapshot = async ({ caller, user, lang, connectionId, fns, mode: requestedMode = "read", intentToken, invocationId }) => {
+  const allocateInvocation = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey = null }) => {
+    const record = { event: "invocation", uid: user?.uid, connectionId };
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!user?.uid) return deny("no-user", record);
+    if (!isId(connectionId) || !isTaskId(taskId) || typeof inputDigest !== "string" || !DIGEST_RE.test(inputDigest)) {
+      return deny("bad-request", record);
+    }
+    if (idempotencyKey !== null && !isId(idempotencyKey)) return deny("bad-request", record);
+    const connection = await connections.get(connectionId);
+    const refusal = connectionRefusal(connection, { uid: user.uid });
+    if (refusal) return deny(refusal, { ...record, ownerUid: connection?.ownerUid });
+    let allocated;
+    try {
+      allocated = await invocations.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey });
+    } catch (e) {
+      if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
+      throw e;
+    }
+    const { invocationId, seq, reused } = allocated;
+    const invocationToken = await issueToken(signer, "invocation", { sub: user.uid, conn: connectionId, inv: invocationId, seq });
+    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed", reason: reused ? "reused" : "new" });
+    return { invocationToken, invocationId, seq, reused };
+  };
+
+  // The invocation comes only from a policy-issued invocation token for this
+  // user and connection, never from the compiler's own say-so.
+  const invocationFor = async ({ invocationToken, user, connectionId }) => {
+    try {
+      const { claims } = await verifyToken(jwks, "invocation", invocationToken);
+      return claims.sub === user.uid && claims.conn === connectionId && isId(claims.inv) ? claims.inv : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const snapshot = async ({ caller, user, lang, connectionId, fns, mode: requestedMode = "read", intentToken, invocationToken, stage }) => {
     const record = { event: "snapshot", uid: user?.uid, lang, connectionId, mode: requestedMode, registryVersion: REGISTRY_VERSION };
     if (!user?.uid) return deny("no-user", record);
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
-    if (!isId(connectionId) || !isId(invocationId)) return deny("bad-request", record);
+    if (!isId(connectionId) || typeof invocationToken !== "string" || !isId(stage)) return deny("bad-request", record);
+    const invocationId = await invocationFor({ invocationToken, user, connectionId });
+    if (!invocationId) return deny("bad-invocation", record);
     const resolved = await resolveMode({ mode: requestedMode, intentToken, user, connectionId });
     if (resolved.error) return deny(resolved.error, record);
     const { mode, saveActionId } = resolved;
@@ -120,6 +165,7 @@ export const createPolicy = ({ signer, jwks, connections, audit }) => {
       lang,
       mode,
       inv: invocationId,
+      stg: stage,
       sav: saveActionId,
       rv: REGISTRY_VERSION,
       fns: allowed,
@@ -167,10 +213,9 @@ export const createPolicy = ({ signer, jwks, connections, audit }) => {
     if (refusal) return deny(refusal, record);
     if (connection.backend !== session.backend) return deny("backend-changed", record);
 
-    // A write's operation id comes from the save action, so retries of the same
-    // save — across new HTTP requests or job re-dispatches — reuse it; anything
-    // else is scoped to this invocation.
-    const operationId = spec.kind === "write" ? `${session.sav}/${occurrenceId}` : `${session.inv}/${occurrenceId}`;
+    // The invocation is durable and shared by its retries, and the stage and
+    // occurrence are stable within it, so a retry reaches the same receipt.
+    const operationId = `${session.inv}/${session.stg}/${occurrenceId}`;
     const executionToken = await issueToken(signer, "execution", {
       sub: session.sub,
       own: session.own,
@@ -189,5 +234,5 @@ export const createPolicy = ({ signer, jwks, connections, audit }) => {
     return { executionToken, operationId };
   };
 
-  return { issueIntent, snapshot, mint };
+  return { issueIntent, allocateInvocation, snapshot, mint };
 };

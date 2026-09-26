@@ -1,6 +1,11 @@
-// Firestore-backed connection store, in the policy service's own named
-// database (only the policy service account can reach it). Connection records
-// carry no secret — the broker holds that.
+// Firestore-backed policy stores, in the policy service's own named database
+// (only the policy service account can reach it). Connection records carry no
+// secret — the broker holds that.
+
+import { createHash } from "node:crypto";
+import { InvocationConflict, newInvocationId, sameInvocationBinding } from "./invocations.js";
+
+const hashId = parts => createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 
 export const createFirestoreConnectionStore = db => {
   const ref = connectionId => db.collection("connections").doc(connectionId);
@@ -21,3 +26,30 @@ export const createFirestoreConnectionStore = db => {
     },
   };
 };
+
+// See invocations.js for the contract. One transaction reads the idempotency
+// record and the sequence counter and writes both with the new invocation, so
+// two concurrent requests with the same key get one invocation.
+export const createFirestoreInvocationStore = db => ({
+  async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey = null }) {
+    const binding = { connectionId, taskId, inputDigest };
+    const keyRef = idempotencyKey ? db.collection("idempotency-keys").doc(hashId([uid, idempotencyKey])) : null;
+    const seqRef = db.collection("invocation-sequences").doc(hashId([uid, taskId, connectionId]));
+    return db.runTransaction(async tx => {
+      const keySnap = keyRef ? await tx.get(keyRef) : null;
+      if (keySnap?.exists) {
+        const hit = keySnap.data();
+        if (!sameInvocationBinding(hit.binding, binding)) throw new InvocationConflict("idempotency key reused");
+        return { invocationId: hit.invocationId, seq: hit.seq, reused: true };
+      }
+      const seqSnap = await tx.get(seqRef);
+      const seq = (seqSnap.exists ? seqSnap.data().seq : 0) + 1;
+      const invocationId = newInvocationId();
+      const now = new Date().toISOString();
+      tx.set(seqRef, { seq, updatedAt: now });
+      tx.set(db.collection("invocations").doc(invocationId), { uid, ...binding, seq, createdAt: now });
+      if (keyRef) tx.set(keyRef, { binding, invocationId, seq, createdAt: now });
+      return { invocationId, seq, reused: false };
+    });
+  },
+});

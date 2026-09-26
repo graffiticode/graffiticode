@@ -8,6 +8,7 @@ import {
   createCallerIdentity,
   createLocalSigner,
   createMemoryConnectionStore,
+  createMemoryInvocationStore,
   createAudit,
   createPseudonymizer
 } from "./index.js";
@@ -18,6 +19,7 @@ const SA = {
   l0176: "l0176-run@graffiticode.iam.gserviceaccount.com",
   l0000: "l0000-run@graffiticode.iam.gserviceaccount.com",
   console: "console-run@graffiticode-app.iam.gserviceaccount.com",
+  gateway: "api-run@graffiticode.iam.gserviceaccount.com",
   stranger: "stranger@example.iam.gserviceaccount.com"
 };
 
@@ -40,6 +42,7 @@ const verifyUser = async token => {
 let app;
 let records;
 let brokerSecrets;
+let SNAPSHOT;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -50,14 +53,15 @@ beforeEach(async () => {
   const connections = createMemoryConnectionStore([
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
-  const policy = createPolicy({ signer, jwks: publicJwks, connections, audit });
+  const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations: createMemoryInvocationStore(), audit });
   const identifyCaller = createCallerIdentity({
     verifyIdToken,
     audience: AUD,
     callers: {
       [SA.l0176]: { role: "compiler", lang: "0176" },
       [SA.l0000]: { role: "compiler", lang: "0000" },
-      [SA.console]: { role: "console" }
+      [SA.console]: { role: "console" },
+      [SA.gateway]: { role: "gateway" }
     }
   });
   brokerSecrets = new Map();
@@ -71,6 +75,7 @@ beforeEach(async () => {
     }
   });
   app = createPolicyApp({ policy, manager, identifyCaller, verifyUser, publicJwks, audit });
+  SNAPSHOT = await snapshotBody("conn-1");
 });
 
 const as = (req, email, { identity = idt(email), invoker = email, user = `user:${OWNER}` } = {}) => {
@@ -79,7 +84,28 @@ const as = (req, email, { identity = idt(email), invoker = email, user = `user:$
   return r;
 };
 
-const SNAPSHOT = { lang: "0176", connectionId: "conn-1", fns: ["preview-itembank", "save-to-itembank"], invocationId: "inv-1" };
+const invocation = (connectionId, extra = {}) =>
+  as(request(app).post("/v1/invocations"), SA.gateway).send({ connectionId, taskId: "task-1", inputDigest: "b".repeat(64), ...extra });
+const snapshotBody = async connectionId => ({
+  lang: "0176",
+  connectionId,
+  fns: ["preview-itembank", "save-to-itembank"],
+  invocationToken: (await invocation(connectionId)).body.data?.invocationToken,
+  stage: "s0"
+});
+
+describe("invocations over http", () => {
+  it("are allocated for the gateway only, and reused by idempotency key", async () => {
+    const first = await invocation("conn-1", { idempotencyKey: "job-1" });
+    expect(first.status).toBe(200);
+    const retry = await invocation("conn-1", { idempotencyKey: "job-1" });
+    expect(retry.body.data).toMatchObject({ invocationId: first.body.data.invocationId, reused: true });
+    const denied = await as(request(app).post("/v1/invocations"), SA.console).send({ connectionId: "conn-1", taskId: "t", inputDigest: "b".repeat(64) });
+    expect(denied.status).toBe(403);
+    const compiler = await as(request(app).post("/v1/invocations"), SA.l0176).send({ connectionId: "conn-1", taskId: "t", inputDigest: "b".repeat(64) });
+    expect(compiler.status).toBe(403);
+  });
+});
 
 describe("caller identity", () => {
   it("admits a known compiler whose verified identity matches the invoker", async () => {
@@ -148,7 +174,7 @@ describe("end to end: intent, snapshot, mint", () => {
       argsDigest: "a".repeat(64)
     });
     expect(mint.status).toBe(200);
-    expect(mint.body.data.operationId).toBe(`${intent.body.data.saveActionId}/n1.0`);
+    expect(mint.body.data.operationId).toMatch(/^inv-[0-9a-f-]+\/s0\/n1\.0$/);
   });
 
   it("refuses a compiler claiming save mode without an intent", async () => {
@@ -182,11 +208,12 @@ describe("connection management over http", () => {
     const listed = await as(request(app).get("/v1/connections"), SA.console);
     expect(listed.body.data.map(c => c.connectionId)).toContain(connectionId);
 
-    const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send({ ...SNAPSHOT, connectionId });
+    const body = await snapshotBody(connectionId);
+    const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send(body);
     expect(snap.body.data.allowed).toEqual(["preview-itembank"]);
 
     expect((await as(request(app).post(`/v1/connections/${connectionId}/disable`), SA.console).send()).status).toBe(200);
-    const after = await as(request(app).post("/v1/snapshot"), SA.l0176).send({ ...SNAPSHOT, connectionId });
+    const after = await as(request(app).post("/v1/snapshot"), SA.l0176).send(body);
     expect(after.body.error.reason).toBe("connection-disabled");
 
     expect((await as(request(app).delete(`/v1/connections/${connectionId}`), SA.console)).status).toBe(200);

@@ -1,7 +1,11 @@
 import { taskRequiresProtected } from "@graffiticode/common/protected-registry";
+import { InvocationRefused } from "./invocations.js";
 
-const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
-  async ({ taskStorer, compileStorer, id, auth, authToken, options, action, refresh, connectionId = null, intentToken = null }) => {
+const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInvocation = null }) =>
+  async ({
+    taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
+    connectionId = null, intentToken = null, idempotencyKey = null
+  }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
@@ -63,10 +67,28 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
       cacheable = false;
       return { ...obj, errors: [...(obj.errors ?? []), ...schemaErrors] };
     };
+    // A compile through a connection runs under one logical invocation for the
+    // whole chain, allocated here, before any stage is dispatched. Each stage
+    // is named by its position in the chain, which is fixed by the
+    // content-addressed id, so a retry gives every stage the same name.
+    let invocationToken = null;
+    if (connectionId) {
+      if (!allocateInvocation) {
+        return { errors: [{ message: "Error: connections are not available on this server.", from: -1, to: -1 }] };
+      }
+      try {
+        ({ invocationToken } = await allocateInvocation({ authToken, connectionId, taskId: id, options, idempotencyKey }));
+      } catch (e) {
+        const message = e instanceof InvocationRefused
+          ? `Error: permission denied (${e.reason})`
+          : "Error: could not start a compile through this connection";
+        return { errors: [{ message, from: -1, to: -1 }] };
+      }
+    }
     const obj = await tasks.reduceRight(
       // OPTIMIZATION Call getData recursively using the longest id suffix to
       // use any existing compiles.
-      async (dataPromise, task) => {
+      async (dataPromise, task, index) => {
         const data = await dataPromise;
         const { lang, code } = task;
         const obj = await compile({
@@ -77,7 +99,9 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
           options,
           uid,
           connectionId,
-          intentToken
+          intentToken,
+          invocationToken,
+          stage: invocationToken ? `s${index}` : null
         });
         if (obj && typeof obj === "object" && obj.cache === false) {
           cacheable = false;
@@ -117,6 +141,6 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput }) =>
     }
     return obj;
   };
-export const buildDataApi = ({ compile, langOverrideStorer, validateOutput }) => {
-  return { get: buildGetData({ compile, langOverrideStorer, validateOutput }) };
+export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation }) => {
+  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation }) };
 };

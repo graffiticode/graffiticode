@@ -209,3 +209,23 @@ export const checkCompileAllowedRemote = async (token) => {
     return { allowed: false, reason: "Failed to check usage limit" };
   }
 };
+
+// An idempotency key (Idempotency-Key header or body.idempotencyKey) makes a
+// retried compile through a connection continue the same invocation, so its
+// writes are not repeated. Clients send the same key on every retry of one
+// request and a new key for a deliberate rerun. Only meaningful, so only
+// accepted, with a selected connection.
+const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_:.-]{1,190}$/;
+
+export const parseIdempotencyKey = (value, { connectionId } = {}) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string" || !IDEMPOTENCY_KEY_RE.test(value)) {
+    throw new InvalidArgumentError("idempotency key must be 1-190 characters of [A-Za-z0-9_:.-]");
+  }
+  if (!connectionId) {
+    throw new InvalidArgumentError("an idempotency key requires a connectionId");
+  }
+  return value;
+};

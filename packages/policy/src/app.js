@@ -4,7 +4,9 @@
 // service); the caller only from X-Caller-Identity (see caller.js).
 //
 //   POST /v1/intents   console    { mode, connectionId }         -> { intentToken, saveActionId }
-//   POST /v1/snapshot  compiler   { lang, connectionId, fns, mode?, intentToken?, invocationId }
+//   POST /v1/invocations gateway  { connectionId, taskId, inputDigest, idempotencyKey? }
+//                                                                 -> { invocationToken, invocationId, seq, reused }
+//   POST /v1/snapshot  compiler   { lang, connectionId, fns, mode?, intentToken?, invocationToken, stage }
 //                                                                 -> { allowed, sessionToken }
 //   POST /v1/mint      compiler   { sessionToken, fn, op, occurrenceId, argsDigest }
 //                                                                 -> { executionToken, operationId }
@@ -22,6 +24,7 @@ import { PolicyDenied } from "./policy.js";
 
 const ROUTE_ROLES = Object.freeze({
   intents: ["console"],
+  invocations: ["gateway"],
   snapshot: ["compiler"],
   mint: ["compiler"],
   connections: ["console"],
@@ -72,11 +75,17 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const { mode, connectionId } = req.body ?? {};
     await decide(res, () => policy.issueIntent({ caller, user: u, mode, connectionId }));
   }));
+  router.post("/invocations", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("invocations")(req);
+    const u = await user(req);
+    const { connectionId, taskId, inputDigest, idempotencyKey = null } = req.body ?? {};
+    await decide(res, () => policy.allocateInvocation({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey }));
+  }));
   router.post("/snapshot", buildHttpHandler(async (req, res) => {
     const caller = await authorize("snapshot")(req);
     const u = await user(req);
-    const { lang, connectionId, fns, mode, intentToken, invocationId } = req.body ?? {};
-    await decide(res, () => policy.snapshot({ caller, user: u, lang, connectionId, fns, mode, intentToken, invocationId }));
+    const { lang, connectionId, fns, mode, intentToken, invocationToken, stage } = req.body ?? {};
+    await decide(res, () => policy.snapshot({ caller, user: u, lang, connectionId, fns, mode, intentToken, invocationToken, stage }));
   }));
   router.post("/mint", buildHttpHandler(async (req, res) => {
     const caller = await authorize("mint")(req);

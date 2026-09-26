@@ -8,6 +8,7 @@ import cors from "cors";
 import { buildValidateToken } from "./auth.js";
 import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
+import { buildAllocateInvocation, buildMetadataIdToken } from "./invocations.js";
 import { compile as langCompile, validateOutput } from "./lang/index.js";
 import * as routes from "./routes/index.js";
 import { createStorers } from "./storage/index.js";
@@ -29,7 +30,12 @@ const env = process.env.NODE_ENV || "development";
 export const createApp = ({ authUrl } = {}) => {
   const compile = buildCompile({ langCompile });
   const { taskStorer, compileStorer, langOverrideStorer } = createStorers();
-  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput });
+  // POLICY_URL (the policy service's run.app URL) enables compiles through a
+  // selected connection; without it they are refused, never run unguarded.
+  const allocateInvocation = process.env.POLICY_URL
+    ? buildAllocateInvocation({ policyUrl: process.env.POLICY_URL, idToken: buildMetadataIdToken() })
+    : null;
+  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation });
 
   const app = express();
   app.all("*", (req, res, next) => {

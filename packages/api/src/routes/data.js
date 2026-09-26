@@ -15,12 +15,25 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // `action` is an out-param the caller can supply to learn about the compile
   // (see data.js): `compiled` for logging, `noStore` when the result expires.
   // Callers that don't care (routes/compile.js) can omit it.
-  return async ({ auth, authToken, ids, action = {}, refresh = false, connectionId = null, intentToken = null }) => {
+  return async ({
+    auth, authToken, ids, action = {}, refresh = false, connectionId = null, intentToken = null, idempotencyKey = null
+  }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
     }
-    const objs = await Promise.all(ids.map(id => dataApi.get({
-      taskStorer, compileStorer, id, auth, authToken, action, refresh, connectionId, intentToken
+    // One key per id, so a multi-id request's invocations stay distinct.
+    const keyFor = i => (idempotencyKey && ids.length > 1 ? `${idempotencyKey}.${i}` : idempotencyKey);
+    const objs = await Promise.all(ids.map((id, i) => dataApi.get({
+      taskStorer,
+      compileStorer,
+      id,
+      auth,
+      authToken,
+      action,
+      refresh,
+      connectionId,
+      intentToken,
+      idempotencyKey: keyFor(i)
     })));
     let data;
     if (objs.length > 1) {

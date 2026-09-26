@@ -10,7 +10,7 @@ export const requireEnv = (env, name) => {
   return value.trim();
 };
 
-const ROLES = new Set(["compiler", "console", "policy"]);
+const ROLES = new Set(["compiler", "console", "gateway", "policy"]);
 
 // CALLERS: JSON object mapping a service-account email to its role, e.g.
 //   {"l0176-run@graffiticode.iam.gserviceaccount.com": {"role": "compiler", "lang": "0176"},

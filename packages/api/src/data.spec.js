@@ -285,4 +285,50 @@ describe("data", () => {
       expect.objectContaining({ data: DATA1 })
     );
   });
+
+  describe("invocations", () => {
+    it("allocates one invocation for the chain and names each stage by position", async () => {
+      const allocateInvocation = jest.fn().mockResolvedValue({ invocationToken: "inv.tok.en" });
+      dataApi = buildDataApi({ compile, allocateInvocation });
+      const id1 = await taskStorer.create({ task: TASK1 });
+      const id2 = await taskStorer.create({ task: TASK2 });
+      const id = taskStorer.appendIds(id1, id2);
+      mockCompileData(DATA2);
+      mockCompileData(DATA1);
+
+      await dataApi.get({ taskStorer, compileStorer, id, authToken: "user-token", connectionId: "conn-1", idempotencyKey: "job-1" });
+
+      expect(allocateInvocation).toHaveBeenCalledTimes(1);
+      expect(allocateInvocation).toHaveBeenCalledWith(expect.objectContaining({
+        authToken: "user-token", connectionId: "conn-1", taskId: id, idempotencyKey: "job-1"
+      }));
+      expect(compile).toHaveBeenNthCalledWith(1, expect.objectContaining({ invocationToken: "inv.tok.en", stage: "s1" }));
+      expect(compile).toHaveBeenNthCalledWith(2, expect.objectContaining({ invocationToken: "inv.tok.en", stage: "s0" }));
+    });
+
+    it("allocates nothing without a connection", async () => {
+      const allocateInvocation = jest.fn();
+      dataApi = buildDataApi({ compile, allocateInvocation });
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(DATA1);
+
+      await dataApi.get({ taskStorer, compileStorer, id });
+
+      expect(allocateInvocation).not.toHaveBeenCalled();
+      expect(compile).toHaveBeenCalledWith(expect.objectContaining({ invocationToken: null, stage: null }));
+    });
+
+    it("refuses a compile through a connection when it cannot allocate one", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+
+      const unconfigured = await dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" });
+      expect(unconfigured.errors[0].message).toMatch(/connections are not available/);
+
+      const { InvocationRefused } = await import("./invocations.js");
+      dataApi = buildDataApi({ compile, allocateInvocation: jest.fn().mockRejectedValue(new InvocationRefused("not-owner")) });
+      const refused = await dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" });
+      expect(refused.errors[0].message).toMatch(/permission denied \(not-owner\)/);
+      expect(compile).not.toHaveBeenCalled();
+    });
+  });
 });

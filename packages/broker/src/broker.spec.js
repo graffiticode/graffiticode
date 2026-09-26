@@ -5,6 +5,7 @@ import {
   createLocalSigner,
   issueToken,
   createMemoryConnectionStore,
+  createMemoryInvocationStore,
   createAudit,
   createPseudonymizer
 } from "@graffiticode/policy";
@@ -62,7 +63,7 @@ beforeEach(async () => {
   const connections = createMemoryConnectionStore([
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
-  policy = createPolicy({ signer, jwks, connections, audit });
+  policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
   saveIntent = await policy.issueIntent({ caller: CONSOLE, user: { uid: OWNER }, mode: "save", connectionId: "conn-1" });
   routes = [];
   failItems = false;
@@ -89,14 +90,25 @@ beforeEach(async () => {
   broker = createBroker(brokerDeps);
 });
 
-const session = (over = {}) => policy.snapshot({
+// A retry sends the same idempotency key, so it continues the same invocation.
+const invocation = (idempotencyKey = "job-1") => policy.allocateInvocation({
+  caller: { role: "gateway" },
+  user: { uid: OWNER },
+  connectionId: "conn-1",
+  taskId: "task-1",
+  inputDigest: argsDigest({}),
+  idempotencyKey
+});
+
+const session = async ({ idempotencyKey, ...over } = {}) => policy.snapshot({
   caller: L0176,
   user: { uid: OWNER },
   lang: "0176",
   connectionId: "conn-1",
   fns: ["preview-itembank", "save-to-itembank", "author-itembank"],
   mode: "read",
-  invocationId: "inv-1",
+  invocationToken: (await invocation(idempotencyKey)).invocationToken,
+  stage: "s0",
   ...over
 }).then(r => r.sessionToken);
 
@@ -106,8 +118,8 @@ const mint = async (sessionToken, { fn, op, payload, occurrenceId = "n1.0" }) =>
 const previewToken = async (payload = PREVIEW) =>
   mint(await session(), { fn: "preview-itembank", op: "learnosity.sign-questions-preview", payload });
 
-const saveToken = async ({ invocationId = "inv-1", payload = WRITE, occurrenceId } = {}) =>
-  mint(await session({ intentToken: saveIntent.intentToken, invocationId }), {
+const saveToken = async ({ idempotencyKey = "job-1", payload = WRITE, occurrenceId } = {}) =>
+  mint(await session({ intentToken: saveIntent.intentToken, idempotencyKey }), {
     fn: "save-to-itembank",
     op: "learnosity.write-items",
     payload,
@@ -218,14 +230,22 @@ describe("item-bank writes", () => {
   });
 
   it("returns the recorded outcome to a retry from a new request, without writing again", async () => {
-    await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-1" }), op: "learnosity.write-items", payload: WRITE });
-    const retry = await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
+    await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    const retry = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     expect(retry).toMatchObject({ status: "succeeded", replayed: true });
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
 
+  it("writes again for an intentional rerun (a new invocation)", async () => {
+    await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    const rerun = await broker.execute({ caller: L0176, token: await saveToken({ idempotencyKey: "job-2" }), op: "learnosity.write-items", payload: WRITE });
+    expect(rerun).toMatchObject({ status: "succeeded" });
+    expect(rerun.replayed).toBeUndefined();
+    expect(routes).toHaveLength(4);
+  });
+
   it("executes once when two fresh tokens for one operation race", async () => {
-    const [a, b] = await Promise.all([saveToken({ invocationId: "inv-1" }), saveToken({ invocationId: "inv-2" })]);
+    const [a, b] = await Promise.all([saveToken(), saveToken()]);
     const results = await Promise.all([
       broker.execute({ caller: L0176, token: a, op: "learnosity.write-items", payload: WRITE }),
       broker.execute({ caller: L0176, token: b, op: "learnosity.write-items", payload: WRITE })
@@ -245,7 +265,7 @@ describe("item-bank writes", () => {
     const first = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     expect(first).toMatchObject({ status: "partial", steps: ["questions"] });
     failItems = false;
-    const retry = await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
+    const retry = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     expect(retry).toMatchObject({ status: "partial", replayed: true });
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
@@ -255,14 +275,15 @@ describe("item-bank writes", () => {
     const first = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     expect(first).toMatchObject({ status: "uncertain", steps: ["questions"] });
     lostItems = false;
-    const retry = await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
+    const retry = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     expect(retry).toMatchObject({ status: "uncertain", replayed: true });
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
 
   it("reports an attempt that never finished as uncertain", async () => {
     const token = await saveToken();
-    await receipts.claim(`${saveIntent.saveActionId}/n1.0`, {
+    const { invocationId } = await invocation();
+    await receipts.claim(`${invocationId}/s0/n1.0`, {
       principal: OWNER,
       connectionId: "conn-1",
       fn: "save-to-itembank",
@@ -277,7 +298,7 @@ describe("item-bank writes", () => {
   it("refuses an operation id reused with different arguments", async () => {
     await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     const changed = { ...WRITE, questionRecords: [{ ...WRITE.questionRecords[0], data: { type: "mcq", stimulus: "Changed" } }] };
-    const token = await saveToken({ invocationId: "inv-2", payload: changed });
+    const token = await saveToken({ payload: changed });
     await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: changed }), "operation-id-reused");
     expect(routes).toHaveLength(2);
   });

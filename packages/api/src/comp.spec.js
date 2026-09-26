@@ -35,6 +35,18 @@ describe("comp", () => {
       );
     });
 
+    it("should forward the invocation token and stage beside the connection", async () => {
+      langCompile.mockResolvedValue(DATA1);
+
+      await compile({ ...TASK1, connectionId: "conn-1", invocationToken: "i.n.v", stage: "s1" });
+
+      expect(langCompile).toHaveBeenCalledWith(
+        `L${TASK1.lang}`,
+        { code: TASK1.code, data: {}, auth: null, options: {}, connectionId: "conn-1", invocationToken: "i.n.v", stage: "s1" },
+        { uid: null }
+      );
+    });
+
     it("should call langCompile", async () => {
       langCompile.mockResolvedValue(DATA1);
 

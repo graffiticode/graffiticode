@@ -7,6 +7,7 @@ import {
   issueToken,
   verifyToken,
   createMemoryConnectionStore,
+  createMemoryInvocationStore,
   createAudit,
   createPseudonymizer,
   ISSUER
@@ -16,6 +17,7 @@ const OWNER = "0xowneruid";
 const OTHER = "0xotheruid";
 const L0176 = { role: "compiler", lang: "0176" };
 const CONSOLE = { role: "console" };
+const GATEWAY = { role: "gateway" };
 const digest = s => createHash("sha256").update(s).digest("hex");
 
 let signer;
@@ -43,18 +45,33 @@ beforeEach(async () => {
     sink: r => records.push(r),
     pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" })
   });
-  policy = createPolicy({ signer, jwks, connections, audit });
+  policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
 });
 
 const ALL_FNS = ["preview-itembank", "save-to-itembank", "author-itembank"];
-const snap = (over = {}) => policy.snapshot({
+const invoke = (over = {}) => policy.allocateInvocation({
+  caller: GATEWAY,
+  user: { uid: OWNER },
+  connectionId: "conn-1",
+  taskId: "task-1",
+  inputDigest: digest("input"),
+  ...over
+});
+const snap = async (over = {}) => policy.snapshot({
   caller: L0176,
   user: { uid: OWNER },
   lang: "0176",
   connectionId: "conn-1",
   fns: ALL_FNS,
   mode: "read",
-  invocationId: "inv-1",
+  // Signed directly, so snapshot tests can name any user or connection.
+  invocationToken: await issueToken(signer, "invocation", {
+    sub: (over.user ?? { uid: OWNER }).uid,
+    conn: over.connectionId ?? "conn-1",
+    inv: "inv-1",
+    seq: 1
+  }),
+  stage: "s0",
   ...over
 });
 const intent = (mode, over = {}) => policy.issueIntent({
@@ -223,21 +240,24 @@ describe("mint", () => {
     await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
   });
 
-  it("mints a write in a save session, keyed by the save action", async () => {
-    const { intentToken, saveActionId } = await intent("save");
-    const { sessionToken } = await snap({ intentToken });
+  it("mints a write in a save session, keyed by invocation, stage and occurrence", async () => {
+    const { intentToken } = await intent("save");
+    const { invocationId, invocationToken } = await invoke();
+    const { sessionToken } = await snap({ intentToken, invocationToken, stage: "s1" });
     const { operationId } = await mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" });
-    expect(operationId).toBe(`${saveActionId}/n12.0`);
+    expect(operationId).toBe(`${invocationId}/s1/n12.0`);
   });
 
-  it("gives a retried save (new invocation, same intent) the same operation id", async () => {
+  it("gives a retry (same idempotency key) the same operation id, and a rerun a new one", async () => {
     const { intentToken } = await intent("save");
-    const first = await snap({ intentToken, invocationId: "inv-1" });
-    const retry = await snap({ intentToken, invocationId: "inv-2" });
     const w = { fn: "save-to-itembank", op: "learnosity.write-items" };
-    const a = await mintWith(first.sessionToken, w);
-    const b = await mintWith(retry.sessionToken, w);
-    expect(a.operationId).toBe(b.operationId);
+    const opid = async invocation => (await mintWith((await snap({ intentToken, invocationToken: invocation.invocationToken })).sessionToken, w)).operationId;
+    const first = await invoke({ idempotencyKey: "job-1" });
+    const retry = await invoke({ idempotencyKey: "job-1" });
+    const rerun = await invoke({ idempotencyKey: "job-2" });
+    expect(retry).toMatchObject({ invocationId: first.invocationId, reused: true });
+    expect(await opid(retry)).toBe(await opid(first));
+    expect(await opid(rerun)).not.toBe(await opid(first));
   });
 
   it("stops at the next mint once the connection is disabled or re-owned", async () => {
@@ -276,5 +296,37 @@ describe("mint", () => {
     const { sessionToken } = await snap();
     await denied(mintWith(sessionToken, { argsDigest: "abc" }), "bad-request");
     await denied(mintWith(sessionToken, { occurrenceId: "" }), "bad-request");
+  });
+});
+
+describe("invocations", () => {
+  it("are allocated only by the gateway, for the connection's owner", async () => {
+    await denied(invoke({ caller: CONSOLE }), "caller-not-entry-point");
+    await denied(invoke({ caller: L0176 }), "caller-not-entry-point");
+    await denied(invoke({ user: { uid: OTHER } }), "not-owner");
+    await denied(invoke({ connectionId: "conn-off" }), "connection-disabled");
+    await denied(invoke({ inputDigest: "nope" }), "bad-request");
+  });
+
+  it("refuse an idempotency key reused for different input", async () => {
+    await invoke({ idempotencyKey: "k" });
+    await denied(invoke({ idempotencyKey: "k", taskId: "task-2" }), "idempotency-key-reused");
+    await denied(invoke({ idempotencyKey: "k", inputDigest: digest("other") }), "idempotency-key-reused");
+    await expect(invoke({ idempotencyKey: "k", user: { uid: OTHER }, connectionId: "conn-other" })).resolves.toMatchObject({ reused: false });
+  });
+
+  it("carry a sequence that increases per user, task and connection", async () => {
+    const seqs = [];
+    for (let i = 0; i < 3; i++) seqs.push((await invoke()).seq);
+    expect(seqs).toEqual([1, 2, 3]);
+    expect((await invoke({ taskId: "task-2" })).seq).toBe(1);
+  });
+
+  it("must come from a policy invocation token for this user and connection", async () => {
+    const { invocationToken } = await invoke();
+    await denied(snap({ invocationToken: "not-a-token" }), "bad-invocation");
+    await denied(snap({ invocationToken: await issueToken(signer, "session", { sub: OWNER, conn: "conn-1", inv: "inv-x" }) }), "bad-invocation");
+    await denied(snap({ invocationToken, user: { uid: OTHER }, connectionId: "conn-other" }), "bad-invocation");
+    await denied(snap({ invocationToken, stage: "" }), "bad-request");
   });
 });
