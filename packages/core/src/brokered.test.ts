@@ -168,6 +168,18 @@ describe("brokered compiles", () => {
     expect(invocations.filter((c) => c.op === "learnosity.write-items")).toHaveLength(1);
   });
 
+  test("an uncertain save tells the caller how to run it again deliberately", async () => {
+    snapshotReply = (args) => ({ allowed: args.fns, mode: "save" });
+    brokerReply = (call) =>
+      call.op === "learnosity.write-items"
+        ? { status: "uncertain", replayed: true }
+        : { status: "succeeded", result: { request: "r" } };
+    const { err } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`, WITH_CONNECTION);
+    const message = err.map((e) => e.message ?? e).join();
+    expect(message).toMatch(/Item bank save uncertain/);
+    expect(message).toMatch(/new idempotency key/);
+  });
+
   test("a policy refusal stops the compile before anything runs", async () => {
     snapshotReply = () => new Error("403");
     const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);

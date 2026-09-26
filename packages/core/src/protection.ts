@@ -33,10 +33,18 @@ const pick = (obj: any, keys: string[]) =>
 export const isBrokered = (exec: ExecContext | undefined): exec is ExecContext =>
   Boolean(exec?.connectionId && exec.sessionToken);
 
+// An uncertain write may or may not have landed. Retrying with the same
+// idempotency key keeps returning this; only the caller may decide to run it
+// again, knowing it may repeat.
+const UNCERTAIN_GUIDANCE =
+  " — it may or may not have been written. Check the item bank; to save again anyway, " +
+  "rerun with a new idempotency key (the write may repeat).";
+
 const expectSucceeded = (out: any, what: string) => {
   if (out?.status !== "succeeded") {
     const detail = out?.error ? `: ${out.error}` : "";
-    throw new Error(`${what} ${out?.status ?? "failed"}${detail}`);
+    const guidance = out?.status === "uncertain" ? UNCERTAIN_GUIDANCE : "";
+    throw new Error(`${what} ${out?.status ?? "failed"}${detail}${guidance}`);
   }
   return out.result;
 };
@@ -63,9 +71,10 @@ export async function brokeredSign(exec: ExecContext, plain: any, occurrenceKey:
   return expectSucceeded(out, "Learnosity signing").request;
 }
 
-// Writes a save plan through the broker. A retry of the same save (same
-// intent) returns the recorded outcome instead of writing again; a save whose
-// outcome is uncertain or partial is reported, never silently re-run.
+// Writes a save plan through the broker. A retry of the same invocation (same
+// idempotency key) returns the recorded outcome instead of writing again; a
+// save whose outcome is uncertain or partial is reported, never silently
+// re-run.
 export async function brokeredSave(exec: ExecContext, plan: any, occurrenceKey: string): Promise<any> {
   const out = await exec.invoke({
     fn: "save-to-itembank",
