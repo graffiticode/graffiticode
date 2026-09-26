@@ -25,24 +25,36 @@ steps:
     id: Push
 
   # Deploy to Cloud Run (staging service)
+  # Env vars are added with --update-env-vars (never --set-env-vars), which
+  # would wipe anything set out of band, such as POLICY_URL and BROKER_URL.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    args:
-      - run
-      - deploy
-      - 'l0176-$BRANCH_NAME'
-      - '--platform=managed'
-      - '--image=gcr.io/$PROJECT_ID/l0176-staging:$COMMIT_SHA'
-      - >-
-        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID,branch=$BRANCH_NAME
-      - '--region=$_DEPLOY_REGION'
-      - '--quiet'
-      - '--port=50176'
-      - '--set-env-vars=AUTH_URL=$_AUTH_URL,NODE_ENV=staging,BRANCH=$BRANCH_NAME'
-      - '--allow-unauthenticated'
-      - '--max-instances=10'
-      - '--memory=256Mi'
     id: Deploy
-    entrypoint: gcloud
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        ENV_VARS="AUTH_URL=${_AUTH_URL},NODE_ENV=staging,BRANCH=$BRANCH_NAME"
+        # POLICY_URL and BROKER_URL turn on the brokered path. Pass both or
+        # neither: when both are empty the service keeps whatever it has, since
+        # an empty value under --update-env-vars would erase an out-of-band one.
+        if [ -n "${_POLICY_URL}" ] && [ -n "${_BROKER_URL}" ]; then
+          ENV_VARS="$${ENV_VARS},POLICY_URL=${_POLICY_URL},BROKER_URL=${_BROKER_URL}"
+        elif [ -n "${_POLICY_URL}${_BROKER_URL}" ]; then
+          echo "set both _POLICY_URL and _BROKER_URL, or neither" >&2
+          exit 1
+        fi
+        gcloud run deploy "l0176-$BRANCH_NAME" \
+          --platform=managed \
+          --image=gcr.io/$PROJECT_ID/l0176-staging:$COMMIT_SHA \
+          --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID,branch=$BRANCH_NAME \
+          --region=$_DEPLOY_REGION \
+          --quiet \
+          --port=50176 \
+          --update-env-vars="$${ENV_VARS}" \
+          --allow-unauthenticated \
+          --max-instances=10 \
+          --memory=256Mi
 
   # Output the service URL
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -68,6 +80,10 @@ options:
 substitutions:
   _DEPLOY_REGION: us-central1
   _AUTH_URL: https://auth.graffiticode.org
+  # The policy and broker run.app URLs. Empty leaves the service's current
+  # values alone.
+  _POLICY_URL: ''
+  _BROKER_URL: ''
 
 tags:
   - l0176
