@@ -5,7 +5,7 @@
 //
 //   POST /v1/intents   console    { mode, connectionId }         -> { intentToken, saveActionId }
 //   POST /v1/invocations gateway  { connectionId, taskId, inputDigest, idempotencyKey? }
-//                                                                 -> { invocationToken, invocationId, seq, reused }
+//                                                                 -> { invocationToken, invocationId, seq, reused, ownerUid }
 //   POST /v1/snapshot  compiler   { lang, connectionId, fns, mode?, intentToken?, invocationToken, stage }
 //                                                                 -> { allowed, sessionToken }
 //   POST /v1/mint      compiler   { sessionToken, fn, op, occurrenceId, argsDigest }

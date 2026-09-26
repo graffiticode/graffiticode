@@ -29,13 +29,13 @@ const env = process.env.NODE_ENV || "development";
 
 export const createApp = ({ authUrl } = {}) => {
   const compile = buildCompile({ langCompile });
-  const { taskStorer, compileStorer, langOverrideStorer } = createStorers();
+  const { taskStorer, compileStorer, langOverrideStorer, artifactStorer } = createStorers();
   // POLICY_URL (the policy service's run.app URL) enables compiles through a
   // selected connection; without it they are refused, never run unguarded.
   const allocateInvocation = process.env.POLICY_URL
     ? buildAllocateInvocation({ policyUrl: process.env.POLICY_URL, idToken: buildMetadataIdToken() })
     : null;
-  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation });
+  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer });
 
   const app = express();
   app.all("*", (req, res, next) => {

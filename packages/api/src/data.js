@@ -1,7 +1,16 @@
-import { taskRequiresProtected } from "@graffiticode/common/protected-registry";
+import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { InvocationRefused } from "./invocations.js";
 
-const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInvocation = null }) =>
+// What a private artifact keeps of a compile's output: everything but a
+// signature. L0176 folds its time-limited preview signature into `request`;
+// the read path signs afresh for each view instead.
+const unsignedContent = obj => {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return obj;
+  const { request: _signature, ...rest } = obj;
+  return rest;
+};
+
+const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null }) =>
   async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
     connectionId = null, intentToken = null, idempotencyKey = null
@@ -71,13 +80,13 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
     // whole chain, allocated here, before any stage is dispatched. Each stage
     // is named by its position in the chain, which is fixed by the
     // content-addressed id, so a retry gives every stage the same name.
-    let invocationToken = null;
+    let invocation = null;
     if (connectionId) {
       if (!allocateInvocation) {
         return { errors: [{ message: "Error: connections are not available on this server.", from: -1, to: -1 }] };
       }
       try {
-        ({ invocationToken } = await allocateInvocation({ authToken, connectionId, taskId: id, options, idempotencyKey }));
+        invocation = await allocateInvocation({ authToken, connectionId, taskId: id, options, idempotencyKey });
       } catch (e) {
         const message = e instanceof InvocationRefused
           ? `Error: permission denied (${e.reason})`
@@ -100,8 +109,8 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
           uid,
           connectionId,
           intentToken,
-          invocationToken,
-          stage: invocationToken ? `s${index}` : null
+          invocationToken: invocation?.invocationToken ?? null,
+          stage: invocation ? `s${index}` : null
         });
         if (obj && typeof obj === "object" && obj.cache === false) {
           cacheable = false;
@@ -117,6 +126,27 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
     if (!obj.errors?.length && typeof action === "object") {
       // If a successful compile, then log it.
       action.compiled = true;
+    }
+    // A successful compile through a connection leaves a private artifact for
+    // later views, which serve it rather than running the program again. The
+    // compile has already happened (and any write with it), so failing to
+    // record it is logged, not returned as a compile error; recovery finishes
+    // it from the invocation's receipts.
+    if (invocation && artifactStorer && !obj.errors?.length) {
+      try {
+        await artifactStorer.put({
+          uid,
+          ownerUid: invocation.ownerUid,
+          connectionId,
+          taskId: id,
+          invocationId: invocation.invocationId,
+          seq: invocation.seq,
+          registryVersion: REGISTRY_VERSION,
+          content: unsignedContent(obj)
+        });
+      } catch (e) {
+        console.log("ERROR recording artifact", e?.message);
+      }
     }
     if (!cacheable && typeof action === "object") {
       // Let the route drop the immutable cache headers — an expiring compile
@@ -141,6 +171,6 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
     }
     return obj;
   };
-export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation }) => {
-  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation }) };
+export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer }) => {
+  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer }) };
 };

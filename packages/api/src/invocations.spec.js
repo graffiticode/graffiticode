@@ -7,11 +7,12 @@ describe("invocations", () => {
   const idToken = async audience => `idt:${audience}`;
 
   it("asks policy for an invocation as the gateway, on behalf of the user", async () => {
-    const fetch = jest.fn(reply(200, { data: { invocationToken: "a.b.c" } }));
+    const INVOCATION = { invocationToken: "a.b.c", invocationId: "inv-1", seq: 3, ownerUid: "owner" };
+    const fetch = jest.fn(reply(200, { data: { ...INVOCATION, reused: false } }));
     const allocate = buildAllocateInvocation({ policyUrl: "https://policy", idToken, fetch });
 
     await expect(allocate({ authToken: "user", connectionId: "conn-1", taskId: "t1", options: {}, idempotencyKey: "job-1" }))
-      .resolves.toEqual({ invocationToken: "a.b.c" });
+      .resolves.toEqual(INVOCATION);
 
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("https://policy/v1/invocations");

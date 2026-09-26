@@ -67,8 +67,11 @@ export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = f
     });
     const body = await res.json().catch(() => null);
     if (res.status === 403) throw new InvocationRefused(body?.error?.reason ?? "denied");
-    if (!res.ok || typeof body?.data?.invocationToken !== "string") {
+    const data = body?.data;
+    if (!res.ok || typeof data?.invocationToken !== "string" || typeof data.invocationId !== "string" ||
+        !Number.isInteger(data.seq) || typeof data.ownerUid !== "string") {
       throw new Error(`policy invocation failed (${res.status})`);
     }
-    return { invocationToken: body.data.invocationToken };
+    const { invocationToken, invocationId, seq, ownerUid } = data;
+    return { invocationToken, invocationId, seq, ownerUid };
   };

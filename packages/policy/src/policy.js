@@ -112,7 +112,9 @@ export const createPolicy = ({ signer, jwks, connections, invocations, audit }) 
     const { invocationId, seq, reused } = allocated;
     const invocationToken = await issueToken(signer, "invocation", { sub: user.uid, conn: connectionId, inv: invocationId, seq });
     await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed", reason: reused ? "reused" : "new" });
-    return { invocationToken, invocationId, seq, reused };
+    // The owner and sequence go back to the gateway, which binds the private
+    // result of this invocation to them.
+    return { invocationToken, invocationId, seq, reused, ownerUid: connection.ownerUid };
   };
 
   // The invocation comes only from a policy-issued invocation token for this

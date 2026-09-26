@@ -288,7 +288,7 @@ describe("data", () => {
 
   describe("invocations", () => {
     it("allocates one invocation for the chain and names each stage by position", async () => {
-      const allocateInvocation = jest.fn().mockResolvedValue({ invocationToken: "inv.tok.en" });
+      const allocateInvocation = jest.fn().mockResolvedValue({ invocationToken: "inv.tok.en", invocationId: "inv-1", seq: 1, ownerUid: "owner" });
       dataApi = buildDataApi({ compile, allocateInvocation });
       const id1 = await taskStorer.create({ task: TASK1 });
       const id2 = await taskStorer.create({ task: TASK2 });
@@ -316,6 +316,38 @@ describe("data", () => {
 
       expect(allocateInvocation).not.toHaveBeenCalled();
       expect(compile).toHaveBeenCalledWith(expect.objectContaining({ invocationToken: null, stage: null }));
+    });
+
+    const INVOCATION = { invocationToken: "inv.tok.en", invocationId: "inv-1", seq: 1, ownerUid: "owner" };
+
+    it("records the unsigned result of a successful compile as a private artifact", async () => {
+      const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
+      const artifactStorer = buildMemoryArtifactStorer();
+      dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData({ type: "questions", data: { q: 1 }, request: "signed" });
+
+      const out = await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
+
+      expect(out.request).toBe("signed");
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
+      expect(got.status).toBe("ok");
+      expect(got.artifact).toMatchObject({ ownerUid: "owner", invocationId: "inv-1", seq: 1 });
+      expect(got.artifact.content).toEqual({ type: "questions", data: { q: 1 } });
+    });
+
+    it("records no artifact for a failed compile, or one without a connection", async () => {
+      const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
+      const artifactStorer = buildMemoryArtifactStorer();
+      dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData({ errors: [{ message: "bad" }] });
+      await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
+      mockCompileData(DATA1);
+      await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" } });
+
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
+      expect(got.status).toBe("missing");
     });
 
     it("refuses a compile through a connection when it cannot allocate one", async () => {

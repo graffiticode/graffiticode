@@ -255,7 +255,7 @@ describe("mint", () => {
     const first = await invoke({ idempotencyKey: "job-1" });
     const retry = await invoke({ idempotencyKey: "job-1" });
     const rerun = await invoke({ idempotencyKey: "job-2" });
-    expect(retry).toMatchObject({ invocationId: first.invocationId, reused: true });
+    expect(retry).toMatchObject({ invocationId: first.invocationId, seq: first.seq, reused: true, ownerUid: OWNER });
     expect(await opid(retry)).toBe(await opid(first));
     expect(await opid(rerun)).not.toBe(await opid(first));
   });
