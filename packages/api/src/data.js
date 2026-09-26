@@ -13,14 +13,29 @@ const unsignedContent = obj => {
 };
 
 // A signature can also come from elsewhere in a program (L0176's explicit
-// `init` returns a signed request as the value itself). Any `signature` field
-// left after stripping means the output is signed, and it is not stored.
+// `init` returns a signed request as the value itself). A signed request is
+// recognized by its structure — a `security` block, an object or its JSON
+// text, carrying a string `signature` — never by text, so content that merely
+// mentions a signature is stored as usual. Output that still holds a signed
+// request after stripping is not stored.
+const parsedSecurity = security => {
+  if (typeof security !== "string") return security;
+  try {
+    return JSON.parse(security);
+  } catch {
+    return null;
+  }
+};
+const isSignedRequest = value => {
+  const security = parsedSecurity(value.security);
+  return Boolean(security) && typeof security === "object" && typeof security.signature === "string";
+};
 const carriesSignature = value => {
   if (Array.isArray(value)) return value.some(carriesSignature);
   if (value && typeof value === "object") {
-    return Object.entries(value).some(([k, v]) => k === "signature" || carriesSignature(v));
+    return isSignedRequest(value) || Object.values(value).some(carriesSignature);
   }
-  return typeof value === "string" && value.includes("\"signature\"");
+  return false;
 };
 
 const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null }) =>

@@ -339,6 +339,21 @@ describe("data", () => {
       expect(JSON.stringify(got.artifact.content)).not.toMatch(/signature/);
     });
 
+    it("stores content that merely mentions a signature", async () => {
+      const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
+      const artifactStorer = buildMemoryArtifactStorer();
+      dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
+      const id = await taskStorer.create({ task: TASK1 });
+      const question = { stimulus: "What does \"signature\" mean?", signature: "a field named signature" };
+      mockCompileData({ data: { type: "questions", data: { questions: [question] } }, errors: [] });
+
+      await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
+
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
+      expect(got.status).toBe("ok");
+      expect(got.artifact.content.data.data.questions[0]).toEqual(question);
+    });
+
     it("stores nothing when a signature is left anywhere in the output", async () => {
       const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
       const artifactStorer = buildMemoryArtifactStorer();
