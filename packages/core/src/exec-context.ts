@@ -40,6 +40,12 @@ export interface ExecIdentity {
   // Forwarded to policy only; never exposed as properties.
   userToken?: string | null;
   intentToken?: string | null;
+  // The logical invocation, allocated by the authenticated entry point (the
+  // gateway) and shared by every retry of it, and this compile's position in
+  // the task chain. Policy derives operation ids from them, so a retry reaches
+  // the same write receipts.
+  invocationToken?: string | null;
+  stage?: string | null;
 }
 
 // What a language's transformer asks the broker to do for one protected call.
@@ -57,11 +63,15 @@ export type Invoker = (exec: ExecContext, call: ProtectedCall) => Promise<any>;
 export class ExecContext {
   readonly uid: string | null;
   readonly connectionId: string | null;
-  readonly invocationId: string;
+  readonly stage: string | null;
+  // Unique to this compile. For diagnostics only: the logical invocation, which
+  // retries share, comes from the invocation token.
+  readonly compileId: string;
   #mode: ExecMode;
   #modeResolved = false;
   #userToken: string | null;
   #intentToken: string | null;
+  #invocationToken: string | null;
   #sessionToken: string | null = null;
   #invoker: Invoker | null = null;
   #occurrences = new Map<string, number>();
@@ -79,7 +89,10 @@ export class ExecContext {
     this.#mode = identity.mode && EXEC_MODES.includes(identity.mode) ? identity.mode : "read";
     this.#userToken = typeof identity.userToken === "string" && identity.userToken ? identity.userToken : null;
     this.#intentToken = typeof identity.intentToken === "string" && identity.intentToken ? identity.intentToken : null;
-    this.invocationId = randomUUID();
+    this.#invocationToken =
+      typeof identity.invocationToken === "string" && identity.invocationToken ? identity.invocationToken : null;
+    this.stage = typeof identity.stage === "string" && identity.stage ? identity.stage : null;
+    this.compileId = randomUUID();
     Object.freeze(this);
   }
 
@@ -103,8 +116,8 @@ export class ExecContext {
 
   // Credentials a policy client forwards. Language code may read them; no
   // program can (the context is unreachable from the AST).
-  policyCredentials(): { userToken: string | null; intentToken: string | null } {
-    return { userToken: this.#userToken, intentToken: this.#intentToken };
+  policyCredentials(): { userToken: string | null; intentToken: string | null; invocationToken: string | null } {
+    return { userToken: this.#userToken, intentToken: this.#intentToken, invocationToken: this.#invocationToken };
   }
 
   get sessionToken(): string | null {

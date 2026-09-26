@@ -86,7 +86,14 @@ async function compile(src: string, identity: any) {
   );
 }
 
-const IDENTITY = { uid: "u1", connectionId: "conn-1", userToken: "user-token", intentToken: "intent-token" };
+const IDENTITY = {
+  uid: "u1",
+  connectionId: "conn-1",
+  userToken: "user-token",
+  intentToken: "intent-token",
+  invocationToken: "invocation-token",
+  stage: "s0",
+};
 
 describe("protection client", () => {
   test("the snapshot carries the user, the intent and both service identities", async () => {
@@ -96,8 +103,14 @@ describe("protection client", () => {
     expect(snap.headers.Authorization).toBe("Bearer user-token");
     expect(snap.headers["X-Caller-Identity"]).toBe("idtoken-for-urn:graffiticode:policy");
     expect(snap.headers["X-Serverless-Authorization"]).toBe(`Bearer idtoken-for-${POLICY}`);
-    expect(snap.body).toMatchObject({ lang: "9999", connectionId: "conn-1", fns: ["save-it"], intentToken: "intent-token" });
-    expect(typeof snap.body.invocationId).toBe("string");
+    expect(snap.body).toMatchObject({
+      lang: "9999",
+      connectionId: "conn-1",
+      fns: ["save-it"],
+      intentToken: "intent-token",
+      invocationToken: "invocation-token",
+      stage: "s0",
+    });
   });
 
   test("a write runs when policy resolves save mode, minted for exactly its payload", async () => {

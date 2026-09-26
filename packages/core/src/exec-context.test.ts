@@ -32,7 +32,8 @@ describe("ExecContext", () => {
     expect(ctx.uid).toBeNull();
     expect(ctx.connectionId).toBeNull();
     expect(ctx.mode).toBe("read");
-    expect(typeof ctx.invocationId).toBe("string");
+    expect(ctx.stage).toBeNull();
+    expect(typeof ctx.compileId).toBe("string");
   });
 
   test("an unknown mode falls back to read, never save", () => {
@@ -65,7 +66,7 @@ describe("programs cannot reach the ExecContext", () => {
     expect(JSON.stringify(result)).not.toContain("conn-1");
   });
 
-  test.each(["execContext", "uid", "connectionId", "mode", "invocationId", "snapshot", "exec"])(
+  test.each(["execContext", "uid", "connectionId", "mode", "compileId", "stage", "invocationToken", "snapshot", "exec"])(
     'get-var "%s" does not expose the context',
     async (name) => {
       const result = await compile(`get-var "${name}"..`, { identity });
@@ -125,7 +126,7 @@ describe("ExecContext isolation across concurrent invocations", () => {
       expect(before).toBe(after);
       expect(before.uid).toBe(val);
       expect(before.connectionId).toBe(val === "user-a" ? "conn-a" : "conn-b");
-      invocations.add(before.invocationId);
+      invocations.add(before.compileId);
     }
     expect(invocations.size).toBe(10);
   });
