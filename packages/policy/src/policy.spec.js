@@ -240,6 +240,13 @@ describe("mint", () => {
     await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
   });
 
+  it("accepts the occurrence ids compilers send, and nothing outside [A-Za-z0-9_:.-]", async () => {
+    const { sessionToken } = await snap();
+    await expect(mintWith(sessionToken, { occurrenceId: "SAVE_TO_ITEMBANK:42.0" })).resolves.toBeTruthy();
+    await expect(mintWith(sessionToken, { occurrenceId: "prog.0" })).resolves.toBeTruthy();
+    await denied(mintWith(sessionToken, { occurrenceId: "SAVE_TO_ITEMBANK@42.0" }), "bad-request");
+  });
+
   it("mints a write in a save session, keyed by invocation, stage and occurrence", async () => {
     const { intentToken } = await intent("save");
     const { invocationId, invocationToken } = await invoke();

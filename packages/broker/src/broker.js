@@ -33,9 +33,11 @@ export class BrokerRefused extends Error {
   }
 }
 
-const sameBinding = (a, b) =>
-  a.principal === b.principal && a.connectionId === b.connectionId && a.fn === b.fn &&
-  a.op === b.op && a.argsDigest === b.argsDigest;
+// A receipt is bound to everything that authorized its write. A replay must
+// match all of it; one recorded under another registry version is refused
+// rather than reinterpreted.
+const BINDING_FIELDS = ["principal", "ownerUid", "connectionId", "lang", "fn", "op", "registryVersion", "argsDigest"];
+const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]);
 
 export const createBroker = ({ jwks, operations, secrets, once, receipts, audit }) => {
   const execute = async ({ caller, token, op, payload }) => {
@@ -98,14 +100,19 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
 
     const binding = {
       principal: claims.sub,
+      ownerUid: claims.own,
       connectionId: claims.conn,
+      lang: claims.lang,
       fn: claims.fn,
       op,
+      registryVersion: claims.rv,
       argsDigest: digest,
     };
     const claimed = await receipts.claim(claims.opid, binding);
     if (!claimed.created) {
-      if (!sameBinding(claimed.claim.binding, binding)) return refuse("operation-id-reused", 409);
+      const recorded = claimed.claim.binding;
+      if (recorded.registryVersion !== binding.registryVersion) return refuse("receipt-registry-version-mismatch", 409);
+      if (!sameBinding(recorded, binding)) return refuse("operation-id-reused", 409);
       const outcome = await receipts.getOutcome(claims.opid);
       await audit({ ...record, outcome: "replayed", reason: outcome ? outcome.status : "uncertain" });
       return outcome

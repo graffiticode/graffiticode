@@ -2,12 +2,25 @@ import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/pr
 import { InvocationRefused } from "./invocations.js";
 
 // What a private artifact keeps of a compile's output: everything but a
-// signature. L0176 folds its time-limited preview signature into `request`;
-// the read path signs afresh for each view instead.
+// signature. A language's envelope is { data, errors }; L0176 folds its
+// time-limited preview signature into data.request, and the read path signs
+// afresh for each view instead.
 const unsignedContent = obj => {
-  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return obj;
-  const { request: _signature, ...rest } = obj;
-  return rest;
+  const data = obj?.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return obj;
+  const { request: _signature, ...rest } = data;
+  return { ...obj, data: rest };
+};
+
+// A signature can also come from elsewhere in a program (L0176's explicit
+// `init` returns a signed request as the value itself). Any `signature` field
+// left after stripping means the output is signed, and it is not stored.
+const carriesSignature = value => {
+  if (Array.isArray(value)) return value.some(carriesSignature);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([k, v]) => k === "signature" || carriesSignature(v));
+  }
+  return typeof value === "string" && value.includes("\"signature\"");
 };
 
 const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null }) =>
@@ -132,7 +145,10 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
     // compile has already happened (and any write with it), so failing to
     // record it is logged, not returned as a compile error; recovery finishes
     // it from the invocation's receipts.
-    if (invocation && artifactStorer && !obj.errors?.length) {
+    const content = invocation && !obj.errors?.length ? unsignedContent(obj) : null;
+    if (content && carriesSignature(content)) {
+      console.log("artifact not stored: the output carries a signature");
+    } else if (content && artifactStorer) {
       try {
         await artifactStorer.put({
           uid,
@@ -142,7 +158,7 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
           invocationId: invocation.invocationId,
           seq: invocation.seq,
           registryVersion: REGISTRY_VERSION,
-          content: unsignedContent(obj)
+          content
         });
       } catch (e) {
         console.log("ERROR recording artifact", e?.message);

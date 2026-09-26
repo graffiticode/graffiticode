@@ -325,15 +325,32 @@ describe("data", () => {
       const artifactStorer = buildMemoryArtifactStorer();
       dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
       const id = await taskStorer.create({ task: TASK1 });
-      mockCompileData({ type: "questions", data: { q: 1 }, request: "signed" });
+      // L0176's real envelope: the signed activity is `data`, beside `errors`.
+      const SIGNED = { security: { signature: "sig" }, request: {} };
+      mockCompileData({ data: { type: "questions", data: { q: 1 }, request: SIGNED }, errors: [], cache: false });
 
       const out = await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
-      expect(out.request).toBe("signed");
+      expect(out.data.request).toEqual(SIGNED);
       const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
       expect(got.status).toBe("ok");
       expect(got.artifact).toMatchObject({ ownerUid: "owner", invocationId: "inv-1", seq: 1 });
-      expect(got.artifact.content).toEqual({ type: "questions", data: { q: 1 } });
+      expect(got.artifact.content).toEqual({ data: { type: "questions", data: { q: 1 } }, errors: [] });
+      expect(JSON.stringify(got.artifact.content)).not.toMatch(/signature/);
+    });
+
+    it("stores nothing when a signature is left anywhere in the output", async () => {
+      const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
+      const artifactStorer = buildMemoryArtifactStorer();
+      dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
+      const id = await taskStorer.create({ task: TASK1 });
+      // What an explicit `init questions {}` returns: the signed request itself.
+      mockCompileData({ data: { security: { signature: "sig" }, request: {} }, errors: [] });
+
+      await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
+
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
+      expect(got.status).toBe("missing");
     });
 
     it("records no artifact for a failed compile, or one without a connection", async () => {

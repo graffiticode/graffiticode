@@ -9,6 +9,7 @@ import {
   createAudit,
   createPseudonymizer
 } from "@graffiticode/policy";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
   createBroker,
   BrokerRefused,
@@ -280,18 +281,43 @@ describe("item-bank writes", () => {
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
 
+  const recordedBinding = (over = {}) => ({
+    principal: OWNER,
+    ownerUid: OWNER,
+    connectionId: "conn-1",
+    lang: "0176",
+    fn: "save-to-itembank",
+    op: "learnosity.write-items",
+    registryVersion: REGISTRY_VERSION,
+    argsDigest: argsDigest(WRITE),
+    ...over
+  });
+
   it("reports an attempt that never finished as uncertain", async () => {
     const token = await saveToken();
     const { invocationId } = await invocation();
-    await receipts.claim(`${invocationId}/s0/n1.0`, {
-      principal: OWNER,
-      connectionId: "conn-1",
-      fn: "save-to-itembank",
-      op: "learnosity.write-items",
-      argsDigest: argsDigest(WRITE)
-    });
+    await receipts.claim(`${invocationId}/s0/n1.0`, recordedBinding());
     const out = await broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
     expect(out).toEqual({ status: "uncertain", replayed: true });
+    expect(routes).toEqual([]);
+  });
+
+  it("refuses to replay a receipt recorded under another registry version", async () => {
+    const token = await saveToken();
+    const { invocationId } = await invocation();
+    await receipts.claim(`${invocationId}/s0/n1.0`, recordedBinding({ registryVersion: REGISTRY_VERSION - 1 }));
+    await receipts.putOutcome(`${invocationId}/s0/n1.0`, { status: "succeeded", steps: [], result: null });
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE }), "receipt-registry-version-mismatch");
+    expect(routes).toEqual([]);
+  });
+
+  it("refuses to replay a receipt bound to another owner or language", async () => {
+    for (const [i, over] of [{ ownerUid: "0xsomeoneelse" }, { lang: "0000" }].entries()) {
+      const token = await saveToken({ idempotencyKey: `job-bind-${i}` });
+      const { invocationId } = await invocation(`job-bind-${i}`);
+      await receipts.claim(`${invocationId}/s0/n1.0`, recordedBinding(over));
+      await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE }), "operation-id-reused");
+    }
     expect(routes).toEqual([]);
   });
 
