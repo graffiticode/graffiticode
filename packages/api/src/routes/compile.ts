@@ -17,12 +17,16 @@ const buildPostCompileHandler = ({ compile }: { compile: CompileFn }) =>
     // which policy re-verifies (userToken). The connection is a caller
     // selection that policy checks. A privileged mode (save/author) is never
     // taken from the body: policy resolves it from the console-issued intent.
+    // The invocation token and stage come from the gateway; policy verifies the
+    // token, so a forged one only gets the compile refused.
     const uid = typeof auth === "object" && typeof (auth as any)?.uid === "string" ? (auth as any).uid : null;
     const identity = {
       uid,
       connectionId: typeof body.connectionId === "string" ? body.connectionId : null,
       userToken: uid ? authToken : null,
       intentToken: typeof body.intentToken === "string" ? body.intentToken : null,
+      invocationToken: typeof body.invocationToken === "string" ? body.invocationToken : null,
+      stage: typeof body.stage === "string" ? body.stage : null,
       mode: NON_PRIVILEGED_MODES.includes(body.mode) ? body.mode : undefined,
     };
     try {
