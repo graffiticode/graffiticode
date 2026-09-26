@@ -22,7 +22,7 @@ import {
 } from "./protection.js";
 import type { PolicyClient } from "@graffiticode/l0000";
 import { buildCreateQuestions, buildInitQuestions } from "./questions.js";
-import { buildInitAuthor, buildCreateAuthor } from "./author.js";
+import { buildCreateAuthor } from "./author.js";
 import {
   questionTypeBuilders,
   memberFields,
@@ -81,14 +81,14 @@ function savePlansFor(transformer: object): WeakMap<object, any> {
 }
 
 // Stable per-node key for occurrence ids: the same node in a retried compile of
-// the same program gets the same key.
-const occurrenceKey = (node: any) => `${node?.tag}@${node?.coord?.from ?? "-"}`;
+// the same program gets the same key. Policy accepts ids of [A-Za-z0-9_:.-]
+// only, so the separator is ":" (brokered.test.ts checks the full id).
+const occurrenceKey = (node: any) => `${node?.tag}:${node?.coord?.from ?? "-"}`;
 
 const LEGACY_SAVE_MEMBER_ERROR =
   "Error: save-to-itembank wraps the activity to save: `save-to-itembank items [...] {}`. " +
   "As an items-list member it is only accepted as the literal `save-to-itembank true`.";
 const initQuestions = buildInitQuestions({ sdk, domain });
-const initAuthor = buildInitAuthor({ sdk, domain });
 const createAuthor = buildCreateAuthor();
 
 // Sentinel `lrn-id` (= get-val-public "itemId") injected by the console during
@@ -169,9 +169,6 @@ async function signForRender(plain: any, options: any, exec?: any): Promise<any>
     break;
   case "items":
     request = await initItems(plain, credArgs);
-    break;
-  case "author":
-    request = await initAuthor(plain, credArgs);
     break;
   default:
     return plain;
@@ -293,7 +290,9 @@ export class Transformer extends BaseTransformer {
         val = await initItems(plain, credArgs);
         break;
       case "author":
-        val = await initAuthor(plain, credArgs);
+        // Without a connection there is no authority to open the Author Site
+        // (see signForRender): return it unsigned.
+        val = plain;
         break;
       }
       resume(err, val);

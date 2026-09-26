@@ -99,9 +99,24 @@ describe("brokered compiles", () => {
     const write = invocations[0];
     expect(write.fn).toBe("save-to-itembank");
     expect(write.payload.itemRecords[0]).toMatchObject({ reference: "graffiticode-t-0", status: "unpublished" });
-    expect(write.occurrenceId).toMatch(/^SAVE_TO_ITEMBANK@\d+\.0$/);
+    expect(write.occurrenceId).toMatch(/^SAVE_TO_ITEMBANK:\d+\.0$/);
     expect(val.data.itemBank).toMatchObject({ saved: true });
     expect(fetched).toEqual([]);
+  });
+
+  // Policy refuses an occurrence id outside this pattern (ID_RE in
+  // graffiticode packages/policy/src/policy.js); keep the two in step.
+  test("every occurrence id the compiler sends is one policy accepts", async () => {
+    snapshotReply = (args) => ({ allowed: args.fns, mode: "save" });
+    const { err } = await compile(
+      `set-var "lrn-id" "t" init save-to-itembank items [${ITEM}] {}..`,
+      WITH_CONNECTION,
+    );
+    expect(err).toEqual([]);
+    expect(invocations.length).toBeGreaterThan(1);
+    for (const { occurrenceId } of invocations) {
+      expect(occurrenceId).toMatch(/^[A-Za-z0-9_:.-]{1,200}$/);
+    }
   });
 
   test("the legacy member form saves the same way", async () => {

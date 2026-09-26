@@ -59,7 +59,7 @@ describe("save-to-itembank <activity> without a connection", () => {
     const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} ${expr}..`);
     expect(err).toEqual([]);
     expect(val.data.itemBank).toMatchObject(SKIPPED);
-    expect(val.data.itemBank.occurrence).toMatch(/^SAVE_TO_ITEMBANK@/);
+    expect(val.data.itemBank.occurrence).toMatch(/^SAVE_TO_ITEMBANK:\d+$/);
     expect(val.request).toBeDefined();
     expect(routes).toEqual([]);
   });
@@ -78,11 +78,15 @@ describe("save-to-itembank <activity> without a connection", () => {
     expect(routes).toEqual([]);
   });
 
-  test("the author activity is left unsigned", async () => {
-    const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} author {}..`);
+  test.each([
+    ["author {}", "author"],
+    ["init author {}", "init author"],
+  ])("%s is left unsigned", async (expr) => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} ${expr}..`);
     expect(err).toEqual([]);
     expect(val.type).toBe("author");
     expect(val.request).toBeUndefined();
+    expect(JSON.stringify(val)).not.toMatch(/signature/);
   });
 });
 
