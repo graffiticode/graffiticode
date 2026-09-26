@@ -2,6 +2,10 @@ import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/pr
 import { InvocationRefused } from "./invocations.js";
 import { buildReadArtifact } from "./read.js";
 
+const ARTIFACT_WRITE_ATTEMPTS = 3;
+const ARTIFACT_RETRY_MS = 100;
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 // What a private artifact keeps of a compile's output: everything but a
 // signature. A language's envelope is { data, errors }; L0176 folds its
 // time-limited preview signature into data.request, and the read path signs
@@ -172,19 +176,27 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
     if (content && carriesSignature(content)) {
       console.log("artifact not stored: the output carries a signature");
     } else if (content && artifactStorer) {
-      try {
-        await artifactStorer.put({
-          uid,
-          ownerUid: invocation.ownerUid,
-          connectionId,
-          taskId: id,
-          invocationId: invocation.invocationId,
-          seq: invocation.seq,
-          registryVersion: REGISTRY_VERSION,
-          content
-        });
-      } catch (e) {
-        console.log("ERROR recording artifact", e?.message);
+      const artifact = {
+        uid,
+        ownerUid: invocation.ownerUid,
+        connectionId,
+        taskId: id,
+        invocationId: invocation.invocationId,
+        seq: invocation.seq,
+        registryVersion: REGISTRY_VERSION,
+        content
+      };
+      // The write is atomic, so a failed attempt leaves nothing half-stored
+      // and a repeat is safe. If every attempt fails, the caller recovers by
+      // retrying the invocation with the same idempotency key.
+      for (let attempt = 1; attempt <= ARTIFACT_WRITE_ATTEMPTS; attempt++) {
+        try {
+          await artifactStorer.put(artifact);
+          break;
+        } catch (e) {
+          console.log(`ERROR recording artifact (attempt ${attempt})`, e?.message);
+          if (attempt < ARTIFACT_WRITE_ATTEMPTS) await sleep(ARTIFACT_RETRY_MS * attempt);
+        }
       }
     }
     if (!cacheable && typeof action === "object") {
