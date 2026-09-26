@@ -104,6 +104,30 @@ describe("brokered compiles", () => {
     expect(fetched).toEqual([]);
   });
 
+  // The read path (graffiticode packages/api/src/read.js, signProgram): a
+  // view of a stored result sends this fixed program, the unsigned activity
+  // as a data literal, never the source. Keep the two shapes in step.
+  test("a stored result is signed on read by a data-only program, with nothing else run", async () => {
+    const built = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
+    const { request: _unsigned, ...activity } = built.val;
+    const signProgram = {
+      1: { tag: "STR", elts: [JSON.stringify(activity)] },
+      2: { tag: "JSON", elts: [1] },
+      3: { tag: "EXPRS", elts: [2] },
+      4: { tag: "PROG", elts: [3] },
+      root: 4,
+    };
+    const { err, val } = await new Promise<{ err: any[]; val: any }>((resolve) =>
+      compiler.compile(signProgram, {}, {}, (e: any, v: any) => resolve({ err: e ?? [], val: v }), WITH_CONNECTION),
+    );
+    expect(err).toEqual([]);
+    expect(snapshots).toEqual([{ fns: ["preview-itembank"], langID: "0176", connectionId: "conn-1" }]);
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(val.data.itemBank).toMatchObject({ skipped: "no-connection" });
+    expect(fetched).toEqual([]);
+  });
+
   // Policy refuses an occurrence id outside this pattern (ID_RE in
   // graffiticode packages/policy/src/policy.js); keep the two in step.
   test("every occurrence id the compiler sends is one policy accepts", async () => {
