@@ -207,10 +207,9 @@ describe("error paths", () => {
     ).rejects.toBeTruthy();
   });
 
-  test("save-to-itembank without program credentials errors", async () => {
-    await expect(
-      compile('set-var "lrn-id" "t" questions [save-to-itembank true, mcq []] {}..'),
-    ).rejects.toBeTruthy();
+  test("save-to-itembank without a connection is skipped, not an error", async () => {
+    const out = await compile('set-var "lrn-id" "t" questions [save-to-itembank true, mcq []] {}..');
+    expect(out.data.itemBank).toMatchObject({ skipped: "no-connection", fn: "save-to-itembank" });
   });
 });
 
@@ -562,11 +561,9 @@ describe("items", () => {
       }));
   });
 
-  test("save-to-itembank still gates on caller credentials", async () => {
-    await expect(compile('set-var "lrn-id" "t" items [save-to-itembank true, item [questions [mcq []] {}]] {}..'))
-      .rejects.toContainEqual(expect.objectContaining({
-        message: expect.stringContaining("save-to-itembank requires"),
-      }));
+  test("save-to-itembank never writes without a connection", async () => {
+    const out = await compile('set-var "lrn-id" "t" items [save-to-itembank true, item [questions [mcq []] {}]] {}..');
+    expect(out.data.itemBank).toMatchObject({ skipped: "no-connection", fn: "save-to-itembank" });
   });
 
   test("learnosity, features and layout are gone from the language", async () => {

@@ -1,6 +1,6 @@
 # Learnosity rendering & item-bank credentials
 
-What makes L0176 forms render and `save-to-itembank` writes succeed. Both depend
+What makes L0176 forms render and, historically, `save-to-itembank` writes succeed. Both depend
 on a compile-time signing step **and** three credentials on the Cloud Run
 service. (Diagnosed after forms rendered blank and `save-to-itembank true` hung
 the console on "Loading…".)
@@ -65,10 +65,12 @@ and are declared in `cloudbuild.yaml` so `--set-env-vars` / `--set-secrets`
 The signing `domain` is `l0176.graffiticode.org`, baked via `NODE_ENV=production`
 in the `Dockerfile`. It must be whitelisted for the consumer key in Learnosity.
 
-## The `save-to-itembank` gotcha
+## Program-supplied credentials
 
-`save-to-itembank true` requires **program-supplied** credentials
-(`resolveCredentials` → `fromOptions=true`), which the console injects as:
+`save-to-itembank` no longer writes with program-supplied credentials: a write
+happens only in a compile that selects a connection, through the credential
+broker. Without one the save is reported as skipped. Program-supplied
+credentials still sign previews, injected by the console as:
 
 ```
 set-var "learnosity-secret" get-val-private "learnosity-secret"
@@ -76,9 +78,9 @@ set-var "learnosity-secret" get-val-private "learnosity-secret"
 
 `get-val-private` decrypts with `GRAFFITICODE_SECRET_KEY`. If that key is
 **missing**, `@graffiticode/l0000`'s `decrypt()` returns the raw ciphertext
-unchanged, so the Data API write is signed with garbage and Learnosity rejects it
-with `41003 signatures do not match`. Plain render is unaffected because it falls
-back to the `LEARNOSITY_SECRET` env var.
+unchanged, so the preview is signed with garbage and Learnosity rejects it with
+`41003 signatures do not match`. A program without its own credentials is
+unaffected because it falls back to the `LEARNOSITY_SECRET` env var.
 
 Propagate the key with the console script — never set it by hand (it must match
 the console's key in project `graffiticode-app` and must never change, or

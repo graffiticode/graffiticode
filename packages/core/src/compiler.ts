@@ -11,8 +11,7 @@ import {
   Compiler,
 } from "@graffiticode/l0000";
 
-import { buildDataApi } from "./dataapi.js";
-import { buildCreateItems, buildInitItems, buildSaveToItembank } from "./items.js";
+import { buildCreateItems, buildInitItems } from "./items.js";
 import { lowerLegacySave } from "./save-lowering.js";
 import {
   PROTECTED_FUNCTIONS,
@@ -59,12 +58,9 @@ const sdk = new LearnositySDK();
 // Learnosity consumer key/secret are secrets and are injected per-compile via
 // `config` (see resolveCredentials + packages/api/src/compile.ts).
 const domain = process.env.NODE_ENV === "production" ? "l0176.graffiticode.org" : "localhost";
-const baseUrl = "https://data.learnosity.com/v2025.2.LTS";
-const dataApi = buildDataApi({ baseUrl });
 const createItems = buildCreateItems();
 const initItems = buildInitItems({ sdk, domain });
 const createQuestions = buildCreateQuestions();
-const saveToItembankWrite = buildSaveToItembank({ sdk, domain, dataApi });
 
 // Save plans belong to ONE invocation. The Compiler (a singleton reused across
 // requests) creates a fresh Transformer per compile; each Transformer gets its
@@ -93,15 +89,14 @@ const LEGACY_SAVE_MEMBER_ERROR =
   "As an items-list member it is only accepted as the literal `save-to-itembank true`.";
 const initQuestions = buildInitQuestions({ sdk, domain });
 const initAuthor = buildInitAuthor({ sdk, domain });
-const createAuthor = buildCreateAuthor({ sdk, domain, dataApi });
+const createAuthor = buildCreateAuthor();
 
 // Sentinel `lrn-id` (= get-val-public "itemId") injected by the console during
 // code-generation VERIFICATION. Must match VERIFY_ITEM_ID in the console
 // (code-generation-service.ts). A compile whose lrn-id is this value is a dry
 // run: the caller's Learnosity credentials aren't injected during verification,
-// so we validate the program but skip item-bank writes and their credential
-// gate (the real post-generation compile carries the credentials and performs
-// the write).
+// so we validate the program but skip the credential-pairing check. Item-bank
+// writes need no sentinel: only a compile that selects a connection writes.
 const VERIFY_ITEM_ID = "verify-itemid";
 
 // Resolve the Learnosity credentials for a compilation. A program may supply
@@ -109,9 +104,10 @@ const VERIFY_ITEM_ID = "verify-itemid";
 // `set-var "learnosity-secret" ...`, which L0000's SET_VAR writes into
 // `options`. The two must be supplied together (a key with a mismatched secret
 // fails Learnosity's signature validation). When both are present they're used
-// for all signing and `fromOptions` is true (the gate that permits item-bank
-// mutations); otherwise the config-injected defaults (from the api layer's env)
-// are used. Returns `{ error }` when exactly one is supplied.
+// for preview signing; otherwise the config-injected defaults (from the api
+// layer's env) are used. Returns `{ error }` when exactly one is supplied.
+// These credentials never write and never sign an Author session: only a
+// compile that selects a connection does either, through the broker.
 function resolveCredentials(options: any): any {
   const cfg = (options && options.config && options.config.learnosity) || {};
   const optKey = options["learnosity-key"];
@@ -122,9 +118,9 @@ function resolveCredentials(options: any): any {
     return { error: `Error: set-var "learnosity-key" and "learnosity-secret" must both be set together.` };
   }
   if (hasKey && hasSecret) {
-    return { key: optKey, secret: optSecret, fromOptions: true };
+    return { key: optKey, secret: optSecret };
   }
-  return { key: cfg.key, secret: cfg.secret, fromOptions: false };
+  return { key: cfg.key, secret: cfg.secret };
 }
 
 // Sign the compiled Learnosity activity so the view can hand `request` straight
@@ -152,6 +148,12 @@ async function signForRender(plain: any, options: any, exec?: any): Promise<any>
   if (isBrokered(exec)) {
     const request = await brokeredSign(exec, plain, "prog");
     return request ? { ...plain, request } : plain;
+  }
+  // Without a connection there is no authority to open the Author Site, which
+  // can edit and delete items: leave it unsigned. Previews are still signed
+  // with parse-time credentials until private artifacts replace them.
+  if (plain.type === "author") {
+    return plain;
   }
   const creds = resolveCredentials(options);
   if (creds.error || !creds.key || !creds.secret) {
@@ -464,12 +466,6 @@ export class Transformer extends BaseTransformer {
           : "Error: save-to-itembank must wrap an activity built by `items [...] {}` or `questions [...] {}`."], undefined);
         return;
       }
-      // Generation-time verification: credentials are not injected, so
-      // validate structure only and skip the credential gate and the write.
-      if (options["lrn-id"] === VERIFY_ITEM_ID) {
-        resume(err, v0);
-        return;
-      }
       // Brokered: the write happens in the broker, under the connection's
       // credential, only in a save session policy resolved from an intent.
       if (isBrokered(this.execContext)) {
@@ -481,26 +477,17 @@ export class Transformer extends BaseTransformer {
         }
         return;
       }
-      const creds = resolveCredentials(options);
-      if (creds.error) {
-        resume([creds.error], undefined);
-        return;
-      }
-      if (!creds.fromOptions) {
-        resume([`Error: save-to-itembank requires set-var "learnosity-key" and "learnosity-secret"; item bank writes are not permitted with the default credentials.`], undefined);
-        return;
-      }
-      let itemBank;
-      try {
-        itemBank = await saveToItembankWrite(plan, { key: creds.key, secret: creds.secret });
-      } catch (e: any) {
-        // A failed write must surface as a compile error, not an unhandled
-        // rejection: an uncaught throw never calls resume, so the compile would
-        // never resolve and the embedding view would hang on "Loading…".
-        resume([`Error: ${String((e && e.message) || e)}`], undefined);
-        return;
-      }
-      resume(err, { ...v0, data: { ...v0.data, itemBank } });
+      // No connection: no authority to write. The save is validated but not
+      // executed, and reported beside the activity rather than as an error, so
+      // a valid program still compiles and its preview still renders.
+      // Generation, verification, the corpus ping and eval all land here.
+      resume(err, {
+        ...v0,
+        data: {
+          ...v0.data,
+          itemBank: { skipped: "no-connection", fn: "save-to-itembank", occurrence: occurrenceKey(node) },
+        },
+      });
     });
   }
 
@@ -600,8 +587,9 @@ for (const [name, meta] of Object.entries(memberFields)) {
 // admission, transformer — sees the program (see save-lowering.ts), then picks
 // the path: a compile that selects a connection is BROKERED (protected
 // functions admitted by policy, executed by the broker); one that does not
-// takes the legacy path. A selected connection on a server with no policy
-// client configured fails closed rather than falling back.
+// never writes and never signs an Author session, and still signs previews
+// with parse-time credentials. A selected connection on a server with no
+// policy client configured fails closed rather than falling back.
 class L0176Compiler extends Compiler {
   #brokered: Compiler | null = null;
 

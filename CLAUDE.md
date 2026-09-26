@@ -96,10 +96,11 @@ The Learnosity consumer key/secret are secrets and live in the **api process**: 
 src/compile.ts` reads `LEARNOSITY_KEY`/`LEARNOSITY_SECRET` from env and merges them into
 `config.learnosity`, which the core compiler reads as `options.config.learnosity`. The
 non-secret `domain` is derived in core from `NODE_ENV`. A program may override the creds with
-`set-var "learnosity-key"/"learnosity-secret"` — supplying both is the gate (`fromOptions`)
-that permits item-bank writes (`save-to-itembank true`); supplying exactly one is an error.
-A sentinel `lrn-id` of `verify-itemid` is a dry run (validate structure, skip credential gates
-and item-bank writes). See `docs/learnosity-render-setup.md` for the three Cloud Run
+`set-var "learnosity-key"/"learnosity-secret"` to sign previews; supplying exactly one is an
+error. Those credentials never write and never sign an Author session: `save-to-itembank`
+writes only in a compile that selects a connection (through the broker), and otherwise
+evaluates to the activity with `itemBank: { skipped: "no-connection", … }`. A sentinel `lrn-id`
+of `verify-itemid` skips the credential-pairing check. See `docs/learnosity-render-setup.md` for the three Cloud Run
 credentials and the `get-val-private` decryption path.
 
 ### Signing at compile time — and why compiles are never cached

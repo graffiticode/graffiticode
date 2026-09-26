@@ -87,8 +87,9 @@ const getDynamicContentData = (data: any) => {
 };
 
 // Builds the render activity and, beside it, the plan an item-bank save would
-// write. Building never writes: the write is `save-to-itembank`'s alone (see
-// buildSaveToItembank), so no evaluation of `items` can reach the Data API.
+// write. Building never writes: the write is `save-to-itembank`'s alone, and
+// happens only in the broker, so no evaluation of `items` can reach the Data
+// API.
 export const buildCreateItems = () => async ({
   items,
   params,
@@ -171,37 +172,6 @@ export const buildCreateItems = () => async ({
   if (dynamicContentData) data.dynamic_content_data = dynamicContentData;
   return { activity: { type: "questions", data }, savePlan };
 };
-
-// Performs an item-bank write from a save plan: questions first, then the
-// items that reference them (skipped when the plan has none, as for a bare
-// `questions` activity). Two sequential provider writes, so a failure after
-// the first leaves questions written without their items; callers surface the
-// error rather than retrying blindly.
-export const buildSaveToItembank = ({ sdk, domain, dataApi }: any) =>
-  async ({ questionRecords, itemRecords }: any, { key, secret }: any) => {
-    const write = async (route: string, body: any) => {
-      const request = sdk.init("data", { consumer_key: key, domain }, secret, body, "set");
-      await dataApi({ route, request });
-    };
-    await write("/itembank/questions", { questions: questionRecords });
-    if (itemRecords.length > 0) {
-      await write("/itembank/items", { items: itemRecords });
-    }
-    // dataApi throws on non-2xx, so reaching here means the writes succeeded.
-    // Surface a confirmation so callers (MCP, agents) can verify the save.
-    return itemRecords.length > 0
-      ? {
-        saved: true,
-        references: itemRecords.map((r: any) => r.reference),
-        questionReferences: questionRecords.map((r: any) => r.reference),
-        savedAt: new Date().toISOString(),
-      }
-      : {
-        saved: true,
-        references: questionRecords.map((r: any) => r.reference),
-        savedAt: new Date().toISOString(),
-      };
-  };
 
 export const buildInitItems = ({
   sdk,

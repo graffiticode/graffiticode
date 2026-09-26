@@ -798,8 +798,11 @@ activity as its one argument; it is not a member of the items list. Saved items 
 as `status: "unpublished"` (draft); publishing is done from the Learnosity
 Author Site UI, not from the DSL.
 
-Writing to the item bank requires caller-supplied Learnosity credentials.
-Set both with `set-var` before `items`:
+The write happens only when the item is compiled through a connection the
+caller selected. Otherwise the save is checked but not run, reported as
+`itemBank: { skipped: "no-connection" }`, and the preview still renders; that
+is not an error. Set the caller's Learnosity credentials with `set-var` before
+`items` so the preview is signed with their account:
 
 ```
 set-var "learnosity-key" get-val-public "learnosity-key"
@@ -812,10 +815,8 @@ Use these exact credential field names: `learnosity-key` (public) and
 camelCase (`learnosityKey`/`learnositySecret`) or other spellings.
 
 The two must be supplied **together** — providing only one is an error. When
-present they are used to sign every Learnosity request (preview rendering and
-the bank write); when absent, previews fall back to the server's default
-credentials. `save-to-itembank` without these credentials is an error:
-the default credentials may sign previews but never mutate the bank.
+present they sign the preview; when absent, previews fall back to the server's
+default credentials. Neither ever writes to the bank.
 
 Prompts that should trigger `save-to-itembank`:
 

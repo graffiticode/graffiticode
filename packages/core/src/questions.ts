@@ -27,7 +27,7 @@ const fixVariableRefs = (obj: any) => (
 );
 
 // Builds the render activity and the plan a save would write; never writes
-// (see buildSaveToItembank in items.ts).
+// (the write happens only in the broker).
 export const buildCreateQuestions = () => async (data: any, { id }: any = {}) => {
   // Inherit a dynamic-data table from the first question whose data carries
   // one (typically an embedded L0179 custom question whose data includes

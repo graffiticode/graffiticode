@@ -347,12 +347,14 @@ item bank. Wrap the activity in `save-to-itembank` to persist it:
 `save-to-itembank items [...] {}`. Saved items always land as `status: "unpublished"`
 (draft) — publishing is an Author Site concern, not a DSL one.
 
-Item-bank writes require caller-supplied Learnosity credentials, set with
+The write happens only in a compile that selects a connection, through the
+credential broker. Without one, the save is checked but not run: the result
+carries `itemBank: { skipped: "no-connection", fn, occurrence }` beside the
+activity, the preview still renders, and it is not an error. Programs may set
 `set-var "learnosity-key" ...` and `set-var "learnosity-secret" ...` before
-`items`. The two must be supplied together (only one is an error). When
-present they sign every Learnosity request (preview and write); when absent,
-previews use the server's default credentials but `save-to-itembank` is
-an error — the default credentials may sign previews but never mutate the bank.
+`items` (both or neither; only one is an error) to sign the preview with their
+own account; when absent, previews use the server's default credentials.
+These credentials never write and never sign an Author session.
 
 ```
 set-var "lrn-id" "mitochondria-mcq"

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // The item-bank write happens in exactly one place: `save-to-itembank`
-// wrapping an activity. Building `items`/`questions` never writes, the literal
-// legacy member is lowered to the wrapper, and any other way of setting the
-// flag is refused. Learnosity's Data API is reached through global fetch, which
-// these tests stub so every provider call is observable.
+// wrapping an activity, and only in a compile that selects a connection (see
+// brokered.test.ts). Without one, the save is validated and reported as
+// skipped, never executed. Building `items`/`questions` never writes, the
+// literal legacy member is lowered to the wrapper, and any other way of setting
+// the flag is refused. Global fetch is stubbed so any provider call would be
+// observable; none may happen here.
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { parser } from "@graffiticode/parser";
 import { compiler, lexicon, lowerLegacySave, Transformer } from "./index.js";
@@ -47,61 +49,56 @@ describe("building an activity never writes", () => {
   });
 });
 
-describe("save-to-itembank <activity> writes", () => {
-  test("items: questions, then the items that reference them", async () => {
+const SKIPPED = { skipped: "no-connection", fn: "save-to-itembank" };
+
+describe("save-to-itembank <activity> without a connection", () => {
+  test.each([
+    ["items", `save-to-itembank items [${ITEM}] {}`],
+    ["questions", "save-to-itembank questions [mcq []] {}"],
+  ])("%s: validated, skipped, and the preview still renders", async (_, expr) => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} ${expr}..`);
+    expect(err).toEqual([]);
+    expect(val.data.itemBank).toMatchObject(SKIPPED);
+    expect(val.data.itemBank.occurrence).toMatch(/^SAVE_TO_ITEMBANK@/);
+    expect(val.request).toBeDefined();
+    expect(routes).toEqual([]);
+  });
+
+  test("the program's own credentials do not make it write", async () => {
     const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} save-to-itembank items [${ITEM}] {}..`);
     expect(err).toEqual([]);
-    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
-    expect(val.data.itemBank.saved).toBe(true);
-    expect(val.data.itemBank.references).toEqual(["graffiticode-t-0"]);
-  });
-
-  test("questions: the questions only", async () => {
-    const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} save-to-itembank questions [mcq []] {}..`);
-    expect(err).toEqual([]);
-    expect(routes).toEqual(["/itembank/questions"]);
-    expect(val.data.itemBank.saved).toBe(true);
-  });
-
-  test("still requires the program's own credentials", async () => {
-    const { err } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
-    expect(err.map((e) => e.message ?? e).join()).toMatch(/save-to-itembank requires/);
+    expect(val.data.itemBank).toMatchObject(SKIPPED);
     expect(routes).toEqual([]);
   });
 
-  test("a verification dry run validates without writing", async () => {
-    const { err, val } = await compile(`set-var "lrn-id" "verify-itemid" save-to-itembank items [${ITEM}] {}..`);
+  test("with no credentials at all it still compiles", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
     expect(err).toEqual([]);
-    expect(val.data.itemBank).toBeUndefined();
+    expect(val.data.itemBank).toMatchObject(SKIPPED);
     expect(routes).toEqual([]);
   });
 
-  test("a failure after the first write surfaces as an error", async () => {
-    vi.mocked(globalThis.fetch).mockImplementation(async (url: any) => {
-      const path = String(url);
-      routes.push(path);
-      return path.endsWith("/items")
-        ? new Response(JSON.stringify({ meta: { status: false } }), { status: 200 })
-        : new Response(JSON.stringify({ meta: { status: true } }), { status: 200 });
-    });
-    const { err } = await compile(`set-var "lrn-id" "t" ${CREDS} save-to-itembank items [${ITEM}] {}..`);
-    expect(err.map((e) => e.message ?? e).join()).toMatch(/Data API failed: \/itembank\/items/);
-    expect(routes).toHaveLength(2);
+  test("the author activity is left unsigned", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} author {}..`);
+    expect(err).toEqual([]);
+    expect(val.type).toBe("author");
+    expect(val.request).toBeUndefined();
   });
 });
 
 describe("the legacy literal member is lowered to the wrapper", () => {
-  test("items [save-to-itembank true, ...] saves", async () => {
+  test("items [save-to-itembank true, ...] becomes a save", async () => {
     const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} items [save-to-itembank true, ${ITEM}] {}..`);
     expect(err).toEqual([]);
-    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
-    expect(val.data.itemBank.saved).toBe(true);
+    expect(val.data.itemBank).toMatchObject(SKIPPED);
+    expect(routes).toEqual([]);
   });
 
-  test("questions [save-to-itembank true, ...] saves", async () => {
-    const { err } = await compile(`set-var "lrn-id" "t" ${CREDS} questions [save-to-itembank true, mcq []] {}..`);
+  test("questions [save-to-itembank true, ...] becomes a save", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} questions [save-to-itembank true, mcq []] {}..`);
     expect(err).toEqual([]);
-    expect(routes).toEqual(["/itembank/questions"]);
+    expect(val.data.itemBank).toMatchObject(SKIPPED);
+    expect(routes).toEqual([]);
   });
 
   test("save-to-itembank false is dropped and nothing is written", async () => {
@@ -174,8 +171,8 @@ describe("a save plan belongs to the invocation that built it", () => {
     const { t, activity } = await buildActivity();
     const { err, val } = await saveWith(t, activity);
     expect(err).toEqual([]);
-    expect(val.data.itemBank.saved).toBe(true);
-    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+    expect(val.data.itemBank).toMatchObject(SKIPPED);
+    expect(routes).toEqual([]);
   });
 
   test("another invocation holding the same object cannot", async () => {
