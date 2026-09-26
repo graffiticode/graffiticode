@@ -8,6 +8,11 @@ import { randomUUID } from "node:crypto";
 
 export class PayloadRejected extends Error {}
 
+// The provider definitely did not apply the request. Any other error from a
+// provider call is an uncertain outcome: the request may have been applied
+// before its response was lost.
+export class ProviderRejected extends Error {}
+
 const isPlainObject = v => v !== null && typeof v === "object" && !Array.isArray(v);
 const isRef = v => typeof v === "string" && /^[A-Za-z0-9_.:-]{1,250}$/.test(v);
 

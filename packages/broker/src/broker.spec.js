@@ -12,6 +12,7 @@ import {
   createBroker,
   BrokerRefused,
   buildOperations,
+  ProviderRejected,
   createMemoryOnceStore,
   createMemoryReceiptStore,
   createMemorySecretStore,
@@ -39,13 +40,15 @@ let broker;
 let receipts;
 let routes;
 let failItems;
+let lostItems;
+let signer;
 let records;
 let otherSigner;
 let saveIntent;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
-  const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
+  signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
   const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
   const other = await generateKeyPair("ES256", { extractable: true });
   otherSigner = await createLocalSigner({ privateJwk: await exportJWK(other.privateKey), kid: "k1" });
@@ -61,12 +64,14 @@ beforeEach(async () => {
   saveIntent = await policy.issueIntent({ caller: CONSOLE, user: { uid: OWNER }, mode: "save", connectionId: "conn-1" });
   routes = [];
   failItems = false;
+  lostItems = false;
   const sdk = {
     init: (service, consumer, secret, body, action) => ({ service, consumer, signedWithSecret: secret === SECRET, body, action })
   };
   const dataApi = async ({ route }) => {
     routes.push(route);
-    if (failItems && route === "/itembank/items") throw new Error("Learnosity Data API failed: /itembank/items");
+    if (failItems && route === "/itembank/items") throw new ProviderRejected("Learnosity Data API failed: /itembank/items");
+    if (lostItems && route === "/itembank/items") throw new Error("request timed out");
     return { meta: { status: true } };
   };
   receipts = createMemoryReceiptStore();
@@ -171,6 +176,22 @@ describe("preview signing", () => {
     });
     await refused(broker.execute({ caller: L0176, token: forged, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
   });
+
+  it("refuses a validly signed token minted for another registry version", async () => {
+    const token = await issueToken(signer, "execution", {
+      sub: OWNER,
+      own: OWNER,
+      conn: "conn-1",
+      backend: "learnosity",
+      lang: "0176",
+      mode: "read",
+      fn: "preview-itembank",
+      op: "learnosity.sign-questions-preview",
+      argd: argsDigest(PREVIEW),
+      rv: -1
+    });
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "registry-version-mismatch");
+  });
 });
 
 describe("item-bank writes", () => {
@@ -212,6 +233,16 @@ describe("item-bank writes", () => {
     failItems = false;
     const retry = await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
     expect(retry).toMatchObject({ status: "partial", replayed: true });
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+  });
+
+  it("records a provider error that is not a definite rejection as uncertain", async () => {
+    lostItems = true;
+    const first = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    expect(first).toMatchObject({ status: "uncertain", steps: ["questions"] });
+    lostItems = false;
+    const retry = await broker.execute({ caller: L0176, token: await saveToken({ invocationId: "inv-2" }), op: "learnosity.write-items", payload: WRITE });
+    expect(retry).toMatchObject({ status: "uncertain", replayed: true });
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
 

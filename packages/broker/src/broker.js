@@ -3,7 +3,8 @@
 //
 //   1. The token must verify as an EXECUTION token (fixed alg, issuer,
 //      audience, typ, expiry) and name exactly this operation.
-//   2. The registry must still allow (lang, fn, op, backend, mode) — checked
+//   2. The token's registry version must be the one installed here, and the
+//      registry must still allow (lang, fn, op, backend, mode) — checked
 //      again here so correctness never rests on policy alone.
 //   3. The payload must pass the operation's constraints and hash to the
 //      token's args digest: the token authorizes this request, not any.
@@ -12,14 +13,16 @@
 //      call. A second token for the same operation — a retry — gets the
 //      recorded outcome, or "uncertain" if the first attempt never finished;
 //      it never executes again. Reusing an operation id with a different
-//      principal, connection, function or args is refused.
+//      principal, connection, function or args is refused. Only a definite
+//      provider rejection records failed/partial; any other provider error
+//      records uncertain, since the write may have been applied.
 //
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
-import { isOperationAllowed } from "@graffiticode/common/protected-registry";
+import { isOperationAllowed, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { verifyToken } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
-import { PayloadRejected } from "./operations.js";
+import { PayloadRejected, ProviderRejected } from "./operations.js";
 
 export class BrokerRefused extends Error {
   constructor(reason, status = 403, detail) {
@@ -61,6 +64,9 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
 
     // Only the compiler of the token's language may spend it.
     if (caller?.role !== "compiler" || caller.lang !== claims.lang) return refuse("caller-language-mismatch");
+    // Never reinterpret a token under a different registry than it was minted
+    // for.
+    if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend, mode: claims.mode })) {
@@ -110,7 +116,11 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
       result = await operation.run(payload, credential, { onStep: async step => { steps.push(step); } });
       status = "succeeded";
     } catch (e) {
-      status = steps.length > 0 ? "partial" : "failed";
+      if (e instanceof ProviderRejected) {
+        status = steps.length > 0 ? "partial" : "failed";
+      } else {
+        status = "uncertain";
+      }
       error = String(e?.message || e);
     }
     await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null });
