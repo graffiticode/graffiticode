@@ -1,5 +1,6 @@
 import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { InvocationRefused } from "./invocations.js";
+import { buildReadArtifact } from "./read.js";
 
 // What a private artifact keeps of a compile's output: everything but a
 // signature. A language's envelope is { data, errors }; L0176 folds its
@@ -38,14 +39,21 @@ const carriesSignature = value => {
   return false;
 };
 
-const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null }) =>
-  async ({
+const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null }) => {
+  const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation });
+  return async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
-    connectionId = null, intentToken = null, idempotencyKey = null
+    connectionId = null, intentToken = null, idempotencyKey = null, read = false
   }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
+    }
+    // A view through a connection serves the stored result and never runs the
+    // program; POST /compile is the explicit run that makes one.
+    if (read && connectionId) {
+      if (typeof action === "object") action.noStore = true;
+      return readArtifact({ tasks, id, uid: auth?.uid, authToken, connectionId });
     }
     // A user with a language-server override is testing a specific revision, so
     // bypass the shared compile cache entirely: returning a cached
@@ -202,6 +210,7 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
     }
     return obj;
   };
+};
 export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer }) => {
   return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer }) };
 };

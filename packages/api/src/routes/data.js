@@ -16,7 +16,8 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // (see data.js): `compiled` for logging, `noStore` when the result expires.
   // Callers that don't care (routes/compile.js) can omit it.
   return async ({
-    auth, authToken, ids, action = {}, refresh = false, connectionId = null, intentToken = null, idempotencyKey = null
+    auth, authToken, ids, action = {}, refresh = false, connectionId = null, intentToken = null, idempotencyKey = null,
+    read = false
   }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
@@ -33,7 +34,8 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       refresh,
       connectionId,
       intentToken,
-      idempotencyKey: keyFor(i)
+      idempotencyKey: keyFor(i),
+      read
     })));
     let data;
     if (objs.length > 1) {
@@ -66,7 +68,8 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const refresh = auth !== null && ["1", "true"].includes(String(req.query.refresh || ""));
     const connectionId = parseConnectionId(req.query.connection, { auth });
     const action = {};
-    const data = await getData({ auth, authToken, ids, action, refresh, connectionId });
+    // GET /data is a view: through a connection it reads the stored result.
+    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, read: true });
     // A refreshed response must not be held anywhere. The id is immutable but
     // we just proved its data is not, and the whole point of asking was to get
     // past a stale copy — an immutable header here would plant another one in
