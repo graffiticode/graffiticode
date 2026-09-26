@@ -73,7 +73,7 @@ beforeEach(async () => {
     jwks,
     audit,
     operations: buildOperations({ sdk: { init: (service) => ({ service }) }, domain: "d", dataApi: async () => ({}) }),
-    secrets: (secrets = createMemorySecretStore({ "conn-1": { key: "k", secret: "s" } })),
+    secrets: (secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "k", secret: "s" } })),
     once: createMemoryOnceStore(),
     receipts: createMemoryReceiptStore()
   });
@@ -134,19 +134,37 @@ describe("broker http", () => {
 describe("credential provisioning", () => {
   const as = (req, email) => req.set("X-Caller-Identity", `idt|${email}|${AUD}`).set("X-Serverless-Authorization", forwarded(email));
 
-  it("lets policy store and delete a credential, never echoing it", async () => {
-    const put = await as(request(app).put("/v1/secrets/conn-9"), SA.policy).send({ key: "k9", secret: "s9-secret" });
-    expect(put.status).toBe(200);
-    expect(JSON.stringify(put.body)).not.toContain("s9-secret");
-    expect(await secrets.get("conn-9")).toEqual({ key: "k9", secret: "s9-secret" });
+  const CRED9 = { ownerUid: OWNER, backend: "learnosity", key: "k9", secret: "s9-secret" };
+
+  it("lets policy store, rotate and delete a credential, never echoing it", async () => {
+    const created = await as(request(app).post("/v1/secrets/conn-9"), SA.policy).send(CRED9);
+    expect(created.status).toBe(200);
+    expect(JSON.stringify(created.body)).not.toContain("s9-secret");
+    expect(await secrets.get("conn-9")).toEqual(CRED9);
+    const rotated = await as(request(app).put("/v1/secrets/conn-9"), SA.policy).send({ ...CRED9, secret: "s9-new" });
+    expect(rotated.status).toBe(200);
+    expect(await secrets.get("conn-9")).toEqual({ ...CRED9, secret: "s9-new" });
     expect((await as(request(app).delete("/v1/secrets/conn-9"), SA.policy)).status).toBe(200);
     expect(await secrets.get("conn-9")).toBeNull();
   });
 
+  it("keeps owner, backend and provider account immutable, and never reuses an id", async () => {
+    await as(request(app).post("/v1/secrets/conn-9"), SA.policy).send(CRED9);
+    expect((await as(request(app).post("/v1/secrets/conn-9"), SA.policy).send(CRED9)).status).toBe(409);
+    for (const change of [{ ownerUid: "0xsomeoneelse" }, { backend: "other" }, { key: "another-account" }]) {
+      const res = await as(request(app).put("/v1/secrets/conn-9"), SA.policy).send({ ...CRED9, ...change, secret: "x" });
+      expect(res.status).toBe(409);
+    }
+    expect(await secrets.get("conn-9")).toEqual(CRED9);
+    await as(request(app).delete("/v1/secrets/conn-9"), SA.policy);
+    expect((await as(request(app).post("/v1/secrets/conn-9"), SA.policy).send(CRED9)).status).toBe(409);
+    expect((await as(request(app).put("/v1/secrets/conn-9"), SA.policy).send(CRED9)).status).toBe(404);
+  });
+
   it("refuses compilers", async () => {
-    const res = await as(request(app).put("/v1/secrets/conn-1"), SA.l0176).send({ key: "evil", secret: "evil" });
+    const res = await as(request(app).put("/v1/secrets/conn-1"), SA.l0176).send({ ownerUid: OWNER, backend: "learnosity", key: "k", secret: "evil" });
     expect(res.status).toBe(403);
-    expect(await secrets.get("conn-1")).toEqual({ key: "k", secret: "s" });
+    expect(await secrets.get("conn-1")).toMatchObject({ key: "k", secret: "s" });
   });
 
   it("refuses policy on the execute route", async () => {

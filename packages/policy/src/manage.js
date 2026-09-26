@@ -7,13 +7,15 @@
 //   create   new connection: secret to the broker first, then the record, so a
 //            record never exists without its credential
 //   rotate   replace the secret; grants attach to the connection, so they
-//            survive rotation
+//            survive rotation. Owner, backend and provider account (the key)
+//            are immutable; the broker refuses a change to any of them
 //   disable  stop all use at the next snapshot or mint
 //   remove   delete the record, then the secret
 
 import { randomUUID } from "node:crypto";
 import { OPERATIONS } from "@graffiticode/common/protected-registry";
 import { PolicyDenied } from "./policy.js";
+import { BrokerConflict } from "./broker-admin.js";
 
 const BACKENDS = new Set(Object.values(OPERATIONS).map(op => op.backend));
 const LABEL_MAX = 100;
@@ -50,7 +52,7 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit }) => 
       if (label !== null && (typeof label !== "string" || label.length > LABEL_MAX)) return deny("bad-request", record);
       if (!validCredential(credential)) return deny("bad-credential", record);
       const connectionId = `conn-${randomUUID()}`;
-      await brokerAdmin.putSecret(connectionId, { key: credential.key, secret: credential.secret });
+      await brokerAdmin.createSecret(connectionId, { ownerUid: user.uid, backend, key: credential.key, secret: credential.secret });
       await connections.put({ connectionId, ownerUid: user.uid, backend, status: "active", label });
       await audit({ ...record, connectionId, ownerUid: user.uid, outcome: "allowed" });
       return { connectionId, backend, status: "active", label };
@@ -59,9 +61,19 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit }) => 
     async rotate({ caller, user, connectionId, credential }) {
       const record = { event: "connection-rotate", uid: user?.uid, connectionId };
       await requireConsole(caller, record);
-      await owned(user, connectionId, record);
+      const connection = await owned(user, connectionId, record);
       if (!validCredential(credential)) return deny("bad-credential", record);
-      await brokerAdmin.putSecret(connectionId, { key: credential.key, secret: credential.secret });
+      try {
+        await brokerAdmin.rotateSecret(connectionId, {
+          ownerUid: connection.ownerUid,
+          backend: connection.backend,
+          key: credential.key,
+          secret: credential.secret
+        });
+      } catch (e) {
+        if (e instanceof BrokerConflict) return deny("provider-account-changed", record);
+        throw e;
+      }
       await audit({ ...record, ownerUid: user.uid, outcome: "allowed" });
       return { connectionId };
     },

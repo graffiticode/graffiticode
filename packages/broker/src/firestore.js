@@ -4,6 +4,8 @@
 // read-then-write, so two concurrent claims cannot both succeed.
 
 import { createHash } from "node:crypto";
+import { ConflictError } from "@graffiticode/common/errors";
+import { checkRotation } from "./stores.js";
 
 const ALREADY_EXISTS = 6;
 const isAlreadyExists = err => err?.code === ALREADY_EXISTS || /ALREADY_EXISTS/.test(String(err?.message));
@@ -49,22 +51,41 @@ export const createFirestoreReceiptStore = db => {
   };
 };
 
+// See stores.js for the contract. The owner and backend are sealed into the
+// ciphertext's associated data with the connection id, so editing them on the
+// stored document makes the secret undecryptable rather than rebinding it.
 export const createFirestoreSecretStore = (db, { box }) => {
   const ref = connectionId => db.collection("connection-secrets").doc(connectionId);
+  const aad = (connectionId, { ownerUid, backend }) => JSON.stringify([connectionId, ownerUid, backend]);
+  const seal = (connectionId, { ownerUid, backend, key, secret }) => ({
+    ownerUid,
+    backend,
+    key,
+    sealedSecret: box.seal(secret, aad(connectionId, { ownerUid, backend })),
+    updatedAt: new Date().toISOString(),
+  });
   return {
     async get(connectionId) {
       const snap = await ref(connectionId).get();
-      if (!snap.exists) return null;
-      const { key, sealedSecret } = snap.data();
-      return { key, secret: box.open(sealedSecret, connectionId) };
+      if (!snap.exists || snap.data().deleted) return null;
+      const { ownerUid, backend, key, sealedSecret } = snap.data();
+      return { ownerUid, backend, key, secret: box.open(sealedSecret, aad(connectionId, { ownerUid, backend })) };
     },
-    // Rotation replaces the stored secret; grants attach to the connection,
-    // not to the secret, so they survive it.
-    async put(connectionId, { key, secret }) {
-      await ref(connectionId).set({ key, sealedSecret: box.seal(secret, connectionId), updatedAt: new Date().toISOString() });
+    async create(connectionId, credential) {
+      if (!(await createOnce(ref(connectionId), seal(connectionId, credential)))) {
+        throw new ConflictError("connection id already used");
+      }
+    },
+    // Grants attach to the connection, not to the secret, so they survive.
+    async rotate(connectionId, credential) {
+      await db.runTransaction(async tx => {
+        const snap = await tx.get(ref(connectionId));
+        checkRotation(snap.exists ? snap.data() : null, credential);
+        tx.set(ref(connectionId), seal(connectionId, credential));
+      });
     },
     async delete(connectionId) {
-      await ref(connectionId).delete();
+      await ref(connectionId).set({ deleted: true, deletedAt: new Date().toISOString() });
     },
   };
 };

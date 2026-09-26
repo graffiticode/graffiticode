@@ -38,14 +38,28 @@ run("firestore broker stores", () => {
     expect((await receipts.getOutcome(op)).status).toBe("succeeded");
   });
 
-  it("stores secrets sealed and returns them opened", async () => {
+  it("stores secrets sealed and bound to their owner and backend", async () => {
     const box = createSecretBox({ key: randomBytes(32).toString("hex") });
     const secrets = createFirestoreSecretStore(db, { box });
     const conn = randomUUID();
-    await secrets.put(conn, { key: "k", secret: "s3cret" });
-    const raw = (await db.collection("connection-secrets").doc(conn).get()).data();
-    expect(JSON.stringify(raw)).not.toContain("s3cret");
-    expect(await secrets.get(conn)).toEqual({ key: "k", secret: "s3cret" });
+    const cred = { ownerUid: "u1", backend: "learnosity", key: "k", secret: "s3cret" };
+    await secrets.create(conn, cred);
+    const doc = db.collection("connection-secrets").doc(conn);
+    expect(JSON.stringify((await doc.get()).data())).not.toContain("s3cret");
+    expect(await secrets.get(conn)).toEqual(cred);
     expect(await secrets.get(randomUUID())).toBeNull();
+
+    await expect(secrets.create(conn, cred)).rejects.toThrow(/already used/);
+    await expect(secrets.rotate(conn, { ...cred, key: "k2" })).rejects.toThrow(/provider account/);
+    await secrets.rotate(conn, { ...cred, secret: "s4" });
+    expect((await secrets.get(conn)).secret).toBe("s4");
+
+    // Editing the stored owner does not rebind the secret; it stops decrypting.
+    await doc.update({ ownerUid: "u2" });
+    await expect(secrets.get(conn)).rejects.toThrow();
+
+    await secrets.delete(conn);
+    expect(await secrets.get(conn)).toBeNull();
+    await expect(secrets.create(conn, cred)).rejects.toThrow(/already used/);
   });
 });

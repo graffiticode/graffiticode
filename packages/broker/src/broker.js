@@ -84,6 +84,11 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
 
     const credential = await secrets.get(claims.conn);
     if (!credential) return refuse("no-credential");
+    // A connection id alone is not enough: the credential must belong to the
+    // owner and backend the token was minted for.
+    if (credential.ownerUid !== claims.own || credential.backend !== claims.backend) {
+      return refuse("credential-binding-mismatch");
+    }
 
     if (operation.kind !== "write") {
       const result = await operation.run(payload, credential, { onStep: async () => {} });

@@ -65,7 +65,8 @@ beforeEach(async () => {
     connections,
     audit,
     brokerAdmin: {
-      putSecret: async (id, cred) => { brokerSecrets.set(id, cred); },
+      createSecret: async (id, cred) => { brokerSecrets.set(id, cred); },
+      rotateSecret: async (id, cred) => { brokerSecrets.set(id, cred); },
       deleteSecret: async id => { brokerSecrets.delete(id); }
     }
   });
@@ -176,7 +177,7 @@ describe("connection management over http", () => {
     expect(created.status).toBe(200);
     const { connectionId } = created.body.data;
     expect(JSON.stringify(created.body)).not.toContain(CRED.secret);
-    expect(brokerSecrets.get(connectionId)).toEqual(CRED);
+    expect(brokerSecrets.get(connectionId)).toMatchObject({ backend: "learnosity", ...CRED });
 
     const listed = await as(request(app).get("/v1/connections"), SA.console);
     expect(listed.body.data.map(c => c.connectionId)).toContain(connectionId);

@@ -12,8 +12,19 @@
 //               outcome  { status, steps, result, at } — after it
 //             A claim with no outcome is "uncertain": the broker may have
 //             crashed mid-call, so it is reported, never blindly re-run.
-//   secrets   get(connectionId) -> { key, secret } | null, decrypted with the
-//             broker-only key. Never logged, never returned to callers.
+//   secrets   One credential per connection, bound to the connection's
+//             immutable owner and backend. Never logged, never returned to
+//             callers.
+//               create(id, { ownerUid, backend, key, secret })  once per id;
+//                        an id already used (even if deleted) is refused
+//               rotate(id, { ownerUid, backend, key, secret })  replaces the
+//                        secret only: owner, backend and key must match, since
+//                        the key identifies the provider account (Learnosity's
+//                        consumer key). A new account needs a new connection.
+//               get(id) -> { ownerUid, backend, key, secret } | null
+//               delete(id)  leaves a tombstone, so the id is never reused
+
+import { ConflictError, NotFoundError } from "@graffiticode/common/errors";
 
 export const createMemoryOnceStore = () => {
   const seen = new Map();
@@ -51,17 +62,34 @@ export const createMemoryReceiptStore = () => {
   };
 };
 
+// Shared by the memory and Firestore stores: may `next` rotate `current`?
+export const checkRotation = (current, next) => {
+  if (!current || current.deleted) throw new NotFoundError("no credential for this connection");
+  if (current.ownerUid !== next.ownerUid || current.backend !== next.backend) {
+    throw new ConflictError("connection owner and backend are immutable");
+  }
+  if (current.key !== next.key) {
+    throw new ConflictError("rotation cannot change the provider account; create a new connection");
+  }
+};
+
 export const createMemorySecretStore = (entries = {}) => {
   const map = new Map(Object.entries(entries));
   return {
     async get(connectionId) {
-      return map.get(connectionId) ?? null;
+      const entry = map.get(connectionId);
+      return entry && !entry.deleted ? { ...entry } : null;
     },
-    async put(connectionId, credential) {
-      map.set(connectionId, { ...credential });
+    async create(connectionId, { ownerUid, backend, key, secret }) {
+      if (map.has(connectionId)) throw new ConflictError("connection id already used");
+      map.set(connectionId, { ownerUid, backend, key, secret });
+    },
+    async rotate(connectionId, { ownerUid, backend, key, secret }) {
+      checkRotation(map.get(connectionId), { ownerUid, backend, key });
+      map.set(connectionId, { ownerUid, backend, key, secret });
     },
     async delete(connectionId) {
-      map.delete(connectionId);
+      map.set(connectionId, { deleted: true });
     },
   };
 };

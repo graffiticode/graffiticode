@@ -41,6 +41,8 @@ let receipts;
 let routes;
 let failItems;
 let lostItems;
+let secrets;
+let brokerDeps;
 let signer;
 let records;
 let otherSigner;
@@ -75,14 +77,16 @@ beforeEach(async () => {
     return { meta: { status: true } };
   };
   receipts = createMemoryReceiptStore();
-  broker = createBroker({
+  secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "consumer-key", secret: SECRET } });
+  brokerDeps = {
     jwks,
     operations: buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi }),
-    secrets: createMemorySecretStore({ "conn-1": { key: "consumer-key", secret: SECRET } }),
+    secrets,
     once: createMemoryOnceStore(),
     receipts,
     audit
-  });
+  };
+  broker = createBroker(brokerDeps);
 });
 
 const session = (over = {}) => policy.snapshot({
@@ -175,6 +179,16 @@ describe("preview signing", () => {
       argd: argsDigest(PREVIEW)
     });
     await refused(broker.execute({ caller: L0176, token: forged, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
+  });
+
+  it("refuses a credential not bound to the token's owner and backend", async () => {
+    const token = await previewToken();
+    await secrets.delete("conn-1");
+    await expect(secrets.create("conn-1", { ownerUid: "0xsomeoneelse", backend: "learnosity", key: "k", secret: "s" }))
+      .rejects.toThrow(/already used/);
+    const rebound = createMemorySecretStore({ "conn-1": { ownerUid: "0xsomeoneelse", backend: "learnosity", key: "k", secret: "s" } });
+    const other = createBroker({ ...brokerDeps, secrets: rebound });
+    await refused(other.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "credential-binding-mismatch");
   });
 
   it("refuses a validly signed token minted for another registry version", async () => {

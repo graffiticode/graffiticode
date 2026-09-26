@@ -2,8 +2,9 @@
 // @graffiticode/policy caller.js); the execution token rides in Authorization.
 //
 //   POST   /v1/execute          compiler  { op, payload }  -> { status, result?, steps?, replayed?, error? }
-//   PUT    /v1/secrets/:conn    policy    { key, secret }  store (sealed) or replace a connection's credential
-//   DELETE /v1/secrets/:conn    policy
+//   POST   /v1/secrets/:conn    policy    { ownerUid, backend, key, secret }  store a new connection's credential
+//   PUT    /v1/secrets/:conn    policy    { ownerUid, backend, key, secret }  rotate it (same owner, backend, key)
+//   DELETE /v1/secrets/:conn    policy    delete it; the id is never reused
 //
 // A refusal carries only its reason — never the token, payload or credential.
 
@@ -34,12 +35,18 @@ export const createBrokerApp = ({ broker, secrets, identifyCaller, audit }) => {
     await audit({ event: "secret", connectionId: req.params.conn, outcome: "allowed" });
     sendSuccessResponse(res, { connectionId: req.params.conn });
   });
-  router.put("/secrets/:conn", provision(async req => {
-    const { key, secret } = req.body ?? {};
-    if (typeof key !== "string" || !key || typeof secret !== "string" || !secret) {
-      throw new InvalidArgumentError("key and secret are required");
+  const credentialFrom = body => {
+    const { ownerUid, backend, key, secret } = body ?? {};
+    if (![ownerUid, backend, key, secret].every(v => typeof v === "string" && v)) {
+      throw new InvalidArgumentError("ownerUid, backend, key and secret are required");
     }
-    await secrets.put(req.params.conn, { key, secret });
+    return { ownerUid, backend, key, secret };
+  };
+  router.post("/secrets/:conn", provision(async req => {
+    await secrets.create(req.params.conn, credentialFrom(req.body));
+  }));
+  router.put("/secrets/:conn", provision(async req => {
+    await secrets.rotate(req.params.conn, credentialFrom(req.body));
   }));
   router.delete("/secrets/:conn", provision(async req => {
     await secrets.delete(req.params.conn);

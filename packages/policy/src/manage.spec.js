@@ -5,6 +5,7 @@ import {
   createPseudonymizer,
   PolicyDenied
 } from "./index.js";
+import { BrokerConflict } from "./broker-admin.js";
 
 const OWNER = "0xowneruid";
 const OTHER = "0xotheruid";
@@ -23,7 +24,11 @@ beforeEach(() => {
   manager = createConnectionManager({
     connections,
     brokerAdmin: {
-      putSecret: async (id, cred) => { stored.set(id, cred); },
+      createSecret: async (id, cred) => { stored.set(id, cred); },
+      rotateSecret: async (id, cred) => {
+        if (stored.get(id).key !== cred.key) throw new BrokerConflict("changed");
+        stored.set(id, cred);
+      },
       deleteSecret: async id => { stored.delete(id); }
     },
     audit: createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) })
@@ -41,7 +46,7 @@ describe("connection lifecycle", () => {
   it("creates a connection: the secret goes to the broker, the record to policy", async () => {
     const created = await create();
     expect(created).toMatchObject({ backend: "learnosity", status: "active", label: "Mine" });
-    expect(stored.get(created.connectionId)).toEqual(CRED);
+    expect(stored.get(created.connectionId)).toEqual({ ownerUid: OWNER, backend: "learnosity", ...CRED });
     expect(await connections.get(created.connectionId)).toMatchObject({ ownerUid: OWNER, status: "active" });
     expect(JSON.stringify(created)).not.toContain(CRED.secret);
   });
@@ -54,10 +59,19 @@ describe("connection lifecycle", () => {
     expect(Object.keys(rows[0]).sort()).toEqual(["backend", "connectionId", "label", "status"]);
   });
 
-  it("rotates the secret in place and keeps the connection id", async () => {
+  it("rotates the secret in place, keeping the connection id, owner and backend", async () => {
     const { connectionId } = await create();
-    await manager.rotate({ caller: CONSOLE, user: { uid: OWNER }, connectionId, credential: { key: "k2", secret: "s2" } });
-    expect(stored.get(connectionId)).toEqual({ key: "k2", secret: "s2" });
+    await manager.rotate({ caller: CONSOLE, user: { uid: OWNER }, connectionId, credential: { key: CRED.key, secret: "s2" } });
+    expect(stored.get(connectionId)).toEqual({ ownerUid: OWNER, backend: "learnosity", key: CRED.key, secret: "s2" });
+  });
+
+  it("refuses a rotation the broker rejects as a different provider account", async () => {
+    const { connectionId } = await create();
+    await denied(
+      manager.rotate({ caller: CONSOLE, user: { uid: OWNER }, connectionId, credential: { key: "another-account", secret: "s2" } }),
+      "provider-account-changed"
+    );
+    expect(stored.get(connectionId).key).toBe(CRED.key);
   });
 
   it("disables and removes", async () => {
@@ -75,7 +89,7 @@ describe("connection lifecycle", () => {
     await denied(manager.disable({ caller: CONSOLE, user: { uid: OTHER }, connectionId }), "not-owner");
     await denied(manager.remove({ caller: CONSOLE, user: { uid: OTHER }, connectionId }), "not-owner");
     await denied(create({ caller: { role: "compiler", lang: "0176" } }), "caller-not-entry-point");
-    expect(stored.get(connectionId)).toEqual(CRED);
+    expect(stored.get(connectionId)).toEqual({ ownerUid: OWNER, backend: "learnosity", ...CRED });
   });
 
   it("refuses unknown backends and bad credentials without storing anything", async () => {
