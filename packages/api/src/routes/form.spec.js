@@ -45,6 +45,34 @@ describe("routes/form", () => {
       .expect(302);
   });
 
+  it("should carry a publication through to the view and its data url", async () => {
+    const res = await request(app)
+      .post("/task")
+      .set("x-graffiticode-storage-type", "ephemeral")
+      .send({ task: TASK1 })
+      .expect(200);
+    const id = res.body.data.id;
+    const redirect = await request(app)
+      .get("/form")
+      .query({ id, publication: "pub-1234" })
+      .expect(302);
+    const location = new URL(redirect.headers.location);
+    expect(location.searchParams.get("publication")).toBe("pub-1234");
+    expect(new URL(location.searchParams.get("url")).searchParams.get("publication")).toBe("pub-1234");
+  });
+
+  it("should refuse a connection from an anonymous caller", async () => {
+    const res = await request(app)
+      .post("/task")
+      .set("x-graffiticode-storage-type", "ephemeral")
+      .send({ task: TASK1 })
+      .expect(200);
+    await request(app)
+      .get("/form")
+      .query({ id: res.body.data.id, connection: "conn-1" })
+      .expect(400);
+  });
+
   it("should handle missing params", async () => {
     await request(app)
       .get("/form")

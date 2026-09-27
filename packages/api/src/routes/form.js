@@ -7,6 +7,8 @@ import {
   parseIdsFromRequest,
   parseOriginFromRequest,
   parseAuthFromRequest,
+  parseConnectionId,
+  parsePublicationId,
 } from "./utils.js";
 
 const checkLangParam = async ({ lang, pingLang, uid }) => {
@@ -34,6 +36,13 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
     if (origin) {
       params.set("origin", origin);
     }
+    // A view through a connection (the caller's stored result) or of a
+    // publication. The View reads these from its own URL for its data load.
+    const connection = parseConnectionId(req.query.connection, { auth: req.auth.context });
+    const publication = parsePublicationId(req.query.publication);
+    if (connection && publication) {
+      throw new InvalidArgumentError("choose a connection or a publication, not both");
+    }
     const protocol = req.headers.host.indexOf("localhost") !== -1 && "http" || "https";
     let lang;
     if (ids.length === 1) {
@@ -43,6 +52,14 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
       dataParams.set("id", id);
       if (req.auth.token) {
         dataParams.set("access_token", authToken);
+      }
+      if (connection) {
+        params.set("connection", connection);
+        dataParams.set("connection", connection);
+      }
+      if (publication) {
+        params.set("publication", publication);
+        dataParams.set("publication", publication);
       }
       const auth = req.auth.context;
       const tasks = await getTasks({ auth, ids, req });
