@@ -32,7 +32,7 @@ beforeEach(() => {
   snapshots = [];
   invocations = [];
   fetched = [];
-  snapshotReply = (args) => ({ allowed: args.fns, mode: "render" });
+  snapshotReply = (args) => ({ allowed: args.fns });
   brokerReply = (call) =>
     call.op === "learnosity.write-items"
       ? { status: "succeeded", result: { saved: true, references: ["graffiticode-t-0"] } }
@@ -56,7 +56,7 @@ async function compile(src: string, identity?: any) {
   );
 }
 
-const WITH_CONNECTION = { uid: "u1", connectionId: "conn-1", userToken: "user", intentToken: null };
+const WITH_CONNECTION = { uid: "u1", connectionId: "conn-1", userToken: "user", invocationToken: "inv", stage: "s0" };
 
 describe("before a policy client is configured", () => {
   test("a selected connection is refused, not silently run on server credentials", async () => {
@@ -92,7 +92,6 @@ describe("brokered compiles", () => {
   });
 
   test("a save in a save session writes through the broker with no program credentials", async () => {
-    snapshotReply = (args) => ({ allowed: args.fns, mode: "save" });
     const { err, val } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`, WITH_CONNECTION);
     expect(err).toEqual([]);
     expect(invocations.map((c) => c.op)).toEqual(["learnosity.write-items", "learnosity.sign-questions-preview"]);
@@ -131,7 +130,6 @@ describe("brokered compiles", () => {
   // Policy refuses an occurrence id outside this pattern (ID_RE in
   // graffiticode packages/policy/src/policy.js); keep the two in step.
   test("every occurrence id the compiler sends is one policy accepts", async () => {
-    snapshotReply = (args) => ({ allowed: args.fns, mode: "save" });
     const { err } = await compile(
       `set-var "lrn-id" "t" init save-to-itembank items [${ITEM}] {}..`,
       WITH_CONNECTION,
@@ -144,21 +142,19 @@ describe("brokered compiles", () => {
   });
 
   test("the legacy member form saves the same way", async () => {
-    snapshotReply = (args) => ({ allowed: args.fns, mode: "save" });
     const { err } = await compile(`set-var "lrn-id" "t" items [save-to-itembank true, ${ITEM}] {}..`, WITH_CONNECTION);
     expect(err).toEqual([]);
     expect(invocations[0].op).toBe("learnosity.write-items");
   });
 
-  test("a save in a render session is disabled and nothing is written", async () => {
-    const { err, val } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`, WITH_CONNECTION);
-    expect(err).toEqual([]);
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-to-itembank" });
-    expect(invocations.some((c) => c.op === "learnosity.write-items")).toBe(false);
+  test("a save the connection does not grant is refused before anything runs", async () => {
+    snapshotReply = () => ({ allowed: ["preview-itembank"] });
+    const { err } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`, WITH_CONNECTION);
+    expect(err[0].message).toMatch(/save-to-itembank is not permitted/);
+    expect(invocations).toEqual([]);
   });
 
   test("an uncertain or partial save is an error, never a silent retry", async () => {
-    snapshotReply = (args) => ({ allowed: args.fns, mode: "save" });
     brokerReply = (call) =>
       call.op === "learnosity.write-items"
         ? { status: "partial", steps: ["questions"], error: "items write failed" }
@@ -169,7 +165,6 @@ describe("brokered compiles", () => {
   });
 
   test("an uncertain save tells the caller how to run it again deliberately", async () => {
-    snapshotReply = (args) => ({ allowed: args.fns, mode: "save" });
     brokerReply = (call) =>
       call.op === "learnosity.write-items"
         ? { status: "uncertain", replayed: true }
@@ -188,16 +183,23 @@ describe("brokered compiles", () => {
   });
 
   test("a snapshot without preview refuses every render", async () => {
-    snapshotReply = () => ({ allowed: [], mode: "render" });
+    snapshotReply = () => ({ allowed: [] });
     const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
     expect(err[0].message).toMatch(/preview-itembank is not permitted/);
     expect(invocations).toEqual([]);
   });
 
-  test("Author activities are disabled outside author mode", async () => {
+  test("an Author activity is signed through the broker when the connection grants it", async () => {
     const { err, val } = await compile(`set-var "lrn-id" "t" author {}..`, WITH_CONNECTION);
     expect(err).toEqual([]);
-    expect(val).toEqual({ skipped: "mode-disabled", fn: "author-itembank" });
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-author"]);
+    expect(val.request).toBe("signed:learnosity.sign-author");
+  });
+
+  test("an Author activity is refused when the connection does not grant it", async () => {
+    snapshotReply = () => ({ allowed: ["preview-itembank"] });
+    const { err } = await compile(`set-var "lrn-id" "t" author {}..`, WITH_CONNECTION);
+    expect(err[0].message).toMatch(/author-itembank is not permitted/);
     expect(invocations).toEqual([]);
   });
 });

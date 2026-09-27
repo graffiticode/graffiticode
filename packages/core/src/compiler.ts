@@ -466,7 +466,7 @@ export class Transformer extends BaseTransformer {
         return;
       }
       // Brokered: the write happens in the broker, under the connection's
-      // credential, only in a save session policy resolved from an intent.
+      // credential, whenever the program runs and policy grants it.
       if (isBrokered(this.execContext)) {
         try {
           const itemBank = await brokeredSave(this.execContext, plan, occurrenceKey(node));

@@ -16,8 +16,8 @@ import type { ExecContext } from "@graffiticode/l0000";
 
 export const PROTECTED_FUNCTIONS = Object.freeze({
   INIT: { fn: "preview-itembank", kind: "sign" as const },
-  SAVE_TO_ITEMBANK: { fn: "save-to-itembank", kind: "write" as const, modes: ["save" as const] },
-  AUTHOR: { fn: "author-itembank", kind: "sign" as const, modes: ["author" as const] },
+  SAVE_TO_ITEMBANK: { fn: "save-to-itembank", kind: "write" as const },
+  AUTHOR: { fn: "author-itembank", kind: "sign" as const },
 });
 
 // Every render is signed in PROG, so preview is required by every brokered
