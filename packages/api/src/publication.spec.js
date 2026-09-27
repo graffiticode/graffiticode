@@ -67,7 +67,7 @@ beforeEach(async () => {
         invocationToken,
         stage
       });
-      snapshots.push({ uid, auth, allowed: snap.allowed, mode: snap.mode });
+      snapshots.push({ uid, auth, allowed: snap.allowed });
       await policy.mint({
         caller: L0176, sessionToken: snap.sessionToken, fn: "preview-itembank", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0", argsDigest: "a".repeat(64)
       });
@@ -121,7 +121,7 @@ describe("publications", () => {
     expect(res.status).toBe(200);
     const out = await view(res.body.data.publicationId);
     expect(out).toEqual({ data: { ...ACTIVITY, request: "signed" }, errors: [] });
-    expect(snapshots).toEqual([{ uid: null, auth: null, allowed: ["preview-itembank"], mode: "render" }]);
+    expect(snapshots).toEqual([{ uid: null, auth: null, allowed: ["preview-itembank"] }]);
   });
 
   it("publish only the caller's own current result", async () => {

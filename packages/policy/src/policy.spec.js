@@ -66,7 +66,6 @@ const snap = async (over = {}) => policy.snapshot({
   lang: "0176",
   connectionId: "conn-1",
   fns: ALL_FNS,
-  mode: "read",
   // Signed directly, so snapshot tests can name any user or connection.
   invocationToken: await issueToken(signer, "invocation", {
     sub: (over.user ?? { uid: OWNER }).uid,
@@ -75,13 +74,6 @@ const snap = async (over = {}) => policy.snapshot({
     seq: 1
   }),
   stage: "s0",
-  ...over
-});
-const intent = (mode, over = {}) => policy.issueIntent({
-  caller: CONSOLE,
-  user: { uid: OWNER },
-  mode,
-  connectionId: "conn-1",
   ...over
 });
 const denied = async (promise, reason) => {
@@ -133,19 +125,13 @@ describe("token profiles", () => {
 });
 
 describe("snapshot (owner-only)", () => {
-  it("gives the owner the functions that run in the session's mode", async () => {
-    expect((await snap({ mode: "read" })).allowed).toEqual(["preview-itembank"]);
-    const { intentToken } = await intent("author");
-    expect((await snap({ intentToken })).allowed).toEqual(["preview-itembank", "author-itembank"]);
-  });
-
-  it("gives writes only to a session carrying a save intent", async () => {
-    const { intentToken, saveActionId } = await intent("save");
-    expect(saveActionId).toEqual(expect.any(String));
-    const result = await snap({ intentToken });
-    expect(result.allowed).toEqual(["preview-itembank", "save-to-itembank"]);
-    expect(result.mode).toBe("save");
-    expect((await snap({ mode: "render" })).mode).toBe("render");
+  it("gives the owner every function the program calls, writes and Author included", async () => {
+    const result = await snap();
+    expect(result.allowed).toEqual(ALL_FNS);
+    expect(result.mode).toBeUndefined();
+    const { claims } = await verifyToken(jwks, "session", result.sessionToken);
+    expect(claims.mode).toBeUndefined();
+    expect(claims.sav).toBeUndefined();
   });
 
   it("ignores functions that are not registered for the language", async () => {
@@ -162,33 +148,15 @@ describe("snapshot (owner-only)", () => {
     ["a missing connection", { connectionId: "conn-none" }, "connection-not-found"],
     ["another owner's connection", { connectionId: "conn-other" }, "not-owner"],
     ["a caller asking for another language", { caller: { role: "compiler", lang: "0000" } }, "caller-language-mismatch"],
-    ["an unknown mode", { mode: "admin" }, "bad-mode"],
-    ["a privileged mode claimed without an intent", { mode: "save" }, "privileged-mode-without-intent"],
-    ["author mode claimed without an intent", { mode: "author" }, "privileged-mode-without-intent"],
-    ["a malformed intent", { intentToken: "x.y.z" }, "bad-intent"],
     ["a caller that is not a compiler", { caller: CONSOLE }, "caller-language-mismatch"],
     ["no user", { user: null }, "no-user"]
   ])("refuses %s", async (_, over, reason) => {
     await denied(snap(over), reason);
   });
 
-  it("refuses an intent issued for another user or connection", async () => {
-    const { intentToken } = await intent("save");
-    await denied(snap({ intentToken, user: { uid: OTHER } }), "intent-mismatch");
-    const other = await policy.issueIntent({ caller: CONSOLE, user: { uid: OWNER }, mode: "save", connectionId: "conn-x" });
-    await denied(snap({ intentToken: other.intentToken }), "intent-mismatch");
-  });
-
-  it("refuses a session token presented as an intent", async () => {
+  it("refuses a session token presented as an invocation", async () => {
     const { sessionToken } = await snap();
-    await denied(snap({ intentToken: sessionToken }), "bad-intent");
-  });
-
-  it("issues intents only to the entry point, only for privileged modes, only to the owner", async () => {
-    await denied(intent("save", { caller: L0176 }), "caller-not-entry-point");
-    await denied(intent("read"), "bad-mode");
-    await denied(intent("save", { user: { uid: OTHER } }), "not-owner");
-    await denied(intent("save", { connectionId: "conn-off" }), "connection-disabled");
+    await denied(snap({ invocationToken: sessionToken }), "bad-invocation");
   });
 
   it("audits allowed and denied decisions with pseudonymous ids and no tokens", async () => {
@@ -224,23 +192,23 @@ describe("mint", () => {
       lang: "0176",
       fn: "preview-itembank",
       op: "learnosity.sign-items-preview",
-      mode: "read",
       argd: digest("args"),
       opid: operationId
     });
     expect(claims.exp - claims.iat).toBeLessThanOrEqual(60);
   });
 
-  it("never lets a preview session sign Author requests or write", async () => {
-    const { sessionToken } = await snap();
+  it("never lets a preview-only session sign Author requests or write", async () => {
+    const { sessionToken } = await snap({ fns: ["preview-itembank"] });
     await denied(mintWith(sessionToken, { op: "learnosity.sign-author" }), "operation-not-allowed");
     await denied(mintWith(sessionToken, { op: "learnosity.write-items" }), "operation-not-allowed");
     await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
   });
 
-  it("never mints a write for a read session, even for the owner", async () => {
-    const { sessionToken } = await snap({ mode: "read" });
-    await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
+  it("mints a write for any session whose program calls it", async () => {
+    const { sessionToken } = await snap();
+    await expect(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" })).resolves.toBeTruthy();
+    await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.sign-author" }), "operation-not-allowed");
   });
 
   it("accepts the occurrence ids compilers send, and nothing outside [A-Za-z0-9_:.-]", async () => {
@@ -250,18 +218,16 @@ describe("mint", () => {
     await denied(mintWith(sessionToken, { occurrenceId: "SAVE_TO_ITEMBANK@42.0" }), "bad-request");
   });
 
-  it("mints a write in a save session, keyed by invocation, stage and occurrence", async () => {
-    const { intentToken } = await intent("save");
+  it("keys a write by invocation, stage and occurrence", async () => {
     const { invocationId, invocationToken } = await invoke();
-    const { sessionToken } = await snap({ intentToken, invocationToken, stage: "s1" });
+    const { sessionToken } = await snap({ invocationToken, stage: "s1" });
     const { operationId } = await mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" });
     expect(operationId).toBe(`${invocationId}/s1/n12.0`);
   });
 
   it("gives a retry (same idempotency key) the same operation id, and a rerun a new one", async () => {
-    const { intentToken } = await intent("save");
     const w = { fn: "save-to-itembank", op: "learnosity.write-items" };
-    const opid = async invocation => (await mintWith((await snap({ intentToken, invocationToken: invocation.invocationToken })).sessionToken, w)).operationId;
+    const opid = async invocation => (await mintWith((await snap({ invocationToken: invocation.invocationToken })).sessionToken, w)).operationId;
     const first = await invoke({ idempotencyKey: "job-1" });
     const retry = await invoke({ idempotencyKey: "job-1" });
     const rerun = await invoke({ idempotencyKey: "job-2" });
@@ -290,8 +256,7 @@ describe("mint", () => {
     const { sessionToken } = await snap();
     const [h, p, s] = sessionToken.split(".");
     const claims = JSON.parse(Buffer.from(p, "base64url").toString());
-    claims.fns = ["save-to-itembank"];
-    claims.mode = "save";
+    claims.sub = OTHER;
     const forged = [h, Buffer.from(JSON.stringify(claims)).toString("base64url"), s].join(".");
     await denied(mintWith(forged, { fn: "save-to-itembank", op: "learnosity.write-items" }), "bad-session");
   });
@@ -379,18 +344,12 @@ describe("publications", () => {
     const v = await view(publicationId);
     expect(v).toMatchObject({ publisherUid: OWNER, connectionId: "conn-1", lang: "0176", taskId: "task-1", artifactInvocationId: "inv-run" });
     const snap = await viewSnap(v.invocationToken);
-    expect(snap).toMatchObject({ allowed: ["preview-itembank"], mode: "render" });
+    expect(snap).toMatchObject({ allowed: ["preview-itembank"] });
     const { claims } = await verifyToken(jwks, "session", snap.sessionToken);
-    expect(claims).toMatchObject({ sub: OWNER, pub: publicationId, mode: "render", fns: ["preview-itembank"] });
+    expect(claims).toMatchObject({ sub: OWNER, pub: publicationId, fns: ["preview-itembank"] });
     await expect(mintWith(snap.sessionToken)).resolves.toBeTruthy();
     await denied(mintWith(snap.sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
     await denied(mintWith(snap.sessionToken, { fn: "author-itembank", op: "learnosity.sign-author" }), "fn-not-in-session");
-  });
-
-  it("never take an intent, even the owner's", async () => {
-    const { publicationId } = await publish();
-    const { intentToken } = await intent("save");
-    await denied(viewSnap((await view(publicationId)).invocationToken, { intentToken }), "bad-request");
   });
 
   it("share one invocation across views", async () => {

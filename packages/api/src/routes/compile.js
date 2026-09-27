@@ -8,7 +8,6 @@ import {
   createError,
   parseAuthTokenFromRequest,
   parseConnectionId,
-  parseIntentToken,
   parseIdempotencyKey,
   optionsHandler
 } from "./utils.js";
@@ -60,7 +59,6 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const authToken = parseAuthTokenFromRequest(req);
     const items = getItemsFromRequest(req);
     const connectionId = parseConnectionId(req.body?.connectionId, { auth });
-    const intentToken = parseIntentToken(req.body?.intentToken, { connectionId });
     const idempotencyKey = parseIdempotencyKey(req.get("Idempotency-Key") ?? req.body?.idempotencyKey, { connectionId });
     const ids = [];
     EMPTY_OBJECT_ID =
@@ -80,7 +78,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
       ids.push(id);
       // One key per item, so a multi-item request's invocations stay distinct.
       const itemKey = idempotencyKey && items.length > 1 ? `${idempotencyKey}.${i}` : idempotencyKey;
-      return await getData({ auth, authToken, ids: [id], connectionId, intentToken, idempotencyKey: itemKey });
+      return await getData({ auth, authToken, ids: [id], connectionId, idempotencyKey: itemKey });
     }));
     if (data.length === 1) {
       data = data[0];

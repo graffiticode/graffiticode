@@ -17,7 +17,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // (see data.js): `compiled` for logging, `noStore` when the result expires.
   // Callers that don't care (routes/compile.js) can omit it.
   return async ({
-    auth, authToken, ids, action = {}, refresh = false, connectionId = null, intentToken = null, idempotencyKey = null,
+    auth, authToken, ids, action = {}, refresh = false, connectionId = null, idempotencyKey = null,
     read = false, publicationId = null
   }) => {
     if (ids.length < 1) {
@@ -34,7 +34,6 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       action,
       refresh,
       connectionId,
-      intentToken,
       idempotencyKey: keyFor(i),
       read,
       publicationId

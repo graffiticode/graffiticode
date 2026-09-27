@@ -2,11 +2,8 @@
 // signing key but never a validation profile: each has its own `typ`, audience
 // and lifetime, the algorithm is fixed, and the issuer is fixed. A session
 // token presented to the broker, or an execution or session token presented
-// as an intent, fails verification rather than being read as another kind.
+// as an invocation, fails verification rather than being read as another kind.
 //
-//   intent    aud=policy  typ=gc-intent+jwt   30 min   a user's deliberate save or
-//                                                      authoring action, issued to
-//                                                      the console (entry point)
 //   invocation aud=policy typ=gc-invocation+jwt 30 min one logical invocation,
 //                                                      issued to the gateway
 //   session   aud=policy  typ=gc-session+jwt  ~15 min  one compile's admission
@@ -19,9 +16,6 @@ export const ISSUER = "urn:graffiticode:policy";
 export const ALG = "ES256";
 
 export const PROFILES = Object.freeze({
-  // Long enough to cover a Cloud Tasks job and its re-dispatches (900 s
-  // deadline), so a retried save keeps its save-action id.
-  intent: Object.freeze({ typ: "gc-intent+jwt", audience: "urn:graffiticode:policy", ttlSeconds: 30 * 60 }),
   // A retry past expiry sends its idempotency key again and gets the same
   // invocation in a fresh token.
   invocation: Object.freeze({ typ: "gc-invocation+jwt", audience: "urn:graffiticode:policy", ttlSeconds: 30 * 60 }),

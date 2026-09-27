@@ -146,7 +146,7 @@ describe("caller identity", () => {
   it("admits a known compiler whose verified identity matches the invoker", async () => {
     const res = await as(request(app).post("/v1/snapshot"), SA.l0176).send(SNAPSHOT);
     expect(res.status).toBe(200);
-    expect(res.body.data.allowed).toEqual(["preview-itembank"]);
+    expect(res.body.data.allowed).toEqual(["preview-itembank", "save-to-itembank"]);
   });
 
   it("refuses a missing caller identity", async () => {
@@ -182,10 +182,15 @@ describe("route authorization by caller", () => {
     expect((await as(request(app).post("/v1/mint"), SA.console).send({})).status).toBe(403);
   });
 
-  it("refuses a compiler on the intent route", async () => {
-    const res = await as(request(app).post("/v1/intents"), SA.l0176).send({ mode: "save", connectionId: "conn-1" });
+  it("refuses a compiler on the gateway's routes", async () => {
+    const res = await as(request(app).post("/v1/invocations"), SA.l0176).send({ connectionId: "conn-1" });
     expect(res.status).toBe(403);
     expect(records.some(r => r.reason === "route-not-allowed-for-caller")).toBe(true);
+  });
+
+  it("has no intent route", async () => {
+    const res = await as(request(app).post("/v1/intents"), SA.console).send({ mode: "save", connectionId: "conn-1" });
+    expect(res.status).toBe(404);
   });
 
   it("binds a compiler to its own language", async () => {
@@ -195,11 +200,9 @@ describe("route authorization by caller", () => {
   });
 });
 
-describe("end to end: intent, snapshot, mint", () => {
-  it("lets the console's save intent carry a compiler's session to a write token", async () => {
-    const intent = await as(request(app).post("/v1/intents"), SA.console).send({ mode: "save", connectionId: "conn-1" });
-    expect(intent.status).toBe(200);
-    const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send({ ...SNAPSHOT, intentToken: intent.body.data.intentToken });
+describe("end to end: invocation, snapshot, mint", () => {
+  it("lets a compiler's session for the owner mint a write token, with no intent", async () => {
+    const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send(SNAPSHOT);
     expect(snap.body.data.allowed).toEqual(["preview-itembank", "save-to-itembank"]);
     const mint = await as(request(app).post("/v1/mint"), SA.l0176, { user: null }).send({
       sessionToken: snap.body.data.sessionToken,
@@ -210,12 +213,6 @@ describe("end to end: intent, snapshot, mint", () => {
     });
     expect(mint.status).toBe(200);
     expect(mint.body.data.operationId).toMatch(/^inv-[0-9a-f-]+\/s0\/n1\.0$/);
-  });
-
-  it("refuses a compiler claiming save mode without an intent", async () => {
-    const res = await as(request(app).post("/v1/snapshot"), SA.l0176).send({ ...SNAPSHOT, mode: "save" });
-    expect(res.status).toBe(403);
-    expect(res.body.error.reason).toBe("privileged-mode-without-intent");
   });
 
   it("requires a verified user", async () => {
@@ -245,7 +242,7 @@ describe("connection management over http", () => {
 
     const body = await snapshotBody(connectionId);
     const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send(body);
-    expect(snap.body.data.allowed).toEqual(["preview-itembank"]);
+    expect(snap.body.data.allowed).toEqual(["preview-itembank", "save-to-itembank"]);
 
     expect((await as(request(app).post(`/v1/connections/${connectionId}/disable`), SA.console).send()).status).toBe(200);
     const after = await as(request(app).post("/v1/snapshot"), SA.l0176).send(body);

@@ -24,7 +24,6 @@ import {
 const OWNER = "0xowneruid";
 const SECRET = "learnosity-secret-value-xyz";
 const L0176 = { role: "compiler", lang: "0176" };
-const CONSOLE = { role: "console" };
 
 const PREVIEW = {
   id: "t",
@@ -48,7 +47,6 @@ let brokerDeps;
 let signer;
 let records;
 let otherSigner;
-let saveIntent;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -65,7 +63,6 @@ beforeEach(async () => {
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
   policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
-  saveIntent = await policy.issueIntent({ caller: CONSOLE, user: { uid: OWNER }, mode: "save", connectionId: "conn-1" });
   routes = [];
   failItems = false;
   lostItems = false;
@@ -107,7 +104,6 @@ const session = async ({ idempotencyKey, ...over } = {}) => policy.snapshot({
   lang: "0176",
   connectionId: "conn-1",
   fns: ["preview-itembank", "save-to-itembank", "author-itembank"],
-  mode: "read",
   invocationToken: (await invocation(idempotencyKey)).invocationToken,
   stage: "s0",
   ...over
@@ -120,7 +116,7 @@ const previewToken = async (payload = PREVIEW) =>
   mint(await session(), { fn: "preview-itembank", op: "learnosity.sign-questions-preview", payload });
 
 const saveToken = async ({ idempotencyKey = "job-1", payload = WRITE, occurrenceId } = {}) =>
-  mint(await session({ intentToken: saveIntent.intentToken, idempotencyKey }), {
+  mint(await session({ idempotencyKey }), {
     fn: "save-to-itembank",
     op: "learnosity.write-items",
     payload,
@@ -186,7 +182,6 @@ describe("preview signing", () => {
       conn: "conn-1",
       backend: "learnosity",
       lang: "0176",
-      mode: "read",
       fn: "preview-itembank",
       op: "learnosity.sign-questions-preview",
       argd: argsDigest(PREVIEW)
@@ -211,7 +206,6 @@ describe("preview signing", () => {
       conn: "conn-1",
       backend: "learnosity",
       lang: "0176",
-      mode: "read",
       fn: "preview-itembank",
       op: "learnosity.sign-questions-preview",
       argd: argsDigest(PREVIEW),
@@ -338,9 +332,7 @@ describe("item-bank writes", () => {
 
 describe("author signing", () => {
   const authorToken = async payload =>
-    mint(await session({
-      intentToken: (await policy.issueIntent({ caller: CONSOLE, user: { uid: OWNER }, mode: "author", connectionId: "conn-1" })).intentToken
-    }), { fn: "author-itembank", op: "learnosity.sign-author", payload });
+    mint(await session(), { fn: "author-itembank", op: "learnosity.sign-author", payload });
 
   it("builds a fixed request from the reference and allowed widget types", async () => {
     const payload = { reference: "graffiticode-t-0", widgetTypes: ["mcq"] };

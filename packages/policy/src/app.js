@@ -3,14 +3,13 @@
 // made. The end user comes only from Authorization (verified with the auth
 // service); the caller only from X-Caller-Identity (see caller.js).
 //
-//   POST /v1/intents   console    { mode, connectionId }         -> { intentToken, saveActionId }
 //   POST /v1/invocations gateway  { connectionId, taskId, inputDigest, idempotencyKey? }
 //                                                                 -> { invocationToken, invocationId, seq, reused, ownerUid }
 //   POST   /v1/publications          gateway  { connectionId, taskId, lang, artifactInvocationId } -> { publicationId }
 //   DELETE /v1/publications/:id      gateway  the publisher unpublishes
 //   POST   /v1/publications/:id/view gateway  NO user: a view of the published item
 //                                             -> { invocationToken, publisherUid, connectionId, lang, taskId, artifactInvocationId }
-//   POST /v1/snapshot  compiler   { lang, connectionId, fns, mode?, intentToken?, invocationToken, stage }
+//   POST /v1/snapshot  compiler   { lang, connectionId, fns, invocationToken, stage }
 //                                 (no user for a publication's invocation token)
 //                                                                 -> { allowed, sessionToken }
 //   POST /v1/mint      compiler   { sessionToken, fn, op, occurrenceId, argsDigest }
@@ -28,7 +27,6 @@ import { UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/er
 import { PolicyDenied } from "./policy.js";
 
 const ROUTE_ROLES = Object.freeze({
-  intents: ["console"],
   invocations: ["gateway"],
   publications: ["gateway"],
   snapshot: ["compiler"],
@@ -78,12 +76,6 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   };
 
   const router = new Router();
-  router.post("/intents", buildHttpHandler(async (req, res) => {
-    const caller = await authorize("intents")(req);
-    const u = await user(req);
-    const { mode, connectionId } = req.body ?? {};
-    await decide(res, () => policy.issueIntent({ caller, user: u, mode, connectionId }));
-  }));
   router.post("/invocations", buildHttpHandler(async (req, res) => {
     const caller = await authorize("invocations")(req);
     const u = await user(req);
@@ -108,8 +100,8 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.post("/snapshot", buildHttpHandler(async (req, res) => {
     const caller = await authorize("snapshot")(req);
     const u = await optionalUser(req);
-    const { lang, connectionId, fns, mode, intentToken, invocationToken, stage } = req.body ?? {};
-    await decide(res, () => policy.snapshot({ caller, user: u, lang, connectionId, fns, mode, intentToken, invocationToken, stage }));
+    const { lang, connectionId, fns, invocationToken, stage } = req.body ?? {};
+    await decide(res, () => policy.snapshot({ caller, user: u, lang, connectionId, fns, invocationToken, stage }));
   }));
   router.post("/mint", buildHttpHandler(async (req, res) => {
     const caller = await authorize("mint")(req);

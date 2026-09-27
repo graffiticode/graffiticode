@@ -13,8 +13,6 @@
 // Shape: lang -> fn -> spec
 //   backend    connection backend the function runs against
 //   kind       read | write | sign
-//   modes      execution modes it may run in, set by the authenticated entry
-//              point and bound into the session: a write only ever `save`
 //   ops        broker operations a token for this fn may name — nothing else
 //   tags       compiler node tags whose presence in a program requires the fn
 //   implicit   required by every compile of the language (no source node)
@@ -22,11 +20,10 @@
 //   viewSafe   whether a view of a published item may use it (the viewer holds
 //              no grant; the publication's authority reaches only these)
 
-export const REGISTRY_VERSION = 3;
-
-// Execution modes, set by the authenticated entry point (never by a program).
-export const EXEC_MODES = Object.freeze(["save", "author", "read", "render", "verify", "corpus"]);
-const ALL_MODES = EXEC_MODES;
+// There are no execution modes: running the program is the action, and the
+// grant is the authority. A function runs whenever its program calls it
+// through a connection whose grant covers it.
+export const REGISTRY_VERSION = 4;
 
 // Broker operations. The broker builds each request itself from a constrained
 // payload; none is a general signer or proxy.
@@ -36,9 +33,9 @@ export const OPERATIONS = Object.freeze({
   "learnosity.sign-items-preview": Object.freeze({ backend: "learnosity", kind: "sign" }),
   "learnosity.sign-questions-preview": Object.freeze({ backend: "learnosity", kind: "sign" }),
   // Author API signing. Its config carries edit and delete permissions
-  // (packages/core/src/author.ts), so it is NOT preview authority, and it runs
-  // only in `author` mode, which only the owner's authoring entry point sets —
-  // never a render, read, verification or corpus request. The broker accepts a
+  // (packages/core/src/author.ts), so it is NOT preview authority: it is
+  // non-delegable (only the connection's owner can reach it) and not viewSafe
+  // (a published view never can). The broker accepts a
   // constrained payload and builds the request itself: mode fixed to
   // `item_edit`, one item `reference` (required), widget types drawn only from
   // the L0176 allowlist, and no custom widgets or caller-supplied config.
@@ -57,7 +54,6 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       kind: "sign",
       ops: Object.freeze(["learnosity.sign-items-preview", "learnosity.sign-questions-preview"]),
       tags: Object.freeze(["INIT"]),
-      modes: ALL_MODES,
       implicit: true,
       delegable: true,
       viewSafe: true,
@@ -72,27 +68,20 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       kind: "write",
       ops: Object.freeze(["learnosity.write-items"]),
       tags: Object.freeze(["SAVE_TO_ITEMBANK"]),
-      modes: Object.freeze(["save"]),
       implicit: false,
       delegable: true,
       viewSafe: false,
     }),
     // Rendering an `author [...]` activity signs for the Author API. Owners
     // may use it through their own connection; it is not delegable until its
-    // edit/delete authority has its own reviewed boundary.
-    //
-    // CONTRACT ONLY — NOT YET ENFORCED. The mode and payload restrictions
-    // here (and on learnosity.sign-author) define the policy; enforcement
-    // waits for the broker integration: L0176 does not yet register protected
-    // functions with its compiler, its Author signing still merges
-    // caller-supplied data into the signed request (packages/core/src/author.ts),
-    // and the constrained broker signer does not exist yet.
+    // edit/delete authority has its own reviewed boundary. Enforced through
+    // the broker's constrained signer; its request shape is not yet verified
+    // against Learnosity's Author API.
     "author-itembank": Object.freeze({
       backend: "learnosity",
       kind: "sign",
       ops: Object.freeze(["learnosity.sign-author"]),
       tags: Object.freeze(["AUTHOR"]),
-      modes: Object.freeze(["author"]),
       implicit: false,
       delegable: false,
       viewSafe: false,
@@ -117,27 +106,25 @@ export const compilerConfigForLang = lang => {
   const implicitProtectedFunctions = [];
   for (const [fn, spec] of Object.entries(fns)) {
     for (const tag of spec.tags) {
-      protectedFunctions[tag] = { fn, kind: spec.kind, modes: [...spec.modes] };
+      protectedFunctions[tag] = { fn, kind: spec.kind };
     }
     if (spec.implicit) {
-      implicitProtectedFunctions.push({ fn, kind: spec.kind, modes: [...spec.modes] });
+      implicitProtectedFunctions.push({ fn, kind: spec.kind });
     }
   }
   return { protectedFunctions, implicitProtectedFunctions };
 };
 
 // Minting check: may a token for (lang, fn) name this op against this
-// connection backend, in this session's mode? The full relationship must hold,
-// so a preview grant can never sign Author requests or write items, and a
-// render session can never mint an Author signature or a write.
-export const isOperationAllowed = ({ lang, fn, op, backend, mode }) => {
+// connection backend? The full relationship must hold, so a preview grant can
+// never sign Author requests or write items.
+export const isOperationAllowed = ({ lang, fn, op, backend }) => {
   const spec = protectedFunctionsForLang(lang)?.[fn];
   const operation = Object.prototype.hasOwnProperty.call(OPERATIONS, op) ? OPERATIONS[op] : null;
   return Boolean(
     spec &&
     operation &&
     spec.ops.includes(op) &&
-    spec.modes.includes(mode) &&
     spec.backend === backend &&
     operation.backend === backend &&
     operation.kind === spec.kind

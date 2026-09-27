@@ -13,7 +13,7 @@ export const createPseudonymizer = ({ secret }) => {
     value == null ? null : createHmac("sha256", secret).update(String(value)).digest("hex").slice(0, 24);
 };
 
-const FIELDS = ["event", "outcome", "reason", "lang", "fn", "op", "mode", "connectionId", "registryVersion"];
+const FIELDS = ["event", "outcome", "reason", "lang", "fn", "op", "connectionId", "registryVersion"];
 
 export const createAudit = ({ sink, pseudonymize }) => record => {
   const out = { at: new Date().toISOString() };

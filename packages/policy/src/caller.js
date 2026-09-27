@@ -12,7 +12,7 @@
 //
 // `callers` maps a service-account email to what it may do:
 //   { role: "compiler", lang: "0176" }  snapshot + mint (policy), execute (broker)
-//   { role: "console" }                 intents and management routes (policy)
+//   { role: "console" }                 connection management routes (policy)
 //   { role: "gateway" }                 invocations and publications (policy)
 
 import { UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";

@@ -50,7 +50,7 @@ const buildGetData = ({
   const readPublished = buildReadPublished({ compile, artifactStorer, publications });
   return async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
-    connectionId = null, intentToken = null, idempotencyKey = null, read = false, publicationId = null
+    connectionId = null, idempotencyKey = null, read = false, publicationId = null
   }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
@@ -157,7 +157,6 @@ const buildGetData = ({
           options,
           uid,
           connectionId,
-          intentToken,
           invocationToken: invocation?.invocationToken ?? null,
           stage: invocation ? `s${index}` : null
         });

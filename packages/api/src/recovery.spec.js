@@ -41,7 +41,6 @@ let loseItems;
 let artifactFailures;
 let artifactStorer;
 let dataApi;
-let intentToken;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -50,7 +49,6 @@ beforeEach(async () => {
   const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   connections = createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]);
   policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
-  ({ intentToken } = await policy.issueIntent({ caller: { role: "console" }, user: { uid: OWNER }, mode: "save", connectionId: "conn-1" }));
 
   routes = [];
   loseItems = false;
@@ -71,10 +69,10 @@ beforeEach(async () => {
     receipts: createMemoryReceiptStore()
   });
 
-  const compile = async ({ uid, connectionId, intentToken, invocationToken, stage }) => {
+  const compile = async ({ uid, connectionId, invocationToken, stage }) => {
     try {
       const { sessionToken } = await policy.snapshot({
-        caller: L0176, user: { uid }, lang: "0176", connectionId, fns: ["save-to-itembank"], intentToken, invocationToken, stage
+        caller: L0176, user: { uid }, lang: "0176", connectionId, fns: ["save-to-itembank"], invocationToken, stage
       });
       const { executionToken } = await policy.mint({
         caller: L0176, sessionToken, fn: "save-to-itembank", op: "learnosity.write-items", occurrenceId: "SAVE_TO_ITEMBANK:12.0", argsDigest: argsDigest(WRITE)
@@ -120,7 +118,6 @@ const run = (idempotencyKey = "job-1") => dataApi.get({
   auth: { uid: OWNER },
   authToken: OWNER,
   connectionId: "conn-1",
-  intentToken,
   idempotencyKey,
   action: {}
 });

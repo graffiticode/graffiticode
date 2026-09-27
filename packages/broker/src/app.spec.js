@@ -60,7 +60,6 @@ beforeEach(async () => {
     lang: "0176",
     connectionId: "conn-1",
     fns: ["preview-itembank"],
-    mode: "render",
     invocationToken: (await policy.allocateInvocation({
       caller: { role: "gateway" },
       user: { uid: OWNER },

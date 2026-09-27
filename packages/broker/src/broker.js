@@ -4,7 +4,7 @@
 //   1. The token must verify as an EXECUTION token (fixed alg, issuer,
 //      audience, typ, expiry) and name exactly this operation.
 //   2. The token's registry version must be the one installed here, and the
-//      registry must still allow (lang, fn, op, backend, mode) — checked
+//      registry must still allow (lang, fn, op, backend) — checked
 //      again here so correctness never rests on policy alone.
 //   3. The payload must pass the operation's constraints and hash to the
 //      token's args digest: the token authorizes this request, not any.
@@ -56,7 +56,6 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
       lang: claims.lang,
       fn: claims.fn,
       op,
-      mode: claims.mode,
       registryVersion: claims.rv,
     };
     const refuse = async (reason, status, detail) => {
@@ -71,7 +70,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
-    if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend, mode: claims.mode })) {
+    if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
       return refuse("operation-not-allowed");
     }
     try {
