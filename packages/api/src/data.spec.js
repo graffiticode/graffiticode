@@ -41,7 +41,14 @@ describe("data", () => {
     );
   });
 
+  // A compile through a connection runs under an invocation from policy.
+  const withInvocation = () => buildDataApi({
+    compile,
+    allocateInvocation: jest.fn().mockResolvedValue({ invocationToken: "inv.tok.en", invocationId: "inv-1", seq: 1, ownerUid: "owner" })
+  });
+
   it("should forward a selected connection and bypass the shared cache", async () => {
+    dataApi = withInvocation();
     const id = await taskStorer.create({ task: TASK1 });
     // A cached result exists for this id...
     mockCompileData(DATA1);
@@ -60,6 +67,7 @@ describe("data", () => {
   });
 
   it("should not cache a first compile through a selected connection", async () => {
+    dataApi = withInvocation();
     const id = await taskStorer.create({ task: TASK1 });
     mockCompileData(DATA2);
     await dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" });
