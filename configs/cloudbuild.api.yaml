@@ -22,27 +22,36 @@ steps:
       - push
       - 'gcr.io/graffiticode/api:$COMMIT_SHA'
     id: Push
+  # Env vars are added with --update-env-vars (never --set-env-vars), which
+  # would wipe anything set out of band, such as POLICY_URL. POLICY_URL (the
+  # policy service's run.app URL) enables compiles and views through a
+  # connection; an empty _POLICY_URL leaves the service's current value alone.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    args:
-      - run
-      - deploy
-      - api
-      - '--platform=managed'
-      - '--image=gcr.io/graffiticode/api:$COMMIT_SHA'
-      - '--port=3100'
-      - '--set-env-vars=AUTH_URL=https://auth.graffiticode.org'
-      - '--allow-unauthenticated'
-      - >-
-        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID
-      - '--region=$_DEPLOY_REGION'
-      - '--quiet'
     id: Deploy
-    entrypoint: gcloud
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        ENV_VARS="AUTH_URL=https://auth.graffiticode.org"
+        if [ -n "${_POLICY_URL}" ]; then
+          ENV_VARS="$${ENV_VARS},POLICY_URL=${_POLICY_URL}"
+        fi
+        gcloud run deploy api \
+          --platform=managed \
+          --image=gcr.io/graffiticode/api:$COMMIT_SHA \
+          --port=3100 \
+          --update-env-vars="$${ENV_VARS}" \
+          --allow-unauthenticated \
+          --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID \
+          --region=$_DEPLOY_REGION \
+          --quiet
 images:
   - 'gcr.io/graffiticode/api:$COMMIT_SHA'
 options:
   substitutionOption: ALLOW_LOOSE
 substitutions:
   _DEPLOY_REGION: us-central1
+  _POLICY_URL: ''
 tags:
   - api
