@@ -469,4 +469,28 @@ describe("View", () => {
       expect(screen.getByText("1 of 3 points")).toBeTruthy();
     });
   });
+
+  test("an id prop loads the item when the page URL has none", async () => {
+    // A host mounting the View as a React component has no `?id=` in its own URL.
+    const { fetchSpy } = stubApi({ stored: { cells: { A1: "7" } } });
+    const View = await loadView();
+
+    render(<Wrapper><View Form={CountingForm} id="prop123" /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "7" }));
+
+    const dataCalls = fetchSpy.mock.calls.map(([url]) => String(url)).filter((u) => u.includes("/data"));
+    expect(dataCalls).toEqual([expect.stringContaining("id=prop123")]);
+  });
+
+  test("an id prop takes precedence over ?id= in the URL", async () => {
+    setSearch("?id=fromurl");
+    const { fetchSpy } = stubApi({ stored: { cells: { A1: "1" } } });
+    const View = await loadView();
+
+    render(<Wrapper><View Form={CountingForm} id="fromprop" /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "1" }));
+
+    const dataUrls = fetchSpy.mock.calls.map(([url]) => String(url)).filter((u) => u.includes("/data"));
+    expect(dataUrls.every((u) => u.includes("id=fromprop"))).toBe(true);
+  });
 });

@@ -252,15 +252,24 @@ export const View = ({
   reduce,
   formModel = "live",
   score,
+  id: idProp,
+  accessToken: accessTokenProp,
 }: {
   Form: FormComponent;
   reduce?: LanguageReducer;
   formModel?: FormModel;
   score?: LanguageScore;
+  /**
+   * The item to load. A host that mounts the View as a React component passes it here; the
+   * embeddable /form bundle leaves it out and the View reads `?id=` from the page URL instead.
+   */
+  id?: string;
+  /** Credential for a private item. Falls back to `?access_token=`, like `id`. */
+  accessToken?: string;
 }) => {
   const [params] = useState(() => new URLSearchParams(window.location.search));
-  const [id] = useState<string | undefined>(params.get("id") ?? undefined);
-  const [accessToken] = useState<string | undefined>(params.get("access_token") ?? undefined);
+  const id = idProp ?? params.get("id") ?? undefined;
+  const accessToken = accessTokenProp ?? params.get("access_token") ?? undefined;
   const [targetOrigin] = useState<string | undefined>(params.get("origin") ?? undefined);
   const [errors, setErrors] = useState<CompileError[]>([]);
 
