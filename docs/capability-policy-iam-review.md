@@ -9,14 +9,38 @@
 repo file (path given). **[UNVERIFIED]** = inferred or a GCP default. Needs confirming with the
 §1.4 commands before any step in §3 runs.
 
-**Live read status:** none. `gcloud` on the reviewer's machine is logged in as
-`jeff@artcompiler.com`, but every call failed with `Reauthentication failed. cannot prompt during
-non-interactive execution`. **Every fact below is [REPO] or [UNVERIFIED].** §1.4 lists the exact
-read-only commands that turn each one into [LIVE]. Run them first.
+**Live read status:** read 2026-09-27 with the §1.4 commands (read-only, as
+`jeff@artcompiler.com`). **§1.0 is [LIVE] and supersedes every [UNVERIFIED] below that it
+covers.** Where §1.0 differs from a row further down, §1.0 is right.
 
 ---
 
 ## 1. Current state
+
+### 1.0 Live state, read 2026-09-27 [LIVE]
+
+| What | Live | Differs from this review's assumption |
+| --- | --- | --- |
+| Project number | `656973052505` | — |
+| Cloud Run services (us-central1) | 43: `api`, `auth`, `l0000`–`l0003`, `l0010`–`l0014`, `l0137`, `l0151`–`l0161` (not `l0162`), `l0163`, `l0165`–`l0183` | More compilers than the 25 local repos |
+| Service account of every service | `656973052505-compute@developer.gserviceaccount.com` (default compute) | Confirmed |
+| Invokers of every service | `allUsers` | Confirmed |
+| Ingress of every service | `all` | Confirmed |
+| Default compute SA's project roles | `roles/editor`, **`roles/run.admin`**, **`roles/iam.serviceAccountUser`**, **`roles/iam.serviceAccountTokenCreator`** | Worse than assumed: the runtime SA itself can deploy and modify any Cloud Run service and act as, and mint tokens for, any SA in the project |
+| Service accounts in the project | default compute, `firebase-adminsdk-qflje@`, `graffiticode@appspot`, `storage@`, `github-action-564425249@`, `github-actions@` | None of `policy-run`, `broker-run`, `api-run`, `auth-run`, `l*-run` exists |
+| Secrets | `GRAFFITICODE_SECRET_KEY`, `learnosity-secret`: each `secretAccessor` → default compute SA only | Confirmed; no other secrets exist |
+| Firestore databases | `(default)` only | No named databases |
+| Cloud KMS | API not enabled on the project | Must be enabled before §3 step 5 |
+| Cloud Build triggers | none (global or us-central1) | Every deploy is manual (`gcloud builds submit`) |
+
+Consequence: any compromised compiler holds `run.admin` and `serviceAccountUser` through the shared
+SA, so it could redeploy `policy` or `broker` with its own code, or act as their SAs, once they
+exist. Moving `policy`, `broker` and the gateway onto their own SAs (§3 steps 1 and 6) is a
+precondition for deploying them, not hardening. Removing those roles from the shared SA
+touches all 43 services, so it follows §3 step 6, service by service.
+
+Not yet read: the org policy `iam.automaticIamGrantsForDefaultServiceAccounts`, the Cloud Build
+service account, and each service's env var names and secret mounts beyond `l0176`.
 
 ### 1.1 Cloud Run services (project `graffiticode`, us-central1)
 
