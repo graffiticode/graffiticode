@@ -973,3 +973,31 @@ describe("equivSyntax rules", () => {
     }
   });
 });
+
+// An Author Site session can edit and delete items. The server's default
+// Learnosity account must never sign one; only a program's own credentials may.
+describe("Author signing", () => {
+  const DEFAULT = { learnosity: { key: "server-key", secret: "s".repeat(32) } };
+  const OWN = 'set-var "learnosity-key" "own-key" set-var "learnosity-secret" "' + "o".repeat(32) + '"';
+
+  test.each(['author { "mode": "item_edit" }', "init author {}"])("%s is not signed with the server's default account", async (expr) => {
+    const out = await compile(`set-var "lrn-id" "t" ${expr}..`, {}, DEFAULT);
+    expect(out.type).toBe("author");
+    expect(out.request).toBeUndefined();
+    expect(JSON.stringify(out)).not.toMatch(/server-key|signature/);
+  });
+
+  // Stricter than main's hotfix: without a connection, not even the program's
+  // own credentials sign an Author session. Only a connection does, through
+  // the broker (brokered.test.ts).
+  test("a program's own credentials do not sign it either", async () => {
+    const out = await compile(`set-var "lrn-id" "t" ${OWN} author { "mode": "item_edit" }..`, {}, DEFAULT);
+    expect(out.request).toBeUndefined();
+    expect(JSON.stringify(out)).not.toMatch(/own-key|server-key|signature/);
+  });
+
+  test("previews are still signed with the default account", async () => {
+    const out = await compile('set-var "lrn-id" "t" questions [mcq []] {}..', {}, DEFAULT);
+    expect(JSON.stringify(out.request)).toMatch(/server-key/);
+  });
+});
