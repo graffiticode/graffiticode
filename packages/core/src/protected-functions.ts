@@ -156,7 +156,10 @@ export async function admitProtectedFunctions({
   // also resolves the mode: with a policy client, a privileged mode is never
   // taken from the request, only from policy's answer.
   let snapshot: PolicySnapshot = { allowed: [] };
-  if (policy && exec.uid && exec.connectionId) {
+  // A view of a published item has no user: it carries the publication's
+  // invocation token instead, and policy confines it to viewSafe functions.
+  const hasPrincipal = Boolean(exec.uid || exec.policyCredentials().invocationToken);
+  if (policy && exec.connectionId && hasPrincipal) {
     const fns = [...new Set(found.map(({ spec }) => spec.fn))];
     let response: unknown;
     try {

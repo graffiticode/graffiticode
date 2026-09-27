@@ -113,6 +113,25 @@ describe("protection client", () => {
     });
   });
 
+  test("a published view asks policy with no user, on the invocation token alone", async () => {
+    snapshotReply = { allowed: [], mode: "render", sessionToken: "session-1" };
+    const { err } = await compile("save-it 1..", { connectionId: "conn-1", invocationToken: "publication-token", stage: "view" });
+    const snap = requests[0];
+    expect(snap.url).toBe(`${POLICY}/v1/snapshot`);
+    expect(snap.headers.Authorization).toBeUndefined();
+    expect(snap.body).toMatchObject({ connectionId: "conn-1", invocationToken: "publication-token", stage: "view" });
+    // Policy allowed nothing but a write was asked for: disabled in render mode, never minted.
+    expect(err).toEqual([]);
+    expect(requests).toHaveLength(1);
+  });
+
+  test("with neither a user nor an invocation token, policy is never asked", async () => {
+    const { err, val } = await compile("save-it 1..", { connectionId: "conn-1" });
+    expect(requests).toEqual([]);
+    expect(err).toEqual([]);
+    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
+  });
+
   test("a write runs when policy resolves save mode, minted for exactly its payload", async () => {
     const { err, val } = await compile("save-it 1..", IDENTITY);
     expect(err).toEqual([]);
