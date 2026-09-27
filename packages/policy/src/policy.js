@@ -1,6 +1,8 @@
-// The policy authority's decisions, owner-only for now (delegation is a later
-// phase and stays off until its own gate). There are no execution modes and no
-// intents: running the program is the action, and the grant is the authority.
+// The policy authority's decisions. A connection's owner may use every
+// registered function against its backend; another account may use the
+// delegable functions a live grant from the owner names (grants.js). There are
+// no execution modes and no intents: running the program is the action, and
+// the grant is the authority.
 //
 //   invocation  once per logical invocation, by the gateway before dispatch
 //             (see invocations.js): a durable id that retries share and an
@@ -28,7 +30,7 @@ import {
 } from "@graffiticode/common/protected-registry";
 import { createHash } from "node:crypto";
 import { issueToken, verifyToken } from "./tokens.js";
-import { connectionRefusal } from "./connections.js";
+import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict } from "./invocations.js";
 import { newPublicationId } from "./publications.js";
 
@@ -47,10 +49,32 @@ const isLang = v => typeof v === "string" && /^\d{4}$/.test(v);
 // Every view of one publication shares one invocation, keyed by this input.
 const VIEW_INPUT = createHash("sha256").update("publication-view").digest("hex");
 
-export const createPolicy = ({ signer, jwks, connections, invocations, publications, audit }) => {
+export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, audit }) => {
   const deny = async (reason, record) => {
     await audit({ ...record, outcome: "denied", reason });
     throw new PolicyDenied(reason);
+  };
+
+  // Who may use a connection, read live: its owner, or a recipient with an
+  // unexpired grant from that owner. `ownerUid` pins the owner a session or
+  // publication was issued under, so a changed owner stops it.
+  const accessFor = async (connection, uid, { ownerUid } = {}) => {
+    if (!connection) return { refusal: "connection-not-found" };
+    if (connection.status !== "active") return { refusal: "connection-disabled" };
+    if (ownerUid !== undefined && connection.ownerUid !== ownerUid) return { refusal: "owner-changed" };
+    if (connection.ownerUid === uid) return { owner: true };
+    const grant = grants && uid
+      ? await grants.get(grantIdFor({ connectionId: connection.connectionId, recipientUid: uid }))
+      : null;
+    if (!grant || isExpired(grant) || grant.ownerUid !== connection.ownerUid) return { refusal: "not-owner" };
+    return { grant };
+  };
+  // A grant reaches only the functions it names that the registry marks
+  // delegable; the owner reaches every registered one.
+  const mayUse = (access, lang, fn) => {
+    const spec = protectedFunctionsForLang(lang)?.[fn];
+    if (!spec) return false;
+    return Boolean(access.owner || (access.grant?.fns?.includes(fn) && spec.delegable === true));
   };
 
   const allocateInvocation = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey = null }) => {
@@ -62,8 +86,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     }
     if (idempotencyKey !== null && !isId(idempotencyKey)) return deny("bad-request", record);
     const connection = await connections.get(connectionId);
-    const refusal = connectionRefusal(connection, { uid: user.uid });
-    if (refusal) return deny(refusal, { ...record, ownerUid: connection?.ownerUid });
+    const access = await accessFor(connection, user.uid);
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
     let allocated;
     try {
       allocated = await invocations.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey });
@@ -102,8 +126,11 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       return { refusal: "publication-mismatch" };
     }
     const connection = await connections.get(publication.connectionId);
-    const refusal = connectionRefusal(connection, { uid: publication.publisherUid, ownerUid: publication.ownerUid });
-    return refusal ? { refusal } : { publication, connection };
+    const access = await accessFor(connection, publication.publisherUid, { ownerUid: publication.ownerUid });
+    if (access.refusal) return { refusal: access.refusal };
+    // A recipient's publication lasts only while their grant permits publishing.
+    if (access.grant && !access.grant.publish) return { refusal: "publish-not-granted" };
+    return { publication, connection, access };
   };
 
   // Publishing: the gateway has checked that the artifact is this user's
@@ -116,8 +143,11 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       return deny("bad-request", record);
     }
     const connection = await connections.get(connectionId);
-    const refusal = connectionRefusal(connection, { uid: user.uid });
-    if (refusal) return deny(refusal, { ...record, ownerUid: connection?.ownerUid });
+    const access = await accessFor(connection, user.uid);
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    // Published views spend the owner's credential on viewers the owner never
+    // named, so a recipient needs a grant that says so.
+    if (access.grant && !access.grant.publish) return deny("publish-not-granted", { ...record, ownerUid: connection.ownerUid });
     const publication = await publications.create({
       publicationId: newPublicationId(),
       publisherUid: user.uid,
@@ -177,10 +207,11 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   const publicationSnapshot = async ({ record, claims, lang, connectionId, fns, stage }) => {
     const state = await publicationState(claims.pub, { publisherUid: claims.sub, connectionId, lang });
     if (state.refusal) return deny(state.refusal, record);
-    const { connection } = state;
+    const { connection, access } = state;
     const registered = protectedFunctionsForLang(lang) || {};
     const viewSafe = new Set(viewSafeFunctionsForLang(lang));
-    const allowed = [...new Set(fns)].filter(fn => viewSafe.has(fn) && registered[fn].backend === connection.backend);
+    const allowed = [...new Set(fns)].filter(fn =>
+      viewSafe.has(fn) && registered[fn].backend === connection.backend && mayUse(access, lang, fn));
     const sessionToken = await issueToken(signer, "session", {
       sub: claims.sub,
       own: connection.ownerUid,
@@ -210,16 +241,17 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     const invocationId = claims.inv;
 
     const connection = await connections.get(connectionId);
-    const refusal = connectionRefusal(connection, { uid: user.uid });
-    if (refusal) return deny(refusal, { ...record, ownerUid: connection?.ownerUid });
+    const access = await accessFor(connection, user.uid);
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
 
-    // Owner-only: the owner holds every registered function of this language
-    // that runs against this connection's backend. A write runs whenever the
-    // program calls it; its identity is the invocation's.
+    // The owner holds every registered function of this language that runs
+    // against this connection's backend; a recipient, the delegable ones their
+    // grant names. A write runs whenever the program calls it; its identity is
+    // the invocation's.
     const registered = protectedFunctionsForLang(lang) || {};
     const allowed = [...new Set(fns)].filter(fn => {
       const spec = Object.prototype.hasOwnProperty.call(registered, fn) ? registered[fn] : null;
-      return Boolean(spec && spec.backend === connection.backend);
+      return Boolean(spec && spec.backend === connection.backend && mayUse(access, lang, fn));
     });
 
     const sessionToken = await issueToken(signer, "session", {
@@ -274,9 +306,11 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     // Live state, re-read at every mint: a connection disabled, deleted or
     // re-owned since the snapshot stops the next protected call.
     const connection = await connections.get(session.conn);
-    const refusal = connectionRefusal(connection, { uid: session.sub, ownerUid: session.own });
-    if (refusal) return deny(refusal, record);
+    const access = await accessFor(connection, session.sub, { ownerUid: session.own });
+    if (access.refusal) return deny(access.refusal, record);
     if (connection.backend !== session.backend) return deny("backend-changed", record);
+    // A grant revoked or narrowed since the snapshot stops this call.
+    if (!mayUse(access, session.lang, fn)) return deny("not-granted", record);
 
     // The invocation is durable and shared by its retries, and the stage and
     // occurrence are stable within it, so a retry reaches the same receipt.

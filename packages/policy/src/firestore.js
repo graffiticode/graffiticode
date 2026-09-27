@@ -71,3 +71,33 @@ export const createFirestorePublicationStore = db => {
     },
   };
 };
+
+// See grants.js for the contract. Pending grants are found by email hash; a
+// Firestore `in` query takes at most 30 values, and claim sends at most 20.
+export const createFirestoreGrantStore = db => {
+  const col = db.collection("grants");
+  const rows = snap => snap.docs.map(doc => ({ grantId: doc.id, ...doc.data() }));
+  return {
+    async put(grant) {
+      const { grantId, ...rest } = grant;
+      await col.doc(grantId).set(rest);
+    },
+    async get(grantId) {
+      const snap = await col.doc(grantId).get();
+      return snap.exists ? { grantId, ...snap.data() } : null;
+    },
+    async listByConnection(connectionId) {
+      return rows(await col.where("connectionId", "==", connectionId).get());
+    },
+    async listByRecipient(uid) {
+      return rows(await col.where("recipientUid", "==", uid).get());
+    },
+    async listPendingByEmailHash(hashes) {
+      if (!hashes.length) return [];
+      return rows(await col.where("recipientEmailHash", "in", hashes).get()).filter(g => !g.recipientUid);
+    },
+    async delete(grantId) {
+      await col.doc(grantId).delete();
+    },
+  };
+};

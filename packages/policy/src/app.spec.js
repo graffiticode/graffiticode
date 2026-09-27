@@ -10,6 +10,7 @@ import {
   createMemoryConnectionStore,
   createMemoryInvocationStore,
   createMemoryPublicationStore,
+  createMemoryGrantStore,
   createAudit,
   createPseudonymizer
 } from "./index.js";
@@ -44,6 +45,7 @@ let app;
 let records;
 let brokerSecrets;
 let SNAPSHOT;
+let grants;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -51,6 +53,7 @@ beforeEach(async () => {
   const publicJwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
   records = [];
   const audit = createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
+  grants = createMemoryGrantStore();
   const connections = createMemoryConnectionStore([
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
@@ -60,6 +63,7 @@ beforeEach(async () => {
     connections,
     invocations: createMemoryInvocationStore(),
     publications: createMemoryPublicationStore(),
+    grants,
     audit
   });
   const identifyCaller = createCallerIdentity({
@@ -75,6 +79,7 @@ beforeEach(async () => {
   brokerSecrets = new Map();
   const manager = createConnectionManager({
     connections,
+    grants,
     audit,
     brokerAdmin: {
       createSecret: async (id, cred) => { brokerSecrets.set(id, cred); },
@@ -112,6 +117,27 @@ describe("invocations over http", () => {
     expect(denied.status).toBe(403);
     const compiler = await as(request(app).post("/v1/invocations"), SA.l0176).send({ connectionId: "conn-1", taskId: "t", inputDigest: "b".repeat(64) });
     expect(compiler.status).toBe(403);
+  });
+});
+
+describe("sharing over http", () => {
+  it("lets the owner share, list and revoke, and the recipient see it", async () => {
+    const shared = await as(request(app).post("/v1/connections/conn-1/grants"), SA.console).send({ recipientUid: "0xalice", recipientLabel: "alice@example.com", preset: "save" });
+    expect(shared.status).toBe(200);
+    const list = await as(request(app).get("/v1/connections/conn-1/grants"), SA.console);
+    expect(list.body.data).toEqual([expect.objectContaining({ recipientLabel: "alice@example.com", preset: "save", pending: false })]);
+    const mine = await as(request(app).get("/v1/shared"), SA.console, { user: "user:0xalice" });
+    expect(mine.body.data).toEqual([expect.objectContaining({ connectionId: "conn-1", preset: "save" })]);
+    const reshare = await as(request(app).post("/v1/connections/conn-1/grants"), SA.console, { user: "user:0xalice" }).send({ recipientUid: "0xbob", preset: "save" });
+    expect(reshare.body.error.reason).toBe("not-owner");
+    const revoked = await as(request(app).delete(`/v1/connections/conn-1/grants/${shared.body.data.grantId}`), SA.console);
+    expect(revoked.status).toBe(200);
+    expect((await as(request(app).get("/v1/shared"), SA.console, { user: "user:0xalice" })).body.data).toEqual([]);
+  });
+
+  it("refuses compilers on the sharing routes", async () => {
+    const res = await as(request(app).post("/v1/connections/conn-1/grants"), SA.l0176).send({ recipientUid: "0xalice", preset: "save" });
+    expect(res.status).toBe(403);
   });
 });
 

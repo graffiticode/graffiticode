@@ -19,6 +19,12 @@
 //   POST   /v1/connections/:id/rotate   console  { credential: { key, secret } }
 //   POST   /v1/connections/:id/disable  console
 //   DELETE /v1/connections/:id          console
+//   GET    /v1/connections/:id/grants            console  the owner's grants on it
+//   POST   /v1/connections/:id/grants            console  { recipientUid | recipientEmailHash, recipientLabel?, preset, expiresAt? }
+//   DELETE /v1/connections/:id/grants/:grantId   console  revoke
+//   GET    /v1/shared                            console  connections shared with the user
+//   DELETE /v1/shared/:id                        console  the recipient leaves
+//   POST   /v1/grants/claim                      console  { emailHashes } pending grants for the user's emails
 //   GET  /v1/jwks      anyone     the public keys that verify policy tokens
 
 import { Router } from "express";
@@ -122,6 +128,25 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     manager.disable({ caller, user, connectionId: id })));
   router.delete("/connections/:id", manage(({ caller, user, id }) =>
     manager.remove({ caller, user, connectionId: id })));
+  router.get("/connections/:id/grants", manage(({ caller, user, id }) => manager.grants({ caller, user, connectionId: id })));
+  router.post("/connections/:id/grants", manage(({ caller, user, id, body }) => manager.share({
+    caller,
+    user,
+    connectionId: id,
+    recipientUid: body.recipientUid ?? null,
+    recipientEmailHash: body.recipientEmailHash ?? null,
+    recipientLabel: body.recipientLabel ?? null,
+    preset: body.preset,
+    expiresAt: body.expiresAt ?? null
+  })));
+  router.delete("/connections/:id/grants/:grantId", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("connections")(req);
+    const u = await user(req);
+    await decide(res, () => manager.revoke({ caller, user: u, connectionId: req.params.id, grantId: req.params.grantId }));
+  }));
+  router.get("/shared", manage(({ caller, user }) => manager.shared({ caller, user })));
+  router.delete("/shared/:id", manage(({ caller, user, id }) => manager.leave({ caller, user, connectionId: id })));
+  router.post("/grants/claim", manage(({ caller, user, body }) => manager.claim({ caller, user, emailHashes: body.emailHashes })));
   router.get("/jwks", (req, res) => res.status(200).json(publicJwks));
 
   return createHttpApp(app => app.use("/v1", router));
