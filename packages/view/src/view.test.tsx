@@ -493,4 +493,34 @@ describe("View", () => {
     const dataUrls = fetchSpy.mock.calls.map(([url]) => String(url)).filter((u) => u.includes("/data"));
     expect(dataUrls.every((u) => u.includes("id=fromprop"))).toBe(true);
   });
+
+  test("a connection or publication reaches the initial load, and never a recompile", async () => {
+    setSearch("?id=item1&publication=pub-1");
+    const { fetchSpy } = stubApi({ stored: { cells: { A1: "3" } } });
+    const View = await loadView();
+
+    render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "3" }));
+    act(() => apply({ type: "update", args: { cells: { A1: "4" } } }));
+    await tick(20);
+
+    const calls = fetchSpy.mock.calls.map(([url, init]) => ({ url: String(url), body: init?.body }));
+    const load = calls.find((c) => c.url.includes("/data"));
+    expect(load?.url).toContain("publication=pub-1");
+    for (const c of calls.filter((c) => c.url.includes("/compile"))) {
+      expect(JSON.parse(c.body)).not.toHaveProperty("connectionId");
+      expect(c.url).not.toContain("publication");
+    }
+  });
+
+  test("a connection prop reaches the initial load", async () => {
+    const { fetchSpy } = stubApi({ stored: { cells: { A1: "5" } } });
+    const View = await loadView();
+
+    render(<Wrapper><View Form={CountingForm} id="item2" connection="conn-1" /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "5" }));
+
+    const dataUrls = fetchSpy.mock.calls.map(([url]) => String(url)).filter((u) => u.includes("/data"));
+    expect(dataUrls).toEqual([expect.stringContaining("connection=conn-1")]);
+  });
 });

@@ -19,9 +19,13 @@ export const compile = async ({
 export const getData = async ({
   accessToken,
   id,
+  connection,
+  publication,
 }: {
   accessToken?: string;
   id: string;
+  connection?: string;
+  publication?: string;
 }) => {
-  return await getApiData({ accessToken, id });
+  return await getApiData({ accessToken, id, connection, publication });
 };

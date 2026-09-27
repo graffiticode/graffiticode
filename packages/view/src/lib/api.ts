@@ -9,14 +9,24 @@ function getApiUrl(): string {
     : "https://api.graffiticode.org";
 }
 
+// `connection` views the caller's stored result for the item through that
+// connection; `publication` views a published item's stored result. Either
+// way the gateway serves a stored result and never runs the program.
 export const getApiData = async ({
   accessToken,
   id,
+  connection,
+  publication,
 }: {
   accessToken?: string;
   id: string;
+  connection?: string;
+  publication?: string;
 }) => {
-  const resp = await fetch(`${getApiUrl()}/data?id=${id}`, {
+  const query = new URLSearchParams({ id });
+  if (connection) query.set("connection", connection);
+  if (publication) query.set("publication", publication);
+  const resp = await fetch(`${getApiUrl()}/data?${query}`, {
     headers: { Authorization: accessToken || "" },
   });
   const { status, error, data } = await resp.json();

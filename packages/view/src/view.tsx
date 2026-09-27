@@ -254,6 +254,8 @@ export const View = ({
   score,
   id: idProp,
   accessToken: accessTokenProp,
+  connection: connectionProp,
+  publication: publicationProp,
 }: {
   Form: FormComponent;
   reduce?: LanguageReducer;
@@ -266,10 +268,19 @@ export const View = ({
   id?: string;
   /** Credential for a private item. Falls back to `?access_token=`, like `id`. */
   accessToken?: string;
+  /**
+   * Load the caller's stored result for the item through this connection, or a published
+   * item's stored result. Fall back to `?connection=` / `?publication=`. Only the initial load
+   * uses them; recompiles after an edit or answer never run through a connection.
+   */
+  connection?: string;
+  publication?: string;
 }) => {
   const [params] = useState(() => new URLSearchParams(window.location.search));
   const id = idProp ?? params.get("id") ?? undefined;
   const accessToken = accessTokenProp ?? params.get("access_token") ?? undefined;
+  const connection = connectionProp ?? params.get("connection") ?? undefined;
+  const publication = publicationProp ?? params.get("publication") ?? undefined;
   const [targetOrigin] = useState<string | undefined>(params.get("origin") ?? undefined);
   const [errors, setErrors] = useState<CompileError[]>([]);
 
@@ -312,7 +323,7 @@ export const View = ({
   // Revalidation is off: this is a one-shot load, and a background refetch on window focus
   // would re-apply the STORED model over whatever the learner has since entered — the form
   // silently reverting when you tab away and back.
-  const getDataResp = useSWR(id ? { accessToken, id } : null, getData, {
+  const getDataResp = useSWR(id ? { accessToken, id, connection, publication } : null, getData, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     revalidateIfStale: false,
