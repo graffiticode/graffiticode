@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0000-view",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "L0000 view — the shared View harness (inherited by child languages) plus the base JSON Form",
   "type": "module",
   "main": "./dist/index.js",
