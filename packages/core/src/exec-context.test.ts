@@ -31,17 +31,12 @@ describe("ExecContext", () => {
     const ctx = new ExecContext();
     expect(ctx.uid).toBeNull();
     expect(ctx.connectionId).toBeNull();
-    expect(ctx.mode).toBe("read");
     expect(ctx.stage).toBeNull();
     expect(typeof ctx.compileId).toBe("string");
   });
 
-  test("an unknown mode falls back to read, never save", () => {
-    expect(new ExecContext({ mode: "admin" as any }).mode).toBe("read");
-  });
-
   test("identity fields are immutable", () => {
-    const ctx = new ExecContext({ uid: "u1", mode: "save" });
+    const ctx = new ExecContext({ uid: "u1" });
     expect(() => {
       (ctx as any).uid = "u2";
     }).toThrow();
@@ -57,7 +52,7 @@ describe("ExecContext", () => {
 });
 
 describe("programs cannot reach the ExecContext", () => {
-  const identity = { uid: "owner-uid", connectionId: "conn-1", mode: "save" };
+  const identity = { uid: "owner-uid", connectionId: "conn-1" };
 
   test('get-var "config" returns config only, with no context fields', async () => {
     const result = await compile('get-var "config"..', { identity, config: { a: 1 } });
@@ -66,7 +61,7 @@ describe("programs cannot reach the ExecContext", () => {
     expect(JSON.stringify(result)).not.toContain("conn-1");
   });
 
-  test.each(["execContext", "uid", "connectionId", "mode", "compileId", "stage", "invocationToken", "snapshot", "exec"])(
+  test.each(["execContext", "uid", "connectionId", "compileId", "stage", "invocationToken", "snapshot", "exec"])(
     'get-var "%s" does not expose the context',
     async (name) => {
       const result = await compile(`get-var "${name}"..`, { identity });
@@ -84,7 +79,6 @@ describe("programs cannot reach the ExecContext", () => {
     for (const { after } of seen) {
       expect(after.uid).toBe("owner-uid");
       expect(after.connectionId).toBe("conn-1");
-      expect(after.mode).toBe("save");
     }
   });
 

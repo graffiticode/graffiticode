@@ -45,7 +45,7 @@ const client = () =>
 
 beforeEach(() => {
   requests = [];
-  snapshotReply = { allowed: ["save-it"], mode: "save", sessionToken: "session-1" };
+  snapshotReply = { allowed: ["save-it"], sessionToken: "session-1" };
   brokerReply = { status: "succeeded", result: { saved: true } };
   failMint = false;
 });
@@ -90,13 +90,12 @@ const IDENTITY = {
   uid: "u1",
   connectionId: "conn-1",
   userToken: "user-token",
-  intentToken: "intent-token",
   invocationToken: "invocation-token",
   stage: "s0",
 };
 
 describe("protection client", () => {
-  test("the snapshot carries the user, the intent and both service identities", async () => {
+  test("the snapshot carries the user, the invocation and both service identities", async () => {
     await compile("save-it 1..", IDENTITY);
     const snap = requests[0];
     expect(snap.url).toBe(`${POLICY}/v1/snapshot`);
@@ -107,32 +106,30 @@ describe("protection client", () => {
       lang: "9999",
       connectionId: "conn-1",
       fns: ["save-it"],
-      intentToken: "intent-token",
       invocationToken: "invocation-token",
       stage: "s0",
     });
   });
 
   test("a published view asks policy with no user, on the invocation token alone", async () => {
-    snapshotReply = { allowed: [], mode: "render", sessionToken: "session-1" };
+    snapshotReply = { allowed: [], sessionToken: "session-1" };
     const { err } = await compile("save-it 1..", { connectionId: "conn-1", invocationToken: "publication-token", stage: "view" });
     const snap = requests[0];
     expect(snap.url).toBe(`${POLICY}/v1/snapshot`);
     expect(snap.headers.Authorization).toBeUndefined();
     expect(snap.body).toMatchObject({ connectionId: "conn-1", invocationToken: "publication-token", stage: "view" });
-    // Policy allowed nothing but a write was asked for: disabled in render mode, never minted.
-    expect(err).toEqual([]);
+    // Policy allowed nothing, so the write is refused before anything runs.
+    expect(err[0].message).toMatch(/save-it is not permitted/);
     expect(requests).toHaveLength(1);
   });
 
   test("with neither a user nor an invocation token, policy is never asked", async () => {
-    const { err, val } = await compile("save-it 1..", { connectionId: "conn-1" });
+    const { err } = await compile("save-it 1..", { connectionId: "conn-1" });
     expect(requests).toEqual([]);
-    expect(err).toEqual([]);
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
+    expect(err[0].message).toMatch(/save-it is not permitted/);
   });
 
-  test("a write runs when policy resolves save mode, minted for exactly its payload", async () => {
+  test("a granted write runs, minted for exactly its payload", async () => {
     const { err, val } = await compile("save-it 1..", IDENTITY);
     expect(err).toEqual([]);
     expect(val).toEqual({ status: "succeeded", result: { saved: true } });
@@ -152,18 +149,11 @@ describe("protection client", () => {
     expect(new Set(mints).size).toBe(2);
   });
 
-  test("the same write is disabled when policy resolves a non-save mode", async () => {
-    snapshotReply = { allowed: ["save-it"], mode: "render", sessionToken: "session-1" };
-    const { val } = await compile("save-it 1..", IDENTITY);
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
+  test("an ungranted write is refused and never minted", async () => {
+    snapshotReply = { allowed: [], sessionToken: "session-1" };
+    const { err } = await compile("save-it 1..", IDENTITY);
+    expect(err[0].message).toMatch(/save-it is not permitted/);
     expect(requests.map((r) => r.url)).toEqual([`${POLICY}/v1/snapshot`]);
-  });
-
-  test("a privileged mode in the request is not trusted when policy returns none", async () => {
-    snapshotReply = { allowed: ["save-it"], sessionToken: "session-1" };
-    const { val } = await compile("save-it 1..", { ...IDENTITY, mode: "save" });
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
-    expect(requests).toHaveLength(1);
   });
 
   test("a mint refusal surfaces as a compile error and never reaches the broker", async () => {
@@ -182,8 +172,8 @@ describe("protection client", () => {
   });
 
   test("tokens are not exposed as context properties", () => {
-    const exec = new ExecContext({ uid: "u1", userToken: "user-token", intentToken: "intent-token" });
-    expect(JSON.stringify(exec)).not.toMatch(/user-token|intent-token/);
+    const exec = new ExecContext({ uid: "u1", userToken: "user-token", invocationToken: "invocation-token" });
+    expect(JSON.stringify(exec)).not.toMatch(/user-token|invocation-token/);
     expect(Object.values(exec)).not.toContain("user-token");
   });
 });

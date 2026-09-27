@@ -62,20 +62,18 @@ export function createProtectionClient({ policyUrl, brokerUrl, idToken, fetch: d
 
   return {
     async getSnapshot({ exec, langID, fns }): Promise<PolicySnapshot> {
-      const { userToken, intentToken, invocationToken } = exec.policyCredentials();
+      const { userToken, invocationToken } = exec.policyCredentials();
       const data = await post(policyUrl, POLICY_AUDIENCE, "/v1/snapshot", {
         lang: langID,
         connectionId: exec.connectionId,
         fns,
-        mode: exec.mode,
-        intentToken: intentToken ?? undefined,
         invocationToken: invocationToken ?? undefined,
         stage: exec.stage ?? undefined,
       }, userToken);
       if (typeof data?.sessionToken === "string") {
         exec.setSessionToken(data.sessionToken);
       }
-      return { allowed: data?.allowed, mode: data?.mode };
+      return { allowed: data?.allowed };
     },
 
     async invoke(exec: ExecContext, { fn, op, payload, occurrenceId }: ProtectedCall) {

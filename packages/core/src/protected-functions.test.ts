@@ -12,8 +12,9 @@ const lex = {
 const protectedFunctions = {
   SAVE_IT: { fn: "save-it", kind: "write" as const },
   PEEK_IT: { fn: "peek-it", kind: "read" as const },
-  // Like Author API signing: authority beyond an ordinary render.
-  EDIT_IT: { fn: "edit-it", kind: "sign" as const, modes: ["author" as const] },
+  // Like Author API signing: authority beyond an ordinary render, which policy
+  // grants only where it should (L0176: the connection's owner, never a view).
+  EDIT_IT: { fn: "edit-it", kind: "sign" as const },
 };
 
 let calls: { fn: string; arg: any }[];
@@ -47,16 +48,15 @@ class ToyTransformer extends Transformer {
 function policyAllowing(allowed: string[]) {
   const policy = {
     requests: [] as any[],
-    // Echoes the requested mode, as policy does for a mode it accepts.
     async getSnapshot(args) {
       policy.requests.push(args);
-      return { allowed, mode: args.exec.mode };
+      return { allowed };
     },
   };
   return policy;
 }
 
-async function run(src: string, { mode = "save", allowed = [], policy = undefined, connectionId = "conn-1" }: any = {}) {
+async function run(src: string, { allowed = [], policy = undefined, connectionId = "conn-1" }: any = {}) {
   const code = await parser.parse(0, src, lex);
   const compiler = new Compiler({
     langID: "9999",
@@ -71,7 +71,6 @@ async function run(src: string, { mode = "save", allowed = [], policy = undefine
     compiler.compile(code, {}, {}, (err, val) => resolve({ err: err ?? [], val }), {
       uid: "u1",
       connectionId,
-      mode,
     }),
   );
 }
@@ -92,9 +91,9 @@ const PLACEMENTS = [
   ["let binding / first-class", "let f = save-it..f 1.."],
 ];
 
-describe("save mode", () => {
+describe("the grant is the authority", () => {
   test.each(PLACEMENTS)("ungranted protected call (%s) is refused before transformation", async (_, src) => {
-    const { err } = await run(src, { mode: "save", allowed: [] });
+    const { err } = await run(src, { allowed: [] });
     expect(err.length).toBeGreaterThan(0);
     expect(err[0].message).toMatch(/save-it is not permitted/);
     expect(transformerRuns).toBe(0);
@@ -102,93 +101,64 @@ describe("save mode", () => {
   });
 
   test("a granted write runs", async () => {
-    const { err, val } = await run("save-it 1..", { mode: "save", allowed: ["save-it"] });
+    const { err, val } = await run("save-it 1..", { allowed: ["save-it"] });
     expect(err).toEqual([]);
     expect(val).toEqual({ saved: 1 });
     expect(calls).toEqual([{ fn: "save-it", arg: 1 }]);
   });
 
   test("a granted write inside a lambda runs once per element", async () => {
-    const { err } = await run("map (<x: save-it x>) [1 2]..", { mode: "save", allowed: ["save-it"] });
+    const { err } = await run("map (<x: save-it x>) [1 2]..", { allowed: ["save-it"] });
     expect(err).toEqual([]);
     expect(calls.map((c) => c.arg)).toEqual([1, 2]);
   });
 
   test("one ungranted call refuses the whole program, even after granted ones", async () => {
-    const { err } = await run("[peek-it 1 save-it 2]..", { mode: "save", allowed: ["peek-it"] });
+    const { err } = await run("[peek-it 1 save-it 2]..", { allowed: ["peek-it"] });
     expect(err.map((e) => e.message)).toEqual(["save-it is not permitted through the selected connection."]);
     expect(transformerRuns).toBe(0);
     expect(calls).toEqual([]);
   });
 
   test("the error points at the call", async () => {
-    const { err } = await run("[1 save-it 2]..", { mode: "save" });
+    const { err } = await run("[1 save-it 2]..");
     expect(err[0].message).toMatch(/save-it is not permitted/);
     expect(err[0].from).toBeGreaterThan(0);
     expect(err[0].to).toBeGreaterThan(err[0].from);
   });
 });
 
-describe("non-save modes", () => {
-  test.each(["read", "render", "verify", "corpus"])("a write in %s mode yields the sentinel and never runs", async (mode) => {
-    const { err, val } = await run("save-it 1..", { mode, allowed: ["save-it"] });
+describe("no execution modes", () => {
+  test.each(PLACEMENTS)("a granted write (%s) runs wherever the program calls it", async (_, src) => {
+    const { err } = await run(src, { allowed: ["save-it"] });
     expect(err).toEqual([]);
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
-    expect(calls).toEqual([]);
+    expect(transformerRuns).toBe(1);
   });
 
-  test.each(PLACEMENTS)("a write (%s) never runs in read mode", async (_, src) => {
-    const { err } = await run(src, { mode: "read", allowed: [] });
+  test("a write's arguments are evaluated like any call's", async () => {
+    const { err, val } = await run("save-it (peek-it 1)..", { allowed: ["peek-it", "save-it"] });
     expect(err).toEqual([]);
-    expect(calls).toEqual([]);
+    expect(val).toEqual({ saved: { peeked: 1 } });
+    expect(calls.map((c) => c.fn)).toEqual(["peek-it", "save-it"]);
   });
 
-  test("a disabled write does not evaluate its arguments", async () => {
-    const { err, val } = await run("save-it (peek-it 1)..", { mode: "read", allowed: ["peek-it"] });
-    expect(err).toEqual([]);
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
-    expect(calls).toEqual([]);
+  test("a function with authority beyond a render runs when granted, and only then", async () => {
+    expect((await run("edit-it 1..", { allowed: ["edit-it"] })).val).toEqual({ edited: 1 });
+    const { err } = await run("edit-it 1..", { allowed: ["peek-it"] });
+    expect(err[0].message).toMatch(/edit-it is not permitted/);
   });
 
-  test("a write in read mode is disabled even when policy allows the function", async () => {
-    const policy = policyAllowing(["save-it"]);
-    const { val } = await run("save-it 1..", { mode: "read", policy });
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
-    expect(calls).toEqual([]);
-  });
-
-  test("an ungranted read is still refused", async () => {
-    const { err } = await run("peek-it 1..", { mode: "read", allowed: [] });
+  test("an ungranted read is refused", async () => {
+    const { err } = await run("peek-it 1..", { allowed: [] });
     expect(err[0].message).toMatch(/peek-it is not permitted/);
     expect(transformerRuns).toBe(0);
-  });
-
-  test("a granted read runs", async () => {
-    const { err, val } = await run("peek-it 1..", { mode: "read", allowed: ["peek-it"] });
-    expect(err).toEqual([]);
-    expect(val).toEqual({ peeked: 1 });
-  });
-
-  test("an unspecified mode is read", async () => {
-    const code = await parser.parse(0, "save-it 1..", lex);
-    const compiler = new Compiler({
-      langID: "9999",
-      Checker,
-      Transformer: ToyTransformer,
-      Renderer,
-      protectedFunctions,
-      policy: policyAllowing(["save-it"]),
-    });
-    const val = await new Promise((resolve) => compiler.compile(code, {}, {}, (_e, v) => resolve(v), { uid: "u1", connectionId: "c" }));
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
-    expect(calls).toEqual([]);
   });
 });
 
 describe("policy snapshot", () => {
   test("is fetched once per compile with the protected functions it needs", async () => {
     const policy = policyAllowing(["peek-it"]);
-    await run("[peek-it 1 peek-it 2 map (<x: peek-it x>) [3]]..", { mode: "read", policy });
+    await run("[peek-it 1 peek-it 2 map (<x: peek-it x>) [3]]..", { policy });
     expect(policy.requests).toHaveLength(1);
     expect(policy.requests[0].fns).toEqual(["peek-it"]);
     expect(policy.requests[0].langID).toBe("9999");
@@ -210,14 +180,14 @@ describe("policy snapshot", () => {
         throw new Error("down");
       },
     };
-    const { err } = await run("peek-it 1..", { mode: "read", policy });
+    const { err } = await run("peek-it 1..", { policy });
     expect(err[0].message).toMatch(/unavailable/);
     expect(transformerRuns).toBe(0);
   });
 
   test("without a selected connection nothing is allowed and policy is not asked", async () => {
     const policy = policyAllowing(["peek-it"]);
-    const { err } = await run("peek-it 1..", { mode: "read", policy, connectionId: null });
+    const { err } = await run("peek-it 1..", { policy, connectionId: null });
     expect(err[0].message).toMatch(/requires a connection/);
     expect(policy.requests).toEqual([]);
   });
@@ -228,7 +198,7 @@ describe("policy snapshot", () => {
         return { allowed: "peek-it" } as any;
       },
     };
-    const { err } = await run("peek-it 1..", { mode: "read", policy });
+    const { err } = await run("peek-it 1..", { policy });
     expect(err[0].message).toMatch(/not permitted/);
   });
 });
@@ -247,14 +217,14 @@ describe("malformed snapshots allow nothing", () => {
         return response as any;
       },
     };
-    const { err } = await run("peek-it 1..", { mode: "read", policy });
+    const { err } = await run("peek-it 1..", { policy });
     expect(err[0].message).toMatch(/peek-it is not permitted/);
     expect(transformerRuns).toBe(0);
   });
 });
 
 describe("implicit protected functions", () => {
-  async function runImplicit(src, { implicit, allowed = [], mode = "read" }: any) {
+  async function runImplicit(src, { implicit, allowed = [] }: any) {
     const code = await parser.parse(0, src, lex);
     const policy = policyAllowing(allowed);
     const compiler = new Compiler({
@@ -267,7 +237,7 @@ describe("implicit protected functions", () => {
       policy,
     });
     const result = await new Promise<{ err: any[]; val: any }>((resolve) =>
-      compiler.compile(code, {}, {}, (err, val) => resolve({ err: err ?? [], val }), { uid: "u1", connectionId: "c", mode }),
+      compiler.compile(code, {}, {}, (err, val) => resolve({ err: err ?? [], val }), { uid: "u1", connectionId: "c" }),
     );
     return { ...result, policy };
   }
@@ -290,7 +260,6 @@ describe("implicit protected functions", () => {
     const { err, policy } = await runImplicit("save-it 1..", {
       implicit: [{ fn: "peek-it", kind: "sign" }],
       allowed: ["peek-it", "save-it"],
-      mode: "save",
     });
     expect(err).toEqual([]);
     expect(policy.requests).toHaveLength(1);
@@ -298,58 +267,9 @@ describe("implicit protected functions", () => {
   });
 
   test("cannot be writes", async () => {
-    const { err } = await runImplicit("add 1 2..", { implicit: [{ fn: "save-it", kind: "write" }], allowed: ["save-it"], mode: "save" });
+    const { err } = await runImplicit("add 1 2..", { implicit: [{ fn: "save-it", kind: "write" }], allowed: ["save-it"] });
     expect(err[0].message).toMatch(/cannot be a write/);
     expect(transformerRuns).toBe(0);
-  });
-});
-
-describe("mode-restricted functions", () => {
-  test.each(["save", "read", "render", "verify", "corpus"])("are disabled in %s mode without consulting policy", async (mode) => {
-    // The nested read is still admitted (the scan is conservative); the
-    // disabled function is never asked about and its argument never runs.
-    const policy = policyAllowing(["edit-it", "peek-it"]);
-    const { err, val } = await run("edit-it (peek-it 1)..", { mode, policy });
-    expect(err).toEqual([]);
-    expect(val).toEqual({ skipped: "mode-disabled", fn: "edit-it" });
-    expect(calls).toEqual([]);
-    expect(policy.requests).toHaveLength(1);
-  });
-
-  test("run in their mode when granted", async () => {
-    const { err, val } = await run("edit-it 1..", { mode: "author", allowed: ["edit-it"] });
-    expect(err).toEqual([]);
-    expect(val).toEqual({ edited: 1 });
-  });
-
-  test("are refused in their mode without a grant", async () => {
-    const { err } = await run("edit-it 1..", { mode: "author", allowed: [] });
-    expect(err[0].message).toMatch(/edit-it is not permitted/);
-    expect(transformerRuns).toBe(0);
-  });
-
-  test("writes are disabled in author mode", async () => {
-    const { err, val } = await run("save-it 1..", { mode: "author", allowed: ["save-it"] });
-    expect(err).toEqual([]);
-    expect(val).toEqual({ skipped: "write-disabled", fn: "save-it" });
-    expect(calls).toEqual([]);
-  });
-
-  test("a write declared runnable outside save mode is a language bug", async () => {
-    const code = await parser.parse(0, "save-it 1..", lex);
-    const compiler = new Compiler({
-      langID: "9999",
-      Checker,
-      Transformer: ToyTransformer,
-      Renderer,
-      protectedFunctions: { SAVE_IT: { fn: "save-it", kind: "write", modes: ["save", "read"] } },
-      policy: policyAllowing(["save-it"]),
-    });
-    const { err } = await new Promise<any>((resolve) =>
-      compiler.compile(code, {}, {}, (e, v) => resolve({ err: e ?? [], val: v }), { uid: "u1", connectionId: "c", mode: "read" }),
-    );
-    expect(err[0].message).toMatch(/may only run in save mode/);
-    expect(calls).toEqual([]);
   });
 });
 

@@ -931,18 +931,6 @@ export class Transformer extends Visitor {
     this.patternNodePool = ['unused'];
     this.patternNodeMap = {};
   }
-  // A protected write disabled for this invocation (see protected-functions.ts)
-  // evaluates to its sentinel WITHOUT visiting its arguments: evaluating them
-  // could itself exercise protected functions.
-  visit(nid, options, resume) {
-    const node = nid && typeof nid === "object" ? nid : this.nodePool[nid];
-    const skipped = this.execContext?.skippedResultFor(node);
-    if (skipped) {
-      resume([], skipped);
-      return;
-    }
-    super.visit(nid, options, resume);
-  }
   transform(options, resume) {
     const nid = this.root;
     this.visit(nid, options, (err, data) => {
@@ -2156,7 +2144,7 @@ export class Compiler {
     // into an object to be rendered on the client by the viewer for this
     // language.
     //
-    // `identity` is the caller's VERIFIED identity and execution intent, supplied
+    // `identity` is the caller's VERIFIED identity and invocation, supplied
     // by the language server from its authenticated request context — never from
     // program input. It becomes this invocation's ExecContext, bound to the
     // per-compile Checker and Transformer and kept out of `options`.

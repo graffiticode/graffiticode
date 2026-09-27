@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 //
-// ExecContext is the per-invocation authorization context: who is compiling, in
-// what mode, through which connection, and (later) the policy snapshot and
-// clients used to reach the credential broker.
+// ExecContext is the per-invocation authorization context: who is compiling,
+// through which connection, under which invocation, and the policy snapshot and
+// client used to reach the credential broker. There are no execution modes:
+// running the program is the action, and the grant is the authority.
 //
 // Two invariants make it a security boundary rather than a convenience:
 //
@@ -17,29 +18,11 @@
 
 import { randomUUID } from "crypto";
 
-// `author` is set only by the owner's authoring entry point (opening the
-// Learnosity Author Site); like `save`, no program can select it.
-export type ExecMode = "save" | "author" | "read" | "render" | "verify" | "corpus";
-
-export const EXEC_MODES: readonly ExecMode[] = ["save", "author", "read", "render", "verify", "corpus"];
-
-// What a protected node disabled for this invocation evaluates to: a write
-// outside save mode, or any function outside the modes it permits.
-export interface SkippedResult {
-  skipped: "write-disabled" | "mode-disabled";
-  fn: string;
-}
-
 export interface ExecIdentity {
   uid?: string | null;
   connectionId?: string | null;
-  // The mode the caller asks for. Privileged modes (`save`, `author`) are
-  // honored only when policy resolves them from a console-issued intent; see
-  // resolveMode.
-  mode?: ExecMode;
   // Forwarded to policy only; never exposed as properties.
   userToken?: string | null;
-  intentToken?: string | null;
   // The logical invocation, allocated by the authenticated entry point (the
   // gateway) and shared by every retry of it, and this compile's position in
   // the task chain. Policy derives operation ids from them, so a retry reaches
@@ -67,28 +50,18 @@ export class ExecContext {
   // Unique to this compile. For diagnostics only: the logical invocation, which
   // retries share, comes from the invocation token.
   readonly compileId: string;
-  #mode: ExecMode;
-  #modeResolved = false;
   #userToken: string | null;
-  #intentToken: string | null;
   #invocationToken: string | null;
   #sessionToken: string | null = null;
   #invoker: Invoker | null = null;
   #occurrences = new Map<string, number>();
   #snapshot: unknown = undefined;
-  // Protected write nodes this invocation must not execute (non-save mode),
-  // keyed by pool node identity. Decided before transformation.
-  #disabled = new WeakMap<object, SkippedResult>();
 
   constructor(identity: ExecIdentity = {}) {
     this.uid = typeof identity.uid === "string" && identity.uid ? identity.uid : null;
     this.connectionId =
       typeof identity.connectionId === "string" && identity.connectionId ? identity.connectionId : null;
-    // Least privilege by default: only an authenticated entry point that means to
-    // save may say so. An unknown mode is a caller bug, not a request to save.
-    this.#mode = identity.mode && EXEC_MODES.includes(identity.mode) ? identity.mode : "read";
     this.#userToken = typeof identity.userToken === "string" && identity.userToken ? identity.userToken : null;
-    this.#intentToken = typeof identity.intentToken === "string" && identity.intentToken ? identity.intentToken : null;
     this.#invocationToken =
       typeof identity.invocationToken === "string" && identity.invocationToken ? identity.invocationToken : null;
     this.stage = typeof identity.stage === "string" && identity.stage ? identity.stage : null;
@@ -96,28 +69,10 @@ export class ExecContext {
     Object.freeze(this);
   }
 
-  get mode(): ExecMode {
-    return this.#mode;
-  }
-
-  // Policy's answer replaces the requested mode, once, before any protected
-  // node is decided. This is how an intent's `save` reaches admission, and how
-  // a request that claimed a privileged mode without an intent is lowered.
-  resolveMode(mode: ExecMode): void {
-    if (this.#modeResolved) {
-      throw new Error("ExecContext mode is already resolved for this invocation");
-    }
-    if (!EXEC_MODES.includes(mode)) {
-      throw new Error(`unknown execution mode ${mode}`);
-    }
-    this.#mode = mode;
-    this.#modeResolved = true;
-  }
-
   // Credentials a policy client forwards. Language code may read them; no
   // program can (the context is unreachable from the AST).
-  policyCredentials(): { userToken: string | null; intentToken: string | null; invocationToken: string | null } {
-    return { userToken: this.#userToken, intentToken: this.#intentToken, invocationToken: this.#invocationToken };
+  policyCredentials(): { userToken: string | null; invocationToken: string | null } {
+    return { userToken: this.#userToken, invocationToken: this.#invocationToken };
   }
 
   get sessionToken(): string | null {
@@ -171,15 +126,6 @@ export class ExecContext {
       throw new Error("ExecContext snapshot is already set for this invocation");
     }
     this.#snapshot = snapshot;
-  }
-
-  disable(node: object, fn: string, skipped: SkippedResult["skipped"] = "write-disabled"): void {
-    this.#disabled.set(node, Object.freeze({ skipped, fn }));
-  }
-
-  // The sentinel a disabled node evaluates to, or undefined when the node runs.
-  skippedResultFor(node: object): SkippedResult | undefined {
-    return node && typeof node === "object" ? this.#disabled.get(node) : undefined;
   }
 }
 

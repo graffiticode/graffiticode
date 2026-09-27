@@ -21,8 +21,7 @@
 // are admitted for every compile of that language, and must never synthesize a
 // protected node the pool did not contain.
 
-import { EXEC_MODES } from "./exec-context.js";
-import type { ExecContext, ExecMode, Invoker } from "./exec-context.js";
+import type { ExecContext, Invoker } from "./exec-context.js";
 
 export type ProtectedFunctionKind = "read" | "write" | "sign";
 
@@ -30,20 +29,7 @@ export interface ProtectedFunctionSpec {
   // The permission key: the stable function name a grant names.
   fn: string;
   kind: ProtectedFunctionKind;
-  // Execution modes the function may run in. Defaults: a write runs only in
-  // `save`; anything else in every mode. A function whose authority exceeds an
-  // ordinary render (e.g. Author API signing) must narrow this.
-  modes?: ExecMode[];
 }
-
-export function permittedModes(spec: ProtectedFunctionSpec): readonly ExecMode[] {
-  if (Array.isArray(spec.modes)) {
-    return spec.modes;
-  }
-  return spec.kind === "write" ? ["save"] : EXEC_MODES;
-}
-
-const runsIn = (spec: ProtectedFunctionSpec, exec: ExecContext) => permittedModes(spec).includes(exec.mode);
 
 // Keyed by node tag (the lexicon entry's `name`).
 export type ProtectedFunctions = Record<string, ProtectedFunctionSpec>;
@@ -51,12 +37,7 @@ export type ProtectedFunctions = Record<string, ProtectedFunctionSpec>;
 export interface PolicySnapshot {
   // Function names this invocation may call through its connection.
   allowed: string[];
-  // The mode policy resolved (from a console-issued intent, or the requested
-  // non-privileged mode). Admission decides writes from this.
-  mode?: ExecMode;
 }
-
-const PRIVILEGED_MODES: readonly ExecMode[] = ["save", "author"];
 
 // A snapshot is accepted only if it is exactly well-formed. Anything else —
 // a non-array, a single non-string entry — is malformed, and a malformed
@@ -70,11 +51,7 @@ export function parseSnapshot(snapshot: unknown): PolicySnapshot | null {
   if (!Array.isArray(allowed) || !allowed.every((f) => typeof f === "string" && f.length > 0)) {
     return null;
   }
-  const mode = (snapshot as any).mode;
-  if (mode !== undefined && !EXEC_MODES.includes(mode)) {
-    return null;
-  }
-  return mode === undefined ? { allowed: [...allowed] } : { allowed: [...allowed], mode };
+  return { allowed: [...allowed] };
 }
 
 export interface PolicyClient {
@@ -110,12 +87,10 @@ export function findProtectedNodes(nodePool: any, protectedFunctions: ProtectedF
   return found;
 }
 
-// Decides every protected node before transformation:
-// - a function outside its permitted modes (every write outside save mode) is
-//   DISABLED: it evaluates to a sentinel without evaluating its arguments
-//   (which could themselves call protected functions), and it never mints a
-//   token;
-// - otherwise, a function missing from the policy snapshot is an error.
+// Decides every protected node before transformation: a function missing
+// from the policy snapshot is an error, so the transformer never begins.
+// There are no execution modes: running the program is the action, and a
+// granted function (a write included) runs whenever the program calls it.
 // The snapshot is fetched once, only when protected nodes exist, and fails
 // closed: no policy client, a failed fetch, or a malformed response means
 // nothing is allowed.
@@ -143,18 +118,13 @@ export async function admitProtectedFunctions({
     return [];
   }
   for (const { node, spec } of found) {
-    // An implicit write has no node to disable and cannot be skipped, so it is
-    // a language bug rather than something admission can make safe.
+    // A write must be visible in the program: an implicit one would run on
+    // every compile without the program ever asking for it.
     if (!node && spec.kind === "write") {
       return [errorAt(`Implicit protected function ${spec.fn} cannot be a write.`, null)];
     }
-    if (spec.kind === "write" && permittedModes(spec).some((m) => m !== "save")) {
-      return [errorAt(`Protected write ${spec.fn} may only run in save mode.`, null)];
-    }
   }
-  // One snapshot per compile, covering every protected function present. It
-  // also resolves the mode: with a policy client, a privileged mode is never
-  // taken from the request, only from policy's answer.
+  // One snapshot per compile, covering every protected function present.
   let snapshot: PolicySnapshot = { allowed: [] };
   // A view of a published item has no user: it carries the publication's
   // invocation token instead, and policy confines it to viewSafe functions.
@@ -168,25 +138,15 @@ export async function admitProtectedFunctions({
       return [errorAt("Permission check is unavailable; protected functions cannot run.", null)];
     }
     snapshot = parseSnapshot(response) ?? { allowed: [] };
-    exec.resolveMode(snapshot.mode ?? (PRIVILEGED_MODES.includes(exec.mode) ? "read" : exec.mode));
     if (typeof policy.invoke === "function") {
       exec.bindInvoker(policy.invoke);
     }
-  } else if (policy && PRIVILEGED_MODES.includes(exec.mode)) {
-    exec.resolveMode("read");
   }
   exec.setSnapshot(Object.freeze({ allowed: Object.freeze([...snapshot.allowed]) }));
   const allowed = new Set(snapshot.allowed);
   const errors: AdmissionError[] = [];
   for (const { node, spec } of found) {
-    if (!runsIn(spec, exec)) {
-      if (!node) {
-        // An implicit function has no node to skip.
-        errors.push(errorAt(`${spec.fn} cannot run in ${exec.mode} mode.`, null));
-      } else {
-        exec.disable(node, spec.fn, spec.kind === "write" ? "write-disabled" : "mode-disabled");
-      }
-    } else if (!allowed.has(spec.fn)) {
+    if (!allowed.has(spec.fn)) {
       errors.push(
         errorAt(
           exec.connectionId
