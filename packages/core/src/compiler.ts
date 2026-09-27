@@ -128,6 +128,12 @@ async function signForRender(plain: any, options: any): Promise<any> {
     request = await initItems(plain, credArgs);
     break;
   case "author":
+    // An Author Site session can edit and delete items, so it is signed only
+    // with the program's own credentials, never with the server's default
+    // account.
+    if (!creds.fromOptions) {
+      return plain;
+    }
     request = await initAuthor(plain, credArgs);
     break;
   default:
@@ -242,7 +248,8 @@ export class Transformer extends BaseTransformer {
         val = await initItems(plain, credArgs);
         break;
       case "author":
-        val = await initAuthor(plain, credArgs);
+        // Never with the server's default account; see signForRender.
+        val = creds.fromOptions ? await initAuthor(plain, credArgs) : plain;
         break;
       }
       resume(err, val);
