@@ -1,3 +1,4 @@
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildArtifactStorer, buildMemoryArtifactStorer } from "./artifacts.js";
 
 // The contract, against the in-memory store always and against Firestore when
@@ -5,7 +6,7 @@ import { buildArtifactStorer, buildMemoryArtifactStorer } from "./artifacts.js";
 const stores = [["memory", () => buildMemoryArtifactStorer()]];
 if (process.env.FIRESTORE_EMULATOR_HOST) stores.push(["firestore", () => buildArtifactStorer()]);
 
-const RV = 2;
+const RV = REGISTRY_VERSION;
 const base = { uid: "u1", ownerUid: "u1", connectionId: "conn-1", taskId: "task-1", registryVersion: RV };
 const query = { uid: "u1", taskId: "task-1", connectionId: "conn-1", registryVersion: RV };
 let n = 0;
@@ -55,6 +56,14 @@ describe.each(stores)("storage/artifacts (%s)", (_, build) => {
   it("reports an artifact from another registry version as incompatible", async () => {
     await store.put({ ...b, invocationId: `inv-${unique()}`, seq: 1, content: { v: 1 } });
     expect((await store.getCurrent({ ...q, registryVersion: RV + 1 })).status).toBe("incompatible");
+  });
+
+  it("finds an artifact by its invocation, whether or not it is current", async () => {
+    const older = `inv-${unique()}`;
+    await store.put({ ...b, invocationId: older, seq: 1, content: { v: 1 } });
+    await store.put({ ...b, invocationId: `inv-${unique()}`, seq: 2, content: { v: 2 } });
+    expect(await store.getByInvocation(older)).toMatchObject({ uid: "u1", seq: 1, content: { v: 1 } });
+    expect(await store.getByInvocation(`inv-${unique()}`)).toBeNull();
   });
 
   it("keeps shapes Firestore cannot hold natively", async () => {

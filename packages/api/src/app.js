@@ -9,6 +9,7 @@ import { buildValidateToken } from "./auth.js";
 import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
 import { buildAllocateInvocation, buildMetadataIdToken } from "./invocations.js";
+import { buildPublicationClient } from "./publications.js";
 import { compile as langCompile, validateOutput } from "./lang/index.js";
 import * as routes from "./routes/index.js";
 import { createStorers } from "./storage/index.js";
@@ -32,10 +33,11 @@ export const createApp = ({ authUrl } = {}) => {
   const { taskStorer, compileStorer, langOverrideStorer, artifactStorer } = createStorers();
   // POLICY_URL (the policy service's run.app URL) enables compiles through a
   // selected connection; without it they are refused, never run unguarded.
-  const allocateInvocation = process.env.POLICY_URL
-    ? buildAllocateInvocation({ policyUrl: process.env.POLICY_URL, idToken: buildMetadataIdToken() })
-    : null;
-  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer });
+  const policyUrl = process.env.POLICY_URL;
+  const idToken = policyUrl ? buildMetadataIdToken() : null;
+  const allocateInvocation = policyUrl ? buildAllocateInvocation({ policyUrl, idToken }) : null;
+  const publications = policyUrl ? buildPublicationClient({ policyUrl, idToken }) : null;
+  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications });
 
   const app = express();
   app.all("*", (req, res, next) => {
@@ -85,6 +87,7 @@ export const createApp = ({ authUrl } = {}) => {
   app.use("/form", routes.formRouter({ taskStorer }));
   app.use("/task", routes.tasks({ taskStorer }));
   app.use("/tasks", routes.tasks({ taskStorer }));
+  app.use("/publications", routes.publications({ taskStorer, artifactStorer, publications }));
 
   // Error handling
   app.use((err, req, res, next) => {

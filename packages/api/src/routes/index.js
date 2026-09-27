@@ -14,3 +14,4 @@ export { default as data } from "./data.js";
 export { default as langOverrides } from "./lang-override.js";
 export { default as root } from "./root.js";
 export { default as tasks } from "./tasks.js";
+export { default as publications } from "./publications.js";

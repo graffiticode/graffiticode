@@ -6,6 +6,7 @@ import {
   parseIdsFromRequest,
   parseAuthTokenFromRequest,
   parseConnectionId,
+  parsePublicationId,
   setImmutableCacheHeaders,
   setNoStoreCacheHeaders,
   optionsHandler
@@ -17,7 +18,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // Callers that don't care (routes/compile.js) can omit it.
   return async ({
     auth, authToken, ids, action = {}, refresh = false, connectionId = null, intentToken = null, idempotencyKey = null,
-    read = false
+    read = false, publicationId = null
   }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
@@ -35,7 +36,8 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       connectionId,
       intentToken,
       idempotencyKey: keyFor(i),
-      read
+      read,
+      publicationId
     })));
     let data;
     if (objs.length > 1) {
@@ -67,9 +69,14 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
     // query param.
     const refresh = auth !== null && ["1", "true"].includes(String(req.query.refresh || ""));
     const connectionId = parseConnectionId(req.query.connection, { auth });
+    const publicationId = parsePublicationId(req.query.publication);
+    if (connectionId && publicationId) {
+      throw new InvalidArgumentError("choose a connection or a publication, not both");
+    }
     const action = {};
-    // GET /data is a view: through a connection it reads the stored result.
-    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, read: true });
+    // GET /data is a view: through a connection it reads the caller's stored
+    // result; through a publication, the published one.
+    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true });
     // A refreshed response must not be held anywhere. The id is immutable but
     // we just proved its data is not, and the whole point of asking was to get
     // past a stale copy — an immutable header here would plant another one in
@@ -79,7 +86,7 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
       res.status(200).json(createSuccessResponse({ data }));
       return;
     }
-    if (action.noStore || connectionId) {
+    if (action.noStore || connectionId || publicationId) {
       // At least one of these ids compiles to output that expires.
       setNoStoreCacheHeaders(res);
     } else {

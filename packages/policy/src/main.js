@@ -24,6 +24,7 @@ import {
   createKmsSigner,
   createFirestoreConnectionStore,
   createFirestoreInvocationStore,
+  createFirestorePublicationStore,
   createBrokerAdminClient,
   createAudit,
   createPseudonymizer
@@ -52,7 +53,8 @@ const audit = createAudit({ sink: auditSink, pseudonymize: createPseudonymizer({
 const connections = createFirestoreConnectionStore(db);
 const signer = createKmsSigner({ kms, keyVersionName, kid });
 const invocations = createFirestoreInvocationStore(db);
-const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations, audit });
+const publications = createFirestorePublicationStore(db);
+const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations, publications, audit });
 const idToken = createIdTokenSource({ GoogleAuth });
 const manager = createConnectionManager({ connections, audit, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
 const authClient = createAuthClient(authUrl);

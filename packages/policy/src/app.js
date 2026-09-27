@@ -6,7 +6,12 @@
 //   POST /v1/intents   console    { mode, connectionId }         -> { intentToken, saveActionId }
 //   POST /v1/invocations gateway  { connectionId, taskId, inputDigest, idempotencyKey? }
 //                                                                 -> { invocationToken, invocationId, seq, reused, ownerUid }
+//   POST   /v1/publications          gateway  { connectionId, taskId, lang, artifactInvocationId } -> { publicationId }
+//   DELETE /v1/publications/:id      gateway  the publisher unpublishes
+//   POST   /v1/publications/:id/view gateway  NO user: a view of the published item
+//                                             -> { invocationToken, publisherUid, connectionId, lang, taskId, artifactInvocationId }
 //   POST /v1/snapshot  compiler   { lang, connectionId, fns, mode?, intentToken?, invocationToken, stage }
+//                                 (no user for a publication's invocation token)
 //                                                                 -> { allowed, sessionToken }
 //   POST /v1/mint      compiler   { sessionToken, fn, op, occurrenceId, argsDigest }
 //                                                                 -> { executionToken, operationId }
@@ -25,6 +30,7 @@ import { PolicyDenied } from "./policy.js";
 const ROUTE_ROLES = Object.freeze({
   intents: ["console"],
   invocations: ["gateway"],
+  publications: ["gateway"],
   snapshot: ["compiler"],
   mint: ["compiler"],
   connections: ["console"],
@@ -56,6 +62,9 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
       throw new UnauthenticatedError("invalid user token");
     }
   };
+  // A snapshot for a published item's view has no user; any other token that
+  // is present must still verify.
+  const optionalUser = async req => (parseTokenFromRequest(req) ? user(req) : null);
   const decide = async (res, fn) => {
     try {
       sendSuccessResponse(res, await fn());
@@ -81,9 +90,24 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const { connectionId, taskId, inputDigest, idempotencyKey = null } = req.body ?? {};
     await decide(res, () => policy.allocateInvocation({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey }));
   }));
+  router.post("/publications", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("publications")(req);
+    const u = await user(req);
+    const { connectionId, taskId, lang, artifactInvocationId } = req.body ?? {};
+    await decide(res, () => policy.createPublication({ caller, user: u, connectionId, taskId, lang, artifactInvocationId }));
+  }));
+  router.delete("/publications/:id", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("publications")(req);
+    const u = await user(req);
+    await decide(res, () => policy.deletePublication({ caller, user: u, publicationId: req.params.id }));
+  }));
+  router.post("/publications/:id/view", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("publications")(req);
+    await decide(res, () => policy.authorizeView({ caller, publicationId: req.params.id }));
+  }));
   router.post("/snapshot", buildHttpHandler(async (req, res) => {
     const caller = await authorize("snapshot")(req);
-    const u = await user(req);
+    const u = await optionalUser(req);
     const { lang, connectionId, fns, mode, intentToken, invocationToken, stage } = req.body ?? {};
     await decide(res, () => policy.snapshot({ caller, user: u, lang, connectionId, fns, mode, intentToken, invocationToken, stage }));
   }));

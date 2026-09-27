@@ -8,6 +8,7 @@ import {
   verifyToken,
   createMemoryConnectionStore,
   createMemoryInvocationStore,
+  createMemoryPublicationStore,
   createAudit,
   createPseudonymizer,
   ISSUER
@@ -45,7 +46,9 @@ beforeEach(async () => {
     sink: r => records.push(r),
     pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" })
   });
-  policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
+  policy = createPolicy({
+    signer, jwks, connections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore(), audit
+  });
 });
 
 const ALL_FNS = ["preview-itembank", "save-to-itembank", "author-itembank"];
@@ -335,5 +338,94 @@ describe("invocations", () => {
     await denied(snap({ invocationToken: await issueToken(signer, "session", { sub: OWNER, conn: "conn-1", inv: "inv-x" }) }), "bad-invocation");
     await denied(snap({ invocationToken, user: { uid: OTHER }, connectionId: "conn-other" }), "bad-invocation");
     await denied(snap({ invocationToken, stage: "" }), "bad-request");
+  });
+});
+
+describe("publications", () => {
+  const publish = (over = {}) => policy.createPublication({
+    caller: GATEWAY,
+    user: { uid: OWNER },
+    connectionId: "conn-1",
+    taskId: "task-1",
+    lang: "0176",
+    artifactInvocationId: "inv-run",
+    ...over
+  });
+  const view = publicationId => policy.authorizeView({ caller: GATEWAY, publicationId });
+  const mintWith = (sessionToken, over = {}) => policy.mint({
+    caller: L0176,
+    sessionToken,
+    fn: "preview-itembank",
+    op: "learnosity.sign-items-preview",
+    occurrenceId: "prog.0",
+    argsDigest: digest("args"),
+    ...over
+  });
+  // A compiler's snapshot for a published view: no user at all.
+  const viewSnap = (invocationToken, over = {}) => policy.snapshot({
+    caller: L0176, user: null, lang: "0176", connectionId: "conn-1", fns: ALL_FNS, invocationToken, stage: "view", ...over
+  });
+
+  it("are created by the gateway for the connection's owner only", async () => {
+    await expect(publish()).resolves.toMatchObject({ publicationId: expect.stringMatching(/^pub-/) });
+    await denied(publish({ caller: CONSOLE }), "caller-not-entry-point");
+    await denied(publish({ user: { uid: OTHER } }), "not-owner");
+    await denied(publish({ connectionId: "conn-off" }), "connection-disabled");
+    await denied(publish({ lang: "L0176" }), "bad-request");
+  });
+
+  it("give a viewer with no user the publisher's preview signing, and nothing else", async () => {
+    const { publicationId } = await publish();
+    const v = await view(publicationId);
+    expect(v).toMatchObject({ publisherUid: OWNER, connectionId: "conn-1", lang: "0176", taskId: "task-1", artifactInvocationId: "inv-run" });
+    const snap = await viewSnap(v.invocationToken);
+    expect(snap).toMatchObject({ allowed: ["preview-itembank"], mode: "render" });
+    const { claims } = await verifyToken(jwks, "session", snap.sessionToken);
+    expect(claims).toMatchObject({ sub: OWNER, pub: publicationId, mode: "render", fns: ["preview-itembank"] });
+    await expect(mintWith(snap.sessionToken)).resolves.toBeTruthy();
+    await denied(mintWith(snap.sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
+    await denied(mintWith(snap.sessionToken, { fn: "author-itembank", op: "learnosity.sign-author" }), "fn-not-in-session");
+  });
+
+  it("never take an intent, even the owner's", async () => {
+    const { publicationId } = await publish();
+    const { intentToken } = await intent("save");
+    await denied(viewSnap((await view(publicationId)).invocationToken, { intentToken }), "bad-request");
+  });
+
+  it("share one invocation across views", async () => {
+    const { publicationId } = await publish();
+    const a = await verifyToken(jwks, "invocation", (await view(publicationId)).invocationToken);
+    const b = await verifyToken(jwks, "invocation", (await view(publicationId)).invocationToken);
+    expect(a.claims.inv).toBe(b.claims.inv);
+  });
+
+  it("stop at the next view and the next mint once unpublished", async () => {
+    const { publicationId } = await publish();
+    const snap = await viewSnap((await view(publicationId)).invocationToken);
+    await denied(policy.deletePublication({ caller: GATEWAY, user: { uid: OTHER }, publicationId }), "not-publisher");
+    await policy.deletePublication({ caller: GATEWAY, user: { uid: OWNER }, publicationId });
+    await denied(view(publicationId), "publication-not-found");
+    await denied(mintWith(snap.sessionToken), "publication-not-found");
+  });
+
+  it("stop once the connection is disabled", async () => {
+    const { publicationId } = await publish();
+    const { invocationToken } = await view(publicationId);
+    await connections.put({ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "disabled" });
+    await denied(view(publicationId), "connection-disabled");
+    await denied(viewSnap(invocationToken), "connection-disabled");
+  });
+
+  it("refuse a publication token presented for another connection or language", async () => {
+    const { publicationId } = await publish();
+    const { invocationToken } = await view(publicationId);
+    await denied(viewSnap(invocationToken, { connectionId: "conn-x" }), "bad-invocation");
+    await denied(viewSnap(invocationToken, { caller: { role: "compiler", lang: "0000" }, lang: "0000" }), "publication-mismatch");
+  });
+
+  it("still require a user for any other invocation", async () => {
+    const { invocationToken } = await invoke();
+    await denied(viewSnap(invocationToken), "no-user");
   });
 });

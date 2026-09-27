@@ -53,3 +53,21 @@ export const createFirestoreInvocationStore = db => ({
     });
   },
 });
+
+// See publications.js for the contract.
+export const createFirestorePublicationStore = db => {
+  const ref = publicationId => db.collection("publications").doc(publicationId);
+  return {
+    async create(record) {
+      await ref(record.publicationId).create(record);
+      return { ...record };
+    },
+    async get(publicationId) {
+      const snap = await ref(publicationId).get();
+      return snap.exists ? { publicationId, ...snap.data() } : null;
+    },
+    async delete(publicationId) {
+      await ref(publicationId).delete();
+    },
+  };
+};

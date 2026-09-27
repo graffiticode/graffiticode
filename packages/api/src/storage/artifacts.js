@@ -14,6 +14,7 @@
 //     -> { current }   whether this invocation is now the head
 //   getCurrent({ uid, taskId, connectionId, registryVersion })
 //     -> { status: "ok", artifact } | { status: "missing" } | { status: "incompatible" }
+//   getByInvocation(invocationId) -> artifact | null   (the one a publication names)
 //
 // "missing" and "incompatible" both mean an explicit run is needed; a read must
 // never rebuild the artifact by executing the program.
@@ -49,6 +50,10 @@ export const buildMemoryArtifactStorer = () => {
       const head = heads.get(headId(query));
       return resolveCurrent(head ? artifacts.get(head.invocationId) : null, query);
     },
+    async getByInvocation(invocationId) {
+      const artifact = artifacts.get(invocationId);
+      return artifact ? JSON.parse(JSON.stringify(artifact)) : null;
+    },
   };
 };
 
@@ -75,6 +80,12 @@ export const buildArtifactStorer = ({ db = admin.firestore() } = {}) => {
       if (!snap.exists) return { status: "missing" };
       const { content, ...binding } = snap.data();
       return resolveCurrent({ ...binding, content: JSON.parse(content) }, query);
+    },
+    async getByInvocation(invocationId) {
+      const snap = await artifactRef(invocationId).get();
+      if (!snap.exists) return null;
+      const { content, ...binding } = snap.data();
+      return { ...binding, content: JSON.parse(content) };
     },
   };
 };

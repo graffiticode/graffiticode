@@ -47,31 +47,45 @@ export const buildMetadataIdToken = ({ fetch: doFetch = fetch } = {}) => {
   };
 };
 
-export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = fetch }) =>
-  async ({ authToken, connectionId, taskId, options, idempotencyKey = null }) => {
+// One call to policy as the gateway: the invoker and caller identity tokens,
+// and the end user's token when there is one. A 403 is policy's refusal, with
+// its reason; anything else unexpected is an error.
+export const buildPolicyRequest = ({ policyUrl, idToken, fetch: doFetch = fetch }) =>
+  async (method, path, { body, authToken = null } = {}) => {
     const [invoker, caller] = await Promise.all([idToken(policyUrl), idToken("urn:graffiticode:policy")]);
-    const res = await doFetch(`${policyUrl}/v1/invocations`, {
-      method: "POST",
+    const res = await doFetch(`${policyUrl}${path}`, {
+      method,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         "X-Serverless-Authorization": `Bearer ${invoker}`,
         "X-Caller-Identity": caller
       },
-      body: JSON.stringify({
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    const json = await res.json().catch(() => null);
+    if (res.status === 403) throw new InvocationRefused(json?.error?.reason ?? "denied");
+    return { status: res.status, ok: res.ok, body: json };
+  };
+
+export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = fetch }) => {
+  const request = buildPolicyRequest({ policyUrl, idToken, fetch: doFetch });
+  return async ({ authToken, connectionId, taskId, options, idempotencyKey = null }) => {
+    const { ok, status, body } = await request("POST", "/v1/invocations", {
+      authToken,
+      body: {
         connectionId,
         taskId,
         inputDigest: inputDigest(options),
         ...(idempotencyKey ? { idempotencyKey } : {})
-      })
+      }
     });
-    const body = await res.json().catch(() => null);
-    if (res.status === 403) throw new InvocationRefused(body?.error?.reason ?? "denied");
     const data = body?.data;
-    if (!res.ok || typeof data?.invocationToken !== "string" || typeof data.invocationId !== "string" ||
+    if (!ok || typeof data?.invocationToken !== "string" || typeof data.invocationId !== "string" ||
         !Number.isInteger(data.seq) || typeof data.ownerUid !== "string") {
-      throw new Error(`policy invocation failed (${res.status})`);
+      throw new Error(`policy invocation failed (${status})`);
     }
     const { invocationToken, invocationId, seq, ownerUid } = data;
     return { invocationToken, invocationId, seq, ownerUid };
   };
+};

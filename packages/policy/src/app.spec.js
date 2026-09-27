@@ -9,6 +9,7 @@ import {
   createLocalSigner,
   createMemoryConnectionStore,
   createMemoryInvocationStore,
+  createMemoryPublicationStore,
   createAudit,
   createPseudonymizer
 } from "./index.js";
@@ -53,7 +54,14 @@ beforeEach(async () => {
   const connections = createMemoryConnectionStore([
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
-  const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations: createMemoryInvocationStore(), audit });
+  const policy = createPolicy({
+    signer,
+    jwks: publicJwks,
+    connections,
+    invocations: createMemoryInvocationStore(),
+    publications: createMemoryPublicationStore(),
+    audit
+  });
   const identifyCaller = createCallerIdentity({
     verifyIdToken,
     audience: AUD,
@@ -104,6 +112,33 @@ describe("invocations over http", () => {
     expect(denied.status).toBe(403);
     const compiler = await as(request(app).post("/v1/invocations"), SA.l0176).send({ connectionId: "conn-1", taskId: "t", inputDigest: "b".repeat(64) });
     expect(compiler.status).toBe(403);
+  });
+});
+
+describe("publications over http", () => {
+  it("lets the gateway publish for the owner, and a compiler snapshot a view with no user", async () => {
+    const created = await as(request(app).post("/v1/publications"), SA.gateway)
+      .send({ connectionId: "conn-1", taskId: "task-1", lang: "0176", artifactInvocationId: "inv-run" });
+    expect(created.status).toBe(200);
+    const { publicationId } = created.body.data;
+
+    const view = await as(request(app).post(`/v1/publications/${publicationId}/view`), SA.gateway, { user: null }).send();
+    expect(view.status).toBe(200);
+    const snap = await as(request(app).post("/v1/snapshot"), SA.l0176, { user: null }).send({
+      lang: "0176", connectionId: "conn-1", fns: ["preview-itembank", "save-to-itembank"], invocationToken: view.body.data.invocationToken, stage: "view"
+    });
+    expect(snap.status).toBe(200);
+    expect(snap.body.data.allowed).toEqual(["preview-itembank"]);
+
+    expect((await as(request(app).delete(`/v1/publications/${publicationId}`), SA.gateway)).status).toBe(200);
+    const after = await as(request(app).post(`/v1/publications/${publicationId}/view`), SA.gateway, { user: null }).send();
+    expect(after.body.error.reason).toBe("publication-not-found");
+  });
+
+  it("refuses anyone but the gateway", async () => {
+    const res = await as(request(app).post("/v1/publications"), SA.console)
+      .send({ connectionId: "conn-1", taskId: "task-1", lang: "0176", artifactInvocationId: "inv-run" });
+    expect(res.status).toBe(403);
   });
 });
 

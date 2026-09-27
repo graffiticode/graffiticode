@@ -1,6 +1,6 @@
 import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { InvocationRefused } from "./invocations.js";
-import { buildReadArtifact } from "./read.js";
+import { buildReadArtifact, buildReadPublished } from "./read.js";
 
 const ARTIFACT_WRITE_ATTEMPTS = 3;
 const ARTIFACT_RETRY_MS = 100;
@@ -43,15 +43,24 @@ const carriesSignature = value => {
   return false;
 };
 
-const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null }) => {
+const buildGetData = ({
+  compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null, publications = null
+}) => {
   const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation });
+  const readPublished = buildReadPublished({ compile, artifactStorer, publications });
   return async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
-    connectionId = null, intentToken = null, idempotencyKey = null, read = false
+    connectionId = null, intentToken = null, idempotencyKey = null, read = false, publicationId = null
   }) => {
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
+    }
+    // A view of a published item serves the result the publication names,
+    // under the publisher's authority; the viewer may be anonymous.
+    if (read && publicationId) {
+      if (typeof action === "object") action.noStore = true;
+      return readPublished({ tasks, id, publicationId });
     }
     // A view through a connection serves the stored result and never runs the
     // program; POST /compile is the explicit run that makes one.
@@ -223,6 +232,6 @@ const buildGetData = ({ compile, langOverrideStorer, validateOutput, allocateInv
     return obj;
   };
 };
-export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer }) => {
-  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer }) };
+export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications }) => {
+  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications }) };
 };

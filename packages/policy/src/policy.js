@@ -30,11 +30,13 @@ import {
   REGISTRY_VERSION,
   isOperationAllowed,
   protectedFunctionsForLang,
+  viewSafeFunctionsForLang,
 } from "@graffiticode/common/protected-registry";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { issueToken, verifyToken } from "./tokens.js";
 import { connectionRefusal } from "./connections.js";
 import { InvocationConflict } from "./invocations.js";
+import { newPublicationId } from "./publications.js";
 
 export class PolicyDenied extends Error {
   constructor(reason) {
@@ -48,8 +50,11 @@ const ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
 const DIGEST_RE = /^[a-f0-9]{64}$/;
 const isId = v => typeof v === "string" && ID_RE.test(v);
 const isTaskId = v => typeof v === "string" && v.length > 0 && v.length <= 4096;
+const isLang = v => typeof v === "string" && /^\d{4}$/.test(v);
+// Every view of one publication shares one invocation, keyed by this input.
+const VIEW_INPUT = createHash("sha256").update("publication-view").digest("hex");
 
-export const createPolicy = ({ signer, jwks, connections, invocations, audit }) => {
+export const createPolicy = ({ signer, jwks, connections, invocations, publications, audit }) => {
   const deny = async (reason, record) => {
     await audit({ ...record, outcome: "denied", reason });
     throw new PolicyDenied(reason);
@@ -118,28 +123,142 @@ export const createPolicy = ({ signer, jwks, connections, invocations, audit }) 
   };
 
   // The invocation comes only from a policy-issued invocation token for this
-  // user and connection, never from the compiler's own say-so.
-  const invocationFor = async ({ invocationToken, user, connectionId }) => {
+  // connection, never from the compiler's own say-so.
+  const invocationClaims = async ({ invocationToken, connectionId }) => {
     try {
       const { claims } = await verifyToken(jwks, "invocation", invocationToken);
-      return claims.sub === user.uid && claims.conn === connectionId && isId(claims.inv) ? claims.inv : null;
+      return claims.conn === connectionId && isId(claims.inv) && typeof claims.sub === "string" ? claims : null;
     } catch {
       return null;
     }
   };
 
+  // Live state of a publication, checked at publishing, at every view and at
+  // every mint. Owner-only: the publisher must own the connection, and it must
+  // be active. Returns { refusal } or { publication, connection }.
+  const publicationState = async (publicationId, { publisherUid, connectionId, lang } = {}) => {
+    const publication = isId(publicationId) ? await publications.get(publicationId) : null;
+    if (!publication) return { refusal: "publication-not-found" };
+    if ((publisherUid !== undefined && publication.publisherUid !== publisherUid) ||
+        (connectionId !== undefined && publication.connectionId !== connectionId) ||
+        (lang !== undefined && publication.lang !== lang)) {
+      return { refusal: "publication-mismatch" };
+    }
+    const connection = await connections.get(publication.connectionId);
+    const refusal = connectionRefusal(connection, { uid: publication.publisherUid, ownerUid: publication.ownerUid });
+    return refusal ? { refusal } : { publication, connection };
+  };
+
+  // Publishing: the gateway has checked that the artifact is this user's
+  // current result for the task and connection; policy checks the authority.
+  const createPublication = async ({ caller, user, connectionId, taskId, lang, artifactInvocationId }) => {
+    const record = { event: "publication-create", uid: user?.uid, connectionId, lang };
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!user?.uid) return deny("no-user", record);
+    if (!isId(connectionId) || !isTaskId(taskId) || !isLang(lang) || !isId(artifactInvocationId)) {
+      return deny("bad-request", record);
+    }
+    const connection = await connections.get(connectionId);
+    const refusal = connectionRefusal(connection, { uid: user.uid });
+    if (refusal) return deny(refusal, { ...record, ownerUid: connection?.ownerUid });
+    const publication = await publications.create({
+      publicationId: newPublicationId(),
+      publisherUid: user.uid,
+      ownerUid: connection.ownerUid,
+      connectionId,
+      lang,
+      taskId,
+      artifactInvocationId,
+      createdAt: new Date().toISOString(),
+    });
+    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed" });
+    return { publicationId: publication.publicationId };
+  };
+
+  const deletePublication = async ({ caller, user, publicationId }) => {
+    const record = { event: "publication-delete", uid: user?.uid };
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!user?.uid) return deny("no-user", record);
+    const publication = isId(publicationId) ? await publications.get(publicationId) : null;
+    if (!publication) return deny("publication-not-found", record);
+    if (publication.publisherUid !== user.uid) return deny("not-publisher", record);
+    await publications.delete(publicationId);
+    await audit({ ...record, connectionId: publication.connectionId, outcome: "allowed" });
+    return { publicationId, deleted: true };
+  };
+
+  // A view of a published item: no user. Policy re-checks the publication
+  // live and issues an invocation token bound to the publisher and marked with
+  // the publication, which confines its session to viewSafe functions.
+  const authorizeView = async ({ caller, publicationId }) => {
+    const record = { event: "publication-view" };
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    const state = await publicationState(publicationId);
+    if (state.refusal) return deny(state.refusal, record);
+    const { publication } = state;
+    const { invocationId, seq } = await invocations.allocate({
+      uid: publication.publisherUid,
+      connectionId: publication.connectionId,
+      taskId: publication.taskId,
+      inputDigest: VIEW_INPUT,
+      idempotencyKey: `view.${publication.publicationId}`,
+    });
+    const invocationToken = await issueToken(signer, "invocation", {
+      sub: publication.publisherUid,
+      conn: publication.connectionId,
+      inv: invocationId,
+      seq,
+      pub: publication.publicationId,
+    });
+    await audit({ ...record, uid: publication.publisherUid, connectionId: publication.connectionId, outcome: "allowed" });
+    const { publisherUid, connectionId, lang, taskId, artifactInvocationId } = publication;
+    return { invocationToken, publisherUid, connectionId, lang, taskId, artifactInvocationId };
+  };
+
+  // A publication session: the publisher's authority, confined to viewSafe
+  // functions, always in render mode, never with an intent.
+  const publicationSnapshot = async ({ record, claims, lang, connectionId, fns, intentToken, stage }) => {
+    if (intentToken) return deny("bad-request", record);
+    const state = await publicationState(claims.pub, { publisherUid: claims.sub, connectionId, lang });
+    if (state.refusal) return deny(state.refusal, record);
+    const { connection } = state;
+    const registered = protectedFunctionsForLang(lang) || {};
+    const viewSafe = new Set(viewSafeFunctionsForLang(lang));
+    const allowed = [...new Set(fns)].filter(fn =>
+      viewSafe.has(fn) && registered[fn].backend === connection.backend && registered[fn].modes.includes("render"));
+    const sessionToken = await issueToken(signer, "session", {
+      sub: claims.sub,
+      own: connection.ownerUid,
+      conn: connectionId,
+      backend: connection.backend,
+      lang,
+      mode: "render",
+      inv: claims.inv,
+      stg: stage,
+      sav: null,
+      pub: claims.pub,
+      rv: REGISTRY_VERSION,
+      fns: allowed,
+    });
+    await audit({ ...record, uid: claims.sub, ownerUid: connection.ownerUid, mode: "render", outcome: "allowed", reason: "publication" });
+    return { allowed, mode: "render", sessionToken };
+  };
+
   const snapshot = async ({ caller, user, lang, connectionId, fns, mode: requestedMode = "read", intentToken, invocationToken, stage }) => {
     const record = { event: "snapshot", uid: user?.uid, lang, connectionId, mode: requestedMode, registryVersion: REGISTRY_VERSION };
-    if (!user?.uid) return deny("no-user", record);
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
     if (!isId(connectionId) || typeof invocationToken !== "string" || !isId(stage)) return deny("bad-request", record);
-    const invocationId = await invocationFor({ invocationToken, user, connectionId });
-    if (!invocationId) return deny("bad-invocation", record);
+    if (!Array.isArray(fns) || !fns.every(f => typeof f === "string")) return deny("bad-request", record);
+    const claims = await invocationClaims({ invocationToken, connectionId });
+    if (!claims) return deny("bad-invocation", record);
+    if (claims.pub) return publicationSnapshot({ record, claims, lang, connectionId, fns, intentToken, stage });
+    if (!user?.uid) return deny("no-user", record);
+    if (claims.sub !== user.uid) return deny("bad-invocation", record);
+    const invocationId = claims.inv;
     const resolved = await resolveMode({ mode: requestedMode, intentToken, user, connectionId });
     if (resolved.error) return deny(resolved.error, record);
     const { mode, saveActionId } = resolved;
     record.mode = mode;
-    if (!Array.isArray(fns) || !fns.every(f => typeof f === "string")) return deny("bad-request", record);
 
     const connection = await connections.get(connectionId);
     const refusal = connectionRefusal(connection, { uid: user.uid });
@@ -207,6 +326,13 @@ export const createPolicy = ({ signer, jwks, connections, invocations, audit }) 
     }
     const spec = protectedFunctionsForLang(session.lang)[fn];
     if (spec.kind === "write" && !session.sav) return deny("write-without-save-action", record);
+    // A publication session re-checks the publication at every mint, and can
+    // only ever reach viewSafe functions.
+    if (session.pub) {
+      if (!viewSafeFunctionsForLang(session.lang).includes(fn)) return deny("not-view-safe", record);
+      const state = await publicationState(session.pub, { publisherUid: session.sub, connectionId: session.conn, lang: session.lang });
+      if (state.refusal) return deny(state.refusal, record);
+    }
 
     // Live state, re-read at every mint: a connection disabled, deleted or
     // re-owned since the snapshot stops the next protected call.
@@ -236,5 +362,5 @@ export const createPolicy = ({ signer, jwks, connections, invocations, audit }) 
     return { executionToken, operationId };
   };
 
-  return { issueIntent, allocateInvocation, snapshot, mint };
+  return { issueIntent, allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, mint };
 };

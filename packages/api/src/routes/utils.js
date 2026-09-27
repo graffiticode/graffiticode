@@ -210,6 +210,20 @@ export const checkCompileAllowedRemote = async (token) => {
   }
 };
 
+// A publication id names a published item to view. Anyone may present one;
+// policy decides whether it is live.
+const PUBLICATION_ID_RE = /^pub-[A-Za-z0-9-]{1,100}$/;
+
+export const parsePublicationId = value => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "string" || !PUBLICATION_ID_RE.test(value)) {
+    throw new InvalidArgumentError("publication must be a publication id");
+  }
+  return value;
+};
+
 // An idempotency key (Idempotency-Key header or body.idempotencyKey) makes a
 // retried compile through a connection continue the same invocation, so its
 // writes are not repeated. Clients send the same key on every retry of one

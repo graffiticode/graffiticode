@@ -19,8 +19,10 @@
 //   tags       compiler node tags whose presence in a program requires the fn
 //   implicit   required by every compile of the language (no source node)
 //   delegable  whether an owner may grant it to another account
+//   viewSafe   whether a view of a published item may use it (the viewer holds
+//              no grant; the publication's authority reaches only these)
 
-export const REGISTRY_VERSION = 2;
+export const REGISTRY_VERSION = 3;
 
 // Execution modes, set by the authenticated entry point (never by a program).
 export const EXEC_MODES = Object.freeze(["save", "author", "read", "render", "verify", "corpus"]);
@@ -58,6 +60,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       modes: ALL_MODES,
       implicit: true,
       delegable: true,
+      viewSafe: true,
     }),
     // `save-to-itembank <activity>`: the node IS the item-bank write, and
     // ITEMS/QUESTIONS never write. The legacy literal member
@@ -72,6 +75,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       modes: Object.freeze(["save"]),
       implicit: false,
       delegable: true,
+      viewSafe: false,
     }),
     // Rendering an `author [...]` activity signs for the Author API. Owners
     // may use it through their own connection; it is not delegable until its
@@ -91,6 +95,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       modes: Object.freeze(["author"]),
       implicit: false,
       delegable: false,
+      viewSafe: false,
     }),
   }),
 });
@@ -99,6 +104,10 @@ const normalizeLang = lang => String(lang ?? "").replace(/^L/i, "").padStart(4, 
 
 export const protectedFunctionsForLang = lang =>
   PROTECTED_FUNCTIONS[normalizeLang(lang)] || null;
+
+// The functions a view of a published item may use.
+export const viewSafeFunctionsForLang = lang =>
+  Object.entries(protectedFunctionsForLang(lang) || {}).filter(([, spec]) => spec.viewSafe === true).map(([fn]) => fn);
 
 // The two views a compiler needs (l0000 Compiler config): explicit functions
 // keyed by node tag, and implicit ones required by every compile.

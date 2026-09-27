@@ -1,4 +1,5 @@
 import { jest } from "@jest/globals";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildDataApi } from "./data.js";
 import { createStorers } from "./storage/index.js";
 import { clearFirestore } from "./testing/firestore.js";
@@ -332,7 +333,7 @@ describe("data", () => {
       const out = await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
       expect(out.data.request).toEqual(SIGNED);
-      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
       expect(got.status).toBe("ok");
       expect(got.artifact).toMatchObject({ ownerUid: "owner", invocationId: "inv-1", seq: 1 });
       expect(got.artifact.content).toEqual({ data: { type: "questions", data: { q: 1 } }, errors: [] });
@@ -349,7 +350,7 @@ describe("data", () => {
 
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
-      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
       expect(got.status).toBe("ok");
       expect(got.artifact.content.data.data.questions[0]).toEqual(question);
     });
@@ -364,7 +365,7 @@ describe("data", () => {
 
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
-      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
       expect(got.status).toBe("missing");
     });
 
@@ -378,7 +379,7 @@ describe("data", () => {
       mockCompileData(DATA1);
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" } });
 
-      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: 2 });
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
       expect(got.status).toBe("missing");
     });
 
