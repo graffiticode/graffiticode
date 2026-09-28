@@ -4,7 +4,7 @@
     "production": {
       "project": "graffiticode",
       "region": "us-central1",
-      "buildServiceAccount": "${GC_DEPLOY_BUILD_ACCOUNT}",
+      "buildServiceAccount": "deploy-build@graffiticode.iam.gserviceaccount.com",
       "exclude": [
         "docs",
         "server.cert",
@@ -277,7 +277,7 @@
         "POLICY_FIRESTORE_DB": "policy",
         "POLICY_KMS_KEY_VERSION": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1",
         "POLICY_KMS_KID": "policy-1",
-        "BROKER_URL": "${BROKER_URL}"
+        "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app"
       },
       "smoke": [
         {
@@ -290,11 +290,10 @@
           "bodyIncludes": "\"keys\""
         }
       ],
-      "blocked": "Complete and verify docs/capability-policy-iam-review.md, bootstrap the private service, then remove this blocked field.",
-      "smokeServiceAccount": "${GC_DEPLOY_SMOKE_ACCOUNT}",
+      "smokeServiceAccount": "deploy-smoke@graffiticode.iam.gserviceaccount.com",
       "secrets": {
-        "POLICY_CALLERS": "policy-callers:${POLICY_CALLERS_VERSION}",
-        "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:${AUDIT_PSEUDONYM_SECRET_VERSION}"
+        "POLICY_CALLERS": "policy-callers:1",
+        "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1"
       }
     }
   }
