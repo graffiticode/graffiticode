@@ -69,15 +69,17 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (!grant || isExpired(grant) || grant.ownerUid !== connection.ownerUid) return { refusal: "not-owner" };
     return { grant };
   };
-  // A grant reaches only the (language, function) pairs it names that the
-  // registry marks delegable; the owner reaches every registered function. A
-  // grant without permissions reaches nothing.
+  // A grant reaches the (language, function) pairs it names that the registry
+  // marks delegable, plus that language's implicit delegable functions (signing
+  // every render), which are never granted on their own. The owner reaches
+  // every registered function. A grant without permissions reaches nothing.
   const mayUse = (access, lang, fn) => {
     const spec = protectedFunctionsForLang(lang)?.[fn];
     if (!spec) return false;
     if (access.owner) return true;
     const key = String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
-    const permitted = (access.grant?.permissions ?? []).some(p => p.lang === key && p.fn === fn);
+    const inLang = (access.grant?.permissions ?? []).filter(p => p.lang === key);
+    const permitted = spec.implicit === true ? inLang.length > 0 : inLang.some(p => p.fn === fn);
     return permitted && spec.delegable === true;
   };
 
@@ -132,8 +134,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     const connection = await connections.get(publication.connectionId);
     const access = await accessFor(connection, publication.publisherUid, { ownerUid: publication.ownerUid });
     if (access.refusal) return { refusal: access.refusal };
-    // A recipient's publication lasts only while their grant permits publishing.
-    if (access.grant && !access.grant.publish) return { refusal: "publish-not-granted" };
+    // Only the owner publishes; a grant never includes publishing.
+    if (access.grant) return { refusal: "publish-not-granted" };
     return { publication, connection, access };
   };
 
@@ -151,7 +153,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
     // Published views spend the owner's credential on viewers the owner never
     // named, so a recipient needs a grant that says so.
-    if (access.grant && !access.grant.publish) return deny("publish-not-granted", { ...record, ownerUid: connection.ownerUid });
+    if (access.grant) return deny("publish-not-granted", { ...record, ownerUid: connection.ownerUid });
     const publication = await publications.create({
       publicationId: newPublicationId(),
       publisherUid: user.uid,

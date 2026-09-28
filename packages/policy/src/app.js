@@ -21,9 +21,8 @@
 //   DELETE /v1/connections/:id          console
 //   GET    /v1/connections/:id/grants            console  the owner's grants on it
 //   GET    /v1/connections/:id/shareable         console  the (lang, fn, kind) a grant on it can include
-//   POST   /v1/connections/:id/grants            console  { recipientUid | recipientEmailHash, recipientLabel?, preset,
-//                                                          permissions? (preset "custom"), publish?, expiresAt? }
-//   PATCH  /v1/connections/:id/grants/:grantId   console  { preset, permissions?, publish?, expiresAt? } edit
+//   POST   /v1/connections/:id/grants            console  { recipientUid | recipientEmailHash, recipientLabel?, permissions, expiresAt? }
+//   PATCH  /v1/connections/:id/grants/:grantId   console  { permissions, expiresAt? } edit
 //   DELETE /v1/connections/:id/grants/:grantId   console  revoke
 //   GET    /v1/shared                            console  connections shared with the user
 //   DELETE /v1/shared/:id                        console  the recipient leaves
@@ -140,9 +139,7 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     recipientUid: body.recipientUid ?? null,
     recipientEmailHash: body.recipientEmailHash ?? null,
     recipientLabel: body.recipientLabel ?? null,
-    preset: body.preset,
     permissions: body.permissions ?? null,
-    publish: body.publish === true,
     expiresAt: body.expiresAt ?? null
   })));
   router.patch("/connections/:id/grants/:grantId", buildHttpHandler(async (req, res) => {
@@ -154,9 +151,7 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
       user: u,
       connectionId: req.params.id,
       grantId: req.params.grantId,
-      preset: body.preset,
       permissions: body.permissions ?? null,
-      publish: body.publish === true,
       expiresAt: body.expiresAt ?? null
     }));
   }));

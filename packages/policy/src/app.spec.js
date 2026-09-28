@@ -122,13 +122,13 @@ describe("invocations over http", () => {
 
 describe("sharing over http", () => {
   it("lets the owner share, list and revoke, and the recipient see it", async () => {
-    const shared = await as(request(app).post("/v1/connections/conn-1/grants"), SA.console).send({ recipientUid: "0xalice", recipientLabel: "alice@example.com", preset: "save" });
+    const shared = await as(request(app).post("/v1/connections/conn-1/grants"), SA.console).send({ recipientUid: "0xalice", recipientLabel: "alice@example.com", permissions: [{ lang: "0176", fn: "save-to-itembank" }] });
     expect(shared.status).toBe(200);
     const list = await as(request(app).get("/v1/connections/conn-1/grants"), SA.console);
-    expect(list.body.data).toEqual([expect.objectContaining({ recipientLabel: "alice@example.com", preset: "save", pending: false })]);
+    expect(list.body.data).toEqual([expect.objectContaining({ recipientLabel: "alice@example.com", pending: false })]);
     const mine = await as(request(app).get("/v1/shared"), SA.console, { user: "user:0xalice" });
-    expect(mine.body.data).toEqual([expect.objectContaining({ connectionId: "conn-1", preset: "save" })]);
-    const reshare = await as(request(app).post("/v1/connections/conn-1/grants"), SA.console, { user: "user:0xalice" }).send({ recipientUid: "0xbob", preset: "save" });
+    expect(mine.body.data).toEqual([expect.objectContaining({ connectionId: "conn-1", permissions: [{ lang: "0176", fn: "save-to-itembank" }] })]);
+    const reshare = await as(request(app).post("/v1/connections/conn-1/grants"), SA.console, { user: "user:0xalice" }).send({ recipientUid: "0xbob", permissions: [{ lang: "0176", fn: "save-to-itembank" }] });
     expect(reshare.body.error.reason).toBe("not-owner");
     const revoked = await as(request(app).delete(`/v1/connections/conn-1/grants/${shared.body.data.grantId}`), SA.console);
     expect(revoked.status).toBe(200);
@@ -136,7 +136,7 @@ describe("sharing over http", () => {
   });
 
   it("refuses compilers on the sharing routes", async () => {
-    const res = await as(request(app).post("/v1/connections/conn-1/grants"), SA.l0176).send({ recipientUid: "0xalice", preset: "save" });
+    const res = await as(request(app).post("/v1/connections/conn-1/grants"), SA.l0176).send({ recipientUid: "0xalice", permissions: [{ lang: "0176", fn: "save-to-itembank" }] });
     expect(res.status).toBe(403);
   });
 });
