@@ -194,12 +194,26 @@ Common variables:
 P=graffiticode; R=us-central1
 PN=$(gcloud projects describe $P --format='value(projectNumber)')
 COMPUTE_SA=${PN}-compute@developer.gserviceaccount.com
-BUILD_SA=${PN}@cloudbuild.gserviceaccount.com        # confirm via §1.4 `gcloud builds list`
+LEGACY_BUILD_SA=${PN}@cloudbuild.gserviceaccount.com # compiler repos' Cloud Build deploys; confirm via §1.4 `gcloud builds list`
+BUILD_SA=deploy-build@$P.iam.gserviceaccount.com     # graffiticode repo: builds images only (Step 2)
+SMOKE_SA=deploy-smoke@$P.iam.gserviceaccount.com     # graffiticode repo: candidate checks on private services (Step 2)
+DEPLOYER=user:<email>                                # each human who runs `npm run deploy`
 CONSOLE_SA=<console runtime SA in graffiticode-app>   # open question §5
-LANGS="l0000 l0002 l0003 l0010 l0011 l0012 l0013 l0014 l0154 l0158 l0159 l0166 l0169 l0170 l0172 l0173 l0174 l0176 l0177 l0178 l0179 l0180 l0181 l0182 l0183"
+# Every compiler service that is live, not the local repo list: §1.0 counts 43 services, and
+# a service left on the compute SA blocks Steps 8 and 9. Check the names this filter drops.
+LANGS=$(gcloud run services list --project $P --region $R --format='value(metadata.name)' | grep -E '^l[0-9]{4}$' | tr '\n' ' ')
+gcloud run services list --project $P --region $R --format='value(metadata.name)' | grep -vE '^(l[0-9]{4}|api|auth|policy|broker)$'
 PROTECTED="l0176 l0158"                               # compilers with broker-backed functions
 sa() { echo "$1-run@$P.iam.gserviceaccount.com"; }
 ```
+
+**Deploy tooling.** This repository (`api`, `auth`, `policy`, `broker`) now releases through the
+workspace CLI in `packages/deploy`, configured by `deploy.json` [REPO]. It changes three things this
+review originally assumed: images go to Artifact Registry (`us-central1-docker.pkg.dev/graffiticode/services/*`),
+not `gcr.io`; Cloud Build only builds, as a dedicated `deploy-build` SA, and the **human deployer**
+deploys the image by digest; and the CLI refuses a service whose runtime SA differs from
+`deploy.json` (`packages/deploy/src/release.js`). The compiler repos still deploy through their own
+Cloud Build configs, as the legacy Cloud Build SA.
 
 ### 3.1 Compilers stay public in Phase 1 (do not add `--no-allow-unauthenticated`)
 
@@ -244,14 +258,62 @@ Rollback: `for n in …; do gcloud iam service-accounts delete $(sa $n) --projec
 
 ### Step 2: Let deployers act as the new SAs (resource-level, not project-level)
 
+Two deploy paths, so two sets of grants.
+
+**Compiler repos** (Cloud Build deploys): the legacy build SA acts as each compiler's SA.
+
 ```bash
-for n in api auth policy broker $LANGS; do
+for n in $LANGS; do
   gcloud iam service-accounts add-iam-policy-binding $(sa $n) --project $P \
-    --member serviceAccount:$BUILD_SA --role roles/iam.serviceAccountUser
-  # repeat for each human deployer: --member user:<email>
-done
+    --member serviceAccount:$LEGACY_BUILD_SA --role roles/iam.serviceAccountUser; done
 ```
-Rollback: the same loop with `remove-iam-policy-binding`.
+
+**This repository** (`packages/deploy`): Cloud Build builds and pushes only; the deployer deploys.
+The build SA must **not** hold `run.*`, `actAs` on runtime SAs, or any application secret, so a
+compromised build step cannot deploy.
+
+```bash
+gcloud services enable cloudbuild.googleapis.com artifactregistry.googleapis.com \
+  containeranalysis.googleapis.com run.googleapis.com cloudkms.googleapis.com --project $P
+gcloud artifacts repositories create services --repository-format docker --location $R --project $P
+gcloud iam service-accounts create deploy-build --project $P --display-name "Cloud Build: image builds"
+gcloud iam service-accounts create deploy-smoke --project $P --display-name "Deploy: private candidate checks"
+
+# Build SA: push images, write build logs, read the uploaded source.
+gcloud artifacts repositories add-iam-policy-binding services --location $R --project $P \
+  --member serviceAccount:$BUILD_SA --role roles/artifactregistry.writer
+gcloud projects add-iam-policy-binding $P --member serviceAccount:$BUILD_SA \
+  --role roles/logging.logWriter --condition=None
+gcloud storage buckets add-iam-policy-binding gs://${P}_cloudbuild \
+  --member serviceAccount:$BUILD_SA --role roles/storage.objectViewer
+# [UNVERIFIED] The test steps pull gcr.io/graffiticode/firebase, so the build SA also needs read on
+# wherever that image lives; and the CLI's REGIONAL_USER_OWNED_BUCKET logging needs write on that
+# bucket. Confirm both on the first build rather than granting broader roles up front.
+
+# Deployer: submit builds as the build SA, read images, deploy and read services (incl. IAM
+# policy), act as the four runtime SAs, read secret-version metadata, mint smoke tokens.
+gcloud iam service-accounts add-iam-policy-binding $BUILD_SA --project $P \
+  --member $DEPLOYER --role roles/iam.serviceAccountUser
+gcloud projects add-iam-policy-binding $P --member $DEPLOYER --role roles/cloudbuild.builds.editor --condition=None
+gcloud storage buckets add-iam-policy-binding gs://${P}_cloudbuild --member $DEPLOYER --role roles/storage.objectCreator
+gcloud artifacts repositories add-iam-policy-binding services --location $R --project $P \
+  --member $DEPLOYER --role roles/artifactregistry.reader
+gcloud projects add-iam-policy-binding $P --member $DEPLOYER --role roles/run.developer --condition=None
+for n in api auth policy broker; do
+  gcloud iam service-accounts add-iam-policy-binding $(sa $n) --project $P \
+    --member $DEPLOYER --role roles/iam.serviceAccountUser; done
+for s in policy-callers broker-callers audit-pseudonym-secret BROKER_SECRET_KEY; do
+  gcloud secrets add-iam-policy-binding $s --project $P --member $DEPLOYER \
+    --role roles/secretmanager.viewer --condition=None; done   # after Step 5 creates them
+gcloud iam service-accounts add-iam-policy-binding $SMOKE_SA --project $P \
+  --member $DEPLOYER --role roles/iam.serviceAccountTokenCreator
+```
+`secretmanager.viewer` is metadata only (the CLI checks that each pinned version exists); it cannot
+read payloads. Owners already hold all of this; the grants are for a non-Owner deployer, which §2
+recommends. `SMOKE_SA` gets `run.invoker` on `policy` and `broker` in Step 7.
+
+Rollback: the same commands with `remove-iam-policy-binding`; delete `deploy-build`, `deploy-smoke`
+and the `services` repository if nothing has been pushed to it.
 
 ### Step 3: Least-privilege roles that reproduce today's needs
 
@@ -414,9 +476,13 @@ gcloud run services update api  --project $P --region $R --service-account $(sa 
 gcloud run services update auth --project $P --region $R --service-account $(sa auth)
 ```
 `services update` keeps the image, env, secrets and VPC settings; it only rolls a new revision.
-Then, in each repo, add `--service-account=<name>-run@graffiticode.iam.gserviceaccount.com` to
-every `cloudbuild*.yaml` Deploy step and every `gcp:deploy` script. That is a separate, reviewed
+Then, in each compiler repo, add `--service-account=<name>-run@graffiticode.iam.gserviceaccount.com`
+to every `cloudbuild*.yaml` Deploy step and every `gcp:deploy` script. That is a separate, reviewed
 change per repo and is not part of this review.
+
+In this repository, `deploy.json` already names `api-run` and `auth-run`, and the CLI refuses a
+service whose runtime SA differs. So **`npm run deploy -- api` and `-- auth` fail until this step
+moves those two services.** Do not work around that by editing `deploy.json` back to the compute SA.
 
 Rollback, per service:
 `gcloud run services update <svc> --service-account $COMPUTE_SA`, or
@@ -440,7 +506,15 @@ gcloud run services add-iam-policy-binding policy --project $P --region $R \
   --member serviceAccount:$(sa api) --role roles/run.invoker
 gcloud run services add-iam-policy-binding broker --project $P --region $R \
   --member serviceAccount:$(sa policy) --role roles/run.invoker
+# The deploy CLI's candidate checks (GET / and, for policy, /v1/jwks) on the private services.
+for n in policy broker; do
+  gcloud run services add-iam-policy-binding $n --project $P --region $R \
+    --member serviceAccount:$SMOKE_SA --role roles/run.invoker; done
 ```
+
+The placeholder deploy is also the CLI's bootstrap: it only releases to an existing service with
+100% of traffic on one revision, so it always has a rollback target. `SMOKE_SA` has no caller-map
+entry, so it reaches only the unauthenticated `/` and `/v1/jwks` routes.
 
 How callers reach `policy`, and why:
 - **Compilers → policy (snapshot, mint).** The compiler sends its Google ID token (audience = the
@@ -515,10 +589,13 @@ migration it no longer falls back to the compute SA, so no change should be need
 next run.
 Rollback: `add-iam-policy-binding` with the same member and role.
 
-### Step 9: Strip Editor from default SAs. Gate: required before broker holds production credentials
+### Step 9: Strip Editor and the control-plane roles from default SAs. Gate: required before broker holds production credentials
 
 ```bash
-gcloud projects remove-iam-policy-binding $P --member serviceAccount:$COMPUTE_SA --role roles/editor
+# §1.0 [LIVE]: the compute SA holds these three on top of Editor. They, not Editor, are what let a
+# compromised compiler redeploy policy/broker or act as their SAs, so removing Editor alone is not enough.
+for role in roles/editor roles/run.admin roles/iam.serviceAccountUser roles/iam.serviceAccountTokenCreator; do
+  gcloud projects remove-iam-policy-binding $P --member serviceAccount:$COMPUTE_SA --role $role; done
 gcloud projects remove-iam-policy-binding $P --member serviceAccount:$P@appspot.gserviceaccount.com --role roles/editor
 ```
 Preconditions:
@@ -537,10 +614,31 @@ which are **unverified** — confirm them with the §1.2 troubleshooter commands
 them from the role. The database exposure alone is enough to require this step. Order therefore
 matters:
 1. Steps 6 and 8 (compilers off the compute SA).
-2. Step 9 (Editor removed).
+2. Step 9 (Editor and the three control-plane roles removed).
 3. Only then add a version to `BROKER_SECRET_KEY` / `broker-learnosity-system`.
 
-Rollback: `add-iam-policy-binding … --role roles/editor`, the same members.
+The broker refuses to start without `BROKER_SECRET_KEY` (`packages/broker/src/main.js`), and the
+deploy CLI requires a pinned version of it. So the first real broker release (Step 10) cannot
+happen before this step; only the Step 7 placeholder can.
+
+Rollback: `add-iam-policy-binding` for each removed role, the same members.
+
+### Step 10: First real releases (this repository)
+
+```bash
+openssl rand -base64 32 | tr -d '\n' | gcloud secrets versions add BROKER_SECRET_KEY --project $P --data-file=-
+npm run deploy -- broker --plan      # lists the variables still missing
+export GC_DEPLOY_BUILD_ACCOUNT=$BUILD_SA GC_DEPLOY_SMOKE_ACCOUNT=$SMOKE_SA
+export BROKER_CALLERS_VERSION=<n> POLICY_CALLERS_VERSION=<n> AUDIT_PSEUDONYM_SECRET_VERSION=<n> BROKER_SECRET_KEY_VERSION=<n>
+```
+1. Remove the `blocked` field from `broker` and `policy` in `deploy.json` (a reviewed commit).
+2. `npm run deploy -- broker`.
+3. `BROKER_URL=<broker run.app URL> npm run deploy -- policy`. Its candidate check requires
+   `/v1/jwks` to answer, which proves the KMS public key read works.
+4. Add `POLICY_URL` to `api`'s `env` in `deploy.json`, then `npm run deploy -- api`.
+
+Rollback: `npm run rollback -- <service> --release <id>` restores the previous traffic split. It
+does not undo IAM or secret versions.
 
 ---
 
@@ -549,7 +647,9 @@ Rollback: `add-iam-policy-binding … --role roles/editor`, the same members.
 | After step | Check | Expected |
 |---|---|---|
 | 1 | `gcloud iam service-accounts list --project $P --filter='email~-run@'` | one per service |
-| 2 | `gcloud iam service-accounts get-iam-policy $(sa l0176) --project $P` | `$BUILD_SA` has `serviceAccountUser` |
+| 2 | `gcloud iam service-accounts get-iam-policy $(sa l0176) --project $P` | `$LEGACY_BUILD_SA` has `serviceAccountUser` |
+| 2 | `gcloud iam service-accounts get-iam-policy $(sa policy) --project $P` | the deployer has `serviceAccountUser`; **`$BUILD_SA` does not** |
+| 2 (negative) | `gcloud projects get-iam-policy $P --flatten=bindings --filter="bindings.members:$BUILD_SA" --format='value(bindings.role)'` | no `run.*`, `iam.*` or `secretmanager.*` role |
 | 3/4 | `gcloud projects get-iam-policy $P --flatten=bindings --filter="bindings.members:$(sa policy)" --format='table(bindings.role,bindings.condition.expression)'` | `datastore.user` only, condition on `databases/policy` |
 | 4 | `gcloud firestore databases list --project $P` | `(default)`, `policy`, `broker` |
 | 4 (matrix) | Document-level reads and writes against each **actual** database, as each SA (tester holds `serviceAccountTokenCreator` on the SA). Use the REST API with an impersonated access token: `TOKEN=$(gcloud auth print-access-token --impersonate-service-account $(sa policy))`, then `curl -H "Authorization: Bearer $TOKEN" https://firestore.googleapis.com/v1/projects/$P/databases/<db>/documents/iam-probe/doc1` (GET), `POST .../documents/iam-probe?documentId=<id>` (create), `PATCH .../documents/iam-probe/doc1` (update), `DELETE` (delete). Repeat for `broker-run` and one compiler SA, across `(default)`, `policy`, `broker`. | `policy-run`: allowed on `policy` only; `broker-run`: allowed on `broker` only (and per the receipt role, create allowed, update/delete denied if a create-only role is used); compiler SA: denied on `policy` and `broker`. An index-list denial is **not** evidence of document isolation. Delete the probe docs afterwards. |
@@ -566,6 +666,8 @@ Rollback: `add-iam-policy-binding … --role roles/editor`, the same members.
 | 3.1 (unchanged) | `curl -sI https://l0176.graffiticode.org/lexicon.json`, and `/form` | `200`, still public |
 | 8 | `gcloud secrets get-iam-policy GRAFFITICODE_SECRET_KEY --project $P` | no `-compute@` member |
 | 9 | `gcloud projects get-iam-policy $P --flatten=bindings --filter='bindings.role:roles/editor'` | humans or groups only |
+| 9 | `gcloud projects get-iam-policy $P --flatten=bindings --filter="bindings.members:$COMPUTE_SA" --format='value(bindings.role)'` | empty |
+| 10 | `npm run deploy -- policy` output and `.gc-deploy/releases/<id>.json` | candidate checks pass (`/`, `/v1/jwks`); status `released` |
 
 ---
 
