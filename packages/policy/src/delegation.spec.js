@@ -75,7 +75,7 @@ describe("delegation", () => {
   it("never reaches Author even through a grant that names it", async () => {
     await share("save");
     const id = grantIdFor({ connectionId: "conn-1", recipientUid: ALICE });
-    await grants.put({ ...(await grants.get(id)), fns: ALL_FNS });
+    await grants.put({ ...(await grants.get(id)), permissions: ALL_FNS.map(fn => ({ lang: "0176", fn })) });
     expect((await snap(ALICE)).allowed).toEqual(["preview-itembank", "save-to-itembank"]);
   });
 
@@ -88,7 +88,7 @@ describe("delegation", () => {
     await denied(mint(sessionToken, "preview-itembank", "learnosity.sign-items-preview"), "not-owner");
     await denied(invoke(ALICE), "not-owner");
     const id = grantIdFor({ connectionId: "conn-1", recipientUid: ALICE });
-    await grants.put({ grantId: id, connectionId: "conn-1", ownerUid: OWNER, recipientUid: ALICE, fns: ["preview-itembank"], publish: false, expiresAt: new Date(Date.now() - 1000).toISOString() });
+    await grants.put({ grantId: id, connectionId: "conn-1", ownerUid: OWNER, recipientUid: ALICE, permissions: [{ lang: "0176", fn: "preview-itembank" }], publish: false, expiresAt: new Date(Date.now() - 1000).toISOString() });
     await denied(invoke(ALICE), "not-owner");
   });
 
@@ -114,9 +114,16 @@ describe("delegation", () => {
 
   it("lists shared connections for the recipient, and lets them leave", async () => {
     await share("preview");
-    expect(await manager.shared({ caller: CONSOLE, user: { uid: ALICE } })).toEqual([
-      { connectionId: "conn-1", backend: "learnosity", status: "active", label: "Bank", preset: "preview", expiresAt: null }
-    ]);
+    expect(await manager.shared({ caller: CONSOLE, user: { uid: ALICE } })).toEqual([{
+      connectionId: "conn-1",
+      backend: "learnosity",
+      status: "active",
+      label: "Bank",
+      preset: "preview",
+      permissions: [{ lang: "0176", fn: "preview-itembank" }],
+      publish: false,
+      expiresAt: null
+    }]);
     await manager.leave({ caller: CONSOLE, user: { uid: ALICE }, connectionId: "conn-1" });
     expect(await manager.shared({ caller: CONSOLE, user: { uid: ALICE } })).toEqual([]);
   });
@@ -136,5 +143,62 @@ describe("delegation", () => {
     await share("save");
     await manager.remove({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" });
     expect(await grants.listByConnection("conn-1")).toEqual([]);
+  });
+
+  describe("permissions are (language, function) pairs", () => {
+    it("expands a preset into pairs per language", async () => {
+      const g = await share("save");
+      expect(g.permissions).toEqual([{ lang: "0176", fn: "preview-itembank" }, { lang: "0176", fn: "save-to-itembank" }]);
+      expect(g.publish).toBe(false);
+    });
+
+    it("lists what can be shared, never Author", async () => {
+      const list = await manager.shareable({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" });
+      expect(list).toEqual([
+        { lang: "0176", fn: "preview-itembank", kind: "sign" },
+        { lang: "0176", fn: "save-to-itembank", kind: "write" }
+      ]);
+      await denied(manager.shareable({ caller: CONSOLE, user: { uid: ALICE }, connectionId: "conn-1" }), "not-owner");
+    });
+
+    it("grants exactly the custom pairs named", async () => {
+      const g = await share("custom", { permissions: [{ lang: "L0176", fn: "save-to-itembank" }], publish: false });
+      expect(g).toMatchObject({ preset: "custom", permissions: [{ lang: "0176", fn: "save-to-itembank" }] });
+      expect((await snap(ALICE)).allowed).toEqual(["save-to-itembank"]);
+    });
+
+    it("refuses a custom list naming Author, an unknown function or another language", async () => {
+      await denied(share("custom", { permissions: [{ lang: "0176", fn: "author-itembank" }] }), "bad-permissions");
+      await denied(share("custom", { permissions: [{ lang: "0176", fn: "made-up" }] }), "bad-permissions");
+      await denied(share("custom", { permissions: [{ lang: "0158", fn: "save-to-itembank" }] }), "bad-permissions");
+      await denied(share("custom", { permissions: [] }), "bad-permissions");
+    });
+
+    it("never lets a pair for one language cover another's function of the same name", async () => {
+      await share("save");
+      const id = grantIdFor({ connectionId: "conn-1", recipientUid: ALICE });
+      await grants.put({ ...(await grants.get(id)), permissions: [{ lang: "0158", fn: "save-to-itembank" }, { lang: "0158", fn: "preview-itembank" }] });
+      expect((await snap(ALICE)).allowed).toEqual([]);
+    });
+
+    it("gives a grant with no permissions nothing", async () => {
+      await share("save");
+      const id = grantIdFor({ connectionId: "conn-1", recipientUid: ALICE });
+      const { permissions: _p, ...legacy } = await grants.get(id);
+      await grants.put({ ...legacy, fns: ["save-to-itembank"] });
+      expect((await snap(ALICE)).allowed).toEqual([]);
+    });
+
+    it("lets the owner edit a grant, which the recipient's next call sees", async () => {
+      const { grantId } = await share("save");
+      const { sessionToken } = await snap(ALICE);
+      const edited = await manager.update({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", grantId, preset: "custom", permissions: [{ lang: "0176", fn: "preview-itembank" }] });
+      expect(edited).toMatchObject({ grantId, preset: "custom", permissions: [{ lang: "0176", fn: "preview-itembank" }], publish: false });
+      await denied(mint(sessionToken, "save-to-itembank", "learnosity.write-items"), "not-granted");
+      await denied(manager.update({ caller: CONSOLE, user: { uid: ALICE }, connectionId: "conn-1", grantId, preset: "save" }), "not-owner");
+      await denied(manager.update({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", grantId: "nope", preset: "save" }), "grant-not-found");
+      await manager.update({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", grantId, preset: "publish" });
+      expect((await grants.get(grantId)).publish).toBe(true);
+    });
   });
 });

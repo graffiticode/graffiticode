@@ -13,9 +13,14 @@
 //   remove   delete the record, its grants, then the secret
 //
 // Sharing (delegation), also called by the console for a verified user:
-//   share        the owner grants a preset to an account, or to an email hash
-//                until that person signs in (pending)
+//   shareable    the owner lists what a grant on this connection can include:
+//                each language's delegable functions against its backend
+//   share        the owner grants a preset, or exact (language, function)
+//                permissions, to an account, or to an email hash until that
+//                person signs in (pending)
 //   grants       the owner lists a connection's grants
+//   update       the owner changes one grant's access or end date; the next
+//                call the recipient makes sees it
 //   revoke       the owner removes one; it stops the recipient's next call
 //   shared       a recipient lists connections shared with them
 //   leave        a recipient drops a grant
@@ -33,25 +38,43 @@ const LABEL_MAX = 100;
 const ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
 const HASH_RE = /^[a-f0-9]{64}$/;
 
-// What each preset grants against a backend: the registry's delegable
-// functions of these kinds, in every language (Author signing is not
-// delegable, so no preset reaches it). "publish" adds the right to publish.
+// A grant holds permissions: (language, function) pairs, each a registry
+// function the owner may delegate against the connection's backend. Author
+// signing is not delegable, so nothing reaches it. A preset is a shortcut
+// that expands to every delegable function of its kinds, per language;
+// "custom" names the pairs outright. "publish" adds the right to publish.
 const PRESETS = Object.freeze({
   preview: { kinds: ["sign", "read"], publish: false },
   save: { kinds: ["sign", "read", "write"], publish: false },
   publish: { kinds: ["sign", "read", "write"], publish: true },
 });
-const delegableFns = (backend, kinds) => [...new Set(
-  Object.values(PROTECTED_FUNCTIONS).flatMap(fns => Object.entries(fns)
-    .filter(([, spec]) => spec.backend === backend && spec.delegable === true && kinds.includes(spec.kind))
-    .map(([fn]) => fn))
-)].sort();
+const delegable = backend => Object.entries(PROTECTED_FUNCTIONS).flatMap(([lang, fns]) => Object.entries(fns)
+  .filter(([, spec]) => spec.backend === backend && spec.delegable === true)
+  .map(([fn, spec]) => ({ lang, fn, kind: spec.kind })))
+  .sort((a, b) => a.lang.localeCompare(b.lang) || a.fn.localeCompare(b.fn));
+const permissionsFor = (backend, kinds) =>
+  delegable(backend).filter(p => kinds.includes(p.kind)).map(({ lang, fn }) => ({ lang, fn }));
+// A custom list must name only delegable functions against this backend.
+const customPermissions = (backend, permissions) => {
+  if (!Array.isArray(permissions) || permissions.length === 0 || permissions.length > 50) return null;
+  const allowed = delegable(backend);
+  const out = [];
+  for (const p of permissions) {
+    const lang = typeof p?.lang === "string" ? p.lang.replace(/^L/i, "").padStart(4, "0") : null;
+    const fn = typeof p?.fn === "string" ? p.fn : null;
+    if (!allowed.some(a => a.lang === lang && a.fn === fn)) return null;
+    if (!out.some(o => o.lang === lang && o.fn === fn)) out.push({ lang, fn });
+  }
+  return out;
+};
 
 const grantView = g => ({
   grantId: g.grantId,
   recipientLabel: g.recipientLabel ?? null,
   pending: !g.recipientUid,
   preset: g.preset,
+  permissions: g.permissions ?? [],
+  publish: Boolean(g.publish),
   expiresAt: g.expiresAt ?? null,
   createdAt: g.createdAt,
 });
@@ -136,20 +159,34 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       return { connectionId, deleted: true };
     },
 
-    async share({ caller, user, connectionId, recipientUid = null, recipientEmailHash = null, recipientLabel = null, preset, expiresAt = null }) {
+    async shareable({ caller, user, connectionId }) {
+      const record = { event: "grant-shareable", uid: user?.uid, connectionId };
+      await requireConsole(caller, record);
+      const connection = await owned(user, connectionId, record);
+      return delegable(connection.backend);
+    },
+
+    async share({
+      caller, user, connectionId, recipientUid = null, recipientEmailHash = null, recipientLabel = null,
+      preset, permissions = null, publish = false, expiresAt = null
+    }) {
       const record = { event: "grant-create", uid: user?.uid, connectionId };
       await requireConsole(caller, record);
       if (!grants) return deny("unavailable", record);
       const connection = await owned(user, connectionId, record);
       if (connection.status !== "active") return deny("connection-disabled", record);
-      if (!Object.prototype.hasOwnProperty.call(PRESETS, preset)) return deny("bad-request", record);
+      const custom = preset === "custom";
+      if (!custom && !Object.prototype.hasOwnProperty.call(PRESETS, preset)) return deny("bad-request", record);
       if ((recipientUid === null) === (recipientEmailHash === null)) return deny("bad-request", record);
       if (recipientUid !== null && !ID_RE.test(recipientUid)) return deny("bad-request", record);
       if (recipientEmailHash !== null && !HASH_RE.test(recipientEmailHash)) return deny("bad-request", record);
       if (recipientLabel !== null && (typeof recipientLabel !== "string" || recipientLabel.length > 200)) return deny("bad-request", record);
       if (expiresAt !== null && !(typeof expiresAt === "string" && Date.parse(expiresAt) > Date.now())) return deny("bad-request", record);
       if (recipientUid === user.uid) return deny("self-grant", record);
-      const { kinds, publish } = PRESETS[preset];
+      const granted = custom
+        ? customPermissions(connection.backend, permissions)
+        : permissionsFor(connection.backend, PRESETS[preset].kinds);
+      if (!granted) return deny("bad-permissions", record);
       const grant = {
         grantId: grantIdFor({ connectionId, recipientUid, recipientEmailHash }),
         connectionId,
@@ -158,8 +195,8 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
         recipientEmailHash,
         recipientLabel,
         preset,
-        fns: delegableFns(connection.backend, kinds),
-        publish,
+        permissions: granted,
+        publish: custom ? publish === true : PRESETS[preset].publish,
         expiresAt,
         createdAt: new Date().toISOString(),
       };
@@ -174,6 +211,33 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       if (!grants) return [];
       await owned(user, connectionId, record);
       return (await grants.listByConnection(connectionId)).filter(g => !isExpired(g)).map(grantView);
+    },
+
+    async update({ caller, user, connectionId, grantId, preset, permissions = null, publish = false, expiresAt = null }) {
+      const record = { event: "grant-update", uid: user?.uid, connectionId };
+      await requireConsole(caller, record);
+      if (!grants) return deny("unavailable", record);
+      const connection = await owned(user, connectionId, record);
+      const grant = typeof grantId === "string" ? await grants.get(grantId) : null;
+      if (!grant || grant.connectionId !== connectionId) return deny("grant-not-found", record);
+      const custom = preset === "custom";
+      if (!custom && !Object.prototype.hasOwnProperty.call(PRESETS, preset)) return deny("bad-request", record);
+      if (expiresAt !== null && !(typeof expiresAt === "string" && Date.parse(expiresAt) > Date.now())) return deny("bad-request", record);
+      const granted = custom
+        ? customPermissions(connection.backend, permissions)
+        : permissionsFor(connection.backend, PRESETS[preset].kinds);
+      if (!granted) return deny("bad-permissions", record);
+      const updated = {
+        ...grant,
+        preset,
+        permissions: granted,
+        publish: custom ? publish === true : PRESETS[preset].publish,
+        expiresAt,
+        updatedAt: new Date().toISOString(),
+      };
+      await grants.put(updated);
+      await audit({ ...record, ownerUid: user.uid, outcome: "allowed", reason: preset });
+      return grantView(updated);
     },
 
     async revoke({ caller, user, connectionId, grantId }) {
@@ -196,7 +260,16 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
         if (isExpired(g)) continue;
         const c = await connections.get(g.connectionId);
         if (!c || c.ownerUid !== g.ownerUid) continue;
-        rows.push({ connectionId: c.connectionId, backend: c.backend, status: c.status, label: c.label ?? null, preset: g.preset, expiresAt: g.expiresAt ?? null });
+        rows.push({
+          connectionId: c.connectionId,
+          backend: c.backend,
+          status: c.status,
+          label: c.label ?? null,
+          preset: g.preset,
+          permissions: g.permissions ?? [],
+          publish: Boolean(g.publish),
+          expiresAt: g.expiresAt ?? null,
+        });
       }
       return rows;
     },

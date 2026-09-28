@@ -20,7 +20,10 @@
 //   POST   /v1/connections/:id/disable  console
 //   DELETE /v1/connections/:id          console
 //   GET    /v1/connections/:id/grants            console  the owner's grants on it
-//   POST   /v1/connections/:id/grants            console  { recipientUid | recipientEmailHash, recipientLabel?, preset, expiresAt? }
+//   GET    /v1/connections/:id/shareable         console  the (lang, fn, kind) a grant on it can include
+//   POST   /v1/connections/:id/grants            console  { recipientUid | recipientEmailHash, recipientLabel?, preset,
+//                                                          permissions? (preset "custom"), publish?, expiresAt? }
+//   PATCH  /v1/connections/:id/grants/:grantId   console  { preset, permissions?, publish?, expiresAt? } edit
 //   DELETE /v1/connections/:id/grants/:grantId   console  revoke
 //   GET    /v1/shared                            console  connections shared with the user
 //   DELETE /v1/shared/:id                        console  the recipient leaves
@@ -128,6 +131,7 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     manager.disable({ caller, user, connectionId: id })));
   router.delete("/connections/:id", manage(({ caller, user, id }) =>
     manager.remove({ caller, user, connectionId: id })));
+  router.get("/connections/:id/shareable", manage(({ caller, user, id }) => manager.shareable({ caller, user, connectionId: id })));
   router.get("/connections/:id/grants", manage(({ caller, user, id }) => manager.grants({ caller, user, connectionId: id })));
   router.post("/connections/:id/grants", manage(({ caller, user, id, body }) => manager.share({
     caller,
@@ -137,8 +141,25 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     recipientEmailHash: body.recipientEmailHash ?? null,
     recipientLabel: body.recipientLabel ?? null,
     preset: body.preset,
+    permissions: body.permissions ?? null,
+    publish: body.publish === true,
     expiresAt: body.expiresAt ?? null
   })));
+  router.patch("/connections/:id/grants/:grantId", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("connections")(req);
+    const u = await user(req);
+    const body = req.body ?? {};
+    await decide(res, () => manager.update({
+      caller,
+      user: u,
+      connectionId: req.params.id,
+      grantId: req.params.grantId,
+      preset: body.preset,
+      permissions: body.permissions ?? null,
+      publish: body.publish === true,
+      expiresAt: body.expiresAt ?? null
+    }));
+  }));
   router.delete("/connections/:id/grants/:grantId", buildHttpHandler(async (req, res) => {
     const caller = await authorize("connections")(req);
     const u = await user(req);

@@ -10,7 +10,10 @@
 // whether an email has an account.
 //
 //   { grantId, connectionId, ownerUid, recipientUid|null, recipientEmailHash|null,
-//     recipientLabel, preset, fns, publish, expiresAt|null, createdAt }
+//     recipientLabel, preset, permissions: [{ lang, fn }], publish, expiresAt|null, createdAt }
+//
+// Permissions are (language, function) pairs: a grant for L0176's
+// save-to-itembank covers no other language's function of that name.
 //
 // Only functions the registry marks delegable can be granted; Author signing
 // never is. A recipient cannot grant onwards.

@@ -69,12 +69,16 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (!grant || isExpired(grant) || grant.ownerUid !== connection.ownerUid) return { refusal: "not-owner" };
     return { grant };
   };
-  // A grant reaches only the functions it names that the registry marks
-  // delegable; the owner reaches every registered one.
+  // A grant reaches only the (language, function) pairs it names that the
+  // registry marks delegable; the owner reaches every registered function. A
+  // grant without permissions reaches nothing.
   const mayUse = (access, lang, fn) => {
     const spec = protectedFunctionsForLang(lang)?.[fn];
     if (!spec) return false;
-    return Boolean(access.owner || (access.grant?.fns?.includes(fn) && spec.delegable === true));
+    if (access.owner) return true;
+    const key = String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
+    const permitted = (access.grant?.permissions ?? []).some(p => p.lang === key && p.fn === fn);
+    return permitted && spec.delegable === true;
   };
 
   const allocateInvocation = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey = null }) => {
