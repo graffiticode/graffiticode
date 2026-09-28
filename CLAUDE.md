@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build and Development Commands
 
-This is a monorepo using npm workspaces. Four packages are workspaces (`api`, `auth`, `common`, `auth-client`); `packages/parser` lives in the tree but is **not** a workspace — it is consumed as the published dependency `@graffiticode/parser` (see root `package.json` `dependencies`). Edits to `packages/parser` require republishing/reinstalling to affect the other packages.
+This is a monorepo using npm workspaces. Six packages are workspaces (`api`, `auth`, `common`, `auth-client`, `policy`, `broker`); `packages/parser` lives in the tree but is **not** a workspace — it is consumed as the published dependency `@graffiticode/parser` (see root `package.json` `dependencies`). Edits to `packages/parser` require republishing/reinstalling to affect the other packages.
 
 ### Root-level commands
 ```bash
@@ -52,9 +52,14 @@ Tests are colocated as `*.spec.js` next to the source. The `api` and `auth` suit
 ```bash
 npm run gcp:api:build && npm run gcp:api:deploy    # api  → Cloud Run, port 3100
 npm run gcp:auth:build && npm run gcp:auth:deploy   # auth → Cloud Run, port 4100
-npm run gcp:api:logs        # tail Cloud Run logs (also gcp:auth:logs)
+npm run gcp:api:logs        # tail Cloud Run logs (also gcp:auth:logs, gcp:broker:logs, gcp:policy:logs)
+
+npm run gcp:broker:deploy                                   # broker → private Cloud Run service
+BROKER_URL=<broker run.app URL> npm run gcp:policy:deploy   # policy → private Cloud Run service
 ```
-Builds use `configs/cloudbuild.*.yaml` and tag images with the short commit SHA.
+Builds use `configs/cloudbuild.*.yaml` and tag images with the short commit SHA. `gcloud builds submit` uploads the local working tree, so a deploy needs no push, but uncommitted changes ship under HEAD's SHA.
+
+The broker and policy builds test, build **and** deploy in one step (there is no separate `:build`). Both services are private (`--no-allow-unauthenticated`) and must not be deployed until the IAM review (`docs/capability-policy-iam-review.md`) is applied: their service accounts, KMS signing key and Secret Manager secrets must exist first. Deploy in order: broker, then policy (it refuses to start without `BROKER_URL`), then the api with `_POLICY_URL` set in `configs/cloudbuild.api.yaml` to enable compiles through a connection. Neither service has a local dev server; they are exercised in-process by their own tests and by the api specs.
 
 ## Architecture Overview
 
