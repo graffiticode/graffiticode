@@ -29,20 +29,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **GCP Direct Deploy**: `npm run gcp:deploy` (deploys to Cloud Run as `l0178`, region `us-central1`, port `50178`)
 - **View logs**: `npm run gcp:logs`
 
+### Evidence and verification contract
+
+- **[documented]**: an expectation from the published reference, not a live observation.
+- **[schema-confirmed]**: an identifier or structure checked against a published schema, not a behavioral test.
+- **[verified] / empirically observed**: the specific behavior was exercised end to end in the stated environment. This label does not cover the entire endpoint or every supported option.
+- **Verified in this deployment**: the caller actually ran the relevant checks in their deployment. Neither compilation nor a complete design establishes this.
+
+For each measured claim, record the behavior and inputs exercised, the procedure and meaningful control where applicable, expected and observed outcomes, date, environment, API/SDK versions, and limits. Link an existing experiment record when available. If provenance is missing, say so; do not invent it or promote a documentation claim. Keep modeled coverage separate from empirical coverage. Generated recipes must preserve the evidence behind consequential claims and the checks still required of the caller.
+
+
 ## Architecture
 
 L0178 is a Graffiticode dialect (child of `@graffiticode/l0000`) that will act as a
-**Learnosity Data API cookbook** — a documentation-only oracle. A client describes a *data
+**Learnosity Data API cookbook** — an empirical integration oracle that produces recipes. A client describes a *data
 job* (which endpoint, which action, what the request carries); L0178 validates it, reports
 holes as steering warnings, and — via `get_spec` — returns a host-language-neutral developer
 recipe covering signing, paging, the response envelope, and verification.
 
-**Status: early.** Eighteen operations are modelled — `items-get`, `items-set`,
-`items-tags-set`, `items-tags-update`, `responses-get`, `jobs-get`,
-`offlinepackage-get`, the two branched `sessions-set-*` submissions, `sessions-delete`, and every `update` in the API. Each was chosen to DISAGREE with what was already modelled, which
-is the only reason the traps below were found rather than assumed. The other 39 documented
-blocks are in `spec/coverage.md` and are unbuilt, not unsupported; an operation absent from
-the vocabulary must never be guessed at.
+Early: 30 modeled operation blocks, including both sessions-set variants, against the ledger's 57 documented blocks. Modeled coverage is separate from empirical coverage: observations support specific behaviors, while session submissions, deletion, and six of eight update operations remain documented only. An operation absent from the vocabulary must never be guessed at.
 
 ### Verification has a limit, and it is deliberate
 
@@ -52,8 +57,7 @@ and manufacturing one to destroy means going through the unverified submission p
 two `sessions-set-*` blocks are unverified for the related reason that they need
 manufactured session data.
 
-That is a real gap, not a tidy one — say so rather than implying even coverage. Everything
-touching `itembank/*` and `jobs` IS verified.
+That is a real gap, not a tidy one — say so rather than implying even coverage. Specific Item bank and jobs behaviors have been observed live; this is not verification of every field or operation. Six of the eight update operations remain documented only.
 
 ### The dialect is ATOMIC, and that has to be said in the prompt
 
@@ -94,11 +98,7 @@ to serve one documented case. See C3's follow-up.
 - Record WHICH consumer measured a fact. A fact verified on one bank is a claim about the
   mechanism, not about the other.
 
-**Paging and transport are [verified]** against Learnosity's public demo Item bank
-(2026-08-13, `learnosity-sdk-nodejs` 0.7.0, `v2025.2.LTS`). Everything else is read off the
-published reference and marked [documented]. `spec/instructions.md` states the evidence
-convention; read its header before adding a fact, and do not promote a claim without
-saying what exercised it.
+Paging and transport observations include the public demo bank (2026-08-13, `learnosity-sdk-nodejs` 0.7.0, `v2025.2.LTS`). Later sandbox 386 observations cover specific polling, write, and response behaviors. Preserve each claim's provenance in `spec/spec-directive.md` and `spec/conflict-resolution.md`; do not promote a claim without saying what exercised it.
 
 ### Measured behaviour that shapes the code
 
@@ -133,8 +133,8 @@ saying what exercised it.
   so nothing can be compared. This is the worst hazard in the API so far. See C18.
 - **The VERB does not predict merge-vs-replace.** `itembank/items/tags` offers both `set`
   and `update` with identical documented parameters: `set` REPLACES the tag set, `update`
-  MERGES into it. Measured; nothing in the reference says so. The other seven `update`
-  blocks are untested, so it is modelled per (endpoint, action) as `writeSemantics` and
+  MERGES into it. Measured; nothing in the reference says so. Six of the eight `update`
+  blocks remain untested; activity-tag merge behavior was also measured, so it is modelled per (endpoint, action) as `writeSemantics` and
   never inferred. C19.
 - **`status` defaults to `unpublished` on write**, and an unpublished Item cannot be
   delivered. The write succeeds; delivery is just empty.
@@ -158,7 +158,7 @@ consumer key; this repo holds no credentials. The deliverable is the recipe.
 
 This repo was cloned from **L0003** (the minimal demo dialect), not from L0177, even though
 L0177 is the closer architectural relative. L0177 is saturated with Author API facts, and
-this dialect's entire value is documentation accuracy — an Author API claim surviving a
+this dialect's value depends on accurate, evidence-scoped knowledge — an Author API claim surviving a
 strip and shipping as authoritative Data API guidance is the worst failure available to it.
 
 L0177 is still the model to follow for *structure*. Worth porting deliberately as each is

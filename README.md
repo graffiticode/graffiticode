@@ -7,15 +7,19 @@ L0178 is a Graffiticode dialect (child of [@graffiticode/l0000](https://www.npmj
 
 A client describes a *data job*: which endpoint, which action, and what the request carries. L0178 validates that description, reports holes as steering warnings, and returns a host-language-neutral recipe — how to sign the request, how to page the result set to completion, how to read the response envelope, and how to verify the job did what was intended.
 
-**L0178 is documentation-only. It never calls the Data API.** The caller's own code signs and sends every request with the caller's own consumer key; this repo holds no credentials. What L0178 supplies is the published documentation plus the un-written tricks and tips — the things the docs omit, or state in a way that reads correctly and behaves otherwise.
+**L0178 produces recipes. It does not call the Data API when handling a recipe request.** The caller's own code signs and sends every request with the caller's own consumer key; this repo holds no credentials. What L0178 supplies is the published documentation plus the un-written tricks and tips — the things the docs omit, or state in a way that reads correctly and behaves otherwise.
 
 It is the second dialect in this class. The first is [L0177](https://github.com/graffiticode/l0177), the Learnosity Author API oracle. Item *content* belongs to L0176; L0178 describes the operation that moves content into a bank, not the content itself.
 
+This is an empirical integration oracle. Its knowledge combines Learnosity's published documentation with observations from direct API experiments. It checks the integration design and returns a host-language-neutral recipe that identifies known behavior, documented expectations, and remaining verification work.
+
+When handling a recipe request, the oracle does not sign or send Learnosity API requests. The caller implements the recipe using their own credentials and environment. A complete design means the modeled inputs are present; it does not mean the integration has been verified in that environment.
+
 ## Status
 
-> **Early.** One operation is modelled — `itembank/items` + `get`, the Item bank read. The other 56 documented `(endpoint, action)` blocks are listed in [`packages/core/spec/coverage.md`](packages/core/spec/coverage.md) and are unbuilt, not unsupported.
+> **Early: 30 modeled operation blocks, including both sessions-set variants, against the ledger's 57 documented blocks. Modeled coverage is separate from empirical coverage: observations support specific behaviors, while session submissions, deletion, and six of eight update operations remain documented only.** See [`packages/core/spec/coverage.md`](packages/core/spec/coverage.md).
 >
-> **Paging and transport are verified** against Learnosity's public demo Item bank (2026-08-13, `learnosity-sdk-nodejs` 0.7.0, `v2025.2.LTS`). Everything else is read off the published reference and marked documented rather than confirmed. `spec/instructions.md` states the convention and holds to it — and a fact verified on the demo bank describes the mechanism, not your consumer.
+> Paging and transport observations include the public demo bank (2026-08-13, `learnosity-sdk-nodejs` 0.7.0, `v2025.2.LTS`). Later private-consumer experiments on sandbox bank 386 established specific polling, write, and response behaviors. Consult the claim-level provenance; no observation proves behavior in the caller's deployment.
 
 ## The failure this exists to prevent
 

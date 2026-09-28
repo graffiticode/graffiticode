@@ -413,7 +413,7 @@ most dangerous unknown a write carries.
 **Resolution.** On these two endpoints the verbs do differ as the names suggest. But that is a
 *measurement about this endpoint*, not a rule: nothing in the reference states it, the parameters
 are identical, and the API has already shown (C15, C16, C17) that per-endpoint behaviour cannot be
-generalised from one sample. The other seven `update` blocks are **untested**.
+generalised from one sample. At this measurement, the other seven `update` blocks were untested. Subsequent activity-tag experiments (recorded in `vocab.ts` and `instructions.md`) established merge behavior there; six of eight updates remain documented only.
 
 **So the fact is modelled per (endpoint, action) as `writeSemantics`,** surfaced as
 `write_semantics` in the output — the same treatment as `pagingEnd` and `asyncEnvelope`, and for
@@ -488,12 +488,10 @@ Measurements come from two consumers, and each entry says which. C1–C15 were t
 sandbox Item bank 386** on 2026-08-17/18 (C17 closed there the same day). Both used `learnosity-sdk-nodejs` 0.7.0 against
 `v2025.2.LTS` (concrete `v1.79.5`).
 
-Writes are never sent to the public demo account — it is shared, and writes persist. That policy
-is why C17 stays half-open rather than being closed with a quick POST. A measured fact
+Writes are never sent to the public demo account — it is shared, and writes persist. C17 was closed through the private sandbox experiment recorded above. A measured fact
 says the mechanism behaves that way on that bank at that version. It does not say the reader's
 consumer, bank or pinned version does, and no resolution above should be quoted to a caller as a
 guarantee about their own deployment.
 
-Unverified surface remains large: 56 of 57 blocks are unbuilt, and every write operation, the
-async job family, and the rate limits are documented only. Expect this register to grow — and
+Modeled coverage is now 30 of 57 documented operation blocks. Empirical coverage remains narrower: session submissions, deletion, six of eight updates, and rate limits remain documented only. Specific write and async behaviors have been measured, as recorded above; that does not verify whole endpoints. Expect this register to grow — and
 prefer growing it to quietly resolving a conflict in favour of whichever source was read last.

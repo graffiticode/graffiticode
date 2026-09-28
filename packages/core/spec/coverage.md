@@ -17,11 +17,13 @@ envelope carries a `meta.versions` object. Both are in `instructions.md` marked 
 un-written tricks that make this dialect worth having are, by definition, absent from the
 documentation — this map tells you where to go looking, never what you will find there.
 
-**Coverage against this denominator: 18 of 57 blocks built**, every `update` among them, all verified live:
+**Modeled coverage: 30 of 57 documented operation blocks**, counting the two `sessions` + `set` variants separately as the ledger does. Every `update` is modeled. This count measures vocabulary coverage, not empirical verification. The evidence below applies to specific behaviors; it does not certify every option in a block:
 
-| Block | Shape | Verified against |
+| Block | Shape | Evidence / environment |
 | :-- | :-- | :-- |
 | `itembank/items` + `get` | paged, ends on an absent cursor | public demo bank |
+| twelve additional Item bank read blocks | six paged, six unpaged | `instructions.md` records measured paging termination for the six paged reads; this does not establish every field's behavior. Per-run provenance is not recorded here. |
+
 | `sessions/responses` + `get` | paged, ends on an empty page | public demo bank |
 | `jobs` + `get` | not paged; the async polling channel | private consumer, sandbox 386 |
 | `itembank/offlinepackage` + `get` | **async** — returns a job reference | private consumer, sandbox 386 |
@@ -41,11 +43,20 @@ replaces rather than merges, which the reference never states (C18); and the asy
 genuinely differs per endpoint rather than one form being a doc error (C17); and one endpoint
 replaces under `set` while merging under `update`, documented identically, so the verb predicts
 nothing (C19). The register
-now stands at 18 entries with none open — the last, C5, closed on a measurement showing the
-API answers plain HTTP with a 301 rather than the documented 403 (C5).
+records these conflicts and their resolutions; use its individual entries for provenance and remaining limits, rather than treating a resolved conflict as verification of a whole operation.
 
 **Writes are never sent to the public demo account** — it is shared and writes persist. The
 private consumer covers what the demo cannot, and writes land in sandbox bank 386.
+
+### Evidence and verification contract
+
+- **[documented]**: an expectation from the published reference, not a live observation.
+- **[schema-confirmed]**: an identifier or structure checked against a published schema, not a behavioral test.
+- **[verified] / empirically observed**: the specific behavior was exercised end to end in the stated environment. This label does not cover the entire endpoint or every supported option.
+- **Verified in this deployment**: the caller actually ran the relevant checks in their deployment. Neither compilation nor a complete design establishes this.
+
+For each measured claim, record the behavior and inputs exercised, the procedure and meaningful control where applicable, expected and observed outcomes, date, environment, API/SDK versions, and limits. Link an existing experiment record when available. If provenance is missing, say so; do not invent it or promote a documentation claim. Keep modeled coverage separate from empirical coverage. Generated recipes must preserve the evidence behind consequential claims and the checks still required of the caller.
+
 
 ## Totals
 
@@ -83,12 +94,12 @@ That is why the key needs two levels. The one apparent counter-example resolved 
 Same endpoint, same action, disjoint fields, selected by a field *value*. Model it as a variant
 inside the `(sessions, set)` block keyed on `data_format`. **The registry stays two-level.**
 
-**4. Async is a MODE, not a second head — and `jobs` is the shared polling channel.** 13 blocks
-create a long-running job and return `{ data: { job_reference } }`, to be polled with `jobs` +
+**4. Async is a MODE, not a second head — and `jobs` is the shared polling channel.** 13 documented blocks
+create a long-running job and return a job reference in an endpoint-specific envelope, to be polled with `jobs` +
 `get`. They are spread across `itembank/*`, `sessions/*`, `reports/*` and `jobs/*` — async is a
 property of the individual operation, not of a path prefix, so it cannot be modelled by giving
 `jobs/*` its own head. Two of the 13 are `get` blocks (`itembank/offlinepackage`,
-`jobs/sessions/scores/subscores`), both verified by reading their response sections.
+`jobs/sessions/scores/subscores`), both documented in their response sections; reading the reference is not empirical verification.
 
 **5. Paging and async are disjoint concerns.** 13 blocks page, 13 create jobs, and no block does
 both. A read either returns a page (with `meta.next`) or a `job_reference`, never both.

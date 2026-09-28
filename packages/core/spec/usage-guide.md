@@ -11,7 +11,7 @@ unsafe combinations as steering warnings, and returns a host-language-neutral re
 covering how to sign the request, how to page the result set to completion, how to read
 the response envelope, and how to verify the job did what was intended.
 
-It is documentation-only. It never calls the Data API: the caller's own code signs and
+It produces empirically informed recipes. When handling a recipe request it never calls the Data API: the caller's own code signs and
 sends every request with the caller's own consumer key. What L0178 supplies is the
 published documentation plus the un-written tricks and tips — the things the docs omit,
 or state in a way that reads correctly and behaves otherwise.
@@ -24,6 +24,10 @@ considered complete.
 
 It does not author item content (that is L0176) and does not cover the Author API
 authoring experience (that is L0177).
+
+This is an empirical integration oracle. Its knowledge combines Learnosity's published documentation with observations from direct API experiments. It checks the integration design and returns a host-language-neutral recipe that identifies known behavior, documented expectations, and remaining verification work.
+
+When handling a recipe request, the oracle does not sign or send Learnosity API requests. The caller implements the recipe using their own credentials and environment. A complete design means the modeled inputs are present; it does not mean the integration has been verified in that environment.
 
 ## Vocabulary Cues
 
@@ -47,13 +51,13 @@ data-job
 - **A block is one `(endpoint, action)` pair.** `items-get` is `itembank/items` + `get`.
   One keyword per pair, because a field's legality depends on the pair rather than on the
   endpoint alone — and because bare `get` and `set` belong to the base language.
-  Eighteen are modelled, spanning every shape the API has — see `spec.md` for the index
+  Thirty are modelled, spanning every shape the API has — see `spec.md` for the index
   and `instructions.md` for each one's request fields.
 - **`offlinepackage-get` is asynchronous** — it returns a job reference rather than a
   result, and is redeemed by polling `jobs-get`. Neither of those two is paged, so neither
   takes a paging policy. Note it is an async `get`: the action verb says nothing about what
   an operation does.
-- **`paging`** takes `EXHAUSTIVE` (follow `meta.next` to the end) or `SINGLE-PAGE`
+- **`paging`** takes `EXHAUSTIVE` (read until the operation's `paging_end`: absent `meta.next` for Item bank reads, an empty page for session responses) or `SINGLE-PAGE`
   (deliberately take one page). It is design intent, never sent in a request. On a paged
   block its absence is a hole.
 - **Request fields are lowercase-kebab**, flattened from the API's nesting:

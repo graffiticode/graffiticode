@@ -17,7 +17,7 @@ that carries no warning to explain it.
 
 ## Not built yet (should be declined, not designed)
 
-Only 18 of the Data API's 57 operations are modelled. A request for an unbuilt one must be turned
+Only 30 of the Data API's 57 operations are modelled. A request for an unbuilt one must be turned
 away rather than answered with the nearest thing — see `coverage.md`.
 
 3. Duplicate Items 1-50 from bank 4021 into bank 386. *(itembank/items/duplicate — unbuilt. Note itembank/items + set IS built; it is duplication that is missing.)*

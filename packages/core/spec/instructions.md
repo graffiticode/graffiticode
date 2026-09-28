@@ -91,7 +91,7 @@ language.
 | `response-grading-update` | `sessions/responses/scores/grading` | `update` | no | — | no |
 
 Only these thirty of the Data API's 57 operations are modelled. A request for any other —
-writes, duplicates, `sessions/scores` — must be declined, not answered with the nearest
+unbuilt writes, duplicates, `sessions/scores` — must be declined, not answered with the nearest
 built thing.
 
 `offlinepackage-get` is an **async `get`**: proof that the action verb says nothing about

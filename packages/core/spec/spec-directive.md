@@ -3,12 +3,21 @@ You are given the source of a Learnosity **Data API** job (a `data-job` program 
 
 This file states the OUTPUT RULES first; the FACTS they draw on — endpoints, envelope shape, limits, error codes — are the canonical knowledge section at the end. Read a rule as binding on the recipe and the facts as what it is binding about.
 
+### Evidence and verification contract
+
+- **[documented]**: an expectation from the published reference, not a live observation.
+- **[schema-confirmed]**: an identifier or structure checked against a published schema, not a behavioral test.
+- **[verified] / empirically observed**: the specific behavior was exercised end to end in the stated environment. This label does not cover the entire endpoint or every supported option.
+- **Verified in this deployment**: the caller actually ran the relevant checks in their deployment. Neither compilation nor a complete design establishes this.
+
+For each measured claim, record the behavior and inputs exercised, the procedure and meaningful control where applicable, expected and observed outcomes, date, environment, API/SDK versions, and limits. Link an existing experiment record when available. If provenance is missing, say so; do not invent it or promote a documentation claim. Keep modeled coverage separate from empirical coverage. Generated recipes must preserve the evidence behind consequential claims and the checks still required of the caller.
+
 Output these sections, in this order, as Markdown.
 
 ## Goal
 One or two sentences: what the developer will have working when done, specialized to this job (endpoint, action, the filters set, the paging policy).
 
-- State only what the procedure achieves. The paging and transport behaviour was **measured against Learnosity's public demo Item bank**; everything else is read off the published reference. Where a claim would change what the reader does if it were wrong, say whether it is measured or documented — and never let a fact verified on the demo bank read as a promise about the caller's own consumer, bank or LTS version.
+- State only what the procedure achieves. The knowledge combines documentation with observations from the public demo bank and private-consumer experiments on sandbox bank 386. Use the provenance attached to the specific claim; do not treat a whole endpoint as verified. Where a claim would change what the reader does if it were wrong, say whether it is measured or documented — and never let a fact verified on the demo bank read as a promise about the caller's own consumer, bank or LTS version.
 - If the design sets a field that cannot affect this operation, say so here and recommend removing it.
 
 ## Preconditions
@@ -62,7 +71,7 @@ Three details are binary and must be stated exactly:
 ## Write safety
 **A required section whenever the compiled output has `writes: true`. Never fold it into the Procedure — a reader who skims past it loses data.**
 
-- **Read `write_semantics` from the compiled output and state it — never infer it from the verb.** Measured: on `itembank/items/tags` the SAME endpoint replaces under `set` and merges under `update`, with identical documented parameters and no word in the reference about the difference. The seven other `update` blocks are untested, so a recipe that says "update always merges" is inventing a rule.
+- **Read `write_semantics` from the compiled output and state it — never infer it from the verb.** Measured: on `itembank/items/tags` the SAME endpoint replaces under `set` and merges under `update`, with identical documented parameters and no word in the reference about the difference. Six of the eight `update` blocks are untested; merge behavior was also measured for activity tags, so a recipe that says "update always merges" is inventing a rule.
 - **Lead with the fact that a REPLACING write REPLACES.** A field omitted from the payload is CLEARED, not left alone. State plainly that the natural read-modify-write — fetch the Item, change one field, send that field back — destroys every field not resent, and that the request succeeds while doing it. Tell the reader to send the Item whole.
 - **Say the response proves nothing.** A successful write returns `data: []`; it does not echo what landed. Confirmation is a re-read, and the verification checklist must contain one.
 - **When the operation MERGES, say so plainly and say it does not generalise** — the reader's next write may be on an endpoint that replaces.
@@ -124,9 +133,8 @@ Under these rules:
 - The paging and transport sections below were exercised against Learnosity's **public demo
   consumer** (`yis0TYCu7U9V4o7M`) on 2026-08-13, using `learnosity-sdk-nodejs` 0.7.0 against
   `v2025.2.LTS` (which reported `meta.versions.concrete` `v1.79.5`). Those facts carry
-  **[verified]** with that provenance. Everything else is still **[documented]**.
-- A verified fact is verified for the DEMO ITEM BANK. It says the mechanism behaves that
-  way; it does not say the reader's own consumer, bank or LTS version does.
+  **[verified]** with that provenance. Later observations of polling, write, and response behavior came from a private consumer on sandbox bank 386; C16–C21 in `conflict-resolution.md` record runs on 2026-08-17/18 with the same SDK and LTS versions. Retain claim-specific provenance; other claims remain documented unless a recorded experiment supports them.
+- A demo-bank fact is verified for the DEMO ITEM BANK; a sandbox observation is scoped to its stated consumer, bank, and version. Neither says the reader's own consumer, bank or LTS version behaves the same way.
 
 ### The shape of this API
 
