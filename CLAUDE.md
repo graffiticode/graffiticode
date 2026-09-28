@@ -27,6 +27,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **GCP Direct Deploy**: `npm run gcp:deploy` (Cloud Run as `l0177`, region `us-central1`, port `50177`)
 - **View logs**: `npm run gcp:logs`
 
+### Evidence and verification contract
+
+- **[documented]**: an expectation from the published reference, not a live observation.
+- **[schema-confirmed]**: an identifier or structure checked against a published schema, not a behavioral test.
+- **[verified] / empirically observed**: the specific behavior was exercised end to end in the stated environment. This label does not cover the entire endpoint or every supported option.
+- **Verified in this deployment**: the caller actually ran the relevant checks in their deployment. Neither compilation nor a complete design establishes this.
+
+For each measured claim, record the behavior and inputs exercised, the procedure and meaningful control where applicable, expected and observed outcomes, date, environment, API/SDK versions, and limits. Link an existing experiment record when available. If provenance is missing, say so; do not invent it or promote a documentation claim. Keep modeled coverage separate from empirical coverage. Generated recipes must preserve the evidence behind consequential claims and the checks still required of the caller.
+
+
 ## Architecture
 
 L0177 is a Graffiticode dialect (child of `@graffiticode/l0000`) that acts as a **Learnosity
@@ -237,7 +247,7 @@ exist. Do not soften them without new evidence:
   templates. The earlier "no effect" reading came from supplying a *new* reference, which is
   additive: the config was in force and the picker looked untouched. Only a control comparison
   separates "ignored" from "additive".
-- **Question TYPES are a separate taxonomy and are not restrictable.** `allow-widgets` names types
+- **Question TYPES are a separate taxonomy; no per-type restriction mechanism has been confirmed in the tested configuration.** `allow-widgets` names types
   (`mcq`, `clozetext`); the mechanism selects groups and templates, and one group holds several
   types. It stays design intent, and the compiler warns when it appears without
   `question-type-groups`. Never emit `init_options.widgetTypes` (no effect, absent from the current

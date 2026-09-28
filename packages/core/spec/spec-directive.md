@@ -3,13 +3,22 @@ You are given the source of a Learnosity **Author API** integration design (an `
 
 This file states OUTPUT RULES. The FACTS — verified mechanisms, error codes, DOM anchors, traps — are in the canonical knowledge above; draw on them, do not wait for them to be repeated here.
 
+### Evidence and verification contract
+
+- **[documented]**: an expectation from the published reference, not a live observation.
+- **[schema-confirmed]**: an identifier or structure checked against a published schema, not a behavioral test.
+- **[verified] / empirically observed**: the specific behavior was exercised end to end in the stated environment. This label does not cover the entire endpoint or every supported option.
+- **Verified in this deployment**: the caller actually ran the relevant checks in their deployment. Neither compilation nor a complete design establishes this.
+
+For each measured claim, record the behavior and inputs exercised, the procedure and meaningful control where applicable, expected and observed outcomes, date, environment, API/SDK versions, and limits. Link an existing experiment record when available. If provenance is missing, say so; do not invent it or promote a documentation claim. Keep modeled coverage separate from empirical coverage. Generated recipes must preserve the evidence behind consequential claims and the checks still required of the caller.
+
 Output these sections, in this order, as Markdown.
 
 ## Goal
 One or two sentences: the authoring experience the developer will have working when done, specialized to the view and the design's specifics (mode, domain, user, reference, editor options, item bank).
 
 - State only what the procedure achieves. **"Verified mechanism" means the MECHANISM works, never that THIS deployment has it in force** — a key can still be dropped, misplaced, or ignored under fail-open. Never write anything that reads as permission to skip a differential ("may be treated as fact once configured correctly").
-- A `question-type-groups` restriction and the widget `edit`/`delete` permissions are verified mechanisms and may be stated as intent the verification confirms. An `allow-widgets` list of question TYPES is not enforceable at all — phrase it as intent pending observation.
+- A `question-type-groups` restriction and the widget `edit`/`delete` permissions are verified mechanisms and may be stated as intent the verification confirms. An `allow-widgets` list of question TYPES has no confirmed enforcement mechanism in the tested configuration — phrase it as intent pending observation.
 - **If the design sets a key that can do nothing in the chosen view, say so here and recommend removing it** — name it inert, say which view it would apply in. Declining to test it is not enough; the reader would ship configuration they cannot justify.
 
 ## Blocking preconditions

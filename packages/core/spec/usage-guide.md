@@ -5,6 +5,10 @@ Agent-facing guide for the Learnosity **Author API integration** oracle. Read th
 
 ## Overview
 
+This is an empirical integration oracle. Its knowledge combines Learnosity's published documentation with observations from direct API experiments. It checks the integration design and returns a host-language-neutral recipe that identifies known behavior, documented expectations, and remaining verification work.
+
+When handling a recipe request, the oracle does not sign or send Learnosity API requests. The caller implements the recipe using their own credentials and environment. A complete design means the modeled inputs are present; it does not mean the integration has been verified in that environment.
+
 L0177 is a developer-integration oracle for the Learnosity **Author API**: it does not author assessment content — it produces a precise, host-language-neutral **recipe** for embedding and configuring an integrated **authoring experience** (the Learnosity item/activity editor or browser) in your own app. You describe the integration *design* — which experience to embed and how it's configured — L0177 validates it, flags any **holes** (missing required properties) as steering warnings, and via `get_spec` returns the recipe: goal, preconditions, procedure, gotchas, and runnable **verification steps**. You fill the holes over a few turns and implement the result in your own stack (Node, PHP, Ruby, .NET). L0177 never writes item content (that is L0176) and never emits runnable code.
 
 **The recipe states how sure it is, and you must not upgrade it.** The Author API **fails open on
@@ -48,7 +52,7 @@ Everything is expressed in natural language — the generator writes the DSL. Gi
 - **The serving domain** — the signature binds to it; a mismatch is the #1 401.
 - **The author's user id** — recorded in the item-bank audit trail.
 - For editing, **the item/activity reference**.
-- **Which kinds of question authors may add** — say it plainly ("only multiple choice and cloze") and the design will set `question-type-groups`, the one restriction Learnosity enforces.
+- **Which kinds of question authors may add** — say it plainly ("only multiple choice and cloze") and the design will set `question-type-groups`, a picker restriction observed at group granularity.
 - Optionally: the specific question types intended, editor options (edit/delete widgets, tags, dynamic content, shared passage), a **specific item bank**, container sizing.
 
 The compiler validates each property, so under-specified or inconsistent designs come back as clear steering warnings to refine.

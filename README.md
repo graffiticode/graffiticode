@@ -9,6 +9,10 @@ You describe an *integration design* — which authoring experience to embed in 
 
 L0177 does **not** author assessment item content (that is L0176), does **not** sign or send Learnosity API requests, and does **not** emit runnable code.
 
+This is an empirical integration oracle. Its knowledge combines Learnosity's published documentation with observations from direct API experiments. It checks the integration design and returns a host-language-neutral recipe that identifies known behavior, documented expectations, and remaining verification work.
+
+When handling a recipe request, the oracle does not sign or send Learnosity API requests. The caller implements the recipe using their own credentials and environment. A complete design means the modeled inputs are present; it does not mean the integration has been verified in that environment.
+
 ## How it works
 
 1. Describe the design — `create_item("L0177", "…embed the item editor for author u123 on lms.acme.edu, allowing only MCQ and cloze…")`.

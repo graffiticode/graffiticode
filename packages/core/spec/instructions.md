@@ -165,9 +165,18 @@ because the API fails open: a wrong path looks identical to a right one in a run
 
 ## Canonical Learnosity Author API knowledge (the recipe draws on this)
 
+### Evidence and verification contract
+
+- **[documented]**: an expectation from the published reference, not a live observation.
+- **[schema-confirmed]**: an identifier or structure checked against a published schema, not a behavioral test.
+- **[verified] / empirically observed**: the specific behavior was exercised end to end in the stated environment. This label does not cover the entire endpoint or every supported option.
+- **Verified in this deployment**: the caller actually ran the relevant checks in their deployment. Neither compilation nor a complete design establishes this.
+
+For each measured claim, record the behavior and inputs exercised, the procedure and meaningful control where applicable, expected and observed outcomes, date, environment, API/SDK versions, and limits. Link an existing experiment record when available. If provenance is missing, say so; do not invent it or promote a documentation claim. Keep modeled coverage separate from empirical coverage. Generated recipes must preserve the evidence behind consequential claims and the checks still required of the caller.
+
+
 Facts below marked **[verified]** were confirmed against the live Author API (v1.144.0) using
-Learnosity's public demo consumer on `localhost`. Anything not marked verified must be presented
-to the client as *documented-but-unconfirmed*, never asserted as fact.
+Learnosity's public demo consumer on `localhost`. Schema-confirmed names and paths establish structure, not behavior. Anything without a live observation must retain its documented or schema-confirmed status; do not present it as behavior verified in the caller's deployment.
 
 - **Script tag [verified]:** load the Author API from the **bare host** — `<script src="https://authorapi.learnosity.com"></script>`. It defines the global `LearnosityAuthor`. Do **not** invent a versioned file path: `https://authorapi.learnosity.com/latest/authorapi.js` **404s**, `LearnosityAuthor` is then undefined, `init()` never runs, and *neither callback fires* — a silently blank page.
 - **Init — CORRECTED 2026-08-12.** Server-side, build a signed request, then call
@@ -233,7 +242,7 @@ to the client as *documented-but-unconfirmed*, never asserted as fact.
   reference is additive: the config was in force and the picker looked untouched. Only comparing
   against a control distinguishes "ignored" from "additive" — the fail-open trap in its purest form.
 
-- **⚠ Question TYPES are a different taxonomy from groups, and are not restrictable [verified].**
+- **⚠ Question TYPES are a different taxonomy from groups. No per-question-type restriction mechanism has been confirmed in the tested configuration.**
   `allow-widgets` names question types (`mcq`, `clozetext`). The mechanism above selects **groups and
   templates**, and one group holds several types — the `cloze` group carries six templates. No
   confirmed key restricts by question type. So `allow-widgets` remains **design intent**: name the
@@ -253,7 +262,7 @@ to the client as *documented-but-unconfirmed*, never asserted as fact.
   `{default, show}` — which tile view opens and whether the type buttons show. It was never a
   restriction key, so testing it for restriction tested the wrong thing.
 
-- **Widget-type name strings [verified against the published schema]:** the question `type` values below are
+- **Widget-type name strings [schema-confirmed]:** the question `type` values below are
   Learnosity's exact lowercase strings (confirmed in `schemas.learnosity.com` → `question_type_templates`,
   which is keyed by exactly these). They are correct as *question type* identifiers, which is a separate taxonomy from the
   picker groups that `question_type_groups` restricts. Copy them exactly — do NOT
