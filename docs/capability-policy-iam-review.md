@@ -1,6 +1,7 @@
 # Capability policy — Phase 1 IAM & data-boundary review
 
-> **Status:** review only, 2026-09-25. Nothing in this document has been applied.
+> **Status:** partly applied. Written 2026-09-25; §1.0b records what is live as of 2026-09-28,
+> including steps applied out of order and two interim deny policies that are not in §3.
 > Scope: GCP project `graffiticode` (us-central1) — `auth`, `api`, compilers `l0NNN`,
 > and the planned `policy` and `broker` services. Design context:
 > `console/docs/graffiticode_capability_policy_spec.md`.
@@ -9,13 +10,96 @@
 repo file (path given). **[UNVERIFIED]** = inferred or a GCP default. Needs confirming with the
 §1.4 commands before any step in §3 runs.
 
-**Live read status:** read 2026-09-27 with the §1.4 commands (read-only, as
-`jeff@artcompiler.com`). **§1.0 is [LIVE] and supersedes every [UNVERIFIED] below that it
-covers.** Where §1.0 differs from a row further down, §1.0 is right.
+**Live read status:** read 2026-09-27 and again 2026-09-28 with the §1.4 commands (as
+`jeff@artcompiler.com`). **§1.0b (2026-09-28) is the current state and supersedes §1.0; both
+supersede every [UNVERIFIED] below that they cover.**
 
 ---
 
 ## 1. Current state
+
+### 1.0b Live state and progress, 2026-09-28 [LIVE]
+
+Much of §3 was applied on 2026-09-27, before this read and **out of order**: `policy` and
+`broker` were deployed with real images and `BROKER_SECRET_KEY` got a version while the default
+compute SA still held Editor, `run.admin`, `serviceAccountUser` and `serviceAccountTokenCreator`.
+Step 9's gate was therefore already crossed. The 2026-09-28 changes below close the resulting
+exposure without waiting for Steps 6–9.
+
+**Progress by step**
+
+| Step | Applied | Still to do |
+|---|---|---|
+| 1 SAs | `api-run`, `auth-run`, `l0176-run`, `policy-run`, `broker-run` | 40 compiler SAs (incl. `l0158-run`); `deploy-build`, `deploy-smoke` |
+| 2 Deployers | Required APIs enabled (Run, Build, Artifact Registry, Container Analysis, KMS, Secret Manager) | Build/smoke SAs, the `services` Artifact Registry repo, deployer grants. Images still go to `gcr.io` and Cloud Build still runs as the legacy SA |
+| 3 Roles | `api-run`: `datastore.user` on `(default)` only, `cloudtrace.agent`. `auth-run`: `datastore.user` on `(default)` only, `roles/firebaseauth.viewer` (the code only calls `getUser`, `verifyIdToken`, `createCustomToken`, so viewer replaces the `firebaseauth.admin` proposed in Step 3), `tokenCreator` on itself | `l0013` bucket grant |
+| 4 Databases | `policy` and `broker` (nam5), each `datastore.user` to its own SA only. **Delete protection on for `policy`, `broker` and `(default)`** | — |
+| 5 Key and secrets | KMS `policy/token-signing` (P-256; `signer` = `policy-run`, `publicKeyViewer` = `policy-run`, `broker-run`). `policy-callers`, `broker-callers`, `audit-pseudonym-secret` and `BROKER_SECRET_KEY` each at v1, accessor only the intended SA(s). New: `auth-internal-api-key` v1, accessor `auth-run` | `broker-learnosity-system` (not created; the broker keeps connection credentials sealed in its own database) |
+| 6 Move services | `api` → `api-run`, `l0176` → `l0176-run`, **`auth` → `auth-run`** (revision `auth-00014-9kl`; `INTERNAL_API_KEY` now from `auth-internal-api-key:1`, previously a plain env var readable by anyone with `run.services.get`) | 40 compilers, `l0158` first |
+| 7 Invokers | Both services private. `policy`: `api-run`, `console-run@graffiticode-app`, `l0176-run`. `broker`: `l0176-run`, `policy-run` | `deploy-smoke` on both; `l0158-run` once it exists |
+| 8 Shared secrets | — | Compute SA still reads `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` (needed until the 40 compilers move) |
+| 9 Strip Editor | Compute SA's project `run.admin`, `serviceAccountUser`, `serviceAccountTokenCreator` **removed**; `tokenCreator` re-granted on itself only | `roles/editor` on the compute and App Engine SAs |
+
+**Interim controls, not in §3 (2026-09-28)**
+
+- **Deny policy `deny-compute-deploy`** (project attachment): the compute SA may not
+  `run.googleapis.com/services.{create,update,delete,setIamPolicy}` or
+  `iam.googleapis.com/serviceAccounts.actAs`. Editor alone grants all but `setIamPolicy`, so
+  removing `run.admin` was not enough to stop a compromised compiler redeploying `policy`/`broker`
+  or acting as their SAs.
+- **Deny policy `deny-compute-firestore`**: the compute SA may not
+  `datastore.googleapis.com/entities.{get,list,create,update,delete}`, on any database. This
+  closes Editor's access to the `broker` database (`connection-secrets`). Safe only because
+  `auth` moved first; no compiler on the compute SA uses Firestore (verified by the sweep below
+  for the 40 live compilers, not by source for 16 of them).
+- Creating them required `roles/iam.denyAdmin`, which can only be granted on the organization:
+  granted to `jeff@artcompiler.com` on org `496958484376` (artcompiler.com).
+- **Both deny policies are removed at Step 9**, once Editor is gone; revisit the org
+  `denyAdmin` grant then.
+- **GitHub service accounts disabled:** `github-actions@` (project `run.admin`,
+  `serviceAccountUser`, `storage.admin`, a user-managed key from 2025-10-20, last used
+  2026-03-18) and `github-action-564425249@` (Firebase Hosting, key from 2023). Both disabled,
+  keys deleted, all 7 project bindings removed. There are no GitHub Actions deploys; delete the
+  accounts after a quiet period, and remove any copies of the keys stored as GitHub secrets.
+- Policy Troubleshooter API enabled for verification.
+
+**Verified 2026-09-28**
+
+- Policy Troubleshooter, compute SA (Cloud Run resources must be named by **project number**,
+  `//run.googleapis.com/projects/656973052505/...`, and calls need `--billing-project=graffiticode`):
+  update/delete `broker`/`policy` and `actAs` `broker-run` → allowed by Editor, **denied** by the
+  deny policy; `setIamPolicy` on `policy` and `getAccessToken` on `broker-run` → not granted;
+  `signBlob` on itself → allowed; `run.services.get` on `l0000` → allowed (control);
+  `datastore.entities.get` → allowed by Editor, **denied**.
+- `auth` sign-in (Ethereum) succeeded on the compute SA after the `tokenCreator` narrowing, and
+  again on `auth-run`: `GET /authenticate/ethereum/…` (Firestore read), `…/internal/exists/…`
+  (`INTERNAL_API_KEY` from the secret) and `POST /authenticate/ethereum/…` (custom token) all 200.
+- Compile sweep of the 40 compilers still on the compute SA (each language's published
+  `template.gc`, parsed with its `lexicon.json`, `POST /compile` with `{}` data): 34 compiled.
+  None failed on a permission. The rest were template or data problems (`l0001`, `l0165`
+  unparseable template; `l0157` missing terminator; `l0013` sample item not found; `l0158`,
+  `l0182` need data) and `l0156`, which has **no Anthropic API key configured** (not caused by
+  these changes: no env var or secret of any compiler was touched).
+- Brokered save, end to end (console Connection panel **Run** on an L0176 item): `api` →
+  policy `invocations` → L0176 → policy `snapshot`, `mint` (`save-to-itembank`,
+  `learnosity.write-items`) → broker `execute` → Learnosity, every hop 200 and audited `allowed`.
+  A connection created from the console (policy → broker credential provisioning) also succeeded.
+  Selecting a connection on an item does not by itself write: only **Run** sends `connectionId`.
+
+**Found, not fixed**
+
+- `auth` logs refresh tokens: `GET /oauth-tokens?refresh_token=…` puts them in Cloud Run request
+  logs in cleartext. Move them to a header or body.
+- The console logged `DSPy service error … 404` (unrelated to IAM).
+- Org policy `iam.automaticIamGrantsForDefaultServiceAccounts` is not enforced; that is how the
+  compute SA got Editor. Enforce it at the org once Step 9 is done so new projects don't repeat it.
+- Other SAs with project-wide deploy power remain: the legacy Cloud Build SA
+  (`run.admin`, `serviceAccountUser`, `storage.admin`, `firebase.admin`,
+  `serviceusage.apiKeysAdmin`). It is what the compiler repos deploy as; narrowing it is part of
+  Step 2.
+
+Resolved open questions: §5 Q2 (the console's runtime SA is the dedicated
+`console-run@graffiticode-app.iam.gserviceaccount.com`); §5 Q1 in part (live list above).
 
 ### 1.0 Live state, read 2026-09-27 [LIVE]
 
@@ -676,7 +760,9 @@ does not undo IAM or secret versions.
 1. **Live state.** Re-run §1.4. In particular: is the compute SA on Editor? Which services mount
    `GRAFFITICODE_SECRET_KEY`? Does `graffiticode-auth` (from `packages/auth/cloudbuild.yaml`) still
    exist? Is there an App Engine app?
-2. **Console runtime SA** in `graffiticode-app`. Is it the default compute SA of that project? If so,
+2. **Resolved 2026-09-28:** the console runs as the dedicated
+   `console-run@graffiticode-app.iam.gserviceaccount.com`, which holds invoker on `policy`.
+   Original question: **Console runtime SA** in `graffiticode-app`. Is it the default compute SA of that project? If so,
    give the console a dedicated SA before granting it cross-project invoker on `policy`, because
    otherwise every workload in `graffiticode-app` could call policy.
 3. **Caller identity inside policy.** Cloud Run strips the signature from the forwarded
