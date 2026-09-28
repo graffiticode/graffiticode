@@ -160,9 +160,9 @@ so a shared compiler SA would let any compiler mint tokens for L0176's protected
 
 | Principal ↓ / Resource → | invoke `policy` | invoke `broker` | invoke compilers | policy signing key (KMS) | `BROKER_SECRET_KEY` | Firestore `policy` | Firestore `broker` | Firestore `(default)` | Learnosity system creds (`broker-learnosity-system`) |
 |---|---|---|---|---|---|---|---|---|---|
-| `api-run` | ✗ (not needed in Phase 1; see §5) | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✓ `datastore.user` conditioned to `(default)` | ✗ |
+| `api-run` | ✓ `run.invoker` (gateway: invocations, publications) | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✓ `datastore.user` conditioned to `(default)` | ✗ |
 | `auth-run` | ✗ | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✓ conditioned to `(default)`, plus `tokenCreator` on itself | ✗ |
-| `policy-run` | — | ✗ | ✓ public | ✓ `cloudkms.signer` + `publicKeyViewer` on the key only | ✗ | ✓ `datastore.user` conditioned to `policy` | ✗ | ✗ (identity comes from verifying the auth token via `auth`, not from reading auth's data) | ✗ |
+| `policy-run` | — | ✓ `run.invoker` (admin routes: provisions connection credentials) | ✓ public | ✓ `cloudkms.signer` + `publicKeyViewer` on the key only | ✗ | ✓ `datastore.user` conditioned to `policy` | ✗ | ✗ (identity comes from verifying the auth token via `auth`, not from reading auth's data) | ✗ |
 | `broker-run` | ✗ (it fetches the public key from KMS directly) | — | ✗ | ✓ `publicKeyViewer` only (verifies, cannot sign) | ✓ `secretAccessor` | ✗ | ✓ `datastore.user` conditioned to `broker` | ✗ | ✓ `secretAccessor` |
 | `l0176-run`, `l0158-run` (protected-function compilers) | ✓ `run.invoker` | ✓ `run.invoker` | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ after cut-over. Until then, `learnosity-secret` (legacy) stays |
 | other `lNNNN-run` | ✗ (add when a language gains a protected function) | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -338,6 +338,59 @@ for s in BROKER_SECRET_KEY broker-learnosity-system; do
   gcloud secrets add-iam-policy-binding $s --project $P \
     --member serviceAccount:$(sa broker) --role roles/secretmanager.secretAccessor --condition=None; done
 ```
+**Service configuration secrets.** The deploy configs (`configs/cloudbuild.policy.yaml`,
+`configs/cloudbuild.broker.yaml` on branch `policy-service`) also mount three secrets that the
+services refuse to start without:
+
+| Secret | Env var | Mounted by | Value |
+|---|---|---|---|
+| `policy-callers` | `POLICY_CALLERS` | `policy-run` | JSON caller map (below) |
+| `broker-callers` | `BROKER_CALLERS` | `broker-run` | JSON caller map (below) |
+| `audit-pseudonym-secret` | `AUDIT_PSEUDONYM_SECRET` | `policy-run`, `broker-run` | random, ≥ 16 chars; **shared** so both services pseudonymize a user to the same audit id |
+
+```bash
+for s in policy-callers broker-callers audit-pseudonym-secret; do
+  gcloud secrets create $s --project $P --replication-policy automatic; done
+gcloud secrets add-iam-policy-binding policy-callers --project $P \
+  --member serviceAccount:$(sa policy) --role roles/secretmanager.secretAccessor --condition=None
+gcloud secrets add-iam-policy-binding broker-callers --project $P \
+  --member serviceAccount:$(sa broker) --role roles/secretmanager.secretAccessor --condition=None
+for n in policy broker; do
+  gcloud secrets add-iam-policy-binding audit-pseudonym-secret --project $P \
+    --member serviceAccount:$(sa $n) --role roles/secretmanager.secretAccessor --condition=None; done
+```
+
+The caller maps bind each verified caller SA to a role (`packages/policy/src/config.js`,
+`caller.js`). They hold no credentials, so unlike `BROKER_SECRET_KEY` they can get values right
+away; they are secrets only so that changing a caller does not need a redeploy of the image.
+
+```bash
+# policy: compilers snapshot + mint for their own language; the console manages
+# connections; the gateway (api) allocates invocations and reads publications.
+printf '%s' '{
+  "'$(sa l0176)'": {"role": "compiler", "lang": "0176"},
+  "'$(sa l0158)'": {"role": "compiler", "lang": "0158"},
+  "'$CONSOLE_SA'": {"role": "console"},
+  "'$(sa api)'": {"role": "gateway"}
+}' | gcloud secrets versions add policy-callers --project $P --data-file=-
+# broker: compilers execute; policy provisions connection credentials (admin routes).
+printf '%s' '{
+  "'$(sa l0176)'": {"role": "compiler", "lang": "0176"},
+  "'$(sa l0158)'": {"role": "compiler", "lang": "0158"},
+  "'$(sa policy)'": {"role": "policy"}
+}' | gcloud secrets versions add broker-callers --project $P --data-file=-
+openssl rand -base64 32 | tr -d '\n' | gcloud secrets versions add audit-pseudonym-secret --project $P --data-file=-
+```
+
+`BROKER_SECRET_KEY`, when it is provisioned (after Step 9), is 32 bytes as 64 hex characters or
+base64 (`openssl rand -base64 32`); `packages/broker/src/secret-box.js` rejects anything else.
+
+A caller map entry only takes effect for an SA that also holds `run.invoker` on the service
+(Step 7). The code on `policy-service` has two callers the access matrix in §2 does not: `api-run`
+calls policy (gateway role) and `policy-run` calls broker (policy role). Step 7 grants both.
+
+Rollback: `gcloud secrets delete <name>` for each of the three.
+
 If the ES256 key must be a JWK in Secret Manager instead (the plan's literal wording), create
 `POLICY_SIGNING_JWK` the same way, with the accessor role for `policy-run` only. KMS is preferred:
 a leaked Secret Manager accessor leaks the key, while a leaked KMS signer grant only allows signing
@@ -381,6 +434,12 @@ for c in $PROTECTED; do
       --member serviceAccount:$(sa $c) --role roles/run.invoker; done; done
 gcloud run services add-iam-policy-binding policy --project $P --region $R \
   --member serviceAccount:$CONSOLE_SA --role roles/run.invoker
+# Gateway → policy (invocations, publications) and policy → broker (credential provisioning),
+# matching the caller maps in Step 5.
+gcloud run services add-iam-policy-binding policy --project $P --region $R \
+  --member serviceAccount:$(sa api) --role roles/run.invoker
+gcloud run services add-iam-policy-binding broker --project $P --region $R \
+  --member serviceAccount:$(sa policy) --role roles/run.invoker
 ```
 
 How callers reach `policy`, and why:
@@ -425,6 +484,15 @@ How callers reach `policy`, and why:
   - If a browser ever needs policy directly, deploy a separate `policy-public` service (same image,
     management routes only, `allUsers`) rather than opening `policy`.
 - **Broker → policy:** none. The broker verifies tokens with the KMS public key.
+- **Policy → broker (credential provisioning).** When a connection is created or its secret
+  rotated, policy stores the credential through the broker's admin routes, so the value is sealed
+  under `BROKER_SECRET_KEY` and policy never holds it at rest. Policy sends the same two Google ID
+  tokens as any caller (audience `urn:graffiticode:broker` in `X-Caller-Identity`); the broker
+  admits only the `policy` role to admin routes (`packages/broker/src/app.js`).
+- **Gateway → policy (invocations, publications).** `api` allocates an invocation for each compile
+  through a connection and reads publication state, under the `gateway` role. Both routes refuse
+  any other role. Without `POLICY_URL` set, `api` refuses those compiles rather than running them
+  unguarded (`packages/api/src/app.js`).
 - **Ingress:** `all` in Phase 1. `internal` would require compilers to egress through a VPC (Direct
   VPC egress), and would block the cross-project console. Revisit for `broker` once compilers have
   VPC egress: `broker` could then go `--ingress internal`.
@@ -487,10 +555,11 @@ Rollback: `add-iam-policy-binding … --role roles/editor`, the same members.
 | 4 (matrix) | Document-level reads and writes against each **actual** database, as each SA (tester holds `serviceAccountTokenCreator` on the SA). Use the REST API with an impersonated access token: `TOKEN=$(gcloud auth print-access-token --impersonate-service-account $(sa policy))`, then `curl -H "Authorization: Bearer $TOKEN" https://firestore.googleapis.com/v1/projects/$P/databases/<db>/documents/iam-probe/doc1` (GET), `POST .../documents/iam-probe?documentId=<id>` (create), `PATCH .../documents/iam-probe/doc1` (update), `DELETE` (delete). Repeat for `broker-run` and one compiler SA, across `(default)`, `policy`, `broker`. | `policy-run`: allowed on `policy` only; `broker-run`: allowed on `broker` only (and per the receipt role, create allowed, update/delete denied if a create-only role is used); compiler SA: denied on `policy` and `broker`. An index-list denial is **not** evidence of document isolation. Delete the probe docs afterwards. |
 | 5 | `gcloud secrets get-iam-policy BROKER_SECRET_KEY --project $P` | **only** `broker-run` as `secretAccessor` |
 | 5 | `gcloud secrets versions list BROKER_SECRET_KEY --project $P` | empty until provisioning |
+| 5 | `for s in policy-callers broker-callers audit-pseudonym-secret; do gcloud secrets get-iam-policy $s --project $P; done` | `policy-callers`: only `policy-run`; `broker-callers`: only `broker-run`; `audit-pseudonym-secret`: only those two |
 | 5 | `gcloud kms keys get-iam-policy token-signing --keyring policy --location $R --project $P` | `signer` only for `policy-run`; `publicKeyViewer` for `policy-run`, `broker-run` |
 | 5 (negative) | `gcloud projects get-iam-policy $P --flatten=bindings --filter='bindings.role:(roles/secretmanager.secretAccessor OR roles/secretmanager.admin OR roles/cloudkms.admin OR roles/editor OR roles/owner) AND bindings.members:serviceAccount'` | no compiler SA, and after step 9 no default SA |
 | 6 | `gcloud run services list … --format='table(metadata.name,spec.template.spec.serviceAccountName)'` | no row shows `-compute@` |
-| 7 | `gcloud run services get-iam-policy broker --project $P --region $R` | `run.invoker` = the `$PROTECTED` SAs only; **no `allUsers`/`allAuthenticatedUsers`** |
+| 7 | `gcloud run services get-iam-policy broker --project $P --region $R` | `run.invoker` = the `$PROTECTED` SAs and `policy-run` only; **no `allUsers`/`allAuthenticatedUsers`** |
 | 7 (negative) | `curl -s -o /dev/null -w '%{http_code}' $(gcloud run services describe broker --project $P --region $R --format='value(status.url)')` | `403` (no token) |
 | 7 (negative) | `curl … -H "Authorization: Bearer $(gcloud auth print-identity-token --impersonate-service-account $(sa l0000) --audiences <broker-url>)"` | `403` (not an invoker) |
 | 7 (positive) | same with `$(sa l0176)` | `200` from the hello placeholder |
@@ -519,9 +588,11 @@ Rollback: `add-iam-policy-binding … --role roles/editor`, the same members.
    proxied (console's own domain is)? ID-token audiences must match the URL called; use `run.app`
    URLs for service-to-service calls or set `--add-custom-audiences`. The Cloudflare ~100s timeout
    also applies to any long broker operation called through the proxy.
-5. **Does `api` need policy in Phase 1?** Only if `api` (not the compiler) must pre-validate the
-   selected connection. The spec puts the snapshot fetch in the compiler, so the answer is presumed
-   no.
+5. ~~**Does `api` need policy in Phase 1?**~~ **Resolved: yes.** The code on `policy-service` has
+   `api` allocate an invocation (and read publications) through policy for every compile that uses a
+   connection, under the `gateway` role. `api-run` therefore needs `run.invoker` on `policy` (Step 7)
+   and a `gateway` entry in `policy-callers` (Step 5). The snapshot fetch still happens in the
+   compiler, as the spec says.
 6. **Direct compiler access.** Compilers remain public, so anyone can POST `/compile` directly with
    their own user token. That is safe only if policy authorizes solely from the verified end-user
    token and broker solely from the policy token. The spec also leaves open **cached compiled output
