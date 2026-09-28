@@ -4,8 +4,9 @@ WORKDIR /usr/src/app
 
 ENV NODE_ENV=production
 
+RUN apk add --no-cache git
 COPY . .
-RUN npm ci --production
+RUN npm ci --omit=dev
 
 EXPOSE 4100
 CMD [ "npx", "@graffiticode/api" ]

@@ -7,7 +7,8 @@
     "packages/common",
     "packages/auth-client",
     "packages/policy",
-    "packages/broker"
+    "packages/broker",
+    "packages/deploy"
   ],
   "scripts": {
     "emulator": "npx firebase emulators:start",
@@ -16,16 +17,21 @@
     "lint": "eslint test/",
     "lint:fix": "eslint --fix test/",
     "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec jest",
-    "gcp:api:build": "gcloud builds submit --config configs/cloudbuild.api.yaml --substitutions=COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')",
-    "gcp:api:deploy": "gcloud run deploy api --image gcr.io/graffiticode/api:$(git rev-parse --short HEAD 2>/dev/null || echo 'latest') --port 3100 --region us-central1 --platform managed --allow-unauthenticated --set-env-vars=AUTH_URL=https://auth.graffiticode.org",
+    "gcp:api:build": "npm run deploy -- api",
+    "gcp:api:deploy": "npm run deploy -- api",
     "gcp:api:logs": "gcloud run logs read api --region us-central1",
-    "gcp:auth:build": "gcloud builds submit --config configs/cloudbuild.auth.yaml --substitutions=COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')",
-    "gcp:auth:deploy": "gcloud run deploy auth --image gcr.io/graffiticode/auth:$(git rev-parse --short HEAD 2>/dev/null || echo 'latest') --port 4100 --region us-central1 --platform managed --allow-unauthenticated",
+    "gcp:auth:build": "npm run deploy -- auth",
+    "gcp:auth:deploy": "npm run deploy -- auth",
     "gcp:auth:logs": "gcloud run logs read auth --region us-central1",
-    "gcp:broker:deploy": "SHA=$(git rev-parse --short HEAD) && gcloud builds submit --config configs/cloudbuild.broker.yaml --substitutions=COMMIT_SHA=$SHA",
+    "gcp:broker:deploy": "npm run deploy -- broker",
     "gcp:broker:logs": "gcloud run logs read broker --region us-central1",
-    "gcp:policy:deploy": ": ${BROKER_URL:?BROKER_URL must be the broker service URL} && SHA=$(git rev-parse --short HEAD) && gcloud builds submit --config configs/cloudbuild.policy.yaml --substitutions=COMMIT_SHA=$SHA,_BROKER_URL=$BROKER_URL",
-    "gcp:policy:logs": "gcloud run logs read policy --region us-central1"
+    "gcp:policy:deploy": "npm run deploy -- policy",
+    "gcp:policy:logs": "gcloud run logs read policy --region us-central1",
+    "deploy": "node packages/deploy/src/cli.js",
+    "rollback": "node packages/deploy/src/cli.js rollback",
+    "test:deploy": "npm test -w @graffiticode/deploy",
+    "gcp:broker:build": "npm run deploy -- broker",
+    "gcp:policy:build": "npm run deploy -- policy"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.0",
@@ -36,7 +42,8 @@
     "eslint-plugin-promise": "^6.1.1",
     "firebase": "^10.0.0",
     "firebase-tools": "^12.4.3",
-    "jest": "^29.6.1"
+    "jest": "^29.6.1",
+    "@graffiticode/deploy": "0.1.0"
   },
   "jest": {
     "testPathIgnorePatterns": [

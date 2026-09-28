@@ -3,7 +3,7 @@
   "version": "2.1.2",
   "type": "module",
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   },
   "description": "Auth service for GC applications",
   "author": "Art Compiler LLC",

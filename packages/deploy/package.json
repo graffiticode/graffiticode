@@ -1,0 +1,12 @@
+{
+  "name": "@graffiticode/deploy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Workspace-driven Cloud Run releases",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "bin": { "gc-deploy": "src/cli.js" },
+  "files": ["src", "README.md"],
+  "scripts": { "test": "node --test", "lint": "eslint src/ test/" }
+}

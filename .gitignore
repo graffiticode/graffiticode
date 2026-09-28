@@ -134,3 +134,5 @@ firestore-coverage.html
 
 # Emacs auto save
 *~
+# Workspace deployment receipts and locks
+.gc-deploy/

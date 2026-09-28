@@ -7,3 +7,8 @@
 **/.vscode
 **/.env
 **/.editorconfig
+
+**/.gc-deploy
+**/.env*
+**/*.key
+**/*.pem

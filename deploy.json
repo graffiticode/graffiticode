@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "environments": {
+    "production": {
+      "project": "graffiticode",
+      "region": "us-central1",
+      "buildServiceAccount": "${GC_DEPLOY_BUILD_ACCOUNT}",
+      "exclude": [
+        "docs",
+        "server.cert",
+        "server.key"
+      ]
+    }
+  },
+  "services": {
+    "api": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/api",
+      "dockerfile": "configs/Dockerfile.api.yaml",
+      "port": 3100,
+      "access": "public",
+      "runtimeServiceAccount": "api-run@graffiticode.iam.gserviceaccount.com",
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/common",
+            "--",
+            "--runInBand"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/deploy"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/policy"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/broker"
+          ]
+        },
+        {
+          "name": "gcr.io/graffiticode/firebase",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/auth"
+          ]
+        },
+        {
+          "name": "gcr.io/graffiticode/firebase",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/api"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        }
+      ]
+    },
+    "auth": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/auth",
+      "dockerfile": "configs/Dockerfile.auth.yaml",
+      "port": 4100,
+      "access": "public",
+      "runtimeServiceAccount": "auth-run@graffiticode.iam.gserviceaccount.com",
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/common",
+            "--",
+            "--runInBand"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/deploy"
+          ]
+        },
+        {
+          "name": "gcr.io/graffiticode/firebase",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/auth"
+          ]
+        }
+      ],
+      "env": {},
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        }
+      ]
+    },
+    "broker": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/broker",
+      "dockerfile": "configs/Dockerfile.broker.yaml",
+      "port": 8080,
+      "access": "private",
+      "runtimeServiceAccount": "broker-run@graffiticode.iam.gserviceaccount.com",
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/common",
+            "--",
+            "--runInBand"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/deploy"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/policy"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/broker"
+          ]
+        }
+      ],
+      "env": {
+        "BROKER_FIRESTORE_DB": "broker",
+        "POLICY_KMS_KEY_VERSION": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1",
+        "POLICY_KMS_KID": "policy-1",
+        "LEARNOSITY_DOMAIN": "l0176.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        }
+      ],
+      "blocked": "Complete and verify docs/capability-policy-iam-review.md, bootstrap the private service, then remove this blocked field.",
+      "smokeServiceAccount": "${GC_DEPLOY_SMOKE_ACCOUNT}",
+      "secrets": {
+        "BROKER_CALLERS": "broker-callers:${BROKER_CALLERS_VERSION}",
+        "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:${AUDIT_PSEUDONYM_SECRET_VERSION}",
+        "BROKER_SECRET_KEY": "BROKER_SECRET_KEY:${BROKER_SECRET_KEY_VERSION}"
+      }
+    },
+    "policy": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/policy",
+      "dockerfile": "configs/Dockerfile.policy.yaml",
+      "port": 8080,
+      "access": "private",
+      "runtimeServiceAccount": "policy-run@graffiticode.iam.gserviceaccount.com",
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/common",
+            "--",
+            "--runInBand"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/deploy"
+          ]
+        },
+        {
+          "name": "gcr.io/graffiticode/firebase",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/auth"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/policy"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org",
+        "POLICY_FIRESTORE_DB": "policy",
+        "POLICY_KMS_KEY_VERSION": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1",
+        "POLICY_KMS_KID": "policy-1",
+        "BROKER_URL": "${BROKER_URL}"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/v1/jwks",
+          "status": 200,
+          "bodyIncludes": "\"keys\""
+        }
+      ],
+      "blocked": "Complete and verify docs/capability-policy-iam-review.md, bootstrap the private service, then remove this blocked field.",
+      "smokeServiceAccount": "${GC_DEPLOY_SMOKE_ACCOUNT}",
+      "secrets": {
+        "POLICY_CALLERS": "policy-callers:${POLICY_CALLERS_VERSION}",
+        "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:${AUDIT_PSEUDONYM_SECRET_VERSION}"
+      }
+    }
+  }
+}

@@ -174,3 +174,10 @@ Congratulations! You are now ready to:
 * Make API calls
 * Develop new languages
 * Build a better web
+
+## Workspace deployment
+
+Preview a release with `npm run deploy -- api --plan`. The shared CLI lives in
+[`packages/deploy`](packages/deploy/README.md), with service settings in
+[`deploy.json`](deploy.json). See the CLI documentation for infrastructure prerequisites,
+release commands, rollback, and migration from `gcp:*:build`.

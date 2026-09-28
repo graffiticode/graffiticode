@@ -49,17 +49,29 @@ NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec "jest path/to/fil
 Tests are colocated as `*.spec.js` next to the source. The `api` and `auth` suites run `jest --runInBand` under `firebase emulators:exec` (they share emulator state, so they cannot run in parallel); `common` and `parser` need no emulator.
 
 ### Deployment (Google Cloud Run)
+
+The shared workspace CLI lives in `packages/deploy`; `deploy.json` owns service configuration.
+
 ```bash
-npm run gcp:api:build && npm run gcp:api:deploy    # api  → Cloud Run, port 3100
-npm run gcp:auth:build && npm run gcp:auth:deploy   # auth → Cloud Run, port 4100
-npm run gcp:api:logs        # tail Cloud Run logs (also gcp:auth:logs, gcp:broker:logs, gcp:policy:logs)
-
-npm run gcp:broker:deploy                                   # broker → private Cloud Run service
-BROKER_URL=<broker run.app URL> npm run gcp:policy:deploy   # policy → private Cloud Run service
+npm run deploy -- api --plan          # offline preview; no cloud calls
+npm run deploy -- api                 # build, candidate check, then promotion
+npm run deploy -- broker --plan
+npm run deploy -- policy --plan
+npm run rollback -- api --release <release-id>
+npm run test:deploy
 ```
-Builds use `configs/cloudbuild.*.yaml` and tag images with the short commit SHA. `gcloud builds submit` uploads the local working tree, so a deploy needs no push, but uncommitted changes ship under HEAD's SHA.
 
-The broker and policy builds test, build **and** deploy in one step (there is no separate `:build`). Both services are private (`--no-allow-unauthenticated`) and must not be deployed until the IAM review (`docs/capability-policy-iam-review.md`) is applied: their service accounts, KMS signing key and Secret Manager secrets must exist first. Deploy in order: broker, then policy (it refuses to start without `BROKER_URL`), then the api with `_POLICY_URL` set in `configs/cloudbuild.api.yaml` to enable compiles through a connection. Neither service has a local dev server; they are exercised in-process by their own tests and by the api specs.
+`gcp:<service>:build` and `gcp:<service>:deploy` are compatibility aliases to the same
+complete release command. Do not chain them. Builds freeze local source, run tests in
+Cloud Build, publish an image, then return control to the workspace for deployment by
+digest. `--allow-dirty` explicitly permits uncommitted input. Receipts are in `.gc-deploy/`.
+
+Read `packages/deploy/README.md` before an actual release: the target Artifact Registry,
+build account, runtime identities, and existing services must be provisioned first.
+Broker/policy additionally remain blocked pending `docs/capability-policy-iam-review.md`.
+The CLI does not provision infrastructure, change invocation IAM, or publish packages.
+The old `configs/cloudbuild.*.yaml` recipes now build only; normal releases generate their
+build configuration from `deploy.json`.
 
 ## Architecture Overview
 
