@@ -110,7 +110,11 @@ test("every program fragment in spec/ compiles, not merely parses", async () => 
         ? src
         : QUESTION_TYPES.includes(head)
           ? `set-var "lrn-id" "t" questions [${src}] {}..`
-          : null;
+          : ["items", "questions", "author"].includes(head)
+            ? `${src}..`
+            : head === "item"
+              ? `items [${src}] {}..`
+              : null;
       if (prog === null) continue;
       // `get-val-public` reads task data the harness has no way to supply, and
       // an `author` fragment may omit the lrn-id its own section establishes.
@@ -306,7 +310,9 @@ test("every attribute the compiler accepts appears in the spec's reference", asy
   const missing: string[] = [];
   for (const [word, entry] of Object.entries(lexicon as Record<string, any>)) {
     if (!names.has(entry?.name)) continue;
-    if (!spec.includes(`\`${word}\``)) missing.push(word);
+    // Its own heading, so it has a contents entry and an anchor. A row in a
+    // table left 150 words with no link from the contents and no description.
+    if (!new RegExp(`^#### ${word.replace(/[-]/g, "\\-")}$`, "m").test(spec)) missing.push(word);
   }
   expect(missing,
     `${missing.length} words are in the lexicon but not in spec.md — regenerate with ` +
@@ -358,7 +364,7 @@ describe("spec.md's keyword tables agree with the lexicon", () => {
   // Without this the whole describe goes quietly vacuous the first time someone
   // restructures the markdown: no tables matched, nothing checked, still green.
   test("the table scan finds the keyword tables it is meant to check", () => {
-    expect(keywordTables().map((t) => t.rows.length)).toHaveLength(7);
+    expect(keywordTables().map((t) => t.rows.length)).toHaveLength(3);
   });
 
   test("every keyword a table documents is in the lexicon", () => {

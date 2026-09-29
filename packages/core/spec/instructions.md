@@ -11,12 +11,11 @@ and renders them via a React frontend.
 - **CRITICAL**: `..` terminates a top-level definition or the program's final expression — a program with `let` definitions has one per definition plus one at the end. It must NEVER terminate the preamble. `set-var "lrn-id" get-val-public "itemId"` is the head of the program expression, not a standalone statement, so `set-var "lrn-id" get-val-public "itemId"..` is a complete program that compiles and renders nothing. The preamble runs straight into the `items` expression with no terminator between them.
 - Use `items` to create Items API requests for rendering assessments
 - Use `item` to define individual items when building a list for `items`
-- Use `questions` as a chainable attribute to set questions on an item
+- Use `questions [...] {}` inside an `item` to give it its questions
 - Use `author` to create Author API requests for item authoring
-- Use `init` to initialize a Learnosity API session by type
-- Use `hello` to display simple text output: `hello "Hello, world!"..`
-- `items` always takes a list of `item` objects: `items [item [questions [...] {}]]..`
-- When an assessment has multiple questions, place all questions in the same `item` rather than creating separate items: `items [item [questions [mcq [], shorttext []] {}]]..`
+- Do not use `init` or `hello`: `init` signs a bare session request and `hello` is a diagnostic; neither produces an assessment
+- `items` always takes a list of `item` objects: `items [item [questions [...] {}]] {}..`
+- When an assessment has multiple questions, place all questions in the same `item` rather than creating separate items: `items [item [questions [mcq [], shorttext []] {}]] {}..`
 
 ### Question Type Functions
 
@@ -36,10 +35,9 @@ provide a higher-level interface with sensible defaults:
 - `classification` — Drag items into a grid; layout lives in `ui-style`
 - `bowtie` — NGN/NCLEX bow-tie: source pools feeding a bow-tie diagram
 - `token-highlight` — Click tokens in a passage; `template` carries the `lrn_token` spans
-- `custom` — Embed a separately deployed Graffiticode-language interaction (e.g. an L0179 spreadsheet). Set the interaction payload with the chained `model` attribute (preferred); see Pipeline Composition
+- `custom` — Embed a separately deployed Graffiticode-language interaction (e.g. an L0179 spreadsheet). Set the interaction payload with the `model` member; see Pipeline Composition
 
-Each function takes a record built from chainable attribute keywords.
-All attributes have defaults, so `mcq []` produces a complete question.
+Each function takes a member list of attributes. All attributes have defaults, so `mcq []` produces a complete question.
 
 ### Question Type Templates
 
@@ -50,15 +48,12 @@ All attributes have defaults, so `mcq []` produces a complete question.
   mcq [
     stimulus "What is 2 + 2?"
     options [
-      [label [label "3" value "0" value "0"]
-    ]
+      [label "3" value "0"]
       [label "4" value "1"]
       [label "5" value "2"]
     ]
     validation [
-    ]
-    validation [
-      valid-response [score 1 value ["score 1 value ["1""]]
+      valid-response [score 1 value ["1"]]
     ]
   ]
   ```
@@ -71,9 +66,7 @@ All attributes have defaults, so `mcq []` produces a complete question.
   shorttext [
     stimulus "What is the capital of France?"
     validation [
-    ]
-    validation [
-      valid-response [score 1 value [score 1 value "Paris"]]
+      valid-response [score 1 value "Paris"]
     ]
   ]
   ```
@@ -121,9 +114,7 @@ All attributes have defaults, so `mcq []` produces a complete question.
     template "The {{response}} sat on the mat."
     possible-responses ["cat", "dog", "hat"]
     validation [
-    ]
-    validation [
-      valid-response [score 1 value [score 1 value ["cat"]]]
+      valid-response [score 1 value ["cat"]]
     ]
   ]
   ```
@@ -135,9 +126,7 @@ All attributes have defaults, so `mcq []` produces a complete question.
     template "The sky is {{response}}."
     possible-responses [["blue", "red", "green"]]
     validation [
-    ]
-    validation [
-      valid-response [score 1 value [score 1 value ["blue"]]]
+      valid-response [score 1 value ["blue"]]
     ]
   ]
   ```
@@ -151,13 +140,11 @@ All attributes have defaults, so `mcq []` produces a complete question.
     template "{{response}} minutes = {{response}} hour"
     is-math true
     validation [
+      valid-response [
         score 1
         value [ [[method "equivLiteral" value "60"]]
                 [[method "equivValue" value "1" options [decimal-places 2]]] ]
       ]
-    ]
-    validation [
-      valid-response [score 1 value []
     ]
   ]
   ```
@@ -174,9 +161,7 @@ All attributes have defaults, so `mcq []` produces a complete question.
     stems ["Statement 1", "Statement 2"]
     options ["True", "False"]
     validation [
-    ]
-    validation [
-      valid-response [score 1 value [score 1 value [[0], [1]]]]
+      valid-response [score 1 value [[0], [1]]]
     ]
   ]
   ```
@@ -189,9 +174,7 @@ All attributes have defaults, so `mcq []` produces a complete question.
     stimulus "Arrange in order."
     list ["First", "Second", "Third", "Fourth"]
     validation [
-    ]
-    validation [
-      valid-response [score 1 value [score 1 value [0, 1, 2, 3]]]
+      valid-response [score 1 value [0, 1, 2, 3]]
     ]
   ]
   ```
@@ -206,9 +189,7 @@ All attributes have defaults, so `mcq []` produces a complete question.
     possible-responses ["Dog", "Snake", "Cat", "Lizard"]
     ui-style [column-count 2 column-titles ["Mammals", "Reptiles"]]
     validation [
-    ]
-    validation [
-      valid-response [score 1 value [score 1 value [[0, 2], [1, 3]]]]
+      valid-response [score 1 value [[0, 2], [1, 3]]]
     ]
   ]
   ```
@@ -227,9 +208,7 @@ All attributes have defaults, so `mcq []` produces a complete question.
     ]
     ui-style [column-titles ["Actions to Take", "Condition", "Parameters"]]
     validation [
-    ]
-    validation [
-      valid-response [score 1 value [score 1 value [[0], [2], [4, 5]]]]
+      valid-response [score 1 value [[0], [2], [4, 5]]]
     ]
   ]
   ```
@@ -245,9 +224,7 @@ All attributes have defaults, so `mcq []` produces a complete question.
     template "The <span class=\"lrn_token\">cat</span> <span class=\"lrn_token\">runs</span>."
     tokenization "custom"
     validation [
-    ]
-    validation [
-      valid-response [score 1 value [score 1 value [1]]]
+      valid-response [score 1 value [1]]
     ]
   ]
   ```
@@ -256,8 +233,8 @@ All attributes have defaults, so `mcq []` produces a complete question.
 - `custom` — Embed a separately deployed Graffiticode-language interaction.
   `lang` is required and identifies the deployed interaction (the compiler
   synthesizes URLs and `custom_type` from `https://l<lang>.graffiticode.org/...`).
-  Set the interaction payload with the chained `model` attribute — `model`
-  is JSON-stringified for Learnosity (records → string, strings → passthrough).
+  Set the interaction payload with the `model` member, which is emitted
+  unchanged as the question's `data` field.
   Scoring is the deployed interaction's own concern — do not add
   `valid-response`. When the item draws content from an upstream pipeline
   node, read it with `data use "<lang>"` (preferred) or `data {default}`
@@ -701,10 +678,8 @@ clozetext [
   template "The {{response}} is the {{response}}."
   validation [
     scoring-type "partialMatch"
+    valid-response [score 1 value ["cat", "mat"]]
     alt-responses [[score 1 value ["feline", "mat"]]]
-  ]
-  validation [
-    valid-response [score 1 value [score 1 value ["cat", "mat"]]]
   ]
 ]
 ```

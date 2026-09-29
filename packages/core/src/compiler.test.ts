@@ -326,6 +326,32 @@ describe("clozetext (aligned vocabulary)", () => {
     }));
   });
 
+  test("a member given twice is an error, not a silent overwrite", async () => {
+    // The second `validation` used to replace the first, dropping its scoring type.
+    await expect(
+      compile(`set-var "lrn-id" "t" questions [clozetext [
+        template "A {{response}}."
+        validation [scoring-type "partialMatch"]
+        validation [valid-response [score 1 value ["x"]]]
+      ]] {}..`)
+    ).rejects.toContainEqual(expect.objectContaining({
+      message: expect.stringContaining("`validation` is given twice"),
+    }));
+  });
+
+  test("an answer set whose value is a member list is rejected", async () => {
+    await expect(
+      compile('set-var "lrn-id" "t" questions [clozetext [template "A {{response}}." validation [valid-response [score 1 value [score 1 value ["x"]]]]]] {}..')
+    ).rejects.toContainEqual(expect.objectContaining({
+      message: expect.stringContaining("validation.valid-response.value is a member list"),
+    }));
+    await expect(
+      compile('set-var "lrn-id" "t" questions [clozetext [template "A {{response}}." validation [valid-response [score 1 value ["x"]] alt-responses [[score 1 value [value ["y"]]]]]]] {}..')
+    ).rejects.toContainEqual(expect.objectContaining({
+      message: expect.stringContaining("validation.alt-responses[1].value is a member list"),
+    }));
+  });
+
 });
 
 // The seven types whose builders did nothing but rename and lift. Each is now a

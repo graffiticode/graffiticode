@@ -68,8 +68,10 @@ faithful, byte-compatible port of L0158. It's an npm-workspaces monorepo with th
   - `tools/build-static.js`: emits `dist/static/` for the API to serve — merged
     `lexicon.json` (minus deprecated aliases), L0000+L0176 `instructions.md`, `spec.html`,
     `language-info.json`, `scope.json`, `schema.json`, `template.gc`, `usage-guide.md`
-  - `tools/gen-attribute-reference.mjs`: regenerates spec.md's attribute table from the
-    registries in `dist/question-types.js` (build first)
+  - `tools/gen-attribute-reference.mjs`: regenerates spec.md's Attribute Reference (a
+    heading per word) from the registries in `dist/question-types.js` joined to the
+    descriptions in `tools/attribute-docs.mjs`; fails on a word in one and not the other
+    (build first)
 
 - **`packages/api/`** — `@graffiticode/api-l0176`: Express language server. TypeScript, run via `tsx` in dev and compiled to `dist/` for prod.
   - Routes (`src/routes/`): `compile`, `auth`, `root` (`/form`), plus `index` and shared `utils`
@@ -204,11 +206,16 @@ so a stale example is not a documentation nit — it is reproduced verbatim into
 - every LaTeX backslash in a spec program is doubled (`\\frac`) — the compiler cannot catch
   single-backslash `\frac`, only the source can
 - `examples.md`'s numbering, category ranges, and cross-references are internally coherent
-- every attribute the compiler accepts appears in spec.md's reference table (65 of 153 words
-  were once undocumented and therefore unreachable by the generator)
+- every attribute the compiler accepts has its own `####` heading in spec.md's Attribute
+  Reference (65 of 153 words were once undocumented and therefore unreachable by the
+  generator)
 
-When changing vocabulary: update the lexicon and registries, regenerate the reference table
-with `tools/gen-attribute-reference.mjs`, update `spec/`, add the old spelling to `RETIRED`,
+The compiler backs these up: a member given twice in one member list (two `validation`
+blocks) and an answer set whose `value` is itself a member list are compile errors. Both
+once compiled silently to wrong JSON from twenty spec examples.
+
+When changing vocabulary: update the lexicon and registries, describe the word in
+`tools/attribute-docs.mjs`, regenerate the reference with `tools/gen-attribute-reference.mjs`, update `spec/`, add the old spelling to `RETIRED`,
 and run the tests. `README.md` is not covered by these guards and currently lists retired
 block keywords — treat `spec/` and the lexicon as authoritative.
 

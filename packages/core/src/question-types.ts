@@ -241,6 +241,21 @@ function assertMemberShapes(type: string, value: any, path: string) {
         `${type}: ${where} takes a member list — ${name} [score 1 value "x"] — got ${describe(v)}.`,
       );
     }
+    // An answer set's `value` is a string, number or array — never an object. A
+    // record here is a member list nested one level too deep:
+    // `valid-response [score 1 value [score 1 value "x"]]`.
+    if (field === "valid_response" || field === "alt_responses") {
+      const sets = Array.isArray(v) ? v : [v];
+      sets.forEach((set: any, i: number) => {
+        if (isPlainObject(set) && isPlainObject(set.value)) {
+          const at = Array.isArray(v) ? `${where}[${i + 1}]` : where;
+          throw new Error(
+            `${type}: ${at}.value is a member list, but a value is a string, number or ` +
+            `list — write ${name} [score 1 value "x"], not ${name} [score 1 value [score 1 value "x"]].`,
+          );
+        }
+      });
+    }
     if (fieldsByShape().objectArray.has(field)) {
       if (!Array.isArray(v) || !v.every(isPlainObject)) {
         throw new Error(
@@ -1061,6 +1076,19 @@ export function mergeMembers(members: any, where: string) {
       throw new Error(
         `${where}: every entry must be an attribute applied to a value, e.g. [score 1 value "x"].`,
       );
+    }
+    // A member list merges into one object, so a repeated member would replace
+    // the first without a word. Two `validation` blocks in one question — one
+    // holding `scoring-type`, the next `valid-response` — compiled clean and
+    // silently dropped the scoring type.
+    for (const key of Object.keys(m)) {
+      if (Object.prototype.hasOwnProperty.call(out, key)) {
+        throw new Error(
+          `${where}: \`${kebab(key)}\` is given twice. A member list merges into one ` +
+          `object, so the second would replace the first — write everything under one ` +
+          `\`${kebab(key)}\` [...].`,
+        );
+      }
     }
     Object.assign(out, m);
   }
