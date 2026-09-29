@@ -1,0 +1,36 @@
+{
+  "publishConfig": {
+    "access": "public"
+  },
+  "name": "@graffiticode/l0000",
+  "version": "0.6.0",
+  "description": "L0000 — the root Graffiticode language: base compiler, lexicon, and inheritance contract",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./spec/*": "./spec/*"
+  },
+  "files": [
+    "dist",
+    "spec"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-static": "node tools/build-static.js",
+    "test": "npm run build && vitest run",
+    "lint": "eslint src tools"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "decimal.js": "^10.5.0"
+  },
+  "devDependencies": {
+    "@graffiticode/parser": "^1.10.0",
+    "spec-md": "^3.1.0"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "0000",
+  "description": "The root Graffiticode language. Evaluates closed functional-programming expressions (arithmetic, strings, lists, records, tags, lambdas, let-bindings, conditionals, pattern matching, map/filter/reduce) and references upstream task output via data/use. Renders its compiled result as JSON. Every dialect inherits L0000's syntax, evaluation model, and base library; domain-specific vocabulary and rendering belong to the higher-numbered dialects that extend it.",
+  "supported_item_types": [
+    "expression"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "Add 1 and 2.",
+      "produces": "expression",
+      "notes": "The minimal program: `add 1 2..` — exercises a base arithmetic primitive."
+    },
+    {
+      "prompt": "Double every number in [1 2 3 4] and then sum them.",
+      "produces": "expression",
+      "notes": "Exercises map + reduce on an explicit list — the canonical list-transformation pattern."
+    },
+    {
+      "prompt": "Build a record with fields x = 1 and y = 2, then get the value of x.",
+      "produces": "expression",
+      "notes": "Covers record construction and `get (tag x)` key lookup."
+    },
+    {
+      "prompt": "Filter the even numbers out of [1 2 3 4 5 6] using a lambda with eq and mod.",
+      "produces": "expression",
+      "notes": "Pins the predicate shape (eq (mod x 2) 0) so the translator does not guess the helper."
+    }
+  ]
+}

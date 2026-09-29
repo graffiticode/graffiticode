@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0000",
+  "title": "L0000",
+  "description": "Output of an L0000 program. The base language evaluates to an arbitrary value (number, string, boolean, list, or record), so the base schema imposes no constraints. Dialects that inherit from L0000 publish their own, narrower schema."
+}

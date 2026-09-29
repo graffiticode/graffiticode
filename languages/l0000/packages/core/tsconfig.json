@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    // The compiler is a faithful port of dynamic, continuation-passing-style code
+    // (AST-node dispatch via `this[node.tag]`). Internal strictness is relaxed; the
+    // PUBLIC contract is typed explicitly in src/types.ts.
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "useUnknownInCatchVariables": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "dist", "node_modules"]
+}

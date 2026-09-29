@@ -1,0 +1,18 @@
+{
+  "id": "0000",
+  "summary": "Root Graffiticode language — the base functional language every dialect inherits from. Evaluates a closed program and renders the result as JSON.",
+  "in_scope": [
+    "Arithmetic, string manipulation, list construction and traversal, ranges",
+    "Records and tags; key lookup (get/set) with tag/string/number key semantics",
+    "Lambdas, let-bound helpers, pattern matching on numbers/lists/pairs/records/tags",
+    "map / filter / reduce over lists",
+    "Comparison operators (eq / ne / gt / lt / ge / le) and conditionals",
+    "Referencing an upstream task's output via data / use"
+  ],
+  "out_of_scope": [
+    "Domain-specific vocabulary or rendering (assessments, spreadsheets, charts, maps, diagrams, boards) — those belong to dialects that inherit from L0000",
+    "Any rendered UI beyond the base JSON view",
+    "Stateful or streaming operations and side effects",
+    "External I/O (HTTP, file, database) beyond the compile-time data/use mechanism"
+  ]
+}
