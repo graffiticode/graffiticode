@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0182",
+  "title": "L0182",
+  "description": "A compiled L0182 survey: what the survey asks, read from its own data by the compiler, and — once something has answered — the response to it. A survey has one of two styles: ranked-choice (options to choose, rank, and add one write-in to) or rating (items each answered on a scale).",
+  "type": "object",
+  "required": ["survey"],
+  "properties": {
+    "survey": {
+      "description": "What the survey asks. None of it is written in the program: the compiler reads it from the survey the program names.",
+      "oneOf": [{ "$ref": "#/$defs/rankedSurvey" }, { "$ref": "#/$defs/ratingSurvey" }]
+    },
+    "response": {
+      "description": "The answer to this survey. Absent until something answers. Written in code — by a person in the editor, or by an agent through update_item — so both clients produce the identical shape. Its shape follows the survey's style.",
+      "oneOf": [{ "$ref": "#/$defs/rankedResponse" }, { "$ref": "#/$defs/ratingResponse" }]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "description": "The survey being taken, as the program named it. Ties a response back to the survey it answers.",
+      "type": "string"
+    },
+    "sessionId": {
+      "description": "One taking of the survey. Seeded from the item id, and what keeps a response with the version of the survey it answers. Absent when the program named no session.",
+      "type": "string"
+    },
+    "instance": {
+      "description": "Which version of the survey was taken — the file it came from, e.g. civic-priorities-7. A survey with several versions draws one of them per session; writing this as the id takes that version outright.",
+      "type": "string"
+    },
+    "title": {
+      "description": "Shown above the survey.",
+      "type": "string"
+    },
+    "instructions": {
+      "description": "What the participant is asked to do, shown under the title. Always present: the compiler substitutes a generic line when the survey's data supplies none.",
+      "type": "string"
+    },
+    "rankedSurvey": {
+      "title": "Ranked-choice survey",
+      "type": "object",
+      "required": [
+        "id",
+        "instance",
+        "style",
+        "instructions",
+        "options",
+        "minChoices",
+        "maxChoices"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "instance": { "$ref": "#/$defs/instance" },
+        "style": {
+          "description": "Pick some options, rank them, and optionally add a write-in.",
+          "const": "ranked-choice"
+        },
+        "title": { "$ref": "#/$defs/title" },
+        "instructions": { "$ref": "#/$defs/instructions" },
+        "options": {
+          "description": "The set a response is chosen from, compiled in from the survey's own data. A program cannot write it.",
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/option" }
+        },
+        "minChoices": {
+          "description": "Fewest options a response may choose. The survey's own, defaulting to 1. Enforced by the compiler, which is the only enforcement there is — nothing renders a survey interactively.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxChoices": {
+          "description": "Most options a response may choose. The survey's own; never more than the number of options, defaulting to 5, or one fewer than the set when the set is smaller, so a default never permits choosing every option.",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "option": {
+      "title": "Option",
+      "description": "One option in the set. The id is the originating service's own where the survey's data carried one, and positional (o0 upward) where it did not — a response names ids, never text.",
+      "type": "object",
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "rankedResponse": {
+      "title": "Ranked-choice response",
+      "type": "object",
+      "required": ["choices"],
+      "properties": {
+        "choices": {
+          "description": "The ids of the options chosen, in priority order. The order IS the ranking, first is most important. Empty when only a write-in was contributed. Source may name an option by its text, its id, or its position; the compiler resolves all three, so compiled output is always ids.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "writeIn": {
+          "description": "One new option from whoever answered, which was not already in the set.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "ratingSurvey": {
+      "title": "Rating survey",
+      "type": "object",
+      "required": ["id", "instance", "style", "instructions", "items"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "instance": { "$ref": "#/$defs/instance" },
+        "style": {
+          "description": "Answer each item on its scale — Likert, NPS, stars, semantic differential — and optionally add a comment.",
+          "const": "rating"
+        },
+        "title": { "$ref": "#/$defs/title" },
+        "instructions": { "$ref": "#/$defs/instructions" },
+        "items": {
+          "description": "The statements or questions to rate, in order, compiled in from the survey's own data. A program cannot write them.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/item" }
+        },
+        "comment": {
+          "description": "Present when the survey asks for a free-text comment.",
+          "type": "object",
+          "properties": {
+            "prompt": { "description": "The question the comment answers.", "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "item": {
+      "title": "Item",
+      "description": "One statement or question, with its scale resolved inline. The id is the survey's own where its data carried one, and positional (q0 upward) where it did not.",
+      "type": "object",
+      "required": ["id", "text", "scale", "required"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 },
+        "scale": { "$ref": "#/$defs/scale" },
+        "required": {
+          "description": "Whether a response must answer it. An opt-out counts as an answer.",
+          "type": "boolean"
+        },
+        "anchors": {
+          "description": "This item's own words for the low and high ends of its scale — a semantic differential.",
+          "type": "array",
+          "prefixItems": [{ "type": "string" }, { "type": "string" }],
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "scale": {
+      "title": "Scale",
+      "description": "Every scale form — a preset, labelled points, a numeric range — compiled to one list of points.",
+      "type": "object",
+      "required": ["points"],
+      "properties": {
+        "name": {
+          "description": "The preset or named scale this came from. Items sharing one form a grid.",
+          "type": "string"
+        },
+        "points": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 11,
+          "items": {
+            "type": "object",
+            "required": ["value"],
+            "properties": {
+              "value": { "description": "What a response records.", "type": "integer" },
+              "label": {
+                "description": "The words for this point, where it has any.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "optOut": {
+          "description": "An answer outside the scale, such as Not applicable. Recorded as an opt-out, never a value.",
+          "type": "string"
+        },
+        "display": {
+          "description": "A rendering hint only.",
+          "const": "stars"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ratingResponse": {
+      "title": "Rating response",
+      "type": "object",
+      "required": ["ratings"],
+      "properties": {
+        "ratings": {
+          "description": "One answer per item answered, in the survey's item order. Source may name an item by its text, id or position and answer by a point's label or the scale's value; compiled output is always ids and values.",
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["item", "value"],
+                "properties": {
+                  "item": { "type": "string" },
+                  "value": { "type": "integer" }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["item", "optOut"],
+                "properties": {
+                  "item": { "type": "string" },
+                  "optOut": { "const": true }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "comment": {
+          "description": "Free text, where the survey asks for a comment.",
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

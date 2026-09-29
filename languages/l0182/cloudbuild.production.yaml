@@ -1,0 +1,79 @@
+# Cloud Build configuration for production deployments (main branch)
+steps:
+  # Install dependencies
+  - name: "node"
+    entrypoint: "npm"
+    args:
+      - "ci"
+
+  # Run tests (uncomment when tests are added)
+  # - name: 'node'
+  #   entrypoint: 'npm'
+  #   args:
+  #     - 'test'
+
+  # Build Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/l0182:$COMMIT_SHA"
+      - "-t"
+      - "gcr.io/$PROJECT_ID/l0182:latest"
+      - "."
+
+  # Push image to Container Registry
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - "--all-tags"
+      - "gcr.io/$PROJECT_ID/l0182"
+    id: Push
+
+  # Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+    args:
+      - run
+      - deploy
+      - l0182
+      - "--platform=managed"
+      - "--image=gcr.io/$PROJECT_ID/l0182:$COMMIT_SHA"
+      - >-
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID,branch=$BRANCH_NAME
+      - "--region=$_DEPLOY_REGION"
+      - "--quiet"
+      - "--port=50182"
+      # --update-env-vars, NOT --set-env-vars: set replaces the whole ENVIRONMENT, so any
+      # variable added out of band is silently deleted by this deploy. update leaves the
+      # rest alone. Keep this rule in any new deploy path.
+      - "--update-env-vars=AUTH_URL=$_AUTH_URL,NODE_ENV=production"
+      - "--allow-unauthenticated"
+      - "--min-instances=$_MIN_INSTANCES"
+      # Set explicitly, and NOT merely omitted. Cloud Run carries the service's current
+      # scaling forward when the flag is absent, and this service was pinned to
+      # --max-instances=1 while it ran an in-memory mock survey backend. That backend is gone
+      # — nothing here holds state between requests any more — but dropping the flag would
+      # leave the old pin of 1 in place indefinitely. Siblings run at 20.
+      - "--max-instances=$_MAX_INSTANCES"
+      - "--memory=$_MEMORY"
+    id: Deploy
+    entrypoint: gcloud
+
+images:
+  - "gcr.io/$PROJECT_ID/l0182:$COMMIT_SHA"
+  - "gcr.io/$PROJECT_ID/l0182:latest"
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _MAX_INSTANCES: "20"
+  _DEPLOY_REGION: us-central1
+  _AUTH_URL: https://auth.graffiticode.org
+  _MIN_INSTANCES: "0"
+  _MEMORY: "512Mi"
+
+tags:
+  - l0182
+  - production

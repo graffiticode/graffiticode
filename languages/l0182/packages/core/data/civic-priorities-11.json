@@ -1,0 +1,17 @@
+{
+  "style": "ranked-choice",
+  "title": "What Matters Most?",
+  "instructions": "Below is a list of things people have said they'd like their representatives to focus on. Select the issues that matter most to you and put them in priority order, most important first. Then add one idea of your own that is not on the list.",
+  "options": [
+    "protect public lands and waters from being sold off",
+    "end Citizens United",
+    "use revenue to help people make ends meet or get ahead",
+    "ensure food security",
+    "reduce the cost of raising a family",
+    "restore requirement that news be truthful",
+    "require congressional approval for presidential spending over 1 million dollars",
+    "affordable housing",
+    "affordable utilities",
+    "universal healthcare system"
+  ]
+}

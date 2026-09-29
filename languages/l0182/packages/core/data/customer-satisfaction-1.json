@@ -1,0 +1,19 @@
+{
+  "style": "rating",
+  "title": "How Was Your Visit?",
+  "instructions": "We would like to hear about your most recent visit to our store. Rate how satisfied you were with each part of it, give the visit as a whole a star rating, and tell us how likely you are to recommend us.",
+  "scale": "satisfaction-5",
+  "items": [
+    "The range of products on offer",
+    "How easy it was to find what you wanted",
+    "The helpfulness of the staff",
+    "The time you spent waiting to pay",
+    "The price you paid for what you bought",
+    { "id": "overall", "text": "Your visit overall", "scale": "stars-5" },
+    {
+      "id": "nps",
+      "text": "How likely are you to recommend us to a friend?",
+      "scale": "nps"
+    }
+  ]
+}

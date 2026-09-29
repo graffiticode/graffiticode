@@ -1,0 +1,31 @@
+{
+  "id": "0182",
+  "summary": "Surveys — taking a survey the language server holds and recording the response. Two styles: ranked choice (the options chosen in priority order, plus one write-in that was not in the set) and rating scales (Likert agreement, frequency, importance, satisfaction, NPS, star ratings and semantic differentials, with opt-outs and a comment). Nearly every request is someone answering a survey that already exists.",
+  "in_scope": [
+    "Answering a survey someone has been given — recording a person's or an agent's response to a survey the back end holds, which is the ordinary request",
+    "Recording which options someone chose from a ranked-choice survey, and the priority order they put them in",
+    "Contributing one write-in that was not already in the set, alongside the choices or on its own",
+    "Rating the items of a survey on a scale — Likert agreement grids, frequency, importance, satisfaction and likelihood questions",
+    "Numeric rating scales — NPS (0–10 likelihood to recommend), 1–10 ratings and star ratings",
+    "Semantic differentials — placing something between two opposite words on a numeric scale",
+    "Answering 'not applicable' or 'prefer not to say' where a scale offers that opt-out, and adding a free-text comment where a rating survey asks for one",
+    "Taking a survey by its id, with the compiler reading its options or items, scales, title, instructions and bounds from the back end when the program compiles",
+    "Opening a survey to see what it holds before deciding — \"open the course-feedback survey so I can see the questions\" is an ordinary taking, because a program with no response compiles to the survey awaiting one",
+    "Drawing one version of a survey that has several, and keeping a session on the version it was shown",
+    "Refusing at compile time any response that breaks the survey's rules — bounds, scales, required items — which is the only enforcement there is",
+    "Keeping the originating service's own ids on options and items, so a response means something back where the survey came from",
+    "Being written and edited as code by a person in the editor or by an AI agent through update_item, both producing the identical record"
+  ],
+  "out_of_scope": [
+    "Assessment and quiz items — multiple choice with a right answer, hot text, cloze, matching, ordering, short answer, essays and rubrics. L0182 gathers opinions and does NOT score anyone; use L0180 for graded questions, and never route an assessment request here.",
+    "Scoring, marking, answer keys, correctness and points. A survey response is never right or wrong, and a rating is an opinion, not a mark — so L0182 has no notion of a correct answer, and a request for one belongs to L0180.",
+    "Authoring a survey. A program does NOT write the options, the items, the scales, the title, the instructions or the bounds — there is no word for any of them, and a request to create a survey from a list of questions cannot be served here. Surveys live in the back end; L0182 only takes them.",
+    "Demographics, free-text questionnaires with fixed open questions, contact and sign-up forms, and branching questionnaire logic are not built yet.",
+    "A survey-taking flow. L0182 does NOT describe screens, steps, navigation or submission, and there is no interactive player: it never walks anyone through anything, and the rendered view only displays the record. A flow would be a different language or a different client.",
+    "Aggregating across respondents. L0182 records ONE response and does NOT compute a group ranking, an average rating, an NPS score, a tally or live result of any kind; combining many responses is not built yet.",
+    "Running the statistics — significance testing, reliability, factor analysis, clustering, sentiment analysis or any analysis of the responses collected.",
+    "Recruiting, quotas, screening, incentives and panel management.",
+    "Enforcing one response per person. A program holds a single response and does NOT authenticate anyone, so nothing here prevents the same person answering twice.",
+    "Images, audio and video as the objects being chosen between or rated — an option or an item is a line of text."
+  ]
+}

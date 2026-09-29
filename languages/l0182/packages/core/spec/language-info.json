@@ -1,0 +1,62 @@
+{
+  "id": "0182",
+  "description": "Surveys — taking a survey the back end holds and recording one response to it. Two styles: ranked choice (the options chosen in priority order, plus one write-in that was not in the set) and rating scales (Likert, frequency, satisfaction, NPS, stars, semantic differentials, with opt-outs and a comment). A program names the survey with `id \"…\"`; what it asks, its scales and its bounds come from the survey itself and CANNOT be written in code. A survey with several versions draws one per session. L0182 describes no flow and has no interactive player.",
+  "supported_item_types": ["survey", "response"],
+  "example_prompts": [
+    {
+      "prompt": "Answer the civic-priorities survey for me — I pick whichever two options you think matter most.",
+      "produces": "response",
+      "notes": "The ordinary request: a survey exists and what is brought to it is an answer. `survey [id \"civic-priorities\" session-id get-val-public \"itemId\" response [...]]` — the options come back from the survey, and the program never writes them."
+    },
+    {
+      "prompt": "Answer the team-retro survey with cutting the build time in half first, then the flaky tests.",
+      "produces": "response",
+      "notes": "`choices` names the options chosen and the order IS the ranking. Name each by its exact text — the options live in the survey, so the ids cannot be known when the response is written."
+    },
+    {
+      "prompt": "Add my own option alongside my choices: make public transit free.",
+      "produces": "response",
+      "notes": "`write-in` must not repeat one already in the set — that is what makes it new."
+    },
+    {
+      "prompt": "Record just a new option — I do not want to pick any of the existing ones.",
+      "produces": "response",
+      "notes": "`write-in` may stand alone; `choices` comes back empty, where the survey's floor allows it."
+    },
+    {
+      "prompt": "Reorder my selection so the housing option comes first.",
+      "produces": "response",
+      "notes": "Reordering `choices` IS re-ranking; there is no separate rank step."
+    },
+    {
+      "prompt": "Fill in the course-feedback survey: agree with every statement except the pace, and I'd give it a 9 for recommending it.",
+      "produces": "response",
+      "notes": "A rating survey. `response [ratings [[item \"…\" rating \"Agree\"] … [item \"…\" rating 9]]]` — each item named by its text, each rating a label on its scale or the scale's own value. 9 on a 0–10 scale is 9, never a position."
+    },
+    {
+      "prompt": "Rate the app-usability survey as someone using the app for the first time.",
+      "produces": "response",
+      "notes": "A semantic differential: each item sits on a 1–7 scale between its own two words, and `rating` may be a number or one of those end words."
+    },
+    {
+      "prompt": "Mark the lab question not applicable and add a comment that the labs were rushed.",
+      "produces": "response",
+      "notes": "An opt-out is the scale's own words (\"Not applicable\") and is recorded as an opt-out, not a value. `comment` is accepted only where the survey asks for one."
+    },
+    {
+      "prompt": "Which surveys can I take?",
+      "produces": "survey",
+      "notes": "Ranked choice: civic-priorities, team-retro, city-budget, product-features and school. Rating: course-feedback, customer-satisfaction, app-usability and workplace-pulse. An id that does not exist is a compile error naming the ones that do."
+    },
+    {
+      "prompt": "Take version 7 of civic-priorities rather than whichever one it gives me.",
+      "produces": "survey",
+      "notes": "`id \"civic-priorities-7\"` takes that version outright, with no draw. The version drawn for a session is in `instance` in the compiled record."
+    },
+    {
+      "prompt": "Set up a survey asking my team what to fix first, with these eight options.",
+      "produces": "survey",
+      "notes": "NOT possible here. A survey's options or items, scales, wording and bounds belong to the back end, and no word writes them; L0182 only takes surveys that already exist."
+    }
+  ]
+}

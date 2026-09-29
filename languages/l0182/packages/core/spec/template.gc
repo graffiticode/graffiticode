@@ -1,0 +1,8 @@
+survey [
+  id "team-retro"
+  session-id get-val-public "itemId"
+  response [
+    choices ["fix the flaky tests before adding features" "cut the build time in half"]
+    write-in "give every service a named owner"
+  ]
+]..

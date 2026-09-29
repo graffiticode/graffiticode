@@ -1,0 +1,14 @@
+{
+  "style": "rating",
+  "title": "Workplace Pulse",
+  "instructions": "Thinking about the last month at work, tell us how often each of these was true for you.",
+  "scale": "frequency-5",
+  "items": [
+    "I had the tools and information I needed to do my job",
+    "I knew what was expected of me",
+    "Someone recognised good work I had done",
+    "I felt able to raise a concern without worrying about the consequences",
+    "My workload felt manageable"
+  ],
+  "comment": true
+}

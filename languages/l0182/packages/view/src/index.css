@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * Preflight is off (see tailwind.config.js) so this component never injects a global reset
+   * into a consumer app or into the page hosting the /form iframe. Four of its declarations are
+   * load-bearing for us, though, so they come back here — scoped to our own subtree.
+   *
+   * EVERY selector below is wrapped in :where(), and that is not cosmetic. :where() contributes
+   * ZERO specificity, so `:where(.l0182-survey) button` scores (0,0,1) — exactly what Tailwind's
+   * own preflight scores, and low enough that any utility overrides it.
+   *
+   * Written as `.l0182-survey button` instead it scores (0,1,1), which BEATS `.bg-green-700`
+   * (0,1,0). That shipped: every button rendered with a transparent background, inherited colour
+   * and no padding — a filled green control reduced to plain text. The tell was that hover still
+   * worked, because `.hover\:bg-green-800:hover` scores (0,2,0) and won.
+   *
+   * A reset must sit UNDER the utilities it is resetting for. Keep :where() on anything added.
+   */
+
+  /*
+   * 1. border-box. Without it `w-full` plus padding and a border overflows the parent by exactly
+   *    that padding and border — the textarea on the contribute item hung past the card's edge.
+   * 2. border-style/width. Tailwind's `border-*` utilities set a colour and a width against
+   *    CSS's default `border-style: none`, so without this every bordered card has no border.
+   */
+  :where(.l0182-survey),
+  :where(.l0182-survey) *,
+  :where(.l0182-survey) *::before,
+  :where(.l0182-survey) *::after {
+    box-sizing: border-box;
+    border-style: solid;
+    border-width: 0;
+  }
+
+  /*
+   * 3. Lists. A browser indents `ol`/`ul` by ~40px and draws markers, so the ranked list sat
+   *    inset from everything above it and the results list would have carried numbers twice —
+   *    its own badge and the browser's.
+   */
+  :where(.l0182-survey) ol,
+  :where(.l0182-survey) ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /*
+   * 4. Form controls. Without this they inherit the host page's chrome, so a survey embedded in
+   *    someone else's site shows native buttons and a mismatched textarea inside the card.
+   */
+  :where(.l0182-survey) button {
+    background-color: transparent;
+    background-image: none;
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  :where(.l0182-survey) textarea {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+  }
+
+  /*
+   * 5. The font. Preflight is what normally sets `font-family` on `html`, so with it off the
+   *    component inherited whatever the host page had — and the /form iframe is its own
+   *    document with no host stylesheet at all, which meant the browser default: Times. A
+   *    survey rendered in a serif nobody chose.
+   *
+   *    Set on the root and left to inherit rather than repeated per element, and `:where()` as
+   *    ever, so a `font-*` utility still wins. The stack is Tailwind's own `font-sans`, kept
+   *    verbatim so a `font-sans` utility resolves to exactly what the root already had.
+   */
+  :where(.l0182-survey) {
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      "Helvetica Neue",
+      Arial,
+      "Noto Sans",
+      sans-serif,
+      "Apple Color Emoji",
+      "Segoe UI Emoji",
+      "Segoe UI Symbol",
+      "Noto Color Emoji";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /*
+   * 6. Heading and paragraph margins. Preflight zeroes these too. Every column here spaces
+   *    itself with flex `gap-*`, so the browser's default `0.67em` on an `h1` and `1em` on a
+   *    `p` are added ON TOP of the gap that was already the whole spacing plan — the title sat
+   *    low, and each caption pushed its list down by a line it was never given.
+   */
+  :where(.l0182-survey) h1,
+  :where(.l0182-survey) h2,
+  :where(.l0182-survey) h3,
+  :where(.l0182-survey) p {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+}
