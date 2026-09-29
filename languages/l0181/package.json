@@ -1,0 +1,43 @@
+{
+  "name": "@graffiticode/l0181-monorepo",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "L0181 — a Graffiticode dialect for flashcard study decks",
+  "workspaces": [
+    "packages/core",
+    "packages/api",
+    "packages/view"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "build": "npm run -w packages/core build && npm run -w packages/core build-static && npm run -w packages/api build && npm run -w packages/view build && npm run -w packages/view build:embed && npm run assemble",
+    "assemble": "shx rm -rf packages/api/static && shx mkdir -p packages/api/static && shx cp -r packages/core/dist/static/. packages/api/static/ && shx cp -r packages/view/dist-embed/. packages/api/static/",
+    "dev": "npm run -w packages/api dev",
+    "start": "npm run -w packages/api start",
+    "test": "npm run -w packages/core test && npm run -w packages/view test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "pack": "npm run build && npm -w packages/view pack",
+    "publish": "npm -w packages/core publish --access=public && npm -w packages/view publish --access=public",
+    "gcp:build": "gcloud builds submit --project graffiticode --config cloudbuild.yaml --substitutions=COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')",
+    "gcp:deploy": "gcloud run deploy l0181 --project graffiticode --source . --port 50181 --region us-central1 --platform managed --allow-unauthenticated",
+    "gcp:logs": "gcloud run services logs read l0181 --project graffiticode --region us-central1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.7.0",
+    "eslint": "^10.10.0",
+    "globals": "^15.11.0",
+    "prettier": "^3.3.3",
+    "shx": "^0.4.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.10.0",
+    "vitest": "^5.0.1"
+  }
+}
