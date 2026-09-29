@@ -1,0 +1,80 @@
+target c1-t9
+  title "How a Honeybee Colony Works"
+  passage "How a Honeybee Colony Works"
+  type informational
+  lines [
+    "Honeybees live together in large groups called colonies."
+    "Every bee in the colony has a job that helps the whole group survive."
+    "Worker bees gather nectar, build the honeycomb, and feed the young."
+    "Guard bees stand at the entrance and protect the hive from intruders."
+    "The queen lays the eggs that become the colony's next generation."
+    "When a worker finds flowers, it dances to tell the others where to go."
+    "In winter, the bees cluster together and beat their wings to stay warm."
+    "Because each bee does its part, the colony can do things no single bee could do alone."
+  ] claims [
+  claim id "c1"
+    status supported
+    dimension central-idea
+    subject "the honeybee colony"
+    text "A honeybee colony survives and accomplishes difficult tasks because its members work together at different jobs."
+    cites [
+      "e1"
+      "e2"
+      "e3"
+      "e4"
+      "e5"
+    ] {}
+] evidence [
+  source id "e1"
+    line 2
+    quote "Every bee in the colony has a job that helps the whole group survive."
+    status directly-supports
+    supports [
+      "c1"
+    ] {}
+  source id "e2"
+    line 3
+    quote "Worker bees gather nectar, build the honeycomb, and feed the young."
+    status directly-supports
+    supports [
+      "c1"
+    ] {}
+  source id "e3"
+    line 4
+    quote "Guard bees stand at the entrance and protect the hive from intruders."
+    status directly-supports
+    supports [
+      "c1"
+    ] {}
+  source id "e4"
+    line 5
+    quote "The queen lays the eggs that become the colony's next generation."
+    status directly-supports
+    supports [
+      "c1"
+    ] {}
+  source id "e5"
+    line 8
+    quote "Because each bee does its part, the colony can do things no single bee could do alone."
+    status directly-supports
+    supports [
+      "c1"
+    ] {}
+] outcomes [
+  outcome id "q1"
+    type short-text
+    task-model tm5
+    dimension central-idea
+    subject "the honeybee colony"
+    focus "c1"
+    dok r-dok3
+    stem "Determine the central idea of the passage. Explain using key details from the passage to support your answer."
+    rubric [
+      band score 2
+        descriptor "Makes a valid inference and supports it with specific, relevant details from the passage." {}
+      band score 1
+        descriptor "Makes a partially valid inference, or supports it with limited or only partially relevant details." {}
+      band score 0
+        descriptor "Does not make a valid inference, or provides no relevant textual support." {}
+    ] {}
+] {}..

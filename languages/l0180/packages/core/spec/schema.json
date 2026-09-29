@@ -1,0 +1,1204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0180",
+  "title": "L0180",
+  "description": "A compiled L0180 program: either one item — the interaction a candidate sees and the answer key that scores it, siblings so a graded delivery can withhold `validation` and score on the server — or an `activity`, a list of such items delivered together.",
+  "type": "object",
+  "properties": {
+    "interaction": {
+      "$ref": "#/$defs/anyInteraction"
+    },
+    "validation": {
+      "$ref": "#/$defs/anyValidation"
+    },
+    "response": {
+      "$ref": "#/$defs/anyResponse"
+    },
+    "activity": {
+      "$ref": "#/$defs/activity"
+    }
+  },
+  "$defs": {
+    "choiceInteraction": {
+      "title": "Choice interaction",
+      "description": "A stem and a list of options. Single-select unless maxChoices is above 1.",
+      "type": "object",
+      "required": [
+        "type",
+        "options"
+      ],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": {
+          "const": "choice"
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        },
+        "minChoices": {
+          "description": "Fewest options the candidate may select.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxChoices": {
+          "description": "Most options the candidate may select. 1 is single-select.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "shuffle": {
+          "description": "Present the options in a random order, which is the default. False when the author asked for the authored order, or when the list is one whose order is already information — numbers in sequence, or True/False.",
+          "type": "boolean"
+        },
+        "options": {
+          "description": "The options offered. Presentation order is the renderer's, not this list's, whenever `shuffle` is true.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "description": "Identifier, derived as A, B, C… unless authored.",
+                "type": "string"
+              },
+              "text": {
+                "description": "The option's visible text.",
+                "type": "string"
+              },
+              "anchored": {
+                "description": "True on an option that must stay last however the rest is shuffled — \"All of the above\" and its kin. Presentation rather than key material, so it survives a graded delivery.",
+                "const": true
+              },
+              "rationale": {
+                "description": "Pairings only: why this pairing is right or wrong, shown once the candidate has made it. A pair id names two things at once, so its explanation rides here rather than in the flat `feedback` map a choice uses.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "hottextInteraction": {
+      "title": "Hottext interaction",
+      "description": "A passage cut into clickable units. Sentence granularity makes every sentence selectable; word granularity makes only the authored words selectable.",
+      "type": "object",
+      "required": [
+        "type",
+        "granularity",
+        "units"
+      ],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": {
+          "const": "hottext"
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        },
+        "granularity": {
+          "description": "What the units are: whole sentences, or single words.",
+          "enum": [
+            "sentence",
+            "word"
+          ]
+        },
+        "within": {
+          "description": "Present when the units are the item's stimulus, which the renderer then shows in place of the static passage rather than twice.",
+          "const": "stimulus"
+        },
+        "minChoices": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxChoices": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "units": {
+          "description": "The text in order. Everything is rendered; only `selectable` units can be clicked.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text",
+              "selectable"
+            ],
+            "properties": {
+              "id": {
+                "description": "`p2.1` for the first sentence of paragraph 2; `w7` for the seventh word.",
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "pre": {
+                "description": "Word granularity: punctuation before the clickable core, rendered outside it.",
+                "type": "string"
+              },
+              "post": {
+                "description": "Punctuation after the clickable core.",
+                "type": "string"
+              },
+              "selectable": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "textEntryInteraction": {
+      "title": "Text-entry interaction",
+      "description": "A sentence with blanks the candidate types into. The compiler cut it at the markers, so `segments` alternate literal runs and blanks and nothing parses a marker at render time.",
+      "type": "object",
+      "required": [
+        "type",
+        "segments"
+      ],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": {
+          "const": "text-entry"
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        },
+        "segments": {
+          "description": "The sentence in order: literal runs and the blanks between them.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "description": "A literal run of the sentence.",
+                "type": "string"
+              },
+              "id": {
+                "description": "On a blank: the id its response is keyed by.",
+                "type": "string"
+              },
+              "blank": {
+                "description": "True on a blank.",
+                "const": true
+              },
+              "numeric": {
+                "description": "True when the blank takes a number, so a renderer can ask for a numeric keypad. Presentational rather than key material, so it survives a graded delivery that withholds `validation`.",
+                "const": true
+              }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "text"
+                ],
+                "not": {
+                  "required": [
+                    "blank"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "id",
+                  "blank"
+                ],
+                "not": {
+                  "required": [
+                    "text"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inlineChoiceInteraction": {
+      "title": "Inline-choice interaction",
+      "description": "A sentence with dropdowns the candidate picks from. The compiler cut it at the markers, so `segments` alternate literal runs and dropdowns and nothing parses a marker at render time.",
+      "type": "object",
+      "required": [
+        "type",
+        "segments"
+      ],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": {
+          "const": "inline-choice"
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        },
+        "shuffle": {
+          "description": "Present each dropdown's options in a random order, which is the default. One flag for every menu in the sentence; each still shuffles independently.",
+          "type": "boolean"
+        },
+        "segments": {
+          "description": "The sentence in order: literal runs and the dropdowns between them.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "description": "A literal run of the sentence.",
+                "type": "string"
+              },
+              "id": {
+                "description": "On a dropdown: the id its response is keyed by.",
+                "type": "string"
+              },
+              "choice": {
+                "description": "True on a dropdown.",
+                "const": true
+              },
+              "options": {
+                "description": "What the menu offers. Presentation order is the renderer's whenever `shuffle` is true. Ids are scoped to this dropdown, so the same id may appear in another one. Nothing here says what an option is worth.",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "text"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "anchored": {
+                      "description": "True on an option that must stay last however the rest is shuffled.",
+                      "const": true
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "text"
+                ],
+                "not": {
+                  "required": [
+                    "choice"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "id",
+                  "choice",
+                  "options"
+                ],
+                "not": {
+                  "required": [
+                    "text"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "orderInteraction": {
+      "title": "Order interaction",
+      "description": "Elements to be put in the right sequence. They are listed in PRESENTATION order and carry nothing about where they belong — the right order is the key's `correctResponse`, so a graded delivery that withholds `validation` withholds the answer.",
+      "type": "object",
+      "required": [
+        "type",
+        "elements"
+      ],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": {
+          "const": "order"
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        },
+        "shuffle": {
+          "description": "Present the elements in a random order, which is the default. The renderer also reshuffles a presentation that happens to equal the answer, where it has the key to compare against.",
+          "type": "boolean"
+        },
+        "elements": {
+          "description": "The things to be placed, in the order the author wrote them. This is NOT the answer — the right sequence is the key's `correctResponse` — and it is not the presentation either when `shuffle` is true.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "pairingInteraction": {
+      "title": "Match / classification interaction",
+      "description": "Each item is paired with one of a list of places — targets to match with, or categories to sort into. The two types share this shape and differ in one rule the compiler enforces: a match pairs each target with one item, a classification lets several items share a category.",
+      "type": "object",
+      "required": [
+        "type",
+        "items"
+      ],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "match",
+            "classification"
+          ]
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        },
+        "shuffle": {
+          "description": "Present both lists in a random order, which is the default.",
+          "type": "boolean"
+        },
+        "items": {
+          "description": "The things to be placed. Ids are derived as A, B, C… — nothing the author writes refers to them, unlike a target's.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "targets": {
+          "description": "A match's places. Ids are authored, because an item's key names one.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "categories": {
+          "description": "A classification's places. Ids are authored, because an item's key names one.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "targets"
+          ],
+          "not": {
+            "required": [
+              "categories"
+            ]
+          }
+        },
+        {
+          "required": [
+            "categories"
+          ],
+          "not": {
+            "required": [
+              "targets"
+            ]
+          }
+        }
+      ]
+    },
+    "gapMatchInteraction": {
+      "title": "Gap-match interaction",
+      "description": "A sentence whose gaps are filled from one bank of tokens shared across all of them. Unlike an inline-choice, whose menus belong to their own holes, a token placed in one gap is spent and cannot fill another.",
+      "type": "object",
+      "required": [
+        "type",
+        "segments",
+        "tokens"
+      ],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": {
+          "const": "gap-match"
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        },
+        "shuffle": {
+          "description": "Present the bank in a random order, which is the default. The sentence is never shuffled.",
+          "type": "boolean"
+        },
+        "segments": {
+          "description": "The sentence in order: literal runs and the gaps between them.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "description": "A literal run of the sentence.",
+                "type": "string"
+              },
+              "id": {
+                "description": "On a gap: the id its half of the pairing is keyed by.",
+                "type": "string"
+              },
+              "gap": {
+                "description": "True on a gap.",
+                "const": true
+              }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "text"
+                ],
+                "not": {
+                  "required": [
+                    "gap"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "id",
+                  "gap"
+                ],
+                "not": {
+                  "required": [
+                    "text"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "tokens": {
+          "description": "The bank, shared by every gap. Ids are authored, because a gap's key names one. A token no gap names is a distractor.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "extendedTextInteraction": {
+      "title": "Extended-text interaction",
+      "description": "A written response. Nothing scores it here — a person marks it against the rubric in `validation`, which is why its key is responseProcessing \"human\" rather than an unscored key.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": {
+          "const": "extended-text"
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "itemInteraction": {
+      "title": "Multi-part item",
+      "description": "An optional stimulus plus one or more interactions presented and scored together.",
+      "type": "object",
+      "required": [
+        "type",
+        "parts"
+      ],
+      "properties": {
+        "type": {
+          "const": "item"
+        },
+        "stimulus": {
+          "description": "The passage the parts are about.",
+          "type": "object",
+          "required": [
+            "paragraphs"
+          ],
+          "properties": {
+            "title": {
+              "description": "The stimulus's title.",
+              "type": "string"
+            },
+            "paragraphs": {
+              "description": "One entry per paragraph, numbered for the reader so a stem can cite a line.",
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "text"
+                ],
+                "properties": {
+                  "id": {
+                    "description": "Addressable paragraph id: p1, p2, …",
+                    "type": "string"
+                  },
+                  "text": {
+                    "description": "One paragraph of the stimulus.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "parts": {
+          "description": "The interactions, in presentation order. Each carries the id its response is keyed by.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "allOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/choiceInteraction"
+                  },
+                  {
+                    "$ref": "#/$defs/hottextInteraction"
+                  },
+                  {
+                    "$ref": "#/$defs/textEntryInteraction"
+                  },
+                  {
+                    "$ref": "#/$defs/inlineChoiceInteraction"
+                  },
+                  {
+                    "$ref": "#/$defs/orderInteraction"
+                  },
+                  {
+                    "$ref": "#/$defs/pairingInteraction"
+                  },
+                  {
+                    "$ref": "#/$defs/gapMatchInteraction"
+                  },
+                  {
+                    "$ref": "#/$defs/extendedTextInteraction"
+                  }
+                ]
+              },
+              {
+                "required": [
+                  "id"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "responseValidation": {
+      "title": "Answer key for one interaction",
+      "description": "The response-processing template decides the shape: map_response carries `mapping`, match_correct carries `correctResponse`. They are alternatives, never both.",
+      "type": "object",
+      "required": [
+        "responseProcessing",
+        "points"
+      ],
+      "properties": {
+        "cardinality": {
+          "description": "QTI cardinality of the response variable, derived from maxChoices — or `ordered` for a sequence, where the same identifiers in another order are a different answer. Absent on a human-scored key, which declares no response variable.",
+          "enum": [
+            "single",
+            "multiple",
+            "ordered"
+          ]
+        },
+        "baseType": {
+          "description": "What the response is made of: identifiers the candidate selected, the string they typed, or — for a match or classification — `directedPair`, QTI's name for a pair of identifiers written with a space between them. Decides what a `mapping` key names.",
+          "enum": [
+            "identifier",
+            "string",
+            "directedPair"
+          ]
+        },
+        "responseProcessing": {
+          "description": "map_response scores each selected option and sums; match_correct awards the points for exactly the correct set and nothing otherwise.",
+          "enum": [
+            "map_response",
+            "match_correct",
+            "human"
+          ]
+        },
+        "points": {
+          "description": "The maximum achievable. Under map_response, the sum of the correct options only, so a penalty cannot move it.",
+          "type": "number"
+        },
+        "mapping": {
+          "description": "map_response only: scoring per option id. Only scored options appear.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "points"
+            ],
+            "properties": {
+              "correct": {
+                "description": "Present and true when this option is a right answer.",
+                "type": "boolean"
+              },
+              "points": {
+                "description": "What selecting this option is worth. Negative penalizes.",
+                "type": "number"
+              },
+              "responses": {
+                "description": "baseType string only: the answers this blank recognizes, in authored order. Each is a mapping value plus the `response` that identifies it — QTI's mapKey — so a recognized wrong answer carries its points and its rationale.",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "response",
+                    "points"
+                  ],
+                  "properties": {
+                    "response": {
+                      "description": "The answer this entry recognizes.",
+                      "type": "string"
+                    },
+                    "correct": {
+                      "description": "Present and true when typing this is a right answer.",
+                      "type": "boolean"
+                    },
+                    "points": {
+                      "description": "What typing it is worth. Negative penalizes.",
+                      "type": "number"
+                    },
+                    "rationale": {
+                      "description": "Why it is wrong. Shown only once the candidate has typed it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "baseType": {
+                "description": "What this hole's answers are made of: `identifier` for a dropdown, where the response is the option chosen, and the rest for a typed blank. It sits here rather than at the top because each hole is its own response variable — a numeric blank can sit beside a text one, and QTI gives each its own declaration.",
+                "enum": [
+                  "identifier",
+                  "string",
+                  "float",
+                  "integer"
+                ]
+              },
+              "caseSensitive": {
+                "description": "string blanks only: whether capitals must match. Resolved at compile time from the interaction's default and any per-blank override, so nothing inherits at score time.",
+                "type": "boolean"
+              },
+              "tolerance": {
+                "description": "Numeric blanks only: how far a typed answer may be from an expected one and still count. Absolute, symmetric, compared in decimal.",
+                "type": "number",
+                "minimum": 0
+              },
+              "inputFormats": {
+                "description": "Numeric blanks only, and only when it constrains: the written forms this blank accepts. The author's `numeric` umbrella is already expanded here, so absent means all of them and present means a right value written another way scores zero.",
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "enum": [
+                    "decimal",
+                    "fraction",
+                    "scientific"
+                  ]
+                }
+              },
+              "options": {
+                "description": "Dropdowns only: what each option in this menu is worth, keyed by option id. Nested rather than flat because option ids are scoped to their dropdown, so the same id means different things in two holes of one sentence — the reason a typed answer's rationale rides on the response rather than in `feedback`.",
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": [
+                    "points"
+                  ],
+                  "properties": {
+                    "correct": {
+                      "description": "Present and true when choosing this option is a right answer.",
+                      "type": "boolean"
+                    },
+                    "points": {
+                      "description": "What choosing it is worth. Negative penalizes.",
+                      "type": "number"
+                    },
+                    "rationale": {
+                      "description": "Why it is wrong. Shown only once the candidate has chosen it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "upperBound": {
+          "description": "map_response only: the most the mapping can earn. Below the sum of the correct entries it means \"any N of them\" — QTI's mapping@upper-bound.",
+          "type": "number"
+        },
+        "correctResponse": {
+          "description": "match_correct only: the identifiers that must all be selected, and no others. Under `ordered` cardinality the order of this list is part of the answer.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "interchangeable": {
+          "description": "`ordered` only, and only when a text repeats: groups of identifiers that say the same thing. Two elements reading \"the\" are one answer wherever each of them lands, so the comparison runs over a canonical id per group — without which a candidate who builds the identical sentence with the two swapped would score zero.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "feedback": {
+          "description": "Why an option is wrong, keyed by option id. Shown only once that option is selected, so it never reveals an unpicked answer.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "rubric": {
+          "description": "human only: the bands a person marks the response against, highest first.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "points",
+              "descriptor"
+            ],
+            "properties": {
+              "points": {
+                "description": "What this band earns.",
+                "type": "number"
+              },
+              "descriptor": {
+                "description": "What a response has to do to earn it.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "exemplar": {
+          "description": "human only: a response that would earn full marks.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "responseProcessing": {
+                "const": "map_response"
+              }
+            },
+            "required": [
+              "responseProcessing"
+            ]
+          },
+          "then": {
+            "required": [
+              "mapping"
+            ],
+            "not": {
+              "required": [
+                "correctResponse"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "responseProcessing": {
+                "const": "match_correct"
+              }
+            },
+            "required": [
+              "responseProcessing"
+            ]
+          },
+          "then": {
+            "required": [
+              "correctResponse"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "mapping"
+                  ]
+                },
+                {
+                  "required": [
+                    "upperBound"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "responseProcessing": {
+                "const": "human"
+              }
+            },
+            "required": [
+              "responseProcessing"
+            ]
+          },
+          "then": {
+            "required": [
+              "rubric"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "mapping"
+                  ]
+                },
+                {
+                  "required": [
+                    "correctResponse"
+                  ]
+                },
+                {
+                  "required": [
+                    "upperBound"
+                  ]
+                },
+                {
+                  "required": [
+                    "feedback"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "itemValidation": {
+      "title": "Item answer key",
+      "type": "object",
+      "required": [
+        "points",
+        "scoring",
+        "parts"
+      ],
+      "properties": {
+        "points": {
+          "description": "What a fully correct response earns. Under conjunctive scoring this is the item's own points, not the sum of its parts.",
+          "type": "number"
+        },
+        "scoring": {
+          "description": "additive sums the parts; conjunctive awards the points only when every part is fully correct.",
+          "type": "string",
+          "enum": [
+            "additive",
+            "conjunctive"
+          ]
+        },
+        "parts": {
+          "description": "Per-part answer key, keyed by part id as the response is.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/responseValidation"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "activity": {
+      "description": "Several items delivered together, plus the settings that govern how a candidate moves through them. Present instead of a top-level `interaction`, never beside it.",
+      "type": "object",
+      "required": [
+        "navigation",
+        "submission",
+        "items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "navigation": {
+          "description": "QTI's navigationMode. `linear` means the candidate cannot return to an item they have left.",
+          "enum": [
+            "linear",
+            "nonlinear"
+          ]
+        },
+        "submission": {
+          "description": "QTI's submissionMode. `individual` submits each item as it is answered; `simultaneous` holds everything until the end.",
+          "enum": [
+            "individual",
+            "simultaneous"
+          ]
+        },
+        "items": {
+          "description": "The items, in the order they are presented. Each is a whole item — its own interaction, its own key, scored independently of the others.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/activityItem"
+          }
+        }
+      }
+    },
+    "activityItem": {
+      "description": "One member of an activity: the same `interaction`/`validation` pair a standalone program emits, plus the position it is answered under.",
+      "type": "object",
+      "required": [
+        "id",
+        "interaction"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The item's place in the authored order, from 0. Derived, so nothing can be answered under a name the activity does not present.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "interaction": {
+          "$ref": "#/$defs/anyInteraction"
+        },
+        "validation": {
+          "$ref": "#/$defs/anyValidation"
+        },
+        "response": {
+          "$ref": "#/$defs/anyResponse"
+        }
+      }
+    },
+    "anyInteraction": {
+      "description": "Everything the candidate sees. Safe to send to a browser.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/choiceInteraction"
+        },
+        {
+          "$ref": "#/$defs/hottextInteraction"
+        },
+        {
+          "$ref": "#/$defs/textEntryInteraction"
+        },
+        {
+          "$ref": "#/$defs/inlineChoiceInteraction"
+        },
+        {
+          "$ref": "#/$defs/orderInteraction"
+        },
+        {
+          "$ref": "#/$defs/pairingInteraction"
+        },
+        {
+          "$ref": "#/$defs/gapMatchInteraction"
+        },
+        {
+          "$ref": "#/$defs/extendedTextInteraction"
+        },
+        {
+          "$ref": "#/$defs/itemInteraction"
+        }
+      ]
+    },
+    "anyValidation": {
+      "description": "The answer key. Withheld when the item is delivered graded.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/responseValidation"
+        },
+        {
+          "$ref": "#/$defs/itemValidation"
+        }
+      ]
+    },
+    "anyResponse": {
+      "description": "The candidate's response, attached by the delivery loop rather than the author. A list of option ids for a bare choice or hottext; the text for a written response; a map keyed by part id for a multi-part item, or by hole id for a sentence with blanks or dropdowns.",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "interaction"
+      ],
+      "not": {
+        "required": [
+          "activity"
+        ]
+      }
+    },
+    {
+      "required": [
+        "activity"
+      ],
+      "not": {
+        "required": [
+          "interaction"
+        ]
+      }
+    }
+  ]
+}

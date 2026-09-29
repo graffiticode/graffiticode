@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT
+// @graffiticode/l0180 — the L0180 compiler core. Inherits @graffiticode/l0000.
+export { Checker, Transformer, compiler, optionLabel } from "./compiler.js";
+export { lexicon } from "./lexicon.js";
+export { attributeFields, validAttributes, wordOf } from "./attributes.js";
+export type { AttributeMeta } from "./attributes.js";
+
+// Re-export the base machinery + inheritance contract from the parent language.
+export { Compiler, Renderer, Visitor } from "@graffiticode/l0000";
+export type {
+  ASTNode,
+  NodePool,
+  CompileError,
+  Resume,
+  CompileOptions,
+  LexiconEntry,
+  Lexicon,
+  CompilerConfig,
+} from "@graffiticode/l0000";

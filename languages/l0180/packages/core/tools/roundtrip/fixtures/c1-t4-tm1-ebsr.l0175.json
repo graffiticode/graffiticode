@@ -1,0 +1,207 @@
+{
+  "kind": "item",
+  "id": "the-tide-pool-q1",
+  "type": "ebsr",
+  "target": "c1-t4",
+  "taskModel": "1",
+  "standards": [
+    "rl-1"
+  ],
+  "dok": "r-dok3",
+  "dimension": "character",
+  "passage": {
+    "id": "the-tide-pool",
+    "heading": "The Tide Pool",
+    "type": "literary",
+    "lines": [
+      {
+        "id": 1,
+        "text": "Mara crouched at the edge of the tide pool, ignoring the picnic behind her."
+      },
+      {
+        "id": 2,
+        "text": "Her brother called twice, but she did not turn around."
+      },
+      {
+        "id": 3,
+        "text": "A tiny crab scuttled under a rock, and Mara smiled for the first time all day."
+      },
+      {
+        "id": 4,
+        "text": "She traced the cold water as if the pool were the only thing that mattered."
+      },
+      {
+        "id": 5,
+        "text": "Five more minutes, she whispered, though no one was listening."
+      },
+      {
+        "id": 6,
+        "text": "Behind her, paper plates rustled and her mother laughed."
+      },
+      {
+        "id": 7,
+        "text": "The waves pushed a ribbon of seaweed against her fingers."
+      },
+      {
+        "id": 8,
+        "text": "Her sandwich sat untouched on the blanket by the cooler."
+      }
+    ]
+  },
+  "passages": null,
+  "stem": {
+    "partA": "Which of these inferences about Mara is supported by the passage?",
+    "leadIn": "This question has two parts. First, answer Part A. Then, answer Part B.",
+    "partB": "Which sentence(s) from the passage best support your answer in Part A?"
+  },
+  "distractorAnalysis": [
+    {
+      "part": "A",
+      "key": "A",
+      "claimId": "c2",
+      "errorType": "misreads-detail",
+      "tiesTo": [
+        "c2"
+      ],
+      "plausibility": 0.9,
+      "rationale": "Her silence is absorption, not anger."
+    },
+    {
+      "part": "A",
+      "key": "C",
+      "claimId": "c4",
+      "errorType": "faulty-reasoning",
+      "tiesTo": [
+        "c4"
+      ],
+      "plausibility": 0.6,
+      "rationale": "Her quiet whisper is treated as fear without support."
+    },
+    {
+      "part": "A",
+      "key": "D",
+      "claimId": "c3",
+      "errorType": "erroneous-inference",
+      "tiesTo": [
+        "c3"
+      ],
+      "plausibility": 0.6,
+      "rationale": "Contradicted by her smile at the crab."
+    },
+    {
+      "part": "B",
+      "key": "B",
+      "sourceId": "e5",
+      "status": "supports-wrong-claim",
+      "tiesTo": "c4",
+      "rationale": "Backs the fear misreading, not the correct inference."
+    },
+    {
+      "part": "B",
+      "key": "C",
+      "sourceId": "e2",
+      "status": "supports-wrong-claim",
+      "tiesTo": "c2",
+      "rationale": "Looks like it supports the main inference but really backs the anger misreading."
+    },
+    {
+      "part": "B",
+      "key": "D",
+      "sourceId": "e6",
+      "status": "irrelevant",
+      "tiesTo": "",
+      "rationale": "Does not directly support the inference."
+    }
+  ],
+  "answerKey": {
+    "partA": "B",
+    "partB": "A",
+    "rationale": ""
+  },
+  "review": {
+    "target": "c1-t4",
+    "standards": [
+      "rl-1"
+    ],
+    "dok": "r-dok3",
+    "dimension": "character",
+    "scoring": "Both parts correct = 1 point; otherwise 0.",
+    "correctClaim": {
+      "id": "c1",
+      "text": "Mara cares more about the tide pool than the picnic.",
+      "subject": "Mara"
+    },
+    "alternativeClaims": 0
+  },
+  "warnings": [],
+  "partA": {
+    "options": [
+      {
+        "key": "A",
+        "text": "Mara is angry at her brother for calling her.",
+        "correct": false,
+        "claimId": "c2",
+        "errorType": "misreads-detail"
+      },
+      {
+        "key": "B",
+        "text": "Mara cares more about the tide pool than the picnic.",
+        "correct": true,
+        "claimId": "c1"
+      },
+      {
+        "key": "C",
+        "text": "Mara is afraid of her own family at the beach.",
+        "correct": false,
+        "claimId": "c4",
+        "errorType": "faulty-reasoning"
+      },
+      {
+        "key": "D",
+        "text": "Mara does not like being outdoors at the beach.",
+        "correct": false,
+        "claimId": "c3",
+        "errorType": "erroneous-inference"
+      }
+    ]
+  },
+  "partB": {
+    "options": [
+      {
+        "key": "A",
+        "line": 1,
+        "text": "Mara crouched at the edge of the tide pool, ignoring the picnic behind her.",
+        "correct": true,
+        "sourceId": "e1"
+      },
+      {
+        "key": "B",
+        "line": 5,
+        "text": "Five more minutes, she whispered, though no one was listening.",
+        "correct": false,
+        "sourceId": "e5",
+        "status": "supports-wrong-claim",
+        "tiesTo": "c4"
+      },
+      {
+        "key": "C",
+        "line": 2,
+        "text": "Her brother called twice, but she did not turn around.",
+        "correct": false,
+        "sourceId": "e2",
+        "status": "supports-wrong-claim",
+        "tiesTo": "c2"
+      },
+      {
+        "key": "D",
+        "line": 6,
+        "text": "Behind her, paper plates rustled and her mother laughed.",
+        "correct": false,
+        "sourceId": "e6",
+        "status": "irrelevant",
+        "tiesTo": ""
+      }
+    ]
+  },
+  "grade": 5
+}

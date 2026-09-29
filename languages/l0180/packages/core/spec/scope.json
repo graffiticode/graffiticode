@@ -1,0 +1,42 @@
+{
+  "id": "0180",
+  "summary": "General-purpose web-based assessment items — quizzes, tests and practice questions that render and score in a browser with no assessment platform behind them.",
+  "in_scope": [
+    "Multiple choice — a stem and options, one correct answer",
+    "Multi-select (\"select all that apply\") via max-choices, with several correct options",
+    "True/false items",
+    "Per-option points, weighted answers, and partial credit",
+    "Exact-set scoring via response-processing \"match-correct\" — every correct option and nothing else, or zero",
+    "Penalized distractors (an option that costs a point when selected)",
+    "A rationale on an option, shown once the candidate selects it and withheld from the presentation",
+    "Randomized presentation by default - a choice's options, each dropdown's menu and an order's elements are shuffled per candidate, with `shuffle false` to keep the authored order; a list of numbers in sequence or a True/False pair keeps its order on its own, and \"All of the above\" is pinned last",
+    "Saying how many selections a question wants via min-choices and max-choices — the candidate is told \"Select exactly 2\" or \"Select up to 3, at least 1\"",
+    "Unscored polls — an item that collects a response without grading it",
+    "Multi-part items over a reading passage with numbered paragraphs, scored additively or conjunctively (both parts right for the point)",
+    "Activities via items - several items delivered together and scored independently, which is what a quiz or a test is; members mix bare interactions and multi-part items freely, and QTI's navigation (linear or nonlinear) and submission (individual or simultaneous) say how the candidate moves through them",
+    "Hot text - clicking a sentence inside the passage, as a part of an item or standing alone",
+    "Click-the-word vocabulary items via granularity \"word\", where the candidate words are authored",
+    "Select any N of several correct answers via upper-bound, rather than requiring all of them",
+    "Written responses via extended-text - collected, held with their rubric and an optional exemplar, and marked by a person; never auto-scored",
+    "Word-bank cloze via gap-match - a sentence whose gaps are filled from one bank shared across all of them, each token spent once, with unnamed tokens left as distractors; use inline-choice instead when each hole has its own menu and an answer may repeat",
+    "Matching via match - each item is paired with one of a list of targets, one target to one item, with unpaired targets left as distractors; scored per pairing so several give partial credit",
+    "Sorting into categories via classification - the same pairing where several items share a category, which is what tells it apart from a match",
+    "Sequencing via order - the candidate puts elements in the right sequence, scored all or nothing; the elements are presented in a random order and each says where it belongs, so the answer never ships with the question",
+    "Dropdown cloze via inline-choice - the same sentence with a menu at each hole instead of a blank, each option carrying its own score, penalty and rationale, for a question where the answer should be recognized rather than recalled",
+    "Fill in the blank via text-entry - one or more blanks in a sentence, each recognizing a list of answers with per-answer score, partial credit, penalties and rationale, and optional case sensitivity per blank",
+    "Numeric blanks via base-type \"float\" or \"integer\" - the typed answer is compared as a number, so 0.50, .5, 1/2 and 5e-1 all equal 0.5, with an optional tolerance for rounded answers",
+    "Requiring a written form with input-formats - decimal, fraction or scientific, for a question that asks the student to express an answer a particular way; the default numeric accepts all of them",
+    "Refusing a repeating answer such as 1/3 that no decimal can reach, unless the blank asks for a fraction or carries a tolerance"
+  ],
+  "out_of_scope": [
+    "Interaction types other than choice, hottext, text-entry, inline-choice, gap-match, order, match, classification and extended-text - hotspot and sliders are not implemented yet",
+    "Sections and item banks — an activity is a flat list of authored items, so there is no way to group items under a shared rule or draw 10 of 200 from a bank",
+    "Delivery policy — timing, attempt limits, feedback timing, gradebooks",
+    "Vendor-specific formats — name the vendor and use that vendor's dialect instead",
+    "Images, audio and video — a stimulus is a title and paragraphs of text and every prompt is a plain string, so nothing here places a diagram, a chart or a clip",
+    "Standards alignment, depth of knowledge, grade level and the rest of item metadata — an item carries no such fields and nothing in delivery reads them",
+    "Export to QTI, Learnosity or any interchange format — compiled output is JSON for the browser. It uses QTI's own field names, so a serializer is possible later, but none exists",
+    "Auto-scoring a written response - extended-text emits a rubric and holds the answer for a person; nothing here judges prose",
+    "Expressions, units and symbolic equivalence - a numeric blank understands whole numbers, decimals, simple fractions and scientific notation; 1/2 + 1/3, 5 cm and x/2 are not evaluated, nothing judges algebraic equivalence, and a fraction is not checked for lowest terms"
+  ]
+}

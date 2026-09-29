@@ -1,0 +1,27 @@
+{
+  "_comment": "Provenance for the programs beside this file: what create_item(\"0180\", <the prompt `run.ts prompts` printed>) returned. `language` is what the PLATFORM routed the request to, which is not always what was asked for \u2014 see c1-t9-tm5-shorttext.",
+  "generated": "2026-09-04",
+  "items": {
+    "c1-t8-tm1-multiplechoice": {
+      "itemId": "juVYyHb1cfCbxMKNNxXM",
+      "language": "L0180"
+    },
+    "c1-t9-tm2-multiselect": {
+      "itemId": "P5R34ICvMoWUnfSfS0Qc",
+      "language": "L0180"
+    },
+    "c1-t4-tm1-ebsr": {
+      "itemId": "7Rw4QqYoqzoqUyjQ5j2G",
+      "language": "L0180"
+    },
+    "c1-t8-tm3-hottext": {
+      "itemId": "5uOYIM4Y5mMgiTlzXgf1",
+      "language": "L0180"
+    },
+    "c1-t9-tm5-shorttext": {
+      "itemId": "90YeteZwMTIT1jQFbKEy",
+      "language": "L0175",
+      "note": "Asked for 0180, and it has never routed correctly. On 2026-09-04 the composer re-routed it to 0175 and returned a claims-and-evidence program (kept beside this file as the evidence). Retested 2026-09-05 after the catalog was updated: it now STAYS on 0180 and is refused at the scope gate instead, with a message that contradicts itself \u2014 \"This request doesn't fit any available Graffiticode language. This is a written-response assessment item with a rubric for hand-scoring, which is explicitly in scope for L0180's extended-text interaction type.\" The verdict and its own rationale disagree, so the gate is voting against what it just described. The failure changed shape rather than being fixed; it is a console routing problem either way, not an expressiveness gap \u2014 conformance.test.ts scores this shape as an extended-text and port.ts builds it mechanically."
+    }
+  }
+}

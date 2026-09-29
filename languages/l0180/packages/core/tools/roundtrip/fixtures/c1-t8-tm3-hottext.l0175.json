@@ -1,0 +1,138 @@
+{
+  "kind": "item",
+  "id": "roman-aqueducts-q1",
+  "type": "hot-text",
+  "target": "c1-t8",
+  "taskModel": "3",
+  "standards": [
+    "ri-1",
+    "ri-7"
+  ],
+  "dok": "r-dok2",
+  "dimension": "supporting-evidence",
+  "passage": {
+    "id": "roman-aqueducts",
+    "heading": "Roman Aqueducts",
+    "type": "informational",
+    "lines": [
+      {
+        "id": 1,
+        "text": "Long ago, Rome did not have enough fresh water."
+      },
+      {
+        "id": 2,
+        "text": "Workers built long channels called aqueducts to bring water to the city."
+      },
+      {
+        "id": 3,
+        "text": "Some aqueducts began at springs far away in the hills."
+      },
+      {
+        "id": 4,
+        "text": "The channels tilted down a little, so the water flowed on its own."
+      },
+      {
+        "id": 5,
+        "text": "Tall stone arches held the channel over low valleys."
+      },
+      {
+        "id": 6,
+        "text": "By the time it reached Rome, the water had gone more than sixty miles."
+      },
+      {
+        "id": 7,
+        "text": "In the city, people filled their jugs at open fountains."
+      },
+      {
+        "id": 8,
+        "text": "Workers cleaned the channels often to keep the water fresh."
+      }
+    ]
+  },
+  "passages": null,
+  "stem": {
+    "partA": "Roman aqueducts carried water to the city from far away. Click the sentence(s) from the passage that support this idea."
+  },
+  "distractorAnalysis": [],
+  "answerKey": {
+    "partB": "2.1, 3.1, 6.1",
+    "rationale": ""
+  },
+  "review": {
+    "target": "c1-t8",
+    "standards": [
+      "ri-1",
+      "ri-7"
+    ],
+    "dok": "r-dok2",
+    "dimension": "supporting-evidence",
+    "scoring": "Both parts correct = 1 point; otherwise 0.",
+    "correctClaim": {
+      "id": "c1",
+      "text": "Roman aqueducts carried water to the city from far away.",
+      "subject": "the aqueducts"
+    },
+    "alternativeClaims": 0
+  },
+  "warnings": [],
+  "selectable": [
+    {
+      "id": "1.1",
+      "lineId": 1,
+      "sentence": 1,
+      "text": "Long ago, Rome did not have enough fresh water.",
+      "correct": false
+    },
+    {
+      "id": "2.1",
+      "lineId": 2,
+      "sentence": 1,
+      "text": "Workers built long channels called aqueducts to bring water to the city.",
+      "correct": true
+    },
+    {
+      "id": "3.1",
+      "lineId": 3,
+      "sentence": 1,
+      "text": "Some aqueducts began at springs far away in the hills.",
+      "correct": true
+    },
+    {
+      "id": "4.1",
+      "lineId": 4,
+      "sentence": 1,
+      "text": "The channels tilted down a little, so the water flowed on its own.",
+      "correct": false
+    },
+    {
+      "id": "5.1",
+      "lineId": 5,
+      "sentence": 1,
+      "text": "Tall stone arches held the channel over low valleys.",
+      "correct": false
+    },
+    {
+      "id": "6.1",
+      "lineId": 6,
+      "sentence": 1,
+      "text": "By the time it reached Rome, the water had gone more than sixty miles.",
+      "correct": true
+    },
+    {
+      "id": "7.1",
+      "lineId": 7,
+      "sentence": 1,
+      "text": "In the city, people filled their jugs at open fountains.",
+      "correct": false
+    },
+    {
+      "id": "8.1",
+      "lineId": 8,
+      "sentence": 1,
+      "text": "Workers cleaned the channels often to keep the water fresh.",
+      "correct": false
+    }
+  ],
+  "selectCount": 2,
+  "grade": 5
+}

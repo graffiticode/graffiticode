@@ -1,0 +1,138 @@
+{
+  "kind": "item",
+  "id": "roman-aqueducts-q1",
+  "type": "multiple-choice",
+  "target": "c1-t8",
+  "taskModel": "1",
+  "standards": [
+    "ri-1",
+    "ri-7"
+  ],
+  "dok": "r-dok2",
+  "dimension": "supporting-evidence",
+  "passage": {
+    "id": "roman-aqueducts",
+    "heading": "Roman Aqueducts",
+    "type": "informational",
+    "lines": [
+      {
+        "id": 1,
+        "text": "Long ago, Rome did not have enough fresh water."
+      },
+      {
+        "id": 2,
+        "text": "Workers built long channels called aqueducts to bring water to the city."
+      },
+      {
+        "id": 3,
+        "text": "Some aqueducts began at springs far away in the hills."
+      },
+      {
+        "id": 4,
+        "text": "The channels tilted down a little, so the water flowed on its own."
+      },
+      {
+        "id": 5,
+        "text": "Tall stone arches held the channel over low valleys."
+      },
+      {
+        "id": 6,
+        "text": "By the time it reached Rome, the water had gone more than sixty miles."
+      },
+      {
+        "id": 7,
+        "text": "In the city, people filled their jugs at open fountains."
+      },
+      {
+        "id": 8,
+        "text": "Workers cleaned the channels often to keep the water fresh."
+      }
+    ]
+  },
+  "passages": null,
+  "stem": {
+    "partA": "Roman aqueducts carried water to the city from far away. Which detail from the passage best supports this idea?"
+  },
+  "distractorAnalysis": [
+    {
+      "part": "A",
+      "key": "B",
+      "sourceId": "e5",
+      "status": "irrelevant",
+      "tiesTo": "",
+      "rationale": "Does not directly support the inference."
+    },
+    {
+      "part": "A",
+      "key": "C",
+      "sourceId": "e4",
+      "status": "irrelevant",
+      "tiesTo": "",
+      "rationale": "Does not directly support the inference."
+    },
+    {
+      "part": "A",
+      "key": "D",
+      "sourceId": "e6",
+      "status": "irrelevant",
+      "tiesTo": "",
+      "rationale": "Does not directly support the inference."
+    }
+  ],
+  "answerKey": {
+    "choice": "A",
+    "rationale": ""
+  },
+  "review": {
+    "target": "c1-t8",
+    "standards": [
+      "ri-1",
+      "ri-7"
+    ],
+    "dok": "r-dok2",
+    "dimension": "supporting-evidence",
+    "scoring": "Correct option = 1 point; otherwise 0.",
+    "correctClaim": {
+      "id": "c1",
+      "text": "Roman aqueducts carried water to the city from far away.",
+      "subject": "the aqueducts"
+    },
+    "alternativeClaims": 0
+  },
+  "warnings": [],
+  "choice": {
+    "options": [
+      {
+        "key": "A",
+        "text": "Some aqueducts began at springs far away in the hills.",
+        "correct": true,
+        "sourceId": "e1"
+      },
+      {
+        "key": "B",
+        "text": "The channels tilted down a little, so the water flowed on its own.",
+        "correct": false,
+        "sourceId": "e5",
+        "status": "irrelevant",
+        "tiesTo": ""
+      },
+      {
+        "key": "C",
+        "text": "Long ago, Rome did not have enough fresh water.",
+        "correct": false,
+        "sourceId": "e4",
+        "status": "irrelevant",
+        "tiesTo": ""
+      },
+      {
+        "key": "D",
+        "text": "Tall stone arches held the channel over low valleys.",
+        "correct": false,
+        "sourceId": "e6",
+        "status": "irrelevant",
+        "tiesTo": ""
+      }
+    ]
+  },
+  "grade": 5
+}
