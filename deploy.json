@@ -211,12 +211,11 @@
           "status": 200
         }
       ],
-      "blocked": "Complete and verify docs/capability-policy-iam-review.md, bootstrap the private service, then remove this blocked field.",
-      "smokeServiceAccount": "${GC_DEPLOY_SMOKE_ACCOUNT}",
+      "smokeServiceAccount": "deploy-smoke@graffiticode.iam.gserviceaccount.com",
       "secrets": {
-        "BROKER_CALLERS": "broker-callers:${BROKER_CALLERS_VERSION}",
-        "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:${AUDIT_PSEUDONYM_SECRET_VERSION}",
-        "BROKER_SECRET_KEY": "BROKER_SECRET_KEY:${BROKER_SECRET_KEY_VERSION}"
+        "BROKER_CALLERS": "broker-callers:1",
+        "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1",
+        "BROKER_SECRET_KEY": "BROKER_SECRET_KEY:1"
       }
     },
     "policy": {
