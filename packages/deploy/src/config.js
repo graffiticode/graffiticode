@@ -69,6 +69,7 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   requireValue(!config.env || object(config.env), "env must be an object");
   requireValue(!config.secrets || object(config.secrets), "secrets must be an object");
   requireValue(!config.exclude || (Array.isArray(config.exclude) && config.exclude.every(p => typeof p === "string" && p.length > 0)), "exclude must be an array of relative paths");
+  requireValue(!config.include || (Array.isArray(config.include) && config.include.length > 0 && config.include.every(p => typeof p === "string" && p.length > 0 && !path.isAbsolute(p) && !p.split(/[\\/]/).includes(".."))), "include must be a non-empty array of relative paths");
   for (const key of ["runtimeServiceAccount", "buildServiceAccount", ...(config.access === "private" ? ["smokeServiceAccount"] : [])]) {
     requireValue(typeof config[key] === "string" && (/^[a-z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com$/.test(config[key]) || /^\$\{[A-Z0-9_]+\}$/.test(config[key])), `Invalid ${key}`);
   }

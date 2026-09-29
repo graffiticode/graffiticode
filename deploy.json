@@ -306,12 +306,7 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0000-run@graffiticode.iam.gserviceaccount.com",
-      "exclude": [
-        "docs",
-        "server.cert",
-        "server.key",
-        "packages"
-      ],
+      "exclude": [],
       "steps": [
         {
           "name": "node:22",
@@ -352,6 +347,10 @@
           "path": "/lexicon.js",
           "status": 200
         }
+      ],
+      "include": [
+        "languages/l0000",
+        "configs/Dockerfile.l0000.yaml"
       ]
     }
   }

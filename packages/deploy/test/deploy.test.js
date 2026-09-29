@@ -217,6 +217,12 @@ test("snapshot excludes credentials, captures dirty files and executable bits, a
   await assert.rejects(snapshot(root, config, true), /symlinks/);
   assert.equal(included("node_modules/foo.js"), false);
   assert.equal(included("docs/readme.md", ["docs"]), false);
+  assert.equal(included("languages/l0176/src/a.ts", [], ["languages/l0176", "configs/Dockerfile.l0176.yaml"]), true);
+  assert.equal(included("configs/Dockerfile.l0176.yaml", [], ["languages/l0176", "configs/Dockerfile.l0176.yaml"]), true);
+  assert.equal(included("languages/l0176x/a.ts", [], ["languages/l0176"]), false);
+  assert.equal(included("packages/api/a.js", [], ["languages/l0176"]), false);
+  assert.equal(included("languages/l0176/docs/a.md", ["languages/l0176/docs"], ["languages/l0176"]), false);
+  assert.equal(included("languages/l0176/.env", [], ["languages/l0176"]), false);
 });
 
 test("wrong runtime identity and public invocation on private services fail before building", async t => {

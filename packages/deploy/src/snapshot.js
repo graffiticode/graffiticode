@@ -5,10 +5,15 @@ import { createHash } from "node:crypto";
 import { requireValue } from "./config.js";
 import { run } from "./process.js";
 
-export function included(file, excludes = []) {
+const under = (file, p) => file === p || file.startsWith(`${p.replace(/\/$/, "")}/`);
+
+// An `includes` list, when given, is the whole snapshot: only those paths or
+// directory prefixes, then excludes and the built-in credential rules apply.
+export function included(file, excludes = [], includes = null) {
   const parts = file.split("/");
   return !parts.some(p => [".git", ".gc-deploy", ".codex", ".agents", "node_modules"].includes(p) || p.startsWith(".env") || /\.(key|pem)$/.test(p)) &&
-    !excludes.some(p => file === p || file.startsWith(`${p.replace(/\/$/, "")}/`));
+    (!includes || includes.some(p => under(file, p))) &&
+    !excludes.some(p => under(file, p));
 }
 
 export async function snapshot(root, config, allowDirty = false) {
@@ -25,7 +30,7 @@ export async function snapshot(root, config, allowDirty = false) {
   const manifest = [];
   try {
     for (const file of files) {
-      if (!included(file, config.exclude)) continue;
+      if (!included(file, config.exclude, config.include)) continue;
       requireValue(!path.isAbsolute(file) && !file.split("/").includes(".."), "Unsafe source path");
       const origin = path.join(root, file);
       const stat = await lstat(origin).catch(err => { if (err.code !== "ENOENT") throw err; });

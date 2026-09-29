@@ -37,6 +37,7 @@ Each service declares:
 - `smoke`: read-only GET checks with `path`, successful `status`, and optional `bodyIncludes`.
 - `smokeServiceAccount`: required for private services. The deployer impersonates it for an ID token using the service URL as audience, then requests the candidate tag URL.
 - `exclude`: additional exact file paths or directory prefixes, not glob patterns.
+- `include`: optional. When set, the snapshot is only these exact paths or directory prefixes (e.g. `languages/l0176` and its Dockerfile); `exclude` and the built-in credential rules still apply within them. Use it for a service that lives in one directory of a larger workspace.
 - `blocked`: an optional explanation that prevents deployment until an operator removes it after meeting the stated prerequisites.
 
 Source selection uses Git-tracked files plus untracked, non-ignored files. Tracked deletions are omitted. `.git`, `node_modules`, `.gc-deploy`, `.codex`, `.agents`, `.env*`, `*.key`, and `*.pem` are always excluded. Symlinks and submodules are rejected. Additional credentials with other names must be excluded explicitly. This CLI does not use `.gcloudignore`; it submits a prebuilt archive. Docker still applies `.dockerignore` inside that archive. The source hash covers sorted paths, executable modes, and file contents, not archive timestamps. It records the exact copied input even for dirty workspaces; the full Git commit is a separate field.
