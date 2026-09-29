@@ -1,0 +1,561 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://graffiticode.org/schemas/l0179.json",
+  "title": "L0179",
+  "description": "An authoring language for interactive spreadsheets, with spreadsheet-based assessment as a primary use case.",
+  "type": "object",
+  "properties": {
+    "feedback": {
+      "type": "string",
+      "enum": ["instant", "check"],
+      "description": "When assess feedback shows: \"instant\" colours cells as the learner answers; \"check\" (the default, and what absent means) waits for a check -- the host's Check button, or Learnosity's Check Answer. Written in source as `instant-feedback true|false`."
+    },
+    "interaction": {
+      "type": "object",
+      "description": "The interaction configuration for the spreadsheet",
+      "properties": {
+        "cells": {
+          "type": "object",
+          "description": "Cell definitions keyed by cell name. With more than one sheet a key may be qualified with a sheet id, as \"s2!A1\" -- the form a learner response uses, which the host folds back in here.",
+          "patternProperties": {
+            "^[A-Z]+[0-9]+$": {
+              "$ref": "#/definitions/cell"
+            },
+            "^[A-Za-z0-9_-]+![A-Z]+[0-9]+$": {
+              "$ref": "#/definitions/cell"
+            }
+          },
+          "additionalProperties": false
+        },
+        "columns": {
+          "type": "object",
+          "description": "Column definitions keyed by column letter",
+          "patternProperties": {
+            "^[A-Z]+$": {
+              "$ref": "#/definitions/column"
+            }
+          },
+          "additionalProperties": false
+        },
+        "rows": {
+          "type": "object",
+          "description": "Row definitions keyed by row number or range",
+          "patternProperties": {
+            "^([0-9]+|[0-9]+\\.\\.[0-9]+|\\*)$": {
+              "$ref": "#/definitions/row"
+            }
+          },
+          "additionalProperties": false
+        },
+        "regions": {
+          "type": "object",
+          "description": "Region definitions keyed by region notation (e.g., 'A1:B10' or '*' for all cells)",
+          "patternProperties": {
+            "^([A-Z]+[0-9]+:[A-Z]+[0-9]+|\\*)$": {
+              "$ref": "#/definitions/region"
+            }
+          },
+          "additionalProperties": false
+        },
+        "sheets": {
+          "type": "array",
+          "description": "Present only when the program has more than one sheet, or a sheet carries a name. The flat cells/columns/rows above mirror the first sheet, so a consumer that predates this key still renders and scores that sheet rather than failing.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Keys this sheet's responses and grading; unique within the program"
+              },
+              "name": {
+                "type": "string",
+                "description": "Label in the tab strip and sheet menu; defaults to the id"
+              },
+              "cells": {
+                "type": "object",
+                "description": "Cell definitions keyed by cell name. With more than one sheet a key may be qualified with a sheet id, as \"s2!A1\" -- the form a learner response uses, which the host folds back in here.",
+                "patternProperties": {
+                  "^[A-Z]+[0-9]+$": {
+                    "$ref": "#/definitions/cell"
+                  },
+                  "^[A-Za-z0-9_-]+![A-Z]+[0-9]+$": {
+                    "$ref": "#/definitions/cell"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "columns": {
+                "type": "object",
+                "description": "Column definitions keyed by column letter",
+                "patternProperties": {
+                  "^[A-Z]+$": {
+                    "$ref": "#/definitions/column"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "rows": {
+                "type": "object",
+                "description": "Row definitions keyed by row number or range",
+                "patternProperties": {
+                  "^([0-9]+|[0-9]+\\.\\.[0-9]+|\\*)$": {
+                    "$ref": "#/definitions/row"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "hideMenu": {
+                "type": "boolean",
+                "description": "Hide this sheet's formula bar"
+              }
+            }
+          }
+        },
+        "showSheetTabs": {
+          "type": "boolean",
+          "description": "Force the tab strip on for one sheet, or off for several"
+        },
+        "hideSheetMenu": {
+          "type": "boolean",
+          "description": "Hide the sheet menu"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "cell": {
+      "type": "object",
+      "description": "Individual cell configuration",
+      "template": "cell name prop-name prop-value {}",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The text content of the cell",
+          "group": ""
+        },
+        "assess": {
+          "$ref": "#/definitions/assess",
+          "group": ""
+        },
+        "protected": {
+          "type": "boolean",
+          "description": "Whether the cell is protected from editing",
+          "group": ""
+        },
+        "align": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Text alignment in the cell",
+          "group": "text"
+        },
+        "vertical-align": {
+          "type": "string",
+          "enum": [
+            "top",
+            "middle",
+            "bottom"
+          ],
+          "description": "Vertical alignment for the cell",
+          "group": "text"
+        },
+        "format": {
+          "type": "string",
+          "description": "Format pattern for cell values (e.g., '#,##0', '0.00', 'date', 'currency')",
+          "group": "text"
+        },
+        "text-decoration": {
+          "type": "string",
+          "enum": [
+            "none",
+            "underline",
+            "overline",
+            "line-through"
+          ],
+          "description": "Text decoration for the cell",
+          "group": "text"
+        },
+        "color": {
+          "type": "string",
+          "description": "Text color for the cell (hex, rgb, rgba, or named colors)",
+          "group": "text"
+        },
+        "font-weight": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "bold",
+            "lighter",
+            "bolder"
+          ],
+          "description": "Font weight for the cell",
+          "group": "font"
+        },
+        "font-size": {
+          "type": "string",
+          "description": "Font size for the cell (e.g., '12px', '14pt', '1.2em')",
+          "group": "font"
+        },
+        "font-family": {
+          "type": "string",
+          "description": "Font family for the cell (e.g., 'Arial', 'Helvetica', 'monospace')",
+          "group": "font"
+        },
+        "font-style": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "italic",
+            "oblique"
+          ],
+          "description": "Font style for the cell",
+          "group": "font"
+        },
+        "background-color": {
+          "type": "string",
+          "description": "Background color of the cell (hex, rgb, rgba, or named colors)",
+          "group": "cell"
+        },
+        "border": {
+          "type": "string",
+          "description": "Border specification for the cell (e.g., '1px solid black')",
+          "group": "cell"
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "assess": {
+      "type": "object",
+      "description": "Assessment configuration for validation",
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "value",
+            "formula"
+          ],
+          "description": "The assessment method to use for validation (value: compare computed value, formula: compare formula text)"
+        },
+        "expected": {
+          "description": "The expected value for validation (any string is accepted; numeric strings, booleans, and ISO 8601 dates are common)",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        "points": {
+          "type": "number",
+          "description": "Points awarded for correct answer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "column": {
+      "type": "object",
+      "description": "Column configuration",
+      "properties": {
+        "align": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Default text alignment for the column",
+          "group": "text"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Column width in pixels",
+          "group": "column"
+        },
+        "font-weight": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "bold",
+            "lighter",
+            "bolder"
+          ],
+          "description": "Font weight for the column",
+          "group": "font"
+        },
+        "font-size": {
+          "type": "string",
+          "description": "Font size for the column (e.g., '12px', '14pt', '1.2em')",
+          "group": "font"
+        },
+        "font-family": {
+          "type": "string",
+          "description": "Font family for the column (e.g., 'Arial', 'Helvetica', 'monospace')",
+          "group": "font"
+        },
+        "font-style": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "italic",
+            "oblique"
+          ],
+          "description": "Font style for the column",
+          "group": "font"
+        },
+        "color": {
+          "type": "string",
+          "description": "Text color for the column (hex, rgb, rgba, or named colors)",
+          "group": "text"
+        },
+        "text-decoration": {
+          "type": "string",
+          "enum": [
+            "none",
+            "underline",
+            "overline",
+            "line-through"
+          ],
+          "description": "Text decoration for the column",
+          "group": "text"
+        },
+        "border": {
+          "type": "string",
+          "description": "Border specification for the column (e.g., '1px solid black')",
+          "group": "column"
+        },
+        "vertical-align": {
+          "type": "string",
+          "enum": [
+            "top",
+            "middle",
+            "bottom"
+          ],
+          "description": "Vertical alignment for the column",
+          "group": "text"
+        },
+        "format": {
+          "type": "string",
+          "description": "Default format pattern for all cells in the column",
+          "group": "text"
+        },
+        "background-color": {
+          "type": "string",
+          "description": "Background color for all cells in the column (hex, rgb, rgba, or named colors)",
+          "group": "column"
+        },
+        "protected": {
+          "type": "boolean",
+          "description": "Whether all cells in the column are protected from editing",
+          "group": ""
+        }
+      },
+      "additionalProperties": true
+    },
+    "row": {
+      "type": "object",
+      "description": "Row configuration",
+      "properties": {
+        "align": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Default text alignment for the row",
+          "group": "text"
+        },
+        "font-weight": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "bold",
+            "lighter",
+            "bolder"
+          ],
+          "description": "Font weight for the row",
+          "group": "font"
+        },
+        "font-size": {
+          "type": "string",
+          "description": "Font size for the row (e.g., '12px', '14pt', '1.2em')",
+          "group": "font"
+        },
+        "font-family": {
+          "type": "string",
+          "description": "Font family for the row (e.g., 'Arial', 'Helvetica', 'monospace')",
+          "group": "font"
+        },
+        "font-style": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "italic",
+            "oblique"
+          ],
+          "description": "Font style for the row",
+          "group": "font"
+        },
+        "color": {
+          "type": "string",
+          "description": "Text color for the row (hex, rgb, rgba, or named colors)",
+          "group": "text"
+        },
+        "text-decoration": {
+          "type": "string",
+          "enum": [
+            "none",
+            "underline",
+            "overline",
+            "line-through"
+          ],
+          "description": "Text decoration for the row",
+          "group": "text"
+        },
+        "border": {
+          "type": "string",
+          "description": "Border specification for the row (e.g., '1px solid black')",
+          "group": "row"
+        },
+        "vertical-align": {
+          "type": "string",
+          "enum": [
+            "top",
+            "middle",
+            "bottom"
+          ],
+          "description": "Vertical alignment for the row",
+          "group": "text"
+        },
+        "format": {
+          "type": "string",
+          "description": "Default format pattern for all cells in the row",
+          "group": "text"
+        },
+        "background-color": {
+          "type": "string",
+          "description": "Background color for all cells in the row (hex, rgb, rgba, or named colors)",
+          "group": "row"
+        },
+        "protected": {
+          "type": "boolean",
+          "description": "Whether the row is protected from editing",
+          "group": ""
+        }
+      },
+      "additionalProperties": true
+    },
+    "region": {
+      "type": "object",
+      "description": "Region configuration - can have any row or column properties",
+      "properties": {
+        "align": {
+          "type": "string",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "description": "Default text alignment for the region",
+          "group": "text"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Column width in pixels for cells in the region",
+          "group": "region"
+        },
+        "protected": {
+          "type": "boolean",
+          "description": "Whether the region is protected from editing",
+          "group": ""
+        },
+        "font-weight": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "bold",
+            "lighter",
+            "bolder"
+          ],
+          "description": "Font weight for the region",
+          "group": "font"
+        },
+        "font-size": {
+          "type": "string",
+          "description": "Font size for the region (e.g., '12px', '14pt', '1.2em')",
+          "group": "font"
+        },
+        "font-family": {
+          "type": "string",
+          "description": "Font family for the region (e.g., 'Arial', 'Helvetica', 'monospace')",
+          "group": "font"
+        },
+        "font-style": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "italic",
+            "oblique"
+          ],
+          "description": "Font style for the region",
+          "group": "font"
+        },
+        "color": {
+          "type": "string",
+          "description": "Text color for the region (hex, rgb, rgba, or named colors)",
+          "group": "text"
+        },
+        "text-decoration": {
+          "type": "string",
+          "enum": [
+            "none",
+            "underline",
+            "overline",
+            "line-through"
+          ],
+          "description": "Text decoration for the region",
+          "group": "text"
+        },
+        "border": {
+          "type": "string",
+          "description": "Border specification for the region (e.g., '1px solid black')",
+          "group": "region"
+        },
+        "vertical-align": {
+          "type": "string",
+          "enum": [
+            "top",
+            "middle",
+            "bottom"
+          ],
+          "description": "Vertical alignment for the region",
+          "group": "text"
+        },
+        "format": {
+          "type": "string",
+          "description": "Default format pattern for all cells in the region",
+          "group": "text"
+        },
+        "background-color": {
+          "type": "string",
+          "description": "Background color for all cells in the region (hex, rgb, rgba, or named colors)",
+          "group": "region"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": []
+}

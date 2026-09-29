@@ -1,0 +1,21 @@
+/* L0179's stylesheet.
+ *
+ * The spreadsheet renderer now lives in this package (see components/form/), so its styles are
+ * built here rather than imported from @graffiticode/l0166. Two pieces make up the whole:
+ *
+ *   - the Tailwind layers below, which the renderer's markup is written against. Until the port
+ *     these utilities came baked into L0166's published style.css, because Tailwind's content
+ *     scanner never saw a component sitting in node_modules;
+ *   - components/form/Form.css, imported from Form.tsx exactly as it is in L0166, so the cascade
+ *     order (Tailwind first, then the grid's own rules) is unchanged.
+ *
+ * `.ProseMirror-focused` is carried over from L0166's lib/index.css, the one rule in it that was
+ * not a Tailwind directive. Without it every focused cell draws a browser outline on top of the
+ * grid's own focus ring. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.ProseMirror-focused {
+  outline: 0;
+}

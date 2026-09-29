@@ -1,0 +1,46 @@
+{
+  "id": "0179",
+  "description": "Interactive spreadsheets — cell grids with text, formatting, and formulas, optionally with assessed cells that grade what a learner types. Describe the layout, the cells, the formulas, and any grading rules.",
+  "supported_item_types": [
+    "spreadsheet",
+    "assessment_spreadsheet",
+    "parameterized_spreadsheet"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "Create a four-column spreadsheet with a header row (Product, Qty, Unit Price, Line Total), 3 data rows with =B*C line totals in column D, and a SUM grand total under column D. Bold the header row.",
+      "produces": "spreadsheet",
+      "notes": "Names the columns, the per-row formula, and the total — the backend places cells by address without having to infer the layout."
+    },
+    {
+      "prompt": "Create a 3 by 3 grid of assessed input cells where the expected answers are 1 through 9, reading left to right, top to bottom.",
+      "produces": "assessment_spreadsheet",
+      "notes": "States the fill order explicitly, which is what maps expected answers onto addresses."
+    },
+    {
+      "prompt": "Put values 10, 20, and 30 in A1 through A3. Assess cell A4 expecting the student to enter the formula =SUM(A1:A3).",
+      "produces": "assessment_spreadsheet",
+      "notes": "A formula expectation is re-evaluated against the current cell values at scoring time, so it stays correct when the inputs are parameterized."
+    },
+    {
+      "prompt": "Create a payroll check sheet with headers Employee, Hours, Rate, Gross Pay. Three rows of data. Column D is blank and assessed by value, expecting the computed gross pay, worth 2 points per cell.",
+      "produces": "assessment_spreadsheet",
+      "notes": "Per-cell points are set with `points` on the cell's assess list; omitting it means 1 point. Each assessed cell scores independently, so partial credit needs no special request."
+    },
+    {
+      "prompt": "Create a parameterized spreadsheet where A1 and A2 are filled from params holding two rainfall readings, and A3 is an assessed cell expecting their total.",
+      "produces": "parameterized_spreadsheet",
+      "notes": "Param keys are quoted cell addresses; a cell reads one with {{NAME}}. Values may be a choice list or a start..stop:step range."
+    },
+    {
+      "prompt": "Create a two-column label/value layout with 4 rows. Column A has bold labels; column B is right-aligned with a light-yellow background. The last row computes a SUM of the rows above.",
+      "produces": "spreadsheet",
+      "notes": "Formatting stated per column is applied to the column rather than repeated on every cell."
+    },
+    {
+      "prompt": "Create a worksheet listing water samples with pH values, and a Status column using an IF formula that shows Pass when the pH is at least 6.5 and Fail otherwise.",
+      "produces": "spreadsheet",
+      "notes": "IF, SUM, AVERAGE, ROUND, POWER, MAX, MIN, ABS and arithmetic are the available formula functions; naming the comparison spells out the condition."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@graffiticode/l0179-learnosity",
+  "private": true,
+  "version": "0.1.0",
+  "description": "L0179's Learnosity custom question type — question and scorer bundles served by the language server",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && vite build && vite build --config vite.scorer.config.ts",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@graffiticode/l0179-view": "*",
+    "@graffiticode/learnosity-cqt": "^0.1.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "terser": "^5.51.0",
+    "vite": "^8.3.0"
+  }
+}
