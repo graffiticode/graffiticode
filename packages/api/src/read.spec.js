@@ -69,16 +69,16 @@ describe("the read path", () => {
     expect(allocateInvocation).not.toHaveBeenCalled();
   });
 
-  it("asks for an explicit run when there is no result, or an incompatible one", async () => {
-    expect((await read()).errors[0].message).toMatch(/has not been run through this connection/);
+  it("asks for a save or recompile when there is no result, or an incompatible one", async () => {
+    expect((await read()).errors[0].message).toMatch(/no result through this connection yet\. Save or recompile/);
     await store({ registryVersion: REGISTRY_VERSION - 1 });
-    expect((await read()).errors[0].message).toMatch(/older version/);
+    expect((await read()).errors[0].message).toMatch(/older version\. Recompile/);
     expect(compile).not.toHaveBeenCalled();
   });
 
   it("serves only the recipient's own result", async () => {
     await store({ uid: "someone-else" });
-    expect((await read()).errors[0].message).toMatch(/has not been run/);
+    expect((await read()).errors[0].message).toMatch(/no result through this connection yet/);
     expect(compile).not.toHaveBeenCalled();
   });
 

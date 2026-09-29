@@ -52,10 +52,10 @@ export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation 
     }
     const current = await artifactStorer.getCurrent({ uid, taskId: id, connectionId, registryVersion: REGISTRY_VERSION });
     if (current.status === "missing") {
-      return failure("Error: this item has not been run through this connection. Run it to create a result.");
+      return failure("Error: this version has no result through this connection yet. Save or recompile the item to create one.");
     }
     if (current.status === "incompatible") {
-      return failure("Error: this item's result was made by an older version. Run it again to update it.");
+      return failure("Error: this item's result was made by an older version. Recompile the item to update it.");
     }
     const { content, invocationId } = current.artifact;
     const [head] = tasks;
