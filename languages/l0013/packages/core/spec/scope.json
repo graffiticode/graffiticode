@@ -1,0 +1,17 @@
+{
+  "id": "0013",
+  "summary": "Utility dialect that renders an existing item's form view to a PNG thumbnail and uploads it. Not a content-authoring target.",
+  "in_scope": [
+    "Rendering the form view of a given item (by item id; task + language resolved from it) to an image",
+    "Content-aware cropping: trimming whitespace to the inked content (default), or a densest-band slice at a given aspect (slice \"W:H\")",
+    "An explicit crop { x, y, width, height } as a manual override",
+    "Setting the output width",
+    "Uploading the PNG to an item-derived Storage path and returning its public URL + base64"
+  ],
+  "out_of_scope": [
+    "Authoring any domain content (assessments, spreadsheets, charts, diagrams, boards, data) — L0013 only photographs an item's output",
+    "Editing or recompiling the target item — it is rendered read-only",
+    "Interactive UI — the output is a static image",
+    "Cross-language composition — L0013 takes an item reference, it does not import another dialect's functions"
+  ]
+}
