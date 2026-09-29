@@ -341,13 +341,13 @@ export class Visitor {
     }
   }
   node(nid) {
-    var n = this.nodePool[nid];
+    const n = this.nodePool[nid];
     if (!nid) {
       return null;
     } else if (!n) {
       return {};
     }
-    var elts = [];
+    const elts = [];
     switch (n.tag) {
     case "NULL":
       break;
@@ -359,7 +359,7 @@ export class Visitor {
       elts[0] = n.elts[0];
       break;
     default:
-      for (var i=0; i < n.elts.length; i++) {
+      for (let i=0; i < n.elts.length; i++) {
         elts[i] = this.node(n.elts[i]);
       }
       break;
@@ -415,7 +415,7 @@ export class Checker extends Visitor {
     let err = [];
     let val = [];
     options.SYNC = true;
-    for (let elt of node.elts) {
+    for (const elt of node.elts) {
       this.visit(elt, options, (e0, v0) => {
         err = err.concat(e0);
         val = val.concat(v0);
@@ -777,7 +777,7 @@ export class Checker extends Visitor {
   EQUIV(node, options, resume) {
     this.visit(node.elts[0], options, (err1, val1) => {
       this.visit(node.elts[1], options, (err2, val2) => {
-        let err = [].concat(err1).concat(err2);
+        const err = [].concat(err1).concat(err2);
         const val = node;
         resume(err, val);
       });
@@ -805,7 +805,7 @@ export class Checker extends Visitor {
   }
   HD(node, options, resume) {
     this.visit(node.elts[0], options, (err1, val1) => {
-      let err = [].concat(err1);
+      const err = [].concat(err1);
       // if (!Array.isArray(val1)) {
       //   err.push(`HD operation requires a list argument, got ${typeof val1}`);
       // } else if (val1.length === 0) {
@@ -817,7 +817,7 @@ export class Checker extends Visitor {
   }
   TL(node, options, resume) {
     this.visit(node.elts[0], options, (err1, val1) => {
-      let err = [].concat(err1);
+      const err = [].concat(err1);
       // if (!Array.isArray(val1)) {
       //   err.push(`TL operation requires a list argument, got ${typeof val1}`);
       // } else if (val1.length === 0) {
@@ -906,12 +906,12 @@ function exitEnv(ctx) {
   ctx.env.pop();
 }
 function findWord(ctx, lexeme) {
-  let env = ctx.env;
+  const env = ctx.env;
   if (!env) {
     return null;
   }
-  for (var i = env.length-1; i >= 0; i--) {
-    var word = env[i].lexicon[lexeme];
+  for (let i = env.length-1; i >= 0; i--) {
+    const word = env[i].lexicon[lexeme];
     if (word) {
       return word;
     }
@@ -977,7 +977,7 @@ export class Transformer extends Visitor {
     if (patterns.size === 0 || node === undefined) {
       return false;
     }
-    let matches = patterns.filter((pattern) => {
+    const matches = patterns.filter((pattern) => {
       if (pattern.tag === undefined || node.tag === undefined) {
         return false;
       }
@@ -996,15 +996,15 @@ export class Transformer extends Visitor {
               }
               return false;
             }
-            let result = this.match(options, [arg], node.elts[i]);
+            const result = this.match(options, [arg], node.elts[i]);
             return result.length === 1;
           });
         } else if (pattern.elts.length < node.elts.length) {
           // Different number of args, then see if there is a wildcard match.
-          let nargs = node.elts.slice(1);
+          const nargs = node.elts.slice(1);
           if (pattern.elts.length === 2) {
             // Binary node pattern
-            let result = (
+            const result = (
               this.match(options, [pattern.elts[0]], node.elts[0]).length > 0 &&
               this.match(options, [pattern.elts[1]], newNode(node.tag, nargs)).length > 0
               // Match rest of the node against the second pattern argument.
@@ -1103,7 +1103,7 @@ export class Transformer extends Visitor {
       return;
     }
     this.visit(node.elts[0], options, (err0, params) => {
-      let args = supplied;
+      const args = supplied;
       enterEnv(options, "lambda", params.length);
       params.forEach((param, i) => {
         // let inits = this.nodePool[node.elts[3]].elts;
@@ -1136,7 +1136,7 @@ export class Transformer extends Visitor {
     } else {
       let len = 0;
       const ndx = [];
-      for (let elt of node.elts) {
+      for (const elt of node.elts) {
         this.visit(elt, options, (e0, v0) => {
           err = err.concat(e0);
           ndx[elt] = v0;
@@ -1153,7 +1153,7 @@ export class Transformer extends Visitor {
     }
   }
   IDENT(node, options, resume) {
-    let word = findWord(options, node.elts[0]);
+    const word = findWord(options, node.elts[0]);
     const err = [];
     const val = word?.val !== undefined ? word.val : node.elts[0];
     resume(err, val);
@@ -1303,7 +1303,7 @@ export class Transformer extends Visitor {
     } else {
       let len = 0;
       const ndx = [];
-      for (let elt of node.elts) {
+      for (const elt of node.elts) {
         this.visit(elt, options, (e0, v0) => {
           err = err.concat(e0);
           ndx[elt] = v0;
@@ -1652,7 +1652,7 @@ export class Transformer extends Visitor {
   }
   IF(node, options, resume) {
     this.visit(node.elts[0], options, (e0, v0) => {
-      if (!!v0) {
+      if (v0) {
         this.visit(node.elts[1], options, (e1, v1) => {
           const err = [
             ...e0,
@@ -2111,7 +2111,7 @@ export class Renderer {
 function normalizeError(err) {
   if (typeof err === "string") return { message: err, from: -1, to: -1 };
   if (err && typeof err === "object") {
-    let message = typeof err.message === "string" ? err.message
+    const message = typeof err.message === "string" ? err.message
       : (err.message?.tag === "STR" ? err.message.elts[0]
       : (typeof err.error === "string" ? err.error : JSON.stringify(err.message || err)));
     return { message, from: err.from ?? -1, to: err.to ?? -1 };
@@ -2149,7 +2149,7 @@ export class Compiler {
     // program input. It becomes this invocation's ExecContext, bound to the
     // per-compile Checker and Transformer and kept out of `options`.
     try {
-      let options = {
+      const options = {
         data: data,
         config: config,
         result: '',

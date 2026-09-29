@@ -10,9 +10,9 @@ import {
   clearSchemaCache,
 } from "@graffiticode/l0000";
 
-function compile(src, data = {}) {
-  return new Promise(async (resolve, reject) => {
-    const code = await parser.parse(0, src, lexicon);
+async function compile(src, data = {}) {
+  const code = await parser.parse(0, src, lexicon);
+  return new Promise((resolve, reject) => {
     const compiler = new Compiler({
       langID: "0",
       version: "v0.0.0",
