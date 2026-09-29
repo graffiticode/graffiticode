@@ -776,37 +776,24 @@ Author Site UI, not from the DSL.
 The write happens only when the item is compiled through a connection the
 caller selected. Otherwise the save is checked but not run, reported as
 `itemBank: { skipped: "no-connection" }`, and the preview still renders; that
-is not an error. Set the caller's Learnosity credentials with `set-var` before
-`items` so the preview is signed with their account:
+is not an error.
 
-```
-set-var "learnosity-key" get-val-public "learnosity-key"
-set-var "learnosity-secret" get-val-private "learnosity-secret"
-```
-
-Use these exact credential field names: `learnosity-key` (public) and
-`learnosity-secret` (private). They are the stored credential fields, named
-`<backend>-<field>`, so always pass them in that kebab-case form — never
-camelCase (`learnosityKey`/`learnositySecret`) or other spellings.
-
-The two must be supplied **together** — providing only one is an error. When
-present they sign the preview; when absent, previews fall back to the server's
-default credentials. Neither ever writes to the bank.
+**Never put Learnosity credentials in a program.** Do not emit
+`set-var "learnosity-key" ...` or `set-var "learnosity-secret" ...`, whether
+with `get-val-public`, `get-val-private` or a literal. The caller's connection
+holds their credentials: it signs the preview and performs the item-bank write,
+so a program needs neither and must not carry either.
 
 Prompts that should trigger `save-to-itembank`:
 
 - "save it to the item bank" / "write to the bank" / "persist it" → wrap
-  the activity in `save-to-itembank` and include the credential `set-var`
-  lines above.
-- No such phrasing → preview-only; omit `save-to-itembank` (and the
-  credentials).
+  the activity in `save-to-itembank`.
+- No such phrasing → preview-only; omit `save-to-itembank`.
 
 Example — save as draft:
 
 ```
 set-var "lrn-id" get-val-public "itemId"
-set-var "learnosity-key" get-val-public "learnosity-key"
-set-var "learnosity-secret" get-val-private "learnosity-secret"
 save-to-itembank items [
   item [
     questions [

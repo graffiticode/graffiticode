@@ -145,16 +145,13 @@ item bank. Wrap the activity in `save-to-itembank` to persist it:
 The write happens only in a compile that selects a connection, through the
 credential broker. Without one, the save is checked but not run: the result
 carries `itemBank: { skipped: "no-connection", fn, occurrence }` beside the
-activity, the preview still renders, and it is not an error. Programs may set
-`set-var "learnosity-key" ...` and `set-var "learnosity-secret" ...` before
-`items` (both or neither; only one is an error) to sign the preview with their
-own account; when absent, previews use the server's default credentials.
-These credentials never write and never sign an Author session.
+activity, the preview still renders, and it is not an error. Programs do not
+carry Learnosity credentials: the selected connection signs the preview and
+performs the write, and without one previews use the server's default
+credentials.
 
 ```
 set-var "lrn-id" "mitochondria-mcq"
-set-var "learnosity-key" get-val-public "learnosityKey"
-set-var "learnosity-secret" get-val-private "learnositySecret"
 save-to-itembank items [
   item [questions [mcq [ ... ]] {}]
 ] {}
@@ -224,8 +221,7 @@ questions [
 Creates a Learnosity Author API request from the given configuration record.
 Like `items`, it needs `set-var "lrn-id"`, which names the item being authored.
 An Author session is signed only in a compile that selects a connection; without
-one the request is returned unsigned, and neither the server's credentials nor
-`set-var "learnosity-key"` will sign it.
+one the request is returned unsigned, and the server's credentials never sign it.
 
 ```
 set-var "lrn-id" "mitochondria-mcq"
