@@ -1,10 +1,8 @@
 concept-web [
-  hub text "The Cell" {}
+  hub text "Topic" {}
   nodes [
-    node text "Nucleus" {}
-    node text "Mitochondria" assess [expected] {}
-    node text "Ribosome" assess [expected] {}
-    node text "Cell membrane" assess [expected] {}
-    node text "Chlorophyll" assess [distractor] {}
+    node text "Idea A" {}
+    node text "Idea B" assess [expected] {}
+    node text "Idea C" assess [expected] {}
   ] {}
-] title "Parts of a cell" instructions "Drag each part onto an empty node." {}..
+] title "Concept web" instructions "Drag each answer onto an empty node." {}..

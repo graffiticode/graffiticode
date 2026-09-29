@@ -156,7 +156,7 @@ describe("schema.json describes what the compiler actually emits", () => {
 
   test("a web carrying learner answers validates", async () => {
     const out = await compile(readFileSync("spec/template.gc", "utf-8"), {
-      interaction: { cells: { n2: { value: "Chlorophyll" }, n3: { value: "Ribosome" } } },
+      interaction: { cells: { n2: { value: "Idea C" }, n3: { value: "Idea B" } } },
     });
     check(out, "answered");
   });
