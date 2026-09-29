@@ -535,8 +535,8 @@ describe("the served catalog lists every block", () => {
   test("both status strings state the real block count", () => {
     const n = Object.keys(BLOCKS).length;
     for (const [name, status] of [["language-info", info.status], ["scope", scope.status]]) {
-      const m = String(status).match(/(\d+) of 57/);
-      expect(m, `${name}.status should say "N of 57"`).toBeTruthy();
+      const m = String(status).match(/(\d+) modeled operation blocks\b.*\b57 documented blocks/);
+      expect(m, `${name}.status should say "N modeled operation blocks … 57 documented blocks"`).toBeTruthy();
       expect(Number(m![1]), `${name}.status block count`).toBe(n);
     }
   });
