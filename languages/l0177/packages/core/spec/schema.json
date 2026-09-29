@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0177",
+  "title": "L0177",
+  "description": "Output of an L0177 program \u2014 the normalized Author API integration design plus steering warnings. This is NOT the deliverable; the developer-facing recipe is produced by get_spec. Atomic dialect (not a composition upstream).",
+  "type": "object",
+  "properties": {
+    "mode": {
+      "description": "The Author API view the design targets (selected by the view function).",
+      "type": "string",
+      "enum": [
+        "item_edit",
+        "item_list",
+        "activity_edit",
+        "activity_list"
+      ]
+    },
+    "domain": {
+      "description": "The serving domain the signature binds to.",
+      "type": "string"
+    },
+    "user": {
+      "description": "The author identity (only id is required).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "firstname": {
+          "type": "string"
+        },
+        "lastname": {
+          "type": "string"
+        }
+      }
+    },
+    "reference": {
+      "description": "The item/activity being edited (editing views).",
+      "type": "string"
+    },
+    "organisation_id": {
+      "description": "Which item bank to load from.",
+      "type": "number"
+    },
+    "allow_widgets": {
+      "description": "Question types the design intends (mapped from UPPERCASE tags). Design INTENT only \u2014 no confirmed config key restricts at question-type granularity; question_type_groups is what the API enforces.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "config": {
+      "description": "The view's members, folded by kind (e.g. { item, widget, settings }), plus any view-level scalars. A member's legal fields depend on the view: config.item_edit.item and config.item_list.item are different Learnosity nodes. Fields that don't belong are dropped, not passed through.",
+      "type": "object"
+    },
+    "paths": {
+      "description": "Every config key this design set, mapped to its exact Learnosity path (e.g. \"config.item.reference-prefix\" -> \"config.item_edit.item.reference.prefix\"). The recipe must read paths from here rather than deriving them from kebab key names, which are ambiguous about nesting. A key absent here was dropped and must not appear in the recipe.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "container": {
+      "description": "Author API container options.",
+      "type": "object"
+    },
+    "widget_templates": {
+      "description": "Widget editor options.",
+      "type": "object"
+    },
+    "global": {
+      "description": "Global Author API options.",
+      "type": "object"
+    },
+    "complete": {
+      "description": "True when the design has no unfilled required properties (holes).",
+      "type": "boolean"
+    },
+    "warnings": {
+      "description": "Steering hints: design holes first (missing required properties), then specificity advisories. The client refines the design until these clear.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "question_type_groups": {
+      "description": "The verified picker restriction: all ten default question-type groups, with template_references omitted on those kept and [] on those removed. Emit at config.dependencies.question_editor_api.init_options.question_type_groups (see paths). Naming only the wanted groups would restrict nothing \u2014 an unrecognised group reference is additive.",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "0177",
+  "description": "Empirical integration oracle. Produces developer integration recipes for the Learnosity Author API. The client describes an integration design — which authoring experience to embed (item editor, item browser, activity editor, activity list) and how it's configured (which question-type groups authors may use, editor and widget permissions, list filters and toolbars, assessment-player settings, content tags, item banks) — and L0177 validates it, flags holes (missing required properties like the serving domain, the author user id, or the item reference) as steering warnings, and via get_spec returns a host-language-neutral recipe: goal, preconditions, procedure, gotchas, and runnable verification steps. Restricting the question picker via question-type groups is a mechanism observed to restrict the picker at group granularity; finer-grained question-type limits are carried as design intent plus a verification step. It does NOT author item content (that is L0176) and does NOT emit runnable code. Its knowledge combines documentation with direct API observations. Recipes preserve consequential claims' evidence and limits; a complete design is not a verified deployment. It does not sign or send Learnosity requests when producing a recipe.",
+  "supported_item_types": [
+    "item-edit",
+    "item-list",
+    "activity-edit",
+    "activity-list"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "How do I embed the Learnosity item editor in my LMS for author u123 on lms.acme.edu, allowing only MCQ and cloze questions?",
+      "produces": "item-edit",
+      "notes": "Names the experience (item editor), the serving domain, the author identity, and restricts what authors may add — which becomes question-type-groups, a mechanism observed to restrict the picker at group granularity."
+    },
+    {
+      "prompt": "I want to embed a Learnosity item browser so my authors can find and open existing items.",
+      "produces": "item-list",
+      "notes": "The item_list view; the recipe covers signing + wiring, and warns that domain and user id are still needed."
+    },
+    {
+      "prompt": "How do I embed the Learnosity activity editor so instructional designers can assemble activities from our item bank?",
+      "produces": "activity-edit",
+      "notes": "The activity_edit view; reference is optional (new vs existing activity)."
+    },
+    {
+      "prompt": "Let authors edit item algebra-item-1 but not delete widgets, restricted to short text and formula questions.",
+      "produces": "item-edit",
+      "notes": "Sets a reference, a widget permission (no delete), and limits the question types offered — the recipe's verification checks each, differentially."
+    }
+  ]
+}
