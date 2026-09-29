@@ -42,8 +42,10 @@ export async function snapshot(root, config, allowDirty = false) {
     }
     requireValue(manifest.includes(config.dockerfile), "Dockerfile is missing from the source snapshot");
     // Submit a prebuilt archive so gcloud cannot apply a second implicit ignore policy.
+    // Entries are owned by root: Cloud Build keeps archive ownership, and npm runs
+    // a package's scripts as its directory's owner, which cannot write $HOME.
     const archive = path.join(dir, "source.tar.gz");
-    await run("tar", ["-czf", archive, "-C", source, "."]);
+    await run("tar", ["--owner=0", "--group=0", "--numeric-owner", "-czf", archive, "-C", source, "."]);
     return { dir, archive, sourceHash: digest.digest("hex"), commit, dirty: Boolean(changes), changes, files: manifest };
   } catch (error) {
     await rm(dir, { recursive: true, force: true });
