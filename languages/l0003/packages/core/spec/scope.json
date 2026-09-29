@@ -1,0 +1,18 @@
+{
+  "id": "0003",
+  "summary": "Base Graffiticode dialect — a small functional language for evaluating expressions or rendering simple UI primitives.",
+  "in_scope": [
+    "Arithmetic, string manipulation, list construction and traversal, ranges",
+    "Lambdas, let-bound helpers, pattern matching on numbers/lists/pairs/records/tags",
+    "map / filter / reduce over lists",
+    "Comparison operators (eq / ne / gt / lt / ge / le)",
+    "UI primitives: hello (greetings), image (URL), theme (DARK / LIGHT), id (element identifier)"
+  ],
+  "out_of_scope": [
+    "Anything that produces a domain-specific artifact (assessments, spreadsheets, charts, maps, diagrams, boards, data pipelines, games, puzzles) — those belong in higher-numbered dialects, not in L0003",
+    "External data (HTTP, file, database) — L0003 evaluates a closed program",
+    "Stateful or streaming operations",
+    "Custom rendering beyond hello / image / theme / id",
+    "Cross-language composition via import — each item runs in exactly one dialect"
+  ]
+}

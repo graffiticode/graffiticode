@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0003",
+  "title": "L0003",
+  "description": "Output of an L0003 program — a rendered UI record (hello/image/theme) or an evaluated base-language value.",
+  "type": "object",
+  "properties": {
+    "hello": {
+      "description": "The person, place or thing being greeted",
+      "type": "string"
+    },
+    "theme": {
+      "description": "Light or dark theme",
+      "type": "string",
+      "enum": ["light", "dark"]
+    },
+    "image": {
+      "description": "URL of an image to display",
+      "type": "string"
+    }
+  }
+}
