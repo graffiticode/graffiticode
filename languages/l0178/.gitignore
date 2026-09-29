@@ -1,0 +1,22 @@
+# dependencies
+node_modules
+
+# build output
+dist
+dist-embed
+packages/api/static
+
+# coverage
+coverage
+
+# misc
+.DS_Store
+*.tgz
+.env.local
+.env.*.local
+*.log
+
+# editor
+*~
+*#
+.#*
