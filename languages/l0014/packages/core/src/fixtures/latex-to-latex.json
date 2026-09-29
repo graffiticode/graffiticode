@@ -1,0 +1,317 @@
+{
+  "data": {},
+  "words": {
+    "\\alpha": "\\alpha",
+    "\\beta": "\\beta",
+    "\\gamma": "\\gamma",
+    "\\delta": "\\delta",
+    "\\epsilon": "\\epsilon",
+    "\\zeta": "\\zeta",
+    "\\eta": "\\eta",
+    "\\theta": "\\theta",
+    "\\iota": "\\iota",
+    "\\kappa": "\\kappa",
+    "\\lambda": "\\lambda",
+    "\\mu": "\\mu",
+    "\\nu": "\\nu",
+    "\\xi": "\\xi",
+    "\\omicron": "\\omicron",
+    "\\pi": "\\pi",
+    "\\rho": "\\rho",
+    "\\sigma": "\\simga",
+    "\\tau": "\\tau",
+    "\\upsilon": "\\upsilon",
+    "\\phi": "\\phi",
+    "\\chi": "\\chi",
+    "\\psi": "\\psi",
+    "\\omega": "\\omega",
+    "\\Alpha": "\\Alpha",
+    "\\Beta": "\\Beta",
+    "\\Gamma": "\\Gamma",
+    "\\Delta": "\\Delta",
+    "\\Epsilon": "\\Epsilon",
+    "\\Zeta": "\\Zeta",
+    "\\Eta": "\\Eta",
+    "\\Theta": "\\Theta",
+    "\\Iota": "\\Iota",
+    "\\Kappa": "\\Kappa",
+    "\\Lambda": "\\Lambda",
+    "\\Mu": "\\Mu",
+    "\\Nu": "\\Nu",
+    "\\Xi": "\\Xi",
+    "\\Omicron": "\\Omicron",
+    "\\Pi": "\\Pi",
+    "\\Rho": "\\Rho",
+    "\\Sigma": "\\Simga",
+    "\\Tau": "\\Tau",
+    "\\Upsilon": "\\Upsilon",
+    "\\Phi": "\\Phi",
+    "\\Chi": "\\Chi",
+    "\\Psi": "\\Psi",
+    "\\Omega": "\\Omega",
+    "\\emptyset": "\\emptyset"
+  },
+  "types": {
+    "numberPosNeg": [
+      "(\\type{numberPosNeg})",
+      "\\type{number}",
+      "-\\type{number}"
+    ]
+  },
+  "rules": {
+    "\\left(?\\right]": [
+      "\\left(%1\\right]"
+    ],
+    "\\left[?\\right)": [
+      "\\left[%1\\right)"
+    ],
+    "\\left[?\\right]": [
+      "\\left[%1\\right]"
+    ],
+    "\\left\\{?\\right\\}": [
+      "\\left\\{%1\\right\\}"
+    ],
+    "?\\cup?": [
+      "%1\\cup %2"
+    ],
+    "?\\cap?": [
+      "%1\\cap %2"
+    ],
+    "?\\backslash?": [
+      "%1\\backslash %2"
+    ],
+    "\\mathbb{?}": [
+      "\\mathbb{%2}"
+    ],
+    "\\ln{?}": [
+      "\\ln{%2}"
+    ],
+    "\\log{?}": [
+      "\\log{%2}"
+    ],
+    "\\log_{?}{?}": [
+      "\\log_{%1}{%2}"
+    ],
+    "\\type{matrix}": [
+      {
+        "\\begin{bmatrix}%1\\end{bmatrix}": {
+          "\\type{row}": "%*\\\\",
+          "\\type{column}": "%*&"
+        }
+      }
+    ],
+    "\\frac{d}{d?}?": [
+      "\\frac{d}{d%2}{%1}"
+    ],
+    "\\frac{d^?}{d?^?}?": [
+      "\\frac{d^%3}{d%2^%3}{%1}"
+    ],
+    "\\int_?^? ? d?": [
+      "\\int_{%1}^{%2} %3 d%4"
+    ],
+    "\\int ? d?": [
+      "\\int %1 d%2"
+    ],
+    "\\lim_? ?": [
+      {
+        "\\lim_{%1}{%2}": {
+          "? \\rightarrow ?": "%1 \\rightarrow %2",
+          "? \\to ?": "%1 \\to %2",
+          "\\left(?,?\\right)": "\\left(%1, %2\\right)"
+        }
+      }
+    ],
+    "\\sum_?^? ?": [
+      "\\sum_{%1}^{%2}{%3}"
+    ],
+    "\\sin{?}": [
+      "\\sin{%1}"
+    ],
+    "\\cos{?}": [
+      "\\cos{%1}"
+    ],
+    "\\tan{?}": [
+      "\\tan{%1}"
+    ],
+    "\\cot{?}": [
+      "\\cot{%1}"
+    ],
+    "\\sec{?}": [
+      "\\sec{%1}"
+    ],
+    "\\csc{?}": [
+      "\\csc{%1}"
+    ],
+    "\\sin^{-1}?": [
+      "\\sin^{-1}{%1}"
+    ],
+    "\\cos^{-1}{?}": [
+      "\\cos^{-1}{%1}"
+    ],
+    "\\tan^{-1}{?}": [
+      "\\tan^{-1}{%1}"
+    ],
+    "\\cot^{-1}{?}": [
+      "\\cot^{-1}{%1}"
+    ],
+    "\\sec^{-1}{?}": [
+      "\\sec^{-1}{%1}"
+    ],
+    "\\csc^{-1}{?}": [
+      "\\csc^{-1}{%1}"
+    ],
+    "\\sinh{?}": [
+      "\\sinh{%1}"
+    ],
+    "\\cosh{?}": [
+      "\\cosh{%1}"
+    ],
+    "\\tanh{?}": [
+      "\\tanh{%1}"
+    ],
+    "\\coth{?}": [
+      "\\coth{%1}"
+    ],
+    "\\sech{?}": [
+      "\\sech{%1}"
+    ],
+    "\\csch{?}": [
+      "\\csch{%1}"
+    ],
+    "\\sinh^{-1}{?}": [
+      "\\sinh^{-1}{%1}"
+    ],
+    "\\cosh^{-1}{?}": [
+      "\\cosh^{-1}{%1}"
+    ],
+    "\\tanh^{-1}{?}": [
+      "\\tanh^{-1}{%1}"
+    ],
+    "\\coth^{-1}{?}": [
+      "\\coth^{-1}{%1}"
+    ],
+    "\\sech^{-1}{?}": [
+      "\\sech^{-1}{%1}"
+    ],
+    "\\csch^{-1}{?}": [
+      "\\csch^{-1}{%1}"
+    ],
+    "?<?": [
+      "%1<%2"
+    ],
+    "?\\nless?": [
+      "%1\\nless %2"
+    ],
+    "?\\le?": [
+      "%1\\le %2"
+    ],
+    "?>?": [
+      "%1>%2"
+    ],
+    "?\\ge?": [
+      "%1\\ge %2"
+    ],
+    "?\\ngtr?": [
+      "%1\\ngtr %2"
+    ],
+    "?=?": [
+      "%1=%2"
+    ],
+    "?\\ne?": [
+      "%1\\ne %2"
+    ],
+    "?\\approx?": [
+      "%1\\approx %2"
+    ],
+    "\\infty": [
+      "\\infty"
+    ],
+    "\\type{mixedNumber}": [
+      "%1%2"
+    ],
+    "?%": [
+      "{%1}%"
+    ],
+    "?!": [
+      "{%1}!"
+    ],
+    "\\frac{?}{?}": [
+      "\\frac{%1}{%2}"
+    ],
+    "\\abs{?}": [
+      "\\abs{%1}"
+    ],
+    "?\\degree": [
+      "{%1}\\degree"
+    ],
+    "\\type{fraction}^?": [
+      "\\left(%1\\right)^{%2}"
+    ],
+    "{-?}^?": [
+      "\\left(%1\\right)^{%2}"
+    ],
+    "?^?": [
+      "{%1}^{%2}"
+    ],
+    "\\sqrt{?}": [
+      "\\sqrt{%1}"
+    ],
+    "\\sqrt[?]{?}": [
+      "\\sqrt[%2]{%1}"
+    ],
+    "-?": [
+      "-%1"
+    ],
+    "?+{-?}": [
+      "%1+\\left(%2\\right)"
+    ],
+    "?+?": [
+      "%1+%2"
+    ],
+    "?-{-?}": [
+      "%1-\\left(%2\\right)"
+    ],
+    "?-?": [
+      "%1-%2"
+    ],
+    "?*{-?}": [
+      "%1\\times\\left(%2\\right)"
+    ],
+    "?*?": [
+      "%1\\times %2"
+    ],
+    "?\\cdot{-?}": [
+      "%1\\cdot\\left(%2\\right)"
+    ],
+    "?\\cdot?": [
+      "%1\\cdot %2"
+    ],
+    "?\\div?": [
+      "%1\\div %2"
+    ],
+    "?:?": [
+      "%1:%2"
+    ],
+    "?_?": [
+      "%1_{%2}"
+    ],
+    "\\left(?\\right)": [
+      "\\left(%1\\right)"
+    ],
+    "{\\type{numberPosNeg}}{\\type{numberPosNeg}}": [
+      "(%1)(%2)"
+    ],
+    "? ?": [
+      "%1 %2"
+    ],
+    "?,?": [
+      "%1,%2"
+    ],
+    "?": [
+      "%1"
+    ]
+  },
+  "allowInterval": true,
+  "parsingIntegralExpr": false,
+  "RHS": false
+}
