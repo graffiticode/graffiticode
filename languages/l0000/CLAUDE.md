@@ -114,14 +114,9 @@ Arithmetic uses `decimal.js`. The `Decimal` default-export normalization at the 
 
 ## Deployment
 
-The server ships as a single Docker image (`Dockerfile`, `node:22-alpine`) deployed to Cloud Run as service `l0000` in project `graffiticode`. The image: `npm ci` from the lockfile → `npm run build` (the full core→static→api→view→embed→assemble chain) → `npm prune --omit=dev` (runtime only runs compiled JS, so devDeps are dropped) → `npm start`. `NODE_ENV=production`, `EXPOSE 50000`.
+The server ships as a single Docker image deployed to Cloud Run as service `l0000` in project `graffiticode`, running as `l0000-run` (no roles). The image: `npm ci` from the lockfile → `npm run build` (the full core→static→api→view→embed→assemble chain) → `npm prune --omit=dev` (runtime only runs compiled JS, so devDeps are dropped) → `npm start`. Cloud Run injects `PORT`; the server reads it (default `50000`). `AUTH_URL=https://auth.graffiticode.org`. The service is public, matching the app's own "static assets and `/compile` are public" posture.
 
-Three root scripts drive GCP (require `gcloud` auth + project access):
-- `npm run gcp:build` — `gcloud builds submit` against `cloudbuild.yaml` (docker build → push to `gcr.io/graffiticode/l0000:$COMMIT_SHA` → `gcloud run deploy`).
-- `npm run gcp:deploy` — source-based `gcloud run deploy` (no explicit Cloud Build config), `--allow-unauthenticated`.
-- `npm run gcp:logs` — tail the Cloud Run logs.
-
-`cloudbuild.yaml` substitutions: `_DEPLOY_REGION=us-central1`, `_AUTH_URL=https://auth.graffiticode.org` (injected as the `AUTH_URL` env var on the deployed service). Cloud Run injects `PORT`; the server reads it (default `50000`). The service is deployed `--allow-unauthenticated` — matching the app's own "static assets and `/compile` are public" posture.
+Release it with the monorepo's deploy CLI, from the repository root: `npm run deploy -- l0000` (config in root `deploy.json`, image from `configs/Dockerfile.l0000.yaml`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes. `npm run gcp:logs` tails the Cloud Run logs. The local `Dockerfile` builds the same image from this directory.
 
 ## Conventions
 

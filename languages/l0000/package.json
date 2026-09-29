@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "L0000 — the root Graffiticode language (base language + inheritance kernel)",
+  "description": "L0000 \u2014 the root Graffiticode language (base language + inheritance kernel)",
   "workspaces": [
     "packages/core",
     "packages/api",
@@ -22,8 +22,6 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "test": "npm run -w packages/core test",
-    "gcp:build": "gcloud builds submit --project graffiticode --config cloudbuild.yaml --substitutions=COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')",
-    "gcp:deploy": "gcloud run deploy l0000 --project graffiticode --source . --port 50000 --region us-central1 --platform managed --allow-unauthenticated",
     "gcp:logs": "gcloud run services logs read l0000 --project graffiticode --region us-central1"
   },
   "devDependencies": {
