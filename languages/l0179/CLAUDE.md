@@ -299,10 +299,10 @@ chars). Edit the Overview, not the JSON.
 ## Deploy
 
 Cloud Run, project `graffiticode`, service `l0179`, region `us-central1`, port 50179.
-`npm run gcp:build` (Cloud Build) / `gcp:deploy` / `gcp:logs`. `AUTH_URL` is the only runtime env
+Release with `npm run deploy -- l0179` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0179.yaml`, runtime `l0179-run`); `npm run gcp:logs` for logs. `AUTH_URL` is the only runtime env
 var — spreadsheets read task data via `get-val-public` and params, never `get-val-private`, so no
-`GRAFFITICODE_SECRET_KEY` is needed. If a private value is ever introduced, add the secret to
-`cloudbuild.yaml` **and** propagate it with `console/scripts/set-compiler-secret.sh 0179`.
+`GRAFFITICODE_SECRET_KEY` is needed. If a private value is ever introduced, add it (pinned to a version) to
+the `l0179` entry's `secrets` in the root `deploy.json`, grant `l0179-run` access to it, **and** propagate it with `console/scripts/set-compiler-secret.sh 0179`.
 
 `/lexicon.js` is a back-compat alias serving `lexicon.json` for the still-deployed console; drop
 it once the console migrates.

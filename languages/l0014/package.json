@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "L0014 (Internal) — a Graffiticode dialect for authoring TransLaTeX translation rule sets",
+  "description": "L0014 (Internal) \u2014 a Graffiticode dialect for authoring TransLaTeX translation rule sets",
   "workspaces": [
     "packages/core",
     "packages/api",
@@ -22,8 +22,6 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "gcp:build": "gcloud builds submit --project graffiticode --config cloudbuild.yaml --substitutions=COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')",
-    "gcp:deploy": "gcloud run deploy l0014 --project graffiticode --source . --port 50014 --region us-central1 --platform managed --allow-unauthenticated",
     "gcp:logs": "gcloud run services logs read l0014 --project graffiticode --region us-central1"
   },
   "devDependencies": {

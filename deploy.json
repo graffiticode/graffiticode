@@ -402,6 +402,519 @@
           "status": 200
         }
       ]
+    },
+    "l0003": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0003",
+      "dockerfile": "configs/Dockerfile.l0003.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0003-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0003",
+        "configs/Dockerfile.l0003.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0003",
+          "args": [
+            "ci"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0010": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0010",
+      "dockerfile": "configs/Dockerfile.l0010.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0010-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0010",
+        "configs/Dockerfile.l0010.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0010",
+          "args": [
+            "ci"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0013": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0013",
+      "dockerfile": "configs/Dockerfile.l0013.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0013-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0013",
+        "configs/Dockerfile.l0013.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0013",
+          "args": [
+            "ci"
+          ],
+          "env": [
+            "PUPPETEER_SKIP_DOWNLOAD=true"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0014": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0014",
+      "dockerfile": "configs/Dockerfile.l0014.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0014-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0014",
+        "configs/Dockerfile.l0014.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0014",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0014",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0174": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0174",
+      "dockerfile": "configs/Dockerfile.l0174.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0174-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0174",
+        "configs/Dockerfile.l0174.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0174",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0174",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0177": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0177",
+      "dockerfile": "configs/Dockerfile.l0177.yaml",
+      "port": 50177,
+      "access": "public",
+      "runtimeServiceAccount": "l0177-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0177",
+        "configs/Dockerfile.l0177.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0177",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0177",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0178": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0178",
+      "dockerfile": "configs/Dockerfile.l0178.yaml",
+      "port": 50178,
+      "access": "public",
+      "runtimeServiceAccount": "l0178-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0178",
+        "configs/Dockerfile.l0178.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0178",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0178",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0179": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0179",
+      "dockerfile": "configs/Dockerfile.l0179.yaml",
+      "port": 50179,
+      "access": "public",
+      "runtimeServiceAccount": "l0179-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0179",
+        "configs/Dockerfile.l0179.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0179",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0179",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0180": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0180",
+      "dockerfile": "configs/Dockerfile.l0180.yaml",
+      "port": 50180,
+      "access": "public",
+      "runtimeServiceAccount": "l0180-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0180",
+        "configs/Dockerfile.l0180.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0180",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0180",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0181": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0181",
+      "dockerfile": "configs/Dockerfile.l0181.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0181-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0181",
+        "configs/Dockerfile.l0181.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0181",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0181",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0182": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0182",
+      "dockerfile": "configs/Dockerfile.l0182.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0182-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0182",
+        "configs/Dockerfile.l0182.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0182",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0182",
+          "args": [
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0182",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
+    },
+    "l0183": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0183",
+      "dockerfile": "configs/Dockerfile.l0183.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0183-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0183",
+        "configs/Dockerfile.l0183.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0183",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0183",
+          "args": [
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0183",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
     }
   }
 }

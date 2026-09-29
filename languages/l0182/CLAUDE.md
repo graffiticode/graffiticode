@@ -45,8 +45,7 @@ npm test           # core + api + view suites
 npm run lint       # ESLint over the monorepo (npm run lint:fix to write)
 npm run format     # Prettier over the monorepo (printWidth 100, double quotes)
 npm run publish    # core AND view to npm — both are published packages
-npm run gcp:build  # submits cloudbuild.yaml, the path that carries the deploy rules
-npm run gcp:deploy # Cloud Run as l0182, us-central1 — but read "Deploying" first
+# release: npm run deploy -- l0182, from the graffiticode repository root (read "Deploying")
 npm run gcp:logs   # Cloud Run logs for l0182
 
 npm run -w packages/view dev   # the renderer on Vite alone; /dev.html is the fixture page
@@ -96,26 +95,16 @@ needs is in the program.
 
 ### Deploying
 
-Two rules hold the deployed service together, and all three Cloud Build configs carry both —
-`cloudbuild.yaml` (what `npm run gcp:build` submits), plus `cloudbuild.production.yaml` and
-`cloudbuild.staging.yaml` (the GitHub triggers described in `GITHUB_DEPLOYMENT.md`). **A new
-deploy path has to carry them too:**
+Release with `npm run deploy -- l0182` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0182.yaml`, runtime `l0182-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and
+`/lexicon.js`, then promotes.
 
-- **`--update-env-vars`, never `--set-env-vars`.** `set` replaces the whole environment, so any
-  variable added out of band is silently deleted by the next deploy.
-- **`--max-instances=$_MAX_INSTANCES`, set explicitly and never merely omitted.** Cloud Run
-  carries the service's current scaling forward when the flag is absent, and this service was
-  pinned to `--max-instances=1` for as long as it ran the in-memory mock backend. Nothing holds
-  state between requests now, but _dropping_ the flag would leave that pin of 1 in place
-  indefinitely — which is why the substitution was restored rather than the flag deleted.
-  Default 20, matching the sibling languages.
+The two rules the old Cloud Build configs carried still hold, and the deploy CLI meets both:
 
-`npm run gcp:deploy` builds from source and passes neither flag. On an existing service Cloud
-Run carries the current scaling and environment forward, so it is safe for a code-only push and
-cannot be used to change either.
-
-The hand-written `gcloud run deploy` commands in `DEPLOYMENT.md` and
-`scripts/setup-gcp-deployment.sh` are deploy paths too, and carry both rules with a literal 20.
+- **Env is additive.** It passes `--update-env-vars`, never `--set-env-vars`, so a variable
+  added out of band survives a release.
+- **Scaling is never reset.** It passes no `--max-instances`, so the live value (20, matching
+  the sibling languages) carries forward. This service once ran pinned to 1 for the in-memory
+  mock backend; if that ever needs changing, use `gcloud run services update --max-instances`.
 
 ## Architecture
 

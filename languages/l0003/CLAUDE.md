@@ -23,8 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Vitest is installed at the root but no test runner script is wired up yet, and no `*.spec.*` files exist in the packages.
 
 ### Deployment
-- **GCP Cloud Build**: `npm run gcp:build` (submits `cloudbuild.yaml` to the `graffiticode` project)
-- **GCP Direct Deploy**: `npm run gcp:deploy` (deploys to Cloud Run as `l0003`, region `us-central1`, port `50003`)
+- **Release**: `npm run deploy -- l0003` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0003.yaml`, runtime `l0003-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes.
 - **View logs**: `npm run gcp:logs`
 
 ## Architecture

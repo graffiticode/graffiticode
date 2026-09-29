@@ -29,7 +29,7 @@ npm run dev        # API on :50180 (expects Firestore emulator :8080, local auth
 npm run start      # the built API server
 npm test           # core + view suites
 npm run lint       # ESLint over the monorepo
-npm run gcp:deploy # Cloud Run as l0180, us-central1, port 50180
+# release: npm run deploy -- l0180, from the graffiticode repository root
 
 npm run -w packages/view dev   # the /form embed app on Vite alone, no API, no auth
 ```

@@ -25,8 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `spec-directive.test.ts` guards the PROMPTS. Every rule it asserts is load-bearing: it either encodes a documented Data API fact the recipe gets wrong without it, or it stops L0177's reasoning being imported into a dialect where it does not apply. Read its header before editing a prompt. Note what it does *not* do: it pins the prompt text, not the generated output — a passing run says the rules are still written down, not that the generator obeyed them. Match on normalized substrings, never exact lines (Prettier reformats `spec/*.md`).
 
 ### Deployment
-- **GCP Cloud Build**: `npm run gcp:build` (submits `cloudbuild.yaml` to the `graffiticode` project)
-- **GCP Direct Deploy**: `npm run gcp:deploy` (deploys to Cloud Run as `l0178`, region `us-central1`, port `50178`)
+- **Release**: `npm run deploy -- l0178` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0178.yaml`, runtime `l0178-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes.
 - **View logs**: `npm run gcp:logs`
 
 ### Evidence and verification contract

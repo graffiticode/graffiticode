@@ -80,7 +80,7 @@ Other useful scripts:
 - `npm test` — run the core and view test suites
 - `npm run lint` — lint the whole monorepo
 - `npm run pack` — build and pack the view package for distribution
-- `npm run gcp:build` / `npm run gcp:deploy` — deploy to Cloud Run
+- deploy: `npm run deploy -- l0180` from the graffiticode repository root
 
 ## Environment
 

@@ -23,10 +23,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Vitest is installed at the root (`vitest ^2.1.3`) but **no test script is wired up and no `*.spec.*` / `*.test.*` files exist**. There is no test config. If adding tests, wire up a `test` script and a vitest config first.
 
 ### Deployment
-- **Deploy**: `npm run gcp:build` — this is the canonical way to deploy (submits `cloudbuild.yaml` to Cloud Build, which builds and deploys to Cloud Run).
-- **GCP Direct Deploy**: `npm run gcp:deploy` (a from-source Cloud Run deploy of `l0013`, region `us-central1`, port 50013, **2Gi memory / 2 CPU / concurrency 4 / 300s timeout** — sized for headless Chrome). Use `gcp:build` instead for normal deploys.
+- **Release**: `npm run deploy -- l0013` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0013.yaml`, runtime `l0013-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes. The service is sized for headless Chrome (**2Gi memory / 2 CPU / concurrency 4 / 300s timeout**); the deploy CLI passes only image, port, service account, env and pinned secrets, so scaling, CPU/memory, concurrency and timeout carry forward from the live service; change those with `gcloud run services update`. `l0013-run` has `roles/storage.objectAdmin` on `gs://graffiticode.appspot.com` for thumbnails.
 - **View logs**: `npm run gcp:logs`
-- Also: `cloudbuild.staging.yaml`, `cloudbuild.production.yaml`, `Dockerfile`. See `DEPLOYMENT.md` and `GITHUB_DEPLOYMENT.md`.
 
 ## Architecture
 

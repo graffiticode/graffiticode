@@ -33,8 +33,8 @@ Core tests compile through `src/harness.ts` (`compile(src, data)`, `errorOf(src)
 the real parser against the real lexicon. **`packages/api`'s suite reads the assembled
 `static/`**, so build first.
 
-Deploying: the three `cloudbuild*.yaml` files carry `--update-env-vars` (never `--set-env-vars`)
-and an explicit `--max-instances`. Keep both in any new deploy path. The `/form` cache headers
+Deploying: release with `npm run deploy -- l0183` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0183.yaml`, runtime `l0183-run`). It updates env additively and carries the live
+`--max-instances` forward (see L0182's "Deploying"). The `/form` cache headers
 and the Cloudflare zone rule are documented in L0182's CLAUDE.md, and apply here unchanged.
 
 ## The dialect

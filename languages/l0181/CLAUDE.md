@@ -21,8 +21,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` / `npm run lint:fix` (ESLint over the monorepo), `npm run format` (Prettier)
 
 ### Deployment
-- `npm run gcp:build` (Cloud Build), `npm run gcp:deploy` (Cloud Run `l0181`, port 50181),
-  `npm run gcp:logs`
+- Release with `npm run deploy -- l0181` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0181.yaml`, runtime `l0181-run`); `npm run gcp:logs` for logs.
 
 ## Architecture
 

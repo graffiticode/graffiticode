@@ -23,8 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Publish**: `npm run publish` (publishes `@graffiticode/l0177` and `@graffiticode/l0177-view` with public access)
 
 ### Deployment
-- **GCP Cloud Build**: `npm run gcp:build` (submits `cloudbuild.yaml` to the `graffiticode` project)
-- **GCP Direct Deploy**: `npm run gcp:deploy` (Cloud Run as `l0177`, region `us-central1`, port `50177`)
+- **Release**: `npm run deploy -- l0177` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0177.yaml`, runtime `l0177-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes.
 - **View logs**: `npm run gcp:logs`
 
 ### Evidence and verification contract

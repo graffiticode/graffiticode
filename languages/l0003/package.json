@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "L0003 — a Graffiticode dialect (first child of L0000)",
+  "description": "L0003 \u2014 a Graffiticode dialect (first child of L0000)",
   "workspaces": [
     "packages/core",
     "packages/api",
@@ -23,8 +23,6 @@
     "format": "prettier --write .",
     "pack": "npm run build && npm -w packages/view pack",
     "publish": "npm -w packages/core publish --access=public && npm -w packages/view publish --access=public",
-    "gcp:build": "gcloud builds submit --project graffiticode --config cloudbuild.yaml --substitutions=COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')",
-    "gcp:deploy": "gcloud run deploy l0003 --project graffiticode --source . --port 50003 --region us-central1 --platform managed --allow-unauthenticated",
     "gcp:logs": "gcloud run services logs read l0003 --project graffiticode --region us-central1"
   },
   "devDependencies": {

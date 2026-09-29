@@ -126,8 +126,8 @@ there is copied verbatim into LLM-generated programs.
 
 ## Deployment
 
-The service is Cloud Run `l0014` in GCP project `graffiticode`, us-central1, built from `cloudbuild.yaml`
-via `npm run gcp:build`. The only runtime env var is `AUTH_URL`. The pipeline mirrors L0000's, not
+The service is Cloud Run `l0014` in GCP project `graffiticode`, us-central1, released with
+`npm run deploy -- l0014` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0014.yaml`, runtime `l0014-run`). The only runtime env var is `AUTH_URL`. The pipeline mirrors L0000's, not
 L0176's, which also wires Learnosity secrets.
 
 The platform resolves a compiler host with `getCompilerHost` (`graffiticode/packages/api/src/util.js`).
