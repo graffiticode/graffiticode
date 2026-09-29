@@ -1,5 +1,7 @@
 import { NotFoundError } from "@graffiticode/common/errors";
+import admin from "firebase-admin";
 import { cleanUpFirebase } from "../testing/firebase.js";
+import { getFirestore } from "../firebase.js";
 import { buildRefreshTokenStorer } from "./refresh-tokens.js";
 
 describe("storage/refresh-tokens", () => {
@@ -43,5 +45,134 @@ describe("storage/refresh-tokens", () => {
 
     expect(data).toHaveProperty("uid", uid);
     expect(data).toHaveProperty("additionalClaims.apiKey", true);
+  });
+
+  it("should clean expired refresh tokens", async () => {
+    const uid = "abc123";
+    const db = getFirestore();
+
+    // Create two refresh tokens
+    const { token: activeToken } = await storer.createRefreshToken({ uid });
+    const { token: expiredToken } = await storer.createRefreshToken({ uid });
+
+    // Look up the expired token's ID to modify its expiresAt
+    const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${expiredToken}`);
+    const tokenToIdDoc = await tokenToIdRef.get();
+    const expiredId = tokenToIdDoc.get("id");
+
+    // Set expiresAt to 1 hour ago
+    const pastTime = admin.firestore.Timestamp.fromMillis(Date.now() - 60 * 60 * 1000);
+    await db.doc(`refresh-tokens/${expiredId}`).update({ expiresAt: pastTime });
+
+    // Clean expired refresh tokens
+    await storer.cleanExpiredRefreshTokens();
+
+    // The active one should still exist
+    const activeData = await storer.getRefreshToken(activeToken);
+    expect(activeData).toHaveProperty("uid", uid);
+
+    // The expired one should be deleted
+    await expect(storer.getRefreshToken(expiredToken)).rejects.toThrow(NotFoundError);
+
+    // Ensure all references for the expired one are deleted
+    const mainDoc = await db.doc(`refresh-tokens/${expiredId}`).get();
+    const privateKeyDoc = await db.doc(`refresh-tokens/${expiredId}/private/key`).get();
+    const indexDoc = await db.doc(`refresh-tokens/-indexes-/token-to-id/${expiredToken}`).get();
+
+    expect(mainDoc.exists).toBe(false);
+    expect(privateKeyDoc.exists).toBe(false);
+    expect(indexDoc.exists).toBe(false);
+  });
+
+  it("should list active sessions, delete a session, and delete all sessions", async () => {
+    const uid = "abc123";
+    const db = getFirestore();
+
+    // Create 3 sessions
+    const { token: t1 } = await storer.createRefreshToken({ uid, additionalClaims: { session: 1 } });
+    const { token: t2 } = await storer.createRefreshToken({ uid, additionalClaims: { session: 2 } });
+    const { token: t3 } = await storer.createRefreshToken({ uid, additionalClaims: { session: 3 } });
+
+    // Get the IDs
+    const id1 = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${t1}`).get()).get("id");
+    const id2 = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${t2}`).get()).get("id");
+    const id3 = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${t3}`).get()).get("id");
+
+    // List sessions
+    let sessions = await storer.listSessions({ uid });
+    expect(sessions).toHaveLength(3);
+    expect(sessions.map(s => s.id).sort()).toEqual([id1, id2, id3].sort());
+
+    // Delete one session (id1)
+    await storer.deleteSession({ uid, id: id1 });
+
+    // Verify list session has 2 remaining
+    sessions = await storer.listSessions({ uid });
+    expect(sessions).toHaveLength(2);
+    expect(sessions.map(s => s.id).sort()).toEqual([id2, id3].sort());
+
+    // Verify deleting it again throws NotFoundError or similar
+    await expect(storer.deleteSession({ uid, id: id1 })).rejects.toThrow(NotFoundError);
+
+    // Deleting someone else's session looks the same as a missing one
+    const otherUid = "other456";
+    await expect(storer.deleteSession({ uid: otherUid, id: id2 })).rejects.toThrow(NotFoundError);
+    sessions = await storer.listSessions({ uid });
+    expect(sessions).toHaveLength(2);
+
+    // Delete all sessions for uid
+    await storer.deleteAllSessions({ uid });
+    sessions = await storer.listSessions({ uid });
+    expect(sessions).toHaveLength(0);
+  });
+
+  it("should clean more expired tokens than fit in one batch", async () => {
+    const uid = "abc123";
+    const db = getFirestore();
+    const count = 200;
+    const tokens = [];
+    for (let i = 0; i < count; i++) {
+      const { token } = await storer.createRefreshToken({ uid });
+      tokens.push(token);
+    }
+    const pastTime = admin.firestore.Timestamp.fromMillis(Date.now() - 60 * 60 * 1000);
+    const snapshot = await db.collection("refresh-tokens").where("uid", "==", uid).get();
+    expect(snapshot.size).toBe(count);
+    const writer = db.bulkWriter();
+    snapshot.docs.forEach(doc => writer.update(doc.ref, { expiresAt: pastTime }));
+    await writer.close();
+
+    await storer.cleanExpiredRefreshTokens();
+
+    const remaining = await db.collection("refresh-tokens").where("uid", "==", uid).get();
+    expect(remaining.size).toBe(0);
+    await expect(storer.getRefreshToken(tokens[0])).rejects.toThrow(NotFoundError);
+    await expect(storer.getRefreshToken(tokens[count - 1])).rejects.toThrow(NotFoundError);
+  }, 60000);
+
+  it("should delete all sessions except the given token", async () => {
+    const uid = "abc123";
+    const { token: keep } = await storer.createRefreshToken({ uid });
+    await storer.createRefreshToken({ uid });
+    await storer.createRefreshToken({ uid });
+    const { token: other } = await storer.createRefreshToken({ uid: "other456" });
+
+    await storer.deleteAllSessions({ uid, exceptToken: keep });
+
+    const sessions = await storer.listSessions({ uid });
+    expect(sessions).toHaveLength(1);
+    await expect(storer.getRefreshToken(keep)).resolves.toHaveProperty("uid", uid);
+    await expect(storer.getRefreshToken(other)).resolves.toHaveProperty("uid", "other456");
+  });
+
+  it("should not spare another user's session named as exceptToken", async () => {
+    const uid = "abc123";
+    await storer.createRefreshToken({ uid });
+    const { token: foreign } = await storer.createRefreshToken({ uid: "other456" });
+
+    await storer.deleteAllSessions({ uid, exceptToken: foreign });
+
+    expect(await storer.listSessions({ uid })).toHaveLength(0);
+    expect(await storer.listSessions({ uid: "other456" })).toHaveLength(1);
   });
 });

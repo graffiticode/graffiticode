@@ -61,10 +61,97 @@ const buildDeleteRefreshToken = ({ db }) => async (token) => {
     .commit();
 };
 
+// Each token owns three docs (main, private key, index); stay under the
+// 500-write batch limit.
+const DELETE_CHUNK_SIZE = 150;
+
+const deleteTokensById = async ({ db, ids }) => {
+  for (let i = 0; i < ids.length; i += DELETE_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + DELETE_CHUNK_SIZE);
+    const privateKeyDocs = await Promise.all(
+      chunk.map(id => db.doc(`refresh-tokens/${id}/private/key`).get())
+    );
+    const batch = db.batch();
+    chunk.forEach((id, index) => {
+      const token = privateKeyDocs[index].get("token");
+      if (token) {
+        batch.delete(db.doc(`refresh-tokens/-indexes-/token-to-id/${token}`));
+      }
+      batch.delete(db.doc(`refresh-tokens/${id}/private/key`));
+      batch.delete(db.doc(`refresh-tokens/${id}`));
+    });
+    await batch.commit();
+  }
+};
+
+const buildCleanExpiredRefreshTokens = ({ db }) => async () => {
+  const now = admin.firestore.Timestamp.now();
+  const expiredDocs = await db.collection("refresh-tokens")
+    .where("expiresAt", "<", now)
+    .get();
+  await deleteTokensById({ db, ids: expiredDocs.docs.map(doc => doc.id) });
+};
+
+const buildListSessions = ({ db }) => async ({ uid }) => {
+  const now = admin.firestore.Timestamp.now();
+  const sessionsSnapshot = await db.collection("refresh-tokens")
+    .where("uid", "==", uid)
+    .where("expiresAt", ">", now)
+    .get();
+
+  return sessionsSnapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      createdAt: data.createdAt,
+      expiresAt: data.expiresAt,
+      additionalClaims: data.additionalClaims,
+    };
+  });
+};
+
+const buildDeleteSession = ({ db }) => async ({ uid, id }) => {
+  const sessionDoc = await db.doc(`refresh-tokens/${id}`).get();
+  // Another user's session is reported as missing so ids can't be probed.
+  if (!sessionDoc.exists || sessionDoc.get("uid") !== uid) {
+    throw new NotFoundError("session does not exist");
+  }
+  await deleteTokensById({ db, ids: [id] });
+};
+
+const buildDeleteAllSessions = ({ db }) => async ({ uid, exceptToken }) => {
+  let exceptId = null;
+  if (exceptToken) {
+    const tokenToIdDoc = await db.doc(`refresh-tokens/-indexes-/token-to-id/${exceptToken}`).get();
+    if (tokenToIdDoc.exists) {
+      exceptId = tokenToIdDoc.get("id");
+    }
+  }
+  const sessionsSnapshot = await db.collection("refresh-tokens")
+    .where("uid", "==", uid)
+    .get();
+  const ids = sessionsSnapshot.docs
+    .map(doc => doc.id)
+    .filter(id => id !== exceptId);
+  await deleteTokensById({ db, ids });
+};
+
 export const buildRefreshTokenStorer = () => {
   const db = getFirestore();
   const createRefreshToken = buildCreateRefreshToken({ db });
   const deleteRefreshToken = buildDeleteRefreshToken({ db });
   const getRefreshToken = buildGetRefreshToken({ db });
-  return { createRefreshToken, deleteRefreshToken, getRefreshToken };
+  const cleanExpiredRefreshTokens = buildCleanExpiredRefreshTokens({ db });
+  const listSessions = buildListSessions({ db });
+  const deleteSession = buildDeleteSession({ db });
+  const deleteAllSessions = buildDeleteAllSessions({ db });
+  return {
+    createRefreshToken,
+    deleteRefreshToken,
+    getRefreshToken,
+    cleanExpiredRefreshTokens,
+    listSessions,
+    deleteSession,
+    deleteAllSessions,
+  };
 };
