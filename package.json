@@ -48,6 +48,7 @@
   "jest": {
     "testPathIgnorePatterns": [
       "<rootDir>/packages/",
+      "<rootDir>/languages/",
       "<rootDir>/node_modules/"
     ]
   },

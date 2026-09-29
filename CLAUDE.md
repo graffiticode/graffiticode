@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a monorepo using npm workspaces. Six packages are workspaces (`api`, `auth`, `common`, `auth-client`, `policy`, `broker`); `packages/parser` lives in the tree but is **not** a workspace — it is consumed as the published dependency `@graffiticode/parser` (see root `package.json` `dependencies`). Edits to `packages/parser` require republishing/reinstalling to affect the other packages.
 
+`languages/l0000` is the base language (moved in from `graffiticode/l0000` with its history). It is a **self-contained npm project**, not a root workspace: its own lockfile, `npm ci`, build, tests and Dockerfile, all run from `languages/l0000`. It publishes `@graffiticode/l0000` (`packages/core`) and `@graffiticode/l0000-view` (`packages/view`), which every language consumes from npm, and deploys the `l0000` Cloud Run service (`packages/api`, `npm run gcp:build` from that directory). `languages/` is excluded from root jest, `.dockerignore` and deploy snapshots, so service releases don't install or ship it. See `languages/l0000/CLAUDE.md`.
+
 ### Root-level commands
 ```bash
 npm run emulator     # Start Firebase emulators (Firestore on 8080, Auth on 9099)
