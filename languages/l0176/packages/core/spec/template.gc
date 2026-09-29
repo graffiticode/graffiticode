@@ -1,0 +1,2 @@
+set-var "lrn-id" get-val-public "itemId"
+items [item [questions [mcq []] {}]] {}..

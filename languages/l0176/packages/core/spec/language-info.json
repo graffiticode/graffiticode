@@ -1,0 +1,117 @@
+{
+  "id": "0176",
+  "description": "Authors Learnosity-compatible assessment items from natural language. Supports multiple-choice, cloze/fill-in-the-blank, short-text, essay, math fill-in, choice matrix, ordering, classification, NGN/NCLEX bow-tie, token-highlight, and custom items that embed a separately deployed Graffiticode-language interaction (e.g. an L0179 spreadsheet) and can read content from an upstream pipeline task. Describe the stem, correct answer, distractors, scoring, and tags — L0176 emits a valid Learnosity item JSON.",
+  "supported_item_types": [
+    "mcq",
+    "shorttext",
+    "longtext",
+    "plaintext",
+    "clozetext",
+    "clozeassociation",
+    "clozedropdown",
+    "clozeformula",
+    "choicematrix",
+    "orderlist",
+    "classification",
+    "bowtie",
+    "token-highlight",
+    "custom"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "Create a 4-option MCQ on the function of mitochondria. One correct answer. Distractors should match common misconceptions. Tag with NGSS MS-LS1-2. Difficulty: medium.",
+      "produces": "mcq",
+      "notes": "Names the item type explicitly, specifies distractor intent, and tags the standard — removes three rounds of guessing for the backend."
+    },
+    {
+      "prompt": "Write a cloze item with three dropdowns about the stages of mitosis in order: prophase, metaphase, anaphase. Show the stem above a sentence with blanks.",
+      "produces": "clozedropdown",
+      "notes": "Specifies interaction count (three dropdowns) up front so the backend does not have to infer the blank count from the sentence."
+    },
+    {
+      "prompt": "Short-text item asking students to define 'allele' in one sentence. Exact match on 'a variant of a gene'.",
+      "produces": "shorttext",
+      "notes": "Exact-match scoring is the default, but stating it lets the backend skip rubric inference; a single canonical answer prevents ambiguous grading."
+    },
+    {
+      "prompt": "Solve for x: 2x + 3 = 11. Show the stem, and accept any expression equivalent to 4 as the answer.",
+      "produces": "clozeformula",
+      "notes": "Math answers are always compared as expressions, never as text, so notation is free under every method (1/2, 1 / 2 and \\frac{1}{2} are one answer). Saying 'any expression equivalent to' picks equivSymbolic — the whole equivalence class — instead of the default syntactic comparison."
+    },
+    {
+      "prompt": "Math fill-in: 'Simplify 4/8 to lowest terms.' Accept 1/2, 0.5, or 2/4 as correct, but not 4/8.",
+      "produces": "clozeformula",
+      "notes": "Naming which answers count describes an explicit set, not an equivalence class — no equivalence method produces that split, since equivSymbolic on 1/2 would also accept 4/8. The accepted expressions are nested in one valid-response entry (one entry per blank); the first becomes Learnosity's valid_response and the rest become alt_responses."
+    },
+    {
+      "prompt": "Order these historical events from earliest to latest: signing of the Magna Carta, fall of Constantinople, American Declaration of Independence, French Revolution.",
+      "produces": "orderlist",
+      "notes": "Names the ordering criterion (earliest to latest) — otherwise the backend has to guess whether it is chronology, alphabet, or magnitude."
+    },
+    {
+      "prompt": "Multi-select MCQ: 'Select all the prime numbers.' Options: 2, 4, 7, 9. Correct: 2 and 7. Give partial credit for each correct selection.",
+      "produces": "mcq",
+      "notes": "Asking for partial credit sets scoring-type \"partialMatch\" inside the question's validation, switching it from all-or-nothing (exactMatch) to a fraction of the point per correct response. It applies only to types with more than one scorable response (multi-select mcq, choicematrix, the cloze family, orderlist, classification, token-highlight), and on mcq it requires multiple responses. Other modes exist per type: partialMatchV2, orderlist's partialMatchPairwise, and the per-element pair on classification and bowtie."
+    },
+    {
+      "prompt": "Classification item: sort these animals into 'Mammals' and 'Reptiles' — dog, snake, cat, lizard.",
+      "produces": "classification",
+      "notes": "Provides the category labels and the items in one sentence; the backend creates the bucket mapping without guessing taxonomy."
+    },
+    {
+      "prompt": "Create a 4-option MCQ on the function of mitochondria. Distractors should match common organelle misconceptions, and add a one-line rationale per distractor explaining the misconception. Tag with NGSS MS-LS1-2, difficulty medium, DOK 2.",
+      "produces": "mcq",
+      "notes": "Exercises both item-level metadata (NGSS, difficulty, DOK — faceted in the Author Site filter rail) and question-level metadata (per-option distractor rationale shown in the Author Site review pane)."
+    },
+    {
+      "prompt": "Create a bow-tie for a 65-year-old with chest pain and diaphoresis. Actions: give aspirin, give nitro, call cardiology, obtain 12-lead ECG. Conditions: myocardial infarction, pulmonary embolism, pericarditis. Monitor: ST segment changes, blood pressure, troponin, respiratory rate. Correct actions: give aspirin, obtain 12-lead ECG. Correct condition: myocardial infarction. Correct monitors: ST segment changes, troponin.",
+      "produces": "bowtie",
+      "notes": "NGN/NCLEX bow-tie: three source pools drop into a 2-1-2 layout (2 actions on the left, 1 condition in the center, 2 parameters to monitor on the right). The backend rejects inputs that don't satisfy the 2-1-2 shape or whose correct answers aren't in the matching pool."
+    },
+    {
+      "prompt": "Token highlight item: 'Highlight the verbs.' Passage: 'The cat runs then jumps high.' Correct tokens to highlight: runs, jumps. Also make 'cat' and 'high' clickable as distractors. Let them pick at most two.",
+      "produces": "token-highlight",
+      "notes": "Token highlight: the template is the passage with each clickable token wrapped in a span of class lrn_token, and the valid response is the indices of the correct spans in document order, counting from zero. Wrap both the correct tokens and the clickable wrong ones. 'at most two' sets max-selection."
+    },
+    {
+      "prompt": "Token highlight item: 'Highlight the sentence that states an opinion.' Passage: 'The sky is blue. I think blue is the most beautiful color. Water boils at 100 degrees.' Correct sentence to highlight: 'I think blue is the most beautiful color.' Make the other two sentences clickable distractors.",
+      "produces": "token-highlight",
+      "notes": "Sentence-level token highlight: a clickable token can be a whole sentence. Either wrap each sentence in its own lrn_token span, or set tokenization \"sentence\" and let Learnosity split the passage, in which case the template needs no spans and the valid response indexes the sentences."
+    },
+    {
+      "prompt": "Token highlight item: 'Highlight the paragraph that summarizes the passage.' Passage has three paragraphs separated by blank lines: 'Dogs are loyal animals. They have lived alongside humans for thousands of years.' / 'Cats are independent pets. They groom themselves and hunt small prey.' / 'In short, both dogs and cats make wonderful companions for different reasons.' Correct paragraph: the third one. Make the first two paragraphs clickable distractors.",
+      "produces": "token-highlight",
+      "notes": "Paragraph-level token highlight: set tokenization \"paragraph\" and let Learnosity split the passage, with the valid response indexing the paragraphs; or wrap each paragraph in its own lrn_token span and index those."
+    },
+    {
+      "prompt": "Create a spreadsheet question. Embed the L0179 spreadsheet as the interaction. Stem: 'Use the spreadsheet below to compute the column totals for the first quarter.'",
+      "produces": "custom",
+      "notes": "Embedded interaction: emits a `custom` question with `lang \"0179\"` whose `data:` reads the upstream pipeline task via the base-language `data {}` primitive. The pipeline edge (which L0179 producer feeds this consumer) is wired in the console; L0176 source does not reference task IDs. Scoring is the L0179 widget's own `scorer.js` — no `valid-response` is emitted. `save-to-itembank` produces a snapshot frozen at compile time."
+    },
+    {
+      "prompt": "Create a multiple-choice question asking 'What is the capital of France?' with options 'Paris', 'London', 'Berlin', 'Madrid' where Paris is correct, and add a check answer button.",
+      "produces": "mcq",
+      "notes": "'Check answer button', 'let students check their work', 'show a check button', and 'submit for feedback' all map to `instant-feedback true` — emits Learnosity's `instant_feedback` flag, showing per-response feedback immediately without changing scoring."
+    },
+    {
+      "prompt": "Cloze text item: 'The {{response}} of the United States is Washington, D.C.' Correct answer: 'capital'. Also accept 'seat of government' as an alternate synonym.",
+      "produces": "clozetext",
+      "notes": "Asking to 'also accept' / 'accepts X or Y' / 'synonym answer' emits alt-responses inside validation, each alternate scored like the primary. Every alternate is a complete answer set (one answer per blank), not an extra answer for one blank. Do not list multiple accepted answers as separate valid-response entries; that reads as multiple blanks."
+    },
+    {
+      "prompt": "Create a math fill-in asking for the mass of the Sun in scientific notation, and require the answer to be written that way, not just to be the right number.",
+      "produces": "clozeformula",
+      "notes": "'must be written in scientific notation', 'as a decimal', 'as a fraction', 'give it as a mixed number', 'to two decimal places', 'answer must be a whole number', and 'give a variable' all constrain the FORM of the response and map to a rule scored with `equivSyntax`, which takes the form as `options [syntax \"...\"]` and no `value`. The nine forms are number, integer, decimal, scientific, variable, fraction, simple fraction, mixed fraction, and fraction-or-decimal; number, integer, decimal and scientific also take a digit count. equivSyntax checks only the form, so a request that also names a correct answer needs a second rule on the same blank — `equivValue` or `equivSymbolic` for the value, `equivSyntax` for the form."
+    },
+    {
+      "prompt": "Create a math fill-in asking for the length of the diagonal, accepting anything within 0.05 of 7.07.",
+      "produces": "clozeformula",
+      "notes": "'within', 'give or take', 'plus or minus', 'to within a tolerance of' and 'accept anything between X and Y' map to a plus-minus written into the answer itself — `value \"7.07±0.05\"` — not to an option. Tolerance works only with `equivValue`. 'to N decimal places' is different: that is `options [decimal-places N]`, which rounds before comparing rather than widening the accepted range."
+    },
+    {
+      "prompt": "Make a Learnosity question from the concept web about the parts of a cell: students drag each part onto the web.",
+      "produces": "custom",
+      "notes": "Embedded interaction: emits a `custom` question with `lang \"0183\"` whose `data:` reads the upstream L0183 task via `model data use \"0183\"`. Scoring is the L0183 widget's own `scorer.js` (partial credit per blank) — no `valid-response` is emitted."
+    }
+  ]
+}

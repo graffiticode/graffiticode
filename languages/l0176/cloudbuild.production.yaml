@@ -1,0 +1,88 @@
+# Cloud Build configuration for production deployments (main branch)
+steps:
+  # Install dependencies
+  - name: 'node'
+    entrypoint: 'npm'
+    args:
+      - 'ci'
+
+  # Run tests (uncomment when tests are added)
+  # - name: 'node'
+  #   entrypoint: 'npm'
+  #   args:
+  #     - 'test'
+
+  # Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/l0176:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/l0176:latest'
+      - '.'
+
+  # Push image to Container Registry
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/l0176'
+    id: Push
+
+  # Deploy to Cloud Run
+  # Env vars are added with --update-env-vars (never --set-env-vars), which
+  # would wipe anything set out of band: Learnosity credentials, POLICY_URL,
+  # BROKER_URL.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: Deploy
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        ENV_VARS="AUTH_URL=${_AUTH_URL},NODE_ENV=production"
+        # POLICY_URL and BROKER_URL turn on the brokered path. Pass both or
+        # neither: when both are empty the service keeps whatever it has, since
+        # an empty value under --update-env-vars would erase an out-of-band one.
+        if [ -n "${_POLICY_URL}" ] && [ -n "${_BROKER_URL}" ]; then
+          ENV_VARS="$${ENV_VARS},POLICY_URL=${_POLICY_URL},BROKER_URL=${_BROKER_URL}"
+        elif [ -n "${_POLICY_URL}${_BROKER_URL}" ]; then
+          echo "set both _POLICY_URL and _BROKER_URL, or neither" >&2
+          exit 1
+        fi
+        gcloud run deploy l0176 \
+          --platform=managed \
+          --image=gcr.io/$PROJECT_ID/l0176:$COMMIT_SHA \
+          --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID,branch=$BRANCH_NAME \
+          --region=$_DEPLOY_REGION \
+          --quiet \
+          --port=50176 \
+          --update-env-vars="$${ENV_VARS}" \
+          --allow-unauthenticated \
+          --min-instances=$_MIN_INSTANCES \
+          --max-instances=$_MAX_INSTANCES \
+          --memory=$_MEMORY
+
+images:
+  - 'gcr.io/$PROJECT_ID/l0176:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/l0176:latest'
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _DEPLOY_REGION: us-central1
+  _AUTH_URL: https://auth.graffiticode.org
+  _MIN_INSTANCES: '0'
+  _MAX_INSTANCES: '100'
+  _MEMORY: '512Mi'
+  # The policy and broker run.app URLs. Empty leaves the service's current
+  # values alone.
+  _POLICY_URL: ''
+  _BROKER_URL: ''
+
+tags:
+  - l0176
+  - production

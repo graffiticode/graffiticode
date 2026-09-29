@@ -1,0 +1,38 @@
+{
+  "publishConfig": {
+    "access": "public"
+  },
+  "name": "@graffiticode/l0176",
+  "version": "0.1.0",
+  "description": "L0176 — a Graffiticode dialect for Learnosity assessment items (Items/Questions/Author APIs) inheriting @graffiticode/l0000",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./spec/*": "./spec/*"
+  },
+  "files": [
+    "dist",
+    "spec"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-static": "node tools/build-static.js",
+    "test": "vitest run",
+    "lint": "eslint src tools"
+  },
+  "dependencies": {
+    "@graffiticode/l0000": "^0.6.0",
+    "learnosity-sdk-nodejs": "github:Learnosity/learnosity-sdk-nodejs",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@graffiticode/parser": "^1.6.1",
+    "@types/uuid": "^9.0.8",
+    "spec-md": "^3.1.0"
+  }
+}

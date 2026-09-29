@@ -1,0 +1,28 @@
+{
+  "id": "0176",
+  "summary": "Authors Learnosity-shaped assessment item JSON from natural-language descriptions. Use ONLY when the user names Learnosity — a Learnosity Item Bank, the Items API, or a Learnosity-integrated LMS. NOT a general quiz or assessment language: question type (multiple-choice, cloze, short text) is never the reason to choose it.",
+  "in_scope": [
+    "Learnosity multiple-choice (MCQ) items",
+    "Learnosity short-text and long-text response items",
+    "Learnosity cloze (fill-in-the-blank) items with text, dropdown, association, or formula blanks",
+    "Learnosity choice matrix, ordering, and classification items",
+    "Learnosity NGN/NCLEX bowtie items",
+    "Learnosity token-highlight items: highlight listed tokens within a passage",
+    "Learnosity math fill-in items with equivalence-based scoring",
+    "Learnosity spreadsheet-based assessment items",
+    "Learnosity concept-web assessment items",
+    "Learnosity custom items that embed interactive content authored in another Graffiticode dialect",
+    "Learnosity item-level metadata: tags, NGSS/CCSS/custom standards, DOK, difficulty",
+    "Learnosity question-level metadata: per-distractor rationale, notes, acknowledgements",
+    "Save-to-itembank for persistence vs. preview-only items"
+  ],
+  "out_of_scope": [
+    "Generic quizzes, tests, homework, and practice items that do not name Learnosity — no matter the question type. A request for \"a 5-question multiple-choice quiz on the water cycle\" is NOT an L0176 request",
+    "Assessment items for any platform other than Learnosity (e.g. Kahoot, Quizizz, Google Forms, Edulastic, OpenAssessments, Canvas Quizzes, Moodle, plain HTML quiz pages) — L0176 emits Learnosity-shaped JSON only",
+    "Activity-level assembly (timed tests, sections, branching) — use Learnosity Activities API",
+    "Delivery configuration (proctoring, time limits, attempt caps, accommodations)",
+    "Learner-side analytics (responses, mastery, reporting) — Learnosity Data / Reports APIs",
+    "Host-app embedding (React mounts, Canvas LTI) — handled by the host runtime",
+    "Raw Learnosity JSON patches — describe items in natural language; emit JSON, don't author it by hand"
+  ]
+}

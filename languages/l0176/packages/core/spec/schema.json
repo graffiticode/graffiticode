@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0176",
+  "title": "L0176",
+  "description": "Output of an L0176 program — a Learnosity render envelope. `type` selects the Learnosity API surface (questions/items/author); `data` holds the activity payload and `request` the signed request the browser SDK mounts.",
+  "type": "object",
+  "properties": {
+    "type": {
+      "description": "Which Learnosity API the result targets.",
+      "type": "string",
+      "enum": ["questions", "items", "author"]
+    },
+    "data": {
+      "description": "The activity payload (questions/items and their inline question data).",
+      "type": "object"
+    },
+    "request": {
+      "description": "The HMAC-signed Learnosity request the browser SDK initializes with.",
+      "type": "object"
+    }
+  }
+}
