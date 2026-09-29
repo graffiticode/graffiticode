@@ -352,6 +352,56 @@
         "languages/l0000",
         "configs/Dockerfile.l0000.yaml"
       ]
+    },
+    "l0176": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176",
+      "dockerfile": "configs/Dockerfile.l0176.yaml",
+      "port": 50176,
+      "access": "public",
+      "runtimeServiceAccount": "l0176-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0176",
+        "configs/Dockerfile.l0176.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0176",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0176",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org",
+        "LEARNOSITY_KEY": "UsF4dy1YxZd4JIyq",
+        "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+        "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app"
+      },
+      "secrets": {
+        "LEARNOSITY_SECRET": "learnosity-secret:1",
+        "GRAFFITICODE_SECRET_KEY": "GRAFFITICODE_SECRET_KEY:1"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
     }
   }
 }
