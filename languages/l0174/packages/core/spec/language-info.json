@@ -1,0 +1,27 @@
+{
+  "id": "0174",
+  "description": "The Graffiticode forms language. Compiles a natural-language description of a web form into a hosted, themed single-page form: an ordered list of typed fields (text, email, number, tel, url, textarea, select, radio, checkbox, date) with labels, validation (required, min/max, length, pattern), light/dark theming, and a submit affordance (button label plus thank-you message or redirect). The webhook a submission is delivered to is supplied as structured config, never inferred from the description.",
+  "supported_item_types": ["form"],
+  "example_prompts": [
+    {
+      "prompt": "Create a contact form titled 'Get in touch' with Name (text, required), Email (email, required), Company (text), and Message (textarea, required, at least 20 characters). Submit button reads 'Send'. Light theme. Show a thank-you message after submit.",
+      "produces": "form",
+      "notes": "Canonical contact form — exercises text/email/textarea, required, a minLength validation, a submit label, and a post-submit thank-you."
+    },
+    {
+      "prompt": "Make an RSVP form for a launch event. Fields: Full name (text, required), Email (email, required), Number of guests (number, min 0 max 5, required), Dietary notes (textarea). Dark theme.",
+      "produces": "form",
+      "notes": "Covers a numeric field with a min/max range and the dark theme."
+    },
+    {
+      "prompt": "Build a feedback form with a Topic dropdown (Sales, Support, Other; required), a Rating radio (1 to 5), and a Subscribe checkbox. Submit reads 'Submit'.",
+      "produces": "form",
+      "notes": "Exercises the choice field types — select and radio with options, plus a single boolean checkbox."
+    },
+    {
+      "prompt": "A newsletter signup with just an Email field (required, email) and a 'Join' button, dark theme.",
+      "produces": "form",
+      "notes": "Minimal single-field form — smallest useful output."
+    }
+  ]
+}

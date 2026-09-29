@@ -1,0 +1,20 @@
+{
+  "id": "0174",
+  "summary": "The Graffiticode forms language — compiles a description of a web form (fields, validation, theming, submit affordance) into a hosted, single-page form whose submissions can be delivered to a bound webhook.",
+  "in_scope": [
+    "Single-page forms with an ordered list of fields",
+    "Field types: text, email, number, tel, url, textarea, select, radio, checkbox, date",
+    "Per-field config: label, name, placeholder, help, required",
+    "Validation: min / max (number, date), minLength / maxLength, pattern (regex), required",
+    "Theming: light / dark (DARK / LIGHT tags)",
+    "Submit affordance: button label, post-submit thank-you message or redirect URL",
+    "Webhook binding supplied as structured config (config.webhook), never inferred from prose"
+  ],
+  "out_of_scope": [
+    "Multi-page or branching/conditional forms and conditional fields",
+    "File uploads, payments, e-signatures, calculated fields",
+    "Email notifications (delivery is via the bound webhook)",
+    "Tabular input or grading (use L0166); charts (use L0173); reshaping collected submissions (use L0170)",
+    "Arbitrary custom rendering beyond the supported field types"
+  ]
+}

@@ -1,0 +1,5 @@
+title 'Untitled form'
+fields [
+  text label 'Name' required true {}
+]
+submit 'Submit' {}..
