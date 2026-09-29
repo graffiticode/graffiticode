@@ -1,0 +1,8 @@
+concept-web [
+  hub text "Topic" {}
+  nodes [
+    node text "Idea A" {}
+    node text "Idea B" assess [expected] {}
+    node text "Idea C" assess [expected] {}
+  ] {}
+] title "Concept web" instructions "Drag each answer onto an empty node." {}..
