@@ -1,0 +1,24 @@
+{
+  "id": "0010",
+  "description": "The composition planning dialect. Given a natural-language request, it decomposes the work into an ordered sequence of Graffiticode language ids — a linear pipeline where each language consumes the data model produced by the next. A program is `plan [\"<id>\" ...]` and compiles to { langs: [...] } (one id = atomic, empty = no composition). It authors no content itself; it only decides which languages run and in what order.",
+  "supported_item_types": [
+    "language_sequence"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "Create a simple spreadsheet assessment for Learnosity.",
+      "produces": "language_sequence",
+      "notes": "Host L0158 describes-but-does-not-author the spreadsheet, so it consumes L0166 -> plan [\"0158\" \"0166\"]."
+    },
+    {
+      "prompt": "Make a multiple-choice question about France.",
+      "produces": "language_sequence",
+      "notes": "L0158 authors MCQs directly -> single-stage plan [\"0158\"]."
+    },
+    {
+      "prompt": "Build a budget-tracker spreadsheet.",
+      "produces": "language_sequence",
+      "notes": "L0166 authors spreadsheets directly -> plan [\"0166\"]."
+    }
+  ]
+}

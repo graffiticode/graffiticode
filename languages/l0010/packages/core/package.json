@@ -1,0 +1,33 @@
+{
+  "publishConfig": {
+    "access": "public"
+  },
+  "name": "@graffiticode/l0010",
+  "version": "0.1.0",
+  "description": "L0010 — the Graffiticode composition planning dialect (prompt → language sequence), inheriting @graffiticode/l0000",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./spec/*": "./spec/*"
+  },
+  "files": [
+    "dist",
+    "spec"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-static": "node tools/build-static.js",
+    "lint": "eslint src tools"
+  },
+  "dependencies": {
+    "@graffiticode/l0000": "^0.3.0"
+  },
+  "devDependencies": {
+    "spec-md": "^3.1.0"
+  }
+}

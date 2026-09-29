@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0010",
+  "title": "L0010",
+  "description": "Output of an L0010 program — a composition plan: the ordered sequence of Graffiticode language ids. langs[0] is the head; each id consumes the data model produced by the next.",
+  "type": "object",
+  "properties": {
+    "langs": {
+      "description": "Ordered language ids (head first). One id = atomic; empty = no composition.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\d{3,5}$"
+      }
+    }
+  },
+  "required": ["langs"]
+}

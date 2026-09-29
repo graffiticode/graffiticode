@@ -1,0 +1,49 @@
+{
+  "publishConfig": {
+    "access": "public"
+  },
+  "name": "@graffiticode/l0010-view",
+  "version": "0.1.0",
+  "description": "L0010 view — renders the composition plan (language sequence) through the shared View inherited from @graffiticode/l0000-view",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "scripts": {
+    "dev": "vite --config vite.embed.config.ts",
+    "build": "tsc -p tsconfig.json && vite build",
+    "build:embed": "vite build --config vite.embed.config.ts",
+    "preview": "vite preview --config vite.embed.config.ts",
+    "lint": "eslint src embed"
+  },
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@graffiticode/l0000-view": "^0.1.5"
+  },
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.59.1",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.13",
+    "vite": "^8.3.0",
+    "vite-plugin-dts": "^5.1.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "0010",
+  "summary": "Composition planning dialect — decomposes a request into an ordered sequence of Graffiticode language ids (a linear pipeline). Internal; not a user-facing authoring dialect.",
+  "in_scope": [
+    "Deciding whether a request needs one language or a composed pipeline",
+    "Producing an ordered language sequence: `plan [\"<id>\" ...]` -> { langs: [...] }",
+    "Adding a downstream stage when a language describes-but-does-not-author a content type another language produces"
+  ],
+  "out_of_scope": [
+    "Authoring any content itself (the listed languages do that)",
+    "Per-stage prompts, sub-tasks, or any value beyond the language sequence",
+    "Branching pipelines — composition is strictly linear (head consumes the next, recursively)"
+  ]
+}
