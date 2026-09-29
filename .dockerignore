@@ -12,6 +12,3 @@
 **/.env*
 **/*.key
 **/*.pem
-
-# Language services build from their own directory (languages/<lang>).
-languages/

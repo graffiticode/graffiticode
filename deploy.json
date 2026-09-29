@@ -296,6 +296,60 @@
         "POLICY_CALLERS": "policy-callers:1",
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1"
       }
+    },
+    "l0000": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0000",
+      "dockerfile": "configs/Dockerfile.l0000.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0000-run@graffiticode.iam.gserviceaccount.com",
+      "exclude": [
+        "docs",
+        "server.cert",
+        "server.key",
+        "packages"
+      ],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0000",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0000",
+          "args": [
+            "test"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0000",
+          "args": [
+            "test",
+            "-w",
+            "packages/view"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
     }
   }
 }
