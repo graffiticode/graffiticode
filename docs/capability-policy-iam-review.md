@@ -1,7 +1,7 @@
 # Capability policy — Phase 1 IAM & data-boundary review
 
-> **Status:** partly applied. Written 2026-09-25; §1.0b records what is live as of 2026-09-28,
-> including steps applied out of order and two interim deny policies that are not in §3.
+> **Status:** Phase 1 complete, 2026-09-30. §1.0c records the final state; §1.0b and §1.0 are
+> the history (steps applied out of order, and interim deny policies since removed).
 > Scope: GCP project `graffiticode` (us-central1) — `auth`, `api`, compilers `l0NNN`,
 > and the planned `policy` and `broker` services. Design context:
 > `console/docs/graffiticode_capability_policy_spec.md`.
@@ -10,13 +10,54 @@
 repo file (path given). **[UNVERIFIED]** = inferred or a GCP default. Needs confirming with the
 §1.4 commands before any step in §3 runs.
 
-**Live read status:** read 2026-09-27 and again 2026-09-28 with the §1.4 commands (as
-`jeff@artcompiler.com`). **§1.0b (2026-09-28) is the current state and supersedes §1.0; both
-supersede every [UNVERIFIED] below that they cover.**
+**Live read status:** read 2026-09-27, 2026-09-28 and 2026-09-30 with the §1.4 commands (as
+`jeff@artcompiler.com`). **§1.0c (2026-09-30) is the current state and supersedes §1.0b and
+§1.0; all three supersede every [UNVERIFIED] below that they cover.**
 
 ---
 
 ## 1. Current state
+
+### 1.0c Final state, 2026-09-30 [LIVE]
+
+Steps 1–9 are done. No workload runs as a default service account, and neither default
+account holds any project role.
+
+| Step | Final state |
+|---|---|
+| 1 SAs | One per service: `api-run`, `auth-run`, `policy-run`, `broker-run`, and `lNNNN-run` for all 41 compilers. Plus `deploy-build` and `deploy-smoke` for the deploy CLI |
+| 2 Deployers | `deploy-build` builds (the deploy CLI's builds run as it); Artifact Registry repo `services` exists. The compiler repos still deploy through the legacy Cloud Build SA |
+| 3 Roles | Compiler SAs hold no project roles (they need none). `l0158-run` and `l0176-run` read `learnosity-secret` and `GRAFFITICODE_SECRET_KEY`; `l0013-run` has `storage.objectAdmin` on `gs://graffiticode.appspot.com` |
+| 4 Databases | `policy`, `broker`, `(default)`: each limited to its own SA(s); delete protection on for all three |
+| 5 Key and secrets | Unchanged from §1.0b |
+| 6 Move services | **Every Cloud Run service runs as its own SA.** The last 27 compilers moved 2026-09-30 with `services update --service-account`, each checked by compiling its published `template.gc` against a same-day baseline (no regressions, none reverted) |
+| 7 Invokers | Unchanged from §1.0b |
+| 8 Shared secrets | Compute SA's access to `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` removed; readers are now `l0158-run` and `l0176-run` only |
+| 9 Strip Editor | `roles/editor` removed from the compute SA and `graffiticode@appspot`; neither holds any project role. The compute SA's `tokenCreator` on itself is removed too. The only Editor holders left are Google-managed service agents (`cloudservices`, `containerregistry`) |
+
+**Interim controls removed.** Deny policies `deny-compute-deploy` and `deny-compute-firestore`
+were deleted once the Policy Troubleshooter showed nothing grants the compute SA
+`run.services.update`, `iam.serviceAccounts.actAs` or `datastore.entities.get`. The org-level
+`roles/iam.denyAdmin` grant made to create them was removed. The GitHub Actions SAs remain
+disabled with no keys or roles (delete them after a quiet period).
+
+**Verified 2026-09-30.** All 41 compilers were compiled after Step 9: 33 compile; the other 8
+fail exactly as before any IAM change (template or input-data problems, and `l0156`'s missing
+Anthropic key). `api`, `auth` and `console` answer 200, and no service logged a permission
+error after Editor was removed. Pre-change policies are saved in the session scratchpad only.
+
+**Still open (outside Phase 1)**
+
+- The legacy Cloud Build SA keeps project-wide `run.admin`, `serviceAccountUser`,
+  `storage.admin`, `firebase.admin` and `serviceusage.apiKeysAdmin`, because the compiler repos
+  deploy through it. Narrowing it means moving those repos to the deploy CLI or a scoped build SA.
+- Org policy `iam.automaticIamGrantsForDefaultServiceAccounts` is not enforced; enforce it at the
+  org so new projects' default SAs don't get Editor.
+- Compilers stay publicly invokable by design (§3.1).
+- `l0156` has no Anthropic API key configured, and several compilers publish a `template.gc`
+  that does not compile on its own (`l0001`, `l0157`, `l0165`).
+- `auth` puts refresh tokens in request URLs (`GET /oauth-tokens?refresh_token=…`), so they land
+  in request logs.
 
 ### 1.0b Live state and progress, 2026-09-28 [LIVE]
 
