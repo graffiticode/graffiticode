@@ -75,8 +75,10 @@ const buildAddInternal = ({ linkedEmailsService }) => buildHttpHandler(async (re
   }
 });
 
-const buildLookupInternal = ({ linkedEmailsService }) => buildHttpHandler(async (req, res) => {
-  const email = typeof req.query.email === "string" ? req.query.email : "";
+// The email arrives in the body (POST): an email in a URL lands in the request
+// logs. The GET form remains until its callers move to POST.
+const buildLookupInternal = ({ linkedEmailsService }, emailOf = req => req.body?.email) => buildHttpHandler(async (req, res) => {
+  const email = typeof emailOf(req) === "string" ? emailOf(req) : "";
   if (!isNonEmptyString(email)) {
     throw new InvalidArgumentError("must provide email");
   }
@@ -116,7 +118,9 @@ export const buildLinkedEmailsRouter = (deps) => {
 
   // Server-to-server routes (X-Internal-API-Key required).
   router.post("/internal", requireInternalAuth, buildAddInternal(deps));
-  router.get("/internal/lookup", requireInternalAuth, buildLookupInternal(deps));
+  router.post("/internal/lookup", requireInternalAuth, buildLookupInternal(deps));
+  // Deprecated: the email travels in the URL. Remove once callers use POST.
+  router.get("/internal/lookup", requireInternalAuth, buildLookupInternal(deps, req => req.query.email));
   router.post("/internal/sign-in", requireInternalAuth, buildSignInInternal(deps));
 
   return router;
