@@ -229,6 +229,24 @@ describe("routes/tasks", () => {
     expect(getRes.headers["cache-control"]).toBe("private, max-age=31536000, immutable");
   });
 
+  it("should never let an edge cache a not-found", async () => {
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
+    const res = await request(app)
+      .post("/tasks")
+      .set("Authorization", token)
+      .send({ task: TASK1 })
+      .expect(200);
+    const id = res.body.data.id;
+
+    // An anonymous probe of a private task is a 404. Cached, it was served to
+    // the owner too, because the edge's cache key ignores Authorization.
+    const getRes = await request(app)
+      .get("/tasks")
+      .query({ id })
+      .expect(404);
+    expect(getRes.headers["cache-control"]).toBe("no-store");
+  });
+
   it("get from same storage type", async () => {
     const createResponse = await request(app)
       .post("/tasks")

@@ -45,6 +45,12 @@ export const parseAuthTokenFromRequest = req => {
 
 const handleError = (err, res, next) => {
   if (err instanceof HttpError) {
+    // Errors are never cacheable. With no Cache-Control, Cloudflare's rule on
+    // /task and /data stored 404s under its default TTL and served them to every
+    // caller — its cache key ignores Authorization — so one anonymous probe of a
+    // private task hid it from its owner, and a just-published item stayed 404.
+    // Also overrides any immutable header a route set before it threw.
+    setNoStoreCacheHeaders(res);
     res
       .status(err.statusCode)
       .json(createErrorResponse(createError(err.code, err.message)));

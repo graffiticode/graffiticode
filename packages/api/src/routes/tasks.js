@@ -51,11 +51,14 @@ const buildGetTaskHandler = ({ taskStorer }) => {
 
 export const buildPostTasks = ({ taskStorer }) => {
   return async ({ auth, tasks, req }) => {
+    tasks = !Array.isArray(tasks) && [tasks] || tasks;
+    // Counts and sizes only: a task's code is the program's AST, which carries
+    // user content, and that must never reach logs.
     console.log(
       "postTasks()",
-      "tasks=" + JSON.stringify(tasks, null, 2),
+      `count=${tasks.length}`,
+      `bytes=${tasks.map(t => JSON.stringify(t ?? null).length).join(",")}`,
     );
-    tasks = !Array.isArray(tasks) && [tasks] || tasks;
     if (tasks.length < 1) {
       throw new InvalidArgumentError("must provide at least one task");
     }

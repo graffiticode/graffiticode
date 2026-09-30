@@ -92,6 +92,7 @@ export const createApp = ({ authUrl } = {}) => {
   // Error handling
   app.use((err, req, res, next) => {
     console.error(err);
+    res.set("Cache-Control", "no-store");
     res.sendStatus(500);
   });
 
