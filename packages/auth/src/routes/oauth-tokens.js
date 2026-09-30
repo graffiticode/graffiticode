@@ -64,15 +64,10 @@ const buildCreate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
   sendSuccessResponse(res, { token });
 });
 
-// Where a request carries the token that names an entry. The body routes are
-// the ones to use: a token in a URL (query or path) lands in the request logs.
-// The URL forms remain only until every caller has moved to the body routes.
-const fromBody = req => req.body ?? {};
-const fromQuery = req => req.query ?? {};
-const fromPath = req => req.params ?? {};
-
-const buildGet = ({ oauthTokensService }, tokensOf = fromBody) => buildHttpHandler(async (req, res) => {
-  const { access_token, refresh_token } = tokensOf(req);
+// Tokens that name an entry always travel in the request body: a token in a
+// URL (query or path) lands in the request logs.
+const buildGet = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
+  const { access_token, refresh_token } = req.body ?? {};
 
   let token;
   if (isNonEmptyString(access_token)) {
@@ -90,8 +85,8 @@ const buildGet = ({ oauthTokensService }, tokensOf = fromBody) => buildHttpHandl
   sendSuccessResponse(res, { token });
 });
 
-const buildUpdate = ({ oauthTokensService }, tokensOf = fromBody) => buildHttpHandler(async (req, res) => {
-  const { access_token } = tokensOf(req);
+const buildUpdate = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
+  const { access_token } = req.body ?? {};
 
   if (!isNonEmptyString(access_token)) {
     throw new InvalidArgumentError("must provide access_token");
@@ -119,8 +114,8 @@ const buildUpdate = ({ oauthTokensService }, tokensOf = fromBody) => buildHttpHa
   sendSuccessResponse(res, { token });
 });
 
-const buildDelete = ({ oauthTokensService }, tokensOf = fromBody) => buildHttpHandler(async (req, res) => {
-  const { access_token } = tokensOf(req);
+const buildDelete = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
+  const { access_token } = req.body ?? {};
 
   if (!isNonEmptyString(access_token)) {
     throw new InvalidArgumentError("must provide access_token");
@@ -195,12 +190,6 @@ export const buildOAuthTokensRouter = deps => {
   router.post("/update", buildUpdate(deps));
   router.post("/delete", buildDelete(deps));
   router.post("/rotate", buildRotate(deps));
-
-  // Deprecated: the token travels in the URL. Remove once callers use the
-  // body routes above.
-  router.get("/", buildGet(deps, fromQuery));
-  router.patch("/:access_token", buildUpdate(deps, fromPath));
-  router.delete("/:access_token", buildDelete(deps, fromPath));
 
   return router;
 };

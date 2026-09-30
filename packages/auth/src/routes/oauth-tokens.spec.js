@@ -58,10 +58,10 @@ describe("routes/oauth-tokens", () => {
     await request(app).post("/oauth-tokens/lookup").send({ access_token: "at-1" }).expect(403);
   });
 
-  it("still serves the deprecated URL forms", async () => {
-    const res = await request(app).get("/oauth-tokens?access_token=at-1").set("X-Internal-API-Key", KEY).expect(200);
-    expect(res.body.data.token).toHaveProperty("refresh_token", "rt-1");
-    await request(app).delete("/oauth-tokens/at-1").set("X-Internal-API-Key", KEY).expect(200);
-    expect(service.calls).toEqual([["delete", "at-1"]]);
+  it("no longer accepts a token in the URL", async () => {
+    await request(app).get("/oauth-tokens?access_token=at-1").set("X-Internal-API-Key", KEY).expect(404);
+    await request(app).delete("/oauth-tokens/at-1").set("X-Internal-API-Key", KEY).expect(404);
+    await request(app).patch("/oauth-tokens/at-1").set("X-Internal-API-Key", KEY).send({ firebase_id_token: "x" }).expect(404);
+    expect(service.calls).toEqual([]);
   });
 });
