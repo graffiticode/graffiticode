@@ -56,7 +56,22 @@ describe("connection lifecycle", () => {
     await manager.create({ caller: CONSOLE, user: { uid: OTHER }, backend: "learnosity", credential: CRED });
     const rows = await manager.list({ caller: CONSOLE, user: { uid: OWNER } });
     expect(rows).toHaveLength(1);
-    expect(Object.keys(rows[0]).sort()).toEqual(["backend", "connectionId", "label", "status"]);
+    expect(Object.keys(rows[0]).sort()).toEqual(["backend", "connectionId", "label", "status", "system"]);
+    expect(rows[0].system).toBe(false);
+  });
+
+  it("marks a configured system connection in the owner's list", async () => {
+    const mine = await create();
+    const other = await create({ label: "Other" });
+    const sysManager = createConnectionManager({
+      connections,
+      brokerAdmin: { createSecret: async () => {}, rotateSecret: async () => {}, deleteSecret: async () => {} },
+      audit: async () => {},
+      systemConnections: { learnosity: mine.connectionId }
+    });
+    const rows = await sysManager.list({ caller: CONSOLE, user: { uid: OWNER } });
+    const byId = Object.fromEntries(rows.map(r => [r.connectionId, r.system]));
+    expect(byId).toEqual({ [mine.connectionId]: true, [other.connectionId]: false });
   });
 
   it("rotates the secret in place, keeping the connection id, owner and backend", async () => {

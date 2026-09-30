@@ -3,7 +3,8 @@
 // place it is stored, sealed) and is never stored, returned or logged by
 // policy. Every change is audited as a lifecycle event.
 //
-//   list     the owner's connections (no secrets)
+//   list     the owner's connections (no secrets); system marks a configured
+//            system connection (preview signing only, never writes)
 //   create   new connection: secret to the broker first, then the record, so a
 //            record never exists without its credential
 //   rotate   replace the secret; grants attach to the connection, so they
@@ -94,7 +95,11 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
     async list({ caller, user }) {
       await requireConsole(caller, { event: "connection-list", uid: user?.uid });
       const rows = await connections.listByOwner(user.uid);
-      return rows.map(({ connectionId, backend, status, label }) => ({ connectionId, backend, status, label }));
+      // system marks a configured system connection: it signs system previews
+      // only and is refused for invocations, so the console must not offer it
+      // as a connection to save through.
+      return rows.map(({ connectionId, backend, status, label }) =>
+        ({ connectionId, backend, status, label, system: isSystemConnection(connectionId) }));
     },
 
     async create({ caller, user, backend, label = null, credential }) {
