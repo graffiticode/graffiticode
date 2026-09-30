@@ -133,7 +133,9 @@ test("every program fragment in spec/ compiles, not merely parses", async () => 
   }
   expect(bad, `${bad.length} of ${ok + bad.length} fragments failed to compile:\n${bad.join("\n")}`)
     .toEqual([]);
-});
+  // Compiles every fragment in the spec: well under a second locally, but past
+  // Vitest's 5 s default on a small Cloud Build machine.
+}, 30_000);
 
 // A cloze blank is placed by the *template*. The stimulus is the prompt above
 // it and is not scanned for `{{response}}`, so a question written with the
