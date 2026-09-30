@@ -65,6 +65,17 @@ function getPos(ctx) {
   return ctx.scan.stream.pos;
 }
 
+// A stack's first line is the error message, which can carry program source
+// (an unterminated string's message runs to the end of the program). Log the
+// message's length and the frames, never the message itself.
+function redactedStack(x) {
+  if (!(x instanceof Error)) {
+    return `non-Error ${typeof x}`;
+  }
+  const frames = String(x.stack || "").split("\n").filter(l => /^\s+at /.test(l));
+  return `${x.name} msgLen=${String(x.message).length}\n${frames.join("\n")}`;
+}
+
 export function assertErr(ctx, b, str, coord) {
   if (!b) {
     // Push error into state errors collection
@@ -1608,7 +1619,7 @@ export const parse = (function () {
         if (x.message === "comment") {
           cls = x;
         } else {
-          console.log("catch() x=" + x.stack);
+          console.log("catch() " + redactedStack(x));
 
           // Add generic "Syntax Error" message if not already handled
           if (!Ast.hasSyntaxError(ctx)) {
@@ -1624,7 +1635,7 @@ export const parse = (function () {
         // throw x
         next(ctx);
         cls = "error";
-        console.log(x.stack);
+        console.log("catch() " + redactedStack(x));
 
         // Add generic "Syntax Error" message for non-Error exceptions too
         if (!Ast.hasSyntaxError(ctx)) {

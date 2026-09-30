@@ -323,9 +323,12 @@ export class Ast {
   // Node constructors
 
   static error(ctx, str, coord) {
+    // Length only: error text can carry program source (an unterminated
+    // string's message runs to the end of the program), and source is
+    // user content that must never reach logs.
     console.log(
       "error()",
-      "str=" + str,
+      "len=" + String(str).length,
       "coord=" + JSON.stringify(coord),
     );
     const from = coord?.from !== undefined ? coord.from : -1;
