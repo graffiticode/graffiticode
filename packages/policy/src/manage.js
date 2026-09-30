@@ -73,11 +73,14 @@ const validCredential = ({ key, secret } = {}) =>
   typeof key === "string" && key.length > 0 && key.length <= 256 &&
   typeof secret === "string" && secret.length > 0 && secret.length <= 1024;
 
-export const createConnectionManager = ({ connections, brokerAdmin, audit, grants = null }) => {
+export const createConnectionManager = ({ connections, brokerAdmin, audit, grants = null, systemConnections = {} }) => {
   const deny = async (reason, record) => {
     await audit({ ...record, outcome: "denied", reason });
     throw new PolicyDenied(reason);
   };
+  // A configured system connection is never shared: sharing it would hand its
+  // preview authority to a named account outside the system preview path.
+  const isSystemConnection = connectionId => Object.values(systemConnections).includes(connectionId);
   const requireConsole = (caller, record) =>
     caller?.role !== "console" ? deny("caller-not-entry-point", record) : null;
   const owned = async (user, connectionId, record) => {
@@ -164,6 +167,7 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       await requireConsole(caller, record);
       if (!grants) return deny("unavailable", record);
       const connection = await owned(user, connectionId, record);
+      if (isSystemConnection(connectionId)) return deny("system-connection", record);
       if (connection.status !== "active") return deny("connection-disabled", record);
       if ((recipientUid === null) === (recipientEmailHash === null)) return deny("bad-request", record);
       if (recipientUid !== null && !ID_RE.test(recipientUid)) return deny("bad-request", record);
@@ -202,6 +206,7 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       await requireConsole(caller, record);
       if (!grants) return deny("unavailable", record);
       const connection = await owned(user, connectionId, record);
+      if (isSystemConnection(connectionId)) return deny("system-connection", record);
       const grant = typeof grantId === "string" ? await grants.get(grantId) : null;
       if (!grant || grant.connectionId !== connectionId) return deny("grant-not-found", record);
       if (expiresAt !== null && !(typeof expiresAt === "string" && Date.parse(expiresAt) > Date.now())) return deny("bad-request", record);

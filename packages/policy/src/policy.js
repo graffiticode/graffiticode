@@ -67,8 +67,13 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // Who may use a connection, read live: its owner, or a recipient with an
   // unexpired grant from that owner. `ownerUid` pins the owner a session or
   // publication was issued under, so a changed owner stops it.
+  // A configured system connection serves only system preview sessions: no
+  // user, publication or grant reaches it, its owner included, so it can never
+  // write, sign Author or back a publication.
+  const isSystemConnection = connectionId => Object.values(systemConnections).includes(connectionId);
   const accessFor = async (connection, uid, { ownerUid } = {}) => {
     if (!connection) return { refusal: "connection-not-found" };
+    if (isSystemConnection(connection.connectionId)) return { refusal: "system-connection" };
     if (connection.status !== "active") return { refusal: "connection-disabled" };
     if (ownerUid !== undefined && connection.ownerUid !== ownerUid) return { refusal: "owner-changed" };
     if (connection.ownerUid === uid) return { owner: true };

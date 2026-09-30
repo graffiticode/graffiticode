@@ -60,7 +60,7 @@ const publications = createFirestorePublicationStore(db);
 const grants = createFirestoreGrantStore(db);
 const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations, publications, grants, systemConnections, audit });
 const idToken = createIdTokenSource({ GoogleAuth });
-const manager = createConnectionManager({ connections, grants, audit, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
+const manager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
 const authClient = createAuthClient(authUrl);
 const verifyUser = async token => ({ uid: (await authClient.verifyToken(token)).uid });
 

@@ -173,3 +173,39 @@ describe("delegation", () => {
     });
   });
 });
+
+describe("the configured system connection", () => {
+  let sysPolicy;
+  let sysManager;
+  beforeEach(async () => {
+    const pair = await generateKeyPair("ES256", { extractable: true });
+    const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
+    const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
+    const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
+    const systemConnections = { learnosity: "conn-1" };
+    sysPolicy = createPolicy({
+      signer, jwks, connections, grants, audit, systemConnections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore()
+    });
+    sysManager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin: { createSecret: async () => {}, rotateSecret: async () => {}, deleteSecret: async () => {} } });
+  });
+  const sysInvoke = uid => sysPolicy.allocateInvocation({ caller: GATEWAY, user: { uid }, connectionId: "conn-1", taskId: "task-1", inputDigest: hash("in") });
+
+  it("is not an ordinary connection, even for its owner: no invocation, so no write, Author or publication", async () => {
+    await denied(sysInvoke(OWNER), "system-connection");
+    await denied(sysPolicy.createPublication({
+      caller: GATEWAY, user: { uid: OWNER }, connectionId: "conn-1", taskId: "task-1", lang: "0176", artifactInvocationId: "inv-1"
+    }), "system-connection");
+  });
+
+  it("cannot be shared, and a grant made before it became the system connection reaches nothing", async () => {
+    await denied(sysManager.share({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", recipientUid: ALICE, permissions: SAVE }), "system-connection");
+    await grants.put({ grantId: grantIdFor({ connectionId: "conn-1", recipientUid: ALICE }), connectionId: "conn-1", ownerUid: OWNER, recipientUid: ALICE, permissions: SAVE });
+    await denied(sysManager.update({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", grantId: grantIdFor({ connectionId: "conn-1", recipientUid: ALICE }), permissions: SAVE }), "system-connection");
+    await denied(sysInvoke(ALICE), "system-connection");
+  });
+
+  it("still serves system preview sessions", async () => {
+    const { allowed } = await sysPolicy.previewSession({ caller: L0176, lang: "0176" });
+    expect(allowed).toEqual(["preview-itembank"]);
+  });
+});

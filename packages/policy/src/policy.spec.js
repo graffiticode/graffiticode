@@ -550,7 +550,7 @@ describe("system preview sessions", () => {
     await denied(mintWith(await issueToken(signer, "session", { ...base, sub: OWNER, sys: true })), "bad-session");
   });
 
-  it("leaves the system connection unusable by users who do not own it", async () => {
+  it("leaves the system connection unusable as an ordinary connection", async () => {
     await denied(sys.snapshot({
       caller: L0176,
       user: { uid: OWNER },
@@ -559,6 +559,6 @@ describe("system preview sessions", () => {
       fns: ["preview-itembank"],
       invocationToken: await issueToken(signer, "invocation", { sub: OWNER, conn: "conn-sys", inv: "inv-1", seq: 1 }),
       stage: "s0"
-    }), "not-owner");
+    }), "system-connection");
   });
 });
