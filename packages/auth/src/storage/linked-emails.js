@@ -117,6 +117,27 @@ const buildTransferEmail = () => async ({ email, fromUid, toUid }) => {
   return toRecord(snap);
 };
 
+// Substring search over linked emails, returning owning uids only. Reads the
+// whole collection (email + uid fields) and filters in memory: fine while the
+// collection is small, but it is a full scan per call. If linked-emails grows,
+// replace this with an index (e.g. n-gram tokens) or a search service.
+const buildSearchUidsByEmailFragment = () => async ({ fragment, limit }) => {
+  const db = getFirestore();
+  const needle = normalize(fragment);
+  const snap = await db.collection("linked-emails").select("uid", "email").get();
+  const uids = [];
+  const seen = new Set();
+  for (const doc of snap.docs) {
+    const { uid, email } = doc.data() || {};
+    if (!uid || seen.has(uid) || typeof email !== "string") continue;
+    if (!email.includes(needle)) continue;
+    seen.add(uid);
+    uids.push(uid);
+    if (uids.length >= limit) break;
+  }
+  return uids;
+};
+
 export const buildLinkedEmailStorer = () => ({
   create: buildCreate(),
   findByEmail: buildFindByEmail(),
@@ -124,6 +145,7 @@ export const buildLinkedEmailStorer = () => ({
   listByUid: buildListByUid(),
   removeById: buildRemoveById(),
   transferEmail: buildTransferEmail(),
+  searchUidsByEmailFragment: buildSearchUidsByEmailFragment(),
 });
 
 // Exported for tests + email-invite/transfer storage modules that share the

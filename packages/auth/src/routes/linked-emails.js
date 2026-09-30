@@ -9,6 +9,10 @@ import { isNonEmptyString } from "@graffiticode/common/utils";
 import { Router } from "express";
 
 import { requireInternalAuth } from "../middleware/internal-auth.js";
+import {
+  EMAIL_SEARCH_MAX_RESULTS as SEARCH_MAX_RESULTS,
+  EMAIL_SEARCH_MIN_LENGTH as SEARCH_MIN_LENGTH,
+} from "../services/linked-emails.js";
 
 const requireUser = (req) => {
   if (!req.auth) {
@@ -90,6 +94,20 @@ const buildLookupInternal = ({ linkedEmailsService }, emailOf = req => req.body?
   sendSuccessResponse(res, { matched: true, uid: record.uid, id: record.id });
 });
 
+// Partial-match search for account typeahead: uids whose linked email contains
+// the fragment. The fragment travels in the body (never the URL, which lands in
+// request logs), and the response carries uids only — never an email.
+const buildSearchInternal = ({ linkedEmailsService }) => buildHttpHandler(async (req, res) => {
+  const raw = req.body?.fragment;
+  const fragment = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (fragment.length < SEARCH_MIN_LENGTH) {
+    throw new InvalidArgumentError(`fragment must be at least ${SEARCH_MIN_LENGTH} characters`);
+  }
+  const found = await linkedEmailsService.search({ fragment });
+  const uids = [...new Set((found || []).filter(uid => typeof uid === "string"))].slice(0, SEARCH_MAX_RESULTS);
+  sendSuccessResponse(res, { uids });
+});
+
 // Combined lookup + custom-token mint, used by the console's email-signin
 // resolver. The console can't mint Firebase custom tokens itself: its admin
 // SDK runs in a different project than the one the client signs into, and
@@ -121,6 +139,7 @@ export const buildLinkedEmailsRouter = (deps) => {
   router.post("/internal/lookup", requireInternalAuth, buildLookupInternal(deps));
   // Deprecated: the email travels in the URL. Remove once callers use POST.
   router.get("/internal/lookup", requireInternalAuth, buildLookupInternal(deps, req => req.query.email));
+  router.post("/internal/search", requireInternalAuth, buildSearchInternal(deps));
   router.post("/internal/sign-in", requireInternalAuth, buildSignInInternal(deps));
 
   return router;
