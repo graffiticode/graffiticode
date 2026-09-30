@@ -40,7 +40,7 @@ list's settings after its `]` — ends in exactly one `{}` after its last word.
 | `palette` | `<list record: record>` | The colours plots take in order, e.g. `palette ["blue-500" "amber-500" "#10b981"]`. Tailwind tokens or hex codes. |
 | `background` | `<string record: record>` | The background colour behind every chart. |
 | `show-chart-tabs` | `<boolean record: record>` | Show a tab per chart. Defaults to true with two or more charts, false with one. |
-| `hide-chart-menu` | `<boolean record: record>` | Hide the chart menu, which lists every chart. Defaults to false. |
+| `show-chart-menu` | `<boolean record: record>` | Show the chart menu, which lists every chart. Defaults to false. |
 | `dataset-id` | `<string record: record>` | Which dataset a chart's column names refer to. May be left out when exactly one dataset is visible. |
 | `width` | `<number|string record: record>` | A chart's width, in pixels or as a percentage like "100%". Defaults to "100%". |
 | `height` | `<number record: record>` | A chart's height in pixels. Defaults to 384. |

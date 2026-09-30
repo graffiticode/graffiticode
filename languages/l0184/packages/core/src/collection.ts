@@ -3,11 +3,12 @@
  * The collection: every program is one `charts [ … ] settings {}`, even with a single chart —
  * one canonical shape, mirroring L0179's `sheets [ sheet … ]`.
  *
- * Navigation follows L0179's sheets: charts keep source order; ids default to c1, c2, …; names
- * default to ids; the first chart is selected; the chart menu shows even for one chart; tabs
- * show once there are two or more; `show-chart-tabs` and `hide-chart-menu` override those, and
- * turning both off with several charts is an error, because no chart but the first could then
- * be reached.
+ * Navigation mostly follows L0179's sheets: charts keep source order; ids default to c1, c2, …;
+ * names default to ids; the first chart is selected; tabs show once there are two or more. Unlike
+ * L0179, the chart menu is off unless `show-chart-menu true` asks for it — a lone chart has nothing
+ * to pick, and with several the tabs already list them. Turning tabs off with several charts and
+ * no menu is an error, because no chart but the first could then be reached. (The envelope still
+ * says `hideMenu`, which the published view reads.)
  *
  * The envelope always carries `type`, `charts` and a complete `view`. The shared View merges a
  * compile's top-level keys into its model, so replacing these whole objects on every compile is
@@ -52,10 +53,11 @@ export function buildCollection(
 
   const n = items.charts.length;
   const showTabs = settings.showChartTabs ?? n >= 2;
-  const hideMenu = settings.hideChartMenu ?? false;
-  if (n > 1 && !showTabs && hideMenu) {
+  const showMenu = settings.showChartMenu ?? false;
+  const hideMenu = !showMenu;
+  if (n > 1 && !showTabs && !showMenu) {
     throw new Error(
-      "charts: `show-chart-tabs false` with `hide-chart-menu true` leaves no way to reach any chart but the first. Keep the tabs or the menu.",
+      "charts: `show-chart-tabs false` without `show-chart-menu true` leaves no way to reach any chart but the first. Keep the tabs, or add show-chart-menu true.",
     );
   }
 

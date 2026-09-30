@@ -33,7 +33,7 @@ charts [
 - `charts [ … ] settings {}` is the program. Its list holds `chart`s, and optionally one
   `datasets` shared by every chart. Its settings, after the outer `]`, apply to the whole
   collection: `title`, `instructions`, `theme`, `palette`, `background`, `show-chart-tabs`,
-  `hide-chart-menu`.
+  `show-chart-menu`.
 - `chart [ … ] settings {}` is one chart. Its list holds its parts — `plots` (required), and
   optionally `axes`, `datasets`, `legend`, `tooltip`, each at most once. Its settings come after
   its `]`: `id`, `name`, `title`, `subtitle`, `description`, `dataset-id`, `width`, `height`,
@@ -173,7 +173,7 @@ To show kinds that cannot share, put each in its own chart of the collection.
 ## Several charts
 
 A collection shows one chart at a time. With two or more charts, a tab for each appears under the
-chart, and a menu lists them all:
+chart; `show-chart-menu true` adds a menu that lists them all. A single chart shows neither:
 
 ```
 charts [
@@ -183,8 +183,8 @@ charts [
 ```
 
 Charts keep the order written. `id`s default to c1, c2, …, must differ, and `name` (the tab label)
-defaults to the id. `show-chart-tabs` and `hide-chart-menu` change what shows; both off with two
-or more charts is an error. Plots that cannot share a chart (see above) go in separate charts of
+defaults to the id. `show-chart-tabs false` hides the tabs; with two or more charts it then needs
+`show-chart-menu true`, or no chart but the first can be reached. Plots that cannot share a chart (see above) go in separate charts of
 the collection.
 
 ## Legends, tooltips and labels
@@ -225,7 +225,7 @@ is the order plots take colours in; `background` sets what is behind every chart
 | `palette` | `<list record: record>` | The colours plots take in order, e.g. palette ["blue-500" "amber-500" "#10b981"]. Tailwind tokens or hex codes. |
 | `background` | `<string record: record>` | The background colour behind every chart. |
 | `show-chart-tabs` | `<boolean record: record>` | Show a tab per chart. Defaults to true with two or more charts, false with one. |
-| `hide-chart-menu` | `<boolean record: record>` | Hide the chart menu, which lists every chart. Defaults to false. |
+| `show-chart-menu` | `<boolean record: record>` | Show the chart menu, which lists every chart. Defaults to false. |
 | `dataset-id` | `<string record: record>` | Which dataset a chart's column names refer to. May be left out when exactly one dataset is visible. |
 | `width` | `<number|string record: record>` | A chart's width, in pixels or as a percentage like "100%". Defaults to "100%". |
 | `height` | `<number record: record>` | A chart's height in pixels. Defaults to 384. |
@@ -320,7 +320,7 @@ is the order plots take colours in; `background` sets what is behind every chart
 
 | Container | Settings |
 | --- | --- |
-| `charts` | title, instructions, theme, palette, background, show-chart-tabs, hide-chart-menu |
+| `charts` | title, instructions, theme, palette, background, show-chart-tabs, show-chart-menu |
 | `chart` | id, name, title, subtitle, description, dataset-id, width, height, animation |
 | `datasets` | — |
 | `axes` | — |

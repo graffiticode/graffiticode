@@ -167,10 +167,10 @@ export const chainFields: Record<string, AttributeMeta> = {
     expects: "boolean",
     description: "Show a tab per chart. Defaults to true with two or more charts, false with one.",
   },
-  HIDE_CHART_MENU: {
-    field: "hideChartMenu",
+  SHOW_CHART_MENU: {
+    field: "showChartMenu",
     expects: "boolean",
-    description: "Hide the chart menu, which lists every chart. Defaults to false.",
+    description: "Show the chart menu, which lists every chart. Defaults to false.",
   },
   DATASET_ID: {
     field: "datasetId",
@@ -555,7 +555,7 @@ export const labelPositions: Record<string, string[]> = {
 
 /** Which settings each container's settings chain accepts. */
 export const validSettings: Record<string, string[]> = {
-  charts: ["title", "instructions", "theme", "palette", "background", "show-chart-tabs", "hide-chart-menu"],
+  charts: ["title", "instructions", "theme", "palette", "background", "show-chart-tabs", "show-chart-menu"],
   chart: ["id", "name", "title", "subtitle", "description", "dataset-id", "width", "height", "animation"],
   datasets: [],
   axes: [],

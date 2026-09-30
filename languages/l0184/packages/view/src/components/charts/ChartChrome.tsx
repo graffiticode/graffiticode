@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 /**
  * The bar below the chart: a chart menu and a tab strip, arranged as L0179 arranges its sheets
- * (menu at the left, tabs to its right) and governed by the same two rules the compiler encodes:
- * the menu shows even for one chart unless `hide-chart-menu true`; tabs show with two or more
- * charts unless `show-chart-tabs` says otherwise.
+ * (menu at the left, tabs to its right) and governed by the two rules the compiler encodes: the
+ * menu shows only with `show-chart-menu true` (the envelope carries it as `hideMenu`); tabs show
+ * with two or more charts unless `show-chart-tabs` says otherwise. With neither, no bar.
  *
  * Accessibility is built here, not inherited from the markup:
  *

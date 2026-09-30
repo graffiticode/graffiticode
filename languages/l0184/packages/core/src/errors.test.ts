@@ -125,7 +125,7 @@ describe("errors", () => {
     expect(await errorOf("charts [ chart [ axes [ axis categories [\"a\"] {} axis direction Y {} ] {} plots [ plot kind BAR values [1] {} ] {} ]  {} ] {}")).toBe("chart \"c1\" axis 1: needs a direction, X, Y or RADIAL, e.g. axis direction X {}.");
   });
   it("navBothOff", async () => {
-    expect(await errorOf("charts [ chart [ plots [ plot kind BAR values [1] {} ] {} ] {} chart [ plots [ plot kind BAR values [1] {} ] {} ] {} ] show-chart-tabs false hide-chart-menu true {}")).toBe("charts: `show-chart-tabs false` with `hide-chart-menu true` leaves no way to reach any chart but the first. Keep the tabs or the menu.");
+    expect(await errorOf("charts [ chart [ plots [ plot kind BAR values [1] {} ] {} ] {} chart [ plots [ plot kind BAR values [1] {} ] {} ] {} ] show-chart-tabs false {}")).toBe("charts: `show-chart-tabs false` without `show-chart-menu true` leaves no way to reach any chart but the first. Keep the tabs, or add show-chart-menu true.");
   });
   it("badColor", async () => {
     expect(await errorOf("charts [ chart [  plots [ plot kind BAR values [1] color \"blu-500\" {} ] {} ]  {} ] {}")).toBe("chart \"c1\" plot 1 color: \"blu-500\" is not a colour. Use a Tailwind token like \"blue-500\" (shades 50–950) or a hex code like \"#3b82f6\".");

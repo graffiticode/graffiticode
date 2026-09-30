@@ -25,7 +25,7 @@ describe("the envelope", () => {
     const out = await compile(one("plot kind BAR values [1 2 3] {}"));
     expect(Object.keys(out).sort()).toEqual(["charts", "type", "view"]);
     expect(out.type).toBe("charts");
-    expect(out.view).toEqual({ theme: "light", renderer: "canvas", locale: "EN", showTabs: false, hideMenu: false });
+    expect(out.view).toEqual({ theme: "light", renderer: "canvas", locale: "EN", showTabs: false, hideMenu: true });
     expect(out.charts).toHaveLength(1);
     expect(out.charts[0]).toMatchObject({ id: "c1", name: "c1", view: { width: "100%", height: 384, empty: false } });
   });
@@ -210,14 +210,16 @@ describe("several charts", () => {
     expect(out.charts.map((c: any) => [c.id, c.name])).toEqual([["c1", "c1"], ["two", "Second"]]);
     expect(out.charts[0].option.title.text).toBe("One");
     expect(out.charts[1].option.title).toBeUndefined();
-    expect(out.view).toMatchObject({ showTabs: true, hideMenu: false });
+    expect(out.view).toMatchObject({ showTabs: true, hideMenu: true });
   });
 
-  it("follows show-chart-tabs and hide-chart-menu", async () => {
-    const out = await compile(
-      `charts [ chart [ plots [ plot kind BAR values [1] {} ] {} ] {} ] show-chart-tabs true hide-chart-menu true {}`,
+  it("shows the chart menu only when asked, and follows show-chart-tabs", async () => {
+    const one = await compile(`charts [ chart [ plots [ plot kind BAR values [1] {} ] {} ] {} ] show-chart-tabs true show-chart-menu true {}`);
+    expect(one.view).toMatchObject({ showTabs: true, hideMenu: false });
+    const menuOnly = await compile(
+      `charts [ chart [ plots [ plot kind BAR values [1] {} ] {} ] {} chart [ plots [ plot kind BAR values [2] {} ] {} ] {} ] show-chart-tabs false show-chart-menu true {}`,
     );
-    expect(out.view).toMatchObject({ showTabs: true, hideMenu: true });
+    expect(menuOnly.view).toMatchObject({ showTabs: false, hideMenu: false });
   });
 });
 
