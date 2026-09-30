@@ -27,6 +27,9 @@ export default defineConfig({
         "react-dom/client",
         "react/jsx-runtime",
         "@graffiticode/l0000-view",
+        // ECharts is a dependency: consumers resolve it once from node_modules rather than
+        // carrying a second copy inside this library.
+        /^echarts($|\/)/,
       ],
     },
     sourcemap: true,
