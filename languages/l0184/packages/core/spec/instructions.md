@@ -1,13 +1,14 @@
 # L0184 — charts
 
-L0184 draws **charts** with Apache ECharts: bar, line, pie (donut, rose) and scatter plots, over
-data written inline or in datasets, one chart or a collection of charts shown as tabs.
+L0184 draws **charts** with Apache ECharts: bar, line, pie (donut, rose), scatter, histogram,
+box plot, candlestick, heatmap, funnel, gauge and radar plots, over data written inline or in
+datasets, one chart or a collection of charts shown as tabs.
 
 OUT_OF_SCOPE: spreadsheets and editable tables are L0179; concept maps and other diagrams are
 L0183; Venn diagrams are L0171; quizzes and assessment items are L0180. Fetching or transforming
 data from a URL or a file is not built yet: L0184 plots only the data given in the request.
-Histograms, box plots, candlesticks, heatmaps, funnels, gauges, radar charts, reference lines,
-network charts (graph, sankey, tree, treemap, sunburst) and maps are not built yet.
+Reference and trend lines, annotations, colour scales the author configures, network charts
+(graph, sankey, tree, treemap, sunburst) and maps are not built yet.
 
 **Every description ends in exactly one `{}`, after its last word — every `plot`, `axis`,
 `dataset`, `legend`, `tooltip` and `label`, and every list's settings after its `]`.** Leaving a
@@ -50,7 +51,8 @@ collection goes after the OUTER `]`. A `title` written inside a chart's `[ … ]
 
 ## Data: a list, or a column name
 
-Every data word — `values`, `names`, `categories`, `x`, `y` — takes **either an inline list or
+Every data word — `values`, `names`, `categories`, `x`, `y`, `group`, `open`, `close`, `low`,
+`high` — takes **either an inline list or
 a string naming a column** of the chart's dataset:
 
 ```
@@ -79,6 +81,9 @@ charts [
 - A chart's column names refer to its selected dataset: the one named by `dataset-id` in its
   settings, or the only dataset it can see. With two or more visible, write `dataset-id "…"`.
 - A plot's `name` defaults to the column its values come from.
+- A column is always one flat list. The two forms that nest lists — a BOXPLOT's `values` as one
+  list per category, a HEATMAP's matrix — are written inline; from a dataset, use the flat forms
+  (`values` with `group`, and `x`, `y` and `values`).
 
 ## Plot kinds and their data
 
@@ -88,6 +93,13 @@ charts [
 | `LINE` | `values`, one per category — OR — `x` and `y` pairs | Never both. Use `x`/`y` for numbers or dates across. `null` in `values`/`y` leaves a gap. |
 | `PIE` | `names` and `values`, one per slice | Values 0 or above, no `null`. One PIE per chart; no axes. |
 | `SCATTER` | `x` and `y`, one per point; optional `names` | Always `x` and `y` — never `values`. Named points are labelled. |
+| `FUNNEL` | `names` and `values`, one per stage | As PIE. Drawn largest first. One FUNNEL per chart; no axes. |
+| `HISTOGRAM` | `values`: raw observations, one flat list | Counted into `bin-count` equal-width bins (default: Sturges' rule), each from its lower edge up to its upper; the last includes the maximum. Never counts you already have — for those, use BAR. No `null`. One per chart. |
+| `BOXPLOT` | `values` with `group` (the category of each value) — OR — `values` as one list per category | Never `group` with nested `values`. Quartiles, whiskers at 1.5 × IQR, outliers as points. No `null`. At most one BOXPLOT per category axis. |
+| `CANDLESTICK` | `open`, `close`, `low` and `high`, one each per category | `low` at most `open` and `close`; `high` at least both. |
+| `HEATMAP` | `values` as a matrix, one row per Y category, one cell per X category — OR — `x`, `y` and `values`, one each per cell | A matrix needs `categories` on both axes; its first row is the top row. Cells name each (x, y) once; `null` or a missing cell is empty. One per chart. |
+| `GAUGE` | `value`: one number | Within `min-value` and `max-value` (default 0 to 100). One to four GAUGEs per chart; no axes. |
+| `RADAR` | `values`, one per spoke | Drawn on the chart's RADIAL axis. `area true` fills it. |
 
 Lengths that pair up must match: `values` and the axis's `categories`, `x` and `y`, `names` and
 `values`.
@@ -121,8 +133,42 @@ charts [
   the other side (TOP, RIGHT) unless `position` says otherwise.
 - Bounds are `min-value` and `max-value`. A LOG axis shows only values above 0.
 - Put `categories` on the Y axis for a horizontal bar chart.
-- A BAR, or a LINE of `values`, needs one CATEGORY axis and one LINEAR or LOG axis. An x/y LINE
-  or a SCATTER needs LINEAR, LOG or TIME axes.
+- A BAR, a LINE of `values`, a BOXPLOT or a CANDLESTICK needs one CATEGORY axis and one LINEAR
+  or LOG axis. An x/y LINE or a SCATTER needs LINEAR, LOG or TIME axes. A HEATMAP needs two
+  CATEGORY axes (its axes default to CATEGORY).
+- A HISTOGRAM's axes are generated — its bins across a CATEGORY X axis, their counts up a LINEAR
+  Y axis. `axes` may only name them (`axis direction X name "Score" {}`).
+
+## Radar charts: the RADIAL axis
+
+A RADAR chart has exactly one axis, `direction RADIAL`, and no X or Y axis. Its `categories` are
+the spokes — at least 3, all different — and every RADAR plot gives one value per spoke:
+
+```
+charts [
+  chart [
+    axes [ axis direction RADIAL categories ["Speed" "Power" "Range" "Cost" "Comfort"] {} ] {}
+    plots [
+      plot kind RADAR name "Model A" values [8 6 7 4 9] area true {}
+      plot kind RADAR name "Model B" values [5 9 6 7 6] {}
+    ] {}
+  ] title "Two models compared" {}
+] {}..
+```
+
+- Every spoke shares one scale. `min-value` defaults to 0; `max-value` defaults to a round
+  number (1, 2 or 5 × a power of ten) above the largest value. Values below 0 need `min-value`.
+- A RADIAL axis takes `categories`, `name`, `min-value` and `max-value` — never `position` or
+  `rotate` — and its scale is always CATEGORY.
+
+## What may share a chart
+
+- BAR, LINE, SCATTER, BOXPLOT and CANDLESTICK share X and Y axes and may be combined.
+- A HISTOGRAM, HEATMAP, FUNNEL or PIE takes a chart of its own, alone.
+- GAUGEs share a chart only with other GAUGEs: one to four, side by side.
+- RADAR plots share a chart only with other RADAR plots.
+
+To show kinds that cannot share, put each in its own chart of the collection.
 
 ## Several charts
 
@@ -138,26 +184,30 @@ charts [
 
 Charts keep the order written. `id`s default to c1, c2, …, must differ, and `name` (the tab label)
 defaults to the id. `show-chart-tabs` and `hide-chart-menu` change what shows; both off with two
-or more charts is an error. A PIE and a BAR/LINE/SCATTER cannot share a chart — put them in
-separate charts of the collection.
+or more charts is an error. Plots that cannot share a chart (see above) go in separate charts of
+the collection.
 
 ## Legends, tooltips and labels
 
-- A legend shows by default with two or more plots, or for a pie. `legend show false {}` hides
+- A legend shows by default with two or more plots, or for a pie or funnel; never by default for
+  gauges. `legend show false {}` hides
   it; `legend position TOP {}` moves it (TOP, BOTTOM, LEFT, RIGHT; default BOTTOM).
-- While a legend shows, the names in it must differ: two plots, or two pie slices, with one name
-  are an error, because the legend turns entries on and off by name.
-- A tooltip shows by default: AXIS (everything at a category) for BAR and LINE of values, ITEM
-  (one point or slice) otherwise. `tooltip trigger ITEM {}` or `tooltip show false {}` change it.
+- While a legend shows, the names in it must differ: two plots, or two pie slices or funnel
+  stages, with one name are an error, because the legend turns entries on and off by name. A
+  BOXPLOT's outliers share its entry.
+- A tooltip shows by default: AXIS (everything at a category) for charts of BAR, LINE of values,
+  BOXPLOT or CANDLESTICK, ITEM (one point, cell or slice) otherwise. `tooltip trigger ITEM {}` or `tooltip show false {}` change it.
 - `label` puts text on bars, points or slices: `label show true position TOP formatter "{c}" {}`.
   In `formatter`, {a} is the plot name, {b} the category or slice name, {c} the value, {d} a
   pie slice's percent. Positions: BAR and SCATTER TOP, BOTTOM, LEFT, RIGHT, INSIDE; LINE TOP,
-  BOTTOM, LEFT, RIGHT; PIE INSIDE, OUTSIDE, CENTER.
+  BOTTOM, LEFT, RIGHT; PIE INSIDE, OUTSIDE, CENTER; HISTOGRAM as BAR; HEATMAP INSIDE; FUNNEL
+  INSIDE, OUTSIDE, LEFT, RIGHT.
 
 ## Colours
 
 Colours are Tailwind tokens (`"blue-500"`, shades 50–950) or hex codes (`"#3b82f6"`). `color`
-colours a plot; `colors` gives one per bar or per slice; `palette` in the collection's settings
+colours a plot; `colors` gives one per bar, slice or funnel stage; a HEATMAP's colour scale is
+generated from its values; `palette` in the collection's settings
 is the order plots take colours in; `background` sets what is behind every chart.
 `theme DARK` switches every chart to the dark theme.
 
@@ -165,16 +215,6 @@ is the order plots take colours in; `background` sets what is behind every chart
 
 | Word | Signature | Meaning |
 | --- | --- | --- |
-| `charts` | `<list record: record>` | The program: its datasets and charts, then the collection's settings (title, instructions, theme, palette, …). |
-| `chart` | `<list record: record>` | One chart: its parts (datasets, axes, plots, legend, tooltip), then its settings (id, name, title, …). |
-| `datasets` | `<list record: record>` | A list of datasets, then `{}`. |
-| `axes` | `<list record: record>` | A chart's axes, then `{}`. |
-| `plots` | `<list record: record>` | A chart's plots, then `{}`. |
-| `dataset` | `<record: record>` | A table of data, e.g. dataset id "sales" columns ["month" "revenue"] rows [["Jan" 120]] {}. |
-| `axis` | `<record: record>` | One axis, e.g. axis id "month" direction X scale CATEGORY categories "month" {}. |
-| `plot` | `<record: record>` | One plot, e.g. plot kind BAR values "revenue" {}. |
-| `legend` | `<record: record>` | A chart's legend, e.g. legend show true position TOP {}. |
-| `tooltip` | `<record: record>` | A chart's tooltip, e.g. tooltip trigger ITEM {}. |
 | `id` | `<string record: record>` | A name other parts refer to. Charts default to c1, c2, …; datasets to d1, d2, …; axes to x1, y1, …; plots to p1, p2, …. |
 | `name` | `<string record: record>` | A label people see: a chart's tab name, an axis title, or a plot's legend entry. A plot's name defaults to the column its values come from. |
 | `title` | `<string record: record>` | A heading: above a chart, or, after the outer `]`, above the whole collection. |
@@ -192,26 +232,33 @@ is the order plots take colours in; `background` sets what is behind every chart
 | `animation` | `<boolean record: record>` | Animate the chart as it draws. Defaults to true. |
 | `columns` | `<list record: record>` | A dataset's column names, in order, e.g. columns ["month" "revenue"]. |
 | `rows` | `<list record: record>` | A dataset's rows: lists in column order, e.g. rows [["Jan" 120] ["Feb" 132]], or records, e.g. rows [{month: "Jan" revenue: 120}]. |
-| `direction` | `<tag record: record>` | Which way an axis runs: X (across) or Y (up). Required. |
+| `direction` | `<tag record: record>` | Which way an axis runs: X (across), Y (up), or RADIAL (the spokes of a radar chart). Required. |
 | `scale` | `<tag record: record>` | An axis's scale: CATEGORY, LINEAR, LOG or TIME. Defaults to CATEGORY when the axis has categories, LINEAR otherwise. |
 | `categories` | `<list|string record: record>` | A CATEGORY axis's steps: a list, or the name of a dataset column, e.g. categories "month". |
-| `min-value` | `<number|string record: record>` | Where a numeric or time axis starts. Defaults to fitting the data. |
-| `max-value` | `<number|string record: record>` | Where a numeric or time axis ends. Defaults to fitting the data. |
+| `min-value` | `<number|string record: record>` | Where a numeric, time or RADIAL axis starts, or the bottom of a GAUGE's dial (default 0). Defaults to fitting the data on an axis, 0 on a RADIAL axis. |
+| `max-value` | `<number|string record: record>` | Where a numeric, time or RADIAL axis ends, or the top of a GAUGE's dial (default 100). On a RADIAL axis it defaults to a round number above the largest value. |
 | `position` | `<tag record: record>` | Where something sits. An X axis: BOTTOM or TOP. A Y axis: LEFT or RIGHT. A legend: TOP, BOTTOM, LEFT or RIGHT. A label: see its plot kind. |
 | `inverse` | `<boolean record: record>` | Run an axis the other way. Defaults to false. |
 | `rotate` | `<number record: record>` | Rotate an axis's labels by this many degrees, from -90 to 90. |
-| `kind` | `<tag record: record>` | What a plot draws: BAR, LINE, PIE or SCATTER. Required. |
+| `kind` | `<tag record: record>` | What a plot draws: BAR, LINE, PIE, SCATTER, HISTOGRAM, BOXPLOT, CANDLESTICK, HEATMAP, FUNNEL, GAUGE or RADAR. Required. |
 | `x-axis` | `<string record: record>` | The id of the X axis a plot is drawn against. May be left out when the chart has one X axis. |
 | `y-axis` | `<string record: record>` | The id of the Y axis a plot is drawn against. May be left out when the chart has one Y axis. |
-| `values` | `<list|string record: record>` | A plot's values: a list, or the name of a dataset column. One per category for BAR and LINE, one per slice for PIE. |
-| `names` | `<list|string record: record>` | A PIE's slice names, or a SCATTER's point names: a list, or a column name. |
-| `x` | `<list|string record: record>` | The x of each point, for SCATTER and x/y LINE: a list, or a column name. |
-| `y` | `<list|string record: record>` | The y of each point, for SCATTER and x/y LINE: a list, or a column name. |
+| `values` | `<list|string record: record>` | A plot's values: a list, or the name of a dataset column. One per category for BAR and LINE, one per spoke for RADAR, one per slice for PIE and FUNNEL, raw observations for HISTOGRAM and BOXPLOT, and rows of cells (or one per x/y pair) for HEATMAP. |
+| `names` | `<list|string record: record>` | A PIE's or FUNNEL's slice names, or a SCATTER's point names: a list, or a column name. |
+| `x` | `<list|string record: record>` | The x of each point, for SCATTER and x/y LINE, or each cell's X category for a HEATMAP written as x/y/values: a list, or a column name. |
+| `y` | `<list|string record: record>` | The y of each point, for SCATTER and x/y LINE, or each cell's Y category for a HEATMAP written as x/y/values: a list, or a column name. |
+| `value` | `<number record: record>` | A GAUGE's reading: one number within its min-value and max-value (0 to 100 by default). |
+| `bin-count` | `<number record: record>` | How many equal-width bins a HISTOGRAM uses: a whole number above 0. Defaults to Sturges' rule. |
+| `group` | `<list|string record: record>` | Which category each BOXPLOT value belongs to, one per value: a list, or a column name, e.g. group "class". |
+| `open` | `<list|string record: record>` | A CANDLESTICK's opening values, one per category: a list, or a column name. |
+| `close` | `<list|string record: record>` | A CANDLESTICK's closing values, one per category: a list, or a column name. |
+| `low` | `<list|string record: record>` | A CANDLESTICK's lowest values, one per category: a list, or a column name. |
+| `high` | `<list|string record: record>` | A CANDLESTICK's highest values, one per category: a list, or a column name. |
 | `color` | `<string record: record>` | A plot's colour: a Tailwind token like "blue-500", or a hex code. |
 | `colors` | `<list record: record>` | One colour per bar (BAR) or per slice (PIE), in order. |
 | `stack` | `<string record: record>` | Stack BAR or LINE plots that share this group name, e.g. stack "total". Category values only. |
 | `smooth` | `<boolean record: record>` | Draw a LINE as a smooth curve. |
-| `area` | `<boolean record: record>` | Fill the area under a LINE. |
+| `area` | `<boolean record: record>` | Fill the area under a LINE, or inside a RADAR plot. |
 | `step` | `<tag record: record>` | Draw a LINE as steps: START, MIDDLE or END. Not with smooth. |
 | `symbol` | `<tag record: record>` | The marker on a LINE or SCATTER: CIRCLE, RECT, TRIANGLE, DIAMOND, PIN, ARROW, NONE. |
 | `symbol-size` | `<number record: record>` | The marker's size in pixels. |
@@ -224,6 +271,16 @@ is the order plots take colours in; `background` sets what is behind every chart
 | `show` | `<boolean record: record>` | Whether a label, legend or tooltip shows. |
 | `formatter` | `<string record: record>` | A label's template: {a} is the plot name, {b} the category or slice name, {c} the value, {d} a PIE slice's percent, e.g. "{b}: {d}%". |
 | `trigger` | `<tag record: record>` | What a tooltip reports: AXIS (everything at a category) or ITEM (one bar, point or slice). |
+| `dataset` | `<record: record>` | A table of data, e.g. dataset id "sales" columns ["month" "revenue"] rows [["Jan" 120]] {}. |
+| `axis` | `<record: record>` | One axis, e.g. axis id "month" direction X scale CATEGORY categories "month" {}. |
+| `plot` | `<record: record>` | One plot, e.g. plot kind BAR values "revenue" {}. |
+| `legend` | `<record: record>` | A chart's legend, e.g. legend show true position TOP {}. |
+| `tooltip` | `<record: record>` | A chart's tooltip, e.g. tooltip trigger ITEM {}. |
+| `charts` | `<list record: record>` | The program: its datasets and charts, then the collection's settings (title, instructions, theme, palette, …). |
+| `chart` | `<list record: record>` | One chart: its parts (datasets, axes, plots, legend, tooltip), then its settings (id, name, title, …). |
+| `datasets` | `<list record: record>` | A list of datasets, then `{}`. |
+| `axes` | `<list record: record>` | A chart's axes, then `{}`. |
+| `plots` | `<list record: record>` | A chart's plots, then `{}`. |
 
 ## Which parts each container holds
 
@@ -238,7 +295,7 @@ is the order plots take colours in; `background` sets what is behind every chart
 | --- | --- |
 | `dataset` | id, columns, rows |
 | `axis` | id, direction, scale, categories, name, position, min-value, max-value, inverse, rotate |
-| `plot` | id, kind, name, x-axis, y-axis, values, names, x, y, color, colors, stack, smooth, area, step, symbol, symbol-size, bar-width, inner-radius, radius, rose, start-angle, label |
+| `plot` | id, kind, name, x-axis, y-axis, values, names, x, y, color, colors, stack, smooth, area, step, symbol, symbol-size, bar-width, inner-radius, radius, rose, start-angle, label, value, min-value, max-value, bin-count, group, open, close, low, high |
 | `label` | show, position, formatter |
 | `legend` | show, position |
 | `tooltip` | show, trigger |
@@ -251,6 +308,13 @@ is the order plots take colours in; `background` sets what is behind every chart
 | `LINE` | id, kind, name, x-axis, y-axis, values, x, y, color, stack, smooth, area, step, symbol, symbol-size, label |
 | `PIE` | id, kind, name, names, values, colors, inner-radius, radius, rose, start-angle, label |
 | `SCATTER` | id, kind, name, x-axis, y-axis, x, y, names, color, symbol, symbol-size, label |
+| `HISTOGRAM` | id, kind, name, x-axis, y-axis, values, bin-count, color, label |
+| `BOXPLOT` | id, kind, name, x-axis, y-axis, values, group, color |
+| `CANDLESTICK` | id, kind, name, x-axis, y-axis, open, close, low, high |
+| `HEATMAP` | id, kind, name, x-axis, y-axis, values, x, y, label |
+| `FUNNEL` | id, kind, name, names, values, colors, label |
+| `GAUGE` | id, kind, name, value, min-value, max-value, color |
+| `RADAR` | id, kind, name, values, color, area |
 
 ## Which settings each container takes
 
@@ -349,5 +413,76 @@ charts [
         y [11.5 null 13.2 12.8] symbol CIRCLE {}
     ] {}
   ] title "Daily high" {}
+] {}..
+```
+
+A histogram of raw scores, with named axes:
+
+```
+charts [
+  chart [
+    axes [ axis direction X name "Score" {} axis direction Y name "Students" {} ] {}
+    plots [ plot kind HISTOGRAM name "Scores" values [52 61 64 68 70 71 73 75 78 81 84 90 93] bin-count 5 {} ] {}
+  ] title "Test scores" {}
+] {}..
+```
+
+Box plots from a dataset, one box per class:
+
+```
+charts [
+  datasets [
+    dataset columns ["class" "minutes"]
+      rows [["A" 12] ["A" 15] ["A" 14] ["A" 30] ["B" 22] ["B" 25] ["B" 21] ["B" 24] ["B" 60]] {}
+  ] {}
+  chart [
+    axes [ axis direction X categories ["A" "B"] {} axis direction Y name "Minutes" {} ] {}
+    plots [ plot kind BOXPLOT values "minutes" group "class" {} ] {}
+  ] title "Time on task by class" {}
+] {}..
+```
+
+A candlestick of daily prices:
+
+```
+charts [
+  chart [
+    axes [ axis direction X categories ["Mon" "Tue" "Wed" "Thu"] {} axis direction Y name "USD" {} ] {}
+    plots [
+      plot kind CANDLESTICK name "ACME" open [20 24 23 27] close [24 23 27 26]
+        low [19 22 22 25] high [25 25 28 28] {}
+    ] {}
+  ] title "ACME this week" {}
+] {}..
+```
+
+A heatmap written as a matrix, one row per Y category:
+
+```
+charts [
+  chart [
+    axes [
+      axis direction X categories ["Mon" "Tue" "Wed" "Thu" "Fri"] {}
+      axis direction Y categories ["Morning" "Afternoon"] {}
+    ] {}
+    plots [ plot kind HEATMAP name "Visits" values [[5 8 6 9 4] [7 null 10 8 3]] label show true {} {} ] {}
+  ] title "Visits by day and time" {}
+] {}..
+```
+
+A funnel, and three gauges, as two charts of one collection:
+
+```
+charts [
+  chart [
+    plots [ plot kind FUNNEL names ["Visited" "Signed up" "Paid"] values [1000 240 60] {} ] {}
+  ] id "funnel" name "Conversion" {}
+  chart [
+    plots [
+      plot kind GAUGE name "CPU" value 64 {}
+      plot kind GAUGE name "Memory" value 81 {}
+      plot kind GAUGE name "Temp °C" value 58 min-value 20 max-value 90 {}
+    ] {}
+  ] id "health" name "Health" {}
 ] {}..
 ```

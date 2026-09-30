@@ -148,17 +148,35 @@ export function selectDataset(
   return { selected: ids.length === 1 ? visible.get(ids[0])! : null, visible: ids };
 }
 
-/** Resolve a data property: an inline list as written, or a column of the selected dataset. */
+/**
+ * Resolve a data property: an inline list as written, or a column of the selected dataset.
+ *
+ * `shape` says what the property may hold. `flat` (the default) is a list of primitive cells.
+ * `nested` is a list of lists of primitive cells — a BOXPLOT's per-category observations or a
+ * HEATMAP's matrix — and can only be written inline: a column is always flat, so datasets use
+ * the grouped or long forms instead (`values` + `group`, `x` + `y` + `values`).
+ */
 export function resolveData(
   value: any,
   prop: string,
   selected: Dataset | null,
   visible: string[],
   where: string,
-): { values: Cell[]; column?: string } {
+  shape: "flat" | "nested" = "flat",
+): { values: any[]; column?: string } {
   if (Array.isArray(value)) {
-    value.forEach((v, i) => checkCell(v, `${where}: ${prop} item ${i + 1}`));
+    if (shape === "nested") {
+      value.forEach((row, i) => {
+        if (!Array.isArray(row)) throw new Error(`${where}: ${prop} item ${i + 1} must be a list in [brackets] — this form is a list of lists.`);
+        row.forEach((v: any, j: number) => checkCell(v, `${where}: ${prop} item ${i + 1}, value ${j + 1}`));
+      });
+    } else {
+      value.forEach((v, i) => checkCell(v, `${where}: ${prop} item ${i + 1}`));
+    }
     return { values: value };
+  }
+  if (shape === "nested") {
+    throw new Error(`${where}: ${prop} "${value}" names a column, but a column is a flat list and this form needs a list of lists. With a dataset, use the long form: x, y and values for a HEATMAP, or values and group for a BOXPLOT.`);
   }
   if (!selected) {
     const why = visible.length

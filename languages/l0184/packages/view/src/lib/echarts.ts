@@ -4,20 +4,47 @@
  * second half of adding a plot kind — the compiler may emit only what is registered.
  */
 import * as echarts from "echarts/core";
-import { BarChart, LineChart, PieChart, ScatterChart } from "echarts/charts";
-import { AriaComponent, GridComponent, LegendComponent, TitleComponent, TooltipComponent } from "echarts/components";
+import {
+  BarChart,
+  BoxplotChart,
+  CandlestickChart,
+  FunnelChart,
+  GaugeChart,
+  HeatmapChart,
+  LineChart,
+  PieChart,
+  RadarChart,
+  ScatterChart,
+} from "echarts/charts";
+import {
+  AriaComponent,
+  GridComponent,
+  LegendComponent,
+  RadarComponent,
+  TitleComponent,
+  TooltipComponent,
+  VisualMapContinuousComponent,
+} from "echarts/components";
 import { CanvasRenderer, SVGRenderer } from "echarts/renderers";
 
 echarts.use([
   BarChart,
+  BoxplotChart,
+  CandlestickChart,
+  FunnelChart,
+  GaugeChart,
+  HeatmapChart,
   LineChart,
   PieChart,
+  RadarChart,
   ScatterChart,
   AriaComponent,
   GridComponent,
   LegendComponent,
+  RadarComponent,
   TitleComponent,
   TooltipComponent,
+  VisualMapContinuousComponent,
   CanvasRenderer,
   SVGRenderer,
 ]);

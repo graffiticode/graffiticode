@@ -20,6 +20,19 @@ for (const f of ["spec/spec.md", "spec/instructions.md"]) {
   }
 }
 programs.push({ from: "spec/template.gc", src: readFileSync("spec/template.gc", "utf-8") });
+// Browser acceptance: a box plot's legend entry toggles its box and outliers together, and the
+// outliers stay on their boxes through a resize, for vertical and horizontal boxes.
+for (const [from, axes] of [
+  ["acceptance: vertical boxes", `axis direction X categories ["A" "B"] {} axis direction Y {}`],
+  ["acceptance: horizontal boxes", `axis direction X {} axis direction Y categories ["A" "B"] {}`],
+]) {
+  programs.push({
+    from,
+    src: `charts [ chart [ axes [ ${axes} ] {} plots [
+  plot name "Minutes" kind BOXPLOT values [[12 15 14 30 13 16] [22 25 21 24 60 2]] {}
+] {} legend show true {} ] {} ] {}..`,
+  });
+}
 const out = [];
 for (const p of programs) out.push({ from: p.from, src: p.src, data: await compile(p.src) });
 writeFileSync("../view/embed/fixtures.json", JSON.stringify(out, null, 1));

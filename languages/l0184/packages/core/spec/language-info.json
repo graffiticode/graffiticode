@@ -1,7 +1,9 @@
 {
   "id": "0184",
-  "description": "Charts drawn with Apache ECharts — bar, line, pie (donut, rose) and scatter plots, combined bar-and-line charts with a second axis, linear, log, category and time axes. Data is written inline or as a table with named columns that several charts share, and a collection of charts is shown as tabs. Successor to L0173.",
-  "supported_item_types": ["charts"],
+  "description": "Charts drawn with Apache ECharts — bar, line, pie (donut, rose), scatter, histogram, box plot, candlestick, heatmap, funnel, gauge and radar plots, combined bar-and-line charts with a second axis, linear, log, category and time axes. Data is written inline or as a table with named columns that several charts share, and a collection of charts is shown as tabs. Successor to L0173.",
+  "supported_item_types": [
+    "charts"
+  ],
   "example_prompts": [
     {
       "prompt": "Bar chart of monthly revenue for January to April: 120, 132, 101, 134.",
@@ -22,6 +24,16 @@
       "prompt": "From this table of months, revenue and cost, show a trend chart and a cost breakdown as two tabs.",
       "produces": "charts",
       "notes": "One shared `datasets` in the outer list; two charts whose plots name columns (`values \"revenue\"`)."
+    },
+    {
+      "prompt": "Box plot of quiz scores by class: A 72, 75, 78, 80, 84, 91; B 60, 68, 70, 74, 77, 99.",
+      "produces": "charts",
+      "notes": "Raw observations, grouped: `plot kind BOXPLOT values [[72 75 78 80 84 91] [60 68 70 74 77 99]] {}` with `categories [\"A\" \"B\"]` on the X axis. Quartiles and outliers are computed."
+    },
+    {
+      "prompt": "Radar chart comparing two cars on speed, power, range and cost.",
+      "produces": "charts",
+      "notes": "One `axis direction RADIAL categories [\"Speed\" \"Power\" \"Range\" \"Cost\"] {}` and a `plot kind RADAR values […] {}` per car."
     },
     {
       "prompt": "Chart the data at this URL.",

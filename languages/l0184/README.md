@@ -1,7 +1,8 @@
 # L0184 — charts
 
-A Graffiticode dialect for charts drawn with Apache ECharts: bar, line, pie (donut, rose) and
-scatter plots over inline data or datasets, one chart or a collection shown as tabs. Built on
+A Graffiticode dialect for charts drawn with Apache ECharts: bar, line, pie (donut, rose),
+scatter, histogram, box plot, candlestick, heatmap, funnel, gauge and radar plots over inline data
+or datasets, one chart or a collection shown as tabs. Built on
 `@graffiticode/l0000`. Replaces L0173.
 
 ```

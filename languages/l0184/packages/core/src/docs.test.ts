@@ -172,12 +172,12 @@ describe("examples.md", () => {
   });
 
   test("prompts ask for content, not for code", () => {
-    const codey = prompts.filter((l) => /\b(charts|plots|axes|datasets) \[|\bplot kind\b|\{\}|\.\.$|\bkind (BAR|LINE|PIE|SCATTER)\b|\bdirection [XY]\b/.test(l));
+    const codey = prompts.filter((l) => /\b(charts|plots|axes|datasets) \[|\bplot kind\b|\{\}|\.\.$|\bkind (BAR|LINE|PIE|SCATTER|HISTOGRAM|BOXPLOT|CANDLESTICK|HEATMAP|FUNNEL|GAUGE|RADAR)\b|\bdirection (X|Y|RADIAL)\b/.test(l));
     expect(codey).toEqual([]);
   });
 
   test("nothing asks for a chart L0184 does not build yet", () => {
-    const offside = prompts.filter((l) => /\b(histogram|heatmap|heat map|box plot|boxplot|candlestick|funnel|gauge|radar|sankey|treemap|sunburst|choropleth|trend line|from (this|the) url)\b/i.test(l));
+    const offside = prompts.filter((l) => /\b(sankey|treemap|sunburst|choropleth|trend line|reference line|annotat\w*|from (this|the) url)\b/i.test(l));
     expect(offside).toEqual([]);
   });
 });

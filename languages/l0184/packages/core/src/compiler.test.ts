@@ -198,7 +198,7 @@ describe("datasets", () => {
     const out = await compile(
       `charts [ chart [ plots [ plot id "p" kind BAR values [1] {} ] {} ] {} chart [ plots [ plot id "p" kind BAR values [2] {} ] {} ] {} ] {}`,
     );
-    expect(out.charts.map((c: any) => c.option.series[0].id)).toEqual(["p", "p"]);
+    expect(out.charts.map((c: any) => c.option.series[0].id)).toEqual(["p:p", "p:p"]);
   });
 });
 
@@ -250,5 +250,175 @@ describe("L0000 still works inside a program", () => {
   it("allows let bindings, set-var and expressions", async () => {
     const out = await compile(`let k = 7.. set-var "n" 3 ${one('plot kind BAR values [1 k get-var "n"] {}')}`);
     expect(out.charts[0].option.series[0].data).toEqual([1, 7, 3]);
+  });
+});
+
+describe("series ids", () => {
+  it("are p:<id> for plots and g:<id>:<role> for generated series, whatever the authored ids", async () => {
+    const s = await series(
+      one(
+        `plot id "a" kind BOXPLOT values [[1 2 3 4 5 6 7 8 100]] {} plot id "a-outliers" kind BAR values [1] {} plot id "g:a:outliers" kind BAR values [2] {}`,
+        `axes [ axis direction X categories ["k"] {} axis direction Y {} ] {}`,
+      ),
+    );
+    expect(s.map((x: any) => x.id)).toEqual(["p:a", "g:a:outliers", "p:a-outliers", "p:g:a:outliers"]);
+    expect(new Set(s.map((x: any) => x.id)).size).toBe(4);
+  });
+});
+
+describe("histogram", () => {
+  it("counts values into touching bars on a generated category axis", async () => {
+    const o = (await compile(one("plot kind HISTOGRAM values [0 1 2 3 4] bin-count 2 {}"))).charts[0].option;
+    expect(o.xAxis[0]).toMatchObject({ id: "x1", type: "category", data: ["0–2", "2–4"] });
+    expect(o.yAxis[0]).toMatchObject({ id: "y1", type: "value" });
+    expect(o.series[0]).toMatchObject({ id: "p:p1", type: "bar", barCategoryGap: "0%", data: [2, 3] });
+    expect(o.tooltip.trigger).toBe("item");
+  });
+
+  it("lets its axes be named, and is empty with no values", async () => {
+    const out = await compile(
+      one("plot kind HISTOGRAM values [] {}", `axes [ axis direction X name "Score" {} axis direction Y name "Students" {} ] {}`),
+    );
+    expect(out.charts[0].option.xAxis[0]).toMatchObject({ name: "Score", data: [] });
+    expect(out.charts[0].view.empty).toBe(true);
+  });
+});
+
+describe("boxplot", () => {
+  it("groups flat values in first-seen order, with outliers at the category centre under the plot's name", async () => {
+    const o = (await compile(one(`plot name "Scores" kind BOXPLOT values [1 2 3 4 5 6 7 8 100 5 6] group ["a" "a" "a" "a" "a" "a" "a" "a" "a" "b" "b"] {}`))).charts[0].option;
+    expect(o.xAxis[0].data).toEqual(["a", "b"]);
+    expect(o.series[0]).toMatchObject({ id: "p:p1", name: "Scores", type: "boxplot", layout: "horizontal" });
+    expect(o.series[0].data[0]).toEqual([1, 3, 5, 7, 8]);
+    expect(o.series[1]).toEqual({ id: "g:p1:outliers", name: "Scores", xAxisIndex: 0, yAxisIndex: 0, type: "scatter", data: [[0, 100]] });
+    expect(o.tooltip.trigger).toBe("axis");
+  });
+
+  it("follows the axis's categories, leaving a category without observations empty", async () => {
+    const o = (await compile(one(`plot kind BOXPLOT values [1 2 3] group ["a" "a" "a"] {}`, `axes [ axis direction X categories ["b" "a"] {} axis direction Y {} ] {}`))).charts[0].option;
+    expect(o.series[0].data).toEqual([[], [1, 1.5, 2, 2.5, 3]]);
+  });
+
+  it("swaps outliers to [value, index] for horizontal boxes", async () => {
+    const o = (await compile(one(`plot kind BOXPLOT values [[1 2 3 4 5 6 7 8 100] [5 6]] {}`, `axes [ axis direction X {} axis direction Y categories ["a" "b"] {} ] {}`))).charts[0].option;
+    expect(o.series[0].layout).toBe("vertical");
+    expect(o.series[1].data).toEqual([[100, 0]]);
+  });
+
+  it("is empty when every group is", async () => {
+    const out = await compile(one(`plot kind BOXPLOT values [[] []] {}`));
+    expect(out.charts[0].view.empty).toBe(true);
+  });
+
+  it("shares a chart with bars on another category axis", async () => {
+    await expect(
+      compile(one(`plot kind BOXPLOT values [[1 2 3]] {} plot kind BAR values [4] {}`, `axes [ axis direction X categories ["k"] {} axis direction Y {} ] {}`)),
+    ).resolves.toBeTruthy();
+  });
+});
+
+describe("candlestick", () => {
+  it("lowers each row to [open, close, low, high] over categories", async () => {
+    const o = (await compile(one(`plot kind CANDLESTICK open [1 2] close [2 1] low [0.5 0.5] high [3 3] {}`))).charts[0].option;
+    expect(o.series[0]).toMatchObject({ id: "p:p1", type: "candlestick", data: [[1, 2, 0.5, 3], [2, 1, 0.5, 3]] });
+    expect(o.xAxis[0].data).toEqual(["1", "2"]);
+    expect(o.yAxis[0].scale).toBe(true);
+  });
+});
+
+describe("heatmap", () => {
+  const cats = `axes [ axis direction X categories ["Mon" "Tue"] {} axis direction Y categories ["AM" "PM"] {} ] {}`;
+  it("reads a matrix as rows of Y, leaving null cells out", async () => {
+    const o = (await compile(one(`plot kind HEATMAP values [[1 2] [3 null]] {}`, cats))).charts[0].option;
+    expect(o.series[0]).toMatchObject({ id: "p:p1", type: "heatmap", data: [[0, 0, 1], [1, 0, 2], [0, 1, 3]] });
+    expect(o.visualMap).toMatchObject({ type: "continuous", dimension: 2, min: 1, max: 3 });
+    expect(o.xAxis[0]).toMatchObject({ type: "category", boundaryGap: true });
+    expect(o.yAxis[0]).toMatchObject({ type: "category", boundaryGap: true, inverse: true });
+  });
+
+  it("reads cells, deriving categories in first-seen order", async () => {
+    const o = (await compile(one(`plot kind HEATMAP x ["a" "b" "a"] y ["u" "u" "v"] values [1 2 3] {}`))).charts[0].option;
+    expect(o.xAxis[0].data).toEqual(["a", "b"]);
+    expect(o.yAxis[0].data).toEqual(["u", "v"]);
+    expect(o.series[0].data).toEqual([[0, 0, 1], [1, 0, 2], [0, 1, 3]]);
+  });
+
+  // The parser has no exponent notation, so large numbers are written out in full.
+  for (const n of [7, 1e300, Number.MAX_VALUE]) {
+    const v = BigInt(n).toString();
+    it(`gives constant cells (${n}) a finite, nondegenerate range`, async () => {
+      const o = (await compile(one(`plot kind HEATMAP values [[${v} ${v}] [${v} ${v}]] {}`, cats))).charts[0].option;
+      const { min, max } = o.visualMap;
+      expect(Number.isFinite(min) && Number.isFinite(max)).toBe(true);
+      expect(min).toBeLessThan(max);
+    });
+  }
+
+  it("has no colour scale and is empty when every cell is", async () => {
+    const out = await compile(one(`plot kind HEATMAP values [[null null] [null null]] {}`, cats));
+    expect(out.charts[0].option.visualMap).toBeUndefined();
+    expect(out.charts[0].view.empty).toBe(true);
+  });
+});
+
+describe("funnel", () => {
+  it("sorts stages largest first, with a legend of stage names", async () => {
+    const o = (await compile(one(`plot kind FUNNEL names ["Visit" "Cart" "Buy"] values [100 40 10] {}`))).charts[0].option;
+    expect(o.series[0]).toMatchObject({ id: "p:p1", type: "funnel", sort: "descending" });
+    expect(o.series[0].data.map((d: any) => d.name)).toEqual(["Visit", "Cart", "Buy"]);
+    expect(o.legend.show).toBe(true);
+    expect(o.xAxis).toBeUndefined();
+  });
+});
+
+describe("gauge", () => {
+  it("places one to four gauges side by side, without a legend", async () => {
+    const o1 = (await compile(one(`plot kind GAUGE value 72 {}`))).charts[0].option;
+    expect(o1.series[0]).toMatchObject({ type: "gauge", center: ["50%", "55%"], radius: "75%", min: 0, max: 100, data: [{ value: 72, name: "" }] });
+    expect(o1.legend).toBeUndefined();
+    const o3 = (await compile(one(`plot kind GAUGE value 1 {} plot kind GAUGE name "B" value 2 {} plot kind GAUGE value 3 {}`))).charts[0].option;
+    expect(o3.series.map((s: any) => s.radius)).toEqual(["30%", "30%", "30%"]);
+    expect(o3.series[1].center).toEqual(["50%", "55%"]);
+    expect(o3.series[1].data[0].name).toBe("B");
+    const o4 = (await compile(one(`plot kind GAUGE value 1 {} plot kind GAUGE value 2 {} plot kind GAUGE value 3 {} plot kind GAUGE value 4 {}`))).charts[0].option;
+    expect(o4.series.map((s: any) => s.center[0])).toEqual(["12.5%", "37.5%", "62.5%", "87.5%"]);
+    expect(o4.series[0].radius).toBe("22.5%");
+  });
+
+  it("reads within its own min-value and max-value", async () => {
+    const o = (await compile(one(`plot kind GAUGE value -5 min-value -10 max-value 10 {}`))).charts[0].option;
+    expect(o.series[0]).toMatchObject({ min: -10, max: 10 });
+  });
+});
+
+describe("radar", () => {
+  const radial = (bounds = "") => `axes [ axis direction RADIAL categories ["Speed" "Power" "Range"] ${bounds} {} ] {}`;
+  it("uses an explicit max-value on every spoke", async () => {
+    const o = (await compile(one(`plot name "A" kind RADAR values [3 5 2] area true {}`, radial("max-value 10")))).charts[0].option;
+    expect(o.radar.indicator).toEqual([
+      { name: "Speed", min: 0, max: 10 },
+      { name: "Power", min: 0, max: 10 },
+      { name: "Range", min: 0, max: 10 },
+    ]);
+    expect(o.series[0]).toMatchObject({ id: "p:p1", type: "radar", data: [{ name: "A", value: [3, 5, 2], areaStyle: {} }] });
+    expect(o.xAxis).toBeUndefined();
+  });
+
+  it("infers a round max-value above a nonzero min-value", async () => {
+    const o = (await compile(one(`plot kind RADAR values [12 17 13] {}`, radial("min-value 10")))).charts[0].option;
+    expect(o.radar.indicator[0]).toEqual({ name: "Speed", min: 10, max: 20 });
+  });
+
+  it("keeps an all-zero radar a valid chart", async () => {
+    const out = await compile(one(`plot kind RADAR values [0 0 0] {}`, radial()));
+    expect(out.charts[0].option.radar.indicator[0]).toEqual({ name: "Speed", min: 0, max: 1 });
+    expect(out.charts[0].view.empty).toBe(false);
+  });
+
+  it("shares its axis between plots, with a legend", async () => {
+    const o = (await compile(one(`plot name "A" kind RADAR values [1 2 3] {} plot name "B" kind RADAR values [3 2 1] {}`, radial()))).charts[0].option;
+    expect(o.series).toHaveLength(2);
+    expect(o.legend.show).toBe(true);
+    expect(o.radar.indicator[0].max).toBe(5);
   });
 });

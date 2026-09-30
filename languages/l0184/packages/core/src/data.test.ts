@@ -3,7 +3,7 @@
 // `data use …`. Composition is not enabled yet; these pin the contract so enabling it is not a
 // redesign. `use` itself is never called here — it fetches a schema over HTTP.
 import { describe, expect, it } from "vitest";
-import { fromIndexed, normalizeRows } from "./data.js";
+import { fromIndexed, normalizeRows, resolveData } from "./data.js";
 
 describe("normalizeRows", () => {
   it("takes list rows with columns", () => {
@@ -53,5 +53,23 @@ describe("fromIndexed", () => {
     expect(() => fromIndexed({ 0: "a", 2: "b" }, "t")).toThrow("t: rows are numbered 0 to 1 with a gap at 1.");
     expect(() => fromIndexed({ 0: "a", x: "b" }, "t")).toThrow('t: expected a list of rows; got a record with keys "0", "x".');
     expect(() => fromIndexed({ "01": "a" }, "t")).toThrow('t: expected a list of rows; got a record with keys "01".');
+  });
+});
+
+describe("resolveData shapes", () => {
+  const ds = { id: "d", columns: ["v"], rows: [[1], [2]] } as any;
+  it("takes flat lists and columns by default", () => {
+    expect(resolveData([1, null, "a"], "values", null, [], "p").values).toEqual([1, null, "a"]);
+    expect(resolveData("v", "values", ds, ["d"], "p")).toEqual({ values: [1, 2], column: "v" });
+  });
+
+  it("takes lists of lists of cells when nested, checking every cell", () => {
+    expect(resolveData([[1, 2], [], [null]], "values", null, [], "p", "nested").values).toEqual([[1, 2], [], [null]]);
+    expect(() => resolveData([[1], 2], "values", null, [], "p", "nested")).toThrow("p: values item 2 must be a list in [brackets] — this form is a list of lists.");
+    expect(() => resolveData([[1, [2]]], "values", null, [], "p", "nested")).toThrow("p: values item 1, value 2: a value must be");
+  });
+
+  it("refuses a column where a nested list is needed, since a column is flat", () => {
+    expect(() => resolveData("v", "values", ds, ["d"], "p", "nested")).toThrow('p: values "v" names a column, but a column is a flat list');
   });
 });

@@ -125,6 +125,25 @@ describe("EChart", () => {
     expect(instances[0].resize).toHaveBeenCalled();
   });
 
+  it("hands a box plot's box and outlier series to ECharts together, under one name", () => {
+    // What ECharts then does with the shared name (one legend entry toggling both) is checked in
+    // the browser, not here.
+    const { lib, instances } = makeLib();
+    size = { w: 400, h: 384 };
+    const option = {
+      series: [
+        { id: "p:b", name: "Scores", type: "boxplot", data: [[1, 3, 5, 7, 8]] },
+        { id: "g:b:outliers", name: "Scores", type: "scatter", data: [[0, 100]] },
+      ],
+    };
+    render(<EChart {...base} option={option} lib={lib} />);
+    const sent = instances[0].setOption.mock.calls[0][0];
+    expect(sent.series.map((s: any) => [s.id, s.name, s.type])).toEqual([
+      ["p:b", "Scores", "boxplot"],
+      ["g:b:outliers", "Scores", "scatter"],
+    ]);
+  });
+
   it("disposes and disconnects on unmount", () => {
     const { lib, instances } = makeLib();
     size = { w: 400, h: 384 };

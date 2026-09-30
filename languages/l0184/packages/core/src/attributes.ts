@@ -22,10 +22,10 @@
 /* ------------------------------------------------------------------ closed sets */
 
 export const THEMES = ["LIGHT", "DARK"] as const;
-export const DIRECTIONS = ["X", "Y"] as const;
+export const DIRECTIONS = ["X", "Y", "RADIAL"] as const;
 export const SCALES = ["CATEGORY", "LINEAR", "LOG", "TIME"] as const;
 export const POSITIONS = ["TOP", "BOTTOM", "LEFT", "RIGHT", "INSIDE", "OUTSIDE", "CENTER"] as const;
-export const KINDS = ["BAR", "LINE", "PIE", "SCATTER"] as const;
+export const KINDS = ["BAR", "LINE", "PIE", "SCATTER", "HISTOGRAM", "BOXPLOT", "CANDLESTICK", "HEATMAP", "FUNNEL", "GAUGE", "RADAR"] as const;
 export const STEPS = ["START", "MIDDLE", "END"] as const;
 export const SYMBOLS = ["CIRCLE", "RECT", "TRIANGLE", "DIAMOND", "PIN", "ARROW", "NONE"] as const;
 export const ROSES = ["RADIUS", "AREA"] as const;
@@ -52,6 +52,14 @@ export const TAGS: Record<string, string> = {
   LINE: "A line plot: values over categories, or x/y pairs.",
   PIE: "A pie (or donut, or rose): one slice per name.",
   SCATTER: "A scatter plot: one point per x/y pair.",
+  HISTOGRAM: "A histogram: raw values counted into equal-width bins.",
+  BOXPLOT: "A box plot: quartiles, whiskers and outliers per category.",
+  CANDLESTICK: "A candlestick: open, close, low and high per category.",
+  HEATMAP: "A heatmap: a colour per cell of two category axes.",
+  FUNNEL: "A funnel: stages narrowing by value.",
+  GAUGE: "A gauge: one reading on a dial.",
+  RADAR: "A radar (spider) plot: one value per spoke of a RADIAL axis.",
+  RADIAL: "The spokes of a radar chart.",
   START: "A step that rises at the start of each interval.",
   MIDDLE: "A step that rises in the middle of each interval.",
   END: "A step that rises at the end of each interval.",
@@ -204,7 +212,7 @@ export const chainFields: Record<string, AttributeMeta> = {
     field: "direction",
     expects: "tag",
     oneOf: DIRECTIONS,
-    description: "Which way an axis runs: X (across) or Y (up). Required.",
+    description: "Which way an axis runs: X (across), Y (up), or RADIAL (the spokes of a radar chart). Required.",
   },
   SCALE: {
     field: "scale",
@@ -222,12 +230,12 @@ export const chainFields: Record<string, AttributeMeta> = {
   MIN_VALUE: {
     field: "minValue",
     expects: "bound",
-    description: "Where a numeric or time axis starts. Defaults to fitting the data.",
+    description: "Where a numeric, time or RADIAL axis starts, or the bottom of a GAUGE's dial (default 0). Defaults to fitting the data on an axis, 0 on a RADIAL axis.",
   },
   MAX_VALUE: {
     field: "maxValue",
     expects: "bound",
-    description: "Where a numeric or time axis ends. Defaults to fitting the data.",
+    description: "Where a numeric, time or RADIAL axis ends, or the top of a GAUGE's dial (default 100). On a RADIAL axis it defaults to a round number above the largest value.",
   },
   POSITION: {
     field: "position",
@@ -252,7 +260,7 @@ export const chainFields: Record<string, AttributeMeta> = {
     field: "kind",
     expects: "tag",
     oneOf: KINDS,
-    description: "What a plot draws: BAR, LINE, PIE or SCATTER. Required.",
+    description: "What a plot draws: BAR, LINE, PIE, SCATTER, HISTOGRAM, BOXPLOT, CANDLESTICK, HEATMAP, FUNNEL, GAUGE or RADAR. Required.",
   },
   X_AXIS: {
     field: "xAxis",
@@ -270,23 +278,42 @@ export const chainFields: Record<string, AttributeMeta> = {
     field: "values",
     expects: "data",
     description:
-      "A plot's values: a list, or the name of a dataset column. One per category for BAR and LINE, one per slice for PIE.",
+      "A plot's values: a list, or the name of a dataset column. One per category for BAR and LINE, one per spoke for RADAR, one per slice for PIE and FUNNEL, raw observations for HISTOGRAM and BOXPLOT, and rows of cells (or one per x/y pair) for HEATMAP.",
   },
   NAMES: {
     field: "names",
     expects: "data",
-    description: "A PIE's slice names, or a SCATTER's point names: a list, or a column name.",
+    description: "A PIE's or FUNNEL's slice names, or a SCATTER's point names: a list, or a column name.",
   },
   X: {
     field: "x",
     expects: "data",
-    description: "The x of each point, for SCATTER and x/y LINE: a list, or a column name.",
+    description: "The x of each point, for SCATTER and x/y LINE, or each cell's X category for a HEATMAP written as x/y/values: a list, or a column name.",
   },
   Y: {
     field: "y",
     expects: "data",
-    description: "The y of each point, for SCATTER and x/y LINE: a list, or a column name.",
+    description: "The y of each point, for SCATTER and x/y LINE, or each cell's Y category for a HEATMAP written as x/y/values: a list, or a column name.",
   },
+  VALUE: {
+    field: "value",
+    expects: "number",
+    description: "A GAUGE's reading: one number within its min-value and max-value (0 to 100 by default).",
+  },
+  BIN_COUNT: {
+    field: "binCount",
+    expects: "number",
+    description: "How many equal-width bins a HISTOGRAM uses: a whole number above 0. Defaults to Sturges' rule.",
+  },
+  GROUP: {
+    field: "group",
+    expects: "data",
+    description: 'Which category each BOXPLOT value belongs to, one per value: a list, or a column name, e.g. group "class".',
+  },
+  OPEN: { field: "open", expects: "data", description: "A CANDLESTICK's opening values, one per category: a list, or a column name." },
+  CLOSE: { field: "close", expects: "data", description: "A CANDLESTICK's closing values, one per category: a list, or a column name." },
+  LOW: { field: "low", expects: "data", description: "A CANDLESTICK's lowest values, one per category: a list, or a column name." },
+  HIGH: { field: "high", expects: "data", description: "A CANDLESTICK's highest values, one per category: a list, or a column name." },
   COLOR: {
     field: "color",
     expects: "color",
@@ -304,7 +331,7 @@ export const chainFields: Record<string, AttributeMeta> = {
       'Stack BAR or LINE plots that share this group name, e.g. stack "total". Category values only.',
   },
   SMOOTH: { field: "smooth", expects: "boolean", description: "Draw a LINE as a smooth curve." },
-  AREA: { field: "area", expects: "boolean", description: "Fill the area under a LINE." },
+  AREA: { field: "area", expects: "boolean", description: "Fill the area under a LINE, or inside a RADAR plot." },
   STEP: {
     field: "step",
     expects: "tag",
@@ -468,6 +495,15 @@ export const validAttributes: Record<string, string[]> = {
     "rose",
     "start-angle",
     "label",
+    "value",
+    "min-value",
+    "max-value",
+    "bin-count",
+    "group",
+    "open",
+    "close",
+    "low",
+    "high",
   ],
   label: ["show", "position", "formatter"],
   legend: ["show", "position"],
@@ -497,6 +533,13 @@ export const plotKindAttributes: Record<string, string[]> = {
   ],
   PIE: ["id", "kind", "name", "names", "values", "colors", "inner-radius", "radius", "rose", "start-angle", "label"],
   SCATTER: ["id", "kind", "name", "x-axis", "y-axis", "x", "y", "names", "color", "symbol", "symbol-size", "label"],
+  HISTOGRAM: ["id", "kind", "name", "x-axis", "y-axis", "values", "bin-count", "color", "label"],
+  BOXPLOT: ["id", "kind", "name", "x-axis", "y-axis", "values", "group", "color"],
+  CANDLESTICK: ["id", "kind", "name", "x-axis", "y-axis", "open", "close", "low", "high"],
+  HEATMAP: ["id", "kind", "name", "x-axis", "y-axis", "values", "x", "y", "label"],
+  FUNNEL: ["id", "kind", "name", "names", "values", "colors", "label"],
+  GAUGE: ["id", "kind", "name", "value", "min-value", "max-value", "color"],
+  RADAR: ["id", "kind", "name", "values", "color", "area"],
 };
 
 /** Where a label may sit, per plot kind. */
@@ -505,6 +548,9 @@ export const labelPositions: Record<string, string[]> = {
   LINE: ["TOP", "BOTTOM", "LEFT", "RIGHT"],
   SCATTER: ["TOP", "BOTTOM", "LEFT", "RIGHT", "INSIDE"],
   PIE: ["INSIDE", "OUTSIDE", "CENTER"],
+  HISTOGRAM: ["TOP", "BOTTOM", "LEFT", "RIGHT", "INSIDE"],
+  HEATMAP: ["INSIDE"],
+  FUNNEL: ["INSIDE", "OUTSIDE", "LEFT", "RIGHT"],
 };
 
 /** Which settings each container's settings chain accepts. */

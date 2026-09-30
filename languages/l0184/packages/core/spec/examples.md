@@ -1,14 +1,15 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0184 RAG Training Examples
 
-92 example prompts for training a RAG model on L0184, the charts language — covering bar, line,
-pie, donut, rose and scatter charts, combined bar-and-line charts with a second axis, tables of
+128 example prompts for training a RAG model on L0184, the charts language — covering bar, line,
+pie, donut, rose and scatter charts, histograms, box plots, candlesticks, heatmaps, funnels,
+gauges and radar charts, combined bar-and-line charts with a second axis, tables of
 data that several charts share, collections of charts shown as tabs, horizontal, logarithmic,
 time and bounded axes, titles, legends, labels, colours and themes, and missing values.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to chart and the
 numbers to chart, never how to write the program. Every prompt here is in scope — fetching data
-from a URL, histograms, heatmaps, maps and network charts belong elsewhere or are not built yet,
+from a URL, reference and trend lines, maps and network charts belong elsewhere or are not built yet,
 and are deliberately absent.
 
 ## Category 1: Bar Charts (1–12)
@@ -132,3 +133,60 @@ and are deliberately absent.
 90. Plot monthly rainfall for six months with no reading for March: 78, 62, missing, 41, 55, 85.
 91. Show attendance for five sessions where the third session wasn't recorded: 24, 27, not recorded, 22, 30.
 92. Temperature readings every hour where the sensor failed at 3pm: 18, 19, 21, failed, 20, 18.
+
+## Category 11: Histograms (93–98)
+
+93. Histogram of these test scores: 52, 61, 64, 68, 70, 71, 73, 75, 78, 81, 84, 90, 93.
+94. Show the distribution of commute times in minutes: 12, 18, 22, 25, 25, 27, 30, 31, 35, 38, 41, 45, 52, 60.
+95. Make a histogram with 5 bins of the heights of 12 plants in cm: 14.2, 15.1, 15.8, 16.0, 16.4, 17.3, 17.9, 18.2, 18.8, 19.5, 20.1, 21.4.
+96. How are the ages of club members spread out? 23, 25, 29, 31, 31, 34, 38, 41, 45, 47, 52, 58, 63.
+97. Histogram of daily step counts for two weeks: 4200, 6100, 7800, 8200, 5400, 9100, 10300, 7600, 6900, 8800, 12100, 7300, 5900, 8400.
+98. Bin these reaction times in milliseconds into 4 groups: 210, 225, 240, 238, 260, 275, 290, 305, 330, 350.
+
+## Category 12: Box Plots (99–104)
+
+99. Box plot of quiz scores by class. Class A: 72, 75, 78, 80, 84, 91. Class B: 60, 68, 70, 74, 77, 99.
+100. Compare the spread of delivery times in days for three carriers: Fast 1, 2, 2, 3, 3, 4; Standard 3, 4, 4, 5, 6, 7; Economy 5, 6, 7, 8, 9, 14.
+101. Show box plots of monthly rainfall in mm for Spring (45, 52, 60, 48, 71) and Autumn (80, 95, 62, 110, 88).
+102. Box plot of salaries in thousands by department: Sales 48, 52, 55, 61, 90; Engineering 70, 78, 82, 85, 91, 140; Support 38, 40, 42, 45.
+103. Horizontal box plots of session length in minutes for Web (4, 6, 7, 9, 12, 30) and Mobile (2, 3, 3, 5, 6, 8).
+104. Show the median, quartiles and outliers of these wait times in minutes, grouped by clinic: North 5, 8, 9, 12, 40; South 7, 10, 11, 13, 15.
+
+## Category 13: Candlesticks (105–108)
+
+105. Candlestick chart for ACME this week. Monday open 20, close 24, low 19, high 25; Tuesday 24, 23, 22, 25; Wednesday 23, 27, 22, 28; Thursday 27, 26, 25, 28.
+106. Show daily price candles for a stock over five days: opens 100, 103, 101, 106, 108; closes 103, 101, 106, 108, 105; lows 99, 100, 100, 104, 104; highs 104, 104, 107, 110, 109.
+107. Candlesticks of monthly gold prices for Q1: January open 2050 close 2040 low 2010 high 2080; February open 2040 close 2090 low 2030 high 2100; March open 2090 close 2180 low 2080 high 2200.
+108. Plot the opening, closing, lowest and highest exchange rate for three weeks: week 1 1.08, 1.09, 1.07, 1.10; week 2 1.09, 1.07, 1.06, 1.10; week 3 1.07, 1.08, 1.06, 1.09.
+
+## Category 14: Heatmaps (109–114)
+
+109. Heatmap of website visits by day and time of day. Morning: Mon 5, Tue 8, Wed 6, Thu 9, Fri 4. Afternoon: Mon 7, Tue 12, Wed 10, Thu 8, Fri 3.
+110. Show a heatmap of average temperature by month and city: London 5, 7, 10; Madrid 10, 12, 16; Oslo -3, -2, 2 for January, February and March.
+111. Grid of how often each pair of products was bought together: Tea with Milk 30, Tea with Sugar 22, Coffee with Milk 45, Coffee with Sugar 18.
+112. Heatmap of support tickets by weekday and priority: High Mon 4, Tue 6, Wed 3; Low Mon 12, Tue 9, Wed 15; no data for High on Thursday, Low Thursday 7.
+113. Colour a grid of student attendance by week and class: Class A weeks 1-4 were 95, 92, 88, 97; Class B 85, 90, 91, 80.
+114. Make a heatmap of hours slept by person and night: Ana 7, 6, 8; Ben 5, 6, 6; Cy 8, 9, 7.
+
+## Category 15: Funnels (115–118)
+
+115. Funnel of our signup flow: 1000 visited, 400 started signup, 240 signed up, 60 paid.
+116. Show the hiring pipeline as a funnel: 320 applicants, 80 phone screens, 30 interviews, 8 offers, 5 hires.
+117. Sales funnel for Q2: leads 900, qualified 420, proposals 150, closed 45.
+118. Funnel of students through the course: enrolled 500, finished week 1 410, finished week 4 260, completed 180.
+
+## Category 16: Gauges (119–123)
+
+119. Gauge showing 72% progress toward our fundraising goal.
+120. Show CPU at 64, memory at 81 and disk at 45 as three gauges side by side.
+121. A gauge of today's temperature, 58 degrees, on a dial from 20 to 90.
+122. Customer satisfaction score gauge: 8.4 out of 10.
+123. Two gauges for the team: sprint completion 85 and bug backlog health 40.
+
+## Category 17: Radar Charts (124–128)
+
+124. Radar chart comparing two cars on speed 8 and 5, power 6 and 9, range 7 and 6, cost 4 and 7, comfort 9 and 6.
+125. Show a player's skills as a radar: shooting 85, passing 78, dribbling 90, defending 45, stamina 70.
+126. Spider chart of three laptops rated out of 10 on battery, screen, weight, price and speed: Alpha 8, 7, 9, 5, 6; Beta 6, 9, 5, 7, 8; Gamma 7, 6, 7, 9, 5.
+127. Radar of a student's scores in math 88, reading 72, science 91, art 65, music 70, filled in.
+128. Compare this year's and last year's department ratings on quality, speed, cost and support: this year 4, 3, 5, 4; last year 3, 3, 4, 2.
