@@ -1000,8 +1000,8 @@ describe("equivSyntax rules", () => {
   });
 });
 
-// An Author Site session can edit and delete items. The server's default
-// Learnosity account must never sign one; only a program's own credentials may.
+// An Author Site session can edit and delete items. Without a connection
+// nothing signs one: not config-supplied credentials, not a program's own.
 describe("Author signing", () => {
   const DEFAULT = { learnosity: { key: "server-key", secret: "s".repeat(32) } };
   const OWN = 'set-var "learnosity-key" "own-key" set-var "learnosity-secret" "' + "o".repeat(32) + '"';
@@ -1022,8 +1022,13 @@ describe("Author signing", () => {
     expect(JSON.stringify(out)).not.toMatch(/own-key|server-key|signature/);
   });
 
-  test("previews are still signed with the default account", async () => {
+  // The compiler holds no Learnosity credential: `config.learnosity` is not
+  // read, and without a system preview client (brokered.test.ts) a preview is
+  // returned unsigned with a note, not signed locally.
+  test("previews are never signed with config-supplied credentials", async () => {
     const out = await compile('set-var "lrn-id" "t" questions [mcq []] {}..', {}, DEFAULT);
-    expect(JSON.stringify(out.request)).toMatch(/server-key/);
+    expect(out.request).toBeUndefined();
+    expect(out.signing).toMatchObject({ unsigned: "not-configured", message: expect.stringMatching(/Preview not signed/) });
+    expect(JSON.stringify(out)).not.toMatch(/server-key|signature/);
   });
 });

@@ -781,8 +781,9 @@ is not an error.
 **Never put Learnosity credentials in a program.** Do not emit
 `set-var "learnosity-key" ...` or `set-var "learnosity-secret" ...`, whether
 with `get-val-public`, `get-val-private` or a literal. The caller's connection
-holds their credentials: it signs the preview and performs the item-bank write,
-so a program needs neither and must not carry either.
+holds their credentials: it signs the preview and performs the item-bank write;
+without one, Graffiticode signs the preview itself. A program needs neither and
+must not carry either — credentials in a program are ignored.
 
 Prompts that should trigger `save-to-itembank`:
 

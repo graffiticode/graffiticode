@@ -146,9 +146,12 @@ The write happens only in a compile that selects a connection, through the
 credential broker. Without one, the save is checked but not run: the result
 carries `itemBank: { skipped: "no-connection", fn, occurrence }` beside the
 activity, the preview still renders, and it is not an error. Programs do not
-carry Learnosity credentials: the selected connection signs the preview and
-performs the write, and without one previews use the server's default
-credentials.
+carry Learnosity credentials (`set-var "learnosity-key"`/`"learnosity-secret"`
+are ignored): the selected connection signs the preview and performs the
+write, and without one the preview is signed by Graffiticode's own system
+connection, which can sign previews and nothing else. If no preview signing
+is available the activity comes back unsigned with a
+`signing: { unsigned, message }` note, and that is not an error either.
 
 ```
 set-var "lrn-id" "mitochondria-mcq"
@@ -221,7 +224,7 @@ questions [
 Creates a Learnosity Author API request from the given configuration record.
 Like `items`, it needs `set-var "lrn-id"`, which names the item being authored.
 An Author session is signed only in a compile that selects a connection; without
-one the request is returned unsigned, and the server's credentials never sign it.
+one the request is returned unsigned, and the system preview signing never signs it.
 
 ```
 set-var "lrn-id" "mitochondria-mcq"

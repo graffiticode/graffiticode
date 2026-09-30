@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // The brokered path: a compile that selects a connection signs and saves
 // through policy + broker (faked here at the client boundary), never with a
-// credential of its own.
+// credential of its own. A compile without one signs its preview through a
+// system preview session (policy POST /v1/preview-session), the same way.
 import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
 import { parser } from "@graffiticode/parser";
 import { compiler, lexicon } from "./index.js";
@@ -13,6 +14,9 @@ let invocations: any[];
 let snapshotReply: (args: any) => any;
 let brokerReply: (call: any) => any;
 let fetched: string[];
+let previewSessions: any[];
+let previewReply: () => any;
+let sessionsUsed: (string | null)[];
 
 const fakeClient = {
   async getSnapshot(args: any) {
@@ -22,16 +26,28 @@ const fakeClient = {
     args.exec.setSessionToken("session-1");
     return reply;
   },
-  async invoke(_exec: any, call: any) {
+  async invoke(exec: any, call: any) {
     invocations.push(call);
+    sessionsUsed.push(exec.sessionToken);
     return brokerReply(call);
   },
+  async getPreviewSession(args: any) {
+    previewSessions.push(args);
+    const reply = previewReply();
+    if (reply instanceof Error) throw reply;
+    return reply;
+  },
 };
+
+const refusal = (reason: string) => Object.assign(new Error("/v1/preview-session failed (403)"), { status: 403, reason });
 
 beforeEach(() => {
   snapshots = [];
   invocations = [];
   fetched = [];
+  previewSessions = [];
+  sessionsUsed = [];
+  previewReply = () => ({ allowed: ["preview-itembank"], sessionToken: "system-session" });
   snapshotReply = (args) => ({ allowed: args.fns });
   brokerReply = (call) =>
     call.op === "learnosity.write-items"
@@ -73,11 +89,98 @@ describe("brokered compiles", () => {
     }
   });
 
-  test("without a connection the legacy path is untouched", async () => {
-    const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+  test("without a connection a preview is signed by the broker under a system preview session", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
     expect(err).toEqual([]);
     expect(snapshots).toEqual([]);
+    expect(previewSessions).toEqual([{ langID: "0176" }]);
+    expect(invocations).toHaveLength(1);
+    expect(invocations[0]).toMatchObject({ fn: "preview-itembank", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0" });
+    expect(Object.keys(invocations[0].payload).sort()).toEqual(["id", "name", "questions", "session_id"]);
+    expect(sessionsUsed).toEqual(["system-session"]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(val.signing).toBeUndefined();
+    expect(fetched).toEqual([]);
+  });
+
+  test("a connection compile never asks for a system preview session", async () => {
+    const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
+    expect(err).toEqual([]);
+    expect(previewSessions).toEqual([]);
+    expect(sessionsUsed).toEqual(["session-1"]);
+  });
+
+  test("`init` without a connection signs through the system session too", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" init questions [mcq []] {}..`);
+    expect(err).toEqual([]);
+    expect(previewSessions).toHaveLength(1);
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
+    expect(invocations[0].occurrenceId).toMatch(/^INIT:\d+\.0$/);
+    expect(val).toBe("signed:learnosity.sign-questions-preview");
+  });
+
+  test.each([
+    ["both", 'set-var "learnosity-key" "own-key" set-var "learnosity-secret" "own-secret-0123456789"'],
+    ["only the key", 'set-var "learnosity-key" "own-key"'],
+    ["only the secret", 'set-var "learnosity-secret" "own-secret-0123456789"'],
+  ])("program-supplied credentials (%s) are ignored: no error, and they sign nothing", async (_, creds) => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" ${creds} items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(sessionsUsed).toEqual(["system-session"]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(JSON.stringify({ invocations, val })).not.toMatch(/own-key|own-secret/);
+  });
+
+  test("config-supplied credentials are ignored too", async () => {
+    const code = await parser.parse(176, `set-var "lrn-id" "t" items [${ITEM}] {}..`, lexicon);
+    const { err, val } = await new Promise<{ err: any[]; val: any }>((resolve) =>
+      compiler.compile(code, {}, { learnosity: { key: "cfg-key", secret: "cfg-secret-0123456789" } },
+        (e: any, v: any) => resolve({ err: e ?? [], val: v })));
+    expect(err).toEqual([]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(JSON.stringify({ invocations, val })).not.toMatch(/cfg-key|cfg-secret/);
+  });
+
+  test.each([
+    ["policy refuses", () => refusal("no-system-connection"), "unavailable", /no-system-connection/],
+    ["policy is unreachable", () => new Error("fetch failed"), "unavailable", /no system preview session/],
+    ["the session lacks preview", () => ({ allowed: [], sessionToken: "s" }), "unavailable", /no-preview-permission/],
+    ["the reply is malformed", () => ({ allowed: ["preview-itembank"] }), "unavailable", /no-preview-permission/],
+  ])("when %s, the preview compiles unsigned with a message", async (_, reply, unsigned, message) => {
+    previewReply = reply;
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(val.type).toBe("questions");
+    expect(val.request).toBeUndefined();
+    expect(val.signing).toMatchObject({ unsigned, message: expect.stringMatching(message) });
+    expect(val.signing.message).toMatch(/^Preview not signed/);
     expect(invocations).toEqual([]);
+  });
+
+  test("a failed system signing leaves the preview unsigned with a message, not an error", async () => {
+    brokerReply = () => ({ status: "failed", error: "provider down" });
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(val.request).toBeUndefined();
+    expect(val.signing).toMatchObject({ unsigned: "signing-failed" });
+  });
+
+  test("a system session never writes or signs an Author session", async () => {
+    const saved = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
+    expect(saved.err).toEqual([]);
+    expect(saved.val.data.itemBank).toMatchObject({ skipped: "no-connection" });
+    const author = await compile(`set-var "lrn-id" "t" author {}..`);
+    expect(author.err).toEqual([]);
+    expect(author.val.request).toBeUndefined();
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
+  });
+
+  test("a system session that claims more than preview is still used for preview only", async () => {
+    previewReply = () => ({ allowed: ["preview-itembank", "save-to-itembank", "author-itembank"], sessionToken: "wide" });
+    const { err, val } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(val.data.itemBank).toMatchObject({ skipped: "no-connection" });
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
   });
 
   test("a render is signed by the broker, with only preview fields sent", async () => {
@@ -109,6 +212,9 @@ describe("brokered compiles", () => {
   test("a stored result is signed on read by a data-only program, with nothing else run", async () => {
     const built = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
     const { request: _unsigned, ...activity } = built.val;
+    // Building it (no connection) signed through the system session; count
+    // only the read.
+    invocations.length = 0;
     const signProgram = {
       1: { tag: "STR", elts: [JSON.stringify(activity)] },
       2: { tag: "JSON", elts: [1] },

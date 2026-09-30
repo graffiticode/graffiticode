@@ -54,14 +54,17 @@ faithful, byte-compatible port of L0158. It's an npm-workspaces monorepo with th
   - `src/compiler.ts`: `Checker`/`Transformer` extending L0000's; hand-written block handlers
     (`INIT`, `ITEMS`, `ITEM`, `QUESTIONS`, `AUTHOR`, `PROG`)
     plus registry-driven generation of per-question-type / per-attribute / per-metadata
-    methods. `resolveCredentials` reads Learnosity creds from `options.config` (api-injected)
-    or program `set-var`; `signForRender` signs the activity at the end of `PROG`.
+    methods. `signForRender` has the broker sign the activity at the end of `PROG` (through
+    the selected connection, or the system preview session without one).
+  - `src/protection.ts`: the brokered path — `brokeredSign`/`brokeredSave` via
+    `exec.invoke`, and `systemPreviewSign`, which installs a system preview session on the
+    compile's `ExecContext` when there is no connection
   - `src/question-types.ts`: the per-type Learnosity question builders + attribute/metadata
     registries (`questionTypeBuilders`, `memberFields`, `validAttributes`, `inferShape`,
     `partitionItemsList`) — the single source of truth the generated compiler methods and
     `tools/gen-attribute-reference.mjs` both read
-  - `src/{items,questions,author,dataapi}.ts`: Learnosity signing (`learnosity-sdk-nodejs`)
-    and item-bank Data API calls (`POST /itembank/items`, `POST /itembank/questions`)
+  - `src/{items,questions,author}.ts`: build the unsigned activities and save plans (their
+    `buildInit*` local signers are no longer called by the compiler)
   - `spec/`: language documentation, examples, schema, RAG training prompts — **executable
     documentation**, see below
   - `tools/build-static.js`: emits `dist/static/` for the API to serve — merged
@@ -74,6 +77,8 @@ faithful, byte-compatible port of L0158. It's an npm-workspaces monorepo with th
 
 - **`packages/api/`** — `@graffiticode/api-l0176`: Express language server. TypeScript, run via `tsx` in dev and compiled to `dist/` for prod.
   - Routes (`src/routes/`): `compile`, `auth`, `root` (`/form`), plus `index` and shared `utils`
+  - `src/protection.ts`: wires the policy/broker client into the compiler when `POLICY_URL`
+    and `BROKER_URL` are set, including `POST /v1/preview-session` for system sessions
   - Auth integration with `@graffiticode/auth`
   - Port: 50176 (dev) or `process.env.PORT`
 
@@ -93,16 +98,27 @@ faithful, byte-compatible port of L0158. It's an npm-workspaces monorepo with th
 
 ### Learnosity credentials
 
-The Learnosity consumer key/secret are secrets and live in the **api process**: `packages/api/
-src/compile.ts` reads `LEARNOSITY_KEY`/`LEARNOSITY_SECRET` from env and merges them into
-`config.learnosity`, which the core compiler reads as `options.config.learnosity`. The
-non-secret `domain` is derived in core from `NODE_ENV`. A program may override the creds with
-`set-var "learnosity-key"/"learnosity-secret"` to sign previews; supplying exactly one is an
-error. Those credentials never write and never sign an Author session: `save-to-itembank`
-writes only in a compile that selects a connection (through the broker), and otherwise
-evaluates to the activity with `itemBank: { skipped: "no-connection", … }`. A sentinel `lrn-id`
-of `verify-itemid` skips the credential-pairing check. See `docs/learnosity-render-setup.md` for the three Cloud Run
-credentials and the `get-val-private` decryption path.
+**L0176 holds no Learnosity secret.** Every signature and item-bank write is made by the
+credential broker under a policy-minted token:
+
+- A compile that **selects a connection** is brokered: policy `snapshot` admits the protected
+  functions, and `brokeredSign`/`brokeredSave` spend that connection's credential.
+- A compile **without a connection** signs its preview through a **system preview session**:
+  `POST /v1/preview-session { lang }` (compiler identity, no user token) returns a session on
+  the Graffiticode-owned connection policy has configured for the backend
+  (`POLICY_SYSTEM_CONNECTIONS`), carrying only `preview-itembank`. `systemPreviewSign` installs
+  it on the compile's `ExecContext` once (`setSessionToken`/`setSnapshot`/`bindInvoker`, all
+  public on l0000's `ExecContext`) and calls the same `brokeredSign`. It never writes and never
+  signs Author: those check `isBrokered`, which needs a connection.
+- No session (no policy client, not configured, denied, unreachable) or a failed signing
+  returns the activity **unsigned** with `signing: { unsigned, message }` — not a compile error.
+
+Program-supplied `set-var "learnosity-key"/"learnosity-secret"` and a request's
+`config.learnosity` are **ignored** (no error, even when only one is set); they sign nothing.
+`save-to-itembank` writes only with a connection, otherwise evaluating to the activity with
+`itemBank: { skipped: "no-connection", … }`. `get-val-private` is L0000's generic decrypt
+(`GRAFFITICODE_SECRET_KEY`); L0176 no longer needs it for signing. See
+`docs/learnosity-render-setup.md`.
 
 ### Signing at compile time — and why compiles are never cached
 
@@ -121,7 +137,7 @@ Re-initializing on already-mounted DOM throws Learnosity's `triggerBufferedEvent
 ### Data Flow
 
 ```
-User Input → State Update → POST /compile → Compiler (core, signs via Learnosity SDK)
+User Input → State Update → POST /compile → Compiler (core; the broker signs via policy)
   → { type, data, request } → Form (view, loads Learnosity SDK by type) → postMessage to parent
 ```
 
@@ -226,13 +242,17 @@ live example.
 
 ### Environment Variables
 - `PORT`: API port (default 50176)
-- `LEARNOSITY_KEY` / `LEARNOSITY_SECRET`: Learnosity consumer credentials (read by the api)
+- `POLICY_URL` / `BROKER_URL`: policy authority and credential broker; every Learnosity
+  signature goes through them (without them, previews come back unsigned and a selected
+  connection is refused)
 - `AUTH_URL`: Auth service URL (default `https://auth.graffiticode.org`; dev uses `http://127.0.0.1:4100`)
 - `FIRESTORE_EMULATOR_HOST`: Local Firestore emulator (dev: `127.0.0.1:8080`)
-- `NODE_ENV`: `development` or `production` (selects the Learnosity signing `domain`)
+- `NODE_ENV`: `development` or `production` (the Learnosity signing `domain` is the broker's
+  `LEARNOSITY_DOMAIN`, not L0176's)
 
 ### Dependencies
 - `@graffiticode/l0000` (published) — base language, inherited by `core`
 - `@graffiticode/l0000-view` (published) — base view, inherited by `view`
 - `@graffiticode/auth` — auth service client used by `api`
-- `learnosity-sdk-nodejs` — Learnosity request signing (in `core`)
+- `learnosity-sdk-nodejs` — still a `core` dependency for the unused `buildInit*` signers; the
+  broker does the signing

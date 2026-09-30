@@ -60,7 +60,11 @@ describe("save-to-itembank <activity> without a connection", () => {
     expect(err).toEqual([]);
     expect(val.data.itemBank).toMatchObject(SKIPPED);
     expect(val.data.itemBank.occurrence).toMatch(/^SAVE_TO_ITEMBANK:\d+$/);
-    expect(val.request).toBeDefined();
+    // The preview still comes back: this server has no system preview client,
+    // so it is unsigned with a note rather than an error (see brokered.test.ts
+    // for the signed path).
+    expect(val.type).toBeDefined();
+    expect(val.signing).toMatchObject({ unsigned: "not-configured" });
     expect(routes).toEqual([]);
   });
 
@@ -151,12 +155,16 @@ describe("any other way of requesting a save is refused", () => {
 
 describe("a save plan belongs to the invocation that built it", () => {
   // Build an activity in one Transformer (one compile), returning the actual
-  // activity object that transformer produced — not a rendered copy.
+  // activity object that transformer's ITEMS produced — not the rendered copy
+  // PROG returns (which carries the signed request or the unsigned note).
   async function buildActivity() {
     const code = await parser.parse(176, `set-var "lrn-id" "t" items [${ITEM}] {}..`, lexicon);
     const t = new (Transformer as any)(code);
+    let activity: any;
+    const items = t.ITEMS.bind(t);
+    t.ITEMS = (n: any, o: any, r: any) => items(n, o, (e: any, v: any) => { activity = v; r(e, v); });
     const options: any = { data: {}, config: {}, result: "" };
-    const activity = await new Promise<any>((resolve, reject) =>
+    await new Promise<any>((resolve, reject) =>
       t.transform(options, (err: any, val: any) => (err?.length ? reject(err) : resolve(val))));
     return { t, activity };
   }

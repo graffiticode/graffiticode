@@ -58,7 +58,7 @@ Other useful scripts:
 ## Environment
 
 - `PORT` — API port (default `50176`)
-- `LEARNOSITY_KEY` / `LEARNOSITY_SECRET` — Learnosity consumer credentials (read by the api and injected into the compiler via config)
+- `POLICY_URL` / `BROKER_URL` — policy authority and credential broker. Every Learnosity signature and item-bank write goes through them: a selected connection's credential, or for a compile with no connection a system preview session on Graffiticode's own connection (preview signing only). The service holds no Learnosity secret.
 - `AUTH_URL` — auth service URL (default `https://auth.graffiticode.org`; dev uses `http://127.0.0.1:4100`)
 - `FIRESTORE_EMULATOR_HOST` — local Firestore emulator (dev: `127.0.0.1:8080`)
 - `NODE_ENV` — `development` or `production` (selects the Learnosity signing domain)

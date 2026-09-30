@@ -1,9 +1,9 @@
 # Learnosity rendering & item-bank credentials
 
-What makes L0176 forms render and, historically, `save-to-itembank` writes succeed. Both depend
-on a compile-time signing step **and** three credentials on the Cloud Run
-service. (Diagnosed after forms rendered blank and `save-to-itembank true` hung
-the console on "Loading…".)
+What makes L0176 forms render: a compile-time signing step, done by the
+credential broker — through the caller's connection, or without one through a
+system preview session. (First diagnosed after forms rendered blank and
+`save-to-itembank true` hung the console on "Loading…".)
 
 ## Signing is folded into the compile
 
@@ -12,9 +12,9 @@ L0176 renders through the shared `@graffiticode/l0000-view`, which issues **one*
 `POST /compile` and hands the result to the Form verbatim. So the compile output
 must already carry a signed `request`.
 
-`signForRender()` in `packages/core/src/compiler.ts` (`PROG`) signs the
-`{ type, data }` activity (`initQuestions` / `initItems` / `initAuthor`) and
-attaches `request`. Without it, `state.data.request` is `undefined` and the Form
+`signForRender()` in `packages/core/src/compiler.ts` (`PROG`) has the broker
+sign the `{ type, data }` activity (see "Who signs" below) and attaches
+`request`. Without it, `state.data.request` is `undefined` and the Form
 renders blank.
 
 Each signing stamps a fresh `user_id` / `signature` / `timestamp`, so `request`
@@ -50,49 +50,58 @@ Two consequences:
 Any other dialect that signs or timestamps its output opts in the same way; the
 api has no language list.
 
-## Three service credentials
+## Who signs: the broker, never the compiler
 
-All three must be set on the Cloud Run service `l0176` (project `graffiticode`)
-and are declared in `cloudbuild.yaml` so `--set-env-vars` / `--set-secrets`
-(which replace the full env/secret sets on every deploy) don't drop them:
+L0176 holds no Learnosity secret. Every signature is made by the credential
+broker (graffiticode `packages/broker`) under a short execution token minted
+by the policy authority (`packages/policy`):
 
-| Name | Source | Purpose |
-|---|---|---|
-| `LEARNOSITY_KEY` | plain env var (`UsF4dy1YxZd4JIyq`) | consumer key; non-secret — it ships in every browser-delivered signed request |
-| `LEARNOSITY_SECRET` | Secret Manager `learnosity-secret` | default render signing secret |
-| `GRAFFITICODE_SECRET_KEY` | Secret Manager `GRAFFITICODE_SECRET_KEY` | key `get-val-private` uses to decrypt console-supplied secrets |
+- **A compile that selects a connection** signs (and writes, and opens Author)
+  with that connection's credential — the `snapshot`/`mint` path.
+- **A compile with no connection** asks policy for a **system preview session**
+  (`POST /v1/preview-session { lang }`, compiler identity only, no user token).
+  Policy binds it to the Graffiticode-owned system connection configured for
+  the backend (`POLICY_SYSTEM_CONNECTIONS`, e.g. `{"learnosity":"conn-…"}`)
+  and confines it to the language's system-preview functions — for L0176,
+  `preview-itembank` only. It can sign an Items or Questions preview and
+  nothing else: never `save-to-itembank`, never an Author session. The compiler
+  then signs with the same `brokeredSign` the connection path uses
+  (`packages/core/src/protection.ts`, `systemPreviewSign`).
+- **No session** (policy not configured on this server, no system connection
+  configured, the connection disabled, policy unreachable) or a failed
+  signing: the activity comes back **unsigned**, with
+  `signing: { unsigned, message }` beside it. It is not a compile error; the
+  item still compiles, but the Form cannot render an unsigned request.
 
-The signing `domain` is `l0176.graffiticode.org`, baked via `NODE_ENV=production`
-in the `Dockerfile`. It must be whitelisted for the consumer key in Learnosity.
+The service needs `POLICY_URL` and `BROKER_URL` (see root `deploy.json`), and
+policy must list the `l0176-run` service account as a `compiler` for `0176`.
+The signing `domain` (`l0176.graffiticode.org`) is the broker's, and must be
+whitelisted for the consumer key of every connection, the system one included.
 
-## Program-supplied credentials
+`LEARNOSITY_KEY` and `LEARNOSITY_SECRET` are no longer read. The deploy CLI
+keeps settings a `deploy.json` entry does not mention, so remove them from the
+running service explicitly once this ships.
 
-`save-to-itembank` no longer writes with program-supplied credentials: a write
-happens only in a compile that selects a connection, through the credential
-broker. Without one the save is reported as skipped. Program-supplied
-credentials still sign previews, injected by the console as:
+## Program-supplied credentials are ignored
 
-```
-set-var "learnosity-secret" get-val-private "learnosity-secret"
-```
+`set-var "learnosity-key"` / `set-var "learnosity-secret"` (literal,
+`get-val-public` or `get-val-private`) still compile — L0000's `SET_VAR` writes
+them into `options` — but nothing reads them: they sign nothing, and supplying
+only one is no longer an error. So is a `config.learnosity` in the compile
+request. Old programs keep compiling and are signed like any other.
 
-`get-val-private` decrypts with `GRAFFITICODE_SECRET_KEY`. If that key is
-**missing**, `@graffiticode/l0000`'s `decrypt()` returns the raw ciphertext
-unchanged, so the preview is signed with garbage and Learnosity rejects it with
-`41003 signatures do not match`. A program without its own credentials is
-unaffected because it falls back to the `LEARNOSITY_SECRET` env var.
-
-Propagate the key with the console script — never set it by hand (it must match
-the console's key in project `graffiticode-app` and must never change, or
-previously-encrypted values become undecryptable):
+`get-val-private` itself is unchanged: it is L0000's generic `decrypt()`, keyed
+by `GRAFFITICODE_SECRET_KEY` (and `GRAFFITICODE_SECRET_KEYS` for later key
+versions). L0176 no longer needs it for signing. It is still mounted because
+removing it would change what `get-val-private` returns for any other name —
+without the key, `decrypt()` leniently returns the ciphertext unchanged rather
+than failing. Drop it once no L0176 program depends on a private value. If it
+is kept, propagate it with the console script — never set it by hand (it must
+match the console's key in project `graffiticode-app` and must never change):
 
 ```
 console/scripts/set-compiler-secret.sh 0176
 ```
-
-It copies the value from project `graffiticode-app`, refuses to overwrite an
-existing-but-different value, grants the runtime service account
-`secretAccessor`, and mounts it on the service.
 
 ## Robustness
 
