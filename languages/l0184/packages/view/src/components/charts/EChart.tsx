@@ -12,7 +12,7 @@
  * - It is disposed on unmount, never on a tab switch: a hidden chart keeps its state.
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { echarts } from "../../lib/echarts";
+import { type ECharts, getECharts } from "../../lib/echarts";
 import { initKey, renderKey } from "../../lib/config";
 
 export interface EChartProps {
@@ -26,12 +26,12 @@ export interface EChartProps {
   /** Whether this chart's panel is showing. */
   active: boolean;
   /** Test seam: the ECharts module. */
-  lib?: typeof echarts;
+  lib?: ECharts;
 }
 
 const sized = (el: HTMLElement | null): boolean => !!el && el.clientWidth > 0 && el.clientHeight > 0;
 
-export const EChart = ({ option, formats, width, height, theme, renderer, locale, active, lib = echarts }: EChartProps) => {
+export const EChart = ({ option, formats, width, height, theme, renderer, locale, active, lib = getECharts() }: EChartProps) => {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<any>(null);
   const applied = useRef<{ init: string; render: string } | null>(null);

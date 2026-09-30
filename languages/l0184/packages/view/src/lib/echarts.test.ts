@@ -21,7 +21,10 @@ vi.mock("echarts/renderers", () => ({ CanvasRenderer: "CanvasRenderer", SVGRende
 
 describe("echarts registrations", () => {
   it("registers every plot kind's chart, their components, Aria and both renderers", async () => {
-    await import("./echarts");
+    const { getECharts } = await import("./echarts");
+    expect(used).toEqual([]);
+    getECharts();
+    getECharts();
     expect(used.sort()).toEqual([...CHARTS, ...COMPONENTS, "CanvasRenderer", "SVGRenderer"].sort());
   });
 });
