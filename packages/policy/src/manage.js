@@ -253,6 +253,10 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
           backend: c.backend,
           status: c.status,
           label: c.label ?? null,
+          // Who shared it: the recipient should know whose credential they
+          // are using. The owner chose to share with them, so this reveals
+          // nothing the owner didn't.
+          ownerUid: c.ownerUid,
           permissions: g.permissions ?? [],
           expiresAt: g.expiresAt ?? null,
         });

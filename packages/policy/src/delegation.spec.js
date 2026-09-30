@@ -109,6 +109,7 @@ describe("delegation", () => {
       backend: "learnosity",
       status: "active",
       label: "Bank",
+      ownerUid: OWNER,
       permissions: SAVE,
       expiresAt: null
     }]);
