@@ -64,8 +64,15 @@ const buildCreate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
   sendSuccessResponse(res, { token });
 });
 
-const buildGet = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
-  const { access_token, refresh_token } = req.query;
+// Where a request carries the token that names an entry. The body routes are
+// the ones to use: a token in a URL (query or path) lands in the request logs.
+// The URL forms remain only until every caller has moved to the body routes.
+const fromBody = req => req.body ?? {};
+const fromQuery = req => req.query ?? {};
+const fromPath = req => req.params ?? {};
+
+const buildGet = ({ oauthTokensService }, tokensOf = fromBody) => buildHttpHandler(async (req, res) => {
+  const { access_token, refresh_token } = tokensOf(req);
 
   let token;
   if (isNonEmptyString(access_token)) {
@@ -73,7 +80,7 @@ const buildGet = ({ oauthTokensService }) => buildHttpHandler(async (req, res) =
   } else if (isNonEmptyString(refresh_token)) {
     token = await oauthTokensService.getByRefreshToken(refresh_token);
   } else {
-    throw new InvalidArgumentError("must provide access_token or refresh_token query parameter");
+    throw new InvalidArgumentError("must provide access_token or refresh_token");
   }
 
   if (!token) {
@@ -83,8 +90,8 @@ const buildGet = ({ oauthTokensService }) => buildHttpHandler(async (req, res) =
   sendSuccessResponse(res, { token });
 });
 
-const buildUpdate = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
-  const { access_token } = req.params;
+const buildUpdate = ({ oauthTokensService }, tokensOf = fromBody) => buildHttpHandler(async (req, res) => {
+  const { access_token } = tokensOf(req);
 
   if (!isNonEmptyString(access_token)) {
     throw new InvalidArgumentError("must provide access_token");
@@ -112,8 +119,8 @@ const buildUpdate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
   sendSuccessResponse(res, { token });
 });
 
-const buildDelete = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
-  const { access_token } = req.params;
+const buildDelete = ({ oauthTokensService }, tokensOf = fromBody) => buildHttpHandler(async (req, res) => {
+  const { access_token } = tokensOf(req);
 
   if (!isNonEmptyString(access_token)) {
     throw new InvalidArgumentError("must provide access_token");
@@ -184,10 +191,16 @@ export const buildOAuthTokensRouter = deps => {
   router.use(requireInternalAuth);
 
   router.post("/", buildCreate(deps));
-  router.get("/", buildGet(deps));
-  router.patch("/:access_token", buildUpdate(deps));
-  router.delete("/:access_token", buildDelete(deps));
+  router.post("/lookup", buildGet(deps));
+  router.post("/update", buildUpdate(deps));
+  router.post("/delete", buildDelete(deps));
   router.post("/rotate", buildRotate(deps));
+
+  // Deprecated: the token travels in the URL. Remove once callers use the
+  // body routes above.
+  router.get("/", buildGet(deps, fromQuery));
+  router.patch("/:access_token", buildUpdate(deps, fromPath));
+  router.delete("/:access_token", buildDelete(deps, fromPath));
 
   return router;
 };
