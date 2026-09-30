@@ -1,0 +1,32 @@
+{
+  "id": "0184",
+  "description": "Charts drawn with Apache ECharts — bar, line, pie (donut, rose) and scatter plots, combined bar-and-line charts with a second axis, linear, log, category and time axes. Data is written inline or as a table with named columns that several charts share, and a collection of charts is shown as tabs. Successor to L0173.",
+  "supported_item_types": ["charts"],
+  "example_prompts": [
+    {
+      "prompt": "Bar chart of monthly revenue for January to April: 120, 132, 101, 134.",
+      "produces": "charts",
+      "notes": "One chart in the collection: `charts [ chart [ axes [ axis direction X categories [\"Jan\" …] {} axis direction Y {} ] {} plots [ plot kind BAR values [120 132 101 134] {} ] {} ] {} ] {}`."
+    },
+    {
+      "prompt": "Revenue as bars and margin % as a line on its own axis, for four quarters.",
+      "produces": "charts",
+      "notes": "Two Y axes with ids, and each plot names its axis with `y-axis \"…\"`."
+    },
+    {
+      "prompt": "A donut of traffic sources with percentages on the slices.",
+      "produces": "charts",
+      "notes": "`plot kind PIE names […] values […] inner-radius \"50%\" label formatter \"{b}: {d}%\" {} {}`."
+    },
+    {
+      "prompt": "From this table of months, revenue and cost, show a trend chart and a cost breakdown as two tabs.",
+      "produces": "charts",
+      "notes": "One shared `datasets` in the outer list; two charts whose plots name columns (`values \"revenue\"`)."
+    },
+    {
+      "prompt": "Chart the data at this URL.",
+      "produces": "charts",
+      "notes": "Not supported: L0184 plots only data given in the request."
+    }
+  ]
+}

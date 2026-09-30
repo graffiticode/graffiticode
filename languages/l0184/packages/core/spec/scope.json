@@ -1,0 +1,25 @@
+{
+  "id": "0184",
+  "summary": "Charts drawn with Apache ECharts — bar, line, pie, donut, rose and scatter plots over data given inline or as a table, one chart or several shown as tabs. Succeeds L0173.",
+  "in_scope": [
+    "Bar charts: grouped, stacked, horizontal, with per-bar colours and value labels",
+    "Line charts: over categories, or over numbers and dates; smooth, stepped, filled, with gaps for missing values",
+    "Pie, donut and rose (nightingale) charts",
+    "Scatter plots, with named and labelled points",
+    "Combined bar and line charts, with a second value axis",
+    "Linear, logarithmic, category and time axes, with bounds",
+    "Data as a table with named columns that several charts share",
+    "Several charts in one collection, shown as tabs",
+    "Titles, legends, tooltips, colours, palettes and a dark theme"
+  ],
+  "out_of_scope": [
+    "Fetching or transforming data from a URL, a file or a spreadsheet is not built yet — L0184 plots only the data given in the request; L0170 fetches and transforms data.",
+    "Histograms, box plots, candlesticks, heatmaps, funnels, gauges and radar charts are not built yet.",
+    "Reference lines, trend lines, annotations and colour scales driven by data are not built yet.",
+    "Network charts (graph, sankey, tree, treemap, sunburst) and geographic maps are not built yet.",
+    "Spreadsheets and editable tables are L0179; do NOT route them here.",
+    "Concept maps, mind maps and other diagrams are L0183, and Venn diagrams are L0171; do NOT route them here.",
+    "Quiz questions and assessment items do NOT belong here — use L0180, or L0176 when the user names Learnosity.",
+    "L0184 does NOT accept L0173 programs: it is a different language, and existing L0173 items stay with L0173."
+  ]
+}

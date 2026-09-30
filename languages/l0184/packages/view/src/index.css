@@ -1,0 +1,222 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * Preflight is off (see tailwind.config.js) so this component never injects a global reset
+   * into a consumer app or into the page hosting the /form iframe. Four of its declarations are
+   * load-bearing for us, though, so they come back here — scoped to our own subtree.
+   *
+   * EVERY selector below is wrapped in :where(), and that is not cosmetic. :where() contributes
+   * ZERO specificity, so `:where(.l0184-charts) button` scores (0,0,1) — exactly what Tailwind's
+   * own preflight scores, and low enough that any utility overrides it.
+   *
+   * Written as `.l0184-charts button` instead it scores (0,1,1), which BEATS `.bg-green-700`
+   * (0,1,0). That shipped in L0182: every button rendered with a transparent background, inherited colour
+   * and no padding — a filled green control reduced to plain text. The tell was that hover still
+   * worked, because `.hover\:bg-green-800:hover` scores (0,2,0) and won.
+   *
+   * A reset must sit UNDER the utilities it is resetting for. Keep :where() on anything added.
+   */
+
+  /*
+   * 1. border-box. Without it `w-full` plus padding and a border overflows the parent by exactly
+   *    that padding and border.
+   * 2. border-style/width. Tailwind's `border-*` utilities set a colour and a width against
+   *    CSS's default `border-style: none`, so without this every bordered card has no border.
+   */
+  :where(.l0184-charts),
+  :where(.l0184-charts) *,
+  :where(.l0184-charts) *::before,
+  :where(.l0184-charts) *::after {
+    box-sizing: border-box;
+    border-style: solid;
+    border-width: 0;
+  }
+
+  /*
+   * 3. Lists. A browser indents `ol`/`ul` by ~40px and draws markers, so the ranked list sat
+   *    inset from everything above it and the results list would have carried numbers twice —
+   *    its own badge and the browser's.
+   */
+  :where(.l0184-charts) ol,
+  :where(.l0184-charts) ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /*
+   * 4. Form controls. Without this they inherit the host page's chrome, so a web embedded in
+   *    someone else's site shows native buttons.
+   */
+  :where(.l0184-charts) button {
+    background-color: transparent;
+    background-image: none;
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  /*
+   * Images. Without `max-width: 100%; height: auto` an image given as a node's text renders at
+   * its intrinsic size and runs straight out of the node (L0181 hit exactly this).
+   */
+  :where(.l0184-charts) img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /*
+   * 5. The font. Preflight is what normally sets `font-family` on `html`, so with it off the
+   *    component inherited whatever the host page had — and the /form iframe is its own
+   *    document with no host stylesheet at all, which meant the browser default: Times. A
+   *    web rendered in a serif nobody chose.
+   *
+   *    Set on the root and left to inherit rather than repeated per element, and `:where()` as
+   *    ever, so a `font-*` utility still wins. The stack is Tailwind's own `font-sans`, kept
+   *    verbatim so a `font-sans` utility resolves to exactly what the root already had.
+   */
+  :where(.l0184-charts) {
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      "Helvetica Neue",
+      Arial,
+      "Noto Sans",
+      sans-serif,
+      "Apple Color Emoji",
+      "Segoe UI Emoji",
+      "Segoe UI Symbol",
+      "Noto Color Emoji";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /*
+   * 6. Heading and paragraph margins. Preflight zeroes these too. Every column here spaces
+   *    itself with flex `gap-*`, so the browser's default `0.67em` on an `h1` and `1em` on a
+   *    `p` are added ON TOP of the gap that was already the whole spacing plan — the title sat
+   *    low, and each caption pushed its list down by a line it was never given.
+   */
+  :where(.l0184-charts) h1,
+  :where(.l0184-charts) h2,
+  :where(.l0184-charts) h3,
+  :where(.l0184-charts) p {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+}
+
+@layer components {
+  .l0184-panel[hidden] {
+    display: none;
+  }
+  .l0184-chrome {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-top: 1px solid rgb(229 231 235);
+    padding-top: 0.375rem;
+  }
+  .dark .l0184-chrome {
+    border-top-color: rgb(55 65 81);
+  }
+  .l0184-menu {
+    position: relative;
+  }
+  .l0184-menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.375rem;
+    color: rgb(75 85 99);
+  }
+  .dark .l0184-menu-button {
+    color: rgb(209 213 219);
+  }
+  .l0184-menu-button:hover,
+  .l0184-menu-button[aria-expanded="true"] {
+    background-color: rgb(243 244 246);
+  }
+  .dark .l0184-menu-button:hover,
+  .dark .l0184-menu-button[aria-expanded="true"] {
+    background-color: rgb(55 65 81);
+  }
+  .l0184-menu-list {
+    position: absolute;
+    left: 0;
+    bottom: 2.25rem;
+    z-index: 10;
+    min-width: 12rem;
+    overflow-y: auto;
+    padding: 0.25rem;
+    border: 1px solid rgb(229 231 235);
+    border-radius: 0.5rem;
+    background: white;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+  }
+  .dark .l0184-menu-list {
+    background: rgb(31 41 55);
+    border-color: rgb(55 65 81);
+  }
+  .l0184-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+  }
+  .l0184-menu-item:hover,
+  .l0184-menu-item:focus-visible {
+    background-color: rgb(243 244 246);
+  }
+  .dark .l0184-menu-item:hover,
+  .dark .l0184-menu-item:focus-visible {
+    background-color: rgb(55 65 81);
+  }
+  .l0184-menu-item.is-active {
+    font-weight: 600;
+  }
+  .l0184-tabs {
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+  }
+  .l0184-tab {
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    color: rgb(75 85 99);
+  }
+  .dark .l0184-tab {
+    color: rgb(209 213 219);
+  }
+  .l0184-tab.is-active {
+    background-color: rgb(243 244 246);
+    color: rgb(17 24 39);
+    font-weight: 600;
+  }
+  .dark .l0184-tab.is-active {
+    background-color: rgb(55 65 81);
+    color: white;
+  }
+  .l0184-tab:focus-visible,
+  .l0184-menu-button:focus-visible,
+  .l0184-panel:focus-visible {
+    outline: 2px solid rgb(59 130 246);
+    outline-offset: 2px;
+  }
+}

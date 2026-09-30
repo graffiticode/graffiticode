@@ -1,0 +1,38 @@
+{
+  "publishConfig": {
+    "access": "public"
+  },
+  "name": "@graffiticode/l0184",
+  "version": "0.1.0",
+  "description": "L0184 language core — charts",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./spec/*": "./spec/*"
+  },
+  "files": [
+    "dist",
+    "spec"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-static": "node tools/build-static.js",
+    "test": "vitest run",
+    "lint": "eslint src tools",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@graffiticode/l0000": "^0.6.0"
+  },
+  "devDependencies": {
+    "@graffiticode/parser": "^1.7.0",
+    "ajv": "^8.20.0",
+    "spec-md": "^3.1.0",
+    "vitest": "^5.0.1"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://l0184.graffiticode.org/schema.json",
+  "title": "L0184 compiled output",
+  "description": "A charts collection. Strict for the envelope and the language-owned view records; each chart's ECharts `option` is compiler-owned and checked by the compiler's lowering tests, not by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "charts", "view"],
+  "properties": {
+    "type": { "const": "charts" },
+    "charts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "option", "view"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "option": { "type": "object" },
+          "view": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["width", "height", "empty", "description"],
+            "properties": {
+              "width": { "anyOf": [{ "type": "number", "minimum": 0 }, { "type": "string", "pattern": "^\\d+(\\.\\d+)?%$" }] },
+              "height": { "type": "number", "exclusiveMinimum": 0 },
+              "empty": { "type": "boolean" },
+              "description": { "type": "string" },
+              "formats": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["theme", "renderer", "locale", "showTabs", "hideMenu"],
+      "properties": {
+        "theme": { "enum": ["light", "dark"] },
+        "renderer": { "enum": ["canvas", "svg"] },
+        "locale": { "type": "string" },
+        "showTabs": { "type": "boolean" },
+        "hideMenu": { "type": "boolean" },
+        "title": { "type": "string" },
+        "instructions": { "type": "string" },
+        "background": { "type": "string" }
+      }
+    }
+  }
+}
