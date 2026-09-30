@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0184",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "L0184 language core — charts",
   "type": "module",
   "main": "./dist/index.js",

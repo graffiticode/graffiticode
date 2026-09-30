@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0184-view",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "L0184 view — the charts Form (Apache ECharts), rendered through the shared View inherited from @graffiticode/l0000-view",
   "type": "module",
   "main": "./dist/index.js",
