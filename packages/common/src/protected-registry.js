@@ -98,6 +98,17 @@ export const protectedFunctionsForLang = lang =>
 export const viewSafeFunctionsForLang = lang =>
   Object.entries(protectedFunctionsForLang(lang) || {}).filter(([, spec]) => spec.viewSafe === true).map(([fn]) => fn);
 
+// The functions a SYSTEM preview session may carry: a compile with no user
+// connection signs its render through a Graffiticode-owned system connection
+// (policy POST /v1/preview-session). Only functions that are signing,
+// view-safe AND implicit (required by every render) qualify, so a system
+// session can sign a preview and never write or open the Author Site. Derived
+// from existing fields: this adds no authority and needs no version bump.
+export const systemPreviewFunctionsForLang = lang =>
+  Object.entries(protectedFunctionsForLang(lang) || {})
+    .filter(([, spec]) => spec.kind === "sign" && spec.viewSafe === true && spec.implicit === true)
+    .map(([fn]) => fn);
+
 // The two views a compiler needs (l0000 Compiler config): explicit functions
 // keyed by node tag, and implicit ones required by every compile.
 export const compilerConfigForLang = lang => {

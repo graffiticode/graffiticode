@@ -128,6 +128,54 @@ const refused = async (promise, reason) => {
   await expect(promise).rejects.toMatchObject({ reason });
 };
 
+// A compile with no user connection signs through the Graffiticode-owned
+// system connection (policy POST /v1/preview-session). The broker needs no
+// change: it verifies the execution token and spends the credential stored
+// for the system connection, bound to its owner and backend.
+describe("system preview sessions", () => {
+  const SYSTEM = "0xgraffiticode";
+  let sysPolicy;
+  let misbound;
+  beforeEach(async () => {
+    const connections = createMemoryConnectionStore([
+      { connectionId: "conn-sys", ownerUid: SYSTEM, backend: "learnosity", status: "active" },
+      { connectionId: "conn-sys-bad", ownerUid: SYSTEM, backend: "learnosity", status: "active" }
+    ]);
+    const make = connectionId => createPolicy({
+      signer,
+      jwks: brokerDeps.jwks,
+      connections,
+      invocations: createMemoryInvocationStore(),
+      systemConnections: { learnosity: connectionId },
+      audit: async () => {}
+    });
+    sysPolicy = make("conn-sys");
+    misbound = make("conn-sys-bad");
+    await secrets.create("conn-sys", { ownerUid: SYSTEM, backend: "learnosity", key: "system-key", secret: SECRET });
+    // A credential stored under another owner than the connection record's.
+    await secrets.create("conn-sys-bad", { ownerUid: OWNER, backend: "learnosity", key: "system-key", secret: SECRET });
+  });
+  const sysToken = async ({ fn = "preview-itembank", op, payload, p = sysPolicy }) => {
+    const { sessionToken } = await p.previewSession({ caller: L0176, lang: "0176" });
+    return (await p.mint({ caller: L0176, sessionToken, fn, op, occurrenceId: "prog.0", argsDigest: argsDigest(payload) })).executionToken;
+  };
+
+  it("signs Questions and Items previews with the system connection's credential", async () => {
+    for (const op of ["learnosity.sign-questions-preview", "learnosity.sign-items-preview"]) {
+      const token = await sysToken({ op, payload: PREVIEW });
+      const { status, result } = await broker.execute({ caller: L0176, token, op, payload: PREVIEW });
+      expect(status).toBe("succeeded");
+      expect(result.request.signedWithSecret).toBe(true);
+      expect(result.request.consumer.consumer_key).toBe("system-key");
+    }
+  });
+
+  it("is refused if the stored credential belongs to another owner", async () => {
+    const token = await sysToken({ op: "learnosity.sign-questions-preview", payload: PREVIEW, p: misbound });
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "credential-binding-mismatch");
+  });
+});
+
 describe("preview signing", () => {
   it("signs a constrained preview with the broker's own identity fields", async () => {
     const token = await previewToken();

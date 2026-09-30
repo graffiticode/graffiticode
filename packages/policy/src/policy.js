@@ -12,6 +12,12 @@
 //             (for the compiler's admission pass) and a session token binding
 //             it to the user, connection, language, invocation and
 //             composition stage.
+//   preview-session  once per compile with NO user connection: a session on
+//             the Graffiticode-owned system connection for the language's
+//             backend (POLICY_SYSTEM_CONNECTIONS), carrying only the
+//             language's system-preview functions (implicit, view-safe
+//             signing). No user and no invocation; it can sign a render and
+//             never write or open the Author Site.
 //   mint      once per broker operation: re-checks live state and the full
 //             lang/fn/op/backend relationship against the registry, and
 //             issues a short execution token scoped to that one request. The
@@ -26,9 +32,10 @@ import {
   REGISTRY_VERSION,
   isOperationAllowed,
   protectedFunctionsForLang,
+  systemPreviewFunctionsForLang,
   viewSafeFunctionsForLang,
 } from "@graffiticode/common/protected-registry";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict } from "./invocations.js";
@@ -48,8 +55,10 @@ const isTaskId = v => typeof v === "string" && v.length > 0 && v.length <= 4096;
 const isLang = v => typeof v === "string" && /^\d{4}$/.test(v);
 // Every view of one publication shares one invocation, keyed by this input.
 const VIEW_INPUT = createHash("sha256").update("publication-view").digest("hex");
+// The subject of a system preview session: there is no user.
+export const SYSTEM_PREVIEW_SUBJECT = "system-preview";
 
-export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, audit }) => {
+export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, audit }) => {
   const deny = async (reason, record) => {
     await audit({ ...record, outcome: "denied", reason });
     throw new PolicyDenied(reason);
@@ -275,6 +284,61 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     return { allowed, sessionToken };
   };
 
+  // The one backend a language's system-preview functions run against, or
+  // null when there are none (or, defensively, more than one).
+  const systemPreviewBackend = lang => {
+    const registered = protectedFunctionsForLang(lang) || {};
+    const backends = new Set(systemPreviewFunctionsForLang(lang).map(fn => registered[fn].backend));
+    return backends.size === 1 ? [...backends][0] : null;
+  };
+  const systemConnectionFor = backend =>
+    backend && Object.prototype.hasOwnProperty.call(systemConnections, backend) ? systemConnections[backend] : null;
+  // Live state of a system connection: still the one configured for its
+  // backend, present, active, same backend, same owner.
+  const systemConnectionRefusal = async ({ connectionId, backend, ownerUid }) => {
+    if (systemConnectionFor(backend) !== connectionId) return { refusal: "not-system-connection" };
+    const connection = await connections.get(connectionId);
+    if (!connection) return { refusal: "connection-not-found" };
+    if (connection.status !== "active") return { refusal: "connection-disabled" };
+    if (connection.backend !== backend) return { refusal: "backend-changed" };
+    if (ownerUid !== undefined && connection.ownerUid !== ownerUid) return { refusal: "owner-changed" };
+    return { connection };
+  };
+
+  // A compile with no user connection: the compiler asks for a session on
+  // the system connection. No user, no invocation; the session carries only
+  // the system-preview functions and is marked `sys`, which mint confines to
+  // them.
+  const previewSession = async ({ caller, lang }) => {
+    const record = { event: "preview-session", lang, registryVersion: REGISTRY_VERSION };
+    if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
+    if (!isLang(lang)) return deny("bad-request", record);
+    const fns = systemPreviewFunctionsForLang(lang);
+    const backend = systemPreviewBackend(lang);
+    if (fns.length === 0 || !backend) return deny("no-system-preview-functions", record);
+    const connectionId = systemConnectionFor(backend);
+    if (!connectionId) return deny("no-system-connection", record);
+    const state = await systemConnectionRefusal({ connectionId, backend });
+    if (state.refusal) return deny(state.refusal, { ...record, connectionId });
+    const { connection } = state;
+    const sessionToken = await issueToken(signer, "session", {
+      sub: SYSTEM_PREVIEW_SUBJECT,
+      own: connection.ownerUid,
+      conn: connectionId,
+      backend,
+      lang,
+      // No invocation: signing writes nothing, so the operation id only needs
+      // to be unique to this session.
+      inv: `sys-${randomUUID()}`,
+      stg: "preview",
+      sys: true,
+      rv: REGISTRY_VERSION,
+      fns,
+    });
+    await audit({ ...record, connectionId, ownerUid: connection.ownerUid, outcome: "allowed", reason: "system-preview" });
+    return { allowed: fns, sessionToken };
+  };
+
   const mint = async ({ caller, sessionToken, fn, op, occurrenceId, argsDigest }) => {
     let session;
     try {
@@ -301,6 +365,18 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (!isId(occurrenceId) || typeof argsDigest !== "string" || !DIGEST_RE.test(argsDigest)) {
       return deny("bad-request", record);
     }
+    // A system preview session has no user and no grant: it reaches only the
+    // language's system-preview functions, through the connection still
+    // configured as the system connection for its backend.
+    if (session.sys === true) {
+      if (session.sub !== SYSTEM_PREVIEW_SUBJECT || session.pub) return deny("bad-session", record);
+      if (!systemPreviewFunctionsForLang(session.lang).includes(fn)) return deny("not-system-preview", record);
+      const state = await systemConnectionRefusal({ connectionId: session.conn, backend: session.backend, ownerUid: session.own });
+      if (state.refusal) return deny(state.refusal, record);
+      return issueExecution({ session, fn, op, argsDigest, occurrenceId, record });
+    }
+    // A user session never claims the system subject.
+    if (session.sys !== undefined || session.sub === SYSTEM_PREVIEW_SUBJECT) return deny("bad-session", record);
     // A publication session re-checks the publication at every mint, and can
     // only ever reach viewSafe functions.
     if (session.pub) {
@@ -317,7 +393,10 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (connection.backend !== session.backend) return deny("backend-changed", record);
     // A grant revoked or narrowed since the snapshot stops this call.
     if (!mayUse(access, session.lang, fn)) return deny("not-granted", record);
+    return issueExecution({ session, fn, op, argsDigest, occurrenceId, record });
+  };
 
+  const issueExecution = async ({ session, fn, op, argsDigest, occurrenceId, record }) => {
     // The invocation is durable and shared by its retries, and the stage and
     // occurrence are stable within it, so a retry reaches the same receipt.
     const operationId = `${session.inv}/${session.stg}/${occurrenceId}`;
@@ -338,5 +417,5 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     return { executionToken, operationId };
   };
 
-  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, mint };
+  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint };
 };

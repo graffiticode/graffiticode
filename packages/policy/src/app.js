@@ -12,6 +12,10 @@
 //   POST /v1/snapshot  compiler   { lang, connectionId, fns, invocationToken, stage }
 //                                 (no user for a publication's invocation token)
 //                                                                 -> { allowed, sessionToken }
+//   POST /v1/preview-session  compiler  { lang }  NO user, NO invocation: a session on the
+//                                 system connection for the lang's backend, carrying only its
+//                                 system-preview functions (sub "system-preview", sys: true)
+//                                                                 -> { allowed, sessionToken }
 //   POST /v1/mint      compiler   { sessionToken, fn, op, occurrenceId, argsDigest }
 //                                                                 -> { executionToken, operationId }
 //   GET    /v1/connections              console  the user's connections (no secrets)
@@ -38,6 +42,7 @@ const ROUTE_ROLES = Object.freeze({
   invocations: ["gateway"],
   publications: ["gateway"],
   snapshot: ["compiler"],
+  "preview-session": ["compiler"],
   mint: ["compiler"],
   connections: ["console"],
 });
@@ -110,6 +115,12 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const u = await optionalUser(req);
     const { lang, connectionId, fns, invocationToken, stage } = req.body ?? {};
     await decide(res, () => policy.snapshot({ caller, user: u, lang, connectionId, fns, invocationToken, stage }));
+  }));
+  // No user token is read: the session is the system's, not a user's.
+  router.post("/preview-session", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("preview-session")(req);
+    const { lang } = req.body ?? {};
+    await decide(res, () => policy.previewSession({ caller, lang }));
   }));
   router.post("/mint", buildHttpHandler(async (req, res) => {
     const caller = await authorize("mint")(req);

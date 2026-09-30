@@ -2,6 +2,8 @@
 // startup: a missing or malformed setting stops the service rather than
 // running it with a weaker default.
 
+import { OPERATIONS } from "@graffiticode/common/protected-registry";
+
 export const requireEnv = (env, name) => {
   const value = env[name];
   if (typeof value !== "string" || value.trim() === "") {
@@ -39,6 +41,42 @@ export const parseCallers = json => {
     callers[email] = spec.role === "compiler" ? { role: "compiler", lang: spec.lang } : { role: spec.role };
   }
   return Object.freeze(callers);
+};
+
+// POLICY_SYSTEM_CONNECTIONS (optional): JSON object mapping a connection
+// backend to the Graffiticode-owned connection that signs previews for
+// compiles with no user connection (POST /v1/preview-session), e.g.
+//   {"learnosity": "conn-0123"}
+// Absent or empty means no system connections. Anything malformed stops the
+// service: a non-object, a backend the registry does not know, or an id
+// policy would never accept.
+const SYSTEM_BACKENDS = new Set(Object.values(OPERATIONS).map(op => op.backend));
+const CONNECTION_ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
+
+export const parseSystemConnections = json => {
+  if (json === undefined || json === null || String(json).trim() === "") {
+    return Object.freeze({});
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("POLICY_SYSTEM_CONNECTIONS must be JSON");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("POLICY_SYSTEM_CONNECTIONS must be an object");
+  }
+  const out = {};
+  for (const [backend, connectionId] of Object.entries(parsed)) {
+    if (!SYSTEM_BACKENDS.has(backend)) {
+      throw new Error(`POLICY_SYSTEM_CONNECTIONS: ${backend} is not a known backend`);
+    }
+    if (typeof connectionId !== "string" || !CONNECTION_ID_RE.test(connectionId)) {
+      throw new Error(`POLICY_SYSTEM_CONNECTIONS: ${backend} needs a connection id`);
+    }
+    out[backend] = connectionId;
+  }
+  return Object.freeze(out);
 };
 
 // Security audit records go to stdout as one JSON line each, tagged so a Cloud

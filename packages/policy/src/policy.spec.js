@@ -388,3 +388,177 @@ describe("publications", () => {
     await denied(viewSnap(invocationToken), "no-user");
   });
 });
+
+describe("system preview sessions", () => {
+  const SYSTEM = "0xgraffiticode";
+  let sys;
+  let sysRecords;
+  const make = systemConnections => {
+    sysRecords = [];
+    return createPolicy({
+      signer,
+      jwks,
+      connections,
+      invocations: createMemoryInvocationStore(),
+      publications: createMemoryPublicationStore(),
+      systemConnections,
+      audit: createAudit({ sink: r => sysRecords.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) })
+    });
+  };
+  beforeEach(async () => {
+    await connections.put({ connectionId: "conn-sys", ownerUid: SYSTEM, backend: "learnosity", status: "active" });
+    sys = make({ learnosity: "conn-sys" });
+  });
+  const session = (over = {}) => sys.previewSession({ caller: L0176, lang: "0176", ...over });
+  const mintWith = (sessionToken, over = {}) => sys.mint({
+    caller: L0176,
+    sessionToken,
+    fn: "preview-itembank",
+    op: "learnosity.sign-items-preview",
+    occurrenceId: "prog.0",
+    argsDigest: digest("args"),
+    ...over
+  });
+  const sessionClaims = async () => (await verifyToken(jwks, "session", (await session()).sessionToken)).claims;
+
+  it("gives a compiler a session on the system connection carrying preview signing only", async () => {
+    const result = await session();
+    expect(result.allowed).toEqual(["preview-itembank"]);
+    const { claims } = await verifyToken(jwks, "session", result.sessionToken);
+    expect(claims).toMatchObject({
+      sub: "system-preview",
+      sys: true,
+      own: SYSTEM,
+      conn: "conn-sys",
+      backend: "learnosity",
+      lang: "0176",
+      stg: "preview",
+      fns: ["preview-itembank"]
+    });
+    expect(claims.inv).toMatch(/^sys-/);
+    expect(claims.pub).toBeUndefined();
+    expect(sysRecords).toEqual([expect.objectContaining({ event: "preview-session", outcome: "allowed", reason: "system-preview" })]);
+  });
+
+  it.each([
+    ["a caller that is not a compiler", { caller: CONSOLE }, "caller-language-mismatch"],
+    ["the gateway", { caller: GATEWAY }, "caller-language-mismatch"],
+    ["a compiler asking for another language", { caller: { role: "compiler", lang: "0000" } }, "caller-language-mismatch"],
+    ["a language that is not its own", { lang: "0000" }, "caller-language-mismatch"],
+    ["a language with no system-preview functions", { caller: { role: "compiler", lang: "0002" }, lang: "0002" }, "no-system-preview-functions"],
+    ["a malformed language", { caller: { role: "compiler", lang: "L0176" }, lang: "L0176" }, "bad-request"]
+  ])("refuses %s, and audits it", async (_, over, reason) => {
+    await denied(session(over), reason);
+    expect(sysRecords.at(-1)).toMatchObject({ event: "preview-session", outcome: "denied", reason });
+  });
+
+  it("refuses when no system connection is configured", async () => {
+    sys = make({});
+    await denied(session(), "no-system-connection");
+    expect(sysRecords.at(-1)).toMatchObject({ outcome: "denied", reason: "no-system-connection" });
+    sys = make(undefined);
+    await denied(session(), "no-system-connection");
+  });
+
+  it.each([
+    ["missing", () => connections.delete("conn-sys"), "connection-not-found"],
+    ["disabled", () => connections.put({ connectionId: "conn-sys", ownerUid: SYSTEM, backend: "learnosity", status: "disabled" }), "connection-disabled"],
+    ["of another backend", () => connections.put({ connectionId: "conn-sys", ownerUid: SYSTEM, backend: "other", status: "active" }), "backend-changed"]
+  ])("refuses when the system connection is %s", async (_, change, reason) => {
+    await change();
+    await denied(session(), reason);
+    expect(sysRecords.at(-1)).toMatchObject({ outcome: "denied", reason });
+  });
+
+  it("mints preview signing for Items and Questions, with no user and no grant", async () => {
+    const { sessionToken } = await session();
+    const items = await mintWith(sessionToken);
+    const { claims } = await verifyToken(jwks, "execution", items.executionToken);
+    expect(claims).toMatchObject({
+      sub: "system-preview",
+      own: SYSTEM,
+      conn: "conn-sys",
+      backend: "learnosity",
+      lang: "0176",
+      fn: "preview-itembank",
+      op: "learnosity.sign-items-preview",
+      argd: digest("args")
+    });
+    expect(items.operationId).toMatch(/^sys-[0-9a-f-]+\/preview\/prog\.0$/);
+    await expect(mintWith(sessionToken, { op: "learnosity.sign-questions-preview" })).resolves.toBeTruthy();
+    expect(sysRecords.filter(r => r.event === "mint").map(r => r.outcome)).toEqual(["allowed", "allowed"]);
+  });
+
+  it("never mints a write or Author signing", async () => {
+    const { sessionToken } = await session();
+    await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
+    await denied(mintWith(sessionToken, { fn: "author-itembank", op: "learnosity.sign-author" }), "fn-not-in-session");
+    await denied(mintWith(sessionToken, { op: "learnosity.write-items" }), "operation-not-allowed");
+    await denied(mintWith(sessionToken, { op: "learnosity.sign-author" }), "operation-not-allowed");
+  });
+
+  it("never mints a write or Author signing even for a system session that names them", async () => {
+    // Signed with policy's own key, as if a session had been issued with more.
+    const { rv } = await sessionClaims();
+    const wide = await issueToken(signer, "session", {
+      sub: "system-preview",
+      sys: true,
+      own: SYSTEM,
+      conn: "conn-sys",
+      backend: "learnosity",
+      lang: "0176",
+      inv: "sys-x",
+      stg: "preview",
+      rv,
+      fns: ["preview-itembank", "save-to-itembank", "author-itembank"]
+    });
+    await denied(mintWith(wide, { fn: "save-to-itembank", op: "learnosity.write-items" }), "not-system-preview");
+    await denied(mintWith(wide, { fn: "author-itembank", op: "learnosity.sign-author" }), "not-system-preview");
+    await expect(mintWith(wide)).resolves.toBeTruthy();
+  });
+
+  it("stops at the next mint once the system connection is disabled, re-typed, re-owned or deleted", async () => {
+    const { sessionToken } = await session();
+    await connections.put({ connectionId: "conn-sys", ownerUid: SYSTEM, backend: "learnosity", status: "disabled" });
+    await denied(mintWith(sessionToken), "connection-disabled");
+    await connections.put({ connectionId: "conn-sys", ownerUid: SYSTEM, backend: "other", status: "active" });
+    await denied(mintWith(sessionToken), "backend-changed");
+    await connections.put({ connectionId: "conn-sys", ownerUid: OTHER, backend: "learnosity", status: "active" });
+    await denied(mintWith(sessionToken), "owner-changed");
+    await connections.delete("conn-sys");
+    await denied(mintWith(sessionToken), "connection-not-found");
+  });
+
+  it("stops once the configured system connection changes or is removed", async () => {
+    const { sessionToken } = await session();
+    await connections.put({ connectionId: "conn-sys-2", ownerUid: SYSTEM, backend: "learnosity", status: "active" });
+    sys = make({ learnosity: "conn-sys-2" });
+    await denied(mintWith(sessionToken), "not-system-connection");
+    sys = make({});
+    await denied(mintWith(sessionToken), "not-system-connection");
+  });
+
+  it("refuses a system session spent by another language's compiler", async () => {
+    const { sessionToken } = await session();
+    await denied(mintWith(sessionToken, { caller: { role: "compiler", lang: "0000" } }), "caller-language-mismatch");
+  });
+
+  it("refuses the system subject without the system mark, and the mark without the subject", async () => {
+    const { rv } = await sessionClaims();
+    const base = { own: SYSTEM, conn: "conn-sys", backend: "learnosity", lang: "0176", inv: "i", stg: "s", rv, fns: ["preview-itembank"] };
+    await denied(mintWith(await issueToken(signer, "session", { ...base, sub: "system-preview" })), "bad-session");
+    await denied(mintWith(await issueToken(signer, "session", { ...base, sub: OWNER, sys: true })), "bad-session");
+  });
+
+  it("leaves the system connection unusable by users who do not own it", async () => {
+    await denied(sys.snapshot({
+      caller: L0176,
+      user: { uid: OWNER },
+      lang: "0176",
+      connectionId: "conn-sys",
+      fns: ["preview-itembank"],
+      invocationToken: await issueToken(signer, "invocation", { sub: OWNER, conn: "conn-sys", inv: "inv-1", seq: 1 }),
+      stage: "s0"
+    }), "not-owner");
+  });
+});

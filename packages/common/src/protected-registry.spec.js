@@ -4,6 +4,7 @@ import {
   REGISTRY_VERSION,
   compilerConfigForLang,
   isOperationAllowed,
+  systemPreviewFunctionsForLang,
   taskRequiresProtected,
   viewSafeFunctionsForLang
 } from "./protected-registry.js";
@@ -94,6 +95,30 @@ describe("protected-registry", () => {
       expect(author.delegable).toBe(false);
       expect(author.viewSafe).toBe(false);
       expect(viewSafeFunctionsForLang("0176")).toEqual(["preview-itembank"]);
+    });
+  });
+
+  describe("systemPreviewFunctionsForLang", () => {
+    it("is exactly the implicit, view-safe signing functions (preview only for 0176)", () => {
+      expect(systemPreviewFunctionsForLang("0176")).toEqual(["preview-itembank"]);
+      expect(systemPreviewFunctionsForLang("L0176")).toEqual(["preview-itembank"]);
+    });
+    it("never includes a write or Author signing", () => {
+      for (const lang of Object.keys(PROTECTED_FUNCTIONS)) {
+        for (const fn of systemPreviewFunctionsForLang(lang)) {
+          const spec = PROTECTED_FUNCTIONS[lang][fn];
+          expect(spec).toMatchObject({ kind: "sign", viewSafe: true, implicit: true });
+          for (const op of spec.ops) {
+            expect(OPERATIONS[op].kind).toBe("sign");
+            expect(op).not.toBe("learnosity.sign-author");
+          }
+        }
+      }
+      expect(systemPreviewFunctionsForLang("0176")).not.toContain("save-to-itembank");
+      expect(systemPreviewFunctionsForLang("0176")).not.toContain("author-itembank");
+    });
+    it("is empty for an unprotected language", () => {
+      expect(systemPreviewFunctionsForLang("0002")).toEqual([]);
     });
   });
 

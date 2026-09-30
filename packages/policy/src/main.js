@@ -8,6 +8,7 @@
 //   AUTH_URL                auth service that verifies user tokens
 //   BROKER_URL              broker service URL (credential provisioning)
 //   AUDIT_PSEUDONYM_SECRET  HMAC secret for pseudonymous audit ids (Secret Manager)
+//   POLICY_SYSTEM_CONNECTIONS  optional backend -> system connection id (see config.js)
 
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -30,7 +31,7 @@ import {
   createAudit,
   createPseudonymizer
 } from "./index.js";
-import { requireEnv, parseCallers, auditSink, createIdTokenSource } from "./config.js";
+import { requireEnv, parseCallers, parseSystemConnections, auditSink, createIdTokenSource } from "./config.js";
 
 const env = process.env;
 const keyVersionName = requireEnv(env, "POLICY_KMS_KEY_VERSION");
@@ -39,6 +40,7 @@ const callers = parseCallers(requireEnv(env, "POLICY_CALLERS"));
 const authUrl = requireEnv(env, "AUTH_URL");
 const brokerUrl = requireEnv(env, "BROKER_URL");
 const auditSecret = requireEnv(env, "AUDIT_PSEUDONYM_SECRET");
+const systemConnections = parseSystemConnections(env.POLICY_SYSTEM_CONNECTIONS);
 
 const app = admin.apps.length ? admin.app() : admin.initializeApp();
 const db = getFirestore(app, env.POLICY_FIRESTORE_DB || "policy");
@@ -56,7 +58,7 @@ const signer = createKmsSigner({ kms, keyVersionName, kid });
 const invocations = createFirestoreInvocationStore(db);
 const publications = createFirestorePublicationStore(db);
 const grants = createFirestoreGrantStore(db);
-const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations, publications, grants, audit });
+const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations, publications, grants, systemConnections, audit });
 const idToken = createIdTokenSource({ GoogleAuth });
 const manager = createConnectionManager({ connections, grants, audit, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
 const authClient = createAuthClient(authUrl);

@@ -55,7 +55,8 @@ beforeEach(async () => {
   const audit = createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   grants = createMemoryGrantStore();
   const connections = createMemoryConnectionStore([
-    { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
+    { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" },
+    { connectionId: "conn-sys", ownerUid: "0xgraffiticode", backend: "learnosity", status: "active" }
   ]);
   const policy = createPolicy({
     signer,
@@ -64,6 +65,7 @@ beforeEach(async () => {
     invocations: createMemoryInvocationStore(),
     publications: createMemoryPublicationStore(),
     grants,
+    systemConnections: { learnosity: "conn-sys" },
     audit
   });
   const identifyCaller = createCallerIdentity({
@@ -165,6 +167,32 @@ describe("publications over http", () => {
     const res = await as(request(app).post("/v1/publications"), SA.console)
       .send({ connectionId: "conn-1", taskId: "task-1", lang: "0176", artifactInvocationId: "inv-run" });
     expect(res.status).toBe(403);
+  });
+});
+
+describe("system preview sessions over http", () => {
+  it("give a compiler, with no user, a session that mints preview signing and nothing else", async () => {
+    const res = await as(request(app).post("/v1/preview-session"), SA.l0176, { user: null }).send({ lang: "0176" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.allowed).toEqual(["preview-itembank"]);
+    const mint = body => as(request(app).post("/v1/mint"), SA.l0176, { user: null })
+      .send({ sessionToken: res.body.data.sessionToken, occurrenceId: "prog.0", argsDigest: "a".repeat(64), ...body });
+    expect((await mint({ fn: "preview-itembank", op: "learnosity.sign-questions-preview" })).status).toBe(200);
+    const write = await mint({ fn: "save-to-itembank", op: "learnosity.write-items" });
+    expect(write.status).toBe(403);
+    expect(write.body.error.reason).toBe("fn-not-in-session");
+  });
+
+  it("refuse the console, the gateway, and another language's compiler", async () => {
+    expect((await as(request(app).post("/v1/preview-session"), SA.console).send({ lang: "0176" })).status).toBe(403);
+    expect((await as(request(app).post("/v1/preview-session"), SA.gateway).send({ lang: "0176" })).status).toBe(403);
+    const other = await as(request(app).post("/v1/preview-session"), SA.l0000, { user: null }).send({ lang: "0176" });
+    expect(other.status).toBe(403);
+    expect(other.body.error.reason).toBe("caller-language-mismatch");
+  });
+
+  it("refuse a missing caller identity", async () => {
+    expect((await request(app).post("/v1/preview-session").send({ lang: "0176" })).status).toBe(401);
   });
 });
 
