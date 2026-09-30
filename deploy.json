@@ -281,7 +281,8 @@
         "POLICY_FIRESTORE_DB": "policy",
         "POLICY_KMS_KEY_VERSION": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1",
         "POLICY_KMS_KID": "policy-1",
-        "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app"
+        "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
+        "POLICY_SYSTEM_CONNECTIONS": "${POLICY_SYSTEM_CONNECTIONS}"
       },
       "smoke": [
         {
@@ -384,12 +385,10 @@
       ],
       "env": {
         "AUTH_URL": "https://auth.graffiticode.org",
-        "LEARNOSITY_KEY": "UsF4dy1YxZd4JIyq",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
         "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app"
       },
       "secrets": {
-        "LEARNOSITY_SECRET": "learnosity-secret:1",
         "GRAFFITICODE_SECRET_KEY": "GRAFFITICODE_SECRET_KEY:1"
       },
       "smoke": [
