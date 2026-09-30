@@ -3,6 +3,7 @@
   "summary": "Surveys — taking a survey the language server holds and recording the response. Two styles: ranked choice (the options chosen in priority order, plus one write-in that was not in the set) and rating scales (Likert agreement, frequency, importance, satisfaction, NPS, star ratings and semantic differentials, with opt-outs and a comment). Nearly every request is someone answering a survey that already exists.",
   "in_scope": [
     "Answering a survey someone has been given — recording a person's or an agent's response to a survey the back end holds, which is the ordinary request",
+    "Answering a survey named by its id — civic-priorities, team-retro, city-budget, product-features, school, course-feedback, customer-satisfaction, app-usability, workplace-pulse — in any phrasing: 'rate the app-usability survey', 'fill in the school survey', 'answer team-retro', including answering it as a described person ('as someone opening the app for the first time', 'as a new employee'). Rating a named survey is taking it, never a quiz",
     "Recording which options someone chose from a ranked-choice survey, and the priority order they put them in",
     "Contributing one write-in that was not already in the set, alongside the choices or on its own",
     "Rating the items of a survey on a scale — Likert agreement grids, frequency, importance, satisfaction and likelihood questions",
