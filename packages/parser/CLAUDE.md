@@ -77,8 +77,12 @@ Consequences that bite:
 - **Pipeline formatting**: a call whose lexicon entry has `arity >= 2` and whose declared `type` mentions `rest` is treated as a pipeline step and laid out one step per line (`isPipelineStep`/`formatPipelineNode`). This is driven entirely by lexicon `type` strings parsed by `parseType`.
 - Comments are C-style block comments only.
 
+## Logging
+
+Never log program source, error message text, or exception messages — an error's text can carry user source (an unterminated string's message runs to the end of the program). Log lengths and coords instead, as `Ast.error` does, and log exceptions through `redactedStack()` in `parse.js` (name, message length, stack frames only).
+
 ## Repo hygiene
 
-`src/*.js~`, `src/*.ts~`, and `dist/` are stale, untracked leftovers — not build output and not imported by anything. Ignore them; `git ls-files packages/parser` lists what is real.
+`git ls-files packages/parser` lists what is real; any `src/*.js~` or `dist/` lying around is a stale, untracked leftover. The `console-test` npm script points at a file that no longer exists. `src/testing/index.js` holds the jest mock helpers (`mockPromiseValue`, `mockPromiseError`) used to fake parse callbacks in `parser.spec.js`.
 
 Style: eslint `standard` base with double quotes, semicolons, ES modules only, and required `.js` import extensions (root `.eslintrc.cjs`).
