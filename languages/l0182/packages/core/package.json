@@ -27,7 +27,7 @@
     "lint": "eslint src tools"
   },
   "dependencies": {
-    "@graffiticode/l0000": "^0.3.0",
+    "@graffiticode/l0000": "^0.7.1",
     "decimal.js": "^10.5.0"
   },
   "devDependencies": {
