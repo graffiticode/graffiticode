@@ -25,7 +25,7 @@
     "lint": "eslint src tools"
   },
   "dependencies": {
-    "@graffiticode/l0000": "^0.7.1"
+    "@graffiticode/l0000": "^0.8.0"
   },
   "devDependencies": {
     "spec-md": "^3.1.0"
