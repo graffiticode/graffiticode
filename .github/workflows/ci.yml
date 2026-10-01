@@ -83,3 +83,41 @@ jobs:
           name: jest-results-emulated
           path: .jest-results/
           if-no-files-found: ignore
+
+  # Builds each service's production image exactly as Cloud Build will
+  # (multi-stage; tsc runs inside the build stage) and checks that the image
+  # holds precisely the packages/<name>/dist directories that service loads,
+  # and that its src/ entry point is still there (phase 2a: CMD runs src/).
+  images:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth
+            dists: common auth
+            entry: packages/auth/src/main.js
+          - service: policy
+            dists: common auth policy
+            entry: packages/policy/src/main.js
+          - service: broker
+            dists: common policy broker
+            entry: packages/broker/src/main.js
+          - service: api
+            dists: common auth policy broker api
+            entry: packages/api/src/main.js
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build ${{ matrix.service }} image
+        run: docker build -f configs/Dockerfile.${{ matrix.service }}.yaml -t gc-${{ matrix.service }} .
+      - name: Check image contents
+        run: |
+          expected=$(for p in ${{ matrix.dists }}; do echo "packages/$p/dist"; done | sort)
+          actual=$(docker run --rm --entrypoint sh gc-${{ matrix.service }} -c 'ls -d packages/*/dist 2>/dev/null' | sort)
+          echo "expected dist dirs:"; echo "$expected"; echo "actual dist dirs:"; echo "$actual"
+          test "$expected" = "$actual"
+          for p in ${{ matrix.dists }}; do
+            docker run --rm --entrypoint sh gc-${{ matrix.service }} -c "ls packages/$p/dist/*.js >/dev/null"
+          done
+          docker run --rm --entrypoint sh gc-${{ matrix.service }} -c 'test -f ${{ matrix.entry }}'
