@@ -54,7 +54,8 @@
     "testPathIgnorePatterns": [
       "<rootDir>/packages/",
       "<rootDir>/languages/",
-      "<rootDir>/node_modules/"
+      "<rootDir>/node_modules/",
+      "<rootDir>/.claude/"
     ]
   },
   "dependencies": {
