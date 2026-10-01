@@ -5,8 +5,10 @@ describe("getAsset", () => {
   it("should returned fetched asset", async () => {
     // Arrange
     const baseUrl = "http://localhost:5000";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const asset = "asset";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockResolvedValue(asset);
     const bent = jest.fn().mockReturnValue(call);
     const getAsset = buildGetAsset({ getBaseUrlForLanguage, bent });
@@ -26,8 +28,10 @@ describe("getAsset", () => {
   it("should return null when the asset is not found (404)", async () => {
     // Arrange
     const baseUrl = "http://localhost:5000";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const notFound = Object.assign(new Error("Not Found"), { statusCode: 404 });
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockRejectedValue(notFound);
     const bent = jest.fn().mockReturnValue(call);
     const getAsset = buildGetAsset({ getBaseUrlForLanguage, bent });
@@ -42,7 +46,9 @@ describe("getAsset", () => {
   it("should throw error is fails to get asset", async () => {
     // Arrange
     const baseUrl = "http://localhost:5000";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockRejectedValue(new Error("failed to get asset"));
     const bent = jest.fn().mockReturnValue(call);
     const getAsset = buildGetAsset({ getBaseUrlForLanguage, bent });

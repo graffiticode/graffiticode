@@ -62,6 +62,7 @@ beforeEach(async () => {
   const connections = createMemoryConnectionStore([
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
   routes = [];
   failItems = false;
@@ -98,6 +99,7 @@ const invocation = (idempotencyKey = "job-1") => policy.allocateInvocation({
   idempotencyKey
 });
 
+// @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
 const session = async ({ idempotencyKey, ...over } = {}) => policy.snapshot({
   caller: L0176,
   user: { uid: OWNER },
@@ -115,6 +117,7 @@ const mint = async (sessionToken, { fn, op, payload, occurrenceId = "n1.0" }) =>
 const previewToken = async (payload = PREVIEW) =>
   mint(await session(), { fn: "init", op: "learnosity.sign-questions-preview", payload });
 
+// @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
 const saveToken = async ({ idempotencyKey = "job-1", payload = WRITE, occurrenceId } = {}) =>
   mint(await session({ idempotencyKey }), {
     fn: "save-to-itembank",
@@ -141,6 +144,7 @@ describe("system preview sessions", () => {
       { connectionId: "conn-sys", ownerUid: SYSTEM, backend: "learnosity", status: "active" },
       { connectionId: "conn-sys-bad", ownerUid: SYSTEM, backend: "learnosity", status: "active" }
     ]);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const make = connectionId => createPolicy({
       signer,
       jwks: brokerDeps.jwks,
@@ -298,7 +302,9 @@ describe("item-bank writes", () => {
   });
 
   it("gives distinct occurrences in one save their own executions", async () => {
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await broker.execute({ caller: L0176, token: await saveToken({ occurrenceId: "n1.0" }), op: "learnosity.write-items", payload: WRITE });
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await broker.execute({ caller: L0176, token: await saveToken({ occurrenceId: "n1.1" }), op: "learnosity.write-items", payload: WRITE });
     expect(routes).toHaveLength(4);
   });

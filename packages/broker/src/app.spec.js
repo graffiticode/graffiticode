@@ -46,6 +46,7 @@ beforeEach(async () => {
   const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
   const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
   const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   const policy = createPolicy({
     signer,
     jwks,

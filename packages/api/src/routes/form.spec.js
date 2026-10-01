@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 
 // Mock bent to avoid slow HTTP calls to external language compilers
 jest.unstable_mockModule("bent", () => ({
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   default: jest.fn(() => jest.fn().mockResolvedValue({})),
 }));
 

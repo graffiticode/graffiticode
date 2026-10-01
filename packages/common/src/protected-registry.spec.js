@@ -58,6 +58,7 @@ describe("protected-registry", () => {
     expect(Object.isFrozen(PROTECTED_FUNCTIONS["0176"].init.ops)).toBe(true);
     expect(() => {
       "use strict";
+      // @ts-expect-error TS-MIGRATE: deliberately mutates a frozen value to prove it throws
       PROTECTED_FUNCTIONS["0176"].init.ops.push("learnosity.write-items");
     }).toThrow();
   });
@@ -92,6 +93,7 @@ describe("protected-registry", () => {
     it("has no mode in any function's spec", () => {
       for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
         for (const spec of Object.values(fns)) {
+          // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
           expect(spec.modes).toBeUndefined();
         }
       }

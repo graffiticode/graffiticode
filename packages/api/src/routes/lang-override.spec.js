@@ -9,6 +9,7 @@ describe("routes/lang-overrides", () => {
   const mountWithAuth = (uid) => {
     app = express();
     // Stand in for the auth middleware: attach req.auth with the given uid.
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     app.use((req, _res, next) => { req.auth = { uid }; next(); });
     app.use("/lang-overrides", langOverrides({ langOverrideStorer }));
   };

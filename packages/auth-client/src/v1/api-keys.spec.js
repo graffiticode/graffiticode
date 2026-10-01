@@ -11,6 +11,7 @@ describe("api-keys", () => {
 
   beforeEach(async () => {
     authApp = await startAuthApp();
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     client = createClient({ url: authApp.url });
   });
 
@@ -21,6 +22,7 @@ describe("api-keys", () => {
   describe("create", () => {
     it("should return invalid argument if no accessToken is provided", async () => {
       await expect(client.createApiKey())
+        // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
         .rejects.toThrow(InvalidArgumentError, "must provide an accessToken");
     });
 
@@ -55,6 +57,7 @@ describe("api-keys", () => {
   describe("delete", () => {
     it("should return invalid argument if no accessToken is provided", async () => {
       await expect(client.deleteApiKey())
+        // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
         .rejects.toThrow(InvalidArgumentError, "must provide an accessToken");
     });
 
@@ -62,6 +65,7 @@ describe("api-keys", () => {
       const { accessToken } = await authApp.authService.generateTokens({ uid });
 
       await expect(client.deleteApiKey({ accessToken }))
+        // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
         .rejects.toThrow(InvalidArgumentError, "must provide an apiKeyId");
     });
 
@@ -93,6 +97,7 @@ describe("api-keys", () => {
       const { id, token } = await authApp.apiKeyService.create({ uid });
       const { accessToken } = await authApp.authService.generateTokens({ uid });
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(client.deleteApiKey({ accessToken, apiKeyId: id })).resolves.toBe();
 
       // Should not be able to authenticate with the API Key after it has been deleted

@@ -12,6 +12,7 @@ describe("ethereum", () => {
 
   beforeEach(async () => {
     authApp = await startAuthApp();
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     client = createClient({ url: authApp.url });
   });
 

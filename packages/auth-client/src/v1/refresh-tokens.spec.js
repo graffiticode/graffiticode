@@ -10,6 +10,7 @@ describe("ethereum", () => {
 
   beforeEach(async () => {
     authApp = await startAuthApp();
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     client = createClient({ url: authApp.url });
   });
 
@@ -43,12 +44,14 @@ describe("ethereum", () => {
     });
 
     it("should succeed if refresh token does not exist", async () => {
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(client.revokeRefreshToken({ refreshToken: "does-not-exist" })).resolves.toBe();
     });
 
     it("should succeed if refresh token exists", async () => {
       const { refreshToken } = await authApp.authService.generateTokens({ uid });
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(client.revokeRefreshToken({ refreshToken })).resolves.toBe();
 
       // Should not be able to use the refreshToken to generate an accessToken.

@@ -83,6 +83,7 @@ beforeEach(async () => {
     authorizeView: asGateway(({ publicationId }) => policy.authorizeView({ caller: GATEWAY, publicationId }))
   };
   artifactStorer = buildMemoryArtifactStorer();
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   dataApi = buildDataApi({ compile, artifactStorer, publications });
 
   const taskStorer = { get: async () => [TASK] };
@@ -91,6 +92,7 @@ beforeEach(async () => {
   // Stand-in for the auth middleware: the bearer token is the uid.
   app.use((req, _res, next) => {
     const uid = (req.get("Authorization") || "").replace(/^Bearer /, "");
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     req.auth = { context: uid ? { uid } : null };
     next();
   });

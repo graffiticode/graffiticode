@@ -19,6 +19,7 @@ describe("data", () => {
     taskStorer = storers.taskStorer;
     compileStorer = storers.compileStorer;
     compile = jest.fn();
+    // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
     dataApi = buildDataApi({ compile });
   });
 
@@ -42,8 +43,10 @@ describe("data", () => {
   });
 
   // A compile through a connection runs under an invocation from policy.
+  // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
   const withInvocation = () => buildDataApi({
     compile,
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     allocateInvocation: jest.fn().mockResolvedValue({ invocationToken: "inv.tok.en", invocationId: "inv-1", seq: 1, ownerUid: "owner" })
   });
 
@@ -52,16 +55,19 @@ describe("data", () => {
     const id = await taskStorer.create({ task: TASK1 });
     // A cached result exists for this id...
     mockCompileData(DATA1);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await dataApi.get({ taskStorer, compileStorer, id });
     // ...but a compile through a connection must not answer from it.
     mockCompileData(DATA2);
 
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await expect(dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" }))
       .resolves.toStrictEqual(DATA2);
 
     expect(compile).toHaveBeenCalledTimes(2);
     expect(compile).toHaveBeenNthCalledWith(2, expect.objectContaining({ connectionId: "conn-1" }));
     // And it must not overwrite the shared cache with this caller's output.
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
     expect(compile).toHaveBeenCalledTimes(2);
   });
@@ -70,9 +76,11 @@ describe("data", () => {
     dataApi = withInvocation();
     const id = await taskStorer.create({ task: TASK1 });
     mockCompileData(DATA2);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" });
     mockCompileData(DATA1);
 
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
     expect(compile).toHaveBeenCalledTimes(2);
   });
@@ -255,12 +263,15 @@ describe("data", () => {
     const RESULT = { data: { bad: true }, errors: [] };
 
     it("should keep the data, add the errors, and not cache", async () => {
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       const validateOutput = jest.fn().mockResolvedValue([SCHEMA_ERROR]);
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, validateOutput });
       const id = await taskStorer.create({ task: TASK1 });
       mockCompileData(RESULT);
       const action = {};
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(dataApi.get({ taskStorer, compileStorer, id, action }))
         .resolves.toStrictEqual({ data: { bad: true }, errors: [SCHEMA_ERROR] });
 
@@ -270,11 +281,14 @@ describe("data", () => {
     });
 
     it("should cache as before when the data matches", async () => {
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       const validateOutput = jest.fn().mockResolvedValue([]);
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, validateOutput });
       const id = await taskStorer.create({ task: TASK1 });
       mockCompileData(RESULT);
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(RESULT);
       await expect(compileStorer.get({ id })).resolves.toEqual(
         expect.objectContaining({ data: RESULT })
@@ -297,7 +311,9 @@ describe("data", () => {
 
   describe("invocations", () => {
     it("allocates one invocation for the chain and names each stage by position", async () => {
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       const allocateInvocation = jest.fn().mockResolvedValue({ invocationToken: "inv.tok.en", invocationId: "inv-1", seq: 1, ownerUid: "owner" });
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, allocateInvocation });
       const id1 = await taskStorer.create({ task: TASK1 });
       const id2 = await taskStorer.create({ task: TASK2 });
@@ -305,6 +321,7 @@ describe("data", () => {
       mockCompileData(DATA2);
       mockCompileData(DATA1);
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await dataApi.get({ taskStorer, compileStorer, id, authToken: "user-token", connectionId: "conn-1", idempotencyKey: "job-1" });
 
       expect(allocateInvocation).toHaveBeenCalledTimes(1);
@@ -317,10 +334,12 @@ describe("data", () => {
 
     it("allocates nothing without a connection", async () => {
       const allocateInvocation = jest.fn();
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, allocateInvocation });
       const id = await taskStorer.create({ task: TASK1 });
       mockCompileData(DATA1);
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await dataApi.get({ taskStorer, compileStorer, id });
 
       expect(allocateInvocation).not.toHaveBeenCalled();
@@ -332,12 +351,14 @@ describe("data", () => {
     it("records the unsigned result of a successful compile as a private artifact", async () => {
       const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
       const artifactStorer = buildMemoryArtifactStorer();
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
       const id = await taskStorer.create({ task: TASK1 });
       // L0176's real envelope: the signed activity is `data`, beside `errors`.
       const SIGNED = { security: { signature: "sig" }, request: {} };
       mockCompileData({ data: { type: "questions", data: { q: 1 }, request: SIGNED }, errors: [], cache: false });
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       const out = await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
       expect(out.data.request).toEqual(SIGNED);
@@ -351,11 +372,13 @@ describe("data", () => {
     it("stores content that merely mentions a signature", async () => {
       const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
       const artifactStorer = buildMemoryArtifactStorer();
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
       const id = await taskStorer.create({ task: TASK1 });
       const question = { stimulus: "What does \"signature\" mean?", signature: "a field named signature" };
       mockCompileData({ data: { type: "questions", data: { questions: [question] } }, errors: [] });
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
       const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
@@ -366,11 +389,13 @@ describe("data", () => {
     it("stores nothing when a signature is left anywhere in the output", async () => {
       const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
       const artifactStorer = buildMemoryArtifactStorer();
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
       const id = await taskStorer.create({ task: TASK1 });
       // What an explicit `init questions {}` returns: the signed request itself.
       mockCompileData({ data: { security: { signature: "sig" }, request: {} }, errors: [] });
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
       const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
@@ -380,11 +405,14 @@ describe("data", () => {
     it("records no artifact for a failed compile, or one without a connection", async () => {
       const { buildMemoryArtifactStorer } = await import("./storage/artifacts.js");
       const artifactStorer = buildMemoryArtifactStorer();
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, artifactStorer, allocateInvocation: jest.fn().mockResolvedValue(INVOCATION) });
       const id = await taskStorer.create({ task: TASK1 });
       mockCompileData({ errors: [{ message: "bad" }] });
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
       mockCompileData(DATA1);
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" } });
 
       const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
@@ -398,7 +426,9 @@ describe("data", () => {
       expect(unconfigured.errors[0].message).toMatch(/connections are not available/);
 
       const { InvocationRefused } = await import("./invocations.js");
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       dataApi = buildDataApi({ compile, allocateInvocation: jest.fn().mockRejectedValue(new InvocationRefused("not-owner")) });
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       const refused = await dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" });
       expect(refused.errors[0].message).toMatch(/permission denied \(not-owner\)/);
       expect(compile).not.toHaveBeenCalled();

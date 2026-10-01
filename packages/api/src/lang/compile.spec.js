@@ -5,8 +5,10 @@ describe("compile", () => {
   it("should return language response", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const res = "response";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockResolvedValue(res);
     const bent = jest.fn().mockReturnValue(call);
     const compile = buildCompile({ getBaseUrlForLanguage, bent });
@@ -26,7 +28,9 @@ describe("compile", () => {
   it.skip("should throw error if call throws", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockRejectedValue(new Error("failed to compile"));
     const bent = jest.fn().mockReturnValue(call);
     const compile = buildCompile({ getBaseUrlForLanguage, bent });

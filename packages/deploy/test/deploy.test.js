@@ -36,6 +36,7 @@ const oldService = () => ({
   }
 });
 
+// @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
 async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure } = {}) {
   const temp = await mkdtemp(path.join(tmpdir(), "deploy-test-"));
   t.after(() => rm(temp, { recursive: true, force: true }));
@@ -61,6 +62,7 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure 
       const id = args.find(a => a.startsWith("--tag=")).slice(6);
       service.metadata.generation++;
       service.status.latestReadyRevisionName = `api-${id}`;
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       service.status.traffic.push({ tag: id, revisionName: `api-${id}`, url: `https://${id}---api-example.run.app` });
       return {};
     }
@@ -134,6 +136,7 @@ for (const [label, settings, message, mayDeploy] of [
 ]) {
   test(`${label} never promotes traffic`, async t => {
     const h = await harness(t, settings);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await assert.rejects(release(context, source, h.deps), message);
     assert.ok(!h.calls.some(c => c.includes("update-traffic")));
     assert.equal(h.calls.some(c => c[1] === "deploy"), mayDeploy);
@@ -165,18 +168,22 @@ test("rollback refuses other targets and newer traffic", async t => {
 
 test("private smoke uses the service audience and candidate URL without following redirects", async () => {
   const service = oldService();
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   service.status.traffic.push({ tag: "release", revisionName: "api-release", url: "https://release---api-example.run.app" });
   let authArgs;
   await smokeCheck({ ...config, access: "private", smokeServiceAccount: "smoke@example.com" }, service, "release", {
     cloud: async args => { authArgs = args; return "token"; },
     fetch: async (url, options) => {
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       assert.equal(url.hostname, "release---api-example.run.app");
       assert.equal(options.headers["X-Serverless-Authorization"], "Bearer token");
       assert.equal(options.redirect, "error");
       return new Response("OK");
     },
   });
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   assert.ok(authArgs.includes("--audiences=https://api-example.run.app"));
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   await assert.rejects(smokeCheck(config, service, "release", { fetch: async () => new Response("bad", { status: 500 }) }), /got 500/);
 });
 
@@ -188,6 +195,7 @@ test("traffic merges tagged entries and rejects incomplete allocations", () => {
 test("snapshot excludes credentials, captures dirty files and executable bits, and rejects symlinks", async t => {
   const root = await mkdtemp(path.join(tmpdir(), "deploy-source-"));
   t.after(() => rm(root, { recursive: true, force: true }));
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   const git = args => run("git", args, { cwd: root });
   await git(["init"]);
   await git(["config", "user.email", "test@example.com"]);
@@ -298,6 +306,7 @@ test("verify modules must export a function and be in the snapshot", async t => 
 test("private verify gets the deployer's invocation header, not application credentials", async t => {
   const snapshotSource = await verifySource(t, "export default async ({ headers }) => { if (headers[\"X-Serverless-Authorization\"] !== \"Bearer token\") throw new Error(JSON.stringify(headers)); };\n");
   const service = oldService();
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   service.status.traffic.push({ tag: "release", revisionName: "api-release", url: "https://release---api-example.run.app" });
   const privateConfig = { ...config, access: "private", smokeServiceAccount: "smoke@example.com", verify: { module: "verify/check.js" } };
   await verifyCandidate(privateConfig, service, "release", snapshotSource, {}, { cloud: async () => "token" });

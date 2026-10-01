@@ -14,6 +14,7 @@ describe("routes", () => {
       };
 
       // Act
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       expect(configHandler(req, res)).toBe();
 
       // Assert

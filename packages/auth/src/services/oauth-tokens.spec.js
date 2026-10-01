@@ -68,6 +68,7 @@ describe("services/oauth-tokens", () => {
       const storers = fakeStorers();
       const service = buildOAuthTokensService(storers);
 
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await service.createToken({ providerId: "p1", tokenData });
 
       expect(storers.calls[1]).toEqual(["link.create", { uid: "p1", provider: "google", providerId: "p1", email: "" }]);
@@ -78,6 +79,7 @@ describe("services/oauth-tokens", () => {
       const storers = fakeStorers();
       storers.oauthLinkStorer.findByProviderId = async () => { throw new Error("db down"); };
       const service = buildOAuthTokensService(storers);
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(service.createToken({ providerId: "p1", tokenData })).rejects.toThrow("db down");
     });
 
@@ -85,9 +87,11 @@ describe("services/oauth-tokens", () => {
       const storers = fakeStorers({ link: { id: "link-1" } });
       storers.oauthTokenStorer.removeByClientId = async () => { throw new NotFoundError("none"); };
       const service = buildOAuthTokensService(storers);
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(service.createToken({ providerId: "p1", tokenData })).resolves.toHaveProperty("id", "t1");
 
       storers.oauthTokenStorer.removeByClientId = async () => { throw new Error("boom"); };
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(service.createToken({ providerId: "p1", tokenData })).rejects.toThrow("boom");
     });
   });

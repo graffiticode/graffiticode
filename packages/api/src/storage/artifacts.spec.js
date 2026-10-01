@@ -17,6 +17,7 @@ describe.each(stores)("storage/artifacts (%s)", (_, build) => {
   let q;
   let b;
   beforeEach(() => {
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     store = build();
     const taskId = `task-${unique()}`;
     q = { ...query, taskId };

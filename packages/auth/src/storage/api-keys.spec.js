@@ -52,6 +52,7 @@ describe("storage/api-keys", () => {
   });
 
   it("should delete a non-existing api-key", async () => {
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await expect(storer.removeById("does-not-exist")).resolves.toBe();
   });
 

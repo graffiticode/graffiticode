@@ -32,6 +32,7 @@ describe("storage/refresh-tokens", () => {
   });
 
   it("should delete a non-existing refresh token", async () => {
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await expect(storer.deleteRefreshToken("does-not-exist")).resolves.toBe();
   });
 

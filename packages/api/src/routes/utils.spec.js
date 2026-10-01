@@ -140,7 +140,9 @@ describe("routes/utils", () => {
   it("builds response envelopes", () => {
     expect(createError(1, "m")).toEqual({ code: 1, message: "m" });
     expect(createErrorResponse({ code: 1 })).toEqual({ status: "error", error: { code: 1 } });
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     expect(createCompileSuccessResponse({ id: "i", data: 2, extra: 3 })).toEqual({ status: "success", id: "i", data: 2 });
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     expect(createSuccessResponse({ data: 2, extra: 3 })).toEqual({ status: "success", data: 2 });
   });
 
@@ -216,6 +218,7 @@ describe("routes/utils", () => {
     });
 
     const respond = (body, { ok = true, status = 200, statusText = "OK" } = {}) => {
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       global.fetch = jest.fn(async () => ({ ok, status, statusText, json: async () => body }));
       return global.fetch;
     };
@@ -223,6 +226,7 @@ describe("routes/utils", () => {
     it("POSTs a GraphQL query to the console with the token as Authorization", async () => {
       const fetch = respond({ data: { checkCompileAllowed: { allowed: true, reason: null } } });
       await expect(checkCompileAllowedRemote("tok")).resolves.toEqual({ allowed: true, reason: null });
+      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
       const [url, init] = fetch.mock.calls[0];
       expect(url).toBe("https://console.graffiticode.com:443/api");
       expect(init.method).toBe("POST");

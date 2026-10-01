@@ -12,6 +12,7 @@ describe("routes/auth", () => {
     app = authApp.app;
     auth = null;
     authApp.app.use("/for-testing", (req, res) => {
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       auth = req.auth;
       res.sendStatus(200);
     });

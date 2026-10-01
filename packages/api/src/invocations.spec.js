@@ -9,25 +9,31 @@ describe("invocations", () => {
   it("asks policy for an invocation as the gateway, on behalf of the user", async () => {
     const INVOCATION = { invocationToken: "a.b.c", invocationId: "inv-1", seq: 3, ownerUid: "owner" };
     const fetch = jest.fn(reply(200, { data: { ...INVOCATION, reused: false } }));
+    // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
     const allocate = buildAllocateInvocation({ policyUrl: "https://policy", idToken, fetch });
 
     await expect(allocate({ authToken: "user", connectionId: "conn-1", taskId: "t1", options: {}, idempotencyKey: "job-1" }))
       .resolves.toEqual(INVOCATION);
 
+    // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("https://policy/v1/invocations");
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     expect(init.headers).toMatchObject({
       Authorization: "Bearer user",
       "X-Serverless-Authorization": "Bearer idt:https://policy",
       "X-Caller-Identity": "idt:urn:graffiticode:policy"
     });
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     expect(JSON.parse(init.body)).toEqual({ connectionId: "conn-1", taskId: "t1", inputDigest: inputDigest({}), idempotencyKey: "job-1" });
   });
 
   it("reports a policy refusal with its reason", async () => {
     const allocate = buildAllocateInvocation({
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       policyUrl: "https://policy", idToken, fetch: reply(403, { error: { reason: "idempotency-key-reused" } })
     });
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const err = await allocate({ authToken: "u", connectionId: "c", taskId: "t" }).catch(e => e);
     expect(err).toBeInstanceOf(InvocationRefused);
     expect(err.reason).toBe("idempotency-key-reused");

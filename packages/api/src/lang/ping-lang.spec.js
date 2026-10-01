@@ -6,7 +6,9 @@ describe("pingLang", () => {
   it("should return true when language pongs", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockResolvedValue();
     const bent = jest.fn().mockReturnValue(call);
     const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });
@@ -25,7 +27,9 @@ describe("pingLang", () => {
   it("should return false call throws", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockRejectedValue(new Error("failed to ping"));
     const bent = jest.fn().mockReturnValue(call);
     const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });
@@ -44,7 +48,9 @@ describe("pingLang", () => {
   it("should cache successful ping call by base url", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockResolvedValue();
     const bent = jest.fn().mockReturnValue(call);
     const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });
@@ -71,8 +77,11 @@ describe("pingLang", () => {
     const defaultBaseUrl = "http://ltest.artcompiler.com";
     const overrideBaseUrl = "http://override.example.com";
     const getBaseUrlForLanguage = jest.fn()
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       .mockResolvedValueOnce(defaultBaseUrl)
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       .mockResolvedValueOnce(overrideBaseUrl);
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const call = jest.fn().mockResolvedValue();
     const bent = jest.fn().mockReturnValue(call);
     const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });
@@ -92,9 +101,12 @@ describe("pingLang", () => {
   it("should not cache failed ping call", async () => {
     // Arrange
     const baseUrl = "http://ltest.artcompiler.com";
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getBaseUrlForLanguage = jest.fn().mockResolvedValue(baseUrl);
     const call = jest.fn()
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       .mockRejectedValueOnce(new Error("failed to ping"))
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       .mockResolvedValue();
     const bent = jest.fn().mockReturnValue(call);
     const pingLang = buildPingLang({ getBaseUrlForLanguage, bent, log });

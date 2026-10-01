@@ -48,6 +48,7 @@ beforeEach(async () => {
   const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
   const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   connections = createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]);
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
 
   routes = [];
@@ -108,6 +109,7 @@ beforeEach(async () => {
     },
     getCurrent: query => memory.getCurrent(query)
   };
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   dataApi = buildDataApi({ compile, allocateInvocation, artifactStorer });
 });
 
