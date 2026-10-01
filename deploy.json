@@ -217,6 +217,9 @@
         }
       ],
       "smokeServiceAccount": "deploy-smoke@graffiticode.iam.gserviceaccount.com",
+      "verify": {
+        "module": "verify/broker.js"
+      },
       "secrets": {
         "BROKER_CALLERS": "broker-callers:1",
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1",
@@ -296,6 +299,9 @@
         }
       ],
       "smokeServiceAccount": "deploy-smoke@graffiticode.iam.gserviceaccount.com",
+      "verify": {
+        "module": "verify/policy.js"
+      },
       "secrets": {
         "POLICY_CALLERS": "policy-callers:1",
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1"
