@@ -181,7 +181,14 @@ export class Folder {
 
   static neg(node) {
     Folder.#visit(node.elts[0]);
-    Ast.neg(Folder.#ctx);
+    // `-` applies to a number literal; look through grouping so `-(1.50)` is one.
+    let operand = Folder.#nodePool[Ast.pop(Folder.#ctx)];
+    while ((operand?.tag === "PAREN" || operand?.tag === "EXPRS") && operand.elts.length === 1) {
+      operand = Folder.#nodePool[operand.elts[0]];
+    }
+    const coord = operand?.coord || node.coord;
+    assertErr(Folder.#ctx, operand?.tag === "NUM", "Expected a number after '-'.", coord);
+    Ast.neg(Folder.#ctx, operand.elts[0], coord);
   }
 
   static parenExpr(node) {

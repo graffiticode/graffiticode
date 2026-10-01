@@ -46,7 +46,7 @@ Nodes are **interned**: `Ast.intern()` hashes `tag#count#elts#coord` and reuses 
 
 Consequences that bite:
 - Two identical subtrees are the *same* id. Never mutate a pool node in place.
-- `NUM`/`STR` nodes serialize to bare values in `poolToJSON` (`nodeToJSON`), but `IDENT`/`BOOL`/`TAG` keep `{tag, elts}`. `unparse.js` re-hydrates a tree with its own `reconstructNode`, which mirrors that switch — the two must stay in sync.
+- Every node, `NUM` and `STR` included, serializes as `{tag, elts}`: `nodeToJSON`'s `"num"`/`"str"` cases are lowercase and never match. Don't "fix" them — that changes the wire format for every language server. `unparse.js` re-hydrates a tree with its own `reconstructNode`, which mirrors `Ast.node`'s switch — the two must stay in sync.
 - Construction is **stack-based**: `Ast.*` constructors pop their operands off `state.nodeStack` and push the result. Order matters, and it is reversed — see `Ast.error`, which pushes `to`, `from`, `str` and pops them back into `[str, from, to]`.
 
 ## Parsing model
@@ -63,9 +63,13 @@ Consequences that bite:
 
 `assertErr(ctx, cond, msg, coord)` pushes `{message, coord}` onto `state.errors`, adds an `ERROR` node to the AST, and throws. `parse()`'s catch-all labels any *other* stray exception `"Syntax Error"` — so a failure that is not the user's fault (a callback hitting an unreachable credential store, say) must report itself through `assertErr` or it gets misattributed to the source code.
 
+## Numbers
+
+A `NUM` holds the literal's source text in `elts[0]` (`"1.50"`, `"007"`, `"0x1F"`, `"2E+4"`), carried verbatim from the scanner to the wire format and back out of `unparse`, so round trips are exact. The scanner accepts decimal, fraction (`1.5`, `.5`, one dot), exponent (`2e4`, `1.5e-3`) and hex (`0x1F`) forms, and consumes a form only when it is complete (`1e`, `0x` leave `e`/`x` as identifiers); no digit separators (`1_000`). Negation flips the sign on the text (`Ast.neg`), using decimal.js only to check the text is a number, and `Folder.neg` looks through parens and reports any non-number operand. Never run literal text through `Number()`/`+` in the parser — it loses form and precision.
+
 ## Folding and callbacks
 
-`folder.js` runs during parse (from `parse.js` on `exprs` and from `Ast.foldApply`), not as a separate pass. `Folder` is a static class with a private `#table` mapping tags to visitors; it constant-folds arithmetic and applies lambdas.
+`folder.js` runs during parse (from `parse.js` on `exprs` and from `Ast.foldApply`), not as a separate pass. `Folder` is a static class with a private `#table` mapping tags to visitors; it applies lambdas and folds negation of number literals. `ADD`, `SUB` and the other arithmetic nodes are kept for the language server to evaluate.
 
 `Folder.#visit` also implements the **callback hook**: if `state.callbacks[node.tag]` exists and the node has one `STR` element, the callback resolves that name and the node is replaced by the result. `GET_VAL_PRIVATE` is the deliberate exception — it is rebuilt as a 2-element node keeping name and ciphertext, because folding it to a string would leak undecrypted ciphertext into the program.
 

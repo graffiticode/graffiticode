@@ -1786,16 +1786,48 @@ export const parse = (function () {
       return c >= "0".charCodeAt(0) && c <= "9".charCodeAt(0);
     }
 
+    function isHexDigit(ch) {
+      return ch !== undefined && /^[0-9a-fA-F]$/.test(ch);
+    }
+
+    // 123, 1.23, .123, 2e4, 1.5E-3, 0x1F. `c` is the first char, already consumed.
+    // The lexeme is kept as written (it is the NUM node's text), so a form is only
+    // consumed when it is complete: `1.` and `1e` leave the `.` and `e` unscanned.
+    // No digit separators: `1_000` is `1` then the identifier `_000`.
     function number(c) {
-      // 123, 1.23, .123
-      while (isNumeric(c) || c === ".".charCodeAt(0) && isNumeric(stream.peek())) {
-        lexeme += String.fromCharCode(c);
-        const s = stream.next();
-        c = s ? s.charCodeAt(0) : 0;
+      lexeme += String.fromCharCode(c);
+      if (c === "0".charCodeAt(0) && (stream.peek() === "x" || stream.peek() === "X") &&
+          isHexDigit(stream.peekAt(1))) {
+        lexeme += stream.next();
+        while (isHexDigit(stream.peek())) {
+          lexeme += stream.next();
+        }
+        return TK_NUM;
       }
-      if (c) {
-        stream.backUp(1);
-      } // otherwise, we are at the end of stream
+      let seenDot = c === ".".charCodeAt(0);
+      for (;;) {
+        const ch = stream.peek();
+        if (isNumeric(ch)) {
+          lexeme += stream.next();
+        } else if (ch === "." && !seenDot && isNumeric(stream.peekAt(1))) {
+          seenDot = true;
+          lexeme += stream.next();
+        } else {
+          break;
+        }
+      }
+      if (stream.peek() === "e" || stream.peek() === "E") {
+        const signed = stream.peekAt(1) === "+" || stream.peekAt(1) === "-";
+        if (isNumeric(stream.peekAt(signed ? 2 : 1))) {
+          lexeme += stream.next();
+          if (signed) {
+            lexeme += stream.next();
+          }
+          while (isNumeric(stream.peek())) {
+            lexeme += stream.next();
+          }
+        }
+      }
       return TK_NUM;
     }
 

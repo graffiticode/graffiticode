@@ -1253,3 +1253,48 @@ describe("literals inside template interpolation", () => {
     expect(node.elts.length).toBe(2);
   });
 });
+
+describe("let scope", () => {
+  it("should not leak a top-level let into the caller's lexicon", async () => {
+    const lexicon = { ...basisLexicon };
+    await parser.parse(0, "let x = \"a\".. 1..", lexicon);
+    expect(lexicon.x).toBeUndefined();
+    const pool = await parser.parse(0, "x..", lexicon);
+    expect(pool[pool.root].tag).toBe("ERROR");
+    expect(pool[pool[pool.root].elts[0]].elts[0]).toBe("Undefined reference 'x'.");
+  });
+});
+
+describe("numbers", () => {
+  const parse = (src) => parser.parse(0, src, basisLexicon);
+  const nums = (pool) => Object.values(pool).filter(n => n?.tag === "NUM").map(n => n.elts[0]);
+  const errorOf = (pool) => pool[root(pool).elts[0]].elts[0];
+  const root = (pool) => pool[pool.root];
+
+  it.each([
+    ["0x1F..", ["0x1F"]],
+    ["2E+4..", ["2E+4"]],
+    [".5e3..", [".5e3"]],
+    ["1.2.3..", ["1.2", ".3"]],
+  ])("should scan %s as %j", async (src, expected) => {
+    expect(nums(await parse(src))).toEqual(expected);
+  });
+
+  it.each([
+    ["1e..", "Undefined reference 'e'."],
+    ["0x..", "Undefined reference 'x'."],
+    ["1_000..", "Undefined reference '_000'."],
+  ])("should leave an incomplete or separated literal in %s unscanned", async (src, message) => {
+    const pool = await parse(src);
+    expect(root(pool).tag).toBe("ERROR");
+    expect(errorOf(pool)).toBe(message);
+  });
+
+  it.each([
+    "-\"a\"..", "-[1 2]..", "-(add 1 2)..", "-true..", "let x = \"a\".. -x..",
+  ])("should reject negating the non-number in %s", async (src) => {
+    const pool = await parse(src);
+    expect(root(pool).tag).toBe("ERROR");
+    expect(errorOf(pool)).toBe("Expected a number after '-'.");
+  });
+});

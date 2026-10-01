@@ -10,6 +10,11 @@ export class StringStream {
     return this.string.charAt(this.pos) || undefined;
   }
 
+  // The char `n` past the next one; peekAt(0) is peek().
+  peekAt(n) {
+    return this.string.charAt(this.pos + n) || undefined;
+  }
+
   next() {
     if (this.pos < this.string.length) {
       return this.string.charAt(this.pos++);
