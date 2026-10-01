@@ -142,3 +142,6 @@ firestore-coverage.html
 
 # TypeScript incremental build state
 *.tsbuildinfo
+
+# compiled-spec mirrors (scripts/prepare-compiled-specs.js)
+.compiled-test

@@ -41,6 +41,8 @@ jobs:
         run: npm run typecheck
       - name: Unit tests (no emulator)
         run: npm run test:unit
+      - name: Specs against the compiled output (no emulator)
+        run: npm run test:compiled
       - name: Deploy CLI tests
         run: npm run test:deploy
       - if: always()
@@ -71,6 +73,10 @@ jobs:
       - run: npm ci
       - name: Emulator tests (one session)
         run: npm run test:ci:emulated
+      - name: Build
+        run: npm run build
+      - name: Specs against the compiled output (one emulator session)
+        run: npm run test:ci:compiled-emulated
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
