@@ -14,7 +14,9 @@ semantics and base library can be found here:
 | Function | Signature | Description |
 | :------- | :-------- | :---------- |
 | `hello` | `<string: record>` | Renders a hello message |
-| `theme` | `<[dark|light] record: record>` | Selects a theme |
+| `image` | `<string: record>` | Renders an image from a URL |
+| `theme` | `<[DARK|LIGHT] record: record>` | Selects a theme |
+| `id` | `<string any: record>` | Sets an element identifier |
 
 ### hello
 
@@ -27,13 +29,31 @@ hello "world"  | returns "hello, world!"
 ### theme
 
 Select a theme and render the theme toggle button to allow users to set the
-theme. The tag values `dark` and `light` are the only accepted argument values.
+theme. The tags `DARK` and `LIGHT` are the only accepted argument values; write them
+bare and uppercase.
 
 ```
-theme dark "as night"
+theme DARK "as night"
 ```
 ```
-theme light "as day"
+theme LIGHT "as day"
+```
+
+### image
+
+Renders the image at the given URL.
+
+```
+image "https://example.com/logo.png"
+```
+
+### id
+
+Attaches an element identifier to what follows, for downstream referencing. The
+identifier is a string.
+
+```
+id "greeting" hello "world"
 ```
 
 ## Program Examples
@@ -41,5 +61,5 @@ theme light "as day"
 Render the text "hello, world!" in the dark theme.
 
 ```
-theme dark hello "night"..
+theme DARK hello "night"..
 ```

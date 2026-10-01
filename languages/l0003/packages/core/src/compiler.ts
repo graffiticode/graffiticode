@@ -42,6 +42,20 @@ export class Checker extends BaseChecker {
       resume(err, val);
     });
   }
+
+  // `id "name" body`: the identifier must be a string.
+  ID(node, options, resume) {
+    this.visit(node.elts[0], options, async (e0, v0) => {
+      this.visit(node.elts[1], options, async (e1, v1) => {
+        const node0 = this.nodePool[node.elts[0]];
+        const err =
+          node0?.tag === "STR"
+            ? []
+            : [{ message: `id: expecting a string, e.g. id "greeting" hello "world". Got ${node0?.tag ?? "nothing"}.`, ...node0?.coord }];
+        resume(err, node);
+      });
+    });
+  }
 }
 
 export class Transformer extends BaseTransformer {
@@ -95,6 +109,20 @@ export class Transformer extends BaseTransformer {
           ...body,
           ...data,
         });
+      });
+    });
+  }
+
+  // `id "name" body` attaches an element identifier. Like THEME, a record body keeps its
+  // fields alongside `id`; a scalar or list goes under `value` so it isn't lost. Before this
+  // handler existed, `id` fell through and the program returned its raw parse node.
+  ID(node, options, resume) {
+    this.visit(node.elts[0], options, async (e0, v0) => {
+      this.visit(node.elts[1], options, async (e1, v1) => {
+        const data = options?.data || {};
+        const isRecord = typeof v1 === "object" && v1 !== null && !Array.isArray(v1);
+        const body = isRecord ? v1 : { value: v1 };
+        resume([...(e0 || []), ...(e1 || [])], { id: v0, ...body, ...data });
       });
     });
   }
