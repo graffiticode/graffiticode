@@ -72,7 +72,7 @@ and are deliberately absent.
 44. Show monthly rainfall as bars and average temperature as a line with a second axis: rain 78, 62, 41, 85 mm and temperature 4, 11, 19, 12 °C.
 45. Bars of units sold with a line of the running total over five months: units 20, 35, 28, 40, 32; total 20, 55, 83, 123, 155.
 46. Combine bars of visitors with a line of conversion rate on the right axis: visitors 1200, 1350, 980, 1600 and conversion 2.1%, 2.4%, 1.9%, 2.8%.
-47. Chart website sessions as bars and bounce rate as a smooth line with its own axis for a week.
+47. Chart website sessions as bars and bounce rate as a smooth line with its own axis for a week: sessions Mon–Sun 820, 760, 910, 880, 990, 640, 590; bounce rate 42%, 45%, 39%, 40%, 37%, 51%, 54%.
 48. Show production volume as bars and defect rate as a line for four factories: volume 5000, 6200, 4100, 5800; defects 1.2%, 0.8%, 2.1%, 1.0%.
 49. A bar and line chart of hours of sunshine and average happiness score by month for six months: sun 60, 80, 120, 180, 220, 240; happiness 6.1, 6.3, 6.8, 7.2, 7.5, 7.6.
 50. Bars of new customers per quarter with a line of customer satisfaction out of 100 on a second axis bounded from 0 to 100.
@@ -82,26 +82,26 @@ and are deliberately absent.
 51. Here is a table of months with revenue and cost — Jan 120/80, Feb 132/90, Mar 101/70, Apr 134/95. Chart revenue as bars and cost as a line.
 52. From this table of subjects with fall and spring averages — Math 78/85, Reading 82/88, Science 74/81 — draw grouped bars.
 53. Use this data of cities and their temperatures in January and July — Oslo -4/17, Rome 8/25, Cairo 14/28 — as two lines.
-54. Given a table of product, units and price for four products, chart units sold by product.
+54. Given a table of product, units and price for four products — Lamp 120 units at $35, Chair 85 at $90, Desk 40 at $210, Shelf 66 at $75 — chart units sold by product.
 55. Chart this table of years and emissions in megatonnes: 2019 510, 2020 460, 2021 490, 2022 480, 2023 455.
-56. From a table of week, planned hours and actual hours for six weeks, show both as lines.
+56. From a table of week, planned hours and actual hours for six weeks — planned 40, 40, 38, 40, 36, 40 and actual 42, 39, 41, 44, 35, 43 — show both as lines.
 57. Here are regions with sales and targets — North 40/45, South 32/30, East 28/35, West 35/33. Show sales and target side by side.
 58. Take this table of team members and tasks completed — Ana 14, Ben 9, Cy 17, Di 12 — and make a bar chart.
 59. A table of age group and share of respondents — 18–24 15%, 25–34 28%, 35–44 24%, 45–54 18%, 55+ 15% — as a pie.
-60. Given rows of month, visitors and signups, plot visitors as bars and signups as a line.
+60. Given rows of month, visitors and signups — Jan 4200 visitors and 210 signups, Feb 4600 and 250, Mar 5100 and 240, Apr 5800 and 310 — plot visitors as bars and signups as a line.
 
 ## Category 7: Several Charts (61–70)
 
-61. From monthly revenue and cost for Q1, show a trend chart and a cost breakdown pie as two tabs.
-62. Make two charts from the same sales table: one with regional sales as bars, one with the share by region as a pie.
-63. A dashboard of three charts: visitors by day, visitors by source, and pages per visit.
-64. Show quarterly units for North and South as lines in one tab and as stacked bars in another.
-65. Two tabs, "This year" and "Last year", each a bar chart of monthly sales.
-66. A report with a chart of revenue by quarter and a chart of headcount by department, titled "2026 overview".
-67. Put a scatter of study hours against scores and a bar chart of average score by class in one collection.
-68. Three charts of the same survey: satisfaction by age group as bars, overall satisfaction as a donut, and satisfaction over time as a line.
-69. Make a collection of two charts about the weather: daily high temperatures as a line and rainfall as bars.
-70. Show enrolment by grade as bars and the male/female split as a pie, as tabs named "By grade" and "By gender".
+61. From monthly revenue and cost for Q1 — revenue 120, 132, 101 and cost 80, 90, 70 for January to March — show a trend chart and a cost breakdown pie as two tabs.
+62. Make two charts from the same sales table — North 40, South 32, East 28, West 35 — one with regional sales as bars, one with the share by region as a pie.
+63. A dashboard of three charts: visitors by day (Mon 320, Tue 410, Wed 380, Thu 450, Fri 390), visitors by source (search 950, direct 600, social 400), and pages per visit by day (3.1, 2.8, 3.4, 3.0, 2.6).
+64. Show quarterly units for North (40, 44, 51, 49) and South (32, 30, 38, 41) as lines in one tab and as stacked bars in another.
+65. Two tabs, "This year" and "Last year", each a bar chart of monthly sales for January to April: this year 52, 61, 58, 70; last year 45, 50, 55, 60.
+66. A report with a chart of revenue by quarter (Q1 1.2M, Q2 1.4M, Q3 1.3M, Q4 1.7M) and a chart of headcount by department (Engineering 42, Sales 18, Support 12, Finance 6), titled "2026 overview".
+67. Put a scatter of study hours against scores — 1h 52, 2h 58, 3h 65, 4h 70, 5h 78, 6h 83 — and a bar chart of average score by class (A 74, B 68, C 81) in one collection.
+68. Three charts of the same survey: satisfaction by age group as bars (18–34 7.2, 35–54 6.8, 55+ 7.9), overall satisfaction as a donut (satisfied 64, neutral 22, dissatisfied 14), and satisfaction over time as a line (2023 6.9, 2024 7.1, 2025 7.4).
+69. Make a collection of two charts about the weather for Monday to Friday: daily high temperatures as a line (18, 21, 19, 23, 22 °C) and rainfall as bars (2, 0, 8, 1, 0 mm).
+70. Show enrolment by grade as bars (6th 210, 7th 198, 8th 225) and the male/female split as a pie (male 318, female 315), as tabs named "By grade" and "By gender".
 
 ## Category 8: Axes (71–78)
 
@@ -109,22 +109,22 @@ and are deliberately absent.
 72. Plot the growth of a bacteria culture on a logarithmic scale: 10, 100, 1000, 10000, 100000 over five hours.
 73. Line chart of daily temperatures across dates from March 1 to March 5: 11.5, 12.0, 13.2, 12.8, 14.1.
 74. Show exam scores on an axis that runs from 0 to 100: Math 78, English 85, History 69.
-75. Horizontal stacked bars of time spent on chores by each family member.
+75. Horizontal stacked bars of time spent on chores by each family member, in hours per week: Mom cooking 6, cleaning 4, laundry 2; Dad cooking 3, cleaning 5, laundry 3; Sam cooking 1, cleaning 2, laundry 1.
 76. Plot company revenue from 2016 to 2026 on a log scale: 0.5, 1.2, 3, 8, 20, 55 million every two years.
-77. Show website response times in milliseconds with the axis starting at 100 and ending at 400.
-78. A line over dates of the number of hikers on a trail each weekend in April.
+77. Show website response times in milliseconds with the axis starting at 100 and ending at 400: Home 120, Products 250, Checkout 380, Profile 200.
+78. A line over dates of the number of hikers on a trail each weekend in April: April 4 45, April 11 62, April 18 80, April 25 71.
 
 ## Category 9: Titles, Legends, Labels and Colours (79–88)
 
 79. Bar chart of fruit sales with the values shown on top of each bar: apples 40, bananas 32, cherries 18.
-80. A line chart titled "Weekly visitors" with the subtitle "Unique visitors per day".
-81. Show monthly downloads with the legend at the top.
+80. A line chart titled "Weekly visitors" with the subtitle "Unique visitors per day": Mon 320, Tue 410, Wed 380, Thu 450, Fri 390, Sat 520, Sun 480.
+81. Show monthly downloads with the legend at the top: iOS 1200, 1350, 1500 and Android 1800, 1900, 2100 for January to March.
 82. Make a bar chart in the dark theme of server uptime by region: US 99.9, EU 99.7, Asia 99.5.
-83. Use blue for 2025 and amber for 2026 in a grouped bar chart of quarterly sales.
-84. A pie of energy sources with a custom palette of greens.
-85. Hide the legend on a line chart of two stock prices.
-86. Label each slice of a pie of survey answers with its name and percentage.
-87. A bar chart with a light grey background of hours of screen time per day of the week.
+83. Use blue for 2025 and amber for 2026 in a grouped bar chart of quarterly sales: 2025 40, 44, 51, 49; 2026 46, 48, 55, 60.
+84. A pie of energy sources with a custom palette of greens: solar 35, wind 30, hydro 20, biomass 15.
+85. Hide the legend on a line chart of two stock prices over five days: ACME 20, 24, 23, 27, 26 and Globex 31, 30, 33, 32, 35.
+86. Label each slice of a pie of survey answers with its name and percentage: Yes 58, No 27, Not sure 15.
+87. A bar chart with a light grey background of hours of screen time per day of the week: Mon 3.5, Tue 4, Wed 3, Thu 4.5, Fri 5, Sat 6.5, Sun 6.
 88. Chart app ratings by version with the bars in teal: 3.9, 4.1, 4.4, 4.6.
 
 ## Category 10: Missing Values (89–92)
