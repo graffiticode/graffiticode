@@ -16,6 +16,9 @@
 // Sharing (delegation), also called by the console for a verified user:
 //   shareable    the owner lists what a grant on this connection can include:
 //                each language's delegable functions against its backend
+//   functions    every protected function on the connection's backend, with
+//                its kind and whether it is implicit and delegable
+//   setOwnerPermissions  the owner limits their own use (null: everything)
 //   share        the owner grants exact (language, function) permissions to an account, or to an email hash until that
 //                person signs in (pending)
 //   grants       the owner lists a connection's grants
@@ -38,19 +41,24 @@ const LABEL_MAX = 100;
 const ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
 const HASH_RE = /^[a-f0-9]{64}$/;
 
-// A grant holds permissions: (language, function) pairs, each a registry
-// function the owner may delegate against the connection's backend. Only
-// explicit functions are granted; a language's implicit ones (signing every
-// render) come with any grant in that language (policy.js mayUse). Author
-// signing is not delegable, so nothing reaches it.
-const delegable = backend => Object.entries(PROTECTED_FUNCTIONS).flatMap(([lang, fns]) => Object.entries(fns)
-  .filter(([, spec]) => spec.backend === backend && spec.delegable === true && spec.implicit !== true)
-  .map(([fn, spec]) => ({ lang, fn, kind: spec.kind })))
+// Permissions are (language, function) pairs, and a language's protected
+// functions against the connection's backend are the only ones there are
+// (registry). The owner's own list may name any of them; a grant only the
+// delegable ones, so Author signing never reaches a recipient. A language's
+// implicit functions (signing every render) may be named on their own, so a
+// list can allow previews and nothing else; they also come with any other
+// permission in that language (policy.js mayUse).
+const registered = backend => Object.entries(PROTECTED_FUNCTIONS).flatMap(([lang, fns]) => Object.entries(fns)
+  .filter(([, spec]) => spec.backend === backend)
+  .map(([fn, spec]) => ({ lang, fn, kind: spec.kind, implicit: spec.implicit === true, delegable: spec.delegable === true })))
   .sort((a, b) => a.lang.localeCompare(b.lang) || a.fn.localeCompare(b.fn));
-// A grant must name only delegable functions against this backend.
-const grantPermissions = (backend, permissions) => {
-  if (!Array.isArray(permissions) || permissions.length === 0 || permissions.length > 50) return null;
-  const allowed = delegable(backend);
+const delegable = backend => registered(backend).filter(f => f.delegable);
+// A permission list names only functions from `allowed`; null when it names
+// anything else. A grant must name at least one; the owner's list may be empty
+// (the connection is then unusable, its owner included).
+const validPermissions = (allowed, permissions, { allowEmpty = false } = {}) => {
+  if (!Array.isArray(permissions) || permissions.length > 50) return null;
+  if (permissions.length === 0 && !allowEmpty) return null;
   const out = [];
   for (const p of permissions) {
     const lang = typeof p?.lang === "string" ? p.lang.replace(/^L/i, "").padStart(4, "0") : null;
@@ -60,6 +68,7 @@ const grantPermissions = (backend, permissions) => {
   }
   return out;
 };
+const grantPermissions = (backend, permissions) => validPermissions(delegable(backend), permissions);
 
 const grantView = g => ({
   grantId: g.grantId,
@@ -98,8 +107,10 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       // system marks a configured system connection: it signs system previews
       // only and is refused for invocations, so the console must not offer it
       // as a connection to save through.
-      return rows.map(({ connectionId, backend, status, label }) =>
-        ({ connectionId, backend, status, label, system: isSystemConnection(connectionId) }));
+      // ownerPermissions: what the owner allows themselves through it; null is
+      // everything (every connection made before owners could narrow it).
+      return rows.map(({ connectionId, backend, status, label, ownerPermissions = null }) =>
+        ({ connectionId, backend, status, label, system: isSystemConnection(connectionId), ownerPermissions }));
     },
 
     async create({ caller, user, backend, label = null, credential }) {
@@ -110,9 +121,9 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       if (!validCredential(credential)) return deny("bad-credential", record);
       const connectionId = `conn-${randomUUID()}`;
       await brokerAdmin.createSecret(connectionId, { ownerUid: user.uid, backend, key: credential.key, secret: credential.secret });
-      await connections.put({ connectionId, ownerUid: user.uid, backend, status: "active", label });
+      await connections.put({ connectionId, ownerUid: user.uid, backend, status: "active", label, ownerPermissions: null });
       await audit({ ...record, connectionId, ownerUid: user.uid, outcome: "allowed" });
-      return { connectionId, backend, status: "active", label };
+      return { connectionId, backend, status: "active", label, ownerPermissions: null };
     },
 
     async rotate({ caller, user, connectionId, credential }) {
@@ -161,7 +172,34 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       const record = { event: "grant-shareable", uid: user?.uid, connectionId };
       await requireConsole(caller, record);
       const connection = await owned(user, connectionId, record);
-      return delegable(connection.backend);
+      return delegable(connection.backend).map(({ lang, fn, kind }) => ({ lang, fn, kind }));
+    },
+
+    // Every protected function on this connection's backend, by language: the
+    // owner's list may name any of them, a grant the delegable ones.
+    async functions({ caller, user, connectionId }) {
+      const record = { event: "connection-functions", uid: user?.uid, connectionId };
+      await requireConsole(caller, record);
+      const connection = await owned(user, connectionId, record);
+      return registered(connection.backend);
+    },
+
+    // The owner narrows (or restores, with null) what they themselves may do
+    // through their connection. Independent of grants: an owner may share a
+    // function they don't use. Policy enforces it like a grant.
+    async setOwnerPermissions({ caller, user, connectionId, permissions = null }) {
+      const record = { event: "connection-owner-permissions", uid: user?.uid, connectionId };
+      await requireConsole(caller, record);
+      const connection = await owned(user, connectionId, record);
+      if (isSystemConnection(connectionId)) return deny("system-connection", record);
+      let ownerPermissions = null;
+      if (permissions !== null) {
+        ownerPermissions = validPermissions(registered(connection.backend), permissions, { allowEmpty: true });
+        if (!ownerPermissions) return deny("bad-permissions", record);
+      }
+      await connections.put({ ...connection, ownerPermissions });
+      await audit({ ...record, ownerUid: user.uid, outcome: "allowed" });
+      return { connectionId, ownerPermissions };
     },
 
     async share({

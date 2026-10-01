@@ -56,7 +56,8 @@ describe("connection lifecycle", () => {
     await manager.create({ caller: CONSOLE, user: { uid: OTHER }, backend: "learnosity", credential: CRED });
     const rows = await manager.list({ caller: CONSOLE, user: { uid: OWNER } });
     expect(rows).toHaveLength(1);
-    expect(Object.keys(rows[0]).sort()).toEqual(["backend", "connectionId", "label", "status", "system"]);
+    expect(Object.keys(rows[0]).sort()).toEqual(["backend", "connectionId", "label", "ownerPermissions", "status", "system"]);
+    expect(rows[0].ownerPermissions).toBeNull();
     expect(rows[0].system).toBe(false);
   });
 

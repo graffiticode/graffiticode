@@ -14,8 +14,8 @@ export const createFirestoreConnectionStore = db => {
       const snap = await ref(connectionId).get();
       return snap.exists ? { connectionId, ...snap.data() } : null;
     },
-    async put({ connectionId, ownerUid, backend, status, label = null }) {
-      await ref(connectionId).set({ ownerUid, backend, status, label, updatedAt: new Date().toISOString() });
+    async put({ connectionId, ownerUid, backend, status, label = null, ownerPermissions = null }) {
+      await ref(connectionId).set({ ownerUid, backend, status, label, ownerPermissions, updatedAt: new Date().toISOString() });
     },
     async delete(connectionId) {
       await ref(connectionId).delete();

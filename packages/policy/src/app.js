@@ -25,6 +25,9 @@
 //   DELETE /v1/connections/:id          console
 //   GET    /v1/connections/:id/grants            console  the owner's grants on it
 //   GET    /v1/connections/:id/shareable         console  the (lang, fn, kind) a grant on it can include
+//   GET    /v1/connections/:id/functions         console  every protected function on its backend
+//                                                         { lang, fn, kind, implicit, delegable }
+//   PUT    /v1/connections/:id/owner-permissions console  { permissions: [{ lang, fn }] | null } the owner's own use
 //   POST   /v1/connections/:id/grants            console  { recipientUid | recipientEmailHash, recipientLabel?, permissions, expiresAt? }
 //   PATCH  /v1/connections/:id/grants/:grantId   console  { permissions, expiresAt? } edit
 //   DELETE /v1/connections/:id/grants/:grantId   console  revoke
@@ -142,6 +145,9 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.delete("/connections/:id", manage(({ caller, user, id }) =>
     manager.remove({ caller, user, connectionId: id })));
   router.get("/connections/:id/shareable", manage(({ caller, user, id }) => manager.shareable({ caller, user, connectionId: id })));
+  router.get("/connections/:id/functions", manage(({ caller, user, id }) => manager.functions({ caller, user, connectionId: id })));
+  router.put("/connections/:id/owner-permissions", manage(({ caller, user, id, body }) =>
+    manager.setOwnerPermissions({ caller, user, connectionId: id, permissions: body.permissions ?? null })));
   router.get("/connections/:id/grants", manage(({ caller, user, id }) => manager.grants({ caller, user, connectionId: id })));
   router.post("/connections/:id/grants", manage(({ caller, user, id, body }) => manager.share({
     caller,

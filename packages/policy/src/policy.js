@@ -1,5 +1,6 @@
 // The policy authority's decisions. A connection's owner may use every
-// registered function against its backend; another account may use the
+// registered function against its backend, unless they have narrowed their own
+// use to a list (connections.js ownerPermissions); another account may use the
 // delegable functions a live grant from the owner names (grants.js). There are
 // no execution modes and no intents: running the program is the action, and
 // the grant is the authority.
@@ -76,7 +77,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (isSystemConnection(connection.connectionId)) return { refusal: "system-connection" };
     if (connection.status !== "active") return { refusal: "connection-disabled" };
     if (ownerUid !== undefined && connection.ownerUid !== ownerUid) return { refusal: "owner-changed" };
-    if (connection.ownerUid === uid) return { owner: true };
+    if (connection.ownerUid === uid) return { owner: true, permissions: connection.ownerPermissions ?? null };
     const grant = grants && uid
       ? await grants.get(grantIdFor({ connectionId: connection.connectionId, recipientUid: uid }))
       : null;
@@ -85,16 +86,19 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   };
   // A grant reaches the (language, function) pairs it names that the registry
   // marks delegable, plus that language's implicit delegable functions (signing
-  // every render), which are never granted on their own. The owner reaches
-  // every registered function. A grant without permissions reaches nothing.
+  // every render), which also may be named on their own. The owner reaches
+  // every registered function, or, once they have narrowed their own use, the
+  // ones their list names by the same rule, delegable or not. A list without
+  // permissions reaches nothing.
   const mayUse = (access, lang, fn) => {
     const spec = protectedFunctionsForLang(lang)?.[fn];
     if (!spec) return false;
-    if (access.owner) return true;
+    if (access.owner && access.permissions === null) return true;
     const key = String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
-    const inLang = (access.grant?.permissions ?? []).filter(p => p.lang === key);
-    const permitted = spec.implicit === true ? inLang.length > 0 : inLang.some(p => p.fn === fn);
-    return permitted && spec.delegable === true;
+    const list = access.owner ? access.permissions : access.grant?.permissions;
+    const inLang = (list ?? []).filter(p => p.lang === key);
+    const permitted = inLang.some(p => p.fn === fn) || (spec.implicit === true && inLang.length > 0);
+    return permitted && (access.owner || spec.delegable === true);
   };
 
   const allocateInvocation = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey = null }) => {
@@ -265,7 +269,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
 
     // The owner holds every registered function of this language that runs
-    // against this connection's backend; a recipient, the delegable ones their
+    // against this connection's backend (or those their own list names); a
+    // recipient, the delegable ones their
     // grant names. A write runs whenever the program calls it; its identity is
     // the invocation's.
     const registered = protectedFunctionsForLang(lang) || {};

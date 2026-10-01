@@ -4,7 +4,9 @@
 // connection takes effect at the next call.
 //
 // A store implements: get(connectionId) -> { connectionId, ownerUid, backend,
-// status: "active" | "disabled", label } | null.
+// status: "active" | "disabled", label, ownerPermissions } | null.
+// ownerPermissions: the (lang, fn) pairs the owner allows themselves, or null
+// (absent) for everything.
 
 export const createMemoryConnectionStore = (records = []) => {
   const byId = new Map(records.map(r => [r.connectionId, { ...r }]));

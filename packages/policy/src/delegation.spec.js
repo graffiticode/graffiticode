@@ -129,9 +129,12 @@ describe("delegation", () => {
   });
 
   describe("permissions are (language, function) pairs", () => {
-    it("lists only explicit delegable functions: not rendering, never Author", async () => {
+    it("lists the delegable functions, rendering included, never Author", async () => {
       const list = await manager.shareable({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" });
-      expect(list).toEqual([{ lang: "0176", fn: "save-to-itembank", kind: "write" }]);
+      expect(list).toEqual([
+        { lang: "0176", fn: "preview-itembank", kind: "sign" },
+        { lang: "0176", fn: "save-to-itembank", kind: "write" },
+      ]);
       await denied(manager.shareable({ caller: CONSOLE, user: { uid: ALICE }, connectionId: "conn-1" }), "not-owner");
     });
 
@@ -140,12 +143,19 @@ describe("delegation", () => {
       expect(g.permissions).toEqual(SAVE);
     });
 
-    it("refuses Author, rendering, an unknown function, another language or nothing", async () => {
+    it("refuses Author, an unknown function, another language or nothing", async () => {
       await denied(share({ permissions: [{ lang: "0176", fn: "author-itembank" }] }), "bad-permissions");
-      await denied(share({ permissions: [{ lang: "0176", fn: "preview-itembank" }] }), "bad-permissions");
       await denied(share({ permissions: [{ lang: "0176", fn: "made-up" }] }), "bad-permissions");
       await denied(share({ permissions: [{ lang: "0158", fn: "save-to-itembank" }] }), "bad-permissions");
       await denied(share({ permissions: [] }), "bad-permissions");
+    });
+
+    it("can grant rendering alone: previews, never a save", async () => {
+      await share({ permissions: [{ lang: "0176", fn: "preview-itembank" }] });
+      const { allowed, sessionToken } = await snap(ALICE);
+      expect(allowed).toEqual(["preview-itembank"]);
+      await expect(mint(sessionToken, "preview-itembank", "learnosity.sign-items-preview")).resolves.toBeTruthy();
+      await denied(mint(sessionToken, "save-to-itembank", "learnosity.write-items"), "fn-not-in-session");
     });
 
     it("never lets a pair for one language cover another's function of the same name", async () => {
@@ -172,6 +182,69 @@ describe("delegation", () => {
       await denied(manager.update({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", grantId: "nope", permissions: SAVE }), "grant-not-found");
       await denied(manager.update({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", grantId, permissions: [] }), "bad-permissions");
     });
+  });
+});
+
+describe("the owner's own permissions", () => {
+  const PREVIEW = [{ lang: "0176", fn: "preview-itembank" }];
+  const setOwn = (permissions, over = {}) =>
+    manager.setOwnerPermissions({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", permissions, ...over });
+
+  it("default to everything, Author included", async () => {
+    expect((await snap(OWNER)).allowed).toEqual(ALL_FNS);
+    expect((await manager.list({ caller: CONSOLE, user: { uid: OWNER } }))[0].ownerPermissions).toBeNull();
+  });
+
+  it("lists every function on the backend for the owner's list, marking implicit and delegable", async () => {
+    expect(await manager.functions({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" })).toEqual([
+      { lang: "0176", fn: "author-itembank", kind: "sign", implicit: false, delegable: false },
+      { lang: "0176", fn: "preview-itembank", kind: "sign", implicit: true, delegable: true },
+      { lang: "0176", fn: "save-to-itembank", kind: "write", implicit: false, delegable: true },
+    ]);
+    await denied(manager.functions({ caller: CONSOLE, user: { uid: ALICE }, connectionId: "conn-1" }), "not-owner");
+  });
+
+  it("narrowed to previews: previews sign, a save is refused, even mid-session", async () => {
+    const { sessionToken } = await snap(OWNER);
+    expect(await setOwn(PREVIEW)).toEqual({ connectionId: "conn-1", ownerPermissions: PREVIEW });
+    await denied(mint(sessionToken, "save-to-itembank", "learnosity.write-items"), "not-granted");
+    const narrowed = await snap(OWNER);
+    expect(narrowed.allowed).toEqual(["preview-itembank"]);
+    await expect(mint(narrowed.sessionToken, "preview-itembank", "learnosity.sign-items-preview")).resolves.toBeTruthy();
+  });
+
+  it("may keep Author, which no grant reaches, and rendering comes with it", async () => {
+    await setOwn([{ lang: "0176", fn: "author-itembank" }]);
+    expect((await snap(OWNER)).allowed).toEqual(["preview-itembank", "author-itembank"]);
+  });
+
+  it("an empty list leaves the owner nothing; null restores everything", async () => {
+    await setOwn([]);
+    expect((await snap(OWNER)).allowed).toEqual([]);
+    await setOwn(null);
+    expect((await snap(OWNER)).allowed).toEqual(ALL_FNS);
+  });
+
+  it("is independent of sharing: the owner can share what they don't use", async () => {
+    await setOwn(PREVIEW);
+    await share();
+    expect((await snap(ALICE)).allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    expect((await snap(OWNER)).allowed).toEqual(["preview-itembank"]);
+  });
+
+  it("only the owner sets them, only from the backend's functions", async () => {
+    await denied(setOwn(PREVIEW, { user: { uid: ALICE } }), "not-owner");
+    await denied(setOwn(PREVIEW, { caller: L0176 }), "caller-not-entry-point");
+    await denied(setOwn([{ lang: "0176", fn: "made-up" }]), "bad-permissions");
+    await denied(setOwn([{ lang: "0158", fn: "save-to-itembank" }]), "bad-permissions");
+    await denied(setOwn("everything"), "bad-permissions");
+    expect((await setOwn([{ lang: "L0176", fn: "preview-itembank" }])).ownerPermissions).toEqual(PREVIEW);
+  });
+
+  it("survive disabling and re-reading the connection", async () => {
+    await setOwn(PREVIEW);
+    await manager.disable({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" });
+    expect((await connections.get("conn-1")).ownerPermissions).toEqual(PREVIEW);
   });
 });
 
@@ -203,6 +276,10 @@ describe("the configured system connection", () => {
     await grants.put({ grantId: grantIdFor({ connectionId: "conn-1", recipientUid: ALICE }), connectionId: "conn-1", ownerUid: OWNER, recipientUid: ALICE, permissions: SAVE });
     await denied(sysManager.update({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", grantId: grantIdFor({ connectionId: "conn-1", recipientUid: ALICE }), permissions: SAVE }), "system-connection");
     await denied(sysInvoke(ALICE), "system-connection");
+  });
+
+  it("cannot have owner permissions set", async () => {
+    await denied(sysManager.setOwnerPermissions({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", permissions: null }), "system-connection");
   });
 
   it("still serves system preview sessions", async () => {
