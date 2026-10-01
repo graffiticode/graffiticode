@@ -26,7 +26,7 @@
     "lint": "eslint src tools"
   },
   "dependencies": {
-    "@graffiticode/l0000": "^0.3.0",
+    "@graffiticode/l0000": "^0.7.1",
     "@graffiticode/translatex": "^0.24.1"
   },
   "devDependencies": {
