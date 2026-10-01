@@ -113,7 +113,9 @@ async function deploy(name, service) {
     const dirty = (await run(`git status --porcelain --untracked-files=all -- ${paths.join(" ")}`, ROOT)).trim();
     if (dirty && !PLAN) throw new Error(`Uncommitted changes in ${paths.join(", ")}:\n${dirty}`);
     console.log(`[${name}] ${PLAN ? "Planning" : "Deploying"}...`);
-    await run(`npm run deploy -- ${name} --allow-dirty${PLAN ? " --plan" : ""}`, ROOT, 30 * 60 * 1000);
+    // Generous: a timeout kills the local deploy mid-release, leaving its lock and possibly
+    // a candidate revision unpromoted, which is worse than waiting.
+    await run(`npm run deploy -- ${name} --allow-dirty${PLAN ? " --plan" : ""}`, ROOT, 60 * 60 * 1000);
     console.log(`[${name}] Done`);
     return { name, ok: true };
   } catch (err) {
