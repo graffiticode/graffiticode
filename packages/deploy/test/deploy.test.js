@@ -198,7 +198,10 @@ test("snapshot excludes credentials, captures dirty files and executable bits, a
   await writeFile(path.join(root, ".gitignore"), ".gc-deploy/\n");
   await git(["add", "."]);
   await git(["commit", "-m", "fixture"]);
+  await mkdir(path.join(root, ".claude", "worktrees"), { recursive: true });
+  await writeFile(path.join(root, ".claude", "settings.local.json"), "{}");
   const first = await snapshot(root, config);
+  assert.equal(first.dirty, false, "untracked always-excluded paths do not dirty a release");
   t.after(() => rm(first.dir, { recursive: true, force: true }));
   assert.ok(!first.files.includes("server.key"));
   assert.ok(!first.files.includes(".env"));
@@ -218,6 +221,7 @@ test("snapshot excludes credentials, captures dirty files and executable bits, a
   await symlink("Dockerfile", path.join(root, "link"));
   await assert.rejects(snapshot(root, config, true), /symlinks/);
   assert.equal(included("node_modules/foo.js"), false);
+  assert.equal(included(".claude/worktrees/agent/link"), false);
   assert.equal(included("docs/readme.md", ["docs"]), false);
   assert.equal(included("languages/l0176/src/a.ts", [], ["languages/l0176", "configs/Dockerfile.l0176.yaml"]), true);
   assert.equal(included("configs/Dockerfile.l0176.yaml", [], ["languages/l0176", "configs/Dockerfile.l0176.yaml"]), true);

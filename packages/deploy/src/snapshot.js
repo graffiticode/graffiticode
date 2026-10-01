@@ -11,7 +11,7 @@ const under = (file, p) => file === p || file.startsWith(`${p.replace(/\/$/, "")
 // directory prefixes, then excludes and the built-in credential rules apply.
 export function included(file, excludes = [], includes = null) {
   const parts = file.split("/");
-  return !parts.some(p => [".git", ".gc-deploy", ".codex", ".agents", "node_modules"].includes(p) || p.startsWith(".env") || /\.(key|pem)$/.test(p)) &&
+  return !parts.some(p => [".git", ".gc-deploy", ".codex", ".agents", ".claude", "node_modules"].includes(p) || p.startsWith(".env") || /\.(key|pem)$/.test(p)) &&
     (!includes || includes.some(p => under(file, p))) &&
     !excludes.some(p => under(file, p));
 }
@@ -20,7 +20,12 @@ export async function snapshot(root, config, allowDirty = false) {
   const gitRoot = await run("git", ["rev-parse", "--show-toplevel"], { cwd: root });
   requireValue(await realpath(gitRoot) === await realpath(root), "deploy.json must be at the Git workspace root");
   const commit = await run("git", ["rev-parse", "HEAD"], { cwd: root });
-  const changes = await run("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: root });
+  // Changes to paths the snapshot never ships (e.g. an untracked .claude/) don't
+  // make the release dirty. Porcelain lines are "XY path" or "XY from -> to".
+  const changes = (await run("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: root }))
+    .split("\n")
+    .filter(line => line && line.slice(3).split(" -> ").some(file => included(file.replace(/^"|"$/g, ""), config.exclude, config.include)))
+    .join("\n");
   requireValue(!changes || allowDirty, "Workspace has uncommitted changes; commit them or pass --allow-dirty");
   const files = [...new Set((await run("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, raw: true })).split("\0").filter(Boolean))].sort();
   const dir = await mkdtemp(path.join(tmpdir(), "gc-deploy-"));
