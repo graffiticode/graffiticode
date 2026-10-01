@@ -139,3 +139,6 @@ firestore-coverage.html
 
 # jest results written by scripts/run-jest-targets.js
 .jest-results
+
+# TypeScript incremental build state
+*.tsbuildinfo

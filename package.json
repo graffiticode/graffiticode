@@ -17,6 +17,8 @@
     "lint": "eslint test/ scripts/ verify/",
     "lint:fix": "eslint --fix test/ scripts/ verify/",
     "typecheck": "node scripts/typecheck.js",
+    "build": "tsc -b tsconfig.build.json",
+    "build:clean": "node scripts/clean-build.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec jest",
     "test:unit": "node scripts/run-jest-targets.js unit",
     "test:emulated": "node scripts/run-jest-targets.js emulated",
