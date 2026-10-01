@@ -26,7 +26,7 @@
     "lint": "eslint src tools"
   },
   "dependencies": {
-    "@graffiticode/l0000": "^0.2.0"
+    "@graffiticode/l0000": "^0.7.1"
   },
   "devDependencies": {
     "@graffiticode/parser": "^1.7.0",
