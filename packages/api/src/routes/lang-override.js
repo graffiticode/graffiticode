@@ -23,6 +23,7 @@ const buildGetLangOverridesHandler = ({ langOverrideStorer }) =>
   });
 
 export default ({ langOverrideStorer }) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetLangOverridesHandler({ langOverrideStorer }));
   router.options("/", optionsHandler);

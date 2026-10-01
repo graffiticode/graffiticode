@@ -68,6 +68,7 @@ export const parseSystemConnections = json => {
   }
   const out = {};
   for (const [backend, connectionId] of Object.entries(parsed)) {
+    // @ts-expect-error TS-MIGRATE: registry backends inferred as literal types
     if (!SYSTEM_BACKENDS.has(backend)) {
       throw new Error(`POLICY_SYSTEM_CONNECTIONS: ${backend} is not a known backend`);
     }

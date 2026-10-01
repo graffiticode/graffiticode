@@ -180,6 +180,7 @@ const buildRotate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
 });
 
 export const buildOAuthTokensRouter = deps => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
 
   // All routes require internal API key authentication

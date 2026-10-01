@@ -32,6 +32,7 @@ const buildAuthenticate = ({ ethereumService, authService }) => buildHttpHandler
 });
 
 export const buildEthereumRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
 
   router.get("/:address", buildGet(deps));

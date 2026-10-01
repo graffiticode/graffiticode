@@ -5,6 +5,7 @@ export const buildGetBaseUrlForLanguage = ({
   getCompilerHost,
   getCompilerPort,
   getOverrideBaseUrl
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 }) => async (lang, { uid } = {}) => {
   if (Number.isInteger(Number.parseInt(lang, 10))) {
     lang = `L${lang}`;

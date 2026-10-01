@@ -62,6 +62,7 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
         dataParams.set("publication", publication);
       }
       const auth = req.auth.context;
+      // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
       const tasks = await getTasks({ auth, ids, req });
       lang = tasks[0].lang;
       params.set("id", id);
@@ -78,6 +79,7 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
 };
 
 export const buildFormRouter = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStorer }) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetFormHandler({ pingLang, getBaseUrlForLanguage })({ taskStorer }));
   router.options("/", optionsHandler);

@@ -35,6 +35,8 @@ jobs:
         run: |
           npm run lint
           npm run lint --workspaces --if-present
+      - name: Typecheck (checkJs, no emit)
+        run: npm run typecheck
       - name: Unit tests (no emulator)
         run: npm run test:unit
       - name: Deploy CLI tests

@@ -1,0 +1,10 @@
+{
+  "$comment": "Maximum `@ts-expect-error TS-MIGRATE:` suppressions per package (TS migration phase 1). scripts/typecheck.js fails if a package exceeds its budget. Lower these as suppressions are removed; never raise them without review.",
+  "common": 0,
+  "auth": 20,
+  "auth-client": 8,
+  "policy": 7,
+  "broker": 3,
+  "deploy": 8,
+  "api": 44
+}

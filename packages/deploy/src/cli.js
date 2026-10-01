@@ -30,6 +30,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     const scoped = [...args, `--project=${config.project}`, "--quiet"];
     if (["builds", "run"].includes(args[0])) scoped.push(`--region=${config.region}`);
     if (json) scoped.push("--format=json");
+    // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
     const output = await run("gcloud", scoped, { cwd: root, stream });
     return json ? JSON.parse(output) : output;
   };

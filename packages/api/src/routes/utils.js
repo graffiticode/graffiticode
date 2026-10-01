@@ -72,6 +72,7 @@ export const buildHttpHandler = handler => async (req, res, next) => {
 // only its shape is checked here. Anonymous callers cannot select one.
 const CONNECTION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const parseConnectionId = (value, { auth } = {}) => {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -185,11 +186,15 @@ export const checkCompileAllowedRemote = async (token) => {
     const data = await response.json();
 
     // Check for GraphQL errors
+    // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
     if (data.errors?.length > 0) {
+      // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
       console.error("checkCompileAllowedRemote: GraphQL errors", data.errors);
+      // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
       return { allowed: false, reason: data.errors[0]?.message || "GraphQL error" };
     }
 
+    // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
     return data.data?.checkCompileAllowed || { allowed: false, reason: "Unknown error" };
   } catch (error) {
     console.error("checkCompileAllowedRemote error:", error.message || error);
@@ -218,6 +223,7 @@ export const parsePublicationId = value => {
 // accepted, with a selected connection.
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_:.-]{1,190}$/;
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const parseIdempotencyKey = (value, { connectionId } = {}) => {
   if (value === undefined || value === null || value === "") {
     return null;

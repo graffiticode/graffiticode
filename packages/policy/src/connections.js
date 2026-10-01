@@ -29,6 +29,7 @@ export const createMemoryConnectionStore = (records = []) => {
 
 // Owner-only phase: a connection is usable only by its owner, only while
 // active. Returns a reason string when unusable.
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const connectionRefusal = (connection, { uid, ownerUid } = {}) => {
   if (!connection) return "connection-not-found";
   if (connection.status !== "active") return "connection-disabled";

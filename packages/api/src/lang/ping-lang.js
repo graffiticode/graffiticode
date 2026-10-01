@@ -14,6 +14,7 @@ export const buildPingLang = ({ getBaseUrlForLanguage, bent, log }) => {
     }
   };
 
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   return async (lang, { uid } = {}) => {
     const baseUrl = await getBaseUrlForLanguage(lang, { uid });
     if (!cache.has(baseUrl)) {

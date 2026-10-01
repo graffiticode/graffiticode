@@ -17,6 +17,7 @@ const getLangIdFromRequest = (req) => {
   id = match[1];
   if (!Number.isInteger(Number.parseInt(id))) {
     const err = new Error("should not be possible");
+    // @ts-expect-error TS-MIGRATE: custom field assigned on Error
     err.statusCode = 500;
     throw err;
   }
@@ -24,6 +25,7 @@ const getLangIdFromRequest = (req) => {
 };
 
 export const buildLangRouter = ({ pingLang, getLangAsset }) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildHttpHandler(async (req, res) => {
     const langId = getLangIdFromRequest(req);

@@ -128,6 +128,7 @@ const buildSignInInternal = ({ authService, linkedEmailsService }) => buildHttpH
 });
 
 export const buildLinkedEmailsRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
 
   // User-facing routes (Firebase / refresh-token bearer auth required).

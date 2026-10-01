@@ -80,6 +80,7 @@ const buildDelete = ({ oauthService }) => buildHttpHandler(async (req, res) => {
 });
 
 export const buildOAuthLinksRouter = deps => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.post("/", buildCreate(deps));
   router.get("/", buildList(deps));

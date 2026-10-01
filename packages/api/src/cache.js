@@ -60,4 +60,5 @@ export const buildRedisCache = () => {
   return { get, set, del };
 };
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const cacheApi = buildLocalCache({});

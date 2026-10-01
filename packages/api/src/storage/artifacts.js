@@ -40,6 +40,7 @@ export const buildMemoryArtifactStorer = () => {
   return {
     async put({ content, ...binding }) {
       artifacts.set(binding.invocationId, { ...binding, content: JSON.parse(JSON.stringify(content)) });
+      // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
       const key = headId(binding);
       const head = heads.get(key);
       if (head && head.seq > binding.seq) return { current: false };

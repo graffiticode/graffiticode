@@ -5,6 +5,7 @@ import { buildEthereumRouter } from "./ethereum.js";
 import { buildRefreshTokensRouter } from "./refresh-tokens.js";
 
 export const buildV1Router = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
 
   router.use("/api-keys", buildApiKeysRouter(deps));

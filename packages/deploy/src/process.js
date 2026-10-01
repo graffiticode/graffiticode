@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 
 // No shell interpolation: configuration and paths are always individual arguments.
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export function run(command, args, { cwd, stream = false, raw = false } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, stdio: ["ignore", stream ? "inherit" : "pipe", "inherit"] });

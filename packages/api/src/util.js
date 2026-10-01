@@ -162,6 +162,7 @@ export function num2dot(num) {
   let d = num % 256;
   for (let i = 3; i > 0; i--) {
     num = Math.floor(num / 256);
+    // @ts-expect-error TS-MIGRATE: num reassigned to a string in num2dot
     d = num % 256 + "." + d;
   }
   return d;
@@ -172,7 +173,9 @@ export function statusCodeFromErrors(errs) {
     errs = [errs];
   }
   for (const err in errs) {
+    // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
     if (err.statusCode) {
+      // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
       return err.statusCode;
     }
   }
@@ -184,10 +187,14 @@ export function messageFromErrors(errs) {
     errs = [errs];
   }
   for (const err in errs) {
+    // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
     if (err.data) {
+      // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
       if (err.data.error) {
+        // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
         return err.data.error;
       }
+      // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
       return err.data;
     }
   }

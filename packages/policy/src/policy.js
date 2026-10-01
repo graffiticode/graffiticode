@@ -72,6 +72,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // user, publication or grant reaches it, its owner included, so it can never
   // write, sign Author or back a publication.
   const isSystemConnection = connectionId => Object.values(systemConnections).includes(connectionId);
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   const accessFor = async (connection, uid, { ownerUid } = {}) => {
     if (!connection) return { refusal: "connection-not-found" };
     if (isSystemConnection(connection.connectionId)) return { refusal: "system-connection" };
@@ -141,6 +142,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // Live state of a publication, checked at publishing, at every view and at
   // every mint. Owner-only: the publisher must own the connection, and it must
   // be active. Returns { refusal } or { publication, connection }.
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   const publicationState = async (publicationId, { publisherUid, connectionId, lang } = {}) => {
     const publication = isId(publicationId) ? await publications.get(publicationId) : null;
     if (!publication) return { refusal: "publication-not-found" };
@@ -328,6 +330,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (fns.length === 0 || !backend) return deny("no-system-preview-functions", record);
     const connectionId = systemConnectionFor(backend);
     if (!connectionId) return deny("no-system-connection", record);
+    // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
     const state = await systemConnectionRefusal({ connectionId, backend });
     if (state.refusal) return deny(state.refusal, { ...record, connectionId });
     const { connection } = state;

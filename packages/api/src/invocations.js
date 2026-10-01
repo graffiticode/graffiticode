@@ -51,6 +51,7 @@ export const buildMetadataIdToken = ({ fetch: doFetch = fetch } = {}) => {
 // and the end user's token when there is one. A 403 is policy's refusal, with
 // its reason; anything else unexpected is an error.
 export const buildPolicyRequest = ({ policyUrl, idToken, fetch: doFetch = fetch }) =>
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   async (method, path, { body, authToken = null } = {}) => {
     const [invoker, caller] = await Promise.all([idToken(policyUrl), idToken("urn:graffiticode:policy")]);
     const res = await doFetch(`${policyUrl}${path}`, {
@@ -64,6 +65,7 @@ export const buildPolicyRequest = ({ policyUrl, idToken, fetch: doFetch = fetch 
       ...(body ? { body: JSON.stringify(body) } : {})
     });
     const json = await res.json().catch(() => null);
+    // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
     if (res.status === 403) throw new InvocationRefused(json?.error?.reason ?? "denied");
     return { status: res.status, ok: res.ok, body: json };
   };
@@ -73,6 +75,7 @@ export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = f
   return async ({ authToken, connectionId, taskId, options, idempotencyKey = null }) => {
     const { ok, status, body } = await request("POST", "/v1/invocations", {
       authToken,
+      // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
       body: {
         connectionId,
         taskId,
@@ -80,6 +83,7 @@ export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = f
         ...(idempotencyKey ? { idempotencyKey } : {})
       }
     });
+    // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
     const data = body?.data;
     if (!ok || typeof data?.invocationToken !== "string" || typeof data.invocationId !== "string" ||
         !Number.isInteger(data.seq) || typeof data.ownerUid !== "string") {

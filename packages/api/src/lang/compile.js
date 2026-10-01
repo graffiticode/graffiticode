@@ -1,3 +1,4 @@
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid } = {}) => {
   const baseUrl = await getBaseUrlForLanguage(lang, { uid });
   try {

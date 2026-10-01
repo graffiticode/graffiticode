@@ -80,6 +80,7 @@ const buildPostTaskHandler = ({ taskStorer }) => {
 };
 
 export default ({ taskStorer }) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetTaskHandler({ taskStorer }));
   router.post("/", buildPostTaskHandler({ taskStorer }));

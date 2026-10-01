@@ -18,6 +18,7 @@ import { requireInternalAuth } from "../middleware/internal-auth.js";
  *   DELETE /:key   delete the record (idempotent)                    -> {}
  */
 export const buildOAuthFlowRouter = (storer) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
 
   router.use(requireInternalAuth);

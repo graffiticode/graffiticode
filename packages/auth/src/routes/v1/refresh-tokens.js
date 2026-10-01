@@ -22,6 +22,7 @@ const buildRevoke = ({ authService }) => buildHttpHandler(async (req, res) => {
 });
 
 export const buildRefreshTokensRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
 
   router.post("/exchange", buildExchange(deps));

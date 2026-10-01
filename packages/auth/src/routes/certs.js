@@ -13,6 +13,7 @@ const buildRotateKey = ({ keysService }) => buildHttpHandler(async (req, res) =>
 });
 
 export const buildCertsRouter = ({ keysService }) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetKeys({ keysService }));
   router.post("/", buildRotateKey({ keysService }));

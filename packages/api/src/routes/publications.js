@@ -24,6 +24,7 @@ const refusal = e => new HttpError({ code: 403, message: `permission denied (${e
 const unavailable = () => new HttpError({ code: 501, message: "publications are not available on this server" });
 
 export default ({ taskStorer, artifactStorer, publications }) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.post("/", buildHttpHandler(async (req, res) => {
     const auth = req.auth.context;

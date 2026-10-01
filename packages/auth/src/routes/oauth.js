@@ -39,6 +39,7 @@ const buildTokenExchange = (deps) => {
 };
 
 const buildTokenRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.post("/", buildTokenExchange(deps));
   return router;
@@ -56,6 +57,7 @@ const buildRevokeToken = ({ authService }) => buildHttpHandler(async (req, res) 
 });
 
 const buildRevokeRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.post("/", buildRevokeToken(deps));
   return router;
@@ -79,6 +81,7 @@ const buildVerifyHandler = ({ authService }) => buildHttpHandler(async (req, res
 });
 
 export const buildOAuthRouter = deps => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.use("/token", buildTokenRouter(deps));
   router.use("/revoke", buildRevokeRouter(deps));

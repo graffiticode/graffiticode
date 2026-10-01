@@ -9,6 +9,7 @@ export const startAuthApp = async () => {
     server = deps.app.listen(resolve);
   });
 
+  // @ts-expect-error TS-MIGRATE: assigned in the listen callback before use
   const url = `http://localhost:${server.address().port}`;
   const client = createClient(url);
 

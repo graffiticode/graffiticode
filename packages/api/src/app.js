@@ -28,6 +28,7 @@ global.config = require(process.env.CONFIG || "./../config/config.json");
 global.config.useLocalCompiles = process.env.LOCAL_COMPILES === "true";
 const env = process.env.NODE_ENV || "development";
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const createApp = ({ authUrl } = {}) => {
   const compile = buildCompile({ langCompile });
   const { taskStorer, compileStorer, langOverrideStorer, artifactStorer } = createStorers();
@@ -78,6 +79,7 @@ export const createApp = ({ authUrl } = {}) => {
 
   // Routes
   app.use("/", routes.root());
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi }));
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi }));

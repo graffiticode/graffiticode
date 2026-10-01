@@ -2,6 +2,7 @@ import { InvalidArgumentError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { getDataOrThrowError } from "../utils.js";
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const buildCreateApiKey = (context, { postJSON }) => async ({ accessToken } = {}) => {
   if (!isNonEmptyString(accessToken) && context.has("accessToken")) {
     accessToken = context.get("accessToken");
@@ -17,6 +18,7 @@ export const buildCreateApiKey = (context, { postJSON }) => async ({ accessToken
   return data;
 };
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const buildDeleteApiKey = (context, { deleteJSON }) => async ({ accessToken, apiKeyId } = {}) => {
   if (!isNonEmptyString(accessToken) && context.has("accessToken")) {
     accessToken = context.get("accessToken");

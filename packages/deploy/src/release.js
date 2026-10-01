@@ -64,6 +64,7 @@ export async function smokeCheck(config, service, id, { cloud, fetch: request = 
   for (const check of config.smoke) {
     const url = new URL(check.path, base);
     requireValue(url.origin === base.origin, "Smoke check must stay on the candidate origin");
+    // @ts-expect-error TS-MIGRATE: headers object built dynamically
     const response = await request(url, { headers, redirect: "error", signal: AbortSignal.timeout(30000) });
     requireValue(response.status === check.status, `Smoke check ${check.path}: expected ${check.status}, got ${response.status}`);
     const body = await response.text();
@@ -86,6 +87,7 @@ export async function verifyCandidate(config, service, id, source, receipt, { cl
   const { default: verify } = await import(pathToFileURL(file).href);
   requireValue(typeof verify === "function", `Verify module ${config.verify.module} must export a default function`);
   const { base, headers } = await candidateAccess(config, service, id, cloud);
+  // @ts-expect-error TS-MIGRATE: callee ignores the argument; checkJs infers no parameters
   log(`Verifying the candidate with ${config.verify.module} (${sha256.slice(0, 12)})…`);
   await verify({ candidateUrl: base, serviceUrl: service.status.url, headers, config, cloud, fetch: request, log });
 }

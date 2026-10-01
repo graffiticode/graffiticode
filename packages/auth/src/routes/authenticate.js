@@ -24,6 +24,7 @@ const buildApiKeyAuthenticate = ({ apiKeyService, authService }) => buildHttpHan
 });
 
 const buildApiKeyRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.post("/", buildApiKeyAuthenticate(deps));
   return router;
@@ -82,6 +83,7 @@ const buildEthereumExistsInternal = ({ firebaseAuth }) => buildHttpHandler(async
 });
 
 const buildEthereumRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   // More-specific internal route must precede the catch-all "/:address".
   router.get("/internal/exists/:address", requireInternalAuth, buildEthereumExistsInternal(deps));
@@ -147,12 +149,14 @@ const buildGoogleAuthenticate = ({ firebaseAuth, authService, oauthLinkStorer, l
 });
 
 const buildGoogleRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.post("/", buildGoogleAuthenticate(deps));
   return router;
 };
 
 export const buildAuthenticateRouter = deps => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.use("/api-key", buildApiKeyRouter(deps));
   router.use("/ethereum", buildEthereumRouter(deps));

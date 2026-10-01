@@ -17,16 +17,20 @@ export function included(file, excludes = [], includes = null) {
 }
 
 export async function snapshot(root, config, allowDirty = false) {
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   const gitRoot = await run("git", ["rev-parse", "--show-toplevel"], { cwd: root });
   requireValue(await realpath(gitRoot) === await realpath(root), "deploy.json must be at the Git workspace root");
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   const commit = await run("git", ["rev-parse", "HEAD"], { cwd: root });
   // Changes to paths the snapshot never ships (e.g. an untracked .claude/) don't
   // make the release dirty. Porcelain lines are "XY path" or "XY from -> to".
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   const changes = (await run("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: root }))
     .split("\n")
     .filter(line => line && line.slice(3).split(" -> ").some(file => included(file.replace(/^"|"$/g, ""), config.exclude, config.include)))
     .join("\n");
   requireValue(!changes || allowDirty, "Workspace has uncommitted changes; commit them or pass --allow-dirty");
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   const files = [...new Set((await run("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], { cwd: root, raw: true })).split("\0").filter(Boolean))].sort();
   const dir = await mkdtemp(path.join(tmpdir(), "gc-deploy-"));
   const source = path.join(dir, "source");

@@ -8,6 +8,7 @@ import { buildGetEthereumNonce, buildSignInWithEthereum } from "./ethereum.js";
 import { buildSignInWithGoogle, buildCreateOAuthLink, buildGetOAuthLinks, buildDeleteOAuthLink } from "./oauth.js";
 import { buildExchangeRefreshToken, buildRevokeRefreshToken } from "./refresh-tokens.js";
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 const initializeContext = ({ apiKeyId, apiKeyToken } = {}) => {
   const context = new Map();
   if (isNonEmptyString(apiKeyId)) {
@@ -59,6 +60,7 @@ export const createClient = ({ url = "https://auth.graffiticode.com", apiKeyId, 
     // Api Keys
     createApiKey: buildCreateApiKey(context, deps),
     deleteApiKey: buildDeleteApiKey(context, deps),
+    // @ts-expect-error TS-MIGRATE: callee ignores the argument; checkJs infers no parameters
     listApiKeys: buildUnimplemented(context, deps),
     signInWithApiKey: buildSignInWithApiKey(context, deps),
 

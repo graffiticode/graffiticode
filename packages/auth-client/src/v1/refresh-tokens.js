@@ -2,6 +2,7 @@ import { InvalidArgumentError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { getDataOrThrowError } from "../utils.js";
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const buildExchangeRefreshToken = (context, { postJSON }) => async ({ refreshToken } = {}) => {
   if (!isNonEmptyString(refreshToken) && context.has("refreshToken")) {
     refreshToken = context.get("refreshToken");
@@ -20,6 +21,7 @@ export const buildExchangeRefreshToken = (context, { postJSON }) => async ({ ref
   return { accessToken };
 };
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const buildRevokeRefreshToken = (context, { postJSON }) => async ({ refreshToken } = {}) => {
   if (!isNonEmptyString(refreshToken) && context.has("refreshToken")) {
     refreshToken = context.get("refreshToken");
