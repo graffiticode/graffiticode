@@ -282,7 +282,7 @@
         "POLICY_KMS_KEY_VERSION": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1",
         "POLICY_KMS_KID": "policy-1",
         "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
-        "POLICY_SYSTEM_CONNECTIONS": "${POLICY_SYSTEM_CONNECTIONS}"
+        "POLICY_SYSTEM_CONNECTIONS": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}"
       },
       "smoke": [
         {
