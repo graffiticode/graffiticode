@@ -80,6 +80,47 @@ function newNode(tag, elts) {
 
 const ASYNC = true;
 
+// --- Numbers ---
+//
+// A number value is a JS number when that number is exactly its decimal value, and a
+// Decimal otherwise (`12345678901234567890`, `1.00000000000000000001`). Ordinary values
+// reach dialects exactly as they always have; only those a JS number would round stay
+// Decimals, so arithmetic on them is exact (to decimal.js's 20 significant digits). The
+// Renderer turns any Decimal left in the result into a JS number.
+
+function isDecimal(v) {
+  return Decimal.isDecimal(v);
+}
+
+export function isNumber(v) {
+  return typeof v === "number" || isDecimal(v);
+}
+
+export function numberValue(d) {
+  if (!d.isFinite()) {
+    return d.toNumber(); // NaN, ±Infinity
+  }
+  const n = d.toNumber();
+  return new Decimal(n).equals(d) ? n : d;
+}
+
+// The value of a NUM literal's source text: "1.50", "0x1F", "2e4", "12345678901234567890".
+function parseNumber(text) {
+  try {
+    return numberValue(new Decimal(text));
+  } catch {
+    return NaN;
+  }
+}
+
+// `===`, except that numbers compare by value whichever form they are in.
+export function sameValue(a, b) {
+  if (isDecimal(a) || isDecimal(b)) {
+    return isNumber(a) && isNumber(b) && new Decimal(a).equals(new Decimal(b));
+  }
+  return a === b;
+}
+
 // --- Record key helpers ---
 
 function encodeKey(recordKey) {
@@ -101,7 +142,7 @@ function classifyRuntimeKey(v) {
     return makeRecordKey("tag", v.tag);
   } else if (typeof v === "string") {
     return makeRecordKey("string", v);
-  } else if (typeof v === "number") {
+  } else if (isNumber(v)) {
     return makeRecordKey("number", v);
   }
   return makeRecordKey("tag", String(v));
@@ -170,6 +211,9 @@ function recordRemove(rec, recordKey) {
 }
 
 function deepConvertRecords(val) {
+  if (isDecimal(val)) {
+    return val.toNumber();
+  }
   if (isRecord(val)) {
     const obj = {};
     for (const [encodedKey, value] of val._entries) {
@@ -213,6 +257,9 @@ function displayString(val, nested = false) {
   }
   if (val === null || val === undefined) {
     return "null";
+  }
+  if (isDecimal(val)) {
+    return val.toString();
   }
   if (typeof val !== "object") {
     return String(val);  // number, boolean
@@ -426,7 +473,7 @@ export class Checker extends Visitor {
   }
   NUM(node, options, resume) {
     const err = [];
-    const val = +node.elts[0];
+    const val = parseNumber(node.elts[0]);
     resume(err, val);
   }
   LAMBDA(node, options, resume) {
@@ -1078,7 +1125,7 @@ export class Transformer extends Visitor {
   }
   NUM(node, options, resume) {
     const err = [];
-    const val = +node.elts[0];
+    const val = parseNumber(node.elts[0]);
     resume(err, val);
   }
   LAMBDA(node, options, resume) {
@@ -1230,7 +1277,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = new Decimal(v0).plus(new Decimal(v1)).toNumber();
+          const val = numberValue(new Decimal(v0).plus(new Decimal(v1)));
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in ADD operation: ${e.message}`], NaN);
@@ -1243,7 +1290,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = new Decimal(v0).minus(new Decimal(v1)).toNumber();
+          const val = numberValue(new Decimal(v0).minus(new Decimal(v1)));
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in SUB operation: ${e.message}`], NaN);
@@ -1256,7 +1303,10 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = new Decimal(v0).dividedBy(new Decimal(v1)).toNumber();
+          // A quotient decimal.js had to round (1/3) is an approximation either way, so it
+          // stays a JS number, as it always has been.
+          const q = new Decimal(v0).dividedBy(new Decimal(v1));
+          const val = q.times(new Decimal(v1)).equals(new Decimal(v0)) ? numberValue(q) : q.toNumber();
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in DIV operation: ${e.message}`], NaN);
@@ -1322,7 +1372,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (err2, val2) => {
         let err = [].concat(err1).concat(err2);
         try {
-          const val = new Decimal(val1).times(new Decimal(val2)).toNumber();
+          const val = numberValue(new Decimal(val1).times(new Decimal(val2)));
           resume(err, val);
         } catch (e) {
           if (isNaN(+val1)) {
@@ -1341,7 +1391,11 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (err2, val2) => {
         let err = [].concat(err1).concat(err2);
         try {
-          const val = new Decimal(val1).pow(new Decimal(val2)).toNumber();
+          // Only a whole, non-negative exponent gives an exact power; any other is an
+          // approximation and stays a JS number, as it always has been.
+          const exponent = new Decimal(val2);
+          const p = new Decimal(val1).pow(exponent);
+          const val = exponent.isInteger() && !exponent.isNegative() ? numberValue(p) : p.toNumber();
           resume(err, val);
         } catch (e) {
           if (isNaN(+val1)) {
@@ -1360,7 +1414,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (err2, val2) => {
         let err = [].concat(err1).concat(err2);
         try {
-          const val = new Decimal(val1).mod(new Decimal(val2)).toNumber();
+          const val = numberValue(new Decimal(val1).mod(new Decimal(val2)));
           resume(err, val);
         } catch (e) {
           if (isNaN(+val1)) {
@@ -1588,7 +1642,11 @@ export class Transformer extends Visitor {
       return value !== null && typeof value === "object" && !value.elts && value.tag === head
         ? bindings : null;
     case "NUM":
-      return typeof value === "number" && Number(head) === value ? bindings : null;
+      try {
+        return isNumber(value) && new Decimal(head).equals(new Decimal(value)) ? bindings : null;
+      } catch {
+        return null; // NaN, or a pattern that is not a number
+      }
     case "STR":
       return value === head ? bindings : null;
     case "BOOL":
@@ -1715,7 +1773,7 @@ export class Transformer extends Visitor {
     this.visit(node.elts[0], options, (e0, v0) => {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [...e0, ...e1];
-        assert(typeof v0 === "number", "Type Error: expected v0 to be a number. Got " + (typeof v0));
+        assert(isNumber(v0), "Type Error: expected v0 to be a number. Got " + (typeof v0));
         if (isRecord(v1)) {
           const rk = makeRecordKey("number", v0);
           const val = recordGet(v1, rk);
@@ -1807,7 +1865,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = Decimal.min(new Decimal(v0), new Decimal(v1)).toNumber();
+          const val = numberValue(Decimal.min(new Decimal(v0), new Decimal(v1)));
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in MIN operation: ${e.message}`], NaN);
@@ -1820,7 +1878,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = Decimal.max(new Decimal(v0), new Decimal(v1)).toNumber();
+          const val = numberValue(Decimal.max(new Decimal(v0), new Decimal(v1)));
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in MAX operation: ${e.message}`], NaN);
@@ -1845,12 +1903,12 @@ export class Transformer extends Visitor {
             let current = start;
             if (step.isPositive()) {
               while (current.lessThan(end)) {
-                result.push(current.toNumber());
+                result.push(numberValue(current));
                 current = current.plus(step);
               }
             } else {
               while (current.greaterThan(end)) {
-                result.push(current.toNumber());
+                result.push(numberValue(current));
                 current = current.plus(step);
               }
             }
@@ -1885,11 +1943,11 @@ export class Transformer extends Visitor {
           let val;
           if (isRecord(v0) && isRecord(v1)) {
             val = v0._entries.size === v1._entries.size &&
-              [...v0._entries].every(([k, v]) => v1._entries.has(k) && v1._entries.get(k) === v);
+              [...v0._entries].every(([k, v]) => v1._entries.has(k) && sameValue(v1._entries.get(k), v));
           } else if (v0 !== null && v1 !== null && typeof v0 === "object" && typeof v1 === "object" && v0.tag !== undefined && v1.tag !== undefined && !v0.elts && !v1.elts) {
             val = v0.tag === v1.tag;
           } else {
-            val = v0 === v1;
+            val = sameValue(v0, v1);
           }
           resume(err, val);
         } catch (e) {

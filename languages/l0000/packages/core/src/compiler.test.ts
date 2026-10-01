@@ -662,3 +662,57 @@ describe("List builtins on a non-list", () => {
     expect(result).toEqual([2, 4, 6]);
   });
 });
+
+describe("Numbers keep their decimal value", () => {
+  // 12345678901234567890 and 12345678901234567891 are the same JS number.
+  const big = "12345678901234567890";
+  const big1 = "12345678901234567891";
+
+  // The Transformer's value before the Renderer converts it: what a dialect sees.
+  class RawRenderer {
+    data: any;
+    constructor(data) { this.data = data; }
+    render(options, resume) { resume([], this.data); }
+  }
+  function transform(src) {
+    return parser.parse(0, src, lexicon).then((code) => new Promise((resolve, reject) => {
+      new Compiler({ langID: "0", version: "v0.0.0", Checker, Transformer, Renderer: RawRenderer })
+        .compile(code, {}, {}, (err, val) => (err && err.length > 0 ? reject(err) : resolve(val)));
+    }));
+  }
+
+  test("arithmetic on large integers is exact", async () => {
+    expect(await compile(`sub ${big1} ${big}..`)).toBe(1);
+    expect(await compile(`length (range 9007199254740993 9007199254740996 1)..`)).toBe(3);
+  });
+
+  test("large values compare, match and key by their exact value", async () => {
+    expect(await compile(`equiv ${big} ${big1}..`)).toBe(false);
+    expect(await compile(`equiv {a: ${big}} {a: ${big}}..`)).toBe(true);
+    expect(await compile(`case ${big1} of ${big}: "a" _: "b" end..`)).toBe("b");
+    expect(await compile(`get ${big1} {${big1}: "b" ${big}: "a"}..`)).toBe("b");
+  });
+
+  test("display text shows every digit", async () => {
+    expect(await compile(`str ${big}..`)).toBe(big);
+  });
+
+  test("the result holds plain JS numbers", async () => {
+    expect(await compile(`{x: ${big}}..`)).toEqual({ x: Number(big) });
+    expect(await compile(`[${big}]..`)).toEqual([Number(big)]);
+  });
+
+  test("ordinary values stay JS numbers for dialects", async () => {
+    for (const src of ["add 0.1 0.2..", "1.50..", "div 10 4..", "div 1 3..", "pow 2 0.5..", "mul 3 4.."]) {
+      expect(typeof await transform(src)).toBe("number");
+    }
+    expect(await compile("div 1 3..")).toBe(1 / 3);
+    expect(await compile("add 0.1 0.2..")).toBe(0.3);
+  });
+
+  test("only a value a JS number would round is a Decimal", async () => {
+    const val: any = await transform(`add ${big} 1..`);
+    expect(typeof val).toBe("object");
+    expect(val.toString()).toBe(big1);
+  });
+});

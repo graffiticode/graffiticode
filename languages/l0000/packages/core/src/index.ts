@@ -6,7 +6,7 @@
 // and merges its lexicon over `lexicon` with `mergeLexicon`, which refuses to let a
 // child word shadow a base one unless the override is declared.
 
-export { Visitor, Checker, Transformer, Renderer, Compiler } from "./compiler.js";
+export { Visitor, Checker, Transformer, Renderer, Compiler, isNumber, numberValue, sameValue } from "./compiler.js";
 export { ExecContext, execContextOf } from "./exec-context.js";
 export type { ExecIdentity, ProtectedCall, Invoker } from "./exec-context.js";
 export { findProtectedNodes, parseSnapshot } from "./protected-functions.js";
