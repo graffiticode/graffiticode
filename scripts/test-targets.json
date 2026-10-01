@@ -1,0 +1,26 @@
+{
+  "unit": [
+    { "name": "common", "cwd": "packages/common" },
+    { "name": "policy", "cwd": "packages/policy" },
+    {
+      "name": "broker",
+      "cwd": "packages/broker",
+      "args": ["--testPathIgnorePatterns", "/node_modules/", "src/firestore.spec.js"]
+    }
+  ],
+  "emulated": [
+    { "name": "root", "cwd": "." },
+    { "name": "auth", "cwd": "packages/auth" },
+    { "name": "auth-client", "cwd": "packages/auth-client" },
+    {
+      "name": "api",
+      "cwd": "packages/api",
+      "allowSkips": [
+        "packages/api/src/lang/compile.spec.js > compile should throw error if call throws",
+        "packages/api/src/routes/compile.spec.js > routes/compile should compile multiple items",
+        "packages/api/src/routes/form.spec.js > routes/form should handle bad id param"
+      ]
+    },
+    { "name": "broker-firestore", "cwd": "packages/broker", "args": ["src/firestore.spec.js"] }
+  ]
+}

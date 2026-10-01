@@ -136,3 +136,6 @@ firestore-coverage.html
 *~
 # Workspace deployment receipts and locks
 .gc-deploy/
+
+# jest results written by scripts/run-jest-targets.js
+.jest-results

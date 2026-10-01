@@ -1,0 +1,75 @@
+# Lint and test every workspace package on push and pull request.
+#
+# Two jobs, so tests that need the Firebase emulators run in exactly one
+# emulator session and everything else runs without it. Each jest target's
+# skips are checked on their own (scripts/check-skips.js): a suite that
+# silently skips (e.g. one gated on FIRESTORE_EMULATOR_HOST) fails its job.
+# Targets and per-target skip allowlists live in scripts/test-targets.json.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: |
+          npm run lint
+          npm run lint --workspaces --if-present
+      - name: Unit tests (no emulator)
+        run: npm run test:unit
+      - name: Deploy CLI tests
+        run: npm run test:deploy
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jest-results-unit
+          path: .jest-results/
+          if-no-files-found: ignore
+
+  emulated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # The Firestore and Auth emulators run on the JVM.
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - name: Emulator tests (one session)
+        run: npm run test:ci:emulated
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jest-results-emulated
+          path: .jest-results/
+          if-no-files-found: ignore
