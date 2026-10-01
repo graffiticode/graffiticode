@@ -26,6 +26,17 @@ describe("protected-registry", () => {
     }
   });
 
+  // A permission is named for the language function it guards: the lexicon
+  // name of its node tag (INIT is `init`, SAVE_TO_ITEMBANK is
+  // `save-to-itembank`), so a grant reads the same as the program it allows.
+  it("names each function after the language function it guards", () => {
+    for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
+      for (const [fn, spec] of Object.entries(fns)) {
+        expect(spec.tags.map(t => t.toLowerCase().replace(/_/g, "-"))).toContain(fn);
+      }
+    }
+  });
+
   it("never makes an implicit function a write", () => {
     for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
       for (const spec of Object.values(fns)) {
@@ -44,10 +55,10 @@ describe("protected-registry", () => {
   });
 
   it("is frozen", () => {
-    expect(Object.isFrozen(PROTECTED_FUNCTIONS["0176"]["preview-itembank"].ops)).toBe(true);
+    expect(Object.isFrozen(PROTECTED_FUNCTIONS["0176"].init.ops)).toBe(true);
     expect(() => {
       "use strict";
-      PROTECTED_FUNCTIONS["0176"]["preview-itembank"].ops.push("learnosity.write-items");
+      PROTECTED_FUNCTIONS["0176"].init.ops.push("learnosity.write-items");
     }).toThrow();
   });
 
@@ -55,12 +66,12 @@ describe("protected-registry", () => {
 
   describe("isOperationAllowed", () => {
     it("allows preview to sign Items and Questions previews", () => {
-      expect(isOperationAllowed({ ...base, fn: "preview-itembank", op: "learnosity.sign-items-preview" })).toBe(true);
-      expect(isOperationAllowed({ ...base, fn: "preview-itembank", op: "learnosity.sign-questions-preview" })).toBe(true);
+      expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.sign-items-preview" })).toBe(true);
+      expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.sign-questions-preview" })).toBe(true);
     });
     it("never lets preview sign Author requests or write items", () => {
-      expect(isOperationAllowed({ ...base, fn: "preview-itembank", op: "learnosity.sign-author" })).toBe(false);
-      expect(isOperationAllowed({ ...base, fn: "preview-itembank", op: "learnosity.write-items" })).toBe(false);
+      expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.sign-author" })).toBe(false);
+      expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.write-items" })).toBe(false);
     });
     it("never lets save sign", () => {
       expect(isOperationAllowed({ ...base, fn: "save-to-itembank", op: "learnosity.sign-items-preview" })).toBe(false);
@@ -86,22 +97,22 @@ describe("protected-registry", () => {
       }
     });
     it("allows Author signing only for the Author function, and never lets it write", () => {
-      expect(isOperationAllowed({ ...base, fn: "author-itembank", op: "learnosity.sign-author" })).toBe(true);
-      expect(isOperationAllowed({ ...base, fn: "author-itembank", op: "learnosity.write-items" })).toBe(false);
+      expect(isOperationAllowed({ ...base, fn: "author", op: "learnosity.sign-author" })).toBe(true);
+      expect(isOperationAllowed({ ...base, fn: "author", op: "learnosity.write-items" })).toBe(false);
       expect(isOperationAllowed({ ...base, fn: "save-to-itembank", op: "learnosity.sign-author" })).toBe(false);
     });
     it("keeps Author non-delegable and out of reach of published views", () => {
-      const author = PROTECTED_FUNCTIONS["0176"]["author-itembank"];
+      const author = PROTECTED_FUNCTIONS["0176"].author;
       expect(author.delegable).toBe(false);
       expect(author.viewSafe).toBe(false);
-      expect(viewSafeFunctionsForLang("0176")).toEqual(["preview-itembank"]);
+      expect(viewSafeFunctionsForLang("0176")).toEqual(["init"]);
     });
   });
 
   describe("systemPreviewFunctionsForLang", () => {
     it("is exactly the implicit, view-safe signing functions (preview only for 0176)", () => {
-      expect(systemPreviewFunctionsForLang("0176")).toEqual(["preview-itembank"]);
-      expect(systemPreviewFunctionsForLang("L0176")).toEqual(["preview-itembank"]);
+      expect(systemPreviewFunctionsForLang("0176")).toEqual(["init"]);
+      expect(systemPreviewFunctionsForLang("L0176")).toEqual(["init"]);
     });
     it("never includes a write or Author signing", () => {
       for (const lang of Object.keys(PROTECTED_FUNCTIONS)) {
@@ -115,7 +126,7 @@ describe("protected-registry", () => {
         }
       }
       expect(systemPreviewFunctionsForLang("0176")).not.toContain("save-to-itembank");
-      expect(systemPreviewFunctionsForLang("0176")).not.toContain("author-itembank");
+      expect(systemPreviewFunctionsForLang("0176")).not.toContain("author");
     });
     it("is empty for an unprotected language", () => {
       expect(systemPreviewFunctionsForLang("0002")).toEqual([]);
@@ -126,9 +137,9 @@ describe("protected-registry", () => {
     it("keys explicit functions by tag and lists implicit ones", () => {
       const { protectedFunctions, implicitProtectedFunctions } = compilerConfigForLang("0176");
       expect(protectedFunctions.SAVE_TO_ITEMBANK).toEqual({ fn: "save-to-itembank", kind: "write" });
-      expect(protectedFunctions.INIT.fn).toBe("preview-itembank");
-      expect(protectedFunctions.AUTHOR).toEqual({ fn: "author-itembank", kind: "sign" });
-      expect(implicitProtectedFunctions.map(f => f.fn)).toEqual(["preview-itembank"]);
+      expect(protectedFunctions.INIT.fn).toBe("init");
+      expect(protectedFunctions.AUTHOR).toEqual({ fn: "author", kind: "sign" });
+      expect(implicitProtectedFunctions.map(f => f.fn)).toEqual(["init"]);
     });
     it("is empty for an unprotected language", () => {
       expect(compilerConfigForLang("0002")).toEqual({ protectedFunctions: {}, implicitProtectedFunctions: [] });

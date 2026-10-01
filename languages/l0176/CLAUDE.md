@@ -106,7 +106,7 @@ credential broker under a policy-minted token:
 - A compile **without a connection** signs its preview through a **system preview session**:
   `POST /v1/preview-session { lang }` (compiler identity, no user token) returns a session on
   the Graffiticode-owned connection policy has configured for the backend
-  (`POLICY_SYSTEM_CONNECTIONS`), carrying only `preview-itembank`. `systemPreviewSign` installs
+  (`POLICY_SYSTEM_CONNECTIONS`), carrying only `init`. `systemPreviewSign` installs
   it on the compile's `ExecContext` once (`setSessionToken`/`setSnapshot`/`bindInvoker`, all
   public on l0000's `ExecContext`) and calls the same `brokeredSign`. It never writes and never
   signs Author: those check `isBrokered`, which needs a connection.

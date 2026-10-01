@@ -104,7 +104,7 @@ const invocation = (connectionId, extra = {}) =>
 const snapshotBody = async connectionId => ({
   lang: "0176",
   connectionId,
-  fns: ["preview-itembank", "save-to-itembank"],
+  fns: ["init", "save-to-itembank"],
   invocationToken: (await invocation(connectionId)).body.data?.invocationToken,
   stage: "s0"
 });
@@ -153,10 +153,10 @@ describe("publications over http", () => {
     const view = await as(request(app).post(`/v1/publications/${publicationId}/view`), SA.gateway, { user: null }).send();
     expect(view.status).toBe(200);
     const snap = await as(request(app).post("/v1/snapshot"), SA.l0176, { user: null }).send({
-      lang: "0176", connectionId: "conn-1", fns: ["preview-itembank", "save-to-itembank"], invocationToken: view.body.data.invocationToken, stage: "view"
+      lang: "0176", connectionId: "conn-1", fns: ["init", "save-to-itembank"], invocationToken: view.body.data.invocationToken, stage: "view"
     });
     expect(snap.status).toBe(200);
-    expect(snap.body.data.allowed).toEqual(["preview-itembank"]);
+    expect(snap.body.data.allowed).toEqual(["init"]);
 
     expect((await as(request(app).delete(`/v1/publications/${publicationId}`), SA.gateway)).status).toBe(200);
     const after = await as(request(app).post(`/v1/publications/${publicationId}/view`), SA.gateway, { user: null }).send();
@@ -174,10 +174,10 @@ describe("system preview sessions over http", () => {
   it("give a compiler, with no user, a session that mints preview signing and nothing else", async () => {
     const res = await as(request(app).post("/v1/preview-session"), SA.l0176, { user: null }).send({ lang: "0176" });
     expect(res.status).toBe(200);
-    expect(res.body.data.allowed).toEqual(["preview-itembank"]);
+    expect(res.body.data.allowed).toEqual(["init"]);
     const mint = body => as(request(app).post("/v1/mint"), SA.l0176, { user: null })
       .send({ sessionToken: res.body.data.sessionToken, occurrenceId: "prog.0", argsDigest: "a".repeat(64), ...body });
-    expect((await mint({ fn: "preview-itembank", op: "learnosity.sign-questions-preview" })).status).toBe(200);
+    expect((await mint({ fn: "init", op: "learnosity.sign-questions-preview" })).status).toBe(200);
     const write = await mint({ fn: "save-to-itembank", op: "learnosity.write-items" });
     expect(write.status).toBe(403);
     expect(write.body.error.reason).toBe("fn-not-in-session");
@@ -200,7 +200,7 @@ describe("caller identity", () => {
   it("admits a known compiler whose verified identity matches the invoker", async () => {
     const res = await as(request(app).post("/v1/snapshot"), SA.l0176).send(SNAPSHOT);
     expect(res.status).toBe(200);
-    expect(res.body.data.allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    expect(res.body.data.allowed).toEqual(["init", "save-to-itembank"]);
   });
 
   it("refuses a missing caller identity", async () => {
@@ -257,7 +257,7 @@ describe("route authorization by caller", () => {
 describe("end to end: invocation, snapshot, mint", () => {
   it("lets a compiler's session for the owner mint a write token, with no intent", async () => {
     const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send(SNAPSHOT);
-    expect(snap.body.data.allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    expect(snap.body.data.allowed).toEqual(["init", "save-to-itembank"]);
     const mint = await as(request(app).post("/v1/mint"), SA.l0176, { user: null }).send({
       sessionToken: snap.body.data.sessionToken,
       fn: "save-to-itembank",
@@ -296,7 +296,7 @@ describe("connection management over http", () => {
 
     const body = await snapshotBody(connectionId);
     const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send(body);
-    expect(snap.body.data.allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    expect(snap.body.data.allowed).toEqual(["init", "save-to-itembank"]);
 
     expect((await as(request(app).post(`/v1/connections/${connectionId}/disable`), SA.console).send()).status).toBe(200);
     const after = await as(request(app).post("/v1/snapshot"), SA.l0176).send(body);

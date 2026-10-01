@@ -63,7 +63,7 @@ by the policy authority (`packages/policy`):
   Policy binds it to the Graffiticode-owned system connection configured for
   the backend (`POLICY_SYSTEM_CONNECTIONS`, e.g. `{"learnosity":"conn-…"}`)
   and confines it to the language's system-preview functions — for L0176,
-  `preview-itembank` only. It can sign an Items or Questions preview and
+  `init` only. It can sign an Items or Questions preview and
   nothing else: never `save-to-itembank`, never an Author session. The compiler
   then signs with the same `brokeredSign` the connection path uses
   (`packages/core/src/protection.ts`, `systemPreviewSign`).

@@ -51,7 +51,7 @@ beforeEach(async () => {
   });
 });
 
-const ALL_FNS = ["preview-itembank", "save-to-itembank", "author-itembank"];
+const ALL_FNS = ["init", "save-to-itembank", "author"];
 const invoke = (over = {}) => policy.allocateInvocation({
   caller: GATEWAY,
   user: { uid: OWNER },
@@ -135,7 +135,7 @@ describe("snapshot (owner-only)", () => {
   });
 
   it("ignores functions that are not registered for the language", async () => {
-    expect((await snap({ fns: ["preview-itembank", "made-up", "toString"] })).allowed).toEqual(["preview-itembank"]);
+    expect((await snap({ fns: ["init", "made-up", "toString"] })).allowed).toEqual(["init"]);
   });
 
   it("allows nothing against a connection of another backend", async () => {
@@ -175,7 +175,7 @@ describe("mint", () => {
   const mintWith = (sessionToken, over = {}) => policy.mint({
     caller: L0176,
     sessionToken,
-    fn: "preview-itembank",
+    fn: "init",
     op: "learnosity.sign-items-preview",
     occurrenceId: "n12.0",
     argsDigest: digest("args"),
@@ -190,7 +190,7 @@ describe("mint", () => {
       sub: OWNER,
       conn: "conn-1",
       lang: "0176",
-      fn: "preview-itembank",
+      fn: "init",
       op: "learnosity.sign-items-preview",
       argd: digest("args"),
       opid: operationId
@@ -199,7 +199,7 @@ describe("mint", () => {
   });
 
   it("never lets a preview-only session sign Author requests or write", async () => {
-    const { sessionToken } = await snap({ fns: ["preview-itembank"] });
+    const { sessionToken } = await snap({ fns: ["init"] });
     await denied(mintWith(sessionToken, { op: "learnosity.sign-author" }), "operation-not-allowed");
     await denied(mintWith(sessionToken, { op: "learnosity.write-items" }), "operation-not-allowed");
     await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
@@ -320,7 +320,7 @@ describe("publications", () => {
   const mintWith = (sessionToken, over = {}) => policy.mint({
     caller: L0176,
     sessionToken,
-    fn: "preview-itembank",
+    fn: "init",
     op: "learnosity.sign-items-preview",
     occurrenceId: "prog.0",
     argsDigest: digest("args"),
@@ -344,12 +344,12 @@ describe("publications", () => {
     const v = await view(publicationId);
     expect(v).toMatchObject({ publisherUid: OWNER, connectionId: "conn-1", lang: "0176", taskId: "task-1", artifactInvocationId: "inv-run" });
     const snap = await viewSnap(v.invocationToken);
-    expect(snap).toMatchObject({ allowed: ["preview-itembank"] });
+    expect(snap).toMatchObject({ allowed: ["init"] });
     const { claims } = await verifyToken(jwks, "session", snap.sessionToken);
-    expect(claims).toMatchObject({ sub: OWNER, pub: publicationId, fns: ["preview-itembank"] });
+    expect(claims).toMatchObject({ sub: OWNER, pub: publicationId, fns: ["init"] });
     await expect(mintWith(snap.sessionToken)).resolves.toBeTruthy();
     await denied(mintWith(snap.sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
-    await denied(mintWith(snap.sessionToken, { fn: "author-itembank", op: "learnosity.sign-author" }), "fn-not-in-session");
+    await denied(mintWith(snap.sessionToken, { fn: "author", op: "learnosity.sign-author" }), "fn-not-in-session");
   });
 
   it("share one invocation across views", async () => {
@@ -413,7 +413,7 @@ describe("system preview sessions", () => {
   const mintWith = (sessionToken, over = {}) => sys.mint({
     caller: L0176,
     sessionToken,
-    fn: "preview-itembank",
+    fn: "init",
     op: "learnosity.sign-items-preview",
     occurrenceId: "prog.0",
     argsDigest: digest("args"),
@@ -423,7 +423,7 @@ describe("system preview sessions", () => {
 
   it("gives a compiler a session on the system connection carrying preview signing only", async () => {
     const result = await session();
-    expect(result.allowed).toEqual(["preview-itembank"]);
+    expect(result.allowed).toEqual(["init"]);
     const { claims } = await verifyToken(jwks, "session", result.sessionToken);
     expect(claims).toMatchObject({
       sub: "system-preview",
@@ -433,7 +433,7 @@ describe("system preview sessions", () => {
       backend: "learnosity",
       lang: "0176",
       stg: "preview",
-      fns: ["preview-itembank"]
+      fns: ["init"]
     });
     expect(claims.inv).toMatch(/^sys-/);
     expect(claims.pub).toBeUndefined();
@@ -480,7 +480,7 @@ describe("system preview sessions", () => {
       conn: "conn-sys",
       backend: "learnosity",
       lang: "0176",
-      fn: "preview-itembank",
+      fn: "init",
       op: "learnosity.sign-items-preview",
       argd: digest("args")
     });
@@ -492,7 +492,7 @@ describe("system preview sessions", () => {
   it("never mints a write or Author signing", async () => {
     const { sessionToken } = await session();
     await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
-    await denied(mintWith(sessionToken, { fn: "author-itembank", op: "learnosity.sign-author" }), "fn-not-in-session");
+    await denied(mintWith(sessionToken, { fn: "author", op: "learnosity.sign-author" }), "fn-not-in-session");
     await denied(mintWith(sessionToken, { op: "learnosity.write-items" }), "operation-not-allowed");
     await denied(mintWith(sessionToken, { op: "learnosity.sign-author" }), "operation-not-allowed");
   });
@@ -510,10 +510,10 @@ describe("system preview sessions", () => {
       inv: "sys-x",
       stg: "preview",
       rv,
-      fns: ["preview-itembank", "save-to-itembank", "author-itembank"]
+      fns: ["init", "save-to-itembank", "author"]
     });
     await denied(mintWith(wide, { fn: "save-to-itembank", op: "learnosity.write-items" }), "not-system-preview");
-    await denied(mintWith(wide, { fn: "author-itembank", op: "learnosity.sign-author" }), "not-system-preview");
+    await denied(mintWith(wide, { fn: "author", op: "learnosity.sign-author" }), "not-system-preview");
     await expect(mintWith(wide)).resolves.toBeTruthy();
   });
 
@@ -545,7 +545,7 @@ describe("system preview sessions", () => {
 
   it("refuses the system subject without the system mark, and the mark without the subject", async () => {
     const { rv } = await sessionClaims();
-    const base = { own: SYSTEM, conn: "conn-sys", backend: "learnosity", lang: "0176", inv: "i", stg: "s", rv, fns: ["preview-itembank"] };
+    const base = { own: SYSTEM, conn: "conn-sys", backend: "learnosity", lang: "0176", inv: "i", stg: "s", rv, fns: ["init"] };
     await denied(mintWith(await issueToken(signer, "session", { ...base, sub: "system-preview" })), "bad-session");
     await denied(mintWith(await issueToken(signer, "session", { ...base, sub: OWNER, sys: true })), "bad-session");
   });
@@ -556,7 +556,7 @@ describe("system preview sessions", () => {
       user: { uid: OWNER },
       lang: "0176",
       connectionId: "conn-sys",
-      fns: ["preview-itembank"],
+      fns: ["init"],
       invocationToken: await issueToken(signer, "invocation", { sub: OWNER, conn: "conn-sys", inv: "inv-1", seq: 1 }),
       stage: "s0"
     }), "system-connection");

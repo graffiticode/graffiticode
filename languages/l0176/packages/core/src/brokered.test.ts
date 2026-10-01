@@ -47,7 +47,7 @@ beforeEach(() => {
   fetched = [];
   previewSessions = [];
   sessionsUsed = [];
-  previewReply = () => ({ allowed: ["preview-itembank"], sessionToken: "system-session" });
+  previewReply = () => ({ allowed: ["init"], sessionToken: "system-session" });
   snapshotReply = (args) => ({ allowed: args.fns });
   brokerReply = (call) =>
     call.op === "learnosity.write-items"
@@ -95,7 +95,7 @@ describe("brokered compiles", () => {
     expect(snapshots).toEqual([]);
     expect(previewSessions).toEqual([{ langID: "0176" }]);
     expect(invocations).toHaveLength(1);
-    expect(invocations[0]).toMatchObject({ fn: "preview-itembank", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0" });
+    expect(invocations[0]).toMatchObject({ fn: "init", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0" });
     expect(Object.keys(invocations[0].payload).sort()).toEqual(["id", "name", "questions", "session_id"]);
     expect(sessionsUsed).toEqual(["system-session"]);
     expect(val.request).toBe("signed:learnosity.sign-questions-preview");
@@ -145,7 +145,7 @@ describe("brokered compiles", () => {
     ["policy refuses", () => refusal("no-system-connection"), "unavailable", /no-system-connection/],
     ["policy is unreachable", () => new Error("fetch failed"), "unavailable", /no system preview session/],
     ["the session lacks preview", () => ({ allowed: [], sessionToken: "s" }), "unavailable", /no-preview-permission/],
-    ["the reply is malformed", () => ({ allowed: ["preview-itembank"] }), "unavailable", /no-preview-permission/],
+    ["the reply is malformed", () => ({ allowed: ["init"] }), "unavailable", /no-preview-permission/],
   ])("when %s, the preview compiles unsigned with a message", async (_, reply, unsigned, message) => {
     previewReply = reply;
     const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
@@ -176,7 +176,7 @@ describe("brokered compiles", () => {
   });
 
   test("a system session that claims more than preview is still used for preview only", async () => {
-    previewReply = () => ({ allowed: ["preview-itembank", "save-to-itembank", "author-itembank"], sessionToken: "wide" });
+    previewReply = () => ({ allowed: ["init", "save-to-itembank", "author"], sessionToken: "wide" });
     const { err, val } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
     expect(err).toEqual([]);
     expect(val.data.itemBank).toMatchObject({ skipped: "no-connection" });
@@ -186,7 +186,7 @@ describe("brokered compiles", () => {
   test("a render is signed by the broker, with only preview fields sent", async () => {
     const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
     expect(err).toEqual([]);
-    expect(snapshots).toEqual([{ fns: ["preview-itembank"], langID: "0176", connectionId: "conn-1" }]);
+    expect(snapshots).toEqual([{ fns: ["init"], langID: "0176", connectionId: "conn-1" }]);
     expect(invocations).toHaveLength(1);
     expect(invocations[0].op).toBe("learnosity.sign-questions-preview");
     expect(Object.keys(invocations[0].payload).sort()).toEqual(["id", "name", "questions", "session_id"]);
@@ -226,7 +226,7 @@ describe("brokered compiles", () => {
       compiler.compile(signProgram, {}, {}, (e: any, v: any) => resolve({ err: e ?? [], val: v }), WITH_CONNECTION),
     );
     expect(err).toEqual([]);
-    expect(snapshots).toEqual([{ fns: ["preview-itembank"], langID: "0176", connectionId: "conn-1" }]);
+    expect(snapshots).toEqual([{ fns: ["init"], langID: "0176", connectionId: "conn-1" }]);
     expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
     expect(val.request).toBe("signed:learnosity.sign-questions-preview");
     expect(val.data.itemBank).toMatchObject({ skipped: "no-connection" });
@@ -254,7 +254,7 @@ describe("brokered compiles", () => {
   });
 
   test("a save the connection does not grant is refused before anything runs", async () => {
-    snapshotReply = () => ({ allowed: ["preview-itembank"] });
+    snapshotReply = () => ({ allowed: ["init"] });
     const { err } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`, WITH_CONNECTION);
     expect(err[0].message).toMatch(/save-to-itembank is not permitted/);
     expect(invocations).toEqual([]);
@@ -291,7 +291,7 @@ describe("brokered compiles", () => {
   test("a snapshot without preview refuses every render", async () => {
     snapshotReply = () => ({ allowed: [] });
     const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
-    expect(err[0].message).toMatch(/preview-itembank is not permitted/);
+    expect(err[0].message).toMatch(/init is not permitted/);
     expect(invocations).toEqual([]);
   });
 
@@ -303,9 +303,9 @@ describe("brokered compiles", () => {
   });
 
   test("an Author activity is refused when the connection does not grant it", async () => {
-    snapshotReply = () => ({ allowed: ["preview-itembank"] });
+    snapshotReply = () => ({ allowed: ["init"] });
     const { err } = await compile(`set-var "lrn-id" "t" author {}..`, WITH_CONNECTION);
-    expect(err[0].message).toMatch(/author-itembank is not permitted/);
+    expect(err[0].message).toMatch(/author is not permitted/);
     expect(invocations).toEqual([]);
   });
 });

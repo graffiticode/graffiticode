@@ -59,7 +59,7 @@ beforeEach(async () => {
     user: { uid: OWNER },
     lang: "0176",
     connectionId: "conn-1",
-    fns: ["preview-itembank"],
+    fns: ["init"],
     invocationToken: (await policy.allocateInvocation({
       caller: { role: "gateway" },
       user: { uid: OWNER },
@@ -72,7 +72,7 @@ beforeEach(async () => {
   ({ executionToken } = await policy.mint({
     caller,
     sessionToken,
-    fn: "preview-itembank",
+    fn: "init",
     op: "learnosity.sign-questions-preview",
     occurrenceId: "prog",
     argsDigest: argsDigest(PREVIEW)

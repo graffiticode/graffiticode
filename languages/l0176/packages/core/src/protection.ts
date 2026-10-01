@@ -17,14 +17,14 @@
 import type { ExecContext, Invoker } from "@graffiticode/l0000";
 
 export const PROTECTED_FUNCTIONS = Object.freeze({
-  INIT: { fn: "preview-itembank", kind: "sign" as const },
+  INIT: { fn: "init", kind: "sign" as const },
   SAVE_TO_ITEMBANK: { fn: "save-to-itembank", kind: "write" as const },
-  AUTHOR: { fn: "author-itembank", kind: "sign" as const },
+  AUTHOR: { fn: "author", kind: "sign" as const },
 });
 
 // Every render is signed in PROG, so preview is required by every brokered
 // compile.
-export const IMPLICIT_PROTECTED_FUNCTIONS = Object.freeze([{ fn: "preview-itembank", kind: "sign" as const }]);
+export const IMPLICIT_PROTECTED_FUNCTIONS = Object.freeze([{ fn: "init", kind: "sign" as const }]);
 
 // The fields a preview may carry to the broker, which refuses anything else.
 const PREVIEW_KEYS = ["id", "name", "questions", "session_id", "dynamic_content_data"];
@@ -52,7 +52,7 @@ export interface SystemPreviewClient {
 // Only preview signing ever runs on a system session, whatever a response
 // claims; writes and Author signing stay connection-only (they check
 // isBrokered, which a system session never satisfies: it has no connection).
-const SYSTEM_PREVIEW_FN = "preview-itembank";
+const SYSTEM_PREVIEW_FN = "init";
 
 // Why a preview went out unsigned, reported beside the activity (never a
 // compile error, so the item still compiles and the rest of the output is
@@ -155,14 +155,14 @@ export async function brokeredSign(exec: ExecContext, plain: any, occurrenceKey:
   let call;
   switch (plain?.type) {
   case "questions":
-    call = { fn: "preview-itembank", op: "learnosity.sign-questions-preview", payload: pick(plain.data, PREVIEW_KEYS) };
+    call = { fn: "init", op: "learnosity.sign-questions-preview", payload: pick(plain.data, PREVIEW_KEYS) };
     break;
   case "items":
-    call = { fn: "preview-itembank", op: "learnosity.sign-items-preview", payload: pick(plain.data, PREVIEW_KEYS) };
+    call = { fn: "init", op: "learnosity.sign-items-preview", payload: pick(plain.data, PREVIEW_KEYS) };
     break;
   case "author":
     // The broker builds the Author request itself from the reference alone.
-    call = { fn: "author-itembank", op: "learnosity.sign-author", payload: { reference: plain.data?.reference } };
+    call = { fn: "author", op: "learnosity.sign-author", payload: { reference: plain.data?.reference } };
     break;
   default:
     return undefined;

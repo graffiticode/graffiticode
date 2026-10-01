@@ -10,7 +10,9 @@
 // authority it receives. Changes here are security changes: review them as
 // such and bump REGISTRY_VERSION.
 //
-// Shape: lang -> fn -> spec
+// Shape: lang -> fn -> spec. A function is named for the language function
+// it guards (the lexicon name of its node tag: `init`, `save-to-itembank`,
+// `author`), so permissions, grants and audit records read like the program.
 //   backend    connection backend the function runs against
 //   kind       read | write | sign
 //   ops        broker operations a token for this fn may name — nothing else
@@ -23,7 +25,7 @@
 // There are no execution modes: running the program is the action, and the
 // grant is the authority. A function runs whenever its program calls it
 // through a connection whose grant covers it.
-export const REGISTRY_VERSION = 4;
+export const REGISTRY_VERSION = 5;
 
 // Broker operations. The broker builds each request itself from a constrained
 // payload; none is a general signer or proxy.
@@ -47,9 +49,9 @@ export const OPERATIONS = Object.freeze({
 export const PROTECTED_FUNCTIONS = Object.freeze({
   "0176": Object.freeze({
     // Every L0176 render is signed in PROG (signForRender), and `init` signs
-    // explicitly. Both exercise this one permission; the op a token names
-    // decides which API is signed, and Author is not among them.
-    "preview-itembank": Object.freeze({
+    // explicitly. Both exercise this one permission, named for `init`; the op
+    // a token names decides which API is signed, and Author is not among them.
+    init: Object.freeze({
       backend: "learnosity",
       kind: "sign",
       ops: Object.freeze(["learnosity.sign-items-preview", "learnosity.sign-questions-preview"]),
@@ -77,7 +79,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
     // edit/delete authority has its own reviewed boundary. Enforced through
     // the broker's constrained signer; its request shape is not yet verified
     // against Learnosity's Author API.
-    "author-itembank": Object.freeze({
+    author: Object.freeze({
       backend: "learnosity",
       kind: "sign",
       ops: Object.freeze(["learnosity.sign-author"]),

@@ -23,7 +23,7 @@ const BOB = "0xbob";
 const CONSOLE = { role: "console" };
 const GATEWAY = { role: "gateway" };
 const L0176 = { role: "compiler", lang: "0176" };
-const ALL_FNS = ["preview-itembank", "save-to-itembank", "author-itembank"];
+const ALL_FNS = ["init", "save-to-itembank", "author"];
 const hash = s => createHash("sha256").update(s).digest("hex");
 
 let policy;
@@ -61,16 +61,16 @@ describe("delegation", () => {
     await denied(invoke(ALICE), "not-owner");
     await share();
     const { allowed, sessionToken } = await snap(ALICE);
-    expect(allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    expect(allowed).toEqual(["init", "save-to-itembank"]);
     await expect(mint(sessionToken, "save-to-itembank", "learnosity.write-items")).resolves.toBeTruthy();
-    await denied(mint(sessionToken, "author-itembank", "learnosity.sign-author"), "fn-not-in-session");
+    await denied(mint(sessionToken, "author", "learnosity.sign-author"), "fn-not-in-session");
   });
 
   it("never reaches Author even through a grant that names it", async () => {
     await share();
     const id = grantIdFor({ connectionId: "conn-1", recipientUid: ALICE });
     await grants.put({ ...(await grants.get(id)), permissions: ALL_FNS.map(fn => ({ lang: "0176", fn })) });
-    expect((await snap(ALICE)).allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    expect((await snap(ALICE)).allowed).toEqual(["init", "save-to-itembank"]);
   });
 
   it("stops the recipient's next call once revoked or expired", async () => {
@@ -98,7 +98,7 @@ describe("delegation", () => {
     expect((await manager.grants({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" }))[0]).toMatchObject({ pending: true, recipientLabel: "alice@example.com" });
     await denied(invoke(ALICE), "not-owner");
     expect(await manager.claim({ caller: CONSOLE, user: { uid: ALICE }, emailHashes: [hash("alice@example.com")] })).toEqual({ claimed: 1 });
-    expect((await snap(ALICE)).allowed).toEqual(["preview-itembank", "save-to-itembank"]);
+    expect((await snap(ALICE)).allowed).toEqual(["init", "save-to-itembank"]);
     expect(await manager.claim({ caller: CONSOLE, user: { uid: BOB }, emailHashes: [hash("alice@example.com")] })).toEqual({ claimed: 0 });
   });
 
@@ -132,7 +132,7 @@ describe("delegation", () => {
     it("lists the delegable functions, rendering included, never Author", async () => {
       const list = await manager.shareable({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" });
       expect(list).toEqual([
-        { lang: "0176", fn: "preview-itembank", kind: "sign" },
+        { lang: "0176", fn: "init", kind: "sign" },
         { lang: "0176", fn: "save-to-itembank", kind: "write" },
       ]);
       await denied(manager.shareable({ caller: CONSOLE, user: { uid: ALICE }, connectionId: "conn-1" }), "not-owner");
@@ -144,17 +144,17 @@ describe("delegation", () => {
     });
 
     it("refuses Author, an unknown function, another language or nothing", async () => {
-      await denied(share({ permissions: [{ lang: "0176", fn: "author-itembank" }] }), "bad-permissions");
+      await denied(share({ permissions: [{ lang: "0176", fn: "author" }] }), "bad-permissions");
       await denied(share({ permissions: [{ lang: "0176", fn: "made-up" }] }), "bad-permissions");
       await denied(share({ permissions: [{ lang: "0158", fn: "save-to-itembank" }] }), "bad-permissions");
       await denied(share({ permissions: [] }), "bad-permissions");
     });
 
     it("can grant rendering alone: previews, never a save", async () => {
-      await share({ permissions: [{ lang: "0176", fn: "preview-itembank" }] });
+      await share({ permissions: [{ lang: "0176", fn: "init" }] });
       const { allowed, sessionToken } = await snap(ALICE);
-      expect(allowed).toEqual(["preview-itembank"]);
-      await expect(mint(sessionToken, "preview-itembank", "learnosity.sign-items-preview")).resolves.toBeTruthy();
+      expect(allowed).toEqual(["init"]);
+      await expect(mint(sessionToken, "init", "learnosity.sign-items-preview")).resolves.toBeTruthy();
       await denied(mint(sessionToken, "save-to-itembank", "learnosity.write-items"), "fn-not-in-session");
     });
 
@@ -186,7 +186,7 @@ describe("delegation", () => {
 });
 
 describe("the owner's own permissions", () => {
-  const PREVIEW = [{ lang: "0176", fn: "preview-itembank" }];
+  const PREVIEW = [{ lang: "0176", fn: "init" }];
   const setOwn = (permissions, over = {}) =>
     manager.setOwnerPermissions({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", permissions, ...over });
 
@@ -197,8 +197,8 @@ describe("the owner's own permissions", () => {
 
   it("lists every function on the backend for the owner's list, marking implicit and delegable", async () => {
     expect(await manager.functions({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" })).toEqual([
-      { lang: "0176", fn: "author-itembank", kind: "sign", implicit: false, delegable: false },
-      { lang: "0176", fn: "preview-itembank", kind: "sign", implicit: true, delegable: true },
+      { lang: "0176", fn: "author", kind: "sign", implicit: false, delegable: false },
+      { lang: "0176", fn: "init", kind: "sign", implicit: true, delegable: true },
       { lang: "0176", fn: "save-to-itembank", kind: "write", implicit: false, delegable: true },
     ]);
     await denied(manager.functions({ caller: CONSOLE, user: { uid: ALICE }, connectionId: "conn-1" }), "not-owner");
@@ -209,13 +209,13 @@ describe("the owner's own permissions", () => {
     expect(await setOwn(PREVIEW)).toEqual({ connectionId: "conn-1", ownerPermissions: PREVIEW });
     await denied(mint(sessionToken, "save-to-itembank", "learnosity.write-items"), "not-granted");
     const narrowed = await snap(OWNER);
-    expect(narrowed.allowed).toEqual(["preview-itembank"]);
-    await expect(mint(narrowed.sessionToken, "preview-itembank", "learnosity.sign-items-preview")).resolves.toBeTruthy();
+    expect(narrowed.allowed).toEqual(["init"]);
+    await expect(mint(narrowed.sessionToken, "init", "learnosity.sign-items-preview")).resolves.toBeTruthy();
   });
 
   it("may keep Author, which no grant reaches, and rendering comes with it", async () => {
-    await setOwn([{ lang: "0176", fn: "author-itembank" }]);
-    expect((await snap(OWNER)).allowed).toEqual(["preview-itembank", "author-itembank"]);
+    await setOwn([{ lang: "0176", fn: "author" }]);
+    expect((await snap(OWNER)).allowed).toEqual(["init", "author"]);
   });
 
   it("an empty list leaves the owner nothing; null restores everything", async () => {
@@ -228,8 +228,8 @@ describe("the owner's own permissions", () => {
   it("is independent of sharing: the owner can share what they don't use", async () => {
     await setOwn(PREVIEW);
     await share();
-    expect((await snap(ALICE)).allowed).toEqual(["preview-itembank", "save-to-itembank"]);
-    expect((await snap(OWNER)).allowed).toEqual(["preview-itembank"]);
+    expect((await snap(ALICE)).allowed).toEqual(["init", "save-to-itembank"]);
+    expect((await snap(OWNER)).allowed).toEqual(["init"]);
   });
 
   it("only the owner sets them, only from the backend's functions", async () => {
@@ -238,7 +238,7 @@ describe("the owner's own permissions", () => {
     await denied(setOwn([{ lang: "0176", fn: "made-up" }]), "bad-permissions");
     await denied(setOwn([{ lang: "0158", fn: "save-to-itembank" }]), "bad-permissions");
     await denied(setOwn("everything"), "bad-permissions");
-    expect((await setOwn([{ lang: "L0176", fn: "preview-itembank" }])).ownerPermissions).toEqual(PREVIEW);
+    expect((await setOwn([{ lang: "L0176", fn: "init" }])).ownerPermissions).toEqual(PREVIEW);
   });
 
   it("survive disabling and re-reading the connection", async () => {
@@ -284,6 +284,6 @@ describe("the configured system connection", () => {
 
   it("still serves system preview sessions", async () => {
     const { allowed } = await sysPolicy.previewSession({ caller: L0176, lang: "0176" });
-    expect(allowed).toEqual(["preview-itembank"]);
+    expect(allowed).toEqual(["init"]);
   });
 });

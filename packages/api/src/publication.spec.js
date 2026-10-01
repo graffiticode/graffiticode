@@ -63,13 +63,13 @@ beforeEach(async () => {
         user: uid ? { uid } : null,
         lang: "0176",
         connectionId,
-        fns: ["preview-itembank", "save-to-itembank"],
+        fns: ["init", "save-to-itembank"],
         invocationToken,
         stage
       });
       snapshots.push({ uid, auth, allowed: snap.allowed });
       await policy.mint({
-        caller: L0176, sessionToken: snap.sessionToken, fn: "preview-itembank", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0", argsDigest: "a".repeat(64)
+        caller: L0176, sessionToken: snap.sessionToken, fn: "init", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0", argsDigest: "a".repeat(64)
       });
       const activity = JSON.parse(code[1].elts[0]);
       return { data: { ...activity, request: "signed" }, errors: [], cache: false };
@@ -121,7 +121,7 @@ describe("publications", () => {
     expect(res.status).toBe(200);
     const out = await view(res.body.data.publicationId);
     expect(out).toEqual({ data: { ...ACTIVITY, request: "signed" }, errors: [] });
-    expect(snapshots).toEqual([{ uid: null, auth: null, allowed: ["preview-itembank"] }]);
+    expect(snapshots).toEqual([{ uid: null, auth: null, allowed: ["init"] }]);
   });
 
   it("publish only the caller's own current result", async () => {
