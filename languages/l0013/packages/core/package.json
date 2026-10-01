@@ -25,7 +25,7 @@
     "lint": "eslint src tools"
   },
   "dependencies": {
-    "@graffiticode/l0000": "^0.3.0",
+    "@graffiticode/l0000": "^0.7.1",
     "firebase-admin": "^12.7.0",
     "puppeteer": "^23.11.1",
     "sharp": "^0.33.5"
