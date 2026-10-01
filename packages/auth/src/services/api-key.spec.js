@@ -65,6 +65,10 @@ describe("services/api-key", () => {
       const apiKeys = [];
       for (let i = 0; i < num; i++) {
         apiKeys.push(await apiKeyService.create({ uid }));
+        // createdAt is a server timestamp; keys created in the same instant
+        // tie, and Firestore breaks ties by (random) doc id, so the expected
+        // order would be nondeterministic.
+        await new Promise(resolve => setTimeout(resolve, 2));
       }
       return apiKeys;
     };
