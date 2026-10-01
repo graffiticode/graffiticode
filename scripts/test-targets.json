@@ -33,11 +33,7 @@
     {
       "name": "root",
       "cwd": ".",
-      "args": [
-        "--testPathIgnorePatterns",
-        "/node_modules/",
-        "/.compiled-test/"
-      ]
+      "$comment": "No --testPathIgnorePatterns here: on the command line it replaces the root jest config's own list (packages/, languages/, .claude/), which already covers .compiled-test."
     },
     {
       "name": "auth",
