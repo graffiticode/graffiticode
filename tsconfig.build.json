@@ -2,7 +2,26 @@
   "$comment": "Build solution for packages/* (TS migration phase 2a): each package's tsconfig.build.json emits JS and declarations to its dist/. Package entry points still point at src/ until phase 2b switches them one package at a time.",
   "files": [],
   "references": [
-    { "path": "packages/common/tsconfig.build.json" },
-    { "path": "packages/auth/tsconfig.build.json" }
+    {
+      "path": "packages/common/tsconfig.build.json"
+    },
+    {
+      "path": "packages/auth/tsconfig.build.json"
+    },
+    {
+      "path": "packages/auth-client/tsconfig.build.json"
+    },
+    {
+      "path": "packages/policy/tsconfig.build.json"
+    },
+    {
+      "path": "packages/broker/tsconfig.build.json"
+    },
+    {
+      "path": "packages/deploy/tsconfig.build.json"
+    },
+    {
+      "path": "packages/api/tsconfig.build.json"
+    }
   ]
 }

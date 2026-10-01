@@ -35,6 +35,8 @@ jobs:
         run: |
           npm run lint
           npm run lint --workspaces --if-present
+      - name: Build (tsc -b, emits packages/*/dist; nothing loads it yet)
+        run: npm run build
       - name: Typecheck (checkJs, no emit)
         run: npm run typecheck
       - name: Unit tests (no emulator)
