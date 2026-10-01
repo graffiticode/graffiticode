@@ -64,6 +64,7 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
     requireValue(typeof check.path === "string" && check.path.startsWith("/") && !check.path.startsWith("//") && !check.path.includes("\\"), "Smoke paths must be local URL paths");
     requireValue(Number.isInteger(check.status) && check.status >= 200 && check.status < 300, "Smoke checks must expect a successful HTTP status");
   }
+  requireValue(!config.verify || (object(config.verify) && typeof config.verify.module === "string" && /\.m?js$/.test(config.verify.module) && !path.isAbsolute(config.verify.module) && !config.verify.module.split(/[\\/]/).includes("..")), "verify.module must be a relative .js path in the workspace");
   requireValue(typeof config.runtimeServiceAccount === "string", "runtimeServiceAccount is required");
   requireValue(typeof config.buildServiceAccount === "string", "buildServiceAccount is required");
   requireValue(!config.env || object(config.env), "env must be an object");

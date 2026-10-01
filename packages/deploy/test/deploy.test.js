@@ -1,12 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile, mkdir, rm, symlink, chmod, stat } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, writeFile, mkdir, rm, symlink, chmod, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck } from "../src/release.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate } from "../src/release.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
 const config = {
@@ -238,4 +240,73 @@ test("disabled secret versions fail before source upload", async t => {
   h.deps.cloud = async args => args[0] === "secrets" ? { state: "DISABLED" } : original(args);
   await assert.rejects(release(context, source, h.deps), /not enabled/);
   assert.ok(!h.calls.some(c => c[0] === "builds"));
+});
+
+// A snapshot directory holding a verify module, as snapshot() would leave it.
+async function verifySource(t, body) {
+  const dir = await mkdtemp(path.join(tmpdir(), "deploy-verify-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  await mkdir(path.join(dir, "source", "verify"), { recursive: true });
+  await writeFile(path.join(dir, "source", "verify", "check.js"), body);
+  return { ...source, dir, files: ["Dockerfile", "verify/check.js"] };
+}
+const verifyContext = { ...context, config: { ...config, verify: { module: "verify/check.js" } } };
+
+test("verify runs the snapshot's module against the candidate before promotion, and records its hash", async t => {
+  const body = "export default async ({ candidateUrl, serviceUrl, headers, log }) => log(JSON.stringify({ at: import.meta.url, candidate: candidateUrl.href, serviceUrl, headers }));\n";
+  const snapshotSource = await verifySource(t, body);
+  const h = await harness(t);
+  const logs = [];
+  h.deps.log = line => logs.push(line);
+  const receipt = await release(verifyContext, snapshotSource, h.deps);
+  assert.equal(receipt.status, "released");
+  assert.deepEqual(receipt.verify, { module: "verify/check.js", sha256: createHash("sha256").update(body).digest("hex") });
+  const seen = JSON.parse(logs.find(line => line.startsWith("{")));
+  assert.ok(seen.at.startsWith(pathToFileURL(await realpath(snapshotSource.dir)).href), "module must load from the snapshot");
+  assert.equal(seen.candidate, `https://${receipt.id}---api-example.run.app/`);
+  assert.equal(seen.serviceUrl, "https://api-example.run.app");
+  assert.deepEqual(seen.headers, {});
+  const verifiedAt = logs.findIndex(line => line.startsWith("Verifying"));
+  assert.ok(verifiedAt >= 0 && verifiedAt < logs.findIndex(line => line.startsWith("Promoting")));
+});
+
+test("a failing verify never promotes traffic and leaves the receipt at candidate", async t => {
+  const h = await harness(t);
+  const snapshotSource = await verifySource(t, "export default async () => { throw new Error(\"expected 403 unknown caller, got 200\"); };\n");
+  await assert.rejects(release(verifyContext, snapshotSource, h.deps), /unknown caller, got 200/);
+  assert.ok(!h.calls.some(c => c.includes("update-traffic")));
+  assert.ok(h.calls.some(c => c[1] === "deploy"));
+  assert.equal(h.getReceipt().status, "failed");
+  assert.equal(h.getReceipt().failedAt, "candidate");
+  assert.ok(h.getReceipt().verify.sha256);
+  assert.deepEqual(h.getReceipt().previousTraffic, { "api-old": 100 });
+});
+
+test("verify modules must export a function and be in the snapshot", async t => {
+  const h = await harness(t);
+  await assert.rejects(release(verifyContext, await verifySource(t, "export const nope = 1;\n"), h.deps), /default function/);
+  assert.ok(!h.calls.some(c => c.includes("update-traffic")));
+  const fresh = await harness(t);
+  await assert.rejects(release(verifyContext, { ...(await verifySource(t, "")), files: ["Dockerfile"] }, fresh.deps), /missing from the source snapshot/);
+  assert.equal(fresh.calls.length, 0);
+});
+
+test("private verify gets the deployer's invocation header, not application credentials", async t => {
+  const snapshotSource = await verifySource(t, "export default async ({ headers }) => { if (headers[\"X-Serverless-Authorization\"] !== \"Bearer token\") throw new Error(JSON.stringify(headers)); };\n");
+  const service = oldService();
+  service.status.traffic.push({ tag: "release", revisionName: "api-release", url: "https://release---api-example.run.app" });
+  const privateConfig = { ...config, access: "private", smokeServiceAccount: "smoke@example.com", verify: { module: "verify/check.js" } };
+  await verifyCandidate(privateConfig, service, "release", snapshotSource, {}, { cloud: async () => "token" });
+});
+
+test("verify.module must be a relative .js path", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-config-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const write = verify => writeFile(path.join(root, "deploy.json"), JSON.stringify({ version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, verify } } }));
+  for (const bad of [{ module: "../x.js" }, { module: "/abs/x.js" }, { module: "x.ts" }, "x.js", { path: "x.js" }]) {
+    await write(bad);
+    await assert.rejects(loadConfig(parseArgs([]), root, {}), /verify.module/);
+  }
+  await write({ module: "packages/api/verify/index.js" });
+  assert.equal((await loadConfig(parseArgs([]), root, {})).config.verify.module, "packages/api/verify/index.js");
 });

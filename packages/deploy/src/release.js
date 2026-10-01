@@ -1,6 +1,7 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { requireValue } from "./config.js";
 
 export function traffic(service) {
@@ -42,7 +43,9 @@ export function deployArgs(config, receipt) {
   return args;
 }
 
-export async function smokeCheck(config, service, id, { cloud, fetch: request = fetch }) {
+// The tagged candidate's URL, and the headers that let the deployer invoke it
+// (Cloud Run IAM only; application credentials are the verifier's business).
+async function candidateAccess(config, service, id, cloud) {
   const target = service.status.traffic.find(entry => entry.tag === id);
   requireValue(target?.url && target.revisionName === `${config.service}-${id}`, "Candidate tag does not point to the expected revision");
   const base = new URL(target.url);
@@ -53,6 +56,11 @@ export async function smokeCheck(config, service, id, { cloud, fetch: request = 
     const token = await cloud(["auth", "print-identity-token", `--impersonate-service-account=${config.smokeServiceAccount}`, `--audiences=${service.status.url}`, "--include-email"], { json: false });
     headers["X-Serverless-Authorization"] = `Bearer ${token}`;
   }
+  return { base, headers };
+}
+
+export async function smokeCheck(config, service, id, { cloud, fetch: request = fetch }) {
+  const { base, headers } = await candidateAccess(config, service, id, cloud);
   for (const check of config.smoke) {
     const url = new URL(check.path, base);
     requireValue(url.origin === base.origin, "Smoke check must stay on the candidate origin");
@@ -61,6 +69,25 @@ export async function smokeCheck(config, service, id, { cloud, fetch: request = 
     const body = await response.text();
     if (check.bodyIncludes) requireValue(body.includes(check.bodyIncludes), `Smoke check ${check.path}: response did not match`);
   }
+}
+
+// Runs the service's verify module against the candidate, before promotion.
+// The module is loaded from the release's captured snapshot (the hashed copy
+// that was built), never from the working tree, and its sha256 is recorded in
+// the receipt before it runs. Its default export receives the candidate and
+// must resolve; any rejection fails the release with traffic unchanged. It
+// runs on the deployer's machine with the deployer's gcloud credentials
+// (`cloud`), and can import only Node built-ins and other snapshot files.
+export async function verifyCandidate(config, service, id, source, receipt, { cloud, fetch: request = fetch, log = () => {}, persist = async () => {} }) {
+  const file = path.join(source.dir, "source", config.verify.module);
+  const sha256 = createHash("sha256").update(await readFile(file)).digest("hex");
+  receipt.verify = { module: config.verify.module, sha256 };
+  await persist();
+  const { default: verify } = await import(pathToFileURL(file).href);
+  requireValue(typeof verify === "function", `Verify module ${config.verify.module} must export a default function`);
+  const { base, headers } = await candidateAccess(config, service, id, cloud);
+  log(`Verifying the candidate with ${config.verify.module} (${sha256.slice(0, 12)})…`);
+  await verify({ candidateUrl: base, serviceUrl: service.status.url, headers, config, cloud, fetch: request, log });
 }
 
 async function checkService(config, cloud) {
@@ -80,6 +107,7 @@ export async function release(context, source, deps) {
   const { cloud, log, save, temp } = deps;
   requireValue(!config.blocked, config.blocked);
   requireValue(!context.unresolved.length, `Set required variables: ${context.unresolved.join(", ")}`);
+  requireValue(!config.verify || source.files.includes(config.verify.module), `Verify module ${config.verify?.module} is missing from the source snapshot`);
   log("Checking existing service, identity, and secret versions…");
   const initial = await checkService(config, cloud);
   for (const account of [config.buildServiceAccount, config.runtimeServiceAccount]) {
@@ -140,6 +168,7 @@ export async function release(context, source, deps) {
     requireValue(same(traffic(candidate), receipt.previousTraffic), "Traffic changed during candidate deployment; refusing promotion");
     log("Checking the candidate revision…");
     await (deps.smoke || smokeCheck)(config, candidate, id, deps);
+    if (config.verify) await verifyCandidate(config, candidate, id, source, receipt, { ...deps, persist });
     const beforePromotion = await cloud(["run", "services", "describe", config.service]);
     requireValue(fingerprint(beforePromotion) === fingerprint(candidate), "Service changed during verification; refusing promotion");
     receipt.status = "promoting";
