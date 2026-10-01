@@ -710,6 +710,13 @@ describe("Numbers keep their decimal value", () => {
     expect(await compile("add 0.1 0.2..")).toBe(0.3);
   });
 
+  test("a value written as a JS number's exact binary value is that number", async () => {
+    // 1.7e308 and 12345678901234567168 written out in full: exactly JS numbers.
+    const full = "169999999999999993883079578865998174333346074304075874502773119193537729178160565864330091787584707988572262467983188919169916105593357174268369962062473635296474636515660464935663040684957844303524367815028553272712298986386310828644513212353921123253311675499856875650512437415429217994623324794855339589632";
+    expect(await transform(`${full}..`)).toBe(1.7e308);
+    expect(await transform("12345678901234567168..")).toBe(12345678901234567168);
+  });
+
   test("only a value a JS number would round is a Decimal", async () => {
     const val: any = await transform(`add ${big} 1..`);
     expect(typeof val).toBe("object");

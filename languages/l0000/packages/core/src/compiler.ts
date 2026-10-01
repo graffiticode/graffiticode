@@ -96,12 +96,36 @@ export function isNumber(v) {
   return typeof v === "number" || isDecimal(v);
 }
 
+// The exact value of a finite JS number, which `new Decimal(n)` is not: that is the
+// shortest decimal that rounds to it (`1.7e+308`, not 1699…632).
+function exactDecimal(n) {
+  const view = new DataView(new ArrayBuffer(8));
+  view.setFloat64(0, n);
+  const bits = view.getBigUint64(0);
+  const sign = bits >> 63n ? "-" : "";
+  const biased = Number((bits >> 52n) & 0x7ffn);
+  let mantissa = bits & 0xfffffffffffffn;
+  let exponent = -1074; // subnormal
+  if (biased !== 0) {
+    mantissa |= 1n << 52n;
+    exponent = biased - 1075;
+  }
+  if (exponent >= 0) {
+    return new Decimal(sign + (mantissa << BigInt(exponent)).toString());
+  }
+  // m / 2^k = m * 5^k / 10^k
+  const k = BigInt(-exponent);
+  return new Decimal(`${sign}${(mantissa * 5n ** k).toString()}e-${k}`);
+}
+
+// A JS number holds a value when the value is the decimal that number prints as (`0.1`)
+// or the number's exact binary value (1699…632, which prints as `1.7e+308`).
 export function numberValue(d) {
   if (!d.isFinite()) {
     return d.toNumber(); // NaN, ±Infinity
   }
   const n = d.toNumber();
-  return new Decimal(n).equals(d) ? n : d;
+  return new Decimal(n).equals(d) || (Number.isFinite(n) && exactDecimal(n).equals(d)) ? n : d;
 }
 
 // The value of a NUM literal's source text: "1.50", "0x1F", "2e4", "12345678901234567890".
