@@ -94,7 +94,10 @@
           "path": "/",
           "status": 200
         }
-      ]
+      ],
+      "verify": {
+        "module": "verify/api.js"
+      }
     },
     "auth": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/auth",
