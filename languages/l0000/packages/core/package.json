@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0000",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "L0000 — the root Graffiticode language: base compiler, lexicon, and inheritance contract",
   "type": "module",
   "main": "./dist/index.js",
