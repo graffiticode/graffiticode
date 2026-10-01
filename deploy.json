@@ -147,6 +147,9 @@
           "status": 200
         }
       ],
+      "verify": {
+        "module": "verify/auth.js"
+      },
       "secrets": {
         "INTERNAL_API_KEY": "auth-internal-api-key:1"
       }
