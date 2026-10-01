@@ -68,6 +68,7 @@ consecutive expressions in one block and terminate only at the end.
 - **No expression separator**: Consecutive expressions in a block are juxtaposed. Argument boundaries come from arity alone, so `add 1 2 add 3 4` is two complete expressions, not one
 - **Comments**: Block comments are enclosed in `/* ... */`
 - **Templates**: Backtick strings interpolate, converting each `${…}` with `str`: `` `${name} is ${age}` ``. `concat` only accepts two strings or two lists, so `concat "age: " 30` is an error; use a template or `str`
+- **Number formatting**: For fixed decimals, thousands separators, percent, currency or scientific form, use `format-number` with an Excel pattern instead of building the text from `str`: `format-number "#,##0.00" total`, `format-number "0.0%" rate`, `` `Total: ${format-number "$#,##0.00" t}` ``
 
 ## Data Types
 
@@ -192,6 +193,7 @@ This is equivalent to `{x: 1, y: 2, z: 3}`.
 | `isempty` | `<list: bool>` | Returns true if the list is empty |
 | `json` | `<string: any>` | Parses a string as JSON |
 | `str` | `<any: string>` | Converts any value to display text; lists and records in Graffiticode syntax |
+| `format-number` | `<string number: string>` | Formats a number by an Excel pattern (`"#,##0.00"`, `"0.0%"`, `"0.00E+00"`) |
 | `last` | `<list: any>` | Returns the last element of a list |
 | `le` | `<number number: bool>` | Less than or equal |
 | `length` | `<list\|string: integer>` | Returns the length of a list or string |

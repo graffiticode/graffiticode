@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import { validateAgainstSchema, getLanguageSchema } from "./schema-validator.js";
 import { ExecContext, bindExecContext, execContextOf } from "./exec-context.js";
 import { admitProtectedFunctions } from "./protected-functions.js";
+import { formatNumber, parsePattern } from "./format-number.js";
 
 // Decrypts secret values written by the console. Must stay in lockstep with
 // console src/lib/secret-crypto.ts. Understands two ciphertext formats:
@@ -540,6 +541,24 @@ export class Checker extends Visitor {
   STR_OF(node, options, resume) {
     this.visit(node.elts[0], options, (e0, v0) => {
       resume([].concat(e0), node);
+    });
+  }
+  FORMAT_NUMBER(node, options, resume) {
+    // A literal pattern is checked here, so a bad one fails before transform and points
+    // at the pattern; a computed one is checked when it is used.
+    const pattern = this.nodePool[node.elts[0]];
+    const err = [];
+    if (pattern?.tag === "STR") {
+      try {
+        parsePattern(pattern.elts[0]);
+      } catch (e) {
+        err.push({ message: `format-number: ${e.message}`, from: pattern.coord?.from ?? -1, to: pattern.coord?.to ?? -1 });
+      }
+    }
+    this.visit(node.elts[0], options, (e0) => {
+      this.visit(node.elts[1], options, (e1) => {
+        resume([].concat(err, e0, e1), node);
+      });
     });
   }
   JSON(node, options, resume) {
@@ -1243,6 +1262,25 @@ export class Transformer extends Visitor {
     // `str`: display text of any value. See displayString.
     this.visit(node.elts[0], options, (e0, v0) => {
       resume([].concat(e0), displayString(v0));
+    });
+  }
+  FORMAT_NUMBER(node, options, resume) {
+    // `format-number pattern value`: see format-number.ts.
+    this.visit(node.elts[0], options, (e0, v0) => {
+      this.visit(node.elts[1], options, (e1, v1) => {
+        const err = [].concat(e0).concat(e1);
+        if (typeof v0 !== "string") {
+          resume([...err, `format-number: the pattern must be a string, got ${displayString(v0, true)}`], "");
+        } else if (!isNumber(v1)) {
+          resume([...err, `format-number: expected a number, got ${displayString(v1, true)}`], "");
+        } else {
+          try {
+            resume(err, formatNumber(v0, v1));
+          } catch (e) {
+            resume([...err, `format-number: ${e.message}`], "");
+          }
+        }
+      });
     });
   }
   JSON(node, options, resume) {

@@ -723,3 +723,50 @@ describe("Numbers keep their decimal value", () => {
     expect(val.toString()).toBe(big1);
   });
 });
+
+describe("format-number", () => {
+  test.each([
+    ['format-number "#,##0.00" 1234.5..', "1,234.50"],
+    ['format-number "0.0%" 0.256..', "25.6%"],
+    ['format-number "$#,##0" 1234567.8..', "$1,234,568"],
+    ['format-number "0.00E+00" 12345..', "1.23E+04"],
+    ['format-number "#,##0;(#,##0)" (sub 0 1500)..', "(1,500)"],
+    ['format-number "0.00" 1.005..', "1.01"],
+    ['format-number "0.00" (div 1 3)..', "0.33"],
+    ['format-number "#,##0" 12345678901234567891..', "12,345,678,901,234,567,891"],
+    ['let p = "0.0".. format-number p 2.25..', "2.3"],
+    ['`total: ${format-number "#,##0.00" 1234.5}`..', "total: 1,234.50"],
+  ])("%s gives %j", async (src, expected) => {
+    expect(await compile(src)).toBe(expected);
+  });
+
+  test("formats each element under map", async () => {
+    expect(await compile('map (<x: format-number "0.0" x>) [1 2.25]..')).toEqual(["1.0", "2.3"]);
+  });
+
+  async function errorsOf(src) {
+    try {
+      await compile(src);
+    } catch (errs) {
+      return errs.map((e) => e.message);
+    }
+    throw new Error("expected compile errors");
+  }
+
+  test("a bad literal pattern is reported by the checker", async () => {
+    expect(await errorsOf('format-number "[Red]0" 1..')).toEqual([
+      "format-number: […] (colors, conditions and locales) is not supported",
+    ]);
+  });
+
+  test("a bad computed pattern is reported when used", async () => {
+    expect(await errorsOf('let p = "0 kg".. format-number p 1..')).toEqual([
+      "format-number: 'k': put literal text in double quotes",
+    ]);
+  });
+
+  test("a value that is not a number is reported", async () => {
+    expect(await errorsOf('format-number "0" "12"..')).toEqual(['format-number: expected a number, got "12"']);
+    expect(await errorsOf('format-number 0 1..')).toEqual(["format-number: the pattern must be a string, got 0"]);
+  });
+});
