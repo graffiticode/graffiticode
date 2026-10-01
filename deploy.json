@@ -22,14 +22,14 @@
       "runtimeServiceAccount": "api-run@graffiticode.iam.gserviceaccount.com",
       "steps": [
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "ci"
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -40,7 +40,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -49,7 +49,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -58,7 +58,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -67,7 +67,7 @@
           ]
         },
         {
-          "name": "gcr.io/graffiticode/firebase",
+          "name": "gcr.io/graffiticode/firebase@sha256:5bf4fef209b17cffdd6bb3d87fb9cdd0539cafa4e373068c10be3508980b3f68",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -76,7 +76,7 @@
           ]
         },
         {
-          "name": "gcr.io/graffiticode/firebase",
+          "name": "gcr.io/graffiticode/firebase@sha256:5bf4fef209b17cffdd6bb3d87fb9cdd0539cafa4e373068c10be3508980b3f68",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -104,14 +104,14 @@
       "runtimeServiceAccount": "auth-run@graffiticode.iam.gserviceaccount.com",
       "steps": [
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "ci"
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -122,7 +122,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -131,7 +131,7 @@
           ]
         },
         {
-          "name": "gcr.io/graffiticode/firebase",
+          "name": "gcr.io/graffiticode/firebase@sha256:5bf4fef209b17cffdd6bb3d87fb9cdd0539cafa4e373068c10be3508980b3f68",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -159,14 +159,14 @@
       "runtimeServiceAccount": "broker-run@graffiticode.iam.gserviceaccount.com",
       "steps": [
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "ci"
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -177,7 +177,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -186,7 +186,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -195,7 +195,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -231,14 +231,14 @@
       "runtimeServiceAccount": "policy-run@graffiticode.iam.gserviceaccount.com",
       "steps": [
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "ci"
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -249,7 +249,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -258,7 +258,7 @@
           ]
         },
         {
-          "name": "gcr.io/graffiticode/firebase",
+          "name": "gcr.io/graffiticode/firebase@sha256:5bf4fef209b17cffdd6bb3d87fb9cdd0539cafa4e373068c10be3508980b3f68",
           "entrypoint": "npm",
           "args": [
             "test",
@@ -267,7 +267,7 @@
           ]
         },
         {
-          "name": "node:22",
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
           "entrypoint": "npm",
           "args": [
             "test",

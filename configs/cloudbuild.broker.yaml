@@ -1,11 +1,11 @@
 # Build only. Normal releases use npm run deploy -- broker.
 # Direct submission requires _IMAGE, _RELEASE and --service-account.
 steps:
-  - name: node:22
+  - name: node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
     entrypoint: npm
     args:
       - ci
-  - name: node:22
+  - name: node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
     entrypoint: npm
     args:
       - test
@@ -13,19 +13,19 @@ steps:
       - packages/common
       - --
       - --runInBand
-  - name: node:22
+  - name: node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
     entrypoint: npm
     args:
       - test
       - -w
       - packages/deploy
-  - name: node:22
+  - name: node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
     entrypoint: npm
     args:
       - test
       - -w
       - packages/policy
-  - name: node:22
+  - name: node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
     entrypoint: npm
     args:
       - test
