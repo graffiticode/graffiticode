@@ -43,6 +43,13 @@ const MIN_HOURS = 24;
 // recorded in the receipt) plus no 5xx and no new error signatures for
 // MIN_HOURS, instead of request volume.
 const CANDIDATE_CHECKED = new Set(["policy", "broker"]);
+// A soak window that starts later than its revision, keyed by revision so a
+// later release never inherits it. api-rmuqay3ps-d046d5: its language servers
+// (l0178, l0180-l0184) were pinned warm by 18:03 UTC on 2026-10-02; earlier
+// requests measured their cold starts, not this release (decided that day).
+const WINDOW_START = {
+  "api-rmuqay3ps-d046d5": "2026-10-02T18:03:00Z",
+};
 const LIMIT = 50000;
 
 const latestRelease = async service => {
@@ -108,7 +115,8 @@ const signature = e => String(e.textPayload ?? e.jsonPayload?.message ?? "").spl
 const report = async service => {
   const receipt = await latestRelease(service);
   if (!receipt) return { service, verdict: "NO RELEASE", lines: ["no released receipt in .gc-deploy/releases"] };
-  const start = Date.parse(await revisionCreated(receipt.revision));
+  const created = Date.parse(await revisionCreated(receipt.revision));
+  const start = Math.max(created, Date.parse(WINDOW_START[receipt.revision] ?? 0));
   const end = Date.now();
   const base = `resource.type="cloud_run_revision" AND resource.labels.service_name="${service}"`;
   const current = (await read(`${base} AND resource.labels.revision_name="${receipt.revision}" AND ${window(start, end)}`)).filter(e => e && !isCandidateRequest(e));
@@ -158,7 +166,7 @@ const report = async service => {
     service,
     verdict,
     lines: [
-      `release ${receipt.id} → ${receipt.revision}, ${hours} h since revision creation (need ${MIN_HOURS})`,
+      `release ${receipt.id} → ${receipt.revision}, ${hours} h since ${start > created ? `window start ${new Date(start).toISOString().slice(0, 16)}Z` : "revision creation"} (need ${MIN_HOURS})`,
       `requests  ${now.requests}${now.truncated ? "+" : ""} (baseline week-ago window ${was.requests}${was.truncated ? "+" : ""}; ${candidateChecked ? `candidate verify ${receipt.verify?.module ?? "MISSING"}` : `need ${MIN_REQUESTS}`})`,
       `5xx       ${pct(now.rate5xx)} (${now.errors5xx}) vs ${pct(was.rate5xx)} (${was.errors5xx})`,
       `p95       ${ms(now.p95)} vs ${ms(was.p95)} overall (not judged: moves with the traffic mix)`,

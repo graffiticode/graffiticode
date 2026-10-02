@@ -58,6 +58,12 @@ adjustments that day:
   its cold starts. `l0184`, which was cold-starting about hourly, now has a
   service-level minimum of one instance (`gcloud run services update l0184
   --min=1`; set outside deploy.json).
+- **Latency is judged per route** (method + path, with ≥ 20 requests in both
+  windows): one overall p95 moves with the traffic mix even when no route is
+  slower. After the Beta languages in `PING_LANGUAGES` were pinned warm too
+  (console `check-min-instances`, service-level `--min`), api's current
+  release soaks from 18:03 UTC on 2026-10-02 (`WINDOW_START` in the script);
+  its earlier requests measured language-server cold starts.
 
 ## How a package is converted (phase 3)
 
