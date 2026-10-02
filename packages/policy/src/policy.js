@@ -35,6 +35,7 @@ import {
   protectedFunctionsForLang,
   systemPreviewFunctionsForLang,
   viewSafeFunctionsForLang,
+  isGatedFunction
 } from "@graffiticode/common/protected-registry";
 import { createHash, randomUUID } from "node:crypto";
 import { issueToken, verifyToken } from "./tokens.js";
@@ -68,7 +69,7 @@ const VIEW_INPUT = createHash("sha256").update("publication-view").digest("hex")
 // The subject of a system preview session: there is no user.
 export const SYSTEM_PREVIEW_SUBJECT = "system-preview";
 
-export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, protectedSwitch, audit }) => {
+export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, enabledGated = new Set(), protectedSwitch, audit }) => {
   // No default: a policy built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createPolicy needs a protectedSwitch");
   const deny = async (reason, record) => {
@@ -115,9 +116,13 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // every registered function, or, once they have narrowed their own use, the
   // ones their list names by the same rule, delegable or not. A list without
   // permissions reaches nothing.
+  // An enablement-gated function (AUTHOR-01) is reachable only when this
+  // deployment enables it; owner permissions cannot bypass that.
+  const gateOpen = (lang, fn) =>
+    !isGatedFunction(lang, fn) || enabledGated.has(`${String(lang ?? "").replace(/^L/i, "").padStart(4, "0")}:${fn}`);
   const mayUse = (access, lang, fn) => {
     const spec = protectedFunctionsForLang(lang)?.[fn];
-    if (!spec) return false;
+    if (!spec || !gateOpen(lang, fn)) return false;
     if (access.owner && access.permissions === null) return true;
     const key = String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
     const list = access.owner ? access.permissions : access.grant?.permissions;
@@ -435,6 +440,10 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     const access = await accessFor(connection, session.sub, { ownerUid: session.own });
     if (access.refusal) return deny(access.refusal, record);
     if (connection.backend !== session.backend) return deny("backend-changed", record);
+    // Re-checked at every user mint, whatever the session lists (AUTHOR-01).
+    // System and publication sessions never reach a gated function: their
+    // sets (system-preview, viewSafe) exclude them by registry construction.
+    if (!gateOpen(session.lang, fn)) return deny("fn-not-enabled", record);
     // A grant revoked or narrowed since the snapshot stops this call.
     if (!mayUse(access, session.lang, fn)) return deny("not-granted", record);
     return issueExecution({ session, fn, op, argsDigest, occurrenceId, record });

@@ -30,7 +30,7 @@
 //   claim        a recipient turns pending grants for their emails into grants
 
 import { randomUUID } from "node:crypto";
-import { OPERATIONS, PROTECTED_FUNCTIONS } from "@graffiticode/common/protected-registry";
+import { OPERATIONS, PROTECTED_FUNCTIONS, isGatedFunction } from "@graffiticode/common/protected-registry";
 import { PolicyDenied } from "./policy.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { BrokerConflict } from "./broker-admin.js";
@@ -52,7 +52,6 @@ const registered = backend => Object.entries(PROTECTED_FUNCTIONS).flatMap(([lang
   .filter(([, spec]) => spec.backend === backend)
   .map(([fn, spec]) => ({ lang, fn, kind: spec.kind, implicit: spec.implicit === true, delegable: spec.delegable === true })))
   .sort((a, b) => a.lang.localeCompare(b.lang) || a.fn.localeCompare(b.fn));
-const delegable = backend => registered(backend).filter(f => f.delegable);
 // A permission list names only functions from `allowed`; null when it names
 // anything else. A grant must name at least one; the owner's list may be empty
 // (the connection is then unusable, its owner included).
@@ -68,7 +67,6 @@ const validPermissions = (allowed, permissions, { allowEmpty = false } = {}) => 
   }
   return out;
 };
-const grantPermissions = (backend, permissions) => validPermissions(delegable(backend), permissions);
 
 const grantView = g => ({
   grantId: g.grantId,
@@ -84,7 +82,12 @@ const validCredential = ({ key, secret } = {}) =>
   typeof key === "string" && key.length > 0 && key.length <= 256 &&
   typeof secret === "string" && secret.length > 0 && secret.length <= 1024;
 
-export const createConnectionManager = ({ connections, brokerAdmin, audit, grants = null, systemConnections = {} }) => {
+export const createConnectionManager = ({ connections, brokerAdmin, audit, grants = null, systemConnections = {}, enabledGated = new Set() }) => {
+  // Enablement-gated functions (AUTHOR-01) are neither listed nor accepted in
+  // an owner's list or a grant unless this deployment enables them.
+  const available = backend => registered(backend)
+    .filter(f => !isGatedFunction(f.lang, f.fn) || enabledGated.has(`${f.lang}:${f.fn}`));
+  const grantable = backend => available(backend).filter(f => f.delegable);
   const deny = async (reason, record) => {
     await audit({ ...record, outcome: "denied", reason });
     throw new PolicyDenied(reason);
@@ -173,7 +176,7 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       const record = { event: "grant-shareable", uid: user?.uid, connectionId };
       await requireConsole(caller, record);
       const connection = await owned(user, connectionId, record);
-      return delegable(connection.backend).map(({ lang, fn, kind }) => ({ lang, fn, kind }));
+      return grantable(connection.backend).map(({ lang, fn, kind }) => ({ lang, fn, kind }));
     },
 
     // Every protected function on this connection's backend, by language: the
@@ -182,7 +185,7 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       const record = { event: "connection-functions", uid: user?.uid, connectionId };
       await requireConsole(caller, record);
       const connection = await owned(user, connectionId, record);
-      return registered(connection.backend);
+      return available(connection.backend);
     },
 
     // The owner narrows (or restores, with null) what they themselves may do
@@ -195,7 +198,7 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       if (isSystemConnection(connectionId)) return deny("system-connection", record);
       let ownerPermissions = null;
       if (permissions !== null) {
-        ownerPermissions = validPermissions(registered(connection.backend), permissions, { allowEmpty: true });
+        ownerPermissions = validPermissions(available(connection.backend), permissions, { allowEmpty: true });
         if (!ownerPermissions) return deny("bad-permissions", record);
       }
       await connections.put({ ...connection, ownerPermissions });
@@ -219,7 +222,7 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       if (recipientLabel !== null && (typeof recipientLabel !== "string" || recipientLabel.length > 200)) return deny("bad-request", record);
       if (expiresAt !== null && !(typeof expiresAt === "string" && Date.parse(expiresAt) > Date.now())) return deny("bad-request", record);
       if (recipientUid === user.uid) return deny("self-grant", record);
-      const granted = grantPermissions(connection.backend, permissions);
+      const granted = validPermissions(grantable(connection.backend), permissions);
       if (!granted) return deny("bad-permissions", record);
       const grant = {
         grantId: grantIdFor({ connectionId, recipientUid, recipientEmailHash }),
@@ -254,7 +257,7 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       const grant = typeof grantId === "string" ? await grants.get(grantId) : null;
       if (!grant || grant.connectionId !== connectionId) return deny("grant-not-found", record);
       if (expiresAt !== null && !(typeof expiresAt === "string" && Date.parse(expiresAt) > Date.now())) return deny("bad-request", record);
-      const granted = grantPermissions(connection.backend, permissions);
+      const granted = validPermissions(grantable(connection.backend), permissions);
       if (!granted) return deny("bad-permissions", record);
       const updated = {
         ...grant,

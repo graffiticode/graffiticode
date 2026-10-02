@@ -5,6 +5,7 @@
 // set them.
 
 import { randomUUID } from "node:crypto";
+import { gatedOperations } from "@graffiticode/common/protected-registry";
 
 export class PayloadRejected extends Error {}
 
@@ -71,9 +72,12 @@ const validateWrite = payload => {
   });
 };
 
-export const buildOperations = ({ sdk, domain, dataApi }) => {
+// Operations used only by enablement-gated functions (Author) are left out
+// unless this deployment enables them (spec AUTHOR-01).
+export const buildOperations = ({ sdk, domain, dataApi, enabledGated = new Set() }) => {
   const consumer = key => ({ consumer_key: key, domain, user_id: randomUUID() });
-  return {
+  const gated = gatedOperations();
+  const all = {
     "learnosity.sign-questions-preview": {
       kind: "sign",
       validate: validatePreview,
@@ -144,4 +148,5 @@ export const buildOperations = ({ sdk, domain, dataApi }) => {
       },
     },
   };
+  return Object.fromEntries(Object.entries(all).filter(([op]) => !gated.has(op) || enabledGated.has(op)));
 };

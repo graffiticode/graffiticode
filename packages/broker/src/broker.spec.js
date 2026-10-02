@@ -55,6 +55,8 @@ let brokerDeps;
 let signer;
 let records;
 let otherSigner;
+let policyDeps;
+let buildOps;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -70,8 +72,9 @@ beforeEach(async () => {
   const connections = createMemoryConnectionStore([
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
+  policyDeps = { protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), audit };
   // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-  policy = createPolicy({ protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
+  policy = createPolicy(policyDeps);
   routes = [];
   failItems = false;
   lostItems = false;
@@ -94,7 +97,7 @@ beforeEach(async () => {
   brokerDeps = {
     protectedSwitch: PROTECTED_ON,
     jwks,
-    operations: buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi }),
+    operations: (buildOps = enabledGated => buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi, enabledGated }))(),
     secrets,
     once: createMemoryOnceStore(),
     receipts,
@@ -226,8 +229,10 @@ describe("preview signing", () => {
 
   it("never lets a preview token sign Author requests or write", async () => {
     const token = await previewToken();
-    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload: { reference: "r" } }), "operation-mismatch");
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload: { reference: "r" } }), "operation-not-enabled");
     await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE }), "operation-mismatch");
+    broker = createBroker({ ...brokerDeps, operations: buildOps(new Set(["learnosity.sign-author"])) });
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload: { reference: "r" } }), "operation-mismatch");
   });
 
   it("rejects a token spent by a compiler of another language", async () => {
@@ -403,6 +408,26 @@ describe("item-bank writes", () => {
 describe("author signing", () => {
   const authorToken = async payload =>
     mint(await session(), { fn: "author", op: "learnosity.sign-author", payload });
+
+  // Author is gated (spec AUTHOR-01): these tests enable it explicitly, in both
+  // Policy and Broker.
+  beforeEach(() => {
+    policy = createPolicy({ ...policyDeps, enabledGated: new Set(["0176:author"]) });
+    broker = createBroker({ ...brokerDeps, operations: buildOps(new Set(["learnosity.sign-author"])) });
+  });
+
+  it("is refused by a broker that has not enabled it, even with a valid token", async () => {
+    const payload = { reference: "graffiticode-t-0" };
+    const token = await authorToken(payload);
+    broker = createBroker(brokerDeps);
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload }), "operation-not-enabled");
+    expect(records.at(-1)).toMatchObject({ outcome: "denied", reason: "operation-not-enabled" });
+  });
+
+  it("is left out of the operations unless enabled", () => {
+    expect(Object.keys(buildOps())).not.toContain("learnosity.sign-author");
+    expect(Object.keys(buildOps(new Set(["learnosity.sign-author"])))).toContain("learnosity.sign-author");
+  });
 
   it("builds a fixed request from the reference and allowed widget types", async () => {
     const payload = { reference: "graffiticode-t-0", widgetTypes: ["mcq"] };

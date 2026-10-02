@@ -14,6 +14,8 @@
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables execution. Otherwise
 //                           controls/protected-execution in this database decides, and
 //                           a missing flag means off (@graffiticode/policy maintenance.js)
+//   BROKER_ENABLED_GATED_OPERATIONS  optional enabled gated operations, e.g. ["learnosity.sign-author"]
+//                           (see @graffiticode/policy config.js; empty in production until AT-10 evidence)
 
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -28,6 +30,7 @@ import {
   createPseudonymizer,
   requireEnv,
   parseCallers,
+  parseEnabledGatedOperations,
   auditSink,
   createProtectedSwitch,
   createFirestoreFlagReader,
@@ -75,6 +78,7 @@ const broker = createBroker({
   operations: buildOperations({
     sdk: new LearnositySDK(),
     domain,
+    enabledGated: parseEnabledGatedOperations(env.BROKER_ENABLED_GATED_OPERATIONS),
     dataApi: buildLearnosityDataApi({ baseUrl: env.LEARNOSITY_DATA_API || "https://data.learnosity.com/v2025.2.LTS" })
   })
 });

@@ -3,6 +3,8 @@ import {
   PROTECTED_FUNCTIONS,
   REGISTRY_VERSION,
   compilerConfigForLang,
+  gatedOperations,
+  isGatedFunction,
   isOperationAllowed,
   systemPreviewFunctionsForLang,
   taskRequiresProtected,
@@ -108,6 +110,37 @@ describe("protected-registry", () => {
       expect(author.delegable).toBe(false);
       expect(author.viewSafe).toBe(false);
       expect(viewSafeFunctionsForLang("0176")).toEqual(["init"]);
+    });
+  });
+
+  // AUTHOR-01: Author is disabled until verified. The registry marks it, and
+  // Policy and Broker each refuse it unless explicitly enabled.
+  describe("enablement-gated functions", () => {
+    it("gates Author and nothing else", () => {
+      expect(PROTECTED_FUNCTIONS["0176"].author.requiresEnablement).toBe(true);
+      expect(isGatedFunction("0176", "author")).toBe(true);
+      expect(isGatedFunction("L0176", "author")).toBe(true);
+      expect(isGatedFunction("0176", "init")).toBe(false);
+      expect(isGatedFunction("0176", "save-to-itembank")).toBe(false);
+      expect(isGatedFunction("0176", "no-such-fn")).toBe(false);
+    });
+
+    it("lists the operations reachable only through gated functions", () => {
+      expect([...gatedOperations()]).toEqual(["learnosity.sign-author"]);
+    });
+
+    it("keeps gated functions out of the system preview and view-safe sets", () => {
+      for (const [lang, fns] of Object.entries(PROTECTED_FUNCTIONS)) {
+        for (const fn of Object.keys(fns)) {
+          if (!isGatedFunction(lang, fn)) continue;
+          expect(systemPreviewFunctionsForLang(lang)).not.toContain(fn);
+          expect(viewSafeFunctionsForLang(lang)).not.toContain(fn);
+        }
+      }
+    });
+
+    it("is part of registry version 6", () => {
+      expect(REGISTRY_VERSION).toBe(6);
     });
   });
 

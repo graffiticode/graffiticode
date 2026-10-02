@@ -21,11 +21,18 @@
 //   delegable  whether an owner may grant it to another account
 //   viewSafe   whether a view of a published item may use it (the viewer holds
 //              no grant; the publication's authority reaches only these)
+//   requiresEnablement
+//              disabled until verified (spec AUTHOR-01): Policy and Broker each
+//              refuse it unless their deployment explicitly enables it
+//              (POLICY_ENABLED_GATED_FUNCTIONS / BROKER_ENABLED_GATED_OPERATIONS).
+//              Owner permissions cannot bypass it.
 
 // There are no execution modes: running the program is the action, and the
 // grant is the authority. A function runs whenever its program calls it
 // through a connection whose grant covers it.
-export const REGISTRY_VERSION = 5;
+// v6 (unreleased): Author gated behind explicit enablement (AUTHOR-01). The W2
+// registered execution-step table joins this same version before it ships.
+export const REGISTRY_VERSION = 6;
 
 // One protected function's entry (see the field notes above).
 export type FunctionSpec = Readonly<{
@@ -36,6 +43,7 @@ export type FunctionSpec = Readonly<{
   implicit: boolean;
   delegable: boolean;
   viewSafe: boolean;
+  requiresEnablement?: boolean;
 }>;
 
 // Broker operations. The broker builds each request itself from a constrained
@@ -85,11 +93,11 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       delegable: true,
       viewSafe: false,
     }),
-    // Rendering an `author [...]` activity signs for the Author API. Owners
-    // may use it through their own connection; it is not delegable until its
-    // edit/delete authority has its own reviewed boundary. Enforced through
-    // the broker's constrained signer; its request shape is not yet verified
-    // against Learnosity's Author API.
+    // Rendering an `author [...]` activity signs for the Author API. It is
+    // owner-only and not delegable until its edit/delete authority has its
+    // own reviewed boundary, and DISABLED (requiresEnablement) until provider
+    // integration tests establish its request shape, item/reference and
+    // widget restrictions and session limits (spec AUTHOR-01, AT-10).
     author: Object.freeze({
       backend: "learnosity",
       kind: "sign",
@@ -98,6 +106,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       implicit: false,
       delegable: false,
       viewSafe: false,
+      requiresEnablement: true,
     }),
   }),
 });
@@ -106,6 +115,24 @@ const normalizeLang = (lang: unknown): string => String(lang ?? "").replace(/^L/
 
 export const protectedFunctionsForLang = (lang: unknown): Readonly<Record<string, FunctionSpec>> | null =>
   PROTECTED_FUNCTIONS[normalizeLang(lang)] || null;
+
+// Is this function disabled unless a deployment explicitly enables it?
+export const isGatedFunction = (lang: unknown, fn: unknown): boolean =>
+  protectedFunctionsForLang(lang)?.[fn as string]?.requiresEnablement === true;
+
+// Operations that only gated functions can name: Broker refuses these unless
+// its own deployment enables them, independently of Policy.
+export const gatedOperations = (): Set<string> => {
+  const gated = new Set<string>();
+  const open = new Set<string>();
+  for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
+    for (const spec of Object.values(fns) as FunctionSpec[]) {
+      for (const op of spec.ops) (spec.requiresEnablement === true ? gated : open).add(op);
+    }
+  }
+  for (const op of open) gated.delete(op);
+  return gated;
+};
 
 // The functions a view of a published item may use.
 export const viewSafeFunctionsForLang = (lang: unknown): string[] =>
