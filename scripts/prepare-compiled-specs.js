@@ -10,7 +10,7 @@
 
 import { cpSync, existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGES = ["common", "auth", "auth-client", "policy", "broker", "api"];
@@ -29,9 +29,12 @@ for (const name of process.argv.slice(2).length ? process.argv.slice(2) : PACKAG
     specs++;
   }
   // A config in the mirror pins jest's rootDir to it; without one, jest walks
-  // up to the package.json and also runs the source specs. Reuse the source
-  // run's settings where the package has them.
-  if (existsSync(path.join(pkg, "jest.config.js"))) cpSync(path.join(pkg, "jest.config.js"), path.join(mirror, "jest.config.js"));
-  else writeFileSync(path.join(mirror, "jest.config.js"), "export default { transform: {} };\n");
+  // up to the package.json and also runs the source specs. It re-exports the
+  // package's own settings, imported from their real location so any paths
+  // they resolve relative to themselves still work.
+  const own = path.join(pkg, "jest.config.js");
+  writeFileSync(path.join(mirror, "jest.config.js"), existsSync(own)
+    ? `export { default } from ${JSON.stringify(pathToFileURL(own).href)};\n`
+    : "export default { transform: {} };\n");
   console.log(`${name}: ${specs} spec(s) against dist/ in ${path.relative(ROOT, mirror)}`);
 }

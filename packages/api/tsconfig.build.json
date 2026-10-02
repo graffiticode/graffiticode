@@ -10,10 +10,12 @@
   },
   "include": [
     "src/**/*.js",
+    "src/**/*.ts",
     "src/types/*.d.ts"
   ],
   "exclude": [
-    "src/**/*.spec.js"
+    "src/**/*.spec.js",
+    "src/**/*.spec.ts"
   ],
   "references": [
     {

@@ -6,6 +6,38 @@ module.exports = {
   },
   extends: 'standard',
   overrides: [
+    // TypeScript sources (TS migration phase 3). Inert until the first .ts
+    // file: everything below applies only to *.ts.
+    {
+      files: ["*.ts"],
+      parser: "@typescript-eslint/parser",
+      plugins: ["@typescript-eslint"],
+      settings: {
+        // Resolve the .js specifiers that NodeNext requires to their .ts files.
+        "import/resolver": { typescript: { alwaysTryTypes: true }, node: true },
+      },
+      rules: {
+        // TypeScript checks these itself; the core rules misreport TS syntax.
+        "no-undef": "off",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-unused-vars": ["error", { args: "none", ignoreRestSiblings: true }],
+        "no-redeclare": "off",
+        "@typescript-eslint/no-redeclare": "error",
+        "no-use-before-define": "off",
+        "@typescript-eslint/no-use-before-define": ["error", { functions: false, classes: false, variables: false, typedefs: false }],
+        "no-useless-constructor": "off",
+        // NodeNext needs the emitted file's name in a specifier: "./app.js"
+        // for app.ts. Require .js; never allow .ts.
+        "import/extensions": ["error", "ignorePackages", { js: "always", ts: "never" }],
+        // Mechanical conversion: no syntax that emits runtime code.
+        "@typescript-eslint/parameter-properties": "error",
+        "no-restricted-syntax": ["error",
+          { selector: "Decorator", message: "Decorators emit runtime code; not allowed in the migration." },
+          { selector: "TSEnumDeclaration", message: "Enums emit runtime code; use a union or a frozen object." },
+          { selector: "TSModuleDeclaration[declare!=true]", message: "Namespaces emit runtime code." },
+        ],
+      },
+    },
   ],
   parserOptions: {
     ecmaVersion: "latest",

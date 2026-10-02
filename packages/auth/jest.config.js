@@ -7,11 +7,8 @@ import { fileURLToPath } from "node:url";
 export default {
   transform: {
     "^.+\\.ts$": ["@swc/jest", { jsc: { parser: { syntax: "typescript" }, target: "es2022" }, module: { type: "es6" } }],
+    "^.+\\.[cm]?js$": "babel-jest",
   },
   extensionsToTreatAsEsm: [".ts"],
   resolver: fileURLToPath(new URL("../../scripts/jest-ts-resolver.cjs", import.meta.url)),
-  verbose: true,
-  testEnvironment: "node",
-  clearMocks: true,
-  testTimeout: 6000,
 };

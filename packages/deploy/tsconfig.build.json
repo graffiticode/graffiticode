@@ -9,9 +9,11 @@
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
   "include": [
-    "src/**/*.js"
+    "src/**/*.js",
+    "src/**/*.ts"
   ],
   "exclude": [
-    "src/**/*.spec.js"
+    "src/**/*.spec.js",
+    "src/**/*.spec.ts"
   ]
 }
