@@ -1,6 +1,6 @@
 {
   "name": "@graffiticode/auth-client",
-  "version": "1.0.1",
+  "version": "1.1.0-ts.0",
   "type": "module",
   "description": "Graffiticode Auth Client",
   "author": "Art Compiler LLC",
@@ -9,15 +9,19 @@
     "access": "public"
   },
   "exports": {
-    "./v1": "./src/v1/index.js"
+    "./v1": "./dist/v1/index.js"
   },
+  "files": [
+    "dist/**/*.js",
+    "README.md"
+  ],
   "scripts": {
     "lint": "eslint src/",
     "lint:fix": "eslint --fix src/",
     "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec --ui jest"
   },
   "dependencies": {
-    "@graffiticode/common": "*",
+    "@graffiticode/common": "^2.1.0",
     "bent": "^7.3.12",
     "dotenv": "^16.3.1",
     "jose": "^4.14.4"
