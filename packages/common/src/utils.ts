@@ -1,1 +1,1 @@
-export const isNonEmptyString = (str) => (typeof (str) === "string" && str.length > 0);
+export const isNonEmptyString = (str: unknown): str is string => (typeof (str) === "string" && str.length > 0);

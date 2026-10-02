@@ -27,6 +27,17 @@
 // through a connection whose grant covers it.
 export const REGISTRY_VERSION = 5;
 
+// One protected function's entry (see the field notes above).
+export type FunctionSpec = Readonly<{
+  backend: string;
+  kind: "read" | "write" | "sign";
+  ops: readonly string[];
+  tags: readonly string[];
+  implicit: boolean;
+  delegable: boolean;
+  viewSafe: boolean;
+}>;
+
 // Broker operations. The broker builds each request itself from a constrained
 // payload; none is a general signer or proxy.
 export const OPERATIONS = Object.freeze({
@@ -91,13 +102,13 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
   }),
 });
 
-const normalizeLang = lang => String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
+const normalizeLang = (lang: unknown): string => String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
 
-export const protectedFunctionsForLang = lang =>
+export const protectedFunctionsForLang = (lang: unknown): Readonly<Record<string, FunctionSpec>> | null =>
   PROTECTED_FUNCTIONS[normalizeLang(lang)] || null;
 
 // The functions a view of a published item may use.
-export const viewSafeFunctionsForLang = lang =>
+export const viewSafeFunctionsForLang = (lang: unknown): string[] =>
   Object.entries(protectedFunctionsForLang(lang) || {}).filter(([, spec]) => spec.viewSafe === true).map(([fn]) => fn);
 
 // The functions a SYSTEM preview session may carry: a compile with no user
@@ -106,17 +117,17 @@ export const viewSafeFunctionsForLang = lang =>
 // view-safe AND implicit (required by every render) qualify, so a system
 // session can sign a preview and never write or open the Author Site. Derived
 // from existing fields: this adds no authority and needs no version bump.
-export const systemPreviewFunctionsForLang = lang =>
+export const systemPreviewFunctionsForLang = (lang: unknown): string[] =>
   Object.entries(protectedFunctionsForLang(lang) || {})
     .filter(([, spec]) => spec.kind === "sign" && spec.viewSafe === true && spec.implicit === true)
     .map(([fn]) => fn);
 
 // The two views a compiler needs (l0000 Compiler config): explicit functions
 // keyed by node tag, and implicit ones required by every compile.
-export const compilerConfigForLang = lang => {
+export const compilerConfigForLang = (lang: unknown) => {
   const fns = protectedFunctionsForLang(lang) || {};
-  const protectedFunctions = {};
-  const implicitProtectedFunctions = [];
+  const protectedFunctions: Record<string, { fn: string; kind: FunctionSpec["kind"] }> = {};
+  const implicitProtectedFunctions: { fn: string; kind: FunctionSpec["kind"] }[] = [];
   for (const [fn, spec] of Object.entries(fns)) {
     for (const tag of spec.tags) {
       protectedFunctions[tag] = { fn, kind: spec.kind };
@@ -131,13 +142,13 @@ export const compilerConfigForLang = lang => {
 // Minting check: may a token for (lang, fn) name this op against this
 // connection backend? The full relationship must hold, so a preview grant can
 // never sign Author requests or write items.
-export const isOperationAllowed = ({ lang, fn, op, backend }) => {
-  const spec = protectedFunctionsForLang(lang)?.[fn];
-  const operation = Object.prototype.hasOwnProperty.call(OPERATIONS, op) ? OPERATIONS[op] : null;
+export const isOperationAllowed = ({ lang, fn, op, backend }: { lang: unknown; fn: unknown; op: unknown; backend: unknown }): boolean => {
+  const spec = protectedFunctionsForLang(lang)?.[fn as string];
+  const operation = Object.prototype.hasOwnProperty.call(OPERATIONS, op) ? OPERATIONS[op as keyof typeof OPERATIONS] : null;
   return Boolean(
     spec &&
     operation &&
-    spec.ops.includes(op) &&
+    spec.ops.includes(op as string) &&
     spec.backend === backend &&
     operation.backend === backend &&
     operation.kind === spec.kind
@@ -147,7 +158,7 @@ export const isOperationAllowed = ({ lang, fn, op, backend }) => {
 // Does a compiled task (a {lang, code} with code as a node pool) require any
 // protected function? Used to keep such results out of shared caches. A
 // language with an implicit protected function always does.
-export const taskRequiresProtected = ({ lang, code }) => {
+export const taskRequiresProtected = ({ lang, code }: { lang: unknown; code: unknown }): boolean => {
   const fns = protectedFunctionsForLang(lang);
   if (!fns) {
     return false;
@@ -163,6 +174,6 @@ export const taskRequiresProtected = ({ lang, code }) => {
     return false;
   }
   return Object.entries(code).some(
-    ([key, node]) => key !== "root" && typeof node?.tag === "string" && tags.has(node.tag)
+    ([key, node]: [string, any]) => key !== "root" && typeof node?.tag === "string" && tags.has(node.tag)
   );
 };

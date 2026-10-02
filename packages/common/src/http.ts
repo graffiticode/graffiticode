@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import morgan from "morgan";
 import {
   ConflictError,
@@ -14,19 +15,21 @@ import {
 } from "./errors.js";
 import { isNonEmptyString } from "./utils.js";
 
-export const createError = (code, message, details) => {
-  const err = { code, message };
+export type ErrorBody = { code: number; message: string; details?: unknown };
+
+export const createError = (code: number, message: string, details?: unknown): ErrorBody => {
+  const err: ErrorBody = { code, message };
   if (details !== undefined) err.details = details;
   return err;
 };
 
-export const createErrorResponse = error => ({ status: "error", error, data: null });
+export const createErrorResponse = (error: ErrorBody) => ({ status: "error", error, data: null });
 
-export const createSuccessResponse = data => ({ status: "success", error: null, data });
+export const createSuccessResponse = (data: unknown) => ({ status: "success", error: null, data });
 
-export const sendSuccessResponse = (res, data) => res.status(200).json(createSuccessResponse(data));
+export const sendSuccessResponse = (res: Response, data: unknown) => res.status(200).json(createSuccessResponse(data));
 
-export const translateError = (err) => {
+export const translateError = (err: Error & { details?: unknown }): ErrorBody => {
   if (err instanceof ConflictError) {
     return createError(409, err.message, err.details);
   }
@@ -57,12 +60,13 @@ export const translateError = (err) => {
   return createError(500, err.message);
 };
 
-const handleError = (err, res) => {
+const handleError = (err: Error, res: Response): void => {
   const error = translateError(err);
   res.status(error.code).json(createErrorResponse(error));
 };
 
-export const buildHttpHandler = handler => async (req, res, next) => {
+// Handlers see the request as `any`: services attach their own fields (req.auth).
+export const buildHttpHandler = (handler: (req: any, res: any, next: NextFunction) => unknown) => async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     await handler(req, res, next);
   } catch (err) {
@@ -70,7 +74,7 @@ export const buildHttpHandler = handler => async (req, res, next) => {
   }
 };
 
-export const errorHandler = (err, req, res, next) => {
+export const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction): void => {
   if (res.headersSent) {
     console.error(err);
   } else {
@@ -78,7 +82,7 @@ export const errorHandler = (err, req, res, next) => {
   }
 };
 
-export const createHttpApp = addRoutesFn => {
+export const createHttpApp = (addRoutesFn: (app: Express) => void): Express => {
   const app = express();
 
   if (process.env.NODE_ENV === "production") {
@@ -99,7 +103,7 @@ export const createHttpApp = addRoutesFn => {
   return app;
 };
 
-export const parseTokenFromRequest = req => {
+export const parseTokenFromRequest = (req: Request): string | null => {
   const { access_token: queryAccessToken } = req.query;
   if (isNonEmptyString(queryAccessToken)) {
     return queryAccessToken;
