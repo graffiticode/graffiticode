@@ -160,6 +160,23 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   `GRAFFITICODE_SECRET_KEY` for L0176. Evidence:
   [secret storage](../packages/broker/src/firestore.js),
   [rotation rules](../packages/broker/src/stores.js), and [deployment manifest](../deploy.json).
+
+  Legacy shared-secret inventory (2026-10-02, read-only):
+  - Path: the console encrypts `get-val-private` values with `GRAFFITICODE_SECRET_KEY` at
+    parse time; the parser bakes the ciphertext into the task AST; l0000 and basis compilers
+    decrypt it when the key is mounted. Only key version 1 exists; no service mounts
+    `GRAFFITICODE_SECRET_KEYS`.
+  - Mounted on Cloud Run: `l0176` (`deploy.json`), `l0158` (its own `cloudbuild.yaml`,
+    basis 1.13.2) and `console` (graffiticode-app). Secret accessors: `l0176-run`,
+    `l0158-run`; in graffiticode-app, `console-run` and the default compute account.
+  - Stored tasks (L0158 2,390, L0176 2,897; ciphertext never decrypted or printed): 91 carry
+    `GET_VAL_PRIVATE` ciphertext, two distinct values: 66 one-block values (the baked
+    `encrypt("")`) and 25 of a single 32–47-byte credential. Other languages not scanned.
+  - Operator actions (owner, 2026-10-02): stored user secrets (`users/{uid}/settings`)
+    deleted for all users; the baked credential retired at its provider.
+  - Remaining: remove the `l0176` mount (`removeSecrets` in `deploy.json`) and the `l0158`
+    mount, revoke both runtime accessors, stop console encryption, then destroy the key in
+    both projects and remove the default compute account's access.
 - **Missing repo controls / deployment unverified — ISOLATE-01.** No compiler egress
   enforcement satisfying the new allowlist contract was found in the inspected deployment
   configuration. Historical IAM improvements do not establish current egress, secret-access,

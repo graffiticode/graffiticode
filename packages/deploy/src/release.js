@@ -40,6 +40,9 @@ export function deployArgs(config, receipt) {
     `--revision-suffix=${receipt.id}`, `--labels=gc-release=${receipt.id},commit-sha=${receipt.commit}`];
   if (Object.keys(config.env || {}).length) args.push(`--update-env-vars=${envFlag(config.env)}`);
   if (Object.keys(config.secrets || {}).length) args.push(`--update-secrets=${pairs(config.secrets)}`);
+  // --update-secrets only adds, so a secret mounted by an earlier release
+  // carries into new revisions until it is removed explicitly.
+  if (config.removeSecrets?.length) args.push(`--remove-secrets=${config.removeSecrets.join(",")}`);
   return args;
 }
 

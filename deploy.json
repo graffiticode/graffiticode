@@ -432,9 +432,9 @@
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
         "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app"
       },
-      "secrets": {
-        "GRAFFITICODE_SECRET_KEY": "GRAFFITICODE_SECRET_KEY:1"
-      },
+      "removeSecrets": [
+        "GRAFFITICODE_SECRET_KEY"
+      ],
       "smoke": [
         {
           "path": "/",

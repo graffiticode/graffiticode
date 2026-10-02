@@ -112,6 +112,26 @@ test("build publishes with provenance and never deploys; deploy preserves unmana
   assert.ok(args.includes("--no-traffic"));
   assert.ok(args.includes("--update-env-vars=^|^AUTH_URL=https://example.com/a,b"));
   assert.ok(!args.some(a => a.startsWith("--set-") || a.includes("allow-unauthenticated")));
+  assert.ok(!args.some(a => a.startsWith("--remove-secrets")));
+});
+
+test("deploy removes listed secrets explicitly, and refuses a secret both mounted and removed", async t => {
+  const args = deployArgs({ ...config, removeSecrets: ["OLD_KEY", "OTHER"] }, { id: "release", commit: source.commit, image: `image@${digest}` });
+  assert.ok(args.includes("--remove-secrets=OLD_KEY,OTHER"));
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-config-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const write = service => writeFile(path.join(root, "deploy.json"), JSON.stringify({
+    version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, ...service } }
+  }));
+  const options = parseArgs(["--plan"]);
+  await write({ removeSecrets: ["OLD_KEY"] });
+  assert.deepEqual((await loadConfig(options, root, {})).config.removeSecrets, ["OLD_KEY"]);
+  await write({ secrets: { OLD_KEY: "old:1" }, removeSecrets: ["OLD_KEY"] });
+  await assert.rejects(loadConfig(options, root, {}), /both mounted and removed/);
+  await write({ removeSecrets: [] });
+  await assert.rejects(loadConfig(options, root, {}), /removeSecrets/);
+  await write({ removeSecrets: ["bad-name"] });
+  await assert.rejects(loadConfig(options, root, {}), /removeSecrets/);
 });
 
 test("successful release deploys the returned digest and promotes only after verification", async t => {
