@@ -13,6 +13,7 @@ import {
   createPseudonymizer,
   ISSUER
 } from "./index.js";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 
 const OWNER = "0xowneruid";
 const OTHER = "0xotheruid";
@@ -125,9 +126,9 @@ describe("token profiles", () => {
 });
 
 describe("snapshot (owner-only)", () => {
-  it("gives the owner every function the program calls, writes and Author included", async () => {
+  it("gives the owner every function the program calls, writes included, but not gated Author", async () => {
     const result = await snap();
-    expect(result.allowed).toEqual(ALL_FNS);
+    expect(result.allowed).toEqual(["init", "save-to-itembank"]);
     expect(result.mode).toBeUndefined();
     const { claims } = await verifyToken(jwks, "session", result.sessionToken);
     expect(claims.mode).toBeUndefined();
@@ -271,6 +272,59 @@ describe("mint", () => {
     const { sessionToken } = await snap();
     await denied(mintWith(sessionToken, { argsDigest: "abc" }), "bad-request");
     await denied(mintWith(sessionToken, { occurrenceId: "" }), "bad-request");
+  });
+});
+
+// AUTHOR-01: Author is disabled until verified. Policy refuses it unless its
+// deployment explicitly enables it, and an owner's own permissions cannot
+// bypass that.
+describe("enablement-gated functions (Author)", () => {
+  const withGates = enabledGated => createPolicy({
+    signer,
+    jwks,
+    connections,
+    invocations: createMemoryInvocationStore(),
+    publications: createMemoryPublicationStore(),
+    audit: createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) }),
+    enabledGated
+  });
+  const authorSession = () => issueToken(signer, "session", {
+    sub: OWNER,
+    own: OWNER,
+    conn: "conn-1",
+    backend: "learnosity",
+    lang: "0176",
+    inv: "inv-1",
+    stg: "s0",
+    rv: REGISTRY_VERSION,
+    fns: ALL_FNS
+  });
+  const mintAuthor = (p, sessionToken) => p.mint({
+    caller: L0176, sessionToken, fn: "author", op: "learnosity.sign-author", occurrenceId: "n3.0", argsDigest: digest("args")
+  });
+
+  it("leaves Author out of an owner's session by default", async () => {
+    const result = await snap();
+    expect(result.allowed).not.toContain("author");
+  });
+
+  it("includes Author for the owner once the deployment enables it", async () => {
+    policy = withGates(new Set(["0176:author"]));
+    const result = await snap();
+    expect(result.allowed).toEqual(ALL_FNS);
+    await expect(mintAuthor(policy, result.sessionToken)).resolves.toBeTruthy();
+  });
+
+  it("refuses to mint Author even for a session that lists it", async () => {
+    await denied(mintAuthor(policy, await authorSession()), "fn-not-enabled");
+    expect(records.at(-1)).toMatchObject({ event: "mint", outcome: "denied", reason: "fn-not-enabled", fn: "author" });
+  });
+
+  it("is not reachable through an owner's own permission list", async () => {
+    await connections.put({ ...(await connections.get("conn-1")), ownerPermissions: [{ lang: "0176", fn: "author" }] });
+    // init still comes with any function named in its language (GRANT-01).
+    expect((await snap()).allowed).toEqual(["init"]);
+    await denied(mintAuthor(policy, await authorSession()), "fn-not-enabled");
   });
 });
 

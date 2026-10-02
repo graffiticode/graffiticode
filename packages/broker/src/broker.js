@@ -19,7 +19,7 @@
 //
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
-import { isOperationAllowed, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { gatedOperations, isOperationAllowed, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { verifyToken } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
 import { PayloadRejected, ProviderRejected } from "./operations.js";
@@ -69,6 +69,8 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
     // for.
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
+    // A gated operation this deployment has not enabled (spec AUTHOR-01).
+    if (!operation && gatedOperations().has(op)) return refuse("operation-not-enabled");
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
       return refuse("operation-not-allowed");

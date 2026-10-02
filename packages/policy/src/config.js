@@ -2,7 +2,7 @@
 // startup: a missing or malformed setting stops the service rather than
 // running it with a weaker default.
 
-import { OPERATIONS } from "@graffiticode/common/protected-registry";
+import { OPERATIONS, isGatedFunction, gatedOperations } from "@graffiticode/common/protected-registry";
 
 export const requireEnv = (env, name) => {
   const value = env[name];
@@ -100,4 +100,52 @@ export const createIdTokenSource = ({ GoogleAuth }) => {
     if (typeof value !== "string") throw new Error("no ID token");
     return value.replace(/^Bearer\s+/, "");
   };
+};
+
+// POLICY_ENABLED_GATED_FUNCTIONS (optional): JSON array of "<lang>:<fn>" naming
+// enablement-gated registry functions this deployment allows (spec AUTHOR-01),
+// e.g. ["0176:author"]. Absent or empty enables none, the production setting
+// until provider evidence is recorded. Anything malformed, unknown or not gated
+// stops the service.
+export const parseEnabledGatedFunctions = json => {
+  const fail = why => { throw new Error(`POLICY_ENABLED_GATED_FUNCTIONS ${why}`); };
+  if (json === undefined || json === null || String(json).trim() === "") return Object.freeze(new Set());
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    fail("must be JSON");
+  }
+  if (!Array.isArray(parsed)) fail("must be an array");
+  const out = new Set();
+  for (const entry of parsed) {
+    const m = typeof entry === "string" ? /^L?(\d{1,4}):([a-z][a-z0-9-]*)$/i.exec(entry) : null;
+    if (!m) fail(`entry ${JSON.stringify(entry)} must be "<lang>:<fn>"`);
+    const lang = m[1].padStart(4, "0");
+    if (!isGatedFunction(lang, m[2])) fail(`entry ${entry} is not an enablement-gated registry function`);
+    out.add(`${lang}:${m[2]}`);
+  }
+  return Object.freeze(out);
+};
+
+// BROKER_ENABLED_GATED_OPERATIONS (optional): JSON array of operation names
+// that only enablement-gated functions use, which this broker may execute
+// (spec AUTHOR-01), e.g. ["learnosity.sign-author"]. Absent or empty enables
+// none, the production setting until provider evidence is recorded. Anything
+// malformed or not a gated operation stops the service.
+export const parseEnabledGatedOperations = json => {
+  const fail = why => { throw new Error(`BROKER_ENABLED_GATED_OPERATIONS ${why}`); };
+  if (json === undefined || json === null || String(json).trim() === "") return Object.freeze(new Set());
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    fail("must be JSON");
+  }
+  if (!Array.isArray(parsed)) fail("must be an array");
+  const gated = gatedOperations();
+  for (const op of parsed) {
+    if (typeof op !== "string" || !gated.has(op)) fail(`entry ${JSON.stringify(op)} is not an enablement-gated operation`);
+  }
+  return Object.freeze(new Set(parsed));
 };
