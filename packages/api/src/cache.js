@@ -25,10 +25,11 @@ const buildLocalCacheDel = ({ localCache, delegate }) => async (id, type) => {
   const key = createKey(id, type);
   localCache.delete(key);
   if (delegate) {
-    await delegate.set(id, type);
+    await delegate.del(id, type);
   }
 };
 
+/** @param {{ delegate?: { get: Function, set: Function, del: Function } }} options */
 export const buildLocalCache = ({ delegate }) => {
   const localCache = new Map();
   const get = buildLocalCacheGet({ localCache, delegate });
@@ -60,5 +61,4 @@ export const buildRedisCache = () => {
   return { get, set, del };
 };
 
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const cacheApi = buildLocalCache({});

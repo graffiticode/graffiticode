@@ -15,7 +15,7 @@ touch by typing the code, not by moving the comment.
 | policy | 7 |
 | broker | 3 |
 | deploy | 8 |
-| api | 38 |
+| api | 37 |
 
 ## Real bugs found
 
@@ -24,10 +24,9 @@ Both were in code nothing exercised, and are now resolved:
 - **`api/src/util.js` `statusCodeFromErrors` / `messageFromErrors`** iterated
   with `for (const err in errs)` (array indices), so they always returned
   `500` / `"Internal error"`. Nothing imported them: deleted.
-- **`api/src/cache.js` `buildLocalCacheDel`** calls `delegate.set(id, type)`
-  instead of `delegate.del(id, type)`. Dormant: the only cache in use
-  (`cacheApi = buildLocalCache({})`) has no delegate. (Found by reading, not
-  by the checker.)
+- **`api/src/cache.js` `buildLocalCacheDel`** called `delegate.set(id, type)`
+  instead of `delegate.del(id, type)`. Dormant (nothing imports `cache.js`);
+  fixed, with `cache.spec.js`. (Found by reading, not by the checker.)
 
 Also recorded by the phase 0.3 characterization tests: `api/src/code.js`
 `objectToCode` is unused and returns `{ root: 0 }` for any non-empty input.
