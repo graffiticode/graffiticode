@@ -14,7 +14,7 @@
 // or its skip check. Results are written to .jest-results/<target>.json.
 
 import { spawnSync } from "child_process";
-import { mkdirSync, readFileSync } from "fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync } from "fs";
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
 import { checkSkips } from "./check-skips.js";
@@ -52,6 +52,16 @@ for (const target of targets) {
     continue;
   }
   for (const problem of checkSkips(results, target.allowSkips)) failures.push(`${target.name}: ${problem}`);
+}
+
+// The compiled-spec mirrors live inside each package; remove them so a later
+// plain `npm test` in that package does not also run the copied specs. Each
+// compiled group re-runs prepare-compiled-specs.js first, so remove
+// every package's mirror, not just this group's.
+if (group.startsWith("compiled")) {
+  for (const pkg of readdirSync(resolve(ROOT, "packages"))) {
+    rmSync(resolve(ROOT, "packages", pkg, ".compiled-test"), { recursive: true, force: true });
+  }
 }
 
 if (failures.length) {
