@@ -1,21 +1,92 @@
-# TypeScript migration: phase 1 hotspots
+# TypeScript migration notes
 
-Phase 1 ran `checkJs` (no emit, not strict) over every workspace package with
-TypeScript 5.9.3. It produced 110 errors on 90 lines (some lines carry two). Each is suppressed with
-`// @ts-expect-error TS-MIGRATE: <reason>`; `npm run typecheck` enforces the
-per-package budget in `scripts/ts-migrate-budget.json`, so the count can only
-fall. Phase 3 conversions should remove the suppressions in the files they
-touch by typing the code, not by moving the comment.
+Running record of the `packages/*` TypeScript migration: where each package
+stands, how a conversion is done, and what went wrong along the way so it is
+not repeated. Phases: 0 safety net, 1 `checkJs` discovery, 2a compiled build,
+2b packages load from `dist/`, 3 `.ts` sources, 4 strict and typed releases.
 
-| Package | Suppressions |
-|---|---|
-| common | 0 |
-| auth | 20 |
-| auth-client | 8 |
-| policy | 7 |
-| broker | 3 |
-| deploy | 8 |
-| api | 37 |
+## Status
+
+As of 2026-10-02. "Branch" means pushed, not yet merged to `main`.
+
+| Package | 2b: loads `dist/` | 3: `.ts` sources / specs | npm |
+|---|---|---|---|
+| common | ✅ main | branch `ts-phase3-common` / `ts-phase3-common-specs` | `2.1.0-ts.0` on `next` |
+| auth | ✅ main | — | `2.2.0-ts.0` on `next` |
+| auth-client | branch `ts-phase2b-auth-client` | — | `1.1.0-ts.0` prepared, not published |
+| policy | — | — | private |
+| broker | — | — | private |
+| api | — | — | not published |
+| deploy | — | — | private |
+
+All four services (auth, api, policy, broker) run Phase 2a images with
+compiled `common` and `auth` (releases from `50f6a4a` / `dd20861`), and every
+release passes its candidate `verify` module before promotion.
+
+`TS-MIGRATE` suppression budgets on `main` (`scripts/ts-migrate-budget.json`,
+enforced by `npm run typecheck`; they only go down):
+
+| Package | Sources | Tests |
+|---|---|---|
+| common | 0 | 2 (0 on `ts-phase3-common-specs`) |
+| auth | 20 | 8 |
+| auth-client | 8 | 10 |
+| policy | 7 | 0 |
+| broker | 3 | 7 |
+| deploy | 8 | 9 |
+| api | 37 | 82 |
+
+Phase 1 found 110 errors on 90 lines; the rest are listed below by class.
+Conversions should remove the suppressions in the files they touch by typing
+the code, not by moving the comment.
+
+## How a package is converted (phase 3)
+
+1. **Rename commit**: `git mv src/*.js src/*.ts` with contents unchanged, so
+   every file is a 100% rename and `git log --follow` keeps its history. This
+   commit alone may not type-check; say so in its message.
+2. **Types commit**: annotations and `import type` only. Class fields that
+   only exist for typing use `declare` (an ES2022 field emits runtime code).
+   No enums, namespaces, decorators or parameter properties (ESLint bans them).
+3. **Keep public types as loose as the JavaScript build's** where other
+   packages depend on that looseness (e.g. `req` as `any` for services that
+   attach `req.auth`). A conversion must not change what sibling packages see:
+   `npm run typecheck` across all packages must pass with no new errors and no
+   sibling suppression becoming unused. Tightening is phase 4.
+4. **Prove the emit is unchanged**: save a clean build of the package before
+   converting, then `node scripts/compare-emit.js <before> <after>` (or
+   `--base <ref>`) must report 0 differences. Only `.d.ts` files may change.
+5. **Specs** follow in their own rename + types commits. Deliberate type
+   violations in tests become explicit, commented casts, not suppressions.
+6. Lint covers `.ts` (`eslint --ext .js,.ts`); lower the package's budgets.
+
+## Lessons from phases 0–3
+
+- **A deploy snapshots whatever is checked out.** A broker release went out
+  from an unmerged branch because the working copy was left on it. Always
+  return the checkout to `main` after branch work.
+- **`tsc` writes files without the execute bit**, and the runtime image ran
+  `npm ci` before `dist/` existed, so a `dist/` bin could not run.
+  `npm run build` now marks bin targets executable
+  (`scripts/fix-bin-modes.js`) and Dockerfiles copy `dist/` before the
+  production install.
+- **New candidate tag URLs propagate gradually**: a request can get Google's
+  HTML "Error: Page not found" 404 without reaching the container. The verify
+  helper retries only that response (`verify/lib.js`).
+- **Build info outside `dist/` hides missing output**: deleting `dist/` did not
+  force a rebuild. Build info now lives in `dist/`; `npm run build:clean`
+  removes every project's outputs first.
+- **A CLI `--testPathIgnorePatterns` replaces a jest config's own list**: it
+  made the root run sweep every spec in the repo. Root jest relies on its
+  config (which ignores `packages/`, `languages/`, `verify/`, `.claude/`).
+- **`node --test` files named `*.test.js` are picked up by jest** unless their
+  directory is ignored (the `verify/` incident).
+- **Prereleases stay out of ranges**: `auth-react`'s peer `^2.1.2` rejects
+  `2.2.0-ts.0`, so consumers testing a prerelease need `--legacy-peer-deps`;
+  the stable release will satisfy the range.
+- **npm one-time passwords expire in about 30 s**; relaying them through a
+  chat is unreliable. Publish from your own terminal (npm prompts for the
+  code) or paste a fresh code straight into `--otp=`.
 
 ## Real bugs found
 
