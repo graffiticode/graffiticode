@@ -1,6 +1,6 @@
 export { createPolicy, PolicyDenied, PolicyMaintenance } from "./policy.js";
 export { createProtectedSwitch, createFirestoreFlagReader, parseHardDisable, admission, PROTECTED_EXECUTION_DOC, MAINTENANCE } from "./maintenance.js";
-export { createLocalSigner, issueToken, verifyToken, PROFILES, ISSUER, ALG } from "./tokens.js";
+export { createLocalSigner, issueToken, verifyToken, tokenParts, PROFILES, ISSUER, ALG, CLOCK_SKEW_SECONDS, RESERVED_CLAIMS } from "./tokens.js";
 export { createMemoryConnectionStore, connectionRefusal } from "./connections.js";
 export { createAudit, createPseudonymizer } from "./audit.js";
 export { createCallerIdentity, buildGoogleIdTokenVerifier } from "./caller.js";

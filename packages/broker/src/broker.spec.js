@@ -252,12 +252,16 @@ describe("preview signing", () => {
     await refused(broker.execute({ caller: L0176, token: sessionToken, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
     const forged = await issueToken(otherSigner, "execution", {
       sub: OWNER,
+      own: OWNER,
       conn: "conn-1",
       backend: "learnosity",
       lang: "0176",
       fn: "init",
       op: "learnosity.sign-questions-preview",
-      argd: argsDigest(PREVIEW)
+      sid: "sid-1",
+      opid: "inv-1/s0/n1",
+      argd: argsDigest(PREVIEW),
+      rv: REGISTRY_VERSION
     });
     await refused(broker.execute({ caller: L0176, token: forged, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
   });
@@ -281,6 +285,8 @@ describe("preview signing", () => {
       lang: "0176",
       fn: "init",
       op: "learnosity.sign-questions-preview",
+      sid: "sid-1",
+      opid: "inv-1/s0/n1",
       argd: argsDigest(PREVIEW),
       rv: -1
     });

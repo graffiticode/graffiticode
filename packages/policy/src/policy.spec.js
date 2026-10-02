@@ -13,6 +13,7 @@ import {
   createAudit,
   createPseudonymizer,
   ISSUER,
+  PROFILES,
   createProtectedSwitch
 } from "./index.js";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
@@ -87,15 +88,115 @@ const denied = async (promise, reason) => {
   await expect(promise).rejects.toMatchObject({ reason });
 };
 
+// Each profile's required claims, as Policy issues them (TOKEN-01).
+const INVOCATION_CLAIMS = { sub: OWNER, conn: "conn-1", inv: "inv-1", seq: 0 };
+const SESSION_CLAIMS = {
+  sub: OWNER,
+  own: OWNER,
+  conn: "conn-1",
+  backend: "learnosity",
+  lang: "0176",
+  inv: "inv-1",
+  stg: "s0",
+  rv: 1,
+  fns: ["init"]
+};
+const EXEC_CLAIMS = {
+  sub: OWNER,
+  own: OWNER,
+  conn: "conn-1",
+  backend: "learnosity",
+  lang: "0176",
+  fn: "init",
+  op: "learnosity.sign-items-preview",
+  sid: "sid-1",
+  opid: "inv-1/s0/n1",
+  argd: "a".repeat(64),
+  rv: 1
+};
+
 describe("token profiles", () => {
+  // A token signed with the right key but built by hand, to reach the checks
+  // a correct signer never fails.
+  /** @param {{ header?: object, claims?: object, iat?: number, exp?: number, jti?: string | null }} [options] */
+  const handmade = async ({ header = {}, claims = SESSION_CLAIMS, iat, exp, jti = "j" } = {}) => {
+    const now = Math.floor(Date.now() / 1000);
+    const jwt = new SignJWT({ ...claims })
+      .setProtectedHeader({ alg: "ES256", kid: "k1", typ: "gc-session+jwt", ...header })
+      .setIssuer(ISSUER).setAudience("urn:graffiticode:policy")
+      .setIssuedAt(iat ?? now).setExpirationTime(exp ?? now + 60);
+    if (jti !== null) jwt.setJti(jti);
+    return jwt.sign(privateKey);
+  };
+
+  it("issues every profile with its required claims, and verifies it", async () => {
+    /** @type {Array<[keyof typeof PROFILES, object]>} */
+    const cases = [["invocation", INVOCATION_CLAIMS], ["session", SESSION_CLAIMS], ["execution", EXEC_CLAIMS]];
+    for (const [name, claims] of cases) {
+      const { claims: verified, header } = await verifyToken(jwks, name, await issueToken(signer, name, claims));
+      expect(header).toEqual({ alg: "ES256", kid: "k1", typ: PROFILES[name].typ });
+      expect(verified).toMatchObject({ ...claims, iss: ISSUER, aud: PROFILES[name].audience });
+      expect(typeof verified.jti).toBe("string");
+      expect(verified.exp - verified.iat).toBe(PROFILES[name].maxTtlSeconds);
+    }
+  });
+
+  it("caps each profile's lifetime at the spec maximum", () => {
+    expect(PROFILES.invocation.maxTtlSeconds).toBe(30 * 60);
+    expect(PROFILES.session.maxTtlSeconds).toBe(15 * 60);
+    expect(PROFILES.execution.maxTtlSeconds).toBe(60);
+    expect(Object.isFrozen(PROFILES.execution.required)).toBe(true);
+  });
+
+  it("refuses to issue a token missing a required claim, with a mistyped claim, or setting a registered claim", async () => {
+    const { sid, ...noSid } = EXEC_CLAIMS;
+    await expect(issueToken(signer, "execution", noSid)).rejects.toThrow(/sid/);
+    await expect(issueToken(signer, "session", { ...SESSION_CLAIMS, fns: "init" })).rejects.toThrow(/fns/);
+    await expect(issueToken(signer, "session", { ...SESSION_CLAIMS, sys: "yes" })).rejects.toThrow(/sys/);
+    await expect(issueToken(signer, "session", { ...SESSION_CLAIMS, exp: 9999999999 })).rejects.toThrow(/exp/);
+    await expect(issueToken(signer, "session", { ...SESSION_CLAIMS, jti: "fixed" })).rejects.toThrow(/jti/);
+    await expect(issueToken(signer, "admission", SESSION_CLAIMS)).rejects.toThrow(/unknown token profile/);
+  });
+
+  it("accepts a well-formed handmade token, so the refusals below test one thing each", async () => {
+    await expect(verifyToken(jwks, "session", await handmade())).resolves.toBeTruthy();
+  });
+
+  it("rejects a token missing a required claim", async () => {
+    const { stg, ...noStage } = SESSION_CLAIMS;
+    await expect(verifyToken(jwks, "session", await handmade({ claims: noStage }))).rejects.toThrow(/stg/);
+    await expect(verifyToken(jwks, "session", await handmade({ claims: { ...SESSION_CLAIMS, rv: "1" } }))).rejects.toThrow(/rv/);
+  });
+
+  it("rejects a token without a jti, a kid, or a kid the key set names", async () => {
+    await expect(verifyToken(jwks, "session", await handmade({ jti: null }))).rejects.toThrow(/jti/);
+    await expect(verifyToken(jwks, "session", await handmade({ header: { kid: undefined } }))).rejects.toThrow(/kid/);
+    await expect(verifyToken(jwks, "session", await handmade({ header: { kid: "k2" } }))).rejects.toThrow(/kid/);
+  });
+
+  it("rejects a lifetime beyond the profile maximum, an expiry before issue, and an issue time in the future", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    await expect(verifyToken(jwks, "session", await handmade({ iat: now, exp: now + 15 * 60 + 1 }))).rejects.toThrow(/lifetime/);
+    await expect(verifyToken(jwks, "session", await handmade({ iat: now, exp: now + 15 * 60 }))).resolves.toBeTruthy();
+    await expect(verifyToken(jwks, "session", await handmade({ iat: now + 60, exp: now + 120 }))).rejects.toThrow(/future/);
+    await expect(verifyToken(jwks, "session", await handmade({ iat: now + 5, exp: now + 65 }))).resolves.toBeTruthy();
+  });
+
+  it("checks expiry and issue time against an injected clock", async () => {
+    const token = await issueToken(signer, "execution", EXEC_CLAIMS);
+    const { iat, exp } = (await verifyToken(jwks, "execution", token)).claims;
+    await expect(verifyToken(jwks, "execution", token, { currentDate: new Date((exp + 1) * 1000) })).rejects.toThrow();
+    await expect(verifyToken(jwks, "execution", token, { currentDate: new Date((iat - 60) * 1000) })).rejects.toThrow(/future/);
+  });
+
   it("verifies a session token only as a session token", async () => {
-    const token = await issueToken(signer, "session", { sub: OWNER });
+    const token = await issueToken(signer, "session", SESSION_CLAIMS);
     await expect(verifyToken(jwks, "session", token)).resolves.toBeTruthy();
     await expect(verifyToken(jwks, "execution", token)).rejects.toThrow();
   });
 
   it("verifies an execution token only as an execution token", async () => {
-    const token = await issueToken(signer, "execution", { sub: OWNER });
+    const token = await issueToken(signer, "execution", EXEC_CLAIMS);
     await expect(verifyToken(jwks, "execution", token)).resolves.toBeTruthy();
     await expect(verifyToken(jwks, "session", token)).rejects.toThrow();
   });
@@ -125,7 +226,7 @@ describe("token profiles", () => {
   it("rejects a token signed by another key", async () => {
     const other = await generateKeyPair("ES256", { extractable: true });
     const otherSigner = await createLocalSigner({ privateJwk: await exportJWK(other.privateKey), kid: "k1" });
-    const token = await issueToken(otherSigner, "session", { sub: OWNER });
+    const token = await issueToken(otherSigner, "session", SESSION_CLAIMS);
     await expect(verifyToken(jwks, "session", token)).rejects.toThrow();
   });
 });
@@ -360,7 +461,7 @@ describe("invocations", () => {
   it("must come from a policy invocation token for this user and connection", async () => {
     const { invocationToken } = await invoke();
     await denied(snap({ invocationToken: "not-a-token" }), "bad-invocation");
-    await denied(snap({ invocationToken: await issueToken(signer, "session", { sub: OWNER, conn: "conn-1", inv: "inv-x" }) }), "bad-invocation");
+    await denied(snap({ invocationToken: await issueToken(signer, "session", { ...SESSION_CLAIMS, inv: "inv-x" }) }), "bad-invocation");
     await denied(snap({ invocationToken, user: { uid: OTHER }, connectionId: "conn-other" }), "bad-invocation");
     await denied(snap({ invocationToken, stage: "" }), "bad-request");
   });
