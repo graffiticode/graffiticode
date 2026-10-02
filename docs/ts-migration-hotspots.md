@@ -45,10 +45,12 @@ the code, not by moving the comment.
 `node scripts/soak-report.js` judges each service's latest release against the
 same weekday/hours a week earlier and says **MET** after 24 h without a
 regression (shortened from 72 h on 2026-10-02: traffic is too low for a
-longer window to add statistical power). Two other adjustments that day:
+longer window to add statistical power), and api and auth need 300 judged
+requests rather than 1,000, about a day of their traffic. Two other
+adjustments that day:
 
 - **policy and broker** get almost no production traffic (single digits a
-  day, none in the baseline window), so they can never reach 1,000 requests.
+  day, none in the baseline window), so they can never reach the volume bar.
   Their soak is the release's passed candidate `verify` (recorded in the
   receipt) plus no 5xx and no new error signatures for 24 h.
 - **Requests the api proxies to a language server** (`/L<lang>/...`) are

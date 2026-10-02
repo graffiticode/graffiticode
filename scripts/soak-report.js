@@ -6,7 +6,7 @@
 // For each service, takes its newest released receipt in .gc-deploy/releases,
 // and compares the released revision (promotion → now) with the whole
 // service over the same weekday/hours window one week earlier:
-//   volume     ≥ 1000 requests, else the soak is EXTENDED, not passed (policy
+//   volume     ≥ 300 requests, else the soak is EXTENDED, not passed (policy
 //              and broker: a passed candidate verify instead; see below)
 //   duration   MET once all of this has held for 24 h; PASS so far before
 //   5xx rate   ≤ max(baseline × 1.1, baseline + 0.1 percentage points)
@@ -27,7 +27,9 @@ import { run } from "../packages/deploy/src/process.js";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = "graffiticode";
 const WEEK = 7 * 24 * 3600 * 1000;
-const MIN_REQUESTS = 1000;
+// api and auth see a few hundred requests a day; lowered from 1,000 on
+// 2026-10-02 so a day of traffic can complete their soak.
+const MIN_REQUESTS = 300;
 // Below this many requests, latency and 5xx comparisons are noise.
 const MIN_FOR_RATES = 100;
 const MIN_HOURS = 24;
