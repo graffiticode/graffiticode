@@ -46,6 +46,15 @@ Uniform rules:
   was phrased.
 - **Everything except the block and the paging policy is optional.** An unfiltered read is
   legal and warns that it reads the whole bank.
+- **Every paged read sets `limit 50`**, the documented maximum. Without it Learnosity's
+  smaller default page size applies and the compiler warns; an `EXHAUSTIVE` read still
+  gets everything, just in more pages.
+- **`sort-field` values differ by block.** `items-get`: `"created"` `"updated"`
+  `"reference"` `"title"`. `activities-get`, `questions-get`, `features-get`, `pools-get`:
+  only `"created"` `"updated"`. `tagging-tags-get`: `"sort_key"` `"created"` `"updated"`.
+  Any other value is a warning — to order pools by name, there is no such field; say so.
+- **`authoring-workflow-states` needs `authoring-workflow-reference`** in the same request:
+  the workflow reference is mandatory whenever workflow states are filtered on.
 - **An unknown property is a parse error**, not a warning. Warnings are reserved for
   values and combinations the compiler accepted but wants to steer.
 - Do NOT write `let` bindings, records, or an `endpoint`/`action`/`request` object. The
@@ -388,6 +397,7 @@ data-job
     mintime "2026-01-01"
     sort "desc"
     sort-field "created"
+    limit 50
     {}
   ]
   {}..
@@ -402,6 +412,7 @@ data-job
     activity-id ["numeracy"]
     status ["Completed"]
     mintime-completed "2026-01-01"
+    limit 50
     {}
   ]
   {}..
