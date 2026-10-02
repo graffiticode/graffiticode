@@ -10,7 +10,11 @@
 //              and broker: a passed candidate verify instead; see below)
 //   duration   MET once all of this has held for 24 h; PASS so far before
 //   5xx rate   ≤ max(baseline × 1.1, baseline + 0.1 percentage points)
-//   p95        ≤ baseline × 1.1 + 50 ms
+//   p95        per route (method + path): ≤ baseline × 1.1 + 50 ms for every
+//              route with ≥ 20 requests in both windows. One overall p95 is
+//              shown but not judged: it moves with the traffic mix (a window
+//              full of 3 ms OPTIONS and bot probes vs one full of compiles)
+//              even when no route got slower.
 //   errors     ERROR-or-worse log signatures not seen in the baseline window
 // Smoke/verify requests to the tagged candidate URL are excluded, and rates
 // and latency are not judged below 100 requests. Language requests the api
@@ -56,12 +60,39 @@ const revisionCreated = async revision =>
   JSON.parse(await run("gcloud", ["run", "revisions", "describe", revision, `--project=${PROJECT}`, "--region=us-central1", "--format=json"], {})).metadata.creationTimestamp;
 
 const read = async filter => JSON.parse(await run("gcloud", ["logging", "read", filter, `--project=${PROJECT}`, `--limit=${LIMIT}`,
-  "--format=json(httpRequest.status,httpRequest.latency,httpRequest.requestUrl,severity,textPayload,jsonPayload.message)"], {}));
+  "--format=json(httpRequest.status,httpRequest.latency,httpRequest.requestUrl,httpRequest.requestMethod,severity,textPayload,jsonPayload.message)"], {}));
 
 const window = (start, end) => `timestamp>="${new Date(start).toISOString()}" AND timestamp<"${new Date(end).toISOString()}"`;
 
 const isCandidateRequest = e => /^https:\/\/[^/]*---/.test(e?.httpRequest?.requestUrl ?? "");
 const isProxiedLangRequest = e => /^\/L\d+(\/|$|\?)/.test(new URL(e?.httpRequest?.requestUrl ?? "http://x/", "http://x").pathname);
+
+const MIN_ROUTE_REQUESTS = 20;
+
+// Method + path with ids collapsed, so /v1/connections/abc and /v1/connections/def
+// are one route. Query strings are dropped.
+const routeOf = e => {
+  const url = new URL(e?.httpRequest?.requestUrl ?? "http://x/", "http://x");
+  const path = url.pathname.split("/").map(seg => (/^[0-9a-f-]{12,}$|^[A-Za-z0-9_-]{20,}$|^\d+$/i.test(seg) ? ":id" : seg)).join("/");
+  return `${e?.httpRequest?.requestMethod ?? "?"} ${path}`;
+};
+
+const p95Of = latencies => {
+  const v = [...latencies].sort((a, b) => a - b);
+  return v.length ? v[Math.min(v.length - 1, Math.floor(v.length * 0.95))] : null;
+};
+
+// Per-route latency in each window: { route: [ms, ...] }.
+const routeLatencies = entries => {
+  const by = {};
+  for (const e of entries) {
+    if (!e?.httpRequest?.status || isCandidateRequest(e) || isProxiedLangRequest(e)) continue;
+    const ms = parseFloat(e.httpRequest.latency) * 1000;
+    if (!Number.isFinite(ms)) continue;
+    (by[routeOf(e)] ||= []).push(ms);
+  }
+  return by;
+};
 
 const httpStats = (entries, { proxied = false } = {}) => {
   const requests = entries.filter(e => e?.httpRequest?.status && !isCandidateRequest(e) && isProxiedLangRequest(e) === proxied);
@@ -93,7 +124,20 @@ const report = async service => {
   const failures = [];
   const enough = now.requests >= MIN_FOR_RATES && was.requests >= MIN_FOR_RATES;
   if (enough && now.rate5xx > Math.max(was.rate5xx * 1.1, was.rate5xx + 0.001)) failures.push("5xx rate");
-  if (enough && now.p95 !== null && was.p95 !== null && now.p95 > was.p95 * 1.1 + 50) failures.push("p95 latency");
+  const routesNow = routeLatencies(current);
+  const routesWas = routeLatencies(baseline);
+  const routeRows = [];
+  const slowRoutes = [];
+  for (const route of Object.keys(routesNow).sort((a, b) => routesNow[b].length - routesNow[a].length)) {
+    const a = routesNow[route];
+    const b = routesWas[route] ?? [];
+    if (a.length < MIN_ROUTE_REQUESTS || b.length < MIN_ROUTE_REQUESTS) continue;
+    const [pn, pw] = [p95Of(a), p95Of(b)];
+    const slow = pn > pw * 1.1 + 50;
+    if (slow) slowRoutes.push(route);
+    routeRows.push(`  ${slow ? "SLOW" : "ok  "} ${route.padEnd(30)} n=${String(a.length).padStart(4)} vs ${String(b.length).padStart(4)}  p95 ${Math.round(pn)} vs ${Math.round(pw)} ms`);
+  }
+  if (slowRoutes.length) failures.push(`p95 latency on ${slowRoutes.join(", ")}`);
   if (newSigs.length) failures.push("new error signatures");
   const hoursUp = (end - start) / 3600000;
   const candidateChecked = CANDIDATE_CHECKED.has(service);
@@ -117,7 +161,11 @@ const report = async service => {
       `release ${receipt.id} → ${receipt.revision}, ${hours} h since revision creation (need ${MIN_HOURS})`,
       `requests  ${now.requests}${now.truncated ? "+" : ""} (baseline week-ago window ${was.requests}${was.truncated ? "+" : ""}; ${candidateChecked ? `candidate verify ${receipt.verify?.module ?? "MISSING"}` : `need ${MIN_REQUESTS}`})`,
       `5xx       ${pct(now.rate5xx)} (${now.errors5xx}) vs ${pct(was.rate5xx)} (${was.errors5xx})`,
-      `p95       ${ms(now.p95)} vs ${ms(was.p95)}${enough ? "" : ` (not judged below ${MIN_FOR_RATES} requests)`}`,
+      `p95       ${ms(now.p95)} vs ${ms(was.p95)} overall (not judged: moves with the traffic mix)`,
+      routeRows.length
+        ? `routes    judged per route (≥ ${MIN_ROUTE_REQUESTS} requests in both windows):`
+        : `routes    none with ≥ ${MIN_ROUTE_REQUESTS} requests in both windows; latency not judged`,
+      ...routeRows,
       ...(proxiedNow.requests || proxiedWas.requests
         ? [`proxied   ${proxiedNow.requests} /L<lang> requests, p95 ${ms(proxiedNow.p95)} vs ${ms(proxiedWas.p95)}, 5xx ${proxiedNow.errors5xx} (not judged)`]
         : []),
