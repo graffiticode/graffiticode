@@ -11,7 +11,10 @@
 //   p95        ≤ baseline × 1.1 + 50 ms
 //   errors     ERROR-or-worse log signatures not seen in the baseline window
 // Smoke/verify requests to the tagged candidate URL are excluded, and rates
-// and latency are not judged below 100 requests. Policy/broker audit rates
+// and latency are not judged below 100 requests. Language requests the api
+// proxies to a language server (/L<lang>/...) are reported on their own line
+// and not judged: their latency is the language server's (e.g. its cold
+// starts), not this release's. Policy/broker audit rates
 // are not computed here; read their audit logs during review.
 
 import { readdir, readFile } from "node:fs/promises";
@@ -47,9 +50,10 @@ const read = async filter => JSON.parse(await run("gcloud", ["logging", "read", 
 const window = (start, end) => `timestamp>="${new Date(start).toISOString()}" AND timestamp<"${new Date(end).toISOString()}"`;
 
 const isCandidateRequest = e => /^https:\/\/[^/]*---/.test(e?.httpRequest?.requestUrl ?? "");
+const isProxiedLangRequest = e => /^\/L\d+(\/|$|\?)/.test(new URL(e?.httpRequest?.requestUrl ?? "http://x/", "http://x").pathname);
 
-const httpStats = entries => {
-  const requests = entries.filter(e => e?.httpRequest?.status && !isCandidateRequest(e));
+const httpStats = (entries, { proxied = false } = {}) => {
+  const requests = entries.filter(e => e?.httpRequest?.status && !isCandidateRequest(e) && isProxiedLangRequest(e) === proxied);
   const latencies = requests.map(e => parseFloat(e.httpRequest.latency) * 1000).filter(Number.isFinite).sort((a, b) => a - b);
   const p95 = latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * 0.95))] : null;
   const errors5xx = requests.filter(e => e.httpRequest.status >= 500).length;
@@ -69,6 +73,8 @@ const report = async service => {
   const baseline = (await read(`${base} AND ${window(start - WEEK, end - WEEK)}`)).filter(Boolean);
   const now = httpStats(current);
   const was = httpStats(baseline);
+  const proxiedNow = httpStats(current, { proxied: true });
+  const proxiedWas = httpStats(baseline, { proxied: true });
   const errorSigs = new Set(current.filter(e => ["ERROR", "CRITICAL", "ALERT", "EMERGENCY"].includes(e.severity)).map(signature));
   const baseSigs = new Set(baseline.filter(e => ["ERROR", "CRITICAL", "ALERT", "EMERGENCY"].includes(e.severity)).map(signature));
   const newSigs = [...errorSigs].filter(s => !baseSigs.has(s));
@@ -90,6 +96,9 @@ const report = async service => {
       `requests  ${now.requests}${now.truncated ? "+" : ""} (baseline week-ago window ${was.requests}${was.truncated ? "+" : ""}; need ${MIN_REQUESTS})`,
       `5xx       ${pct(now.rate5xx)} (${now.errors5xx}) vs ${pct(was.rate5xx)} (${was.errors5xx})`,
       `p95       ${ms(now.p95)} vs ${ms(was.p95)}${enough ? "" : ` (not judged below ${MIN_FOR_RATES} requests)`}`,
+      ...(proxiedNow.requests || proxiedWas.requests
+        ? [`proxied   ${proxiedNow.requests} /L<lang> requests, p95 ${ms(proxiedNow.p95)} vs ${ms(proxiedWas.p95)}, 5xx ${proxiedNow.errors5xx} (not judged)`]
+        : []),
       `errors    ${errorSigs.size} signature(s), ${newSigs.length} new${newSigs.length ? ":" : ""}`,
       ...newSigs.slice(0, 10).map(s => `            ${s}`),
     ],
