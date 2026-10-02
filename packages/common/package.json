@@ -21,8 +21,8 @@
     "supertest": "^6.3.3"
   },
   "scripts": {
-    "lint": "eslint src/",
-    "lint:fix": "eslint --fix src/",
+    "lint": "eslint --ext .js,.ts src/",
+    "lint:fix": "eslint --fix --ext .js,.ts src/",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest"
   },
   "keywords": [],

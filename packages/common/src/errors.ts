@@ -1,5 +1,9 @@
 export class ConflictError extends Error {
-  constructor(message, details) {
+  // Type-only (declare): an ES2022 class field would initialize at runtime.
+  // `any` keeps callers that read e.g. details.conflictUid as they were;
+  // phase 4 narrows it.
+  declare details: any;
+  constructor(message?: string, details?: any) {
     super(message);
     this.details = details;
   }
@@ -23,13 +27,13 @@ export class UnauthorizedError extends Error { }
 
 export class UnavailableError extends Error { }
 
-export const error = (ErrorClass, args) => new (ErrorClass)(...args);
-export const assert = (condition, error) => {
+export const error = (ErrorClass: new (...args: any[]) => Error, args: unknown[]): Error => new (ErrorClass)(...args);
+export const assert = (condition: unknown, error: Error): void => {
   if (!condition) {
     throw error;
   }
 };
 
-export const checkArgument = (condition, ...args) => assert(condition, error(InvalidArgumentError, args));
+export const checkArgument = (condition: unknown, ...args: unknown[]): void => assert(condition, error(InvalidArgumentError, args));
 
-export const checkState = (condition, ...args) => assert(condition, error(IllegalStateError, args));
+export const checkState = (condition: unknown, ...args: unknown[]): void => assert(condition, error(IllegalStateError, args));

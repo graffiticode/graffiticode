@@ -12,10 +12,6 @@ module.exports = {
       files: ["*.ts"],
       parser: "@typescript-eslint/parser",
       plugins: ["@typescript-eslint"],
-      settings: {
-        // Resolve the .js specifiers that NodeNext requires to their .ts files.
-        "import/resolver": { typescript: { alwaysTryTypes: true }, node: true },
-      },
       rules: {
         // TypeScript checks these itself; the core rules misreport TS syntax.
         "no-undef": "off",
@@ -26,9 +22,6 @@ module.exports = {
         "no-use-before-define": "off",
         "@typescript-eslint/no-use-before-define": ["error", { functions: false, classes: false, variables: false, typedefs: false }],
         "no-useless-constructor": "off",
-        // NodeNext needs the emitted file's name in a specifier: "./app.js"
-        // for app.ts. Require .js; never allow .ts.
-        "import/extensions": ["error", "ignorePackages", { js: "always", ts: "never" }],
         // Mechanical conversion: no syntax that emits runtime code.
         "@typescript-eslint/parameter-properties": "error",
         "no-restricted-syntax": ["error",
@@ -44,12 +37,19 @@ module.exports = {
     sourceType: "module"
   },
   plugins: ["import"],
+  settings: {
+    // Resolve the .js specifiers NodeNext requires ("./app.js") to app.ts
+    // once a file is converted; plain .js files resolve exactly as before.
+    "import/resolver": { typescript: { alwaysTryTypes: true }, node: true },
+  },
   rules: {
     "camelcase": [2, {
       "allow": ["grant_type", "refresh_token", "access_token"],
     }],
     "comma-dangle": ["error", "only-multiline"],
-    "import/extensions": [2, "ignorePackages"],
+    // NodeNext needs the emitted file's name in a specifier: "./app.js" for
+    // app.ts. Require .js, in JS and TS files alike; never allow .ts.
+    "import/extensions": [2, "ignorePackages", { js: "always", ts: "never" }],
     "import/no-commonjs": 2,
     "no-mixed-operators": 0,
     "quotes": [2, "double"],
