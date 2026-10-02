@@ -67,7 +67,8 @@
       "<rootDir>/packages/",
       "<rootDir>/languages/",
       "<rootDir>/node_modules/",
-      "<rootDir>/.claude/"
+      "<rootDir>/.claude/",
+      "<rootDir>/verify/"
     ]
   },
   "dependencies": {
