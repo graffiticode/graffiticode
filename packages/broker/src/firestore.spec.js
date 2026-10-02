@@ -6,7 +6,8 @@ import {
   createFirestoreOnceStore,
   createFirestoreReceiptStore,
   createFirestoreSecretStore,
-  createSecretBox
+  createSecretBox,
+  StepConflict
 } from "./index.js";
 
 const run = process.env.FIRESTORE_EMULATOR_HOST ? describe : describe.skip;
@@ -36,6 +37,19 @@ run("firestore broker stores", () => {
     await receipts.putOutcome(op, { status: "succeeded", steps: ["questions"], result: null });
     await expect(receipts.putOutcome(op, { status: "failed", steps: [], result: null })).rejects.toThrow();
     expect((await receipts.getOutcome(op)).status).toBe("succeeded");
+  });
+
+  it("records each step once, in order, acknowledging an identical repeat and refusing a different one", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = `${randomUUID()}/n1.0`;
+    expect(await receipts.getSteps(op)).toEqual([]);
+    await receipts.putStep(op, 1, "items");
+    await receipts.putStep(op, 0, "questions");
+    await expect(receipts.putStep(op, 0, "questions")).resolves.toBeUndefined();
+    await expect(receipts.putStep(op, 0, "items")).rejects.toBeInstanceOf(StepConflict);
+    const racers = await Promise.allSettled(["a", "b"].map(step => receipts.putStep(op, 2, step)));
+    expect(racers.filter(r => r.status === "fulfilled")).toHaveLength(1);
+    expect(await receipts.getSteps(op)).toEqual(["questions", "items", racers[0].status === "fulfilled" ? "a" : "b"]);
   });
 
   it("stores secrets sealed and bound to their owner and backend", async () => {
