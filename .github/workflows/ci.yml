@@ -45,6 +45,8 @@ jobs:
         run: npm run test:compiled
       - name: Deploy CLI tests
         run: npm run test:deploy
+      - name: Candidate verify helper tests
+        run: npm run test:verify
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

@@ -14,21 +14,36 @@ export const check = (condition, message) => {
   if (!condition) throw new VerifyError(message);
 };
 
+// A candidate's tag URL is created seconds before verify runs, and Google's
+// front end learns new tag routes gradually: until then a request can be
+// answered by the front end itself with an HTML "Error: Page not found" 404
+// that never reached the container. That one response is retried briefly;
+// anything the service itself returns (JSON, or any other status) is not.
+const isRoutingNotFound = (status, text) => status === 404 && /Error: Page not found/.test(text) && /<html/i.test(text);
+const ROUTING_RETRIES = 6;
+const ROUTING_DELAY_MS = 2000;
+
 // One request against the candidate. Never follows redirects; times out.
-export const request = async ({ fetch, base, path, method = "GET", headers = {}, body }) => {
+export const request = async ({ fetch, base, path, method = "GET", headers = {}, body, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) => {
   const url = new URL(path, base);
   check(url.origin === base.origin, `verify request must stay on the candidate origin: ${path}`);
-  const response = await fetch(url, {
-    method,
-    headers: { ...headers, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    redirect: "error",
-    signal: AbortSignal.timeout(30000),
-  });
-  const text = await response.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch { /* not JSON */ }
-  return { status: response.status, json, text };
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch(url, {
+      method,
+      headers: { ...headers, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      redirect: "error",
+      signal: AbortSignal.timeout(30000),
+    });
+    const text = await response.text();
+    if (isRoutingNotFound(response.status, text) && attempt < ROUTING_RETRIES) {
+      await sleep(ROUTING_DELAY_MS);
+      continue;
+    }
+    let json = null;
+    try { json = JSON.parse(text); } catch { /* not JSON */ }
+    return { status: response.status, json, text, attempts: attempt + 1 };
+  }
 };
 
 export const expectError = (label, res, status, message) => {
