@@ -30,6 +30,6 @@ for (const project of projects) {
   console.log(`cleaned ${project}`);
 }
 if (!process.argv.includes("--no-build")) {
-  const build = spawnSync("npx", ["tsc", "-b", "tsconfig.build.json", "--pretty", "false"], { cwd: ROOT, stdio: "inherit" });
+  const build = spawnSync("npm", ["run", "build", "--silent"], { cwd: ROOT, stdio: "inherit" });
   process.exit(build.status ?? 1);
 }

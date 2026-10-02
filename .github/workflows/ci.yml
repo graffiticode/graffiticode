@@ -89,7 +89,10 @@ jobs:
   # Builds each service's production image exactly as Cloud Build will
   # (multi-stage; tsc runs inside the build stage) and checks that the image
   # holds precisely the packages/<name>/dist directories that service loads,
-  # and that its src/ entry point is still there (phase 2a: CMD runs src/).
+  # and that its entry point is there. Services already switched to dist/
+  # (phase 2b) with a `port` are also started with their real CMD and must
+  # answer GET / with 200 (policy and broker need KMS to start, so they are
+  # proven at the candidate instead).
   images:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -99,7 +102,8 @@ jobs:
         include:
           - service: auth
             dists: common auth
-            entry: packages/auth/src/main.js
+            entry: packages/auth/dist/main.js
+            port: 4100
           - service: policy
             dists: common auth policy
             entry: packages/policy/src/main.js
@@ -123,3 +127,13 @@ jobs:
             docker run --rm --entrypoint sh gc-${{ matrix.service }} -c "ls packages/$p/dist/*.js >/dev/null"
           done
           docker run --rm --entrypoint sh gc-${{ matrix.service }} -c 'test -f ${{ matrix.entry }}'
+      - name: Start ${{ matrix.service }} with its real CMD
+        if: matrix.port
+        run: |
+          docker run -d --name svc -e PORT=${{ matrix.port }} -p ${{ matrix.port }}:${{ matrix.port }} gc-${{ matrix.service }}
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${{ matrix.port }}/ || true)
+            if [ "$code" = 200 ]; then echo "ready after ${i}s"; docker rm -f svc; exit 0; fi
+            sleep 1
+          done
+          docker logs svc; docker rm -f svc; exit 1

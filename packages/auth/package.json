@@ -1,6 +1,6 @@
 {
   "name": "@graffiticode/auth",
-  "version": "2.1.2",
+  "version": "2.2.0-ts.0",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -22,23 +22,28 @@
     "url": "https://github.com/graffiticode/auth/issues"
   },
   "homepage": "https://github.com/graffiticode/auth#readme",
-  "main": "./src/main.js",
+  "main": "./dist/main.js",
   "exports": {
-    ".": "./src/main.js",
-    "./client": "./src/client/remote.js",
-    "./testing": "./src/testing/app.js"
+    ".": "./dist/main.js",
+    "./client": "./dist/client/remote.js",
+    "./testing": "./dist/testing/app.js"
   },
-  "bin": "./src/main.js",
+  "bin": "./dist/main.js",
+  "files": [
+    "dist/**/*.js",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "GOOGLE_CLOUD_PROJECT=\"graffiticode\" FIREBASE_AUTH_EMULATOR_HOST=\"127.0.0.1:9099\" FIRESTORE_EMULATOR_HOST=\"127.0.0.1:8080\" nodemon --exec \"npx @graffiticode/auth\"",
     "lint": "eslint src/",
     "lint:fix": "eslint --fix src/",
-    "start": "node -r @graffiticode/tracing src/main.js",
+    "start": "node -r @graffiticode/tracing dist/main.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec --ui \"jest --runInBand\""
   },
   "dependencies": {
     "@ethereumjs/util": "^8.0.0",
-    "@graffiticode/common": "*",
+    "@graffiticode/common": "2.1.0-ts.0",
     "@graffiticode/tracing": "^0.3.0",
     "bent": "^7.3.12",
     "express": "^4.18.2",

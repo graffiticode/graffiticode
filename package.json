@@ -17,7 +17,7 @@
     "lint": "eslint test/ scripts/ verify/",
     "lint:fix": "eslint --fix test/ scripts/ verify/",
     "typecheck": "node scripts/typecheck.js",
-    "build": "tsc -b tsconfig.build.json",
+    "build": "tsc -b tsconfig.build.json && node scripts/fix-bin-modes.js",
     "build:clean": "node scripts/clean-build.js",
     "dev:build": "tsc -b tsconfig.build.json --watch --preserveWatchOutput",
     "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec jest",
