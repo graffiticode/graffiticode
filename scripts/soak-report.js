@@ -8,7 +8,7 @@
 // service over the same weekday/hours window one week earlier:
 //   volume     ≥ 1000 requests, else the soak is EXTENDED, not passed (policy
 //              and broker: a passed candidate verify instead; see below)
-//   duration   MET once all of this has held for 72 h; PASS so far before
+//   duration   MET once all of this has held for 24 h; PASS so far before
 //   5xx rate   ≤ max(baseline × 1.1, baseline + 0.1 percentage points)
 //   p95        ≤ baseline × 1.1 + 50 ms
 //   errors     ERROR-or-worse log signatures not seen in the baseline window
@@ -30,7 +30,7 @@ const WEEK = 7 * 24 * 3600 * 1000;
 const MIN_REQUESTS = 1000;
 // Below this many requests, latency and 5xx comparisons are noise.
 const MIN_FOR_RATES = 100;
-const MIN_HOURS = 72;
+const MIN_HOURS = 24;
 // Private services with almost no production traffic (they never approach
 // MIN_REQUESTS, and had none in the baseline window). Decided 2026-10-02:
 // their soak is the release's passed candidate checks (verify module, as

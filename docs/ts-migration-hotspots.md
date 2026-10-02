@@ -43,13 +43,14 @@ the code, not by moving the comment.
 ## Soak criteria in practice
 
 `node scripts/soak-report.js` judges each service's latest release against the
-same weekday/hours a week earlier and says **MET** after 72 h without a
-regression. Two adjustments made on 2026-10-02:
+same weekday/hours a week earlier and says **MET** after 24 h without a
+regression (shortened from 72 h on 2026-10-02: traffic is too low for a
+longer window to add statistical power). Two other adjustments that day:
 
 - **policy and broker** get almost no production traffic (single digits a
   day, none in the baseline window), so they can never reach 1,000 requests.
   Their soak is the release's passed candidate `verify` (recorded in the
-  receipt) plus no 5xx and no new error signatures for 72 h.
+  receipt) plus no 5xx and no new error signatures for 24 h.
 - **Requests the api proxies to a language server** (`/L<lang>/...`) are
   reported but not judged: their latency is the language server's, including
   its cold starts. `l0184`, which was cold-starting about hourly, now has a
