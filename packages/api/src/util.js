@@ -168,39 +168,6 @@ export function num2dot(num) {
   return d;
 }
 
-export function statusCodeFromErrors(errs) {
-  if (!Array.isArray(errs)) {
-    errs = [errs];
-  }
-  for (const err in errs) {
-    // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
-    if (err.statusCode) {
-      // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
-      return err.statusCode;
-    }
-  }
-  return 500;
-}
-
-export function messageFromErrors(errs) {
-  if (!Array.isArray(errs)) {
-    errs = [errs];
-  }
-  for (const err in errs) {
-    // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
-    if (err.data) {
-      // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
-      if (err.data.error) {
-        // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
-        return err.data.error;
-      }
-      // @ts-expect-error TS-MIGRATE: for...in iterates indices, not errors: real bug in dead code (see TS migration hotspots)
-      return err.data;
-    }
-  }
-  return "Internal error";
-}
-
 const INTERNAL_ERROR = {
   statusCode: 500,
   error: "Internal error"

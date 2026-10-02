@@ -15,17 +15,15 @@ touch by typing the code, not by moving the comment.
 | policy | 7 |
 | broker | 3 |
 | deploy | 8 |
-| api | 44 |
+| api | 38 |
 
 ## Real bugs found
 
-Both are in code nothing currently exercises; each needs its own fix-or-delete
-PR with a test, separate from the migration.
+Both were in code nothing exercised, and are now resolved:
 
-- **`api/src/util.js` `statusCodeFromErrors` / `messageFromErrors`** iterate
-  with `for (const err in errs)`, which yields array indices, so they always
-  return `500` / `"Internal error"`. Neither is imported anywhere: delete them,
-  or fix to `for...of` with tests if they are meant to be used.
+- **`api/src/util.js` `statusCodeFromErrors` / `messageFromErrors`** iterated
+  with `for (const err in errs)` (array indices), so they always returned
+  `500` / `"Internal error"`. Nothing imported them: deleted.
 - **`api/src/cache.js` `buildLocalCacheDel`** calls `delegate.set(id, type)`
   instead of `delegate.del(id, type)`. Dormant: the only cache in use
   (`cacheApi = buildLocalCache({})`) has no delegate. (Found by reading, not
@@ -41,7 +39,6 @@ Also recorded by the phase 0.3 characterization tests: `api/src/code.js`
 | Destructured parameter with `= {}` default: optional fields read as missing | 36 | Declare the parameter's type with optional fields |
 | `new Router()`: Express's `Router` is callable and its types reject `new` | 27 | Call `Router()` (identical at runtime) in a reviewed non-mechanical PR, or keep a typed wrapper |
 | `await res.json()` is `unknown` (api invocations/routes/utils, broker learnosity) | 8 | Type the response shape at the boundary |
-| The dead `for...in` helpers in `api/src/util.js` (above) | 6 | Removed with the bug fix or deletion |
 | Custom `code` / `statusCode` on `Error` (auth/client, auth-client, api routes/lang) | 3 | Error subclasses with declared fields |
 | Callee ignores an argument (`auth/src/app.js`, `auth-client/src/v1/index.js`, `deploy/src/release.js`) | 3 | Drop the argument or declare the parameter |
 | One item or an array (`api/src/routes/compile.js`) | 2 | Type the union and narrow it |
