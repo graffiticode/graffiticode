@@ -34,6 +34,15 @@ const suppressions = (pkg, tests) => {
   return n;
 };
 
+// Packages switched to dist/ entry points (phase 2b) publish their types
+// from dist/, so siblings can only be checked after a build.
+const build = spawnSync("npx", ["tsc", "-b", "tsconfig.build.json", "--pretty", "false"], { cwd: ROOT, encoding: "utf8" });
+if (build.status !== 0) {
+  process.stdout.write(build.stdout);
+  console.error("typecheck: build failed");
+  process.exit(1);
+}
+
 const failed = [];
 for (const name of process.argv.slice(2).length ? process.argv.slice(2) : PACKAGES) {
   for (const [config, key, tests] of [["tsconfig.json", name, false], ["tsconfig.test.json", `${name}:test`, true]]) {

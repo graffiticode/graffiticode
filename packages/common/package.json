@@ -1,17 +1,20 @@
 {
   "name": "@graffiticode/common",
-  "version": "2.0.1",
+  "version": "2.1.0-ts.0",
   "type": "module",
   "publishConfig": {
     "access": "public"
   },
   "exports": {
-    "./errors": "./src/errors.js",
-    "./http": "./src/http.js",
-    "./protected-registry": "./src/protected-registry.js",
-    "./utils": "./src/utils.js",
-    "./parser": "./src/parser/"
+    "./errors": "./dist/errors.js",
+    "./http": "./dist/http.js",
+    "./protected-registry": "./dist/protected-registry.js",
+    "./utils": "./dist/utils.js"
   },
+  "files": [
+    "dist/**/*.js",
+    "README.md"
+  ],
   "devDependencies": {
     "eslint": "^8.38.0",
     "jest": "^29.5.0",

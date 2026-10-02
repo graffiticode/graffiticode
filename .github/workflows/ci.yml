@@ -35,7 +35,7 @@ jobs:
         run: |
           npm run lint
           npm run lint --workspaces --if-present
-      - name: Build (tsc -b, emits packages/*/dist; nothing loads it yet)
+      - name: Build (tsc -b, emits packages/*/dist)
         run: npm run build
       - name: Typecheck (checkJs, no emit)
         run: npm run typecheck
@@ -71,10 +71,12 @@ jobs:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ hashFiles('package-lock.json') }}
       - run: npm ci
-      - name: Emulator tests (one session)
-        run: npm run test:ci:emulated
+      # Packages load @graffiticode/common from its dist/ (phase 2b), so build
+      # before any test.
       - name: Build
         run: npm run build
+      - name: Emulator tests (one session)
+        run: npm run test:ci:emulated
       - name: Specs against the compiled output (one emulator session)
         run: npm run test:ci:compiled-emulated
       - if: always()
