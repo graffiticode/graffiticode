@@ -5,7 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { ConflictError } from "@graffiticode/common/errors";
-import { checkRotation } from "./stores.js";
+import { checkRotation, StepConflict } from "./stores.js";
 
 const ALREADY_EXISTS = 6;
 const isAlreadyExists = err => err?.code === ALREADY_EXISTS || /ALREADY_EXISTS/.test(String(err?.message));
@@ -33,12 +33,24 @@ export const createFirestoreOnceStore = db => ({
 export const createFirestoreReceiptStore = db => {
   const claimRef = operationId => db.collection("receipts").doc(docId(operationId));
   const outcomeRef = operationId => claimRef(operationId).collection("outcome").doc("final");
+  const stepsRef = operationId => claimRef(operationId).collection("steps");
   return {
     async claim(operationId, binding) {
       const claim = { operationId, binding, claimedAt: new Date().toISOString() };
       if (await createOnce(claimRef(operationId), claim)) return { created: true };
       const snap = await claimRef(operationId).get();
       return { created: false, claim: snap.data() };
+    },
+    async putStep(operationId, n, step) {
+      if (!Number.isInteger(n) || n < 0) throw new Error(`step index must be a non-negative integer, not ${n}`);
+      const ref = stepsRef(operationId).doc(String(n));
+      if (await createOnce(ref, { n, step, at: new Date().toISOString() })) return;
+      const snap = await ref.get();
+      if (snap.data()?.step !== step) throw new StepConflict(`step ${n} already recorded`);
+    },
+    async getSteps(operationId) {
+      const snap = await stepsRef(operationId).orderBy("n").get();
+      return snap.docs.map(d => d.data().step);
     },
     async getOutcome(operationId) {
       const snap = await outcomeRef(operationId).get();

@@ -19,6 +19,7 @@ import {
   createMemoryOnceStore,
   createMemoryReceiptStore,
   createMemoryActivityStore,
+  StepConflict,
   createMemorySecretStore,
   argsDigest
 } from "./index.js";
@@ -384,7 +385,17 @@ describe("item-bank writes", () => {
     const { invocationId } = await invocation();
     await receipts.claim(`${invocationId}/s0/n1.0`, recordedBinding());
     const out = await broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
-    expect(out).toEqual({ status: "uncertain", replayed: true });
+    expect(out).toEqual({ status: "uncertain", steps: [], replayed: true });
+    expect(routes).toEqual([]);
+  });
+
+  it("reports the persisted steps of an attempt that stopped between steps", async () => {
+    const token = await saveToken();
+    const { invocationId } = await invocation();
+    await receipts.claim(`${invocationId}/s0/n1.0`, recordedBinding());
+    await receipts.putStep(`${invocationId}/s0/n1.0`, 0, "questions");
+    const out = await broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
+    expect(out).toEqual({ status: "uncertain", steps: ["questions"], replayed: true });
     expect(routes).toEqual([]);
   });
 
@@ -419,6 +430,75 @@ describe("item-bank writes", () => {
     const payload = { ...WRITE, itemRecords: [{ ...WRITE.itemRecords[0], status: "published" }] };
     const token = await saveToken({ payload });
     await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload }), "payload-rejected");
+  });
+});
+
+// WRITE-01: each provider step is durable before the next provider request,
+// and a storage failure at any point stops the operation without ever
+// repeating a write.
+describe("durable steps", () => {
+  // The memory receipt store with faults injected, recording each persisted
+  // step into the same log as the provider requests.
+  /** @param {{ claim?: Function, putStep?: Function, putOutcome?: Function }} [faults] */
+  const faulty = ({ claim, putStep, putOutcome } = {}) => ({
+    ...receipts,
+    claim: claim ?? receipts.claim,
+    putStep: putStep ?? (async (id, n, step) => {
+      await receipts.putStep(id, n, step);
+      routes.push(`persisted:${step}`);
+    }),
+    putOutcome: putOutcome ?? receipts.putOutcome,
+  });
+  const save = async (b, token) => b.execute({ caller: L0176, token: token ?? await saveToken(), op: "learnosity.write-items", payload: WRITE });
+  const opid = async () => `${(await invocation()).invocationId}/s0/n1.0`;
+  const fail = async () => { throw new Error("storage unavailable"); };
+
+  it("persists each step before making the next provider request", async () => {
+    const out = await save(createBroker({ ...brokerDeps, receipts: faulty() }));
+    expect(out).toMatchObject({ status: "succeeded", steps: ["questions", "items"] });
+    expect(routes).toEqual(["/itembank/questions", "persisted:questions", "/itembank/items", "persisted:items"]);
+    expect(await receipts.getSteps(await opid())).toEqual(["questions", "items"]);
+  });
+
+  it("makes no provider request when the receipt claim cannot be created", async () => {
+    await expect(save(createBroker({ ...brokerDeps, receipts: faulty({ claim: fail }) }))).rejects.toThrow(/storage unavailable/);
+    expect(routes).toEqual([]);
+  });
+
+  it("stops, and records uncertain, when a completed step cannot be persisted", async () => {
+    const out = await save(createBroker({ ...brokerDeps, receipts: faulty({ putStep: fail }) }));
+    expect(out).toMatchObject({ status: "uncertain", steps: ["questions"] });
+    expect(out.error).toMatch(/could not be recorded/);
+    expect(routes).toEqual(["/itembank/questions"]);
+    const retry = await save(broker);
+    expect(retry).toMatchObject({ status: "uncertain", steps: ["questions"], replayed: true });
+    expect(routes).toEqual(["/itembank/questions"]);
+  });
+
+  it("never re-executes when neither the step nor the outcome can be persisted", async () => {
+    const out = await save(createBroker({ ...brokerDeps, receipts: faulty({ putStep: fail, putOutcome: fail }) }));
+    expect(out).toMatchObject({ status: "uncertain", steps: ["questions"] });
+    const retry = await save(broker);
+    expect(retry).toEqual({ status: "uncertain", steps: [], replayed: true });
+    expect(routes).toEqual(["/itembank/questions"]);
+  });
+
+  it("returns the result when only the outcome cannot be persisted, and a replay reports uncertain with the steps", async () => {
+    const out = await save(createBroker({ ...brokerDeps, receipts: faulty({ putOutcome: fail }) }));
+    expect(out).toMatchObject({ status: "succeeded", steps: ["questions", "items"] });
+    expect(records.at(-1)).toMatchObject({ outcome: "allowed", reason: "outcome-not-recorded" });
+    const retry = await save(broker);
+    expect(retry).toEqual({ status: "uncertain", steps: ["questions", "items"], replayed: true });
+    expect(routes.filter(r => r.startsWith("/"))).toEqual(["/itembank/questions", "/itembank/items"]);
+  });
+
+  it("acknowledges an identical step record and refuses a different one", async () => {
+    const id = await opid();
+    await receipts.putStep(id, 0, "questions");
+    await expect(receipts.putStep(id, 0, "questions")).resolves.toBeUndefined();
+    await expect(receipts.putStep(id, 0, "items")).rejects.toBeInstanceOf(StepConflict);
+    await expect(receipts.putStep(id, -1, "items")).rejects.toThrow(/index/);
+    expect(await receipts.getSteps(id)).toEqual(["questions"]);
   });
 });
 

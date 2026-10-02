@@ -7,11 +7,17 @@
 //   once      jti ledger: claim(jti, expiresAt) -> true the first time only.
 //             Expiry is checked on the token itself; this ledger only needs to
 //             outlive the token, and storage TTL is just eventual cleanup.
-//   receipts  per operation id, two documents, each created once:
+//   receipts  per operation id, documents each created once:
 //               claim    { binding, claimedAt }       — before the provider call
-//               outcome  { status, steps, result, at } — after it
+//               steps/n  { n, step, at }              — after each provider
+//                        step completes, before the next one starts (spec
+//                        WRITE-01). putStep(id, n, step) acknowledges an
+//                        identical repeat and rejects different content with
+//                        StepConflict; getSteps(id) lists them in order.
+//               outcome  { status, steps, result, at } — after the last
 //             A claim with no outcome is "uncertain": the broker may have
-//             crashed mid-call, so it is reported, never blindly re-run.
+//             crashed mid-call, so it is reported with its persisted steps,
+//             never blindly re-run.
 //   activity  writes in progress, for draining before a release (W0):
 //               begin(operationId, expiresAt)   before any provider request
 //               end(operationId)                when the execution finishes
@@ -43,8 +49,17 @@ export const createMemoryOnceStore = () => {
   };
 };
 
+// A step already recorded with different content: the operation's history
+// cannot be rewritten.
+export class StepConflict extends Error {}
+
+const checkStepIndex = n => {
+  if (!Number.isInteger(n) || n < 0) throw new Error(`step index must be a non-negative integer, not ${n}`);
+};
+
 export const createMemoryReceiptStore = () => {
   const claims = new Map();
+  const steps = new Map();
   const outcomes = new Map();
   return {
     // -> { created: true } or { created: false, claim }
@@ -55,6 +70,19 @@ export const createMemoryReceiptStore = () => {
       const claim = { binding, claimedAt: new Date().toISOString() };
       claims.set(operationId, claim);
       return { created: true };
+    },
+    async putStep(operationId, n, step) {
+      checkStepIndex(n);
+      const recorded = steps.get(operationId) ?? new Map();
+      if (recorded.has(n)) {
+        if (recorded.get(n).step !== step) throw new StepConflict(`step ${n} of ${operationId} already recorded`);
+        return;
+      }
+      recorded.set(n, { n, step, at: new Date().toISOString() });
+      steps.set(operationId, recorded);
+    },
+    async getSteps(operationId) {
+      return [...(steps.get(operationId) ?? new Map()).values()].sort((a, b) => a.n - b.n).map(s => s.step);
     },
     async getOutcome(operationId) {
       return outcomes.get(operationId) ?? null;

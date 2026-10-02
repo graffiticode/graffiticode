@@ -16,6 +16,11 @@
 //      principal, connection, function or args is refused. Only a definite
 //      provider rejection records failed/partial; any other provider error
 //      records uncertain, since the write may have been applied.
+//   6. Each completed provider step is persisted before the next provider
+//      request starts (spec WRITE-01). If it cannot be, the operation stops
+//      there and records uncertain (best effort); a retry finds the claim and
+//      never re-executes. A replay with no final outcome reports uncertain
+//      with the steps that were persisted.
 //
 // Time limits (limits.js): each provider request has a timeout, and no request
 // starts after the operation's deadline. A request that times out is
@@ -38,6 +43,15 @@ import { verifyToken, MAINTENANCE, admission } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
 import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operations.js";
 import { DEFAULT_LIMITS, maxExecutionMs } from "./limits.js";
+
+// A provider step completed but could not be persisted; the operation must
+// not take its next step.
+class StepNotPersisted extends Error {
+  constructor(step, cause) {
+    super(`step ${step} completed but could not be recorded: ${String(cause?.message || cause)}`);
+    this.step = step;
+  }
+}
 
 export class BrokerRefused extends Error {
   constructor(reason, status = 403, detail) {
@@ -188,6 +202,8 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
   };
 
   const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall }) => {
+    // A failure here (before any provider request) propagates: no claim, no
+    // effects.
     const claimed = await receipts.claim(claims.opid, binding);
     if (!claimed.created) {
       const recorded = claimed.claim.binding;
@@ -197,26 +213,50 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       await audit({ ...record, outcome: "replayed", reason: outcome ? outcome.status : "uncertain" });
       return outcome
         ? { status: outcome.status, result: outcome.result, steps: outcome.steps, replayed: true }
-        : { status: "uncertain", replayed: true };
+        : { status: "uncertain", steps: await receipts.getSteps(claims.opid), replayed: true };
     }
 
+    // `steps` are the provider steps known to have completed; each is durable
+    // before the operation may make its next provider request.
     const steps = [];
+    const onStep = async step => {
+      try {
+        await receipts.putStep(claims.opid, steps.length, step);
+      } catch (e) {
+        throw new StepNotPersisted(step, e);
+      }
+      steps.push(step);
+    };
     let status = "failed";
     let result;
     let error;
     try {
-      result = await operation.run(payload, credential, { onStep: async step => { steps.push(step); }, providerCall });
+      result = await operation.run(payload, credential, { onStep, providerCall });
       status = "succeeded";
     } catch (e) {
-      if (e instanceof ProviderRejected || e instanceof DeadlineExceeded) {
+      if (e instanceof StepNotPersisted) {
+        // The provider completed a step whose record was lost: its effect is
+        // real but not durable, so the operation is uncertain.
+        status = "uncertain";
+        steps.push(e.step);
+        error = e.message;
+      } else if (e instanceof ProviderRejected || e instanceof DeadlineExceeded) {
         status = steps.length > 0 ? "partial" : "failed";
+        error = String(e?.message || e);
       } else {
         status = "uncertain";
+        error = String(e?.message || e);
       }
-      error = String(e?.message || e);
     }
-    await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null });
-    await audit({ ...record, outcome: status === "succeeded" ? "allowed" : status });
+    // Best effort: without a final outcome, a replay still reports uncertain
+    // with the persisted steps, and the claim prevents any re-execution.
+    let recorded = true;
+    try {
+      await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null });
+    } catch {
+      recorded = false;
+    }
+    await audit({ ...record, outcome: status === "succeeded" ? "allowed" : status, ...(recorded ? {} : { reason: "outcome-not-recorded" }) });
     return error ? { status, steps, error } : { status, steps, result };
   };
 
