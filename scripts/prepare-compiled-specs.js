@@ -24,7 +24,7 @@ for (const name of process.argv.slice(2).length ? process.argv.slice(2) : PACKAG
   cpSync(dist, mirror, { recursive: true, filter: src => !/\.(d\.ts|tsbuildinfo)$/.test(src) });
   let specs = 0;
   for (const file of readdirSync(path.join(pkg, "src"), { recursive: true })) {
-    if (!/\.spec\.js$/.test(file)) continue;
+    if (!/\.spec\.[jt]s$/.test(file)) continue;
     cpSync(path.join(pkg, "src", file), path.join(mirror, file));
     specs++;
   }
