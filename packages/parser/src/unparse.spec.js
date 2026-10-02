@@ -471,6 +471,22 @@ describe("unparse", () => {
     });
   });
 
+  describe("let patterns", () => {
+    // The parser inlines a `let` away; a destructured variable must still print as a
+    // working expression, never as a `/* VAL */` placeholder (2026-10-02).
+    it("prints a list-pattern variable as nth of the value", async () => {
+      const unparsed = await testRoundTrip("let [x y] = [3 4].. mul x y..", {}, { compact: true });
+      expect(unparsed).not.toContain("VAL");
+      expect(unparsed).toBe("mul nth 0 [3 4] nth 1 [3 4]..");
+    });
+
+    it("prints a record-pattern variable as get of the value", async () => {
+      const unparsed = await testRoundTrip("let {a b: c} = {a: 1 b: 2}.. mul a c..", {}, { compact: true });
+      expect(unparsed).not.toContain("VAL");
+      expect(unparsed).toMatch(/^mul get "a" \{.*\} get "b" \{.*\}\.\.$/);
+    });
+  });
+
   describe("lambda expressions", () => {
     it.skip("should unparse lambda with no parameters", async () => {
       const source = "\\. 42..";
