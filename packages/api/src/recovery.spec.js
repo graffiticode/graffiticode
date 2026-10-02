@@ -39,6 +39,7 @@ let connections;
 let routes;
 let loseItems;
 let artifactFailures;
+let differentOutput;
 let artifactStorer;
 let dataApi;
 
@@ -80,7 +81,8 @@ beforeEach(async () => {
       });
       const out = await broker.execute({ caller: L0176, token: executionToken, op: "learnosity.write-items", payload: WRITE });
       if (out.status !== "succeeded") return { errors: [{ message: `Item bank save ${out.status}` }], cache: false };
-      return { data: { type: "questions", data: { itemBank: out.result } }, errors: [], cache: false };
+      const data = differentOutput ? { itemBank: out.result, note: "changed" } : { itemBank: out.result };
+      return { data: { type: "questions", data }, errors: [], cache: false };
     } catch (e) {
       return { errors: [{ message: String(e.message) }], cache: false };
     }
@@ -98,6 +100,7 @@ beforeEach(async () => {
   };
 
   artifactFailures = 0;
+  differentOutput = false;
   const memory = buildMemoryArtifactStorer();
   artifactStorer = {
     put: async artifact => {
@@ -130,6 +133,52 @@ describe("recovery", () => {
     artifactFailures = 1;
     expect((await run()).errors).toEqual([]);
     expect((await current()).status).toBe("ok");
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+  });
+
+  it("reports, beside the result, an artifact it could not store, with the retry identity", async () => {
+    artifactFailures = 3;
+    const out = await run();
+    expect(out.errors).toEqual([]);
+    expect(out.data.data.itemBank).toMatchObject({ saved: true });
+    expect(out.artifact).toEqual({
+      stored: false,
+      error: "artifact-storage-unavailable",
+      reason: "storage-failed",
+      retryable: true,
+      invocationId: expect.any(String),
+      seq: expect.any(Number),
+      idempotencyKey: "job-1"
+    });
+    expect((await current()).status).toBe("missing");
+  });
+
+  it("does not offer a retry without an idempotency key, since that would be a new run", async () => {
+    artifactFailures = 3;
+    expect((await run(null)).artifact).toMatchObject({ error: "artifact-storage-unavailable", retryable: false, idempotencyKey: null });
+  });
+
+  it("reports nothing extra when the artifact is stored", async () => {
+    expect((await run()).artifact).toBeUndefined();
+  });
+
+  it("never shows an older artifact as the new result when storage fails", async () => {
+    await run("job-0");
+    const before = await current();
+    artifactFailures = 3;
+    const out = await run("job-1");
+    expect(out.artifact.invocationId).not.toBe(before.artifact.invocationId);
+    expect((await current()).artifact.invocationId).toBe(before.artifact.invocationId);
+  });
+
+  it("refuses, permanently, a retry whose output differs from the artifact already stored", async () => {
+    const first = await run();
+    expect(first.artifact).toBeUndefined();
+    differentOutput = true;
+    const retry = await run();
+    expect(retry.artifact).toMatchObject({ stored: false, error: "artifact-rejected", reason: "content-differs", retryable: false, idempotencyKey: "job-1" });
+    expect((await current()).artifact.content.data.data.itemBank).toMatchObject({ saved: true });
+    expect((await current()).artifact.content.data.data.note).toBeUndefined();
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
 
