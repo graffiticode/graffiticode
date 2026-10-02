@@ -40,6 +40,22 @@ Phase 1 found 110 errors on 90 lines; the rest are listed below by class.
 Conversions should remove the suppressions in the files they touch by typing
 the code, not by moving the comment.
 
+## Soak criteria in practice
+
+`node scripts/soak-report.js` judges each service's latest release against the
+same weekday/hours a week earlier and says **MET** after 72 h without a
+regression. Two adjustments made on 2026-10-02:
+
+- **policy and broker** get almost no production traffic (single digits a
+  day, none in the baseline window), so they can never reach 1,000 requests.
+  Their soak is the release's passed candidate `verify` (recorded in the
+  receipt) plus no 5xx and no new error signatures for 72 h.
+- **Requests the api proxies to a language server** (`/L<lang>/...`) are
+  reported but not judged: their latency is the language server's, including
+  its cold starts. `l0184`, which was cold-starting about hourly, now has a
+  service-level minimum of one instance (`gcloud run services update l0184
+  --min=1`; set outside deploy.json).
+
 ## How a package is converted (phase 3)
 
 1. **Rename commit**: `git mv src/*.js src/*.ts` with contents unchanged, so

@@ -6,7 +6,9 @@
 // For each service, takes its newest released receipt in .gc-deploy/releases,
 // and compares the released revision (promotion → now) with the whole
 // service over the same weekday/hours window one week earlier:
-//   volume     ≥ 1000 requests, else the soak is EXTENDED, not passed
+//   volume     ≥ 1000 requests, else the soak is EXTENDED, not passed (policy
+//              and broker: a passed candidate verify instead; see below)
+//   duration   MET once all of this has held for 72 h; PASS so far before
 //   5xx rate   ≤ max(baseline × 1.1, baseline + 0.1 percentage points)
 //   p95        ≤ baseline × 1.1 + 50 ms
 //   errors     ERROR-or-worse log signatures not seen in the baseline window
@@ -28,6 +30,13 @@ const WEEK = 7 * 24 * 3600 * 1000;
 const MIN_REQUESTS = 1000;
 // Below this many requests, latency and 5xx comparisons are noise.
 const MIN_FOR_RATES = 100;
+const MIN_HOURS = 72;
+// Private services with almost no production traffic (they never approach
+// MIN_REQUESTS, and had none in the baseline window). Decided 2026-10-02:
+// their soak is the release's passed candidate checks (verify module, as
+// recorded in the receipt) plus no 5xx and no new error signatures for
+// MIN_HOURS, instead of request volume.
+const CANDIDATE_CHECKED = new Set(["policy", "broker"]);
 const LIMIT = 50000;
 
 const latestRelease = async service => {
@@ -84,7 +93,18 @@ const report = async service => {
   if (enough && now.rate5xx > Math.max(was.rate5xx * 1.1, was.rate5xx + 0.001)) failures.push("5xx rate");
   if (enough && now.p95 !== null && was.p95 !== null && now.p95 > was.p95 * 1.1 + 50) failures.push("p95 latency");
   if (newSigs.length) failures.push("new error signatures");
-  const verdict = failures.length ? `INVESTIGATE (${failures.join(", ")})` : now.requests < MIN_REQUESTS ? "EXTEND (too little traffic)" : "PASS so far";
+  const hoursUp = (end - start) / 3600000;
+  const candidateChecked = CANDIDATE_CHECKED.has(service);
+  if (candidateChecked && now.errors5xx) failures.push("5xx");
+  if (candidateChecked && !receipt.verify?.sha256) failures.push("release has no recorded candidate verify");
+  const volumeOk = candidateChecked || now.requests >= MIN_REQUESTS;
+  const verdict = failures.length
+    ? `INVESTIGATE (${failures.join(", ")})`
+    : !volumeOk
+        ? "EXTEND (too little traffic)"
+        : hoursUp >= MIN_HOURS
+          ? `MET${candidateChecked ? " (candidate-checked)" : ""}`
+          : `PASS so far${candidateChecked ? " (candidate-checked; volume not required)" : ""}`;
   const pct = x => `${(x * 100).toFixed(2)}%`;
   const ms = x => (x === null ? "n/a" : `${Math.round(x)} ms`);
   const hours = ((end - start) / 3600000).toFixed(1);
@@ -92,8 +112,8 @@ const report = async service => {
     service,
     verdict,
     lines: [
-      `release ${receipt.id} → ${receipt.revision}, ${hours} h since revision creation`,
-      `requests  ${now.requests}${now.truncated ? "+" : ""} (baseline week-ago window ${was.requests}${was.truncated ? "+" : ""}; need ${MIN_REQUESTS})`,
+      `release ${receipt.id} → ${receipt.revision}, ${hours} h since revision creation (need ${MIN_HOURS})`,
+      `requests  ${now.requests}${now.truncated ? "+" : ""} (baseline week-ago window ${was.requests}${was.truncated ? "+" : ""}; ${candidateChecked ? `candidate verify ${receipt.verify?.module ?? "MISSING"}` : `need ${MIN_REQUESTS}`})`,
       `5xx       ${pct(now.rate5xx)} (${now.errors5xx}) vs ${pct(was.rate5xx)} (${was.errors5xx})`,
       `p95       ${ms(now.p95)} vs ${ms(was.p95)}${enough ? "" : ` (not judged below ${MIN_FOR_RATES} requests)`}`,
       ...(proxiedNow.requests || proxiedWas.requests
