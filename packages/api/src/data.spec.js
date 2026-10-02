@@ -396,10 +396,11 @@ describe("data", () => {
       mockCompileData({ data: { security: { signature: "sig" }, request: {} }, errors: [] });
 
       // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-      await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
+      const out = await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
       const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
       expect(got.status).toBe("missing");
+      expect(out.artifact).toMatchObject({ stored: false, error: "artifact-rejected", reason: "signed-content", retryable: false });
     });
 
     it("records no artifact for a failed compile, or one without a connection", async () => {

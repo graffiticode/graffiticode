@@ -1,5 +1,5 @@
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
-import { buildArtifactStorer, buildMemoryArtifactStorer } from "./artifacts.js";
+import { ArtifactConflict, buildArtifactStorer, buildMemoryArtifactStorer } from "./artifacts.js";
 
 // The contract, against the in-memory store always and against Firestore when
 // the emulator is running (npm test starts it).
@@ -39,11 +39,33 @@ describe.each(stores)("storage/artifacts (%s)", (_, build) => {
     expect((await store.getCurrent(q)).artifact.content).toEqual({ v: 2 });
   });
 
-  it("lets a retry of the same invocation rewrite its own artifact", async () => {
+  it("acknowledges a retry of the same invocation with identical content and bindings", async () => {
+    const invocationId = `inv-${unique()}`;
+    expect(await store.put({ ...b, invocationId, seq: 1, content: { v: "first", w: 2 } })).toEqual({ current: true, acknowledged: false });
+    expect(await store.put({ ...b, invocationId, seq: 1, content: { w: 2, v: "first" } })).toEqual({ current: true, acknowledged: true });
+    expect((await store.getCurrent(q)).artifact.content).toEqual({ v: "first", w: 2 });
+  });
+
+  it("never replaces a stored artifact: different content or bindings conflict", async () => {
     const invocationId = `inv-${unique()}`;
     await store.put({ ...b, invocationId, seq: 1, content: { v: "first" } });
-    await store.put({ ...b, invocationId, seq: 1, content: { v: "retry" } });
-    expect((await store.getCurrent(q)).artifact.content).toEqual({ v: "retry" });
+    await expect(store.put({ ...b, invocationId, seq: 1, content: { v: "retry" } }))
+      .rejects.toMatchObject({ reason: "content-differs", invocationId });
+    await expect(store.put({ ...b, invocationId, seq: 1, content: { v: "first" }, ownerUid: "u9" }))
+      .rejects.toBeInstanceOf(ArtifactConflict);
+    await expect(store.put({ ...b, invocationId, seq: 1, content: { v: "first" }, registryVersion: RV + 1 }))
+      .rejects.toMatchObject({ reason: "binding-differs" });
+    expect((await store.getByInvocation(invocationId)).content).toEqual({ v: "first" });
+    expect((await store.getCurrent(q)).artifact.content).toEqual({ v: "first" });
+  });
+
+  it("keeps the artifact a publication names when a later run of the task differs", async () => {
+    const published = `inv-${unique()}`;
+    await store.put({ ...b, invocationId: published, seq: 1, content: { v: 1 } });
+    await expect(store.put({ ...b, invocationId: published, seq: 1, content: { v: "changed" } })).rejects.toBeInstanceOf(ArtifactConflict);
+    await store.put({ ...b, invocationId: `inv-${unique()}`, seq: 2, content: { v: "changed" } });
+    expect((await store.getByInvocation(published)).content).toEqual({ v: 1 });
+    expect((await store.getCurrent(q)).artifact.content).toEqual({ v: "changed" });
   });
 
   it("selects only the recipient's own artifact for that connection", async () => {

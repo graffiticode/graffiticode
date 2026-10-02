@@ -1,6 +1,7 @@
 import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { InvocationRefused } from "./invocations.js";
 import { buildReadArtifact, buildReadPublished } from "./read.js";
+import { ArtifactConflict } from "./storage/artifacts.js";
 
 const ARTIFACT_WRITE_ATTEMPTS = 3;
 const ARTIFACT_RETRY_MS = 100;
@@ -42,6 +43,28 @@ const carriesSignature = value => {
   }
   return false;
 };
+
+// When a compile through a connection succeeded but its artifact was not
+// stored, the response says so explicitly (spec RECOVER-01) beside the result,
+// never as a compile error: the provider effects happened. It carries the
+// invocation and retry identity:
+//   artifact-storage-unavailable  transient; retrying the same request with
+//                                 the same idempotency key replays the
+//                                 receipts and stores it, writing nothing again
+//   artifact-rejected             permanent; the output carries signed
+//                                 authority, or differs from the artifact this
+//                                 invocation already stored (a new run, and a
+//                                 republish for published content, is needed)
+const artifactNotStored = ({ error, reason, invocation, idempotencyKey }) => ({
+  stored: false,
+  error,
+  reason,
+  // Without the key a retry is a new invocation, which may write again.
+  retryable: error === "artifact-storage-unavailable" && Boolean(idempotencyKey),
+  invocationId: invocation.invocationId,
+  seq: invocation.seq,
+  idempotencyKey,
+});
 
 const buildGetData = ({
   compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null, publications = null
@@ -178,11 +201,13 @@ const buildGetData = ({
     // A successful compile through a connection leaves a private artifact for
     // later views, which serve it rather than running the program again. The
     // compile has already happened (and any write with it), so failing to
-    // record it is logged, not returned as a compile error; recovery finishes
-    // it from the invocation's receipts.
+    // record it is reported beside the result (artifactNotStored), not as a
+    // compile error; recovery finishes it from the invocation's receipts.
     const content = invocation && !obj.errors?.length ? unsignedContent(obj) : null;
+    let notStored = null;
     if (content && carriesSignature(content)) {
       console.log("artifact not stored: the output carries a signature");
+      notStored = artifactNotStored({ error: "artifact-rejected", reason: "signed-content", invocation, idempotencyKey });
     } else if (content && artifactStorer) {
       const artifact = {
         uid,
@@ -196,14 +221,24 @@ const buildGetData = ({
       };
       // The write is atomic, so a failed attempt leaves nothing half-stored
       // and a repeat is safe. If every attempt fails, the caller recovers by
-      // retrying the invocation with the same idempotency key.
+      // retrying the invocation with the same idempotency key. A conflict is
+      // permanent and not retried.
       for (let attempt = 1; attempt <= ARTIFACT_WRITE_ATTEMPTS; attempt++) {
         try {
           await artifactStorer.put(artifact);
           break;
         } catch (e) {
+          if (e instanceof ArtifactConflict) {
+            console.log("artifact not stored: invocation already has a different artifact", e.reason);
+            notStored = artifactNotStored({ error: "artifact-rejected", reason: e.reason, invocation, idempotencyKey });
+            break;
+          }
           console.log(`ERROR recording artifact (attempt ${attempt})`, e?.message);
-          if (attempt < ARTIFACT_WRITE_ATTEMPTS) await sleep(ARTIFACT_RETRY_MS * attempt);
+          if (attempt < ARTIFACT_WRITE_ATTEMPTS) {
+            await sleep(ARTIFACT_RETRY_MS * attempt);
+          } else {
+            notStored = artifactNotStored({ error: "artifact-storage-unavailable", reason: "storage-failed", invocation, idempotencyKey });
+          }
         }
       }
     }
@@ -228,7 +263,7 @@ const buildGetData = ({
         overwrite: Boolean(refresh)
       });
     }
-    return obj;
+    return notStored ? { ...obj, artifact: notStored } : obj;
   };
 };
 export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications }) => {
