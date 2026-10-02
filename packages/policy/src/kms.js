@@ -7,7 +7,7 @@
 // asymmetricSign shape); `keyVersionName` is the full CryptoKeyVersion path.
 
 import { createHash, randomUUID } from "node:crypto";
-import { ALG, ISSUER } from "./tokens.js";
+import { tokenParts } from "./tokens.js";
 
 const b64url = buf => Buffer.from(buf).toString("base64url");
 
@@ -31,12 +31,14 @@ export const derToJose = der => {
   return Buffer.concat([r, s]);
 };
 
-export const createKmsSigner = ({ kms, keyVersionName, kid }) => ({
+// Header and payload come from the shared token profiles (tokens.js), as the
+// local signer's do; `now` and `newJti` are injectable for comparing signers.
+const nowSeconds = () => Math.floor(Date.now() / 1000);
+
+export const createKmsSigner = ({ kms, keyVersionName, kid, now = nowSeconds, newJti = () => String(randomUUID()) }) => ({
   kid,
-  sign: async (claims, { typ, audience, ttlSeconds }) => {
-    const now = Math.floor(Date.now() / 1000);
-    const header = { alg: ALG, kid, typ };
-    const payload = { ...claims, iss: ISSUER, aud: audience, iat: now, exp: now + ttlSeconds, jti: randomUUID() };
+  sign: async (claims, profile) => {
+    const { header, payload } = tokenParts({ claims, profile, kid, now: now(), jti: newJti() });
     const signingInput = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
     const digest = createHash("sha256").update(signingInput).digest();
     const [response] = await kms.asymmetricSign({ name: keyVersionName, digest: { sha256: digest } });
