@@ -14,7 +14,7 @@ export const DEFAULT_MAX_MS = 50_000;
 
 const ID = /^[A-Za-z0-9_:.-]{1,200}$/;
 
-export const parse = (argv, { verifyUid }) => {
+export const parse = (argv, { verifyUid, productionProject }) => {
   const [command, ...rest] = argv;
   const opts = { command, project: "graffiticode", databases: ["policy", "broker"], reason: null, maxMs: DEFAULT_MAX_MS, uid: null, connection: null, clear: false, skipReleaseCheck: false };
   for (let i = 0; i < rest.length; i++) {
@@ -50,6 +50,11 @@ export const parse = (argv, { verifyUid }) => {
   }
   if (["enable", "disable", "canary"].includes(command) && !opts.reason?.trim()) throw new Error(`${command} needs --reason`);
   if (opts.skipReleaseCheck && command !== "enable") throw new Error("--skip-release-check applies only to enable");
+  // The release check is what keeps production from re-enabling with stale
+  // tags or below a milestone; it cannot be skipped there.
+  if (opts.skipReleaseCheck && (!productionProject || opts.project === productionProject)) {
+    throw new Error(`--skip-release-check is refused for the production project (${productionProject ?? "unknown"})`);
+  }
   return opts;
 };
 

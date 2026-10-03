@@ -10,7 +10,11 @@
         "server.cert",
         "server.key",
         "languages"
-      ]
+      ],
+      "protectedExecution": {
+        "policyUrl": "https://policy-sja7fatcta-uc.a.run.app",
+        "brokerUrl": "https://broker-sja7fatcta-uc.a.run.app"
+      }
     }
   },
   "services": {
@@ -256,7 +260,8 @@
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1",
         "BROKER_SECRET_KEY": "BROKER_SECRET_KEY:1"
       },
-      "retireTags": true
+      "retireTags": true,
+      "enforcesSwitch": true
     },
     "policy": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/policy",
@@ -346,7 +351,8 @@
         "POLICY_CALLERS": "policy-callers:1",
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1"
       },
-      "retireTags": true
+      "retireTags": true,
+      "enforcesSwitch": true
     },
     "l0000": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0000",

@@ -37,7 +37,7 @@ export function buildConfig(config, image) {
 export function deployArgs(config, receipt) {
   const args = ["run", "deploy", config.service, `--image=${receipt.image}`, `--port=${config.port}`,
     `--service-account=${config.runtimeServiceAccount}`, "--no-traffic", `--tag=${receipt.id}`,
-    `--revision-suffix=${receipt.id}`, `--labels=gc-release=${receipt.id},commit-sha=${receipt.commit}`];
+    `--revision-suffix=${receipt.id}`, `--labels=gc-release=${receipt.id},commit-sha=${receipt.commit},gc-dirty=${receipt.dirty ? "true" : "false"}`];
   if (Object.keys(config.env || {}).length) args.push(`--update-env-vars=${envFlag(config.env)}`);
   if (Object.keys(config.secrets || {}).length) args.push(`--update-secrets=${pairs(config.secrets)}`);
   // --update-secrets only adds, so a secret mounted by an earlier release
@@ -234,43 +234,66 @@ export async function retireTags(context, { cloud, log, keep = [] }) {
   return tags;
 }
 
-// When a revision was released, from its release id (`<service>-r<base36 ms>-<hex>`),
-// or null for a revision this CLI did not create (it predates any baseline).
-export function releaseTime(service, revisionName) {
-  const match = new RegExp(`^${service}-r([0-9a-z]+)-[0-9a-f]{6}$`).exec(revisionName ?? "");
-  return match ? parseInt(match[1], 36) : null;
+// A revision's provenance, from the labels every release puts on it: the Git
+// commit it was built from and whether the workspace was dirty. A revision
+// without them was not made by this CLI (or predates provenance labels).
+export async function provenanceOf(cloud, revisionName) {
+  const revision = await cloud(["run", "revisions", "describe", revisionName]);
+  const labels = revision.metadata?.labels ?? {};
+  return { revision: revisionName, commit: labels["commit-sha"] ?? null, dirty: labels["gc-dirty"] ?? null };
 }
 
-// The revisions older than the service's milestone baseline (capability plan
-// W0): the first release carrying the current security guarantees. Running
-// below it gives those guarantees up.
-export function belowBaseline(config, revisionNames) {
-  if (!config.baseline) return [];
-  const floor = releaseTime(config.service, `${config.service}-${config.baseline.release}`);
-  return revisionNames.filter(name => {
-    const at = releaseTime(config.service, name);
-    return at === null || at < floor;
-  });
+// Does this revision carry the security guarantees of the milestone whose code
+// is `commit`? Only if it was built cleanly from that commit or a descendant of
+// it (capability plan W0). Neither the revision name nor its age counts: an
+// old commit redeployed under a new release id does not qualify. `git` answers
+// ancestry from the local history (fetch first).
+export async function meetsMilestone(git, provenance, commit) {
+  if (provenance.dirty !== "false" || !/^[0-9a-f]{40}$/.test(provenance.commit ?? "")) return false;
+  return provenance.commit === commit || git.isAncestor(commit, provenance.commit);
+}
+
+// The revisions (of `names`) that do not meet the given baseline: "current" is
+// the latest milestone, "first" the earliest (for a service that enforces the
+// protected-execution switch, the one that introduced it).
+export async function belowBaseline(context, names, { cloud, git }, which = "current") {
+  const baselines = context.config.baselines ?? [];
+  if (!baselines.length) return [];
+  const { commit } = which === "first" ? baselines[0] : baselines[baselines.length - 1];
+  const below = [];
+  for (const name of names) {
+    if (!(await meetsMilestone(git, await provenanceOf(cloud, name), commit))) below.push(name);
+  }
+  return below;
 }
 
 // What must hold before protected execution is switched back on: no tag still
 // reaches a non-serving revision (when the service retires tags), and nothing
-// serving is below the baseline. Read-only.
-export async function releaseCheck(context, { cloud }) {
+// serving is below the current milestone. Read-only.
+export async function releaseCheck(context, { cloud, git }) {
   const { config } = context;
   const service = await cloud(["run", "services", "describe", config.service]);
   const serving = Object.keys(traffic(service));
+  const baselines = config.baselines ?? [];
   const result = {
     service: config.service,
     serving,
     staleTags: config.retireTags ? staleTags(service) : [],
-    baseline: config.baseline ?? null,
-    belowBaseline: belowBaseline(config, serving),
+    baseline: baselines.length ? baselines[baselines.length - 1] : null,
+    belowBaseline: await belowBaseline(context, serving, { cloud, git }),
   };
   return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 };
 }
 
-export async function rollback(context, receipt, { cloud, log, allowBelowBaseline = false }) {
+// Rolling back below the current milestone is refused unless
+// `allowBelowBaseline`, and even then only after `switchState` (Policy's and
+// Broker's own /v1/protected-execution) confirms protected execution is off in
+// both. A service that enforces the switch itself is never rolled back below
+// its first milestone: older code ignores the switch, so there would be no way
+// to keep protected execution off.
+/** @param {{ cloud: any, log: any, git?: any, switchState?: () => Promise<{ policy: boolean, broker: boolean }>, allowBelowBaseline?: boolean }} deps */
+export async function rollback(context, receipt, deps) {
+  const { cloud, log, git, switchState, allowBelowBaseline = false } = deps;
   const { config, environment } = context;
   requireValue(receipt.version === 1 && receipt.project === config.project && receipt.region === config.region && receipt.service === config.service && receipt.environment === environment, "Release receipt does not match the deployment target");
   requireValue(receipt.revision && receipt.previousTraffic, "Receipt has no rollback target");
@@ -278,10 +301,24 @@ export async function rollback(context, receipt, { cloud, log, allowBelowBaselin
   requireValue(sum === 100 && Object.entries(receipt.previousTraffic).every(([k, v]) => /^[a-z][a-z0-9-]+$/.test(k) && Number.isInteger(v) && v > 0), "Invalid rollback traffic in receipt");
   const current = await cloud(["run", "services", "describe", config.service]);
   requireValue(same(traffic(current), { [receipt.revision]: 100 }), "Traffic no longer belongs exclusively to this release; refusing to overwrite a newer deployment");
-  const below = belowBaseline(config, Object.keys(receipt.previousTraffic));
-  requireValue(below.length === 0 || allowBelowBaseline,
-    `Rollback target ${below.join(", ")} is below the ${config.baseline?.milestone} baseline (${config.baseline?.release}). ` +
-    "Pass --below-baseline only with protected execution switched off; it cannot be switched back on until the service is at or above the baseline again.");
+  const targets = Object.keys(receipt.previousTraffic);
+  const below = await belowBaseline(context, targets, { cloud, git });
+  if (below.length) {
+    const baselines = config.baselines;
+    const milestone = baselines[baselines.length - 1].milestone;
+    requireValue(allowBelowBaseline,
+      `Rollback target ${below.join(", ")} is below the ${milestone} milestone. ` +
+      "Pass --below-baseline only with protected execution switched off; it cannot be switched back on until the service meets the milestone again.");
+    if (config.enforcesSwitch) {
+      const beforeSwitch = await belowBaseline(context, targets, { cloud, git }, "first");
+      requireValue(beforeSwitch.length === 0,
+        `Rollback target ${beforeSwitch.join(", ")} predates the ${baselines[0].milestone} milestone, whose code honours the protected-execution switch; refusing, since nothing could keep protected execution off. Roll forward instead.`);
+    }
+    requireValue(typeof switchState === "function", "Cannot verify that protected execution is off");
+    const state = await switchState();
+    requireValue(state.policy === false && state.broker === false,
+      `Protected execution must be off before rolling back below a milestone (policy ${state.policy ? "on" : "off"}, broker ${state.broker ? "on" : "off"})`);
+  }
   log(`Restoring traffic to ${pairs(receipt.previousTraffic)}…`);
   await cloud(["run", "services", "update-traffic", config.service, `--to-revisions=${pairs(receipt.previousTraffic)}`]);
   const final = await cloud(["run", "services", "describe", config.service]);

@@ -145,7 +145,11 @@ test("enable refuses until every protected service passes its release check, and
   assert.equal(flagOf(dbs[0].db).releaseCheckSkipped, true);
 });
 
-test("--skip-release-check parses for enable only", () => {
-  assert.equal(parse(["enable", "--skip-release-check", "--reason", "bootstrap"], { verifyUid: "v" }).skipReleaseCheck, true);
-  assert.throws(() => parse(["disable", "--skip-release-check", "--reason", "r"], { verifyUid: "v" }), /applies only to enable/);
+test("--skip-release-check is for enable on a non-production project only", () => {
+  const opts = { verifyUid: "v", productionProject: "graffiticode" };
+  assert.equal(parse(["enable", "--skip-release-check", "--project", "graffiticode-dev", "--reason", "dev"], opts).skipReleaseCheck, true);
+  assert.throws(() => parse(["enable", "--skip-release-check", "--reason", "bootstrap"], opts), /refused for the production project/);
+  assert.throws(() => parse(["enable", "--skip-release-check", "--project", "graffiticode", "--reason", "r"], opts), /refused for the production project/);
+  assert.throws(() => parse(["enable", "--skip-release-check", "--project", "x", "--reason", "r"], { verifyUid: "v" }), /refused for the production project/);
+  assert.throws(() => parse(["disable", "--skip-release-check", "--project", "x", "--reason", "r"], opts), /applies only to enable/);
 });

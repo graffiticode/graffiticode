@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, staleTags, retireTags, releaseTime, belowBaseline, releaseCheck } from "../src/release.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck } from "../src/release.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
 const config = {
@@ -50,6 +50,9 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure,
   let build;
   let receipt;
   let described = 0;
+  // Revisions' labels, as `run revisions describe` reports them. api-old was
+  // not made by this CLI.
+  const revisions = new Map([["api-old", { metadata: { labels: {} } }]]);
   const calls = [];
   const cloud = async args => {
     calls.push(args);
@@ -66,11 +69,14 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure,
     }
     if (args[1] === "deploy") {
       const id = args.find(a => a.startsWith("--tag=")).slice(6);
+      const labels = Object.fromEntries(args.find(a => a.startsWith("--labels=")).slice(9).split(",").map(kv => kv.split("=")));
+      revisions.set(`api-${id}`, { metadata: { labels } });
       service.metadata.generation++;
       service.status.latestReadyRevisionName = `api-${id}`;
       service.status.traffic.push({ tag: id, revisionName: `api-${id}`, url: `https://${id}---api-example.run.app` });
       return {};
     }
+    if (args[1] === "revisions" && args[2] === "describe") return structuredClone(revisions.get(args[3]) ?? { metadata: {} });
     if (args.includes("update-traffic")) {
       const remove = args.find(a => a.startsWith("--remove-tags="));
       if (remove) {
@@ -96,7 +102,7 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure,
     return structuredClone(service);
   };
   const deps = { temp, cloud, log: () => {}, save: async r => { receipt = structuredClone(r); }, smoke: async () => { if (smokeFailure) throw new Error("smoke failed"); } };
-  return { deps, calls, getReceipt: () => receipt, getBuild: () => build };
+  return { deps, calls, revisions, getReceipt: () => receipt, getBuild: () => build };
 }
 
 test("argument parsing rejects ambiguity and missing values", () => {
@@ -414,44 +420,86 @@ test("retire-tags parses as a command, and retireTags must be a boolean", async 
   await assert.rejects(loadConfig(parseArgs(["--plan"]), root, {}), /retireTags must be a boolean/);
 });
 
-test("release ids order revisions by time; revisions this CLI did not create sort below any baseline", () => {
-  const at = Date.parse("2026-10-03T00:00:00Z");
-  const id = ms => `r${ms.toString(36)}-abc123`;
-  assert.equal(releaseTime("api", `api-${id(at)}`), at);
-  assert.equal(releaseTime("api", "api-00013-zgm"), null);
-  assert.equal(releaseTime("api", `policy-${id(at)}`), null);
-  const withBaseline = { ...config, baseline: { milestone: "W0", release: id(at) } };
-  assert.deepEqual(belowBaseline(withBaseline, [`api-${id(at)}`, `api-${id(at + 1)}`, `api-${id(at - 1)}`, "api-old"]), [`api-${id(at - 1)}`, "api-old"]);
-  assert.deepEqual(belowBaseline(config, ["api-old"]), []);
+// Commit history for the provenance tests: A <- B <- C, and an unrelated X.
+const A = "a".repeat(40);
+const B = source.commit;
+const C = "c".repeat(40);
+const X = "e".repeat(40);
+const parents = { [B]: A, [C]: B };
+const git = {
+  isAncestor: async (base, commit) => {
+    for (let at = commit; at; at = parents[at]) if (at === base) return true;
+    return false;
+  }
+};
+
+test("each release labels its revision with its commit and whether the workspace was dirty", () => {
+  assert.ok(deployArgs(config, { id: "r1-abc123", commit: B, dirty: false }).includes(`--labels=gc-release=r1-abc123,commit-sha=${B},gc-dirty=false`));
+  assert.ok(deployArgs(config, { id: "r1-abc123", commit: B, dirty: true }).some(a => a.endsWith("gc-dirty=true")));
 });
 
-test("rollback refuses a target below the baseline unless explicitly allowed, and records it", async t => {
+test("a revision meets a milestone only if built cleanly from its commit or a descendant", async () => {
+  assert.equal(await meetsMilestone(git, { commit: B, dirty: "false" }, B), true);
+  assert.equal(await meetsMilestone(git, { commit: C, dirty: "false" }, B), true);
+  // Old code redeployed under a new release id: its commit predates the milestone.
+  assert.equal(await meetsMilestone(git, { commit: A, dirty: "false" }, B), false);
+  assert.equal(await meetsMilestone(git, { commit: X, dirty: "false" }, B), false);
+  assert.equal(await meetsMilestone(git, { commit: C, dirty: "true" }, B), false);
+  assert.equal(await meetsMilestone(git, { commit: C, dirty: null }, B), false);
+  assert.equal(await meetsMilestone(git, { commit: null, dirty: "false" }, B), false);
+});
+
+const switchOff = async () => ({ policy: false, broker: false });
+const withBaselines = (baselines, extra = {}) => ({ ...context, config: { ...config, baselines, ...extra } });
+
+test("rollback below the current milestone needs --below-baseline and a verified-off switch", async t => {
   const h = await harness(t);
   const receipt = await release(context, source, h.deps);
-  const below = { ...context, config: { ...config, baseline: { milestone: "W0", release: receipt.id } } };
-  await assert.rejects(rollback(below, receipt, h.deps), /below the W0 baseline/);
-  const reverted = await rollback(below, receipt, { ...h.deps, allowBelowBaseline: true });
-  assert.equal(reverted.status, "rolled-back");
+  const guarded = withBaselines([{ milestone: "W0", commit: B }]);
+  await assert.rejects(rollback(guarded, receipt, { ...h.deps, git, switchState: switchOff }), /below the W0 milestone/);
+  await assert.rejects(rollback(guarded, receipt, { ...h.deps, git, allowBelowBaseline: true, switchState: async () => ({ policy: false, broker: true }) }), /must be off/);
+  await assert.rejects(rollback(guarded, receipt, { ...h.deps, git, allowBelowBaseline: true }), /Cannot verify/);
+  const reverted = await rollback(guarded, receipt, { ...h.deps, git, allowBelowBaseline: true, switchState: switchOff });
   assert.deepEqual(reverted.rolledBackBelowBaseline, ["api-old"]);
 });
 
-test("release-check reports stale tags and revisions below the baseline, and passes when both are clear", async t => {
+test("a service that enforces the switch never rolls back below its first milestone", async t => {
+  const h = await harness(t);
+  const receipt = await release(context, source, h.deps);
+  const guarded = withBaselines([{ milestone: "W0", commit: B }], { enforcesSwitch: true });
+  await assert.rejects(rollback(guarded, receipt, { ...h.deps, git, allowBelowBaseline: true, switchState: switchOff }), /predates the W0 milestone/);
+});
+
+test("a switch-enforcing service may roll back between milestones, below-baseline and switched off", async t => {
+  const h = await harness(t);
+  const first = await release(context, source, h.deps);
+  const second = await release(context, { ...source, commit: C }, h.deps);
+  assert.equal(second.previousTraffic[first.revision], 100);
+  const guarded = withBaselines([{ milestone: "W0", commit: B }, { milestone: "W2", commit: C }], { enforcesSwitch: true });
+  await assert.rejects(rollback(guarded, second, { ...h.deps, git, switchState: switchOff }), /below the W2 milestone/);
+  const reverted = await rollback(guarded, second, { ...h.deps, git, allowBelowBaseline: true, switchState: switchOff });
+  assert.deepEqual(reverted.rolledBackBelowBaseline, [first.revision]);
+});
+
+test("release-check fails on stale tags and on old code redeployed under a new release id", async t => {
   const h = await harness(t, { tags: ["old-1"] });
   const receipt = await release(context, source, h.deps);
-  const guarded = { ...context, config: { ...config, retireTags: true, baseline: { milestone: "W0", release: receipt.id } } };
-  const dirty = await releaseCheck(guarded, h.deps);
+  const guarded = withBaselines([{ milestone: "W0", commit: B }], { retireTags: true });
+  const dirty = await releaseCheck(guarded, { ...h.deps, git });
   assert.equal(dirty.ok, false);
   assert.deepEqual(dirty.staleTags, ["old-1"]);
   assert.deepEqual(dirty.belowBaseline, []);
   await retireTags(guarded, { ...h.deps, keep: [receipt.id] });
-  assert.equal((await releaseCheck(guarded, h.deps)).ok, true);
-  await rollback(guarded, receipt, { ...h.deps, allowBelowBaseline: true });
-  const rolledBack = await releaseCheck(guarded, h.deps);
-  assert.equal(rolledBack.ok, false);
-  assert.deepEqual(rolledBack.belowBaseline, ["api-old"]);
+  assert.equal((await releaseCheck(guarded, { ...h.deps, git })).ok, true);
+  // A fresh release of an older commit: new release id, old code.
+  await release(context, { ...source, commit: A }, h.deps);
+  const old = await releaseCheck(guarded, { ...h.deps, git });
+  assert.equal(old.ok, false);
+  assert.equal(old.belowBaseline.length, 1);
+  assert.deepEqual(await belowBaseline(guarded, ["api-old"], { ...h.deps, git }), ["api-old"]);
 });
 
-test("baseline config is validated, and the new flags parse", async t => {
+test("baselines, enforcesSwitch and protectedExecution are validated, and the new flags parse", async t => {
   assert.equal(parseArgs(["release-check", "policy", "--json"]).command, "release-check");
   assert.equal(parseArgs(["rollback", "api", "--release", "r1-abc123", "--below-baseline"])["below-baseline"], true);
   const root = await mkdtemp(path.join(tmpdir(), "deploy-config-"));
@@ -459,10 +507,17 @@ test("baseline config is validated, and the new flags parse", async t => {
   const write = service => writeFile(path.join(root, "deploy.json"), JSON.stringify({
     version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, ...service } }
   }));
-  await write({ baseline: { milestone: "W0", release: "rmuqbq6tq-d97b10" } });
-  assert.equal((await loadConfig(parseArgs(["--plan"]), root, {})).config.baseline.milestone, "W0");
-  for (const baseline of [{ milestone: "W0" }, { milestone: "", release: "rmuqbq6tq-d97b10" }, { milestone: "W0", release: "latest" }, "W0"]) {
-    await write({ baseline });
-    await assert.rejects(loadConfig(parseArgs(["--plan"]), root, {}), /baseline must be/);
+  await write({ baselines: [{ milestone: "W0", commit: B }], enforcesSwitch: true, protectedExecution: { policyUrl: "https://policy.example", brokerUrl: "https://broker.example" } });
+  assert.equal((await loadConfig(parseArgs(["--plan"]), root, {})).config.baselines[0].milestone, "W0");
+  for (const bad of [
+    { baselines: [] },
+    { baselines: [{ milestone: "W0", commit: "rmuqbq6tq-d97b10" }] },
+    { baselines: [{ milestone: "W0", commit: B }, { milestone: "W0", commit: C }] },
+    { baselines: { milestone: "W0", commit: B } },
+    { enforcesSwitch: "yes" },
+    { protectedExecution: { policyUrl: "http://policy.example", brokerUrl: "https://broker.example" } }
+  ]) {
+    await write(bad);
+    await assert.rejects(loadConfig(parseArgs(["--plan"]), root, {}), /baselines must be|enforcesSwitch must be|protectedExecution must be/);
   }
 });

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { mkdir, open, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { parseArgs, loadConfig } from "./config.js";
+import { parseArgs, loadConfig, requireValue } from "./config.js";
+import { createGit } from "./git.js";
 import { snapshot } from "./snapshot.js";
 import { run } from "./process.js";
 import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck } from "./release.js";
@@ -41,13 +42,28 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     const output = await run("gcloud", scoped, { cwd: root, stream });
     return json ? JSON.parse(output) : output;
   };
+  const git = createGit(root);
+  // Policy's and Broker's own report of the switch (GET /v1/protected-execution),
+  // with the operator's identity for Cloud Run IAM. true means on.
+  const switchState = async () => {
+    requireValue(config.protectedExecution, "deploy.json has no protectedExecution { policyUrl, brokerUrl } to check the switch with");
+    const token = String(await cloud(["auth", "print-identity-token"], { json: false })).trim();
+    const read = async url => {
+      const res = await fetch(`${url}/v1/protected-execution`, { headers: { Authorization: `Bearer ${token}` } });
+      /** @type {any} */
+      const body = await res.json().catch(() => null);
+      requireValue(res.ok && typeof body?.enabled === "boolean", `${url}/v1/protected-execution answered ${res.status}`);
+      return body.enabled;
+    };
+    return { policy: await read(config.protectedExecution.policyUrl), broker: await read(config.protectedExecution.brokerUrl) };
+  };
   if (options.command === "release-check") {
-    const result = await releaseCheck(context, { cloud });
+    const result = await releaseCheck(context, { cloud, git });
     if (options.json) console.log(JSON.stringify(result));
     else {
       console.log(`${result.service}: ${result.ok ? "ok" : "NOT READY"}; serving ${result.serving.join(", ")}`);
       if (result.staleTags.length) console.log(`  stale tags: ${result.staleTags.join(", ")}`);
-      if (result.belowBaseline.length) console.log(`  below the ${result.baseline.milestone} baseline ${result.baseline.release}: ${result.belowBaseline.join(", ")}`);
+      if (result.belowBaseline.length) console.log(`  below the ${result.baseline.milestone} milestone (${result.baseline.commit.slice(0, 12)}): ${result.belowBaseline.join(", ")}`);
     }
     if (!result.ok) process.exitCode = 1;
     return;
@@ -81,7 +97,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     }
     if (options.command === "rollback") {
       const receipt = await readReceipt(root, options.release);
-      await save(await rollback(context, receipt, { cloud, log: console.log, allowBelowBaseline: Boolean(options["below-baseline"]) }));
+      await save(await rollback(context, receipt, { cloud, log: console.log, git, switchState, allowBelowBaseline: Boolean(options["below-baseline"]) }));
       console.log(`Restored the traffic preceding ${receipt.id}.`);
       return;
     }

@@ -26,7 +26,8 @@
 // `enable` first runs the deploy CLI's release check for every service in
 // deploy.json that retires tags or names a baseline (no stale tags, nothing
 // serving below its milestone baseline), and refuses if any fails.
-// --skip-release-check bypasses it and records releaseCheckSkipped: true.
+// --skip-release-check bypasses it and records releaseCheckSkipped: true; it is
+// refused for the production project (deploy.json environments.production).
 //
 // Every write merges: enable/disable keep a configured canary, and canary
 // keeps the switch where it is. The logic lives in scripts/lib/protected-execution.js.
@@ -44,6 +45,7 @@ import { DOC, drain, enableChecked, parse, setCanary, setEnabled, status } from 
 import { loadConfig, parseArgs } from "../packages/deploy/src/config.js";
 import { releaseCheck } from "../packages/deploy/src/release.js";
 import { run } from "../packages/deploy/src/process.js";
+import { createGit } from "../packages/deploy/src/git.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 
@@ -55,7 +57,7 @@ const releaseChecks = async () => {
     const context = await loadConfig(parseArgs([name]), ROOT);
     const { config } = context;
     const cloud = async args => JSON.parse(await run("gcloud", [...args, `--project=${config.project}`, `--region=${config.region}`, "--quiet", "--format=json"], { cwd: ROOT }));
-    return releaseCheck(context, { cloud });
+    return releaseCheck(context, { cloud, git: createGit(ROOT) });
   }));
 };
 
@@ -68,7 +70,8 @@ const operator = () => {
 };
 
 const main = async () => {
-  const opts = parse(process.argv.slice(2), { verifyUid: VERIFY_UID });
+  const deployConfig = JSON.parse(await readFile(new URL("../deploy.json", import.meta.url), "utf8"));
+  const opts = parse(process.argv.slice(2), { verifyUid: VERIFY_UID, productionProject: deployConfig.environments.production.project });
   const app = initializeApp({ credential: applicationDefault(), projectId: opts.project });
   const dbs = opts.databases.map(name => ({ name, db: getFirestore(app, name) }));
   const log = message => console.log(message);

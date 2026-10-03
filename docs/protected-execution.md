@@ -118,15 +118,21 @@ limits were overridden.
 ## Re-enabling is gated
 
 `enable` first runs `npm run deploy -- release-check` for every service in
-`deploy.json` with `retireTags` or a `baseline` (policy, broker, api, l0176) and refuses
-if any still has stale tags or serves a revision below its milestone baseline.
-`--skip-release-check` bypasses it (a non-production project) and is recorded as
-`releaseCheckSkipped: true`, which `status` shows.
+`deploy.json` with `retireTags` or `baselines` (policy, broker, api, l0176) and refuses
+if any still has stale tags or serves a revision that does not meet its current
+milestone. A revision meets a milestone only if it was built cleanly from the
+milestone's commit or a descendant (its `commit-sha` and `gc-dirty` labels), so old
+code redeployed under a new release id does not. `--skip-release-check` exists for
+non-production projects; it is refused for the production project, and recorded as
+`releaseCheckSkipped: true` elsewhere.
 
-Rolling back below a baseline needs `npm run rollback -- <service> --release <id>
---below-baseline`, only with protected execution switched off; `enable` then refuses
-until the service is at or above the baseline again. A passing canary on the older
-release does not change that.
+Rolling back below the current milestone needs `npm run rollback -- <service>
+--release <id> --below-baseline`, and the CLI then checks Policy's and Broker's own
+`/v1/protected-execution` and refuses unless both are off. Policy and Broker
+(`enforcesSwitch`) are never rolled back below their first milestone, W0: older code
+ignores the switch, so nothing could keep protected execution off; roll forward
+instead. `enable` refuses until every service meets its milestone again; a passing
+canary on the older release does not change that.
 
 ## First release carrying the switch
 
@@ -143,6 +149,7 @@ The flag documents do not exist yet, and a missing flag means off. So:
 4. Verify the off state once: `disable`, then `drain`, then check that both
    `/v1/protected-execution` answer `off` and a protected call answers 503
    `maintenance`; then `enable`.
-5. Record the W0 baseline: set `baseline: { "milestone": "W0", "release": "<id>" }`
-   on policy and broker in `deploy.json` (their new release ids) and commit. From then
-   on rollback and `enable` enforce it.
+5. Record the W0 milestone: add `baselines: [{ "milestone": "W0", "commit": "<sha>" }]`
+   to policy and broker (and to api and l0176 once they release W0 code) in
+   `deploy.json`, using the commit their releases were built from (the receipt's
+   `commit`), and commit that. From then on rollback and `enable` enforce it.

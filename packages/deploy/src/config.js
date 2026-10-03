@@ -70,8 +70,12 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   requireValue(!config.env || object(config.env), "env must be an object");
   requireValue(!config.secrets || object(config.secrets), "secrets must be an object");
   requireValue(config.retireTags === undefined || typeof config.retireTags === "boolean", "retireTags must be a boolean");
-  requireValue(config.baseline === undefined || (object(config.baseline) && typeof config.baseline.milestone === "string" && config.baseline.milestone.length > 0 &&
-    typeof config.baseline.release === "string" && /^r[0-9a-z]+-[0-9a-f]{6}$/.test(config.baseline.release)), "baseline must be { milestone, release: <release id> }");
+  requireValue(config.baselines === undefined || (Array.isArray(config.baselines) && config.baselines.length > 0 &&
+    config.baselines.every(b => object(b) && typeof b.milestone === "string" && b.milestone.length > 0 && typeof b.commit === "string" && /^[0-9a-f]{40}$/.test(b.commit)) &&
+    new Set(config.baselines.map(b => b.milestone)).size === config.baselines.length), "baselines must be a non-empty list of { milestone, commit: <40-hex commit> }, oldest first");
+  requireValue(config.enforcesSwitch === undefined || typeof config.enforcesSwitch === "boolean", "enforcesSwitch must be a boolean");
+  requireValue(config.protectedExecution === undefined || (object(config.protectedExecution) &&
+    ["policyUrl", "brokerUrl"].every(k => typeof config.protectedExecution[k] === "string" && /^https:\/\/[^/]+$/.test(config.protectedExecution[k]))), "protectedExecution must be { policyUrl, brokerUrl } service origins");
   requireValue(!config.removeSecrets || (Array.isArray(config.removeSecrets) && config.removeSecrets.length > 0 &&
     config.removeSecrets.every(n => typeof n === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(n))), "removeSecrets must be a non-empty array of environment names");
   for (const name of config.removeSecrets || []) {
