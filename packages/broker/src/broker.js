@@ -25,12 +25,13 @@
 // active writes to drain.
 //
 // While protected execution is switched off, every execution is refused with
-// `maintenance` (503) right after the token and caller check.
+// `maintenance` (503) right after the token and caller check, except the
+// configured canary's (its token's principal and connection), audited as such.
 //
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
 import { isOperationAllowed, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
-import { verifyToken, MAINTENANCE } from "@graffiticode/policy";
+import { verifyToken, MAINTENANCE, admission } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
 import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operations.js";
 import { DEFAULT_LIMITS, maxExecutionMs } from "./limits.js";
@@ -94,7 +95,11 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // Protected execution switched off (@graffiticode/policy maintenance.js):
     // refused before anything stateful, so the token is not spent and a retry
     // within its lifetime can still run once execution is back on.
-    if (!(await protectedSwitch.state()).enabled) return refuse(MAINTENANCE, 503);
+    // While paused, the canary still runs: matched on the verified token's
+    // principal and connection, never on request fields.
+    const admitted = admission(await protectedSwitch.state(), { uid: claims.sub, connectionId: claims.conn });
+    if (!admitted) return refuse(MAINTENANCE, 503);
+    if (admitted === "canary") await audit({ ...record, outcome: "allowed", reason: "canary-during-maintenance" });
     // Never reinterpret a token under a different registry than it was minted
     // for.
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");

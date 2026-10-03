@@ -9,6 +9,12 @@
 //   node scripts/protected-execution.js enable  --reason "W0 release verified"
 //   node scripts/protected-execution.js disable --reason "v6 release window"
 //   node scripts/protected-execution.js drain
+//   node scripts/protected-execution.js canary --uid <uid> --connection <id> --reason "W0 canary"
+//   node scripts/protected-execution.js canary --clear --reason "canary retired"
+//
+// `canary` names the one account and dedicated (sandbox) connection still
+// admitted while protected execution is off, in both databases, leaving the
+// on/off state as it is. It refuses the deploy-check account (VERIFY_UID).
 //
 // `drain` (after disable) waits until Broker reports no active writes, or until
 // the maximum execution duration has passed since Broker was switched off,
@@ -20,6 +26,7 @@
 // (PROTECTED_EXECUTION=disabled on a service) overrides whatever this writes.
 
 import { execFileSync } from "node:child_process";
+import { VERIFY_UID } from "../verify/auth.js";
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
@@ -29,24 +36,36 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const parse = argv => {
   const [command, ...rest] = argv;
-  const opts = { command, project: "graffiticode", databases: ["policy", "broker"], reason: null, maxMs: 50_000 };
+  const opts = { command, project: "graffiticode", databases: ["policy", "broker"], reason: null, maxMs: 50_000, uid: null, connection: null, clear: false };
   for (let i = 0; i < rest.length; i++) {
     const key = rest[i];
+    if (key === "--clear") {
+      opts.clear = true;
+      continue;
+    }
     const value = rest[i + 1];
-    if (!["--project", "--databases", "--reason", "--max-ms"].includes(key) || value === undefined) {
+    if (!["--project", "--databases", "--reason", "--max-ms", "--uid", "--connection"].includes(key) || value === undefined) {
       throw new Error(`unknown or incomplete option ${key}`);
     }
     if (key === "--project") opts.project = value;
     if (key === "--databases") opts.databases = value.split(",").filter(Boolean);
     if (key === "--reason") opts.reason = value;
+    if (key === "--uid") opts.uid = value;
+    if (key === "--connection") opts.connection = value;
     if (key === "--max-ms") {
       opts.maxMs = Number(value);
       if (!Number.isInteger(opts.maxMs) || opts.maxMs <= 0) throw new Error("--max-ms must be a positive integer");
     }
     i++;
   }
-  if (!["status", "enable", "disable", "drain"].includes(command)) throw new Error("command must be status, enable, disable or drain");
-  if ((command === "enable" || command === "disable") && !opts.reason?.trim()) throw new Error(`${command} needs --reason`);
+  if (!["status", "enable", "disable", "drain", "canary"].includes(command)) throw new Error("command must be status, enable, disable, drain or canary");
+  if (command === "canary") {
+    const id = /^[A-Za-z0-9_:.-]{1,200}$/;
+    if (opts.clear === Boolean(opts.uid || opts.connection)) throw new Error("canary needs --uid and --connection, or --clear");
+    if (!opts.clear && !(id.test(opts.uid ?? "") && id.test(opts.connection ?? ""))) throw new Error("canary needs a valid --uid and --connection");
+    if (opts.uid === VERIFY_UID) throw new Error("the deploy-check account (VERIFY_UID) must never be the canary");
+  }
+  if (["enable", "disable", "canary"].includes(command) && !opts.reason?.trim()) throw new Error(`${command} needs --reason`);
   return opts;
 };
 
@@ -85,7 +104,13 @@ const main = async () => {
     if (!broker) throw new Error("drain needs the broker database");
     return drain(broker, opts.maxMs);
   }
-  if (opts.command !== "status") {
+  if (opts.command === "canary") {
+    const canary = opts.clear ? null : { uid: opts.uid, connectionId: opts.connection };
+    for (const { name, db } of dbs) {
+      await db.doc(DOC).set({ canary, canaryReason: opts.reason, canaryUpdatedAt: new Date().toISOString(), canaryUpdatedBy: operator() }, { merge: true });
+      console.log(`${opts.project}/${name}: canary ${canary ? `${canary.uid} on ${canary.connectionId}` : "cleared"}`);
+    }
+  } else if (opts.command !== "status") {
     const enabled = opts.command === "enable";
     const doc = { enabled, reason: opts.reason, updatedAt: new Date().toISOString(), updatedBy: operator() };
     // Disable: Policy (issuance) before Broker (execution); enable: the reverse.
@@ -101,6 +126,7 @@ const main = async () => {
     const data = snap.exists ? snap.data() : null;
     const state = data?.enabled === true ? "ON" : "OFF";
     console.log(`${opts.project}/${name}: ${state}${data ? ` (by ${data.updatedBy} at ${data.updatedAt}: ${data.reason})` : " (no flag document: fails closed)"}`);
+    if (data?.canary) console.log(`  canary while off: ${data.canary.uid} on ${data.canary.connectionId}`);
   }
 };
 

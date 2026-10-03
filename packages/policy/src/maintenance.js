@@ -17,6 +17,14 @@
 //
 // A successful read is reused for `cacheMs` (default 2 s), so a flip takes
 // effect within that bound; a failed read is never reused.
+//
+// Canary (W0): while the flag is off, it may name one canary account and its
+// dedicated connection, `canary: { uid, connectionId }`. Protected work for
+// exactly that pair is still admitted (every normal check still applies), so a
+// release can be verified end to end while ordinary traffic stays paused.
+// Callers match it only against verified identity (a verified user or token
+// claims), never request fields. A hard disable, a missing or unreadable flag,
+// or a malformed canary admits no one.
 
 export const PROTECTED_EXECUTION_DOC = "controls/protected-execution";
 export const MAINTENANCE = "maintenance";
@@ -29,6 +37,23 @@ export const parseHardDisable = value => {
   throw new Error(`PROTECTED_EXECUTION must be unset or "disabled", not ${JSON.stringify(value)}`);
 };
 
+const ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
+const isId = v => typeof v === "string" && ID_RE.test(v);
+const canaryOf = value => (value && typeof value === "object" && isId(value.uid) && isId(value.connectionId)
+  ? Object.freeze({ uid: value.uid, connectionId: value.connectionId })
+  : null);
+
+// May this (verified) principal and connection do protected work in `state`?
+// -> "enabled" | "canary" | null
+/** @param {{ uid?: unknown, connectionId?: unknown }} [principal] verified identity; anything but strings never matches */
+export const admission = (state, principal = {}) => {
+  const { uid, connectionId } = principal;
+  if (state.enabled) return "enabled";
+  const { canary } = state;
+  if (canary && typeof uid === "string" && uid === canary.uid && connectionId === canary.connectionId) return "canary";
+  return null;
+};
+
 // `readFlag` resolves to the flag document's data, or null when it is absent.
 export const createProtectedSwitch = ({ hardDisabled = false, readFlag, cacheMs = 2000, now = Date.now }) => {
   if (typeof readFlag !== "function") throw new Error("the protected-execution switch needs a flag reader");
@@ -39,7 +64,10 @@ export const createProtectedSwitch = ({ hardDisabled = false, readFlag, cacheMs 
     try {
       const flag = await readFlag();
       if (!flag) state = { enabled: false, source: "flag-missing" };
-      else state = { enabled: flag.enabled === true, source: "flag", flag };
+      else {
+        const enabled = flag.enabled === true;
+        state = { enabled, source: "flag", ...(enabled ? {} : { canary: canaryOf(flag.canary) }) };
+      }
     } catch {
       return { enabled: false, source: "flag-unreadable" };
     }
@@ -47,7 +75,7 @@ export const createProtectedSwitch = ({ hardDisabled = false, readFlag, cacheMs 
     return state;
   };
   return {
-    // -> { enabled, source, flag? }   source: env-disabled | flag | flag-missing | flag-unreadable
+    // -> { enabled, source, canary? }   source: env-disabled | flag | flag-missing | flag-unreadable
     async state() {
       if (hardDisabled) return { enabled: false, source: "env-disabled" };
       return read();

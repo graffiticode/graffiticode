@@ -36,6 +36,24 @@ candidate checks (`verify/policy.js`, `verify/broker.js`) log it. Set
 `GC_VERIFY_PROTECTED_EXECUTION=on` or `off` on the deploying shell to require one
 state, which is how a release verifies both states on a candidate.
 
+## Canary while paused
+
+While the flag is off it may name one canary account and its dedicated connection
+(a sandbox Learnosity consumer, never production credentials, never `VERIFY_UID`):
+
+```bash
+node scripts/protected-execution.js canary --uid <uid> --connection <id> --reason "W0 canary"
+node scripts/protected-execution.js canary --clear --reason "canary retired"
+```
+
+Policy (snapshot, mint) and Broker (execute) then still admit exactly that pair,
+matched only on verified identity: the authenticated user at snapshot, the session
+token's `sub`/`conn` at mint, and the execution token's `sub`/`conn` at Broker. Every
+normal check still applies, and each admission is audited as
+`canary-during-maintenance`. System previews stay paused. A hard disable, a missing
+or unreadable flag, or a malformed canary admits no one. The status route never
+shows the canary.
+
 ## Draining before a release
 
 Broker bounds every execution (`packages/broker/src/limits.js`):

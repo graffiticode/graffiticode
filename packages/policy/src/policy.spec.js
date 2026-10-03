@@ -573,11 +573,13 @@ describe("system preview sessions", () => {
 // token is issued; invocations, which authorize nothing by themselves, are.
 describe("maintenance switch", () => {
   let enabled;
+  let canary;
   let paused;
   beforeEach(() => {
     enabled = false;
+    canary = undefined;
     paused = createPolicy({
-      protectedSwitch: createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled }) }),
+      protectedSwitch: createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled, canary }) }),
       signer,
       jwks,
       connections,
@@ -615,6 +617,48 @@ describe("maintenance switch", () => {
     enabled = true;
     await expect(mint()).resolves.toMatchObject({ executionToken: expect.any(String) });
     expect(await paused.protectedExecution()).toEqual({ enabled: true, source: "flag" });
+  });
+
+  describe("canary", () => {
+    const snapshotFor = async ({ uid = OWNER, connectionId = "conn-1" } = {}) => paused.snapshot({
+      caller: L0176,
+      user: { uid },
+      lang: "0176",
+      connectionId,
+      fns: ["init"],
+      invocationToken: await issueToken(signer, "invocation", { sub: uid, conn: connectionId, inv: "inv-1", seq: 1 }),
+      stage: "s0"
+    });
+    const mintWith = sessionToken => paused.mint({ caller: L0176, sessionToken, fn: "init", op: "learnosity.sign-items-preview", occurrenceId: "n1.0", argsDigest: digest("a") });
+
+    it("still issues sessions and execution tokens for the canary pair while paused, audited as such", async () => {
+      canary = { uid: OWNER, connectionId: "conn-1" };
+      const { sessionToken } = await snapshotFor();
+      await expect(mintWith(sessionToken)).resolves.toMatchObject({ executionToken: expect.any(String) });
+      expect(records.filter(r => r.reason === "canary-during-maintenance").map(r => r.event)).toEqual(["snapshot", "mint"]);
+    });
+
+    it("refuses the canary's account on another connection, and another account on the canary's connection", async () => {
+      canary = { uid: OWNER, connectionId: "conn-1" };
+      await refusedForMaintenance(snapshotFor({ connectionId: "conn-other" }));
+      await refusedForMaintenance(snapshotFor({ uid: OTHER }));
+      canary = { uid: OTHER, connectionId: "conn-1" };
+      await refusedForMaintenance(snapshotFor());
+    });
+
+    it("still applies every normal check to the canary", async () => {
+      canary = { uid: OWNER, connectionId: "conn-off" };
+      await expect(snapshotFor({ connectionId: "conn-off" })).rejects.toMatchObject({ reason: "connection-disabled" });
+    });
+
+    it("does not admit a session issued for anyone else, or system previews", async () => {
+      enabled = true;
+      const { sessionToken } = await snapshotFor({ uid: OTHER, connectionId: "conn-other" });
+      enabled = false;
+      canary = { uid: OWNER, connectionId: "conn-1" };
+      await refusedForMaintenance(mintWith(sessionToken));
+      await refusedForMaintenance(paused.previewSession({ caller: L0176, lang: "0176" }));
+    });
   });
 
   it("cannot be built without a switch", () => {

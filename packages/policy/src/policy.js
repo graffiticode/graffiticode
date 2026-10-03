@@ -41,7 +41,7 @@ import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict } from "./invocations.js";
 import { newPublicationId } from "./publications.js";
-import { MAINTENANCE } from "./maintenance.js";
+import { MAINTENANCE, admission } from "./maintenance.js";
 
 export class PolicyDenied extends Error {
   constructor(reason) {
@@ -76,9 +76,15 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     throw new PolicyDenied(reason);
   };
   // Every protected entry point asks first, before reading or issuing
-  // anything.
-  const requireProtectedExecution = async record => {
-    if ((await protectedSwitch.state()).enabled) return;
+  // anything. `principal` is verified identity only (the authenticated user,
+  // or a verified token's claims): while paused, it admits the canary.
+  const requireProtectedExecution = async (record, principal = {}) => {
+    const admitted = admission(await protectedSwitch.state(), principal);
+    if (admitted === "enabled") return;
+    if (admitted === "canary") {
+      await audit({ ...record, outcome: "allowed", reason: "canary-during-maintenance" });
+      return;
+    }
     await audit({ ...record, outcome: "denied", reason: MAINTENANCE });
     throw new PolicyMaintenance();
   };
@@ -274,7 +280,9 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
 
   const snapshot = async ({ caller, user, lang, connectionId, fns, invocationToken, stage }) => {
     const record = { event: "snapshot", uid: user?.uid, lang, connectionId, registryVersion: REGISTRY_VERSION };
-    await requireProtectedExecution(record);
+    // The user is verified; the connection is checked against it below, as
+    // for anyone.
+    await requireProtectedExecution(record, { uid: user?.uid, connectionId });
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
     if (!isId(connectionId) || typeof invocationToken !== "string" || !isId(stage)) return deny("bad-request", record);
     if (!Array.isArray(fns) || !fns.every(f => typeof f === "string")) return deny("bad-request", record);
@@ -373,13 +381,15 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   };
 
   const mint = async ({ caller, sessionToken, fn, op, occurrenceId, argsDigest }) => {
-    await requireProtectedExecution({ event: "mint", fn, op });
     let session;
     try {
       ({ claims: session } = await verifyToken(jwks, "session", sessionToken));
     } catch {
+      // Paused takes precedence over a bad token: say so first.
+      await requireProtectedExecution({ event: "mint", fn, op });
       return deny("bad-session", { event: "mint", fn, op });
     }
+    await requireProtectedExecution({ event: "mint", uid: session.sub, connectionId: session.conn, fn, op }, { uid: session.sub, connectionId: session.conn });
     const record = {
       event: "mint",
       uid: session.sub,

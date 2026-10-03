@@ -1,4 +1,4 @@
-import { createProtectedSwitch, parseHardDisable } from "./maintenance.js";
+import { admission, createProtectedSwitch, parseHardDisable } from "./maintenance.js";
 
 describe("protected-execution switch", () => {
   const flag = value => async () => value;
@@ -63,5 +63,40 @@ describe("protected-execution switch", () => {
   it("needs a flag reader", () => {
     // @ts-expect-error deliberately missing
     expect(() => createProtectedSwitch({})).toThrow(/flag reader/);
+  });
+
+  describe("canary", () => {
+    const CANARY = { uid: "0xcanary", connectionId: "conn-canary" };
+    const stateOf = async (value, opts = {}) => createProtectedSwitch({ readFlag: flag(value), ...opts }).state();
+
+    it("is read from the flag only while it is off", async () => {
+      expect((await stateOf({ enabled: false, canary: CANARY })).canary).toEqual(CANARY);
+      expect((await stateOf({ enabled: true, canary: CANARY })).canary).toBeUndefined();
+    });
+
+    it("admits exactly the canary pair while off, and everyone while on", async () => {
+      const off = await stateOf({ enabled: false, canary: CANARY });
+      expect(admission(off, CANARY)).toBe("canary");
+      expect(admission(off, { uid: "0xcanary", connectionId: "conn-other" })).toBeNull();
+      expect(admission(off, { uid: "0xother", connectionId: "conn-canary" })).toBeNull();
+      expect(admission(off, {})).toBeNull();
+      expect(admission(off)).toBeNull();
+      expect(admission(await stateOf({ enabled: true }), {})).toBe("enabled");
+    });
+
+    it("admits no one when the canary is malformed", async () => {
+      for (const canary of [{ uid: "0xcanary" }, { connectionId: "conn-canary" }, { uid: 7, connectionId: "c" }, { uid: "a b", connectionId: "c" }, "0xcanary", null]) {
+        const off = await stateOf({ enabled: false, canary });
+        expect(off.canary).toBeNull();
+        expect(admission(off, { uid: "undefined", connectionId: "undefined" })).toBeNull();
+      }
+    });
+
+    it("admits no one under a hard disable, or with a missing or unreadable flag", async () => {
+      expect(admission(await stateOf({ enabled: false, canary: CANARY }, { hardDisabled: true }), CANARY)).toBeNull();
+      expect(admission(await stateOf(null), CANARY)).toBeNull();
+      const unreadable = await createProtectedSwitch({ readFlag: async () => { throw new Error("x"); } }).state();
+      expect(admission(unreadable, CANARY)).toBeNull();
+    });
   });
 });

@@ -437,10 +437,29 @@ describe("audit", () => {
 // anything stateful, so the token is not spent and nothing is written.
 describe("maintenance switch", () => {
   let enabled;
+  let canary;
   let paused;
   beforeEach(() => {
     enabled = false;
-    paused = createBroker({ ...brokerDeps, protectedSwitch: createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled }) }) });
+    canary = undefined;
+    paused = createBroker({ ...brokerDeps, protectedSwitch: createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled, canary }) }) });
+  });
+
+  it("still executes for the canary pair while paused, matched on the token, audited as such", async () => {
+    canary = { uid: OWNER, connectionId: "conn-1" };
+    const preview = await paused.execute({ caller: L0176, token: await previewToken(), op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    expect(preview.status).toBe("succeeded");
+    const write = await paused.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    expect(write.status).toBe("succeeded");
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+    expect(records.filter(r => r.reason === "canary-during-maintenance")).toHaveLength(2);
+  });
+
+  it("refuses a token for anyone else while paused, whatever the canary names", async () => {
+    for (const c of [{ uid: OWNER, connectionId: "conn-2" }, { uid: "0xsomeoneelse", connectionId: "conn-1" }]) {
+      canary = c;
+      await refused(paused.execute({ caller: L0176, token: await previewToken(), op: "learnosity.sign-questions-preview", payload: PREVIEW }), "maintenance");
+    }
   });
 
   it("refuses a valid execution with maintenance (503), audited, without spending the token", async () => {
