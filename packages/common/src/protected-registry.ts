@@ -30,9 +30,17 @@
 // There are no execution modes: running the program is the action, and the
 // grant is the authority. A function runs whenever its program calls it
 // through a connection whose grant covers it.
-// v6 (unreleased): Author gated behind explicit enablement (AUTHOR-01). The W2
-// registered execution-step table joins this same version before it ships.
+// v6 (unreleased): Author gated behind explicit enablement (AUTHOR-01), and the
+// registered execution-step table (OPERATIONS[op].steps) that W2's live
+// authorization checks each Broker step against (spec API-02).
 export const REGISTRY_VERSION = 6;
+
+// What a step of an operation does:
+//   dispatch  one provider request
+//   sign      one local signature issuance (no provider request)
+//   replay    returning an operation's recorded receipt instead of executing
+export type StepPurpose = "dispatch" | "sign" | "replay";
+export type OperationStep = Readonly<{ id: string; purpose: StepPurpose }>;
 
 // One protected function's entry (see the field notes above).
 export type FunctionSpec = Readonly<{
@@ -48,11 +56,20 @@ export type FunctionSpec = Readonly<{
 
 // Broker operations. The broker builds each request itself from a constrained
 // payload; none is a general signer or proxy.
+//   steps  the registered execution steps, in order: the identifiers Broker
+//          derives from the operation definition (never from a request) and
+//          asks Policy to authorize one at a time (W2, spec API-02). An
+//          operation may stop before its last dispatch step (write-items skips
+//          `items` when there are none); it may never take a step not listed
+//          here, or take them out of order.
+const step = (id: string, purpose: StepPurpose): OperationStep => Object.freeze({ id, purpose });
+const SIGN_STEPS = Object.freeze([step("sign", "sign")]);
+
 export const OPERATIONS = Object.freeze({
   // Items API and inline Questions API previews: the two rendering APIs L0176
   // uses for ordinary previews (packages/core/src/items.ts, questions.ts).
-  "learnosity.sign-items-preview": Object.freeze({ backend: "learnosity", kind: "sign" }),
-  "learnosity.sign-questions-preview": Object.freeze({ backend: "learnosity", kind: "sign" }),
+  "learnosity.sign-items-preview": Object.freeze({ backend: "learnosity", kind: "sign", steps: SIGN_STEPS }),
+  "learnosity.sign-questions-preview": Object.freeze({ backend: "learnosity", kind: "sign", steps: SIGN_STEPS }),
   // Author API signing. Its config carries edit and delete permissions
   // (packages/core/src/author.ts), so it is NOT preview authority: it is
   // non-delegable (only the connection's owner can reach it) and not viewSafe
@@ -60,10 +77,35 @@ export const OPERATIONS = Object.freeze({
   // constrained payload and builds the request itself: mode fixed to
   // `item_edit`, one item `reference` (required), widget types drawn only from
   // the L0176 allowlist, and no custom widgets or caller-supplied config.
-  "learnosity.sign-author": Object.freeze({ backend: "learnosity", kind: "sign" }),
-  // Data API item-bank write (two sequential provider writes; see receipts).
-  "learnosity.write-items": Object.freeze({ backend: "learnosity", kind: "write" }),
+  "learnosity.sign-author": Object.freeze({ backend: "learnosity", kind: "sign", steps: SIGN_STEPS }),
+  // Data API item-bank write: two sequential provider writes (questions, then
+  // the items that reference them), each recorded as it completes, and a
+  // receipt replay for a retry of the same operation.
+  "learnosity.write-items": Object.freeze({
+    backend: "learnosity",
+    kind: "write",
+    steps: Object.freeze([step("questions", "dispatch"), step("items", "dispatch"), step("receipt", "replay")]),
+  }),
 });
+
+// The registered steps of an operation, or null for an unknown operation.
+export const operationSteps = (op: unknown): readonly OperationStep[] | null =>
+  Object.prototype.hasOwnProperty.call(OPERATIONS, op as string) ? OPERATIONS[op as keyof typeof OPERATIONS].steps : null;
+
+// Is `step` a registered step of `op` with exactly this purpose? `after`, when
+// given, is the step that completed just before: a dispatch step must come
+// after the one listed before it (the first needs none), so steps cannot be
+// skipped forward or repeated. Replay needs no predecessor.
+export const isStepRegistered = ({ op, step: id, purpose, after = null }: { op: unknown; step: unknown; purpose: unknown; after?: unknown }): boolean => {
+  const steps = operationSteps(op);
+  if (!steps) return false;
+  const index = steps.findIndex(s => s.id === id);
+  if (index < 0 || steps[index].purpose !== purpose) return false;
+  if (purpose !== "dispatch") return true;
+  const dispatch = steps.filter(s => s.purpose === "dispatch");
+  const position = dispatch.findIndex(s => s.id === id);
+  return position === 0 ? after === null : after === dispatch[position - 1].id;
+};
 
 export const PROTECTED_FUNCTIONS = Object.freeze({
   "0176": Object.freeze({

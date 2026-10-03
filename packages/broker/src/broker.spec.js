@@ -10,7 +10,7 @@ import {
   createPseudonymizer,
   createProtectedSwitch
 } from "@graffiticode/policy";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { REGISTRY_VERSION, isStepRegistered, operationSteps } from "@graffiticode/common/protected-registry";
 import {
   createBroker,
   BrokerRefused,
@@ -289,6 +289,17 @@ describe("preview signing", () => {
 });
 
 describe("item-bank writes", () => {
+  // The steps Broker reports are the registry's dispatch steps, in order
+  // (registry v6; W2 authorizes each one).
+  it("takes only registered steps, in registered order", async () => {
+    const out = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    const dispatch = (operationSteps("learnosity.write-items") ?? []).filter(s => s.purpose === "dispatch").map(s => s.id);
+    expect(out.steps).toEqual(dispatch);
+    out.steps.forEach((step, i) => {
+      expect(isStepRegistered({ op: "learnosity.write-items", step, purpose: "dispatch", after: i ? out.steps[i - 1] : null })).toBe(true);
+    });
+  });
+
   it("writes questions, then items, and records the outcome", async () => {
     const token = await saveToken();
     const out = await broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
