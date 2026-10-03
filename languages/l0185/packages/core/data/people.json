@@ -1,0 +1,6 @@
+[
+  {"name": "Ana", "age": 34, "city": "Oslo", "email": "ana@example.org", "address": {"city": "Oslo", "zip": "0150"}, "tags": ["admin", "dev"]},
+  {"name": "Ben", "age": 28, "city": "Bergen", "email": "ben@example.org", "address": {"city": "Bergen", "zip": "5003"}, "tags": ["dev"]},
+  {"name": "Cy", "age": 41, "city": "Oslo", "email": null, "address": {"city": "Oslo", "zip": "0151"}, "tags": []},
+  {"name": "Di", "age": 25, "city": "Trondheim", "email": "di@example.org", "address": {"city": "Trondheim", "zip": "7010"}, "tags": ["ops"]}
+]

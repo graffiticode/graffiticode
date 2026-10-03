@@ -1,0 +1,7 @@
+order-id,region,status,amount,customer-id
+1,West,paid,120.5,10
+2,North,paid,80,11
+3,West,refunded,40,10
+4,West,paid,200,12
+5,North,paid,95.25,13
+6,South,pending,60,11
