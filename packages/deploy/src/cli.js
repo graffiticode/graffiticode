@@ -4,13 +4,14 @@ import path from "node:path";
 import { parseArgs, loadConfig } from "./config.js";
 import { snapshot } from "./snapshot.js";
 import { run } from "./process.js";
-import { release, rollback, readReceipt } from "./release.js";
+import { release, rollback, readReceipt, retireTags, staleTags } from "./release.js";
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
-    console.log(`gc-deploy [deploy|rollback] [service] [--env production] [--config deploy.json]
-  --plan                 Preview locally; no cloud calls or mutations
+    console.log(`gc-deploy [deploy|rollback|retire-tags] [service] [--env production] [--config deploy.json]
+  --plan                 Preview locally; no cloud calls or mutations (retire-tags --plan
+                         reads the service to list its stale tags, and changes nothing)
   --allow-dirty          Deploy uncommitted workspace contents with a snapshot hash
   --release <id>         For rollback: restore the traffic preceding this release
 
@@ -34,6 +35,11 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     const output = await run("gcloud", scoped, { cwd: root, stream });
     return json ? JSON.parse(output) : output;
   };
+  if (options.command === "retire-tags" && options.plan) {
+    const service = await cloud(["run", "services", "describe", config.service]);
+    console.log(JSON.stringify({ action: "retire-tags", target: `${config.project}/${config.region}/${config.service}`, staleTags: staleTags(service) }, null, 2));
+    return;
+  }
   if (options.command === "rollback" && options.plan) {
     const receipt = await readReceipt(root, options.release);
     console.log(JSON.stringify({ action: "rollback", target: `${config.project}/${config.region}/${config.service}`, release: receipt.id, restoreTraffic: receipt.previousTraffic }, null, 2));
@@ -50,6 +56,11 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
         throw err;
       });
       await lock.writeFile(String(process.pid));
+    }
+    if (options.command === "retire-tags") {
+      const retired = await retireTags(context, { cloud, log: console.log });
+      console.log(`Retired ${retired.length} tag(s) on ${config.service}.`);
+      return;
     }
     if (options.command === "rollback") {
       const receipt = await readReceipt(root, options.release);

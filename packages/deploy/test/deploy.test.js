@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate } from "../src/release.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, staleTags, retireTags } from "../src/release.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
 const config = {
@@ -36,11 +36,17 @@ const oldService = () => ({
   }
 });
 
-// @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure } = {}) {
+/**
+ * @param {any} t
+ * @param {{ buildFailure?: boolean, smokeFailure?: boolean, drift?: number, promotionFailure?: boolean, tags?: string[], tagFailure?: boolean }} [options]
+ */
+async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure, tags = [], tagFailure } = {}) {
   const temp = await mkdtemp(path.join(tmpdir(), "deploy-test-"));
   t.after(() => rm(temp, { recursive: true, force: true }));
+  /** @type {any} */
   const service = oldService();
+  // Tags left by earlier releases, on revisions that no longer serve.
+  for (const tag of tags) service.status.traffic.push({ tag, revisionName: `api-${tag}`, url: `https://${tag}---api-example.run.app` });
   let build;
   let receipt;
   let described = 0;
@@ -62,17 +68,27 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure 
       const id = args.find(a => a.startsWith("--tag=")).slice(6);
       service.metadata.generation++;
       service.status.latestReadyRevisionName = `api-${id}`;
-      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       service.status.traffic.push({ tag: id, revisionName: `api-${id}`, url: `https://${id}---api-example.run.app` });
       return {};
     }
     if (args.includes("update-traffic")) {
+      const remove = args.find(a => a.startsWith("--remove-tags="));
+      if (remove) {
+        if (tagFailure) throw new Error("tag update failed");
+        const gone = remove.slice(14).split(",");
+        service.status.traffic = service.status.traffic.filter(entry => !gone.includes(entry.tag));
+        return {};
+      }
       if (promotionFailure) throw new Error("promotion response lost");
       const targets = args.find(a => a.startsWith("--to-revisions=")).slice(15);
-      service.status.traffic = targets.split(",").map(target => {
-        const [revisionName, percent] = target.split("=");
-        return { revisionName, percent: Number(percent) };
-      });
+      // Like Cloud Run, promotion keeps every tag and moves only the percentages.
+      service.status.traffic = [
+        ...service.status.traffic.filter(entry => entry.tag).map(({ percent, ...entry }) => entry),
+        ...targets.split(",").map(target => {
+          const [revisionName, percent] = target.split("=");
+          return { revisionName, percent: Number(percent) };
+        })
+      ];
       return {};
     }
     described++;
@@ -155,7 +171,7 @@ for (const [label, settings, message, mayDeploy] of [
   ["drift during verification", { drift: 4 }, /changed during verification/, true],
 ]) {
   test(`${label} never promotes traffic`, async t => {
-    const h = await harness(t, settings);
+    const h = await harness(t, /** @type {any} */ (settings));
     // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await assert.rejects(release(context, source, h.deps), message);
     assert.ok(!h.calls.some(c => c.includes("update-traffic")));
@@ -342,4 +358,58 @@ test("verify.module must be a relative .js path", async t => {
   }
   await write({ module: "packages/api/verify/index.js" });
   assert.equal((await loadConfig(parseArgs([]), root, {})).config.verify.module, "packages/api/verify/index.js");
+});
+
+test("a release with retireTags removes tags on non-serving revisions, keeps its own, and leaves traffic alone", async t => {
+  const h = await harness(t, { tags: ["old-1", "old-2"] });
+  const receipt = await release({ ...context, config: { ...config, retireTags: true } }, source, h.deps);
+  assert.equal(receipt.status, "released");
+  assert.deepEqual(receipt.retiredTags, ["old-1", "old-2"]);
+  /** @type {any} */
+  const final = await h.deps.cloud(["run", "services", "describe", "api"]);
+  assert.deepEqual(final.status.traffic.filter(e => e.tag).map(e => e.tag), [receipt.id]);
+  assert.deepEqual(traffic(final), { [receipt.revision]: 100 });
+});
+
+test("a release without retireTags leaves tags alone", async t => {
+  const h = await harness(t, { tags: ["old-1"] });
+  const receipt = await release(context, source, h.deps);
+  assert.equal(receipt.retiredTags, undefined);
+  assert.ok(!h.calls.some(c => c.some(a => String(a).startsWith("--remove-tags"))));
+});
+
+test("a release stays released when tag retirement fails, and records why", async t => {
+  const h = await harness(t, { tags: ["old-1"], tagFailure: true });
+  const receipt = await release({ ...context, config: { ...config, retireTags: true } }, source, h.deps);
+  assert.equal(receipt.status, "released");
+  assert.match(receipt.tagRetirementError, /tag update failed/);
+  assert.equal(h.getReceipt().status, "released");
+});
+
+test("stale tags are those on revisions that serve nothing; retiring them is verified and idempotent", async t => {
+  const service = {
+    status: {
+      traffic: [
+        { revisionName: "api-new", percent: 100 },
+        { tag: "new", revisionName: "api-new" },
+        { tag: "old", revisionName: "api-old" },
+        { tag: "keep-me", revisionName: "api-older" }
+      ]
+    }
+  };
+  assert.deepEqual(staleTags(service), ["old", "keep-me"]);
+  assert.deepEqual(staleTags(service, ["keep-me"]), ["old"]);
+  const h = await harness(t, { tags: ["old-1"] });
+  assert.deepEqual(await retireTags(context, h.deps), ["old-1"]);
+  assert.deepEqual(await retireTags(context, h.deps), []);
+});
+
+test("retire-tags parses as a command, and retireTags must be a boolean", async t => {
+  assert.equal(parseArgs(["retire-tags", "policy"]).command, "retire-tags");
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-config-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(root, "deploy.json"), JSON.stringify({
+    version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, retireTags: "yes" } }
+  }));
+  await assert.rejects(loadConfig(parseArgs(["--plan"]), root, {}), /retireTags must be a boolean/);
 });

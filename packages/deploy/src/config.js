@@ -12,7 +12,7 @@ const namePattern = /^[a-z][a-z0-9-]{0,39}$/;
 
 export function parseArgs(args) {
   const options = { command: "deploy", env: "production", config: "deploy.json" };
-  if (["deploy", "rollback"].includes(args[0])) options.command = args.shift();
+  if (["deploy", "rollback", "retire-tags"].includes(args[0])) options.command = args.shift();
   while (args.length) {
     const arg = args.shift();
     if (["--plan", "--allow-dirty", "--help"].includes(arg)) options[arg.slice(2)] = true;
@@ -69,6 +69,7 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   requireValue(typeof config.buildServiceAccount === "string", "buildServiceAccount is required");
   requireValue(!config.env || object(config.env), "env must be an object");
   requireValue(!config.secrets || object(config.secrets), "secrets must be an object");
+  requireValue(config.retireTags === undefined || typeof config.retireTags === "boolean", "retireTags must be a boolean");
   requireValue(!config.removeSecrets || (Array.isArray(config.removeSecrets) && config.removeSecrets.length > 0 &&
     config.removeSecrets.every(n => typeof n === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(n))), "removeSecrets must be a non-empty array of environment names");
   for (const name of config.removeSecrets || []) {

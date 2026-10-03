@@ -185,6 +185,16 @@ export async function release(context, source, deps) {
     receipt.status = "released";
     receipt.url = final.status.url;
     await persist();
+    // Released either way; a failure here is reported, not undone.
+    if (config.retireTags) {
+      try {
+        receipt.retiredTags = await retireTags(context, { cloud, log, keep: [receipt.id] });
+      } catch (error) {
+        receipt.tagRetirementError = error.message;
+        log(`WARNING: released, but stale tags remain (${error.message}). Run: npm run deploy -- retire-tags ${config.service}`);
+      }
+      await persist();
+    }
     return receipt;
   } catch (error) {
     receipt.failedAt = receipt.status;
@@ -193,6 +203,35 @@ export async function release(context, source, deps) {
     await persist();
     throw error;
   }
+}
+
+// Tags on revisions that serve no traffic, except those in `keep`. A tag URL
+// reaches its revision directly, so an old revision of a protected service
+// stays callable through its tag after promotion (capability plan W0).
+export function staleTags(service, keep = []) {
+  const serving = new Set(Object.keys(traffic(service)));
+  return (service.status?.traffic || [])
+    .filter(entry => entry.tag && !keep.includes(entry.tag) && !serving.has(entry.revisionName))
+    .map(entry => entry.tag);
+}
+
+// Removes stale tags without touching traffic, and verifies both. Rollback
+// targets revision names, not tags, so it keeps working.
+export async function retireTags(context, { cloud, log, keep = [] }) {
+  const { config } = context;
+  const before = await cloud(["run", "services", "describe", config.service]);
+  const tags = staleTags(before, keep);
+  if (!tags.length) {
+    log("No stale tags.");
+    return [];
+  }
+  log(`Retiring ${tags.length} tag(s) on revisions that serve no traffic: ${tags.join(", ")}`);
+  await cloud(["run", "services", "update-traffic", config.service, `--remove-tags=${tags.join(",")}`]);
+  const after = await cloud(["run", "services", "describe", config.service]);
+  requireValue(same(traffic(after), traffic(before)), "Traffic changed while retiring tags; inspect the service");
+  const left = staleTags(after, keep).filter(tag => tags.includes(tag));
+  requireValue(left.length === 0, `Tags could not be retired: ${left.join(", ")}`);
+  return tags;
 }
 
 export async function rollback(context, receipt, { cloud, log }) {
