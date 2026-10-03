@@ -2,7 +2,7 @@ import { UnauthenticatedError } from "@graffiticode/common/errors";
 import { createLocalJWKSet } from "jose";
 import { createApp } from "../app.js";
 import { cleanUpFirebase, signInAndGetIdToken } from "../testing/firebase.js";
-import { buildVerifyAccessToken } from "./auth.js";
+import { buildAuthService, buildVerifyAccessToken } from "./auth.js";
 
 const uid = "abc123";
 
@@ -51,6 +51,25 @@ describe("services/auth", () => {
       token = [...token.split(".").slice(0, 2), "not-a-valid-signature"].join(".");
 
       await expect(appDeps.authService.verifyToken({ token })).rejects.toThrow(UnauthenticatedError);
+    });
+
+    // Firebase's verdict on the token itself is the client's problem (401);
+    // anything else is still a server error.
+    const failingFirebase = code => buildAuthService({
+      firebaseAuth: { verifyIdToken: async () => { throw Object.assign(new Error(code), { code }); } },
+      refreshTokenStorer: {},
+      keysService: appDeps.keysService
+    });
+
+    it.each(["auth/id-token-expired", "auth/id-token-revoked", "auth/user-disabled"])(
+      "should throw Unauthenticated when Firebase reports %s", async code => {
+        await expect(failingFirebase(code).verifyToken({ token: "t" })).rejects.toThrow(UnauthenticatedError);
+      });
+
+    it("should rethrow other Firebase failures", async () => {
+      const promise = failingFirebase("auth/internal-error").verifyToken({ token: "t" });
+      await expect(promise).rejects.toMatchObject({ code: "auth/internal-error" });
+      await expect(promise).rejects.not.toBeInstanceOf(UnauthenticatedError);
     });
   });
 });

@@ -8,6 +8,15 @@ export const buildVerifyAccessToken = ({ JWKS }) => async (token) => {
   return { payload, protectedHeader };
 };
 
+// Firebase verdicts on the caller's token itself: the client must sign in
+// again or refresh, so they answer 401. Anything else (an outage, a
+// misconfiguration) still surfaces as a server error.
+const FIREBASE_UNAUTHENTICATED = new Set([
+  "auth/id-token-expired",
+  "auth/id-token-revoked",
+  "auth/user-disabled",
+]);
+
 const buildVerifyToken = ({ firebaseAuth, keysService }) => async ({ token }) => {
   try {
     const decodedToken = await firebaseAuth.verifyIdToken(token, true);
@@ -15,6 +24,7 @@ const buildVerifyToken = ({ firebaseAuth, keysService }) => async ({ token }) =>
   } catch (err) {
     if (err.code !== "auth/argument-error") {
       console.warn(`Failed to verify token with firebase: ${err.code}`);
+      if (FIREBASE_UNAUTHENTICATED.has(err.code)) throw new UnauthenticatedError();
       throw err;
     }
   }
