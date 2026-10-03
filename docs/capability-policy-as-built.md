@@ -233,6 +233,24 @@ The [IAM review](capability-policy-iam-review.md) records historical live eviden
 - That same record still lists L0158/L0176 access to legacy Learnosity/decryption secrets
   and broad legacy build permissions. Their present state needs verification.
 
+W0 release controls, released 2026-10-03 (UTC) from main `14cc636` (clean):
+
+- Stale tags retired before the release: 9 on policy, 4 on broker, 5 on api, 5 on l0176;
+  `release-check` then passed for all four.
+- Flags created with `enable` ("W0 bootstrap", 21:13Z) before the release reached traffic.
+- Released `policy-rmusw3hu8-0f089c` and `broker-rmuswdv73-e78f51`; each candidate
+  reported `/v1/protected-execution` `on (flag)` (`GC_VERIFY_PROTECTED_EXECUTION=on`) and
+  passed its denial checks; each release retired the previous revision's tag.
+- Off state verified 21:30:08–21:30:34Z: `disable`, `drain` (no active writes), both
+  services reported `{"enabled":false,"source":"flag"}`, then `enable` ("W0 release
+  verified"; release checks passed). A live 503 `maintenance` refusal was not exercised:
+  the operator cannot yet mint L0176 caller identities (the same grant the canary needs);
+  the refusal is covered by unit tests.
+- W0 milestone recorded in `deploy.json` `baselines` for policy and broker (commit
+  `14cc636`). api and l0176 receive theirs when they release W0 code.
+- Not yet done: the live canary (needs the canary account, its sandbox connection, the
+  `canary-api-key` secret and the OpenID token-creator grants).
+
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
 connection into Policy. Configuration intent does not prove a deployment uses it. Refresh
 live identity, database, token-key, secret, egress, provider-session, and rollback evidence

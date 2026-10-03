@@ -261,7 +261,13 @@
         "BROKER_SECRET_KEY": "BROKER_SECRET_KEY:1"
       },
       "retireTags": true,
-      "enforcesSwitch": true
+      "enforcesSwitch": true,
+      "baselines": [
+        {
+          "milestone": "W0",
+          "commit": "14cc636613d63c69306a33eadacdd561072e70ac"
+        }
+      ]
     },
     "policy": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/policy",
@@ -352,7 +358,13 @@
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1"
       },
       "retireTags": true,
-      "enforcesSwitch": true
+      "enforcesSwitch": true,
+      "baselines": [
+        {
+          "milestone": "W0",
+          "commit": "14cc636613d63c69306a33eadacdd561072e70ac"
+        }
+      ]
     },
     "l0000": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0000",
