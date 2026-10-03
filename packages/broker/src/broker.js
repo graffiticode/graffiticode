@@ -20,9 +20,11 @@
 // Time limits (limits.js): each provider request has a timeout, and no request
 // starts after the operation's deadline. A request that times out is
 // uncertain; one never started because of the deadline is definite (failed,
-// or partial after earlier steps). A write registers in `activity` before its
-// receipt claim and leaves when it finishes, so an operator can wait for
-// active writes to drain.
+// or partial after earlier steps). The deadline is measured from the request's
+// arrival, so slow preparation (token checks, receipt claim) cannot push a
+// provider request past it. A write registers in `activity` under its own
+// attempt key right after admission, and leaves when that attempt finishes,
+// so an operator can wait for active writes to drain.
 //
 // While protected execution is switched off, every execution is refused with
 // `maintenance` (503) right after the token and caller check, except the
@@ -30,6 +32,7 @@
 //
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
+import { randomUUID } from "node:crypto";
 import { isOperationAllowed, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { verifyToken, MAINTENANCE, admission } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
@@ -56,11 +59,14 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
   // Nor without activity tracking, which draining relies on.
   if (!activity || typeof activity.begin !== "function") throw new Error("createBroker needs an activity store");
-  // Starts the operation's clock. `providerCall` is called just before each
-  // provider request: past the deadline it refuses (DeadlineExceeded),
-  // otherwise it returns that request's timeout.
-  const startClock = () => {
-    const deadline = now() + limits.executionMs;
+  // The execution's one clock, started when the request arrives, before any
+  // asynchronous work, so the deadline and the activity entry's expiry share
+  // an origin. `providerCall` is called just before each provider request:
+  // past the deadline it refuses (DeadlineExceeded), otherwise it returns that
+  // request's timeout. No provider request can therefore start later than
+  // startedAt + executionMs, however slow the preparation was.
+  const clockFrom = startedAt => {
+    const deadline = startedAt + limits.executionMs;
     return () => {
       const remaining = deadline - now();
       if (remaining <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before the next provider request`);
@@ -68,6 +74,8 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     };
   };
   const execute = async ({ caller, token, op, payload }) => {
+    const startedAt = now();
+    const providerCall = clockFrom(startedAt);
     let claims;
     try {
       ({ claims } = await verifyToken(jwks, "execution", token));
@@ -100,10 +108,31 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     const admitted = admission(await protectedSwitch.state(), { uid: claims.sub, connectionId: claims.conn });
     if (!admitted) return refuse(MAINTENANCE, 503);
     if (admitted === "canary") await audit({ ...record, outcome: "allowed", reason: "canary-during-maintenance" });
+
+    // A write registers as active right after admission, before anything else
+    // asynchronous, and under its own attempt key: a second request for the
+    // same operation (a retry that replays the receipt) has its own entry and
+    // never removes this one. The entry expires when this attempt's last
+    // possible provider request has ended (startedAt + maxExecutionMs). A
+    // failure to register propagates before any claim or provider request.
+    const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
+    if (operation?.kind !== "write") {
+      return executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall });
+    }
+    const attempt = `${claims.opid}#${randomUUID()}`;
+    await activity.begin(attempt, startedAt + maxExecutionMs(limits));
+    try {
+      return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall });
+    } finally {
+      // Best effort: an entry left behind expires on its own.
+      await activity.end(attempt).catch(() => {});
+    }
+  };
+
+  const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall }) => {
     // Never reinterpret a token under a different registry than it was minted
     // for.
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
-    const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
       return refuse("operation-not-allowed");
@@ -127,7 +156,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     }
 
     if (operation.kind !== "write") {
-      const result = await operation.run(payload, credential, { onStep: async () => {}, providerCall: startClock() });
+      const result = await operation.run(payload, credential, { onStep: async () => {}, providerCall });
       await audit({ ...record, outcome: "allowed" });
       return { status: "succeeded", result };
     }
@@ -142,18 +171,10 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       registryVersion: claims.rv,
       argsDigest: digest,
     };
-    // Registered before the claim, so an active write is always counted. A
-    // failure here propagates before any claim or provider request.
-    await activity.begin(claims.opid, now() + maxExecutionMs(limits));
-    try {
-      return await executeWrite({ claims, binding, operation, payload, credential, record, refuse });
-    } finally {
-      // Best effort: an entry left behind expires at its deadline.
-      await activity.end(claims.opid).catch(() => {});
-    }
+    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall });
   };
 
-  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse }) => {
+  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall }) => {
     const claimed = await receipts.claim(claims.opid, binding);
     if (!claimed.created) {
       const recorded = claimed.claim.binding;
@@ -171,7 +192,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     let result;
     let error;
     try {
-      result = await operation.run(payload, credential, { onStep: async step => { steps.push(step); }, providerCall: startClock() });
+      result = await operation.run(payload, credential, { onStep: async step => { steps.push(step); }, providerCall });
       status = "succeeded";
     } catch (e) {
       if (e instanceof ProviderRejected || e instanceof DeadlineExceeded) {

@@ -81,7 +81,7 @@ beforeEach(async () => {
   const dataApi = async ({ route, timeoutMs }) => {
     routes.push(route);
     providerCalls.push({ route, timeoutMs, active: await activity.count() });
-    if (onProviderCall) onProviderCall(route);
+    if (onProviderCall) await onProviderCall(route);
     if (failItems && route === "/itembank/items") throw new ProviderRejected("Learnosity Data API failed: /itembank/items");
     if (lostItems && route === "/itembank/items") throw new Error("request timed out");
     return { meta: { status: true } };
@@ -561,6 +561,50 @@ describe("time limits and active executions", () => {
     const b = createBroker({ ...brokerDeps, activity: { ...activity, begin: async id => { begins.push(id); } } });
     await b.execute({ caller: L0176, token: await previewToken(), op: "learnosity.sign-questions-preview", payload: PREVIEW });
     expect(begins).toEqual([]);
+  });
+
+  // Review finding 1: a replay for the same operation must not remove the
+  // entry of the attempt that is still writing.
+  it("keeps counting an in-flight write while another request replays its receipt", async () => {
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    onProviderCall = route => route === "/itembank/questions" ? gate : undefined;
+    const first = broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    while (providerCalls.length === 0) await new Promise(resolve => setImmediate(resolve));
+    expect(await activity.count()).toBe(1);
+    const replay = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    expect(replay).toMatchObject({ status: "uncertain", replayed: true });
+    expect(await activity.count()).toBe(1);
+    release();
+    expect((await first).status).toBe("succeeded");
+    expect(await activity.count()).toBe(0);
+  });
+
+  // Review finding 2: the deadline runs from the request's arrival, so a slow
+  // claim cannot let a provider request start after the drain bound.
+  it("dispatches nothing when preparation outlasts the deadline, and counts the write until then", async () => {
+    let countDuringClaim;
+    const slowReceipts = {
+      ...receipts,
+      claim: async (...args) => {
+        countDuringClaim = await activity.count(t);
+        t += 60_000;
+        return receipts.claim(...args);
+      }
+    };
+    const b = createBroker({ ...brokerDeps, receipts: slowReceipts, now: () => t });
+    const out = await save(b);
+    expect(countDuringClaim).toBe(1);
+    expect(out).toMatchObject({ status: "failed", steps: [] });
+    expect(out.error).toMatch(/deadline/);
+    expect(routes).toEqual([]);
+  });
+
+  it("expires an attempt's entry at the bound measured from its arrival", async () => {
+    let expiresAt;
+    const b = createBroker({ ...brokerDeps, activity: { ...activity, begin: async (_id, at) => { expiresAt = at; } }, now: () => t });
+    await save(b);
+    expect(expiresAt).toBe(1_000_000 + 50_000);
   });
 
   it("cannot be built without an activity store", () => {
