@@ -566,7 +566,8 @@ describe("time limits and active executions", () => {
   // Review finding 1: a replay for the same operation must not remove the
   // entry of the attempt that is still writing.
   it("keeps counting an in-flight write while another request replays its receipt", async () => {
-    let release;
+    /** @type {(value?: unknown) => void} */
+    let release = () => {};
     const gate = new Promise(resolve => { release = resolve; });
     onProviderCall = route => route === "/itembank/questions" ? gate : undefined;
     const first = broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });

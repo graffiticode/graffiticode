@@ -26,7 +26,9 @@ node scripts/protected-execution.js disable --reason "v6 release window"
 node scripts/protected-execution.js enable  --reason "v6 verified"
 ```
 
-The script writes both databases with application-default credentials. Disabling
+The script writes both databases with application-default credentials. Every write
+merges: switching on or off keeps a configured canary, and setting the canary keeps
+the switch where it is. Disabling
 stops issuance (Policy) before execution (Broker); enabling reopens them in the
 reverse order. Each document records `updatedBy`, `updatedAt` and `reason`.
 
@@ -76,7 +78,14 @@ node scripts/protected-execution.js disable --reason "v6 release window"
 node scripts/protected-execution.js drain     # no active writes, or 50 s since Broker went off
 ```
 
-`drain` refuses while Broker is on. Pass `--max-ms` if the limits were overridden.
+`drain` trusts an empty count only once the switch has settled: a service may act on
+a cached "on" for up to 2 s after the flip, and a request admitted then registers as
+active a moment later, so it waits at least 5 s. Its time bound is the maximum
+execution duration plus that 2 s cache window, since an admitted request arrived by
+then and starts no provider request after its arrival plus the deadline. Each write
+attempt has its own entry, so a retry that replays a pending receipt never hides the
+attempt still writing. `drain` refuses while Broker is on. Pass `--max-ms` if the
+limits were overridden.
 
 ## First release carrying the switch
 
