@@ -56,6 +56,32 @@ normal check still applies, and each admission is audited as
 or unreadable flag, or a malformed canary admits no one. The status route never
 shows the canary.
 
+### Running the canary
+
+```bash
+node scripts/canary.js --uid <canary uid> --connection <canary connection id>
+```
+
+It checks, as the canary account:
+
+- **gateway preview**: a preview program compiled through the connection returns a
+  signed preview request (gateway → L0176 → Policy → Broker);
+- **gateway write**: a save program writes one draft (`graffiticode-canary` in the
+  sandbox item bank), and the same request with the same idempotency key returns
+  the same outcome;
+- **token replay**: an execution token executes once, and reusing it is refused
+  (409 `token-replayed`);
+- **receipt replay**: a fresh token for an operation that already wrote returns the
+  recorded receipt (`replayed: true`) and writes nothing.
+
+The last two need execution tokens, so the script mints them itself as the gateway
+(api) and compiler (l0176) runtime accounts. The operator needs
+`roles/iam.serviceAccountOpenIdTokenCreator` on those two accounts, granted for the
+release window if preferred. The canary account's API key is read from Secret
+Manager `canary-api-key`. The script refuses `VERIFY_UID`, and exits non-zero unless
+every check passes. Later releases add checks (W1: Author denied; W2: revocation;
+W4: admission).
+
 ## Draining before a release
 
 Broker bounds every execution (`packages/broker/src/limits.js`):
