@@ -87,17 +87,34 @@ attempt has its own entry, so a retry that replays a pending receipt never hides
 attempt still writing. `drain` refuses while Broker is on. Pass `--max-ms` if the
 limits were overridden.
 
+## Re-enabling is gated
+
+`enable` first runs `npm run deploy -- release-check` for every service in
+`deploy.json` with `retireTags` or a `baseline` (policy, broker, api, l0176) and refuses
+if any still has stale tags or serves a revision below its milestone baseline.
+`--skip-release-check` bypasses it (a non-production project) and is recorded as
+`releaseCheckSkipped: true`, which `status` shows.
+
+Rolling back below a baseline needs `npm run rollback -- <service> --release <id>
+--below-baseline`, only with protected execution switched off; `enable` then refuses
+until the service is at or above the baseline again. A passing canary on the older
+release does not change that.
+
 ## First release carrying the switch
 
 The flag documents do not exist yet, and a missing flag means off. So:
 
-1. `node scripts/protected-execution.js enable --reason "W0 bootstrap"` creates both
+1. Retire stale tags on the protected services (`npm run deploy -- retire-tags
+   <service>`, or the equivalent `gcloud run services update-traffic
+   --remove-tags=`), until `npm run deploy -- release-check <service>` passes for
+   each. No baseline is set yet.
+2. `node scripts/protected-execution.js enable --reason "W0 bootstrap"` creates both
    documents **before** the release reaches traffic. The current services ignore
    them.
-2. Deploy policy and broker. Their candidates report `on (flag)`.
-3. Verify the off state once: `disable`, then check that both
+3. Deploy policy and broker. Their candidates report `on (flag)`.
+4. Verify the off state once: `disable`, then `drain`, then check that both
    `/v1/protected-execution` answer `off` and a protected call answers 503
    `maintenance`; then `enable`.
-4. Record the policy and broker revisions as the W0 rollback baseline. Rolling back
-   below that baseline removes the switch, so it is allowed only with protected
-   execution otherwise disabled.
+5. Record the W0 baseline: set `baseline: { "milestone": "W0", "release": "<id>" }`
+   on policy and broker in `deploy.json` (their new release ids) and commit. From then
+   on rollback and `enable` enforce it.

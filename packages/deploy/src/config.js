@@ -12,10 +12,10 @@ const namePattern = /^[a-z][a-z0-9-]{0,39}$/;
 
 export function parseArgs(args) {
   const options = { command: "deploy", env: "production", config: "deploy.json" };
-  if (["deploy", "rollback", "retire-tags"].includes(args[0])) options.command = args.shift();
+  if (["deploy", "rollback", "retire-tags", "release-check"].includes(args[0])) options.command = args.shift();
   while (args.length) {
     const arg = args.shift();
-    if (["--plan", "--allow-dirty", "--help"].includes(arg)) options[arg.slice(2)] = true;
+    if (["--plan", "--allow-dirty", "--help", "--below-baseline", "--json"].includes(arg)) options[arg.slice(2)] = true;
     else if (["--env", "--config", "--release"].includes(arg)) {
       const value = args.shift();
       requireValue(value && !value.startsWith("--"), `${arg} requires a value`);
@@ -70,6 +70,8 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   requireValue(!config.env || object(config.env), "env must be an object");
   requireValue(!config.secrets || object(config.secrets), "secrets must be an object");
   requireValue(config.retireTags === undefined || typeof config.retireTags === "boolean", "retireTags must be a boolean");
+  requireValue(config.baseline === undefined || (object(config.baseline) && typeof config.baseline.milestone === "string" && config.baseline.milestone.length > 0 &&
+    typeof config.baseline.release === "string" && /^r[0-9a-z]+-[0-9a-f]{6}$/.test(config.baseline.release)), "baseline must be { milestone, release: <release id> }");
   requireValue(!config.removeSecrets || (Array.isArray(config.removeSecrets) && config.removeSecrets.length > 0 &&
     config.removeSecrets.every(n => typeof n === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(n))), "removeSecrets must be a non-empty array of environment names");
   for (const name of config.removeSecrets || []) {

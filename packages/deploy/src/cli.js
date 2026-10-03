@@ -4,16 +4,22 @@ import path from "node:path";
 import { parseArgs, loadConfig } from "./config.js";
 import { snapshot } from "./snapshot.js";
 import { run } from "./process.js";
-import { release, rollback, readReceipt, retireTags, staleTags } from "./release.js";
+import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck } from "./release.js";
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
-    console.log(`gc-deploy [deploy|rollback|retire-tags] [service] [--env production] [--config deploy.json]
+    console.log(`gc-deploy [deploy|rollback|retire-tags|release-check] [service] [--env production] [--config deploy.json]
   --plan                 Preview locally; no cloud calls or mutations (retire-tags --plan
                          reads the service to list its stale tags, and changes nothing)
   --allow-dirty          Deploy uncommitted workspace contents with a snapshot hash
   --release <id>         For rollback: restore the traffic preceding this release
+  --below-baseline       For rollback: allow a target below the service's milestone baseline
+                         (only with protected execution switched off)
+  --json                 For release-check: print the result as JSON
+
+release-check (read-only) exits non-zero if the service still has stale tags or
+serves a revision below its baseline; protected-execution enable runs it.
 
 Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run service.`);
     return;
@@ -35,6 +41,17 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     const output = await run("gcloud", scoped, { cwd: root, stream });
     return json ? JSON.parse(output) : output;
   };
+  if (options.command === "release-check") {
+    const result = await releaseCheck(context, { cloud });
+    if (options.json) console.log(JSON.stringify(result));
+    else {
+      console.log(`${result.service}: ${result.ok ? "ok" : "NOT READY"}; serving ${result.serving.join(", ")}`);
+      if (result.staleTags.length) console.log(`  stale tags: ${result.staleTags.join(", ")}`);
+      if (result.belowBaseline.length) console.log(`  below the ${result.baseline.milestone} baseline ${result.baseline.release}: ${result.belowBaseline.join(", ")}`);
+    }
+    if (!result.ok) process.exitCode = 1;
+    return;
+  }
   if (options.command === "retire-tags" && options.plan) {
     const service = await cloud(["run", "services", "describe", config.service]);
     console.log(JSON.stringify({ action: "retire-tags", target: `${config.project}/${config.region}/${config.service}`, staleTags: staleTags(service) }, null, 2));
@@ -64,7 +81,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     }
     if (options.command === "rollback") {
       const receipt = await readReceipt(root, options.release);
-      await save(await rollback(context, receipt, { cloud, log: console.log }));
+      await save(await rollback(context, receipt, { cloud, log: console.log, allowBelowBaseline: Boolean(options["below-baseline"]) }));
       console.log(`Restored the traffic preceding ${receipt.id}.`);
       return;
     }
@@ -85,6 +102,8 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     if (options.plan) return;
     const receipt = await release(context, source, { cloud, log: console.log, save, temp: source.dir });
     console.log(`Released ${receipt.revision}: ${receipt.url}\nReceipt: ${path.join(receiptDir, `${receipt.id}.json`)}\nRollback: npm run rollback -- ${context.service} --env ${context.environment} --release ${receipt.id}`);
+    // Released, but not ready for protected execution: make that a failed run.
+    if (receipt.tagRetirementError) process.exitCode = 1;
   } finally {
     if (source) await rm(source.dir, { recursive: true, force: true });
     if (lock) {

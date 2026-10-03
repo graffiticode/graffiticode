@@ -234,7 +234,43 @@ export async function retireTags(context, { cloud, log, keep = [] }) {
   return tags;
 }
 
-export async function rollback(context, receipt, { cloud, log }) {
+// When a revision was released, from its release id (`<service>-r<base36 ms>-<hex>`),
+// or null for a revision this CLI did not create (it predates any baseline).
+export function releaseTime(service, revisionName) {
+  const match = new RegExp(`^${service}-r([0-9a-z]+)-[0-9a-f]{6}$`).exec(revisionName ?? "");
+  return match ? parseInt(match[1], 36) : null;
+}
+
+// The revisions older than the service's milestone baseline (capability plan
+// W0): the first release carrying the current security guarantees. Running
+// below it gives those guarantees up.
+export function belowBaseline(config, revisionNames) {
+  if (!config.baseline) return [];
+  const floor = releaseTime(config.service, `${config.service}-${config.baseline.release}`);
+  return revisionNames.filter(name => {
+    const at = releaseTime(config.service, name);
+    return at === null || at < floor;
+  });
+}
+
+// What must hold before protected execution is switched back on: no tag still
+// reaches a non-serving revision (when the service retires tags), and nothing
+// serving is below the baseline. Read-only.
+export async function releaseCheck(context, { cloud }) {
+  const { config } = context;
+  const service = await cloud(["run", "services", "describe", config.service]);
+  const serving = Object.keys(traffic(service));
+  const result = {
+    service: config.service,
+    serving,
+    staleTags: config.retireTags ? staleTags(service) : [],
+    baseline: config.baseline ?? null,
+    belowBaseline: belowBaseline(config, serving),
+  };
+  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 };
+}
+
+export async function rollback(context, receipt, { cloud, log, allowBelowBaseline = false }) {
   const { config, environment } = context;
   requireValue(receipt.version === 1 && receipt.project === config.project && receipt.region === config.region && receipt.service === config.service && receipt.environment === environment, "Release receipt does not match the deployment target");
   requireValue(receipt.revision && receipt.previousTraffic, "Receipt has no rollback target");
@@ -242,11 +278,15 @@ export async function rollback(context, receipt, { cloud, log }) {
   requireValue(sum === 100 && Object.entries(receipt.previousTraffic).every(([k, v]) => /^[a-z][a-z0-9-]+$/.test(k) && Number.isInteger(v) && v > 0), "Invalid rollback traffic in receipt");
   const current = await cloud(["run", "services", "describe", config.service]);
   requireValue(same(traffic(current), { [receipt.revision]: 100 }), "Traffic no longer belongs exclusively to this release; refusing to overwrite a newer deployment");
+  const below = belowBaseline(config, Object.keys(receipt.previousTraffic));
+  requireValue(below.length === 0 || allowBelowBaseline,
+    `Rollback target ${below.join(", ")} is below the ${config.baseline?.milestone} baseline (${config.baseline?.release}). ` +
+    "Pass --below-baseline only with protected execution switched off; it cannot be switched back on until the service is at or above the baseline again.");
   log(`Restoring traffic to ${pairs(receipt.previousTraffic)}…`);
   await cloud(["run", "services", "update-traffic", config.service, `--to-revisions=${pairs(receipt.previousTraffic)}`]);
   const final = await cloud(["run", "services", "describe", config.service]);
   requireValue(same(traffic(final), receipt.previousTraffic), "Rollback traffic could not be verified");
-  return { ...receipt, status: "rolled-back", rolledBackAt: new Date().toISOString() };
+  return { ...receipt, status: "rolled-back", rolledBackAt: new Date().toISOString(), ...(below.length ? { rolledBackBelowBaseline: below } : {}) };
 }
 
 export async function readReceipt(root, id) {

@@ -21,11 +21,15 @@ const ID = /^[A-Za-z0-9_:.-]{1,200}$/;
 
 export const parse = (argv, { verifyUid }) => {
   const [command, ...rest] = argv;
-  const opts = { command, project: "graffiticode", databases: ["policy", "broker"], reason: null, maxMs: DEFAULT_MAX_MS, uid: null, connection: null, clear: false };
+  const opts = { command, project: "graffiticode", databases: ["policy", "broker"], reason: null, maxMs: DEFAULT_MAX_MS, uid: null, connection: null, clear: false, skipReleaseCheck: false };
   for (let i = 0; i < rest.length; i++) {
     const key = rest[i];
     if (key === "--clear") {
       opts.clear = true;
+      continue;
+    }
+    if (key === "--skip-release-check") {
+      opts.skipReleaseCheck = true;
       continue;
     }
     const value = rest[i + 1];
@@ -50,6 +54,7 @@ export const parse = (argv, { verifyUid }) => {
     if (opts.uid === verifyUid) throw new Error("the deploy-check account (VERIFY_UID) must never be the canary");
   }
   if (["enable", "disable", "canary"].includes(command) && !opts.reason?.trim()) throw new Error(`${command} needs --reason`);
+  if (opts.skipReleaseCheck && command !== "enable") throw new Error("--skip-release-check applies only to enable");
   return opts;
 };
 
@@ -59,6 +64,30 @@ export const setEnabled = async (dbs, enabled, { reason, by, now = () => new Dat
   const order = enabled ? [...dbs].reverse() : dbs;
   for (const { db } of order) {
     await db.doc(DOC).set({ enabled, reason, updatedAt: now().toISOString(), updatedBy: by }, { merge: true });
+  }
+};
+
+// Switching protected execution back on requires every protected service to
+// pass its release check (packages/deploy release-check): no stale tags, and
+// nothing serving below its milestone baseline. `check` resolves to one result
+// per service. Skipping is possible (a non-production project, the very first
+// bootstrap) but is recorded in the flag document.
+export const enableChecked = async (dbs, { reason, by, now, check, skip = false, log = () => {} }) => {
+  if (!skip) {
+    const results = await check();
+    const failing = results.filter(r => !r.ok);
+    for (const r of results) log(`release check ${r.service}: ${r.ok ? "ok" : "NOT READY"}`);
+    if (failing.length) {
+      const why = failing.map(r => [
+        r.staleTags?.length ? `${r.service} has stale tags ${r.staleTags.join(", ")}` : null,
+        r.belowBaseline?.length ? `${r.service} serves ${r.belowBaseline.join(", ")} below the ${r.baseline?.milestone} baseline` : null,
+      ].filter(Boolean).join("; ")).join("; ");
+      throw new Error(`refusing to enable protected execution: ${why}`);
+    }
+  }
+  await setEnabled(dbs, true, { reason, by, now });
+  for (const { db } of dbs) {
+    await db.doc(DOC).set({ releaseCheckSkipped: skip }, { merge: true });
   }
 };
 
@@ -110,5 +139,6 @@ export const status = async (dbs, { project, log }) => {
     const state = data?.enabled === true ? "ON" : "OFF";
     log(`${project}/${name}: ${state}${data?.updatedAt ? ` (by ${data.updatedBy} at ${data.updatedAt}: ${data.reason})` : data ? " (switch never set: fails closed)" : " (no flag document: fails closed)"}`);
     if (data?.canary) log(`  canary while off: ${data.canary.uid} on ${data.canary.connectionId}`);
+    if (data?.enabled === true && data.releaseCheckSkipped) log("  enabled with the release check SKIPPED");
   }
 };

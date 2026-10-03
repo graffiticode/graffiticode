@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, staleTags, retireTags } from "../src/release.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, staleTags, retireTags, releaseTime, belowBaseline, releaseCheck } from "../src/release.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
 const config = {
@@ -412,4 +412,57 @@ test("retire-tags parses as a command, and retireTags must be a boolean", async 
     version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, retireTags: "yes" } }
   }));
   await assert.rejects(loadConfig(parseArgs(["--plan"]), root, {}), /retireTags must be a boolean/);
+});
+
+test("release ids order revisions by time; revisions this CLI did not create sort below any baseline", () => {
+  const at = Date.parse("2026-10-03T00:00:00Z");
+  const id = ms => `r${ms.toString(36)}-abc123`;
+  assert.equal(releaseTime("api", `api-${id(at)}`), at);
+  assert.equal(releaseTime("api", "api-00013-zgm"), null);
+  assert.equal(releaseTime("api", `policy-${id(at)}`), null);
+  const withBaseline = { ...config, baseline: { milestone: "W0", release: id(at) } };
+  assert.deepEqual(belowBaseline(withBaseline, [`api-${id(at)}`, `api-${id(at + 1)}`, `api-${id(at - 1)}`, "api-old"]), [`api-${id(at - 1)}`, "api-old"]);
+  assert.deepEqual(belowBaseline(config, ["api-old"]), []);
+});
+
+test("rollback refuses a target below the baseline unless explicitly allowed, and records it", async t => {
+  const h = await harness(t);
+  const receipt = await release(context, source, h.deps);
+  const below = { ...context, config: { ...config, baseline: { milestone: "W0", release: receipt.id } } };
+  await assert.rejects(rollback(below, receipt, h.deps), /below the W0 baseline/);
+  const reverted = await rollback(below, receipt, { ...h.deps, allowBelowBaseline: true });
+  assert.equal(reverted.status, "rolled-back");
+  assert.deepEqual(reverted.rolledBackBelowBaseline, ["api-old"]);
+});
+
+test("release-check reports stale tags and revisions below the baseline, and passes when both are clear", async t => {
+  const h = await harness(t, { tags: ["old-1"] });
+  const receipt = await release(context, source, h.deps);
+  const guarded = { ...context, config: { ...config, retireTags: true, baseline: { milestone: "W0", release: receipt.id } } };
+  const dirty = await releaseCheck(guarded, h.deps);
+  assert.equal(dirty.ok, false);
+  assert.deepEqual(dirty.staleTags, ["old-1"]);
+  assert.deepEqual(dirty.belowBaseline, []);
+  await retireTags(guarded, { ...h.deps, keep: [receipt.id] });
+  assert.equal((await releaseCheck(guarded, h.deps)).ok, true);
+  await rollback(guarded, receipt, { ...h.deps, allowBelowBaseline: true });
+  const rolledBack = await releaseCheck(guarded, h.deps);
+  assert.equal(rolledBack.ok, false);
+  assert.deepEqual(rolledBack.belowBaseline, ["api-old"]);
+});
+
+test("baseline config is validated, and the new flags parse", async t => {
+  assert.equal(parseArgs(["release-check", "policy", "--json"]).command, "release-check");
+  assert.equal(parseArgs(["rollback", "api", "--release", "r1-abc123", "--below-baseline"])["below-baseline"], true);
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-config-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const write = service => writeFile(path.join(root, "deploy.json"), JSON.stringify({
+    version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, ...service } }
+  }));
+  await write({ baseline: { milestone: "W0", release: "rmuqbq6tq-d97b10" } });
+  assert.equal((await loadConfig(parseArgs(["--plan"]), root, {})).config.baseline.milestone, "W0");
+  for (const baseline of [{ milestone: "W0" }, { milestone: "", release: "rmuqbq6tq-d97b10" }, { milestone: "W0", release: "latest" }, "W0"]) {
+    await write({ baseline });
+    await assert.rejects(loadConfig(parseArgs(["--plan"]), root, {}), /baseline must be/);
+  }
 });

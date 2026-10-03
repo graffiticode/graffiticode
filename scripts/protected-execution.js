@@ -6,7 +6,7 @@
 // issuance.
 //
 //   node scripts/protected-execution.js status
-//   node scripts/protected-execution.js enable  --reason "W0 release verified"
+//   node scripts/protected-execution.js enable  --reason "W0 release verified" [--skip-release-check]
 //   node scripts/protected-execution.js disable --reason "v6 release window"
 //   node scripts/protected-execution.js drain
 //   node scripts/protected-execution.js canary --uid <uid> --connection <id> --reason "W0 canary"
@@ -23,6 +23,11 @@
 // overrides the duration (default 50000: the default limits in
 // packages/broker/src/limits.js).
 //
+// `enable` first runs the deploy CLI's release check for every service in
+// deploy.json that retires tags or names a baseline (no stale tags, nothing
+// serving below its milestone baseline), and refuses if any fails.
+// --skip-release-check bypasses it and records releaseCheckSkipped: true.
+//
 // Every write merges: enable/disable keep a configured canary, and canary
 // keeps the switch where it is. The logic lives in scripts/lib/protected-execution.js.
 //
@@ -34,7 +39,25 @@ import { execFileSync } from "node:child_process";
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { VERIFY_UID } from "../verify/auth.js";
-import { DOC, drain, parse, setCanary, setEnabled, status } from "./lib/protected-execution.js";
+import { readFile } from "node:fs/promises";
+import { DOC, drain, enableChecked, parse, setCanary, setEnabled, status } from "./lib/protected-execution.js";
+import { loadConfig, parseArgs } from "../packages/deploy/src/config.js";
+import { releaseCheck } from "../packages/deploy/src/release.js";
+import { run } from "../packages/deploy/src/process.js";
+
+const ROOT = new URL("..", import.meta.url).pathname;
+
+// The deploy CLI's release check for each protected service (read-only).
+const releaseChecks = async () => {
+  const raw = JSON.parse(await readFile(new URL("../deploy.json", import.meta.url), "utf8"));
+  const names = Object.entries(raw.services).filter(([, s]) => s.retireTags || s.baseline).map(([name]) => name);
+  return Promise.all(names.map(async name => {
+    const context = await loadConfig(parseArgs([name]), ROOT);
+    const { config } = context;
+    const cloud = async args => JSON.parse(await run("gcloud", [...args, `--project=${config.project}`, `--region=${config.region}`, "--quiet", "--format=json"], { cwd: ROOT }));
+    return releaseCheck(context, { cloud });
+  }));
+};
 
 const operator = () => {
   try {
@@ -59,10 +82,12 @@ const main = async () => {
     const canary = opts.clear ? null : { uid: opts.uid, connectionId: opts.connection };
     await setCanary(dbs, canary, { reason: opts.reason, by: operator() });
     log(`canary ${canary ? `${canary.uid} on ${canary.connectionId}` : "cleared"} in ${opts.databases.join(", ")}`);
-  } else if (opts.command !== "status") {
-    const enabled = opts.command === "enable";
-    await setEnabled(dbs, enabled, { reason: opts.reason, by: operator() });
-    log(`${DOC} enabled=${enabled} in ${opts.databases.join(", ")}`);
+  } else if (opts.command === "enable") {
+    await enableChecked(dbs, { reason: opts.reason, by: operator(), check: releaseChecks, skip: opts.skipReleaseCheck, log });
+    log(`${DOC} enabled=true in ${opts.databases.join(", ")}${opts.skipReleaseCheck ? " (release check SKIPPED)" : ""}`);
+  } else if (opts.command === "disable") {
+    await setEnabled(dbs, false, { reason: opts.reason, by: operator() });
+    log(`${DOC} enabled=false in ${opts.databases.join(", ")}`);
   }
   await status(dbs, { project: opts.project, log });
 };

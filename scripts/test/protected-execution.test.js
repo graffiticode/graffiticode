@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createProtectedSwitch, admission } from "../../packages/policy/src/maintenance.js";
-import { ACTIVE, DOC, drain, parse, setCanary, setEnabled, SETTLE_MS } from "../lib/protected-execution.js";
+import { ACTIVE, DOC, drain, enableChecked, parse, setCanary, setEnabled, SETTLE_MS } from "../lib/protected-execution.js";
 
 // Just enough Firestore: documents with merging set(), and a count of
 // unexpired activity entries.
@@ -120,4 +120,31 @@ test("parse validates commands, reasons and the canary", () => {
   assert.throws(() => parse(["canary", "--clear", "--uid", "u", "--reason", "r"], { verifyUid }), /or --clear/);
   assert.throws(() => parse(["drain", "--max-ms", "x"], { verifyUid }), /positive integer/);
   assert.deepEqual(parse(["canary", "--uid", "u", "--connection", "c", "--reason", "r"], { verifyUid }).uid, "u");
+});
+
+test("enable refuses until every protected service passes its release check, and records a skip", async () => {
+  const dbs = dbsOf();
+  await setEnabled(dbs, false, meta);
+  const failing = async () => [
+    { service: "policy", ok: true, staleTags: [], belowBaseline: [] },
+    { service: "broker", ok: false, staleTags: ["rold-1"], belowBaseline: [], baseline: null },
+    { service: "api", ok: false, staleTags: [], belowBaseline: ["api-00013-zgm"], baseline: { milestone: "W0" } }
+  ];
+  await assert.rejects(enableChecked(dbs, { ...meta, check: failing }), /broker has stale tags rold-1; api serves api-00013-zgm below the W0 baseline/);
+  assert.equal(flagOf(dbs[0].db).enabled, false);
+  assert.equal(flagOf(dbs[1].db).enabled, false);
+
+  await enableChecked(dbs, { ...meta, check: async () => [{ service: "policy", ok: true }] });
+  assert.equal(flagOf(dbs[1].db).enabled, true);
+  assert.equal(flagOf(dbs[1].db).releaseCheckSkipped, false);
+
+  await setEnabled(dbs, false, meta);
+  await enableChecked(dbs, { ...meta, skip: true, check: async () => { throw new Error("not called"); } });
+  assert.equal(flagOf(dbs[0].db).enabled, true);
+  assert.equal(flagOf(dbs[0].db).releaseCheckSkipped, true);
+});
+
+test("--skip-release-check parses for enable only", () => {
+  assert.equal(parse(["enable", "--skip-release-check", "--reason", "bootstrap"], { verifyUid: "v" }).skipReleaseCheck, true);
+  assert.throws(() => parse(["disable", "--skip-release-check", "--reason", "r"], { verifyUid: "v" }), /applies only to enable/);
 });
