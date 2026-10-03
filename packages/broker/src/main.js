@@ -9,6 +9,8 @@
 //   LEARNOSITY_DOMAIN       consumer domain for signed requests (e.g. l0176.graffiticode.org)
 //   LEARNOSITY_DATA_API     Data API base URL (default https://data.learnosity.com/v2025.2.LTS)
 //   AUDIT_PSEUDONYM_SECRET  HMAC secret for pseudonymous audit ids
+//   BROKER_PROVIDER_CALL_TIMEOUT_MS, BROKER_EXECUTION_DEADLINE_MS
+//                           optional time limits (see limits.js; defaults 10 s, 30 s)
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables execution. Otherwise
 //                           controls/protected-execution in this database decides, and
 //                           a missing flag means off (@graffiticode/policy maintenance.js)
@@ -38,7 +40,9 @@ import {
   createSecretBox,
   createFirestoreOnceStore,
   createFirestoreReceiptStore,
-  createFirestoreSecretStore
+  createFirestoreSecretStore,
+  createFirestoreActivityStore,
+  parseLimits
 } from "./index.js";
 import { buildLearnosityDataApi } from "./learnosity.js";
 
@@ -65,6 +69,8 @@ const broker = createBroker({
   secrets,
   once: createFirestoreOnceStore(db),
   receipts: createFirestoreReceiptStore(db),
+  activity: createFirestoreActivityStore(db),
+  limits: parseLimits(env),
   protectedSwitch: createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) }),
   operations: buildOperations({
     sdk: new LearnositySDK(),

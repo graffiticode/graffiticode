@@ -19,6 +19,7 @@ import {
   buildOperations,
   createMemoryOnceStore,
   createMemoryReceiptStore,
+  createMemoryActivityStore,
   createMemorySecretStore,
   argsDigest
 } from "@graffiticode/broker";
@@ -72,7 +73,8 @@ beforeEach(async () => {
     }),
     secrets: createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "k", secret: "s" } }),
     once: createMemoryOnceStore(),
-    receipts: createMemoryReceiptStore()
+    receipts: createMemoryReceiptStore(),
+    activity: createMemoryActivityStore()
   });
 
   const compile = async ({ uid, connectionId, invocationToken, stage }) => {

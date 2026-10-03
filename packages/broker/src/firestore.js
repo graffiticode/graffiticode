@@ -51,6 +51,24 @@ export const createFirestoreReceiptStore = db => {
   };
 };
 
+// See stores.js for the contract. Entries carry expiresAt (a Date), which a
+// TTL policy on `active-executions` may also use for cleanup.
+export const createFirestoreActivityStore = db => {
+  const ref = operationId => db.collection("active-executions").doc(docId(operationId));
+  return {
+    async begin(operationId, expiresAt) {
+      await ref(operationId).set({ operationId, startedAt: new Date().toISOString(), expiresAt: new Date(expiresAt) });
+    },
+    async end(operationId) {
+      await ref(operationId).delete();
+    },
+    async count(now = Date.now()) {
+      const snap = await db.collection("active-executions").where("expiresAt", ">", new Date(now)).count().get();
+      return snap.data().count;
+    },
+  };
+};
+
 // See stores.js for the contract. The owner and backend are sealed into the
 // ciphertext's associated data with the connection id, so editing them on the
 // stored document makes the secret undecryptable rather than rebinding it.

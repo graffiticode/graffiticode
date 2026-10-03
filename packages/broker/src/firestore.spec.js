@@ -6,6 +6,7 @@ import {
   createFirestoreOnceStore,
   createFirestoreReceiptStore,
   createFirestoreSecretStore,
+  createFirestoreActivityStore,
   createSecretBox
 } from "./index.js";
 
@@ -36,6 +37,21 @@ run("firestore broker stores", () => {
     await receipts.putOutcome(op, { status: "succeeded", steps: ["questions"], result: null });
     await expect(receipts.putOutcome(op, { status: "failed", steps: [], result: null })).rejects.toThrow();
     expect((await receipts.getOutcome(op)).status).toBe("succeeded");
+  });
+
+  it("counts active executions until they end or expire", async () => {
+    const activity = createFirestoreActivityStore(db);
+    const now = Date.now();
+    const base = await activity.count(now);
+    const a = `${randomUUID()}/n1.0`;
+    const b = `${randomUUID()}/n1.0`;
+    await activity.begin(a, now + 60_000);
+    await activity.begin(b, now + 1_000);
+    expect(await activity.count(now)).toBe(base + 2);
+    expect(await activity.count(now + 2_000)).toBe(base + 1);
+    await activity.end(a);
+    await activity.end(b);
+    expect(await activity.count(now)).toBe(base);
   });
 
   it("stores secrets sealed and bound to their owner and backend", async () => {

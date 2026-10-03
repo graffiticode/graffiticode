@@ -18,6 +18,7 @@ import {
   ProviderRejected,
   createMemoryOnceStore,
   createMemoryReceiptStore,
+  createMemoryActivityStore,
   createMemorySecretStore,
   argsDigest
 } from "./index.js";
@@ -43,6 +44,9 @@ const WRITE = {
 let policy;
 let broker;
 let receipts;
+let activity;
+let providerCalls;
+let onProviderCall;
 let routes;
 let failItems;
 let lostItems;
@@ -74,13 +78,18 @@ beforeEach(async () => {
   const sdk = {
     init: (service, consumer, secret, body, action) => ({ service, consumer, signedWithSecret: secret === SECRET, body, action })
   };
-  const dataApi = async ({ route }) => {
+  const dataApi = async ({ route, timeoutMs }) => {
     routes.push(route);
+    providerCalls.push({ route, timeoutMs, active: await activity.count() });
+    if (onProviderCall) onProviderCall(route);
     if (failItems && route === "/itembank/items") throw new ProviderRejected("Learnosity Data API failed: /itembank/items");
     if (lostItems && route === "/itembank/items") throw new Error("request timed out");
     return { meta: { status: true } };
   };
   receipts = createMemoryReceiptStore();
+  activity = createMemoryActivityStore();
+  providerCalls = [];
+  onProviderCall = null;
   secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "consumer-key", secret: SECRET } });
   brokerDeps = {
     protectedSwitch: PROTECTED_ON,
@@ -89,6 +98,7 @@ beforeEach(async () => {
     secrets,
     once: createMemoryOnceStore(),
     receipts,
+    activity,
     audit
   };
   broker = createBroker(brokerDeps);
@@ -463,5 +473,79 @@ describe("maintenance switch", () => {
   it("cannot be built without a switch", () => {
     const { protectedSwitch, ...rest } = brokerDeps;
     expect(() => createBroker(rest)).toThrow(/protectedSwitch/);
+  });
+});
+
+// W0: bounded execution. Each provider request gets a timeout; no request
+// starts after the operation's deadline; active writes are counted for
+// draining.
+describe("time limits and active executions", () => {
+  // A clock the test advances; the broker reads it for every deadline check.
+  let t;
+  const timed = limits => createBroker({ ...brokerDeps, limits, now: () => t });
+  const save = async b => b.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+  beforeEach(() => { t = 1_000_000; });
+
+  it("gives each provider request its timeout, capped by the time left", async () => {
+    onProviderCall = () => { t += 7_000; };
+    const out = await save(timed({ providerCallMs: 10_000, executionMs: 12_000 }));
+    expect(out.status).toBe("succeeded");
+    expect(providerCalls.map(c => c.timeoutMs)).toEqual([10_000, 5_000]);
+  });
+
+  it("starts no request after the deadline: the write stops as partial, and a retry replays it", async () => {
+    onProviderCall = route => { if (route === "/itembank/questions") t += 30_000; };
+    const out = await save(timed({ providerCallMs: 10_000, executionMs: 30_000 }));
+    expect(out).toMatchObject({ status: "partial", steps: ["questions"] });
+    expect(out.error).toMatch(/deadline/);
+    expect(routes).toEqual(["/itembank/questions"]);
+    const retry = await save(broker);
+    expect(retry).toMatchObject({ status: "partial", replayed: true });
+    expect(routes).toEqual(["/itembank/questions"]);
+  });
+
+  it("records failed when the deadline passes before any request", async () => {
+    const b = createBroker({ ...brokerDeps, limits: { providerCallMs: 1, executionMs: 1 }, now: () => (t += 5) });
+    const out = await save(b);
+    expect(out).toMatchObject({ status: "failed", steps: [] });
+    expect(routes).toEqual([]);
+  });
+
+  it("counts a write as active while it runs, and not after, whatever its outcome", async () => {
+    expect(await activity.count()).toBe(0);
+    await save(broker);
+    expect(providerCalls.map(c => c.active)).toEqual([1, 1]);
+    expect(await activity.count()).toBe(0);
+    lostItems = true;
+    await broker.execute({ caller: L0176, token: await saveToken({ idempotencyKey: "job-2" }), op: "learnosity.write-items", payload: WRITE });
+    expect(await activity.count()).toBe(0);
+  });
+
+  it("makes no claim and no provider request when it cannot register the write", async () => {
+    const b = createBroker({ ...brokerDeps, activity: { ...activity, begin: async () => { throw new Error("firestore unavailable"); } } });
+    await expect(save(b)).rejects.toThrow(/firestore unavailable/);
+    expect(routes).toEqual([]);
+    const { invocationId } = await invocation();
+    const claim = await receipts.claim(`${invocationId}/s0/n1.0`, { probe: true });
+    expect(claim.created).toBe(true);
+  });
+
+  it("expires an entry a crash left behind, and reports the drain bound", async () => {
+    await activity.begin("crashed", Date.now() + 1000);
+    expect(await activity.count(Date.now())).toBe(1);
+    expect(await activity.count(Date.now() + 1001)).toBe(0);
+    expect(await broker.activeExecutions()).toEqual({ count: expect.any(Number), maxExecutionMs: 50_000 });
+  });
+
+  it("does not track signing, which has no provider effect", async () => {
+    const begins = [];
+    const b = createBroker({ ...brokerDeps, activity: { ...activity, begin: async id => { begins.push(id); } } });
+    await b.execute({ caller: L0176, token: await previewToken(), op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    expect(begins).toEqual([]);
+  });
+
+  it("cannot be built without an activity store", () => {
+    const { activity: _activity, ...rest } = brokerDeps;
+    expect(() => createBroker(rest)).toThrow(/activity/);
   });
 });

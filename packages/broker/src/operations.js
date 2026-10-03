@@ -13,6 +13,10 @@ export class PayloadRejected extends Error {}
 // before its response was lost.
 export class ProviderRejected extends Error {}
 
+// The operation's deadline passed before its next provider request started:
+// that request was never sent, so like a rejection it is definite.
+export class DeadlineExceeded extends Error {}
+
 const isPlainObject = v => v !== null && typeof v === "object" && !Array.isArray(v);
 const isRef = v => typeof v === "string" && /^[A-Za-z0-9_.:-]{1,250}$/.test(v);
 
@@ -118,10 +122,14 @@ export const buildOperations = ({ sdk, domain, dataApi }) => {
       validate: validateWrite,
       // Two provider writes: questions first (items reference them), then
       // items. Each step's status is reported so a failure after the first is
-      // visible as `partial` rather than retried.
-      run: async ({ questionRecords, itemRecords }, { key, secret }, { onStep }) => {
-        const write = (route, body) =>
-          dataApi({ route, request: sdk.init("data", { consumer_key: key, domain }, secret, body, "set") });
+      // visible as `partial` rather than retried. `providerCall` (from the
+      // broker) refuses to start a request past the operation's deadline and
+      // gives each one its timeout.
+      run: async ({ questionRecords, itemRecords }, { key, secret }, { onStep, providerCall }) => {
+        const write = (route, body) => {
+          const timeoutMs = providerCall();
+          return dataApi({ route, request: sdk.init("data", { consumer_key: key, domain }, secret, body, "set"), timeoutMs });
+        };
         await write("/itembank/questions", { questions: questionRecords });
         await onStep("questions");
         if (itemRecords.length > 0) {

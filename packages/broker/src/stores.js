@@ -12,6 +12,12 @@
 //               outcome  { status, steps, result, at } — after it
 //             A claim with no outcome is "uncertain": the broker may have
 //             crashed mid-call, so it is reported, never blindly re-run.
+//   activity  writes in progress, for draining before a release (W0):
+//               begin(operationId, expiresAt)   before any provider request
+//               end(operationId)                when the execution finishes
+//               count(now) -> number            entries not yet expired
+//             An entry left by a crash expires at its deadline, so a count
+//             never waits past the maximum execution duration.
 //   secrets   One credential per connection, bound to the connection's
 //             immutable owner and backend. Never logged, never returned to
 //             callers.
@@ -58,6 +64,21 @@ export const createMemoryReceiptStore = () => {
         throw new Error(`outcome already recorded for ${operationId}`);
       }
       outcomes.set(operationId, { ...outcome, at: new Date().toISOString() });
+    },
+  };
+};
+
+export const createMemoryActivityStore = () => {
+  const active = new Map();
+  return {
+    async begin(operationId, expiresAt) {
+      active.set(operationId, expiresAt);
+    },
+    async end(operationId) {
+      active.delete(operationId);
+    },
+    async count(now = Date.now()) {
+      return [...active.values()].filter(expiresAt => expiresAt > now).length;
     },
   };
 };

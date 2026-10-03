@@ -17,6 +17,13 @@
 //      provider rejection records failed/partial; any other provider error
 //      records uncertain, since the write may have been applied.
 //
+// Time limits (limits.js): each provider request has a timeout, and no request
+// starts after the operation's deadline. A request that times out is
+// uncertain; one never started because of the deadline is definite (failed,
+// or partial after earlier steps). A write registers in `activity` before its
+// receipt claim and leaves when it finishes, so an operator can wait for
+// active writes to drain.
+//
 // While protected execution is switched off, every execution is refused with
 // `maintenance` (503) right after the token and caller check.
 //
@@ -25,7 +32,8 @@
 import { isOperationAllowed, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { verifyToken, MAINTENANCE } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
-import { PayloadRejected, ProviderRejected } from "./operations.js";
+import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operations.js";
+import { DEFAULT_LIMITS, maxExecutionMs } from "./limits.js";
 
 export class BrokerRefused extends Error {
   constructor(reason, status = 403, detail) {
@@ -42,9 +50,22 @@ export class BrokerRefused extends Error {
 const BINDING_FIELDS = ["principal", "ownerUid", "connectionId", "lang", "fn", "op", "registryVersion", "argsDigest"];
 const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]);
 
-export const createBroker = ({ jwks, operations, secrets, once, receipts, protectedSwitch, audit }) => {
+export const createBroker = ({ jwks, operations, secrets, once, receipts, activity, protectedSwitch, limits = DEFAULT_LIMITS, now = Date.now, audit }) => {
   // No default: a broker built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
+  // Nor without activity tracking, which draining relies on.
+  if (!activity || typeof activity.begin !== "function") throw new Error("createBroker needs an activity store");
+  // Starts the operation's clock. `providerCall` is called just before each
+  // provider request: past the deadline it refuses (DeadlineExceeded),
+  // otherwise it returns that request's timeout.
+  const startClock = () => {
+    const deadline = now() + limits.executionMs;
+    return () => {
+      const remaining = deadline - now();
+      if (remaining <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before the next provider request`);
+      return Math.min(limits.providerCallMs, remaining);
+    };
+  };
   const execute = async ({ caller, token, op, payload }) => {
     let claims;
     try {
@@ -101,7 +122,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, protec
     }
 
     if (operation.kind !== "write") {
-      const result = await operation.run(payload, credential, { onStep: async () => {} });
+      const result = await operation.run(payload, credential, { onStep: async () => {}, providerCall: startClock() });
       await audit({ ...record, outcome: "allowed" });
       return { status: "succeeded", result };
     }
@@ -116,6 +137,18 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, protec
       registryVersion: claims.rv,
       argsDigest: digest,
     };
+    // Registered before the claim, so an active write is always counted. A
+    // failure here propagates before any claim or provider request.
+    await activity.begin(claims.opid, now() + maxExecutionMs(limits));
+    try {
+      return await executeWrite({ claims, binding, operation, payload, credential, record, refuse });
+    } finally {
+      // Best effort: an entry left behind expires at its deadline.
+      await activity.end(claims.opid).catch(() => {});
+    }
+  };
+
+  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse }) => {
     const claimed = await receipts.claim(claims.opid, binding);
     if (!claimed.created) {
       const recorded = claimed.claim.binding;
@@ -133,10 +166,10 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, protec
     let result;
     let error;
     try {
-      result = await operation.run(payload, credential, { onStep: async step => { steps.push(step); } });
+      result = await operation.run(payload, credential, { onStep: async step => { steps.push(step); }, providerCall: startClock() });
       status = "succeeded";
     } catch (e) {
-      if (e instanceof ProviderRejected) {
+      if (e instanceof ProviderRejected || e instanceof DeadlineExceeded) {
         status = steps.length > 0 ? "partial" : "failed";
       } else {
         status = "uncertain";
@@ -154,5 +187,9 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, protec
     return { enabled, source };
   };
 
-  return { execute, protectedExecution };
+  // Writes in progress across all instances (for draining), and the longest
+  // any execution can take.
+  const activeExecutions = async () => ({ count: await activity.count(now()), maxExecutionMs: maxExecutionMs(limits) });
+
+  return { execute, protectedExecution, activeExecutions };
 };

@@ -17,6 +17,7 @@ import {
   buildOperations,
   createMemoryOnceStore,
   createMemoryReceiptStore,
+  createMemoryActivityStore,
   createMemorySecretStore,
   argsDigest
 } from "./index.js";
@@ -90,7 +91,8 @@ beforeEach(async () => {
     operations: buildOperations({ sdk: { init: (service) => ({ service }) }, domain: "d", dataApi: async () => ({}) }),
     secrets: (secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "k", secret: "s" } })),
     once: createMemoryOnceStore(),
-    receipts: createMemoryReceiptStore()
+    receipts: createMemoryReceiptStore(),
+    activity: createMemoryActivityStore()
   });
   const identifyCaller = createCallerIdentity({
     verifyIdToken,

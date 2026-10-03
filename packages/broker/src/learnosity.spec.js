@@ -6,7 +6,7 @@ const respond = (status, body) => async () => ({
   status,
   json: async () => (typeof body === "string" ? JSON.parse(body) : body)
 });
-const call = fetch => buildLearnosityDataApi({ baseUrl: "https://data.example", fetch })({ route: "/itembank/items", request: {} });
+const call = (fetch, timeoutMs = 1000) => buildLearnosityDataApi({ baseUrl: "https://data.example", fetch })({ route: "/itembank/items", request: {}, timeoutMs });
 
 describe("Learnosity Data API client", () => {
   it("returns a recognized success", async () => {
@@ -35,5 +35,23 @@ describe("Learnosity Data API client", () => {
       expect(err).toBeInstanceOf(Error);
       expect(err).not.toBeInstanceOf(ProviderRejected);
     }
+  });
+
+  it("abandons a request after its timeout, as uncertain", async () => {
+    const hang = async (url, { signal }) => new Promise((resolve, reject) => {
+      signal.addEventListener("abort", () => reject(signal.reason));
+    });
+    const err = await call(hang, 20).catch(e => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(String(err)).toMatch(/TimeoutError/);
+    expect(err).not.toBeInstanceOf(ProviderRejected);
+  });
+
+  it("refuses to call the provider without a timeout", async () => {
+    // @ts-expect-error a test double for fetch
+    const api = buildLearnosityDataApi({ baseUrl: "https://data.example", fetch: respond(200, { meta: { status: true } }) });
+    // @ts-expect-error deliberately missing
+    await expect(api({ route: "/itembank/items", request: {} })).rejects.toThrow(/timeout/);
+    await expect(api({ route: "/itembank/items", request: {}, timeoutMs: 0 })).rejects.toThrow(/timeout/);
   });
 });

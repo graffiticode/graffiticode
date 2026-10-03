@@ -36,6 +36,30 @@ candidate checks (`verify/policy.js`, `verify/broker.js`) log it. Set
 `GC_VERIFY_PROTECTED_EXECUTION=on` or `off` on the deploying shell to require one
 state, which is how a release verifies both states on a candidate.
 
+## Draining before a release
+
+Broker bounds every execution (`packages/broker/src/limits.js`):
+
+| Limit | Default | Override |
+|---|---|---|
+| each provider request, response included | 10 s | `BROKER_PROVIDER_CALL_TIMEOUT_MS` |
+| no provider request starts after | 30 s | `BROKER_EXECUTION_DEADLINE_MS` (at most 60 s) |
+| maximum execution duration (adds 10 s to record the outcome) | 50 s | derived |
+
+A request that times out is recorded `uncertain`; one never started because of the
+deadline is definite (`failed`, or `partial` after earlier steps). Each write registers
+in `active-executions` (broker database) before its receipt claim and leaves when it
+finishes; an entry left by a crash expires at the maximum duration. Signing is not
+tracked, since it has no provider effect. A TTL policy on `active-executions.expiresAt`
+can clean up expired entries; counting ignores them either way.
+
+```bash
+node scripts/protected-execution.js disable --reason "v6 release window"
+node scripts/protected-execution.js drain     # no active writes, or 50 s since Broker went off
+```
+
+`drain` refuses while Broker is on. Pass `--max-ms` if the limits were overridden.
+
 ## First release carrying the switch
 
 The flag documents do not exist yet, and a missing flag means off. So:
