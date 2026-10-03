@@ -122,6 +122,17 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     const attempt = `${claims.opid}#${randomUUID()}`;
     await activity.begin(attempt, startedAt + maxExecutionMs(limits));
     try {
+      // The drain barrier: having registered, read the switch again, past its
+      // cache. `drain` reads the flag as off and only then counts active
+      // writes. If this registration landed before that count, the count sees
+      // it and drain waits. If it landed after, this read comes later still
+      // than the flip, sees off, and refuses before any provider request. So
+      // an empty count means no write can still dispatch, however slow
+      // registration was. (The canary is still admitted; do not run it while
+      // draining.)
+      if (!admission(await protectedSwitch.state({ fresh: true }), { uid: claims.sub, connectionId: claims.conn })) {
+        return await refuse(MAINTENANCE, 503);
+      }
       return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall });
     } finally {
       // Best effort: an entry left behind expires on its own.

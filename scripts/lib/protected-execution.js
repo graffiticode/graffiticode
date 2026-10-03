@@ -11,11 +11,6 @@
 export const DOC = "controls/protected-execution";
 export const ACTIVE = "active-executions";
 export const DEFAULT_MAX_MS = 50_000;
-// How long a service may keep acting on a cached "on" after the flag flips
-// (packages/policy/src/maintenance.js cacheMs), plus time for a request
-// admitted just before the flip to register as active. `drain` trusts an
-// empty count only after this.
-export const SETTLE_MS = 2_000 + 3_000;
 
 const ID = /^[A-Za-z0-9_:.-]{1,200}$/;
 
@@ -101,21 +96,26 @@ export const setCanary = async (dbs, canary, { reason, by, now = () => new Date(
 export const activeWrites = (db, now = new Date()) =>
   db.collection(ACTIVE).where("expiresAt", ">", now).count().get().then(s => s.data().count);
 
-// After disable: done when Broker reports no active writes once the switch has
-// settled, or when the bound has passed since Broker went off. A request
-// admitted on a cached "on" arrived at most cacheMs after the flip and starts
-// no provider request later than its arrival plus the deadline, so the time
-// bound is maxMs plus the cache window.
-export const drain = async (broker, { maxMs = DEFAULT_MAX_MS, settleMs = SETTLE_MS, now = Date.now, sleep, log }) => {
+// After disable: done when Broker reports no active writes, or when the bound
+// has passed since Broker went off. An empty count is trusted at once, with no
+// grace period, because of Broker's drain barrier (packages/broker/src/broker.js):
+// every write registers as active and then re-reads the switch past its cache,
+// so a write that registers after this count (which follows our read of the
+// flag as off) is refused before any provider request. The canary is the one
+// exception: it is still admitted, so do not run it while draining. The time
+// bound (maxMs plus the switch's 2 s cache window) covers writes whose entries
+// outlive their attempt (a crash), not registration timing.
+export const drain = async (broker, { maxMs = DEFAULT_MAX_MS, now = Date.now, sleep, log }) => {
   const snap = await broker.doc(DOC).get();
   const flag = snap.exists ? snap.data() : null;
   if (flag?.enabled === true) throw new Error("drain refuses while Broker is on: disable first");
+  if (flag?.canary) log(`note: the canary (${flag.canary.uid}) is still admitted; do not run it while draining`);
   const offSince = flag?.updatedAt ? Date.parse(flag.updatedAt) : now();
   const bound = maxMs + 2_000;
   for (;;) {
     const waited = now() - offSince;
     const count = await activeWrites(broker, new Date(now()));
-    if (count === 0 && waited >= settleMs) {
+    if (count === 0) {
       log(`drained: no active writes (${Math.round(waited / 1000)} s since Broker was switched off)`);
       return { by: "count", waited };
     }
@@ -123,10 +123,8 @@ export const drain = async (broker, { maxMs = DEFAULT_MAX_MS, settleMs = SETTLE_
       log(`drained by time: ${bound} ms have passed since Broker was switched off (${count} entries not yet expired)`);
       return { by: "time", waited };
     }
-    log(count === 0
-      ? `settling: ${Math.round((settleMs - waited) / 1000)} s until an empty count can be trusted`
-      : `waiting: ${count} active write(s), ${Math.round((bound - waited) / 1000)} s left of the bound`);
-    await sleep(Math.min(2_000, Math.max(1, (count === 0 ? settleMs : bound) - waited)));
+    log(`waiting: ${count} active write(s), ${Math.round((bound - waited) / 1000)} s left of the bound`);
+    await sleep(Math.min(2_000, Math.max(1, bound - waited)));
   }
 };
 

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createProtectedSwitch, admission } from "../../packages/policy/src/maintenance.js";
-import { ACTIVE, DOC, drain, enableChecked, parse, setCanary, setEnabled, SETTLE_MS } from "../lib/protected-execution.js";
+import { ACTIVE, DOC, drain, enableChecked, parse, setCanary, setEnabled } from "../lib/protected-execution.js";
 
 // Just enough Firestore: documents with merging set(), and a count of
 // unexpired activity entries.
@@ -79,13 +79,14 @@ const clock = start => {
   return { now: () => t, sleep: async ms => { t += ms; }, advance: ms => { t += ms; } };
 };
 
-test("drain does not trust an empty count until the switch has settled", async () => {
+test("drain trusts an empty count at once (Broker's barrier), and notes a configured canary", async () => {
   const broker = fakeDb();
   const c = clock(Date.parse("2026-10-03T00:00:00Z"));
-  await broker.doc(DOC).set({ enabled: false, updatedAt: new Date(c.now()).toISOString() });
-  const result = await drain(broker, { now: c.now, sleep: c.sleep, log: () => {} });
-  assert.equal(result.by, "count");
-  assert.ok(result.waited >= SETTLE_MS);
+  await broker.doc(DOC).set({ enabled: false, updatedAt: new Date(c.now()).toISOString(), canary: { uid: "0xcanary", connectionId: "c" } });
+  const lines = [];
+  const result = await drain(broker, { now: c.now, sleep: c.sleep, log: line => lines.push(line) });
+  assert.deepEqual(result, { by: "count", waited: 0 });
+  assert.match(lines[0], /canary .* still admitted/);
 });
 
 test("drain waits for active writes to finish, and stops at the bound plus the cache window", async () => {

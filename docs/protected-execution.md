@@ -104,13 +104,15 @@ node scripts/protected-execution.js disable --reason "v6 release window"
 node scripts/protected-execution.js drain     # no active writes, or 50 s since Broker went off
 ```
 
-`drain` trusts an empty count only once the switch has settled: a service may act on
-a cached "on" for up to 2 s after the flip, and a request admitted then registers as
-active a moment later, so it waits at least 5 s. Its time bound is the maximum
-execution duration plus that 2 s cache window, since an admitted request arrived by
-then and starts no provider request after its arrival plus the deadline. Each write
-attempt has its own entry, so a retry that replays a pending receipt never hides the
-attempt still writing. `drain` refuses while Broker is on. Pass `--max-ms` if the
+`drain` trusts an empty count at once. That is safe because of Broker's drain
+barrier: every write registers as active and then re-reads the switch, skipping its
+cache. `drain` reads the flag as off before it counts, so a write that registers after
+the count re-reads after the flip and is refused before any provider request, however
+slow its registration was. The canary is the exception: it is still admitted, so do
+not run it while draining (`drain` notes a configured canary). The time bound, the
+maximum execution duration plus the 2 s cache window, only covers entries a crashed
+attempt left behind. Each write attempt has its own entry, so a retry that replays a
+pending receipt never hides the attempt still writing. `drain` refuses while Broker is on. Pass `--max-ms` if the
 limits were overridden.
 
 ## Re-enabling is gated

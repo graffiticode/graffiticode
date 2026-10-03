@@ -608,6 +608,24 @@ describe("time limits and active executions", () => {
     expect(expiresAt).toBe(1_000_000 + 50_000);
   });
 
+  // Review: registration slower than any grace period. The switch flips off
+  // while the write is registering; the post-registration read (past a cache
+  // that would still say "on") refuses it before any provider request.
+  it("refuses a write whose registration completes after the switch went off, whatever the cache says", async () => {
+    let on = true;
+    const sw = createProtectedSwitch({ cacheMs: 60_000, readFlag: async () => ({ enabled: on }) });
+    await sw.state();
+    const slowActivity = { ...activity, begin: async (...a) => { on = false; await activity.begin(...a); } };
+    const b = createBroker({ ...brokerDeps, protectedSwitch: sw, activity: slowActivity });
+    const token = await saveToken();
+    await refused(b.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE }), "maintenance");
+    expect(routes).toEqual([]);
+    expect(await activity.count()).toBe(0);
+    on = true;
+    const again = createBroker({ ...brokerDeps, protectedSwitch: createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled: on }) }) });
+    await expect(again.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE })).resolves.toMatchObject({ status: "succeeded" });
+  });
+
   it("cannot be built without an activity store", () => {
     const { activity: _activity, ...rest } = brokerDeps;
     expect(() => createBroker(rest)).toThrow(/activity/);

@@ -16,7 +16,9 @@
 // before the first release that carries this switch reaches traffic.
 //
 // A successful read is reused for `cacheMs` (default 2 s), so a flip takes
-// effect within that bound; a failed read is never reused.
+// effect within that bound; a failed read is never reused. `state({ fresh:
+// true })` skips the cache: Broker uses it after registering a write as active,
+// which is what lets `drain` trust an empty count (see broker.js).
 //
 // Canary (W0): while the flag is off, it may name one canary account and its
 // dedicated connection, `canary: { uid, connectionId }`. Protected work for
@@ -58,8 +60,8 @@ export const admission = (state, principal = {}) => {
 export const createProtectedSwitch = ({ hardDisabled = false, readFlag, cacheMs = 2000, now = Date.now }) => {
   if (typeof readFlag !== "function") throw new Error("the protected-execution switch needs a flag reader");
   let cached = null;
-  const read = async () => {
-    if (cached && now() - cached.at < cacheMs) return cached.state;
+  const read = async fresh => {
+    if (!fresh && cached && now() - cached.at < cacheMs) return cached.state;
     let state;
     try {
       const flag = await readFlag();
@@ -76,9 +78,10 @@ export const createProtectedSwitch = ({ hardDisabled = false, readFlag, cacheMs 
   };
   return {
     // -> { enabled, source, canary? }   source: env-disabled | flag | flag-missing | flag-unreadable
-    async state() {
+    /** @param {{ fresh?: boolean }} [options] */
+    async state(options = {}) {
       if (hardDisabled) return { enabled: false, source: "env-disabled" };
-      return read();
+      return read(Boolean(options.fresh));
     },
   };
 };
