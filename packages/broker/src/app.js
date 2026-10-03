@@ -5,6 +5,7 @@
 //   POST   /v1/secrets/:conn    policy    { ownerUid, backend, key, secret }  store a new connection's credential
 //   PUT    /v1/secrets/:conn    policy    { ownerUid, backend, key, secret }  rotate it (same owner, backend, key)
 //   DELETE /v1/secrets/:conn    policy    delete it; the id is never reused
+//   GET    /v1/protected-execution  anyone  { enabled, source } (@graffiticode/policy maintenance.js)
 //
 // A refusal carries only its reason — never the token, payload or credential.
 
@@ -51,6 +52,9 @@ export const createBrokerApp = ({ broker, secrets, identifyCaller, audit }) => {
   }));
   router.delete("/secrets/:conn", provision(async req => {
     await secrets.delete(req.params.conn);
+  }));
+  router.get("/protected-execution", buildHttpHandler(async (req, res) => {
+    res.status(200).json(await broker.protectedExecution());
   }));
   router.post("/execute", buildHttpHandler(async (req, res) => {
     let caller;

@@ -81,3 +81,21 @@ export const callerDenials = async ({ fetch, candidateUrl: base, headers, config
   expectError(`${path} as unregistered ${config.smokeServiceAccount}`, unknown, 403, "unknown caller");
   log(`  ${path}: 401 without caller identity, 403 for an unregistered caller`);
 };
+
+// The candidate's protected-execution switch (@graffiticode/policy
+// maintenance.js): it must answer, and when the operator sets
+// GC_VERIFY_PROTECTED_EXECUTION to "on" or "off" the state must match, so both
+// states can be verified on a candidate during a release window.
+export const protectedExecutionState = async ({ fetch, candidateUrl: base, headers, log }, expected = process.env.GC_VERIFY_PROTECTED_EXECUTION) => {
+  check(expected === undefined || expected === "" || expected === "on" || expected === "off",
+    `GC_VERIFY_PROTECTED_EXECUTION must be on or off, not ${JSON.stringify(expected)}`);
+  const res = await request({ fetch, base, path: "/v1/protected-execution", headers });
+  check(res.status === 200 && typeof res.json?.enabled === "boolean" && typeof res.json?.source === "string",
+    `/v1/protected-execution: expected { enabled, source }, got ${res.status}`);
+  const { enabled, source } = res.json;
+  if (expected === "on" || expected === "off") {
+    check(enabled === (expected === "on"), `/v1/protected-execution: expected ${expected}, got ${enabled ? "on" : "off"} (${source})`);
+  }
+  log(`  /v1/protected-execution: ${enabled ? "on" : "off"} (${source})`);
+  return { enabled, source };
+};

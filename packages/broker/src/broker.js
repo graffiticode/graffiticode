@@ -17,10 +17,13 @@
 //      provider rejection records failed/partial; any other provider error
 //      records uncertain, since the write may have been applied.
 //
+// While protected execution is switched off, every execution is refused with
+// `maintenance` (503) right after the token and caller check.
+//
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
 import { isOperationAllowed, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
-import { verifyToken } from "@graffiticode/policy";
+import { verifyToken, MAINTENANCE } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
 import { PayloadRejected, ProviderRejected } from "./operations.js";
 
@@ -39,7 +42,9 @@ export class BrokerRefused extends Error {
 const BINDING_FIELDS = ["principal", "ownerUid", "connectionId", "lang", "fn", "op", "registryVersion", "argsDigest"];
 const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]);
 
-export const createBroker = ({ jwks, operations, secrets, once, receipts, audit }) => {
+export const createBroker = ({ jwks, operations, secrets, once, receipts, protectedSwitch, audit }) => {
+  // No default: a broker built without the switch would run ungated.
+  if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
   const execute = async ({ caller, token, op, payload }) => {
     let claims;
     try {
@@ -65,6 +70,10 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
 
     // Only the compiler of the token's language may spend it.
     if (caller?.role !== "compiler" || caller.lang !== claims.lang) return refuse("caller-language-mismatch");
+    // Protected execution switched off (@graffiticode/policy maintenance.js):
+    // refused before anything stateful, so the token is not spent and a retry
+    // within its lifetime can still run once execution is back on.
+    if (!(await protectedSwitch.state()).enabled) return refuse(MAINTENANCE, 503);
     // Never reinterpret a token under a different registry than it was minted
     // for.
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
@@ -139,5 +148,11 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, audit 
     return error ? { status, steps, error } : { status, steps, result };
   };
 
-  return { execute };
+  // For the operator and candidate checks: on or off, and why.
+  const protectedExecution = async () => {
+    const { enabled, source } = await protectedSwitch.state();
+    return { enabled, source };
+  };
+
+  return { execute, protectedExecution };
 };

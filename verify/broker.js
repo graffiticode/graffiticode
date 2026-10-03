@@ -5,8 +5,9 @@
 // paths (execute, replay, receipts) are covered by compiled-module and
 // emulator tests, not here.
 
-import { callerDenials } from "./lib.js";
+import { callerDenials, protectedExecutionState } from "./lib.js";
 
 export default async ctx => {
+  await protectedExecutionState(ctx);
   await callerDenials(ctx, { path: "/v1/execute", audience: "urn:graffiticode:broker", body: {} });
 };

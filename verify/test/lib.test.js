@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { request } from "../lib.js";
+import { protectedExecutionState, request } from "../lib.js";
 
 const GFE_404 = "\n<html><head>\n<title>404 Page not found</title>\n</head>\n<body><h1>Error: Page not found</h1></body></html>";
 const base = new URL("https://tag---svc.run.app");
@@ -33,4 +33,13 @@ test("gives up after the retry budget and returns the routing 404", async () => 
   const res = await request({ fetch, base, path: "/", sleep: async () => {} });
   assert.equal(res.status, 404);
   assert.equal(calls.length, 7);
+});
+
+test("reports the candidate's protected-execution state, and checks it when the operator names one", async () => {
+  const ctx = state => ({ fetch: async () => new Response(JSON.stringify(state), { status: 200 }), candidateUrl: base, headers: {}, log: () => {} });
+  assert.deepEqual(await protectedExecutionState(ctx({ enabled: false, source: "flag-missing" }), ""), { enabled: false, source: "flag-missing" });
+  assert.deepEqual(await protectedExecutionState(ctx({ enabled: true, source: "flag" }), "on"), { enabled: true, source: "flag" });
+  await assert.rejects(protectedExecutionState(ctx({ enabled: true, source: "flag" }), "off"), /expected off, got on/);
+  await assert.rejects(protectedExecutionState(ctx({ enabled: true, source: "flag" }), "yes"), /must be on or off/);
+  await assert.rejects(protectedExecutionState(ctx({ enabled: "true" }), undefined), /expected \{ enabled, source \}/);
 });

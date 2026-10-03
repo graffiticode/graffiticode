@@ -35,11 +35,12 @@
 //   DELETE /v1/shared/:id                        console  the recipient leaves
 //   POST   /v1/grants/claim                      console  { emailHashes } pending grants for the user's emails
 //   GET  /v1/jwks      anyone     the public keys that verify policy tokens
+//   GET  /v1/protected-execution  anyone  { enabled, source } (maintenance.js)
 
 import { Router } from "express";
 import { buildHttpHandler, createHttpApp, sendSuccessResponse, parseTokenFromRequest } from "@graffiticode/common/http";
 import { UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
-import { PolicyDenied } from "./policy.js";
+import { PolicyDenied, PolicyMaintenance } from "./policy.js";
 
 const ROUTE_ROLES = Object.freeze({
   invocations: ["gateway"],
@@ -83,6 +84,10 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     try {
       sendSuccessResponse(res, await fn());
     } catch (err) {
+      if (err instanceof PolicyMaintenance) {
+        res.status(503).json({ status: "error", error: { code: 503, message: "protected execution is paused", reason: err.reason }, data: null });
+        return;
+      }
       if (err instanceof PolicyDenied) {
         res.status(403).json({ status: "error", error: { code: 403, message: "policy denied", reason: err.reason }, data: null });
         return;
@@ -182,6 +187,9 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.delete("/shared/:id", manage(({ caller, user, id }) => manager.leave({ caller, user, connectionId: id })));
   router.post("/grants/claim", manage(({ caller, user, body }) => manager.claim({ caller, user, emailHashes: body.emailHashes })));
   router.get("/jwks", (req, res) => res.status(200).json(publicJwks));
+  router.get("/protected-execution", buildHttpHandler(async (req, res) => {
+    res.status(200).json(await policy.protectedExecution());
+  }));
 
   return createHttpApp(app => app.use("/v1", router));
 };

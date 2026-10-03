@@ -7,7 +7,8 @@ import {
   createMemoryConnectionStore,
   createMemoryInvocationStore,
   createAudit,
-  createPseudonymizer
+  createPseudonymizer,
+  createProtectedSwitch
 } from "@graffiticode/policy";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
@@ -20,6 +21,9 @@ import {
   createMemorySecretStore,
   argsDigest
 } from "./index.js";
+
+// Protected execution on (the maintenance switch is tested on its own).
+const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
 
 const OWNER = "0xowneruid";
 const SECRET = "learnosity-secret-value-xyz";
@@ -63,7 +67,7 @@ beforeEach(async () => {
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
   // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-  policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
+  policy = createPolicy({ protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
   routes = [];
   failItems = false;
   lostItems = false;
@@ -79,6 +83,7 @@ beforeEach(async () => {
   receipts = createMemoryReceiptStore();
   secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "consumer-key", secret: SECRET } });
   brokerDeps = {
+    protectedSwitch: PROTECTED_ON,
     jwks,
     operations: buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi }),
     secrets,
@@ -146,6 +151,7 @@ describe("system preview sessions", () => {
     ]);
     // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const make = connectionId => createPolicy({
+      protectedSwitch: PROTECTED_ON,
       signer,
       jwks: brokerDeps.jwks,
       connections,
@@ -414,5 +420,48 @@ describe("audit", () => {
     expect(text).not.toContain(SECRET);
     expect(text).not.toContain(OWNER);
     expect(records.filter(r => r.event === "execute").map(r => r.outcome)).toEqual(["allowed", "denied"]);
+  });
+});
+
+// W0: while protected execution is switched off, the broker refuses before
+// anything stateful, so the token is not spent and nothing is written.
+describe("maintenance switch", () => {
+  let enabled;
+  let paused;
+  beforeEach(() => {
+    enabled = false;
+    paused = createBroker({ ...brokerDeps, protectedSwitch: createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled }) }) });
+  });
+
+  it("refuses a valid execution with maintenance (503), audited, without spending the token", async () => {
+    const token = await previewToken();
+    const attempt = () => paused.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    await refused(attempt(), "maintenance");
+    await expect(attempt()).rejects.toMatchObject({ status: 503 });
+    expect(records.at(-1)).toMatchObject({ event: "execute", outcome: "denied", reason: "maintenance" });
+    enabled = true;
+    await expect(attempt()).resolves.toMatchObject({ status: "succeeded" });
+  });
+
+  it("makes no provider request and claims no receipt for a write", async () => {
+    const token = await saveToken();
+    await refused(paused.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE }), "maintenance");
+    expect(routes).toEqual([]);
+    const { invocationId } = await invocation();
+    expect(await receipts.getOutcome(`${invocationId}/s0/n1.0`)).toBeNull();
+    enabled = true;
+    await expect(paused.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE })).resolves.toMatchObject({ status: "succeeded" });
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+  });
+
+  it("still rejects a bad token or the wrong caller first", async () => {
+    await refused(paused.execute({ caller: L0176, token: "not-a-token", op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
+    const token = await previewToken();
+    await refused(paused.execute({ caller: { role: "compiler", lang: "0000" }, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "caller-language-mismatch");
+  });
+
+  it("cannot be built without a switch", () => {
+    const { protectedSwitch, ...rest } = brokerDeps;
+    expect(() => createBroker(rest)).toThrow(/protectedSwitch/);
   });
 });

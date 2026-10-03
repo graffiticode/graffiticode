@@ -13,13 +13,17 @@ import {
   createMemoryPublicationStore,
   createAudit,
   createPseudonymizer,
-  PolicyDenied
+  PolicyDenied,
+  createProtectedSwitch
 } from "@graffiticode/policy";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildDataApi } from "./data.js";
 import { InvocationRefused } from "./invocations.js";
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 import publicationsRouter from "./routes/publications.js";
+
+// Protected execution on (the maintenance switch is tested on its own).
+const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
 
 const OWNER = "0xowner";
 const OTHER = "0xother";
@@ -52,7 +56,7 @@ beforeEach(async () => {
   const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   connections = createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]);
   policy = createPolicy({
-    signer, jwks, connections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore(), audit
+    protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore(), audit
   });
 
   snapshots = [];

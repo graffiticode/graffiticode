@@ -12,7 +12,8 @@ import {
   createMemoryPublicationStore,
   createMemoryGrantStore,
   createAudit,
-  createPseudonymizer
+  createPseudonymizer,
+  createProtectedSwitch
 } from "./index.js";
 
 const OWNER = "0xowneruid";
@@ -46,8 +47,10 @@ let records;
 let brokerSecrets;
 let SNAPSHOT;
 let grants;
+let protectedEnabled;
 
 beforeEach(async () => {
+  protectedEnabled = true;
   const pair = await generateKeyPair("ES256", { extractable: true });
   const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
   const publicJwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
@@ -59,6 +62,7 @@ beforeEach(async () => {
     { connectionId: "conn-sys", ownerUid: "0xgraffiticode", backend: "learnosity", status: "active" }
   ]);
   const policy = createPolicy({
+    protectedSwitch: createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled: protectedEnabled }) }),
     signer,
     jwks: publicJwks,
     connections,
@@ -316,5 +320,20 @@ describe("connection management over http", () => {
     const res = await as(request(app).post("/v1/connections/conn-1/rotate"), SA.console, { user: "user:0xsomeoneelse" }).send({ credential: CRED });
     expect(res.status).toBe(403);
     expect(res.body.error.reason).toBe("not-owner");
+  });
+});
+
+describe("maintenance over http", () => {
+  it("answers 503 maintenance for protected routes while switched off, and reports the state", async () => {
+    expect((await request(app).get("/v1/protected-execution")).body).toEqual({ enabled: true, source: "flag" });
+    protectedEnabled = false;
+    const res = await as(request(app).post("/v1/preview-session"), SA.l0176, { user: null }).send({ lang: "0176" });
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatchObject({ code: 503, reason: "maintenance" });
+    const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send(SNAPSHOT);
+    expect(snap.status).toBe(503);
+    expect((await request(app).get("/v1/protected-execution")).body).toEqual({ enabled: false, source: "flag" });
+    // Invocations are still allocated; they authorize nothing by themselves.
+    expect((await invocation("conn-1")).status).toBe(200);
   });
 });

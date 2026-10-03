@@ -41,11 +41,20 @@ import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict } from "./invocations.js";
 import { newPublicationId } from "./publications.js";
+import { MAINTENANCE } from "./maintenance.js";
 
 export class PolicyDenied extends Error {
   constructor(reason) {
     super(`policy denied: ${reason}`);
     this.reason = reason;
+  }
+}
+
+// Protected execution is switched off (maintenance.js): not a judgement on the
+// request, which may be retried once it is back on.
+export class PolicyMaintenance extends PolicyDenied {
+  constructor() {
+    super(MAINTENANCE);
   }
 }
 
@@ -59,10 +68,19 @@ const VIEW_INPUT = createHash("sha256").update("publication-view").digest("hex")
 // The subject of a system preview session: there is no user.
 export const SYSTEM_PREVIEW_SUBJECT = "system-preview";
 
-export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, audit }) => {
+export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, protectedSwitch, audit }) => {
+  // No default: a policy built without the switch would run ungated.
+  if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createPolicy needs a protectedSwitch");
   const deny = async (reason, record) => {
     await audit({ ...record, outcome: "denied", reason });
     throw new PolicyDenied(reason);
+  };
+  // Every protected entry point asks first, before reading or issuing
+  // anything.
+  const requireProtectedExecution = async record => {
+    if ((await protectedSwitch.state()).enabled) return;
+    await audit({ ...record, outcome: "denied", reason: MAINTENANCE });
+    throw new PolicyMaintenance();
   };
 
   // Who may use a connection, read live: its owner, or a recipient with an
@@ -256,6 +274,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
 
   const snapshot = async ({ caller, user, lang, connectionId, fns, invocationToken, stage }) => {
     const record = { event: "snapshot", uid: user?.uid, lang, connectionId, registryVersion: REGISTRY_VERSION };
+    await requireProtectedExecution(record);
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
     if (!isId(connectionId) || typeof invocationToken !== "string" || !isId(stage)) return deny("bad-request", record);
     if (!Array.isArray(fns) || !fns.every(f => typeof f === "string")) return deny("bad-request", record);
@@ -323,6 +342,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // them.
   const previewSession = async ({ caller, lang }) => {
     const record = { event: "preview-session", lang, registryVersion: REGISTRY_VERSION };
+    await requireProtectedExecution(record);
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
     if (!isLang(lang)) return deny("bad-request", record);
     const fns = systemPreviewFunctionsForLang(lang);
@@ -353,6 +373,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   };
 
   const mint = async ({ caller, sessionToken, fn, op, occurrenceId, argsDigest }) => {
+    await requireProtectedExecution({ event: "mint", fn, op });
     let session;
     try {
       ({ claims: session } = await verifyToken(jwks, "session", sessionToken));
@@ -430,5 +451,12 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     return { executionToken, operationId };
   };
 
-  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint };
+  // For the operator and candidate checks: on or off, and why. Never the flag's
+  // other fields.
+  const protectedExecution = async () => {
+    const { enabled, source } = await protectedSwitch.state();
+    return { enabled, source };
+  };
+
+  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, protectedExecution };
 };

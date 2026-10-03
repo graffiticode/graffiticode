@@ -3,7 +3,7 @@
 // verification and the callers map, without registering a new caller. Allowed
 // paths are covered by compiled-module integration tests, not here.
 
-import { callerDenials, check, kmsPublicJwk, request } from "./lib.js";
+import { callerDenials, check, kmsPublicJwk, protectedExecutionState, request } from "./lib.js";
 
 export default async ctx => {
   const { fetch, candidateUrl: base, headers, config, cloud, log } = ctx;
@@ -19,5 +19,6 @@ export default async ctx => {
   check(["kty", "crv", "x", "y"].every(k => key[k] === expected[k]), "/v1/jwks: key does not match the KMS public key");
   log(`  /v1/jwks: ${key.kid} matches ${config.env.POLICY_KMS_KEY_VERSION}`);
 
+  await protectedExecutionState(ctx);
   await callerDenials(ctx, { path: "/v1/snapshot", audience: "urn:graffiticode:policy", body: {} });
 };

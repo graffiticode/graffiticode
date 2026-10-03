@@ -9,6 +9,9 @@
 //   BROKER_URL              broker service URL (credential provisioning)
 //   AUDIT_PSEUDONYM_SECRET  HMAC secret for pseudonymous audit ids (Secret Manager)
 //   POLICY_SYSTEM_CONNECTIONS  optional backend -> system connection id (see config.js)
+//   PROTECTED_EXECUTION     optional; "disabled" hard-disables protected execution.
+//                           Otherwise controls/protected-execution in this database
+//                           decides, and a missing flag means off (see maintenance.js)
 
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -29,7 +32,10 @@ import {
   createFirestoreGrantStore,
   createBrokerAdminClient,
   createAudit,
-  createPseudonymizer
+  createPseudonymizer,
+  createProtectedSwitch,
+  createFirestoreFlagReader,
+  parseHardDisable
 } from "./index.js";
 import { requireEnv, parseCallers, parseSystemConnections, auditSink, createIdTokenSource } from "./config.js";
 
@@ -58,7 +64,8 @@ const signer = createKmsSigner({ kms, keyVersionName, kid });
 const invocations = createFirestoreInvocationStore(db);
 const publications = createFirestorePublicationStore(db);
 const grants = createFirestoreGrantStore(db);
-const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations, publications, grants, systemConnections, audit });
+const protectedSwitch = createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) });
+const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations, publications, grants, systemConnections, protectedSwitch, audit });
 const idToken = createIdTokenSource({ GoogleAuth });
 const manager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
 const authClient = createAuthClient(authUrl);

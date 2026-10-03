@@ -14,8 +14,12 @@ import {
   createAudit,
   createPseudonymizer,
   grantIdFor,
-  PolicyDenied
+  PolicyDenied,
+  createProtectedSwitch
 } from "./index.js";
+
+// Protected execution on (the maintenance switch is tested on its own).
+const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
 
 const OWNER = "0xowner";
 const ALICE = "0xalice";
@@ -39,7 +43,7 @@ beforeEach(async () => {
   connections = createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active", label: "Bank" }]);
   grants = createMemoryGrantStore();
   policy = createPolicy({
-    signer, jwks, connections, grants, audit, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore()
+    protectedSwitch: PROTECTED_ON, signer, jwks, connections, grants, audit, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore()
   });
   manager = createConnectionManager({ connections, grants, audit, brokerAdmin: { createSecret: async () => {}, rotateSecret: async () => {}, deleteSecret: async () => {} } });
 });
@@ -258,7 +262,7 @@ describe("the configured system connection", () => {
     const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
     const systemConnections = { learnosity: "conn-1" };
     sysPolicy = createPolicy({
-      signer, jwks, connections, grants, audit, systemConnections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore()
+      protectedSwitch: PROTECTED_ON, signer, jwks, connections, grants, audit, systemConnections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore()
     });
     sysManager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin: { createSecret: async () => {}, rotateSecret: async () => {}, deleteSecret: async () => {} } });
   });

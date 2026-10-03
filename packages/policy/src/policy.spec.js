@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   createPolicy,
   PolicyDenied,
+  PolicyMaintenance,
   createLocalSigner,
   issueToken,
   verifyToken,
@@ -11,8 +12,12 @@ import {
   createMemoryPublicationStore,
   createAudit,
   createPseudonymizer,
-  ISSUER
+  ISSUER,
+  createProtectedSwitch
 } from "./index.js";
+
+// Protected execution on (the maintenance switch is tested on its own).
+const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
 
 const OWNER = "0xowneruid";
 const OTHER = "0xotheruid";
@@ -47,7 +52,7 @@ beforeEach(async () => {
     pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" })
   });
   policy = createPolicy({
-    signer, jwks, connections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore(), audit
+    protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore(), audit
   });
 });
 
@@ -396,6 +401,7 @@ describe("system preview sessions", () => {
   const make = systemConnections => {
     sysRecords = [];
     return createPolicy({
+      protectedSwitch: PROTECTED_ON,
       signer,
       jwks,
       connections,
@@ -560,5 +566,59 @@ describe("system preview sessions", () => {
       invocationToken: await issueToken(signer, "invocation", { sub: OWNER, conn: "conn-sys", inv: "inv-1", seq: 1 }),
       stage: "s0"
     }), "system-connection");
+  });
+});
+
+// W0: while protected execution is switched off, no session or execution
+// token is issued; invocations, which authorize nothing by themselves, are.
+describe("maintenance switch", () => {
+  let enabled;
+  let paused;
+  beforeEach(() => {
+    enabled = false;
+    paused = createPolicy({
+      protectedSwitch: createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled }) }),
+      signer,
+      jwks,
+      connections,
+      invocations: createMemoryInvocationStore(),
+      publications: createMemoryPublicationStore(),
+      audit: createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) })
+    });
+  });
+  const refusedForMaintenance = promise => expect(promise).rejects.toBeInstanceOf(PolicyMaintenance);
+
+  it("refuses snapshot, preview session and mint with an explicit maintenance error, audited", async () => {
+    const invocationToken = await issueToken(signer, "invocation", { sub: OWNER, conn: "conn-1", inv: "inv-1", seq: 1 });
+    await refusedForMaintenance(paused.snapshot({ caller: L0176, user: { uid: OWNER }, lang: "0176", connectionId: "conn-1", fns: ["init"], invocationToken, stage: "s0" }));
+    await refusedForMaintenance(paused.previewSession({ caller: L0176, lang: "0176" }));
+    await refusedForMaintenance(paused.mint({ caller: L0176, sessionToken: "x", fn: "init", op: "learnosity.sign-items-preview", occurrenceId: "n1.0", argsDigest: digest("a") }));
+    expect(records.slice(-3).map(r => [r.event, r.outcome, r.reason])).toEqual([
+      ["snapshot", "denied", "maintenance"],
+      ["preview-session", "denied", "maintenance"],
+      ["mint", "denied", "maintenance"]
+    ]);
+    expect(await paused.protectedExecution()).toEqual({ enabled: false, source: "flag" });
+  });
+
+  it("is a PolicyDenied, so existing handling still refuses", async () => {
+    await expect(paused.previewSession({ caller: L0176, lang: "0176" })).rejects.toBeInstanceOf(PolicyDenied);
+  });
+
+  it("still allocates invocations, and behaves as before once switched back on", async () => {
+    const { invocationToken } = await paused.allocateInvocation({ caller: GATEWAY, user: { uid: OWNER }, connectionId: "conn-1", taskId: "task-1", inputDigest: digest("input") });
+    enabled = true;
+    const { sessionToken } = await paused.snapshot({ caller: L0176, user: { uid: OWNER }, lang: "0176", connectionId: "conn-1", fns: ["init"], invocationToken, stage: "s0" });
+    enabled = false;
+    const mint = () => paused.mint({ caller: L0176, sessionToken, fn: "init", op: "learnosity.sign-items-preview", occurrenceId: "n1.0", argsDigest: digest("a") });
+    await refusedForMaintenance(mint());
+    enabled = true;
+    await expect(mint()).resolves.toMatchObject({ executionToken: expect.any(String) });
+    expect(await paused.protectedExecution()).toEqual({ enabled: true, source: "flag" });
+  });
+
+  it("cannot be built without a switch", () => {
+    // @ts-expect-error deliberately missing
+    expect(() => createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit: async () => {} })).toThrow(/protectedSwitch/);
   });
 });

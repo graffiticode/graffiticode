@@ -9,6 +9,9 @@
 //   LEARNOSITY_DOMAIN       consumer domain for signed requests (e.g. l0176.graffiticode.org)
 //   LEARNOSITY_DATA_API     Data API base URL (default https://data.learnosity.com/v2025.2.LTS)
 //   AUDIT_PSEUDONYM_SECRET  HMAC secret for pseudonymous audit ids
+//   PROTECTED_EXECUTION     optional; "disabled" hard-disables execution. Otherwise
+//                           controls/protected-execution in this database decides, and
+//                           a missing flag means off (@graffiticode/policy maintenance.js)
 
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -23,7 +26,10 @@ import {
   createPseudonymizer,
   requireEnv,
   parseCallers,
-  auditSink
+  auditSink,
+  createProtectedSwitch,
+  createFirestoreFlagReader,
+  parseHardDisable
 } from "@graffiticode/policy";
 import {
   createBroker,
@@ -59,6 +65,7 @@ const broker = createBroker({
   secrets,
   once: createFirestoreOnceStore(db),
   receipts: createFirestoreReceiptStore(db),
+  protectedSwitch: createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) }),
   operations: buildOperations({
     sdk: new LearnositySDK(),
     domain,

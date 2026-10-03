@@ -11,7 +11,8 @@ import {
   createMemoryInvocationStore,
   createAudit,
   createPseudonymizer,
-  PolicyDenied
+  PolicyDenied,
+  createProtectedSwitch
 } from "@graffiticode/policy";
 import {
   createBroker,
@@ -25,6 +26,9 @@ import { buildDataApi } from "./data.js";
 import { inputDigest, InvocationRefused } from "./invocations.js";
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+
+// Protected execution on (the maintenance switch is tested on its own).
+const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
 
 const OWNER = "0xowner";
 const L0176 = { role: "compiler", lang: "0176" };
@@ -49,11 +53,12 @@ beforeEach(async () => {
   const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   connections = createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]);
   // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-  policy = createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
+  policy = createPolicy({ protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), audit });
 
   routes = [];
   loseItems = false;
   const broker = createBroker({
+    protectedSwitch: PROTECTED_ON,
     jwks,
     audit,
     operations: buildOperations({
