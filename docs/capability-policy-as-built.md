@@ -155,9 +155,9 @@ Evidence: [gateway execution](../packages/api/src/data.js),
 
 - **Partial — SECRET-01.** Broker encrypts secrets with connection/owner/backend associated
   data and checks owner/backend at execution. Rotation preserves provider key identity.
-  L0176 no longer reads legacy program/config credentials. Universal credential-path removal
-  and provider invalidation are not established; the deployment manifest still mounts
-  `GRAFFITICODE_SECRET_KEY` for L0176. Evidence:
+  L0176 no longer reads legacy program/config credentials. The legacy `get-val-private`
+  shared-secret path is retired: no service mounts the key, and the key is destroyed (see the
+  inventory below). Deployed ISOLATE-01 controls and AT-11 remain open. Evidence:
   [secret storage](../packages/broker/src/firestore.js),
   [rotation rules](../packages/broker/src/stores.js), and [deployment manifest](../deploy.json).
 
@@ -174,9 +174,22 @@ Evidence: [gateway execution](../packages/api/src/data.js),
     `encrypt("")`) and 25 of a single 32–47-byte credential. Other languages not scanned.
   - Operator actions (owner, 2026-10-02): stored user secrets (`users/{uid}/settings`)
     deleted for all users; the baked credential retired at its provider.
-  - Remaining: remove the `l0176` mount (`removeSecrets` in `deploy.json`) and the `l0158`
-    mount, revoke both runtime accessors, stop console encryption, then destroy the key in
-    both projects and remove the default compute account's access.
+  - Retirement completed 2026-10-02/03 (UTC):
+    - Console stops encrypting: `get-val-private` bakes `""`; `secret-crypto` and
+      `set-compiler-secret.sh` removed (console `de17847`).
+    - Mounts removed, verified on the serving revisions: `l0176-rmurlrewx-7bdf2d` (deploy
+      CLI `removeSecrets`, `2df5228`), `l0158-00163-8jl` (l0158 `e487891`, Cloud Build
+      `c88c30b9`), `console-00659-5k5` (Cloud Build `f97158c4`). No Cloud Run service in
+      either project mounts `GRAFFITICODE_SECRET_KEY` or `GRAFFITICODE_SECRET_KEYS`.
+    - Secret-level accessors removed: `l0176-run`, `l0158-run` (graffiticode);
+      `console-run` and the default compute account (graffiticode-app). Both secret policies
+      are empty.
+    - Key version 1 destroyed: graffiticode 2026-10-03T00:08:05Z, graffiticode-app
+      2026-10-03T00:08:24Z. Ciphertext remaining in old task ASTs is permanently
+      undecryptable.
+  - Follow-ups (not SECRET-01 blockers): remove the inert keyring `decrypt` from l0000 core
+    (`compiler.ts`); review project-level Editor on the graffiticode-app default compute
+    account; delete stale local `.env.local` copies of the destroyed key.
 - **Missing repo controls / deployment unverified — ISOLATE-01.** No compiler egress
   enforcement satisfying the new allowlist contract was found in the inspected deployment
   configuration. Historical IAM improvements do not establish current egress, secret-access,
