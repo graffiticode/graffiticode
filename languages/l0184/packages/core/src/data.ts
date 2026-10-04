@@ -8,10 +8,11 @@
  * any plot's shape is checked. The output carries inline data only — never a `dataset` or
  * `encode` — so a bad reference is a compile error that names the column, not an empty chart.
  *
- * `normalizeRows` also accepts the shapes an upstream language will one day hand us through
- * `data use …`: an array, `{rows, columns?}`, or the integer-keyed record L0000's `DATA` makes
- * from an upstream array (`recordMerge`). Composition is not enabled yet; the normalizer is
- * shaped for it so enabling it later is not a redesign.
+ * `normalizeRows` also accepts what an upstream hands us through `rows data use "0185"`: the
+ * integer-keyed record L0000's `DATA` makes from an upstream array (`recordMerge`), `{}` when no
+ * upstream is bound, or `{rows, columns?}`. Upstream rows are read leniently in one way: with
+ * `columns` given, fields not named there are ignored rather than refused, because the upstream
+ * is a separate program that may return more fields than the chart draws.
  */
 
 export interface Dataset {
@@ -47,6 +48,7 @@ export function fromIndexed(rec: Record<string, any>, where: string): any[] {
 export function normalizeRows(raw: any, givenColumns: string[] | undefined, where: string): { columns: string[]; rows: any[][] } {
   let rows: any = raw;
   let columns = givenColumns;
+  const fromUpstream = isPlainRecord(rows);
   if (isPlainRecord(rows) && Array.isArray(rows.rows)) {
     columns = columns ?? rows.columns;
     rows = rows.rows;
@@ -54,6 +56,9 @@ export function normalizeRows(raw: any, givenColumns: string[] | undefined, wher
     rows = fromIndexed(rows, where);
   }
   if (!Array.isArray(rows)) throw new Error(`${where}: rows must be a list in [brackets].`);
+  if (fromUpstream && rows.length === 0 && !columns) {
+    throw new Error(`${where}: its rows come from an upstream program and there are none yet, so name its columns: columns ["region" "revenue"] rows data use "0185".`);
+  }
   if (columns !== undefined) checkColumns(columns, where);
 
   if (rows.every((r: any) => Array.isArray(r))) {
@@ -74,11 +79,14 @@ export function normalizeRows(raw: any, givenColumns: string[] | undefined, wher
     const seen: string[] = [];
     for (const r of rows) for (const k of Object.keys(r)) if (!seen.includes(k)) seen.push(k);
     const cols = columns ?? seen;
-    const extra = seen.filter((k) => !cols.includes(k));
+    const extra = fromUpstream ? [] : seen.filter((k) => !cols.includes(k));
     if (extra.length) throw new Error(`${where}: rows have the column "${extra[0]}", which is not in columns (${cols.join(", ")}).`);
     const out = rows.map((r: any, i: number) =>
       cols.map((c) => {
         if (!Object.prototype.hasOwnProperty.call(r, c)) {
+          if (fromUpstream) {
+            throw new Error(`${where}: the data from the upstream program has no field "${c}"; its fields are ${seen.map((k) => JSON.stringify(k)).join(", ")}. Name those in columns.`);
+          }
           throw new Error(`${where}: row ${i + 1} has no "${c}". Every row needs every column; write null for a missing value.`);
         }
         checkCell(r[c], `${where} row ${i + 1}, column "${c}"`);

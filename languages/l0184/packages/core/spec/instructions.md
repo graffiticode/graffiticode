@@ -5,8 +5,9 @@ box plot, candlestick, heatmap, funnel, gauge and radar plots, over data written
 datasets, one chart or a collection of charts shown as tabs.
 
 OUT_OF_SCOPE: spreadsheets and editable tables are L0179; concept maps and other diagrams are
-L0183; Venn diagrams are L0171; quizzes and assessment items are L0180. Fetching or transforming
-data from a URL or a file is not built yet: L0184 plots only the data given in the request.
+L0183; Venn diagrams are L0171; quizzes and assessment items are L0180. Data at a public https
+URL is fetched and shaped by L0185 (see "Data from a URL"); a file, spreadsheet or login-protected
+source with no public URL cannot be read yet.
 Reference and trend lines, annotations, colour scales the author configures, network charts
 (graph, sankey, tree, treemap, sunburst) and maps are not built yet.
 
@@ -84,6 +85,42 @@ charts [
 - A column is always one flat list. The two forms that nest lists — a BOXPLOT's `values` as one
   list per category, a HEATMAP's matrix — are written inline; from a dataset, use the flat forms
   (`values` with `group`, and `x`, `y` and `values`).
+
+## Data from a URL: `data use "0185"`
+
+When the request points at data by URL — a public https address of JSON or CSV — L0184 does not
+fetch it. L0185 does: it fetches, filters, groups and summarizes, and hands the result to this
+program. **Then the binding is REQUIRED:** one dataset whose `rows` are `data use "0185"`, with
+`columns` naming every field the chart reads. Writing the binding is what causes L0185's program
+to be generated; without it the chart is empty.
+
+```
+charts [
+  datasets [
+    dataset id "sales" columns ["region" "revenue"] rows data use "0185" {}
+  ] {}
+  chart [
+    axes [
+      axis direction X categories "region" {}
+      axis direction Y name "Revenue" {}
+    ] {}
+    plots [ plot kind BAR values "revenue" {} ] {}
+  ] title "Revenue by region" {}
+] {}..
+```
+
+- `columns` is required with `data use`: it names the fields the chart reads, and is what the
+  L0185 program is told to produce. Use short lowercase names from the request's own words for
+  what is shown (`region`, `revenue`, `month`, `count`), joined by hyphens.
+- Plots and axes refer to those columns by name, as with any dataset.
+- Never write the URL in the program, and never write rows by hand for fetched data: L0185 has
+  the URL, and numbers you invent are wrong.
+- A request that gives its numbers in the request is not fetched: write them inline, no binding.
+- One program binds at most one upstream: every chart reads the same `data use "0185"` dataset.
+
+**Finish-time check.** If the request names a URL to chart, the program contains
+`data use "0185"` exactly once, as a dataset's `rows`, with `columns`, and the URL appears nowhere
+in it. If the request names no URL, the program contains no `use`.
 
 ## Plot kinds and their data
 
@@ -231,7 +268,7 @@ is the order plots take colours in; `background` sets what is behind every chart
 | `height` | `<number record: record>` | A chart's height in pixels. Defaults to 384. |
 | `animation` | `<boolean record: record>` | Animate the chart as it draws. Defaults to true. |
 | `columns` | `<list record: record>` | A dataset's column names, in order, e.g. columns ["month" "revenue"]. |
-| `rows` | `<list record: record>` | A dataset's rows: lists in column order, e.g. rows [["Jan" 120] ["Feb" 132]], or records, e.g. rows [{month: "Jan" revenue: 120}]. |
+| `rows` | `<list record: record>` | A dataset's rows: lists in column order, e.g. rows [["Jan" 120] ["Feb" 132]], records, e.g. rows [{month: "Jan" revenue: 120}], or data fetched and shaped by L0185: rows data use "0185". |
 | `direction` | `<tag record: record>` | Which way an axis runs: X (across), Y (up), or RADIAL (the spokes of a radar chart). Required. |
 | `scale` | `<tag record: record>` | An axis's scale: CATEGORY, LINEAR, LOG or TIME. Defaults to CATEGORY when the axis has categories, LINEAR otherwise. |
 | `categories` | `<list|string record: record>` | A CATEGORY axis's steps: a list, or the name of a dataset column, e.g. categories "month". |

@@ -46,7 +46,7 @@ list's settings after its `]` — ends in exactly one `{}` after its last word.
 | `height` | `<number record: record>` | A chart's height in pixels. Defaults to 384. |
 | `animation` | `<boolean record: record>` | Animate the chart as it draws. Defaults to true. |
 | `columns` | `<list record: record>` | A dataset's column names, in order, e.g. `columns ["month" "revenue"]`. |
-| `rows` | `<list record: record>` | A dataset's rows: lists in column order, e.g. `rows [["Jan" 120] ["Feb" 132]]`, or records, e.g. `rows [{month: "Jan" revenue: 120}]`. |
+| `rows` | `<list record: record>` | A dataset's rows: lists in column order, e.g. `rows [["Jan" 120] ["Feb" 132]]`, records, e.g. `rows [{month: "Jan" revenue: 120}]`, or data fetched and shaped by L0185: `rows data use "0185"`. |
 | `direction` | `<tag record: record>` | Which way an axis runs: X (across), Y (up), or RADIAL (the spokes of a radar chart). Required. |
 | `scale` | `<tag record: record>` | An axis's scale: CATEGORY, LINEAR, LOG or TIME. Defaults to CATEGORY when the axis has categories, LINEAR otherwise. |
 | `categories` | `<list|string record: record>` | A CATEGORY axis's steps: a list, or the name of a dataset column, e.g. `categories "month"`. |
@@ -183,6 +183,26 @@ charts [
       plot kind BAR name "Spring" values "spring" {}
     ] {}
   ] title "Average grade by subject" {}
+] {}..
+```
+
+## Data from L0185
+
+A dataset's rows can come from an L0185 program, which fetches data from a public https URL and
+shapes it: `rows data use "0185"`. The dataset names the fields it reads in `columns`; fields the
+upstream returns beyond those are ignored, and a named field it does not return is a compile
+error that lists the fields it does. With no upstream bound the dataset is empty and the chart
+draws as empty.
+
+```
+charts [
+  datasets [
+    dataset id "sales" columns ["region" "revenue"] rows data use "0185" {}
+  ] {}
+  chart [
+    axes [ axis direction X categories "region" {} axis direction Y {} ] {}
+    plots [ plot kind BAR values "revenue" {} ] {}
+  ] title "Revenue by region" {}
 ] {}..
 ```
 

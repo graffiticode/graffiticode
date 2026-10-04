@@ -16,11 +16,12 @@
     "Combined bar and line charts, with a second value axis",
     "Linear, logarithmic, category and time axes, with bounds",
     "Data as a table with named columns that several charts share",
+    "Charts of data at a public https URL (JSON or CSV), fetched, filtered and summarized by L0185 and drawn here",
     "Several charts in one collection, shown as tabs",
     "Titles, legends, tooltips, colours, palettes and a dark theme"
   ],
   "out_of_scope": [
-    "Fetching or transforming data from a URL, a file or a spreadsheet is not built yet — L0184 plots only the data given in the request; L0185 fetches and shapes data.",
+    "Data with no public https URL — an uploaded file, a spreadsheet, a login-protected API — cannot be read yet; fetching and shaping data with NO chart is L0185, so do NOT route that here.",
     "Reference lines, trend lines, annotations and colour scales the author configures (thresholds, custom ranges) are not built yet.",
     "Network charts (graph, sankey, tree, treemap, sunburst) and geographic maps are not built yet.",
     "Spreadsheets and editable tables are L0179; do NOT route them here.",

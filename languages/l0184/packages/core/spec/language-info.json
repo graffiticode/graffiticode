@@ -36,9 +36,9 @@
       "notes": "One `axis direction RADIAL categories [\"Speed\" \"Power\" \"Range\" \"Cost\"] {}` and a `plot kind RADAR values […] {}` per car."
     },
     {
-      "prompt": "Chart the data at this URL.",
+      "prompt": "Bar chart of paid revenue by region from https://l0185.graffiticode.org/data/sales.csv.",
       "produces": "charts",
-      "notes": "Not supported: L0184 plots only data given in the request."
+      "notes": "L0185 fetches and summarizes the CSV; the chart reads it as `dataset columns [\"region\" \"revenue\"] rows data use \"0185\" {}`."
     }
   ]
 }

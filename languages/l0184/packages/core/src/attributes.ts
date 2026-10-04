@@ -102,6 +102,7 @@ export type Expects =
   | "tag"
   | "data"
   | "list"
+  | "rows"
   | "color"
   | "colors"
   | "record";
@@ -202,9 +203,9 @@ export const chainFields: Record<string, AttributeMeta> = {
   },
   ROWS: {
     field: "rows",
-    expects: "list",
+    expects: "rows",
     description:
-      'A dataset\'s rows: lists in column order, e.g. rows [["Jan" 120] ["Feb" 132]], or records, e.g. rows [{month: "Jan" revenue: 120}].',
+      'A dataset\'s rows: lists in column order, e.g. rows [["Jan" 120] ["Feb" 132]], records, e.g. rows [{month: "Jan" revenue: 120}], or data fetched and shaped by L0185: rows data use "0185".',
   },
 
   // axis
@@ -598,7 +599,7 @@ export const typeOf = (meta: AttributeMeta, arity: 1 | 2): string => {
           ? "boolean"
           : meta.expects === "tag"
             ? "tag"
-            : meta.expects === "list" || meta.expects === "colors"
+            : meta.expects === "list" || meta.expects === "rows" || meta.expects === "colors"
               ? "list"
               : meta.expects === "data"
                 ? "list|string"
@@ -699,6 +700,12 @@ export function checkValue(name: string, meta: AttributeMeta, raw: any): { value
       return {
         error: `${word}: expected a list in [brackets] or the name of a dataset column in "quotes", got ${showValue(raw)}.`,
       };
+    case "rows":
+      // A list written in the program, or what `data use "0185"` gives: the upstream's list of
+      // records as L0000's DATA hands it over (an integer-keyed record), or {} with no upstream.
+      // normalizeRows reads both.
+      if (Array.isArray(raw) || isRecord(raw)) return { value: raw };
+      return { error: `${word}: expected a list in [brackets], or data use "0185" for data fetched from a URL, got ${showValue(raw)}.` };
     case "list":
     case "colors":
       if (!Array.isArray(raw)) return { error: `${word}: expected a list in [brackets], got ${showValue(raw)}.` };
