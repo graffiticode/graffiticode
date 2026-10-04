@@ -1,16 +1,17 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0184 RAG Training Examples
 
-128 example prompts for training a RAG model on L0184, the charts language — covering bar, line,
+138 example prompts for training a RAG model on L0184, the charts language — covering bar, line,
 pie, donut, rose and scatter charts, histograms, box plots, candlesticks, heatmaps, funnels,
 gauges and radar charts, combined bar-and-line charts with a second axis, tables of
-data that several charts share, collections of charts shown as tabs, horizontal, logarithmic,
+data that several charts share, charts of data at a URL (fetched and summarized by L0185),
+collections of charts shown as tabs, horizontal, logarithmic,
 time and bounded axes, titles, legends, labels, colours and themes, and missing values.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to chart and the
-numbers to chart, never how to write the program. Every prompt here is in scope — fetching data
-from a URL, reference and trend lines, maps and network charts belong elsewhere or are not built yet,
-and are deliberately absent.
+numbers to chart, or the URL of the data, never how to write the program. Every prompt here is in
+scope — reference and trend lines, maps and network charts are not built yet, and are deliberately
+absent.
 
 ## Category 1: Bar Charts (1–12)
 
@@ -190,3 +191,16 @@ and are deliberately absent.
 126. Spider chart of three laptops rated out of 10 on battery, screen, weight, price and speed: Alpha 8, 7, 9, 5, 6; Beta 6, 9, 5, 7, 8; Gamma 7, 6, 7, 9, 5.
 127. Radar of a student's scores in math 88, reading 72, science 91, art 65, music 70, filled in.
 128. Compare this year's and last year's department ratings on quality, speed, cost and support: this year 4, 3, 5, 4; last year 3, 3, 4, 2.
+
+## Category 18: Charts of Data at a URL (129–138)
+
+129. Bar chart of total paid revenue by region from https://l0185.graffiticode.org/data/sales.csv.
+130. Pie chart of how many orders each region placed, from https://l0185.graffiticode.org/data/sales.csv.
+131. Line chart of each earthquake's magnitude over time from https://l0185.graffiticode.org/data/earthquakes.json.
+132. Horizontal bar chart of the ten players with the most goals in https://l0185.graffiticode.org/data/stats.json, where the list is under top_scorers.
+133. Bar chart of the number of completed todos per user from https://l0185.graffiticode.org/data/todos.json.
+134. Scatter plot of sepal length against petal length for the flowers in https://l0185.graffiticode.org/data/iris.csv.
+135. Bar chart of the average petal length of each species in https://l0185.graffiticode.org/data/iris.csv.
+136. Pie chart of how many products each category has in https://l0185.graffiticode.org/data/products.json, where the records are under products.
+137. Histogram of product prices from https://l0185.graffiticode.org/data/products.json, where the records are under products.
+138. Bar chart of the number of posts each user wrote in https://l0185.graffiticode.org/data/posts.json, most first.
