@@ -183,3 +183,19 @@ describe("format dates", () => {
   });
 });
 
+describe("rename a nested value", () => {
+  const STATS = `fetch "https://l0185.graffiticode.org/data/stats.json" at "top_scorers"`;
+  it("replaces the record it came from, after a pick", async () => {
+    const out = await compile(`rename {"player.name": "player"} pick ["player" "goals"] limit 1 ${STATS} {}`);
+    expect(out).toEqual([{ player: "Ada Mbeki", goals: 27 }]);
+  });
+  it("and before one", async () => {
+    const out = await compile(`pick ["player" "goals"] rename {"player.name": "player"} limit 1 ${STATS} {}`);
+    expect(out).toEqual([{ player: "Ada Mbeki", goals: 27 }]);
+  });
+  it("adds a new field when the name is new", async () => {
+    const out = await compile(`pick ["team" "goals"] rename {"player.team": "team"} limit 1 ${STATS} {}`);
+    expect(out).toEqual([{ team: "Harbor City", goals: 27 }]);
+  });
+});
+

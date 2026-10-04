@@ -265,6 +265,18 @@ export function rename(map: any, state: State): State {
         }
         out[nk] = v;
       }
+      // A dot-path source reaches into a record: {"player.name": "player"} makes the field
+      // `player` hold the name, replacing the record it came from (in place) when the new name is
+      // that record's own. This is how a nested value becomes a plain field a chart can read, and
+      // it works whether the rename runs before or after a pick of "player".
+      for (const [k, nk] of Object.entries(map) as [string, string][]) {
+        if (Object.prototype.hasOwnProperty.call(r, k) || !k.includes(".")) continue;
+        const root = k.split(".")[0];
+        if (nk !== root && Object.prototype.hasOwnProperty.call(out, nk)) {
+          throw new Error(`rename: ${q(k)} would become ${q(nk)}, which is already a field. Rename or omit ${q(nk)} first.`);
+        }
+        out[nk] = getPath(r, k) ?? null;
+      }
       return out;
     }),
   );
