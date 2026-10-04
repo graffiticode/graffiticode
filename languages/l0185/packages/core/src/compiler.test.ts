@@ -162,3 +162,24 @@ describe("fetching", () => {
     expect(fetched).toEqual(["https://example.org/people.json"]);
   });
 });
+
+describe("format dates", () => {
+  const run = (pattern: string, value: unknown) =>
+    compile(`format {t: ${JSON.stringify(pattern)}} rows [{t: ${JSON.stringify(value)}}] {}`).then((r) => r[0].t);
+  it("reads a number as Unix milliseconds, or seconds below 1e11, in UTC", async () => {
+    expect(await run("yyyy-mm-dd hh:mm", 1790017733706)).toBe("2026-09-21 19:08");
+    expect(await run("yyyy-mm-dd hh:mm:ss", 1790017733)).toBe("2026-09-21 19:08:53");
+  });
+  it("reads an ISO string, and leaves a non-date alone", async () => {
+    expect(await run("d mmm yyyy", "2024-11-03")).toBe("3 Nov 2024");
+    expect(await run("yyyy", "soon")).toBe("soon");
+  });
+  it("tells minutes from months, and does names, 12-hour time and literals", async () => {
+    expect(await run("mm/dd h:mm AM/PM", "2024-03-05T14:07:00Z")).toBe("03/05 2:07 PM");
+    expect(await run('dddd, mmmm d "at" hh"h"', "2024-03-05T09:00:00Z")).toBe("Tuesday, March 5 at 09h");
+  });
+  it("still formats numbers with number patterns", async () => {
+    expect(await run("$#,##0.00", 1234.5)).toBe("$1,234.50");
+  });
+});
+

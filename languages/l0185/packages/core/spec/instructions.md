@@ -67,7 +67,7 @@ revenue. The output is the summary records, e.g. `[{region: "West", orders: 2, r
 | `unnest` | step | `<string record: record>` | One record per element of a list field; record elements merge in as field.key. |
 | `spread` | step | `<string record: record>` | Turn a record field into field.key fields. |
 | `join` | step | `<record record: record>` | Join another data set: `{with: <source> on: "id" kind: LEFT prefix: "c-"}`. |
-| `format` | step | `<record record: record>` | Format numbers as text with an Excel pattern: `{field: "$#,##0.00"}`. |
+| `format` | step | `<record record: record>` | Format numbers or dates as text with an Excel pattern: `{revenue: "$#,##0.00" time: "yyyy-mm-dd hh:mm"}`. |
 <!-- words:end -->
 
 ## Keeping records: `where`
@@ -152,8 +152,11 @@ fetch "https://l0185.graffiticode.org/data/orders.json"
 
 - Use only the URLs and values the request gives. Never invent a URL or data.
 - Put `pick` near the top (leftmost) so the output has just the fields that were asked for.
-- `format` turns numbers into text — use it only when the reader wants formatted text, not when
-  another program will compute with the values.
+- `format` turns numbers or dates into text — use it only when the reader wants formatted text,
+  not when another program will compute with the values. A pattern with date codes (`yyyy mm dd
+  hh mm ss`, `mmm` for "Jan", `AM/PM`) formats a date, in UTC: a number is read as a Unix time
+  (milliseconds, or seconds), a string as an ISO date. `mm` is minutes after `hh`, else the month:
+  `format {time: "yyyy-mm-dd hh:mm"}`.
 - The result can be at most 1 MB. For large data, `pick` the fields asked for, and `limit` when
   the request names a number.
 - `take`, `drop`, `filter`, `map` and `last` are L0000's list functions, not steps: use `limit`,

@@ -236,7 +236,7 @@ export const stepFields: Record<string, StepMeta> = {
   FORMAT: {
     role: "step",
     expects: "pattern-record",
-    description: 'Format numbers as text with an Excel pattern: `{field: "$#,##0.00"}`.',
+    description: 'Format numbers or dates as text with an Excel pattern: `{revenue: "$#,##0.00" time: "yyyy-mm-dd hh:mm"}`.',
     example: 'format {revenue: "$#,##0.00"} fetch "https://example.org/sales.json" {}',
   },
 };

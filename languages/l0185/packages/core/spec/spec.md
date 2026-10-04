@@ -49,7 +49,7 @@ to left.
 | `unnest` | step | `<string record: record>` | One record per element of a list field; record elements merge in as field.key. |
 | `spread` | step | `<string record: record>` | Turn a record field into field.key fields. |
 | `join` | step | `<record record: record>` | Join another data set: `{with: <source> on: "id" kind: LEFT prefix: "c-"}`. |
-| `format` | step | `<record record: record>` | Format numbers as text with an Excel pattern: `{field: "$#,##0.00"}`. |
+| `format` | step | `<record record: record>` | Format numbers or dates as text with an Excel pattern: `{revenue: "$#,##0.00" time: "yyyy-mm-dd hh:mm"}`. |
 <!-- words:end -->
 
 # Tags
@@ -94,6 +94,21 @@ fetch "https://l0185.graffiticode.org/data/orders.json"
 most 3 redirects, 10 seconds and 5 MB per URL, at most 10 URLs per program. The format is `parse`
 when given, else the response's content type, else a sniff of the body. Sources that need a login
 are not available yet; `connection-id` is reserved for them.
+
+# Formatting
+
+`format` turns numbers or dates into text with an Excel pattern. A pattern that uses date codes
+(`yyyy`, `mm`, `dd`, `hh`, `ss`, `mmm`, `dddd`, `AM/PM`) formats a date in UTC; `m`/`mm` after an
+hour code or before a seconds code is minutes. A number is read as a Unix time (milliseconds, or
+seconds below 1e11) and a string as an ISO 8601 date; a value that is not a date is left as it is.
+
+```
+format {time: "yyyy-mm-dd hh:mm" mag: "0.0"}
+rename {"properties.place": "place" "properties.mag": "mag" "properties.time": "time"}
+pick ["properties.place" "properties.mag" "properties.time"]
+fetch "https://l0185.graffiticode.org/data/earthquakes.json" at "features"
+{}..
+```
 
 # Output
 

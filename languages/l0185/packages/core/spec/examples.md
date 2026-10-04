@@ -102,7 +102,7 @@
 
 75. Fetch posts from "https://l0185.graffiticode.org/data/posts.json" and joins with users fetched from "https://l0185.graffiticode.org/data/users.json" on userId matching id.
 76. Fetch comments from "https://l0185.graffiticode.org/data/comments.json" and joins with posts fetched from "https://l0185.graffiticode.org/data/posts.json" on postId matching id.
-77. Fetch photos from "https://l0185.graffiticode.org/data/photos.json" and joins with albums fetched from "https://l0185.graffiticode.org/data/albums.json" on albumId matching id.
+77. Fetch photos from "https://l0185.graffiticode.org/data/photos.json" and joins with albums fetched from "https://l0185.graffiticode.org/data/albums.json" on albumId matching id, keeping each photo's title and its album's title.
 78. Fetch albums from "https://l0185.graffiticode.org/data/albums.json" and joins with users fetched from "https://l0185.graffiticode.org/data/users.json" on userId matching id.
 
 ## Category 9: Get (79–84)

@@ -7,6 +7,7 @@
  */
 import { Decimal } from "decimal.js";
 import { formatNumber } from "@graffiticode/l0000";
+import { formatDate, isDatePattern, toDate } from "./dates.js";
 import { AGGS, DIRECTIONS, JOIN_KINDS, NO_VALUE_OPS, OPS, isRecord, isTag, showValue, stepFields, toPlainObject, wordOf } from "./attributes.js";
 import { assertField, getPath } from "./paths.js";
 import { parseBody } from "./source.js";
@@ -531,7 +532,11 @@ export function format(map: any, state: State): State {
     rows.map((r) => {
       const out = { ...r };
       for (const [f, pattern] of Object.entries(map)) {
-        if (isNum(out[f])) out[f] = formatNumber(pattern as string, out[f]);
+        if (isDatePattern(pattern as string)) {
+          // A number is a Unix time and a string an ISO date; anything else is left as it is.
+          const date = toDate(out[f]);
+          if (date) out[f] = formatDate(pattern as string, date);
+        } else if (isNum(out[f])) out[f] = formatNumber(pattern as string, out[f]);
       }
       return out;
     }),
