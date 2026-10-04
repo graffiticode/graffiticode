@@ -3,6 +3,7 @@
   "summary": "Concept webs — a hub in the centre with nodes on a circle around it and labelled lines between them, as a study diagram or as an assessment where the learner drags answers from a tray onto blank nodes and blank line labels. Succeeds L0169.",
   "in_scope": [
     "Concept webs, concept maps, mind maps and graphic organizers laid out as a central hub with related ideas around it",
+    "Food chains and food webs: organisms as nodes with arrows between them, often with labels such as \"eaten by\" for the learner to fill",
     "Study webs with every node and line labelled and nothing to fill in",
     "Drag-and-drop assessments where the learner fills blank nodes, the hub included, from a tray of answers",
     "Relation labelling, where the learner fills the blank labels on the lines between nodes",
