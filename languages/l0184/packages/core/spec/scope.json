@@ -20,7 +20,7 @@
     "Titles, legends, tooltips, colours, palettes and a dark theme"
   ],
   "out_of_scope": [
-    "Fetching or transforming data from a URL, a file or a spreadsheet is not built yet — L0184 plots only the data given in the request; L0170 fetches and transforms data.",
+    "Fetching or transforming data from a URL, a file or a spreadsheet is not built yet — L0184 plots only the data given in the request; L0185 fetches and shapes data.",
     "Reference lines, trend lines, annotations and colour scales the author configures (thresholds, custom ranges) are not built yet.",
     "Network charts (graph, sankey, tree, treemap, sunburst) and geographic maps are not built yet.",
     "Spreadsheets and editable tables are L0179; do NOT route them here.",

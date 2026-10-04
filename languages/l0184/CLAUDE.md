@@ -106,5 +106,5 @@ generated from the lexicon.
 
 Phase 1 (this) is bar/line/pie/scatter parity with L0173 plus datasets, axes and multiple charts.
 Phases 2–4 (analytical plots; annotations and visual mapping; formatting and interactivity) need
-their deferred contracts specified before implementation. L0170 composition waits for L0170 to
-move to l0000.
+their deferred contracts specified before implementation. Composition with L0185 (fetch and shape
+data, L0170's successor on L0000) is planned: `data use "0185"` supplies a dataset's rows.

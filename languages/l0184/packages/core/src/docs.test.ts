@@ -193,6 +193,6 @@ describe("scope.json carries the words the MCP router keeps", () => {
 
   test("the siblings a request might belong to are named", () => {
     const all = scope.out_of_scope.join(" ");
-    for (const lang of ["L0179", "L0183", "L0171", "L0170", "L0180", "L0173"]) expect(all).toContain(lang);
+    for (const lang of ["L0179", "L0183", "L0171", "L0185", "L0180", "L0173"]) expect(all).toContain(lang);
   });
 });
