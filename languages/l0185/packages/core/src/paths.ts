@@ -48,6 +48,28 @@ export function didYouMean(name: string, candidates: string[]): string | undefin
   return best;
 }
 
+/** Dot-paths to the values nested in records (not lists), down to `depth` levels. */
+function nestedPaths(row: any, prefix = "", depth = 3): string[] {
+  if (!row || typeof row !== "object" || Array.isArray(row) || depth === 0) return [];
+  return Object.entries(row).flatMap(([k, v]) => {
+    const path = prefix ? `${prefix}.${k}` : k;
+    return v && typeof v === "object" && !Array.isArray(v) ? [path, ...nestedPaths(v, path, depth - 1)] : [path];
+  });
+}
+
+/**
+ * The nested path a top-level name was probably reaching for: "team" for a record holding
+ * {player: {name, team}} is "player.team". Matches the last segment, exactly or within two edits.
+ */
+function nestedMatch(field: string, data: any[]): string | undefined {
+  const lastOf = (p: string) => p.split(".").pop()!;
+  const nested = nestedPaths(data[0]).filter((p) => p.includes("."));
+  const exact = nested.find((p) => lastOf(p) === lastOf(field));
+  if (exact) return exact;
+  const near = didYouMean(lastOf(field), nested.map(lastOf));
+  return near === undefined ? undefined : nested.find((p) => lastOf(p) === near);
+}
+
 /**
  * Throw if a field names nothing in the data. Empty data is not checked — there is nothing to
  * check against, and an empty result is a legitimate one.
@@ -56,7 +78,7 @@ export function assertField(word: string, field: string, data: any[]): void {
   if (!data.length) return;
   if (data.slice(0, 1000).some((r) => getPath(r, field) !== undefined)) return;
   const fields = fieldsOf(data);
-  const guess = didYouMean(field, fields);
+  const guess = didYouMean(field, fields) ?? nestedMatch(field, data);
   const list = fields.slice(0, 20).map((f) => JSON.stringify(f)).join(", ");
   throw new Error(
     `${word}: no field ${JSON.stringify(field)} in the data. Its fields are: ${list}${fields.length > 20 ? ", …" : ""}.` +

@@ -102,4 +102,7 @@ describe("errors", () => {
   it("outputTooLarge", async () => {
     expect(await errorOf("let albums = fetch \"https://example.org/albums.json\" {}.. join {with: albums on: [\"albumId\" \"id\"] prefix: \"album-\"} fetch \"https://example.org/photos.json\" {}")).toBe("The result is larger than 1 MB, the most an item can hold. Use pick to keep only the fields you need, or limit.");
   });
+  it("unknownFieldNested", async () => {
+    expect(await errorOf("pick [\"zip\"] fetch \"https://example.org/people.json\" {}")).toBe("pick: no field \"zip\" in the data. Its fields are: \"name\", \"age\", \"city\", \"email\", \"address\", \"tags\". Did you mean \"address.zip\"?");
+  });
 });
