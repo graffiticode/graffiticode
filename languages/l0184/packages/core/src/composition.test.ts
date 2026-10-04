@@ -62,3 +62,11 @@ describe("rows data use \"0185\"", () => {
     );
   });
 });
+
+describe("time axes", () => {
+  it("are drawn in UTC, so every viewer sees the same hours", async () => {
+    const out = await compile(`charts [ chart [ axes [ axis direction X scale TIME {} axis direction Y {} ] {} plots [ plot kind LINE x [1790006180386 1790017733706] y [4.5 1.4] {} ] {} ] {} ] {}`);
+    expect(out.charts[0].option.useUTC).toBe(true);
+  });
+});
+

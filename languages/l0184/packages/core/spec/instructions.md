@@ -168,6 +168,8 @@ charts [
 - A plot names its axes by id with `x-axis "…"` and `y-axis "…"`. It may leave one out only
   when the chart has exactly one axis in that direction. The second axis in a direction sits on
   the other side (TOP, RIGHT) unless `position` says otherwise.
+- A TIME axis takes dates ("2026-03-01", "2026-03-01T14:30Z") or Unix times in milliseconds, and
+  shows them in UTC for every viewer; name it "Time (UTC)" when the hours matter.
 - Bounds are `min-value` and `max-value`. A LOG axis shows only values above 0.
 - Put `categories` on the Y axis for a horizontal bar chart.
 - A BAR, a LINE of `values`, a BOXPLOT or a CANDLESTICK needs one CATEGORY axis and one LINEAR

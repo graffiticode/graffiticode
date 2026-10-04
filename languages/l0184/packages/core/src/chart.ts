@@ -926,6 +926,11 @@ export function buildChart(
   if (legendShow) legendBand[legendPos] = legendPos === "TOP" || legendPos === "BOTTOM" ? 30 : 120;
   const option: Record<string, any> = {
     animation: settings.animation ?? true,
+    // Time axes in UTC, for every viewer. ECharts otherwise formats them in the viewer's own zone,
+    // so one chart showed quakes at 15:56 UTC as 08:56 to a viewer in California, under an axis the
+    // generator had titled "Time (UTC)" — and a date-only value ("2026-03-01", midnight UTC) can
+    // land on the previous day west of Greenwich. L0185 formats dates in UTC too.
+    useUTC: true,
     ...(look.palette ? { color: look.palette } : {}),
     // The viewer paints the background (the theme's, or the collection's `background`), so the
     // canvas is transparent unless a background was given — otherwise a dark chart sits in a
