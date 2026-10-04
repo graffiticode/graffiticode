@@ -25,7 +25,7 @@
     "Reference lines, trend lines, annotations and colour scales the author configures (thresholds, custom ranges) are not built yet.",
     "Network charts (graph, sankey, tree, treemap, sunburst) and geographic maps are not built yet.",
     "Spreadsheets and editable tables are L0179; do NOT route them here.",
-    "Concept maps, mind maps and other diagrams are L0183, and Venn diagrams are L0171; do NOT route them here.",
+    "Concept maps, mind maps, food webs and other diagrams of how things relate are L0183 (a web of labelled nodes and lines is NOT a chart), and Venn diagrams are L0171; do NOT route them here.",
     "Quiz questions and assessment items do NOT belong here — use L0180, or L0176 when the user names Learnosity.",
     "L0184 does NOT accept L0173 programs: it is a different language, and existing L0173 items stay with L0173."
   ]
