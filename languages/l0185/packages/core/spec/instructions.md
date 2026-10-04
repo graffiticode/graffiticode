@@ -148,6 +148,22 @@ fetch "https://l0185.graffiticode.org/data/orders.json"
 {}..
 ```
 
+## Data for a chart or another program
+
+When the output is read by another program — a chart's dataset names the fields it reads — produce
+those fields with exactly those names, and make every one a plain value (a number, text,
+true/false or null), never a record or a list. Reach into nested records with dot-paths and
+rename them to the names asked for:
+
+```
+rename {"player.name": "player"}
+pick ["player.name" "goals"]
+limit 10
+sort-by ["goals" DESC]
+fetch "https://l0185.graffiticode.org/data/stats.json" at "top_scorers"
+{}..
+```
+
 ## Guidelines
 
 - Use only the URLs and values the request gives. Never invent a URL or data.
