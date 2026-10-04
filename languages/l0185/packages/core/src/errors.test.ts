@@ -99,4 +99,7 @@ describe("errors", () => {
   it("needsList", async () => {
     expect(await errorOf("where [\"count\" ABOVE 1] fetch \"https://example.org/api.json\" at \"meta\" {}")).toBe("where: needs a list of records, but the data to its right is a record. Use at \"\u2026\" on the fetch to reach the list.");
   });
+  it("outputTooLarge", async () => {
+    expect(await errorOf("let albums = fetch \"https://example.org/albums.json\" {}.. join {with: albums on: [\"albumId\" \"id\"] prefix: \"album-\"} fetch \"https://example.org/photos.json\" {}")).toBe("The result is larger than 1 MB, the most an item can hold. Use pick to keep only the fields you need, or limit.");
+  });
 });

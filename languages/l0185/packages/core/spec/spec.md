@@ -98,4 +98,4 @@ are not available yet; `connection-id` is reserved for them.
 # Output
 
 The output is the data, exactly — no envelope and no added fields. It is limited to 10,000
-records and 5 MB.
+records and 1 MB.

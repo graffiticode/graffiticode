@@ -154,5 +154,7 @@ fetch "https://l0185.graffiticode.org/data/orders.json"
 - Put `pick` near the top (leftmost) so the output has just the fields that were asked for.
 - `format` turns numbers into text — use it only when the reader wants formatted text, not when
   another program will compute with the values.
+- The result can be at most 1 MB. For large data, `pick` the fields asked for, and `limit` when
+  the request names a number.
 - `take`, `drop`, `filter`, `map` and `last` are L0000's list functions, not steps: use `limit`,
   `skip`, `where` and `derive`.

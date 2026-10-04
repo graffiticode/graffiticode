@@ -18,7 +18,9 @@ import { type Ctx, type State, isState } from "./steps.js";
 const message = (e: any): string => String((e && e.message) || e);
 
 export const MAX_OUTPUT_ROWS = 10_000;
-export const MAX_OUTPUT_BYTES = 5_000_000;
+// The platform stores a compiled result in one Firestore field, capped at 1,048,487 bytes, so a
+// larger result compiled here and then 500'd at api /data (L0185 corpus example 77, 2026-10-03).
+export const MAX_OUTPUT_BYTES = 1_000_000;
 export const MAX_URLS = 10;
 
 /* ------------------------------------------------------------------ Checker */
@@ -259,8 +261,8 @@ Transformer.prototype.PROG = function (this: any, node: any, options: any, resum
       resume([`The result has ${val.data.length} records, more than the ${MAX_OUTPUT_ROWS} L0185 returns. Add limit, or where, to keep fewer.`], null);
       return;
     }
-    if (JSON.stringify(val.data).length > MAX_OUTPUT_BYTES) {
-      resume(["The result is larger than 5 MB. Use pick to keep only the fields you need, or limit."], null);
+    if (new TextEncoder().encode(JSON.stringify(val.data) ?? "").length > MAX_OUTPUT_BYTES) {
+      resume(["The result is larger than 1 MB, the most an item can hold. Use pick to keep only the fields you need, or limit."], null);
       return;
     }
     resume([], val.data);
