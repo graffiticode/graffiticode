@@ -13,7 +13,13 @@ export const createPseudonymizer = ({ secret }) => {
     value == null ? null : createHmac("sha256", secret).update(String(value)).digest("hex").slice(0, 24);
 };
 
-const FIELDS = ["event", "outcome", "reason", "lang", "fn", "op", "connectionId", "registryVersion"];
+// Opaque identifiers only; uid and owner are pseudonymized below. decisionId,
+// jti, opid, step, purpose and provenance tie an execution decision (W2) to
+// its token, operation and step.
+const FIELDS = [
+  "event", "outcome", "reason", "lang", "fn", "op", "connectionId", "registryVersion",
+  "decisionId", "jti", "opid", "step", "purpose", "provenance",
+];
 
 export const createAudit = ({ sink, pseudonymize }) => record => {
   const out: Record<string, unknown> = { at: new Date().toISOString() };

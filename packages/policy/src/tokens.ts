@@ -71,6 +71,10 @@ export const PROFILES = Object.freeze({
     audience: "urn:graffiticode:broker",
     ttlSeconds: 60,
     required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER },
+    // Provenance (provenance.js): Policy issues it from W2 on. Optional until
+    // Broker requires it (W2 PR 5), so a Broker built in between still
+    // accepts tokens from a Policy that predates it.
+    optional: { prv: STRING, pub: STRING },
   }),
 });
 

@@ -17,9 +17,11 @@ import {
   grantIdFor,
   createAudit,
   createPseudonymizer,
-  createProtectedSwitch
+  createProtectedSwitch,
+  verifyToken,
+  provenanceRefusal,
+  SYSTEM_PREVIEW_SUBJECT
 } from "./index.js";
-import { SYSTEM_PREVIEW_SUBJECT } from "./policy.js";
 
 const OWNER = "0xowneruid";
 const OTHER = "0xotheruid";
@@ -37,6 +39,7 @@ const REASONS = [
 ];
 
 let signer;
+let jwks;
 let policy;
 let records;
 let connections;
@@ -44,7 +47,7 @@ let connections;
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
   signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
-  const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
+  jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
   const grant = (recipientUid, fns, expiresAt = null) => ({
     grantId: grantIdFor({ connectionId: "conn-1", recipientUid }),
     connectionId: "conn-1",
@@ -163,5 +166,25 @@ describe.each(Object.keys(ENTRY_POINTS))("live refusals through %s", entry => {
 
   it("has a row for every reason liveRefusal returns", () => {
     expect(new Set(ROWS.map(r => r[3]).filter(r => r !== "allowed"))).toEqual(new Set(REASONS));
+  });
+});
+
+// Mint stamps the provenance it checked into the execution token, so later
+// checks (authorize-execution, Broker) re-read the same authority.
+describe("mint stamps the authority's provenance", () => {
+  it.each([
+    ["the owner", {}, { prv: "user" }],
+    ["a grantee", { sub: OTHER }, { prv: "user" }],
+    ["a live publication", { pub: "pub-1" }, { prv: "publication", pub: "pub-1" }],
+    ["a system preview", SYSTEM, { prv: "system" }],
+  ])("%s", async (_name, over, expected) => {
+    const sessionToken = await issueToken(signer, "session", { ...authority(over), fns: ["init"] });
+    const { executionToken, operationId } = await policy.mint({ caller: L0176, sessionToken, fn: "init", op: OPS.init, occurrenceId: "n1.0", argsDigest: "a".repeat(64) });
+    const { claims } = await verifyToken(jwks, "execution", executionToken);
+    expect(claims).toMatchObject(expected);
+    if (expected.prv !== "publication") expect(claims).not.toHaveProperty("pub");
+    expect(provenanceRefusal(claims)).toBeNull();
+    // The decision's audit record names the provenance and the operation.
+    expect(records.at(-1)).toMatchObject({ event: "mint", outcome: "allowed", provenance: expected.prv, opid: operationId });
   });
 });

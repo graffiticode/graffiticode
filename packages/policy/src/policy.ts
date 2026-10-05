@@ -43,6 +43,7 @@ import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict } from "./invocations.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
+import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance } from "./provenance.js";
 
 export class PolicyDenied extends Error {
   declare reason: string;
@@ -67,8 +68,7 @@ const isTaskId = v => typeof v === "string" && v.length > 0 && v.length <= 4096;
 const isLang = v => typeof v === "string" && /^\d{4}$/.test(v);
 // Every view of one publication shares one invocation, keyed by this input.
 const VIEW_INPUT = createHash("sha256").update("publication-view").digest("hex");
-// The subject of a system preview session: there is no user.
-export const SYSTEM_PREVIEW_SUBJECT = "system-preview";
+export { SYSTEM_PREVIEW_SUBJECT };
 
 export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, enabledGated = new Set(), protectedSwitch, audit }) => {
   // No default: a policy built without the switch would run ungated.
@@ -387,26 +387,24 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // state on every call (spec EXEC-02, REVOKE-01): the connection, its owner
   // and backend, the grant or the owner's own restrictions, the enablement
   // gate, and the publication or system connection the authority rests on.
-  // `authority` carries the claims the authority was issued with: { sub, own,
-  // conn, backend, lang, pub?, sys? }. Returns a refusal reason, or null.
+  // `authority` is the authority's claims with its checked provenance
+  // (provenance.js): { provenance, sub, own, conn, backend, lang, pub? }.
+  // Returns a refusal reason, or null.
   // Mint calls it before issuing an execution token; W2's
   // authorize-execution will call it before each effect.
   const liveRefusal = async (authority, fn) => {
     // A system preview session has no user and no grant: it reaches only the
     // language's system-preview functions, through the connection still
     // configured as the system connection for its backend.
-    if (authority.sys === true) {
-      if (authority.sub !== SYSTEM_PREVIEW_SUBJECT || authority.pub) return "bad-session";
+    if (authority.provenance === "system") {
       if (!systemPreviewFunctionsForLang(authority.lang).includes(fn)) return "not-system-preview";
       const state = await systemConnectionRefusal({ connectionId: authority.conn, backend: authority.backend, ownerUid: authority.own });
       return state.refusal ?? null;
     }
-    // A user session never claims the system subject.
-    if (authority.sys !== undefined || authority.sub === SYSTEM_PREVIEW_SUBJECT) return "bad-session";
     // A publication re-checks the publication on every call, and can only
     // ever reach viewSafe functions. Then every user check below applies to
     // its publisher as well.
-    if (authority.pub) {
+    if (authority.provenance === "publication") {
       if (!viewSafeFunctionsForLang(authority.lang).includes(fn)) return "not-view-safe";
       const state = await publicationState(authority.pub, { publisherUid: authority.sub, connectionId: authority.conn, lang: authority.lang });
       if (state.refusal) return state.refusal;
@@ -456,12 +454,17 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (!isId(occurrenceId) || typeof argsDigest !== "string" || !DIGEST_RE.test(argsDigest)) {
       return deny("bad-request", record);
     }
-    const refusal = await liveRefusal(session, fn);
-    if (refusal) return deny(refusal, record);
-    return issueExecution({ session, fn, op, argsDigest, occurrenceId, record });
+    // Which authority the session rests on; the token carries it (`prv`).
+    const checked = sessionProvenance(session);
+    if (checked.refusal) return deny(checked.refusal, record);
+    const { provenance } = checked;
+    const live = { ...record, provenance };
+    const refusal = await liveRefusal({ ...session, provenance }, fn);
+    if (refusal) return deny(refusal, live);
+    return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, record: live });
   };
 
-  const issueExecution = async ({ session, fn, op, argsDigest, occurrenceId, record }) => {
+  const issueExecution = async ({ session, provenance, fn, op, argsDigest, occurrenceId, record }) => {
     // The invocation is durable and shared by its retries, and the stage and
     // occurrence are stable within it, so a retry reaches the same receipt.
     const operationId = `${session.inv}/${session.stg}/${occurrenceId}`;
@@ -477,8 +480,10 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       opid: operationId,
       argd: argsDigest,
       rv: session.rv,
+      prv: provenance,
+      ...(provenance === "publication" ? { pub: session.pub } : {}),
     });
-    await audit({ ...record, outcome: "allowed" });
+    await audit({ ...record, opid: operationId, outcome: "allowed" });
     return { executionToken, operationId };
   };
 
