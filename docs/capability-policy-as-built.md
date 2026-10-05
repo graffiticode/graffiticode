@@ -1,6 +1,6 @@
 # Capability security conformance record
 
-Assessment date: 2026-10-02. Source: local working trees and the dated evidence cited below.
+Assessment date: 2026-10-02; W1 entries updated for the v6 release, 2026-10-05. Source: local working trees and the dated evidence cited below.
 
 The [capability security specification](graffiticode_capability_policy_spec.md) defines
 required behavior. This document records evidence and gaps; it does not relax requirements.
@@ -80,8 +80,9 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   issuer/audience/type, digest checks, caller-language binding, credential binding, and
   atomic token consumption exist. There is no admission profile or plan binding. Execution
   claims do not preserve publication/system provenance in the form needed for the new live
-  check. Verification requires `jti` and `exp` but does not independently enforce every
-  required claim or maximum lifetime from the revised specification.
+  check. Since v6 (2026-10-05) one profile schema drives both issuance and verification:
+  each profile's typed claims, a `kid` the JWKS names, `jti`, `iat` not in the future (10 s
+  skew), and `exp - iat` within the profile maximum; caller-set registered claims are refused.
   Evidence: [tokens](../packages/policy/src/tokens.js),
   [minting](../packages/policy/src/policy.js), [Broker](../packages/broker/src/broker.js), and
   [canonicalization](../packages/broker/src/canonical.js).
@@ -97,9 +98,11 @@ Evidence: [gateway execution](../packages/api/src/data.js),
 - **Partial — MODEL-03, WRITE-01, WRITE-02, FAIL-01.** Receipt claims prevent duplicate
   execution; binding mismatches fail. Success, failed, partial, and uncertain outcomes are
   represented. Unknown provider responses are uncertain; same-key retries return recorded
-  outcomes. Steps accumulate in process and are persisted with the final outcome, so a crash
-  can lose known step detail. Durable incremental step evidence, live replay authorization,
-  and evidence-based reconciliation are missing. No exactly-once provider guarantee exists.
+  outcomes. Since v6 each completed provider step is persisted (`receipts/{id}/steps/{n}`)
+  before the next provider request; a step that cannot be recorded stops the operation as
+  uncertain, and a replay without a final outcome reports the persisted steps (verified in
+  production, section 4). Live replay authorization and evidence-based reconciliation are
+  missing. No exactly-once provider guarantee exists.
   Evidence: [Broker](../packages/broker/src/broker.js),
   [provider response classification](../packages/broker/src/learnosity.js),
   [receipt store](../packages/broker/src/firestore.js), and
@@ -111,9 +114,10 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   [Policy stores](../packages/policy/src/firestore.js) and
   [Broker stores](../packages/broker/src/firestore.js).
 - **Partial — RECOVER-01.** Atomic artifact storage, three storage attempts, and recovery
-  through same-invocation receipt replay exist. Exhausted storage attempts currently log
-  an error and still return the compile result; they do not provide the required explicit
-  artifact-storage failure response. Pinned-plan recovery is missing.
+  through same-invocation receipt replay exist. Since v6 a compile whose artifact is not
+  stored returns `artifact: { stored: false, error, reason, retryable, invocationId, seq,
+  idempotencyKey }` beside the result (`artifact-storage-unavailable` after three attempts,
+  or `artifact-rejected`). Pinned-plan recovery is missing.
   Evidence: [gateway storage loop](../packages/api/src/data.js),
   [artifact store](../packages/api/src/storage/artifacts.js), and
   [recovery tests](../packages/api/src/recovery.spec.js).
@@ -127,11 +131,14 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   against the live provider. Evidence: [operations](../packages/broker/src/operations.js),
   [provider client](../packages/broker/src/learnosity.js), and
   [browser initialization](../languages/l0176/packages/view/src/components/form/Form.tsx).
-- **Missing gate — AUTHOR-01.** Author is non-delegable and not view-safe, but an owner can
-  reach its signer. The code explicitly labels its provider request shape unverified; there
-  is no deny-by-default validation gate. Do not equate owner-only enforcement with conformance.
-  Evidence: [Author operation](../packages/broker/src/operations.js) and
-  [registry](../packages/common/src/protected-registry.js).
+- **Partial / provider unverified — AUTHOR-01.** Since v6 Author is deny-by-default: the
+  registry marks it `requiresEnablement`, Policy refuses it (`fn-not-enabled`) unless
+  `POLICY_ENABLED_GATED_FUNCTIONS` names it, and Broker omits and refuses its operation
+  (`operation-not-enabled`) unless `BROKER_ENABLED_GATED_OPERATIONS` does. Both are empty in
+  production. Enabling it waits on AT-10 provider evidence for its request shape.
+  Evidence: [Author operation](../packages/broker/src/operations.js),
+  [Policy](../packages/policy/src/policy.js) and
+  [registry](../packages/common/src/protected-registry.ts).
 - **Partial — PREVIEW-01.** System preview sessions and separation from ordinary connection
   authority exist. L0176 ignores program credentials and reports unsigned preview failures.
   Saves without a connection expose a language-specific skip marker; the complete generic
@@ -142,8 +149,9 @@ Evidence: [gateway execution](../packages/api/src/data.js),
 - **Partial — ARTIFACT-01, READ-01, PUB-01.** Private artifacts, sequence-based selection,
   structural signed-request rejection, cache bypass, data-only preview signing, and owner-only
   publications exist. Publications pin an artifact; anonymous views are restricted to
-  view-safe functions. The artifact store currently overwrites content for a repeated
-  invocation ID; immutable content under a pinned publication is not enforced. Plan binding
+  view-safe functions. Since v6 the artifact store acknowledges a repeated put only for the
+  same canonical content and bindings and otherwise refuses (`ArtifactConflict`), so the
+  artifact a publication names cannot be replaced. Plan binding
   and execution-time revalidation are missing. Complete
   learner-answer routing and deployed cross-account behavior remain unverified.
   Evidence: [read path](../packages/api/src/read.js),
@@ -248,8 +256,31 @@ W0 release controls, released 2026-10-03 (UTC) from main `14cc636` (clean):
   the refusal is covered by unit tests.
 - W0 milestone recorded in `deploy.json` `baselines` for policy and broker (commit
   `14cc636`). api and l0176 receive theirs when they release W0 code.
-- Not yet done: the live canary (needs the canary account, its sandbox connection, the
-  `canary-api-key` secret and the OpenID token-creator grants).
+- Not yet done at W0: the live canary. It first ran after the v6 release (below).
+
+v6 (W1) release, 2026-10-05 (UTC), from main `5e0fa93` (clean): registry v6 with AUTHOR-01,
+the execution-step table, TOKEN-01, WRITE-01, ARTIFACT-01 and RECOVER-01.
+
+- Preflight: CI passed on `5e0fa93`; `release-check` passed for policy, broker, api and l0176.
+  Production held 11 artifacts, all registry v4 and already incompatible under the v5 api,
+  and no publications, so v6 invalidated nothing new.
+- Protected execution off 19:22:15-19:49:33Z; `drain` found no active writes.
+- Released `broker-rmuvmzse6-29b37e` and `policy-rmuvna4jo-0d789b` (candidates reported
+  `off (flag)` with `GC_VERIFY_PROTECTED_EXECUTION=off` and passed their denial checks), then
+  `api-rmuvnmpw8-5c76cd`. L0176 was not redeployed: it does not read the registry version.
+- W1 milestone recorded for policy, broker and api in `deploy.json` (`0aa76f0`; api's first
+  baseline) before `enable`, whose release checks then passed.
+- Live canary, 20:12Z and 20:15Z, after re-enabling: on the first run, 6 of 7 checks passed;
+  the gateway preview was signed (Policy minted and Broker executed
+  `learnosity.sign-questions-preview`, both allowed) but the canary did not recognise the
+  Questions request shape. With that and its token minting fixed (`d71ec40`), the rerun passed
+  7 of 7: gateway preview, gateway write and same-key retry, token replay refused (409
+  `token-replayed`), receipt replay (`replayed: true`).
+- WRITE-01 in production: each canary write's receipt holds `steps/0 questions` and
+  `steps/1 items`, recorded in order before its `succeeded` outcome.
+- No errors, 5xx or `registry-version-*` refusals in the logs after the window.
+- Not yet done: a live 503 `maintenance` refusal (the canary does not exercise it), console
+  smoke tests (including Author refused with `fn-not-enabled`), and the 24 h soak.
 
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
 connection into Policy. Configuration intent does not prove a deployment uses it. Refresh
