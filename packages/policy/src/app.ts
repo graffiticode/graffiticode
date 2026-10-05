@@ -96,8 +96,8 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     }
   };
 
-  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
-  const router = new Router();
+  // express's Router is callable; its types reject `new`, which works.
+  const router = new (Router as unknown as new () => ReturnType<typeof Router>)();
   router.post("/invocations", buildHttpHandler(async (req, res) => {
     const caller = await authorize("invocations")(req);
     const u = await user(req);

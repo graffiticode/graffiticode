@@ -47,8 +47,8 @@ const canaryOf = value => (value && typeof value === "object" && isId(value.uid)
 
 // May this (verified) principal and connection do protected work in `state`?
 // -> "enabled" | "canary" | null
-/** @param {{ uid?: unknown, connectionId?: unknown }} [principal] verified identity; anything but strings never matches */
-export const admission = (state, principal = {}) => {
+// `principal` is verified identity; anything but strings never matches.
+export const admission = (state, principal: { uid?: unknown, connectionId?: unknown } = {}) => {
   const { uid, connectionId } = principal;
   if (state.enabled) return "enabled";
   const { canary } = state;
@@ -78,8 +78,7 @@ export const createProtectedSwitch = ({ hardDisabled = false, readFlag, cacheMs 
   };
   return {
     // -> { enabled, source, canary? }   source: env-disabled | flag | flag-missing | flag-unreadable
-    /** @param {{ fresh?: boolean }} [options] */
-    async state(options = {}) {
+    async state(options: { fresh?: boolean } = {}) {
       if (hardDisabled) return { enabled: false, source: "env-disabled" };
       return read(Boolean(options.fresh));
     },

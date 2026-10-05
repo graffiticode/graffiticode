@@ -77,8 +77,7 @@ const grantView = g => ({
   createdAt: g.createdAt,
 });
 
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-const validCredential = ({ key, secret } = {}) =>
+const validCredential = ({ key, secret }: { key?: unknown, secret?: unknown } = {}) =>
   typeof key === "string" && key.length > 0 && key.length <= 256 &&
   typeof secret === "string" && secret.length > 0 && secret.length <= 1024;
 

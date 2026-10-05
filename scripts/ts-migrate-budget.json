@@ -6,7 +6,7 @@
   "auth:test": 8,
   "auth-client": 0,
   "auth-client:test": 0,
-  "policy": 7,
+  "policy": 0,
   "policy:test": 0,
   "broker": 3,
   "broker:test": 7,

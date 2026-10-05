@@ -129,8 +129,7 @@ export const issueToken = async (signer, profileName, claims) => signer.sign(cla
 // id, an issued-at time not in the future, an expiry no further from it than
 // the profile's maximum lifetime, and the profile's claims. Expiry is checked
 // here, independently of any storage TTL.
-/** @param {{ currentDate?: Date }} [options] */
-export const verifyToken = async (jwks, profileName, token, options = {}) => {
+export const verifyToken = async (jwks, profileName, token, options: { currentDate?: Date } = {}) => {
   const { currentDate } = options;
   const prof = profileNamed(profileName);
   let kid;

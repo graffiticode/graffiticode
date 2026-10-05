@@ -7,7 +7,7 @@
 export class BrokerConflict extends Error {}
 
 export const createBrokerAdminClient = ({ brokerUrl, idToken, fetch: doFetch = fetch }) => {
-  const call = async (method, connectionId, body) => {
+  const call = async (method: string, connectionId: string, body?: object) => {
     const [invoker, caller] = await Promise.all([idToken(brokerUrl), idToken("urn:graffiticode:broker")]);
     const res = await doFetch(`${brokerUrl}/v1/secrets/${encodeURIComponent(connectionId)}`, {
       method,

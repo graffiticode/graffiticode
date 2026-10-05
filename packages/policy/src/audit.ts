@@ -16,7 +16,7 @@ export const createPseudonymizer = ({ secret }) => {
 const FIELDS = ["event", "outcome", "reason", "lang", "fn", "op", "connectionId", "registryVersion"];
 
 export const createAudit = ({ sink, pseudonymize }) => record => {
-  const out = { at: new Date().toISOString() };
+  const out: Record<string, unknown> = { at: new Date().toISOString() };
   for (const field of FIELDS) {
     if (record[field] !== undefined) out[field] = record[field];
   }

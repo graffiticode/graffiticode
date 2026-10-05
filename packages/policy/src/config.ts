@@ -27,15 +27,15 @@ export const parseCallers = json => {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("CALLERS must be an object");
   }
-  const callers = {};
-  for (const [email, spec] of Object.entries(parsed)) {
+  const callers: Record<string, { role: string, lang?: string }> = {};
+  for (const [email, spec] of Object.entries(parsed as Record<string, { role?: string, lang?: string } | null>)) {
     if (!/^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/.test(email)) {
       throw new Error(`CALLERS: ${email} is not a service account`);
     }
     if (!spec || !ROLES.has(spec.role)) {
       throw new Error(`CALLERS: ${email} has an unknown role`);
     }
-    if (spec.role === "compiler" && !/^\d{4}$/.test(spec.lang)) {
+    if (spec.role === "compiler" && !/^\d{4}$/.test(spec.lang as string)) {
       throw new Error(`CALLERS: compiler ${email} needs a four-digit lang`);
     }
     callers[email] = spec.role === "compiler" ? { role: "compiler", lang: spec.lang } : { role: spec.role };
@@ -50,7 +50,7 @@ export const parseCallers = json => {
 // Absent or empty means no system connections. Anything malformed stops the
 // service: a non-object, a backend the registry does not know, or an id
 // policy would never accept.
-const SYSTEM_BACKENDS = new Set(Object.values(OPERATIONS).map(op => op.backend));
+const SYSTEM_BACKENDS = new Set<string>(Object.values(OPERATIONS).map(op => op.backend));
 const CONNECTION_ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
 
 export const parseSystemConnections = json => {
@@ -68,7 +68,6 @@ export const parseSystemConnections = json => {
   }
   const out = {};
   for (const [backend, connectionId] of Object.entries(parsed)) {
-    // @ts-expect-error TS-MIGRATE: registry backends inferred as literal types
     if (!SYSTEM_BACKENDS.has(backend)) {
       throw new Error(`POLICY_SYSTEM_CONNECTIONS: ${backend} is not a known backend`);
     }

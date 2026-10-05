@@ -45,7 +45,8 @@ import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 
 export class PolicyDenied extends Error {
-  constructor(reason) {
+  declare reason: string;
+  constructor(reason: string) {
     super(`policy denied: ${reason}`);
     this.reason = reason;
   }
@@ -97,8 +98,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // user, publication or grant reaches it, its owner included, so it can never
   // write, sign Author or back a publication.
   const isSystemConnection = connectionId => Object.values(systemConnections).includes(connectionId);
-  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-  const accessFor = async (connection, uid, { ownerUid } = {}) => {
+  const accessFor = async (connection, uid, { ownerUid }: { ownerUid?: string } = {}) => {
     if (!connection) return { refusal: "connection-not-found" };
     if (isSystemConnection(connection.connectionId)) return { refusal: "system-connection" };
     if (connection.status !== "active") return { refusal: "connection-disabled" };
@@ -171,8 +171,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // Live state of a publication, checked at publishing, at every view and at
   // every mint. Owner-only: the publisher must own the connection, and it must
   // be active. Returns { refusal } or { publication, connection }.
-  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-  const publicationState = async (publicationId, { publisherUid, connectionId, lang } = {}) => {
+  const publicationState = async (publicationId, { publisherUid, connectionId, lang }: { publisherUid?: string, connectionId?: string, lang?: string } = {}) => {
     const publication = isId(publicationId) ? await publications.get(publicationId) : null;
     if (!publication) return { refusal: "publication-not-found" };
     if ((publisherUid !== undefined && publication.publisherUid !== publisherUid) ||
@@ -265,7 +264,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     const { connection, access } = state;
     const registered = protectedFunctionsForLang(lang) || {};
     const viewSafe = new Set(viewSafeFunctionsForLang(lang));
-    const allowed = [...new Set(fns)].filter(fn =>
+    const allowed = [...new Set<string>(fns)].filter(fn =>
       viewSafe.has(fn) && registered[fn].backend === connection.backend && mayUse(access, lang, fn));
     const sessionToken = await issueToken(signer, "session", {
       sub: claims.sub,
@@ -339,7 +338,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     backend && Object.prototype.hasOwnProperty.call(systemConnections, backend) ? systemConnections[backend] : null;
   // Live state of a system connection: still the one configured for its
   // backend, present, active, same backend, same owner.
-  const systemConnectionRefusal = async ({ connectionId, backend, ownerUid }) => {
+  const systemConnectionRefusal = async ({ connectionId, backend, ownerUid }: { connectionId: string, backend: string, ownerUid?: string }) => {
     if (systemConnectionFor(backend) !== connectionId) return { refusal: "not-system-connection" };
     const connection = await connections.get(connectionId);
     if (!connection) return { refusal: "connection-not-found" };
@@ -363,7 +362,6 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (fns.length === 0 || !backend) return deny("no-system-preview-functions", record);
     const connectionId = systemConnectionFor(backend);
     if (!connectionId) return deny("no-system-connection", record);
-    // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
     const state = await systemConnectionRefusal({ connectionId, backend });
     if (state.refusal) return deny(state.refusal, { ...record, connectionId });
     const { connection } = state;
