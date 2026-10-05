@@ -138,7 +138,8 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   registry marks it `requiresEnablement`, Policy refuses it (`fn-not-enabled`) unless
   `POLICY_ENABLED_GATED_FUNCTIONS` names it, and Broker omits and refuses its operation
   (`operation-not-enabled`) unless `BROKER_ENABLED_GATED_OPERATIONS` does. Both are empty in
-  production. Enabling it waits on AT-10 provider evidence for its request shape.
+  production, where the canary confirms both refusals (section 4). Enabling it waits on
+  AT-10 provider evidence for its request shape.
   Evidence: [Author operation](../packages/broker/src/operations.js),
   [Policy](../packages/policy/src/policy.js) and
   [registry](../packages/common/src/protected-registry.ts).
@@ -287,8 +288,11 @@ the execution-step table, TOKEN-01, WRITE-01, ARTIFACT-01 and RECOVER-01.
   session) and through the connection; a draft save wrote once (20:24:13Z, `steps/0 questions`,
   `steps/1 items`, `succeeded`) and its recompile wrote nothing; Author was refused ("author is
   not permitted through the selected connection") before any mint. As a grantee without
-  Author that refusal does not isolate the AUTHOR-01 gate; the gate's own evidence is the
-  Policy and Broker tests until the canary gains an Author-denied check.
+  Author that refusal does not isolate the AUTHOR-01 gate; the canary's check below does.
+- AUTHOR-01 in production, canary 20:52Z (`2e84fa8`, 9 of 9 checks): for the connection's
+  owner, Policy's snapshot allowed `["init","save-to-itembank"]` when asked for `author` too,
+  and Broker refused `learnosity.sign-author` with 403 `operation-not-enabled`
+  (20:52:06Z, audited `denied`).
 - Not yet done: a live 503 `maintenance` refusal (the canary does not exercise it) and the
   24 h soak.
 
