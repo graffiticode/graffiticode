@@ -279,8 +279,15 @@ the execution-step table, TOKEN-01, WRITE-01, ARTIFACT-01 and RECOVER-01.
 - WRITE-01 in production: each canary write's receipt holds `steps/0 questions` and
   `steps/1 items`, recorded in order before its `succeeded` outcome.
 - No errors, 5xx or `registry-version-*` refusals in the logs after the window.
-- Not yet done: a live 503 `maintenance` refusal (the canary does not exercise it), console
-  smoke tests (including Author refused with `fn-not-enabled`), and the 24 h soak.
+- Console smoke test passed (operator, 20:22-20:30Z) as a grantee of the canary connection
+  (`init` and `save-to-itembank` only): previews signed with no connection (system preview
+  session) and through the connection; a draft save wrote once (20:24:13Z, `steps/0 questions`,
+  `steps/1 items`, `succeeded`) and its recompile wrote nothing; Author was refused ("author is
+  not permitted through the selected connection") before any mint. As a grantee without
+  Author that refusal does not isolate the AUTHOR-01 gate; the gate's own evidence is the
+  Policy and Broker tests until the canary gains an Author-denied check.
+- Not yet done: a live 503 `maintenance` refusal (the canary does not exercise it) and the
+  24 h soak.
 
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
 connection into Policy. Configuration intent does not prove a deployment uses it. Refresh
