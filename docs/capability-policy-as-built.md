@@ -53,10 +53,13 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   [delegation tests](../packages/policy/src/delegation.spec.js),
   [secret store](../packages/broker/src/stores.js), and
   [Firestore secret storage](../packages/broker/src/firestore.js).
-- **Partial — REG-01.** The authoritative registry is version 5. Policy checks session
-  version at mint and Broker checks execution/receipt version. Exact matching exists;
-  chain plan binding and registered execution-step authorization are missing.
-  Evidence: [registry](../packages/common/src/protected-registry.js),
+- **Partial — REG-01.** The authoritative registry is version 6 (released 2026-10-05). Policy
+  checks session version at mint and Broker checks execution/receipt version. Exact matching
+  exists. v6 adds the registered execution-step table: each operation's steps in order, each
+  with its purpose (`dispatch`, `sign` or `replay`), queried by `operationSteps` and
+  `isStepRegistered`. Nothing yet authorizes execution against it (W2), and chain plan
+  binding is missing.
+  Evidence: [registry](../packages/common/src/protected-registry.ts),
   [Policy](../packages/policy/src/policy.js), [Broker](../packages/broker/src/broker.js).
 
 ### Chain admission and live execution authorization
