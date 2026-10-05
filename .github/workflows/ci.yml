@@ -116,7 +116,8 @@ jobs:
             loads: policy
           - service: broker
             dists: common policy broker
-            entry: packages/broker/src/main.js
+            entry: packages/broker/dist/main.js
+            loads: broker
           - service: api
             dists: common auth policy broker api
             entry: packages/api/src/main.js

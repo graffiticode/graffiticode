@@ -28,7 +28,7 @@
 // Returns one result per check; the caller decides how to report and exit.
 
 import { createHash, randomBytes } from "node:crypto";
-import { argsDigest as canonicalDigest } from "../../packages/broker/src/canonical.js";
+import { argsDigest as canonicalDigest } from "@graffiticode/broker";
 
 const ITEM = "item [questions [mcq []] {}]";
 export const PREVIEW_PROGRAM = `set-var "lrn-id" "canary" items [${ITEM}] {}..`;

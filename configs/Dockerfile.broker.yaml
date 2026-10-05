@@ -24,4 +24,4 @@ COPY --from=build /usr/src/app/packages/broker/dist packages/broker/dist
 RUN npm ci --omit=dev
 
 EXPOSE 8080
-CMD [ "node", "packages/broker/src/main.js" ]
+CMD [ "node", "packages/broker/dist/main.js" ]

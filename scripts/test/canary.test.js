@@ -7,7 +7,7 @@ import {
 } from "@graffiticode/policy";
 import {
   createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused
-} from "../../packages/broker/src/index.js";
+} from "@graffiticode/broker";
 import { runCanary, hasSignedRequest } from "../lib/canary.js";
 
 const CANARY = "0xcanary";
