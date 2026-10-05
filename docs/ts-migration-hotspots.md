@@ -7,13 +7,13 @@ not repeated. Phases: 0 safety net, 1 `checkJs` discovery, 2a compiled build,
 
 ## Status
 
-As of 2026-10-02. "Branch" means pushed, not yet merged to `main`.
+As of 2026-10-05. "Branch" means pushed, not yet merged to `main`.
 
 | Package | 2b: loads `dist/` | 3: `.ts` sources / specs | npm |
 |---|---|---|---|
-| common | ✅ main | branch `ts-phase3-common` / `ts-phase3-common-specs` | `2.1.0` on `latest` (after the 2026-10-05 soak; `2.1.0-ts.0` on `next`) |
+| common | ✅ main | ✅ main (sources and specs; emit unchanged) | `2.1.0` on `latest` (after the 2026-10-05 soak; `2.1.0-ts.0` on `next`) |
 | auth | ✅ main | — | `2.2.0` on `latest` (after the 2026-10-05 soak; `2.2.0-ts.0` on `next`) |
-| auth-client | branch `ts-phase2b-auth-client` | — | `1.1.0-ts.0` prepared, not published |
+| auth-client | ✅ main (no soak: nothing deploys or imports it) | — | `1.1.0-ts.0` prepared, not published |
 | policy | — | — | private |
 | broker | — | — | private |
 | api | — | — | not published |
@@ -28,7 +28,7 @@ enforced by `npm run typecheck`; they only go down):
 
 | Package | Sources | Tests |
 |---|---|---|
-| common | 0 | 2 (0 on `ts-phase3-common-specs`) |
+| common | 0 | 0 |
 | auth | 20 | 8 |
 | auth-client | 8 | 10 |
 | policy | 7 | 0 |
