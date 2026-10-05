@@ -20,9 +20,10 @@ describe("api-keys", () => {
 
   describe("create", () => {
     it("should return invalid argument if no accessToken is provided", async () => {
-      await expect(client.createApiKey())
-        // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-        .rejects.toThrow(InvalidArgumentError, "must provide an accessToken");
+      // toThrow(Class, message) ignored the message; assert both.
+      const err = await client.createApiKey().catch((e) => e);
+      expect(err).toBeInstanceOf(InvalidArgumentError);
+      expect(err.message).toBe("must provide an accessToken");
     });
 
     it("should return valid api key for valid accessToken", async () => {
@@ -55,17 +56,19 @@ describe("api-keys", () => {
 
   describe("delete", () => {
     it("should return invalid argument if no accessToken is provided", async () => {
-      await expect(client.deleteApiKey())
-        // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-        .rejects.toThrow(InvalidArgumentError, "must provide an accessToken");
+      // toThrow(Class, message) ignored the message; assert both.
+      const err = await client.deleteApiKey().catch((e) => e);
+      expect(err).toBeInstanceOf(InvalidArgumentError);
+      expect(err.message).toBe("must provide an accessToken");
     });
 
     it("should return invalid argument if no apiKeyId is provided", async () => {
       const { accessToken } = await authApp.authService.generateTokens({ uid });
 
-      await expect(client.deleteApiKey({ accessToken }))
-        // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-        .rejects.toThrow(InvalidArgumentError, "must provide an apiKeyId");
+      // toThrow(Class, message) ignored the message; assert both.
+      const err = await client.deleteApiKey({ accessToken }).catch((e) => e);
+      expect(err).toBeInstanceOf(InvalidArgumentError);
+      expect(err.message).toBe("must provide an apiKeyId");
     });
 
     it("should return unauthorized if access token is derived from an API Key", async () => {
@@ -96,8 +99,7 @@ describe("api-keys", () => {
       const { id, token } = await authApp.apiKeyService.create({ uid });
       const { accessToken } = await authApp.authService.generateTokens({ uid });
 
-      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-      await expect(client.deleteApiKey({ accessToken, apiKeyId: id })).resolves.toBe();
+      await expect(client.deleteApiKey({ accessToken, apiKeyId: id })).resolves.toBeUndefined();
 
       // Should not be able to authenticate with the API Key after it has been deleted
       await expect(authApp.apiKeyService.authenticateWithId({ id, token }))
