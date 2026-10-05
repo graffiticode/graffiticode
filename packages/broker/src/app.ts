@@ -17,8 +17,8 @@ import { BrokerRefused } from "./broker.js";
 const CONNECTION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
 export const createBrokerApp = ({ broker, secrets, identifyCaller, audit }) => {
-  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
-  const router = new Router();
+  // express's Router is callable; its types reject `new`, which works.
+  const router = new (Router as unknown as new () => ReturnType<typeof Router>)();
   // Only policy provisions credentials. The response never echoes them.
   const provision = handler => buildHttpHandler(async (req, res) => {
     let caller;

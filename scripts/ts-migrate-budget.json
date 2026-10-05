@@ -8,7 +8,7 @@
   "auth-client:test": 0,
   "policy": 0,
   "policy:test": 0,
-  "broker": 3,
+  "broker": 0,
   "broker:test": 7,
   "deploy": 8,
   "deploy:test": 7,

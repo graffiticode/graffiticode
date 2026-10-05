@@ -47,14 +47,18 @@ import { DEFAULT_LIMITS, maxExecutionMs } from "./limits.js";
 // A provider step completed but could not be persisted; the operation must
 // not take its next step.
 class StepNotPersisted extends Error {
-  constructor(step, cause) {
+  declare step: string;
+  constructor(step: string, cause: any) {
     super(`step ${step} completed but could not be recorded: ${String(cause?.message || cause)}`);
     this.step = step;
   }
 }
 
 export class BrokerRefused extends Error {
-  constructor(reason, status = 403, detail) {
+  declare reason: string;
+  declare status: number;
+  declare detail: unknown;
+  constructor(reason: string, status = 403, detail?: unknown) {
     super(`broker refused: ${reason}`);
     this.reason = reason;
     this.status = status;
@@ -107,7 +111,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       op,
       registryVersion: claims.rv,
     };
-    const refuse = async (reason, status, detail) => {
+    const refuse = async (reason: string, status?: number, detail?: unknown) => {
       await audit({ ...record, outcome: "denied", reason });
       throw new BrokerRefused(reason, status, detail);
     };

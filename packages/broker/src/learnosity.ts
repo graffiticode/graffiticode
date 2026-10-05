@@ -28,11 +28,9 @@ export const buildLearnosityDataApi = ({ baseUrl, fetch: doFetch = fetch }) => a
     // uncertain below)
   }
   const answered = res.ok || (res.status >= 400 && res.status < 500);
-  // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
   if (answered && data?.meta?.status === false) {
     throw new ProviderRejected(`Learnosity Data API rejected: ${res.status} ${route}`);
   }
-  // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
   if (res.ok && data?.meta?.status === true) return data;
   throw new Error(`Learnosity Data API unrecognized response: ${res.status} ${route}`);
 };

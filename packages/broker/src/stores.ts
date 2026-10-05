@@ -122,8 +122,11 @@ export const checkRotation = (current, next) => {
   }
 };
 
-export const createMemorySecretStore = (entries = {}) => {
-  const map = new Map(Object.entries(entries));
+// A stored credential, or the marker a deletion leaves.
+type SecretEntry = { ownerUid?: string, backend?: string, key?: string, secret?: string, deleted?: boolean };
+
+export const createMemorySecretStore = (entries: Record<string, SecretEntry> = {}) => {
+  const map = new Map<string, SecretEntry>(Object.entries(entries));
   return {
     async get(connectionId) {
       const entry = map.get(connectionId);
