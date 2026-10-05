@@ -23,6 +23,7 @@ const SA = {
   l0000: "l0000-run@graffiticode.iam.gserviceaccount.com",
   console: "console-run@graffiticode-app.iam.gserviceaccount.com",
   gateway: "api-run@graffiticode.iam.gserviceaccount.com",
+  broker: "broker-run@graffiticode.iam.gserviceaccount.com",
   stranger: "stranger@example.iam.gserviceaccount.com"
 };
 
@@ -79,7 +80,8 @@ beforeEach(async () => {
       [SA.l0176]: { role: "compiler", lang: "0176" },
       [SA.l0000]: { role: "compiler", lang: "0000" },
       [SA.console]: { role: "console" },
-      [SA.gateway]: { role: "gateway" }
+      [SA.gateway]: { role: "gateway" },
+      [SA.broker]: { role: "broker" }
     }
   });
   brokerSecrets = new Map();
@@ -271,6 +273,28 @@ describe("end to end: invocation, snapshot, mint", () => {
     });
     expect(mint.status).toBe(200);
     expect(mint.body.data.operationId).toMatch(/^inv-[0-9a-f-]+\/s0\/n1\.0$/);
+  });
+
+  it("lets only Broker ask authorize-execution, and never caches the decision", async () => {
+    const snap = await as(request(app).post("/v1/snapshot"), SA.l0176).send(SNAPSHOT);
+    const mint = await as(request(app).post("/v1/mint"), SA.l0176, { user: null }).send({
+      sessionToken: snap.body.data.sessionToken, fn: "init", op: "learnosity.sign-items-preview", occurrenceId: "n1.0", argsDigest: "a".repeat(64)
+    });
+    const body = { executionToken: mint.body.data.executionToken, op: "learnosity.sign-items-preview", argsDigest: "a".repeat(64), step: "sign", purpose: "sign", after: null };
+    const asked = await as(request(app).post("/v1/authorize-execution"), SA.broker, { user: null }).send(body);
+    expect(asked.status).toBe(200);
+    expect(asked.body.data.decisionId).toEqual(expect.any(String));
+    expect(asked.headers["cache-control"]).toBe("no-store");
+    for (const other of [SA.l0176, SA.console, SA.gateway]) {
+      const res = await as(request(app).post("/v1/authorize-execution"), other, { user: null }).send(body);
+      expect(res.status).toBe(403);
+    }
+    // Broker reaches nothing else: not mint, not the connection routes.
+    expect((await as(request(app).post("/v1/mint"), SA.broker, { user: null }).send({})).status).toBe(403);
+    expect((await as(request(app).get("/v1/connections"), SA.broker).send()).status).toBe(403);
+    const refused = await as(request(app).post("/v1/authorize-execution"), SA.broker, { user: null }).send({ ...body, argsDigest: "b".repeat(64) });
+    expect(refused.status).toBe(403);
+    expect(refused.body.error.reason).toBe("args-mismatch");
   });
 
   it("requires a verified user", async () => {

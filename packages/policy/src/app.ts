@@ -48,6 +48,7 @@ const ROUTE_ROLES = Object.freeze({
   snapshot: ["compiler"],
   "preview-session": ["compiler"],
   mint: ["compiler"],
+  "authorize-execution": ["broker"],
   connections: ["console"],
 });
 
@@ -130,6 +131,13 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const caller = await authorize("preview-session")(req);
     const { lang } = req.body ?? {};
     await decide(res, () => policy.previewSession({ caller, lang }));
+  }));
+  // Broker only. A decision is for one step, now: never cacheable.
+  router.post("/authorize-execution", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("authorize-execution")(req);
+    const { executionToken, op, argsDigest, step, purpose, after } = req.body ?? {};
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.authorizeExecution({ caller, executionToken, op, argsDigest, step, purpose, after }));
   }));
   router.post("/mint", buildHttpHandler(async (req, res) => {
     const caller = await authorize("mint")(req);

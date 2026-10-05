@@ -1,10 +1,13 @@
 // Every refusal liveRefusal can return, through every entry point that calls
-// it (W2 PR 1). Today that is mint; authorize-execution (W2) joins ENTRY_POINTS
-// and must produce the same reason for the same authority and state, so the
-// two can never drift. Each row hand-signs the authority's claims, so it tests
+// it: mint (from a session) and authorize-execution (from an execution token).
+// Both must give the same answer for the same authority and live state, so
+// the two can never drift. The one difference is the provenance check's
+// name: a session whose claims don't form a provenance is `bad-session`, an
+// execution token's `bad-provenance` (including a token with no `prv` at
+// all, which the shared token schema still tolerates). Each row hand-signs the authority's claims, so it tests
 // exactly the live state it names and nothing a snapshot would have filtered.
 import { generateKeyPair, exportJWK } from "jose";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { REGISTRY_VERSION, operationSteps } from "@graffiticode/common/protected-registry";
 import {
   createPolicy,
   PolicyDenied,
@@ -28,6 +31,8 @@ const OTHER = "0xotheruid";
 const STRANGER = "0xstrangeruid";
 const SYSTEM_OWNER = "0xsystemowner";
 const L0176 = { role: "compiler", lang: "0176" };
+const BROKER = { role: "broker" };
+const ARGD = "a".repeat(64);
 const OPS = { init: "learnosity.sign-items-preview", "save-to-itembank": "learnosity.write-items", author: "learnosity.sign-author" };
 
 // Every reason liveRefusal returns. A new one must be added here and given a row.
@@ -98,20 +103,56 @@ const authority = over => ({
 });
 const SYSTEM = { sub: SYSTEM_PREVIEW_SUBJECT, own: SYSTEM_OWNER, conn: "conn-sys", sys: true };
 
+// The execution token mint would issue for these session claims: `sys`/`pub`
+// become `prv` (and `pub`). A `sys` that isn't `true` has no execution
+// counterpart, so that token carries no `prv` at all.
+const toExecution = (claims, fn) => {
+  const { sys, pub, inv, stg, ...rest } = claims;
+  const prv = sys === true ? "system" : sys !== undefined ? undefined : pub ? "publication" : "user";
+  return {
+    ...rest,
+    ...(prv ? { prv } : {}),
+    ...(pub !== undefined ? { pub } : {}),
+    fn,
+    op: OPS[fn],
+    sid: "sid-1",
+    opid: `${inv}/${stg}/n1.0`,
+    argd: ARGD,
+  };
+};
+
 // Each entry point takes (claims, fn) and resolves to "allowed" or the reason
-// it refused with.
+// it refused with; `reason` maps a row's expected reason to this entry's name
+// for it.
+const refusedWith = async promise => {
+  try {
+    await promise;
+    return "allowed";
+  } catch (e) {
+    if (e instanceof PolicyDenied) return e.reason;
+    throw e;
+  }
+};
 const ENTRY_POINTS = {
   mint: async (claims, fn) => {
     const sessionToken = await issueToken(signer, "session", { ...claims, fns: [fn] });
     try {
-      await policy.mint({ caller: L0176, sessionToken, fn, op: OPS[fn], occurrenceId: "n1.0", argsDigest: "a".repeat(64) });
+      await policy.mint({ caller: L0176, sessionToken, fn, op: OPS[fn], occurrenceId: "n1.0", argsDigest: ARGD });
       return "allowed";
     } catch (e) {
       if (e instanceof PolicyDenied) return e.reason;
       throw e;
     }
   },
+  // The operation's first registered step, as Broker would ask before it.
+  "authorize-execution": async (claims, fn) => {
+    const executionToken = await issueToken(signer, "execution", toExecution(claims, fn));
+    const [first] = operationSteps(OPS[fn]);
+    return refusedWith(policy.authorizeExecution({ caller: BROKER, executionToken, op: OPS[fn], argsDigest: ARGD, step: first.id, purpose: first.purpose, after: null }));
+  },
 };
+const REASON_NAMES = { "authorize-execution": { "bad-session": "bad-provenance" } };
+const reasonFor = (entry, reason) => REASON_NAMES[entry]?.[reason] ?? reason;
 
 // A row may change live state after the authority was issued.
 const change = (connectionId, fields) => async () => connections.put({ ...(await connections.get(connectionId)), ...fields });
@@ -159,9 +200,10 @@ describe.each(Object.keys(ENTRY_POINTS))("live refusals through %s", entry => {
     const claims = authority(over);
     await changeState?.();
     const outcome = await ENTRY_POINTS[entry](claims, fn);
-    expect(outcome).toBe(expected);
+    const reason = reasonFor(entry, expected);
+    expect(outcome).toBe(reason);
     // Every decision is audited with its reason.
-    expect(records.at(-1)).toMatchObject(expected === "allowed" ? { outcome: "allowed" } : { outcome: "denied", reason: expected });
+    expect(records.at(-1)).toMatchObject(reason === "allowed" ? { outcome: "allowed" } : { outcome: "denied", reason });
   });
 
   it("has a row for every reason liveRefusal returns", () => {

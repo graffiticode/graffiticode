@@ -4,9 +4,12 @@ describe("service configuration", () => {
   it("parses a caller map", () => {
     const callers = parseCallers(JSON.stringify({
       "l0176-run@graffiticode.iam.gserviceaccount.com": { role: "compiler", lang: "0176", extra: "ignored" },
-      "console-run@graffiticode-app.iam.gserviceaccount.com": { role: "console" }
+      "console-run@graffiticode-app.iam.gserviceaccount.com": { role: "console" },
+      "broker-run@graffiticode.iam.gserviceaccount.com": { role: "broker", lang: "0176" }
     }));
     expect(callers["l0176-run@graffiticode.iam.gserviceaccount.com"]).toEqual({ role: "compiler", lang: "0176" });
+    // A broker holds no language: it executes for every compiler.
+    expect(callers["broker-run@graffiticode.iam.gserviceaccount.com"]).toEqual({ role: "broker" });
     expect(Object.isFrozen(callers)).toBe(true);
   });
 

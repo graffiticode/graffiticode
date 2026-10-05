@@ -35,7 +35,8 @@ import {
   protectedFunctionsForLang,
   systemPreviewFunctionsForLang,
   viewSafeFunctionsForLang,
-  isGatedFunction
+  isGatedFunction,
+  isStepRegistered
 } from "@graffiticode/common/protected-registry";
 import { createHash, randomUUID } from "node:crypto";
 import { issueToken, verifyToken } from "./tokens.js";
@@ -43,7 +44,7 @@ import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict } from "./invocations.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
-import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance } from "./provenance.js";
+import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
 
 export class PolicyDenied extends Error {
   declare reason: string;
@@ -80,8 +81,10 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // Every protected entry point asks first, before reading or issuing
   // anything. `principal` is verified identity only (the authenticated user,
   // or a verified token's claims): while paused, it admits the canary.
-  const requireProtectedExecution = async (record, principal = {}) => {
-    const admitted = admission(await protectedSwitch.state(), principal);
+  // `fresh` reads the flag past the switch's short cache: authorize-execution
+  // decides an effect that is about to happen, so it never reuses a read.
+  const requireProtectedExecution = async (record, principal = {}, { fresh = false } = {}) => {
+    const admitted = admission(await protectedSwitch.state({ fresh }), principal);
     if (admitted === "enabled") return;
     if (admitted === "canary") {
       await audit({ ...record, outcome: "allowed", reason: "canary-during-maintenance" });
@@ -487,6 +490,55 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     return { executionToken, operationId };
   };
 
+  // Broker asks immediately before each effect: each provider request, each
+  // local signature, each receipt replay (spec EXEC-02, API-02). One decision
+  // authorizes one step of one operation, now; Broker never caches or reuses
+  // it. `step`, `purpose` and `after` (the dispatch step taken before, or
+  // null) come from Broker's own operation definition. The token is verified
+  // with its execution profile (Broker's audience) on this route only.
+  const authorizeExecution = async ({ caller, executionToken, op, argsDigest, step, purpose, after = null }) => {
+    const base = { event: "authorize-execution", op, step, purpose };
+    if (caller?.role !== "broker") return deny("caller-not-broker", base);
+    let claims;
+    try {
+      ({ claims } = await verifyToken(jwks, "execution", executionToken));
+    } catch (e) {
+      return deny(e?.code === "ERR_JWT_EXPIRED" ? "token-expired" : "bad-token", base);
+    }
+    const record = {
+      ...base,
+      uid: claims.sub,
+      ownerUid: claims.own,
+      lang: claims.lang,
+      connectionId: claims.conn,
+      fn: claims.fn,
+      registryVersion: claims.rv,
+      jti: claims.jti,
+      opid: claims.opid,
+      provenance: claims.prv,
+    };
+    // Paused: never authorize the next effect. A fresh read, never the cache.
+    await requireProtectedExecution(record, { uid: claims.sub, connectionId: claims.conn }, { fresh: true });
+    // The request is for the operation the token was minted for, with its
+    // arguments, under this registry.
+    if (claims.op !== op) return deny("operation-mismatch", record);
+    if (claims.argd !== argsDigest) return deny("args-mismatch", record);
+    if (claims.rv !== REGISTRY_VERSION) return deny("registry-version-changed", record);
+    if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
+      return deny("operation-not-allowed", record);
+    }
+    // Checked here whatever the shared token schema still tolerates.
+    const badProvenance = provenanceRefusal(claims);
+    if (badProvenance) return deny(badProvenance, record);
+    if (!isStepRegistered({ op, step, purpose, after })) return deny("step-not-registered", record);
+    // The same live checks as mint, re-read now.
+    const refusal = await liveRefusal({ ...claims, provenance: claims.prv }, claims.fn);
+    if (refusal) return deny(refusal, record);
+    const decisionId = randomUUID();
+    await audit({ ...record, decisionId, outcome: "allowed" });
+    return { decisionId };
+  };
+
   // For the operator and candidate checks: on or off, and why. Never the flag's
   // other fields.
   const protectedExecution = async () => {
@@ -494,5 +546,5 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     return { enabled, source };
   };
 
-  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, protectedExecution };
+  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, protectedExecution };
 };

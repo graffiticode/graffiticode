@@ -12,11 +12,13 @@ export const requireEnv = (env, name) => {
   return value.trim();
 };
 
-const ROLES = new Set(["compiler", "console", "gateway", "policy"]);
+const ROLES = new Set(["broker", "compiler", "console", "gateway", "policy"]);
 
 // CALLERS: JSON object mapping a service-account email to its role, e.g.
 //   {"l0176-run@graffiticode.iam.gserviceaccount.com": {"role": "compiler", "lang": "0176"},
-//    "console-run@graffiticode-app.iam.gserviceaccount.com": {"role": "console"}}
+//    "console-run@graffiticode-app.iam.gserviceaccount.com": {"role": "console"},
+//    "broker-run@graffiticode.iam.gserviceaccount.com": {"role": "broker"}}
+// A broker may only ask authorize-execution (app.js ROUTE_ROLES).
 export const parseCallers = json => {
   let parsed;
   try {

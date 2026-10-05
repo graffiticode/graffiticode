@@ -21,4 +21,6 @@ export default async ctx => {
 
   await protectedExecutionState(ctx);
   await callerDenials(ctx, { path: "/v1/snapshot", audience: "urn:graffiticode:policy", body: {} });
+  // Broker's route (W2): the same identity checks guard it.
+  await callerDenials(ctx, { path: "/v1/authorize-execution", audience: "urn:graffiticode:policy", body: {} });
 };
