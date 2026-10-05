@@ -1,8 +1,9 @@
 import { InvalidArgumentError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { getDataOrThrowError } from "../utils.js";
+import type { Context, JSONRequest } from "../utils.js";
 
-export const buildSignInWithGoogle = (context, { postJSON }) => async ({ idToken }) => {
+export const buildSignInWithGoogle = (context: Context, { postJSON }: { postJSON: JSONRequest }) => async ({ idToken }: { idToken: string }) => {
   if (!isNonEmptyString(idToken)) {
     throw new InvalidArgumentError("must provide idToken");
   }
@@ -18,7 +19,7 @@ export const buildSignInWithGoogle = (context, { postJSON }) => async ({ idToken
   return { refreshToken, accessToken, firebaseCustomToken };
 };
 
-export const buildCreateOAuthLink = (context, { postJSON }) => async ({ token, provider, idToken }) => {
+export const buildCreateOAuthLink = (context: Context, { postJSON }: { postJSON: JSONRequest }) => async ({ token, provider, idToken }: { token: string; provider: string; idToken: string }) => {
   if (!isNonEmptyString(token)) {
     throw new InvalidArgumentError("must provide token");
   }
@@ -34,7 +35,7 @@ export const buildCreateOAuthLink = (context, { postJSON }) => async ({ token, p
   return data;
 };
 
-export const buildGetOAuthLinks = (context, { getJSON }) => async ({ token }) => {
+export const buildGetOAuthLinks = (context: Context, { getJSON }: { getJSON: JSONRequest }) => async ({ token }: { token: string }) => {
   if (!isNonEmptyString(token)) {
     throw new InvalidArgumentError("must provide token");
   }
@@ -44,7 +45,7 @@ export const buildGetOAuthLinks = (context, { getJSON }) => async ({ token }) =>
   return data.links;
 };
 
-export const buildDeleteOAuthLink = (context, { deleteJSON }) => async ({ token, provider }) => {
+export const buildDeleteOAuthLink = (context: Context, { deleteJSON }: { deleteJSON: JSONRequest }) => async ({ token, provider }: { token: string; provider: string }) => {
   if (!isNonEmptyString(token)) {
     throw new InvalidArgumentError("must provide token");
   }

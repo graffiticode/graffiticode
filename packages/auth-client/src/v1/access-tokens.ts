@@ -1,11 +1,12 @@
 import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { jwtVerify, errors } from "jose";
+import type { JWTVerifyGetKey } from "jose";
+import type { Context } from "../utils.js";
 
 const ISSUER = "urn:graffiticode:auth";
 
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-export const buildVerifyAccessToken = (context, { JWKS }) => async ({ accessToken } = {}) => {
+export const buildVerifyAccessToken = (context: Context, { JWKS }: { JWKS: JWTVerifyGetKey }) => async ({ accessToken }: { accessToken?: string } = {}) => {
   if (!isNonEmptyString(accessToken) && context.has("accessToken")) {
     accessToken = context.get("accessToken");
   }

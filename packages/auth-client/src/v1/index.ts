@@ -7,10 +7,10 @@ import { buildCreateApiKey, buildDeleteApiKey, buildSignInWithApiKey } from "./a
 import { buildGetEthereumNonce, buildSignInWithEthereum } from "./ethereum.js";
 import { buildSignInWithGoogle, buildCreateOAuthLink, buildGetOAuthLinks, buildDeleteOAuthLink } from "./oauth.js";
 import { buildExchangeRefreshToken, buildRevokeRefreshToken } from "./refresh-tokens.js";
+import type { Context } from "../utils.js";
 
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-const initializeContext = ({ apiKeyId, apiKeyToken } = {}) => {
-  const context = new Map();
+const initializeContext = ({ apiKeyId, apiKeyToken }: { apiKeyId?: string; apiKeyToken?: string } = {}): Context => {
+  const context = new Map<string, string>();
   if (isNonEmptyString(apiKeyId)) {
     context.set("apiKeyId", apiKeyId);
   } else if (isNonEmptyString(process.env.GRAFFITICODE_API_KEY_ID)) {
@@ -24,7 +24,7 @@ const initializeContext = ({ apiKeyId, apiKeyToken } = {}) => {
   return context;
 };
 
-const createDeps = ({ url }) => {
+const createDeps = ({ url }: { url: string }) => {
   const v1Url = `${url}/v1`;
   const deps = {
     JWKS: createRemoteJWKSet(new URL(`${v1Url}/certs`)),
@@ -35,11 +35,12 @@ const createDeps = ({ url }) => {
   return deps;
 };
 
-const buildUnimplemented = () => async () => {
+// Takes (context, deps) like every builder, and ignores them.
+const buildUnimplemented: (...deps: unknown[]) => () => Promise<never> = () => async () => {
   throw new Error("Unimplemented");
 };
 
-export const createClient = ({ url = "https://auth.graffiticode.com", apiKeyId, apiKeyToken }) => {
+export const createClient = ({ url = "https://auth.graffiticode.com", apiKeyId, apiKeyToken }: { url?: string; apiKeyId?: string; apiKeyToken?: string }) => {
   const context = initializeContext({ apiKeyId, apiKeyToken });
   const deps = createDeps({ url });
 
@@ -60,7 +61,6 @@ export const createClient = ({ url = "https://auth.graffiticode.com", apiKeyId, 
     // Api Keys
     createApiKey: buildCreateApiKey(context, deps),
     deleteApiKey: buildDeleteApiKey(context, deps),
-    // @ts-expect-error TS-MIGRATE: callee ignores the argument; checkJs infers no parameters
     listApiKeys: buildUnimplemented(context, deps),
     signInWithApiKey: buildSignInWithApiKey(context, deps),
 

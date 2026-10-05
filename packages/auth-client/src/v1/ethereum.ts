@@ -1,9 +1,10 @@
 import { InvalidArgumentError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { getDataOrThrowError } from "../utils.js";
+import type { Context, JSONRequest } from "../utils.js";
 import { ecsign, hashPersonalMessage, toRpcSig } from "@ethereumjs/util";
 
-export const buildGetEthereumNonce = (context, { getJSON }) => async ({ address }) => {
+export const buildGetEthereumNonce = (context: Context, { getJSON }: { getJSON: JSONRequest }) => async ({ address }: { address: string }) => {
   if (!isNonEmptyString(address)) {
     throw new InvalidArgumentError("must provide an address");
   }
@@ -12,7 +13,7 @@ export const buildGetEthereumNonce = (context, { getJSON }) => async ({ address 
   return nonce;
 };
 
-export const buildSignInWithEthereum = (context, { postJSON }) => async ({ address, nonce, signature }) => {
+export const buildSignInWithEthereum = (context: Context, { postJSON }: { postJSON: JSONRequest }) => async ({ address, nonce, signature }: { address: string; nonce: string; signature: string }) => {
   if (!isNonEmptyString(address)) {
     throw new InvalidArgumentError("must provide an address");
   }
@@ -34,13 +35,13 @@ export const buildSignInWithEthereum = (context, { postJSON }) => async ({ addre
   return data;
 };
 
-const createMessageHash = ({ nonce }) => {
+const createMessageHash = ({ nonce }: { nonce: string }) => {
   const msg = `Nonce: ${nonce}`;
   const msgBuffer = Buffer.from(msg, "ascii");
   return hashPersonalMessage(msgBuffer);
 };
 
-export const createSignature = ({ privateKey, nonce }) => {
+export const createSignature = ({ privateKey, nonce }: { privateKey: Buffer; nonce: string }) => {
   const msgHash = createMessageHash({ nonce });
   const sig = ecsign(msgHash, privateKey);
   return toRpcSig(sig.v, sig.r, sig.s);

@@ -1,9 +1,9 @@
 import { InvalidArgumentError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { getDataOrThrowError } from "../utils.js";
+import type { Context, JSONRequest } from "../utils.js";
 
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-export const buildCreateApiKey = (context, { postJSON }) => async ({ accessToken } = {}) => {
+export const buildCreateApiKey = (context: Context, { postJSON }: { postJSON: JSONRequest }) => async ({ accessToken }: { accessToken?: string } = {}) => {
   if (!isNonEmptyString(accessToken) && context.has("accessToken")) {
     accessToken = context.get("accessToken");
   }
@@ -18,8 +18,7 @@ export const buildCreateApiKey = (context, { postJSON }) => async ({ accessToken
   return data;
 };
 
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-export const buildDeleteApiKey = (context, { deleteJSON }) => async ({ accessToken, apiKeyId } = {}) => {
+export const buildDeleteApiKey = (context: Context, { deleteJSON }: { deleteJSON: JSONRequest }) => async ({ accessToken, apiKeyId }: { accessToken?: string; apiKeyId?: string } = {}) => {
   if (!isNonEmptyString(accessToken) && context.has("accessToken")) {
     accessToken = context.get("accessToken");
   }
@@ -35,7 +34,7 @@ export const buildDeleteApiKey = (context, { deleteJSON }) => async ({ accessTok
   await getDataOrThrowError(res);
 };
 
-export const buildSignInWithApiKey = (context, { postJSON }) => async ({ apiKeyId, apiKeySecret }) => {
+export const buildSignInWithApiKey = (context: Context, { postJSON }: { postJSON: JSONRequest }) => async ({ apiKeyId, apiKeySecret }: { apiKeyId: string; apiKeySecret: string }) => {
   if (!isNonEmptyString(apiKeyId)) {
     throw new InvalidArgumentError("must provide an apiKeyId");
   }

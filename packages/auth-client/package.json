@@ -16,8 +16,8 @@
     "README.md"
   ],
   "scripts": {
-    "lint": "eslint src/",
-    "lint:fix": "eslint --fix src/",
+    "lint": "eslint --ext .js,.ts src/",
+    "lint:fix": "eslint --fix --ext .js,.ts src/",
     "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec --ui jest"
   },
   "dependencies": {
