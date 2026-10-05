@@ -25,7 +25,7 @@
         "--testPathIgnorePatterns",
         "/node_modules/",
         "/.compiled-test/",
-        "src/firestore.spec.js"
+        "src/firestore.spec.ts"
       ]
     }
   ],
@@ -71,7 +71,7 @@
       "name": "broker-firestore",
       "cwd": "packages/broker",
       "args": [
-        "src/firestore.spec.js"
+        "src/firestore.spec.ts"
       ]
     }
   ],
@@ -93,7 +93,7 @@
       "args": [
         "--testPathIgnorePatterns",
         "/node_modules/",
-        "firestore.spec.js"
+        "firestore.spec.ts"
       ]
     }
   ],
@@ -123,7 +123,7 @@
       "cwd": "packages/broker",
       "config": "packages/broker/.compiled-test/jest.config.js",
       "args": [
-        "firestore.spec.js"
+        "firestore.spec.ts"
       ]
     }
   ]

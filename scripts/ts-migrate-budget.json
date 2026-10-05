@@ -9,7 +9,7 @@
   "policy": 0,
   "policy:test": 0,
   "broker": 0,
-  "broker:test": 7,
+  "broker:test": 0,
   "deploy": 8,
   "deploy:test": 7,
   "api": 37,

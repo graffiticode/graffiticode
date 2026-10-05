@@ -51,7 +51,8 @@ beforeEach(async () => {
   const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
   const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
   const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
-  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
+  // Only the stores this test uses: createPolicy's untyped parameter makes
+  // every store required, including publications, which nothing here reaches.
   const policy = createPolicy({
     protectedSwitch: PROTECTED_ON,
     signer,
@@ -59,7 +60,7 @@ beforeEach(async () => {
     audit,
     connections: createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]),
     invocations: createMemoryInvocationStore()
-  });
+  } as Parameters<typeof createPolicy>[0]);
   const caller = { role: "compiler", lang: "0176" };
   const { sessionToken } = await policy.snapshot({
     caller,

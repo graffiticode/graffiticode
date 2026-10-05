@@ -74,7 +74,6 @@ beforeEach(async () => {
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }
   ]);
   policyDeps = { protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), audit };
-  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   policy = createPolicy(policyDeps);
   routes = [];
   failItems = false;
@@ -98,7 +97,7 @@ beforeEach(async () => {
   brokerDeps = {
     protectedSwitch: PROTECTED_ON,
     jwks,
-    operations: (buildOps = enabledGated => buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi, enabledGated }))(),
+    operations: (buildOps = (enabledGated?: Set<string>) => buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi, enabledGated }))(),
     secrets,
     once: createMemoryOnceStore(),
     receipts,
@@ -118,8 +117,8 @@ const invocation = (idempotencyKey = "job-1") => policy.allocateInvocation({
   idempotencyKey
 });
 
-// @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-const session = async ({ idempotencyKey, ...over } = {}) => policy.snapshot({
+// `over` replaces any snapshot field.
+const session = async ({ idempotencyKey, ...over }: { idempotencyKey?: string, [field: string]: unknown } = {}) => policy.snapshot({
   caller: L0176,
   user: { uid: OWNER },
   lang: "0176",
@@ -136,8 +135,7 @@ const mint = async (sessionToken, { fn, op, payload, occurrenceId = "n1.0" }) =>
 const previewToken = async (payload = PREVIEW) =>
   mint(await session(), { fn: "init", op: "learnosity.sign-questions-preview", payload });
 
-// @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-const saveToken = async ({ idempotencyKey = "job-1", payload = WRITE, occurrenceId } = {}) =>
+const saveToken = async ({ idempotencyKey = "job-1", payload = WRITE, occurrenceId }: { idempotencyKey?: string, payload?: object, occurrenceId?: string } = {}) =>
   mint(await session({ idempotencyKey }), {
     fn: "save-to-itembank",
     op: "learnosity.write-items",
@@ -163,7 +161,8 @@ describe("system preview sessions", () => {
       { connectionId: "conn-sys", ownerUid: SYSTEM, backend: "learnosity", status: "active" },
       { connectionId: "conn-sys-bad", ownerUid: SYSTEM, backend: "learnosity", status: "active" }
     ]);
-    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
+    // Only the stores system previews use (no publications); see app.spec.ts.
+    // Through `unknown`: tsc finds too little overlap for a direct cast.
     const make = connectionId => createPolicy({
       protectedSwitch: PROTECTED_ON,
       signer,
@@ -172,7 +171,7 @@ describe("system preview sessions", () => {
       invocations: createMemoryInvocationStore(),
       systemConnections: { learnosity: connectionId },
       audit: async () => {}
-    });
+    } as unknown as Parameters<typeof createPolicy>[0]);
     sysPolicy = make("conn-sys");
     misbound = make("conn-sys-bad");
     await secrets.create("conn-sys", { ownerUid: SYSTEM, backend: "learnosity", key: "system-key", secret: SECRET });
@@ -341,9 +340,7 @@ describe("item-bank writes", () => {
   });
 
   it("gives distinct occurrences in one save their own executions", async () => {
-    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await broker.execute({ caller: L0176, token: await saveToken({ occurrenceId: "n1.0" }), op: "learnosity.write-items", payload: WRITE });
-    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await broker.execute({ caller: L0176, token: await saveToken({ occurrenceId: "n1.1" }), op: "learnosity.write-items", payload: WRITE });
     expect(routes).toHaveLength(4);
   });
@@ -439,8 +436,8 @@ describe("item-bank writes", () => {
 describe("durable steps", () => {
   // The memory receipt store with faults injected, recording each persisted
   // step into the same log as the provider requests.
-  /** @param {{ claim?: Function, putStep?: Function, putOutcome?: Function }} [faults] */
-  const faulty = ({ claim, putStep, putOutcome } = {}) => ({
+  type Fault = (...args: any[]) => Promise<any>;
+  const faulty = ({ claim, putStep, putOutcome }: { claim?: Fault, putStep?: Fault, putOutcome?: Fault } = {}) => ({
     ...receipts,
     claim: claim ?? receipts.claim,
     putStep: putStep ?? (async (id, n, step) => {
@@ -449,7 +446,7 @@ describe("durable steps", () => {
     }),
     putOutcome: putOutcome ?? receipts.putOutcome,
   });
-  const save = async (b, token) => b.execute({ caller: L0176, token: token ?? await saveToken(), op: "learnosity.write-items", payload: WRITE });
+  const save = async (b, token?: string) => b.execute({ caller: L0176, token: token ?? await saveToken(), op: "learnosity.write-items", payload: WRITE });
   const opid = async () => `${(await invocation()).invocationId}/s0/n1.0`;
   const fail = async () => { throw new Error("storage unavailable"); };
 
@@ -688,8 +685,7 @@ describe("time limits and active executions", () => {
   // Review finding 1: a replay for the same operation must not remove the
   // entry of the attempt that is still writing.
   it("keeps counting an in-flight write while another request replays its receipt", async () => {
-    /** @type {(value?: unknown) => void} */
-    let release = () => {};
+    let release: (value?: unknown) => void = () => {};
     const gate = new Promise(resolve => { release = resolve; });
     onProviderCall = route => route === "/itembank/questions" ? gate : undefined;
     const first = broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
