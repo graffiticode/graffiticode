@@ -79,6 +79,6 @@
     ]
   },
   "dependencies": {
-    "@graffiticode/parser": "^1.4.0"
+    "@graffiticode/parser": "^1.11.1"
   }
 }
