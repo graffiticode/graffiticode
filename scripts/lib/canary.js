@@ -19,6 +19,11 @@
 //   receipt replay  two fresh write tokens for one operation: the first writes,
 //                   the second returns the recorded receipt (replayed: true)
 //                   and writes nothing
+//   author denied   (AUTHOR-01, W1) Author stays disabled for the connection's
+//                   own owner, who otherwise holds every function: Policy's
+//                   snapshot leaves `author` out of `allowed`, and Broker
+//                   refuses learnosity.sign-author with operation-not-enabled
+//                   before spending the (otherwise valid) token
 //
 // Returns one result per check; the caller decides how to report and exit.
 
@@ -139,10 +144,11 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, run
       method: "POST",
       url: policy("/v1/snapshot"),
       headers: { ...compilerAtPolicy, ...asUser },
-      body: { lang: "0176", connectionId, fns: ["init", "save-to-itembank"], invocationToken, stage: "s0" }
+      body: { lang: "0176", connectionId, fns: ["init", "save-to-itembank", "author"], invocationToken, stage: "s0" }
     });
     const sessionToken = snap.json?.data?.sessionToken;
     if (!sessionToken) throw new Error(`POST /v1/snapshot: ${snap.status} ${JSON.stringify(snap.json?.error ?? null)}`);
+    const allowed = snap.json.data.allowed ?? [];
     const mint = async (fn, op, occurrenceId, payload) => {
       const res = await http({
         method: "POST",
@@ -156,6 +162,18 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, run
     };
     const execute = (token, op, payload) =>
       http({ method: "POST", url: broker("/v1/execute"), headers: { ...compilerAtBroker, Authorization: `Bearer ${token}` }, body: { op, payload } });
+
+    await attempt("author denied", async () => {
+      // The canary owns the connection, so only the gate can withhold Author.
+      if (!record("author denied: policy", allowed.includes("init") && !allowed.includes("author"),
+        `snapshot allowed ${JSON.stringify(allowed)}`)) return;
+      const op = "learnosity.sign-items-preview";
+      const payload = { id: "canary", questions: [{ type: "mcq", response_id: `canary-author-${runId}` }] };
+      const token = await mint("init", op, "CANARY_AUTHOR:1.0", payload);
+      const res = await execute(token, "learnosity.sign-author", { reference: "graffiticode-canary" });
+      record("author denied", res.status === 403 && res.json?.error?.reason === "operation-not-enabled",
+        `broker answered ${res.status} ${res.json?.error?.reason ?? res.json?.data?.status}`);
+    });
 
     await attempt("token replay", async () => {
       const op = "learnosity.sign-items-preview";

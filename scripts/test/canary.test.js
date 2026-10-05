@@ -38,6 +38,7 @@ const world = async ({ tweak = {} } = {}) => {
     connections: createMemoryConnectionStore([{ connectionId: CONN, ownerUid: CANARY, backend: "learnosity", status: "active" }]),
     invocations: createMemoryInvocationStore(),
     publications: createMemoryPublicationStore(),
+    ...(tweak.authorEnabled ? { enabledGated: new Set(["0176:author"]) } : {}),
     audit
   });
   const writes = [];
@@ -48,7 +49,8 @@ const world = async ({ tweak = {} } = {}) => {
     operations: buildOperations({
       sdk: { init: (service, consumer, secret, body) => ({ service, body }) },
       domain: "d",
-      dataApi: async ({ route }) => { writes.push(route); return { meta: { status: true } }; }
+      dataApi: async ({ route }) => { writes.push(route); return { meta: { status: true } }; },
+      ...(tweak.authorEnabled || tweak.brokerAuthorEnabled ? { enabledGated: new Set(["learnosity.sign-author"]) } : {})
     }),
     secrets: createMemorySecretStore({ [CONN]: { ownerUid: CANARY, backend: "learnosity", key: "k", secret: "s" } }),
     once: tweak.noReplayProtection ? { claim: async () => true } : createMemoryOnceStore(),
@@ -111,6 +113,7 @@ test("passes end to end while paused with the canary configured, writing once fo
   assert.equal(ok, true, JSON.stringify(results));
   assert.deepEqual(Object.keys(byName(results)), [
     "gateway preview", "gateway write", "gateway write retry",
+    "author denied: policy", "author denied",
     "token replay: first use", "token replay", "receipt replay: first write", "receipt replay"
   ]);
   assert.deepEqual(w.writes, ["/itembank/questions", "/itembank/items"]);
@@ -150,4 +153,19 @@ test("recognizes signed requests as objects or JSON text, and nothing else", () 
   assert.equal(hasSignedRequest({ request: questions }), true);
   assert.equal(hasSignedRequest({ request: JSON.stringify(questions) }), true);
   assert.equal(hasSignedRequest({ request: { signature: "s" } }), false);
+});
+
+test("fails author denied when this deployment enables Author", async () => {
+  const { results, ok } = await run(await world({ tweak: { authorEnabled: true } }));
+  assert.equal(ok, false);
+  assert.equal(byName(results)["author denied: policy"], false);
+  assert.equal(byName(results)["token replay"], true);
+});
+
+test("fails author denied when only the broker enables Author", async () => {
+  const { results, ok } = await run(await world({ tweak: { brokerAuthorEnabled: true } }));
+  assert.equal(ok, false);
+  assert.equal(byName(results)["author denied: policy"], true);
+  assert.equal(byName(results)["author denied"], false);
+  assert.match(results.find(r => r.name === "author denied").detail, /operation-mismatch/);
 });

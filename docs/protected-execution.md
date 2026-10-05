@@ -72,15 +72,18 @@ It checks, as the canary account:
 - **token replay**: an execution token executes once, and reusing it is refused
   (409 `token-replayed`);
 - **receipt replay**: a fresh token for an operation that already wrote returns the
-  recorded receipt (`replayed: true`) and writes nothing.
+  recorded receipt (`replayed: true`) and writes nothing;
+- **author denied** (AUTHOR-01): for the connection's owner, who otherwise holds every
+  function, Policy's snapshot leaves `author` out, and Broker refuses
+  `learnosity.sign-author` with 403 `operation-not-enabled`. It fails once Author is
+  enabled; update the check then.
 
-The last two need execution tokens, so the script mints them itself as the gateway
+The last three need execution tokens, so the script mints them itself as the gateway
 (api) and compiler (l0176) runtime accounts. The operator needs
 `roles/iam.serviceAccountOpenIdTokenCreator` on those two accounts, granted for the
 release window if preferred. The canary account's API key is read from Secret
 Manager `canary-api-key`. The script refuses `VERIFY_UID`, and exits non-zero unless
-every check passes. Later releases add checks (W1: Author denied; W2: revocation;
-W4: admission).
+every check passes. Later releases add checks (W2: revocation; W4: admission).
 
 ## Draining before a release
 
