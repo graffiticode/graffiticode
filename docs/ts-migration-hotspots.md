@@ -13,7 +13,7 @@ As of 2026-10-05. "Branch" means pushed, not yet merged to `main`.
 |---|---|---|---|
 | common | ✅ main | ✅ main (sources and specs; emit unchanged) | `2.1.0` on `latest` (after the 2026-10-05 soak; `2.1.0-ts.0` on `next`) |
 | auth | ✅ main | — | `2.2.0` on `latest` (after the 2026-10-05 soak; `2.2.0-ts.0` on `next`) |
-| auth-client | ✅ main (no soak: nothing deploys or imports it) | ✅ main (sources and specs; emit unchanged) | `1.1.0-ts.0` prepared, not published |
+| auth-client | ✅ main (no soak: nothing deploys or imports it) | ✅ main (sources and specs; emit unchanged) | `1.1.0` on `latest` (2026-10-05; no soak needed, nothing deploys it) |
 | policy | ✅ main (`a1675c1`; released `policy-rmuvr83qk-14074d` 2026-10-05 21:29Z, soaking) | — | private |
 | broker | — | — | private |
 | api | — | — | not published |
