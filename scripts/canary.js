@@ -12,7 +12,8 @@
 //   - permission to mint ID tokens for the gateway (api) and compiler (l0176)
 //     runtime accounts (roles/iam.serviceAccountOpenIdTokenCreator on each),
 //     for the direct token- and receipt-replay checks. Grant it for the
-//     release window only if preferred.
+//     release window only if preferred. Minted through the IAM Credentials
+//     API, not gcloud impersonation, so that role alone is enough.
 // It writes one draft item ("graffiticode-canary") to the sandbox item bank
 // per run. Exits non-zero unless every check passes.
 
@@ -72,7 +73,22 @@ const accessToken = async () => {
   return token;
 };
 
-const idToken = (account, audience) => gcloud(["auth", "print-identity-token", `--impersonate-service-account=${account}`, `--audiences=${audience}`, "--include-email"]);
+// Minted with the IAM Credentials API under the operator's own credentials,
+// which needs only iam.serviceAccounts.getOpenIdToken (OpenIdTokenCreator).
+// `gcloud auth print-identity-token --impersonate-service-account` first
+// generates an access token for the account, which that role does not allow.
+let operatorToken;
+const idToken = async (account, audience) => {
+  operatorToken ??= await gcloud(["auth", "print-access-token"]);
+  const res = await http({
+    method: "POST",
+    url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${account}:generateIdToken`,
+    headers: { Authorization: `Bearer ${operatorToken}` },
+    body: { audience, includeEmail: true }
+  });
+  if (!res.json?.token) throw new Error(`minting an ID token for ${account} failed: ${res.status} ${res.json?.error?.message ?? ""}`);
+  return res.json.token;
+};
 
 let lexicon;
 const parse = async src => {

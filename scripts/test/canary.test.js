@@ -144,4 +144,10 @@ test("recognizes signed requests as objects or JSON text, and nothing else", () 
   assert.equal(hasSignedRequest({ request: JSON.stringify({ security: { signature: "s" } }) }), true);
   assert.equal(hasSignedRequest({ text: "mentions security and signature" }), false);
   assert.equal(hasSignedRequest({ security: { signature: 7 } }), false);
+  // Questions requests carry the security fields at the top level.
+  // eslint-disable-next-line camelcase -- Learnosity's field names
+  const questions = { consumer_key: "k", timestamp: "20261005-2012", user_id: "u", signature: "s", questions: [] };
+  assert.equal(hasSignedRequest({ request: questions }), true);
+  assert.equal(hasSignedRequest({ request: JSON.stringify(questions) }), true);
+  assert.equal(hasSignedRequest({ request: { signature: "s" } }), false);
 });

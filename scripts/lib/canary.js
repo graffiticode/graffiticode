@@ -32,7 +32,11 @@ export const SAVE_PROGRAM = `set-var "lrn-id" "canary" save-to-itembank items [$
 const sha256 = s => createHash("sha256").update(s).digest("hex");
 
 // Anything in the output carrying a Learnosity signed request: a `security`
-// block (object or JSON text) with a string `signature`.
+// block (object or JSON text) with a string `signature`, as Items requests
+// have, or the security fields merged into the request itself, as the SDK
+// signs Questions requests (string `signature`, `consumer_key`, `timestamp`).
+const isSecurity = value => Boolean(value) && typeof value === "object" && typeof value.signature === "string";
+const isQuestionsSigned = value => isSecurity(value) && typeof value.consumer_key === "string" && typeof value.timestamp === "string";
 export const hasSignedRequest = value => {
   if (Array.isArray(value)) return value.some(hasSignedRequest);
   if (value && typeof value === "object") {
@@ -40,10 +44,10 @@ export const hasSignedRequest = value => {
     if (typeof security === "string") {
       try { security = JSON.parse(security); } catch { security = null; }
     }
-    if (security && typeof security === "object" && typeof security.signature === "string") return true;
+    if (isSecurity(security) || isQuestionsSigned(value)) return true;
     return Object.values(value).some(hasSignedRequest);
   }
-  if (typeof value === "string" && value.includes("\"security\"")) {
+  if (typeof value === "string" && (value.includes("\"security\"") || value.includes("\"signature\""))) {
     try { return hasSignedRequest(JSON.parse(value)); } catch { return false; }
   }
   return false;
