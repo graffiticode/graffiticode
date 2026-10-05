@@ -383,6 +383,50 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     return { allowed: fns, sessionToken };
   };
 
+  // Is `fn` still reachable, right now, by this authority? Re-reads live
+  // state on every call (spec EXEC-02, REVOKE-01): the connection, its owner
+  // and backend, the grant or the owner's own restrictions, the enablement
+  // gate, and the publication or system connection the authority rests on.
+  // `authority` carries the claims the authority was issued with: { sub, own,
+  // conn, backend, lang, pub?, sys? }. Returns a refusal reason, or null.
+  // Mint calls it before issuing an execution token; W2's
+  // authorize-execution will call it before each effect.
+  const liveRefusal = async (authority, fn) => {
+    // A system preview session has no user and no grant: it reaches only the
+    // language's system-preview functions, through the connection still
+    // configured as the system connection for its backend.
+    if (authority.sys === true) {
+      if (authority.sub !== SYSTEM_PREVIEW_SUBJECT || authority.pub) return "bad-session";
+      if (!systemPreviewFunctionsForLang(authority.lang).includes(fn)) return "not-system-preview";
+      const state = await systemConnectionRefusal({ connectionId: authority.conn, backend: authority.backend, ownerUid: authority.own });
+      return state.refusal ?? null;
+    }
+    // A user session never claims the system subject.
+    if (authority.sys !== undefined || authority.sub === SYSTEM_PREVIEW_SUBJECT) return "bad-session";
+    // A publication re-checks the publication on every call, and can only
+    // ever reach viewSafe functions. Then every user check below applies to
+    // its publisher as well.
+    if (authority.pub) {
+      if (!viewSafeFunctionsForLang(authority.lang).includes(fn)) return "not-view-safe";
+      const state = await publicationState(authority.pub, { publisherUid: authority.sub, connectionId: authority.conn, lang: authority.lang });
+      if (state.refusal) return state.refusal;
+    }
+
+    // A connection disabled, deleted or re-owned since the authority was
+    // issued stops the next protected call.
+    const connection = await connections.get(authority.conn);
+    const access = await accessFor(connection, authority.sub, { ownerUid: authority.own });
+    if (access.refusal) return access.refusal;
+    if (connection.backend !== authority.backend) return "backend-changed";
+    // Re-checked on every user call, whatever the session lists (AUTHOR-01).
+    // System and publication sessions never reach a gated function: their
+    // sets (system-preview, viewSafe) exclude them by registry construction.
+    if (!gateOpen(authority.lang, fn)) return "fn-not-enabled";
+    // A grant revoked or narrowed since the snapshot stops this call.
+    if (!mayUse(access, authority.lang, fn)) return "not-granted";
+    return null;
+  };
+
   const mint = async ({ caller, sessionToken, fn, op, occurrenceId, argsDigest }) => {
     let session;
     try {
@@ -412,38 +456,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (!isId(occurrenceId) || typeof argsDigest !== "string" || !DIGEST_RE.test(argsDigest)) {
       return deny("bad-request", record);
     }
-    // A system preview session has no user and no grant: it reaches only the
-    // language's system-preview functions, through the connection still
-    // configured as the system connection for its backend.
-    if (session.sys === true) {
-      if (session.sub !== SYSTEM_PREVIEW_SUBJECT || session.pub) return deny("bad-session", record);
-      if (!systemPreviewFunctionsForLang(session.lang).includes(fn)) return deny("not-system-preview", record);
-      const state = await systemConnectionRefusal({ connectionId: session.conn, backend: session.backend, ownerUid: session.own });
-      if (state.refusal) return deny(state.refusal, record);
-      return issueExecution({ session, fn, op, argsDigest, occurrenceId, record });
-    }
-    // A user session never claims the system subject.
-    if (session.sys !== undefined || session.sub === SYSTEM_PREVIEW_SUBJECT) return deny("bad-session", record);
-    // A publication session re-checks the publication at every mint, and can
-    // only ever reach viewSafe functions.
-    if (session.pub) {
-      if (!viewSafeFunctionsForLang(session.lang).includes(fn)) return deny("not-view-safe", record);
-      const state = await publicationState(session.pub, { publisherUid: session.sub, connectionId: session.conn, lang: session.lang });
-      if (state.refusal) return deny(state.refusal, record);
-    }
-
-    // Live state, re-read at every mint: a connection disabled, deleted or
-    // re-owned since the snapshot stops the next protected call.
-    const connection = await connections.get(session.conn);
-    const access = await accessFor(connection, session.sub, { ownerUid: session.own });
-    if (access.refusal) return deny(access.refusal, record);
-    if (connection.backend !== session.backend) return deny("backend-changed", record);
-    // Re-checked at every user mint, whatever the session lists (AUTHOR-01).
-    // System and publication sessions never reach a gated function: their
-    // sets (system-preview, viewSafe) exclude them by registry construction.
-    if (!gateOpen(session.lang, fn)) return deny("fn-not-enabled", record);
-    // A grant revoked or narrowed since the snapshot stops this call.
-    if (!mayUse(access, session.lang, fn)) return deny("not-granted", record);
+    const refusal = await liveRefusal(session, fn);
+    if (refusal) return deny(refusal, record);
     return issueExecution({ session, fn, op, argsDigest, occurrenceId, record });
   };
 
