@@ -14,14 +14,15 @@ As of 2026-10-05. "Branch" means pushed, not yet merged to `main`.
 | common | ✅ main | ✅ main (sources and specs; emit unchanged) | `2.1.0` on `latest` (after the 2026-10-05 soak; `2.1.0-ts.0` on `next`) |
 | auth | ✅ main | — | `2.2.0` on `latest` (after the 2026-10-05 soak; `2.2.0-ts.0` on `next`) |
 | auth-client | ✅ main (no soak: nothing deploys or imports it) | ✅ main (sources and specs; emit unchanged) | `1.1.0` on `latest` (2026-10-05; no soak needed, nothing deploys it) |
-| policy | ✅ main (`a1675c1`; released `policy-rmuvr83qk-14074d` 2026-10-05 21:29Z, soaking) | ✅ main (`0db19a7`; sources and specs; emit unchanged) | private |
-| broker | ✅ main (`b59e29f`; not yet released: after policy's soak) | branch `ts-phase3-broker` (sources and specs; emit unchanged) | private |
+| policy | ✅ main (`a1675c1`; released `policy-rmuvr83qk-14074d` 2026-10-05 21:29Z, canary 9/9) | ✅ main (`0db19a7`; sources and specs; emit unchanged; ships with the next policy release) | private |
+| broker | ✅ main (released with phase 3 as `broker-rmuvtk3cd-40fad7` from `fc3657d`, 2026-10-05 22:34Z) | ✅ main (`fc3657d`; sources and specs; emit unchanged) | private |
 | api | — | — | not published |
 | deploy | — | — | private |
 
 All four services (auth, api, policy, broker) run Phase 2a images with
-compiled `common` and `auth` (auth from `dd20861`; broker and api from `5e0fa93`,
-the v6 release; policy from `a1675c1`, which also runs compiled policy), and every release passes its candidate `verify`
+compiled `common` and `auth` (auth from `dd20861`; api from `5e0fa93`, the v6
+release; policy from `a1675c1` and broker from `fc3657d`, each running its own
+compiled package too), and every release passes its candidate `verify`
 module before promotion.
 
 Policy and broker can't start without KMS, so CI's image job can't run their
@@ -59,6 +60,16 @@ adjustments that day:
   day, none in the baseline window), so they can never reach the volume bar.
   Their soak is the release's passed candidate `verify` (recorded in the
   receipt) plus no 5xx and no new error signatures for 24 h.
+- **Since 2026-10-05, while protected functions have a single user** (the
+  owner; a week of policy's audit log showed five pseudonymous users, all
+  plausibly the owner's own personal, eval, canary and verify accounts),
+  policy and broker don't wait out the 24 h: a clean 24 h then mostly
+  means nobody used it. Their release check is instead the candidate
+  `verify`, the canary (`scripts/canary.js`) right after promotion, and the
+  canary again some hours later, for failures that only show up over time
+  (keys, caches, idle cold starts). api and auth keep the soak report: api
+  serves every language, not just protected functions. Revisit when
+  protected functions have other users.
 - **Requests the api proxies to a language server** (`/L<lang>/...`) are
   reported but not judged: their latency is the language server's, including
   its cold starts. `l0184`, which was cold-starting about hourly, now has a
