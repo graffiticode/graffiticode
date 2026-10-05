@@ -13,4 +13,5 @@ export { createMemoryPublicationStore } from "./publications.js";
 export { createMemoryInvocationStore, InvocationConflict } from "./invocations.js";
 export { createConnectionManager } from "./manage.js";
 export { createBrokerAdminClient, BrokerConflict } from "./broker-admin.js";
+export { buildPolicyRequest, PolicyRefused } from "./client.js";
 export { requireEnv, parseCallers, parseSystemConnections, parseEnabledGatedFunctions, parseEnabledGatedOperations, auditSink, createIdTokenSource } from "./config.js";

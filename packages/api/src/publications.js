@@ -15,7 +15,6 @@ export const buildPublicationClient = ({ policyUrl, idToken, fetch: doFetch = fe
   return {
     async create({ authToken, connectionId, taskId, lang, artifactInvocationId }) {
       const res = await request("POST", "/v1/publications", {
-        // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
         authToken, body: { connectionId, taskId, lang, artifactInvocationId }
       });
       return { publicationId: expectData(res, "publish").publicationId };

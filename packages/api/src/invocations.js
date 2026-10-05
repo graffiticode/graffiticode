@@ -8,13 +8,13 @@
 // again. Without a key, every request is a new invocation.
 
 import { createHash } from "node:crypto";
+import { buildPolicyRequest, PolicyRefused } from "@graffiticode/policy/client";
 
-export class InvocationRefused extends Error {
-  constructor(reason) {
-    super(`invocation refused: ${reason}`);
-    this.reason = reason;
-  }
-}
+// The client and its refusal live in @graffiticode/policy (shared with
+// Broker); re-exported here so api's imports and `instanceof` checks are
+// unchanged. InvocationRefused is the same class object as PolicyRefused.
+// The ./client subpath keeps api from loading the rest of Policy.
+export { buildPolicyRequest, PolicyRefused as InvocationRefused };
 
 const canonical = value => {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -47,35 +47,11 @@ export const buildMetadataIdToken = ({ fetch: doFetch = fetch } = {}) => {
   };
 };
 
-// One call to policy as the gateway: the invoker and caller identity tokens,
-// and the end user's token when there is one. A 403 is policy's refusal, with
-// its reason; anything else unexpected is an error.
-export const buildPolicyRequest = ({ policyUrl, idToken, fetch: doFetch = fetch }) =>
-  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-  async (method, path, { body, authToken = null } = {}) => {
-    const [invoker, caller] = await Promise.all([idToken(policyUrl), idToken("urn:graffiticode:policy")]);
-    const res = await doFetch(`${policyUrl}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        "X-Serverless-Authorization": `Bearer ${invoker}`,
-        "X-Caller-Identity": caller
-      },
-      ...(body ? { body: JSON.stringify(body) } : {})
-    });
-    const json = await res.json().catch(() => null);
-    // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
-    if (res.status === 403) throw new InvocationRefused(json?.error?.reason ?? "denied");
-    return { status: res.status, ok: res.ok, body: json };
-  };
-
 export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = fetch }) => {
   const request = buildPolicyRequest({ policyUrl, idToken, fetch: doFetch });
   return async ({ authToken, connectionId, taskId, options, idempotencyKey = null }) => {
     const { ok, status, body } = await request("POST", "/v1/invocations", {
       authToken,
-      // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
       body: {
         connectionId,
         taskId,
@@ -83,7 +59,6 @@ export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = f
         ...(idempotencyKey ? { idempotencyKey } : {})
       }
     });
-    // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
     const data = body?.data;
     if (!ok || typeof data?.invocationToken !== "string" || typeof data.invocationId !== "string" ||
         !Number.isInteger(data.seq) || typeof data.ownerUid !== "string") {

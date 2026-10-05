@@ -6,7 +6,8 @@
   "description": "Graffiticode policy authority: connections, permission snapshots, execution-token minting",
   "main": "./dist/index.js",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js"
   },
   "scripts": {
     "lint": "eslint --ext .js,.ts src/",

@@ -39,6 +39,16 @@ describe("invocations", () => {
     expect(err.reason).toBe("idempotency-key-reused");
   });
 
+  // The client and its refusal moved to @graffiticode/policy (W2 PR 4): api's
+  // name for the class must stay the same class, or its handlers' instanceof
+  // checks (read.js, data.js, routes/publications.js) would miss refusals.
+  it("re-exports the shared client's refusal class and client unchanged", async () => {
+    const shared = await import("@graffiticode/policy/client");
+    const { buildPolicyRequest } = await import("./invocations.js");
+    expect(InvocationRefused).toBe(shared.PolicyRefused);
+    expect(buildPolicyRequest).toBe(shared.buildPolicyRequest);
+  });
+
   it("digests input independently of key order", () => {
     expect(inputDigest({ a: 1, b: { c: 2, d: 3 } })).toBe(inputDigest({ b: { d: 3, c: 2 }, a: 1 }));
     expect(inputDigest(undefined)).toBe(inputDigest({}));
