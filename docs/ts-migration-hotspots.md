@@ -15,7 +15,7 @@ As of 2026-10-05. "Branch" means pushed, not yet merged to `main`.
 | auth | ✅ main | — | `2.2.0` on `latest` (after the 2026-10-05 soak; `2.2.0-ts.0` on `next`) |
 | auth-client | ✅ main (no soak: nothing deploys or imports it) | ✅ main (sources and specs; emit unchanged) | `1.1.0` on `latest` (2026-10-05; no soak needed, nothing deploys it) |
 | policy | ✅ main (`a1675c1`; released `policy-rmuvr83qk-14074d` 2026-10-05 21:29Z, soaking) | ✅ main (`0db19a7`; sources and specs; emit unchanged) | private |
-| broker | branch `ts-phase2b-broker` (release after policy's soak) | branch `ts-phase3-broker` (sources and specs; emit unchanged) | private |
+| broker | ✅ main (`b59e29f`; not yet released: after policy's soak) | branch `ts-phase3-broker` (sources and specs; emit unchanged) | private |
 | api | — | — | not published |
 | deploy | — | — | private |
 
