@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createProtectedSwitch, admission } from "../../packages/policy/src/maintenance.js";
+import { createProtectedSwitch, admission } from "@graffiticode/policy";
 import { ACTIVE, DOC, drain, enableChecked, parse, setCanary, setEnabled } from "../lib/protected-execution.js";
 
 // Just enough Firestore: documents with merging set(), and a count of

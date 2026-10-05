@@ -24,4 +24,4 @@ COPY --from=build /usr/src/app/packages/policy/dist packages/policy/dist
 RUN npm ci --omit=dev
 
 EXPOSE 8080
-CMD [ "node", "packages/policy/src/main.js" ]
+CMD [ "node", "packages/policy/dist/main.js" ]

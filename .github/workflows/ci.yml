@@ -95,8 +95,10 @@ jobs:
   # holds precisely the packages/<name>/dist directories that service loads,
   # and that its entry point is there. Services already switched to dist/
   # (phase 2b) with a `port` are also started with their real CMD and must
-  # answer GET / with 200 (policy and broker need KMS to start, so they are
-  # proven at the candidate instead).
+  # answer GET / with 200. Policy and broker need KMS to start, so their
+  # candidate proves startup; here every compiled module of the package named
+  # by `loads` except main.js is imported with the image's production install,
+  # which proves the dist/ graph and its dependencies resolve.
   images:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -110,7 +112,8 @@ jobs:
             port: 4100
           - service: policy
             dists: common auth policy
-            entry: packages/policy/src/main.js
+            entry: packages/policy/dist/main.js
+            loads: policy
           - service: broker
             dists: common policy broker
             entry: packages/broker/src/main.js
@@ -131,6 +134,16 @@ jobs:
             docker run --rm --entrypoint sh gc-${{ matrix.service }} -c "ls packages/$p/dist/*.js >/dev/null"
           done
           docker run --rm --entrypoint sh gc-${{ matrix.service }} -c 'test -f ${{ matrix.entry }}'
+      - name: Load ${{ matrix.loads }}'s compiled modules
+        if: matrix.loads
+        run: |
+          docker run --rm --entrypoint sh -e PKG=${{ matrix.loads }} gc-${{ matrix.service }} -c '
+            set -e
+            for f in packages/$PKG/dist/*.js; do
+              [ "$(basename "$f")" = main.js ] && continue
+              node --input-type=module -e "await import(\"./$f\")"
+              echo "loaded $f"
+            done'
       - name: Start ${{ matrix.service }} with its real CMD
         if: matrix.port
         run: |

@@ -14,14 +14,20 @@ As of 2026-10-05. "Branch" means pushed, not yet merged to `main`.
 | common | ✅ main | ✅ main (sources and specs; emit unchanged) | `2.1.0` on `latest` (after the 2026-10-05 soak; `2.1.0-ts.0` on `next`) |
 | auth | ✅ main | — | `2.2.0` on `latest` (after the 2026-10-05 soak; `2.2.0-ts.0` on `next`) |
 | auth-client | ✅ main (no soak: nothing deploys or imports it) | ✅ main (sources and specs; emit unchanged) | `1.1.0-ts.0` prepared, not published |
-| policy | — | — | private |
+| policy | branch `ts-phase2b-policy` (soak after release) | — | private |
 | broker | — | — | private |
 | api | — | — | not published |
 | deploy | — | — | private |
 
 All four services (auth, api, policy, broker) run Phase 2a images with
-compiled `common` and `auth` (releases from `50f6a4a` / `dd20861`), and every
-release passes its candidate `verify` module before promotion.
+compiled `common` and `auth` (auth from `dd20861`; policy, broker and api from
+`5e0fa93`, the v6 release), and every release passes its candidate `verify`
+module before promotion.
+
+Policy and broker can't start without KMS, so CI's image job can't run their
+real `CMD`. Instead it imports every compiled module of the package except
+`main.js` inside the image (`loads` in the matrix); the release candidate's
+`verify` proves startup.
 
 `TS-MIGRATE` suppression budgets on `main` (`scripts/ts-migrate-budget.json`,
 enforced by `npm run typecheck`; they only go down):

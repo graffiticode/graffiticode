@@ -4,7 +4,7 @@ import { generateKeyPair, exportJWK } from "jose";
 import {
   createPolicy, createLocalSigner, createMemoryConnectionStore, createMemoryInvocationStore, createMemoryPublicationStore,
   createAudit, createPseudonymizer, createProtectedSwitch, PolicyDenied
-} from "../../packages/policy/src/index.js";
+} from "@graffiticode/policy";
 import {
   createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused
 } from "../../packages/broker/src/index.js";
