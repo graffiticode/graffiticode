@@ -9,8 +9,11 @@
 //   LEARNOSITY_DOMAIN       consumer domain for signed requests (e.g. l0176.graffiticode.org)
 //   LEARNOSITY_DATA_API     Data API base URL (default https://data.learnosity.com/v2025.2.LTS)
 //   AUDIT_PSEUDONYM_SECRET  HMAC secret for pseudonymous audit ids
-//   BROKER_PROVIDER_CALL_TIMEOUT_MS, BROKER_EXECUTION_DEADLINE_MS
-//                           optional time limits (see limits.js; defaults 10 s, 30 s)
+//   POLICY_URL              policy service URL: Broker asks authorize-execution before
+//                           each effect, as its own service account (the `broker`
+//                           caller role in Policy's POLICY_CALLERS)
+//   BROKER_PROVIDER_CALL_TIMEOUT_MS, BROKER_EXECUTION_DEADLINE_MS, BROKER_AUTHORIZE_TIMEOUT_MS
+//                           optional time limits (see limits.js; defaults 10 s, 30 s, 5 s)
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables execution. Otherwise
 //                           controls/protected-execution in this database decides, and
 //                           a missing flag means off (@graffiticode/policy maintenance.js)
@@ -20,7 +23,7 @@
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { KeyManagementServiceClient } from "@google-cloud/kms";
-import { OAuth2Client } from "google-auth-library";
+import { OAuth2Client, GoogleAuth } from "google-auth-library";
 import { importSPKI, exportJWK } from "jose";
 import LearnositySDK from "learnosity-sdk-nodejs";
 import {
@@ -34,7 +37,8 @@ import {
   auditSink,
   createProtectedSwitch,
   createFirestoreFlagReader,
-  parseHardDisable
+  parseHardDisable,
+  createIdTokenSource
 } from "@graffiticode/policy";
 import {
   createBroker,
@@ -45,7 +49,8 @@ import {
   createFirestoreReceiptStore,
   createFirestoreSecretStore,
   createFirestoreActivityStore,
-  parseLimits
+  parseLimits,
+  buildPolicyAuthorizer
 } from "./index.js";
 import { buildLearnosityDataApi } from "./learnosity.js";
 
@@ -75,6 +80,7 @@ const broker = createBroker({
   activity: createFirestoreActivityStore(db),
   limits: parseLimits(env),
   protectedSwitch: createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) }),
+  authorize: buildPolicyAuthorizer({ policyUrl: requireEnv(env, "POLICY_URL"), idToken: createIdTokenSource({ GoogleAuth }) }),
   operations: buildOperations({
     sdk: new LearnositySDK(),
     domain,

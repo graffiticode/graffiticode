@@ -127,17 +127,19 @@ export const buildOperations = ({ sdk, domain, dataApi, enabledGated = new Set()
       // Two provider writes: questions first (items reference them), then
       // items. Each step's status is reported so a failure after the first is
       // visible as `partial` rather than retried. `providerCall` (from the
-      // broker) refuses to start a request past the operation's deadline and
-      // gives each one its timeout.
+      // broker) authorizes each request and refuses to start one past the
+      // operation's deadline, then gives it its timeout.
       run: async ({ questionRecords, itemRecords }, { key, secret }, { onStep, providerCall }) => {
-        const write = (route, body) => {
-          const timeoutMs = providerCall();
+        // `providerCall(step)` authorizes this registered step (W2), then
+        // gives the request its timeout.
+        const write = async (step, route, body) => {
+          const timeoutMs = await providerCall(step);
           return dataApi({ route, request: sdk.init("data", { consumer_key: key, domain }, secret, body, "set"), timeoutMs });
         };
-        await write("/itembank/questions", { questions: questionRecords });
+        await write("questions", "/itembank/questions", { questions: questionRecords });
         await onStep("questions");
         if (itemRecords.length > 0) {
-          await write("/itembank/items", { items: itemRecords });
+          await write("items", "/itembank/items", { items: itemRecords });
           await onStep("items");
         }
         return {

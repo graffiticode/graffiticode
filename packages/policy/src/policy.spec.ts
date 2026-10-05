@@ -113,7 +113,8 @@ const EXEC_CLAIMS = {
   sid: "sid-1",
   opid: "inv-1/s0/n1",
   argd: "a".repeat(64),
-  rv: 1
+  rv: 1,
+  prv: "user"
 };
 
 describe("token profiles", () => {

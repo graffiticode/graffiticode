@@ -21,7 +21,8 @@ import {
   createMemoryReceiptStore,
   createMemoryActivityStore,
   createMemorySecretStore,
-  argsDigest
+  argsDigest,
+  localAuthorizer
 } from "@graffiticode/broker";
 import { buildDataApi } from "./data.js";
 import { inputDigest, InvocationRefused } from "./invocations.js";
@@ -73,6 +74,7 @@ beforeEach(async () => {
       }
     }),
     secrets: createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "k", secret: "s" } }),
+    authorize: localAuthorizer(policy),
     once: createMemoryOnceStore(),
     receipts: createMemoryReceiptStore(),
     activity: createMemoryActivityStore()

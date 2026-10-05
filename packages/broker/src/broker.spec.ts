@@ -21,7 +21,8 @@ import {
   createMemoryActivityStore,
   StepConflict,
   createMemorySecretStore,
-  argsDigest
+  argsDigest,
+  localAuthorizer
 } from "./index.js";
 
 // Protected execution on (the maintenance switch is tested on its own).
@@ -102,6 +103,8 @@ beforeEach(async () => {
     once: createMemoryOnceStore(),
     receipts,
     activity,
+    // Policy's real decisions, in process (W2).
+    authorize: localAuthorizer(policy),
     audit
   };
   broker = createBroker(brokerDeps);
@@ -182,11 +185,13 @@ describe("system preview sessions", () => {
     const { sessionToken } = await p.previewSession({ caller: L0176, lang: "0176" });
     return (await p.mint({ caller: L0176, sessionToken, fn, op, occurrenceId: "prog.0", argsDigest: argsDigest(payload) })).executionToken;
   };
+  // Broker asks the Policy that knows the system connection.
+  const sysBroker = (p = sysPolicy) => createBroker({ ...brokerDeps, authorize: localAuthorizer(p) });
 
   it("signs Questions and Items previews with the system connection's credential", async () => {
     for (const op of ["learnosity.sign-questions-preview", "learnosity.sign-items-preview"]) {
       const token = await sysToken({ op, payload: PREVIEW });
-      const { status, result } = await broker.execute({ caller: L0176, token, op, payload: PREVIEW });
+      const { status, result } = await sysBroker().execute({ caller: L0176, token, op, payload: PREVIEW });
       expect(status).toBe("succeeded");
       expect(result.request.signedWithSecret).toBe(true);
       expect(result.request.consumer.consumer_key).toBe("system-key");
@@ -195,7 +200,7 @@ describe("system preview sessions", () => {
 
   it("is refused if the stored credential belongs to another owner", async () => {
     const token = await sysToken({ op: "learnosity.sign-questions-preview", payload: PREVIEW, p: misbound });
-    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "credential-binding-mismatch");
+    await refused(sysBroker(misbound).execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "credential-binding-mismatch");
   });
 });
 
@@ -261,7 +266,8 @@ describe("preview signing", () => {
       sid: "sid-1",
       opid: "inv-1/s0/n1",
       argd: argsDigest(PREVIEW),
-      rv: REGISTRY_VERSION
+      rv: REGISTRY_VERSION,
+      prv: "user"
     });
     await refused(broker.execute({ caller: L0176, token: forged, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "bad-token");
   });
@@ -288,7 +294,8 @@ describe("preview signing", () => {
       sid: "sid-1",
       opid: "inv-1/s0/n1",
       argd: argsDigest(PREVIEW),
-      rv: -1
+      rv: -1,
+      prv: "user"
     });
     await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "registry-version-mismatch");
   });
@@ -507,7 +514,7 @@ describe("author signing", () => {
   // Policy and Broker.
   beforeEach(() => {
     policy = createPolicy({ ...policyDeps, enabledGated: new Set(["0176:author"]) });
-    broker = createBroker({ ...brokerDeps, operations: buildOps(new Set(["learnosity.sign-author"])) });
+    broker = createBroker({ ...brokerDeps, operations: buildOps(new Set(["learnosity.sign-author"])), authorize: localAuthorizer(policy) });
   });
 
   it("is refused by a broker that has not enabled it, even with a valid token", async () => {
@@ -608,6 +615,13 @@ describe("maintenance switch", () => {
     await refused(paused.execute({ caller: { role: "compiler", lang: "0000" }, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "caller-language-mismatch");
   });
 
+  it("cannot be built without Policy's authorization, or with incomplete limits", () => {
+    const { authorize, ...rest } = brokerDeps;
+    expect(() => createBroker(rest)).toThrow(/authorize/);
+    expect(() => createBroker({ ...brokerDeps, limits: { providerCallMs: 10_000, executionMs: 30_000 } })).toThrow(/limits.authorizeMs/);
+    expect(() => createBroker({ ...brokerDeps, limits: { providerCallMs: 10_000, executionMs: 0, authorizeMs: 5_000 } })).toThrow(/limits.executionMs/);
+  });
+
   it("cannot be built without a switch", () => {
     const { protectedSwitch, ...rest } = brokerDeps;
     expect(() => createBroker(rest)).toThrow(/protectedSwitch/);
@@ -626,14 +640,14 @@ describe("time limits and active executions", () => {
 
   it("gives each provider request its timeout, capped by the time left", async () => {
     onProviderCall = () => { t += 7_000; };
-    const out = await save(timed({ providerCallMs: 10_000, executionMs: 12_000 }));
+    const out = await save(timed({ providerCallMs: 10_000, executionMs: 12_000, authorizeMs: 5_000 }));
     expect(out.status).toBe("succeeded");
     expect(providerCalls.map(c => c.timeoutMs)).toEqual([10_000, 5_000]);
   });
 
   it("starts no request after the deadline: the write stops as partial, and a retry replays it", async () => {
     onProviderCall = route => { if (route === "/itembank/questions") t += 30_000; };
-    const out = await save(timed({ providerCallMs: 10_000, executionMs: 30_000 }));
+    const out = await save(timed({ providerCallMs: 10_000, executionMs: 30_000, authorizeMs: 5_000 }));
     expect(out).toMatchObject({ status: "partial", steps: ["questions"] });
     expect(out.error).toMatch(/deadline/);
     expect(routes).toEqual(["/itembank/questions"]);
@@ -643,7 +657,7 @@ describe("time limits and active executions", () => {
   });
 
   it("records failed when the deadline passes before any request", async () => {
-    const b = createBroker({ ...brokerDeps, limits: { providerCallMs: 1, executionMs: 1 }, now: () => (t += 5) });
+    const b = createBroker({ ...brokerDeps, limits: { providerCallMs: 1, executionMs: 1, authorizeMs: 1 }, now: () => (t += 5) });
     const out = await save(b);
     expect(out).toMatchObject({ status: "failed", steps: [] });
     expect(routes).toEqual([]);

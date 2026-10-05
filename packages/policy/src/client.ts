@@ -15,9 +15,10 @@ export class PolicyRefused extends Error {
 }
 
 // One call to Policy. A 403 is Policy's refusal, thrown with its reason;
-// any other response is returned for the caller to judge.
+// any other response is returned for the caller to judge. `signal` aborts the
+// request (Broker bounds each authorization by it).
 export const buildPolicyRequest = ({ policyUrl, idToken, fetch: doFetch = fetch }) =>
-  async (method: string, path: string, { body, authToken = null }: { body?: object, authToken?: string | null } = {}) => {
+  async (method: string, path: string, { body, authToken = null, signal }: { body?: object, authToken?: string | null, signal?: AbortSignal } = {}) => {
     const [invoker, caller] = await Promise.all([idToken(policyUrl), idToken("urn:graffiticode:policy")]);
     const res = await doFetch(`${policyUrl}${path}`, {
       method,
@@ -27,7 +28,8 @@ export const buildPolicyRequest = ({ policyUrl, idToken, fetch: doFetch = fetch 
         "X-Serverless-Authorization": `Bearer ${invoker}`,
         "X-Caller-Identity": caller
       },
-      ...(body ? { body: JSON.stringify(body) } : {})
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(signal ? { signal } : {})
     });
     const json: any = await res.json().catch(() => null);
     if (res.status === 403) throw new PolicyRefused(json?.error?.reason ?? "denied");

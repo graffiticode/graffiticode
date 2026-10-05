@@ -21,6 +21,16 @@
 //      there and records uncertain (best effort); a retry finds the claim and
 //      never re-executes. A replay with no final outcome reports uncertain
 //      with the steps that were persisted.
+//   7. Immediately before each effect (each provider request, each local
+//      signature, each receipt replay) Broker asks Policy's
+//      authorize-execution whether that one step is still authorized (spec
+//      EXEC-02, API-02; authorizer.js). The step and its purpose come from
+//      the registered step table, in order; a decision is never cached or
+//      reused. Denied or unavailable, the effect doesn't happen: a refusal
+//      before the receipt claim; after it, `failed` with no step taken or
+//      `partial` after one, with the reason recorded. A token that can't
+//      outlast the deadline is refused on arrival (`token-expiring`), before
+//      it is spent, so the caller can retry with a fresh one.
 //
 // Time limits (limits.js): each provider request has a timeout, and no request
 // starts after the operation's deadline. A request that times out is
@@ -38,11 +48,25 @@
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
 import { randomUUID } from "node:crypto";
-import { gatedOperations, isOperationAllowed, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
-import { verifyToken, MAINTENANCE, admission } from "@graffiticode/policy";
+import { gatedOperations, isOperationAllowed, isStepRegistered, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { verifyToken, provenanceRefusal, MAINTENANCE, admission } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
 import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operations.js";
-import { DEFAULT_LIMITS, maxExecutionMs } from "./limits.js";
+import { DEFAULT_LIMITS, headroomMs, maxExecutionMs } from "./limits.js";
+import { AuthorizationDenied, AuthorizationUnavailable } from "./authorizer.js";
+
+// Broker asked for a step its own operation definition doesn't register, or
+// out of order: a bug here, never a request field. No effect follows.
+class StepNotRegistered extends Error {}
+
+// Why an authorization didn't lead to the effect, for refusals and outcomes.
+const authorizationReason = e => {
+  if (e instanceof AuthorizationDenied) return `authorization-denied:${e.reason}`;
+  if (e instanceof AuthorizationUnavailable) return "authorization-unavailable";
+  if (e instanceof DeadlineExceeded) return "deadline-exceeded";
+  if (e instanceof StepNotRegistered) return "step-not-registered";
+  return null;
+};
 
 // A provider step completed but could not be persisted; the operation must
 // not take its next step.
@@ -72,28 +96,44 @@ export class BrokerRefused extends Error {
 const BINDING_FIELDS = ["principal", "ownerUid", "connectionId", "lang", "fn", "op", "registryVersion", "argsDigest"];
 const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]);
 
-export const createBroker = ({ jwks, operations, secrets, once, receipts, activity, protectedSwitch, limits = DEFAULT_LIMITS, now = Date.now, audit }) => {
+export const createBroker = ({ jwks, operations, secrets, once, receipts, activity, protectedSwitch, authorize, limits = DEFAULT_LIMITS, now = Date.now, audit }) => {
   // No default: a broker built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
+  // Nor without Policy's live authorization (authorizer.js): it would act on
+  // a token's authority however much had been revoked since it was minted.
+  if (typeof authorize !== "function") throw new Error("createBroker needs an authorize function");
+  // Every limit, as parseLimits produces them: a missing one would turn into
+  // a zero wait (setTimeout reads NaN as 0) and race every authorization.
+  for (const name of ["providerCallMs", "executionMs", "authorizeMs"]) {
+    if (!(Number.isInteger(limits?.[name]) && limits[name] > 0)) throw new Error(`createBroker needs limits.${name} (see limits.js)`);
+  }
   // Nor without activity tracking, which draining relies on.
   if (!activity || typeof activity.begin !== "function") throw new Error("createBroker needs an activity store");
-  // The execution's one clock, started when the request arrives, before any
-  // asynchronous work, so the deadline and the activity entry's expiry share
-  // an origin. `providerCall` is called just before each provider request:
-  // past the deadline it refuses (DeadlineExceeded), otherwise it returns that
-  // request's timeout. No provider request can therefore start later than
-  // startedAt + executionMs, however slow the preparation was.
-  const clockFrom = startedAt => {
-    const deadline = startedAt + limits.executionMs;
-    return () => {
-      const remaining = deadline - now();
-      if (remaining <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before the next provider request`);
-      return Math.min(limits.providerCallMs, remaining);
-    };
+  // Wait for one decision, at most `waitMs`. A decision arriving later is
+  // discarded: the race has settled, and the request is aborted.
+  const decide = async (ask, waitMs) => {
+    const controller = new AbortController();
+    let timer;
+    const late = new Promise((_resolve, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new AuthorizationUnavailable(`no authorization within ${waitMs} ms`));
+      }, waitMs);
+    });
+    try {
+      return await Promise.race([authorize({ ...ask, signal: controller.signal }), late]);
+    } finally {
+      clearTimeout(timer);
+    }
   };
+
   const execute = async ({ caller, token, op, payload }) => {
+    // The execution's one clock, started when the request arrives, before any
+    // asynchronous work, so the deadline and the activity entry's expiry share
+    // an origin. No effect starts later than the deadline, however slow the
+    // preparation or the authorizations were.
     const startedAt = now();
-    const providerCall = clockFrom(startedAt);
+    const deadline = startedAt + limits.executionMs;
     let claims;
     try {
       ({ claims } = await verifyToken(jwks, "execution", token));
@@ -118,6 +158,9 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
 
     // Only the compiler of the token's language may spend it.
     if (caller?.role !== "compiler" || caller.lang !== claims.lang) return refuse("caller-language-mismatch");
+    // The authority it rests on (Policy's provenance.js), checked here too.
+    const badProvenance = provenanceRefusal(claims);
+    if (badProvenance) return refuse(badProvenance);
     // Protected execution switched off (@graffiticode/policy maintenance.js):
     // refused before anything stateful, so the token is not spent and a retry
     // within its lifetime can still run once execution is back on.
@@ -126,6 +169,35 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     const admitted = admission(await protectedSwitch.state(), { uid: claims.sub, connectionId: claims.conn });
     if (!admitted) return refuse(MAINTENANCE, 503);
     if (admitted === "canary") await audit({ ...record, outcome: "allowed", reason: "canary-during-maintenance" });
+    // The token is presented at every authorization up to the deadline, so it
+    // must outlast it (limits.js headroomMs). Refused before it is spent or
+    // any receipt is claimed: the caller retries with a fresh token for the
+    // same operation.
+    if (claims.exp * 1000 - now() < headroomMs(limits)) return refuse("token-expiring", 409);
+
+    // Policy's decision for one step, immediately before its effect. The
+    // wait never passes the deadline; after the decision, the deadline and
+    // the token's expiry are checked again, so a late or stale decision
+    // can't authorize anything. Dispatch steps go in registered order.
+    let lastDispatch = null;
+    const authorizeStep = async (step, purpose) => {
+      const after = purpose === "dispatch" ? lastDispatch : null;
+      if (!isStepRegistered({ op, step, purpose, after })) throw new StepNotRegistered(`${op} has no ${purpose} step ${step} after ${after}`);
+      const waitMs = Math.min(limits.authorizeMs, deadline - now());
+      if (waitMs <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before authorizing ${step}`);
+      const { decisionId } = await decide({ executionToken: token, op, argsDigest: claims.argd, step, purpose, after }, waitMs);
+      if (now() >= deadline) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed while authorizing ${step}`);
+      if (now() >= claims.exp * 1000) throw new AuthorizationDenied("token-expired");
+      if (purpose === "dispatch") lastDispatch = step;
+      await audit({ ...record, event: "execute-step", jti: claims.jti, opid: claims.opid, step, purpose, decisionId, outcome: "allowed" });
+      return decisionId;
+    };
+    // Called by the operation just before each provider request: authorizes
+    // it, then returns its timeout.
+    const providerCall = async step => {
+      await authorizeStep(step, "dispatch");
+      return Math.min(limits.providerCallMs, deadline - now());
+    };
 
     // A write registers as active right after admission, before anything else
     // asynchronous, and under its own attempt key: a second request for the
@@ -135,7 +207,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // failure to register propagates before any claim or provider request.
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (operation?.kind !== "write") {
-      return executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall });
+      return executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep });
     }
     const attempt = `${claims.opid}#${randomUUID()}`;
     await activity.begin(attempt, startedAt + maxExecutionMs(limits));
@@ -151,14 +223,14 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       if (!admission(await protectedSwitch.state({ fresh: true }), { uid: claims.sub, connectionId: claims.conn })) {
         return await refuse(MAINTENANCE, 503);
       }
-      return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall });
+      return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep });
     } finally {
       // Best effort: an entry left behind expires on its own.
       await activity.end(attempt).catch(() => {});
     }
   };
 
-  const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall }) => {
+  const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep }) => {
     // Never reinterpret a token under a different registry than it was minted
     // for.
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
@@ -187,6 +259,14 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     }
 
     if (operation.kind !== "write") {
+      // A local signature is an effect: authorized immediately before it.
+      try {
+        await authorizeStep("sign", "sign");
+      } catch (e) {
+        const reason = authorizationReason(e);
+        if (!reason) throw e;
+        return refuse(reason, e instanceof AuthorizationDenied ? 403 : 503);
+      }
       const result = await operation.run(payload, credential, { onStep: async () => {}, providerCall });
       await audit({ ...record, outcome: "allowed" });
       return { status: "succeeded", result };
@@ -202,10 +282,10 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       registryVersion: claims.rv,
       argsDigest: digest,
     };
-    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall });
+    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep });
   };
 
-  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall }) => {
+  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep }) => {
     // A failure here (before any provider request) propagates: no claim, no
     // effects.
     const claimed = await receipts.claim(claims.opid, binding);
@@ -213,10 +293,19 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       const recorded = claimed.claim.binding;
       if (recorded.registryVersion !== binding.registryVersion) return refuse("receipt-registry-version-mismatch", 409);
       if (!sameBinding(recorded, binding)) return refuse("operation-id-reused", 409);
+      // Returning a recorded outcome is an effect too: authorized first. A
+      // refusal leaves the receipt as it is.
+      try {
+        await authorizeStep("receipt", "replay");
+      } catch (e) {
+        const reason = authorizationReason(e);
+        if (!reason) throw e;
+        return refuse(reason, e instanceof AuthorizationDenied ? 403 : 503);
+      }
       const outcome = await receipts.getOutcome(claims.opid);
       await audit({ ...record, outcome: "replayed", reason: outcome ? outcome.status : "uncertain" });
       return outcome
-        ? { status: outcome.status, result: outcome.result, steps: outcome.steps, replayed: true }
+        ? { status: outcome.status, result: outcome.result, steps: outcome.steps, ...(outcome.reason ? { reason: outcome.reason } : {}), replayed: true }
         : { status: "uncertain", steps: await receipts.getSteps(claims.opid), replayed: true };
     }
 
@@ -234,6 +323,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     let status = "failed";
     let result;
     let error;
+    let reason;
     try {
       result = await operation.run(payload, credential, { onStep, providerCall });
       status = "succeeded";
@@ -244,9 +334,12 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
         status = "uncertain";
         steps.push(e.step);
         error = e.message;
-      } else if (e instanceof ProviderRejected || e instanceof DeadlineExceeded) {
+      } else if (e instanceof ProviderRejected || authorizationReason(e)) {
+        // Definite: the provider refused, or the next request was never sent
+        // (deadline, or no authorization for it).
         status = steps.length > 0 ? "partial" : "failed";
         error = String(e?.message || e);
+        reason = authorizationReason(e) ?? undefined;
       } else {
         status = "uncertain";
         error = String(e?.message || e);
@@ -256,12 +349,14 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // with the persisted steps, and the claim prevents any re-execution.
     let recorded = true;
     try {
-      await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null });
+      // `reason` only when there is one: Firestore refuses undefined fields.
+      await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null, ...(reason ? { reason } : {}) });
     } catch {
       recorded = false;
     }
-    await audit({ ...record, outcome: status === "succeeded" ? "allowed" : status, ...(recorded ? {} : { reason: "outcome-not-recorded" }) });
-    return error ? { status, steps, error } : { status, steps, result };
+    await audit({ ...record, outcome: status === "succeeded" ? "allowed" : status, ...(recorded ? (reason ? { reason } : {}) : { reason: "outcome-not-recorded" }) });
+    if (!error) return { status, steps, result };
+    return reason ? { status, steps, error, reason } : { status, steps, error };
   };
 
   // For the operator and candidate checks: on or off, and why.

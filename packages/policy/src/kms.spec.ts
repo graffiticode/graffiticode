@@ -63,7 +63,7 @@ describe("KMS signer", () => {
     for (const [name, claims] of [
       ["session", SESSION_CLAIMS],
       ["invocation", { sub: "u", conn: "conn-1", inv: "inv-1", seq: 0, pub: "pub-1" }],
-      ["execution", { sub: "u", own: "u", conn: "conn-1", backend: "learnosity", lang: "0176", fn: "init", op: "learnosity.sign-items-preview", sid: "s", opid: "o", argd: "d", rv: 1 }]
+      ["execution", { sub: "u", own: "u", conn: "conn-1", backend: "learnosity", lang: "0176", fn: "init", op: "learnosity.sign-items-preview", sid: "s", opid: "o", argd: "d", rv: 1, prv: "user" }]
     ]) {
       const fromKms = await issueToken(kmsSigner, name, claims);
       const fromLocal = await issueToken(localSigner, name, claims);

@@ -2,7 +2,7 @@
 // execution token, a fresh switch read, the request's binding to the token,
 // provenance whatever the token schema tolerates, and the registered step.
 // Its live-state checks are mint's, compared row by row in live.spec.ts.
-import { generateKeyPair, exportJWK } from "jose";
+import { generateKeyPair, exportJWK, importJWK, SignJWT } from "jose";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
   createPolicy,
@@ -17,7 +17,8 @@ import {
   grantIdFor,
   createAudit,
   createPseudonymizer,
-  createProtectedSwitch
+  createProtectedSwitch,
+  ISSUER
 } from "./index.js";
 
 const OWNER = "0xowneruid";
@@ -164,12 +165,19 @@ describe("authorize-execution", () => {
     await denied(ask({ executionToken: await token({ op: WRITE }), op: WRITE, step: "questions", purpose: "dispatch" }), "operation-not-allowed");
   });
 
-  it("refuses missing or invalid provenance, which the token schema still accepts", async () => {
-    const { prv, ...noProvenance } = EXEC;
-    await denied(ask({ executionToken: await issueToken(signer, "execution", noProvenance) }), "bad-provenance");
+  it("refuses invalid provenance, and a token without any", async () => {
     await denied(ask({ executionToken: await token({ prv: "admin" }) }), "bad-provenance");
     await denied(ask({ executionToken: await token({ prv: "publication" }) }), "bad-provenance");
     await denied(ask({ executionToken: await token({ pub: "pub-1" }) }), "bad-provenance");
+    // No `prv` at all: the execution profile requires it, so the token fails
+    // verification before provenance is even read.
+    const { prv, ...noProvenance } = EXEC;
+    const now = Math.floor(Date.now() / 1000);
+    const handmade = await new SignJWT({ ...noProvenance })
+      .setProtectedHeader({ alg: "ES256", kid: "k1", typ: "gc-exec+jwt" })
+      .setIssuer(ISSUER).setAudience("urn:graffiticode:broker").setIssuedAt(now).setExpirationTime(now + 60).setJti("j")
+      .sign(await importJWK(privateJwk, "ES256"));
+    await denied(ask({ executionToken: handmade }), "bad-token");
   });
 
   describe("registered steps", () => {

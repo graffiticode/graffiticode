@@ -1,4 +1,4 @@
-import { generateKeyPair, exportJWK } from "jose";
+import { generateKeyPair, exportJWK, SignJWT } from "jose";
 import {
   SYSTEM_PREVIEW_SUBJECT,
   sessionProvenance,
@@ -7,7 +7,8 @@ import {
   issueToken,
   verifyToken,
   createAudit,
-  createPseudonymizer
+  createPseudonymizer,
+  ISSUER
 } from "./index.js";
 
 const USER = "0xuseruid";
@@ -61,8 +62,10 @@ describe("execution token provenance claims", () => {
   };
   let signer;
   let jwks;
+  let privateKey;
   beforeEach(async () => {
     const pair = await generateKeyPair("ES256", { extractable: true });
+    privateKey = pair.privateKey;
     signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
     jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
   });
@@ -77,11 +80,16 @@ describe("execution token provenance claims", () => {
     await expect(issueToken(signer, "execution", { ...EXEC, prv: "publication", pub: 7 })).rejects.toThrow(/pub/);
   });
 
-  // Until Broker requires provenance (W2 PR 5), a token from a Policy that
-  // predates it still verifies.
-  it("still accepts a token without prv for now", async () => {
-    const token = await issueToken(signer, "execution", EXEC);
-    expect((await verifyToken(jwks, "execution", token)).claims.prv).toBeUndefined();
+  // Broker relies on provenance (W2 PR 5): a token without it is neither
+  // issued nor verified.
+  it("requires prv", async () => {
+    await expect(issueToken(signer, "execution", EXEC)).rejects.toThrow(/prv/);
+    const now = Math.floor(Date.now() / 1000);
+    const handmade = await new SignJWT({ ...EXEC })
+      .setProtectedHeader({ alg: "ES256", kid: "k1", typ: "gc-exec+jwt" })
+      .setIssuer(ISSUER).setAudience("urn:graffiticode:broker").setIssuedAt(now).setExpirationTime(now + 60).setJti("j")
+      .sign(privateKey);
+    await expect(verifyToken(jwks, "execution", handmade)).rejects.toThrow(/prv/);
   });
 });
 

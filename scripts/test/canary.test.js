@@ -6,7 +6,7 @@ import {
   createAudit, createPseudonymizer, createProtectedSwitch, PolicyDenied
 } from "@graffiticode/policy";
 import {
-  createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused
+  createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused, localAuthorizer
 } from "@graffiticode/broker";
 import { runCanary, hasSignedRequest } from "../lib/canary.js";
 
@@ -55,7 +55,8 @@ const world = async ({ tweak = {} } = {}) => {
     secrets: createMemorySecretStore({ [CONN]: { ownerUid: CANARY, backend: "learnosity", key: "k", secret: "s" } }),
     once: tweak.noReplayProtection ? { claim: async () => true } : createMemoryOnceStore(),
     receipts: tweak.noReceipts ? { claim: async () => ({ created: true }), putStep: async () => {}, getSteps: async () => [], getOutcome: async () => null, putOutcome: async () => {} } : createMemoryReceiptStore(),
-    activity: createMemoryActivityStore()
+    activity: createMemoryActivityStore(),
+    authorize: localAuthorizer(policy)
   });
 
   const callerOf = (headers, urn) => {

@@ -3,8 +3,7 @@
 // Both must give the same answer for the same authority and live state, so
 // the two can never drift. The one difference is the provenance check's
 // name: a session whose claims don't form a provenance is `bad-session`, an
-// execution token's `bad-provenance` (including a token with no `prv` at
-// all, which the shared token schema still tolerates). Each row hand-signs the authority's claims, so it tests
+// execution token's `bad-provenance`. Each row hand-signs the authority's claims, so it tests
 // exactly the live state it names and nothing a snapshot would have filtered.
 import { generateKeyPair, exportJWK } from "jose";
 import { REGISTRY_VERSION, operationSteps } from "@graffiticode/common/protected-registry";
@@ -105,13 +104,14 @@ const SYSTEM = { sub: SYSTEM_PREVIEW_SUBJECT, own: SYSTEM_OWNER, conn: "conn-sys
 
 // The execution token mint would issue for these session claims: `sys`/`pub`
 // become `prv` (and `pub`). A `sys` that isn't `true` has no execution
-// counterpart, so that token carries no `prv` at all.
+// counterpart, so that token's `prv` names no provenance. (A token with no
+// `prv` at all can't be issued or verified; authorize.spec.ts covers it.)
 const toExecution = (claims, fn) => {
   const { sys, pub, inv, stg, ...rest } = claims;
-  const prv = sys === true ? "system" : sys !== undefined ? undefined : pub ? "publication" : "user";
+  const prv = sys === true ? "system" : sys !== undefined ? "unknown" : pub ? "publication" : "user";
   return {
     ...rest,
-    ...(prv ? { prv } : {}),
+    prv,
     ...(pub !== undefined ? { pub } : {}),
     fn,
     op: OPS[fn],

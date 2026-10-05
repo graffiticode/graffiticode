@@ -18,6 +18,7 @@ import {
   createMemoryOnceStore,
   createMemoryReceiptStore,
   createMemoryActivityStore,
+  localAuthorizer,
   createMemorySecretStore,
   argsDigest
 } from "./index.js";
@@ -93,7 +94,8 @@ beforeEach(async () => {
     secrets: (secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "k", secret: "s" } })),
     once: createMemoryOnceStore(),
     receipts: createMemoryReceiptStore(),
-    activity: createMemoryActivityStore()
+    activity: createMemoryActivityStore(),
+    authorize: localAuthorizer(policy)
   });
   const identifyCaller = createCallerIdentity({
     verifyIdToken,
