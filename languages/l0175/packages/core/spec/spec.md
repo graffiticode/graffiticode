@@ -31,7 +31,6 @@ A program is **one flat builder chain** ending in a single `{}..`:
 
 ```
 target c1-t4
-title "Optional assessment title"
 passage "Heading"
 type literary
 lines [ "First paragraph…" "Second paragraph…" ]   /* one entry per paragraph */
@@ -48,7 +47,7 @@ Three function roles make up the idiom:
   `status`, `text`, `type` appear on several forms — and the element wrapper validates them in
   context.
 - **Collection builders** (`claims`, `evidence`, `outcomes`, `rubric`) and the passage forms
-  (`passage`, `type`, `lines`, `title`) are arity-2 and thread **one shared continuation**, so
+  (`passage`, `type`, `lines`) are arity-2 and thread **one shared continuation**, so
   the whole top level is a single chain closed by **one** trailing `{}`.
 - **Element wrappers** (`claim`, `source`, `outcome`, `band`) are arity-1; each element's own
   attribute chain is terminated by its **own** `{}` inside the list.
@@ -67,7 +66,6 @@ Free text (`text`, `rationale`, `subject`, `stem`, the passage heading) and id l
 | Form | Arity | Takes | Description |
 | :--- | :---: | :--- | :--- |
 | `target` | 2 | tag | Top level: the learning target — `c1-t4` (R&E literary, RL), `c1-t11` (R&E informational, RI), `c1-t9` (Central Ideas informational, RI-1/RI-2), `c1-t2` (Central Ideas literary, RL-1/RL-2), `c1-t1` (Key Details literary, RL-1 alone), `c1-t8` (Key Details informational, RI-1/RI-7), or `c1-t10` (Word Meanings informational, RI-4/L-4). Selects the valid dimensions/standards, distractor taxonomy, DOK, item types, and stem catalog. Always author one; defaults to `c1-t4` if omitted. |
-| `title` | 2 | string | Optional assessment title; echoed on the composed output. |
 | `grade` | 2 | number | Optional top-level reading-level target (e.g. `grade 5`). Defaults to the target/guideline's grade (5 for `c1-t4`/`c1-t11`); echoed on the output. The compiler estimates the passage's reading level and warns when it reads above this grade. |
 | `passage` | 2 | string | Opens the stimulus; the value is the passage **heading**. Chains with `type` and `lines`. |
 | `type` | 2 | tag | On the passage: `literary` \| `informational`. On an `outcome`: the item type `ebsr` \| `hot-text` \| `short-text` \| `multiple-choice` \| `multi-select`. |
@@ -181,7 +179,6 @@ An EBSR item about a character's motivation, plus a short-text item with an auth
 
 ```
 target c1-t4
-title "The Tide Pool"
 passage "The Tide Pool"
 type literary
 lines [

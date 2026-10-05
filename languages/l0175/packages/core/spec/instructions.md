@@ -174,7 +174,6 @@ Quote free text (`text`, `rationale`, `subject`, passage heading) and id labels 
   focus word with a real multi-word definition (no candidate words), the compiler falls back to
   making **every** content word clickable — list the candidate words to avoid that. Candidates not
   in the focus word's paragraph are warned and dropped.
-- A top-level **`title`** attribute (before `passage`) names the assessment; it is echoed on the output.
 
 ## Stems (Appropriate Stems)
 

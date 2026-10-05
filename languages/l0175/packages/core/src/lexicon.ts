@@ -84,7 +84,6 @@ const additions = {
   focus: fn2("FOCUS"), // optional forced correct-claim id
   passage: fn2("PASSAGE"), // passage heading
   lines: fn2("LINES"), // passage line strings (auto-indexed)
-  title: fn2("TITLE"),
   target: fn2("TARGET"), // top-level SBAC learning target selector (see targets.ts)
   grade: fn2("GRADE"), // optional top-level grade override; defaults to the target's grade
   stem: fn2("STEM"),

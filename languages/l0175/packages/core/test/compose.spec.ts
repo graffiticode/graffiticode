@@ -344,20 +344,35 @@ describe("compose — stems are authored verbatim", () => {
 });
 
 describe("compose — vocabulary", () => {
-  it("authors a rubric via band and echoes a top-level title", async () => {
-    const src = `title "My Assessment"
-      ${PASSAGE}
+  it("authors a rubric via band", async () => {
+    const src = `${PASSAGE}
       claims [ claim id "c1" status supported dimension character text "correct inference here ok" cites ["e1"] {} ]
       evidence [ source id "e1" line 1 status directly-supports supports ["c1"] {} ]
       outcomes [ outcome id "q1" type short-text dimension character subject "x" focus "c1"
         stem "What inference can be made about the character? Explain using key details."
         rubric [ band score 2 descriptor "Full." {}, band score 0 descriptor "None." {} ] {} ] {}..`;
     const { data } = await compile(src);
-    expect(data.title).toBe("My Assessment");
     expect(data.rubric).toEqual([
       { score: 2, descriptor: "Full." },
       { score: 0, descriptor: "None." },
     ]);
+  });
+
+  it("does not offer title in the lexicon (users never see it)", () => {
+    expect((lexicon as any).title).toBeUndefined();
+  });
+
+  it("still echoes a title on programs that already carry one", async () => {
+    const withTitle = { ...lexicon, title: { tk: 1, name: "TITLE", cls: "function", length: 2, arity: 2 } };
+    const src = `title "My Assessment"
+      ${PASSAGE}
+      claims [ claim id "c1" status supported dimension character text "correct inference here ok" cites ["e1"] {} ]
+      evidence [ source id "e1" line 1 status directly-supports supports ["c1"] {} ]
+      outcomes [ outcome id "q1" type short-text dimension character subject "x" focus "c1"
+        stem "What inference can be made about the character? Explain using key details." {} ] {}..`;
+    const ast = await parser.parse("0175", src, withTitle);
+    const data: any = await new Promise((resolve) => compiler.compile(ast, {}, {}, (_err: any, d: any) => resolve(d)));
+    expect(data.title).toBe("My Assessment");
   });
 });
 

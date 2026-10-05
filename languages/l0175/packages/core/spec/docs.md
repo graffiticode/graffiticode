@@ -99,12 +99,11 @@ but author their options differently — **T2**/**T9** (Central Ideas) significa
 | **outcome** | 1 | `outcome id "q1" type ebsr dimension character focus "c1" stem "..." ... {}` | One question to compose |
 | **rubric** | 2 | `rubric [ band ... {} ]` | Short-text scoring bands (on an outcome) |
 | **band** | 1 | `band score 2 descriptor "..." {}` | One rubric row |
-| **title** | 2 | `title "..."` | Optional assessment title (top level) |
 | **grade** | 2 | `grade 5` | Optional reading-level target (top level); defaults to the guideline/target's grade |
 
 Attribute functions (arity-2, merge one key into the element's record):
 
-- **top level** — `target` (required: `c1-t4` | `c1-t11` | `c1-t2` | `c1-t9` | `c1-t1` | `c1-t8` | `c1-t10`), `title` (optional), `grade` (optional reading-level target; defaults to the target's grade), `words` (c1-t10 only — a list of `word`s)
+- **top level** — `target` (required: `c1-t4` | `c1-t11` | `c1-t2` | `c1-t9` | `c1-t1` | `c1-t8` | `c1-t10`), `grade` (optional reading-level target; defaults to the target's grade), `words` (c1-t10 only — a list of `word`s)
 - **word / meaning** (c1-t10) — `word` has `id`, `text`, `line`/`quote`, `meanings`; `meaning` has `id`, `text`, `status` (`correct` | `distractor`), `error-type`* + `rationale`* on distractors
 - **identity / refs** — `id`, `cites` (claim→evidence ids), `supports` (evidence→claim ids), `focus` (outcome→correct claim id, or a list on `multi-select`), `targets` (distractor→outcome ids)
 - **claim** — `status`, `dimension`, `text`, `error-type`*, `rationale`*, `targets`*, `plausibility` (0–1 distractor temptingness override), `subject`, `standard`, `dok`
