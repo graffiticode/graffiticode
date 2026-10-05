@@ -67,7 +67,8 @@ const invoke = (over = {}) => policy.allocateInvocation({
   inputDigest: digest("input"),
   ...over
 });
-const snap = async (over = {}) => policy.snapshot({
+// `over` replaces any snapshot field; user and connectionId also sign the invocation.
+const snap = async (over: { user?: { uid: string }, connectionId?: string, [field: string]: unknown } = {}) => policy.snapshot({
   caller: L0176,
   user: { uid: OWNER },
   lang: "0176",
@@ -118,8 +119,7 @@ const EXEC_CLAIMS = {
 describe("token profiles", () => {
   // A token signed with the right key but built by hand, to reach the checks
   // a correct signer never fails.
-  /** @param {{ header?: object, claims?: object, iat?: number, exp?: number, jti?: string | null }} [options] */
-  const handmade = async ({ header = {}, claims = SESSION_CLAIMS, iat, exp, jti = "j" } = {}) => {
+  const handmade = async ({ header = {}, claims = SESSION_CLAIMS, iat, exp, jti = "j" }: { header?: object, claims?: object, iat?: number, exp?: number, jti?: string | null } = {}) => {
     const now = Math.floor(Date.now() / 1000);
     const jwt = new SignJWT({ ...claims })
       .setProtectedHeader({ alg: "ES256", kid: "k1", typ: "gc-session+jwt", ...header })
@@ -130,8 +130,7 @@ describe("token profiles", () => {
   };
 
   it("issues every profile with its required claims, and verifies it", async () => {
-    /** @type {Array<[keyof typeof PROFILES, object]>} */
-    const cases = [["invocation", INVOCATION_CLAIMS], ["session", SESSION_CLAIMS], ["execution", EXEC_CLAIMS]];
+    const cases: Array<[keyof typeof PROFILES, object]> = [["invocation", INVOCATION_CLAIMS], ["session", SESSION_CLAIMS], ["execution", EXEC_CLAIMS]];
     for (const [name, claims] of cases) {
       const { claims: verified, header } = await verifyToken(jwks, name, await issueToken(signer, name, claims));
       expect(header).toEqual({ alg: "ES256", kid: "k1", typ: PROFILES[name].typ });
