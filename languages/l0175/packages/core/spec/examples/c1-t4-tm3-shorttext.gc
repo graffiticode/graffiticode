@@ -26,5 +26,5 @@ evidence [
   source id "e7" line 7 status irrelevant supports [] quote "The waves pushed a ribbon of seaweed against her fingers." {},
   source id "e8" line 8 status irrelevant supports [] quote "Her sandwich sat untouched on the blanket by the cooler." {}
 ]
-outcomes [ outcome id "q1" type short-text task-model tm3 dimension character subject "Mara" standard rl-1 focus "c1" stem "What inference can be made about Mara? Explain using key details from the passage to support your answer." {} ]
+outcomes [ outcome id "q1" dok r-dok3 type short-text task-model tm3 dimension character subject "Mara" standard rl-1 focus "c1" stem "What inference can be made about Mara? Explain using key details from the passage to support your answer." {} ]
 {}..

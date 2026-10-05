@@ -16,5 +16,5 @@ evidence [
   source id "e7" line 7 status directly-supports supports ["c1"] quote "Then a teacher asked to hang Tessa's drawing in the hall." {},
   source id "e8" line 8 status directly-supports supports ["c1"] quote "Tessa walked home taller than she had the year before." {}
 ]
-outcomes [ outcome id "q1" type short-text task-model tm5 dimension summary subject "the fair" focus "c1" stem "Summarize what happens after the blue ribbon goes to somebody else. Use key details from the passage in your summary." {} ]
+outcomes [ outcome id "q1" dok r-dok3 type short-text task-model tm5 dimension summary subject "the fair" focus "c1" stem "Summarize what happens after the blue ribbon goes to somebody else. Use key details from the passage in your summary." {} ]
 {}..

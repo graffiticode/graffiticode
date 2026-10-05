@@ -20,5 +20,5 @@ evidence [
   source id "e1" line 2 status directly-supports supports ["s1"] quote "Every bee in the colony has a job that helps the whole group survive." {},
   source id "e2" line 8 status directly-supports supports ["s2"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {}
 ]
-outcomes [ outcome id "q1" type multi-select task-model tm2 dimension summary subject "the colony" standard ri-2 focus ["s1" "s2"] stem "Choose the two sentences that should be included in a summary of the passage. Choose two answers." {} ]
+outcomes [ outcome id "q1" dok r-dok2 type multi-select task-model tm2 dimension summary subject "the colony" standard ri-2 focus ["s1" "s2"] stem "Choose the two sentences that should be included in a summary of the passage. Choose two answers." {} ]
 {}..

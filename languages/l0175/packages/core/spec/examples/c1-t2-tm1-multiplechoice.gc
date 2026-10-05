@@ -25,5 +25,5 @@ evidence [
   source id "e2" line 2 status irrelevant supports [] quote "Every spring she came home with nothing." {},
   source id "e4" line 4 status irrelevant supports [] quote "Her grandmother set a fresh pencil on the kitchen table." {}
 ]
-outcomes [ outcome id "q1" type multiple-choice task-model tm1 dimension theme subject "Tessa" focus "c1" stem "Which sentence best tells the theme of the passage?" {} ]
+outcomes [ outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension theme subject "Tessa" focus "c1" stem "Which sentence best tells the theme of the passage?" {} ]
 {}..

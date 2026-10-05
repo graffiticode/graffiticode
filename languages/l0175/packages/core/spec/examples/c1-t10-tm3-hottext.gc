@@ -9,5 +9,5 @@ words [
   word id "w3" text "water" line 1 {},
   word id "w4" text "hills" line 1 {}
 ]
-outcomes [ outcome id "q1" type hot-text task-model tm3 dimension word-meaning subject "aqueduct" standard l-4a focus "w1" stem "Click the word in the paragraph that means a channel built to carry water across the land." {} ]
+outcomes [ outcome id "q1" dok r-dok2 type hot-text task-model tm3 dimension word-meaning subject "aqueduct" standard l-4a focus "w1" stem "Click the word in the paragraph that means a channel built to carry water across the land." {} ]
 {}..

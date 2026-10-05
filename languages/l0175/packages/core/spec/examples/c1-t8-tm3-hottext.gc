@@ -21,5 +21,5 @@ evidence [
   source id "e7" line 7 status irrelevant supports [] quote "In the city, people filled their jugs at open fountains." {},
   source id "e8" line 8 status irrelevant supports [] quote "Workers cleaned the channels often to keep the water fresh." {}
 ]
-outcomes [ outcome id "q1" type hot-text task-model tm3 dimension supporting-evidence subject "the aqueducts" standard ri-7 focus "c1" stem "Roman aqueducts carried water to the city from far away. Click the sentence(s) from the passage that support this idea." {} ]
+outcomes [ outcome id "q1" dok r-dok2 type hot-text task-model tm3 dimension supporting-evidence subject "the aqueducts" standard ri-7 focus "c1" stem "Roman aqueducts carried water to the city from far away. Click the sentence(s) from the passage that support this idea." {} ]
 {}..

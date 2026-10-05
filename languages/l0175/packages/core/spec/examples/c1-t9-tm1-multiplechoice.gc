@@ -19,5 +19,5 @@ evidence [
   source id "e1" line 2 status directly-supports supports ["c1"] quote "Every bee in the colony has a job that helps the whole group survive." {},
   source id "e2" line 8 status directly-supports supports ["c1"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {}
 ]
-outcomes [ outcome id "q1" type multiple-choice task-model tm1 dimension central-idea subject "the colony" standard ri-2 focus "c1" stem "Which sentence best states the central idea of the passage?" {} ]
+outcomes [ outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension central-idea subject "the colony" standard ri-2 focus "c1" stem "Which sentence best states the central idea of the passage?" {} ]
 {}..

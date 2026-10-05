@@ -149,8 +149,9 @@ Quote free text (`text`, `rationale`, `subject`, passage heading) and id labels 
   (`ebsr` | `hot-text` | `short-text` | `multiple-choice` | `multi-select`), `dimension`, `focus`
   (required — the id of the supported correct claim; on `multi-select` a **list** of ids = the
   correct set), `stem` (required — the Part A / single-question stem / short-text prompt, authored
-  from `stems.md`), and on EBSR `stem-b` (required — the Part B stem). Optional: `subject`,
-  `standard`, `dok`, `task-model` (`tm1`..`tm5` — the per-target task model; the compiler resolves
+  from `stems.md`), and on EBSR `stem-b` (required — the Part B stem), and `dok` (required — **always author it**:
+  R&E (c1-t4, c1-t11) → `r-dok3`; T2/T9 selected-response → `r-dok2`, the written response (`short-text`) → `r-dok3`; T1, T8 & T10 → `r-dok2`). Optional: `subject`,
+  `standard`, `task-model` (`tm1`..`tm5` — the per-target task model; the compiler resolves
   it to the item type for the program's `target` and hard-errors if it disagrees with `type`, so it
   both documents and guards intent — see "Task models are per-target" below), and `rubric`
   (short-text only — a list of `band score <n> descriptor "…"` elements; defaults to a 0/1/2 rubric
@@ -373,7 +374,7 @@ targets.
 - claim `status`: `supported`, `distractor` · source `status`: `directly-supports`, `supports-wrong-claim`, `irrelevant` · meaning `status` (c1-t10): `correct`, `distractor`
 - `error-type` (**c1-t4 / c1-t11**): `misreads-detail`, `erroneous-inference`, `faulty-reasoning` · (**c1-t2 / c1-t9**): `too-narrow`, `too-broad`, `misreads-detail`, `insignificant` · (**c1-t1 / c1-t8**): none — wrong answers are non-supporting `source`s · (**c1-t10**): `other-meaning`, `misinterprets`, `wrong-context`
 - `standard` — primary companions (normally inferred from the dimension; author one only to override): (**c1-t4**) `rl-1` + `rl-2` (theme/topic) / `rl-3` / `rl-6` · (**c1-t11**) `ri-1` + `ri-3` / `ri-6` / `ri-7` / `ri-8` · (**c1-t2**) `rl-1` + `rl-2` (every dimension) · (**c1-t9**) `ri-1` + `ri-2` · (**c1-t1**) `rl-1` **alone** (no companion) · (**c1-t8**) `ri-1` + `ri-7` · (**c1-t10**) `ri-4` + `l-4` / `l-4a` / `l-4b` / `l-4c` / `l-5c`. The **full CCSS Grade-5 strand for the target's text type is accepted**: any `rl-1`–`rl-7` / `rl-9` on a literary target (c1-t4/c1-t2/c1-t1), any `ri-1`–`ri-9` on an informational target (c1-t11/t9/t8/t10), plus the `l-4` / `l-5` families on c1-t10. (`rl-2` is the theme standard — valid; there is no `rl-8`.)
-- `dok`: `r-dok1`, `r-dok2`, `r-dok3` (R&E items are `r-dok3`; T2/T9 selected-response is `r-dok2`, the written response `r-dok3`; T1, T8 & T10 are `r-dok2`)
+- `dok`: `r-dok1`, `r-dok2`, `r-dok3` — **required on every outcome** (R&E (c1-t4, c1-t11) → `r-dok3`; T2/T9 selected-response → `r-dok2`, the written response (`short-text`) → `r-dok3`; T1, T8 & T10 → `r-dok2`)
 
 ## What composition does
 
@@ -436,7 +437,7 @@ evidence [
   source id "e9" line 3 quote "The tide crept in and filled the pool to its rim." status irrelevant supports [] {}
 ]
 outcomes [
-  outcome id "q1" type ebsr task-model tm1 dimension character subject "Mara" standard rl-1 focus "c1"
+  outcome id "q1" dok r-dok3 type ebsr task-model tm1 dimension character subject "Mara" standard rl-1 focus "c1"
     stem "Which of these inferences about Mara is supported by the passage?"
     stem-b "Which sentence(s) from the passage best support your answer in Part A?" {}
 ]
@@ -495,7 +496,7 @@ evidence [
   source id "e4" line 4 status irrelevant supports [] quote "At the fair, the blue ribbon went to somebody else." {}
 ]
 outcomes [
-  outcome id "q1" type multiple-choice task-model tm1 dimension theme subject "Tessa" focus "c1"
+  outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension theme subject "Tessa" focus "c1"
     stem "Which sentence best tells the theme of the passage?" {}
 ]
 {}..
@@ -533,7 +534,7 @@ claims [
 ]
 evidence [ source id "e1" line 1 status directly-supports supports ["c1"] {} ]
 outcomes [
-  outcome id "q1" type multiple-choice task-model tm1 dimension central-idea subject "the colony" standard ri-2 focus "c1"
+  outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension central-idea subject "the colony" standard ri-2 focus "c1"
     stem "Which sentence best shows the main idea of the passage?" {}
 ]
 {}..
@@ -566,7 +567,7 @@ evidence [
   source id "e7" line 1 quote "Her arm ached by the fourth nail, but she did not quit." status irrelevant supports [] rationale "Shows persistence once she had started, not that she started unasked." {}
 ]
 outcomes [
-  outcome id "q1" type multiple-choice task-model tm1 dimension supporting-evidence subject "Nina" focus "c1"
+  outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension supporting-evidence subject "Nina" focus "c1"
     stem "The reader can conclude that Nina takes care of a problem on her own, without being told to. Which line from the passage best supports this conclusion?" {}
 ]
 {}..
@@ -607,7 +608,7 @@ evidence [
   source id "e7" line 1 quote "People in Rome filled their jugs at open fountains." status irrelevant supports [] rationale "Describes how people used the water; unrelated to how the system was designed." {}
 ]
 outcomes [
-  outcome id "q1" type multiple-choice task-model tm1 dimension supporting-evidence subject "the aqueducts" standard ri-7 focus "c1"
+  outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension supporting-evidence subject "the aqueducts" standard ri-7 focus "c1"
     stem "The reader can conclude that Roman engineers planned the aqueducts carefully. Which detail from the passage best supports this conclusion?" {}
 ]
 {}..
@@ -640,7 +641,7 @@ words [
     ] {}
 ]
 outcomes [
-  outcome id "q1" type multiple-choice task-model tm1 dimension word-meaning subject "aqueduct" standard l-4a focus "w1"
+  outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension word-meaning subject "aqueduct" standard l-4a focus "w1"
     stem "Read the sentence: \"The aqueduct carried water across long distances.\" What does the word aqueduct most likely mean?" {}
 ]
 {}..
@@ -653,7 +654,7 @@ rest are distractor candidate words; put only the instruction + definition in th
 ```
 words [ word id "w1" text "aqueduct" line 1 {} word id "w2" text "engineers" {} word id "w3" text "water" {} ]
 outcomes [
-  outcome id "q1" type hot-text dimension word-meaning subject "aqueduct" standard l-4c focus "w1"
+  outcome id "q1" dok r-dok2 type hot-text dimension word-meaning subject "aqueduct" standard l-4c focus "w1"
     stem "Read the paragraph below. Click the word that means a channel that carries water." {}
 ]
 ```

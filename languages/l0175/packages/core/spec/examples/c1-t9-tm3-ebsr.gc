@@ -26,5 +26,5 @@ evidence [
   source id "e7" line 7 status irrelevant supports [] quote "In winter, the bees cluster together and beat their wings to stay warm." {},
   source id "e8" line 1 status irrelevant supports [] quote "Honeybees live together in large groups called colonies." {}
 ]
-outcomes [ outcome id "q1" type ebsr task-model tm3 dimension central-idea standard ri-2 focus "c1" stem "Which of these best states the central idea of the passage?" stem-b "Which detail from the passage best supports the central idea you chose in Part A?" {} ]
+outcomes [ outcome id "q1" dok r-dok2 type ebsr task-model tm3 dimension central-idea standard ri-2 focus "c1" stem "Which of these best states the central idea of the passage?" stem-b "Which detail from the passage best supports the central idea you chose in Part A?" {} ]
 {}..

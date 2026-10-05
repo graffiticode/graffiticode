@@ -16,5 +16,5 @@ evidence [
   source id "e2" line 8 status directly-supports supports ["c1"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {},
   source id "e3" line 5 status directly-supports supports ["c1"] quote "The queen lays the eggs that become the colony's next generation." {}
 ]
-outcomes [ outcome id "q1" type hot-text task-model tm4 dimension central-idea standard ri-2 focus "c1" stem "Click on the sentence(s) that best show the central idea of the passage." {} ]
+outcomes [ outcome id "q1" dok r-dok2 type hot-text task-model tm4 dimension central-idea standard ri-2 focus "c1" stem "Click on the sentence(s) that best show the central idea of the passage." {} ]
 {}..

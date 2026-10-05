@@ -24,5 +24,5 @@ evidence [
   source id "e4" line 4 status irrelevant supports [] quote "Her grandmother set a fresh pencil on the kitchen table." {},
   source id "e6" line 6 status irrelevant supports [] quote "At the fair, the blue ribbon went to somebody else." {}
 ]
-outcomes [ outcome id "q1" type multi-select task-model tm2 dimension summary subject "the fair" focus ["s1" "s2"] stem "Choose two sentences that should be included in a summary of the story. Select two answers." {} ]
+outcomes [ outcome id "q1" dok r-dok2 type multi-select task-model tm2 dimension summary subject "the fair" focus ["s1" "s2"] stem "Choose two sentences that should be included in a summary of the story. Select two answers." {} ]
 {}..

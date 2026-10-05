@@ -70,7 +70,7 @@ evidence [
   source id "e8" line 8 quote "The tide crept in and filled the pool to its rim." status irrelevant supports [] {}
 ]
 outcomes [
-  outcome id "q1" type ebsr task-model tm1 dimension character subject "Mara" standard rl-1 focus "c1"
+  outcome id "q1" dok r-dok3 type ebsr task-model tm1 dimension character subject "Mara" standard rl-1 focus "c1"
     stem "Which of these inferences about Mara is supported by the passage?"
     stem-b "Which sentence(s) from the passage best support your answer in Part A?" {}
 ]
@@ -96,7 +96,7 @@ but author their options differently — **T2**/**T9** (Central Ideas) significa
 | **evidence** | 2 | `evidence [ source ... {} ]` | The evidence sources |
 | **source** | 1 | `source id "e1" line 1 status directly-supports ... {}` | One passage line tagged by support role |
 | **outcomes** | 2 | `outcomes [ outcome ... {} ]` | The intended items (authored first) |
-| **outcome** | 1 | `outcome id "q1" type ebsr dimension character focus "c1" stem "..." ... {}` | One question to compose |
+| **outcome** | 1 | `outcome id "q1" dok r-dok3 type ebsr dimension character focus "c1" stem "..." ... {}` | One question to compose |
 | **rubric** | 2 | `rubric [ band ... {} ]` | Short-text scoring bands (on an outcome) |
 | **band** | 1 | `band score 2 descriptor "..." {}` | One rubric row |
 | **grade** | 2 | `grade 5` | Optional reading-level target (top level); defaults to the guideline/target's grade |
@@ -108,7 +108,7 @@ Attribute functions (arity-2, merge one key into the element's record):
 - **identity / refs** — `id`, `cites` (claim→evidence ids), `supports` (evidence→claim ids), `focus` (outcome→correct claim id, or a list on `multi-select`), `targets` (distractor→outcome ids)
 - **claim** — `status`, `dimension`, `text`, `error-type`*, `rationale`*, `targets`*, `plausibility` (0–1 distractor temptingness override), `subject`, `standard`, `dok`
 - **evidence** — `status`, `line` (or `quote`), `supports`, `rationale`
-- **outcome / stem** — `id`†, `type`†, `dimension`†, `focus`†, `stem`† (Part A / single-question / prompt, from `stems.md`), `stem-b` (Part B, required on EBSR), `subject`, `standard`, `dok`, `rubric` (short-text)
+- **outcome / stem** — `id`†, `type`†, `dimension`†, `focus`†, `stem`† (Part A / single-question / prompt, from `stems.md`), `stem-b` (Part B, required on EBSR), `dok`†, `subject`, `standard`, `rubric` (short-text)
 - **rubric band** — `score`, `descriptor`
 
 \* required on distractor claims.  † required on every outcome. See `spec.md` for the full per-function reference.

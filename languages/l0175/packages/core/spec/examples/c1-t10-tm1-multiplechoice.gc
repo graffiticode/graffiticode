@@ -11,5 +11,5 @@ words [
     meaning id "m4" status distractor error-type wrong-context text "a wide road made for wagons" rationale "uses the wrong context" {}
   ] {}
 ]
-outcomes [ outcome id "q1" type multiple-choice task-model tm1 dimension word-meaning subject "aqueduct" standard l-4a focus "w1" stem "Read the sentence: \"The city built a long aqueduct to carry water from the hills.\" What does the word aqueduct most likely mean?" {} ]
+outcomes [ outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension word-meaning subject "aqueduct" standard l-4a focus "w1" stem "Read the sentence: \"The city built a long aqueduct to carry water from the hills.\" What does the word aqueduct most likely mean?" {} ]
 {}..

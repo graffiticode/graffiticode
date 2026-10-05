@@ -26,5 +26,5 @@ evidence [
   source id "e7" line 5 status irrelevant supports [] quote "Later, engineers hung the roadway from cables in a suspension bridge." {},
   source id "e8" line 8 status irrelevant supports [] quote "Today, engineers choose a design to fit the distance and the load." {}
 ]
-outcomes [ outcome id "q1" type short-text task-model tm3 dimension relationships-interactions subject "the bridge designs" standard ri-3 focus "c1" stem "What conclusion can you draw about how each bridge design is related to the one before it? Explain using key details from the passage." {} ]
+outcomes [ outcome id "q1" dok r-dok3 type short-text task-model tm3 dimension relationships-interactions subject "the bridge designs" standard ri-3 focus "c1" stem "What conclusion can you draw about how each bridge design is related to the one before it? Explain using key details from the passage." {} ]
 {}..

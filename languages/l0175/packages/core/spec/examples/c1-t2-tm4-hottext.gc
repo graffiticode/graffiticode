@@ -15,5 +15,5 @@ evidence [
   source id "e5" line 5 status directly-supports supports ["c1"] quote "Tessa drew the same barn eleven times before she kept one." {},
   source id "e7" line 7 status directly-supports supports ["c1"] quote "Then a teacher asked to hang Tessa's drawing in the hall." {}
 ]
-outcomes [ outcome id "q1" type hot-text task-model tm4 dimension theme subject "Tessa" focus "c1" stem "Click on the two sentences that best show the theme of the story. Choose two answers." {} ]
+outcomes [ outcome id "q1" dok r-dok2 type hot-text task-model tm4 dimension theme subject "Tessa" focus "c1" stem "Click on the two sentences that best show the theme of the story. Choose two answers." {} ]
 {}..

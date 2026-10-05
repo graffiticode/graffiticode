@@ -23,5 +23,5 @@ evidence [
   source id "e8" line 7 status irrelevant supports [] quote "She tested the board twice with her heel." rationale "Shows carefulness about the repair, a different quality than acting without being told." {},
   source id "e9" line 8 status irrelevant supports [] quote "Then she put the hammer back exactly where she had found it." rationale "Shows tidiness; a student may read any good habit as support for the conclusion." {}
 ]
-outcomes [ outcome id "q1" type hot-text task-model tm3 dimension supporting-evidence subject "Nina" focus "c1" stem "Read this conclusion. Nina takes care of a problem on her own, without being told to. Click the two sentences from the passage that best support this conclusion." {} ]
+outcomes [ outcome id "q1" dok r-dok2 type hot-text task-model tm3 dimension supporting-evidence subject "Nina" focus "c1" stem "Read this conclusion. Nina takes care of a problem on her own, without being told to. Click the two sentences from the passage that best support this conclusion." {} ]
 {}..

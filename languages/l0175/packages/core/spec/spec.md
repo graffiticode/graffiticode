@@ -130,7 +130,7 @@ composes). A `focus` that isn't a supported claim, or a `targets` to a missing o
 | `stem-b` | string | ✓ on ebsr | The EBSR Part B stem, authored from the catalog. (Hot Text's Part B instruction is fixed; Short Text has no Part B.) |
 | `subject` | string | — | The noun phrase the stem is about, e.g. `"Mara"` or `"the letter Cortez burned"`; echoed in review metadata. |
 | `standard` | tag | — | The primary RL standard; `rl-1` (cite evidence) is added automatically, and the dimension's companion standard is inferred. |
-| `dok` | tag | — | Target cognitive demand (default: the target's — `r-dok3` for R&E, `r-dok2` for T9; a `short-text` summary is `r-dok3`). |
+| `dok` | tag | ✓ | Target cognitive demand — always author it: R&E (c1-t4, c1-t11) → `r-dok3`; T2/T9 selected-response → `r-dok2`, the written response (`short-text`) → `r-dok3`; T1, T8 & T10 → `r-dok2`. (The compiler falls back to that same value when it is missing.) |
 | `rubric` | band list | — | `short-text` only — replace the default 0/1/2 rubric with authored `band`s. |
 
 ## Rubric band
@@ -311,7 +311,7 @@ evidence [
     supports [] {}
 ]
 outcomes [
-  outcome id "q1"
+  outcome id "q1" dok r-dok3
     type ebsr
     task-model tm1
     dimension character
@@ -320,7 +320,7 @@ outcomes [
     focus "c1"
     stem "Which of these inferences about Mara is supported by the passage?"
     stem-b "Which sentence(s) from the passage best support your answer in Part A?" {}
-  outcome id "q2"
+  outcome id "q2" dok r-dok3
     type short-text
     task-model tm3
     dimension character

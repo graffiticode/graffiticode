@@ -46,5 +46,13 @@ describe("RAG example corpus (spec/examples/*.gc)", () => {
       expect(result.blocking, `${file} blocking failures:\n${result.blocking.join("\n")}`).toEqual([]);
       expect(result.ok).toBe(true);
     });
+
+    // Generation copies these, and dok is always authored (instructions.md), so every outcome shows it.
+    it(`${file} authors dok on every outcome`, () => {
+      const code = readFileSync(join(examplesDir, file), "utf-8");
+      const outcomes = code.split(/(?=\boutcome\s+id\b)/).slice(1);
+      expect(outcomes.length).toBeGreaterThan(0);
+      for (const o of outcomes) expect(o.split(/\{\}/)[0]).toMatch(/\bdok\s+r-dok[123]\b/);
+    });
   }
 });

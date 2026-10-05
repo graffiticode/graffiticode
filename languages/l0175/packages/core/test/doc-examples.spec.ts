@@ -53,5 +53,11 @@ describe("spec doc examples compile clean", () => {
       const warnings = items.flatMap((i: any) => i?.warnings ?? []);
       expect(warnings).toEqual([]);
     });
+
+    it(`${file} program #${n} authors dok on every outcome`, () => {
+      for (const o of code.split(/(?=\boutcome\s+id\b)/).slice(1)) {
+        expect(o.split(/\{\}/)[0]).toMatch(/\bdok\s+r-dok[123]\b/);
+      }
+    });
   }
 });
