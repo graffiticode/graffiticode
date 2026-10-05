@@ -1,0 +1,23 @@
+target c1-t9 passage "How a Honeybee Colony Works" type informational lines [
+  "Honeybees live together in large groups called colonies."
+  "Every bee in the colony has a job that helps the whole group survive."
+  "Worker bees gather nectar, build the honeycomb, and feed the young."
+  "Guard bees stand at the entrance and protect the hive from intruders."
+  "The queen lays the eggs that become the colony's next generation."
+  "When a worker finds flowers, it dances to tell the others where to go."
+  "In winter, the bees cluster together and beat their wings to stay warm."
+  "Because each bee does its part, the colony can do things no single bee could do alone."
+]
+claims [
+  claim id "c1" status supported dimension central-idea text "Every bee in a colony does a job that helps the group survive." cites ["e1" "e2"] {},
+  claim id "c2" status distractor error-type too-narrow plausibility 0.8 targets ["q1"] text "Worker bees gather nectar and build the honeycomb." rationale "A true supporting detail about one kind of bee, not the whole-colony idea." {},
+  claim id "c3" status distractor error-type too-broad plausibility 0.6 targets ["q1"] text "Insects are important animals all around the world." rationale "An overgeneralization that goes beyond the passage." {},
+  claim id "c4" status distractor error-type insignificant plausibility 0.6 targets ["q1"] text "A honeybee dances to show where the flowers are." rationale "A minor detail, not the central idea." {},
+  claim id "c5" status distractor error-type misreads-detail plausibility 0.6 targets ["q1"] text "The queen bee does all of the work in the colony." rationale "Misreads the roles; the workers do the labor." {}
+]
+evidence [
+  source id "e1" line 2 status directly-supports supports ["c1"] quote "Every bee in the colony has a job that helps the whole group survive." {},
+  source id "e2" line 8 status directly-supports supports ["c1"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {}
+]
+outcomes [ outcome id "q1" type multiple-choice task-model tm1 dimension central-idea subject "the colony" standard ri-2 focus "c1" stem "Which sentence best states the central idea of the passage?" {} ]
+{}..

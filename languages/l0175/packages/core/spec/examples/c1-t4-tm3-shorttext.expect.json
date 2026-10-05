@@ -1,0 +1,4 @@
+{
+  "prompt": "From the same tide-pool story, author a c1-t4 Task Model 3 (Short Text) constructed-response item asking what inference can be made about Mara, explained with key details from the passage. Dimension character, standard rl-1.",
+  "expect": { "target": "c1-t4", "taskModel": "tm3", "itemType": "short-text", "dimension": "character", "standard": "rl-1" }
+}

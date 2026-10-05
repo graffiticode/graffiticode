@@ -1,0 +1,93 @@
+{
+  "revised": "2026-08-28",
+  "id": "0175",
+  "description": "Composes 5th-grade English Language Arts assessment items (Smarter Balanced · Grade 5 · Claim 1) for multiple learning targets — DIFFERENT reading skills: c1-t4 (Reasoning & Evidence, literary, RL) and c1-t11 (Reasoning & Evidence, informational, RI) ask students to infer/conclude and justify with evidence; c1-t9 (Central Ideas, informational, RI-1/RI-2) asks them to determine the main idea, the key details that build it, or summarize, and c1-t2 (Central Ideas, LITERARY, RL-1/RL-2) does the same for a story — but there THEME leads (the correct answer is a lesson or message, not a plot event) and a summary must be scoped to a section or key event, never the whole text; c1-t1 (Key Details, LITERARY, RL-1 alone) and c1-t8 (Key Details, informational, RI-1/RI-7) GIVE the inference in the stem and ask them to select the supporting evidence (the options are passage sources, not statements; item types multiple-choice/multi-select/single-part-hot-text) — pick c1-t1 for a story, c1-t8 for an article; c1-t10 (Word Meanings, informational, RI-4/L-4) asks for the meaning of a targeted word/phrase in context (the options are MEANINGS, authored as a `word` with candidate `meaning`s — not claims; item types multiple-choice/multi-select, plus a click-the-word hot-text — for that, author the candidate `word`s as a top-level `words` list: the correct one is the outcome's `focus` (give it the `line` of its paragraph) and the others are distractor candidate words; ALL candidates must be words that appear in that one paragraph (they need only `text` — no `meanings`). The compiler shows the whole paragraph and makes the authored candidate words clickable, with the focus word correct (if you author only the correct word, every content word in the paragraph becomes a choice). The `stem` is only the instruction + the definition (e.g. 'Read the paragraph below. Click the word that means …') — never paste the paragraph into the stem). Every program declares a top-level `target` selecting the dimension/standard/error-type/DOK/stem vocabulary. Item-first: a program authors the questions (outcomes) first — each with a unique id, a focus correct claim (a list on multi-select), and a stem from the target's guideline catalog — then supported and distractor claims (each distractor targets the question(s) it foils) and evidence sources for one passage. Item types: ebsr (two-part), hot-text, short-text, multiple-choice (one correct), multi-select (exact correct set); the allowed set is per-target. Task-model NUMBERS are per-target and collide (tm3 = short-text in c1-t4/c1-t11, ebsr in c1-t2/c1-t9, hot-text in c1-t1/c1-t8/c1-t10), so name the item type, or resolve a number against the program's target — never assume the Reasoning & Evidence numbering carries to the other targets (see the per-target task-model table in the usage guide). T2/T9 distractors are a significance taxonomy (too-narrow/too-broad/misreads-detail/insignificant) — usually true statements that just aren't central — vs R&E's reasoning-error taxonomy. Supply the passage text already split into paragraphs (keep the paragraph breaks). The compiler takes each outcome's focus and the foils that target it and assembles the item; it selects and validates authored content, it does not generate content or stems. Author the passage and all question text at the target reading level (Grade 5; overridable with a top-level `grade <n>`); the compiler estimates the passage's reading level and warns when it runs above the target grade.",
+  "supported_item_types": ["ebsr", "hot-text", "short-text", "multiple-choice", "multi-select"],
+  "example_prompts": [
+    {
+      "prompt": "From a short story about a girl named Mara at a tide pool, write an EBSR item about what Mara cares about, standard rl-1.",
+      "produces": "ebsr",
+      "notes": "Literary text -> target c1-t4. Two-part selected response: Part A inference statement, Part B supporting line; needs a supported claim plus at least 5 viable error-typed distractor claims (the item draws 3; a deeper pool gives selection real choice)."
+    },
+    {
+      "prompt": "From an informational article about the history of bridge design, write an EBSR item about how each design solved a problem the previous one could not.",
+      "produces": "ebsr",
+      "notes": "Informational text -> target c1-t11, dimension relationships-interactions, RI standards (ri-1 + ri-3). Same item-first structure; pick stems from the T11 section of stems.md."
+    },
+    {
+      "prompt": "From the same tide-pool passage, also produce a short-text constructed-response item asking for an inference about Mara with evidence.",
+      "produces": "short-text",
+      "notes": "Reuses the same pool; emits a prompt and a 0/1/2 rubric, no distractors."
+    },
+    {
+      "prompt": "Make a hot-text item where students click the sentences that show Mara's focus on the tide pool.",
+      "produces": "hot-text",
+      "notes": "Part B exposes every passage line as selectable; the correct claim's directly-supporting lines are the answer."
+    },
+    {
+      "prompt": "Add a faulty-reasoning distractor that mistakes Mara's quiet whisper for fear of her family.",
+      "produces": "ebsr",
+      "notes": "A distractor claim with error-type faulty-reasoning, a rationale, and targets naming the question(s) it foils; composition uses it for Part A error-type coverage."
+    },
+    {
+      "prompt": "Write an item about the narrator's point of view in a first-person diary entry, standard rl-6.",
+      "produces": "ebsr",
+      "notes": "Dimension point-of-view; the outcome's focus names the supported claim and the item reports rl-6 alongside rl-1."
+    },
+    {
+      "prompt": "Compose an item comparing how two characters in the story react to the same event, standard rl-3.",
+      "produces": "ebsr",
+      "notes": "Dimension character-relationship; the companion standard rl-3 is emitted with rl-1."
+    },
+    {
+      "prompt": "Write the tide-pool EBSR but keep it at a 4th-grade reading level.",
+      "produces": "ebsr",
+      "notes": "User named a grade -> add a top-level `grade 4`; author shorter sentences and simpler vocabulary than the Grade-5 default. The compiler checks the passage against the resolved grade and warns if it reads above it."
+    },
+    {
+      "prompt": "Here is the passage (4 paragraphs, blank-line separated): <text>. Write an EBSR item about the narrator's feelings.",
+      "produces": "ebsr",
+      "notes": "The request supplies paragraph-chunked text -> emit one `lines` entry per paragraph, preserving the breaks, so the rendered passage keeps its 4 numbered paragraphs. Do not merge the text into a single line."
+    },
+    {
+      "prompt": "From an informational article about honeybees, write a multiple-choice item asking for the main idea.",
+      "produces": "multiple-choice",
+      "notes": "Central Ideas -> target c1-t9, type multiple-choice, dimension central-idea, standards ri-1+ri-2, DOK r-dok2. The focus claim is the central idea; distractors use the significance taxonomy (too-narrow: a true supporting detail; too-broad: an overgeneralization; insignificant: a minor detail), i.e. true statements that aren't the main idea."
+    },
+    {
+      "prompt": "Make a multi-select asking which two sentences belong in a summary of the article.",
+      "produces": "multi-select",
+      "notes": "target c1-t9, type multi-select, dimension summary. `focus` is a LIST of the two correct claims; the compiler emits 5-6 options and the student must select exactly the correct set."
+    },
+    {
+      "prompt": "What is the theme of this story? Make it a two-part item where Part B asks for the sentence that supports it.",
+      "produces": "ebsr",
+      "notes": "Theme over a LITERARY passage: target c1-t2, type ebsr (task model 3 -- NOT short-text as in c1-t4/c1-t11), dimension theme, standards rl-1+rl-2. Phrase the correct claim as a lesson or message, not a plot event. Distractors are the significance taxonomy (too-narrow/too-broad/misreads-detail/insignificant). No-giveaway: author at least one supports-wrong-claim source listing BOTH the correct claim and a distractor, so Part B does not telegraph Part A."
+    },
+    {
+      "prompt": "Have students summarize what happens after the storm in this story, using details from the text.",
+      "produces": "short-text",
+      "notes": "target c1-t2, type short-text (task model 5), dimension summary, standards rl-1+rl-2, DOK r-dok3. T2 summaries are SCOPED -- the guideline forbids asking students to summarize the entire text, so the stem must name a section or key event. A plain 'summarize the passage' prompt belongs to c1-t9, not c1-t2."
+    },
+    {
+      "prompt": "The article concludes that aqueducts let distant cities get fresh water — make a multiple-choice item asking which detail best supports that conclusion.",
+      "produces": "multiple-choice",
+      "notes": "Given inference -> evidence selection: target c1-t8, type multiple-choice, dimension supporting-evidence, standards ri-1+ri-7. Author ONE supported claim (the conclusion) at `focus` and state it in the stem; the OPTIONS are sources -- the directly-supports source is correct, supports-wrong-claim/irrelevant sources are foils. No distractor claims."
+    },
+    {
+      "prompt": "In this story, the reader can conclude that Nell regrets what she said — make a multiple-choice item asking which line from the story best supports that conclusion.",
+      "produces": "multiple-choice",
+      "notes": "Given inference -> evidence selection over a LITERARY passage: target c1-t1, type multiple-choice, dimension supporting-evidence. Same model as c1-t8, but the standard is rl-1 ALONE (the guideline names no companion), so omit `standard` on the outcome. Author ONE supported claim (the conclusion) at `focus` and state it in the stem; the OPTIONS are sources -- the directly-supports source is correct, irrelevant/supports-wrong-claim sources are foils. No distractor claims."
+    },
+    {
+      "prompt": "What does the word 'aqueduct' most likely mean as it is used in the article? (multiple choice)",
+      "produces": "multiple-choice",
+      "notes": "Word meaning in context: target c1-t10, type multiple-choice, dimension word-meaning, standard ri-4 + l-4a (context). Author a top-level `words` list with a `word` (text the targeted word, line/quote its context) whose `meanings` are the OPTIONS -- one `status correct` + `status distractor` meanings (error-type other-meaning/misinterprets/wrong-context + rationale). The outcome's `focus` names the word; state the word + its sentence in the stem."
+    },
+    {
+      "prompt": "Make a click-the-word item: in the paragraph about the city's water supply, the target word is 'aqueduct' (it means a system of pipes/canals that carries water). Stem: 'Read the paragraph below. Click the word that means a system of pipes or canals that carries water.'",
+      "produces": "hot-text",
+      "notes": "T10's click-the-word hot-text (its Task Model 3 — task-model numbers are per-target, so this 3 is specific to c1-t10 and is NOT the same item type as tm3 in other targets): target c1-t10, type hot-text, dimension word-meaning, standard ri-4 + l-4a. Author the focus `word` (e.g. { id \"w1\" text \"aqueduct\" line <paragraph #> }) as the outcome's `focus`, then the DISTRACTOR CANDIDATE WORDS either way: (a) as more single-word `word`s in the `words` list, OR (b) as the focus word's distractor `meanings` whose `text` IS the candidate word — a single word, with error-type + rationale (e.g. text \"causeways\", text \"canals\"). For hot-text the meaning text must be the literal word to click, NOT a definition. ALL candidates must be words that appear in the focus word's paragraph. The compiler shows the whole paragraph (from the focus word's `line`) and makes the candidate words clickable, focus correct. Do NOT put the paragraph in the stem; the stem is only the instruction + definition. (If you author only the focus word with a real multi-word definition, the compiler can't find candidates and falls back to making EVERY content word clickable — avoid that by listing the candidate words.)"
+    }
+  ]
+}

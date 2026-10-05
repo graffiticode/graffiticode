@@ -1,0 +1,4 @@
+{
+  "prompt": "From a short story about a girl named Mara at a tide pool, author a c1-t4 Task Model 1 (EBSR) item about what Mara cares about: Part A asks which inference about Mara is supported, Part B asks for the supporting sentence(s). Dimension character, standard rl-1. Distractors are reasoning errors: an anger misread, a dislikes-outdoors erroneous inference, a fear faulty-reasoning, a bored misread.",
+  "expect": { "target": "c1-t4", "taskModel": "tm1", "itemType": "ebsr", "dimension": "character", "standard": "rl-1" }
+}

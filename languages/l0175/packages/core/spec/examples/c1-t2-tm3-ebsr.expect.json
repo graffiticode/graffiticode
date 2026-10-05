@@ -1,0 +1,1 @@
+{ "prompt": "From the same county-fair story, author a c1-t2 Task Model 3 (EBSR) two-part item: Part A asks for the theme, Part B asks which sentence from the passage best supports it (dimension theme, standard rl-2).", "expect": { "target": "c1-t2", "taskModel": "tm3", "itemType": "ebsr", "dimension": "theme", "standard": "rl-2" } }

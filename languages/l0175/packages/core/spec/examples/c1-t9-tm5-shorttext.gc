@@ -1,0 +1,20 @@
+target c1-t9 passage "How a Honeybee Colony Works" type informational lines [
+  "Honeybees live together in large groups called colonies."
+  "Every bee in the colony has a job that helps the whole group survive."
+  "Worker bees gather nectar, build the honeycomb, and feed the young."
+  "Guard bees stand at the entrance and protect the hive from intruders."
+  "The queen lays the eggs that become the colony's next generation."
+  "When a worker finds flowers, it dances to tell the others where to go."
+  "In winter, the bees cluster together and beat their wings to stay warm."
+  "Because each bee does its part, the colony can do things no single bee could do alone."
+]
+claims [
+  claim id "c1" status supported dimension central-idea text "Every bee in a colony does a job that helps the whole group survive." cites ["e1" "e2" "e3"] {}
+]
+evidence [
+  source id "e1" line 2 status directly-supports supports ["c1"] quote "Every bee in the colony has a job that helps the whole group survive." {},
+  source id "e2" line 8 status directly-supports supports ["c1"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {},
+  source id "e3" line 5 status directly-supports supports ["c1"] quote "The queen lays the eggs that become the colony's next generation." {}
+]
+outcomes [ outcome id "q1" type short-text task-model tm5 dimension central-idea standard ri-2 focus "c1" stem "Determine the central idea of the passage. Explain using key details from the passage to support your answer." {} ]
+{}..

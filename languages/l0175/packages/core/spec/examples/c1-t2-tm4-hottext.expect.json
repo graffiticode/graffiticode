@@ -1,0 +1,1 @@
+{ "prompt": "From the same county-fair story, author a c1-t2 Task Model 4 (Hot Text) single-part item where students click the two sentences that best show the theme (dimension theme, standard rl-2).", "expect": { "target": "c1-t2", "taskModel": "tm4", "itemType": "hot-text", "dimension": "theme", "standard": "rl-2" } }

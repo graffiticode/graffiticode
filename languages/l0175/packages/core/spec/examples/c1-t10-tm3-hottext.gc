@@ -1,0 +1,13 @@
+target c1-t10 passage "The City Aqueduct" type informational lines [
+  "The city built a long aqueduct to carry water from the hills."
+  "Workers dug a deep channel and lined it with smooth stone."
+  "When it rained, the ditch beside the road filled with mud."
+]
+words [
+  word id "w1" text "aqueduct" line 1 {},
+  word id "w2" text "city" line 1 {},
+  word id "w3" text "water" line 1 {},
+  word id "w4" text "hills" line 1 {}
+]
+outcomes [ outcome id "q1" type hot-text task-model tm3 dimension word-meaning subject "aqueduct" standard l-4a focus "w1" stem "Click the word in the paragraph that means a channel built to carry water across the land." {} ]
+{}..

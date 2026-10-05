@@ -1,0 +1,30 @@
+target c1-t4 passage "The Tide Pool" type literary lines [
+  "Mara crouched at the edge of the tide pool, ignoring the picnic behind her."
+  "Her brother called twice, but she did not turn around."
+  "A tiny crab scuttled under a rock, and Mara smiled for the first time all day."
+  "She traced the cold water as if the pool were the only thing that mattered."
+  "Five more minutes, she whispered, though no one was listening."
+  "Behind her, paper plates rustled and her mother laughed."
+  "The waves pushed a ribbon of seaweed against her fingers."
+  "Her sandwich sat untouched on the blanket by the cooler."
+]
+claims [
+  claim id "c1" status supported dimension character subject "Mara" standard rl-1 text "Mara cares more about the tide pool than the picnic." cites ["e1" "e3" "e4"] {},
+  claim id "c2" status distractor error-type misreads-detail plausibility 0.9 targets ["q1"] text "Mara is angry at her brother for calling her." rationale "Her silence is absorption, not anger." cites ["e2"] {},
+  claim id "c3" status distractor error-type erroneous-inference plausibility 0.6 targets ["q1"] text "Mara does not like being outdoors at the beach." rationale "Contradicted by her smile at the crab." cites ["e6"] {},
+  claim id "c4" status distractor error-type faulty-reasoning plausibility 0.6 targets ["q1"] text "Mara is afraid of her own family at the beach." rationale "Her quiet whisper is treated as fear without support." cites ["e5"] {},
+  claim id "c5" status distractor error-type misreads-detail plausibility 0.5 targets ["q1"] text "Mara is bored by the quiet water of the tide pool." rationale "Her stillness shows focus, not boredom." cites ["e7"] {},
+  claim id "c6" status distractor error-type erroneous-inference plausibility 0.5 targets ["q1"] text "Mara wants to leave the beach and go home." rationale "Nothing shows a wish to leave; she asks for more time." cites ["e8"] {}
+]
+evidence [
+  source id "e1" line 1 status directly-supports supports ["c1"] quote "Mara crouched at the edge of the tide pool, ignoring the picnic behind her." {},
+  source id "e3" line 3 status directly-supports supports ["c1"] quote "A tiny crab scuttled under a rock, and Mara smiled for the first time all day." {},
+  source id "e4" line 4 status directly-supports supports ["c1"] quote "She traced the cold water as if the pool were the only thing that mattered." {},
+  source id "e2" line 2 status supports-wrong-claim supports ["c1" "c2"] quote "Her brother called twice, but she did not turn around." rationale "Looks like it supports the main inference but really backs the anger misreading." {},
+  source id "e5" line 5 status supports-wrong-claim supports ["c4"] quote "Five more minutes, she whispered, though no one was listening." rationale "Backs the fear misreading, not the correct inference." {},
+  source id "e6" line 6 status irrelevant supports [] quote "Behind her, paper plates rustled and her mother laughed." {},
+  source id "e7" line 7 status irrelevant supports [] quote "The waves pushed a ribbon of seaweed against her fingers." {},
+  source id "e8" line 8 status irrelevant supports [] quote "Her sandwich sat untouched on the blanket by the cooler." {}
+]
+outcomes [ outcome id "q1" type hot-text task-model tm2 dimension character subject "Mara" standard rl-1 focus "c1" stem "Click on the statement that best provides an inference about Mara that is supported by the passage." {} ]
+{}..

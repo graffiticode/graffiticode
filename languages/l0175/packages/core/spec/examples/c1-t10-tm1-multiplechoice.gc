@@ -1,0 +1,15 @@
+target c1-t10 passage "The City Aqueduct" type informational lines [
+  "The city built a long aqueduct to carry water from the hills."
+  "Workers dug a deep channel and lined it with smooth stone."
+  "When it rained, the ditch beside the road filled with mud."
+]
+words [
+  word id "w1" text "aqueduct" line 1 quote "The city built a long aqueduct to carry water from the hills." meanings [
+    meaning id "m1" status correct text "a channel that carries water" {},
+    meaning id "m2" status distractor error-type other-meaning text "a large boat that carries cargo" rationale "another meaning that ignores the water-carrying context" {},
+    meaning id "m3" status distractor error-type misinterprets text "a tall tower built of stone" rationale "misreads the sentence, which is about carrying water" {},
+    meaning id "m4" status distractor error-type wrong-context text "a wide road made for wagons" rationale "uses the wrong context" {}
+  ] {}
+]
+outcomes [ outcome id "q1" type multiple-choice task-model tm1 dimension word-meaning subject "aqueduct" standard l-4a focus "w1" stem "Read the sentence: \"The city built a long aqueduct to carry water from the hills.\" What does the word aqueduct most likely mean?" {} ]
+{}..

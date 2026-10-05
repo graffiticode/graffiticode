@@ -1,0 +1,29 @@
+target c1-t2 passage "The Blue Ribbon" type literary lines [
+  "Every spring, Tessa entered her drawing in the county fair."
+  "Every spring she came home with nothing."
+  "This year she almost did not enter at all."
+  "Her grandmother set a fresh pencil on the kitchen table."
+  "Tessa drew the same barn eleven times before she kept one."
+  "At the fair, the blue ribbon went to somebody else."
+  "Then a teacher asked to hang Tessa's drawing in the hall."
+  "Tessa walked home taller than she had the year before."
+]
+claims [
+  claim id "c1" status supported dimension theme subject "Tessa" text "Keeping at something can matter more than winning." cites ["e5" "e7"] {},
+  claim id "d1" status distractor error-type too-narrow targets ["q1"] text "Tessa entered the county fair every single spring." rationale "A true detail from the opening, not the story's theme." cites ["e1"] {},
+  claim id "d2" status distractor error-type too-broad targets ["q1"] text "Hard work always makes a person famous someday." rationale "Overgeneralizes far past what the story shows." cites ["e7"] {},
+  claim id "d3" status distractor error-type misreads-detail targets ["q1"] text "Tessa gave up drawing after she lost again." rationale "Misreads the ending; she keeps drawing and is lifted by it." cites ["e6"] {},
+  claim id "d4" status distractor error-type insignificant targets ["q1"] text "Tessa's grandmother owned more than one pencil." rationale "A trivial inference that could not carry a theme." cites ["e4"] {},
+  claim id "d5" status distractor error-type too-narrow targets ["q1"] text "Tessa drew a barn instead of drawing a house." rationale "A single detail of the drawing, not what the story means." cites ["e5"] {}
+]
+evidence [
+  source id "e5" line 5 status directly-supports supports ["c1"] quote "Tessa drew the same barn eleven times before she kept one." {},
+  source id "e7" line 7 status directly-supports supports ["c1"] quote "Then a teacher asked to hang Tessa's drawing in the hall." {},
+  source id "e1" line 1 status supports-wrong-claim supports ["c1" "d1"] quote "Every spring, Tessa entered her drawing in the county fair." rationale "Shows she took part, which a student may read as the point." {},
+  source id "e3" line 3 status supports-wrong-claim supports ["c1" "d3"] quote "This year she almost did not enter at all." rationale "Her doubt can look like giving up." {},
+  source id "e6" line 6 status supports-wrong-claim supports ["c1" "d3"] quote "At the fair, the blue ribbon went to somebody else." rationale "The loss is real, but the story does not end there." {},
+  source id "e2" line 2 status irrelevant supports [] quote "Every spring she came home with nothing." {},
+  source id "e4" line 4 status irrelevant supports [] quote "Her grandmother set a fresh pencil on the kitchen table." {}
+]
+outcomes [ outcome id "q1" type ebsr task-model tm3 dimension theme subject "Tessa" focus "c1" stem "Which sentence best tells the theme of the passage?" stem-b "Which sentence from the passage best supports your answer in Part A?" {} ]
+{}..

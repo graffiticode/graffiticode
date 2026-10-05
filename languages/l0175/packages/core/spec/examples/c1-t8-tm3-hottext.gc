@@ -1,0 +1,25 @@
+target c1-t8 passage "Roman Aqueducts" type informational lines [
+  "Long ago, Rome did not have enough fresh water."
+  "Workers built long channels called aqueducts to bring water to the city."
+  "Some aqueducts began at springs far away in the hills."
+  "The channels tilted down a little, so the water flowed on its own."
+  "Tall stone arches held the channel over low valleys."
+  "By the time it reached Rome, the water had gone more than sixty miles."
+  "In the city, people filled their jugs at open fountains."
+  "Workers cleaned the channels often to keep the water fresh."
+]
+claims [
+  claim id "c1" status supported dimension supporting-evidence subject "the aqueducts" standard ri-7 text "Roman aqueducts carried water to the city from far away." cites ["e1" "e2" "e3"] {}
+]
+evidence [
+  source id "e1" line 3 status directly-supports supports ["c1"] quote "Some aqueducts began at springs far away in the hills." {},
+  source id "e2" line 6 status directly-supports supports ["c1"] quote "By the time it reached Rome, the water had gone more than sixty miles." {},
+  source id "e3" line 2 status directly-supports supports ["c1"] quote "Workers built long channels called aqueducts to bring water to the city." {},
+  source id "e4" line 1 status irrelevant supports [] quote "Long ago, Rome did not have enough fresh water." {},
+  source id "e5" line 4 status irrelevant supports [] quote "The channels tilted down a little, so the water flowed on its own." {},
+  source id "e6" line 5 status irrelevant supports [] quote "Tall stone arches held the channel over low valleys." {},
+  source id "e7" line 7 status irrelevant supports [] quote "In the city, people filled their jugs at open fountains." {},
+  source id "e8" line 8 status irrelevant supports [] quote "Workers cleaned the channels often to keep the water fresh." {}
+]
+outcomes [ outcome id "q1" type hot-text task-model tm3 dimension supporting-evidence subject "the aqueducts" standard ri-7 focus "c1" stem "Roman aqueducts carried water to the city from far away. Click the sentence(s) from the passage that support this idea." {} ]
+{}..

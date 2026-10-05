@@ -1,0 +1,19 @@
+target c1-t2 passage "The Blue Ribbon" type literary lines [
+  "Every spring, Tessa entered her drawing in the county fair."
+  "Every spring she came home with nothing."
+  "This year she almost did not enter at all."
+  "Her grandmother set a fresh pencil on the kitchen table."
+  "Tessa drew the same barn eleven times before she kept one."
+  "At the fair, the blue ribbon went to somebody else."
+  "Then a teacher asked to hang Tessa's drawing in the hall."
+  "Tessa walked home taller than she had the year before."
+]
+claims [
+  claim id "c1" status supported dimension theme subject "Tessa" text "Keeping at something can matter more than winning." cites ["e5" "e7"] {}
+]
+evidence [
+  source id "e5" line 5 status directly-supports supports ["c1"] quote "Tessa drew the same barn eleven times before she kept one." {},
+  source id "e7" line 7 status directly-supports supports ["c1"] quote "Then a teacher asked to hang Tessa's drawing in the hall." {}
+]
+outcomes [ outcome id "q1" type hot-text task-model tm4 dimension theme subject "Tessa" focus "c1" stem "Click on the two sentences that best show the theme of the story. Choose two answers." {} ]
+{}..

@@ -1,0 +1,46 @@
+steps:
+  # Build Docker image (the Dockerfile installs deps via `npm ci` on node:22-alpine,
+  # matching the lockfile — no redundant top-level install on a mismatched node:latest).
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/graffiticode/l0175:$COMMIT_SHA'
+      - '.'
+
+  # Push image to Container Registry
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - 'gcr.io/graffiticode/l0175:$COMMIT_SHA'
+    id: Push
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - run
+      - deploy
+      - l0175
+      - '--platform=managed'
+      - '--image=gcr.io/graffiticode/l0175:$COMMIT_SHA'
+      - >-
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+      - '--set-env-vars=AUTH_URL=$_AUTH_URL'
+      - '--allow-unauthenticated'
+    id: Deploy
+    entrypoint: gcloud
+
+images:
+  - 'gcr.io/graffiticode/l0175:$COMMIT_SHA'
+
+options:
+  substitutionOption: ALLOW_LOOSE
+
+substitutions:
+  _DEPLOY_REGION: us-central1
+  _AUTH_URL: https://auth.graffiticode.org
+
+tags:
+  - l0175

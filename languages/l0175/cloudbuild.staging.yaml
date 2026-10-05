@@ -1,0 +1,75 @@
+# Cloud Build configuration for staging deployments (non-main branches)
+steps:
+  # Install dependencies
+  - name: 'node'
+    entrypoint: 'npm'
+    args:
+      - 'ci'
+
+  # Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/l0175-staging:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/l0175-staging:$BRANCH_NAME'
+      - '.'
+
+  # Push image to Container Registry
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/l0175-staging'
+    id: Push
+
+  # Deploy to Cloud Run (staging service)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - run
+      - deploy
+      - 'l0175-$BRANCH_NAME'
+      - '--platform=managed'
+      - '--image=gcr.io/$PROJECT_ID/l0175-staging:$COMMIT_SHA'
+      - >-
+        --labels=commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID,branch=$BRANCH_NAME
+      - '--region=$_DEPLOY_REGION'
+      - '--quiet'
+      - '--port=50175'
+      - '--set-env-vars=AUTH_URL=$_AUTH_URL,NODE_ENV=staging,BRANCH=$BRANCH_NAME'
+      - '--allow-unauthenticated'
+      - '--max-instances=10'
+      - '--memory=256Mi'
+    id: Deploy
+    entrypoint: gcloud
+
+  # Output the service URL
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - run
+      - services
+      - describe
+      - 'l0175-$BRANCH_NAME'
+      - '--platform=managed'
+      - '--region=$_DEPLOY_REGION'
+      - '--format=value(status.url)'
+    id: Get URL
+    entrypoint: gcloud
+
+images:
+  - 'gcr.io/$PROJECT_ID/l0175-staging:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/l0175-staging:$BRANCH_NAME'
+
+options:
+  substitutionOption: ALLOW_LOOSE
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _DEPLOY_REGION: us-central1
+  _AUTH_URL: https://auth.graffiticode.org
+
+tags:
+  - l0175
+  - staging
+  - $BRANCH_NAME

@@ -1,0 +1,10 @@
+{
+  "prompt": "From the same informational article about how a honeybee colony works, write a short-text constructed-response item (c1-t9, task model 5): ask the student to determine the central idea of the passage and explain using key details to support the answer. Dimension central-idea, standard ri-2. Emit the prompt and a 0/1/2 rubric; no options or distractors.",
+  "expect": {
+    "target": "c1-t9",
+    "taskModel": "tm5",
+    "itemType": "short-text",
+    "dimension": "central-idea",
+    "standard": "ri-2"
+  }
+}

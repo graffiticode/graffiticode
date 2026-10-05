@@ -1,0 +1,28 @@
+target c1-t2 passage "The Blue Ribbon" type literary lines [
+  "Every spring, Tessa entered her drawing in the county fair."
+  "Every spring she came home with nothing."
+  "This year she almost did not enter at all."
+  "Her grandmother set a fresh pencil on the kitchen table."
+  "Tessa drew the same barn eleven times before she kept one."
+  "At the fair, the blue ribbon went to somebody else."
+  "Then a teacher asked to hang Tessa's drawing in the hall."
+  "Tessa walked home taller than she had the year before."
+]
+claims [
+  claim id "s1" status supported dimension summary subject "the fair" text "Tessa almost skipped the fair but entered anyway." cites ["e3"] {},
+  claim id "s2" status supported dimension summary subject "the fair" text "A teacher chose her drawing to hang in the hall." cites ["e7"] {},
+  claim id "u1" status distractor error-type misreads-detail targets ["q1"] text "Tessa won the blue ribbon at the county fair." rationale "Reverses the outcome; somebody else took the ribbon." cites ["e6"] {},
+  claim id "u2" status distractor error-type insignificant targets ["q1"] text "Tessa's grandmother owned more than one pencil." rationale "Too minor an idea to belong in a summary." cites ["e4"] {},
+  claim id "u3" status distractor error-type too-broad targets ["q1"] text "Every child should enter an art contest yearly." rationale "Advice the story never gives; not a summary statement." cites ["e1"] {},
+  claim id "u4" status distractor error-type too-narrow targets ["q1"] text "The pencil on the table was freshly sharpened." rationale "A single small image, not a key event of the story." cites ["e4"] {},
+  claim id "u5" status distractor error-type insignificant targets ["q1"] text "The county fair takes place every single spring." rationale "Background timing rather than a key event." cites ["e1"] {}
+]
+evidence [
+  source id "e3" line 3 status directly-supports supports ["s1"] quote "This year she almost did not enter at all." {},
+  source id "e7" line 7 status directly-supports supports ["s2"] quote "Then a teacher asked to hang Tessa's drawing in the hall." {},
+  source id "e1" line 1 status irrelevant supports [] quote "Every spring, Tessa entered her drawing in the county fair." {},
+  source id "e4" line 4 status irrelevant supports [] quote "Her grandmother set a fresh pencil on the kitchen table." {},
+  source id "e6" line 6 status irrelevant supports [] quote "At the fair, the blue ribbon went to somebody else." {}
+]
+outcomes [ outcome id "q1" type multi-select task-model tm2 dimension summary subject "the fair" focus ["s1" "s2"] stem "Choose two sentences that should be included in a summary of the story. Select two answers." {} ]
+{}..

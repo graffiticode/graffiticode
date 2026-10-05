@@ -1,0 +1,4 @@
+{
+  "prompt": "From the same tide-pool story, author a c1-t4 Task Model 2 (Hot Text) item: Part A is the best statement about what Mara cares about (an inference), and Part B highlights the sentences that support it. Dimension character, standard rl-1.",
+  "expect": { "target": "c1-t4", "taskModel": "tm2", "itemType": "hot-text", "dimension": "character", "standard": "rl-1" }
+}

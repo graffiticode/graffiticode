@@ -1,0 +1,27 @@
+target c1-t1 passage "The Loose Board" type literary lines [
+  "Nina had walked past Mr. Ruiz's crooked porch a hundred times."
+  "The third board rocked under her feet every time she crossed it."
+  "On Saturday she stopped, because someone had left a hammer on the step."
+  "She looked up and down the empty street."
+  "Then she knelt down and set the first nail without anyone asking her to."
+  "Her arm ached by the fourth nail, but she did not quit."
+  "She tested the board twice with her heel."
+  "Then she put the hammer back exactly where she had found it."
+  "Mr. Ruiz never learned who had fixed his porch."
+]
+claims [
+  claim id "c1" status supported dimension supporting-evidence subject "Nina" text "Nina takes care of a problem on her own, without being told to." cites ["e1" "e2"] {}
+]
+evidence [
+  source id "e1" line 5 status directly-supports supports ["c1"] quote "Then she knelt down and set the first nail without anyone asking her to." {},
+  source id "e2" line 9 status directly-supports supports ["c1"] quote "Mr. Ruiz never learned who had fixed his porch." {},
+  source id "e3" line 1 status irrelevant supports [] quote "Nina had walked past Mr. Ruiz's crooked porch a hundred times." rationale "Tells how often Nina passed the porch, not that she chose to act on her own." {},
+  source id "e4" line 2 status irrelevant supports [] quote "The third board rocked under her feet every time she crossed it." rationale "Describes the problem itself; a student may mistake the problem for evidence of Nina's choice." {},
+  source id "e5" line 3 status irrelevant supports [] quote "On Saturday she stopped, because someone had left a hammer on the step." rationale "Invites the erroneous inference that Nina helped only because a tool happened to be there." {},
+  source id "e6" line 4 status irrelevant supports [] quote "She looked up and down the empty street." rationale "Sets the scene; shows no action Nina took." {},
+  source id "e7" line 6 status irrelevant supports [] quote "Her arm ached by the fourth nail, but she did not quit." rationale "Shows persistence once she had started, not that she started unasked." {},
+  source id "e8" line 7 status irrelevant supports [] quote "She tested the board twice with her heel." rationale "Shows carefulness about the repair, a different quality than acting without being told." {},
+  source id "e9" line 8 status irrelevant supports [] quote "Then she put the hammer back exactly where she had found it." rationale "Shows tidiness; a student may read any good habit as support for the conclusion." {}
+]
+outcomes [ outcome id "q1" type multi-select task-model tm2 dimension supporting-evidence subject "Nina" focus "c1" stem "Nina takes care of a problem on her own, without being told to. Which two lines from the passage best support this conclusion? Select two answers." {} ]
+{}..

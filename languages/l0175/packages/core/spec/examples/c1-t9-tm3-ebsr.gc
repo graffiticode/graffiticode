@@ -1,0 +1,30 @@
+target c1-t9 passage "How a Honeybee Colony Works" type informational lines [
+  "Honeybees live together in large groups called colonies."
+  "Every bee in the colony has a job that helps the whole group survive."
+  "Worker bees gather nectar, build the honeycomb, and feed the young."
+  "Guard bees stand at the entrance and protect the hive from intruders."
+  "The queen lays the eggs that become the colony's next generation."
+  "When a worker finds flowers, it dances to tell the others where to go."
+  "In winter, the bees cluster together and beat their wings to stay warm."
+  "Because each bee does its part, the colony can do things no single bee could do alone."
+]
+claims [
+  claim id "c1" status supported dimension central-idea text "Every bee in a colony does a job that helps the whole group survive." cites ["e1" "e2" "e3"] {},
+  claim id "c2" status distractor error-type too-narrow plausibility 0.8 targets ["q1"] text "Worker bees gather nectar and build the honeycomb for the hive." rationale "A true supporting detail about one kind of bee, not the whole-colony central idea." cites ["e4"] {},
+  claim id "c3" status distractor error-type too-broad plausibility 0.6 targets ["q1"] text "Insects are some of the most important animals in all of nature." rationale "An overgeneralization that goes beyond what this passage is about." {},
+  claim id "c4" status distractor error-type insignificant plausibility 0.6 targets ["q1"] text "A single honeybee dances to show the others where flowers are." rationale "A minor detail, not the main idea the passage builds." cites ["e5"] {},
+  claim id "c5" status distractor error-type misreads-detail plausibility 0.7 targets ["q1"] text "The queen bee does all of the important work in the colony." rationale "Misreads the roles: the queen lays eggs while the workers do the labor." {},
+  claim id "c6" status distractor error-type too-narrow plausibility 0.5 targets ["q1"] text "Guard bees stand watch and protect the entrance of the hive." rationale "A single detail about one job, not the central idea." cites ["e6"] {}
+]
+evidence [
+  source id "e1" line 2 status directly-supports supports ["c1"] quote "Every bee in the colony has a job that helps the whole group survive." {},
+  source id "e2" line 8 status directly-supports supports ["c1"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {},
+  source id "e3" line 5 status directly-supports supports ["c1"] quote "The queen lays the eggs that become the colony's next generation." {},
+  source id "e4" line 3 status supports-wrong-claim supports ["c1" "c2"] quote "Worker bees gather nectar, build the honeycomb, and feed the young." rationale "Looks like it supports the main idea but really backs the too-narrow worker-bee reading." {},
+  source id "e5" line 6 status supports-wrong-claim supports ["c4"] quote "When a worker finds flowers, it dances to tell the others where to go." rationale "Backs the minor dance detail, not the central idea." {},
+  source id "e6" line 4 status supports-wrong-claim supports ["c6"] quote "Guard bees stand at the entrance and protect the hive from intruders." rationale "Backs the too-narrow guard-bee detail, not the whole-colony idea." {},
+  source id "e7" line 7 status irrelevant supports [] quote "In winter, the bees cluster together and beat their wings to stay warm." {},
+  source id "e8" line 1 status irrelevant supports [] quote "Honeybees live together in large groups called colonies." {}
+]
+outcomes [ outcome id "q1" type ebsr task-model tm3 dimension central-idea standard ri-2 focus "c1" stem "Which of these best states the central idea of the passage?" stem-b "Which detail from the passage best supports the central idea you chose in Part A?" {} ]
+{}..

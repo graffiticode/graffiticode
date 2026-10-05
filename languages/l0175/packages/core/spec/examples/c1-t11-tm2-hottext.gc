@@ -1,0 +1,30 @@
+target c1-t11 passage "How Bridges Changed" type informational lines [
+  "Long ago, builders made bridges by laying flat stones across a stream."
+  "These beam bridges could only cross short gaps before they sagged."
+  "To span wider rivers, the Romans built arch bridges out of curved stone."
+  "The arch pushed the weight outward, so the bridge could carry heavy loads."
+  "Later, engineers hung the roadway from cables in a suspension bridge."
+  "Suspension bridges could cross gaps far too wide for any arch."
+  "Each new design solved a problem the earlier one could not."
+  "Today, engineers choose a design to fit the distance and the load."
+]
+claims [
+  claim id "c1" status supported dimension relationships-interactions subject "the bridge designs" standard ri-3 text "Each new bridge design fixed a problem the last one could not." cites ["e1" "e2" "e3"] {},
+  claim id "c2" status distractor error-type misreads-detail plausibility 0.8 targets ["q1"] text "Beam bridges were the strongest kind of bridge ever built." rationale "Misreads the passage; beam bridges were the weakest." cites ["e4"] {},
+  claim id "c3" status distractor error-type erroneous-inference plausibility 0.6 targets ["q1"] text "The Romans invented every type of bridge in the article." rationale "Not stated; they built arch bridges, not all types." cites ["e5"] {},
+  claim id "c4" status distractor error-type faulty-reasoning plausibility 0.6 targets ["q1"] text "Newer bridges are always prettier than older bridges." rationale "Beauty is never discussed; the text is about solving problems." cites ["e6"] {},
+  claim id "c5" status distractor error-type misreads-detail plausibility 0.5 targets ["q1"] text "Suspension bridges are built only from curved stone." rationale "Confuses suspension bridges (cables) with arch bridges (stone)." cites ["e7"] {},
+  claim id "c6" status distractor error-type erroneous-inference plausibility 0.5 targets ["q1"] text "Engineers today still prefer the simple beam bridge." rationale "Contradicted; they choose a design by distance and load." cites ["e8"] {}
+]
+evidence [
+  source id "e1" line 4 status directly-supports supports ["c1"] quote "The arch pushed the weight outward, so the bridge could carry heavy loads." {},
+  source id "e2" line 6 status directly-supports supports ["c1"] quote "Suspension bridges could cross gaps far too wide for any arch." {},
+  source id "e3" line 7 status directly-supports supports ["c1"] quote "Each new design solved a problem the earlier one could not." {},
+  source id "e4" line 2 status supports-wrong-claim supports ["c1" "c2"] quote "These beam bridges could only cross short gaps before they sagged." rationale "Describes a limit of one design, not the relationship across designs." {},
+  source id "e5" line 3 status supports-wrong-claim supports ["c3"] quote "To span wider rivers, the Romans built arch bridges out of curved stone." rationale "Backs the who-built-it detail, not the problem-solving relationship." {},
+  source id "e6" line 1 status irrelevant supports [] quote "Long ago, builders made bridges by laying flat stones across a stream." {},
+  source id "e7" line 5 status irrelevant supports [] quote "Later, engineers hung the roadway from cables in a suspension bridge." {},
+  source id "e8" line 8 status irrelevant supports [] quote "Today, engineers choose a design to fit the distance and the load." {}
+]
+outcomes [ outcome id "q1" type hot-text task-model tm2 dimension relationships-interactions subject "the bridge designs" standard ri-3 focus "c1" stem "Click on the statement that best describes how the bridge designs are related, as supported by the passage." {} ]
+{}..
