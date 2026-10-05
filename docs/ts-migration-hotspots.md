@@ -11,8 +11,8 @@ As of 2026-10-02. "Branch" means pushed, not yet merged to `main`.
 
 | Package | 2b: loads `dist/` | 3: `.ts` sources / specs | npm |
 |---|---|---|---|
-| common | ✅ main | branch `ts-phase3-common` / `ts-phase3-common-specs` | `2.1.0-ts.0` on `next` |
-| auth | ✅ main | — | `2.2.0-ts.0` on `next` |
+| common | ✅ main | branch `ts-phase3-common` / `ts-phase3-common-specs` | `2.1.0` on `latest` (after the 2026-10-05 soak; `2.1.0-ts.0` on `next`) |
+| auth | ✅ main | — | `2.2.0` on `latest` (after the 2026-10-05 soak; `2.2.0-ts.0` on `next`) |
 | auth-client | branch `ts-phase2b-auth-client` | — | `1.1.0-ts.0` prepared, not published |
 | policy | — | — | private |
 | broker | — | — | private |
