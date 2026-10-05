@@ -14,7 +14,8 @@ claims [
 evidence [
   source id "e1" line 2 status directly-supports supports ["c1"] quote "Every bee in the colony has a job that helps the whole group survive." {},
   source id "e2" line 8 status directly-supports supports ["c1"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {},
-  source id "e3" line 5 status directly-supports supports ["c1"] quote "The queen lays the eggs that become the colony's next generation." {}
+  source id "e3" line 5 status directly-supports supports ["c1"] quote "The queen lays the eggs that become the colony's next generation." {},
+  source id "e4" line 7 status supports-wrong-claim supports ["c1"] quote "In winter, the bees cluster together and beat their wings to stay warm." rationale "Shows the bees working together, but every bee does the same thing, so it does not show each bee having its own job." {}
 ]
 outcomes [ outcome id "q1" dok r-dok2 type hot-text task-model tm4 dimension central-idea standard ri-2 focus "c1" stem "Click on the sentence(s) that best show the central idea of the passage." {} ]
 {}..

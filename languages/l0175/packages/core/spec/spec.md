@@ -112,7 +112,7 @@ composes). A `focus` that isn't a supported claim, or a `targets` to a missing o
 
 | Attribute | Value | Description |
 | :--- | :--- | :--- |
-| `status` | tag | The support role: `directly-supports` (real backing for its claim), `supports-wrong-claim` (real text that *seems* to back a foil), or `irrelevant` (off-point — a Part B distractor). |
+| `status` | tag | The support role: `directly-supports` (real backing for its claim), `supports-wrong-claim` (real text that *seems* to back a foil), or `irrelevant` (off-point — a Part B distractor). Every program authors at least one `supports-wrong-claim` source (all targets except `c1-t10`). |
 | `line` | number | The numbered passage entry (a paragraph by default, 1-based) this source draws on. Must be within the passage (out-of-range → warning). |
 | `quote` | string | A verbatim excerpt shown instead of the whole `line`. For EBSR Part B, set this to the exact supporting **sentence** (with `line` pointing at its paragraph) so options stay sentence-tight. |
 | `supports` | id list | See *Identity & references* — the claim(s) this evidence backs. |

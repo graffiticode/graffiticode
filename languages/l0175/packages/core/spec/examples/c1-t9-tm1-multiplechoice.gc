@@ -17,7 +17,9 @@ claims [
 ]
 evidence [
   source id "e1" line 2 status directly-supports supports ["c1"] quote "Every bee in the colony has a job that helps the whole group survive." {},
-  source id "e2" line 8 status directly-supports supports ["c1"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {}
+  source id "e2" line 8 status directly-supports supports ["c1"] quote "Because each bee does its part, the colony can do things no single bee could do alone." {},
+  source id "e3" line 3 status supports-wrong-claim supports ["c2"] quote "Worker bees gather nectar, build the honeycomb, and feed the young." rationale "A true detail about one kind of bee; it backs the too-narrow choice, not the central idea." {},
+  source id "e4" line 6 status supports-wrong-claim supports ["c4"] quote "When a worker finds flowers, it dances to tell the others where to go." rationale "Backs a minor detail about the dance rather than the central idea." {}
 ]
 outcomes [ outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension central-idea subject "the colony" standard ri-2 focus "c1" stem "Which sentence best states the central idea of the passage?" {} ]
 {}..

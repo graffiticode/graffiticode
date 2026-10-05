@@ -54,5 +54,12 @@ describe("RAG example corpus (spec/examples/*.gc)", () => {
       expect(outcomes.length).toBeGreaterThan(0);
       for (const o of outcomes) expect(o.split(/\{\}/)[0]).toMatch(/\bdok\s+r-dok[123]\b/);
     });
+
+    // Every target but c1-t10 (which has no evidence) authors at least one supports-wrong-claim source.
+    it(`${file} authors a supports-wrong-claim source`, () => {
+      const code = readFileSync(join(examplesDir, file), "utf-8");
+      if (!/\bsource\s+id\b/.test(code)) return;
+      expect(code).toMatch(/\bstatus\s+supports-wrong-claim\b/);
+    });
   }
 });

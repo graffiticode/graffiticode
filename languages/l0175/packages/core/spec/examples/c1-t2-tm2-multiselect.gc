@@ -20,9 +20,9 @@ claims [
 evidence [
   source id "e3" line 3 status directly-supports supports ["s1"] quote "This year she almost did not enter at all." {},
   source id "e7" line 7 status directly-supports supports ["s2"] quote "Then a teacher asked to hang Tessa's drawing in the hall." {},
-  source id "e1" line 1 status irrelevant supports [] quote "Every spring, Tessa entered her drawing in the county fair." {},
+  source id "e1" line 1 status supports-wrong-claim supports ["u5"] quote "Every spring, Tessa entered her drawing in the county fair." rationale "Backs the background timing of the fair, not a key event of this story." {},
   source id "e4" line 4 status irrelevant supports [] quote "Her grandmother set a fresh pencil on the kitchen table." {},
-  source id "e6" line 6 status irrelevant supports [] quote "At the fair, the blue ribbon went to somebody else." {}
+  source id "e6" line 6 status supports-wrong-claim supports ["u1"] quote "At the fair, the blue ribbon went to somebody else." rationale "Mentions the blue ribbon, so a misreader may take it as Tessa winning; it says the opposite." {}
 ]
 outcomes [ outcome id "q1" dok r-dok2 type multi-select task-model tm2 dimension summary subject "the fair" focus ["s1" "s2"] stem "Choose two sentences that should be included in a summary of the story. Select two answers." {} ]
 {}..

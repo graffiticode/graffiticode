@@ -56,8 +56,8 @@ Always declare a top-level `target` (the SBAC learning target the program compos
   `standard` on the outcome. **DOK 1–2**. Item types: `multiple-choice`, `multi-select`, `hot-text`
   (single-part) — no EBSR, no short-text. **Author ONE supported `claim` = the given inference (its
   `focus`), state it in the `stem`, and author `source`s as the options: `directly-supports` =
-  correct evidence (with a `quote`), `supports-wrong-claim`/`irrelevant` = distractor evidence. No
-  distractor claims.** Its stems offer `line` as a selectable unit and say `[author/narrator]`;
+  correct evidence (with a `quote`), `supports-wrong-claim`/`irrelevant` = distractor evidence, at
+  least one `supports-wrong-claim`. No distractor claims.** Its stems offer `line` as a selectable unit and say `[author/narrator]`;
   Multi-Select is exactly **two** correct.
 - **`c1-t8`** — Target 8: **Key Details** over **informational** texts (RI standards). A DIFFERENT
   model: the inference/conclusion is **GIVEN in the stem**, and the student selects the supporting
@@ -66,7 +66,7 @@ Always declare a top-level `target` (the SBAC learning target the program compos
   `hot-text` (single-part) — no EBSR, no short-text. **Author ONE supported `claim` = the given
   inference (its `focus`), state it in the `stem`, and author `source`s as the options:
   `directly-supports` = correct evidence (with a `quote`), `supports-wrong-claim`/`irrelevant` =
-  distractor evidence. No distractor claims.**
+  distractor evidence, at least one `supports-wrong-claim`. No distractor claims.**
 - **`c1-t10`** — Target 10: **Word Meanings** over **informational** texts. The MOST different
   model: the question asks for the **meaning of a targeted word/phrase in context**, so the answer
   choices are **meanings**, authored as `word`/`meaning` (not claims). Dimension: `word-meaning`.
@@ -141,7 +141,7 @@ Quote free text (`text`, `rationale`, `subject`, passage heading) and id labels 
   choosing among the foils of the same error type that target the outcome).
 - **source** — `id`, `line` (the numbered passage entry — a paragraph by default) or `quote`,
   `status` (`directly-supports` | `supports-wrong-claim` | `irrelevant`), `supports` (claim ids).
-  Optional `rationale` explaining a foil. **For EBSR Part B, give the source a `quote` with the
+  Optional `rationale` explaining a foil. **Always author at least one `supports-wrong-claim` source** (every target except `c1-t10`, which has no evidence): a real passage line that *seems* to back an answer but does not. Point its `supports` at the distractor claim it props up (on T1/T8, which have no distractor claims, at the given claim — the line looks like support for it but is not), and give it a `rationale`. Do this even when the item type never shows evidence foils (short-text). **For EBSR Part B, give the source a `quote` with the
   exact supporting SENTENCE** while `line` points at the paragraph that contains it — so Part B
   options stay tight sentences even though the passage is numbered by paragraph. (Without `quote`,
   the option text is the whole paragraph at `line`.)
@@ -532,7 +532,10 @@ claims [
     text "Each bee in the colony does every job by itself."
     rationale "Misreads the division of labor." cites ["e1"] {}
 ]
-evidence [ source id "e1" line 1 status directly-supports supports ["c1"] {} ]
+evidence [
+  source id "e1" line 1 status directly-supports supports ["c1"] {}
+  source id "e2" line 1 quote "The queen bee lays all the eggs." status supports-wrong-claim supports ["d1"] rationale "A true detail about one bee; it backs the too-narrow choice, not the central idea." {}
+]
 outcomes [
   outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension central-idea subject "the colony" standard ri-2 focus "c1"
     stem "Which sentence best shows the main idea of the passage?" {}
@@ -561,10 +564,10 @@ evidence [
   source id "e1" line 1 quote "Then she knelt down and set the first nail without anyone asking her to." status directly-supports supports ["c1"] {}
   source id "e2" line 1 quote "Mr. Ruiz never learned who had fixed his porch." status directly-supports supports ["c1"] {}
   source id "e3" line 1 quote "The third board rocked under her feet every time she crossed it." status irrelevant supports [] rationale "Describes the problem, not Nina's choice to act." {}
-  source id "e4" line 1 quote "On Saturday she stopped, because someone had left a hammer on the step." status irrelevant supports [] rationale "Invites the erroneous inference that she helped only because a tool was there." {}
+  source id "e4" line 1 quote "On Saturday she stopped, because someone had left a hammer on the step." status supports-wrong-claim supports ["c1"] rationale "Invites the erroneous inference that she helped only because a tool was there." {}
   source id "e5" line 1 quote "Nina had walked past Mr. Ruiz's crooked porch a hundred times." status irrelevant supports [] rationale "Tells how often she passed, not that she acted on her own." {}
   source id "e6" line 1 quote "She looked up and down the empty street." status irrelevant supports [] rationale "Sets the scene; shows no action Nina took." {}
-  source id "e7" line 1 quote "Her arm ached by the fourth nail, but she did not quit." status irrelevant supports [] rationale "Shows persistence once she had started, not that she started unasked." {}
+  source id "e7" line 1 quote "Her arm ached by the fourth nail, but she did not quit." status supports-wrong-claim supports ["c1"] rationale "Shows persistence once she had started, not that she started unasked." {}
 ]
 outcomes [
   outcome id "q1" dok r-dok2 type multiple-choice task-model tm1 dimension supporting-evidence subject "Nina" focus "c1"
@@ -602,8 +605,8 @@ evidence [
   source id "e1" line 1 quote "They tilted each channel down just a little, so the water moved on its own." status directly-supports supports ["c1"] {}
   source id "e2" line 1 quote "Where the land dropped away, they raised the channel on tall stone arches." status directly-supports supports ["c1"] {}
   source id "e3" line 1 quote "Rome needed more fresh water than its wells could give." status irrelevant supports [] rationale "Gives the reason for building, not evidence that the building was planned with care." {}
-  source id "e4" line 1 quote "Workers built long channels called aqueducts to carry water to the city." status irrelevant supports [] rationale "Says what was built; a student may read any construction detail as proof of planning." {}
-  source id "e5" line 1 quote "Some aqueducts started at springs sixty miles from the city." status irrelevant supports [] rationale "A fact about scale — impressive, but it shows distance rather than design choices." {}
+  source id "e4" line 1 quote "Workers built long channels called aqueducts to carry water to the city." status supports-wrong-claim supports ["c1"] rationale "Says what was built; a student may read any construction detail as proof of planning." {}
+  source id "e5" line 1 quote "Some aqueducts started at springs sixty miles from the city." status supports-wrong-claim supports ["c1"] rationale "A fact about scale — impressive, but it shows distance rather than design choices." {}
   source id "e6" line 1 quote "Crews walked the channels often and cleaned out leaves and mud." status irrelevant supports [] rationale "Describes upkeep after the aqueducts were finished, not the planning behind them." {}
   source id "e7" line 1 quote "People in Rome filled their jugs at open fountains." status irrelevant supports [] rationale "Describes how people used the water; unrelated to how the system was designed." {}
 ]

@@ -16,8 +16,8 @@ evidence [
   source id "e2" line 6 status directly-supports supports ["c1"] quote "By the time it reached Rome, the water had gone more than sixty miles." {},
   source id "e3" line 2 status directly-supports supports ["c1"] quote "Workers built long channels called aqueducts to bring water to the city." {},
   source id "e4" line 1 status irrelevant supports [] quote "Long ago, Rome did not have enough fresh water." {},
-  source id "e5" line 4 status irrelevant supports [] quote "The channels tilted down a little, so the water flowed on its own." {},
-  source id "e6" line 5 status irrelevant supports [] quote "Tall stone arches held the channel over low valleys." {},
+  source id "e5" line 4 status supports-wrong-claim supports ["c1"] quote "The channels tilted down a little, so the water flowed on its own." rationale "Explains how the water moved through the channel, not that it came from far away." {},
+  source id "e6" line 5 status supports-wrong-claim supports ["c1"] quote "Tall stone arches held the channel over low valleys." rationale "Shows the channel crossed valleys, which hints at a long route but never says the water came from far away." {},
   source id "e7" line 7 status irrelevant supports [] quote "In the city, people filled their jugs at open fountains." {},
   source id "e8" line 8 status irrelevant supports [] quote "Workers cleaned the channels often to keep the water fresh." {}
 ]

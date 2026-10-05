@@ -14,7 +14,8 @@ claims [
 evidence [
   source id "e6" line 6 status directly-supports supports ["c1"] quote "At the fair, the blue ribbon went to somebody else." {},
   source id "e7" line 7 status directly-supports supports ["c1"] quote "Then a teacher asked to hang Tessa's drawing in the hall." {},
-  source id "e8" line 8 status directly-supports supports ["c1"] quote "Tessa walked home taller than she had the year before." {}
+  source id "e8" line 8 status directly-supports supports ["c1"] quote "Tessa walked home taller than she had the year before." {},
+  source id "e3" line 3 status supports-wrong-claim supports ["c1"] quote "This year she almost did not enter at all." rationale "A key event, but it happens before the ribbon goes to someone else, so it does not belong in this summary." {}
 ]
 outcomes [ outcome id "q1" dok r-dok3 type short-text task-model tm5 dimension summary subject "the fair" focus "c1" stem "Summarize what happens after the blue ribbon goes to somebody else. Use key details from the passage in your summary." {} ]
 {}..

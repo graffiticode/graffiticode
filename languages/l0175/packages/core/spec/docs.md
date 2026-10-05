@@ -107,7 +107,7 @@ Attribute functions (arity-2, merge one key into the element's record):
 - **word / meaning** (c1-t10) — `word` has `id`, `text`, `line`/`quote`, `meanings`; `meaning` has `id`, `text`, `status` (`correct` | `distractor`), `error-type`* + `rationale`* on distractors
 - **identity / refs** — `id`, `cites` (claim→evidence ids), `supports` (evidence→claim ids), `focus` (outcome→correct claim id, or a list on `multi-select`), `targets` (distractor→outcome ids)
 - **claim** — `status`, `dimension`, `text`, `error-type`*, `rationale`*, `targets`*, `plausibility` (0–1 distractor temptingness override), `subject`, `standard`, `dok`
-- **evidence** — `status`, `line` (or `quote`), `supports`, `rationale`
+- **evidence** — `status`, `line` (or `quote`), `supports`, `rationale` · always author at least one `supports-wrong-claim` source (all targets except `c1-t10`)
 - **outcome / stem** — `id`†, `type`†, `dimension`†, `focus`†, `stem`† (Part A / single-question / prompt, from `stems.md`), `stem-b` (Part B, required on EBSR), `dok`†, `subject`, `standard`, `rubric` (short-text)
 - **rubric band** — `score`, `descriptor`
 

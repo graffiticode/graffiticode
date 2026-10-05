@@ -59,5 +59,10 @@ describe("spec doc examples compile clean", () => {
         expect(o.split(/\{\}/)[0]).toMatch(/\bdok\s+r-dok[123]\b/);
       }
     });
+
+    it(`${file} program #${n} authors a supports-wrong-claim source`, () => {
+      if (!/\bsource\s+id\b/.test(code)) return;
+      expect(code).toMatch(/\bstatus\s+supports-wrong-claim\b/);
+    });
   }
 });
