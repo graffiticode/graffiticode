@@ -28,8 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Specs live in `packages/core/test/` (`compose`, `task-model`, `corpus`, `embedding`, `verify-example`) and `packages/view/src/components/form/copy.spec.ts`. Because `npm test` builds `core` first, run it (not bare `vitest`) after changing core source so view/API tests see the rebuilt `dist/`.
 
 ### Deployment
-- **GCP Cloud Build**: `npm run gcp:build` (submits `cloudbuild.yaml` to the `graffiticode` project)
-- **GCP Direct Deploy**: `npm run gcp:deploy` (deploys to Cloud Run as `l0175`, region `us-central1`, port `50175`)
+- Release with `npm run deploy -- l0175` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0175.yaml`, runtime `l0175-run`). It updates env additively and carries the live `--max-instances` forward.
 - **View logs**: `npm run gcp:logs`
 
 ## Architecture

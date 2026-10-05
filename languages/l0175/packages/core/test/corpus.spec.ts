@@ -7,8 +7,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-// @ts-expect-error — sibling repo, plain JS, no types
-import { parser } from "../../../../graffiticode/packages/parser/src/index.js";
+import { parser } from "@graffiticode/parser";
 import { lexicon, compiler, verifyExample } from "../dist/index.js";
 
 async function compile(src: string): Promise<{ errors: any[]; data: any }> {

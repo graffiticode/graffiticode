@@ -3,8 +3,7 @@
 // signature tags/facets derived from the composed item, and query-side facet extraction.
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-// @ts-expect-error — sibling repo, plain JS, no types
-import { parser } from "../../../../graffiticode/packages/parser/src/index.js";
+import { parser } from "@graffiticode/parser";
 import {
   lexicon,
   compiler,

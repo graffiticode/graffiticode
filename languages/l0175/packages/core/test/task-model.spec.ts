@@ -5,8 +5,7 @@
 // the program's target. This is the deterministic guard against the "c1-t9 tm3 EBSR drifts to
 // hot-text/short-text" generation failure.
 import { describe, it, expect } from "vitest";
-// @ts-expect-error — sibling repo, plain JS, no types
-import { parser } from "../../../../graffiticode/packages/parser/src/index.js";
+import { parser } from "@graffiticode/parser";
 import { lexicon, compiler } from "../dist/index.js";
 
 async function compile(src: string): Promise<{ errors: any[]; data: any }> {

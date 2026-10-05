@@ -7,8 +7,7 @@
 // composition draws an item's foils ONLY from the distractors that target it.
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-// @ts-expect-error — sibling repo, plain JS, no types
-import { parser } from "../../../../graffiticode/packages/parser/src/index.js";
+import { parser } from "@graffiticode/parser";
 import { lexicon, compiler } from "../dist/index.js";
 
 async function compile(src: string): Promise<{ errors: any[]; data: any }> {
