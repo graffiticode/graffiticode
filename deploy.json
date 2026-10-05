@@ -110,7 +110,13 @@
       "verify": {
         "module": "verify/api.js"
       },
-      "retireTags": true
+      "retireTags": true,
+      "baselines": [
+        {
+          "milestone": "W1",
+          "commit": "5e0fa93a3aa5eec451a16cc769254b8b9149a19e"
+        }
+      ]
     },
     "auth": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/auth",
@@ -266,6 +272,10 @@
         {
           "milestone": "W0",
           "commit": "14cc636613d63c69306a33eadacdd561072e70ac"
+        },
+        {
+          "milestone": "W1",
+          "commit": "5e0fa93a3aa5eec451a16cc769254b8b9149a19e"
         }
       ]
     },
@@ -363,6 +373,10 @@
         {
           "milestone": "W0",
           "commit": "14cc636613d63c69306a33eadacdd561072e70ac"
+        },
+        {
+          "milestone": "W1",
+          "commit": "5e0fa93a3aa5eec451a16cc769254b8b9149a19e"
         }
       ]
     },
