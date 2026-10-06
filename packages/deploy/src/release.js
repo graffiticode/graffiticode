@@ -107,6 +107,35 @@ async function checkService(config, cloud) {
   return service;
 }
 
+// Cloud Build's own status decides when a build is done; the log stream only
+// shows progress. `gcloud builds log --stream` can outlive the build (it once
+// held a release for an hour after a successful build), so once the build
+// finishes the stream gets a grace period to print its tail, then is stopped.
+// A stream that fails or never closes never fails or holds a release.
+const FINISHED = ["SUCCESS", "FAILURE", "INTERNAL_ERROR", "TIMEOUT", "CANCELLED", "EXPIRED"];
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * @param {string} buildId
+ * @param {{ cloud: Function, log?: (message: string) => void, streamLog?: (buildId: string) => { done: Promise<unknown>, stop: () => void }, sleep?: (ms: number) => Promise<unknown>, pollMs?: number, graceMs?: number }} deps
+ */
+export async function waitForBuild(buildId, { cloud, log = () => {}, streamLog, sleep = pause, pollMs = 10000, graceMs = 15000 }) {
+  const stream = streamLog?.(buildId);
+  const ended = stream?.done.then(() => {}, err => log(`(build log stream stopped: ${err.message})`));
+  try {
+    for (;;) {
+      const build = await cloud(["builds", "describe", buildId]);
+      if (FINISHED.includes(build.status)) {
+        if (ended) await Promise.race([ended, sleep(graceMs)]);
+        return build;
+      }
+      await sleep(pollMs);
+    }
+  } finally {
+    stream?.stop();
+  }
+}
+
 export async function release(context, source, deps) {
   const { config, configHash, environment } = context;
   const { cloud, log, save, temp } = deps;
@@ -152,8 +181,7 @@ export async function release(context, source, deps) {
     requireValue(submitted.id, "Cloud Build did not return a build ID");
     receipt.buildId = submitted.id;
     await persist();
-    await cloud(["builds", "log", receipt.buildId, "--stream"], { stream: true, json: false });
-    const build = await cloud(["builds", "describe", receipt.buildId]);
+    const build = await waitForBuild(receipt.buildId, deps);
     requireValue(build.status === "SUCCESS", `Build ${receipt.buildId} finished with ${build.status}; nothing deployed`);
     const artifact = build.results?.images?.find(image => image.name === imageTag);
     requireValue(artifact && /^sha256:[a-f0-9]{64}$/.test(artifact.digest), "Build returned no matching image digest");

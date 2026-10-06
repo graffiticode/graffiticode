@@ -7,8 +7,8 @@ import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
-import { run } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck } from "../src/release.js";
+import { run, streamOutput } from "../src/process.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck } from "../src/release.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
 const config = {
@@ -520,4 +520,71 @@ test("baselines, enforcesSwitch and protectedExecution are validated, and the ne
     await write(bad);
     await assert.rejects(loadConfig(parseArgs(["--plan"]), root, {}), /baselines must be|enforcesSwitch must be|protectedExecution must be/);
   }
+});
+
+// The build's status, not its log stream, decides when a build is done
+// (a `gcloud builds log --stream` once outlived its successful build by an hour).
+const neverEnds = () => {
+  const stream = { stopped: false, done: new Promise(() => {}), stop: () => { stream.stopped = true; } };
+  return stream;
+};
+const describing = statuses => {
+  const asked = [];
+  return { asked, cloud: async args => { asked.push(args); return { status: statuses[Math.min(asked.length - 1, statuses.length - 1)] }; } };
+};
+const noWait = async () => {};
+
+test("a build is done when Cloud Build says so, polling until then", async () => {
+  const { asked, cloud } = describing(["QUEUED", "WORKING", "WORKING", "SUCCESS"]);
+  const slept = [];
+  const build = await waitForBuild("build-1", { cloud, sleep: async ms => { slept.push(ms); }, pollMs: 7 });
+  assert.equal(build.status, "SUCCESS");
+  assert.deepEqual(asked, Array(4).fill(["builds", "describe", "build-1"]));
+  assert.deepEqual(slept, [7, 7, 7]);
+});
+
+test("a log stream that never closes is stopped after the grace period, and holds nothing", async () => {
+  const stream = neverEnds();
+  const { cloud } = describing(["WORKING", "SUCCESS"]);
+  const slept = [];
+  const build = await waitForBuild("build-1", { cloud, streamLog: () => stream, sleep: async ms => { slept.push(ms); }, pollMs: 7, graceMs: 2000 });
+  assert.equal(build.status, "SUCCESS");
+  assert.deepEqual(slept, [7, 2000]);
+  assert.equal(stream.stopped, true);
+});
+
+test("a log stream that ends lets the release go on at once; one that fails is only reported", async () => {
+  const { cloud } = describing(["SUCCESS"]);
+  const forever = () => new Promise(() => {});
+  const ended = { done: Promise.resolve(), stop: () => {} };
+  assert.equal((await waitForBuild("build-1", { cloud, streamLog: () => ended, sleep: forever })).status, "SUCCESS");
+  const logged = [];
+  const failing = { done: Promise.reject(new Error("gcloud builds log failed (1)")), stop: () => {} };
+  const build = await waitForBuild("build-1", { cloud, streamLog: () => failing, sleep: forever, log: m => logged.push(m) });
+  assert.equal(build.status, "SUCCESS");
+  assert.deepEqual(logged, ["(build log stream stopped: gcloud builds log failed (1))"]);
+});
+
+test("a failed build stops its stream and deploys nothing, however the stream behaves", async t => {
+  const h = await harness(t, { buildFailure: true });
+  const stream = neverEnds();
+  await assert.rejects(release(context, source, { ...h.deps, streamLog: () => stream, sleep: noWait }), /FAILURE; nothing deployed/);
+  assert.equal(stream.stopped, true);
+  assert.ok(!h.calls.some(c => c[1] === "deploy"));
+});
+
+test("a release completes past a log stream that never closes", async t => {
+  const h = await harness(t);
+  const stream = neverEnds();
+  const receipt = await release(context, source, { ...h.deps, streamLog: () => stream, sleep: noWait });
+  assert.equal(receipt.status, "released");
+  assert.equal(stream.stopped, true);
+  assert.ok(!h.calls.some(c => c[0] === "builds" && c[1] === "log"));
+});
+
+test("streamOutput reports a stopped command as ended, and a failing one as failed", async () => {
+  const sleeper = streamOutput(process.execPath, ["-e", "setTimeout(() => {}, 60000)"]);
+  sleeper.stop();
+  await sleeper.done;
+  await assert.rejects(streamOutput(process.execPath, ["-e", "process.exit(3)"]).done, /failed \(3\)/);
 });

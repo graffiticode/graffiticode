@@ -4,7 +4,7 @@ import path from "node:path";
 import { parseArgs, loadConfig, requireValue } from "./config.js";
 import { createGit } from "./git.js";
 import { snapshot } from "./snapshot.js";
-import { run } from "./process.js";
+import { run, streamOutput } from "./process.js";
 import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck } from "./release.js";
 
 async function main() {
@@ -34,14 +34,19 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     await writeFile(`${filename}.tmp`, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
     await rename(`${filename}.tmp`, filename);
   };
-  const cloud = async (args, { json = true, stream = false } = {}) => {
+  const scope = args => {
     const scoped = [...args, `--project=${config.project}`, "--quiet"];
     if (["builds", "run"].includes(args[0])) scoped.push(`--region=${config.region}`);
+    return scoped;
+  };
+  const cloud = async (args, { json = true, stream = false } = {}) => {
+    const scoped = scope(args);
     if (json) scoped.push("--format=json");
     // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
     const output = await run("gcloud", scoped, { cwd: root, stream });
     return json ? JSON.parse(output) : output;
   };
+  const streamLog = buildId => streamOutput("gcloud", scope(["builds", "log", buildId, "--stream"]), { cwd: root });
   const git = createGit(root);
   // Policy's and Broker's own report of the switch (GET /v1/protected-execution),
   // with the operator's identity for Cloud Run IAM. true means on.
@@ -116,7 +121,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       requiredVariables: context.unresolved
     }, null, 2));
     if (options.plan) return;
-    const receipt = await release(context, source, { cloud, log: console.log, save, temp: source.dir });
+    const receipt = await release(context, source, { cloud, streamLog, log: console.log, save, temp: source.dir });
     console.log(`Released ${receipt.revision}: ${receipt.url}\nReceipt: ${path.join(receiptDir, `${receipt.id}.json`)}\nRollback: npm run rollback -- ${context.service} --env ${context.environment} --release ${receipt.id}`);
     // Released, but not ready for protected execution: make that a failed run.
     if (receipt.tagRetirementError) process.exitCode = 1;
