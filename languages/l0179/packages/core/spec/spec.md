@@ -203,6 +203,9 @@ Available inside a `text` or `expected` value that begins with `=`.
 | `MIN` | `=MIN(A1:A10)` | Smallest numeric value; text and blanks are skipped. |
 | `ABS` | `=ABS(A1)` | Absolute value. |
 | `IF` | `=IF(A1,B1,C1)` | Conditional value. |
+| `OR` | `=OR(A1>0,B1>0)` | TRUE if any argument is true. |
+| `AND` | `=AND(A1>0,B1>0)` | TRUE if every argument is true. |
+| `NOT` | `=NOT(A1>0)` | Reverses a TRUE/FALSE value. |
 
 ## Examples
 

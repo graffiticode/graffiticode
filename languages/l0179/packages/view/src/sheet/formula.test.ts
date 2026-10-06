@@ -121,6 +121,30 @@ describe("evalCell", () => {
     });
   });
 
+  describe("OR, AND, NOT", () => {
+    const dims = (b4: string, b5: string) => sheet({ B4: leaf(b4), B5: leaf(b5), A1: leaf("10"), A2: leaf("3") });
+    const area = "=IF(OR(B4<=0,B5<=0),\"Enter positive dimensions\",ROUND(B4*B5,2))";
+
+    test.each([
+      ["3", "4.5", "13.5"],
+      ["0", "4", "Enter positive dimensions"],
+      ["2", "-1", "Enter positive dimensions"],
+    ])("the area formula with B4=%s, B5=%s is %s", (b4, b5, expected) => {
+      expect(evalIn(dims(b4, b5), area).val).toBe(expected);
+    });
+
+    test.each([
+      ["=OR(A1>5,A2>5)", "TRUE"],
+      ["=OR(A1<5,A2>5)", "FALSE"],
+      ["=AND(A1>5,A2>5)", "FALSE"],
+      ["=AND(A1>5,A2<5)", "TRUE"],
+      ["=NOT(A1>5)", "FALSE"],
+      ["=IF(AND(A1>5,A2<5),1,2)", "1"],
+    ])("%s evaluates to %s", (formula, expected) => {
+      expect(evalIn(dims("1", "1"), formula).val).toBe(expected);
+    });
+  });
+
   describe("a sign before a function call", () => {
     // The same parser defect as `*` and `/`: `=-SUM(A1,A2)` was the text "0A1…A2" and
     // `=A1+-SUM(A1,A2)` dropped the call. Bracketed in prepareFormula.

@@ -82,7 +82,25 @@ const ABS = {
   },
 };
 
-const sheet = createSpreadsheet({ functions: [POWER, MAX, MIN, ABS] });
+/**
+ * OR, AND and NOT. Each argument is read the way IF reads its condition (evaluateCondition), so a
+ * comparison, a number or a TRUE/FALSE cell all work. The result is Excel's TRUE/FALSE, which IF
+ * in turn reads correctly.
+ */
+const logical = (name: string, minArgs: number, maxArgs: number, test: (bools: boolean[]) => boolean) => ({
+  name,
+  minArgs,
+  maxArgs,
+  apply: ({ args, helpers }: any) => (
+    test(args.map((a: string) => helpers.evaluateCondition(helpers.getCellValue(a)))) ? "TRUE" : "FALSE"
+  ),
+});
+
+const OR = logical("OR", 1, Infinity, (bools) => bools.some(Boolean));
+const AND = logical("AND", 1, Infinity, (bools) => bools.every(Boolean));
+const NOT = logical("NOT", 1, 1, ([b]) => !b);
+
+const sheet = createSpreadsheet({ functions: [POWER, MAX, MIN, ABS, OR, AND, NOT] });
 
 /** translatex's expanders plus L0179's functions. */
 export const expanders = sheet.expanders;
