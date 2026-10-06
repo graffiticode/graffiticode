@@ -216,6 +216,33 @@ function recordHas(rec, recordKey) {
 // undefined — a raw JS TypeError thrown out of the visitor, which reached the caller
 // as a compile error carrying a JS stack trace. Report it as an ordinary compile error
 // naming the builtin and the type it got instead.
+// Visits each item in order, the next only once the previous one's callback
+// has fired, then calls `done`. A callback that fires at once continues the
+// loop in place, so a long list of synchronous work doesn't deepen the stack;
+// one that fires later (a lambda waiting on a protected call) resumes the loop
+// from there. The iterators used to resume straight after a forEach, before a
+// later callback had fired, so such a lambda's result (and its write's
+// effect) was lost, and expressions ran concurrently.
+function eachInOrder(items, step, done) {
+  let i = 0;
+  const run = () => {
+    while (i < items.length) {
+      const index = i++;
+      let inline = true;
+      let fired = false;
+      step(items[index], index, () => {
+        if (fired) return;
+        fired = true;
+        if (!inline) run();
+      });
+      inline = false;
+      if (!fired) return;
+    }
+    done();
+  };
+  run();
+}
+
 function listArgError(fn, val) {
   const what =
     val === undefined ? "undefined (a missing key or unbound upstream?)"
@@ -1146,25 +1173,21 @@ export class Transformer extends Visitor {
       return;
     }
     // Execute expressions sequentially so side effects (set-var) complete before
-    // later expressions (get-var) observe them.
+    // later expressions (get-var) observe them, including when one waits.
     let err = [];
     const val = [];
-    let done = 0;
-    options.SYNC = true;
-    node.elts.forEach((elt, i) => {
-      this.visit(elt, options, (e0, v0) => {
-        err = err.concat(e0);
-        val[i] = v0;
-        if (++done === node.elts.length) {
-          options.SYNC = false;
-          resume(err, val);
-        }
-      });
-    });
     if (node.elts.length === 0) {
       val.push("");
       resume(err, val);
+      return;
     }
+    eachInOrder(node.elts, (elt, i, next) => {
+      this.visit(elt, options, (e0, v0) => {
+        err = err.concat(e0);
+        val[i] = v0;
+        next();
+      });
+    }, () => resume(err, val));
   }
   NUM(node, options, resume) {
     const err = [];
@@ -1609,8 +1632,6 @@ export class Transformer extends Visitor {
   // deep-copy through JSON, which erased every record argument (a record's entries are a Map)
   // and any other non-JSON value. An empty list resolves at once; it used to never resume.
   MAP(node, options, resume) {
-    // FIXME make async
-    options.SYNC = true;
     this.visit(node.elts[1], options, (e1, v1) => {
       let err = [].concat(e1);
       if (!Array.isArray(v1)) {
@@ -1620,19 +1641,16 @@ export class Transformer extends Visitor {
       const val = [];
       // Each element is ONE argument. Passing it bare let LAMBDA spread a list element
       // across the parameters, so `map (<x: length x>) [[1 2]]` bound x to 1.
-      v1.forEach((elt, i) => {
+      eachInOrder(v1, (elt, i, next) => {
         this.visit(node.elts[0], { ...options, SYNC: true, args: [elt] }, (e0, v0) => {
           err = err.concat(e0);
           val[i] = v0;
+          next();
         });
-      });
-      resume(err, val);
+      }, () => resume(err, val));
     });
-    options.SYNC = false;
   }
   FILTER(node, options, resume) {
-    // FIXME make async
-    options.SYNC = true;
     this.visit(node.elts[1], options, (e1, v1) => {
       let err = [].concat(e1);
       if (!Array.isArray(v1)) {
@@ -1640,22 +1658,19 @@ export class Transformer extends Visitor {
         return;
       }
       const val = [];
-      v1.forEach((elt) => {
+      eachInOrder(v1, (elt, _i, next) => {
         this.visit(node.elts[0], { ...options, SYNC: true, args: [elt] }, (e0, v0) => {
           err = err.concat(e0);
           if (v0) {
             val.push(elt);
           }
+          next();
         });
-      });
-      resume(err, val);
+      }, () => resume(err, val));
     });
-    options.SYNC = false;
   }
   REDUCE(node, options, resume) {
-    // FIXME make async
     // reduce (fn) acc list
-    options.SYNC = true;
     this.visit(node.elts[1], options, (e1, v1) => {
       this.visit(node.elts[2], options, (e2, v2) => {
         let err = [].concat(e1).concat(e2);
@@ -1666,16 +1681,15 @@ export class Transformer extends Visitor {
           resume([...err, listArgError("reduce", v2)], val);
           return;
         }
-        v2.forEach((elt) => {
+        eachInOrder(v2, (elt, _i, next) => {
           this.visit(node.elts[0], { ...options, SYNC: true, args: [val, elt] }, (e0, v0) => {
             err = err.concat(e0);
             val = v0;
+            next();
           });
-        });
-        resume(err, val);
+        }, () => resume(err, val));
       });
     });
-    options.SYNC = false;
   }
   STYLE(node, options, resume) {
     const err = [];

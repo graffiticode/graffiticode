@@ -296,3 +296,63 @@ describe("structured compile errors", () => {
     expect(err).toEqual([{ message: "Error: Item bank save partial", from: 3, to: -1, code: "authorization-denied:not-granted", category: "permission", stage: "s0", fn: "save-it", step: "items" }]);
   });
 });
+
+// A lambda that waits on a protected call: map, filter, reduce and a sequence
+// of expressions wait for each in turn, in order.
+describe("iterators over protected calls", () => {
+  const later = (ms: number, data: any) => () =>
+    new Promise<Response>((resolve) => setTimeout(() => resolve(new Response(JSON.stringify({ status: "success", data }), { status: 200 })), ms));
+  const saved = (n: number) => ({ status: "succeeded", steps: ["questions", "items"], result: { n } });
+  const order = () => requests.map((r) => r.url.replace(/^https:\/\/(policy|broker)\.example\/v1\//, ""));
+
+  test("map waits for each write, keeps results and effects in order, and never overlaps them", async () => {
+    // The first answer is the slowest: concurrent writes would finish out of order.
+    brokerReplies = [later(30, saved(1)), later(10, saved(2)), later(0, saved(3))];
+    const { err, val, effects } = await compile("map (<x: save-it x>) [1 2 3]..", IDENTITY);
+    expect(err).toEqual([]);
+    expect(val.map((out: any) => out.result.n)).toEqual([1, 2, 3]);
+    expect(effects).toHaveLength(3);
+    expect(order()).toEqual(["snapshot", "mint", "execute", "mint", "execute", "mint", "execute"]);
+    expect(requests.filter((r) => r.url.endsWith("/v1/mint")).map((r) => r.body.argsDigest)).toEqual([1, 2, 3].map((value) => argsDigest({ value })));
+  });
+
+  test("filter and reduce wait for each call too", async () => {
+    brokerReplies = [later(20, saved(1)), later(0, saved(2))];
+    const filtered = await compile("filter (<x: save-it x>) [1 2]..", IDENTITY);
+    expect(filtered.val).toEqual([1, 2]);
+    expect(filtered.effects).toHaveLength(2);
+    brokerReplies = [later(20, saved(1)), later(0, saved(2))];
+    const reduced = await compile("reduce (<a x: save-it x>) 0 [1 2]..", IDENTITY);
+    expect(reduced.val.result).toEqual({ n: 2 });
+    expect(order().slice(-4)).toEqual(["mint", "execute", "mint", "execute"]);
+  });
+
+  test("records and lists wait for every value, and may run them concurrently", async () => {
+    brokerReplies = [later(20, saved(1)), later(0, saved(2))];
+    const rec = await compile("{a: save-it 1 b: save-it 2}..", IDENTITY);
+    expect(rec.err).toEqual([]);
+    expect([rec.val.a.result.n, rec.val.b.result.n]).toEqual([1, 2]);
+    expect(rec.effects).toHaveLength(2);
+    brokerReplies = [later(20, saved(1)), later(0, saved(2))];
+    const list = await compile("[save-it 1 save-it 2]..", IDENTITY);
+    expect(list.val.map((out: any) => out.result.n)).toEqual([1, 2]);
+    expect(list.effects).toHaveLength(2);
+  });
+
+  test("an empty list resolves at once", async () => {
+    const { err, val, effects } = await compile("map (<x: save-it x>) []..", IDENTITY);
+    expect(err).toEqual([]);
+    expect(val).toEqual([]);
+    expect(effects).toEqual([]);
+  });
+
+  test("a long list of synchronous work doesn't overflow the stack", async () => {
+    const n = 20000;
+    const code = await parser.parse(0, `map (<x: add x 1>) [${Array.from({ length: n }, (_, i) => i).join(" ")}]..`, lexicon);
+    const compiler = new Compiler({ langID: "9999", Checker, Transformer, Renderer });
+    const { err, val }: any = await new Promise((resolve) => compiler.compile(code, {}, {}, (e, v) => resolve({ err: e, val: v })));
+    expect(err).toEqual([]);
+    expect(val).toHaveLength(n);
+    expect(val[n - 1]).toBe(n);
+  }, 60000);
+});
