@@ -204,3 +204,48 @@ Tokens issued before the window carry no `prv` and live at most 60 s; Broker ref
 them (`bad-token`), and callers retry with the same idempotency key, which mints a
 fresh token for the same operation. Rolling Broker back below W2 removes live
 checks: it needs `--below-baseline` with the switch off; roll forward instead.
+
+## Monitoring
+
+`scripts/monitoring.js` keeps the security audit's metrics and alerts in Cloud Monitoring.
+It reads the audit lines every service writes to `run.googleapis.com/stdout` with
+`jsonPayload.logName="security_audit"`.
+
+```
+node scripts/monitoring.js [--email <operator address>]           # dry run: filter check + plan
+node scripts/monitoring.js --apply --email <operator address>     # create or update
+node scripts/monitoring.js --verify-alert --email <operator address>
+```
+
+**Metrics** (`logging.googleapis.com/user/security_audit/<id>`). Each failure is counted
+once, by the record that reports it:
+
+| metric | counts |
+| --- | --- |
+| `policy_denials` | Policy refusals, by event and reason |
+| `broker_local_refusals` | Broker's own refusals, e.g. `bad-token`, `token-replayed` or `maintenance`. Broker's relays of Policy denials (`authorization-denied:*`) are excluded |
+| `authorization_outages` | Broker writes stopped by `authorization-unavailable` |
+| `gateway_policy_unavailable` | gateway requests refused with `policy-unavailable` |
+| `uncertain_writes` / `partial_writes` | Broker's final outcome; replays are excluded |
+| `artifact_failures` | api artifacts not stored, by category. `unavailable` is an outage. `conflict` includes a retry with the same key whose output differs from the stored artifact (the first is kept) |
+| `receipt_replays` | answers from a recorded outcome; never a new effect |
+
+**Alerts** (email to the operator's channel, at most one email per alert every 5 minutes):
+- *Security audit: authorization outage*: any `authorization-unavailable` or
+  `policy-unavailable`. Check Policy's health and its latest release first.
+- *Security audit: uncertain write*: the provider may or may not have applied a write.
+  Reconcile it from the receipt (`steps`, `failedStep`) before anyone retries under a new
+  operation. A retry with the same idempotency key only replays the recorded outcome.
+
+**The dry run** counts each metric's filter against the last 7 days of deployed entries
+(`--days N` changes the window). It fails when a metric's source records (service and
+event) match nothing. It also fails when a metric the canary produces matches nothing:
+policy denials, Broker-local refusals and replays. `--apply` refuses in either case.
+`--apply` is idempotent: run it again after a change to these definitions, and it updates
+only what differs.
+
+**After every apply**, check delivery with `--verify-alert`. It writes one test record per
+alert to its own log, `security_audit_test`. The alert conditions match those records; the
+metrics never do. Each email carries a nonce; type it back when asked. The result goes to
+`.gc-deploy/monitoring/alert-verification.json`. An incident that fired without its email
+arriving counts as not delivered.

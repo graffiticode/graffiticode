@@ -40,7 +40,7 @@
     "rollback": "node packages/deploy/src/cli.js rollback",
     "test:deploy": "npm test -w @graffiticode/deploy",
     "test:verify": "node --test verify/test/lib.test.js",
-    "test:scripts": "node --test scripts/test/protected-execution.test.js scripts/test/canary.test.js scripts/test/failures-inventory.test.js",
+    "test:scripts": "node --test scripts/test/protected-execution.test.js scripts/test/canary.test.js scripts/test/failures-inventory.test.js scripts/test/monitoring.test.js",
     "gcp:broker:build": "npm run deploy -- broker",
     "gcp:policy:build": "npm run deploy -- policy",
     "upgrade-l0000-and-deploy": "node scripts/upgrade-l0000-and-deploy.js",
