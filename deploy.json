@@ -252,7 +252,6 @@
         "LEARNOSITY_DOMAIN": "l0176.graffiticode.org",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app"
       },
-      "blocked": "W2 (live authorization): this broker asks Policy's authorize-execution before every effect and requires `prv` in execution tokens, so it may only ship in the W2 window, after (1) policy-callers v2 lists broker-run@graffiticode.iam.gserviceaccount.com as {\"role\":\"broker\"} and deploy.json's POLICY_CALLERS names it, (2) broker-run holds roles/run.invoker on the policy service, and (3) Policy from main (authorize-execution, prv) is released. Remove this field in the W2 release commit.",
       "smoke": [
         {
           "path": "/",
