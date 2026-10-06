@@ -63,6 +63,11 @@ export class PolicyMaintenance extends PolicyDenied {
 }
 
 const ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
+// An operation id is `<invocation>/<stage>/<occurrence>` (issueExecution).
+export const opidParts = opid => {
+  const parts = typeof opid === "string" ? opid.split("/") : [];
+  return parts.length === 3 ? { invocationId: parts[0], stage: parts[1] } : {};
+};
 const DIGEST_RE = /^[a-f0-9]{64}$/;
 const isId = v => typeof v === "string" && ID_RE.test(v);
 const isTaskId = v => typeof v === "string" && v.length > 0 && v.length <= 4096;
@@ -135,7 +140,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   };
 
   const allocateInvocation = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey = null }) => {
-    const record = { event: "invocation", uid: user?.uid, connectionId };
+    // callerRole is the verified caller's (the app's identifyCaller).
+    const record = { event: "invocation", uid: user?.uid, connectionId, callerRole: caller?.role };
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (!user?.uid) return deny("no-user", record);
     if (!isId(connectionId) || !isTaskId(taskId) || typeof inputDigest !== "string" || !DIGEST_RE.test(inputDigest)) {
@@ -154,7 +160,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     }
     const { invocationId, seq, reused } = allocated;
     const invocationToken = await issueToken(signer, "invocation", { sub: user.uid, conn: connectionId, inv: invocationId, seq });
-    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed", reason: reused ? "reused" : "new" });
+    await audit({ ...record, ownerUid: connection.ownerUid, invocationId, outcome: "allowed", reason: reused ? "reused" : "new" });
     // The owner and sequence go back to the gateway, which binds the private
     // result of this invocation to them.
     return { invocationToken, invocationId, seq, reused, ownerUid: connection.ownerUid };
@@ -193,7 +199,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // Publishing: the gateway has checked that the artifact is this user's
   // current result for the task and connection; policy checks the authority.
   const createPublication = async ({ caller, user, connectionId, taskId, lang, artifactInvocationId }) => {
-    const record = { event: "publication-create", uid: user?.uid, connectionId, lang };
+    const record = { event: "publication-create", uid: user?.uid, connectionId, lang, callerRole: caller?.role };
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (!user?.uid) return deny("no-user", record);
     if (!isId(connectionId) || !isTaskId(taskId) || !isLang(lang) || !isId(artifactInvocationId)) {
@@ -215,19 +221,19 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       artifactInvocationId,
       createdAt: new Date().toISOString(),
     });
-    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed" });
+    await audit({ ...record, ownerUid: connection.ownerUid, publicationId: publication.publicationId, outcome: "allowed" });
     return { publicationId: publication.publicationId };
   };
 
   const deletePublication = async ({ caller, user, publicationId }) => {
-    const record = { event: "publication-delete", uid: user?.uid };
+    const record = { event: "publication-delete", uid: user?.uid, callerRole: caller?.role };
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (!user?.uid) return deny("no-user", record);
     const publication = isId(publicationId) ? await publications.get(publicationId) : null;
     if (!publication) return deny("publication-not-found", record);
     if (publication.publisherUid !== user.uid) return deny("not-publisher", record);
     await publications.delete(publicationId);
-    await audit({ ...record, connectionId: publication.connectionId, outcome: "allowed" });
+    await audit({ ...record, connectionId: publication.connectionId, publicationId: publication.publicationId, outcome: "allowed" });
     return { publicationId, deleted: true };
   };
 
@@ -235,7 +241,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // live and issues an invocation token bound to the publisher and marked with
   // the publication, which confines its session to viewSafe functions.
   const authorizeView = async ({ caller, publicationId }) => {
-    const record = { event: "publication-view" };
+    const record = { event: "publication-view", callerRole: caller?.role };
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     const state = await publicationState(publicationId);
     if (state.refusal) return deny(state.refusal, record);
@@ -254,7 +260,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       seq,
       pub: publication.publicationId,
     });
-    await audit({ ...record, uid: publication.publisherUid, connectionId: publication.connectionId, outcome: "allowed" });
+    await audit({ ...record, uid: publication.publisherUid, connectionId: publication.connectionId, publicationId: publication.publicationId, outcome: "allowed" });
     const { publisherUid, connectionId, lang, taskId, artifactInvocationId } = publication;
     return { invocationToken, publisherUid, connectionId, lang, taskId, artifactInvocationId };
   };
@@ -286,7 +292,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   };
 
   const snapshot = async ({ caller, user, lang, connectionId, fns, invocationToken, stage }) => {
-    const record = { event: "snapshot", uid: user?.uid, lang, connectionId, registryVersion: REGISTRY_VERSION };
+    const record = { event: "snapshot", uid: user?.uid, lang, connectionId, registryVersion: REGISTRY_VERSION, callerRole: caller?.role };
     // The user is verified; the connection is checked against it below, as
     // for anyone.
     await requireProtectedExecution(record, { uid: user?.uid, connectionId });
@@ -299,6 +305,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (!user?.uid) return deny("no-user", record);
     if (claims.sub !== user.uid) return deny("bad-invocation", record);
     const invocationId = claims.inv;
+    // From here the invocation is verified: its id and the compiler's stage.
+    Object.assign(record, { invocationId, stage });
 
     const connection = await connections.get(connectionId);
     const access = await accessFor(connection, user.uid);
@@ -356,7 +364,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // the system-preview functions and is marked `sys`, which mint confines to
   // them.
   const previewSession = async ({ caller, lang }) => {
-    const record = { event: "preview-session", lang, registryVersion: REGISTRY_VERSION };
+    const record = { event: "preview-session", lang, registryVersion: REGISTRY_VERSION, callerRole: caller?.role };
     await requireProtectedExecution(record);
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
     if (!isLang(lang)) return deny("bad-request", record);
@@ -368,6 +376,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     const state = await systemConnectionRefusal({ connectionId, backend });
     if (state.refusal) return deny(state.refusal, { ...record, connectionId });
     const { connection } = state;
+    // The system session's own id: there is no gateway invocation.
+    const systemInvocation = `sys-${randomUUID()}`;
     const sessionToken = await issueToken(signer, "session", {
       sub: SYSTEM_PREVIEW_SUBJECT,
       own: connection.ownerUid,
@@ -376,13 +386,13 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       lang,
       // No invocation: signing writes nothing, so the operation id only needs
       // to be unique to this session.
-      inv: `sys-${randomUUID()}`,
+      inv: systemInvocation,
       stg: "preview",
       sys: true,
       rv: REGISTRY_VERSION,
       fns,
     });
-    await audit({ ...record, connectionId, ownerUid: connection.ownerUid, outcome: "allowed", reason: "system-preview" });
+    await audit({ ...record, connectionId, ownerUid: connection.ownerUid, invocationId: systemInvocation, stage: "preview", outcome: "allowed", reason: "system-preview" });
     return { allowed: fns, sessionToken };
   };
 
@@ -447,6 +457,10 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       fn,
       op,
       registryVersion: session.rv,
+      // From the verified session.
+      invocationId: session.inv,
+      stage: session.stg,
+      callerRole: caller?.role,
     };
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== session.lang) return deny("caller-language-mismatch", record);
     if (session.rv !== REGISTRY_VERSION) return deny("registry-version-changed", record);
@@ -497,7 +511,9 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // null) come from Broker's own operation definition. The token is verified
   // with its execution profile (Broker's audience) on this route only.
   const authorizeExecution = async ({ caller, executionToken, op, argsDigest, step, purpose, after = null }) => {
-    const base = { event: "authorize-execution", op, step, purpose };
+    // `op`, `step` and `purpose` are the request's until the token verifies;
+    // the audit validators record them only if the registry knows them.
+    const base = { event: "authorize-execution", op, step, purpose, callerRole: caller?.role };
     if (caller?.role !== "broker") return deny("caller-not-broker", base);
     let claims;
     try {
@@ -516,6 +532,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       jti: claims.jti,
       opid: claims.opid,
       provenance: claims.prv,
+      // Invocation and stage, from the verified operation id.
+      ...opidParts(claims.opid),
     };
     // Paused: never authorize the next effect. A fresh read, never the cache.
     await requireProtectedExecution(record, { uid: claims.sub, connectionId: claims.conn }, { fresh: true });

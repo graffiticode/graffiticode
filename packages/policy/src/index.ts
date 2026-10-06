@@ -1,9 +1,9 @@
-export { createPolicy, PolicyDenied, PolicyMaintenance } from "./policy.js";
+export { createPolicy, PolicyDenied, PolicyMaintenance, opidParts } from "./policy.js";
 export { SYSTEM_PREVIEW_SUBJECT, PROVENANCES, sessionProvenance, provenanceRefusal } from "./provenance.js";
 export { createProtectedSwitch, createFirestoreFlagReader, parseHardDisable, admission, PROTECTED_EXECUTION_DOC, MAINTENANCE } from "./maintenance.js";
 export { createLocalSigner, issueToken, verifyToken, tokenParts, PROFILES, ISSUER, ALG, CLOCK_SKEW_SECONDS, RESERVED_CLAIMS } from "./tokens.js";
 export { createMemoryConnectionStore, connectionRefusal } from "./connections.js";
-export { createAudit, createPseudonymizer } from "./audit.js";
+export { createAudit, createPseudonymizer, validateAuditRecord, requestContextMiddleware, currentRequestId, AUDIT_FIELDS } from "./audit.js";
 export { createCallerIdentity, buildGoogleIdTokenVerifier } from "./caller.js";
 export { createPolicyApp } from "./app.js";
 export { createKmsSigner, derToJose } from "./kms.js";

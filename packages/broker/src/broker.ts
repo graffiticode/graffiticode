@@ -49,12 +49,15 @@
 
 import { randomUUID } from "node:crypto";
 import { gatedOperations, isOperationAllowed, isStepRegistered, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
-import { verifyToken, provenanceRefusal, MAINTENANCE, admission } from "@graffiticode/policy";
+import { verifyToken, provenanceRefusal, opidParts, MAINTENANCE, admission } from "@graffiticode/policy";
 import { argsDigest } from "./canonical.js";
 import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operations.js";
 import { DEFAULT_LIMITS, headroomMs, maxExecutionMs } from "./limits.js";
 import { AuthorizationDenied, AuthorizationUnavailable } from "./authorizer.js";
 import { classify } from "@graffiticode/common/failures";
+
+// Only defined fields: Firestore refuses undefined values in a receipt.
+const defined = fields => Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
 
 // What Broker records of a reason: a known one as it is, an unknown one (a
 // Policy reason Broker's vocabulary doesn't list, relayed in
@@ -153,6 +156,8 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       await audit({ event: "execute", op, outcome: "denied", reason: "bad-token" });
       throw new BrokerRefused("bad-token", 401);
     }
+    // Correlation from the verified token (spec AUDIT-01): the operation, its
+    // invocation and stage, and who is executing it.
     const record = {
       event: "execute",
       uid: claims.sub,
@@ -162,6 +167,11 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       fn: claims.fn,
       op,
       registryVersion: claims.rv,
+      jti: claims.jti,
+      opid: claims.opid,
+      provenance: claims.prv,
+      callerRole: caller?.role,
+      ...opidParts(claims.opid),
     };
     const refuse = async (reason: string, status?: number, detail?: unknown) => {
       await audit({ ...record, outcome: "denied", reason: recordedReason(reason) });
@@ -213,7 +223,11 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     };
     // Called by the operation just before each provider request: authorizes
     // it, then returns its timeout.
+    // The step being authorized or sent: an operation that stops names it as
+    // its `failedStep`.
+    let stepInProgress = null;
     const providerCall = async step => {
+      stepInProgress = step;
       await authorizeStep(step, "dispatch");
       // Never a zero or negative timeout: a request with no time left is not
       // sent, which is definite (failed, or partial after earlier steps).
@@ -230,7 +244,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // failure to register propagates before any claim or provider request.
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (operation?.kind !== "write") {
-      return executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime });
+      return executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep: () => stepInProgress });
     }
     const attempt = `${claims.opid}#${randomUUID()}`;
     await activity.begin(attempt, startedAt + maxExecutionMs(limits));
@@ -246,14 +260,14 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       if (!admission(await protectedSwitch.state({ fresh: true }), { uid: claims.sub, connectionId: claims.conn })) {
         return await refuse(MAINTENANCE, 503);
       }
-      return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime });
+      return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep: () => stepInProgress });
     } finally {
       // Best effort: an entry left behind expires on its own.
       await activity.end(attempt).catch(() => {});
     }
   };
 
-  const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime }) => {
+  const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
     // Never reinterpret a token under a different registry than it was minted
     // for.
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
@@ -305,10 +319,10 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       registryVersion: claims.rv,
       argsDigest: digest,
     };
-    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime });
+    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime, failedStep });
   };
 
-  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime }) => {
+  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
     // A failure here (before any provider request) propagates: no claim, no
     // effects.
     const claimed = await receipts.claim(claims.opid, binding);
@@ -331,7 +345,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
         return refuse(reason, e instanceof AuthorizationDenied ? 403 : 503);
       }
       return outcome
-        ? { status: outcome.status, result: outcome.result, steps: outcome.steps, ...(outcome.reason ? { reason: outcome.reason } : {}), replayed: true }
+        ? { status: outcome.status, result: outcome.result, steps: outcome.steps, ...defined({ reason: outcome.reason, failedStep: outcome.failedStep, category: outcome.category }), replayed: true }
         : { status: "uncertain", steps: persistedSteps, replayed: true };
     }
 
@@ -350,6 +364,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     let result;
     let error;
     let reason;
+    let stopped;
     try {
       result = await operation.run(payload, credential, { onStep, providerCall });
       status = "succeeded";
@@ -360,29 +375,37 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
         status = "uncertain";
         steps.push(e.step);
         error = e.message;
+        stopped = e.step;
       } else if (e instanceof ProviderRejected || authorizationReason(e)) {
         // Definite: the provider refused, or the next request was never sent
         // (deadline, or no authorization for it).
         status = steps.length > 0 ? "partial" : "failed";
         error = String(e?.message || e);
         reason = authorizationReason(e) ? recordedReason(authorizationReason(e)) : undefined;
+        stopped = failedStep() ?? undefined;
       } else {
+        // A dispatched step whose response never resolved: the provider may
+        // have applied it, with no completed step known (steps may be []).
         status = "uncertain";
         error = String(e?.message || e);
+        stopped = failedStep() ?? undefined;
       }
     }
+    const category = reason ? classify(reason).category : undefined;
+    const effects = defined({ reason, failedStep: stopped, category });
     // Best effort: without a final outcome, a replay still reports uncertain
     // with the persisted steps, and the claim prevents any re-execution.
     let recorded = true;
     try {
-      // `reason` only when there is one: Firestore refuses undefined fields.
-      await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null, ...(reason ? { reason } : {}) });
+      await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null, ...effects });
     } catch {
       recorded = false;
     }
-    await audit({ ...record, outcome: status === "succeeded" ? "allowed" : status, ...(recorded ? (reason ? { reason } : {}) : { reason: "outcome-not-recorded" }) });
+    // The known prior effects (steps) go with the outcome, so a later failure
+    // still says what was done (spec AUDIT-01).
+    await audit({ ...record, outcome: status === "succeeded" ? "allowed" : status, steps, ...effects, ...(recorded ? {} : { reason: "outcome-not-recorded" }) });
     if (!error) return { status, steps, result };
-    return reason ? { status, steps, error, reason } : { status, steps, error };
+    return { status, steps, error, ...effects };
   };
 
   // For the operator and candidate checks: on or off, and why.

@@ -62,13 +62,15 @@ let routes;
 let signed;
 let onRoute;
 let deps;
+let records;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
   privateJwk = await exportJWK(pair.privateKey);
   signer = await createLocalSigner({ privateJwk, kid: "k1" });
   const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
-  const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
+  records = [];
+  const audit = createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   const on = createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled: true }) });
   connections = createMemoryConnectionStore([
     { connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" },
@@ -406,5 +408,58 @@ describe("recovery through the gateway and compiler path", () => {
     expect(retry.operationId).toBe(first.operationId);
     expect(retry.out).toMatchObject({ status: "succeeded" });
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+  });
+});
+
+// W3 PR 2: an outcome names its effects (spec FAIL-01) and its audit record
+// the correlation and prior effects (spec AUDIT-01).
+describe("effects and correlation", () => {
+  const finalRecord = () => records.filter(r => r.event === "execute").at(-1);
+
+  it("names the step that didn't happen, the reason and its category", async () => {
+    const t = await token({ sub: OTHER });
+    onRoute = async route => { if (route === "/itembank/questions") await revokeGrant(); };
+    expect(await write(broker(), t)).toMatchObject({
+      status: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-owner", category: "permission",
+    });
+    expect(await receipts.getOutcome("inv-1/s0/n1.0")).toMatchObject({ status: "partial", steps: ["questions"], failedStep: "items", category: "permission" });
+    expect(finalRecord()).toMatchObject({
+      outcome: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-owner", category: "permission",
+      opid: "inv-1/s0/n1.0", invocationId: "inv-1", stage: "s0", provenance: "user", callerRole: "compiler",
+    });
+  });
+
+  it("keeps uncertain with no completed step when the first response is lost", async () => {
+    onRoute = async route => { if (route === "/itembank/questions") throw new Error("socket hang up"); };
+    const out = await write(broker());
+    expect(out).toMatchObject({ status: "uncertain", steps: [], failedStep: "questions" });
+    expect(out).not.toHaveProperty("category");
+    expect(finalRecord()).toMatchObject({ outcome: "uncertain", steps: [], failedStep: "questions" });
+  });
+
+  it("replays the recorded effects", async () => {
+    const t = await token({ sub: OTHER });
+    onRoute = async route => { if (route === "/itembank/items") throw new Error("socket hang up"); };
+    await write(broker(), t);
+    onRoute = null;
+    expect(await write(broker(), await token({ sub: OTHER }))).toMatchObject({ status: "uncertain", steps: ["questions"], failedStep: "items", replayed: true });
+  });
+
+  // Receipts recorded before W3 have no failedStep, reason or category.
+  it("replays an older receipt without the new fields", async () => {
+    const binding = { principal: OWNER, ownerUid: OWNER, connectionId: "conn-1", lang: "0176", fn: "save-to-itembank", op: WRITE_OP, registryVersion: REGISTRY_VERSION, argsDigest: argsDigest(WRITE) };
+    await receipts.claim("inv-1/s0/n1.0", binding);
+    await receipts.putOutcome("inv-1/s0/n1.0", { status: "partial", steps: ["questions"], result: null });
+    const out = await write(broker());
+    expect(out).toEqual({ status: "partial", steps: ["questions"], result: null, replayed: true });
+    expect(routes).toEqual([]);
+  });
+
+  it("records a successful write's steps and correlation", async () => {
+    await write(broker());
+    expect(finalRecord()).toMatchObject({ outcome: "allowed", steps: ["questions", "items"], opid: "inv-1/s0/n1.0", invocationId: "inv-1", stage: "s0" });
+    const steps = records.filter(r => r.event === "execute-step");
+    expect(steps.map(r => [r.step, r.purpose])).toEqual([["questions", "dispatch"], ["items", "dispatch"]]);
+    expect(steps.every(r => r.invocationId === "inv-1" && typeof r.decisionId === "string")).toBe(true);
   });
 });

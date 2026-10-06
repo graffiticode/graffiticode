@@ -42,6 +42,7 @@ import { buildHttpHandler, createHttpApp, sendSuccessResponse, parseTokenFromReq
 import { UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
 import { classify } from "@graffiticode/common/failures";
 import { PolicyDenied, PolicyMaintenance } from "./policy.js";
+import { requestContextMiddleware } from "./audit.js";
 
 const ROUTE_ROLES = Object.freeze({
   invocations: ["gateway"],
@@ -208,5 +209,6 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     res.status(200).json(await policy.protectedExecution());
   }));
 
-  return createHttpApp(app => app.use("/v1", router));
+  // Every record written while handling a request names it (audit.js).
+  return createHttpApp(app => app.use("/v1", requestContextMiddleware, router));
 };

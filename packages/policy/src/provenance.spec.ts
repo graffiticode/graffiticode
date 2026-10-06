@@ -101,9 +101,10 @@ describe("audit fields for execution decisions", () => {
       event: "authorize-execution",
       outcome: "allowed",
       uid: USER,
-      decisionId: "d-1",
-      jti: "j-1",
+      decisionId: "5c1f0e9a-6b0e-4d55-9a4e-2f1f6c1d2e3a",
+      jti: "0b6a8f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b",
       opid: "inv-1/s0/n1.0",
+      op: "learnosity.write-items",
       step: "questions",
       purpose: "dispatch",
       provenance: "user",
@@ -112,7 +113,7 @@ describe("audit fields for execution decisions", () => {
     });
     expect(records).toHaveLength(1);
     const [record] = records;
-    expect(record).toMatchObject({ decisionId: "d-1", jti: "j-1", opid: "inv-1/s0/n1.0", step: "questions", purpose: "dispatch", provenance: "user" });
+    expect(record).toMatchObject({ decisionId: "5c1f0e9a-6b0e-4d55-9a4e-2f1f6c1d2e3a", jti: "0b6a8f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b", opid: "inv-1/s0/n1.0", step: "questions", purpose: "dispatch", provenance: "user" });
     expect(record.user).toEqual(expect.any(String));
     expect(record.user).not.toBe(USER);
     expect(record).not.toHaveProperty("uid");

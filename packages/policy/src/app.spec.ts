@@ -373,6 +373,30 @@ describe("failure categories over http", () => {
   });
 });
 
+describe("request correlation over http (spec AUDIT-01)", () => {
+  it("names each request's records with its own server-generated id", async () => {
+    records.length = 0;
+    await invocation("conn-1");
+    const first = records.map(r => r.requestId);
+    expect(first.length).toBeGreaterThan(0);
+    expect(new Set(first).size).toBe(1);
+    expect(first[0]).toMatch(/^[0-9a-f-]{36}$/);
+    records.length = 0;
+    await invocation("conn-1");
+    expect(records[0].requestId).not.toBe(first[0]);
+  });
+
+  it("names a refusal before the caller is verified with the request id alone", async () => {
+    records.length = 0;
+    await request(app).post("/v1/snapshot").set("X-Request-Id", "client-chosen").send(SNAPSHOT);
+    const [record] = records;
+    expect(record).toMatchObject({ outcome: "denied", reason: "caller-rejected" });
+    expect(record.requestId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(record).not.toHaveProperty("callerRole");
+    expect(JSON.stringify(records)).not.toContain("client-chosen");
+  });
+});
+
 describe("maintenance over http", () => {
   it("answers 503 maintenance for protected routes while switched off, and reports the state", async () => {
     expect((await request(app).get("/v1/protected-execution")).body).toEqual({ enabled: true, source: "flag" });

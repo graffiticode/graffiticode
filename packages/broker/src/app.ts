@@ -13,6 +13,7 @@ import { Router } from "express";
 import { buildHttpHandler, createHttpApp, sendSuccessResponse, parseTokenFromRequest } from "@graffiticode/common/http";
 import { InvalidArgumentError, UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
 import { classify } from "@graffiticode/common/failures";
+import { requestContextMiddleware } from "@graffiticode/policy";
 import { BrokerRefused } from "./broker.js";
 
 const CONNECTION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
@@ -87,5 +88,6 @@ export const createBrokerApp = ({ broker, secrets, identifyCaller, audit }) => {
       throw err;
     }
   }));
-  return createHttpApp(app => app.use("/v1", router));
+  // Every record written while handling a request names it (policy audit.js).
+  return createHttpApp(app => app.use("/v1", requestContextMiddleware, router));
 };
