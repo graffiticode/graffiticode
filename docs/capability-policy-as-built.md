@@ -352,6 +352,34 @@ before every effect, and execution tokens carry provenance. No registry bump.
   13 of 13 again, revocation probe included, permissions restored unchanged.
 - Not yet done: a live 503 `maintenance` refusal outside the canary (still unit-tested only).
 
+### The W3 service release (2026-10-06)
+
+Audit values, correlation and failure categories (W3 PRs 1-4, spec AUDIT-01 / FAIL-01),
+additive and authority-neutral, so no maintenance window: policy `policy-rmux0jmj2-cb9902`
+and broker `broker-rmux0u0z2-12c43f` (c6ae2ad), api `api-rmux53ise-374246` (66deea7).
+
+- api's first attempt failed in Cloud Build: the emulator test image
+  (`gcr.io/graffiticode/firebase`, undefined in the repo) ran Node 16.15.1, with no global
+  `fetch` for the AT-12 harness. It is now defined in `configs/Dockerfile.firebase-test.yaml`
+  (same `node:22.23.3` as build and runtime, plus a headless JRE) and pinned by digest
+  (1915a35). The second attempt's candidate check refused promotion: it pinned the private-task
+  404 body, which now carries `category`; the check now pins `category: "malformed"` exactly,
+  since `permission` there would reveal the task exists (66deea7). A third attempt's
+  `gcloud builds log --stream` hung after a successful build; it was stopped before anything
+  deployed, and the release was rerun.
+- Canary 13 of 13 after policy and broker, and again after api, revocation probe included.
+- Audit after api's canary: every api record (`gateway-invocation`, `artifact`) has
+  `requestId` and `attemptId` and no user or owner field; no uid or address in any service's
+  records; no value recorded as `invalid`; api's invocation ids match Policy's invocation
+  records and Broker's execute records; the probe's minted-then-narrowed write recorded
+  `failed`, `steps: []`, `failedStep: questions`, `category: permission`.
+- Observed, not new: the canary's same-key write retry records api `artifact` `failed`
+  `artifact-rejected` (`conflict`); the replayed compile's output differs from the stored
+  artifact, which keeps the first. api audited nothing before W3, so this was invisible.
+- AUDIT-01 and FAIL-01 stay Partial: structured effects don't reach callers until W3b
+  (l0000, L0176), alert delivery isn't verified (W3 PR 5), and denial records carry `reason`
+  without `category`.
+
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
 connection into Policy. Configuration intent does not prove a deployment uses it. Refresh
 live identity, database, token-key, secret, egress, provider-session, and rollback evidence
