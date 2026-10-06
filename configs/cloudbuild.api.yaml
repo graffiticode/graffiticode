@@ -36,13 +36,13 @@ steps:
       - test
       - -w
       - packages/broker
-  - name: gcr.io/graffiticode/firebase@sha256:5bf4fef209b17cffdd6bb3d87fb9cdd0539cafa4e373068c10be3508980b3f68
+  - name: gcr.io/graffiticode/firebase@sha256:8b553694fb6911470222f9ab9b53ddc2aba96538d5a5d3042f2b34525da54dde
     entrypoint: npm
     args:
       - test
       - -w
       - packages/auth
-  - name: gcr.io/graffiticode/firebase@sha256:5bf4fef209b17cffdd6bb3d87fb9cdd0539cafa4e373068c10be3508980b3f68
+  - name: gcr.io/graffiticode/firebase@sha256:8b553694fb6911470222f9ab9b53ddc2aba96538d5a5d3042f2b34525da54dde
     entrypoint: npm
     args:
       - test
