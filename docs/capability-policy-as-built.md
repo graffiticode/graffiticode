@@ -121,7 +121,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
 
 ### Writes, retention, and recovery
 
-- **Partial — MODEL-03, WRITE-01, WRITE-02, FAIL-01.** Receipt claims prevent duplicate
+- **Partial — MODEL-03, WRITE-01, WRITE-02.** Receipt claims prevent duplicate
   execution; binding mismatches fail. Success, failed, partial, and uncertain outcomes are
   represented. Unknown provider responses are uncertain; same-key retries return recorded
   outcomes. Since v6 each completed provider step is persisted (`receipts/{id}/steps/{n}`)
@@ -151,6 +151,31 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   Evidence: [gateway storage loop](../packages/api/src/data.js),
   [artifact store](../packages/api/src/storage/artifacts.js), and
   [recovery tests](../packages/api/src/recovery.spec.js).
+
+- **Implemented, released — FAIL-01** (W3 and W3b, 2026-10-06).
+  - **Categories:** every refusal Policy, Broker and api return carries a category
+    (authentication, permission, malformed, conflict, unavailable). A wrapped Broker reason
+    gets the underlying reason's category, and an unknown reason is `unavailable`. An
+    inventory test fails on any reason without a category.
+  - **What failed:** compile errors name the reason (`code`), category, stage, function and
+    failed step, without credentials or payloads.
+  - **Effects:** every save's effects reach the caller, added up across calls and stages,
+    from L0176 through l0000 0.9.0 and api: `partial`, and `uncertain` with `steps: []`,
+    including when the cause is revocation or a lost answer. The canary checks this in
+    production.
+  - **Already held, now tested:** api never replaces a refused or failed invocation with a
+    new one, and never answers or caches a compile through a connection from the shared
+    cache.
+
+  Limits:
+  - A body the JSON parser rejects is categorized `malformed` but still answers 500.
+  - The no-replacement rule is proven at the api gateway, not for other clients such as
+    the console.
+
+  Evidence: [failures](../packages/common/src/failures.ts),
+  [AT-12 harness](../packages/api/src/at12.spec.js),
+  [l0000 effects](../languages/l0000/packages/core/src/exec-context.ts),
+  [L0176](../languages/l0176/packages/core/src/protection.ts), section 4.
 
 ### Provider authority, artifacts, and views
 
@@ -401,9 +426,18 @@ and broker `broker-rmux0u0z2-12c43f` (c6ae2ad), api `api-rmux53ise-374246` (66de
   `--verify-alert` wrote one test record per alert at 22:16:43Z. Both emails, *authorization
   outage* and *uncertain write*, arrived, and their nonces were confirmed at 22:29Z
   (`.gc-deploy/monitoring/alert-verification.json`).
-- AUDIT-01 and FAIL-01 stay Partial. Structured effects don't reach callers until W3b
-  (l0000, L0176); denial records carry `reason` without `category`; reconciliation is
-  missing.
+- W3b, 2026-10-06:
+  - `@graffiticode/l0000` 0.9.0 published: protected-write effects, structured compile
+    errors, and iterators that run in order.
+  - L0176 `l0176-rmuxb8bkg-02e234` (3150f4c), on l0000 0.9.0 in both the core and the
+    server.
+  - Canary 15 of 15, with two new checks: the gateway write's response listed one
+    `save-to-itembank` effect, `succeeded`, steps `["questions","items"]`, and the retry's
+    listed it as `replayed`.
+  - No ERROR entries or 5xx on api, policy, broker or l0176 after the release.
+
+  FAIL-01 is now implemented (section 2). AUDIT-01 stays Partial: denial records carry
+  `reason` without `category`, and reconciliation is missing.
 
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
 connection into Policy. Configuration intent does not prove a deployment uses it. Refresh
