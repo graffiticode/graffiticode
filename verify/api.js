@@ -34,10 +34,12 @@ export default async ctx => {
   log("  POST /task + GET /data: a fresh private task compiles for its owner");
 
   // Access control: the same private task is invisible to anonymous callers,
-  // and the 404 is never cacheable (see setNoStoreCacheHeaders).
+  // and the 404 is never cacheable (see setNoStoreCacheHeaders). The body is
+  // pinned exactly, category included: a "permission" category here would
+  // tell an anonymous caller the private task exists.
   const anonymous = await request({ fetch, base, path: `/data?id=${encodeURIComponent(id)}` });
-  check(anonymous.status === 404 && same(anonymous.json, { status: "error", error: { code: 404, message: "" } }),
-    `GET /data (anonymous, private task): expected 404 {code:404,message:""}, got ${anonymous.status} ${anonymous.text.slice(0, 200)}`);
+  check(anonymous.status === 404 && same(anonymous.json, { status: "error", error: { code: 404, message: "", category: "malformed" } }),
+    `GET /data (anonymous, private task): expected 404 {code:404,message:"",category:"malformed"}, got ${anonymous.status} ${anonymous.text.slice(0, 200)}`);
   log("  GET /data: 404 for an anonymous caller on a private task");
 
   // POST /compile builds a pipeline (task + data task) and compiles it.
