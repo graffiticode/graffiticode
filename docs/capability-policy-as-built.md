@@ -376,6 +376,9 @@ and broker `broker-rmux0u0z2-12c43f` (c6ae2ad), api `api-rmux53ise-374246` (66de
 - Observed, not new: the canary's same-key write retry records api `artifact` `failed`
   `artifact-rejected` (`conflict`); the replayed compile's output differs from the stored
   artifact, which keeps the first. api audited nothing before W3, so this was invisible.
+- Later canary, 2026-10-06 21:12Z: 13 of 13, revocation probe included. That is about 2h40m
+  after the policy and broker releases, but only 25 minutes after api's. No ERROR entries
+  or 5xx on api, policy, broker or l0176 since api's release.
 - AUDIT-01 and FAIL-01 stay Partial: structured effects don't reach callers until W3b
   (l0000, L0176), alert delivery isn't verified (W3 PR 5), and denial records carry `reason`
   without `category`.
