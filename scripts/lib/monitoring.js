@@ -1,8 +1,8 @@
 // Monitoring for the security audit (capability plan W3, spec AUDIT-01):
 // log-based metrics that count each kind of failure once, two log-match alert
 // policies (authorization outages, uncertain writes) with an email channel,
-// and a check that an alert's email really arrives. The Google APIs, prompt
-// and clock are injected so the operator sequence is tested
+// and a check that an alert's email really arrives. The Google APIs and the
+// clock are injected so the operator sequence is tested
 // (scripts/test/monitoring.test.js). See scripts/monitoring.js for usage.
 //
 // Every service writes one JSON line per decision on stdout; in Cloud Logging
@@ -271,13 +271,15 @@ export const apply = async ({ api, project, email, log = () => {} }) => {
 };
 
 // Alert delivery (plan G): an incident firing doesn't prove the email
-// arrived. For each alert, one test record that its own condition matches,
-// carrying a nonce; the operator types back the nonce from the email.
-export const verifyAlerts = async ({ api, project, email, prompt, now = () => new Date(), nonce = () => randomBytes(4).toString("hex"), log = () => {} }) => {
+// arrived. Two runs, so neither needs a prompt: writeTestRecords writes, for
+// each alert, one test record that its own condition matches, carrying a
+// nonce; once the emails arrive, confirmDelivery matches the nonces the
+// operator copied from them.
+export const writeTestRecords = async ({ api, project, email, now = () => new Date(), nonce = () => randomBytes(4).toString("hex"), log = () => {} }) => {
   const { steps } = await plan({ api, project, email });
   const pending = steps.filter(s => s.action !== "unchanged").map(s => `${s.kind} ${s.name}`);
   if (pending.length) throw new Error(`monitoring is not applied (${pending.join(", ")}); run --apply first`);
-  const results = [];
+  const written = [];
   for (const spec of alertSpecs(project)) {
     const value = nonce();
     const writtenAt = now().toISOString();
@@ -286,9 +288,17 @@ export const verifyAlerts = async ({ api, project, email, prompt, now = () => ne
       resource: { type: "global", labels: { project_id: project } },
       entries: [{ jsonPayload: { logName: "security_audit", event: "monitoring-test", ...spec.test, nonce: value, at: writtenAt } }],
     }), "entries:write");
-    log(`Wrote a test record for "${spec.displayName}". Its email should reach ${email} within about 5 minutes.`);
-    const typed = String(await prompt(`Nonce in the "${spec.displayName}" email (blank if none arrived): `)).trim();
-    results.push({ alert: spec.displayName, writtenAt, confirmedAt: now().toISOString(), delivered: typed === value });
+    log(`Wrote a test record for "${spec.displayName}".`);
+    written.push({ alert: spec.displayName, nonce: value, writtenAt });
   }
-  return results;
+  return written;
+};
+
+// One result per alert written: delivered when its nonce is among those typed
+// (in any order). A nonce that matches no alert is reported, not ignored.
+export const confirmDelivery = (written, typed, now = () => new Date()) => {
+  const given = typed.map(t => String(t).trim().toLowerCase()).filter(Boolean);
+  const results = written.map(w => ({ alert: w.alert, writtenAt: w.writtenAt, confirmedAt: now().toISOString(), delivered: given.includes(w.nonce) }));
+  const unknown = given.filter(g => !written.some(w => w.nonce === g));
+  return { results, unknown };
 };

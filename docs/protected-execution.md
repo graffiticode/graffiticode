@@ -215,6 +215,7 @@ It reads the audit lines every service writes to `run.googleapis.com/stdout` wit
 node scripts/monitoring.js [--email <operator address>]           # dry run: filter check + plan
 node scripts/monitoring.js --apply --email <operator address>     # create or update
 node scripts/monitoring.js --verify-alert --email <operator address>
+node scripts/monitoring.js --confirm <nonce> <nonce>            # once both emails arrive
 ```
 
 **Metrics** (`logging.googleapis.com/user/security_audit/<id>`). Each failure is counted
@@ -244,8 +245,11 @@ policy denials, Broker-local refusals and replays. `--apply` refuses in either c
 `--apply` is idempotent: run it again after a change to these definitions, and it updates
 only what differs.
 
-**After every apply**, check delivery with `--verify-alert`. It writes one test record per
-alert to its own log, `security_audit_test`. The alert conditions match those records; the
-metrics never do. Each email carries a nonce; type it back when asked. The result goes to
-`.gc-deploy/monitoring/alert-verification.json`. An incident that fired without its email
-arriving counts as not delivered.
+**After every apply**, check delivery in two runs; neither prompts, so both work from
+`!` in Claude Code. `--verify-alert` writes one test record per alert to its own log,
+`security_audit_test`. The alert conditions match those records; the metrics never do. It
+keeps their nonces in `.gc-deploy/monitoring/pending.json`. Each email ends
+`Nonce: <nonce>`. Once they arrive (usually within 5 minutes), run `--confirm` with the
+nonce from each email, in any order. An alert whose email didn't arrive is left out and
+recorded as not confirmed, as is one whose incident fired without its email arriving. The
+result is appended to `.gc-deploy/monitoring/alert-verification.json`.

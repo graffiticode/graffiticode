@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TEST_LOG, alertSpecs, apply, checkFilters, metricSpecs, plan, verifyAlerts } from "../lib/monitoring.js";
+import { TEST_LOG, alertSpecs, apply, checkFilters, confirmDelivery, metricSpecs, plan, writeTestRecords } from "../lib/monitoring.js";
 import { parse } from "../monitoring.js";
 
 /* eslint-disable camelcase -- Cloud Monitoring and Logging label keys are snake_case */
@@ -151,40 +151,47 @@ test("apply updates only what drifted, and reuses an existing channel", async ()
   assert.equal(g.policies[0].enabled, true);
 });
 
-test("alert verification writes a test record per alert and confirms delivery by nonce", async () => {
+test("alert verification writes a test record per alert that its own condition matches", async () => {
   const g = fakeGoogle();
   await apply({ api: g.api, project: P, email: "ops@example.com" });
   const before = g.writes.length;
   const nonces = ["n0nce001", "n0nce002"];
-  const asked = [];
-  const results = await verifyAlerts({
-    api: g.api,
-    project: P,
-    email: "ops@example.com",
-    nonce: () => nonces[asked.length],
-    prompt: async q => { asked.push(q); return asked.length === 1 ? " n0nce001 \n" : ""; },
-  });
-  const written = g.writes.slice(before);
-  assert.deepEqual(written.map(w => w.path), ["/v2/entries:write", "/v2/entries:write"]);
-  assert.deepEqual(written.map(w => w.body.logName), Array(2).fill(`projects/${P}/logs/${TEST_LOG}`));
-  assert.deepEqual(written.map(w => w.body.entries[0].jsonPayload).map(({ at, ...p }) => p), [
-    { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "authorization-unavailable", nonce: "n0nce001" },
-    { logName: "security_audit", event: "monitoring-test", outcome: "uncertain", nonce: "n0nce002" },
+  const written = await writeTestRecords({ api: g.api, project: P, email: "ops@example.com", nonce: () => nonces.shift(), now: () => new Date("2026-10-06T22:00:00Z") });
+  const records = g.writes.slice(before);
+  assert.deepEqual(records.map(w => w.path), ["/v2/entries:write", "/v2/entries:write"]);
+  assert.deepEqual(records.map(w => w.body.logName), Array(2).fill(`projects/${P}/logs/${TEST_LOG}`));
+  assert.deepEqual(records.map(w => w.body.entries[0].jsonPayload), [
+    { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "authorization-unavailable", nonce: "n0nce001", at: "2026-10-06T22:00:00.000Z" },
+    { logName: "security_audit", event: "monitoring-test", outcome: "uncertain", nonce: "n0nce002", at: "2026-10-06T22:00:00.000Z" },
   ]);
-  assert.deepEqual(results.map(r => [r.alert, r.delivered]), [["Security audit: authorization outage", true], ["Security audit: uncertain write", false]]);
+  assert.deepEqual(written.map(w => [w.alert, w.nonce]), [["Security audit: authorization outage", "n0nce001"], ["Security audit: uncertain write", "n0nce002"]]);
+});
+
+test("delivery is confirmed per alert by the nonce from its email, in any order", () => {
+  const written = [{ alert: "outage", nonce: "aa11bb22", writtenAt: "t0" }, { alert: "uncertain", nonce: "cc33dd44", writtenAt: "t0" }];
+  const both = confirmDelivery(written, [" CC33DD44 ", "aa11bb22"]);
+  assert.deepEqual(both.results.map(r => [r.alert, r.delivered]), [["outage", true], ["uncertain", true]]);
+  assert.deepEqual(both.unknown, []);
+  const one = confirmDelivery(written, ["aa11bb22", "deadbeef"]);
+  assert.deepEqual(one.results.map(r => [r.alert, r.delivered]), [["outage", true], ["uncertain", false]]);
+  assert.deepEqual(one.unknown, ["deadbeef"]);
+  assert.ok(confirmDelivery(written, []).results.every(r => !r.delivered));
 });
 
 test("alert verification refuses until monitoring is applied as specified", async () => {
   const g = fakeGoogle();
-  await assert.rejects(verifyAlerts({ api: g.api, project: P, email: "ops@example.com", prompt: async () => "" }), /not applied.*run --apply first/);
+  await assert.rejects(writeTestRecords({ api: g.api, project: P, email: "ops@example.com" }), /not applied.*run --apply first/);
   await apply({ api: g.api, project: P, email: "ops@example.com" });
   g.policies[1].conditions[0].conditionMatchedLog.filter = "drifted";
-  await assert.rejects(verifyAlerts({ api: g.api, project: P, email: "ops@example.com", prompt: async () => "" }), /policy Security audit: uncertain write/);
+  await assert.rejects(writeTestRecords({ api: g.api, project: P, email: "ops@example.com" }), /policy Security audit: uncertain write/);
   assert.ok(!g.writes.some(w => w.path.endsWith("entries:write")));
 });
 
 test("options: dry run by default; apply and verify need an operator address", () => {
-  assert.deepEqual(parse([]), { project: P, email: null, days: 7, apply: false, verifyAlert: false });
+  assert.deepEqual(parse([]), { project: P, email: null, days: 7, apply: false, verifyAlert: false, confirm: null });
+  assert.deepEqual(parse(["--confirm", "aa11bb22", "cc33dd44"]).confirm, ["aa11bb22", "cc33dd44"]);
+  assert.deepEqual(parse(["--confirm"]).confirm, []);
+  assert.throws(() => parse(["--verify-alert", "--email", "a@b.c", "--confirm", "x"]), /separate runs/);
   assert.equal(parse(["--apply", "--email", "ops@example.com"]).apply, true);
   assert.throws(() => parse(["--apply"]), /--email is required/);
   assert.throws(() => parse(["--verify-alert", "--email", "nope"]), /must be an address/);
