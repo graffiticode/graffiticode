@@ -366,7 +366,7 @@
         "module": "verify/policy.js"
       },
       "secrets": {
-        "POLICY_CALLERS": "policy-callers:1",
+        "POLICY_CALLERS": "policy-callers:3",
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1"
       },
       "retireTags": true,
