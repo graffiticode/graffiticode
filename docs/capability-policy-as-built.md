@@ -1,6 +1,6 @@
 # Capability security conformance record
 
-Assessment date: 2026-10-02; W1 entries updated for the v6 release, 2026-10-05. Source: local working trees and the dated evidence cited below.
+Assessment date: 2026-10-02; W1 entries updated for the v6 release and W2 entries for its code on main, 2026-10-05. Source: local working trees and the dated evidence cited below.
 
 The [capability security specification](graffiticode_capability_policy_spec.md) defines
 required behavior. This document records evidence and gaps; it does not relax requirements.
@@ -29,7 +29,7 @@ metadata, not independent evidence of an npm publication or deployed revision.
 
 Evidence: [gateway execution](../packages/api/src/data.js),
 [compiler admission](../languages/l0000/packages/core/src/protected-functions.ts),
-[Policy](../packages/policy/src/policy.js), [Broker](../packages/broker/src/broker.js),
+[Policy](../packages/policy/src/policy.ts), [Broker](../packages/broker/src/broker.ts),
 [L0176 protection](../languages/l0176/packages/api/src/protection.ts), and
 [L0176 dependency manifest](../languages/l0176/packages/core/package.json).
 
@@ -41,26 +41,26 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   identity is separately verified and bound to roles/languages; end-user identity comes
   from verified authentication. Program context is separated from authorization context.
   The new Broker-to-Policy execution authorization role and gateway preflight role are missing.
-  Evidence: [caller verification](../packages/policy/src/caller.js),
-  [Policy routes](../packages/policy/src/app.js), [Broker routes](../packages/broker/src/app.js),
+  Evidence: [caller verification](../packages/policy/src/caller.ts),
+  [Policy routes](../packages/policy/src/app.ts), [Broker routes](../packages/broker/src/app.ts),
   and [execution context](../languages/l0000/packages/core/src/exec-context.ts).
 - **Implemented core controls — CONN-01, GRANT-01, GRANT-02.** Owner management, exact
   language/function permissions, implicit previews, optional expiry, pending email claims,
   no onward delegation, owner restrictions, immutable account rotation, and deletion
   tombstones are present. Provisioning/deletion failure ordering and deployment behavior
   require full acceptance validation; local tests are not a distributed failure audit.
-  Evidence: [management](../packages/policy/src/manage.js),
-  [delegation tests](../packages/policy/src/delegation.spec.js),
-  [secret store](../packages/broker/src/stores.js), and
-  [Firestore secret storage](../packages/broker/src/firestore.js).
+  Evidence: [management](../packages/policy/src/manage.ts),
+  [delegation tests](../packages/policy/src/delegation.spec.ts),
+  [secret store](../packages/broker/src/stores.ts), and
+  [Firestore secret storage](../packages/broker/src/firestore.ts).
 - **Partial — REG-01.** The authoritative registry is version 6 (released 2026-10-05). Policy
   checks session version at mint and Broker checks execution/receipt version. Exact matching
   exists. v6 adds the registered execution-step table: each operation's steps in order, each
   with its purpose (`dispatch`, `sign` or `replay`), queried by `operationSteps` and
-  `isStepRegistered`. Nothing yet authorizes execution against it (W2), and chain plan
-  binding is missing.
+  `isStepRegistered`. W2 (on main, not yet released) authorizes every execution step
+  against it, at Policy and in Broker. Chain plan binding is missing.
   Evidence: [registry](../packages/common/src/protected-registry.ts),
-  [Policy](../packages/policy/src/policy.js), [Broker](../packages/broker/src/broker.js).
+  [Policy](../packages/policy/src/policy.ts), [Broker](../packages/broker/src/broker.ts).
 
 ### Chain admission and live execution authorization
 
@@ -69,7 +69,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   IDs bind receipt identities. The new complete execution-input and immutable plan contract
   still needs implementation/verification. Evidence:
   [gateway allocation](../packages/api/src/invocations.js),
-  [Policy invocation storage](../packages/policy/src/firestore.js), and
+  [Policy invocation storage](../packages/policy/src/firestore.ts), and
   [compiler client](../languages/l0000/packages/core/src/protected-client.ts).
 - **Missing — ADMIT-01, ADMIT-02, ADMIT-03, API-01.** Admission is per compiler stage.
   Gateway `reduceRight` executes a stage before starting the next; there is no all-stage
@@ -81,20 +81,42 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   [compiler](../languages/l0000/packages/core/src/compiler.ts).
 - **Partial — TOKEN-01, EXEC-01.** Invocation/session/execution profiles, fixed ES256,
   issuer/audience/type, digest checks, caller-language binding, credential binding, and
-  atomic token consumption exist. There is no admission profile or plan binding. Execution
-  claims do not preserve publication/system provenance in the form needed for the new live
-  check. Since v6 (2026-10-05) one profile schema drives both issuance and verification:
-  each profile's typed claims, a `kid` the JWKS names, `jti`, `iat` not in the future (10 s
-  skew), and `exp - iat` within the profile maximum; caller-set registered claims are refused.
-  Evidence: [tokens](../packages/policy/src/tokens.js),
-  [minting](../packages/policy/src/policy.js), [Broker](../packages/broker/src/broker.js), and
-  [canonicalization](../packages/broker/src/canonical.js).
-- **Missing — EXEC-02, REVOKE-01, API-02.** Live grant checks occur at mint. Broker has no
-  Policy authorization dependency or check before each provider step, signature, or replay.
-  A token minted before revocation can remain usable until expiry. Adding a route alone
-  will not meet the contract: every operation step and receipt replay must use it.
-  Evidence: [Broker execution](../packages/broker/src/broker.js) and
-  [multi-step operations](../packages/broker/src/operations.js).
+  atomic token consumption exist. There is no admission profile or plan binding. Since v6
+  (2026-10-05) one profile schema drives both issuance and verification: each profile's
+  typed claims, a `kid` the JWKS names, `jti`, `iat` not in the future (10 s skew), and
+  `exp - iat` within the profile maximum; caller-set registered claims are refused. W2 (on
+  main, not yet released) adds provenance: execution tokens carry `prv` (`user`,
+  `publication` with `pub`, or `system`), required by the profile, stamped by mint from the
+  session it checked, and its combination checked by `provenanceRefusal` at Policy and Broker.
+  Evidence: [tokens](../packages/policy/src/tokens.ts),
+  [provenance](../packages/policy/src/provenance.ts),
+  [minting](../packages/policy/src/policy.ts), [Broker](../packages/broker/src/broker.ts), and
+  [canonicalization](../packages/broker/src/canonical.ts).
+- **Implemented on main, not yet released — EXEC-02, REVOKE-01, API-02 (W2).** Policy's
+  Broker-only `POST /v1/authorize-execution` re-verifies the execution token with its own
+  profile, reads the protected-execution switch fresh, binds the request to the token
+  (operation, args digest, registry, function/operation), checks provenance and the
+  registered step, then re-reads live state through the same `liveRefusal` mint uses
+  (connection, owner binding and backend, grant scope and expiry or owner restrictions,
+  AUTHOR-01, publication, system connection), with plain Firestore reads and no cache. It
+  returns a fresh, audited, non-cacheable decision. Broker requires an authorizer and asks
+  before each provider request, each local signature and each receipt replay, in the step
+  table's order, never reusing a decision. Each wait is bounded by
+  `min(authorizeMs, time left)` with late decisions discarded by the clock, and the deadline
+  and token expiry are checked again with nothing awaited before the effect. A token
+  without the headroom to outlast the deadline is refused on arrival, before it is spent.
+  Denied or unavailable, the effect doesn't happen. AT-05 (revocation, expiry, owner
+  narrowing, disabling, unpublishing, system-connection replacement after mint: zero
+  effects; Policy outage blocks dispatch, signing and replay) and AT-06 (revocation between
+  writes gives partial; the authorization/dispatch race) are tested; the canary's
+  owner-permission revocation probe is to run in the W2 release. Production evidence is
+  pending that release.
+  Evidence: [authorize-execution](../packages/policy/src/policy.ts) and
+  [parity with mint](../packages/policy/src/live.spec.ts),
+  [Broker execution](../packages/broker/src/broker.ts),
+  [authorizer](../packages/broker/src/authorizer.ts),
+  [limits](../packages/broker/src/limits.ts), and
+  [AT-05/AT-06 tests](../packages/broker/src/live.spec.ts).
 
 ### Writes, retention, and recovery
 
@@ -104,18 +126,22 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   outcomes. Since v6 each completed provider step is persisted (`receipts/{id}/steps/{n}`)
   before the next provider request; a step that cannot be recorded stops the operation as
   uncertain, and a replay without a final outcome reports the persisted steps (verified in
-  production, section 4). Live replay authorization and evidence-based reconciliation are
-  missing. No exactly-once provider guarantee exists.
-  Evidence: [Broker](../packages/broker/src/broker.js),
-  [provider response classification](../packages/broker/src/learnosity.js),
-  [receipt store](../packages/broker/src/firestore.js), and
-  [receipt tests](../packages/broker/src/broker.spec.js).
+  production, section 4). W2 (on main, not yet released) authorizes every replay live, and
+  separates refusals from outcomes: refused before the receipt claim, a typed refusal; after
+  it, `failed` with no step taken or `partial` after one, the reason recorded on the receipt;
+  a dispatched step without a resolved response stays `uncertain`; a request with no time
+  left is never sent. Evidence-based reconciliation is missing. No exactly-once provider
+  guarantee exists.
+  Evidence: [Broker](../packages/broker/src/broker.ts),
+  [provider response classification](../packages/broker/src/learnosity.ts),
+  [receipt store](../packages/broker/src/firestore.ts), and
+  [receipt tests](../packages/broker/src/broker.spec.ts).
 - **Partial / deployment unverified — RETAIN-01.** Invocation and receipt code has no
   automatic expiry. Token-ID documents carry an expiry field suitable for cleanup.
   Admission records do not exist. Indefinite retention configuration, backups, and actual
   database cleanup policies have not been verified in this review. Evidence:
-  [Policy stores](../packages/policy/src/firestore.js) and
-  [Broker stores](../packages/broker/src/firestore.js).
+  [Policy stores](../packages/policy/src/firestore.ts) and
+  [Broker stores](../packages/broker/src/firestore.ts).
 - **Partial — RECOVER-01.** Atomic artifact storage, three storage attempts, and recovery
   through same-invocation receipt replay exist. Since v6 a compile whose artifact is not
   stored returns `artifact: { stored: false, error, reason, retryable, invocationId, seq,
@@ -131,8 +157,8 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   draft save, and Author operations. Saves make sequential provider requests. Preview/Author
   operations sign locally and return authority for browser SDK use. The repository does not
   establish the revised finite request/session lifetime and revocation acceptance criteria
-  against the live provider. Evidence: [operations](../packages/broker/src/operations.js),
-  [provider client](../packages/broker/src/learnosity.js), and
+  against the live provider. Evidence: [operations](../packages/broker/src/operations.ts),
+  [provider client](../packages/broker/src/learnosity.ts), and
   [browser initialization](../languages/l0176/packages/view/src/components/form/Form.tsx).
 - **Partial / provider unverified — AUTHOR-01.** Since v6 Author is deny-by-default: the
   registry marks it `requiresEnablement`, Policy refuses it (`fn-not-enabled`) unless
@@ -140,14 +166,14 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   (`operation-not-enabled`) unless `BROKER_ENABLED_GATED_OPERATIONS` does. Both are empty in
   production, where the canary confirms both refusals (section 4). Enabling it waits on
   AT-10 provider evidence for its request shape.
-  Evidence: [Author operation](../packages/broker/src/operations.js),
-  [Policy](../packages/policy/src/policy.js) and
+  Evidence: [Author operation](../packages/broker/src/operations.ts),
+  [Policy](../packages/policy/src/policy.ts) and
   [registry](../packages/common/src/protected-registry.ts).
 - **Partial — PREVIEW-01.** System preview sessions and separation from ordinary connection
   authority exist. L0176 ignores program credentials and reports unsigned preview failures.
   Saves without a connection expose a language-specific skip marker; the complete generic
   skipped-call reporting contract is not established. Execution-time revalidation is missing.
-  Evidence: [Policy preview sessions](../packages/policy/src/policy.js),
+  Evidence: [Policy preview sessions](../packages/policy/src/policy.ts),
   [L0176 compiler](../languages/l0176/packages/core/src/compiler.ts), and
   [brokered compiler tests](../languages/l0176/packages/core/src/brokered.test.ts).
 - **Partial — ARTIFACT-01, READ-01, PUB-01.** Private artifacts, sequence-based selection,
@@ -161,7 +187,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   Evidence: [read path](../packages/api/src/read.js),
   [artifact storage](../packages/api/src/storage/artifacts.js),
   [publication tests](../packages/api/src/publication.spec.js), and
-  [Policy](../packages/policy/src/policy.js).
+  [Policy](../packages/policy/src/policy.ts).
 
 ### Secrets, isolation, audit, and rollout
 
@@ -170,8 +196,8 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   L0176 no longer reads legacy program/config credentials. The legacy `get-val-private`
   shared-secret path is retired: no service mounts the key, and the key is destroyed (see the
   inventory below). Deployed ISOLATE-01 controls and AT-11 remain open. Evidence:
-  [secret storage](../packages/broker/src/firestore.js),
-  [rotation rules](../packages/broker/src/stores.js), and [deployment manifest](../deploy.json).
+  [secret storage](../packages/broker/src/firestore.ts),
+  [rotation rules](../packages/broker/src/stores.ts), and [deployment manifest](../deploy.json).
 
   Legacy shared-secret inventory (2026-10-02, read-only):
   - Path: the console encrypts `get-val-private` values with `GRAFFITICODE_SECRET_KEY` at
@@ -209,7 +235,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
 - **Partial — AUDIT-01.** Audit records allowlist fields and pseudonymize user/owner IDs.
   Required decision/plan/invocation/operation correlation and new authorization events need
   additions. Deployed log coverage and redaction across services remain unverified.
-  Evidence: [audit implementation](../packages/policy/src/audit.js).
+  Evidence: [audit implementation](../packages/policy/src/audit.ts).
 - **Missing — RELEASE-01.** No stronger-contract cutover/version enforcement, pinned-plan
   legacy rejection, or rollback gate exists. These are future implementation requirements,
   not actions performed by this documentation revision.

@@ -14,6 +14,11 @@
 //     for the direct token- and receipt-replay checks. Grant it for the
 //     release window only if preferred. Minted through the IAM Credentials
 //     API, not gcloud impersonation, so that role alone is enough.
+//   - the same role on the console's runtime account
+//     (console-run@graffiticode-app, or --console-account) for the W2
+//     revocation probe, which narrows and restores the canary connection's
+//     owner permissions through Policy's console routes. Before W2 is
+//     released the probe can't pass; --no-revocation-probe skips it.
 // It writes one draft item ("graffiticode-canary") to the sandbox item bank
 // per run. Exits non-zero unless every check passes.
 
@@ -59,7 +64,9 @@ const config = {
   brokerUrl: deploy.l0176.env.BROKER_URL,
   gatewayAccount: deploy.api.runtimeServiceAccount,
   compilerAccount: deploy.l0176.runtimeServiceAccount,
+  consoleAccount: flag("--console-account") ?? "console-run@graffiticode-app.iam.gserviceaccount.com",
   connectionId,
+  revocationProbe: !args.includes("--no-revocation-probe"),
 };
 const authUrl = deploy.l0176.env.AUTH_URL;
 

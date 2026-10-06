@@ -19,6 +19,15 @@
 //   receipt replay  two fresh write tokens for one operation: the first writes,
 //                   the second returns the recorded receipt (replayed: true)
 //                   and writes nothing
+//   revocation probe (W2: live authorization, owner-permission revocation)
+//                   the canary owns its connection, so it narrows its own
+//                   permissions to `init` and back. A fresh token for an
+//                   operation that already wrote is refused once narrowed
+//                   (authorization-denied:not-granted) and writes nothing; a
+//                   token minted before narrowing records `failed` with no
+//                   step taken. The exact original permissions are restored
+//                   in a finally and read back; any mismatch fails the run.
+//                   Real grant revocation is covered by Broker's tests.
 //   author denied   (AUTHOR-01, W1) Author stays disabled for the connection's
 //                   own owner, who otherwise holds every function: Policy's
 //                   snapshot leaves `author` out of `allowed`, and Broker
@@ -69,7 +78,7 @@ const hasSavedItem = value => {
 // accessToken() -> the canary user's access token
 // parse(src) -> the program's AST (L0176)
 export const runCanary = async ({ http, idToken, accessToken, parse, config, runId = randomBytes(4).toString("hex"), log = () => {} }) => {
-  const { apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, connectionId } = config;
+  const { apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true } = config;
   const results = [];
   const record = (name, ok, detail) => {
     results.push({ name, ok, detail });
@@ -200,6 +209,57 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, run
       record("receipt replay", second.status === 200 && second.json?.data?.replayed === true && second.json?.data?.status === "succeeded",
         `fresh token for the same operation answered ${second.status} ${second.json?.data?.status} replayed=${second.json?.data?.replayed}`);
     });
+
+    if (!revocationProbe) return;
+    // The probe acts on the connection through Policy's console routes, as
+    // the console caller with the canary's own user token.
+    const asConsole = await asService(consoleAccount, policyUrl, "urn:graffiticode:policy");
+    const manage = (method, path, body) => http({ method, url: policy(path), headers: { ...asConsole, ...asUser }, body });
+    const listed = await manage("GET", "/v1/connections");
+    const mine = Array.isArray(listed.json?.data) ? listed.json.data.find(c => c.connectionId === connectionId) : null;
+    if (!mine) throw new Error(`GET /v1/connections: ${listed.status}, ${connectionId} not listed`);
+    const saved = mine.ownerPermissions ?? null;
+    const setPermissions = async permissions => {
+      const res = await manage("PUT", `/v1/connections/${encodeURIComponent(connectionId)}/owner-permissions`, { permissions });
+      if (res.status !== 200) throw new Error(`PUT owner-permissions: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+    };
+    const narrow = () => setPermissions([{ lang: "0176", fn: "init" }]);
+    const op = "learnosity.write-items";
+    const payload = {
+      questionRecords: [{ type: "mcq", reference: "canary-q-0", data: { type: "mcq", stimulus: "Canary", options: [{ label: "A", value: "0" }], validation: { valid_response: { score: 1, value: ["0"] } } } }],
+      itemRecords: [{ reference: "graffiticode-canary", status: "unpublished", definition: { widgets: [{ reference: "canary-q-0" }] }, questions: [{ reference: "canary-q-0" }] }]
+    };
+    try {
+      await attempt("revocation probe", async () => {
+        // A writes; B, a fresh token for the same operation, is held.
+        const [a, b] = [await mint("save-to-itembank", op, "CANARY_PROBE:1.0", payload), await mint("save-to-itembank", op, "CANARY_PROBE:1.0", payload)];
+        const first = await execute(a, op, payload);
+        if (!record("revocation probe: first write", first.status === 200 && first.json?.data?.status === "succeeded",
+          `${first.status} ${first.json?.data?.status ?? JSON.stringify(first.json?.error ?? null)}`)) return;
+        await narrow();
+        const replay = await execute(b, op, payload);
+        record("revocation probe: replay after narrowing", replay.status === 403 && replay.json?.error?.reason === "authorization-denied:not-granted",
+          `answered ${replay.status} ${replay.json?.error?.reason ?? replay.json?.data?.status}`);
+        // C is minted with the permissions back, then they're narrowed again.
+        await setPermissions(saved);
+        const c = await mint("save-to-itembank", op, "CANARY_PROBE:2.0", payload);
+        await narrow();
+        const late = await execute(c, op, payload);
+        const data = late.json?.data;
+        record("revocation probe: minted, then narrowed", late.status === 200 && data?.status === "failed" &&
+          Array.isArray(data.steps) && data.steps.length === 0 && data.reason === "authorization-denied:not-granted",
+        `answered ${late.status} ${data?.status ?? JSON.stringify(late.json?.error ?? null)} steps=${JSON.stringify(data?.steps)} ${data?.reason ?? ""}`);
+      });
+    } finally {
+      // Restore exactly what was there, and prove it.
+      await attempt("revocation probe: permissions restored", async () => {
+        await setPermissions(saved);
+        const after = await manage("GET", "/v1/connections");
+        const now = Array.isArray(after.json?.data) ? after.json.data.find(c => c.connectionId === connectionId) : null;
+        const restored = JSON.stringify(now?.ownerPermissions ?? null) === JSON.stringify(saved);
+        record("revocation probe: permissions restored", restored, `owner permissions ${JSON.stringify(now?.ownerPermissions ?? null)}, expected ${JSON.stringify(saved)}`);
+      });
+    }
   };
   await attempt("direct path", direct);
 

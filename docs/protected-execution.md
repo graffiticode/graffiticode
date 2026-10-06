@@ -76,14 +76,25 @@ It checks, as the canary account:
 - **author denied** (AUTHOR-01): for the connection's owner, who otherwise holds every
   function, Policy's snapshot leaves `author` out, and Broker refuses
   `learnosity.sign-author` with 403 `operation-not-enabled`. It fails once Author is
-  enabled; update the check then.
+  enabled; update the check then;
+- **revocation probe** (W2, live authorization): the canary owns its connection, so
+  it narrows its own owner permissions to `init` and back. A fresh token for an
+  operation that already wrote is refused once narrowed (403
+  `authorization-denied:not-granted`) and writes nothing; a token minted before the
+  narrowing records `failed` with no step taken. The exact original permissions are
+  restored in a `finally` and read back, and the run fails unless they match. This
+  is owner-permission revocation; real grant revocation, expiry, disabling and
+  unpublishing are covered by Broker's tests (`packages/broker/src/live.spec.ts`).
 
-The last three need execution tokens, so the script mints them itself as the gateway
-(api) and compiler (l0176) runtime accounts. The operator needs
-`roles/iam.serviceAccountOpenIdTokenCreator` on those two accounts, granted for the
-release window if preferred. The canary account's API key is read from Secret
+The direct-path checks need execution tokens, so the script mints them itself as the
+gateway (api) and compiler (l0176) runtime accounts, and the probe calls Policy's
+console routes as the console's runtime account (`console-run@graffiticode-app`,
+`--console-account` to change it). The operator needs
+`roles/iam.serviceAccountOpenIdTokenCreator` on those three accounts, granted for the
+release window if preferred. Before W2 is released the probe can't pass;
+`--no-revocation-probe` skips it. The canary account's API key is read from Secret
 Manager `canary-api-key`. The script refuses `VERIFY_UID`, and exits non-zero unless
-every check passes. Later releases add checks (W2: revocation; W4: admission).
+every check passes. Later releases add checks (W4: admission).
 
 ## Draining before a release
 
@@ -156,3 +167,40 @@ The flag documents do not exist yet, and a missing flag means off. So:
    to policy and broker (and to api and l0176 once they release W0 code) in
    `deploy.json`, using the commit their releases were built from (the receipt's
    `commit`), and commit that. From then on rollback and `enable` enforce it.
+
+## The W2 release (live authorization)
+
+From W2, Broker asks Policy's `POST /v1/authorize-execution` before every effect,
+and requires `prv` (provenance) in execution tokens. A Broker built from main can't
+run without both, so `deploy.json`'s broker entry is `blocked` until this release;
+the release commit removes the field. There is no registry bump: nothing stored
+becomes incompatible.
+
+Before the window (operator):
+
+1. A new version of the `policy-callers` secret that adds
+   `"broker-run@graffiticode.iam.gserviceaccount.com": {"role": "broker"}`, and
+   policy's `POLICY_CALLERS` in `deploy.json` pointing at it.
+2. `roles/run.invoker` on the `policy` service for `broker-run@`.
+3. For the canary's revocation probe, `roles/iam.serviceAccountOpenIdTokenCreator`
+   on `console-run@graffiticode-app` as well as `api-run@` and `l0176-run@`.
+4. `release-check` passes for policy and broker.
+
+The window:
+
+1. `node scripts/protected-execution.js disable --reason "W2 release window"`, then
+   `drain`.
+2. `GC_VERIFY_PROTECTED_EXECUTION=off npm run deploy -- policy`. Policy now issues
+   `prv` and serves authorize-execution; the Broker still running ignores both.
+3. Remove `blocked` from broker in `deploy.json` and commit (the CLI deploys a clean
+   tree), then `GC_VERIFY_PROTECTED_EXECUTION=off npm run deploy -- broker`.
+4. Record the W2 milestone in `baselines` for policy and broker (the commit their
+   receipts name), and commit.
+5. Run the canary **while ordinary execution is still paused** (the allowlist admits
+   it), with the revocation probe: every check must pass.
+6. Only then `node scripts/protected-execution.js enable --reason "W2 verified"`.
+
+Tokens issued before the window carry no `prv` and live at most 60 s; Broker refuses
+them (`bad-token`), and callers retry with the same idempotency key, which mints a
+fresh token for the same operation. Rolling Broker back below W2 removes live
+checks: it needs `--below-baseline` with the switch off; roll forward instead.
