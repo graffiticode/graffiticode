@@ -1,6 +1,6 @@
 # Capability security conformance record
 
-Assessment date: 2026-10-02; W1 entries updated for the v6 release and W2 entries for its code on main, 2026-10-05. Source: local working trees and the dated evidence cited below.
+Assessment date: 2026-10-02; W1 entries updated for the v6 release (2026-10-05) and W2 entries for its release (2026-10-06). Source: local working trees and the dated evidence cited below.
 
 The [capability security specification](graffiticode_capability_policy_spec.md) defines
 required behavior. This document records evidence and gaps; it does not relax requirements.
@@ -57,7 +57,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   checks session version at mint and Broker checks execution/receipt version. Exact matching
   exists. v6 adds the registered execution-step table: each operation's steps in order, each
   with its purpose (`dispatch`, `sign` or `replay`), queried by `operationSteps` and
-  `isStepRegistered`. W2 (on main, not yet released) authorizes every execution step
+  `isStepRegistered`. W2 (released 2026-10-06) authorizes every execution step
   against it, at Policy and in Broker. Chain plan binding is missing.
   Evidence: [registry](../packages/common/src/protected-registry.ts),
   [Policy](../packages/policy/src/policy.ts), [Broker](../packages/broker/src/broker.ts).
@@ -92,7 +92,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   [provenance](../packages/policy/src/provenance.ts),
   [minting](../packages/policy/src/policy.ts), [Broker](../packages/broker/src/broker.ts), and
   [canonicalization](../packages/broker/src/canonical.ts).
-- **Implemented on main, not yet released — EXEC-02, REVOKE-01, API-02 (W2).** Policy's
+- **Implemented, released 2026-10-06 — EXEC-02, REVOKE-01, API-02 (W2).** Policy's
   Broker-only `POST /v1/authorize-execution` re-verifies the execution token with its own
   profile, reads the protected-execution switch fresh, binds the request to the token
   (operation, args digest, registry, function/operation), checks provenance and the
@@ -109,8 +109,9 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   narrowing, disabling, unpublishing, system-connection replacement after mint: zero
   effects; Policy outage blocks dispatch, signing and replay) and AT-06 (revocation between
   writes gives partial; the authorization/dispatch race) are tested; the canary's
-  owner-permission revocation probe is to run in the W2 release. Production evidence is
-  pending that release.
+  owner-permission revocation probe passed in production (section 4). Grant revocation,
+  expiry, disabling and unpublishing in production rest on those tests; the probe exercises
+  owner-permission revocation only.
   Evidence: [authorize-execution](../packages/policy/src/policy.ts) and
   [parity with mint](../packages/policy/src/live.spec.ts),
   [Broker execution](../packages/broker/src/broker.ts),
@@ -126,7 +127,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   outcomes. Since v6 each completed provider step is persisted (`receipts/{id}/steps/{n}`)
   before the next provider request; a step that cannot be recorded stops the operation as
   uncertain, and a replay without a final outcome reports the persisted steps (verified in
-  production, section 4). W2 (on main, not yet released) authorizes every replay live, and
+  production, section 4). W2 (released 2026-10-06) authorizes every replay live, and
   separates refusals from outcomes: refused before the receipt claim, a typed refusal; after
   it, `failed` with no step taken or `partial` after one, the reason recorded on the receipt;
   a dispatched step without a resolved response stays `uncertain`; a request with no time
@@ -321,6 +322,33 @@ the execution-step table, TOKEN-01, WRITE-01, ARTIFACT-01 and RECOVER-01.
   (20:52:06Z, audited `denied`).
 - Not yet done: a live 503 `maintenance` refusal (the canary does not exercise it) and the
   24 h soak.
+
+W2 (live authorization) release, 2026-10-06 (UTC): Broker asks Policy's authorize-execution
+before every effect, and execution tokens carry provenance. No registry bump.
+
+- Prerequisites: `policy-callers` version 3 (version 1 plus broker-run as `broker`, checked
+  with Policy's parseCallers; version 2, added the night before, is identical), Policy's
+  `POLICY_CALLERS` pointed at it (`2830d66`); `roles/run.invoker` on the policy service for
+  broker-run; the operator's OpenID token-creator on console-run, api-run and l0176-run
+  (expiring 2026-10-07 00:00Z).
+- Protected execution off 14:23:11-15:35:59Z; `drain` found no active writes.
+- Released `policy-rmuwrr2ib-bb24c1` from `2830d66` (candidate `off (flag)`; caller denials
+  on `/v1/snapshot` and the new `/v1/authorize-execution`), then, with broker's `blocked`
+  field removed (`cca38b3`), `broker-rmuws6fve-6da360` from `cca38b3` (candidate `off
+  (flag)`; caller denials on `/v1/execute`). Both clean builds.
+- W2 milestone recorded for policy and broker (`39840f2`) before `enable`, whose release
+  checks then passed.
+- Canary under the allowlist while ordinary execution was paused, 13 of 13: the nine
+  earlier checks, now through live authorization, plus the owner-permission revocation
+  probe: a fresh token for an operation that had written was refused once the owner narrowed
+  their permissions (403 `authorization-denied:not-granted`); a token minted before the
+  narrowing recorded `failed` with no step taken (`authorization-denied:not-granted`); the
+  permissions were restored and read back unchanged (`null`).
+- Policy's audit shows one decision per step: `authorize-execution` for `sign`, `questions`
+  then `items` (dispatch) and `receipt` (replay), each matched by Broker's `execute-step`,
+  and exactly the probe's two `not-granted` denials. No errors or 5xx on policy, broker,
+  api or l0176 through the window.
+- Not yet done: a live 503 `maintenance` refusal outside the canary (still unit-tested only).
 
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
 connection into Policy. Configuration intent does not prove a deployment uses it. Refresh
