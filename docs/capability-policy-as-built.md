@@ -348,6 +348,8 @@ before every effect, and execution tokens carry provenance. No registry bump.
   then `items` (dispatch) and `receipt` (replay), each matched by Broker's `execute-step`,
   and exactly the probe's two `not-granted` denials. No errors or 5xx on policy, broker,
   api or l0176 through the window.
+- Delayed canary, 2026-10-06 ~18:20Z (about three hours after the release, ordinary execution on):
+  13 of 13 again, revocation probe included, permissions restored unchanged.
 - Not yet done: a live 503 `maintenance` refusal outside the canary (still unit-tested only).
 
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
