@@ -255,12 +255,14 @@ describe("timing", () => {
     expect(routes).toEqual([]);
   });
 
-  it("never waits past the deadline, and checks it again after the decision", async () => {
+  it("never accepts a decision that arrives after the deadline", async () => {
     let t = Date.now();
-    // The decision arrives after the deadline has passed.
+    // The decision arrives after the deadline has passed. Its wait's cutoff is
+    // never later than the deadline, so it is discarded as late; stalls after
+    // a timely decision are covered under "timing after the decision".
     const slow = async ask => { const d = await localAuthorizer(policy)(ask); t += DEFAULT_LIMITS.executionMs + 1; return d; };
     const out = await write(broker({ authorize: slow, now: () => t }));
-    expect(out).toMatchObject({ status: "failed", steps: [], reason: "deadline-exceeded" });
+    expect(out).toMatchObject({ status: "failed", steps: [], reason: "authorization-unavailable" });
     expect(routes).toEqual([]);
   });
 
@@ -313,6 +315,96 @@ describe("recovery with a fresh token for the same operation", () => {
       .sign(await importJWK(privateJwk, "ES256"));
     await refused(write(broker(), old), "bad-token", 401);
     expect(await write(broker(), await token())).toMatchObject({ status: "succeeded" });
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+  });
+});
+
+// Review of 41359cc: nothing awaited may come between the final checks and
+// the effect, and a decision is late by the clock, not by which promise wins.
+describe("timing after the decision", () => {
+  // A clock the test moves; an audit sink that stalls by moving it.
+  let t;
+  const stallAt = (event, ms) => async r => { if (r.event === event) t += ms; };
+  beforeEach(() => { t = Date.now(); });
+
+  it("refuses a signature when auditing the decision outlasts the deadline", async () => {
+    const b = broker({ now: () => t, audit: stallAt("execute-step", DEFAULT_LIMITS.executionMs + 1) });
+    await refused(sign(b), "deadline-exceeded", 503);
+    expect(signed).toEqual([]);
+  });
+
+  it("records an unsent request as failed, never uncertain, when that stall uses up the deadline", async () => {
+    const b = broker({ now: () => t, audit: stallAt("execute-step", DEFAULT_LIMITS.executionMs + 1) });
+    expect(await write(b)).toMatchObject({ status: "failed", steps: [], reason: "deadline-exceeded" });
+    expect(routes).toEqual([]);
+  });
+
+  it("refuses a replay when auditing it outlasts the deadline", async () => {
+    await write(broker());
+    const b = broker({ now: () => t, audit: stallAt("execute", DEFAULT_LIMITS.executionMs + 1) });
+    await refused(write(b, await token()), "deadline-exceeded", 503);
+  });
+
+  it("discards a decision that took longer than authorizeMs, even before the timer fires", async () => {
+    // Answers at once in real time, so the 10 ms timer can't have fired, but
+    // 40 ms have passed by the broker's clock.
+    const slow = async ask => { const d = await localAuthorizer(policy)(ask); t += 40; return d; };
+    const b = broker({ now: () => t, authorize: slow, limits: { ...DEFAULT_LIMITS, authorizeMs: 10 } });
+    expect(await write(b)).toMatchObject({ status: "failed", steps: [], reason: "authorization-unavailable" });
+    expect(routes).toEqual([]);
+  });
+});
+
+// The caller's recovery along the planned path, not just Broker's half: the
+// gateway allocates the invocation by idempotency key, and the compiler
+// (L0176) takes a snapshot for its stage and mints for its occurrence. A
+// refused compile is retried with the same key, so it reaches the same
+// invocation and operation id and mints a fresh token.
+describe("recovery through the gateway and compiler path", () => {
+  const GATEWAY = { role: "gateway" };
+  const compile = async (idempotencyKey, { execute = (b, executionToken) => write(b, executionToken), b = broker() } = {}) => {
+    const { invocationToken } = await policy.allocateInvocation({
+      caller: GATEWAY, user: { uid: OWNER }, connectionId: "conn-1", taskId: "task-1", inputDigest: "c".repeat(64), idempotencyKey
+    });
+    const { sessionToken } = await policy.snapshot({
+      caller: L0176, user: { uid: OWNER }, lang: "0176", connectionId: "conn-1", fns: ["save-to-itembank"], invocationToken, stage: "s0"
+    });
+    const { executionToken, operationId } = await policy.mint({
+      caller: L0176, sessionToken, fn: "save-to-itembank", op: WRITE_OP, occurrenceId: "n1.0", argsDigest: argsDigest(WRITE)
+    });
+    return { operationId, out: await execute(b, executionToken).then(o => o, e => e) };
+  };
+
+  it("after token-expiring, the retry re-mints for the same operation and writes once", async () => {
+    // The first attempt reaches Broker too late for its token.
+    const first = await compile("job-1", { b: broker({ now: () => Date.now() + 25_000 }) });
+    expect(first.out).toBeInstanceOf(BrokerRefused);
+    expect(first.out.reason).toBe("token-expiring");
+    const retry = await compile("job-1");
+    expect(retry.operationId).toBe(first.operationId);
+    expect(retry.out).toMatchObject({ status: "succeeded" });
+    const again = await compile("job-1");
+    expect(again.out).toMatchObject({ status: "succeeded", replayed: true });
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+  });
+
+  it("after a token from a Policy that predates provenance, the retry re-mints and writes once", async () => {
+    // The first token as an older Policy would have issued it: no `prv`.
+    const withoutProvenance = async (b, executionToken) => {
+      const { prv, iss, aud, iat, exp, jti, ...claims } = JSON.parse(Buffer.from(executionToken.split(".")[1], "base64url").toString());
+      const old = await new SignJWT(claims)
+        .setProtectedHeader({ alg: "ES256", kid: "k1", typ: "gc-exec+jwt" })
+        .setIssuer(iss).setAudience(aud).setIssuedAt(iat).setExpirationTime(exp).setJti(jti)
+        .sign(await importJWK(privateJwk, "ES256"));
+      return write(b, old);
+    };
+    const first = await compile("job-2", { execute: withoutProvenance });
+    expect(first.out).toBeInstanceOf(BrokerRefused);
+    expect(first.out.reason).toBe("bad-token");
+    expect(routes).toEqual([]);
+    const retry = await compile("job-2");
+    expect(retry.operationId).toBe(first.operationId);
+    expect(retry.out).toMatchObject({ status: "succeeded" });
     expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
 });

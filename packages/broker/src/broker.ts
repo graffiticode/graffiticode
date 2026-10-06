@@ -109,9 +109,12 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
   }
   // Nor without activity tracking, which draining relies on.
   if (!activity || typeof activity.begin !== "function") throw new Error("createBroker needs an activity store");
-  // Wait for one decision, at most `waitMs`. A decision arriving later is
-  // discarded: the race has settled, and the request is aborted.
+  // Wait for one decision, at most `waitMs`. The timer aborts pending work;
+  // it doesn't decide lateness, since a busy event loop can run it after a
+  // decision that already took too long. The cutoff does: a decision that
+  // resolves after it is discarded.
   const decide = async (ask, waitMs) => {
+    const cutoff = now() + waitMs;
     const controller = new AbortController();
     let timer;
     const late = new Promise((_resolve, reject) => {
@@ -120,11 +123,14 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
         reject(new AuthorizationUnavailable(`no authorization within ${waitMs} ms`));
       }, waitMs);
     });
+    let decision;
     try {
-      return await Promise.race([authorize({ ...ask, signal: controller.signal }), late]);
+      decision = await Promise.race([authorize({ ...ask, signal: controller.signal }), late]);
     } finally {
       clearTimeout(timer);
     }
+    if (now() > cutoff) throw new AuthorizationUnavailable(`authorization arrived after ${waitMs} ms`);
+    return decision;
   };
 
   const execute = async ({ caller, token, op, payload }) => {
@@ -179,6 +185,11 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // wait never passes the deadline; after the decision, the deadline and
     // the token's expiry are checked again, so a late or stale decision
     // can't authorize anything. Dispatch steps go in registered order.
+    // Immediately before an effect: the deadline, and the token itself.
+    const inTime = what => {
+      if (now() >= deadline) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before ${what}`);
+      if (now() >= claims.exp * 1000) throw new AuthorizationDenied("token-expired");
+    };
     let lastDispatch = null;
     const authorizeStep = async (step, purpose) => {
       const after = purpose === "dispatch" ? lastDispatch : null;
@@ -186,17 +197,23 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       const waitMs = Math.min(limits.authorizeMs, deadline - now());
       if (waitMs <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before authorizing ${step}`);
       const { decisionId } = await decide({ executionToken: token, op, argsDigest: claims.argd, step, purpose, after }, waitMs);
-      if (now() >= deadline) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed while authorizing ${step}`);
-      if (now() >= claims.exp * 1000) throw new AuthorizationDenied("token-expired");
-      if (purpose === "dispatch") lastDispatch = step;
+      // Policy's decision, audited before the final checks: nothing awaited
+      // may come between them and the effect. A step stopped by those checks
+      // is reported in the operation's own outcome.
       await audit({ ...record, event: "execute-step", jti: claims.jti, opid: claims.opid, step, purpose, decisionId, outcome: "allowed" });
+      inTime(step);
+      if (purpose === "dispatch") lastDispatch = step;
       return decisionId;
     };
     // Called by the operation just before each provider request: authorizes
     // it, then returns its timeout.
     const providerCall = async step => {
       await authorizeStep(step, "dispatch");
-      return Math.min(limits.providerCallMs, deadline - now());
+      // Never a zero or negative timeout: a request with no time left is not
+      // sent, which is definite (failed, or partial after earlier steps).
+      const remaining = deadline - now();
+      if (remaining <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before ${step} was sent`);
+      return Math.min(limits.providerCallMs, remaining);
     };
 
     // A write registers as active right after admission, before anything else
@@ -207,7 +224,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // failure to register propagates before any claim or provider request.
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (operation?.kind !== "write") {
-      return executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep });
+      return executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime });
     }
     const attempt = `${claims.opid}#${randomUUID()}`;
     await activity.begin(attempt, startedAt + maxExecutionMs(limits));
@@ -223,14 +240,14 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       if (!admission(await protectedSwitch.state({ fresh: true }), { uid: claims.sub, connectionId: claims.conn })) {
         return await refuse(MAINTENANCE, 503);
       }
-      return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep });
+      return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime });
     } finally {
       // Best effort: an entry left behind expires on its own.
       await activity.end(attempt).catch(() => {});
     }
   };
 
-  const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep }) => {
+  const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime }) => {
     // Never reinterpret a token under a different registry than it was minted
     // for.
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
@@ -282,10 +299,10 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       registryVersion: claims.rv,
       argsDigest: digest,
     };
-    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep });
+    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime });
   };
 
-  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep }) => {
+  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime }) => {
     // A failure here (before any provider request) propagates: no claim, no
     // effects.
     const claimed = await receipts.claim(claims.opid, binding);
@@ -293,20 +310,23 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       const recorded = claimed.claim.binding;
       if (recorded.registryVersion !== binding.registryVersion) return refuse("receipt-registry-version-mismatch", 409);
       if (!sameBinding(recorded, binding)) return refuse("operation-id-reused", 409);
-      // Returning a recorded outcome is an effect too: authorized first. A
-      // refusal leaves the receipt as it is.
+      // Returning a recorded outcome is an effect too. It is read first and
+      // authorized last, so nothing awaited comes between the decision and
+      // returning it. A refusal leaves the receipt as it is.
+      const outcome = await receipts.getOutcome(claims.opid);
+      const persistedSteps = outcome ? null : await receipts.getSteps(claims.opid);
       try {
         await authorizeStep("receipt", "replay");
+        await audit({ ...record, outcome: "replayed", reason: outcome ? outcome.status : "uncertain" });
+        inTime("replaying the receipt");
       } catch (e) {
         const reason = authorizationReason(e);
         if (!reason) throw e;
         return refuse(reason, e instanceof AuthorizationDenied ? 403 : 503);
       }
-      const outcome = await receipts.getOutcome(claims.opid);
-      await audit({ ...record, outcome: "replayed", reason: outcome ? outcome.status : "uncertain" });
       return outcome
         ? { status: outcome.status, result: outcome.result, steps: outcome.steps, ...(outcome.reason ? { reason: outcome.reason } : {}), replayed: true }
-        : { status: "uncertain", steps: await receipts.getSteps(claims.opid), replayed: true };
+        : { status: "uncertain", steps: persistedSteps, replayed: true };
     }
 
     // `steps` are the provider steps known to have completed; each is durable
