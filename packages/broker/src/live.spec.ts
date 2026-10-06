@@ -424,8 +424,16 @@ describe("effects and correlation", () => {
     });
     expect(await receipts.getOutcome("inv-1/s0/n1.0")).toMatchObject({ status: "partial", steps: ["questions"], failedStep: "items", category: "permission" });
     expect(finalRecord()).toMatchObject({
-      outcome: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-owner", category: "permission",
-      opid: "inv-1/s0/n1.0", invocationId: "inv-1", stage: "s0", provenance: "user", callerRole: "compiler",
+      outcome: "partial",
+      steps: ["questions"],
+      failedStep: "items",
+      reason: "authorization-denied:not-owner",
+      category: "permission",
+      opid: "inv-1/s0/n1.0",
+      invocationId: "inv-1",
+      stage: "s0",
+      provenance: "user",
+      callerRole: "compiler",
     });
   });
 
