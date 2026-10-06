@@ -2228,13 +2228,22 @@ export class Renderer {
   }
 }
 
+// Structured fields a compile error may carry beside its message (spec
+// FAIL-01): the refusal's reason as `code`, its category, the stage, and the
+// protected function and step that failed.
+const STRUCTURED_ERROR_FIELDS = ["code", "category", "stage", "fn", "step"];
+
 function normalizeError(err) {
   if (typeof err === "string") return { message: err, from: -1, to: -1 };
   if (err && typeof err === "object") {
     const message = typeof err.message === "string" ? err.message
       : (err.message?.tag === "STR" ? err.message.elts[0]
       : (typeof err.error === "string" ? err.error : JSON.stringify(err.message || err)));
-    return { message, from: err.from ?? -1, to: err.to ?? -1 };
+    const out = { message, from: err.from ?? -1, to: err.to ?? -1 };
+    for (const field of STRUCTURED_ERROR_FIELDS) {
+      if (typeof err[field] === "string" && err[field]) out[field] = err[field];
+    }
+    return out;
   }
   return { message: String(err), from: -1, to: -1 };
 }
@@ -2275,24 +2284,27 @@ export class Compiler {
         result: '',
       };
       const exec = new ExecContext(identity);
+      // The compile's protected-write effects go with every result, error or
+      // not (third argument; a caller that doesn't read it loses nothing).
+      const done = (err, val?) => resume(err, val, { effects: exec.effects });
       const runChecker = () => {
         const checker = new this.Checker(code);
         bindExecContext(checker, exec);
         checker.check(options, (err, val) => {
           const normalized = normalizeErrors(err);
           if (normalized.length > 0) {
-            resume(normalized);
+            done(normalized);
           } else {
             const transformer = new this.Transformer(code);
             bindExecContext(transformer, exec);
             transformer.transform(options, (err, val) => {
               const normalized = normalizeErrors(err);
               if (normalized.length > 0) {
-                resume(normalized, val);
+                done(normalized, val);
               } else {
                 const renderer = new this.Renderer(val);
                 renderer.render(options, (err, val) => {
-                  resume(normalizeErrors(err), val);
+                  done(normalizeErrors(err), val);
                 });
               }
             });
@@ -2313,10 +2325,10 @@ export class Compiler {
         langID: this.langID,
         policy: this.policy,
       }).then(
-        (errors) => (errors.length > 0 ? resume(normalizeErrors(errors)) : runChecker()),
+        (errors) => (errors.length > 0 ? done(normalizeErrors(errors)) : runChecker()),
         (x) => {
           console.log("ERROR admitting protected functions", x?.message);
-          resume([{ message: "Permission check failed", from: -1, to: -1 }]);
+          done([{ message: "Permission check failed", from: -1, to: -1 }]);
         },
       );
     } catch (x) {

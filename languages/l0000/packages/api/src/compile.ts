@@ -29,13 +29,16 @@ export async function compile({
   }
   // Response envelope: successful compile output goes in `data`; compile errors go in
   // `errors` (always an array). Consumers (the View/Form) branch on `errors.length`.
+  // `effects`, when the compile made protected writes, says what each did; the api
+  // gateway collects it per stage and keeps it out of the next stage's input.
   return await new Promise((resolve) =>
-    compiler.compile(code, data, config, (err: any, out: any) => {
+    compiler.compile(code, data, config, (err: any, out: any, meta?: { effects?: unknown[] }) => {
       const errors = Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [];
+      const effects = Array.isArray(meta?.effects) && meta.effects.length > 0 ? { effects: meta.effects } : {};
       if (errors.length > 0) {
-        resolve({ data: null, errors });
+        resolve({ data: null, errors, ...effects });
       } else {
-        resolve({ data: out, errors: [] });
+        resolve({ data: out, errors: [], ...effects });
       }
     }, identity),
   );

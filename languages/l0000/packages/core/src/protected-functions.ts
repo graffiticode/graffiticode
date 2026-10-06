@@ -142,6 +142,7 @@ export async function admitProtectedFunctions({
       exec.bindInvoker(policy.invoke);
     }
   }
+  exec.declareWrites([...new Set(found.filter(({ spec }) => spec.kind === "write").map(({ spec }) => spec.fn))]);
   exec.setSnapshot(Object.freeze({ allowed: Object.freeze([...snapshot.allowed]) }));
   const allowed = new Set(snapshot.allowed);
   const errors: AdmissionError[] = [];

@@ -19,6 +19,9 @@ let requests: { url: string; headers: Record<string, string>; body: any }[];
 let snapshotReply: any;
 let brokerReply: any;
 let failMint: boolean;
+let mintRefusal: any;
+// Broker answers in order, one per execute; a function throws (no answer).
+let brokerReplies: any[];
 
 const fakeFetch = async (url: string, init: any) => {
   const body = JSON.parse(init.body);
@@ -27,11 +30,15 @@ const fakeFetch = async (url: string, init: any) => {
   if (url === `${POLICY}/v1/snapshot`) return ok(snapshotReply);
   if (url === `${POLICY}/v1/mint`) {
     if (failMint) {
-      return new Response(JSON.stringify({ status: "error", error: { code: 403, reason: "operation-not-allowed" } }), { status: 403 });
+      return new Response(JSON.stringify({ status: "error", error: mintRefusal }), { status: 403 });
     }
     return ok({ executionToken: `exec-for-${body.fn}`, operationId: `op/${body.occurrenceId}` });
   }
-  if (url === `${BROKER}/v1/execute`) return ok(brokerReply);
+  if (url === `${BROKER}/v1/execute`) {
+    const next = brokerReplies.length > 0 ? brokerReplies.shift() : { data: brokerReply };
+    if (typeof next === "function") return next();
+    return next.response ?? ok(next.data);
+  }
   return new Response("{}", { status: 404 });
 };
 
@@ -48,6 +55,8 @@ beforeEach(() => {
   snapshotReply = { allowed: ["save-it"], sessionToken: "session-1" };
   brokerReply = { status: "succeeded", result: { saved: true } };
   failMint = false;
+  mintRefusal = { code: 403, reason: "operation-not-allowed", category: "permission" };
+  brokerReplies = [];
 });
 
 // A toy language whose one protected write goes through the broker.
@@ -71,18 +80,18 @@ class ToyTransformer extends Transformer {
   }
 }
 
-async function compile(src: string, identity: any) {
+async function compile(src: string, identity: any, protectedFunctions: any = { SAVE_IT: { fn: "save-it", kind: "write" } }) {
   const code = await parser.parse(0, src, lex);
   const compiler = new Compiler({
     langID: "9999",
     Checker,
     Transformer: ToyTransformer,
     Renderer,
-    protectedFunctions: { SAVE_IT: { fn: "save-it", kind: "write" } },
+    protectedFunctions,
     policy: client(),
   });
-  return new Promise<{ err: any[]; val: any }>((resolve) =>
-    compiler.compile(code, {}, {}, (err, val) => resolve({ err: err ?? [], val }), identity),
+  return new Promise<{ err: any[]; val: any; effects: any[] }>((resolve) =>
+    compiler.compile(code, {}, {}, (err, val, meta) => resolve({ err: err ?? [], val, effects: meta?.effects }), identity),
   );
 }
 
@@ -175,5 +184,115 @@ describe("protection client", () => {
     const exec = new ExecContext({ uid: "u1", userToken: "user-token", invocationToken: "invocation-token" });
     expect(JSON.stringify(exec)).not.toMatch(/user-token|invocation-token/);
     expect(Object.values(exec)).not.toContain("user-token");
+  });
+});
+
+// Spec FAIL-01: every protected write's effects reach the caller, cumulatively;
+// refusals carry policy's or the broker's category.
+describe("protected-write effects", () => {
+  const refusal = (status: number, error: any) => ({ response: new Response(JSON.stringify({ status: "error", error }), { status }) });
+
+  test("a write's outcome is the compile's effect", async () => {
+    brokerReply = { status: "succeeded", steps: ["questions", "items"], result: { saved: true } };
+    const { effects } = await compile("save-it 1..", IDENTITY);
+    expect(effects).toEqual([{ fn: "save-it", op: "toy.write", status: "succeeded", steps: ["questions", "items"] }]);
+  });
+
+  test("an earlier save is still reported when a later one fails, with the broker's detail", async () => {
+    brokerReplies = [
+      { data: { status: "succeeded", steps: ["questions", "items"], result: {} } },
+      { data: { status: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-granted", category: "permission", error: "denied" } },
+    ];
+    const { effects } = await compile("[save-it 1 save-it 2]..", IDENTITY);
+    expect(effects).toEqual([
+      { fn: "save-it", op: "toy.write", status: "succeeded", steps: ["questions", "items"] },
+      { fn: "save-it", op: "toy.write", status: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-granted", category: "permission" },
+    ]);
+  });
+
+  test("a replay says so", async () => {
+    brokerReply = { status: "succeeded", steps: ["questions", "items"], result: {}, replayed: true };
+    expect((await compile("save-it 1..", IDENTITY)).effects).toEqual([{ fn: "save-it", op: "toy.write", status: "succeeded", steps: ["questions", "items"], replayed: true }]);
+  });
+
+  test("an uncertain outcome keeps no completed step", async () => {
+    brokerReply = { status: "uncertain", steps: [], failedStep: "questions", error: "no response" };
+    expect((await compile("save-it 1..", IDENTITY)).effects).toEqual([{ fn: "save-it", op: "toy.write", status: "uncertain", steps: [], failedStep: "questions" }]);
+  });
+
+  test("a refused write did nothing, and says why, with policy's category", async () => {
+    failMint = true;
+    const { effects, err } = await compile("save-it 1..", IDENTITY);
+    expect(effects).toEqual([{ fn: "save-it", op: "toy.write", status: "failed", steps: [], reason: "operation-not-allowed", category: "permission" }]);
+    expect(err[0].message).toMatch(/\/v1\/mint failed \(403\)/);
+  });
+
+  test("a broker refusal is definite: failed, nothing done", async () => {
+    brokerReplies = [refusal(403, { code: 403, reason: "authorization-denied:not-granted", category: "permission" })];
+    expect((await compile("save-it 1..", IDENTITY)).effects).toEqual([{ fn: "save-it", op: "toy.write", status: "failed", steps: [], reason: "authorization-denied:not-granted", category: "permission" }]);
+  });
+
+  test("an older policy or broker body, without a category, still works", async () => {
+    failMint = true;
+    mintRefusal = { code: 403, reason: "not-granted" };
+    expect((await compile("save-it 1..", IDENTITY)).effects).toEqual([{ fn: "save-it", op: "toy.write", status: "failed", steps: [], reason: "not-granted" }]);
+    brokerReply = { status: "partial", steps: ["questions"], error: "provider refused" };
+    failMint = false;
+    expect((await compile("save-it 1..", IDENTITY)).effects).toEqual([{ fn: "save-it", op: "toy.write", status: "partial", steps: ["questions"] }]);
+  });
+
+  test("a lost broker answer is uncertain, never a refusal", async () => {
+    brokerReplies = [() => { throw new TypeError("fetch failed"); }];
+    const lost = await compile("save-it 1..", IDENTITY);
+    expect(lost.effects).toEqual([{ fn: "save-it", op: "toy.write", status: "uncertain", steps: [] }]);
+    expect(lost.err[0].message).toMatch(/\/v1\/execute unreachable/);
+    brokerReplies = [{ response: new Response("Bad Gateway", { status: 502 }) }];
+    expect((await compile("save-it 1..", IDENTITY)).effects).toEqual([{ fn: "save-it", op: "toy.write", status: "uncertain", steps: [] }]);
+    // An unrecognized outcome was sent, and nothing says how it went.
+    brokerReply = { status: "mystery" };
+    expect((await compile("save-it 1..", IDENTITY)).effects).toEqual([{ fn: "save-it", op: "toy.write", status: "uncertain", steps: [] }]);
+  });
+
+  test("an unreachable policy at mint is a definite failure: nothing was asked of the broker", async () => {
+    const real = fakeFetch;
+    const exec = new ExecContext({ uid: "u1", connectionId: "c", userToken: "t" });
+    exec.setSessionToken("session-1");
+    exec.declareWrites(["save-it"]);
+    exec.setSnapshot({ allowed: ["save-it"] });
+    exec.bindInvoker(createProtectionClient({
+      policyUrl: POLICY, brokerUrl: BROKER, idToken: async (aud) => aud,
+      fetch: (async (url: string, init: any) => { if (url.endsWith("/v1/mint")) throw new TypeError("fetch failed"); return real(url, init); }) as any,
+    }).invoke!);
+    await expect(exec.invoke({ fn: "save-it", op: "toy.write", payload: {}, occurrenceId: "n.0" })).rejects.toMatchObject({ effectUnknown: false, status: 0 });
+    expect(exec.effects).toEqual([{ fn: "save-it", op: "toy.write", status: "failed", steps: [] }]);
+  });
+
+  test("signs and reads are not effects; a compile without writes reports none", async () => {
+    brokerReply = { status: "succeeded", result: { request: "signed" } };
+    const { effects } = await compile("save-it 1..", IDENTITY, { SAVE_IT: { fn: "save-it", kind: "sign" } });
+    expect(effects).toEqual([]);
+  });
+
+  test("effects are a copy, and writes are declared once", () => {
+    const exec = new ExecContext({});
+    exec.declareWrites(["save-it"]);
+    expect(() => exec.declareWrites(["other"])).toThrow(/already declared/);
+    exec.effects.push({ fn: "x", op: "y", status: "failed", steps: [] });
+    expect(exec.effects).toEqual([]);
+  });
+});
+
+describe("structured compile errors", () => {
+  class FailingTransformer extends Transformer {
+    SAVE_IT(node, options, resume) {
+      resume([{ message: "Error: Item bank save partial", code: "authorization-denied:not-granted", category: "permission", stage: "s0", fn: "save-it", step: "items", secret: "dropped", from: 3 }], null);
+    }
+  }
+
+  test("keep their message and add code, category, stage, fn and step, nothing else", async () => {
+    const code = await parser.parse(0, "save-it 1..", lex);
+    const compiler = new Compiler({ langID: "9999", Checker, Transformer: FailingTransformer, Renderer });
+    const err: any[] = await new Promise((resolve) => compiler.compile(code, {}, {}, (e) => resolve(e)));
+    expect(err).toEqual([{ message: "Error: Item bank save partial", from: 3, to: -1, code: "authorization-denied:not-granted", category: "permission", stage: "s0", fn: "save-it", step: "items" }]);
   });
 });

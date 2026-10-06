@@ -9,7 +9,7 @@
 export { Visitor, Checker, Transformer, Renderer, Compiler, isNumber, numberValue, sameValue } from "./compiler.js";
 export { formatNumber, FormatPatternError } from "./format-number.js";
 export { ExecContext, execContextOf } from "./exec-context.js";
-export type { ExecIdentity, ProtectedCall, Invoker } from "./exec-context.js";
+export type { ExecIdentity, ProtectedCall, Invoker, ProtectedEffect } from "./exec-context.js";
 export { findProtectedNodes, parseSnapshot } from "./protected-functions.js";
 export { createProtectionClient, ProtectedCallError, POLICY_AUDIENCE, BROKER_AUDIENCE } from "./protected-client.js";
 export type { ProtectionClientOptions } from "./protected-client.js";

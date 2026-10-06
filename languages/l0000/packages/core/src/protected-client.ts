@@ -26,15 +26,25 @@ export interface ProtectionClientOptions {
 export const POLICY_AUDIENCE = "urn:graffiticode:policy";
 export const BROKER_AUDIENCE = "urn:graffiticode:broker";
 
+// A protected call that did not return an outcome. `reason` and `category`
+// are policy's or the broker's (spec FAIL-01; an older service sends no
+// category). `effectUnknown`: the broker was asked to act and its answer was
+// lost, so the provider may have changed (an uncertain write, not a refusal).
 export class ProtectedCallError extends Error {
   status: number;
   reason?: string;
-  constructor(message: string, status: number, reason?: string) {
+  category?: string;
+  effectUnknown: boolean;
+  constructor(message: string, status: number, reason?: string, { category, effectUnknown = false }: { category?: string; effectUnknown?: boolean } = {}) {
     super(message);
     this.status = status;
     this.reason = reason;
+    this.category = category;
+    this.effectUnknown = effectUnknown;
   }
 }
+
+const EXECUTE = "/v1/execute";
 
 export function createProtectionClient({ policyUrl, brokerUrl, idToken, fetch: doFetch = fetch }: ProtectionClientOptions): PolicyClient {
   const post = async (baseUrl: string, urn: string, path: string, body: unknown, bearer?: string | null) => {
@@ -47,7 +57,13 @@ export function createProtectionClient({ policyUrl, brokerUrl, idToken, fetch: d
     if (bearer) {
       headers.Authorization = `Bearer ${bearer}`;
     }
-    const res = await doFetch(`${baseUrl}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
+    let res: Response;
+    try {
+      res = await doFetch(`${baseUrl}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
+    } catch {
+      // No answer at all. Asking the broker to act may have acted.
+      throw new ProtectedCallError(`${path} unreachable`, 0, undefined, { effectUnknown: path === EXECUTE });
+    }
     let json: any = null;
     try {
       json = await res.json();
@@ -55,7 +71,11 @@ export function createProtectionClient({ policyUrl, brokerUrl, idToken, fetch: d
       // fall through with a null body
     }
     if (!res.ok || json?.status !== "success") {
-      throw new ProtectedCallError(`${path} failed (${res.status})`, res.status, json?.error?.reason);
+      const reason = typeof json?.error?.reason === "string" ? json.error.reason : undefined;
+      const category = typeof json?.error?.category === "string" ? json.error.category : undefined;
+      // The broker refuses with a reason, before acting; an execute that
+      // failed without one (a crash, a proxy error) may have acted.
+      throw new ProtectedCallError(`${path} failed (${res.status})`, res.status, reason, { category, effectUnknown: path === EXECUTE && !reason });
     }
     return json.data;
   };
@@ -87,7 +107,7 @@ export function createProtectionClient({ policyUrl, brokerUrl, idToken, fetch: d
         occurrenceId,
         argsDigest: argsDigest(payload),
       });
-      return post(brokerUrl, BROKER_AUDIENCE, "/v1/execute", { op, payload }, executionToken);
+      return post(brokerUrl, BROKER_AUDIENCE, EXECUTE, { op, payload }, executionToken);
     },
   };
 }
