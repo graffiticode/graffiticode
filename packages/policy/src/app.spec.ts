@@ -347,6 +347,32 @@ describe("connection management over http", () => {
   });
 });
 
+// Every error body carries its failure category (common/failures, spec
+// FAIL-01); statuses and reasons are unchanged.
+describe("failure categories over http", () => {
+  it("classifies denials, maintenance and the generic paths, keeping each status and reason", async () => {
+    const denied = await as(request(app).post("/v1/snapshot"), SA.l0000).send(SNAPSHOT);
+    expect([denied.status, denied.body.error.reason, denied.body.error.category]).toEqual([403, "caller-language-mismatch", "permission"]);
+    // Caller authentication (no identity) and route permission, on the generic path.
+    const anonymous = await request(app).post("/v1/snapshot").send(SNAPSHOT);
+    expect([anonymous.status, anonymous.body.error.category]).toEqual([401, "authentication"]);
+    const wrongRoute = await as(request(app).post("/v1/invocations"), SA.l0176).send({ connectionId: "conn-1" });
+    expect([wrongRoute.status, wrongRoute.body.error.category]).toEqual([403, "permission"]);
+    // A user token that doesn't verify.
+    const forged = await as(request(app).post("/v1/snapshot"), SA.l0176, { user: "forged" }).send(SNAPSHOT);
+    expect([forged.status, forged.body.error.category]).toEqual([401, "authentication"]);
+    protectedEnabled = false;
+    const paused = await as(request(app).post("/v1/preview-session"), SA.l0176, { user: null }).send({ lang: "0176" });
+    expect([paused.status, paused.body.error.reason, paused.body.error.category]).toEqual([503, "maintenance", "unavailable"]);
+  });
+
+  it("classifies a body the JSON parser rejects as malformed, keeping its status", async () => {
+    const res = await as(request(app).post("/v1/snapshot"), SA.l0176).set("Content-Type", "application/json").send("{ not json");
+    expect(res.status).toBe(500);
+    expect(res.body.error.category).toBe("malformed");
+  });
+});
+
 describe("maintenance over http", () => {
   it("answers 503 maintenance for protected routes while switched off, and reports the state", async () => {
     expect((await request(app).get("/v1/protected-execution")).body).toEqual({ enabled: true, source: "flag" });

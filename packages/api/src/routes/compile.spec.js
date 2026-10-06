@@ -75,6 +75,7 @@ describe("routes/compile", () => {
     await request(app)
       .post("/compile")
       .send({ item: null })
-      .expect(400, createErrorResponse(createError(400, "item must be a non-null object")));
+      // `category` (spec FAIL-01, W3) is the one reviewed addition to this body.
+      .expect(400, createErrorResponse({ ...createError(400, "item must be a non-null object"), category: "malformed" }));
   });
 });

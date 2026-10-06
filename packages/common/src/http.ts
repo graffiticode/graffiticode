@@ -14,14 +14,22 @@ import {
   UnavailableError
 } from "./errors.js";
 import { isNonEmptyString } from "./utils.js";
+import { categoryForStatus, isMalformedBody } from "./failures.js";
+import type { FailureCategory } from "./failures.js";
 
-export type ErrorBody = { code: number; message: string; details?: unknown };
+export type ErrorBody = { code: number; message: string; details?: unknown; category?: FailureCategory };
 
 export const createError = (code: number, message: string, details?: unknown): ErrorBody => {
   const err: ErrorBody = { code, message };
   if (details !== undefined) err.details = details;
   return err;
 };
+
+// Every error body carries its failure category (failures.js, spec FAIL-01).
+// The status is unchanged; a body the JSON parser rejected is the caller's
+// malformed request whatever its status.
+const categorized = (body: ErrorBody, err: unknown): ErrorBody =>
+  ({ ...body, category: isMalformedBody(err) ? "malformed" : categoryForStatus(body.code) });
 
 export const createErrorResponse = (error: ErrorBody) => ({ status: "error", error, data: null });
 
@@ -61,7 +69,7 @@ export const translateError = (err: Error & { details?: unknown }): ErrorBody =>
 };
 
 const handleError = (err: Error, res: Response): void => {
-  const error = translateError(err);
+  const error = categorized(translateError(err), err);
   res.status(error.code).json(createErrorResponse(error));
 };
 

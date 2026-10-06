@@ -108,7 +108,8 @@ describe("routes/utils", () => {
       const res = await request(app).get("/");
       expect(res.status).toBe(404);
       expect(res.headers["cache-control"]).toBe("no-store");
-      expect(res.body).toEqual({ status: "error", error: { code: 404, message: "nope" } });
+      // `category` (spec FAIL-01, W3) is the one reviewed addition to this body.
+      expect(res.body).toEqual({ status: "error", error: { code: 404, message: "nope", category: "malformed" } });
     });
 
     it("keeps the error code separate from the HTTP status", async () => {
@@ -119,7 +120,7 @@ describe("routes/utils", () => {
       });
       const res = await request(app).get("/");
       expect(res.status).toBe(400);
-      expect(res.body).toEqual({ status: "error", error: { code: 4001, message: "bad" } });
+      expect(res.body).toEqual({ status: "error", error: { code: 4001, message: "bad", category: "malformed" } });
     });
 
     it("passes any other error to next()", async () => {

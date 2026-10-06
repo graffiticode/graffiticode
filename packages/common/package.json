@@ -8,6 +8,7 @@
   "exports": {
     "./canonical": "./dist/canonical.js",
     "./errors": "./dist/errors.js",
+    "./failures": "./dist/failures.js",
     "./http": "./dist/http.js",
     "./protected-registry": "./dist/protected-registry.js",
     "./utils": "./dist/utils.js"

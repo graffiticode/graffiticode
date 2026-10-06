@@ -67,7 +67,8 @@ describe("http", () => {
 
       await request(app)
         .get("/")
-        .expect(400, createErrorResponse(createError(400, "")));
+        // Every error body now names its failure category (failures.js, spec FAIL-01).
+        .expect(400, createErrorResponse({ ...createError(400, ""), category: "malformed" }));
     });
   });
 });

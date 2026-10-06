@@ -77,7 +77,8 @@ describe("routes/form", () => {
   it("should handle missing params", async () => {
     await request(app)
       .get("/form")
-      .expect(400, createErrorResponse(createError(400, "Missing or invalid parameters")));
+      // `category` (spec FAIL-01, W3) is the one reviewed addition to this body.
+      .expect(400, createErrorResponse({ ...createError(400, "Missing or invalid parameters"), category: "malformed" }));
   });
 
   it.skip("should handle bad id param", async () => {

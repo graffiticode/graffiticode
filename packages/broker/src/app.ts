@@ -12,6 +12,7 @@
 import { Router } from "express";
 import { buildHttpHandler, createHttpApp, sendSuccessResponse, parseTokenFromRequest } from "@graffiticode/common/http";
 import { InvalidArgumentError, UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
+import { classify } from "@graffiticode/common/failures";
 import { BrokerRefused } from "./broker.js";
 
 const CONNECTION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
@@ -71,9 +72,14 @@ export const createBrokerApp = ({ broker, secrets, identifyCaller, audit }) => {
       sendSuccessResponse(res, await broker.execute({ caller, token, op, payload }));
     } catch (err) {
       if (err instanceof BrokerRefused) {
+        // The category is the underlying reason's (a wrapped Policy reason
+        // keeps its own); an unknown one is unavailable, audited without it.
+        // (Broker itself audits the refusal, an unknown reason as
+        // `unclassified-reason`; see broker.js recordedReason.)
+        const { category } = classify(err.reason);
         res.status(err.status).json({
           status: "error",
-          error: { code: err.status, message: "broker refused", reason: err.reason, detail: err.detail },
+          error: { code: err.status, message: "broker refused", reason: err.reason, category, detail: err.detail },
           data: null,
         });
         return;

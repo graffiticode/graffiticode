@@ -40,6 +40,7 @@
 import { Router } from "express";
 import { buildHttpHandler, createHttpApp, sendSuccessResponse, parseTokenFromRequest } from "@graffiticode/common/http";
 import { UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
+import { classify } from "@graffiticode/common/failures";
 import { PolicyDenied, PolicyMaintenance } from "./policy.js";
 
 const ROUTE_ROLES = Object.freeze({
@@ -81,16 +82,24 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   // A snapshot for a published item's view has no user; any other token that
   // is present must still verify.
   const optionalUser = async req => (parseTokenFromRequest(req) ? user(req) : null);
+  // A refusal's category (common/failures, spec FAIL-01) beside its reason.
+  // A reason the vocabulary doesn't know is reported as unavailable, and
+  // audited as such without echoing it.
+  const categoryOf = async (reason, route) => {
+    const { category, classified } = classify(reason);
+    if (!classified) await audit({ event: route ?? "policy", outcome: "denied", reason: "unclassified-reason" });
+    return category;
+  };
   const decide = async (res, fn) => {
     try {
       sendSuccessResponse(res, await fn());
     } catch (err) {
       if (err instanceof PolicyMaintenance) {
-        res.status(503).json({ status: "error", error: { code: 503, message: "protected execution is paused", reason: err.reason }, data: null });
+        res.status(503).json({ status: "error", error: { code: 503, message: "protected execution is paused", reason: err.reason, category: await categoryOf(err.reason, null) }, data: null });
         return;
       }
       if (err instanceof PolicyDenied) {
-        res.status(403).json({ status: "error", error: { code: 403, message: "policy denied", reason: err.reason }, data: null });
+        res.status(403).json({ status: "error", error: { code: 403, message: "policy denied", reason: err.reason, category: await categoryOf(err.reason, null) }, data: null });
         return;
       }
       throw err;

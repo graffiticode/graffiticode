@@ -54,6 +54,12 @@ import { argsDigest } from "./canonical.js";
 import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operations.js";
 import { DEFAULT_LIMITS, headroomMs, maxExecutionMs } from "./limits.js";
 import { AuthorizationDenied, AuthorizationUnavailable } from "./authorizer.js";
+import { classify } from "@graffiticode/common/failures";
+
+// What Broker records of a reason: a known one as it is, an unknown one (a
+// Policy reason Broker's vocabulary doesn't list, relayed in
+// `authorization-denied:<reason>`) as `unclassified-reason`, never the value.
+const recordedReason = reason => (classify(reason).classified ? reason : "unclassified-reason");
 
 // Broker asked for a step its own operation definition doesn't register, or
 // out of order: a bug here, never a request field. No effect follows.
@@ -158,7 +164,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       registryVersion: claims.rv,
     };
     const refuse = async (reason: string, status?: number, detail?: unknown) => {
-      await audit({ ...record, outcome: "denied", reason });
+      await audit({ ...record, outcome: "denied", reason: recordedReason(reason) });
       throw new BrokerRefused(reason, status, detail);
     };
 
@@ -359,7 +365,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
         // (deadline, or no authorization for it).
         status = steps.length > 0 ? "partial" : "failed";
         error = String(e?.message || e);
-        reason = authorizationReason(e) ?? undefined;
+        reason = authorizationReason(e) ? recordedReason(authorizationReason(e)) : undefined;
       } else {
         status = "uncertain";
         error = String(e?.message || e);

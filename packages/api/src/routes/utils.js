@@ -1,3 +1,4 @@
+import { categoryForStatus, classify } from "@graffiticode/common/failures";
 import { isNonEmptyString, getClientHost, getClientPort } from "../util.js";
 import { HttpError, InvalidArgumentError } from "./../errors/http.js";
 import { decodeID } from "./../id.js";
@@ -51,9 +52,12 @@ const handleError = (err, res, next) => {
     // private task hid it from its owner, and a just-published item stayed 404.
     // Also overrides any immutable header a route set before it threw.
     setNoStoreCacheHeaders(res);
+    // The failure category (spec FAIL-01): a relayed refusal's reason decides
+    // it; otherwise the status does. Status and message are unchanged.
+    const category = err.reason ? classify(err.reason).category : categoryForStatus(err.statusCode);
     res
       .status(err.statusCode)
-      .json(createErrorResponse(createError(err.code, err.message)));
+      .json(createErrorResponse({ ...createError(err.code, err.message), ...(err.reason ? { reason: err.reason } : {}), category }));
   } else {
     next(err);
   }

@@ -41,7 +41,8 @@ describe("middleware/internal-auth", () => {
     process.env.INTERNAL_API_KEY = "secret";
     const res = await request(app).get("/internal");
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ status: "error", error: { code: 403, message: "Invalid internal API key" }, data: null });
+    // `category` (spec FAIL-01, W3) is the one reviewed addition to this body.
+    expect(res.body).toEqual({ status: "error", error: { code: 403, message: "Invalid internal API key", category: "permission" }, data: null });
   });
 
   it("rejects a wrong key, compared exactly", async () => {

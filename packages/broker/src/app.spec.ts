@@ -19,6 +19,7 @@ import {
   createMemoryReceiptStore,
   createMemoryActivityStore,
   localAuthorizer,
+  AuthorizationDenied,
   createMemorySecretStore,
   argsDigest
 } from "./index.js";
@@ -51,7 +52,8 @@ beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
   const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
   const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
-  const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
+  records = [];
+  const audit = createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   // Only the stores this test uses: createPolicy's untyped parameter makes
   // every store required, including publications, which nothing here reaches.
   const policy = createPolicy({
@@ -86,6 +88,23 @@ beforeEach(async () => {
     occurrenceId: "prog",
     argsDigest: argsDigest(PREVIEW)
   }));
+  // A broker whose authorizer always refuses with `refusal` (or Policy's own).
+  makeApp = (refusal = null) => createBrokerApp({
+    broker: createBroker({
+      protectedSwitch: PROTECTED_ON,
+      jwks,
+      audit,
+      operations: buildOperations({ sdk: { init: (service) => ({ service }) }, domain: "d", dataApi: async () => ({}) }),
+      secrets,
+      once: createMemoryOnceStore(),
+      receipts: createMemoryReceiptStore(),
+      activity: createMemoryActivityStore(),
+      authorize: refusal ? async () => { throw new AuthorizationDenied(refusal); } : localAuthorizer(policy)
+    }),
+    secrets,
+    identifyCaller,
+    audit
+  });
   const broker = createBroker({
     protectedSwitch: PROTECTED_ON,
     jwks,
@@ -108,6 +127,9 @@ beforeEach(async () => {
   });
   app = createBrokerApp({ broker, secrets, identifyCaller, audit });
 });
+
+let makeApp;
+let records;
 
 const exec = (email, { token = executionToken, identity = `idt|${email}|${AUD}` } = {}) =>
   request(app).post("/v1/execute")
@@ -148,6 +170,57 @@ describe("broker http", () => {
     const res = await exec(SA.l0176);
     expect(res.status).toBe(409);
     expect(res.body.error.reason).toBe("token-replayed");
+  });
+});
+
+// Every error body carries its failure category (common/failures, spec
+// FAIL-01); statuses and reasons are unchanged.
+describe("failure categories over http", () => {
+  it("classifies refusals, keeping each status and reason", async () => {
+    const mismatch = await exec(SA.l0000);
+    expect([mismatch.status, mismatch.body.error.reason, mismatch.body.error.category]).toEqual([403, "caller-language-mismatch", "permission"]);
+    await exec(SA.l0176);
+    const replay = await exec(SA.l0176);
+    expect([replay.status, replay.body.error.reason, replay.body.error.category]).toEqual([409, "token-replayed", "conflict"]);
+  });
+
+  it("classifies authentication failures on the generic path", async () => {
+    const wrongAudience = await exec(SA.l0176, { identity: `idt|${SA.l0176}|urn:graffiticode:policy` });
+    expect([wrongAudience.status, wrongAudience.body.error.category]).toEqual([401, "authentication"]);
+    const noToken = await request(app).post("/v1/execute")
+      .set("X-Caller-Identity", `idt|${SA.l0176}|${AUD}`)
+      .set("X-Serverless-Authorization", forwarded(SA.l0176))
+      .send({ op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    expect([noToken.status, noToken.body.error.category]).toEqual([401, "authentication"]);
+  });
+
+  it("classifies a body the JSON parser rejects as malformed, keeping its status", async () => {
+    const res = await request(app).post("/v1/execute")
+      .set("X-Caller-Identity", `idt|${SA.l0176}|${AUD}`)
+      .set("X-Serverless-Authorization", forwarded(SA.l0176))
+      .set("Content-Type", "application/json")
+      .send("{ not json");
+    expect(res.status).toBe(500);
+    expect(res.body.error.category).toBe("malformed");
+  });
+
+  // Broker wraps Policy's reason; the category is the wrapped reason's.
+  it.each([
+    ["maintenance", "unavailable"],
+    ["token-expired", "authentication"],
+    ["not-granted", "permission"],
+  ])("classifies authorization-denied:%s by the reason it wraps", async (refusal, category) => {
+    app = makeApp(refusal);
+    const res = await exec(SA.l0176);
+    expect([res.status, res.body.error.reason, res.body.error.category]).toEqual([403, `authorization-denied:${refusal}`, category]);
+  });
+
+  it("reports an unknown reason as unavailable, auditing it without the value", async () => {
+    app = makeApp("something-new");
+    const res = await exec(SA.l0176);
+    expect([res.status, res.body.error.reason, res.body.error.category]).toEqual([403, "authorization-denied:something-new", "unavailable"]);
+    expect(records.some(r => r.reason === "unclassified-reason")).toBe(true);
+    expect(JSON.stringify(records)).not.toContain("something-new");
   });
 });
 

@@ -85,7 +85,8 @@ describe("routes/tasks", () => {
   it("should handle no task ids", async () => {
     await request(app)
       .get("/tasks")
-      .expect(400, createErrorResponse(createError(400, "must provide at least one id")));
+      // `category` (spec FAIL-01, W3) is the one reviewed addition to this body.
+      .expect(400, createErrorResponse({ ...createError(400, "must provide at least one id"), category: "malformed" }));
   });
 
   it("should get a task that has been created", async () => {

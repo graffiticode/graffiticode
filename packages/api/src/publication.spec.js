@@ -142,6 +142,8 @@ describe("publications", () => {
     const res = await publish(OTHER);
     expect(res.status).toBe(403);
     expect(res.body.error.message).toMatch(/not-owner/);
+    // Policy's reason is relayed, and decides the category (spec FAIL-01).
+    expect(res.body.error).toMatchObject({ reason: "not-owner", category: "permission" });
   });
 
   it("stop views once unpublished, or once the connection is disabled", async () => {
