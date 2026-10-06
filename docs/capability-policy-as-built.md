@@ -84,8 +84,8 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   atomic token consumption exist. There is no admission profile or plan binding. Since v6
   (2026-10-05) one profile schema drives both issuance and verification: each profile's
   typed claims, a `kid` the JWKS names, `jti`, `iat` not in the future (10 s skew), and
-  `exp - iat` within the profile maximum; caller-set registered claims are refused. W2 (on
-  main, not yet released) adds provenance: execution tokens carry `prv` (`user`,
+  `exp - iat` within the profile maximum; caller-set registered claims are refused. W2
+  (released 2026-10-06) adds provenance: execution tokens carry `prv` (`user`,
   `publication` with `pub`, or `system`), required by the profile, stamped by mint from the
   session it checked, and its combination checked by `provenanceRefusal` at Policy and Broker.
   Evidence: [tokens](../packages/policy/src/tokens.ts),
