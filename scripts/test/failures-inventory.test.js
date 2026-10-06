@@ -1,4 +1,4 @@
-// Every refusal reason Policy and Broker can emit has a failure category
+// Every refusal reason Policy, Broker and api can emit has a failure category
 // (@graffiticode/common/failures, spec FAIL-01). Scans their sources for each
 // form a reason takes there, so a new reason without a category fails here
 // instead of reaching callers as `unavailable`.
@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { REASON_CATEGORIES, FAILURE_CATEGORIES, classify } from "@graffiticode/common/failures";
 
 const sources = dir => readdirSync(new URL(`../../packages/${dir}/src/`, import.meta.url))
-  .filter(f => f.endsWith(".ts") && !f.endsWith(".spec.ts"))
+  .filter(f => /\.[jt]s$/.test(f) && !/\.spec\.[jt]s$/.test(f))
   .map(f => ({ file: `${dir}/src/${f}`, text: readFileSync(new URL(`../../packages/${dir}/src/${f}`, import.meta.url), "utf8") }));
 
 // The forms a refusal reason takes in Policy and Broker.
@@ -19,6 +19,8 @@ const FORMS = [
   /\bnew (?:BrokerRefused|PolicyDenied|AuthorizationDenied)\("([a-z0-9-]+)"/g,
   /\breason: "([a-z0-9-]+)"/g, // audited denials (caller-rejected, route-not-allowed-for-caller)
   /\bdeny\([^;]*?\? "([a-z0-9-]+)" : "([a-z0-9-]+)"/g, // policy: deny(expired ? "token-expired" : "bad-token", …)
+  /\b(?:failedWith|failure)\([^;]*?, "([a-z0-9-]+)"\)/g, // api: failedWith(message, "code"), failure(message, "code")
+  /\bartifactNotStored\(\{ error: "([a-z0-9-]+)"/g, // api: artifactNotStored({ error: "code", … })
 ];
 // Reasons returned from a function rather than in one of the forms above.
 const RETURNED = { liveRefusal: /return "([a-z0-9-]+)";/g, provenanceRefusal: /return "([a-z0-9-]+)";/g, authorizationReason: /return "([a-z0-9-]+)";/g };
@@ -37,7 +39,7 @@ const functionBody = (text, name) => {
 const emitted = () => {
   const found = new Map();
   const add = (reason, file) => { if (!NOT_REFUSALS.has(reason)) found.set(reason, [...(found.get(reason) ?? []), file]); };
-  for (const { file, text } of [...sources("policy"), ...sources("broker")]) {
+  for (const { file, text } of [...sources("policy"), ...sources("broker"), ...sources("api")]) {
     for (const form of FORMS) {
       for (const m of text.matchAll(form)) for (const reason of m.slice(1)) if (reason) add(reason, file);
     }
@@ -50,7 +52,7 @@ const emitted = () => {
   return found;
 };
 
-test("every refusal reason Policy and Broker emit has a category", () => {
+test("every refusal reason Policy, Broker and api emit has a category", () => {
   const found = emitted();
   assert.ok(found.size > 40, `found only ${found.size} reasons: the scan is broken`);
   const missing = [...found].filter(([reason]) => !REASON_CATEGORIES[reason]).map(([reason, files]) => `${reason} (${[...new Set(files)].join(", ")})`);

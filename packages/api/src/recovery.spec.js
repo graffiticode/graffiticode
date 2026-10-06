@@ -153,6 +153,8 @@ describe("recovery", () => {
     expect(out.artifact).toEqual({
       stored: false,
       error: "artifact-storage-unavailable",
+      // Its failure category (spec FAIL-01, W3): the one reviewed addition.
+      category: "unavailable",
       reason: "storage-failed",
       retryable: true,
       invocationId: expect.any(String),

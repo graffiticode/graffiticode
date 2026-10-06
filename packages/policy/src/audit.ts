@@ -14,6 +14,12 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { OPERATIONS, operationSteps, protectedFunctionsForLang } from "@graffiticode/common/protected-registry";
 import { REASON_CATEGORIES, FAILURE_CATEGORIES, underlyingReason } from "@graffiticode/common/failures";
 
+// One JSON line on stdout per record. On Cloud Run that is the
+// run.googleapis.com/stdout log, with `jsonPayload.logName="security_audit"`.
+export const auditSink = record => {
+  console.log(JSON.stringify({ logName: "security_audit", ...record }));
+};
+
 export const createPseudonymizer = ({ secret }) => {
   if (typeof secret !== "string" || secret.length < 16) {
     throw new Error("audit pseudonymization secret must be at least 16 characters");

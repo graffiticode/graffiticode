@@ -2,6 +2,13 @@ import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/pr
 import { InvocationRefused } from "./invocations.js";
 import { buildReadArtifact, buildReadPublished } from "./read.js";
 import { ArtifactConflict } from "./storage/artifacts.js";
+import { randomUUID } from "node:crypto";
+import { classify } from "@graffiticode/common/failures";
+import { noAudit } from "./audit.js";
+
+// A compile error that names why it failed (spec FAIL-01): `message` is the
+// text callers already read; `code` and `category` say which kind of failure.
+const failedWith = (message, code) => ({ message, from: -1, to: -1, code, category: classify(code).category });
 
 const ARTIFACT_WRITE_ATTEMPTS = 3;
 const ARTIFACT_RETRY_MS = 100;
@@ -58,6 +65,7 @@ const carriesSignature = value => {
 const artifactNotStored = ({ error, reason, invocation, idempotencyKey }) => ({
   stored: false,
   error,
+  category: classify(error).category,
   reason,
   // Without the key a retry is a new invocation, which may write again.
   retryable: error === "artifact-storage-unavailable" && Boolean(idempotencyKey),
@@ -67,10 +75,10 @@ const artifactNotStored = ({ error, reason, invocation, idempotencyKey }) => ({
 });
 
 const buildGetData = ({
-  compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null, publications = null
+  compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null, publications = null, audit = noAudit
 }) => {
-  const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation });
-  const readPublished = buildReadPublished({ compile, artifactStorer, publications });
+  const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation, audit });
+  const readPublished = buildReadPublished({ compile, artifactStorer, publications, audit });
   return async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
     connectionId = null, idempotencyKey = null, read = false, publicationId = null
@@ -152,20 +160,41 @@ const buildGetData = ({
     // whole chain, allocated here, before any stage is dispatched. Each stage
     // is named by its position in the chain, which is fixed by the
     // content-addressed id, so a retry gives every stage the same name.
+    // This attempt's own id: repeated attempts under one idempotency key share
+    // the invocation, and are told apart by it in the audit.
     let invocation = null;
+    const attemptId = connectionId ? randomUUID() : undefined;
     if (connectionId) {
       if (!allocateInvocation) {
-        return { errors: [{ message: "Error: connections are not available on this server.", from: -1, to: -1 }] };
+        return { errors: [failedWith("Error: connections are not available on this server.", "connections-unavailable")] };
       }
       try {
         invocation = await allocateInvocation({ authToken, connectionId, taskId: id, options, idempotencyKey });
       } catch (e) {
-        const message = e instanceof InvocationRefused
-          ? `Error: permission denied (${e.reason})`
-          : "Error: could not start a compile through this connection";
-        return { errors: [{ message, from: -1, to: -1 }] };
+        // Refused, the compile ends here: no other invocation is started.
+        if (e instanceof InvocationRefused) {
+          await audit({ event: "gateway-invocation", outcome: "denied", reason: e.reason, category: classify(e.reason).category, connectionId, attemptId });
+          return { errors: [failedWith(`Error: permission denied (${e.reason})`, e.reason)] };
+        }
+        await audit({ event: "gateway-invocation", outcome: "failed", reason: "policy-unavailable", category: "unavailable", connectionId, attemptId });
+        return { errors: [failedWith("Error: could not start a compile through this connection", "policy-unavailable")] };
       }
+      await audit({ event: "gateway-invocation", outcome: "allowed", invocationId: invocation.invocationId, connectionId, attemptId });
     }
+    // Every protected call's effects in this compile, stage by stage (spec
+    // FAIL-01): an earlier stage's save is still reported when a later stage
+    // fails. A language reports them as `effects` beside its output.
+    const effects = [];
+    const takeEffects = (obj, index) => {
+      if (!obj || typeof obj !== "object" || !Array.isArray(obj.effects)) return obj;
+      for (const e of obj.effects) {
+        // The stage is ours (its position in the chain), never the language's.
+        if (e && typeof e === "object") effects.push({ ...e, stage: `s${index}` });
+      }
+      // For us, not for the next stage's input or the result.
+      const { effects: _taken, ...rest } = obj;
+      return rest;
+    };
     const obj = await tasks.reduceRight(
       // OPTIMIZATION Call getData recursively using the longest id suffix to
       // use any existing compiles.
@@ -183,14 +212,15 @@ const buildGetData = ({
           invocationToken: invocation?.invocationToken ?? null,
           stage: invocation ? `s${index}` : null
         });
-        if (obj && typeof obj === "object" && obj.cache === false) {
+        const out = takeEffects(obj, index);
+        if (out && typeof out === "object" && out.cache === false) {
           cacheable = false;
           // Strip the directive: it is for us, and would otherwise ride along
           // into the next layer's input data and out to the client.
-          const { cache, ...rest } = obj;
+          const { cache, ...rest } = out;
           return checkShape(lang, rest);
         }
-        return checkShape(lang, obj);
+        return checkShape(lang, out);
       },
       Promise.resolve({})
     );
@@ -242,6 +272,11 @@ const buildGetData = ({
         }
       }
     }
+    if (invocation && content) {
+      await audit(notStored
+        ? { event: "artifact", outcome: "failed", reason: notStored.error, category: notStored.category, invocationId: invocation.invocationId, connectionId, attemptId }
+        : { event: "artifact", outcome: "succeeded", invocationId: invocation.invocationId, connectionId, attemptId });
+    }
     if (!cacheable && typeof action === "object") {
       // Let the route drop the immutable cache headers — an expiring compile
       // must not be held by the browser or the CDN either.
@@ -263,9 +298,10 @@ const buildGetData = ({
         overwrite: Boolean(refresh)
       });
     }
-    return notStored ? { ...obj, artifact: notStored } : obj;
+    const result = effects.length ? { ...obj, effects } : obj;
+    return notStored ? { ...result, artifact: notStored } : result;
   };
 };
-export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications }) => {
-  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications }) };
+export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit }) => {
+  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit }) };
 };

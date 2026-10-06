@@ -15,7 +15,7 @@ export type FailureCategory = typeof FAILURE_CATEGORIES[number];
 
 const cat = (category: FailureCategory, reasons: string[]) => reasons.map(r => [r, category] as const);
 
-// Every refusal reason Policy and Broker emit. A reason missing here is a
+// Every refusal reason Policy, Broker and api emit. A reason missing here is a
 // test failure (scripts/test/failures-inventory.test.js), not a silent
 // category.
 export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Object.freeze(Object.fromEntries([
@@ -47,6 +47,11 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
     "maintenance", "authorization-unavailable", "deadline-exceeded", "unavailable",
     "no-system-connection", "no-system-preview-functions",
   ]),
+  // api: artifacts and reads through a connection or publication.
+  // (`signed-content` and `storage-failed` detail why an artifact wasn't stored.)
+  ...cat("unavailable", ["artifact-storage-unavailable", "connections-unavailable", "publications-unavailable", "policy-unavailable", "storage-failed"]),
+  ...cat("conflict", ["artifact-rejected", "artifact-incompatible", "published-artifact-unavailable", "signed-content"]),
+  ...cat("malformed", ["artifact-not-found", "publication-other-item"]),
 ]));
 
 // Broker wraps Policy's reason (`authorization-denied:<reason>`); the category

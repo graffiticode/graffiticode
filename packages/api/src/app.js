@@ -8,6 +8,8 @@ import cors from "cors";
 import { buildValidateToken } from "./auth.js";
 import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
+import { createApiAudit } from "./audit.js";
+import { requestContextMiddleware } from "@graffiticode/policy/audit";
 import { buildAllocateInvocation, buildMetadataIdToken } from "./invocations.js";
 import { buildPublicationClient } from "./publications.js";
 import { compile as langCompile, validateOutput } from "./lang/index.js";
@@ -38,7 +40,9 @@ export const createApp = ({ authUrl } = {}) => {
   const idToken = policyUrl ? buildMetadataIdToken() : null;
   const allocateInvocation = policyUrl ? buildAllocateInvocation({ policyUrl, idToken }) : null;
   const publications = policyUrl ? buildPublicationClient({ policyUrl, idToken }) : null;
-  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications });
+  // Security audit, without user identifiers (audit.js).
+  const audit = createApiAudit();
+  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit });
 
   const app = express();
   app.all("*", (req, res, next) => {
@@ -71,6 +75,8 @@ export const createApp = ({ authUrl } = {}) => {
     next();
   });
   app.use(express.json({ limit: "50mb" }));
+  // Every audit record written while handling a request names it.
+  app.use(requestContextMiddleware);
   app.use(methodOverride());
 
   // Authentication

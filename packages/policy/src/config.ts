@@ -83,9 +83,7 @@ export const parseSystemConnections = json => {
 
 // Security audit records go to stdout as one JSON line each, tagged so a Cloud
 // Logging sink can route them to the separately governed audit store.
-export const auditSink = record => {
-  console.log(JSON.stringify({ logName: "security_audit", ...record }));
-};
+export { auditSink } from "./audit.js";
 
 // Google ID tokens for this service's own account, for any audience (a
 // service URL for Cloud Run IAM, or a URN for caller identity). One client per
