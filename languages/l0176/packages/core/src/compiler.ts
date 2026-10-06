@@ -20,6 +20,7 @@ import {
   brokeredSign,
   brokeredSave,
   systemPreviewSign,
+  protectedError,
 } from "./protection.js";
 import type { SystemPreviewClient } from "./protection.js";
 import type { PolicyClient } from "@graffiticode/l0000";
@@ -228,7 +229,7 @@ export class Transformer extends BaseTransformer {
         try {
           resume(err, await brokeredSign(this.execContext, plain, occurrenceKey(node)));
         } catch (e: any) {
-          resume([`Error: ${String((e && e.message) || e)}`], undefined);
+          resume([protectedError(e, this.execContext)], undefined);
         }
         return;
       }
@@ -402,7 +403,7 @@ export class Transformer extends BaseTransformer {
           const itemBank = await brokeredSave(this.execContext, plan, occurrenceKey(node));
           resume(err, { ...v0, data: { ...v0.data, itemBank } });
         } catch (e: any) {
-          resume([`Error: ${String((e && e.message) || e)}`], undefined);
+          resume([protectedError(e, this.execContext)], undefined);
         }
         return;
       }
@@ -446,7 +447,7 @@ export class Transformer extends BaseTransformer {
       try {
         resume(err, await signForRender(val, this.execContext));
       } catch (e: any) {
-        resume([`Error: ${String((e && e.message) || e)}`], undefined);
+        resume([protectedError(e, this.execContext)], undefined);
       }
     });
   }

@@ -64,10 +64,10 @@ afterEach(() => vi.restoreAllMocks());
 
 async function compile(src: string, identity?: any) {
   const code = await parser.parse(176, src, lexicon);
-  return new Promise<{ err: any[]; val: any }>((resolve) =>
-    compiler.compile(code, {}, {}, (err: any, val: any) => {
+  return new Promise<{ err: any[]; val: any; effects: any[] }>((resolve) =>
+    compiler.compile(code, {}, {}, (err: any, val: any, meta?: any) => {
       const errors = Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [];
-      resolve({ err: errors, val });
+      resolve({ err: errors, val, effects: meta?.effects ?? [] });
     }, identity),
   );
 }
@@ -307,5 +307,102 @@ describe("brokered compiles", () => {
     const { err } = await compile(`set-var "lrn-id" "t" author {}..`, WITH_CONNECTION);
     expect(err[0].message).toMatch(/author is not permitted/);
     expect(invocations).toEqual([]);
+  });
+});
+
+// Spec FAIL-01 (W3b): a failed protected call is a structured compile error
+// (its message unchanged), and every save's effects reach the caller,
+// cumulatively, from current and older policy/broker bodies alike.
+describe("structured failures and effects", () => {
+  beforeEach(() => {
+    if (!(compiler as any).__configured) {
+      (compiler as any).setPolicyClient(fakeClient);
+      (compiler as any).__configured = true;
+    }
+  });
+  const SAVE = `set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`;
+  const TWO_SAVES = `set-var "lrn-id" "t" [save-to-itembank items [${ITEM}] {} save-to-itembank items [${ITEM}] {}]..`;
+  const writes = (...outcomes: any[]) => (call: any) =>
+    call.op === "learnosity.write-items" ? outcomes.shift() : { status: "succeeded", result: { request: "r" } };
+  const refused = (reason: string, category?: string, extra: any = {}) =>
+    Object.assign(new Error("/v1/execute failed (403)"), { status: 403, reason, category, effectUnknown: false, ...extra });
+
+  test("a partial save names its code, category, stage, function and failed step", async () => {
+    brokerReply = writes({ status: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-granted", category: "permission", error: "items write failed" });
+    const { err, effects } = await compile(SAVE, WITH_CONNECTION);
+    expect(err).toEqual([{
+      message: "Error: Item bank save partial: items write failed",
+      from: -1, to: -1,
+      code: "authorization-denied:not-granted", category: "permission", stage: "s0", fn: "save-to-itembank", step: "items",
+    }]);
+    expect(effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-granted", category: "permission" }]);
+  });
+
+  test("an earlier save is still reported when a later one fails", async () => {
+    brokerReply = writes(
+      { status: "succeeded", steps: ["questions", "items"], result: { saved: true } },
+      { status: "failed", steps: [], failedStep: "questions", reason: "authorization-denied:not-granted", category: "permission", error: "denied" },
+    );
+    const { err, effects } = await compile(TWO_SAVES, WITH_CONNECTION);
+    expect(err.map((e) => e.message)).toEqual(["Error: Item bank save failed: denied"]);
+    expect(effects.map((e) => [e.status, e.steps])).toEqual([["succeeded", ["questions", "items"]], ["failed", []]]);
+  });
+
+  test("an uncertain save keeps its guidance in the message, with no completed step", async () => {
+    brokerReply = writes({ status: "uncertain", steps: [], failedStep: "questions", error: "no response" });
+    const { err, effects } = await compile(SAVE, WITH_CONNECTION);
+    expect(err[0]).toMatchObject({ fn: "save-to-itembank", step: "questions", stage: "s0" });
+    expect(err[0].message).toMatch(/Item bank save uncertain: no response — it may or may not have been written.*new idempotency key/);
+    expect(effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "uncertain", steps: [], failedStep: "questions" }]);
+  });
+
+  test("a lost broker answer is an uncertain save, said the same way", async () => {
+    brokerReply = (call: any) => {
+      if (call.op === "learnosity.write-items") throw Object.assign(new Error("/v1/execute unreachable"), { status: 0, effectUnknown: true });
+      return { status: "succeeded", result: { request: "r" } };
+    };
+    const { err, effects } = await compile(SAVE, WITH_CONNECTION);
+    expect(err[0]).toMatchObject({ fn: "save-to-itembank", stage: "s0" });
+    expect(err[0].message).toMatch(/Item bank save uncertain: \/v1\/execute unreachable — it may or may not have been written/);
+    expect(effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "uncertain", steps: [] }]);
+  });
+
+  test("a refusal carries policy's or the broker's reason and category", async () => {
+    brokerReply = (call: any) => {
+      if (call.op === "learnosity.write-items") throw refused("authorization-denied:not-granted", "permission");
+      return { status: "succeeded", result: { request: "r" } };
+    };
+    const { err, effects } = await compile(SAVE, WITH_CONNECTION);
+    expect(err).toEqual([{ message: "Error: /v1/execute failed (403)", from: -1, to: -1, code: "authorization-denied:not-granted", category: "permission", stage: "s0", fn: "save-to-itembank" }]);
+    expect(effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "failed", steps: [], reason: "authorization-denied:not-granted", category: "permission" }]);
+  });
+
+  test("a refused signing is structured too", async () => {
+    brokerReply = () => {
+      throw refused("maintenance", "unavailable", { message: "/v1/execute failed (503)", status: 503 });
+    };
+    const { err, effects } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
+    expect(err[0]).toMatchObject({ code: "maintenance", category: "unavailable", fn: "init", stage: "s0" });
+    // A signature is not an effect.
+    expect(effects).toEqual([]);
+  });
+
+  test("older policy and broker bodies, without category or failedStep, still give the same messages", async () => {
+    brokerReply = writes({ status: "partial", steps: ["questions"], error: "items write failed" });
+    const partial = await compile(SAVE, WITH_CONNECTION);
+    expect(partial.err).toEqual([{ message: "Error: Item bank save partial: items write failed", from: -1, to: -1, stage: "s0", fn: "save-to-itembank" }]);
+    expect(partial.effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "partial", steps: ["questions"] }]);
+    brokerReply = (call: any) => {
+      if (call.op === "learnosity.write-items") throw Object.assign(new Error("/v1/execute failed (403)"), { status: 403, reason: "not-granted" });
+      return { status: "succeeded", result: { request: "r" } };
+    };
+    const refusal = await compile(SAVE, WITH_CONNECTION);
+    expect(refusal.err).toEqual([{ message: "Error: /v1/execute failed (403)", from: -1, to: -1, code: "not-granted", stage: "s0", fn: "save-to-itembank" }]);
+  });
+
+  test("a compile with no save reports no effects, and other errors stay plain messages", async () => {
+    const ok = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
+    expect(ok.err).toEqual([]);
+    expect(ok.effects).toEqual([]);
   });
 });

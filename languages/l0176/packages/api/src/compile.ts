@@ -29,13 +29,18 @@ export async function compile({
   // the directive and, seeing it, neither stores the compile nor lets the `/data`
   // response be held by the browser or the CDN. Without it a cached compile hands the
   // browser a dead token and the form renders blank.
+  //
+  // `effects`, when the compile made protected writes (item-bank saves), says what each
+  // did, an earlier save included when a later one fails; the api gateway collects it
+  // per stage and keeps it out of the next stage's input.
   return await new Promise((resolve) =>
-    compiler.compile(code, data, config ?? {}, (err: any, out: any) => {
+    compiler.compile(code, data, config ?? {}, (err: any, out: any, meta?: { effects?: unknown[] }) => {
       const errors = Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [];
+      const effects = Array.isArray(meta?.effects) && meta.effects.length > 0 ? { effects: meta.effects } : {};
       if (errors.length > 0) {
-        resolve({ data: null, errors, cache: false });
+        resolve({ data: null, errors, cache: false, ...effects });
       } else {
-        resolve({ data: out, errors: [], cache: false });
+        resolve({ data: out, errors: [], cache: false, ...effects });
       }
     }, identity),
   );

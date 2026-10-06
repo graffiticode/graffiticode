@@ -140,14 +140,72 @@ const UNCERTAIN_GUIDANCE =
   " — it may or may not have been written. Check the item bank; to save again anyway, " +
   "rerun with a new idempotency key (the write may repeat).";
 
-const expectSucceeded = (out: any, what: string) => {
+// A protected call that did not succeed, with what the caller needs beside
+// the message (spec FAIL-01): the reason as `code`, its category, and the
+// function and step that failed. Policy and the broker supply them; an older
+// service may not, and then they are absent.
+export class ProtectedFailure extends Error {
+  code?: string;
+  category?: string;
+  fn?: string;
+  step?: string;
+  constructor(message: string, { code, category, fn, step }: { code?: string; category?: string; fn?: string; step?: string } = {}) {
+    super(message);
+    this.code = code;
+    this.category = category;
+    this.fn = fn;
+    this.step = step;
+  }
+}
+
+const text = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+
+const expectSucceeded = (out: any, what: string, fn: string) => {
   if (out?.status !== "succeeded") {
     const detail = out?.error ? `: ${out.error}` : "";
     const guidance = out?.status === "uncertain" ? UNCERTAIN_GUIDANCE : "";
-    throw new Error(`${what} ${out?.status ?? "failed"}${detail}${guidance}`);
+    throw new ProtectedFailure(`${what} ${out?.status ?? "failed"}${detail}${guidance}`, {
+      code: text(out?.reason),
+      category: text(out?.category),
+      fn,
+      step: text(out?.failedStep),
+    });
   }
   return out.result;
 };
+
+// A refusal from policy or the broker (ProtectedCallError: reason, category)
+// names the function it refused.
+const invoking = async (exec: ExecContext, call: any) => {
+  try {
+    return await exec.invoke(call);
+  } catch (e: any) {
+    if (e && typeof e === "object" && e.fn === undefined) e.fn = call.fn;
+    throw e;
+  }
+};
+
+// A compile error for a failed protected call: the same message as always,
+// plus its code, category, stage, function and step when it has them. An
+// error with none of these (not from a protected call) stays a plain message.
+export function protectedError(e: any, exec?: ExecContext): any {
+  const message = `Error: ${String((e && e.message) || e)}`;
+  const code = text(e?.code) ?? text(e?.reason);
+  const fn = text(e?.fn);
+  if (!code && !fn) {
+    return message;
+  }
+  return Object.fromEntries(Object.entries({
+    message,
+    from: -1,
+    to: -1,
+    code,
+    category: text(e?.category),
+    stage: text(exec?.stage),
+    fn,
+    step: text(e?.step),
+  }).filter(([, v]) => v !== undefined));
+}
 
 // Signs a `{ type, data }` activity through the broker. Returns the signed
 // request, or undefined for a value that is not a Learnosity activity.
@@ -167,8 +225,8 @@ export async function brokeredSign(exec: ExecContext, plain: any, occurrenceKey:
   default:
     return undefined;
   }
-  const out = await exec.invoke({ ...call, occurrenceId: exec.nextOccurrence(occurrenceKey) });
-  return expectSucceeded(out, "Learnosity signing").request;
+  const out = await invoking(exec, { ...call, occurrenceId: exec.nextOccurrence(occurrenceKey) });
+  return expectSucceeded(out, "Learnosity signing", call.fn).request;
 }
 
 // Writes a save plan through the broker. A retry of the same invocation (same
@@ -176,12 +234,22 @@ export async function brokeredSign(exec: ExecContext, plain: any, occurrenceKey:
 // save whose outcome is uncertain or partial is reported, never silently
 // re-run.
 export async function brokeredSave(exec: ExecContext, plan: any, occurrenceKey: string): Promise<any> {
-  const out = await exec.invoke({
-    fn: "save-to-itembank",
-    op: "learnosity.write-items",
-    payload: plan,
-    occurrenceId: exec.nextOccurrence(occurrenceKey),
-  });
-  const result = expectSucceeded(out, "Item bank save");
+  let out;
+  try {
+    out = await invoking(exec, {
+      fn: "save-to-itembank",
+      op: "learnosity.write-items",
+      payload: plan,
+      occurrenceId: exec.nextOccurrence(occurrenceKey),
+    });
+  } catch (e: any) {
+    // The broker was asked to write and its answer was lost: as uncertain as
+    // an uncertain outcome, and the caller is told the same.
+    if (e?.effectUnknown === true) {
+      throw new ProtectedFailure(`Item bank save uncertain: ${e.message}${UNCERTAIN_GUIDANCE}`, { fn: "save-to-itembank" });
+    }
+    throw e;
+  }
+  const result = expectSucceeded(out, "Item bank save", "save-to-itembank");
   return out.replayed ? { ...result, replayed: true } : result;
 }
