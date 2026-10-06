@@ -277,6 +277,10 @@
         {
           "milestone": "W1",
           "commit": "5e0fa93a3aa5eec451a16cc769254b8b9149a19e"
+        },
+        {
+          "milestone": "W2",
+          "commit": "cca38b35c2e32b6e44f0ae7d618a6284cb66ecce"
         }
       ]
     },
@@ -378,6 +382,10 @@
         {
           "milestone": "W1",
           "commit": "5e0fa93a3aa5eec451a16cc769254b8b9149a19e"
+        },
+        {
+          "milestone": "W2",
+          "commit": "2830d666ef80967819ca3bf788bded9a979a3957"
         }
       ]
     },
