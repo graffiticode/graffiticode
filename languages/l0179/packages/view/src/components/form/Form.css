@@ -64,8 +64,6 @@ main {
 .ProseMirror table {
   border-collapse: collapse;
   table-layout: fixed;
-  width: 250;
-  height: 250;
   overflow: hidden;
   border: 1px solid #eee;
 }
