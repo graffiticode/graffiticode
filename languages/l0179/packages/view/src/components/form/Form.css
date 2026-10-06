@@ -103,6 +103,18 @@ main {
   background-color: #adf;
   pointer-events: none;
 }
+/* `hide-headings`: the row (1, 2, 3...) and column (A, B, C...) headings, hidden.
+ *
+ * Every <th> is a heading — data cells are <td> — so hiding them all is exact. The heading column's
+ * <col> has to go too: once its cells are hidden that column no longer exists in the table model,
+ * and a visible first <col> would hand the heading width to column A and shift every authored
+ * width one column left. TableEditor gives that column 1px for the same reason (see headingWidth). */
+.gc-hide-headings .ProseMirror th,
+.gc-hide-headings .ProseMirror tr:first-child,
+.gc-hide-headings .ProseMirror colgroup col:first-child {
+  display: none;
+}
+
 .ProseMirror.resize-cursor {
   cursor: ew-resize;
   cursor: col-resize;

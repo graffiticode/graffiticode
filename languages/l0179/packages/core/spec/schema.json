@@ -118,6 +118,10 @@
         "hideSheetMenu": {
           "type": "boolean",
           "description": "Hide the sheet menu"
+        },
+        "hideHeadings": {
+          "type": "boolean",
+          "description": "Hide the row (1, 2, 3...) and column (A, B, C...) headings on every sheet"
         }
       }
     }

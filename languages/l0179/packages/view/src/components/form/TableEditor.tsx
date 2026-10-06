@@ -2097,12 +2097,19 @@ const buildCellPlugin = formState => {
   return self;
 }
 
-const buildCell = ({ col, row, attrs, colsAttrs }) => {
+// The row-heading column's width. When headings are hidden it is 1px, not 0: prosemirror-tables
+// reads a 0 as "no width" and adds its default minimum to the table's inline width instead. The
+// heading cells and this column's <col> are then hidden by `.gc-hide-headings` in Form.css; they
+// stay in the document so every cell keeps its real name and the header-aware navigation, which
+// indexes row 0 and the `_` column as headings, is unchanged.
+const headingWidth = hideHeadings => [hideHeadings ? 1 : 40];
+
+const buildCell = ({ col, row, attrs, colsAttrs, hideHeadings }) => {
   colsAttrs = colsAttrs || {};
   const cell = row[col];
   const colspan = 1;
   const rowspan = 1;
-  const colwidth = col === "_" && [40] || (colsAttrs[col]?.width ? [colsAttrs[col].width] : null);
+  const colwidth = col === "_" && headingWidth(hideHeadings) || (colsAttrs[col]?.width ? [colsAttrs[col].width] : null);
   // Check cell's own background-color first (from attrs), then column's, then row's
   const background = cell?.attrs?.['background-color'] ||
                    colsAttrs[col]?.['background-color'] ||
@@ -2185,31 +2192,31 @@ const buildCell = ({ col, row, attrs, colsAttrs }) => {
   return result;
 };
 
-const buildRow = ({ cols, row, attrs, colsAttrs }) => {
+const buildRow = ({ cols, row, attrs, colsAttrs, hideHeadings }) => {
   return ({
     "type": "table_row",
     "content": cols.map(col => {
-      return buildCell({col, row, attrs, colsAttrs});
+      return buildCell({col, row, attrs, colsAttrs, hideHeadings});
     }),
   })
 };
 
-const buildTable = ({ cols, rows, attrs, colsAttrs }) => {
+const buildTable = ({ cols, rows, attrs, colsAttrs, hideHeadings }) => {
   return ({
     "type": "table",
     "content": rows.map((row, rowIndex) => {
-      return buildRow({cols, row, colsAttrs, attrs: attrs[rowIndex]});
+      return buildRow({cols, row, colsAttrs, attrs: attrs[rowIndex], hideHeadings});
     })
   })
 };
 
-const buildDocFromTable = ({ cols, rows, colsAttrs, rowsAttrs }) => {
+const buildDocFromTable = ({ cols, rows, colsAttrs, rowsAttrs, hideHeadings }) => {
   const attrs = applyRules({ rows, rowsAttrs });
   return {
     "type": "doc",
     "content": [
       {
-        ...buildTable({cols, rows, attrs, colsAttrs}),
+        ...buildTable({cols, rows, attrs, colsAttrs, hideHeadings}),
       },
     ]
   }
@@ -2315,7 +2322,7 @@ const getCell = (row, col, cells, columns, rows) => {
   return {};
 };
 
-const makeEditorState = ({ type, columns, cells, rows }) => {
+const makeEditorState = ({ type, columns, cells, rows, hideHeadings }) => {
   if (!cells || Object.keys(cells).length === 0) {
     return null;
   }
@@ -2344,6 +2351,7 @@ const makeEditorState = ({ type, columns, cells, rows }) => {
       rows: rowsData,
       colsAttrs: columns,
       rowsAttrs: rows,
+      hideHeadings,
     });
     return {
       doc: doc,
@@ -2360,7 +2368,7 @@ const makeEditorState = ({ type, columns, cells, rows }) => {
 };
 
 export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
-  const { type, columns, cells, rows } = state.data.interaction;
+  const { type, columns, cells, rows, hideHeadings } = state.data.interaction;
   const [ editorView, setEditorView ] = useState(null);
   const [ tooltipState, setTooltipState ] = useState({ visible: false, x: 0, y: 0 });
   const tooltipHandler = {
@@ -2423,7 +2431,7 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     // Create initial state with data if available
     let initEditorState;
     if (cells && Object.keys(cells).length > 0) {
-      const editorStateData = makeEditorState({type, columns, cells, rows});
+      const editorStateData = makeEditorState({type, columns, cells, rows, hideHeadings});
       if (editorStateData) {
         initEditorState = EditorState.fromJSON({
           schema,
@@ -2476,7 +2484,7 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
   // const env = templateVariablesRecords[index];
   useEffect(() => {
     if (editorView && cells) {
-      const editorStateData = makeEditorState({type, columns, cells, rows});
+      const editorStateData = makeEditorState({type, columns, cells, rows, hideHeadings});
       if (!editorStateData) {
         // If no editor state data, create an empty state
         const newEditorState = EditorState.create({
@@ -2502,7 +2510,7 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     <>
       <div
         ref={editorRef}
-        className="border border-gray-300 p-2 bg-white text-xs font-sans"
+        className={`border border-gray-300 p-2 bg-white text-xs font-sans${hideHeadings ? " gc-hide-headings" : ""}`}
       />
       <ProtectedCellTooltip
         visible={tooltipState.visible}

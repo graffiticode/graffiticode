@@ -53,7 +53,8 @@ sheets [
 
 Each sheet needs its own id, and the ids must differ. A tab strip appears once there are two or
 more sheets; a sheet menu is always there. `show-sheet-tabs <bool>` and `hide-sheet-menu <bool>`, both
-written after the `]`, override that.
+written after the `]`, override that. `hide-headings true`, also written after the `]`, hides the row
+(1, 2, 3…) and column (A, B, C…) headings on every sheet; cells keep their names.
 
 ## Three rules cover the whole syntax
 
@@ -73,8 +74,9 @@ There is no chaining. An attribute never takes the rest of the program.
 **On a cell** — `text`, `assess`, and the presentation attributes below.
 **On a column or row** — the presentation attributes, plus `assess` to set defaults for the
 cells in it.
-**On the sheet** — `title`, `instructions`, `hide-formulabar`, and the `columns` / `rows` /
-`cells` blocks.
+**On the sheet** — `name`, `hide-formulabar`, and the `columns` / `rows` / `cells` blocks.
+**On the program**, after the `sheets` list — `title`, `instructions`, `show-sheet-tabs`,
+`hide-sheet-menu`, `hide-headings`, `instant-feedback`, then `params` last.
 
 Presentation: `width`, `align`, `background-color`, `font-weight`, `font-size`, `font-family`,
 `font-style`, `color`, `text-decoration`, `border`, `vertical-align`, `format`, `protected`.

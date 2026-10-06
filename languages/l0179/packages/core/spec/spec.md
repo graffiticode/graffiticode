@@ -33,7 +33,7 @@ sheets [
 
 `title` sits after the `]`, not inside the sheet, because it names the **program** — with two
 sheets, a title written inside one of them has no meaning. The same goes for `instructions`,
-`show-sheet-tabs`, `hide-sheet-menu`, and `instant-feedback`.
+`show-sheet-tabs`, `hide-sheet-menu`, `hide-headings`, and `instant-feedback`.
 
 | Word | Form | Description |
 | :--- | :--- | :---------- |
@@ -96,9 +96,30 @@ Written inside a `[...]` list as a word applied to a value. Order does not matte
 | `hide-formulabar` | sheet | Hides the `fx` input above the grid. |
 | `title`, `instructions` | **program** | Text shown above the grid. Written after the `sheets` list, not inside a sheet. |
 | `show-sheet-tabs`, `hide-sheet-menu` | **program** | See [Several sheets](#sec-Several-sheets). Written after the `sheets` list. |
+| `hide-headings` | **program** | Hides the row (1, 2, 3…) and column (A, B, C…) headings on every sheet. Cells keep their names. Written after the `sheets` list. |
 | `instant-feedback` | **program** | Colour assessed cells as the learner answers, not only on a check. See [assess](#sec-assess). Written after the `sheets` list. |
 
 An attribute a container does not accept is a compile error naming what that container takes.
+
+### hide-headings
+
+Hides the row and column headings, so the grid reads as a plain table. It applies to every sheet,
+and cells keep their names — formulas still write `A1`, `B2`.
+
+```
+sheets [
+  sheet "s1" [
+    cells [
+      cell A1 [text "Item"]
+      cell B1 [text "Cost"]
+      cell A2 [text "Rent"]
+      cell B2 [text "1200"]
+    ] {}
+  ]
+] hide-headings true {
+  "v": "0.0.1"
+}..
+```
 
 ### protected
 

@@ -204,6 +204,10 @@ function sheetState(state: any, sheet: any, multi: boolean) {
         columns: sheet.columns,
         cells: sheet.cells,
         ...(sheet.hideMenu !== undefined ? { hideMenu: sheet.hideMenu } : {}),
+        // Program-level, so it comes from the top of the model, not the sheet: every grid gets it.
+        ...(state.data?.interaction?.hideHeadings !== undefined
+          ? { hideHeadings: state.data.interaction.hideHeadings }
+          : {}),
       },
     },
     apply: (action: any) => {

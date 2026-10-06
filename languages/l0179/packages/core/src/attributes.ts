@@ -193,6 +193,9 @@ export const attributeFields: Record<string, AttributeMeta> = {
   INSTRUCTIONS: { field: "instructions", chaining: true },
   SHOW_SHEET_TABS: { field: "showSheetTabs", expects: "boolean", chaining: true },
   HIDE_SHEET_MENU: { field: "hideSheetMenu", expects: "boolean", chaining: true },
+  // The row (1, 2, 3...) and column (A, B, C...) headings — Excel's name for them. Program-level
+  // so every sheet in an item looks the same; a per-sheet switch would let tabs disagree.
+  HIDE_HEADINGS: { field: "hideHeadings", expects: "boolean", chaining: true },
   // Whether assess feedback colours the grid as the learner types, or waits for a check (the
   // host's Check button, or Learnosity's Check Answer). Emitted as top-level `feedback`, a mode
   // (`"instant"` or `"check"`) rather than a boolean; absent means the default, on check.
@@ -235,7 +238,8 @@ export const validAttributes: Record<string, string[]> = {
   // be listed, because this map is what turns validation ON for a container: before there was a
   // SHEETS entry, `assertKnownAttributes` returned early and the whole slot went unchecked.
   SHEETS: [
-    "title", "instructions", "show-sheet-tabs", "hide-sheet-menu", "instant-feedback", "params", "v",
+    "title", "instructions", "show-sheet-tabs", "hide-sheet-menu", "hide-headings", "instant-feedback",
+    "params", "v",
   ],
   SHEET: ["name", "hide-formulabar", "columns", "rows", "cells"],
   CELL: [

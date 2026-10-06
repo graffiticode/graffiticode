@@ -177,6 +177,10 @@ Three decisions carry the weight, all in `src/components/form/`:
 
 `show-sheet-tabs` / `hide-sheet-menu` reach the view as `interaction.showSheetTabs` /
 `interaction.hideSheetMenu`. Default: menu always, tabs once there are two or more sheets.
+`hide-headings` reaches it as `interaction.hideHeadings` (top level only, never per sheet) and
+`sheetState` hands it to every grid. The heading cells stay in the ProseMirror document — cells keep
+their names and the header-aware navigation is untouched — and `.gc-hide-headings` in `Form.css`
+hides them, along with the heading column's `<col>`.
 
 ### The attribute table drives everything
 
@@ -261,7 +265,7 @@ Several sheets are supported. Two rules keep that from breaking everything downs
   grid, sheet 2's `A1` would inherit sheet 1's column points and then overwrite its answer key.
   Both failures are silent and both produce a maximum no correct response can reach.
 
-`title` / `instructions` / `show-sheet-tabs` / `hide-sheet-menu` are **program-level**, written in the
+`title` / `instructions` / `show-sheet-tabs` / `hide-sheet-menu` / `hide-headings` are **program-level**, written in the
 `sheets` configuration slot (`sheets [...] title "..." {}`), not inside a sheet. That slot is
 where `params` already went, so it needed no new grammar. `params` must come **last** — it
 discards its continuation, a transcribed L0166 quirk, so anything after it is dropped.

@@ -370,6 +370,7 @@ Transformer.prototype.PROG = function (node: any, options: any, resume: any) {
       hideMenu,
       showSheetTabs,
       hideSheetMenu,
+      hideHeadings,
       feedback,
       sheetIds,
       errors,
@@ -429,6 +430,8 @@ Transformer.prototype.PROG = function (node: any, options: any, resume: any) {
         ...(hideMenu !== undefined ? { hideMenu } : {}),
         ...(showSheetTabs !== undefined ? { showSheetTabs } : {}),
         ...(hideSheetMenu !== undefined ? { hideSheetMenu } : {}),
+        // Program-level: emitted once, here, and never per sheet — the view applies it to every grid.
+        ...(hideHeadings !== undefined ? { hideHeadings } : {}),
         ...(Array.isArray(val0.sheets) ? {
           sheets: val0.sheets.map((s: any, i: number) => ({
             id: s.id,

@@ -190,6 +190,37 @@ test("show-sheet-tabs and hide-sheet-menu reach interaction, and only when writt
   expect(out.interaction.hideSheetMenu).toBe(false);
 });
 
+// ── hide-headings ──────────────────────────────────────────────────────────
+
+test("hide-headings reaches interaction once, never per sheet", async () => {
+  const out = await compileSrc(twoSheets("", "", "hide-headings true"));
+  expect(out.interaction.hideHeadings).toBe(true);
+  for (const s of out.interaction.sheets) expect(s).not.toHaveProperty("hideHeadings");
+});
+
+test("without hide-headings there is no `hideHeadings` key", async () => {
+  const out = await compileSrc('sheets [ sheet "s1" [ cells [ cell A1 [text "a"] ] {} ] ] {}..');
+  expect(out.interaction).not.toHaveProperty("hideHeadings");
+});
+
+test("hide-headings takes a boolean", async () => {
+  await expectError(twoSheets("", "", 'hide-headings "yes"'), "hide-headings expects true or false");
+});
+
+test("hide-headings chains with the other program-level words, params last", async () => {
+  const out = await compileSrc(
+    `sheets [ sheet "s1" [ cells [ cell A1 [text "{{A1}}"] ] {} ] ] title "T" hide-headings true params { "A1": "1" } {}..`);
+  expect(out.title).toBe("T");
+  expect(out.interaction.hideHeadings).toBe(true);
+  expect(out.templateVariablesRecords[0].A1).toBe("1");
+});
+
+test("hide-headings inside a sheet is refused and pointed at the program level", async () => {
+  await expectError(
+    'sheets [ sheet "s1" [ hide-headings true cells [ cell A1 [text "a"] ] {} ] ] {}..',
+    "`hide-headings` belongs to sheets");
+});
+
 // ── instant-feedback ───────────────────────────────────────────────────────
 
 const oneAssessed = (tail = "") =>
