@@ -89,6 +89,7 @@ const world = async ({ tweak = {} } = {}) => {
   const ok = data => ({ status: 200, json: { status: "success", data } });
   const refused = (status, reason) => ({ status, json: { status: "error", error: { code: status, reason } } });
   const tasks = [];
+  const compiles = new Map();
 
   const http = async ({ method, url, headers, body }) => {
     const { origin, pathname } = new URL(url);
@@ -100,7 +101,12 @@ const world = async ({ tweak = {} } = {}) => {
       if (origin === config.apiUrl && pathname === "/compile") {
         const saving = tasks[Number(body.id.split("-")[1]) - 1].code.src.includes("save-to-itembank");
         if (tweak.unsignedPreview && !saving) return ok({ data: { request: "{}" }, errors: [] });
-        return ok({ data: saving ? { itemBank: { saved: true } } : { request: JSON.stringify({ security: { signature: "sig" } }) }, errors: [] });
+        if (!saving) return ok({ data: { request: JSON.stringify({ security: { signature: "sig" } }) }, errors: [] });
+        // As L0176 and api report a save (W3b): replayed on a retry with the same key.
+        const seen = (compiles.get(body.idempotencyKey) ?? 0) + 1;
+        compiles.set(body.idempotencyKey, seen);
+        const effect = { fn: "save-to-itembank", op: "learnosity.write-items", status: "succeeded", steps: ["questions", "items"], stage: "s0", ...(seen > 1 ? { replayed: true } : {}) };
+        return ok({ data: { itemBank: { saved: true } }, errors: [], ...(tweak.noEffects ? {} : { effects: [effect] }) });
       }
       if (origin === config.policyUrl) {
         const caller = callerOf(headers, "urn:graffiticode:policy");
@@ -138,7 +144,7 @@ test("passes end to end while paused with the canary configured, writing once fo
   const { ok, results } = await run(w);
   assert.equal(ok, true, JSON.stringify(results));
   assert.deepEqual(Object.keys(byName(results)), [
-    "gateway preview", "gateway write", "gateway write retry",
+    "gateway preview", "gateway write", "gateway write effects", "gateway write retry", "gateway write retry effects",
     "author denied: policy", "author denied",
     "token replay: first use", "token replay", "receipt replay: first write", "receipt replay",
     "revocation probe: first write", "revocation probe: replay after narrowing", "revocation probe: minted, then narrowed",
@@ -230,4 +236,12 @@ test("fails author denied when only the broker enables Author", async () => {
   assert.equal(byName(results)["author denied: policy"], true);
   assert.equal(byName(results)["author denied"], false);
   assert.match(results.find(r => r.name === "author denied").detail, /operation-mismatch/);
+});
+
+test("fails when the gateway's write response doesn't say what the save did (W3b effects)", async () => {
+  const w = await world({ tweak: { noEffects: true } });
+  const { ok, results } = await run(w);
+  assert.equal(ok, false);
+  const failed = results.filter(r => !r.ok).map(r => [r.name, r.detail]);
+  assert.deepEqual(failed, [["gateway write effects", "no save effect in the response"], ["gateway write retry effects", "no save effect in the response"]]);
 });

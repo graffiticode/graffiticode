@@ -11,6 +11,9 @@
 //   write     POST /compile of a save program returns the saved item, and the
 //             same request again (same idempotency key, a fresh execution
 //             token for the same operation) returns the same outcome
+//   effects   (W3b, spec FAIL-01) the write's response says what the save
+//             did: one save-to-itembank effect, succeeded, with its steps;
+//             the retry's says the same effect was replayed
 //
 // Direct path, as the gateway and compiler service identities (the only way
 // to hold an execution token):
@@ -66,6 +69,10 @@ export const hasSignedRequest = value => {
   }
   return false;
 };
+
+// The save's entries in a compile's effects (api returns them beside data).
+const saveEffects = res => (Array.isArray(res.json?.data?.effects) ? res.json.data.effects : []).filter(e => e?.fn === "save-to-itembank");
+const describeEffects = effects => effects.length ? effects.map(e => `${e.status}${e.replayed ? " replayed" : ""} steps=${JSON.stringify(e.steps)}`).join("; ") : "no save effect in the response";
 
 const hasSavedItem = value => {
   if (Array.isArray(value)) return value.some(hasSavedItem);
@@ -127,9 +134,15 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, run
     const first = await compile(saveTaskId, key);
     const ok = first.status === 200 && errorsOf(first).length === 0 && hasSavedItem(first.json?.data);
     if (!record("gateway write", ok, ok ? "draft saved through the connection" : `${first.status} ${JSON.stringify(errorsOf(first))}`)) return;
+    const wrote = saveEffects(first);
+    record("gateway write effects", wrote.length === 1 && wrote[0].status === "succeeded" && !wrote[0].replayed && Array.isArray(wrote[0].steps) && wrote[0].steps.length > 0,
+      describeEffects(wrote));
     const again = await compile(saveTaskId, key);
     const same = again.status === 200 && errorsOf(again).length === 0 && hasSavedItem(again.json?.data);
     record("gateway write retry", same, same ? "same outcome for the same idempotency key" : `${again.status} ${JSON.stringify(errorsOf(again))}`);
+    const replayed = saveEffects(again);
+    record("gateway write retry effects", replayed.length === 1 && replayed[0].status === "succeeded" && replayed[0].replayed === true,
+      describeEffects(replayed));
   });
 
   // Direct path: allocate an invocation as the gateway, then snapshot, mint

@@ -69,6 +69,9 @@ It checks, as the canary account:
 - **gateway write**: a save program writes one draft (`graffiticode-canary` in the
   sandbox item bank), and the same request with the same idempotency key returns
   the same outcome;
+- **gateway write effects** (W3b, FAIL-01): the write's response lists one
+  `save-to-itembank` effect, `succeeded`, with its steps, and the retry's lists it as
+  `replayed`, so callers learn what a save did from L0176, through api;
 - **token replay**: an execution token executes once, and reusing it is refused
   (409 `token-replayed`);
 - **receipt replay**: a fresh token for an operation that already wrote returns the
