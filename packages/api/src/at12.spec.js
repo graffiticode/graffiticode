@@ -1,3 +1,4 @@
+/* eslint-disable camelcase -- Learnosity and Google ID-token fields are snake_case */
 // AT-12, audit portion (spec AUDIT-01, FAIL-01; W3 PR 4). Gateway (api's real
 // /compile route, behind its body parser, request context and auth
 // middleware, as app.js mounts them), Policy and Broker run as real HTTP
@@ -93,21 +94,39 @@ beforeEach(async () => {
   ]);
   const grants = createMemoryGrantStore([{
     grantId: grantIdFor({ connectionId: "conn-1", recipientUid: OTHER }),
-    connectionId: "conn-1", ownerUid: OWNER, recipientUid: OTHER, expiresAt: null,
+    connectionId: "conn-1",
+    ownerUid: OWNER,
+    recipientUid: OTHER,
+    expiresAt: null,
     permissions: [{ lang: "0176", fn: "init" }, { lang: "0176", fn: "save-to-itembank" }],
   }]);
   const publications = createMemoryPublicationStore();
   const policyAudit = createAudit({ sink: tag("policy"), pseudonymize });
   const policy = createPolicy({
-    protectedSwitch: on, signer, jwks, connections, grants, publications,
-    invocations: createMemoryInvocationStore(), systemConnections: { learnosity: "conn-sys" }, audit: policyAudit,
+    protectedSwitch: on,
+    signer,
+    jwks,
+    connections,
+    grants,
+    publications,
+    invocations: createMemoryInvocationStore(),
+    systemConnections: { learnosity: "conn-sys" },
+    audit: policyAudit,
   });
   const manager = createConnectionManager({ connections, grants, audit: policyAudit, brokerAdmin: { createSecret: async () => {}, rotateSecret: async () => {}, deleteSecret: async () => {} } });
   const policyApp = createPolicyApp({
-    policy, manager, verifyUser, publicJwks: jwks, audit: policyAudit,
-    identifyCaller: createCallerIdentity({ verifyIdToken, audience: "urn:graffiticode:policy", callers: {
-      [SA.gateway]: { role: "gateway" }, [SA.compiler]: { role: "compiler", lang: "0176" }, [SA.broker]: { role: "broker" }, [SA.console]: { role: "console" },
-    } }),
+    policy,
+    manager,
+    verifyUser,
+    publicJwks: jwks,
+    audit: policyAudit,
+    identifyCaller: createCallerIdentity({
+      verifyIdToken,
+      audience: "urn:graffiticode:policy",
+      callers: {
+        [SA.gateway]: { role: "gateway" }, [SA.compiler]: { role: "compiler", lang: "0176" }, [SA.broker]: { role: "broker" }, [SA.console]: { role: "console" },
+      }
+    }),
   });
   const policyServer = await listen(policyApp);
 
@@ -115,7 +134,9 @@ beforeEach(async () => {
   const hooks = { onRoute: null };
   const brokerAudit = createAudit({ sink: tag("broker"), pseudonymize });
   const brokerFor = policyUrl => createBroker({
-    protectedSwitch: on, jwks, audit: brokerAudit,
+    protectedSwitch: on,
+    jwks,
+    audit: brokerAudit,
     operations: buildOperations({
       sdk: { init: (service, consumer, secret, body) => ({ service, signature: "sig", body }) },
       domain: "d",
@@ -125,7 +146,9 @@ beforeEach(async () => {
       "conn-1": { ownerUid: OWNER, backend: "learnosity", key: KEY, secret: SECRET },
       "conn-sys": { ownerUid: "0xsystemowner", backend: "learnosity", key: KEY, secret: SECRET },
     }),
-    once: createMemoryOnceStore(), receipts: createMemoryReceiptStore(), activity: createMemoryActivityStore(),
+    once: createMemoryOnceStore(),
+    receipts: createMemoryReceiptStore(),
+    activity: createMemoryActivityStore(),
     authorize: buildPolicyAuthorizer({ policyUrl, idToken: idTokenFor(SA.broker) }),
   });
   const brokerIdentity = createCallerIdentity({ verifyIdToken, audience: "urn:graffiticode:broker", callers: { [SA.compiler]: { role: "compiler", lang: "0176" }, [SA.broker]: { role: "policy" } } });
@@ -193,11 +216,25 @@ beforeEach(async () => {
   };
   const apiServer = await apiServerFor(makeDataApi());
   world = {
-    policy, grants, publications, providerCalls, hooks, program, taskStorer, compileStorer, taskId, makeDataApi, execute, asCompiler,
-    policyUrl: policyServer.url, brokerUrl: brokerServer.url, outageBrokerUrl: outageBroker.url,
+    policy,
+    grants,
+    publications,
+    providerCalls,
+    hooks,
+    program,
+    taskStorer,
+    compileStorer,
+    taskId,
+    makeDataApi,
+    execute,
+    asCompiler,
+    policyUrl: policyServer.url,
+    brokerUrl: brokerServer.url,
+    outageBrokerUrl: outageBroker.url,
     asGateway: buildPolicyRequest({ policyUrl: policyServer.url, idToken: idTokenFor(SA.gateway) }),
     asBroker: buildPolicyRequest({ policyUrl: policyServer.url, idToken: idTokenFor(SA.broker) }),
-    apiUrl: apiServer.url, apiServerFor,
+    apiUrl: apiServer.url,
+    apiServerFor,
   };
 });
 
