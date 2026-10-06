@@ -233,10 +233,26 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   enforcement satisfying the new allowlist contract was found in the inspected deployment
   configuration. Historical IAM improvements do not establish current egress, secret-access,
   impersonation, and credential invalidation guarantees. See §4 below.
-- **Partial — AUDIT-01.** Audit records allowlist fields and pseudonymize user/owner IDs.
-  Required decision/plan/invocation/operation correlation and new authorization events need
-  additions. Deployed log coverage and redaction across services remain unverified.
-  Evidence: [audit implementation](../packages/policy/src/audit.ts).
+- **Partial — AUDIT-01.** Since W3 (released 2026-10-06), Policy, Broker and api audit:
+  - **What:** admission, snapshots, mint, each step's authorization, execution and its final
+    outcome with the known prior steps, receipt replays, artifacts, publications and
+    connection/grant changes.
+  - **Correlation:** request ids, attempt ids, decision ids and invocation/stage/operation
+    ids, taken only from verified tokens.
+  - **Values:** checked field by field; a value the registry or the server didn't produce
+    is recorded as `invalid`. Users and owners are pseudonymized at Policy and Broker; api's
+    records carry no user identifier at all (enforced).
+  - **Redaction:** covered across real HTTP by the AT-12 harness, and checked on deployed
+    records after the canary (section 4).
+  - **Monitoring:** `scripts/monitoring.js` counts denials, Broker-local refusals,
+    authorization outages, uncertain and partial writes, artifact failures and replays
+    separately. Alerts for outages and uncertain writes were applied, and both emails were
+    confirmed delivered by nonce on 2026-10-06.
+
+  Missing: reconciliation events (there is no reconciliation yet), and `category` on denial
+  records (their reason is classified, but the category isn't written). Evidence:
+  [audit](../packages/policy/src/audit.ts), [AT-12 harness](../packages/api/src/at12.spec.js),
+  [monitoring](../scripts/monitoring.js).
 - **Missing — RELEASE-01.** No stronger-contract cutover/version enforcement, pinned-plan
   legacy rejection, or rollback gate exists. These are future implementation requirements,
   not actions performed by this documentation revision.
@@ -379,9 +395,15 @@ and broker `broker-rmux0u0z2-12c43f` (c6ae2ad), api `api-rmux53ise-374246` (66de
 - Later canary, 2026-10-06 21:12Z: 13 of 13, revocation probe included. That is about 2h40m
   after the policy and broker releases, but only 25 minutes after api's. No ERROR entries
   or 5xx on api, policy, broker or l0176 since api's release.
-- AUDIT-01 and FAIL-01 stay Partial: structured effects don't reach callers until W3b
-  (l0000, L0176), alert delivery isn't verified (W3 PR 5), and denial records carry `reason`
-  without `category`.
+- Monitoring (W3 PR 5), 2026-10-06: `node scripts/monitoring.js --apply` passed the filter
+  check against the last 7 days of deployed entries. It created 8 metrics, the operator's
+  email channel and 2 log-match alert policies; a second dry run showed all 11 unchanged.
+  `--verify-alert` wrote one test record per alert at 22:16:43Z. Both emails, *authorization
+  outage* and *uncertain write*, arrived, and their nonces were confirmed at 22:29Z
+  (`.gc-deploy/monitoring/alert-verification.json`).
+- AUDIT-01 and FAIL-01 stay Partial. Structured effects don't reach callers until W3b
+  (l0000, L0176); denial records carry `reason` without `category`; reconciliation is
+  missing.
 
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
 connection into Policy. Configuration intent does not prove a deployment uses it. Refresh
