@@ -12,7 +12,7 @@ const namePattern = /^[a-z][a-z0-9-]{0,39}$/;
 
 export function parseArgs(args) {
   const options = { command: "deploy", env: "production", config: "deploy.json" };
-  if (["deploy", "rollback", "retire-tags", "release-check"].includes(args[0])) options.command = args.shift();
+  if (["deploy", "rollback", "retire-tags", "release-check", "approve"].includes(args[0])) options.command = args.shift();
   while (args.length) {
     const arg = args.shift();
     if (["--plan", "--allow-dirty", "--help", "--below-baseline", "--json"].includes(arg)) options[arg.slice(2)] = true;
@@ -23,8 +23,8 @@ export function parseArgs(args) {
     } else if (!arg.startsWith("-") && !options.service) options.service = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
-  if (options.command === "rollback" && !options.help) {
-    requireValue(options.release && /^[a-z0-9-]+$/.test(options.release), "rollback requires --release <release-id>");
+  if (["rollback", "approve"].includes(options.command) && !options.help) {
+    requireValue(options.release && /^[a-z0-9-]+$/.test(options.release), `${options.command} requires --release <release-id>`);
   }
   return options;
 }
@@ -70,6 +70,11 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   requireValue(!config.env || object(config.env), "env must be an object");
   requireValue(!config.secrets || object(config.secrets), "secrets must be an object");
   requireValue(config.retireTags === undefined || typeof config.retireTags === "boolean", "retireTags must be a boolean");
+  requireValue(config.pinnable === undefined || (object(config.pinnable) && /^\d{4}$/.test(config.pinnable.lang ?? "") &&
+    (config.pinnable.contractVersions === undefined || (Array.isArray(config.pinnable.contractVersions) && config.pinnable.contractVersions.length > 0 && config.pinnable.contractVersions.every(v => Number.isInteger(v) && v > 0))) &&
+    (config.pinnable.minContractVersion === undefined || (Number.isInteger(config.pinnable.minContractVersion) && config.pinnable.minContractVersion > 0)) &&
+    (config.pinnable.database === undefined || /^[a-z][a-z0-9-]{0,62}$/.test(config.pinnable.database))),
+  "pinnable must be { lang: \"NNNN\", contractVersions?: [int], minContractVersion?: int, database?: name }");
   requireValue(config.baselines === undefined || (Array.isArray(config.baselines) && config.baselines.length > 0 &&
     config.baselines.every(b => object(b) && typeof b.milestone === "string" && b.milestone.length > 0 && typeof b.commit === "string" && /^[0-9a-f]{40}$/.test(b.commit)) &&
     new Set(config.baselines.map(b => b.milestone)).size === config.baselines.length), "baselines must be a non-empty list of { milestone, commit: <40-hex commit> }, oldest first");

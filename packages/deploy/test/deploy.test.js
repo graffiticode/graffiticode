@@ -8,7 +8,8 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run, streamOutput } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck } from "../src/release.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased } from "../src/release.js";
+import { createRevisionClient, decodeFields, encodeFields, reachableProblems, retainedTags } from "../src/revisions.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
 const config = {
@@ -132,7 +133,8 @@ test("build publishes with provenance and never deploys; deploy preserves unmana
   assert.ok(!JSON.stringify(build.steps).includes("\"deploy\""));
   const args = deployArgs(config, { id: "release", commit: source.commit, image: `image@${digest}` });
   assert.ok(args.includes("--no-traffic"));
-  assert.ok(args.includes("--update-env-vars=^|^AUTH_URL=https://example.com/a,b"));
+  // The revision's identity rides with its configuration (capability plan W4).
+  assert.ok(args.includes(`--update-env-vars=^|^AUTH_URL=https://example.com/a,b|GC_RELEASE=release|GC_IMAGE_DIGEST=${digest}`));
   assert.ok(!args.some(a => a.startsWith("--set-") || a.includes("allow-unauthenticated")));
   assert.ok(!args.some(a => a.startsWith("--remove-secrets")));
 });
@@ -587,4 +589,158 @@ test("streamOutput reports a stopped command as ended, and a failing one as fail
   sleeper.stop();
   await sleeper.done;
   await assert.rejects(streamOutput(process.execPath, ["-e", "process.exit(3)"]).done, /failed \(3\)/);
+});
+
+// Approved revisions (capability plan W4, section A): a pinnable service's
+// releases are recorded as approved before they serve, its approved tags stay,
+// and release-check covers every reachable revision.
+const pinnable = { ...context, config: { ...config, pinnable: { lang: "0176" }, retireTags: true } };
+const memoryRevisions = (calls = []) => {
+  const records = new Map();
+  return {
+    records,
+    fail: false,
+    async approve(record) {
+      calls.push(["approve", record.revision]);
+      if (this.fail) throw new Error("revisions store unavailable");
+      if (records.has(record.revision)) throw new Error(`Approving ${record.revision} failed: 409`);
+      records.set(record.revision, structuredClone(record));
+      return record;
+    },
+    async list() { return new Map(records); },
+  };
+};
+
+test("a pinnable release is approved before it serves, with its tag, digest and commit", async t => {
+  const h = await harness(t);
+  const revisions = memoryRevisions(h.calls);
+  const receipt = await release(pinnable, source, { ...h.deps, revisions });
+  const approvedAt = h.calls.findIndex(c => c[0] === "approve");
+  const promotedAt = h.calls.findIndex(c => c.some(a => String(a).startsWith("--to-revisions=")));
+  assert.ok(approvedAt >= 0 && approvedAt < promotedAt, "approved before promotion");
+  const record = revisions.records.get(receipt.revision);
+  assert.deepEqual({ ...record, approvedAt: undefined }, {
+    lang: "0176",
+    service: "api",
+    revision: receipt.revision,
+    tag: receipt.id,
+    tagUrl: `https://${receipt.id}---api-example.run.app`,
+    imageDigest: digest,
+    commit: source.commit,
+    releaseId: receipt.id,
+    contractVersions: [1],
+    status: "approved",
+    approvedAt: undefined,
+  });
+  assert.equal(receipt.approval.revision, receipt.revision);
+  // Its own tag is kept; an unknown old tag is not.
+  assert.deepEqual(receipt.retiredTags, []);
+});
+
+test("a pinnable release whose approval fails is never promoted", async t => {
+  const h = await harness(t);
+  const revisions = memoryRevisions(h.calls);
+  revisions.fail = true;
+  await assert.rejects(release(pinnable, source, { ...h.deps, revisions }), /revisions store unavailable/);
+  assert.ok(!h.calls.some(c => c.some(a => String(a).startsWith("--to-revisions="))));
+  assert.equal(h.getReceipt().status, "failed");
+  await assert.rejects(release(pinnable, source, h.deps), /needs the revisions store/);
+});
+
+test("tag retirement keeps approved and retiring revisions' tags, and removes the rest", async t => {
+  const h = await harness(t, { tags: ["kept-1", "going-1", "gone-1", "unknown-1"] });
+  const revisions = memoryRevisions();
+  revisions.records.set("api-kept-1", { revision: "api-kept-1", status: "approved" });
+  revisions.records.set("api-going-1", { revision: "api-going-1", status: "retiring" });
+  revisions.records.set("api-gone-1", { revision: "api-gone-1", status: "retired" });
+  const retired = await retireTags(pinnable, { ...h.deps, revisions });
+  assert.deepEqual(retired.sort(), ["gone-1", "unknown-1"]);
+  await assert.rejects(retireTags(pinnable, h.deps), /needs the revisions store/);
+});
+
+test("release-check for a pinnable service covers every reachable revision", async t => {
+  const h = await harness(t, { tags: ["held-1"] });
+  const revisions = memoryRevisions();
+  // Released without retiring tags, so the unknown held-1 is still reachable.
+  const receipt = await release({ ...pinnable, config: { ...pinnable.config, retireTags: false } }, source, { ...h.deps, revisions });
+  const guarded = { ...pinnable, config: { ...pinnable.config, baselines: [{ milestone: "W4", commit: B }] } };
+  // api-held-1 is reachable by its tag and unknown to the store; api-old
+  // stopped serving at promotion and has no tag, so it's unreachable.
+  const first = await releaseCheck(guarded, { ...h.deps, git, revisions });
+  assert.equal(first.ok, false);
+  assert.deepEqual(first.revisions.reachable, ["api-held-1", receipt.revision].sort());
+  assert.deepEqual(first.revisions.unapproved, ["api-held-1"]);
+  assert.deepEqual(first.staleTags, ["held-1"]);
+  // Approved but built from old code: a retained tag is checked against the milestone too.
+  revisions.records.set("api-held-1", { revision: "api-held-1", status: "approved", contractVersions: [1] });
+  const tagged = await releaseCheck(guarded, { ...h.deps, git, revisions });
+  assert.deepEqual(tagged.staleTags, []);
+  assert.deepEqual(tagged.belowBaseline, ["api-held-1"]);
+  assert.equal(tagged.ok, false);
+  for (const [status, key] of [["retiring", "retiring"], ["retired", "retired"]]) {
+    revisions.records.set("api-held-1", { revision: "api-held-1", status, contractVersions: [1] });
+    assert.deepEqual((await releaseCheck(guarded, { ...h.deps, git, revisions })).revisions[key], ["api-held-1"]);
+  }
+  const v2 = { ...guarded, config: { ...guarded.config, pinnable: { lang: "0176", minContractVersion: 2 } } };
+  assert.ok((await releaseCheck(v2, { ...h.deps, git, revisions })).revisions.unsupportedContract.includes(receipt.revision));
+});
+
+test("reachable problems and retained tags are judged per revision", () => {
+  const service = { status: { traffic: [{ revisionName: "s-a", percent: 100 }, { revisionName: "s-b", tag: "b" }, { revisionName: "s-c", tag: "c" }] } };
+  const records = new Map([["s-a", { status: "approved", contractVersions: [1, 2] }], ["s-b", { status: "retiring", contractVersions: [1] }]]);
+  assert.deepEqual(reachableProblems(service, records, { minContractVersion: 2 }), { reachable: ["s-a", "s-b", "s-c"], unapproved: ["s-c"], retiring: ["s-b"], retired: [], unsupportedContract: [] });
+  assert.deepEqual(retainedTags(service, records), ["b"]);
+});
+
+test("approve records a revision released before its service was pinnable, once", async t => {
+  const h = await harness(t);
+  const revisions = memoryRevisions();
+  const receipt = await release(context, source, h.deps);
+  const approved = await approveReleased(pinnable, receipt, { ...h.deps, revisions });
+  assert.equal(approved.approval.status, "approved");
+  assert.equal(revisions.records.get(receipt.revision).tag, receipt.id);
+  await assert.rejects(approveReleased(pinnable, receipt, { ...h.deps, revisions }), /409/);
+  await assert.rejects(approveReleased(pinnable, { ...receipt, status: "failed" }, { ...h.deps, revisions }), /not a released api revision/);
+  await assert.rejects(approveReleased(context, receipt, { ...h.deps, revisions }), /not pinnable/);
+});
+
+test("the revisions client creates a record only if absent, and reads every page", async () => {
+  const sent = [];
+  const pages = [
+    { documents: [{ fields: encodeFields({ revision: "l0176-a", status: "approved", contractVersions: [1] }) }], nextPageToken: "p2" },
+    { documents: [{ fields: encodeFields({ revision: "l0176-b", status: "retired", contractVersions: [1, 2] }) }] },
+  ];
+  const firestore = async (method, resource, body) => {
+    sent.push([method, resource, body]);
+    return method === "GET" ? { status: 200, json: pages.shift() } : { status: 200, json: {} };
+  };
+  const client = createRevisionClient({ project: "graffiticode", pinnable: { lang: "0176" } }, firestore);
+  await client.approve({ revision: "l0176-a", status: "approved", contractVersions: [1], approvedAt: new Date("2026-10-06T00:00:00Z") });
+  assert.equal(sent[0][0], "PATCH");
+  assert.equal(sent[0][1], "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-a?currentDocument.exists=false");
+  assert.deepEqual(decodeFields(sent[0][2].fields), { revision: "l0176-a", status: "approved", contractVersions: [1], approvedAt: "2026-10-06T00:00:00.000Z" });
+  const records = await client.list();
+  assert.deepEqual([...records.keys()], ["l0176-a", "l0176-b"]);
+  assert.match(sent.at(-1)[1], /\?pageToken=p2$/);
+  const refused = createRevisionClient({ project: "graffiticode", pinnable: { lang: "0176" } }, async () => ({ status: 409, json: { error: "exists" } }));
+  await assert.rejects(refused.approve({ revision: "l0176-a" }), /409/);
+});
+
+test("pinnable is validated, and approve needs a release", async t => {
+  assert.throws(() => parseArgs(["approve", "l0176"]), /approve requires --release/);
+  assert.equal(parseArgs(["approve", "l0176", "--release", "r1-abc"]).command, "approve");
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-pinnable-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const write = async extra => writeFile(path.join(root, "deploy.json"), JSON.stringify({
+    version: 1,
+    environments: { production: { project: "graffiticode", region: "us-central1" } },
+    services: { l0176: { ...config, service: undefined, ...extra } },
+  }));
+  const options = parseArgs(["l0176"]);
+  for (const bad of [{ lang: "176" }, { lang: "0176", contractVersions: [] }, { lang: "0176", minContractVersion: 0 }, { lang: "0176", database: "Bad_Name" }, "0176"]) {
+    await write({ pinnable: bad });
+    await assert.rejects(loadConfig(options, root, {}), /pinnable must be/);
+  }
+  await write({ pinnable: { lang: "0176", contractVersions: [1, 2], minContractVersion: 2 } });
+  assert.deepEqual((await loadConfig(options, root, {})).config.pinnable, { lang: "0176", contractVersions: [1, 2], minContractVersion: 2 });
 });

@@ -440,7 +440,10 @@
       "include": [
         "languages/l0000",
         "configs/Dockerfile.l0000.yaml"
-      ]
+      ],
+      "pinnable": {
+        "lang": "0000"
+      }
     },
     "l0175": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0175",
@@ -541,7 +544,10 @@
           "status": 200
         }
       ],
-      "retireTags": true
+      "retireTags": true,
+      "pinnable": {
+        "lang": "0176"
+      }
     },
     "l0003": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0003",

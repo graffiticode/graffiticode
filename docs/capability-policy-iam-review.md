@@ -767,6 +767,61 @@ does not undo IAM or secret versions.
 
 ---
 
+### Step 11: The approved-revisions database (capability plan W4, PR 1)
+
+Admitted plans pin compiler revisions that the `revisions` database records as `approved`
+(`packages/deploy/src/revisions.js`, `packages/policy/src/revisions.ts`). It's written only by the
+deploy identity (the operator, with their own credentials). Policy's runtime account reads it and
+can't write it. Firestore rules don't bind server clients, so the boundary is IAM. Create the
+database and grant the read **before** the first release of a `pinnable` service (`l0000`,
+`l0176`): such a release records its revision before promotion and doesn't promote if it can't.
+
+```bash
+P=graffiticode
+gcloud firestore databases create --project $P --database revisions --location nam5 \
+  --type firestore-native --delete-protection
+gcloud projects add-iam-policy-binding $P --member serviceAccount:$(sa policy) --role roles/datastore.viewer \
+  --condition='expression=resource.name=="projects/'$P'/databases/revisions",title=revisions-db-read-only'
+```
+
+Then record the revisions already serving (released before their service was pinnable), from
+their receipts:
+
+```bash
+npm run deploy -- approve l0176 --release <current l0176 release id>
+npm run deploy -- approve l0000 --release <current l0000 release id>
+```
+
+Verification (read-only), before anything relies on it:
+
+```bash
+R=//firestore.googleapis.com/projects/$P/databases/revisions
+# Policy reads it...
+for perm in datastore.entities.get datastore.entities.list; do
+  gcloud policy-intelligence troubleshoot-policy iam $R --principal-email=$(sa policy) --permission=$perm; done
+# ...and can't create, update or delete in it (expect NOT granted for each).
+for perm in datastore.entities.create datastore.entities.update datastore.entities.delete; do
+  gcloud policy-intelligence troubleshoot-policy iam $R --principal-email=$(sa policy) --permission=$perm; done
+# Inherited grants that would defeat the condition: every project-level role able to write
+# any database, with its condition (an unconditioned Owner/Editor/datastore.user can write here).
+gcloud projects get-iam-policy $P --format=json | jq -r '.bindings[]
+  | select(.role | test("^roles/(owner|editor|datastore\\.(owner|user|importExportAdmin))$"))
+  | "\(.role)\t\(.condition.expression // "UNCONDITIONED")\t\(.members | join(","))"'
+```
+
+- Expected: `policy-run` granted get/list and denied create/update/delete. The only principals able
+  to write `revisions` are the operators: Owner, or an unconditioned Datastore role, held by a
+  human. A service account listed with Owner, Editor or an unconditioned `datastore.user` can write
+  approvals: remove it, or scope its condition to its own database, before relying on the boundary.
+- If the Troubleshooter rejects the database resource name, verify behaviourally: as `policy-run`
+  (`gcloud auth print-access-token --impersonate-service-account`, which needs
+  `serviceAccountTokenCreator`), a REST `GET` of
+  `projects/$P/databases/revisions/documents/languages/0176/revisions/<revision>` succeeds, and a
+  `PATCH` of a test document is refused with 403.
+- Rollback: `remove-iam-policy-binding` with the same condition. The database has delete
+  protection: disable it explicitly before deleting it (`gcloud firestore databases update
+  --no-delete-protection`). Never delete it while an admitted plan pins a revision it records.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |

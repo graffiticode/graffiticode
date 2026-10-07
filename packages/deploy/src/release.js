@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { requireValue } from "./config.js";
+import { approvalRecord, reachableProblems, retainedTags } from "./revisions.js";
 
 export function traffic(service) {
   const totals = {};
@@ -38,7 +39,12 @@ export function deployArgs(config, receipt) {
   const args = ["run", "deploy", config.service, `--image=${receipt.image}`, `--port=${config.port}`,
     `--service-account=${config.runtimeServiceAccount}`, "--no-traffic", `--tag=${receipt.id}`,
     `--revision-suffix=${receipt.id}`, `--labels=gc-release=${receipt.id},commit-sha=${receipt.commit},gc-dirty=${receipt.dirty ? "true" : "false"}`];
-  if (Object.keys(config.env || {}).length) args.push(`--update-env-vars=${envFlag(config.env)}`);
+  // The revision's own identity, for a compiler to report in its preflight
+  // manifest (capability plan W4): its release, and the digest it runs (known
+  // before the revision exists, since every release deploys by digest).
+  const imageDigest = receipt.image?.split("@")[1];
+  const env = { ...(config.env || {}), GC_RELEASE: receipt.id, ...(imageDigest ? { GC_IMAGE_DIGEST: imageDigest } : {}) };
+  args.push(`--update-env-vars=${envFlag(env)}`);
   if (Object.keys(config.secrets || {}).length) args.push(`--update-secrets=${pairs(config.secrets)}`);
   // --update-secrets only adds, so a secret mounted by an earlier release
   // carries into new revisions until it is removed explicitly.
@@ -204,6 +210,15 @@ export async function release(context, source, deps) {
     if (config.verify) await verifyCandidate(config, candidate, id, source, receipt, { ...deps, persist });
     const beforePromotion = await cloud(["run", "services", "describe", config.service]);
     requireValue(fingerprint(beforePromotion) === fingerprint(candidate), "Service changed during verification; refusing promotion");
+    // A pinnable revision is approved before it serves, so admission never sees
+    // a serving revision without a record. If approval fails, nothing is
+    // promoted.
+    if (config.pinnable) {
+      requireValue(deps.revisions, "A pinnable service needs the revisions store");
+      const record = await deps.revisions.approve(approvalRecord(config, receipt, beforePromotion));
+      receipt.approval = { ...record, approvedAt: record.approvedAt.toISOString() };
+      await persist();
+    }
     receipt.status = "promoting";
     await persist();
     log(`Promoting ${receipt.revision}…`);
@@ -216,7 +231,7 @@ export async function release(context, source, deps) {
     // Released either way; a failure here is reported, not undone.
     if (config.retireTags) {
       try {
-        receipt.retiredTags = await retireTags(context, { cloud, log, keep: [receipt.id] });
+        receipt.retiredTags = await retireTags(context, { cloud, log, keep: [receipt.id], revisions: deps.revisions });
       } catch (error) {
         receipt.tagRetirementError = error.message;
         log(`WARNING: released, but stale tags remain (${error.message}). Run: npm run deploy -- retire-tags ${config.service}`);
@@ -245,9 +260,15 @@ export function staleTags(service, keep = []) {
 
 // Removes stale tags without touching traffic, and verifies both. Rollback
 // targets revision names, not tags, so it keeps working.
-export async function retireTags(context, { cloud, log, keep = [] }) {
+export async function retireTags(context, { cloud, log, keep = [], revisions = undefined }) {
   const { config } = context;
   const before = await cloud(["run", "services", "describe", config.service]);
+  // A pinnable service keeps the tags of approved revisions: admitted plans
+  // route to them. Only `retire` (scripts/revisions.js) removes those.
+  if (config.pinnable) {
+    requireValue(revisions, "A pinnable service needs the revisions store");
+    keep = [...keep, ...retainedTags(before, await revisions.list())];
+  }
   const tags = staleTags(before, keep);
   if (!tags.length) {
     log("No stale tags.");
@@ -298,19 +319,43 @@ export async function belowBaseline(context, names, { cloud, git }, which = "cur
 // What must hold before protected execution is switched back on: no tag still
 // reaches a non-serving revision (when the service retires tags), and nothing
 // serving is below the current milestone. Read-only.
-export async function releaseCheck(context, { cloud, git }) {
+// For a pinnable service, every REACHABLE revision counts, serving or kept by
+// its tag (capability plan W4): each must be approved, not mid-retirement,
+// support the required contract version, and meet the milestone.
+export async function releaseCheck(context, { cloud, git, revisions = undefined }) {
   const { config } = context;
   const service = await cloud(["run", "services", "describe", config.service]);
   const serving = Object.keys(traffic(service));
   const baselines = config.baselines ?? [];
+  let pinned = null;
+  let keep = [];
+  if (config.pinnable) {
+    requireValue(revisions, "A pinnable service needs the revisions store");
+    const records = await revisions.list();
+    pinned = reachableProblems(service, records, { minContractVersion: config.pinnable.minContractVersion ?? 1 });
+    keep = retainedTags(service, records);
+  }
   const result = {
     service: config.service,
     serving,
-    staleTags: config.retireTags ? staleTags(service) : [],
+    staleTags: config.retireTags ? staleTags(service, keep) : [],
     baseline: baselines.length ? baselines[baselines.length - 1] : null,
-    belowBaseline: await belowBaseline(context, serving, { cloud, git }),
+    belowBaseline: await belowBaseline(context, pinned ? pinned.reachable : serving, { cloud, git }),
+    ...(pinned ? { revisions: pinned } : {}),
   };
-  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 };
+  const pinnedOk = !pinned || ["unapproved", "retiring", "retired", "unsupportedContract"].every(k => pinned[k].length === 0);
+  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk };
+}
+
+// Approves an already-released revision of a pinnable service from its
+// receipt: for a revision released before the service was pinnable.
+export async function approveReleased(context, receipt, { cloud, revisions }) {
+  const { config } = context;
+  requireValue(config.pinnable, `${config.service} is not pinnable`);
+  requireValue(receipt.service === config.service && receipt.status === "released", `Release ${receipt.id} is not a released ${config.service} revision`);
+  const service = await cloud(["run", "services", "describe", config.service]);
+  const record = await revisions.approve(approvalRecord(config, receipt, service));
+  return { ...receipt, approval: { ...record, approvedAt: record.approvedAt.toISOString() } };
 }
 
 // Rolling back below the current milestone is refused unless

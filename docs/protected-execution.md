@@ -256,3 +256,50 @@ keeps their nonces in `.gc-deploy/monitoring/pending.json`. Each email ends
 nonce from each email, in any order. An alert whose email didn't arrive is left out and
 recorded as not confirmed, as is one whose incident fired without its email arriving. The
 result is appended to `.gc-deploy/monitoring/alert-verification.json`.
+
+## Approved revisions
+
+Chain admission (capability plan W4) pins each stage of a protected chain to a specific compiler
+revision. A revision of a **pinnable** service (`deploy.json` `pinnable`: `l0000`, `l0176`) can be
+pinned only while the `revisions` Firestore database records it as `approved`. The deploy identity
+writes that database, and Policy can only read it (IAM review, Step 11).
+
+- **Releases** of a pinnable service record their revision as approved **before promotion**, with
+  its tag, tag URL, image digest, commit and supported contract versions. If the record can't be
+  written, nothing is promoted. `npm run deploy -- approve <service> --release <id>` records a
+  revision released before its service was pinnable.
+- **Tags** of approved revisions are kept: admitted plans route to them. `retire-tags` and a
+  release's own tag retirement skip them. Only `retire` removes them.
+- **`release-check`** (and so `protected-execution.js enable`) checks every **reachable** revision
+  of a pinnable service, serving or tagged. Each must be approved, not mid-retirement, support the
+  required contract version, and meet the current baseline. Until both serving revisions are
+  recorded (`approve`, once), `enable` refuses.
+
+**Retiring a revision** is always an explicit operator act:
+
+```
+node scripts/revisions.js status l0176
+node scripts/revisions.js retire l0176 --release <id>                 # report; retires only if nothing is lost
+node scripts/revisions.js retire l0176 --release <id> --confirm-unrecoverable
+node scripts/revisions.js retire l0176 --release <id> --resume        # after an interruption
+node scripts/revisions.js retire l0176 --release <id> --cancel        # back to approved
+```
+
+It refuses a revision that's still serving. It works in this order:
+
+1. Marks the revision `retiring`. No new plan can pin it, and its snapshots are refused.
+2. Fences admissions in flight: their leases are invalidated, so none can store a plan after this
+   point.
+3. Reports, from fresh reads, every plan that still needs the revision to recover: an uncertain or
+   unfinished write, or an invocation whose artifact was never stored. Retiring makes those
+   recoveries unavailable (`pinned-revision-unavailable`).
+4. Without `--confirm-unrecoverable` and with anything reported, it **cancels itself**: the
+   revision is approved again, and the report is recorded. Otherwise it marks the revision
+   `retired`, waits 15 minutes for proofs issued before then to expire, and removes the tag.
+
+An interrupted `retire` leaves the revision `retiring`, which blocks its snapshots. `status` and
+`release-check` show it. `--resume` continues; `--cancel` restores `approved`.
+
+Retention is advice, not automation: keep the last three approved revisions, plus any the report
+names. Keeping a revision runnable never permits re-running an uncertain write: that still needs
+provider evidence.

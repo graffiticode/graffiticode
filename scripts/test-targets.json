@@ -15,7 +15,8 @@
       "args": [
         "--testPathIgnorePatterns",
         "/node_modules/",
-        "/.compiled-test/"
+        "/.compiled-test/",
+        "src/revisions.spec.ts"
       ]
     },
     {
@@ -73,6 +74,13 @@
       "args": [
         "src/firestore.spec.ts"
       ]
+    },
+    {
+      "name": "policy-firestore",
+      "cwd": "packages/policy",
+      "args": [
+        "src/revisions.spec.ts"
+      ]
     }
   ],
   "compiled-unit": [
@@ -84,7 +92,12 @@
     {
       "name": "policy-compiled",
       "cwd": "packages/policy",
-      "config": "packages/policy/.compiled-test/jest.config.js"
+      "config": "packages/policy/.compiled-test/jest.config.js",
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "revisions.spec.ts"
+      ]
     },
     {
       "name": "broker-compiled",
@@ -124,6 +137,14 @@
       "config": "packages/broker/.compiled-test/jest.config.js",
       "args": [
         "firestore.spec.ts"
+      ]
+    },
+    {
+      "name": "policy-firestore-compiled",
+      "cwd": "packages/policy",
+      "config": "packages/policy/.compiled-test/jest.config.js",
+      "args": [
+        "revisions.spec.ts"
       ]
     }
   ]

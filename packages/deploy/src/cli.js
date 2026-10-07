@@ -5,22 +5,29 @@ import { parseArgs, loadConfig, requireValue } from "./config.js";
 import { createGit } from "./git.js";
 import { snapshot } from "./snapshot.js";
 import { run, streamOutput } from "./process.js";
-import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck } from "./release.js";
+import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck, approveReleased } from "./release.js";
+import { createFirestoreRest, createRevisionClient, retainedTags } from "./revisions.js";
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
-    console.log(`gc-deploy [deploy|rollback|retire-tags|release-check] [service] [--env production] [--config deploy.json]
+    console.log(`gc-deploy [deploy|rollback|retire-tags|release-check|approve] [service] [--env production] [--config deploy.json]
   --plan                 Preview locally; no cloud calls or mutations (retire-tags --plan
                          reads the service to list its stale tags, and changes nothing)
   --allow-dirty          Deploy uncommitted workspace contents with a snapshot hash
-  --release <id>         For rollback: restore the traffic preceding this release
+  --release <id>         For rollback: restore the traffic preceding this release; for
+                         approve: record this released revision of a pinnable service
   --below-baseline       For rollback: allow a target below the service's milestone baseline
                          (only with protected execution switched off)
   --json                 For release-check: print the result as JSON
 
 release-check (read-only) exits non-zero if the service still has stale tags or
-serves a revision below its baseline; protected-execution enable runs it.
+serves a revision below its baseline; protected-execution enable runs it. For a
+pinnable service it checks every reachable revision (serving or tagged): each must
+be approved in the revisions store, not mid-retirement, support the required
+contract version, and meet the baseline. Releases of a pinnable service record
+their revision as approved before promotion; approve does it for one released
+earlier. Retirement is scripts/revisions.js.
 
 Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run service.`);
     return;
@@ -48,6 +55,10 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
   };
   const streamLog = buildId => streamOutput("gcloud", scope(["builds", "log", buildId, "--stream"]), { cwd: root });
   const git = createGit(root);
+  // The approved-revisions store (capability plan W4), over Firestore's REST
+  // API as the operator.
+  const firestore = createFirestoreRest({ project: config.project, accessToken: async () => String(await run("gcloud", ["auth", "print-access-token"])).trim() });
+  const revisions = config.pinnable ? createRevisionClient(config, firestore) : undefined;
   // Policy's and Broker's own report of the switch (GET /v1/protected-execution),
   // with the operator's identity for Cloud Run IAM. true means on.
   const switchState = async () => {
@@ -63,19 +74,29 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     return { policy: await read(config.protectedExecution.policyUrl), broker: await read(config.protectedExecution.brokerUrl) };
   };
   if (options.command === "release-check") {
-    const result = await releaseCheck(context, { cloud, git });
+    const result = await releaseCheck(context, { cloud, git, revisions });
     if (options.json) console.log(JSON.stringify(result));
     else {
       console.log(`${result.service}: ${result.ok ? "ok" : "NOT READY"}; serving ${result.serving.join(", ")}`);
       if (result.staleTags.length) console.log(`  stale tags: ${result.staleTags.join(", ")}`);
       if (result.belowBaseline.length) console.log(`  below the ${result.baseline.milestone} milestone (${result.baseline.commit.slice(0, 12)}): ${result.belowBaseline.join(", ")}`);
+      const labels = { unapproved: "not in the revisions store", retiring: "mid-retirement (scripts/revisions.js retire --resume or --cancel)", retired: "retired but still reachable", unsupportedContract: "without the required contract version" };
+      for (const [key, label] of Object.entries(labels)) {
+        if (result.revisions?.[key]?.length) console.log(`  reachable and ${label}: ${result.revisions[key].join(", ")}`);
+      }
     }
     if (!result.ok) process.exitCode = 1;
     return;
   }
   if (options.command === "retire-tags" && options.plan) {
     const service = await cloud(["run", "services", "describe", config.service]);
-    console.log(JSON.stringify({ action: "retire-tags", target: `${config.project}/${config.region}/${config.service}`, staleTags: staleTags(service) }, null, 2));
+    const keep = revisions ? retainedTags(service, await revisions.list()) : [];
+    console.log(JSON.stringify({ action: "retire-tags", target: `${config.project}/${config.region}/${config.service}`, staleTags: staleTags(service, keep), retained: keep }, null, 2));
+    return;
+  }
+  if (options.command === "approve" && options.plan) {
+    const receipt = await readReceipt(root, options.release);
+    console.log(JSON.stringify({ action: "approve", target: `${config.project}/${config.region}/${config.service}`, release: receipt.id, revision: receipt.revision, pinnable: config.pinnable ?? null }, null, 2));
     return;
   }
   if (options.command === "rollback" && options.plan) {
@@ -96,8 +117,14 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       await lock.writeFile(String(process.pid));
     }
     if (options.command === "retire-tags") {
-      const retired = await retireTags(context, { cloud, log: console.log });
+      const retired = await retireTags(context, { cloud, log: console.log, revisions });
       console.log(`Retired ${retired.length} tag(s) on ${config.service}.`);
+      return;
+    }
+    if (options.command === "approve") {
+      const receipt = await approveReleased(context, await readReceipt(root, options.release), { cloud, revisions });
+      await save(receipt);
+      console.log(`Approved ${receipt.revision} (${receipt.approval.tagUrl}).`);
       return;
     }
     if (options.command === "rollback") {
@@ -121,7 +148,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       requiredVariables: context.unresolved
     }, null, 2));
     if (options.plan) return;
-    const receipt = await release(context, source, { cloud, streamLog, log: console.log, save, temp: source.dir });
+    const receipt = await release(context, source, { cloud, streamLog, log: console.log, save, temp: source.dir, revisions });
     console.log(`Released ${receipt.revision}: ${receipt.url}\nReceipt: ${path.join(receiptDir, `${receipt.id}.json`)}\nRollback: npm run rollback -- ${context.service} --env ${context.environment} --release ${receipt.id}`);
     // Released, but not ready for protected execution: make that a failed run.
     if (receipt.tagRetirementError) process.exitCode = 1;

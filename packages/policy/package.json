@@ -8,7 +8,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./audit": "./dist/audit.js",
-    "./client": "./dist/client.js"
+    "./client": "./dist/client.js",
+    "./revisions": "./dist/revisions.js"
   },
   "scripts": {
     "lint": "eslint --ext .js,.ts src/",

@@ -46,18 +46,24 @@ import { loadConfig, parseArgs } from "../packages/deploy/src/config.js";
 import { releaseCheck } from "../packages/deploy/src/release.js";
 import { run } from "../packages/deploy/src/process.js";
 import { createGit } from "../packages/deploy/src/git.js";
+import { createFirestoreRest, createRevisionClient } from "../packages/deploy/src/revisions.js";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 
 // The deploy CLI's release check for each protected service (read-only).
 const releaseChecks = async () => {
   const raw = JSON.parse(await readFile(new URL("../deploy.json", import.meta.url), "utf8"));
-  const names = Object.entries(raw.services).filter(([, s]) => s.retireTags || s.baseline).map(([name]) => name);
+  const names = Object.entries(raw.services).filter(([, s]) => s.retireTags || s.baseline || s.baselines || s.pinnable).map(([name]) => name);
   return Promise.all(names.map(async name => {
     const context = await loadConfig(parseArgs([name]), ROOT);
     const { config } = context;
     const cloud = async args => JSON.parse(await run("gcloud", [...args, `--project=${config.project}`, `--region=${config.region}`, "--quiet", "--format=json"], { cwd: ROOT }));
-    return releaseCheck(context, { cloud, git: createGit(ROOT) });
+    // A pinnable service's check covers every reachable revision against the
+    // approved-revisions store (capability plan W4).
+    const revisions = config.pinnable
+      ? createRevisionClient(config, createFirestoreRest({ project: config.project, accessToken: async () => String(await run("gcloud", ["auth", "print-access-token"])).trim() }))
+      : undefined;
+    return releaseCheck(context, { cloud, git: createGit(ROOT), revisions });
   }));
 };
 
