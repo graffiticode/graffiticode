@@ -151,8 +151,8 @@ export const parseEnabledGatedOperations = json => {
 
 // The lowest admission/execution contract version accepted (W4): 1 (the
 // default) until the cutover sets 2. Anything else refuses to start.
-export const parseMinContractVersion = (value?: string) => {
+export const parseMinContractVersion = (value?: string, name = "POLICY_MIN_CONTRACT_VERSION") => {
   if (value === undefined || value === "") return 1;
   if (value === "1" || value === "2") return Number(value);
-  throw new Error(`POLICY_MIN_CONTRACT_VERSION must be 1 or 2, not ${value}`);
+  throw new Error(`${name} must be 1 or 2, not ${value}`);
 };

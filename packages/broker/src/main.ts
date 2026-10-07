@@ -38,6 +38,7 @@ import {
   createProtectedSwitch,
   createFirestoreFlagReader,
   parseHardDisable,
+  parseMinContractVersion,
   createIdTokenSource
 } from "@graffiticode/policy";
 import {
@@ -79,6 +80,8 @@ const broker = createBroker({
   receipts: createFirestoreReceiptStore(db),
   activity: createFirestoreActivityStore(db),
   limits: parseLimits(env),
+  // Contract v2 (W4): 1 until the cutover raises it.
+  minContractVersion: parseMinContractVersion(env.BROKER_MIN_CONTRACT_VERSION, "BROKER_MIN_CONTRACT_VERSION"),
   protectedSwitch: createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) }),
   authorize: buildPolicyAuthorizer({ policyUrl: requireEnv(env, "POLICY_URL"), idToken: createIdTokenSource({ GoogleAuth }) }),
   operations: buildOperations({

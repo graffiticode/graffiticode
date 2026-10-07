@@ -63,11 +63,11 @@ export const createMemoryReceiptStore = () => {
   const outcomes = new Map();
   return {
     // -> { created: true } or { created: false, claim }
-    async claim(operationId, binding) {
+    async claim(operationId, binding, { pld = undefined } = {}) {
       if (claims.has(operationId)) {
         return { created: false, claim: claims.get(operationId) };
       }
-      const claim = { binding, claimedAt: new Date().toISOString() };
+      const claim = { binding, ...(pld ? { pld } : {}), claimedAt: new Date().toISOString() };
       claims.set(operationId, claim);
       return { created: true };
     },

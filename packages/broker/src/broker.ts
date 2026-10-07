@@ -50,6 +50,7 @@
 import { randomUUID } from "node:crypto";
 import { gatedOperations, isOperationAllowed, isStepRegistered, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { verifyToken, provenanceRefusal, opidParts, MAINTENANCE, admission } from "@graffiticode/policy";
+import { SUPPORTED_CONTRACT_VERSIONS } from "@graffiticode/common/contract";
 import { argsDigest } from "./canonical.js";
 import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operations.js";
 import { DEFAULT_LIMITS, headroomMs, maxExecutionMs } from "./limits.js";
@@ -105,7 +106,24 @@ export class BrokerRefused extends Error {
 const BINDING_FIELDS = ["principal", "ownerUid", "connectionId", "lang", "fn", "op", "registryVersion", "argsDigest"];
 const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]);
 
-export const createBroker = ({ jwks, operations, secrets, once, receipts, activity, protectedSwitch, authorize, limits = DEFAULT_LIMITS, now = Date.now, audit }) => {
+// The contract a token's claims meet (W4; spec RELEASE-01, TOKEN-01): a
+// version Broker doesn't support, or below its minimum, is refused; from
+// minimum 2, a user-provenance token must be bound to an admitted plan and
+// stage (`pld`, `stg`); and a bound token's stage must be its operation's.
+// Policy decides the plan itself at each authorization; these are the checks
+// Broker can make on the token alone, before anything is spent.
+export const contractRefusal = (claims, minContractVersion = 1) => {
+  const cv = claims.cv ?? 1;
+  if (!SUPPORTED_CONTRACT_VERSIONS.includes(cv) || cv < minContractVersion) return "contract-version-unsupported";
+  if (claims.pld !== undefined || claims.stg !== undefined) {
+    if (!claims.pld || !claims.stg || claims.stg !== opidParts(claims.opid).stage) return "plan-binding-mismatch";
+  } else if (minContractVersion >= 2 && claims.prv === "user") {
+    return "plan-required";
+  }
+  return null;
+};
+
+export const createBroker = ({ jwks, operations, secrets, once, receipts, activity, protectedSwitch, authorize, limits = DEFAULT_LIMITS, now = Date.now, audit, minContractVersion = 1 }) => {
   // No default: a broker built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
   // Nor without Policy's live authorization (authorizer.js): it would act on
@@ -171,6 +189,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
       opid: claims.opid,
       provenance: claims.prv,
       callerRole: caller?.role,
+      planDigest: claims.pld,
       ...opidParts(claims.opid),
     };
     const refuse = async (reason: string, status?: number, detail?: unknown) => {
@@ -183,6 +202,9 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // The authority it rests on (Policy's provenance.js), checked here too.
     const badProvenance = provenanceRefusal(claims);
     if (badProvenance) return refuse(badProvenance);
+    // The contract it was issued under, before anything is spent.
+    const badContract = contractRefusal(claims, minContractVersion);
+    if (badContract) return refuse(badContract, 409);
     // Protected execution switched off (@graffiticode/policy maintenance.js):
     // refused before anything stateful, so the token is not spent and a retry
     // within its lifetime can still run once execution is back on.
@@ -325,7 +347,9 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
   const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
     // A failure here (before any provider request) propagates: no claim, no
     // effects.
-    const claimed = await receipts.claim(claims.opid, binding);
+    // The receipt names its plan (W4), so retiring a revision can report the
+    // plans whose writes still need it.
+    const claimed = await receipts.claim(claims.opid, binding, claims.pld ? { pld: claims.pld } : {});
     if (!claimed.created) {
       const recorded = claimed.claim.binding;
       if (recorded.registryVersion !== binding.registryVersion) return refuse("receipt-registry-version-mismatch", 409);

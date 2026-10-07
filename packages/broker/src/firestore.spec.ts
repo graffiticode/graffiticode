@@ -27,6 +27,18 @@ run("firestore broker stores", () => {
     expect(results.filter(Boolean)).toHaveLength(1);
   });
 
+  it("names its plan on the claim, where retiring a revision looks for it (W4)", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = `${randomUUID()}/s1/n1.0`;
+    const pld = randomUUID().replace(/-/g, "").padEnd(64, "a");
+    await receipts.claim(op, { principal: "u" }, { pld });
+    const found = await db.collection("receipts").where("pld", "==", pld).get();
+    expect(found.docs.map(d => d.data().operationId)).toEqual([op]);
+    const unbound = `${randomUUID()}/s0/n1.0`;
+    await receipts.claim(unbound, { principal: "u" });
+    expect((await receipts.claim(unbound, { principal: "u" })).claim.pld).toBeUndefined();
+  });
+
   it("claims an operation receipt once, and records its outcome once", async () => {
     const receipts = createFirestoreReceiptStore(db);
     const op = `${randomUUID()}/n1.0`;

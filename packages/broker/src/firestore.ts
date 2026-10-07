@@ -35,8 +35,8 @@ export const createFirestoreReceiptStore = db => {
   const outcomeRef = operationId => claimRef(operationId).collection("outcome").doc("final");
   const stepsRef = operationId => claimRef(operationId).collection("steps");
   return {
-    async claim(operationId, binding) {
-      const claim = { operationId, binding, claimedAt: new Date().toISOString() };
+    async claim(operationId, binding, { pld = undefined } = {}) {
+      const claim = { operationId, binding, ...(pld ? { pld } : {}), claimedAt: new Date().toISOString() };
       if (await createOnce(claimRef(operationId), claim)) return { created: true };
       const snap = await claimRef(operationId).get();
       return { created: false, claim: snap.data() };

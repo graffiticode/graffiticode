@@ -26,6 +26,7 @@ import {
 import {
   createBroker,
   BrokerRefused,
+  contractRefusal,
   buildOperations,
   createMemoryOnceStore,
   createMemoryReceiptStore,
@@ -469,5 +470,58 @@ describe("effects and correlation", () => {
     const steps = records.filter(r => r.event === "execute-step");
     expect(steps.map(r => [r.step, r.purpose])).toEqual([["questions", "dispatch"], ["items", "dispatch"]]);
     expect(steps.every(r => r.invocationId === "inv-1" && typeof r.decisionId === "string")).toBe(true);
+  });
+});
+
+// Contract v2 (W4 PR 3): the version a token was issued under, and its plan
+// binding as far as the token alone shows it. Policy checks the plan itself
+// at every authorization.
+describe("contract v2 (RELEASE-01, TOKEN-01)", () => {
+  const PLAN = "f".repeat(64);
+  const allowAll = async () => ({ decisionId: "d-1" });
+
+  it("judges a token's contract on its claims alone", () => {
+    const user = { prv: "user", opid: "inv-1/s1/n1.0" };
+    expect(contractRefusal(user)).toBeNull();
+    expect(contractRefusal({ ...user, cv: 1 }, 2)).toBe("contract-version-unsupported");
+    expect(contractRefusal({ ...user, cv: 3 })).toBe("contract-version-unsupported");
+    expect(contractRefusal({ ...user, cv: 2 }, 2)).toBe("plan-required");
+    expect(contractRefusal({ ...user, cv: 2, pld: PLAN, stg: "s1" }, 2)).toBeNull();
+    expect(contractRefusal({ ...user, cv: 2, pld: PLAN, stg: "s0" })).toBe("plan-binding-mismatch");
+    expect(contractRefusal({ ...user, cv: 2, pld: PLAN })).toBe("plan-binding-mismatch");
+    expect(contractRefusal({ ...user, cv: 2, stg: "s1" })).toBe("plan-binding-mismatch");
+    // Publication and system tokens are bound by their own authority.
+    expect(contractRefusal({ prv: "system", cv: 2, opid: "sys-1/preview/p.0" }, 2)).toBeNull();
+    expect(contractRefusal({ prv: "publication", pub: "pub-1", cv: 2, opid: "inv-1/view/p.0" }, 2)).toBeNull();
+  });
+
+  it("refuses a contract version it doesn't support before anything is spent", async () => {
+    const t = await token({ cv: 3 });
+    await refused(write(broker(), t), "contract-version-unsupported", 409);
+    expect(routes).toEqual([]);
+    expect(await receipts.getOutcome("inv-1/s0/n1.0")).toBeNull();
+    // Not spent: the same jti is still unclaimed.
+    expect(records.filter(r => r.event === "execute" && r.outcome === "denied").at(-1)).toMatchObject({ reason: "contract-version-unsupported" });
+  });
+
+  it("at minimum 2, refuses unbound user tokens and v1 tokens, and runs bound and system ones", async () => {
+    const strict = broker({ minContractVersion: 2, authorize: allowAll });
+    await refused(write(strict, await token()), "contract-version-unsupported", 409);
+    await refused(write(strict, await token({ cv: 2 })), "plan-required", 409);
+    await refused(write(strict, await token({ cv: 2, pld: PLAN, stg: "s1" })), "plan-binding-mismatch", 409);
+    expect(routes).toEqual([]);
+    await expect(write(strict, await token({ cv: 2, pld: PLAN, stg: "s0" }))).resolves.toMatchObject({ status: "succeeded" });
+    await expect(sign(strict, await signToken({ sub: SYSTEM_PREVIEW_SUBJECT, own: SYSTEM, conn: "conn-sys", prv: "system", cv: 2, opid: "sys-1/preview/p.0" }))).resolves.toMatchObject({ status: "succeeded" });
+  });
+
+  it("names the plan on the receipt and in the audit, so retiring a revision can find its writes", async () => {
+    const out = await write(broker({ authorize: allowAll }), await token({ cv: 2, pld: PLAN, stg: "s0" }));
+    expect(out).toMatchObject({ status: "succeeded" });
+    const claim = await receipts.claim("inv-1/s0/n1.0", {});
+    expect(claim).toMatchObject({ created: false, claim: { pld: PLAN } });
+    expect(records.filter(r => r.event === "execute").at(-1)).toMatchObject({ outcome: "allowed", planDigest: PLAN });
+    // An unbound write's receipt names no plan.
+    await write(broker({ authorize: allowAll }), await token({ opid: "inv-2/s0/n1.0" }));
+    expect((await receipts.claim("inv-2/s0/n1.0", {})).claim.pld).toBeUndefined();
   });
 });
