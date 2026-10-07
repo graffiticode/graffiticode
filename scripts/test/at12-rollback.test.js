@@ -140,7 +140,10 @@ test("the W3 Broker skips the contract check, but the current Policy at minimum 
   assert.deepEqual(providerCalls, []);
 });
 
-test("receipts the W3 Broker wrote survive: the current Broker replays them and writes nothing", async () => {
+// Survival is at the current Broker's default minimum (1), before the cutover.
+// After it, a pre-cutover invocation can't resume: its v1 proofs are refused
+// before the receipt is read (the gateway answers invocation-incompatible).
+test("receipts the W3 Broker wrote survive the upgrade, but not the cutover", async () => {
   const providerCalls = [];
   const old = await policyOf(OLD);
   const receipts = OLD.broker.createMemoryReceiptStore();
@@ -151,6 +154,10 @@ test("receipts the W3 Broker wrote survive: the current Broker replays them and 
   const again = await execute(brokerOf(NEW, { authorizer: old, receipts, providerCalls }), await writeToken(old));
   assert.equal(again.status, "succeeded");
   assert.equal(again.replayed, true);
+  assert.deepEqual(providerCalls, written);
+  // At minimum 2, the same operation is refused, replay or not.
+  const cutover = brokerOf(NEW, { authorizer: old, receipts, providerCalls, minContractVersion: 2 });
+  await assert.rejects(execute(cutover, await writeToken(old)), e => e.reason === "contract-version-unsupported");
   assert.deepEqual(providerCalls, written);
 });
 
