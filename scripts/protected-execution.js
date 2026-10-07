@@ -53,7 +53,7 @@ const ROOT = new URL("..", import.meta.url).pathname;
 // The deploy CLI's release check for each protected service (read-only).
 const releaseChecks = async () => {
   const raw = JSON.parse(await readFile(new URL("../deploy.json", import.meta.url), "utf8"));
-  const names = Object.entries(raw.services).filter(([, s]) => s.retireTags || s.baseline || s.baselines || s.pinnable).map(([name]) => name);
+  const names = Object.entries(raw.services).filter(([, s]) => s.retireTags || s.baseline || s.baselines || s.pinnable || s.contractMinimum).map(([name]) => name);
   return Promise.all(names.map(async name => {
     const context = await loadConfig(parseArgs([name]), ROOT);
     const { config } = context;

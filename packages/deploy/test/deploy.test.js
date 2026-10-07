@@ -53,7 +53,11 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure,
   let described = 0;
   // Revisions' labels, as `run revisions describe` reports them. api-old was
   // not made by this CLI.
+  /** @type {Map<string, any>} */
   const revisions = new Map([["api-old", { metadata: { labels: {} } }]]);
+  // The service template's environment: like Cloud Run, --update-env-vars
+  // merges into it, and each new revision runs with the result.
+  const templateEnv = {};
   const calls = [];
   const cloud = async args => {
     calls.push(args);
@@ -71,7 +75,15 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure,
     if (args[1] === "deploy") {
       const id = args.find(a => a.startsWith("--tag=")).slice(6);
       const labels = Object.fromEntries(args.find(a => a.startsWith("--labels=")).slice(9).split(",").map(kv => kv.split("=")));
-      revisions.set(`api-${id}`, { metadata: { labels } });
+      const update = args.find(a => a.startsWith("--update-env-vars="))?.slice(18);
+      if (update) {
+        const [, delimiter, rest] = update.match(/^\^([^^]+)\^(.*)$/);
+        for (const kv of rest.split(delimiter)) {
+          const at = kv.indexOf("=");
+          templateEnv[kv.slice(0, at)] = kv.slice(at + 1);
+        }
+      }
+      revisions.set(`api-${id}`, { metadata: { labels }, spec: { containers: [{ env: Object.entries(templateEnv).map(([name, value]) => ({ name, value })) }] } });
       service.metadata.generation++;
       service.status.latestReadyRevisionName = `api-${id}`;
       service.status.traffic.push({ tag: id, revisionName: `api-${id}`, url: `https://${id}---api-example.run.app` });
@@ -760,4 +772,76 @@ test("pinnable is validated, and approve needs a release", async t => {
   }
   await write({ pinnable: { lang: "0176", contractVersions: [1, 2], minContractVersion: 2 } });
   assert.deepEqual((await loadConfig(options, root, {})).config.pinnable, { lang: "0176", contractVersions: [1, 2], minContractVersion: 2 });
+});
+
+// W4 (RELEASE-01): the contract minimum each reachable revision runs with.
+const MIN = "POLICY_MIN_CONTRACT_VERSION";
+const withMinimum = (env, minimum, extra = {}) => ({ ...context, config: { ...config, env: { ...config.env, ...env }, contractMinimum: minimum, ...extra } });
+
+test("contractMinimum is validated, and from the floor this file's own value must keep it", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-min-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const load = async entry => {
+    await writeFile(path.join(root, "deploy.json"), JSON.stringify({
+      version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, ...entry } }
+    }));
+    return loadConfig(parseArgs(["--plan"]), root, {});
+  };
+  await load({ contractMinimum: { env: MIN } });
+  await load({ contractMinimum: { env: MIN, floor: 2 }, env: { ...config.env, [MIN]: "2" } });
+  await assert.rejects(load({ contractMinimum: { env: "lower" } }), /contractMinimum must be/);
+  await assert.rejects(load({ contractMinimum: { env: MIN, floor: 3 } }), /contractMinimum must be/);
+  await assert.rejects(load({ contractMinimum: { env: MIN, floor: 2 } }), /must be set in env to at least the contract floor 2/);
+  await assert.rejects(load({ contractMinimum: { env: MIN, floor: 2 }, env: { ...config.env, [MIN]: "1" } }), /at least the contract floor 2/);
+});
+
+test("release-check reads the contract minimum of every reachable revision, retained tags included", async t => {
+  const h = await harness(t);
+  // Before the cutover: unset is the default (1), and fine.
+  const before = withMinimum({}, { env: MIN });
+  const old = await release(before, source, h.deps);
+  assert.deepEqual((await releaseCheck(before, { ...h.deps, git })).contractMinimum, []);
+  // The cutover release serves at 2, but the pre-cutover revision is still reachable by its tag.
+  const cutover = withMinimum({ [MIN]: "2" }, { env: MIN, floor: 2 });
+  const receipt = await release(cutover, source, h.deps);
+  const after = await releaseCheck(cutover, { ...h.deps, git });
+  assert.deepEqual(after.serving, [receipt.revision]);
+  assert.equal(after.ok, false);
+  assert.deepEqual(after.contractMinimum, [{ revision: old.revision, problem: "missing" }]);
+  // Each kind of problem, on that tagged revision.
+  const at = env => h.revisions.set(old.revision, { metadata: { labels: {} }, spec: { containers: [{ env }] } });
+  const problemOf = async () => (await releaseCheck(cutover, { ...h.deps, git })).contractMinimum;
+  at([{ name: MIN, value: "1" }]);
+  assert.deepEqual(await problemOf(), [{ revision: old.revision, value: "1", problem: "below-floor" }]);
+  at([{ name: MIN, value: "3" }]);
+  assert.deepEqual(await problemOf(), [{ revision: old.revision, value: "3", problem: "invalid" }]);
+  at([{ name: MIN, valueFrom: { secretKeyRef: { name: "s", key: "1" } } }]);
+  assert.deepEqual(await problemOf(), [{ revision: old.revision, problem: "unreadable" }]);
+  h.revisions.set(old.revision, { metadata: { labels: {} } });
+  assert.deepEqual(await problemOf(), [{ revision: old.revision, problem: "unreadable" }]);
+  at([{ name: MIN, value: "2" }]);
+  assert.deepEqual(await problemOf(), []);
+  assert.equal((await releaseCheck(cutover, { ...h.deps, git })).ok, true);
+});
+
+test("a configuration rollback from the same commit can't lower the contract minimum unnoticed", async t => {
+  const h = await harness(t);
+  // Both releases are built from one commit, so both meet the W4 baseline.
+  const w4 = [{ milestone: "W4", commit: B }];
+  const preCutover = withMinimum({ [MIN]: "1" }, { env: MIN }, { baselines: w4 });
+  const cutover = withMinimum({ [MIN]: "2" }, { env: MIN, floor: 2 }, { baselines: w4, retireTags: true });
+  const first = await release(preCutover, source, h.deps);
+  const second = await release(cutover, source, h.deps);
+  assert.equal(second.previousTraffic[first.revision], 100);
+  assert.deepEqual(await belowBaseline(cutover, [first.revision], { ...h.deps, git }), []);
+  await assert.rejects(rollback(cutover, second, { ...h.deps, git, switchState: switchOff }), new RegExp(`${first.revision} \\(${MIN} =1, below the floor 2\\) doesn't keep the contract minimum`));
+  await assert.rejects(rollback(cutover, second, { ...h.deps, git, allowBelowBaseline: true, switchState: async () => ({ policy: true, broker: false }) }), /must be off/);
+  const reverted = await rollback(cutover, second, { ...h.deps, git, allowBelowBaseline: true, switchState: switchOff });
+  assert.deepEqual(reverted.rolledBackBelowContractMinimum, [{ revision: first.revision, value: "1", problem: "below-floor" }]);
+  assert.equal(reverted.rolledBackBelowBaseline, undefined);
+  // And protected execution can't be switched back on while it serves.
+  const check = await releaseCheck(cutover, { ...h.deps, git });
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.belowBaseline, []);
+  assert.ok(check.contractMinimum.some(p => p.revision === first.revision && p.problem === "below-floor"));
 });

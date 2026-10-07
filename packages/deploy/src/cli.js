@@ -84,6 +84,9 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       for (const [key, label] of Object.entries(labels)) {
         if (result.revisions?.[key]?.length) console.log(`  reachable and ${label}: ${result.revisions[key].join(", ")}`);
       }
+      for (const p of result.contractMinimum ?? []) {
+        console.log(`  reachable with ${config.contractMinimum.env} ${p.problem === "missing" ? "unset" : p.problem === "unreadable" ? "unreadable" : `=${p.value}`} (${p.problem}): ${p.revision}`);
+      }
     }
     if (!result.ok) process.exitCode = 1;
     return;

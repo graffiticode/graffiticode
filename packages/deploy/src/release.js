@@ -316,6 +316,45 @@ export async function belowBaseline(context, names, { cloud, git }, which = "cur
   return below;
 }
 
+// Every revision a service's traffic can reach: serving, or kept by a tag.
+export const reachableRevisions = service => [...new Set((service.status?.traffic || []).map(t => t.revisionName).filter(Boolean))];
+
+// The contract minimum each revision actually runs with (capability plan W4,
+// RELEASE-01): `contractMinimum: { env, floor? }` names the variable Policy
+// or Broker reads (POLICY_/BROKER_MIN_CONTRACT_VERSION) and, from the
+// cutover, the floor. Read from each revision's own environment, since a
+// configuration release of the same commit meets every baseline. Returns the
+// revisions that fail, with why:
+//   unreadable   no container environment, or the value comes from a secret
+//   invalid      not 1 or 2 (the service would refuse to start)
+//   missing      unset (the service's default, 1) while a floor applies
+//   below-floor  set lower than the floor
+export async function contractMinimumProblems(context, names, { cloud }) {
+  const minimum = context.config.contractMinimum;
+  if (!minimum) return [];
+  const problems = [];
+  for (const name of names) {
+    const revision = await cloud(["run", "revisions", "describe", name]);
+    const containers = revision.spec?.containers;
+    if (!Array.isArray(containers) || containers.length === 0) {
+      problems.push({ revision: name, problem: "unreadable" });
+      continue;
+    }
+    const entry = (containers[0].env ?? []).find(e => e?.name === minimum.env);
+    if (entry && (entry.valueFrom || typeof entry.value !== "string")) {
+      problems.push({ revision: name, problem: "unreadable" });
+      continue;
+    }
+    const value = entry?.value ?? "";
+    if (value !== "" && value !== "1" && value !== "2") problems.push({ revision: name, value, problem: "invalid" });
+    else if (minimum.floor && value === "") problems.push({ revision: name, problem: "missing" });
+    else if (minimum.floor && Number(value) < minimum.floor) problems.push({ revision: name, value, problem: "below-floor" });
+  }
+  return problems;
+}
+const describeMinimum = (context, problems) => problems.map(p =>
+  `${p.revision} (${context.config.contractMinimum.env} ${p.problem === "missing" ? "unset" : p.problem === "unreadable" ? "unreadable" : `=${p.value}`}${p.problem === "below-floor" ? `, below the floor ${context.config.contractMinimum.floor}` : ""})`).join(", ");
+
 // What must hold before protected execution is switched back on: no tag still
 // reaches a non-serving revision (when the service retires tags), and nothing
 // serving is below the current milestone. Read-only.
@@ -342,9 +381,12 @@ export async function releaseCheck(context, { cloud, git, revisions = undefined 
     baseline: baselines.length ? baselines[baselines.length - 1] : null,
     belowBaseline: await belowBaseline(context, pinned ? pinned.reachable : serving, { cloud, git }),
     ...(pinned ? { revisions: pinned } : {}),
+    // Every reachable revision, retained tags included.
+    ...(config.contractMinimum ? { contractMinimum: await contractMinimumProblems(context, reachableRevisions(service), { cloud }) } : {}),
   };
   const pinnedOk = !pinned || ["unapproved", "retiring", "retired", "unsupportedContract"].every(k => pinned[k].length === 0);
-  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk };
+  const minimumOk = (result.contractMinimum ?? []).length === 0;
+  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk };
 }
 
 // Approves an already-released revision of a pinnable service from its
@@ -376,6 +418,14 @@ export async function rollback(context, receipt, deps) {
   requireValue(same(traffic(current), { [receipt.revision]: 100 }), "Traffic no longer belongs exclusively to this release; refusing to overwrite a newer deployment");
   const targets = Object.keys(receipt.previousTraffic);
   const below = await belowBaseline(context, targets, { cloud, git });
+  // A configuration rollback from the same commit meets every baseline, but
+  // can lower the contract minimum: guarded the same way.
+  const belowFloor = await contractMinimumProblems(context, targets, { cloud });
+  if (belowFloor.length) {
+    requireValue(allowBelowBaseline,
+      `Rollback target ${describeMinimum(context, belowFloor)} doesn't keep the contract minimum. ` +
+      "Pass --below-baseline only with protected execution switched off; it cannot be switched back on until every reachable revision keeps it again.");
+  }
   if (below.length) {
     const baselines = config.baselines;
     const milestone = baselines[baselines.length - 1].milestone;
@@ -387,16 +437,24 @@ export async function rollback(context, receipt, deps) {
       requireValue(beforeSwitch.length === 0,
         `Rollback target ${beforeSwitch.join(", ")} predates the ${baselines[0].milestone} milestone, whose code honours the protected-execution switch; refusing, since nothing could keep protected execution off. Roll forward instead.`);
     }
+  }
+  if (below.length || belowFloor.length) {
     requireValue(typeof switchState === "function", "Cannot verify that protected execution is off");
     const state = await switchState();
     requireValue(state.policy === false && state.broker === false,
-      `Protected execution must be off before rolling back below a milestone (policy ${state.policy ? "on" : "off"}, broker ${state.broker ? "on" : "off"})`);
+      `Protected execution must be off before rolling back below a milestone or the contract minimum (policy ${state.policy ? "on" : "off"}, broker ${state.broker ? "on" : "off"})`);
   }
   log(`Restoring traffic to ${pairs(receipt.previousTraffic)}…`);
   await cloud(["run", "services", "update-traffic", config.service, `--to-revisions=${pairs(receipt.previousTraffic)}`]);
   const final = await cloud(["run", "services", "describe", config.service]);
   requireValue(same(traffic(final), receipt.previousTraffic), "Rollback traffic could not be verified");
-  return { ...receipt, status: "rolled-back", rolledBackAt: new Date().toISOString(), ...(below.length ? { rolledBackBelowBaseline: below } : {}) };
+  return {
+    ...receipt,
+    status: "rolled-back",
+    rolledBackAt: new Date().toISOString(),
+    ...(below.length ? { rolledBackBelowBaseline: below } : {}),
+    ...(belowFloor.length ? { rolledBackBelowContractMinimum: belowFloor } : {}),
+  };
 }
 
 export async function readReceipt(root, id) {

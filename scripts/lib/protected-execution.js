@@ -81,7 +81,8 @@ export const enableChecked = async (dbs, { reason, by, now, check, skip = false,
       const why = failing.map(r => [
         r.staleTags?.length ? `${r.service} has stale tags ${r.staleTags.join(", ")}` : null,
         r.belowBaseline?.length ? `${r.service} serves ${r.belowBaseline.join(", ")} below the ${r.baseline?.milestone} baseline` : null,
-      ].filter(Boolean).join("; ")).join("; ");
+        r.contractMinimum?.length ? `${r.service} can reach ${r.contractMinimum.map(p => `${p.revision} (${p.problem})`).join(", ")} without the contract minimum` : null,
+      ].filter(Boolean).join("; ") || `${r.service} is not ready`).join("; ");
       throw new Error(`refusing to enable protected execution: ${why}`);
     }
   }

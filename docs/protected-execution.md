@@ -375,9 +375,15 @@ order: `CHAIN_ADMISSION=canary`, `CHAIN_ADMISSION=all`, and the cutover to
      with Policy's `POLICY_CALLERS` in `deploy.json` pointing at that version.
    - `roles/run.invoker` on the `policy` service for `l0000-run@`.
    - `POLICY_URL` in L0000's `env`.
-3. **The minimum-version guard.** `release-check`, and so `enable`, inspects every
-   reachable Policy and Broker revision's effective `MIN_CONTRACT_VERSION`, and once the
-   cutover has been recorded, refuses any below 2 (PR 8). Don't activate without it.
+3. **The minimum-version guard.** `deploy.json` gives policy and broker
+   `contractMinimum: { env }`, naming the variable each reads
+   (`POLICY_MIN_CONTRACT_VERSION`, `BROKER_MIN_CONTRACT_VERSION`). `release-check`, and so
+   `enable`, reads that variable from the environment of every **reachable** revision,
+   serving or tagged. A value that is invalid, or comes from a secret or can't be read,
+   always fails. Once the cutover sets `floor: 2`, a missing or lower value fails too. A
+   rollback to such a revision needs `--below-baseline` with the switch off, even when it
+   meets every baseline, as a configuration rollback from the same commit does. With
+   `floor` set, `deploy.json`'s own value must keep it, so a release can't lower it.
 4. **Component releases**, all with `CHAIN_ADMISSION=off` and `MIN_CONTRACT_VERSION=1`
    (or unset): policy, broker, l0000 (the 0.10.1 server, pinnable), l0176 (pinnable,
    registry version 6) and api. Each candidate must pass. Then:
@@ -386,8 +392,21 @@ order: `CHAIN_ADMISSION=canary`, `CHAIN_ADMISSION=all`, and the cutover to
    - `npm run deploy -- release-check <service>` passes for all five.
 5. **The protected-chain inventory**, before `CHAIN_ADMISSION=all`. Every protected
    chain must have stages only in L0000 and L0176: under `all`, a chain with a stage in
-   any other language fails admission (`stage-not-pinnable`). Record the evidence,
-   including the canary's L0000 → L0176 chain, in the release notes.
+   any other language fails admission (`stage-not-pinnable`).
+
+   ```bash
+   node scripts/chain-inventory.js --days 30
+   ```
+
+   It reads every invocation Policy allocated in the window (each is one compile through
+   a connection, publication views included), decodes its chain, and reads each task's
+   language. It writes dated evidence to `.gc-deploy/inventory/`: the window, coverage
+   (invocations counted and scanned), each language sequence with its counts, and every
+   unsupported or unreadable chain by its task ids. Users, owners and connections are
+   not named. It passes only when the evidence is complete and clean. A failed or short
+   scan, an empty window, or any unsupported or unreadable chain is a failure, never a
+   pass. Run it once the canary has run its L0000 → L0176 chain, so the window includes
+   that, and record the file in the release notes.
 6. **The canary's roles**: OpenIdTokenCreator on `api-run@`, `l0176-run@` and
    `console-run@graffiticode-app`, as for W2.
 
@@ -423,8 +442,9 @@ marked.
 ### The cutover window (RELEASE-01)
 
 1. `node scripts/protected-execution.js disable --reason "W4 cutover"`, then `drain`.
-2. Set `MIN_CONTRACT_VERSION=2` in the `env` of policy and broker in `deploy.json`, and
-   commit. Then `GC_VERIFY_PROTECTED_EXECUTION=off npm run deploy -- policy`, then the
+2. In `deploy.json`, set `POLICY_MIN_CONTRACT_VERSION=2` in policy's `env` and
+   `BROKER_MIN_CONTRACT_VERSION=2` in broker's, add `"floor": 2` to each one's
+   `contractMinimum`, and commit. Then `GC_VERIFY_PROTECTED_EXECUTION=off npm run deploy -- policy`, then the
    same for broker. Policy stops issuing v1 proofs and marks every new invocation;
    Broker refuses any token without `cv: 2`.
 3. **Make the last v1 issuer unreachable.** The cutover revision serves 100%, and
@@ -459,10 +479,11 @@ can't resume (`scripts/test/at12-rollback.test.js`).
   plans and admission tokens entirely, and the W3 Broker skips the contract check. It
   records a newer Policy's `contract-version-unsupported` as `unclassified-reason`, but
   still does nothing (AT-12, against the actual W3 builds: `npm run test:at12-rollback`).
-- **Never lower `MIN_CONTRACT_VERSION` after the cutover.** A configuration release from
-  the same commit meets the W4 baseline, but would admit v1 proofs again. The
-  minimum-version guard (prerequisite 3) makes `release-check` and `enable` refuse it. To
-  stop protected chains, switch protected execution off.
+- **The contract minimum doesn't go down after the cutover.** A configuration release or
+  rollback from the same commit meets the W4 baseline, but would admit v1 proofs again.
+  The floor refuses such a release, rollback needs `--below-baseline` with the switch off,
+  and `release-check` and `enable` refuse while any reachable revision runs below it
+  (prerequisite 3). To stop protected chains, switch protected execution off.
 
 ### As built
 

@@ -869,10 +869,28 @@ evidence that nothing else but the operators can write.
       `policy-run` and `broker-run` included). It has two user-managed, non-expiring keys. The
       2022 key `d40cd54b…` (no recorded use) was **disabled 2026-10-07**. Key `6bfb0894…`
       (created 2026-02-03) **last authenticated 2026-09-11**, from somewhere outside `~/work`.
-      **Open:** find that key's user, then remove the project-wide token-creator grant (Firebase's
-      Admin SDK signs with its own key and needs, at most, token-creator on itself). Until then,
-      this account can write approvals, a recorded gap that must be closed or explicitly
-      accepted before chain admission relies on approvals (W4 PR 8).
+      **Open, and blocking W4 activation:** find that key's user and migrate it, then remove the
+      key and the project-wide token-creator grant (Firebase's Admin SDK signs with its own key
+      and needs, at most, token-creator on itself). Until then, this account can write approvals.
+      The gap is to be closed by removal, not accepted. The 2026-09-11 authentication is a lead,
+      not an identification.
+      - **Investigation, 2026-10-07.** No key material was read or printed: searches listed file
+        names only, and secrets by name and update date only.
+        - Local: no file under `~/work`, `~/Downloads`, `~/Desktop`, `~/Documents` or
+          `~/.config` names the key id or the account, except these docs and gcloud's own logs
+          of the IAM inspections above.
+        - GitHub, per-repository Actions secrets in the `graffiticode` organization: two could
+          hold a downloaded key, `console`'s `FIREBASE_SERVICE_ACCOUNT_GRAFFITICODE` (updated
+          2023-01-15) and `l0002`'s `GCP_SA_KEY` (updated 2025-10-20). Both were last updated
+          before the key was created (2026-02-03), so **neither holds it**. No current workflow
+          in either repository references them.
+        - Not yet checked: organization-level Actions secrets (listing them needs `admin:org`),
+          other GitHub organizations, hosting providers' environment variables, and other
+          machines.
+        - Next, key-specific audit evidence: Cloud Audit Logs entries whose
+          `protoPayload.authenticationInfo.serviceAccountKeyName` names the key give the caller
+          IP, user agent and methods. Admin Activity logs are kept 400 days. Data Access logs
+          (Firestore and Auth reads) are only there if they were enabled.
     - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
       `firebase-rules`, `gcp-gae-service`): accepted. They aren't workloads our code drives.
 

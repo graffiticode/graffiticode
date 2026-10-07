@@ -79,6 +79,18 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
     config.baselines.every(b => object(b) && typeof b.milestone === "string" && b.milestone.length > 0 && typeof b.commit === "string" && /^[0-9a-f]{40}$/.test(b.commit)) &&
     new Set(config.baselines.map(b => b.milestone)).size === config.baselines.length), "baselines must be a non-empty list of { milestone, commit: <40-hex commit> }, oldest first");
   requireValue(config.enforcesSwitch === undefined || typeof config.enforcesSwitch === "boolean", "enforcesSwitch must be a boolean");
+  // The contract minimum (W4): the variable Policy or Broker reads, and from
+  // the cutover its floor, which this file's own value must then keep (a
+  // release can't lower it; release-check reads what revisions actually run).
+  requireValue(config.contractMinimum === undefined || (object(config.contractMinimum) &&
+    /^[A-Z][A-Z0-9_]*$/.test(config.contractMinimum.env ?? "") &&
+    (config.contractMinimum.floor === undefined || config.contractMinimum.floor === 1 || config.contractMinimum.floor === 2)),
+  "contractMinimum must be { env: NAME, floor?: 1 | 2 }");
+  if (config.contractMinimum?.floor) {
+    const value = config.env?.[config.contractMinimum.env];
+    requireValue((value === "1" || value === "2") && Number(value) >= config.contractMinimum.floor,
+      `${config.contractMinimum.env} must be set in env to at least the contract floor ${config.contractMinimum.floor}`);
+  }
   requireValue(config.protectedExecution === undefined || (object(config.protectedExecution) &&
     ["policyUrl", "brokerUrl"].every(k => typeof config.protectedExecution[k] === "string" && /^https:\/\/[^/]+$/.test(config.protectedExecution[k]))), "protectedExecution must be { policyUrl, brokerUrl } service origins");
   requireValue(!config.removeSecrets || (Array.isArray(config.removeSecrets) && config.removeSecrets.length > 0 &&

@@ -269,6 +269,7 @@
       },
       "retireTags": true,
       "enforcesSwitch": true,
+      "contractMinimum": { "env": "BROKER_MIN_CONTRACT_VERSION" },
       "baselines": [
         {
           "milestone": "W0",
@@ -374,6 +375,7 @@
       },
       "retireTags": true,
       "enforcesSwitch": true,
+      "contractMinimum": { "env": "POLICY_MIN_CONTRACT_VERSION" },
       "baselines": [
         {
           "milestone": "W0",
