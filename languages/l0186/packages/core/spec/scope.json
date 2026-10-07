@@ -1,0 +1,23 @@
+{
+  "id": "0186",
+  "summary": "FigJam boards — sticky notes, text, shapes, sections, stamps and connectors on one or more pages, previewed as a picture of the board and drawn into a FigJam file by the Graffiticode FigJam plugin. Succeeds L0172.",
+  "in_scope": [
+    "Sticky notes and free text",
+    "Shapes with text: basic, flowchart (decision, process, terminator, input/output), engineering (database, queue, file, folder) and decorative (star, shield, speech bubble, arrows)",
+    "Sections that group nodes under a title",
+    "Connectors between nodes: labelled, straight, elbowed or curved, dashed, with arrowheads and attachment sides, fanning out to a list or to every node",
+    "Reaction stamps",
+    "Colours, outlines, opacity and text sizes",
+    "Explicit layout by coordinates",
+    "Boards with several pages, shown as tabs",
+    "Drawing the board into a FigJam file the user links, with the Graffiticode FigJam plugin"
+  ],
+  "out_of_scope": [
+    "Figma design files (frames, components, variants, auto layout) do NOT belong here, and neither do other whiteboards (Miro, Mural, Lucidspark, Excalidraw).",
+    "Concept maps and webs that learners complete by dragging answers are L0183; do NOT route them here.",
+    "Charts and graphs of numbers are L0184; spreadsheets are L0179; quizzes are L0180 — do NOT route them here.",
+    "Images, tables, comments, FigJam widgets and automatic layout are not built yet.",
+    "Reading or editing what is already on a FigJam board is not built yet; L0186 only adds the board it describes.",
+    "L0186 does NOT accept L0172 programs: it is a different language, and existing L0172 items stay with L0172."
+  ]
+}
