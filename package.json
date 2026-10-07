@@ -40,6 +40,7 @@
     "rollback": "node packages/deploy/src/cli.js rollback",
     "test:deploy": "npm test -w @graffiticode/deploy",
     "test:verify": "node --test verify/test/lib.test.js",
+    "test:at12-rollback": "node scripts/at12-baseline.js && node --test scripts/test/at12-rollback.test.js",
     "test:scripts": "node --test scripts/test/protected-execution.test.js scripts/test/canary.test.js scripts/test/failures-inventory.test.js scripts/test/monitoring.test.js scripts/test/revisions.test.js",
     "gcp:broker:build": "npm run deploy -- broker",
     "gcp:policy:build": "npm run deploy -- policy",
@@ -75,7 +76,11 @@
       "<rootDir>/node_modules/",
       "<rootDir>/.claude/",
       "<rootDir>/verify/",
-      "<rootDir>/scripts/test/"
+      "<rootDir>/scripts/test/",
+      "<rootDir>/.at12-baseline/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.at12-baseline/"
     ]
   },
   "dependencies": {

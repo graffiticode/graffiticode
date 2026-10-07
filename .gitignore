@@ -145,3 +145,4 @@ firestore-coverage.html
 
 # compiled-spec mirrors (scripts/prepare-compiled-specs.js)
 .compiled-test
+.at12-baseline/
