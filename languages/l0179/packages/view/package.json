@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0179-view",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "L0179 view — the spreadsheet Form and its DOM-free scoring, rendered through the shared View inherited from @graffiticode/l0000-view",
   "type": "module",
   "main": "./dist/index.js",
