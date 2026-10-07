@@ -35,10 +35,13 @@ export async function compile({
     compiler.compile(code, data, config, (err: any, out: any, meta?: { effects?: unknown[] }) => {
       const errors = Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [];
       const effects = Array.isArray(meta?.effects) && meta.effects.length > 0 ? { effects: meta.effects } : {};
+      // Under an admitted plan (W4) the gateway checks the revision that
+      // answered against the one the plan pins.
+      const revision = identity?.admissionToken ? { revision: process.env.K_REVISION ?? null } : {};
       if (errors.length > 0) {
-        resolve({ data: null, errors, ...effects });
+        resolve({ data: null, errors, ...effects, ...revision });
       } else {
-        resolve({ data: out, errors: [], ...effects });
+        resolve({ data: out, errors: [], ...effects, ...revision });
       }
     }, identity),
   );

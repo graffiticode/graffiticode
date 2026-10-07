@@ -49,14 +49,16 @@ export const buildMetadataIdToken = ({ fetch: doFetch = fetch } = {}) => {
 
 export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = fetch }) => {
   const request = buildPolicyRequest({ policyUrl, idToken, fetch: doFetch });
-  return async ({ authToken, connectionId, taskId, options, idempotencyKey = null }) => {
+  return async ({ authToken, connectionId, taskId, options, idempotencyKey = null, admission = false }) => {
     const { ok, status, body } = await request("POST", "/v1/invocations", {
       authToken,
       body: {
         connectionId,
         taskId,
         inputDigest: inputDigest(options),
-        ...(idempotencyKey ? { idempotencyKey } : {})
+        ...(idempotencyKey ? { idempotencyKey } : {}),
+        // Chain admission (W4): mark a new invocation; a retry keeps its own.
+        ...(admission ? { admission: true } : {})
       }
     });
     const data = body?.data;
@@ -65,6 +67,7 @@ export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = f
       throw new Error(`policy invocation failed (${status})`);
     }
     const { invocationToken, invocationId, seq, ownerUid } = data;
-    return { invocationToken, invocationId, seq, ownerUid };
+    // The invocation's marker (an older Policy sends none: contract 1).
+    return { invocationToken, invocationId, seq, ownerUid, contract: data.contract === 2 ? 2 : 1 };
   };
 };

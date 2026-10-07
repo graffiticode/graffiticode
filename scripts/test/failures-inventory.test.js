@@ -21,6 +21,7 @@ const FORMS = [
   /\bdeny\([^;]*?\? "([a-z0-9-]+)" : "([a-z0-9-]+)"/g, // policy: deny(expired ? "token-expired" : "bad-token", …)
   /\b(?:failedWith|failure)\([^;]*?, "([a-z0-9-]+)"\)/g, // api: failedWith(message, "code"), failure(message, "code")
   /\bartifactNotStored\(\{ error: "([a-z0-9-]+)"/g, // api: artifactNotStored({ error: "code", … })
+  /\brefuseChain\([^;]*?, "([a-z0-9-]+)"/g, // api: refuseChain(message, "code", stage?) (chain admission, W4)
 ];
 // Reasons returned from a function rather than in one of the forms above.
 const RETURNED = {

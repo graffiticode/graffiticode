@@ -12,7 +12,8 @@ import { createApiAudit } from "./audit.js";
 import { requestContextMiddleware } from "@graffiticode/policy/audit";
 import { buildAllocateInvocation, buildMetadataIdToken } from "./invocations.js";
 import { buildPublicationClient } from "./publications.js";
-import { compile as langCompile, validateOutput } from "./lang/index.js";
+import { compile as langCompile, validateOutput, getBaseUrlForLanguage } from "./lang/index.js";
+import { buildChainAdmission, parseChainAdmission } from "./admission.js";
 import * as routes from "./routes/index.js";
 import { createStorers } from "./storage/index.js";
 
@@ -40,9 +41,26 @@ export const createApp = ({ authUrl } = {}) => {
   const idToken = policyUrl ? buildMetadataIdToken() : null;
   const allocateInvocation = policyUrl ? buildAllocateInvocation({ policyUrl, idToken }) : null;
   const publications = policyUrl ? buildPublicationClient({ policyUrl, idToken }) : null;
+  // Chain admission (capability plan W4): CHAIN_ADMISSION decides which new
+  // invocations are allocated for it; a marked one always takes it. Compilers
+  // are resolved without any user's override.
+  const chainAdmissionMode = parseChainAdmission(process.env);
+  const chainAdmission = policyUrl
+    ? buildChainAdmission({ policyUrl, idToken, baseUrlFor: lang => getBaseUrlForLanguage(`L${String(lang).replace(/^L/i, "")}`) })
+    : null;
   // Security audit, without user identifiers (audit.js).
   const audit = createApiAudit();
-  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit });
+  const dataApi = buildDataApi({
+    compile,
+    langOverrideStorer,
+    validateOutput,
+    allocateInvocation,
+    artifactStorer,
+    publications,
+    audit,
+    chainAdmission,
+    admissionWanted: chainAdmissionMode.wants,
+  });
 
   const app = express();
   app.all("*", (req, res, next) => {

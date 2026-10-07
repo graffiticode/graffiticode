@@ -4,7 +4,10 @@ import { buildReadArtifact, buildReadPublished } from "./read.js";
 import { ArtifactConflict } from "./storage/artifacts.js";
 import { randomUUID } from "node:crypto";
 import { classify } from "@graffiticode/common/failures";
+import { canonicalDigest } from "@graffiticode/common/canonical";
+import { decodeChainId } from "@graffiticode/common/chain";
 import { noAudit } from "./audit.js";
+import { normalizeLang, PreflightUnavailable } from "./admission.js";
 
 // A compile error that names why it failed (spec FAIL-01): `message` is the
 // text callers already read; `code` and `category` say which kind of failure.
@@ -75,9 +78,77 @@ const artifactNotStored = ({ error, reason, invocation, idempotencyKey }) => ({
 });
 
 const buildGetData = ({
-  compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null, publications = null, audit = noAudit
+  compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null, publications = null, audit = noAudit,
+  // Chain admission (W4): the admission client, and whether a new invocation
+  // through this connection is allocated for it (CHAIN_ADMISSION).
+  chainAdmission = null, admissionWanted = _connectionId => false
 }) => {
   const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation, audit });
+
+  // Chain admission for a marked invocation (W4 section F): returns
+  // { admissionToken, stages: [{ stage, lang, revision, tagUrl }] }, or
+  // { errors } with nothing executed.
+  const admitChain = async ({ tasks, id, invocation, authToken, connectionId, attemptId }) => {
+    const refuseChain = async (message, code, stage = undefined) => {
+      await audit({ event: "admission", outcome: code === "preflight-unavailable" || code === "policy-unavailable" ? "failed" : "denied", reason: code, category: classify(code).category, stage, invocationId: invocation.invocationId, connectionId, attemptId });
+      return { errors: [failedWith(message, code)] };
+    };
+    if (!chainAdmission) return refuseChain("Error: this server can't run an admitted plan", "connections-unavailable");
+    const { invocationToken } = invocation;
+    const policyFailure = (e, what) => (e?.reason
+      ? refuseChain(`Error: permission denied (${e.reason})`, e.reason)
+      : refuseChain(`Error: could not ${what}`, "policy-unavailable"));
+    let taskIds;
+    try {
+      taskIds = decodeChainId(id);
+    } catch {
+      return refuseChain("Error: the task chain could not be read", "plan-binding-mismatch");
+    }
+    if (taskIds.length !== tasks.length) return refuseChain("Error: the task chain could not be read", "plan-binding-mismatch");
+    // A retry pins what its first admission pinned, before resolving any URL.
+    let plan;
+    try {
+      ({ plan } = await chainAdmission.lookupPlan({ authToken, invocationToken }));
+    } catch (e) {
+      return policyFailure(e, "look up this compile's plan");
+    }
+    const manifests = [];
+    for (const [index, task] of tasks.entries()) {
+      const stage = `s${index}`;
+      let baseUrl;
+      if (plan) {
+        const pinned = plan.stages[index];
+        if (!pinned || pinned.stage !== stage || !pinned.available || typeof pinned.tagUrl !== "string") {
+          return refuseChain(`Error: the compiler revision this run was admitted on is no longer available (${stage}); start a new run, which may repeat its writes`, "pinned-revision-unavailable", stage);
+        }
+        baseUrl = pinned.tagUrl;
+      } else {
+        baseUrl = await chainAdmission.baseUrlFor(task.lang);
+      }
+      let out;
+      try {
+        out = await chainAdmission.preflight({ baseUrl, lang: task.lang, stage, code: task.code });
+      } catch (e) {
+        if (!(e instanceof PreflightUnavailable)) throw e;
+        return refuseChain(`Error: ${e.message}`, "preflight-unavailable", stage);
+      }
+      // The compiler's own validation errors refuse the chain as compile errors.
+      if (Array.isArray(out?.errors) && out.errors.length) return { errors: out.errors };
+      const m = out?.manifest;
+      // The gateway loaded the stored task; the compiler must pin that program.
+      if (!m || m.stage !== stage || m.lang !== normalizeLang(task.lang) || m.sourceDigest !== canonicalDigest(task.code)) {
+        return refuseChain(`Error: stage ${stage}'s compiler reported another program than the stored task`, "plan-binding-mismatch", stage);
+      }
+      manifests.push(m);
+    }
+    let admission;
+    try {
+      admission = await chainAdmission.admit({ authToken, invocationToken, taskIds, stages: manifests });
+    } catch (e) {
+      return policyFailure(e, "admit this compile");
+    }
+    return { admissionToken: admission.admissionToken, stages: admission.stages };
+  };
   const readPublished = buildReadPublished({ compile, artifactStorer, publications, audit });
   return async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
@@ -169,7 +240,7 @@ const buildGetData = ({
         return { errors: [failedWith("Error: connections are not available on this server.", "connections-unavailable")] };
       }
       try {
-        invocation = await allocateInvocation({ authToken, connectionId, taskId: id, options, idempotencyKey });
+        invocation = await allocateInvocation({ authToken, connectionId, taskId: id, options, idempotencyKey, admission: Boolean(chainAdmission) && admissionWanted(connectionId) });
       } catch (e) {
         // Refused, the compile ends here: no other invocation is started.
         if (e instanceof InvocationRefused) {
@@ -180,6 +251,15 @@ const buildGetData = ({
         return { errors: [failedWith("Error: could not start a compile through this connection", "policy-unavailable")] };
       }
       await audit({ event: "gateway-invocation", outcome: "allowed", invocationId: invocation.invocationId, connectionId, attemptId });
+    }
+    // A marked invocation runs only under its admitted plan, whatever
+    // CHAIN_ADMISSION says now (W4 section C): every stage preflighted and the
+    // chain admitted before any stage executes, or nothing runs.
+    let admitted = null;
+    if (invocation?.contract === 2) {
+      const result = await admitChain({ tasks, id, invocation, authToken, connectionId, attemptId });
+      if (result.errors) return { errors: result.errors };
+      admitted = result;
     }
     // Every protected call's effects in this compile, stage by stage (spec
     // FAIL-01): an earlier stage's save is still reported when a later stage
@@ -200,8 +280,12 @@ const buildGetData = ({
       // use any existing compiles.
       async (dataPromise, task, index) => {
         const data = await dataPromise;
+        // Under a plan, the first failing stage stops the chain: later stages
+        // never execute (spec ADMIT-03). Its effects are already reported.
+        if (admitted && data?.errors?.length) return data;
         const { lang, code } = task;
-        const obj = await compile({
+        const pinned = admitted?.stages[index];
+        let obj = await compile({
           lang,
           code,
           data,
@@ -210,8 +294,16 @@ const buildGetData = ({
           uid,
           connectionId,
           invocationToken: invocation?.invocationToken ?? null,
-          stage: invocation ? `s${index}` : null
+          stage: invocation ? `s${index}` : null,
+          ...(pinned ? { admissionToken: admitted.admissionToken, baseUrl: pinned.tagUrl } : {})
         });
+        if (pinned) {
+          // The revision that answered must be the one the plan pins.
+          const { revision, ...rest } = obj ?? {};
+          obj = revision === pinned.revision
+            ? rest
+            : { ...rest, data: null, errors: [failedWith(`Error: stage ${pinned.stage} answered from another compiler revision than the plan pins`, "plan-binding-mismatch")] };
+        }
         const out = takeEffects(obj, index);
         if (out && typeof out === "object" && out.cache === false) {
           cacheable = false;
@@ -302,6 +394,6 @@ const buildGetData = ({
     return notStored ? { ...result, artifact: notStored } : result;
   };
 };
-export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit }) => {
-  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit }) };
+export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null, admissionWanted = _connectionId => false }) => {
+  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted }) };
 };

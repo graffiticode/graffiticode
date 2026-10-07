@@ -53,7 +53,7 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
     "plan-required", "plan-mismatch", "plan-binding-mismatch", "pinned-revision-unavailable", "revision-retiring",
     "invocation-incompatible", "contract-version-unsupported",
   ]),
-  ...cat("unavailable", ["admission-stale"]),
+  ...cat("unavailable", ["admission-stale", "preflight-unavailable"]),
   // api: artifacts and reads through a connection or publication.
   // (`signed-content` and `storage-failed` detail why an artifact wasn't stored.)
   ...cat("unavailable", ["artifact-storage-unavailable", "connections-unavailable", "publications-unavailable", "policy-unavailable", "storage-failed"]),
