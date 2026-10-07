@@ -281,6 +281,23 @@ describe("/preflight, for the gateway only (decision 1)", () => {
     expect(out.body.data).toBeNull();
   });
 
+  // Review of PR 5: preflight hashes the configuration a compile runs with.
+  // Compiles run with the request's `config` (the adapters pass it, default
+  // {}); a caller's `options` never reach the compiler, so preflight ignores
+  // them too, and the two agree whatever the request carries.
+  test("hashes the request's config, never its options, so preflight and compile agree", async () => {
+    const h = { "x-caller-identity": await idToken({}) };
+    const code = await parse("save-it 1..");
+    const viaOptions: any = await call(h, { stage: "s1", lang: "9999", code, options: { a: 1 } });
+    expect(viaOptions.body.data.manifest.optionsDigest).toBe(digestOf({}));
+    const viaConfig: any = await call(h, { stage: "s1", lang: "9999", code, config: { a: 1 }, options: { b: 2 } });
+    expect(viaConfig.body.data.manifest.optionsDigest).toBe(digestOf({ a: 1 }));
+    // The compile, given the same config (and whatever options), pins the same.
+    const c = compiler();
+    const atCompile = c.stageManifest(code, c.normalize(code), { stage: "s1", options: { a: 1 } }).manifest;
+    expect(atCompile.optionsDigest).toBe(viaConfig.body.data.manifest.optionsDigest);
+  });
+
   test("refuses a malformed request or another language's program", async () => {
     const h = { "x-caller-identity": await idToken({}) };
     expect((await call(h, { stage: "first", code: {} })).status).toBe(400);

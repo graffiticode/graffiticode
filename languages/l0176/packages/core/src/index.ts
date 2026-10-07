@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // @graffiticode/l0176 — the L0176 compiler core. Inherits @graffiticode/l0000.
-export { Checker, Transformer, compiler, REGISTRY_VERSION } from "./compiler.js";
+export { Checker, Transformer, compiler, REGISTRY_VERSION, dataDependentAuthority } from "./compiler.js";
 export { lexicon, deprecatedWords } from "./lexicon.js";
 export { lowerLegacySave } from "./save-lowering.js";
 

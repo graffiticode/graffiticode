@@ -530,6 +530,40 @@ export const REGISTRY_VERSION = 6;
 // and preflight's (capability plan W4), which needs no policy client. Its
 // normalization is the legacy save lowering, so a plan pins the program that
 // actually executes, and the stored source's digest is of what was stored.
+// Authority a program can reach only through its data (capability plan W4,
+// ADMIT-01's conservative declaration). L0176 signs whatever activity it is
+// given in two places: `init <value>`, and PROG's render signing of the
+// program's final value. When that value isn't built in the program, it can
+// come from upstream data, and an Author activity there needs `author`. A
+// static scan can't see it, so the manifest declares it: with Author off,
+// such a chain is refused at admission with nothing executed, never midway.
+const ACTIVITY_BUILDERS = new Set(["ITEMS", "QUESTIONS", "SAVE_TO_ITEMBANK", "AUTHOR"]);
+export function dataDependentAuthority(nodePool: any): string[] {
+  const tagOf = (id: any) => nodePool?.[id]?.tag;
+  let dynamic = false;
+  for (const key of Object.keys(nodePool ?? {})) {
+    const node = nodePool[key];
+    if (key !== "root" && node?.tag === "INIT" && !ACTIVITY_BUILDERS.has(tagOf(node.elts?.[0]))) dynamic = true;
+  }
+  const prog = nodePool?.[nodePool?.root];
+  const exprs = prog?.tag === "PROG" ? nodePool[prog.elts?.[0]] : null;
+  const last = exprs?.elts?.length ? tagOf(exprs.elts[exprs.elts.length - 1]) : undefined;
+  if (last !== undefined && !ACTIVITY_BUILDERS.has(last) && last !== "INIT") dynamic = true;
+  return dynamic ? ["author"] : [];
+}
+
+// The protected compiler's manifest adds that authority to what the scan finds;
+// compile checks its binding against the same manifest, so they agree.
+class L0176ProtectedCompiler extends Compiler {
+  stageManifest(code: any, program: any, args: any) {
+    const out = super.stageManifest(code, program, args);
+    if (out.manifest) {
+      out.manifest.requiredFunctions = [...new Set([...out.manifest.requiredFunctions, ...dataDependentAuthority(program)])].sort();
+    }
+    return out;
+  }
+}
+
 const protectedCompilerConfig = (policy?: PolicyClient) => ({
   langID: "0176",
   version: "v0.0.1",
@@ -544,13 +578,13 @@ const protectedCompilerConfig = (policy?: PolicyClient) => ({
 
 class L0176Compiler extends Compiler {
   #brokered: Compiler | null = null;
-  #preflight = new Compiler(protectedCompilerConfig());
+  #preflight = new L0176ProtectedCompiler(protectedCompilerConfig());
 
   setPolicyClient(policy: PolicyClient & { getPreviewSession?: SystemPreviewClient["getPreviewSession"] }) {
     systemPreviewClient = typeof policy.getPreviewSession === "function" && typeof policy.invoke === "function"
       ? { getPreviewSession: policy.getPreviewSession.bind(policy), invoke: policy.invoke }
       : null;
-    this.#brokered = new Compiler(protectedCompilerConfig(policy));
+    this.#brokered = new L0176ProtectedCompiler(protectedCompilerConfig(policy));
   }
 
   // Preflight (W4): what a compile through a connection would run.

@@ -83,14 +83,19 @@ export function createPreflightHandler({
       if (e instanceof CallerRefused) return refused(e.status, e.reason, "preflight is for the gateway only");
       throw e;
     }
-    const { stage, lang, code, options } = body ?? {};
+    // `config` is the compile request's own field, the configuration a
+    // compile actually runs with (every language server's compile adapter
+    // passes `config`, defaulting to {}); a caller's `options` never reach the
+    // compiler, so they aren't hashed. Preflight and compile then agree on the
+    // options digest whatever else the request carries.
+    const { stage, lang, code, config } = body ?? {};
     if (typeof stage !== "string" || !STAGE.test(stage) || !code || typeof code !== "object") {
-      return refused(400, "bad-request", "preflight needs { stage, lang, code, options? }");
+      return refused(400, "bad-request", "preflight needs { stage, lang, code, config? }");
     }
     if (lang !== undefined && String(lang).replace(/^L/i, "").padStart(4, "0") !== compiler.langID) {
       return refused(400, "bad-request", `this compiler is ${compiler.langID}, not ${lang}`);
     }
-    const result = await compiler.preflight(code, { stage, options: options ?? {} });
+    const result = await compiler.preflight(code, { stage, options: config ?? {} });
     return { status: 200, body: { status: "success", data: result.errors ? { errors: result.errors } : { manifest: result.manifest } } };
   };
 }
