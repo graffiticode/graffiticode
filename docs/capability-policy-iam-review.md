@@ -864,16 +864,23 @@ evidence that nothing else but the operators can write.
       push images and `gcloud run deploy`, which `run.admin` and `serviceAccountUser` still
       cover. Restore with `add-iam-policy-binding … --role roles/firebase.admin` if an old
       recipe turns out to need it.
-    - `firebase-adminsdk-qflje` (`roles/firebase.sdkAdminServiceAgent`, and **project-wide
-      `roles/iam.serviceAccountTokenCreator`**, which lets it act as any service account,
-      `policy-run` and `broker-run` included). It has two user-managed, non-expiring keys. The
+    - `firebase-adminsdk-qflje`, which has two unintended authorities over approvals:
+      - **Direct writes:** `roles/firebase.sdkAdminServiceAgent` (Firestore access across the
+        project, the `revisions` database included). Policy Analyzer lists it as an unconditional
+        writer for this reason.
+      - **Impersonation:** project-wide `roles/iam.serviceAccountTokenCreator`, so it can act as
+        any service account in the project. That reaches approval writes through any service
+        account that can write `revisions`, or can grant that, now or later. (Impersonating
+        `policy-run` doesn't write: its access to `revisions` is read-only, verified by the
+        probes above.)
+
+      It has two user-managed, non-expiring keys. The
       2022 key `d40cd54b…` (no recorded use) was **disabled 2026-10-07**. Key `6bfb0894…`
       (created 2026-02-03) **last authenticated 2026-09-11** (Policy Analyzer reports the day only; see the investigation below).
-      **Open, and blocking W4 activation:** find that key's user and migrate it, then remove the
-      key and the project-wide token-creator grant (Firebase's Admin SDK signs with its own key
-      and needs, at most, token-creator on itself). Until then, this account can write approvals.
-      The gap is to be closed by removal, not accepted. The 2026-09-11 authentication is a lead,
-      not an identification.
+      **Open, and blocking W4 activation.** Find that key's users and migrate them. Then remove
+      both authorities and verify that each is gone. Removing the key alone isn't enough: anyone
+      who can act as the account still holds both. The gap is to be closed by removal, not
+      accepted. The 2026-09-11 authentication remains unattributed.
       - **Investigation, 2026-10-07.** No key material was read or printed: searches listed file
         names only, and secrets by name and update date only.
         - Local: no file under `~/work`, `~/Downloads`, `~/Desktop`, `~/Documents` or
@@ -884,23 +891,42 @@ evidence that nothing else but the operators can write.
           2023-01-15) and `l0002`'s `GCP_SA_KEY` (updated 2025-10-20). Both were last updated
           before the key was created (2026-02-03), so **neither holds it**. No current workflow
           in either repository references them.
-        - Not yet checked: organization-level Actions secrets (listing them needs `admin:org`),
-          other GitHub organizations, hosting providers' environment variables, and other
-          machines.
         - Organization-level Actions secrets: only `NPM_TOKEN`, so no key there.
+        - Not checked: other GitHub organizations, hosting providers' environment variables,
+          other machines, and every deployed service's environment and mounted secrets.
         - **Found: a key file on an operator workstation**, used by local tooling. The
           key-specific audit logs show Storage writes from L0013's thumbnail upload during its
           local development (2026-06-02). The console repository's admin scripts also use the
           file, through `GRAFFITICODE_CREDENTIALS`; those read Firestore, which the audit logs
-          don't record (Data Access logs are off). The latest use found was 2026-09-10. Deployed
-          services don't use the key.
+          don't record (Data Access logs are off). The latest use found was 2026-09-10. **No
+          deployed consumer was identified in the checks performed**: deployed L0013 sets neither
+          credential variable and runs as `l0013-run@`.
         - **Not established:** that these are the only consumers, or which use was the
           2026-09-11 authentication.
-        - **Migration:** move the consumers to application-default credentials (L0013: done on
-          this repository's side; console: its own repository). Then **disable** the key, which is
-          reversible, and watch for a week: anything that breaks is another consumer. Then delete
-          the key and remove the account's project-wide `roles/iam.serviceAccountTokenCreator`, and
-          re-run this step's Policy Analyzer check. The gate stays closed until then.
+        - **Migration checklist.** The gate stays closed until every item is done.
+          1. Move the consumers to application-default credentials, and merge: L0013 (this
+             repository) and the console's admin scripts (`graffiticode/console` #8).
+          2. **Exercise both migrated consumers successfully with ADC**: an L0013 thumbnail upload
+             in local development, and a console admin script against the `graffiticode`
+             project.
+          3. Key `6bfb0894…` **disabled 2026-10-07** (reversible). **2026-10-14 is the earliest
+             retirement review, not automatic clearance.** At the review, check for failures
+             during the observation period, including the key's own authentications (Policy
+             Analyzer and the audit logs). A quiet week doesn't show there are no infrequent
+             consumers.
+          4. Delete the key.
+          5. Remove both authorities from `firebase-adminsdk-qflje`:
+             - the project-wide `roles/iam.serviceAccountTokenCreator`. Firebase's Admin SDK signs
+               with its own key, and needs at most token-creator on itself.
+             - its write access to `revisions`: remove `roles/firebase.sdkAdminServiceAgent`, or
+               replace it with a grant whose condition excludes the `revisions` database. Either
+               way it must stop writing approvals, whatever else it keeps.
+          6. **Verify both**, read-only:
+             - Policy Analyzer for writers of the `revisions` database (this step's check) lists
+               no unintended principal;
+             - for each service account that check lists, Policy Analyzer for who can impersonate
+               it (`iam.serviceAccounts.getAccessToken`) shows nothing beyond the operators, and
+               `firebase-adminsdk-qflje` holds no project-wide token-creator.
     - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
       `firebase-rules`, `gcp-gae-service`): accepted. They aren't workloads our code drives.
 
