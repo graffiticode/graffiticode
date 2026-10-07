@@ -103,10 +103,13 @@ export function createRevisionClient(config, firestore) {
 }
 
 // Tags a pinnable service keeps on revisions that serve no traffic: those of
-// approved revisions, and of revisions being retired (the tag goes only once
-// retirement completes).
+// approved revisions, and of revisions being retired, until the retirement
+// itself removes the tag. A `retired` revision without `tagRemovedAt` is still
+// in its wait for proofs issued before retirement to expire (or was
+// interrupted there): routine cleanup must not cut that wait short.
+const keepsTag = record => ["approved", "retiring"].includes(record?.status) || (record?.status === "retired" && !record.tagRemovedAt);
 export const retainedTags = (service, records) => (service.status?.traffic ?? [])
-  .filter(entry => entry.tag && ["approved", "retiring"].includes(records.get(entry.revisionName)?.status))
+  .filter(entry => entry.tag && keepsTag(records.get(entry.revisionName)))
   .map(entry => entry.tag);
 
 // Reachable revisions of a pinnable service (serving, or tagged) that must not

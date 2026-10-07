@@ -269,7 +269,9 @@ writes that database, and Policy can only read it (IAM review, Step 11).
   written, nothing is promoted. `npm run deploy -- approve <service> --release <id>` records a
   revision released before its service was pinnable.
 - **Tags** of approved revisions are kept: admitted plans route to them. `retire-tags` and a
-  release's own tag retirement skip them. Only `retire` removes them.
+  release's own tag retirement skip them, and also skip a `retired` revision whose tag
+  retirement hasn't removed yet (during its 15-minute wait, or after an interruption there).
+  Only `retire` removes them.
 - **`release-check`** (and so `protected-execution.js enable`) checks every **reachable** revision
   of a pinnable service, serving or tagged. Each must be approved, not mid-retirement, support the
   required contract version, and meet the current baseline. Until both serving revisions are
@@ -299,6 +301,10 @@ It refuses a revision that's still serving. It works in this order:
 
 An interrupted `retire` leaves the revision `retiring`, which blocks its snapshots. `status` and
 `release-check` show it. `--resume` continues; `--cancel` restores `approved`.
+
+Each retirement records its own id, and every later step requires it. A cancelled retirement
+whose process wakes up later finds itself superseded (`retirement-superseded`) and changes
+nothing, so its stale report can never retire a revision that a newer plan pins.
 
 Retention is advice, not automation: keep the last three approved revisions, plus any the report
 names. Keeping a revision runnable never permits re-running an uncertain write: that still needs

@@ -792,32 +792,58 @@ npm run deploy -- approve l0176 --release <current l0176 release id>
 npm run deploy -- approve l0000 --release <current l0000 release id>
 ```
 
-Verification (read-only), before anything relies on it:
+Verification, before anything relies on it. Two parts: who can write `revisions` at all, and
+behavioural probes of `policy-run`'s actual access.
+
+**1. Every principal that can write it.** Policy Analyzer resolves the effective permissions on
+the database, including roles inherited from the folder or organization, custom roles and basic
+roles. A project-level `jq` over `get-iam-policy` would miss those.
 
 ```bash
 R=//firestore.googleapis.com/projects/$P/databases/revisions
-# Policy reads it...
-for perm in datastore.entities.get datastore.entities.list; do
-  gcloud policy-intelligence troubleshoot-policy iam $R --principal-email=$(sa policy) --permission=$perm; done
-# ...and can't create, update or delete in it (expect NOT granted for each).
-for perm in datastore.entities.create datastore.entities.update datastore.entities.delete; do
-  gcloud policy-intelligence troubleshoot-policy iam $R --principal-email=$(sa policy) --permission=$perm; done
-# Inherited grants that would defeat the condition: every project-level role able to write
-# any database, with its condition (an unconditioned Owner/Editor/datastore.user can write here).
-gcloud projects get-iam-policy $P --format=json | jq -r '.bindings[]
-  | select(.role | test("^roles/(owner|editor|datastore\\.(owner|user|importExportAdmin))$"))
-  | "\(.role)\t\(.condition.expression // "UNCONDITIONED")\t\(.members | join(","))"'
+gcloud asset analyze-iam-policy --project=$P --full-resource-name=$R \
+  --permissions=datastore.entities.create,datastore.entities.update,datastore.entities.delete \
+  --format='table(identityList.identities[].name, accessControlLists[].accesses[].permission, iamBinding.role)'
 ```
 
-- Expected: `policy-run` granted get/list and denied create/update/delete. The only principals able
-  to write `revisions` are the operators: Owner, or an unconditioned Datastore role, held by a
-  human. A service account listed with Owner, Editor or an unconditioned `datastore.user` can write
-  approvals: remove it, or scope its condition to its own database, before relying on the boundary.
-- If the Troubleshooter rejects the database resource name, verify behaviourally: as `policy-run`
-  (`gcloud auth print-access-token --impersonate-service-account`, which needs
-  `serviceAccountTokenCreator`), a REST `GET` of
-  `projects/$P/databases/revisions/documents/languages/0176/revisions/<revision>` succeeds, and a
-  `PATCH` of a test document is refused with 403.
+Expected: only human operators (`user:`). Any service account listed can write approvals, which
+defeats the boundary. Remove its role, or scope its condition to its own database, before relying
+on it. The Policy Troubleshooter answers the same question for one principal at a time, and is
+supporting evidence:
+`gcloud policy-intelligence troubleshoot-policy iam $R --principal-email=$(sa policy) --permission=datastore.entities.create`.
+
+**2. Behavioural probes as `policy-run`,** against disposable documents in a `probes`
+collection, which nothing reads. They need the operator to hold `serviceAccountTokenCreator` on
+`policy-run`, so grant it, probe, and revoke it:
+
+```bash
+OP=$(gcloud config get-value account)
+gcloud iam service-accounts add-iam-policy-binding $(sa policy) --project $P \
+  --member user:$OP --role roles/iam.serviceAccountTokenCreator
+D=https://firestore.googleapis.com/v1/projects/$P/databases/revisions/documents/probes
+N=probe-$(date +%s)
+OPT=$(gcloud auth print-access-token)
+# A document for policy-run to read, try to update and try to delete, seeded by the operator.
+curl -s -o /dev/null -w "seed %{http_code} (expect 200)\n" -X PATCH -H "Authorization: Bearer $OPT" \
+  -H "Content-Type: application/json" "$D/$N-seed" -d '{"fields":{"probe":{"stringValue":"seed"}}}'
+T=$(gcloud auth print-access-token --impersonate-service-account=$(sa policy))
+probe() { curl -s -o /dev/null -w "%{http_code}  $1\n" -X "$2" -H "Authorization: Bearer $T" \
+  -H "Content-Type: application/json" "$3" ${4:+-d "$4"}; }
+probe "get    (expect 200)" GET    "$D/$N-seed"
+probe "list   (expect 200)" GET    "$D"
+probe "create (expect 403)" POST   "$D?documentId=$N-created" '{"fields":{"probe":{"stringValue":"x"}}}'
+probe "update (expect 403)" PATCH  "$D/$N-seed?currentDocument.exists=true" '{"fields":{"probe":{"stringValue":"changed"}}}'
+probe "delete (expect 403)" DELETE "$D/$N-seed"
+# Clean up as the operator (the created one exists only if create was wrongly allowed),
+# and take the grant back.
+for doc in seed created; do curl -s -o /dev/null -X DELETE -H "Authorization: Bearer $OPT" "$D/$N-$doc"; done
+gcloud iam service-accounts remove-iam-policy-binding $(sa policy) --project $P \
+  --member user:$OP --role roles/iam.serviceAccountTokenCreator
+```
+
+The read probes passing and each write probe answering 403 is the evidence the boundary holds
+for `policy-run`. Record the output in the as-built release record. The Analyzer's list is the
+evidence that nothing else but the operators can write.
 - Rollback: `remove-iam-policy-binding` with the same condition. The database has delete
   protection: disable it explicitly before deleting it (`gcloud firestore databases update
   --no-delete-protection`). Never delete it while an admitted plan pins a revision it records.

@@ -647,15 +647,30 @@ test("a pinnable release whose approval fails is never promoted", async t => {
   await assert.rejects(release(pinnable, source, h.deps), /needs the revisions store/);
 });
 
-test("tag retirement keeps approved and retiring revisions' tags, and removes the rest", async t => {
-  const h = await harness(t, { tags: ["kept-1", "going-1", "gone-1", "unknown-1"] });
-  const revisions = memoryRevisions();
+// A retired revision keeps its tag through retirement's wait for proofs issued
+// before it (and after an interruption there): only retirement removes it.
+const retirementRecords = revisions => {
   revisions.records.set("api-kept-1", { revision: "api-kept-1", status: "approved" });
   revisions.records.set("api-going-1", { revision: "api-going-1", status: "retiring" });
-  revisions.records.set("api-gone-1", { revision: "api-gone-1", status: "retired" });
+  revisions.records.set("api-waiting-1", { revision: "api-waiting-1", status: "retired", retiredAt: new Date().toISOString() });
+  revisions.records.set("api-gone-1", { revision: "api-gone-1", status: "retired", tagRemovedAt: new Date().toISOString() });
+};
+
+test("tag retirement keeps the tags retirement still owns, and removes the rest", async t => {
+  const h = await harness(t, { tags: ["kept-1", "going-1", "waiting-1", "gone-1", "unknown-1"] });
+  const revisions = memoryRevisions();
+  retirementRecords(revisions);
   const retired = await retireTags(pinnable, { ...h.deps, revisions });
   assert.deepEqual(retired.sort(), ["gone-1", "unknown-1"]);
   await assert.rejects(retireTags(pinnable, h.deps), /needs the revisions store/);
+});
+
+test("a release's own tag cleanup never cuts a retirement's wait short", async t => {
+  const h = await harness(t, { tags: ["kept-1", "going-1", "waiting-1", "gone-1"] });
+  const revisions = memoryRevisions();
+  retirementRecords(revisions);
+  const receipt = await release(pinnable, source, { ...h.deps, revisions });
+  assert.deepEqual(receipt.retiredTags, ["gone-1"]);
 });
 
 test("release-check for a pinnable service covers every reachable revision", async t => {
@@ -690,6 +705,8 @@ test("reachable problems and retained tags are judged per revision", () => {
   const records = new Map([["s-a", { status: "approved", contractVersions: [1, 2] }], ["s-b", { status: "retiring", contractVersions: [1] }]]);
   assert.deepEqual(reachableProblems(service, records, { minContractVersion: 2 }), { reachable: ["s-a", "s-b", "s-c"], unapproved: ["s-c"], retiring: ["s-b"], retired: [], unsupportedContract: [] });
   assert.deepEqual(retainedTags(service, records), ["b"]);
+  const retiring = new Map([["s-b", { status: "retired" }], ["s-c", { status: "retired", tagRemovedAt: "t" }]]);
+  assert.deepEqual(retainedTags(service, retiring), ["b"]);
 });
 
 test("approve records a revision released before its service was pinnable, once", async t => {

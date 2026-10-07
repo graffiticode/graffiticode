@@ -163,6 +163,55 @@ run("revision retirement fence", () => {
     expect(await report(revision)).toEqual([]);
   });
 
+  it("a cancelled retirement can't finish a later one with its stale report", async () => {
+    const revision = `rev-${randomUUID()}`;
+    await approve(revision);
+    // Retirement A reports (nothing yet), then stalls before its next step.
+    let resumeA;
+    const stalledA = new Promise(resolve => { resumeA = resolve; });
+    let reportedA;
+    const aReported = new Promise(resolve => { reportedA = resolve; });
+    const a = retireRevision(deps({ report: async r => { const items = await report(r); reportedA(); await stalledA; return items; } }), { lang, revision, by: "a" })
+      .then(result => ({ result }), error => ({ error }));
+    await aReported;
+    // The operator cancels A; a plan is then admitted; retirement B starts and
+    // stalls after its own report, which names that plan.
+    await retireRevision(deps(), { lang, revision, by: "op", cancel: true });
+    const { planDigest } = await admit(revision);
+    let resumeB;
+    const stalledB = new Promise(resolve => { resumeB = resolve; });
+    let reportedB;
+    const bReported = new Promise(resolve => { reportedB = resolve; });
+    const b = retireRevision(deps({ report: async r => { const items = await report(r); reportedB(); await stalledB; return items; } }), { lang, revision, by: "b" });
+    await bReported;
+    // A wakes with its empty report: it must not retire the revision.
+    resumeA();
+    const resumedA = await a;
+    expect("error" in resumedA && resumedA.error.reason).toBe("retirement-superseded");
+    expect(await statusOf(revision)).toBe("retiring");
+    // B, unconfirmed, names the new plan and cancels itself.
+    resumeB();
+    const resultB = await b;
+    expect(resultB.outcome).toBe("cancelled");
+    expect(resultB.outcome === "cancelled" && resultB.report.map(i => i.planDigest)).toEqual([planDigest]);
+    expect(await statusOf(revision)).toBe("approved");
+  });
+
+  it("each retirement carries its own id, which cancelling clears and resuming adopts", async () => {
+    const revision = `rev-${randomUUID()}`;
+    await approve(revision);
+    await expect(retireRevision(deps({ report: async () => { throw new Error("interrupted"); } }), { lang, revision, by: "a" })).rejects.toThrow(/interrupted/);
+    const first = (await revisionRef(revisionsDb, lang, revision).get()).data();
+    expect(first.retirementId).toMatch(/^[0-9a-f-]{36}$/);
+    await retireRevision(deps(), { lang, revision, by: "op", cancel: true });
+    expect((await revisionRef(revisionsDb, lang, revision).get()).data()?.retirementId).toBeUndefined();
+    await expect(retireRevision(deps({ report: async () => { throw new Error("interrupted"); } }), { lang, revision, by: "b" })).rejects.toThrow(/interrupted/);
+    const second = (await revisionRef(revisionsDb, lang, revision).get()).data();
+    expect(second.retirementId).not.toBe(first.retirementId);
+    expect(await retireRevision(deps(), { lang, revision, by: "op", resume: true })).toMatchObject({ outcome: "retired" });
+    expect((await revisionRef(revisionsDb, lang, revision).get()).data()).toMatchObject({ status: "retired", retirementId: second.retirementId });
+  });
+
   it("an interrupted retirement stays retiring until resumed or cancelled", async () => {
     const revision = `rev-${randomUUID()}`;
     await approve(revision);
