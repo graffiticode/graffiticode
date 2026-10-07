@@ -4,7 +4,7 @@ import { Compiler, Checker, Transformer, Renderer } from "@graffiticode/l0000";
 // L0000 is the root language: the server compiles with the base Checker/Transformer
 // directly (no subclassing). Child language servers construct their Compiler with their
 // own subclasses instead.
-const compiler = new Compiler({
+export const compiler = new Compiler({
   langID: "0000",
   version: "v0.0.1",
   Checker,

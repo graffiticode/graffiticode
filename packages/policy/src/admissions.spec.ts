@@ -39,7 +39,7 @@ const ARGD = hex("a");
 
 // s0 is the leftmost task (the data stage, L0000); s1 the L0176 program.
 const manifests = (over = {}) => [
-  { stage: "s0", lang: "0000", sourceDigest: hex("b"), programDigest: hex("c"), optionsDigest: hex("d"), revision: "l0000-r1", imageDigest: IMAGE_000, registryVersion: REGISTRY_VERSION, requiredFunctions: [] },
+  { stage: "s0", lang: "0000", sourceDigest: hex("b"), programDigest: hex("c"), optionsDigest: hex("d"), revision: "l0000-r1", imageDigest: IMAGE_000, registryVersion: 0, requiredFunctions: [] },
   { stage: "s1", lang: "0176", sourceDigest: hex("e"), programDigest: hex("f"), optionsDigest: hex("d"), revision: "l0176-r1", imageDigest: IMAGE_176, registryVersion: REGISTRY_VERSION, requiredFunctions: ["save-to-itembank", "init"], ...over },
 ];
 const approved = (lang, revision, imageDigest, extra = {}): [string, any] => [`${lang}/${revision}`, {
@@ -181,6 +181,8 @@ describe("admission (ADMIT-01, ADMIT-02)", () => {
     ["a revision that isn't approved", { stages: [manifests()[0], { ...manifests()[1], revision: "l0176-r9" }] }, "revision-not-approved"],
     ["another image than the approved one", { stages: [manifests()[0], { ...manifests()[1], imageDigest: `sha256:${hex("7")}` }] }, "plan-binding-mismatch"],
     ["another registry", { stages: [manifests()[0], { ...manifests()[1], registryVersion: REGISTRY_VERSION + 1 }] }, "registry-version-mismatch"],
+    ["a protected language claiming no registry", { stages: [manifests()[0], { ...manifests()[1], registryVersion: 0 }] }, "registry-version-mismatch"],
+    ["a language without protected functions claiming one", { stages: [{ ...manifests()[0], registryVersion: REGISTRY_VERSION }, manifests()[1]] }, "registry-version-mismatch"],
     ["a function the registry doesn't list", { stages: [manifests()[0], { ...manifests()[1], requiredFunctions: ["drop-tables"] }] }, "bad-request"],
     ["stages out of order", { stages: [manifests()[1], manifests()[0]] }, "bad-request"],
     ["a missing stage", { stages: [manifests()[1]] }, "bad-request"],

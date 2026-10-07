@@ -739,7 +739,11 @@ export const createPolicy = ({
       return deny("plan-binding-mismatch", record);
     }
     if (JSON.stringify(invocationChain) !== JSON.stringify(taskIds)) return deny("plan-binding-mismatch", record);
-    if (stages.some(m => m.registryVersion !== REGISTRY_VERSION)) return deny("registry-version-mismatch", record);
+    // A stage reports the registry version its language's declarations were
+    // written for: the current one, or 0 for a language with none (L0000),
+    // which needs no redeploy when the registry changes.
+    const expectedRegistry = m => (Object.keys(protectedFunctionsForLang(m.lang) || {}).length ? REGISTRY_VERSION : 0);
+    if (stages.some(m => m.registryVersion !== expectedRegistry(m))) return deny("registry-version-mismatch", record);
     // A function the registry doesn't list for the stage's language can't be
     // admitted; a language without protected functions requires none.
     for (const m of stages) {

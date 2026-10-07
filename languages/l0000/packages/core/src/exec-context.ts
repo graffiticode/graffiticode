@@ -29,6 +29,10 @@ export interface ExecIdentity {
   // the same write receipts.
   invocationToken?: string | null;
   stage?: string | null;
+  // The plan this chain was admitted under (capability plan W4), from the
+  // gateway. Policy verifies it; with it, the compiler executes only what the
+  // plan pins for its stage.
+  admissionToken?: string | null;
 }
 
 // What a language's transformer asks the broker to do for one protected call.
@@ -96,6 +100,7 @@ export class ExecContext {
   readonly compileId: string;
   #userToken: string | null;
   #invocationToken: string | null;
+  #admissionToken: string | null;
   #sessionToken: string | null = null;
   #invoker: Invoker | null = null;
   #occurrences = new Map<string, number>();
@@ -110,6 +115,8 @@ export class ExecContext {
     this.#userToken = typeof identity.userToken === "string" && identity.userToken ? identity.userToken : null;
     this.#invocationToken =
       typeof identity.invocationToken === "string" && identity.invocationToken ? identity.invocationToken : null;
+    this.#admissionToken =
+      typeof identity.admissionToken === "string" && identity.admissionToken ? identity.admissionToken : null;
     this.stage = typeof identity.stage === "string" && identity.stage ? identity.stage : null;
     this.compileId = randomUUID();
     Object.freeze(this);
@@ -117,8 +124,13 @@ export class ExecContext {
 
   // Credentials a policy client forwards. Language code may read them; no
   // program can (the context is unreachable from the AST).
-  policyCredentials(): { userToken: string | null; invocationToken: string | null } {
-    return { userToken: this.#userToken, invocationToken: this.#invocationToken };
+  policyCredentials(): { userToken: string | null; invocationToken: string | null; admissionToken: string | null } {
+    return { userToken: this.#userToken, invocationToken: this.#invocationToken, admissionToken: this.#admissionToken };
+  }
+
+  // Whether this compile runs under an admitted plan.
+  get planned(): boolean {
+    return this.#admissionToken !== null;
   }
 
   get sessionToken(): string | null {

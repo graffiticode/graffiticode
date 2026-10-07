@@ -11,13 +11,17 @@
 // themselves (X-Caller-Identity, audience = the service URN). In production
 // both come from the metadata server for this compiler's service account.
 
+import { createLocalJWKSet, jwtVerify } from "jose";
+import type { JSONWebKeySet } from "jose";
 import type { ExecContext, ProtectedCall } from "./exec-context.js";
 import type { PolicyClient, PolicySnapshot } from "./protected-functions.js";
 import { argsDigest } from "./canonical.js";
 
 export interface ProtectionClientOptions {
   policyUrl: string;
-  brokerUrl: string;
+  // Optional: a language with no protected functions (L0000) asks policy for
+  // its stage binding and never executes anything at the broker.
+  brokerUrl?: string | null;
   // (audience) -> Google ID token for this service account.
   idToken: (audience: string) => Promise<string>;
   fetch?: typeof fetch;
@@ -46,7 +50,36 @@ export class ProtectedCallError extends Error {
 
 const EXECUTE = "/v1/execute";
 
-export function createProtectionClient({ policyUrl, brokerUrl, idToken, fetch: doFetch = fetch }: ProtectionClientOptions): PolicyClient {
+// Policy's session profile (packages/policy/src/tokens.ts): a session is
+// accepted as policy's only if policy signed it, for policy, as a session.
+const SESSION = { issuer: "urn:graffiticode:policy", audience: POLICY_AUDIENCE, typ: "gc-session+jwt", algorithms: ["ES256"] };
+
+export function createProtectionClient({ policyUrl, brokerUrl = null, idToken, fetch: doFetch = fetch }: ProtectionClientOptions): PolicyClient {
+  // Policy's public keys, fetched once and again when a session names a key
+  // not seen yet (rotation).
+  let keys: ReturnType<typeof createLocalJWKSet> | null = null;
+  const loadKeys = async () => {
+    const res = await doFetch(`${policyUrl}/v1/jwks`, { method: "GET", headers: { "X-Serverless-Authorization": `Bearer ${await idToken(policyUrl)}` } });
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok || !Array.isArray(json?.keys)) throw new ProtectedCallError(`/v1/jwks failed (${res.status})`, res.status, "unavailable");
+    keys = createLocalJWKSet(json as JSONWebKeySet);
+  };
+  // A session's claims, once its signature, issuer, audience, type and
+  // lifetime check out. The stage binding it carries is trusted from here only.
+  const verifySession = async (sessionToken: string) => {
+    if (!keys) await loadKeys();
+    try {
+      return (await jwtVerify(sessionToken, keys!, SESSION)).payload as Record<string, any>;
+    } catch (e: any) {
+      if (e?.code !== "ERR_JWKS_NO_MATCHING_KEY") throw new ProtectedCallError("the session from policy did not verify", 0, "bad-session");
+      await loadKeys();
+      try {
+        return (await jwtVerify(sessionToken, keys!, SESSION)).payload as Record<string, any>;
+      } catch {
+        throw new ProtectedCallError("the session from policy did not verify", 0, "bad-session");
+      }
+    }
+  };
   const post = async (baseUrl: string, urn: string, path: string, body: unknown, bearer?: string | null) => {
     const [invoker, caller] = await Promise.all([idToken(baseUrl), idToken(urn)]);
     const headers: Record<string, string> = {
@@ -81,19 +114,25 @@ export function createProtectionClient({ policyUrl, brokerUrl, idToken, fetch: d
   };
 
   return {
-    async getSnapshot({ exec, langID, fns }): Promise<PolicySnapshot> {
-      const { userToken, invocationToken } = exec.policyCredentials();
+    async getSnapshot({ exec, langID, fns, manifest }): Promise<PolicySnapshot> {
+      const { userToken, invocationToken, admissionToken } = exec.policyCredentials();
       const data = await post(policyUrl, POLICY_AUDIENCE, "/v1/snapshot", {
         lang: langID,
         connectionId: exec.connectionId,
         fns,
         invocationToken: invocationToken ?? undefined,
         stage: exec.stage ?? undefined,
+        // Under a plan: the admission and this stage's own manifest, which
+        // policy compares with what the plan pins.
+        ...(admissionToken ? { admissionToken, manifest } : {}),
       }, userToken);
-      if (typeof data?.sessionToken === "string") {
-        exec.setSessionToken(data.sessionToken);
+      if (typeof data?.sessionToken !== "string") {
+        return { allowed: data?.allowed };
       }
-      return { allowed: data?.allowed };
+      // A planned stage executes only on a binding policy signed.
+      const bind = admissionToken ? (await verifySession(data.sessionToken)).bind : undefined;
+      exec.setSessionToken(data.sessionToken);
+      return { allowed: data?.allowed, ...(admissionToken ? { bind } : {}) };
     },
 
     async invoke(exec: ExecContext, { fn, op, payload, occurrenceId }: ProtectedCall) {
@@ -107,6 +146,9 @@ export function createProtectionClient({ policyUrl, brokerUrl, idToken, fetch: d
         occurrenceId,
         argsDigest: argsDigest(payload),
       });
+      if (!brokerUrl) {
+        throw new ProtectedCallError("no broker is configured for this compiler", 0, "unavailable");
+      }
       return post(brokerUrl, BROKER_AUDIENCE, EXECUTE, { op, payload }, executionToken);
     },
   };

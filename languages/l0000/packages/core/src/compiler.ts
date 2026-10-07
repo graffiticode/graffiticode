@@ -7,7 +7,8 @@ const Decimal: any = (DecimalImport as any)?.default ?? DecimalImport;
 import crypto from 'crypto';
 import { validateAgainstSchema, getLanguageSchema } from "./schema-validator.js";
 import { ExecContext, bindExecContext, execContextOf } from "./exec-context.js";
-import { admitProtectedFunctions } from "./protected-functions.js";
+import { admitProtectedFunctions, admitPlannedStage } from "./protected-functions.js";
+import { requiredProtectedFunctions, revisionIdentity, digestOf } from "./preflight.js";
 import { formatNumber, parsePattern } from "./format-number.js";
 
 // Decrypts secret values written by the console. Must stay in lockstep with
@@ -2281,6 +2282,82 @@ export class Compiler {
     this.protectedFunctions = config.protectedFunctions || {};
     this.implicitProtectedFunctions = config.implicitProtectedFunctions || [];
     this.policy = config.policy;
+    // Chain admission (capability plan W4). `normalize` turns a stored program
+    // into the one that executes (L0176 lowers its legacy save member); both
+    // compile and preflight apply it, so they agree on what runs.
+    // `registryVersion` is the registry version the language's protected
+    // declarations were written for (0 for a language with none).
+    // `undeclarableProtected` marks a language whose protected behaviour can't
+    // be found by scanning the program: it can never be admitted.
+    this.normalize = config.normalize || (code => code);
+    this.registryVersion = config.registryVersion ?? (this.hasProtectedFunctions() ? null : 0);
+    this.undeclarableProtected = config.undeclarableProtected === true;
+    this.revisionIdentity = config.revisionIdentity || (() => revisionIdentity(process.env));
+  }
+  hasProtectedFunctions() {
+    return Object.keys(this.protectedFunctions).length > 0 || this.implicitProtectedFunctions.length > 0;
+  }
+  setPolicy(policy) {
+    this.policy = policy;
+  }
+  // This stage's manifest (preflight.ts): `code` as stored, `program` after
+  // normalization. Returns { errors } or { manifest }, without executing
+  // anything.
+  stageManifest(code, program, { stage, options }): { errors?: any[], manifest?: any } {
+    const failed = (message, code) => ({ errors: [{ message, from: -1, to: -1, code }] });
+    if (this.undeclarableProtected) {
+      return failed("This language's protected behaviour can't be declared in advance, so it can't run in an admitted plan.", "undeclarable-protected");
+    }
+    if (this.hasProtectedFunctions() && !Number.isInteger(this.registryVersion)) {
+      return failed("This compiler declares protected functions without the registry version they were written for.", "preflight-unavailable");
+    }
+    const { revision, imageDigest } = this.revisionIdentity();
+    if (!revision || !imageDigest) {
+      return failed("This compiler revision has no deployed identity, so it can't be pinned.", "preflight-unavailable");
+    }
+    return {
+      manifest: {
+        stage,
+        lang: this.langID,
+        sourceDigest: digestOf(code),
+        programDigest: digestOf(program),
+        optionsDigest: digestOf(options ?? {}),
+        revision,
+        imageDigest,
+        registryVersion: this.registryVersion,
+        requiredFunctions: requiredProtectedFunctions(program, this.protectedFunctions, this.implicitProtectedFunctions),
+      },
+    };
+  }
+  // Preflight (W4; spec ADMIT-01, API-01): validation errors, or the stage's
+  // manifest. Side-effect free: no snapshot, no mint, no signing, no
+  // provider call. The checker runs (it reads schemas at most), so a program
+  // that wouldn't compile is refused before anything is admitted.
+  preflight(code, { stage, options }: { stage: string, options?: any }) {
+    return new Promise(resolve => {
+      let program;
+      try {
+        program = this.normalize(code);
+      } catch (e) {
+        resolve({ errors: [{ message: `Error: ${String((e && e.message) || e)}`, from: -1, to: -1 }] });
+        return;
+      }
+      const result = this.stageManifest(code, program, { stage, options });
+      if (result.errors) {
+        resolve(result);
+        return;
+      }
+      try {
+        const checker = new this.Checker(program);
+        bindExecContext(checker, new ExecContext({}));
+        checker.check({ data: {}, config: options ?? {}, result: "" }, (err) => {
+          const normalized = normalizeErrors(err);
+          resolve(normalized.length > 0 ? { errors: normalized } : result);
+        });
+      } catch {
+        resolve({ errors: [{ message: "Compiler error", from: -1, to: -1 }] });
+      }
+    });
   }
   compile(code, data, config, resume, identity?) {
     // Compiler takes an AST in the form of a node pool (code) and transforms it
@@ -2298,6 +2375,9 @@ export class Compiler {
         result: '',
       };
       const exec = new ExecContext(identity);
+      // What executes is the normalized program (preflight applies the same).
+      const source = code;
+      code = this.normalize(code);
       // The compile's protected-write effects go with every result, error or
       // not (third argument; a caller that doesn't read it loses nothing).
       const done = (err, val?) => resume(err, val, { effects: exec.effects });
@@ -2325,7 +2405,24 @@ export class Compiler {
           }
         });
       };
-      if (Object.keys(this.protectedFunctions).length === 0 && this.implicitProtectedFunctions.length === 0) {
+      // A stage of an admitted plan (W4): bound to the plan before anything
+      // runs, whatever functions the language has.
+      if (exec.planned) {
+        const own = this.stageManifest(source, code, { stage: exec.stage, options: config });
+        if (own.errors) {
+          done(normalizeErrors(own.errors));
+          return;
+        }
+        admitPlannedStage({ exec, langID: this.langID, policy: this.policy, manifest: own.manifest, protectedFunctions: this.protectedFunctions }).then(
+          (errors) => (errors.length > 0 ? done(normalizeErrors(errors)) : runChecker()),
+          (x) => {
+            console.log("ERROR admitting a planned stage", x?.message);
+            done([{ message: "Permission check failed", from: -1, to: -1 }]);
+          },
+        );
+        return;
+      }
+      if (!this.hasProtectedFunctions()) {
         runChecker();
         return;
       }

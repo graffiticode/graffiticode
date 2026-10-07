@@ -22,6 +22,8 @@
 // protected node the pool did not contain.
 
 import type { ExecContext, Invoker } from "./exec-context.js";
+import { bindingProblems } from "./preflight.js";
+import type { StageManifest } from "./preflight.js";
 
 export type ProtectedFunctionKind = "read" | "write" | "sign";
 
@@ -37,6 +39,8 @@ export type ProtectedFunctions = Record<string, ProtectedFunctionSpec>;
 export interface PolicySnapshot {
   // Function names this invocation may call through its connection.
   allowed: string[];
+  // Under a plan (W4): the stage binding policy signed into the session.
+  bind?: unknown;
 }
 
 // A snapshot is accepted only if it is exactly well-formed. Anything else —
@@ -55,7 +59,7 @@ export function parseSnapshot(snapshot: unknown): PolicySnapshot | null {
 }
 
 export interface PolicyClient {
-  getSnapshot(args: { exec: ExecContext; langID: string; fns: string[] }): Promise<PolicySnapshot>;
+  getSnapshot(args: { exec: ExecContext; langID: string; fns: string[]; manifest?: StageManifest }): Promise<PolicySnapshot>;
   // Performs one admitted protected call (mint, then broker). Optional: a
   // client without it admits but cannot execute.
   invoke?: Invoker;
@@ -159,4 +163,50 @@ export async function admitProtectedFunctions({
     }
   }
   return errors;
+}
+
+// Admission for a stage of an admitted plan (W4; spec ADMIT-03). Every stage
+// of a planned chain is bound, including one whose language has no protected
+// functions: the compiler asks policy for the stage's session with its own
+// manifest, and executes only if the binding policy signed agrees with what
+// it is about to run (revision, image, program, source and options digests,
+// language, functions). Any failure refuses the compile before the
+// transformer starts.
+export async function admitPlannedStage({
+  exec,
+  langID,
+  policy,
+  manifest,
+  protectedFunctions,
+}: {
+  exec: ExecContext;
+  langID: string;
+  policy?: PolicyClient;
+  manifest: StageManifest;
+  protectedFunctions: ProtectedFunctions;
+}): Promise<AdmissionError[]> {
+  if (!policy) {
+    return [errorAt("This compiler can't run an admitted plan: no permission service is configured.", null)];
+  }
+  let response: PolicySnapshot;
+  try {
+    response = await policy.getSnapshot({ exec, langID, fns: manifest.requiredFunctions, manifest });
+  } catch (e: any) {
+    const reason = typeof e?.reason === "string" ? ` (${e.reason})` : "";
+    return [errorAt(`Permission check is unavailable; this stage cannot run${reason}.`, null)];
+  }
+  const problems = bindingProblems(response?.bind, manifest);
+  if (problems.length > 0) {
+    return [errorAt(`This compiler is not the one the admitted plan pins (${problems.join(", ")}).`, null)];
+  }
+  const snapshot = parseSnapshot(response) ?? { allowed: [] };
+  if (typeof policy.invoke === "function") {
+    exec.bindInvoker(policy.invoke);
+  }
+  const writes = Object.values(protectedFunctions)
+    .filter(spec => spec.kind === "write" && manifest.requiredFunctions.includes(spec.fn))
+    .map(spec => spec.fn);
+  exec.declareWrites([...new Set(writes)]);
+  exec.setSnapshot(Object.freeze({ allowed: Object.freeze([...snapshot.allowed]) }));
+  return [];
 }

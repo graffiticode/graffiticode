@@ -9,7 +9,8 @@ import morgan from "morgan";
 import methodOverride from "method-override";
 import errorHandler from "errorhandler";
 import { buildValidateToken } from "./auth.js";
-import { compile } from "./compile.js";
+import { compile, compiler } from "./compile.js";
+import { createGatewayVerifier, createPreflightHandler } from "@graffiticode/l0000";
 import * as routes from "./routes/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,7 +20,9 @@ const STATIC_DIR = path.join(__dirname, "..", "static");
 EventEmitter.defaultMaxListeners = 15;
 const env = process.env.NODE_ENV || "development";
 
-export const createApp = ({ authUrl }: { authUrl?: string } = {}) => {
+// `preflightGateways`: the gateway service accounts allowed to preflight
+// (capability plan W4). With none, every preflight is refused.
+export const createApp = ({ authUrl, preflightGateways = [], verifyCaller }: { authUrl?: string; preflightGateways?: string[]; verifyCaller?: (headers: Record<string, unknown>) => Promise<unknown> } = {}) => {
   const app = express();
 
   // Force HTTPS in production (except localhost).
@@ -67,6 +70,23 @@ export const createApp = ({ authUrl }: { authUrl?: string } = {}) => {
   // hashed assets. Mounted BEFORE auth so they require no token. `index: false` keeps
   // GET / as a health check rather than serving the embed index.html.
   app.use(express.static(STATIC_DIR, { index: false }));
+
+  // Preflight (capability plan W4): the gateway only, authenticated by the
+  // route itself (preflight-route.ts), side-effect free. Before the user-token
+  // middleware: it reads no user token.
+  const preflight = createPreflightHandler({
+    compiler,
+    verifyCaller: verifyCaller ?? createGatewayVerifier({ lang: compiler.langID, gateways: preflightGateways }),
+  });
+  app.post("/preflight", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const out = await preflight({ headers: req.headers as Record<string, unknown>, body: req.body });
+      res.set("Cache-Control", "no-store");
+      res.status(out.status).json(out.body);
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // Authentication: attaches req.auth (does not reject anonymous requests).
   const validateToken = buildValidateToken({ authUrl });
