@@ -102,7 +102,7 @@ The embedded form supports iframe embedding and communicates with parent windows
   - `GRAFFITICODE_API_URL` (default `https://api.graffiticode.org`)
   - `GRAFFITICODE_APP_URL` (default `https://app.graffiticode.org`) — the app whose `/form/{itemId}` route is rendered
   - `THUMBNAIL_BUCKET` (default `graffiticode.appspot.com`) — Firebase Storage bucket for uploaded PNGs
-  - `GRAFFITICODE_CREDENTIALS` / `GOOGLE_APPLICATION_CREDENTIALS` — service-account key for Storage upload
+  - Storage upload uses Application Default Credentials only: the runtime service account on Cloud Run; locally, `gcloud auth application-default login` (your own account). No service-account key file (`GRAFFITICODE_CREDENTIALS` is no longer read).
   - `PUPPETEER_EXECUTABLE_PATH` — Chrome binary override (set in the container)
   - `GC_SNAP_ACCESS_TOKEN` — fallback auth token used when rendering the target item
 

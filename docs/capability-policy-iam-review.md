@@ -868,7 +868,7 @@ evidence that nothing else but the operators can write.
       `roles/iam.serviceAccountTokenCreator`**, which lets it act as any service account,
       `policy-run` and `broker-run` included). It has two user-managed, non-expiring keys. The
       2022 key `d40cd54b…` (no recorded use) was **disabled 2026-10-07**. Key `6bfb0894…`
-      (created 2026-02-03) **last authenticated 2026-09-11**, from somewhere outside `~/work`.
+      (created 2026-02-03) **last authenticated 2026-09-11** (Policy Analyzer reports the day only; see the investigation below).
       **Open, and blocking W4 activation:** find that key's user and migrate it, then remove the
       key and the project-wide token-creator grant (Firebase's Admin SDK signs with its own key
       and needs, at most, token-creator on itself). Until then, this account can write approvals.
@@ -887,10 +887,20 @@ evidence that nothing else but the operators can write.
         - Not yet checked: organization-level Actions secrets (listing them needs `admin:org`),
           other GitHub organizations, hosting providers' environment variables, and other
           machines.
-        - Next, key-specific audit evidence: Cloud Audit Logs entries whose
-          `protoPayload.authenticationInfo.serviceAccountKeyName` names the key give the caller
-          IP, user agent and methods. Admin Activity logs are kept 400 days. Data Access logs
-          (Firestore and Auth reads) are only there if they were enabled.
+        - Organization-level Actions secrets: only `NPM_TOKEN`, so no key there.
+        - **Found: a key file on an operator workstation**, used by local tooling. The
+          key-specific audit logs show Storage writes from L0013's thumbnail upload during its
+          local development (2026-06-02). The console repository's admin scripts also use the
+          file, through `GRAFFITICODE_CREDENTIALS`; those read Firestore, which the audit logs
+          don't record (Data Access logs are off). The latest use found was 2026-09-10. Deployed
+          services don't use the key.
+        - **Not established:** that these are the only consumers, or which use was the
+          2026-09-11 authentication.
+        - **Migration:** move the consumers to application-default credentials (L0013: done on
+          this repository's side; console: its own repository). Then **disable** the key, which is
+          reversible, and watch for a week: anything that breaks is another consumer. Then delete
+          the key and remove the account's project-wide `roles/iam.serviceAccountTokenCreator`, and
+          re-run this step's Policy Analyzer check. The gate stays closed until then.
     - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
       `firebase-rules`, `gcp-gae-service`): accepted. They aren't workloads our code drives.
 

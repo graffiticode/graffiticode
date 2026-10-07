@@ -294,15 +294,12 @@ let _bucketPromise: Promise<any> | null = null;
 
 async function initBucket() {
   const admin: any = (await import("firebase-admin")).default;
-  const opts: any = { storageBucket: STORAGE_BUCKET };
-  // On Cloud Run, Application Default Credentials (the service account) are used. Locally, honor
-  // GRAFFITICODE_CREDENTIALS (the graffiticode-project key, which owns the bucket) when
-  // GOOGLE_APPLICATION_CREDENTIALS isn't already set, so dev works without extra setup.
-  const keyPath = process.env.GRAFFITICODE_CREDENTIALS;
-  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && keyPath) {
-    const { readFileSync } = await import("fs");
-    const serviceAccount = JSON.parse(readFileSync(keyPath, "utf-8"));
-    opts.credential = admin.credential.cert(serviceAccount);
+  // Application Default Credentials only: the runtime service account on Cloud Run, and locally
+  // the developer's own (`gcloud auth application-default login`). No service-account key file:
+  // the one this used to read is being retired (docs/capability-policy-iam-review.md, Step 11).
+  const opts: any = { storageBucket: STORAGE_BUCKET, credential: admin.credential.applicationDefault() };
+  if (process.env.GRAFFITICODE_CREDENTIALS) {
+    console.warn("l0013 snap: GRAFFITICODE_CREDENTIALS is no longer read; using application default credentials");
   }
   let app: any;
   try {
