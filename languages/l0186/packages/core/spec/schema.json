@@ -1,0 +1,457 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://l0186.graffiticode.org/schema.json",
+  "title": "L0186 board",
+  "description": "What an L0186 program compiles to: a FigJam board of pages of nodes, in the shape the Graffiticode FigJam plugin draws. Only the fields a program wrote appear on a node.",
+  "type": "object",
+  "required": [
+    "type",
+    "showPageTabs",
+    "showPageMenu",
+    "pages"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "const": "board"
+    },
+    "title": {
+      "type": "string"
+    },
+    "showPageTabs": {
+      "type": "boolean"
+    },
+    "showPageMenu": {
+      "type": "boolean"
+    },
+    "fileKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9]+$",
+      "description": "The FigJam file the plugin draws into, from save-to-figjam."
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/page"
+      }
+    }
+  },
+  "$defs": {
+    "page": {
+      "type": "object",
+      "required": [
+        "name",
+        "nodes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string",
+          "pattern": "^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|red|blue|green|yellow|purple|orange|pink|white|black|gray)$"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sticky"
+              },
+              {
+                "$ref": "#/$defs/shape"
+              },
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "$ref": "#/$defs/stamp"
+              },
+              {
+                "$ref": "#/$defs/section"
+              },
+              {
+                "$ref": "#/$defs/connector"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "sticky": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "sticky"
+        },
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|red|blue|green|yellow|purple|orange|pink|white|black|gray)$"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "shape": {
+      "type": "object",
+      "required": [
+        "type",
+        "shapeType"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "shape"
+        },
+        "shapeType": {
+          "enum": [
+            "SQUARE",
+            "ELLIPSE",
+            "ROUNDED_RECTANGLE",
+            "DIAMOND",
+            "TRIANGLE_UP",
+            "TRIANGLE_DOWN",
+            "PARALLELOGRAM_RIGHT",
+            "PARALLELOGRAM_LEFT",
+            "ENG_DATABASE",
+            "ENG_QUEUE",
+            "ENG_FILE",
+            "ENG_FOLDER",
+            "TRAPEZOID",
+            "PREDEFINED_PROCESS",
+            "SHIELD",
+            "DOCUMENT_SINGLE",
+            "DOCUMENT_MULTIPLE",
+            "MANUAL_INPUT",
+            "HEXAGON",
+            "CHEVRON",
+            "PENTAGON",
+            "OCTAGON",
+            "STAR",
+            "PLUS",
+            "ARROW_LEFT",
+            "ARROW_RIGHT",
+            "SUMMING_JUNCTION",
+            "OR",
+            "SPEECH_BUBBLE",
+            "INTERNAL_STORAGE"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|red|blue|green|yellow|purple|orange|pink|white|black|gray)$"
+        },
+        "stroke": {
+          "type": "string",
+          "pattern": "^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|red|blue|green|yellow|purple|orange|pink|white|black|gray)$"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "text": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "text"
+        },
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|red|blue|green|yellow|purple|orange|pink|white|black|gray)$"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "stamp": {
+      "type": "object",
+      "required": [
+        "type",
+        "stamp"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "stamp"
+        },
+        "stamp": {
+          "enum": [
+            "like",
+            "love",
+            "laugh",
+            "surprised",
+            "celebrate",
+            "heart"
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "required": [
+        "type",
+        "nodes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "section"
+        },
+        "name": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fill": {
+          "type": "string",
+          "pattern": "^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|red|blue|green|yellow|purple|orange|pink|white|black|gray)$"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sticky"
+              },
+              {
+                "$ref": "#/$defs/shape"
+              },
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "$ref": "#/$defs/stamp"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "connector": {
+      "type": "object",
+      "required": [
+        "type",
+        "from",
+        "to"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "connector"
+        },
+        "from": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        "to": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "lineType": {
+          "enum": [
+            "straight",
+            "elbowed",
+            "curved"
+          ]
+        },
+        "lineStyle": {
+          "enum": [
+            "solid",
+            "dashed"
+          ]
+        },
+        "fromCap": {
+          "enum": [
+            "none",
+            "arrow-lines",
+            "arrow-equilateral",
+            "triangle-filled",
+            "circle-filled",
+            "diamond-filled"
+          ]
+        },
+        "toCap": {
+          "enum": [
+            "none",
+            "arrow-lines",
+            "arrow-equilateral",
+            "triangle-filled",
+            "circle-filled",
+            "diamond-filled"
+          ]
+        },
+        "fromSide": {
+          "enum": [
+            "auto",
+            "top",
+            "bottom",
+            "left",
+            "right",
+            "center"
+          ]
+        },
+        "toSide": {
+          "enum": [
+            "auto",
+            "top",
+            "bottom",
+            "left",
+            "right",
+            "center"
+          ]
+        },
+        "stroke": {
+          "type": "string",
+          "pattern": "^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})|red|blue|green|yellow|purple|orange|pink|white|black|gray)$"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    }
+  }
+}

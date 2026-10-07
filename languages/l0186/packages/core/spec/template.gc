@@ -1,0 +1,11 @@
+board [
+  page [
+    textbox text "Project kickoff" font-size LARGE x 0 y -120 {}
+    sticky id "goals" text "Goals" x 0 y 0 {}
+    sticky id "risks" text "Risks" x 300 y 0 fill "pink" {}
+    shape kind DIAMOND id "go" text "Go?" x 640 y 20 width 200 height 200 {}
+    connector from "goals" to "go" line-type ELBOWED {}
+    connector from "risks" to "go" line-type ELBOWED {}
+    stamp kind LIKE x 220 y 200 {}
+  ] {}
+] {}..

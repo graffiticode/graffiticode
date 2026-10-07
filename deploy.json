@@ -1176,6 +1176,58 @@
           "status": 200
         }
       ]
+    },
+    "l0186": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0186",
+      "dockerfile": "configs/Dockerfile.l0186.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0186-run@graffiticode.iam.gserviceaccount.com",
+      "include": [
+        "languages/l0186",
+        "configs/Dockerfile.l0186.yaml"
+      ],
+      "exclude": [],
+      "steps": [
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0186",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0186",
+          "args": [
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "node:22",
+          "entrypoint": "npm",
+          "dir": "languages/l0186",
+          "args": [
+            "test"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ]
     }
   }
 }
