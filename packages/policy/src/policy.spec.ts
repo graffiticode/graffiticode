@@ -155,7 +155,7 @@ describe("token profiles", () => {
     await expect(issueToken(signer, "session", { ...SESSION_CLAIMS, sys: "yes" })).rejects.toThrow(/sys/);
     await expect(issueToken(signer, "session", { ...SESSION_CLAIMS, exp: 9999999999 })).rejects.toThrow(/exp/);
     await expect(issueToken(signer, "session", { ...SESSION_CLAIMS, jti: "fixed" })).rejects.toThrow(/jti/);
-    await expect(issueToken(signer, "admission", SESSION_CLAIMS)).rejects.toThrow(/unknown token profile/);
+    await expect(issueToken(signer, "plan", SESSION_CLAIMS)).rejects.toThrow(/unknown token profile/);
   });
 
   it("accepts a well-formed handmade token, so the refusals below test one thing each", async () => {

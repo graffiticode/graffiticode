@@ -1,4 +1,4 @@
-export { createPolicy, PolicyDenied, PolicyMaintenance, opidParts } from "./policy.js";
+export { createPolicy, PolicyDenied, PolicyMaintenance, opidParts, ADMISSION_MAX_AGE_MS } from "./policy.js";
 export { SYSTEM_PREVIEW_SUBJECT, PROVENANCES, sessionProvenance, provenanceRefusal } from "./provenance.js";
 export { createProtectedSwitch, createFirestoreFlagReader, parseHardDisable, admission, PROTECTED_EXECUTION_DOC, MAINTENANCE } from "./maintenance.js";
 export { createLocalSigner, issueToken, verifyToken, tokenParts, PROFILES, ISSUER, ALG, CLOCK_SKEW_SECONDS, RESERVED_CLAIMS } from "./tokens.js";
@@ -10,8 +10,9 @@ export { createKmsSigner, derToJose } from "./kms.js";
 export { createFirestoreConnectionStore, createFirestoreInvocationStore, createFirestorePublicationStore, createFirestoreGrantStore } from "./firestore.js";
 export { createMemoryGrantStore, grantIdFor } from "./grants.js";
 export { createMemoryPublicationStore } from "./publications.js";
-export { createMemoryInvocationStore, InvocationConflict } from "./invocations.js";
+export { createMemoryInvocationStore, createMemoryLeaseFence, createMemoryApprovals, InvocationConflict, AdmissionRefused } from "./invocations.js";
+export { createFirestoreApprovals, createFirestoreLeaseFence } from "./revisions.js";
 export { createConnectionManager } from "./manage.js";
 export { createBrokerAdminClient, BrokerConflict } from "./broker-admin.js";
 export { buildPolicyRequest, PolicyRefused } from "./client.js";
-export { requireEnv, parseCallers, parseSystemConnections, parseEnabledGatedFunctions, parseEnabledGatedOperations, auditSink, createIdTokenSource } from "./config.js";
+export { requireEnv, parseCallers, parseSystemConnections, parseEnabledGatedFunctions, parseEnabledGatedOperations, parseMinContractVersion, auditSink, createIdTokenSource } from "./config.js";

@@ -81,6 +81,8 @@ const VALIDATORS = {
   attemptId: match(UUIDISH),
   provenance: oneOf(["user", "publication", "system"]),
   callerRole: oneOf(["broker", "compiler", "console", "gateway", "policy"]),
+  // Contract v2 (W4): the admitted plan, by its digest.
+  planDigest: match(/^[a-f0-9]{64}$/),
 };
 // `fn` and `step` need the record's lang and op to be checked.
 const fnFor = (fn, lang) => (typeof fn === "string" && Object.prototype.hasOwnProperty.call(protectedFunctionsForLang(lang) || {}, fn) ? fn : INVALID);

@@ -8,6 +8,9 @@
 //                                                      issued to the gateway
 //   session   aud=policy  typ=gc-session+jwt  ~15 min  one compile's admission
 //   execution aud=broker  typ=gc-exec+jwt     <=60 s   one broker operation
+//   admission aud=policy  typ=gc-admission+jwt 15 min  one admitted plan,
+//                                                      held by the gateway and
+//                                                      presented at each snapshot
 //
 // PROFILES is the one schema both issuance (every signer) and verification
 // use (spec TOKEN-01): `typ`, audience, issued and maximum lifetime, and the
@@ -31,12 +34,14 @@ const STRING = "string";
 const NUMBER = "number";
 const BOOLEAN = "boolean";
 const STRINGS = "string[]";
+const OBJECT = "object";
 
 const CHECKS = {
   [STRING]: v => typeof v === "string" && v.length > 0,
   [NUMBER]: v => typeof v === "number" && Number.isFinite(v),
   [BOOLEAN]: v => typeof v === "boolean",
   [STRINGS]: v => Array.isArray(v) && v.every(s => typeof s === "string"),
+  [OBJECT]: v => v !== null && typeof v === "object" && !Array.isArray(v),
 };
 const isType = (value, type) => CHECKS[type](value);
 
@@ -57,14 +62,16 @@ export const PROFILES = Object.freeze({
     audience: "urn:graffiticode:policy",
     ttlSeconds: 30 * 60,
     required: { sub: STRING, conn: STRING, inv: STRING, seq: NUMBER },
-    optional: { pub: STRING },
+    optional: { pub: STRING, cv: NUMBER },
   }),
   session: profile({
     typ: "gc-session+jwt",
     audience: "urn:graffiticode:policy",
     ttlSeconds: 15 * 60,
     required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, inv: STRING, stg: STRING, rv: NUMBER, fns: STRINGS },
-    optional: { pub: STRING, sys: BOOLEAN },
+    // Contract v2 (W4): `cv` on every session; a user session bound to an
+    // admitted plan adds `pld` (its digest) and `bind` (its stage).
+    optional: { pub: STRING, sys: BOOLEAN, cv: NUMBER, pld: STRING, bind: OBJECT },
   }),
   execution: profile({
     typ: "gc-exec+jwt",
@@ -74,7 +81,17 @@ export const PROFILES = Object.freeze({
     // from a Policy that predates it is refused, and the caller mints a fresh
     // one for the same operation. `pub` names a publication's.
     required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER, prv: STRING },
-    optional: { pub: STRING },
+    // Contract v2 (W4): `cv`, and for user provenance the plan (`pld`) and
+    // stage (`stg`) its session was bound to.
+    optional: { pub: STRING, cv: NUMBER, pld: STRING, stg: STRING },
+  }),
+  // One admitted plan for one invocation (W4): issued to the gateway by
+  // admission, and presented with each stage's snapshot. Policy's audience.
+  admission: profile({
+    typ: "gc-admission+jwt",
+    audience: "urn:graffiticode:policy",
+    ttlSeconds: 15 * 60,
+    required: { sub: STRING, conn: STRING, inv: STRING, pld: STRING, cv: NUMBER },
   }),
 });
 

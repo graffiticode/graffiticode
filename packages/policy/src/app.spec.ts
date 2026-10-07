@@ -128,6 +128,35 @@ describe("invocations over http", () => {
   });
 });
 
+// Chain admission over HTTP (W4 PR 2): the marker, the plan lookup and
+// admissions are the gateway's, and a snapshot carries its admission token.
+describe("chain admission over http", () => {
+  it("marks an invocation for admission, and keeps its plan lookup and admissions to the gateway", async () => {
+    const marked = await invocation("conn-1", { idempotencyKey: "job-w4", admission: true });
+    expect(marked.body.data).toMatchObject({ contract: 2, planDigest: null });
+    const { invocationToken } = marked.body.data;
+    const lookup = await as(request(app).post("/v1/invocations/plan"), SA.gateway).send({ invocationToken });
+    expect(lookup.status).toBe(200);
+    expect(lookup.headers["cache-control"]).toBe("no-store");
+    expect(lookup.body.data).toEqual({ contract: 2, plan: null });
+    for (const route of ["/v1/invocations/plan", "/v1/admissions"]) {
+      const compiler = await as(request(app).post(route), SA.l0176).send({ invocationToken });
+      expect(compiler.status).toBe(403);
+    }
+    // This Policy has no approvals store: admission is refused, not guessed.
+    const admitted = await as(request(app).post("/v1/admissions"), SA.gateway).send({ invocationToken, taskIds: ["task-1"], stages: [] });
+    expect(admitted.body.error).toMatchObject({ reason: "unavailable", category: "unavailable" });
+  });
+
+  it("refuses a marked invocation's snapshot without its plan, or with a forged admission token", async () => {
+    const { invocationToken } = (await invocation("conn-1", { idempotencyKey: "job-w4b", admission: true })).body.data;
+    const unbound = await as(request(app).post("/v1/snapshot"), SA.l0176).send({ ...SNAPSHOT, invocationToken });
+    expect(unbound.body.error).toMatchObject({ reason: "plan-required", category: "conflict" });
+    const forged = await as(request(app).post("/v1/snapshot"), SA.l0176).send({ ...SNAPSHOT, invocationToken, admissionToken: "x.y.z", manifest: {} });
+    expect(forged.body.error).toMatchObject({ reason: "bad-token", category: "authentication" });
+  });
+});
+
 describe("sharing over http", () => {
   it("lets the owner share, list and revoke, and the recipient see it", async () => {
     const shared = await as(request(app).post("/v1/connections/conn-1/grants"), SA.console).send({ recipientUid: "0xalice", recipientLabel: "alice@example.com", permissions: [{ lang: "0176", fn: "save-to-itembank" }] });

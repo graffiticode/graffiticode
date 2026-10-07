@@ -3,13 +3,17 @@
 // made. The end user comes only from Authorization (verified with the auth
 // service); the caller only from X-Caller-Identity (see caller.js).
 //
-//   POST /v1/invocations gateway  { connectionId, taskId, inputDigest, idempotencyKey? }
-//                                                                 -> { invocationToken, invocationId, seq, reused, ownerUid }
+//   POST /v1/invocations gateway  { connectionId, taskId, inputDigest, idempotencyKey?, admission? }
+//                                 -> { invocationToken, invocationId, seq, reused, ownerUid, contract, planDigest }
+//   POST /v1/invocations/plan gateway { invocationToken }   the invocation's plan, before a retry
+//                                 resolves compiler URLs   -> { contract, plan: null | { planDigest, stages } }
+//   POST /v1/admissions gateway   { invocationToken, taskIds, stages: [manifest per task] }
+//                                 one decision for the chain -> { planDigest, admissionToken, stages }
 //   POST   /v1/publications          gateway  { connectionId, taskId, lang, artifactInvocationId } -> { publicationId }
 //   DELETE /v1/publications/:id      gateway  the publisher unpublishes
 //   POST   /v1/publications/:id/view gateway  NO user: a view of the published item
 //                                             -> { invocationToken, publisherUid, connectionId, lang, taskId, artifactInvocationId }
-//   POST /v1/snapshot  compiler   { lang, connectionId, fns, invocationToken, stage }
+//   POST /v1/snapshot  compiler   { lang, connectionId, fns, invocationToken, stage, admissionToken?, manifest? }
 //                                 (no user for a publication's invocation token)
 //                                                                 -> { allowed, sessionToken }
 //   POST /v1/preview-session  compiler  { lang }  NO user, NO invocation: a session on the
@@ -46,6 +50,7 @@ import { requestContextMiddleware } from "./audit.js";
 
 const ROUTE_ROLES = Object.freeze({
   invocations: ["gateway"],
+  admissions: ["gateway"],
   publications: ["gateway"],
   snapshot: ["compiler"],
   "preview-session": ["compiler"],
@@ -112,8 +117,24 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.post("/invocations", buildHttpHandler(async (req, res) => {
     const caller = await authorize("invocations")(req);
     const u = await user(req);
-    const { connectionId, taskId, inputDigest, idempotencyKey = null } = req.body ?? {};
-    await decide(res, () => policy.allocateInvocation({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey }));
+    const { connectionId, taskId, inputDigest, idempotencyKey = null, admission = false } = req.body ?? {};
+    await decide(res, () => policy.allocateInvocation({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey, admission }));
+  }));
+  // Chain admission (W4): the invocation's plan, if any, before a retry
+  // resolves compiler URLs; and one decision for every stage of the chain.
+  router.post("/invocations/plan", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("admissions")(req);
+    const u = await user(req);
+    const { invocationToken } = req.body ?? {};
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.planLookup({ caller, user: u, invocationToken }));
+  }));
+  router.post("/admissions", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("admissions")(req);
+    const u = await user(req);
+    const { invocationToken, taskIds, stages } = req.body ?? {};
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.admit({ caller, user: u, invocationToken, taskIds, stages }));
   }));
   router.post("/publications", buildHttpHandler(async (req, res) => {
     const caller = await authorize("publications")(req);
@@ -133,8 +154,8 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.post("/snapshot", buildHttpHandler(async (req, res) => {
     const caller = await authorize("snapshot")(req);
     const u = await optionalUser(req);
-    const { lang, connectionId, fns, invocationToken, stage } = req.body ?? {};
-    await decide(res, () => policy.snapshot({ caller, user: u, lang, connectionId, fns, invocationToken, stage }));
+    const { lang, connectionId, fns, invocationToken, stage, admissionToken = null, manifest = null } = req.body ?? {};
+    await decide(res, () => policy.snapshot({ caller, user: u, lang, connectionId, fns, invocationToken, stage, admissionToken, manifest }));
   }));
   // No user token is read: the session is the system's, not a user's.
   router.post("/preview-session", buildHttpHandler(async (req, res) => {

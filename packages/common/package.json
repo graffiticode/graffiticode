@@ -7,6 +7,8 @@
   },
   "exports": {
     "./canonical": "./dist/canonical.js",
+    "./chain": "./dist/chain.js",
+    "./contract": "./dist/contract.js",
     "./errors": "./dist/errors.js",
     "./failures": "./dist/failures.js",
     "./http": "./dist/http.js",

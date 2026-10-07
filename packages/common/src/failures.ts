@@ -47,6 +47,13 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
     "maintenance", "authorization-unavailable", "deadline-exceeded", "unavailable",
     "no-system-connection", "no-system-preview-functions",
   ]),
+  // Contract v2 (W4): chain admission and plan binding.
+  ...cat("permission", ["revision-not-approved", "stage-not-pinnable"]),
+  ...cat("conflict", [
+    "plan-required", "plan-mismatch", "plan-binding-mismatch", "pinned-revision-unavailable", "revision-retiring",
+    "invocation-incompatible", "contract-version-unsupported",
+  ]),
+  ...cat("unavailable", ["admission-stale"]),
   // api: artifacts and reads through a connection or publication.
   // (`signed-content` and `storage-failed` detail why an artifact wasn't stored.)
   ...cat("unavailable", ["artifact-storage-unavailable", "connections-unavailable", "publications-unavailable", "policy-unavailable", "storage-failed"]),

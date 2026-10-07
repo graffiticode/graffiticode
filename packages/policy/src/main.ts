@@ -39,7 +39,8 @@ import {
   createFirestoreFlagReader,
   parseHardDisable
 } from "./index.js";
-import { requireEnv, parseCallers, parseSystemConnections, parseEnabledGatedFunctions, auditSink, createIdTokenSource } from "./config.js";
+import { requireEnv, parseCallers, parseSystemConnections, parseEnabledGatedFunctions, parseMinContractVersion, auditSink, createIdTokenSource } from "./config.js";
+import { createFirestoreApprovals, createFirestoreLeaseFence } from "./revisions.js";
 
 const env = process.env;
 const keyVersionName = requireEnv(env, "POLICY_KMS_KEY_VERSION");
@@ -50,9 +51,14 @@ const brokerUrl = requireEnv(env, "BROKER_URL");
 const auditSecret = requireEnv(env, "AUDIT_PSEUDONYM_SECRET");
 const systemConnections = parseSystemConnections(env.POLICY_SYSTEM_CONNECTIONS);
 const enabledGated = parseEnabledGatedFunctions(env.POLICY_ENABLED_GATED_FUNCTIONS);
+// Contract v2 (W4): 1 until the cutover raises it.
+const minContractVersion = parseMinContractVersion(env.POLICY_MIN_CONTRACT_VERSION);
 
 const app = admin.apps.length ? admin.app() : admin.initializeApp();
 const db = getFirestore(app, env.POLICY_FIRESTORE_DB || "policy");
+// Approved compiler revisions: written by the deploy identity, read-only here
+// (IAM review, Step 11).
+const revisionsDb = getFirestore(app, env.POLICY_REVISIONS_DB || "revisions");
 const kms = new KeyManagementServiceClient();
 
 // The public half comes from KMS; the private half never leaves it.
@@ -68,7 +74,21 @@ const invocations = createFirestoreInvocationStore(db);
 const publications = createFirestorePublicationStore(db);
 const grants = createFirestoreGrantStore(db);
 const protectedSwitch = createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) });
-const policy = createPolicy({ signer, jwks: publicJwks, connections, invocations, publications, grants, systemConnections, enabledGated, protectedSwitch, audit });
+const policy = createPolicy({
+  signer,
+  jwks: publicJwks,
+  connections,
+  invocations,
+  publications,
+  grants,
+  systemConnections,
+  enabledGated,
+  protectedSwitch,
+  audit,
+  approvals: createFirestoreApprovals(revisionsDb),
+  fence: createFirestoreLeaseFence(db),
+  minContractVersion,
+});
 const idToken = createIdTokenSource({ GoogleAuth });
 const manager = createConnectionManager({ connections, grants, audit, systemConnections, enabledGated, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
 const authClient = createAuthClient(authUrl);

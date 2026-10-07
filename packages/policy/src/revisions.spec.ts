@@ -8,6 +8,14 @@ import { randomUUID } from "node:crypto";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import {
+  createFirestoreInvocationStore,
+  createFirestoreConnectionStore,
+  createFirestoreGrantStore,
+  AdmissionRefused,
+} from "./index.js";
+import {
+  createFirestoreApprovals,
+  createFirestoreLeaseFence,
   registerLease,
   consumeLease,
   readRevisions,
@@ -248,5 +256,115 @@ run("revision retirement fence", () => {
     await approve(revision);
     await expect(retireRevision(deps(), { lang, revision, by: "test", resume: true })).rejects.toMatchObject({ reason: "revision-state" });
     await expect(retireRevision(deps(), { lang, revision, by: "test", cancel: true })).rejects.toMatchObject({ reason: "revision-state" });
+  });
+});
+
+// The admission side as Policy runs it (W4 PR 2): the invocation marker, the
+// plan-write transaction that consumes the lease, and reads at a readTime.
+run("chain admission in Firestore", () => {
+  let policyDb;
+  let revisionsDb;
+  let invocations;
+  beforeAll(() => {
+    const app = admin.apps.length ? admin.app() : admin.initializeApp({ projectId: "demo-graffiticode" });
+    policyDb = getFirestore(app, "policy");
+    revisionsDb = getFirestore(app, "revisions");
+    invocations = createFirestoreInvocationStore(policyDb);
+  });
+  const allocate = (over = {}) => invocations.allocate({
+    uid: `u-${randomUUID()}`, connectionId: "conn-1", taskId: "chain", inputDigest: "d".repeat(64), idempotencyKey: `k-${randomUUID()}`, admission: true, ...over,
+  });
+  const plan = invocationId => ({ contractVersion: 2, invocationId, stages: [] });
+  const commit = async (invocationId, leaseId, readTime, over = {}) => invocations.commitPlan({
+    leaseId, invocationId, planDigest: "p".repeat(64), plan: plan(invocationId), revisions: ["rev-a"], readTime, maxAgeMs: 5000, ...over,
+  });
+  const fence = () => createFirestoreLeaseFence(policyDb);
+
+  it("marks an invocation durably, and a retry reports its marker and plan", async () => {
+    const uid = `u-${randomUUID()}`;
+    const key = `k-${randomUUID()}`;
+    const first = await allocate({ uid, idempotencyKey: key });
+    expect(first).toMatchObject({ contract: 2, planDigest: null, reused: false });
+    expect(await invocations.get(first.invocationId)).toMatchObject({ uid, contract: 2, planDigest: null, taskId: "chain" });
+    const lease = await fence().register(["rev-a"]);
+    await commit(first.invocationId, lease.id, lease.readTime);
+    expect(await allocate({ uid, idempotencyKey: key, admission: false })).toMatchObject({ invocationId: first.invocationId, contract: 2, planDigest: "p".repeat(64), reused: true });
+    const plain = await allocate({ admission: false });
+    expect((await invocations.get(plain.invocationId)).contract).toBe(1);
+  });
+
+  it("consumes the lease and stores the first plan only; a retry keeps it; another plan, an unmarked invocation or a fenced lease can't", async () => {
+    const inv = await allocate();
+    const lease = await fence().register(["rev-a"]);
+    expect(await commit(inv.invocationId, lease.id, lease.readTime)).toEqual({ created: true });
+    expect((await policyDb.collection("admission-leases").doc(lease.id).get()).exists).toBe(false);
+    expect(await invocations.getPlan("p".repeat(64))).toEqual(plan(inv.invocationId));
+    const again = await fence().register(["rev-a"]);
+    expect(await commit(inv.invocationId, again.id, again.readTime)).toEqual({ created: false });
+    const third = await fence().register(["rev-a"]);
+    await expect(commit(inv.invocationId, third.id, third.readTime, { planDigest: "q".repeat(64) })).rejects.toMatchObject({ reason: "plan-mismatch" });
+    const plain = await allocate({ admission: false });
+    const fourth = await fence().register(["rev-a"]);
+    await expect(commit(plain.invocationId, fourth.id, fourth.readTime)).rejects.toMatchObject({ reason: "invocation-incompatible" });
+    const fenced = await fence().register([`rev-${randomUUID()}`]);
+    await invalidateLeases(policyDb, (await policyDb.collection("admission-leases").doc(fenced.id).get()).data().revisions[0]);
+    const other = await allocate();
+    await expect(commit(other.invocationId, fenced.id, fenced.readTime)).rejects.toBeInstanceOf(AdmissionRefused);
+    await expect(commit(other.invocationId, fenced.id, fenced.readTime)).rejects.toMatchObject({ reason: "revision-retiring" });
+  });
+
+  it("refuses a decision older than the bound when its transaction starts", async () => {
+    const inv = await allocate();
+    const lease = await fence().register(["rev-a"]);
+    const late = lease.readTime.toMillis() + 6000;
+    await expect(commit(inv.invocationId, lease.id, lease.readTime, { now: () => late })).rejects.toMatchObject({ reason: "admission-stale" });
+    expect((await invocations.get(inv.invocationId)).planDigest).toBeNull();
+  });
+
+  it("racing retirement's invalidation, either the plan commits and the lease is gone, or it can't commit", async () => {
+    for (let i = 0; i < 8; i++) {
+      const revision = `rev-${randomUUID()}`;
+      const inv = await allocate();
+      const lease = await fence().register([revision]);
+      const digest = randomUUID().replace(/-/g, "").padEnd(64, "0");
+      const [committed, invalidated] = await Promise.all([
+        commit(inv.invocationId, lease.id, lease.readTime, { planDigest: digest, revisions: [revision] }).then(r => r, e => e),
+        invalidateLeases(policyDb, revision),
+      ]);
+      const stored = await invocations.getPlan(digest);
+      if (committed instanceof Error) {
+        expect(committed).toMatchObject({ reason: "revision-retiring" });
+        expect(stored).toBeNull();
+        expect(invalidated).toBe(1);
+      } else {
+        expect(committed).toEqual({ created: true });
+        expect(stored).not.toBeNull();
+        expect(invalidated).toBe(0);
+      }
+    }
+  }, 60000);
+
+  it("reads connections, grants and approvals as of the admission's readTime", async () => {
+    const connections = createFirestoreConnectionStore(policyDb);
+    const grants = createFirestoreGrantStore(policyDb);
+    const connectionId = `conn-${randomUUID()}`;
+    await connections.put({ connectionId, ownerUid: "0xowner", backend: "learnosity", status: "active" });
+    await grants.put({ grantId: `g-${connectionId}`, connectionId, ownerUid: "0xowner", recipientUid: "0xr", permissions: [] });
+    const lang = String(1000 + Math.floor(Math.random() * 8999));
+    await revisionRef(revisionsDb, lang, "rev-a").set({ lang, revision: "rev-a", status: "approved" });
+    const { readTime } = await fence().register(["rev-a"]);
+    // Changed after the read time: the admission still sees the earlier state.
+    await connections.put({ connectionId, ownerUid: "0xowner", backend: "learnosity", status: "disabled" });
+    await grants.delete(`g-${connectionId}`);
+    await revisionRef(revisionsDb, lang, "rev-a").set({ lang, revision: "rev-a", status: "retiring" });
+    expect((await connections.get(connectionId, { readTime })).status).toBe("active");
+    expect(await grants.get(`g-${connectionId}`, { readTime })).toMatchObject({ recipientUid: "0xr" });
+    const approvals = createFirestoreApprovals(revisionsDb);
+    expect((await approvals.read([{ lang, revision: "rev-a" }], readTime))[0]).toMatchObject({ languageKnown: true, record: { status: "approved" } });
+    expect((await approvals.read([{ lang: "9999", revision: "rev-a" }], readTime))[0]).toMatchObject({ languageKnown: false, record: null });
+    // And now, live.
+    expect((await connections.get(connectionId)).status).toBe("disabled");
+    expect(await grants.get(`g-${connectionId}`)).toBeNull();
+    expect((await approvals.current(lang, "rev-a")).status).toBe("retiring");
   });
 });

@@ -16,14 +16,20 @@ const FORMS = [
   /\bdeny\("([a-z0-9-]+)"/g, // policy: deny("reason", record)
   /\brefuse\("([a-z0-9-]+)"/g, // broker: refuse("reason", status)
   /\brefusal: "([a-z0-9-]+)"/g, // policy: { refusal: "reason" }
-  /\bnew (?:BrokerRefused|PolicyDenied|AuthorizationDenied)\("([a-z0-9-]+)"/g,
+  /\bnew (?:BrokerRefused|PolicyDenied|AuthorizationDenied|AdmissionRefused)\("([a-z0-9-]+)"/g,
   /\breason: "([a-z0-9-]+)"/g, // audited denials (caller-rejected, route-not-allowed-for-caller)
   /\bdeny\([^;]*?\? "([a-z0-9-]+)" : "([a-z0-9-]+)"/g, // policy: deny(expired ? "token-expired" : "bad-token", …)
   /\b(?:failedWith|failure)\([^;]*?, "([a-z0-9-]+)"\)/g, // api: failedWith(message, "code"), failure(message, "code")
   /\bartifactNotStored\(\{ error: "([a-z0-9-]+)"/g, // api: artifactNotStored({ error: "code", … })
 ];
 // Reasons returned from a function rather than in one of the forms above.
-const RETURNED = { liveRefusal: /return "([a-z0-9-]+)";/g, provenanceRefusal: /return "([a-z0-9-]+)";/g, authorizationReason: /return "([a-z0-9-]+)";/g };
+const RETURNED = {
+  liveRefusal: /return "([a-z0-9-]+)";/g,
+  provenanceRefusal: /return "([a-z0-9-]+)";/g,
+  authorizationReason: /return "([a-z0-9-]+)";/g,
+  // Contract v2 (W4): mint's and authorize-execution's plan checks.
+  contractRefusalFor: /(?:return|\?) "([a-z0-9-]+)"/g,
+};
 
 // Strings the forms also match that aren't refusals: audit annotations of an
 // allowed or recorded outcome.

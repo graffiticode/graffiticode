@@ -148,3 +148,11 @@ export const parseEnabledGatedOperations = json => {
   }
   return Object.freeze(new Set(parsed));
 };
+
+// The lowest admission/execution contract version accepted (W4): 1 (the
+// default) until the cutover sets 2. Anything else refuses to start.
+export const parseMinContractVersion = (value?: string) => {
+  if (value === undefined || value === "") return 1;
+  if (value === "1" || value === "2") return Number(value);
+  throw new Error(`POLICY_MIN_CONTRACT_VERSION must be 1 or 2, not ${value}`);
+};

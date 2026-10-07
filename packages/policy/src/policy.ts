@@ -24,6 +24,14 @@
 //             issues a short execution token scoped to that one request. The
 //             operation id is invocation/stage/occurrence, so a retry of the
 //             same invocation reaches the same write receipt.
+//   admission (contract v2, capability plan W4) once per chain, by the
+//             gateway, before any stage executes: every stage's preflight
+//             manifest, pinned to approved compiler revisions, decided in one
+//             consistent read. Denying any stage denies the chain. The plan
+//             (by its digest) binds every later snapshot, mint and
+//             authorization for the invocation; a marked invocation never
+//             runs without it. `planLookup` gives a retry the plan before it
+//             resolves any compiler URL.
 //
 // Callers are authenticated before reaching here: `user` is the verified end
 // user and `caller.lang` the language bound to the verified calling service.
@@ -39,9 +47,11 @@ import {
   isStepRegistered
 } from "@graffiticode/common/protected-registry";
 import { createHash, randomUUID } from "node:crypto";
+import { decodeChainId } from "@graffiticode/common/chain";
+import { CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinnedStage, planDigest as digestOf, stageBinding, sameStage } from "@graffiticode/common/contract";
 import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
-import { InvocationConflict } from "./invocations.js";
+import { InvocationConflict, AdmissionRefused } from "./invocations.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
@@ -76,7 +86,15 @@ const isLang = v => typeof v === "string" && /^\d{4}$/.test(v);
 const VIEW_INPUT = createHash("sha256").update("publication-view").digest("hex");
 export { SYSTEM_PREVIEW_SUBJECT };
 
-export const createPolicy = ({ signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, enabledGated = new Set(), protectedSwitch, audit }) => {
+// How old an admission's consistent read may be when its plan is written.
+export const ADMISSION_MAX_AGE_MS = 5000;
+
+export const createPolicy = ({
+  signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, enabledGated = new Set(), protectedSwitch, audit,
+  // Contract v2 (W4): the approved-revisions reader and the lease fence, and
+  // the lowest contract version accepted (1 until the cutover).
+  approvals = null, fence = null, minContractVersion = 1, admissionMaxAgeMs = ADMISSION_MAX_AGE_MS, now = () => Date.now(),
+}) => {
   // No default: a policy built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createPolicy needs a protectedSwitch");
   const deny = async (reason, record) => {
@@ -106,14 +124,14 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
   // user, publication or grant reaches it, its owner included, so it can never
   // write, sign Author or back a publication.
   const isSystemConnection = connectionId => Object.values(systemConnections).includes(connectionId);
-  const accessFor = async (connection, uid, { ownerUid }: { ownerUid?: string } = {}) => {
+  const accessFor = async (connection, uid, { ownerUid, readTime }: { ownerUid?: string, readTime?: unknown } = {}) => {
     if (!connection) return { refusal: "connection-not-found" };
     if (isSystemConnection(connection.connectionId)) return { refusal: "system-connection" };
     if (connection.status !== "active") return { refusal: "connection-disabled" };
     if (ownerUid !== undefined && connection.ownerUid !== ownerUid) return { refusal: "owner-changed" };
     if (connection.ownerUid === uid) return { owner: true, permissions: connection.ownerPermissions ?? null };
     const grant = grants && uid
-      ? await grants.get(grantIdFor({ connectionId: connection.connectionId, recipientUid: uid }))
+      ? await grants.get(grantIdFor({ connectionId: connection.connectionId, recipientUid: uid }), readTime ? { readTime } : undefined)
       : null;
     if (!grant || isExpired(grant) || grant.ownerUid !== connection.ownerUid) return { refusal: "not-owner" };
     return { grant };
@@ -139,7 +157,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     return permitted && (access.owner || spec.delegable === true);
   };
 
-  const allocateInvocation = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey = null }) => {
+  const allocateInvocation = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey = null, admission = false }) => {
     // callerRole is the verified caller's (the app's identifyCaller).
     const record = { event: "invocation", uid: user?.uid, connectionId, callerRole: caller?.role };
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
@@ -148,22 +166,26 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       return deny("bad-request", record);
     }
     if (idempotencyKey !== null && !isId(idempotencyKey)) return deny("bad-request", record);
+    if (typeof admission !== "boolean") return deny("bad-request", record);
     const connection = await connections.get(connectionId);
     const access = await accessFor(connection, user.uid);
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
     let allocated;
     try {
-      allocated = await invocations.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey });
+      allocated = await invocations.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, admission });
     } catch (e) {
       if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
       throw e;
     }
     const { invocationId, seq, reused } = allocated;
-    const invocationToken = await issueToken(signer, "invocation", { sub: user.uid, conn: connectionId, inv: invocationId, seq });
+    // The invocation's own marker (a retry can't change it): 2 means it runs
+    // only under an admitted plan.
+    const contract = allocated.contract ?? 1;
+    const invocationToken = await issueToken(signer, "invocation", { sub: user.uid, conn: connectionId, inv: invocationId, seq, cv: contract });
     await audit({ ...record, ownerUid: connection.ownerUid, invocationId, outcome: "allowed", reason: reused ? "reused" : "new" });
     // The owner and sequence go back to the gateway, which binds the private
     // result of this invocation to them.
-    return { invocationToken, invocationId, seq, reused, ownerUid: connection.ownerUid };
+    return { invocationToken, invocationId, seq, reused, ownerUid: connection.ownerUid, contract, planDigest: allocated.planDigest ?? null };
   };
 
   // The invocation comes only from a policy-issued invocation token for this
@@ -286,12 +308,49 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       pub: claims.pub,
       rv: REGISTRY_VERSION,
       fns: allowed,
+      // A publication's v2 binding is the publication itself (`pub`).
+      cv: CONTRACT_VERSION,
     });
     await audit({ ...record, uid: claims.sub, ownerUid: connection.ownerUid, outcome: "allowed", reason: "publication" });
     return { allowed, sessionToken };
   };
 
-  const snapshot = async ({ caller, user, lang, connectionId, fns, invocationToken, stage }) => {
+  // An invocation allocated for chain admission runs only under its plan,
+  // whatever the minimum contract version (W4).
+  const requiresPlan = async invocationId => {
+    if (minContractVersion >= 2) return true;
+    const invocation = isId(invocationId) ? await invocations.get?.(invocationId) : null;
+    return invocation?.contract === 2;
+  };
+  // Is the pinned revision still runnable? Read live: retirement blocks it
+  // from `retiring` on.
+  const revisionAvailable = async (lang, revision) => {
+    if (!approvals) return false;
+    const record = await approvals.current(lang, revision);
+    return record?.status === "approved";
+  };
+  // A user-provenance session's plan binding: the admission token, the plan
+  // it names, and the stage this compiler is executing, which must match what
+  // the compiler reports about itself. Returns { refusal } or { plan, stage }.
+  const planBinding = async ({ admissionToken, invocationId, uid, connectionId, lang, stage, manifest }) => {
+    let claims;
+    try {
+      ({ claims } = await verifyToken(jwks, "admission", admissionToken));
+    } catch {
+      return { refusal: "bad-token" };
+    }
+    if (claims.cv !== CONTRACT_VERSION || claims.inv !== invocationId || claims.sub !== uid || claims.conn !== connectionId) {
+      return { refusal: "plan-binding-mismatch" };
+    }
+    const plan = await invocations.getPlan(claims.pld);
+    const pinned = plan?.stages?.find(s => s.stage === stage);
+    if (!plan || plan.invocationId !== invocationId || !pinned || pinned.lang !== lang) return { refusal: "plan-binding-mismatch" };
+    if (manifestProblems(manifest, stage).length || !sameStage(manifest, pinned)) return { refusal: "plan-binding-mismatch" };
+    if (!(await revisionAvailable(lang, pinned.revision))) return { refusal: "pinned-revision-unavailable" };
+    return { planDigest: claims.pld, stage: pinned };
+  };
+
+  const snapshot = async ({ caller, user, lang, connectionId, fns, invocationToken, stage, admissionToken = null, manifest = null }) => {
     const record = { event: "snapshot", uid: user?.uid, lang, connectionId, registryVersion: REGISTRY_VERSION, callerRole: caller?.role };
     // The user is verified; the connection is checked against it below, as
     // for anyone.
@@ -308,6 +367,19 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     // From here the invocation is verified: its id and the compiler's stage.
     Object.assign(record, { invocationId, stage });
 
+    // Contract v2: bound to the admitted plan, or refused if the invocation
+    // requires one. An unmarked invocation keeps the per-stage path (v1)
+    // until the cutover.
+    let bound = null;
+    if (admissionToken !== null) {
+      if (typeof admissionToken !== "string") return deny("bad-request", record);
+      bound = await planBinding({ admissionToken, invocationId, uid: user.uid, connectionId, lang, stage, manifest });
+      if (bound.refusal) return deny(bound.refusal, record);
+      Object.assign(record, { planDigest: bound.planDigest });
+    } else if (await requiresPlan(invocationId)) {
+      return deny("plan-required", record);
+    }
+
     const connection = await connections.get(connectionId);
     const access = await accessFor(connection, user.uid);
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
@@ -318,9 +390,12 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     // grant names. A write runs whenever the program calls it; its identity is
     // the invocation's.
     const registered = protectedFunctionsForLang(lang) || {};
+    // Under a plan a snapshot may only narrow it: never a function the plan
+    // didn't admit for this stage.
+    const admitted = bound ? new Set(bound.stage.requiredFunctions) : null;
     const allowed = [...new Set(fns)].filter(fn => {
       const spec = Object.prototype.hasOwnProperty.call(registered, fn) ? registered[fn] : null;
-      return Boolean(spec && spec.backend === connection.backend && mayUse(access, lang, fn));
+      return Boolean(spec && spec.backend === connection.backend && mayUse(access, lang, fn) && (!admitted || admitted.has(fn)));
     });
 
     const sessionToken = await issueToken(signer, "session", {
@@ -333,6 +408,7 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       stg: stage,
       rv: REGISTRY_VERSION,
       fns: allowed,
+      ...(bound ? { cv: CONTRACT_VERSION, pld: bound.planDigest, bind: stageBinding(bound.stage) } : { cv: 1 }),
     });
     await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed" });
     return { allowed, sessionToken };
@@ -391,6 +467,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       sys: true,
       rv: REGISTRY_VERSION,
       fns,
+      // A system session's v2 binding is the system connection itself.
+      cv: CONTRACT_VERSION,
     });
     await audit({ ...record, connectionId, ownerUid: connection.ownerUid, invocationId: systemInvocation, stage: "preview", outcome: "allowed", reason: "system-preview" });
     return { allowed: fns, sessionToken };
@@ -476,9 +554,34 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     if (checked.refusal) return deny(checked.refusal, record);
     const { provenance } = checked;
     const live = { ...record, provenance };
+    const contractRefusal = await contractRefusalFor({ claims: session, provenance, fn, invocationId: session.inv, stage: session.stg, lang: session.lang });
+    if (contractRefusal) return deny(contractRefusal, { ...live, planDigest: session.pld });
     const refusal = await liveRefusal({ ...session, provenance }, fn);
     if (refusal) return deny(refusal, live);
-    return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, record: live });
+    return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, record: { ...live, planDigest: session.pld } });
+  };
+
+  // The contract checks shared by mint and authorize-execution (W4). `claims`
+  // is the verified session or execution token: its `cv` must be supported
+  // and at least the minimum; a user-provenance token bound to a plan must
+  // name a stored plan for this invocation whose stage `stage` is in
+  // `lang`, admits `fn`, and pins a revision still runnable; an unbound
+  // user-provenance token is refused when the invocation requires a plan.
+  // Publication and system tokens are bound by their own authority.
+  const contractRefusalFor = async ({ claims, provenance, fn, invocationId, stage, lang }) => {
+    const cv = claims.cv ?? 1;
+    if (!SUPPORTED_CONTRACT_VERSIONS.includes(cv)) return "contract-version-unsupported";
+    if (cv < minContractVersion) return "contract-version-unsupported";
+    if (provenance !== "user") return null;
+    if (!claims.pld) return (await requiresPlan(invocationId)) ? "plan-required" : null;
+    const plan = await invocations.getPlan(claims.pld);
+    const pinned = plan?.stages?.find(s => s.stage === stage);
+    if (!plan || plan.invocationId !== invocationId || !pinned || pinned.lang !== lang || !pinned.requiredFunctions.includes(fn)) {
+      return "plan-binding-mismatch";
+    }
+    if (claims.bind && !(claims.bind.requiredFunctions ?? []).includes(fn)) return "plan-binding-mismatch";
+    if (!(await revisionAvailable(lang, pinned.revision))) return "pinned-revision-unavailable";
+    return null;
   };
 
   const issueExecution = async ({ session, provenance, fn, op, argsDigest, occurrenceId, record }) => {
@@ -499,6 +602,8 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
       rv: session.rv,
       prv: provenance,
       ...(provenance === "publication" ? { pub: session.pub } : {}),
+      cv: session.cv ?? 1,
+      ...(session.pld ? { pld: session.pld, stg: session.stg } : {}),
     });
     await audit({ ...record, opid: operationId, outcome: "allowed" });
     return { executionToken, operationId };
@@ -549,12 +654,152 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     const badProvenance = provenanceRefusal(claims);
     if (badProvenance) return deny(badProvenance, record);
     if (!isStepRegistered({ op, step, purpose, after })) return deny("step-not-registered", record);
+    // The plan, resolved from the token's own digest (W4): its invocation and
+    // stage must agree with the operation id the receipt hangs off.
+    const { invocationId: opInvocation, stage: opStage } = opidParts(claims.opid) as { invocationId?: string, stage?: string };
+    if (claims.pld && claims.stg !== opStage) return deny("plan-binding-mismatch", { ...record, planDigest: claims.pld });
+    const contractRefusal = await contractRefusalFor({ claims, provenance: claims.prv, fn: claims.fn, invocationId: opInvocation, stage: opStage, lang: claims.lang });
+    if (contractRefusal) return deny(contractRefusal, { ...record, planDigest: claims.pld });
     // The same live checks as mint, re-read now.
     const refusal = await liveRefusal({ ...claims, provenance: claims.prv }, claims.fn);
     if (refusal) return deny(refusal, record);
     const decisionId = randomUUID();
-    await audit({ ...record, decisionId, outcome: "allowed" });
+    await audit({ ...record, decisionId, outcome: "allowed", planDigest: claims.pld });
     return { decisionId };
+  };
+
+  // Verifies an invocation token the gateway holds and the invocation behind
+  // it, for this user: { refusal } or { claims, invocation }. A wrong owner, a
+  // publication's token and an unknown invocation get the same refusal.
+  const gatewayInvocation = async ({ invocationToken, user }) => {
+    let claims;
+    try {
+      ({ claims } = await verifyToken(jwks, "invocation", invocationToken));
+    } catch {
+      return { refusal: "bad-invocation" };
+    }
+    if (claims.pub || claims.sub !== user.uid || !isId(claims.inv)) return { refusal: "bad-invocation" };
+    const invocation = await invocations.get(claims.inv);
+    if (!invocation || invocation.uid !== user.uid || invocation.connectionId !== claims.conn) return { refusal: "bad-invocation" };
+    return { claims, invocation };
+  };
+
+  // Before resolving any compiler URL, a retry asks for its invocation's plan
+  // (W4 decision 3): with one, it preflights the pinned revisions; without,
+  // the revisions serving now.
+  const planLookup = async ({ caller, user, invocationToken }) => {
+    const record = { event: "plan-lookup", uid: user?.uid, callerRole: caller?.role };
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!user?.uid) return deny("no-user", record);
+    if (typeof invocationToken !== "string") return deny("bad-request", record);
+    const found = await gatewayInvocation({ invocationToken, user });
+    if (found.refusal) return deny(found.refusal, record);
+    const { invocation } = found;
+    Object.assign(record, { invocationId: invocation.invocationId, connectionId: invocation.connectionId });
+    if (!invocation.planDigest) {
+      await audit({ ...record, outcome: "allowed" });
+      return { contract: invocation.contract, plan: null };
+    }
+    const plan = await invocations.getPlan(invocation.planDigest);
+    const stages = await Promise.all(plan.stages.map(async s => {
+      const current = approvals ? await approvals.current(s.lang, s.revision) : null;
+      return { stage: s.stage, lang: s.lang, revision: s.revision, tagUrl: current?.tagUrl ?? null, available: current?.status === "approved" };
+    }));
+    await audit({ ...record, planDigest: invocation.planDigest, outcome: "allowed" });
+    return { contract: invocation.contract, plan: { planDigest: invocation.planDigest, stages } };
+  };
+
+  // Chain admission (W4, ADMIT-01/02): one decision for every stage, before
+  // any executes. `taskIds` is the chain in order; `stages[i]` is the
+  // preflight manifest of task i, stage `s<i>`, from its compiler. Every stage
+  // is pinned: its revision must be approved for its language at one
+  // consistent read, together with the connection and grants.
+  const admit = async ({ caller, user, invocationToken, taskIds, stages }) => {
+    const record = { event: "admission", uid: user?.uid, callerRole: caller?.role, registryVersion: REGISTRY_VERSION };
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!user?.uid) return deny("no-user", record);
+    if (typeof invocationToken !== "string") return deny("bad-request", record);
+    const found = await gatewayInvocation({ invocationToken, user });
+    if (found.refusal) return deny(found.refusal, record);
+    const { invocation } = found;
+    const { invocationId, connectionId } = invocation;
+    Object.assign(record, { invocationId, connectionId });
+    await requireProtectedExecution(record, { uid: user.uid, connectionId });
+    if (!approvals || !fence) return deny("unavailable", record);
+    if (invocation.contract !== 2) return deny("invocation-incompatible", record);
+    if (!Array.isArray(taskIds) || !taskIds.length || !taskIds.every(t => typeof t === "string" && t.length > 0) ||
+        !Array.isArray(stages) || stages.length !== taskIds.length || stages.some((m, i) => manifestProblems(m, `s${i}`).length)) {
+      return deny("bad-request", record);
+    }
+    // The chain is the invocation's own (by its canonical task list).
+    let invocationChain;
+    try {
+      invocationChain = decodeChainId(invocation.taskId);
+    } catch {
+      return deny("plan-binding-mismatch", record);
+    }
+    if (JSON.stringify(invocationChain) !== JSON.stringify(taskIds)) return deny("plan-binding-mismatch", record);
+    if (stages.some(m => m.registryVersion !== REGISTRY_VERSION)) return deny("registry-version-mismatch", record);
+    // A function the registry doesn't list for the stage's language can't be
+    // admitted; a language without protected functions requires none.
+    for (const m of stages) {
+      const registered = protectedFunctionsForLang(m.lang) || {};
+      if (m.requiredFunctions.some(fn => !Object.prototype.hasOwnProperty.call(registered, fn))) return deny("bad-request", record);
+    }
+    const plan = {
+      contractVersion: CONTRACT_VERSION as 2,
+      invocationId,
+      taskIds,
+      connectionId,
+      inputDigest: invocation.inputDigest,
+      registryVersion: REGISTRY_VERSION,
+      stages: stages.map(pinnedStage),
+    };
+    const digest = digestOf(plan);
+    Object.assign(record, { planDigest: digest });
+    const retry = Boolean(invocation.planDigest);
+    if (retry && invocation.planDigest !== digest) return deny("plan-mismatch", record);
+
+    // The fence (W4 section A): the lease first, then every read at a time no
+    // earlier than it, then the plan write that consumes it.
+    const revisions = [...new Set(plan.stages.map(s => s.revision))];
+    const lease = await fence.register(revisions);
+    const approved = await approvals.read(plan.stages.map(s => ({ lang: s.lang, revision: s.revision })), lease.readTime);
+    for (const [i, { record: rev, languageKnown }] of approved.entries()) {
+      const m = plan.stages[i];
+      if (!languageKnown) return deny("stage-not-pinnable", record);
+      if (!rev || rev.lang !== m.lang) return deny(retry ? "pinned-revision-unavailable" : "revision-not-approved", record);
+      if (rev.status !== "approved") {
+        return deny(retry ? "pinned-revision-unavailable" : rev.status === "retiring" ? "revision-retiring" : "revision-not-approved", record);
+      }
+      if (rev.imageDigest !== m.imageDigest) return deny("plan-binding-mismatch", record);
+      if (!(rev.contractVersions ?? []).includes(CONTRACT_VERSION)) return deny("contract-version-unsupported", record);
+    }
+    const connection = await connections.get(connectionId, { readTime: lease.readTime });
+    const access = await accessFor(connection, user.uid, { readTime: lease.readTime });
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    for (const m of plan.stages) {
+      const registered = protectedFunctionsForLang(m.lang) || {};
+      for (const fn of m.requiredFunctions) {
+        if (registered[fn].backend !== connection.backend || !mayUse(access, m.lang, fn)) {
+          return deny(gateOpen(m.lang, fn) ? "not-granted" : "fn-not-enabled", { ...record, ownerUid: connection.ownerUid });
+        }
+      }
+    }
+    let committed;
+    try {
+      committed = await invocations.commitPlan({ leaseId: lease.id, invocationId, planDigest: digest, plan, revisions, readTime: lease.readTime, maxAgeMs: admissionMaxAgeMs, now });
+    } catch (e) {
+      if (e instanceof AdmissionRefused) return deny(e.reason, { ...record, ownerUid: connection.ownerUid });
+      throw e;
+    }
+    const admissionToken = await issueToken(signer, "admission", { sub: user.uid, conn: connectionId, inv: invocationId, pld: digest, cv: CONTRACT_VERSION });
+    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed", reason: committed.created ? "new" : "reused" });
+    return {
+      planDigest: digest,
+      admissionToken,
+      stages: plan.stages.map((m, i) => ({ stage: m.stage, lang: m.lang, revision: m.revision, tagUrl: approved[i].record.tagUrl })),
+    };
   };
 
   // For the operator and candidate checks: on or off, and why. Never the flag's
@@ -564,5 +809,5 @@ export const createPolicy = ({ signer, jwks, connections, invocations, publicati
     return { enabled, source };
   };
 
-  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, protectedExecution };
+  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, protectedExecution };
 };

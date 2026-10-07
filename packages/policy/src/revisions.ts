@@ -46,6 +46,9 @@ export class RevisionStateError extends Error {
 export const revisionRef = (revisionsDb: Firestore, lang: string, revision: string) =>
   revisionsDb.collection("languages").doc(lang).collection("revisions").doc(revision);
 const leases = (policyDb: Firestore) => policyDb.collection("admission-leases");
+export const leaseRef = (policyDb: Firestore, leaseId: string) => leases(policyDb).doc(leaseId);
+// A lease still fences its admission only while `active`.
+export const leaseIsActive = (snap: { exists: boolean, data: () => any }) => snap.exists && snap.data()?.state === "active";
 
 // --- The admission side (Policy) ---
 
@@ -61,21 +64,45 @@ export async function registerLease(policyDb: Firestore, revisions: string[], { 
 // Inside the plan-write transaction: the lease must still be active, and is
 // consumed. Throws `revision-retiring` once retirement has invalidated it.
 export async function consumeLease(tx: Transaction, policyDb: Firestore, leaseId: string) {
-  const ref = leases(policyDb).doc(leaseId);
+  const ref = leaseRef(policyDb, leaseId);
   const snap = await tx.get(ref);
-  if (!snap.exists || snap.data()?.state !== "active") {
+  if (!leaseIsActive(snap)) {
     throw new RevisionStateError("a revision this admission pins is being retired", "revision-retiring");
   }
   tx.delete(ref);
 }
 
-// The records of the given revisions as of `readTime` (one consistent view).
+// The records of the given revisions as of `readTime` (one consistent view),
+// and whether each language has any recorded revision at all (a language
+// with none isn't pinnable).
 export async function readRevisions(revisionsDb: Firestore, wanted: { lang: string, revision: string }[], readTime: Timestamp) {
   return revisionsDb.runTransaction(async tx => {
     const snaps = await Promise.all(wanted.map(({ lang, revision }) => tx.get(revisionRef(revisionsDb, lang, revision))));
-    return snaps.map((snap, i) => ({ ...wanted[i], record: snap.exists ? snap.data() : null }));
+    const langs = [...new Set(wanted.map(w => w.lang))];
+    const known = new Map(await Promise.all(langs.map(async lang =>
+      [lang, !(await tx.get(revisionsDb.collection("languages").doc(lang).collection("revisions").limit(1))).empty] as const)));
+    return snaps.map((snap, i) => ({ ...wanted[i], record: snap.exists ? snap.data() : null, languageKnown: known.get(wanted[i].lang) === true }));
   }, { readOnly: true, readTime });
 }
+
+// The approvals Policy reads (W4): at an admission's `readTime`, and live for
+// every later snapshot, mint and authorization.
+export const createFirestoreApprovals = (revisionsDb: Firestore) => ({
+  read: (wanted: { lang: string, revision: string }[], readTime: Timestamp) => readRevisions(revisionsDb, wanted, readTime),
+  async current(lang: string, revision: string) {
+    const snap = await revisionRef(revisionsDb, lang, revision).get();
+    return snap.exists ? snap.data() : null;
+  },
+});
+
+// The lease side of the fence, for Policy's admissions.
+export const createFirestoreLeaseFence = (policyDb: Firestore) => ({
+  async register(revisions: string[]) {
+    const { id, writeTime } = await registerLease(policyDb, revisions);
+    // Approvals are read at the lease's own commit time: no earlier.
+    return { id, readTime: writeTime };
+  },
+});
 
 // --- The retirement side (the operator, scripts/revisions.js) ---
 
@@ -111,13 +138,16 @@ export async function invalidateLeases(policyDb: Firestore, revision: string, { 
   const found = await leases(policyDb).where("revisions", "array-contains", revision).get();
   let invalidated = 0;
   for (const doc of found.docs) {
-    await policyDb.runTransaction(async tx => {
+    // Counted from the attempt that commits: Firestore retries a transaction
+    // that lost a conflict (e.g. to the plan write consuming this lease), and
+    // an aborted attempt's update never happened.
+    const changed = await policyDb.runTransaction(async tx => {
       const snap = await tx.get(doc.ref);
-      if (snap.exists && snap.data()?.state === "active") {
-        tx.update(doc.ref, { state: "invalidated", invalidatedAt: now() });
-        invalidated += 1;
-      }
+      if (!snap.exists || snap.data()?.state !== "active") return false;
+      tx.update(doc.ref, { state: "invalidated", invalidatedAt: now() });
+      return true;
     });
+    if (changed) invalidated += 1;
   }
   return invalidated;
 }
