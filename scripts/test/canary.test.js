@@ -1,9 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { generateKeyPair, exportJWK } from "jose";
+import { canonicalDigest } from "@graffiticode/common/canonical";
+import { encodeChainId, decodeChainId } from "@graffiticode/common/chain";
 import {
   createPolicy, createLocalSigner, createMemoryConnectionStore, createMemoryInvocationStore, createMemoryPublicationStore,
-  createAudit, createPseudonymizer, createProtectedSwitch, PolicyDenied, createConnectionManager
+  createAudit, createPseudonymizer, createProtectedSwitch, PolicyDenied, createConnectionManager,
+  createMemoryLeaseFence, createMemoryApprovals
 } from "@graffiticode/policy";
 import {
   createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused, localAuthorizer
@@ -19,6 +23,7 @@ const config = {
   gatewayAccount: "api-run@p.iam.gserviceaccount.com",
   compilerAccount: "l0176-run@p.iam.gserviceaccount.com",
   consoleAccount: "console-run@p.iam.gserviceaccount.com",
+  languageUrl: "https://l0176.test",
   connectionId: CONN
 };
 const CALLERS = {
@@ -27,8 +32,27 @@ const CALLERS = {
   [config.consoleAccount]: { role: "console" }
 };
 
+// What L0176's preflight declares for the canary's programs (W4 PR 5).
+const requiredFor = src => (src.includes("save-to-itembank") ? ["init", "save-to-itembank"] : src.startsWith("init data") ? ["author", "init"] : ["init"]);
+const imageOf = revision => `sha256:${canonicalDigest(revision)}`;
+const manifestOf = (code, stage, revision) => ({
+  stage,
+  lang: "0176",
+  sourceDigest: canonicalDigest(code),
+  programDigest: canonicalDigest({ code, lowered: true }),
+  optionsDigest: canonicalDigest({}),
+  revision,
+  imageDigest: imageOf(revision),
+  registryVersion: 6,
+  requiredFunctions: requiredFor(code.src),
+});
+
 // Real in-memory Policy and Broker behind a fake HTTP router. `tweak` breaks a
-// rule to prove the canary notices.
+// rule to prove the canary notices. With `tweak.chain`, the canary connection
+// is in CHAIN_ADMISSION: the gateway stand-in allocates a marked invocation,
+// preflights every stage (at the plan's pinned revision on a retry) and is
+// admitted before it runs anything, as api does (W4 section F); `tweak.min`
+// is Policy's minimum contract version.
 const world = async ({ tweak = {} } = {}) => {
   const pair = await generateKeyPair("ES256", { extractable: true });
   const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
@@ -45,13 +69,26 @@ const world = async ({ tweak = {} } = {}) => {
     status: "active",
     ...(tweak.initialPermissions !== undefined ? { ownerPermissions: tweak.initialPermissions } : {})
   }]);
+  // L0176's approved revisions; `deploy` serves a new one, keeping the old
+  // one approved behind its tag, as a release does.
+  const approvals = createMemoryApprovals(new Map());
+  const serving = { revision: null };
+  const deploy = revision => {
+    approvals.records.set(`0176/${revision}`, { lang: "0176", revision, imageDigest: imageOf(revision), tag: revision, tagUrl: `https://${revision}.test`, status: "approved", contractVersions: [1, 2] });
+    serving.revision = revision;
+  };
+  deploy("l0176-ra");
+  const leases = new Map();
   const policy = createPolicy({
     signer,
     jwks,
     protectedSwitch,
     connections,
-    invocations: createMemoryInvocationStore(),
+    invocations: createMemoryInvocationStore({ leases }),
     publications: createMemoryPublicationStore(),
+    approvals,
+    fence: createMemoryLeaseFence({ leases }),
+    ...(tweak.min ? { minContractVersion: tweak.min } : {}),
     ...(tweak.authorEnabled ? { enabledGated: new Set(["0176:author"]) } : {}),
     audit
   });
@@ -88,18 +125,41 @@ const world = async ({ tweak = {} } = {}) => {
   const user = headers => (headers.Authorization === "user-token" ? { uid: CANARY } : null);
   const ok = data => ({ status: 200, json: { status: "success", data } });
   const refused = (status, reason) => ({ status, json: { status: "error", error: { code: status, reason } } });
-  const tasks = [];
+  const tasks = new Map();
   const compiles = new Map();
+  const gateway = { role: "gateway" };
+  // The gateway stand-in's admission of a chain: null, or the refusal.
+  const admitChain = async ({ id, idempotencyKey }) => {
+    const taskIds = decodeChainId(id);
+    const inv = await policy.allocateInvocation({ caller: gateway, user: { uid: CANARY }, connectionId: CONN, taskId: id, inputDigest: createHash("sha256").update("{}").digest("hex"), idempotencyKey, admission: !tweak.noAdmission });
+    if (inv.contract !== 2) return null;
+    const { plan } = await policy.planLookup({ caller: gateway, user: { uid: CANARY }, invocationToken: inv.invocationToken });
+    // `ignorePlan` stands for a gateway that preflights what serves now on a retry.
+    const at = i => (plan && !tweak.ignorePlan ? plan.stages[i].revision : serving.revision);
+    const stages = taskIds.map((t, i) => manifestOf(tasks.get(t).code, `s${i}`, at(i)));
+    try {
+      await policy.admit({ caller: gateway, user: { uid: CANARY }, invocationToken: inv.invocationToken, taskIds, stages });
+    } catch (e) {
+      if (e instanceof PolicyDenied) return e.reason;
+      throw e;
+    }
+    return null;
+  };
 
   const http = async ({ method, url, headers, body }) => {
     const { origin, pathname } = new URL(url);
     try {
       if (origin === config.apiUrl && pathname === "/task") {
-        tasks.push(body.task);
-        return ok({ id: `task-${tasks.length}` });
+        const id = encodeChainId([`t${tasks.size + 1}`]);
+        tasks.set(`t${tasks.size + 1}`, body.task);
+        return ok({ id });
       }
       if (origin === config.apiUrl && pathname === "/compile") {
-        const saving = tasks[Number(body.id.split("-")[1]) - 1].code.src.includes("save-to-itembank");
+        if (tweak.chain) {
+          const refusal = await admitChain(body);
+          if (refusal) return ok({ errors: [{ message: `Error: permission denied (${refusal})`, code: refusal }] });
+        }
+        const saving = decodeChainId(body.id).some(t => tasks.get(t).code.src.includes("save-to-itembank"));
         if (tweak.unsignedPreview && !saving) return ok({ data: { request: "{}" }, errors: [] });
         if (!saving) return ok({ data: { request: JSON.stringify({ security: { signature: "sig" } }) }, errors: [] });
         // As L0176 and api report a save (W3b): replayed on a retry with the same key.
@@ -111,6 +171,8 @@ const world = async ({ tweak = {} } = {}) => {
       if (origin === config.policyUrl) {
         const caller = callerOf(headers, "urn:graffiticode:policy");
         if (pathname === "/v1/invocations") return ok(await policy.allocateInvocation({ caller, user: user(headers), ...body }));
+        if (pathname === "/v1/invocations/plan") return ok(await policy.planLookup({ caller, user: user(headers), ...body }));
+        if (pathname === "/v1/admissions") return ok(await policy.admit({ caller, user: user(headers), ...body }));
         if (pathname === "/v1/snapshot") return ok(await policy.snapshot({ caller, user: user(headers), ...body }));
         if (pathname === "/v1/mint") return ok(await policy.mint({ caller, ...body }));
         if (pathname === "/v1/connections" && method === "GET") return ok(await manager.list({ caller, user: user(headers) }));
@@ -120,6 +182,10 @@ const world = async ({ tweak = {} } = {}) => {
           const asked = tweak.brokenRestore && body.permissions === (tweak.initialPermissions ?? null) ? [] : body.permissions;
           return ok(await manager.setOwnerPermissions({ caller, user: user(headers), connectionId: decodeURIComponent(permissions[1]), permissions: asked }));
         }
+      }
+      if (origin === config.languageUrl && pathname === "/preflight") {
+        assert.equal(headers["X-Caller-Identity"], `id|${config.gatewayAccount}|urn:graffiticode:0176`);
+        return ok({ manifest: manifestOf(body.code, body.stage, serving.revision) });
       }
       if (origin === config.brokerUrl && pathname === "/v1/execute") {
         const caller = callerOf(headers, "urn:graffiticode:broker");
@@ -133,10 +199,23 @@ const world = async ({ tweak = {} } = {}) => {
     return { status: 404, json: null };
   };
   const idToken = async (account, audience) => (tweak.noImpersonation ? Promise.reject(new Error("permission denied to impersonate")) : `id|${account}|${audience}`);
-  return { http, idToken, writes, connections };
+  return { http, idToken, writes, connections, deploy, serving };
 };
 
-const run = async (w, over = {}) => runCanary({ http: w.http, idToken: w.idToken, accessToken: async () => "user-token", parse: async src => ({ src, code: src }), config: { ...config, ...over }, runId: "t1" });
+const memoryRetryState = () => {
+  const state = { value: null };
+  return { state, load: async () => state.value, save: async v => { state.value = v; }, clear: async () => { state.value = null; } };
+};
+const run = async (w, over = {}, { retryState = null, runId = "t1" } = {}) => runCanary({
+  http: w.http,
+  idToken: w.idToken,
+  accessToken: async () => "user-token",
+  parse: async src => ({ src, code: src }),
+  config: { ...config, ...over },
+  servingRevision: async () => w.serving.revision,
+  retryState,
+  runId
+});
 const byName = results => Object.fromEntries(results.map(r => [r.name, r.ok]));
 
 test("passes end to end while paused with the canary configured, writing once for the replayed operation", async () => {
@@ -244,4 +323,71 @@ test("fails when the gateway's write response doesn't say what the save did (W3b
   assert.equal(ok, false);
   const failed = results.filter(r => !r.ok).map(r => [r.name, r.detail]);
   assert.deepEqual(failed, [["gateway write effects", "no save effect in the response"], ["gateway write retry effects", "no save effect in the response"]]);
+});
+
+// W4 (capability plan section F, AT-03 and AT-07 live, AT-12's canary).
+const W4_CHECKS = ["chain admission: pinned", "denied final stage", "direct path: admitted"];
+
+test("W4: passes with the canary connection under chain admission, every write pinned and the denied chain refused at admission", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const { ok, results } = await run(w, { chainAdmission: true });
+  assert.equal(ok, true, JSON.stringify(results));
+  const names = Object.keys(byName(results));
+  for (const name of W4_CHECKS) assert.ok(names.includes(name), name);
+  assert.match(results.find(r => r.name === "chain admission: pinned").detail, /s0=l0176-ra/);
+  // The denied chain wrote nothing: the receipt replay's and the probe's writes only.
+  assert.deepEqual(w.writes, ["/itembank/questions", "/itembank/items", "/itembank/questions", "/itembank/items"]);
+});
+
+test("W4: fails pinned admission and the denied final stage when the gateway doesn't admit chains", async () => {
+  const { ok, results } = await run(await world({ tweak: { chain: true, noAdmission: true } }), { chainAdmission: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["chain admission: pinned"], false);
+  assert.equal(byName(results)["denied final stage"], false);
+  assert.match(results.find(r => r.name === "denied final stage").detail, /1 effects/);
+});
+
+test("W4: retries a write across an L0176 deploy, still pinned to the revision it was admitted on", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const retryState = memoryRetryState();
+  const first = await run(w, { chainAdmission: true }, { retryState, runId: "r1" });
+  assert.equal(first.ok, true, JSON.stringify(first.results));
+  assert.equal(retryState.state.value.revision, "l0176-ra");
+  // Run again without a deploy: refused, and the record is kept.
+  const early = await run(w, { chainAdmission: true }, { retryState, runId: "r2" });
+  assert.equal(byName(early.results)["retry across a deploy: deployed"], false);
+  assert.match(early.results.find(r => r.name === "retry across a deploy: deployed").detail, /deploy L0176/);
+  assert.notEqual(retryState.state.value, null);
+  w.deploy("l0176-rb");
+  const after = await run(w, { chainAdmission: true }, { retryState, runId: "r3" });
+  assert.equal(after.ok, true, JSON.stringify(after.results));
+  assert.equal(byName(after.results)["retry across a deploy"], true);
+  assert.match(after.results.find(r => r.name === "retry across a deploy").detail, /replayed on l0176-ra/);
+  assert.equal(retryState.state.value, null);
+});
+
+test("W4: fails the retry across a deploy when the gateway preflights the new revision instead of the pinned one", async () => {
+  const w = await world({ tweak: { chain: true, ignorePlan: true } });
+  const retryState = memoryRetryState();
+  assert.equal((await run(w, { chainAdmission: true }, { retryState, runId: "r1" })).ok, true);
+  w.deploy("l0176-rb");
+  const { ok, results } = await run(w, { chainAdmission: true }, { retryState, runId: "r2" });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["retry across a deploy"], false);
+  assert.match(results.find(r => r.name === "retry across a deploy").detail, /plan-mismatch/);
+});
+
+test("W4: after the cutover, v1-shaped sessions are refused and the direct path runs under plans", async () => {
+  const w = await world({ tweak: { chain: true, min: 2 } });
+  const { ok, results } = await run(w, { chainAdmission: true, afterCutover: true });
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.equal(byName(results)["v1 refused: invocation marked"], true);
+  assert.equal(byName(results)["v1 refused"], true);
+  assert.equal(byName(results)["receipt replay"], true);
+});
+
+test("W4: fails the v1 check if Policy hasn't cut over", async () => {
+  const { ok, results } = await run(await world({ tweak: { chain: true } }), { chainAdmission: true, afterCutover: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["v1 refused: invocation marked"], false);
 });

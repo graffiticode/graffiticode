@@ -21,8 +21,23 @@
 //     released the probe can't pass; --no-revocation-probe skips it.
 // It writes one draft item ("graffiticode-canary") to the sandbox item bank
 // per run. Exits non-zero unless every check passes.
+//
+// W4 (chain admission; docs/protected-execution.md, "W4 activation and
+// cutover"):
+//   --chain-admission       the canary connection is in api's CHAIN_ADMISSION
+//                           (canary or all): pinned admission, a denied final
+//                           stage, and the direct path admitted as the gateway
+//   --retry-state <file>    with --chain-admission: the first run records its
+//                           write here; deploy L0176, then run again, and the
+//                           second run retries that write across the deploy
+//                           (the file is removed once it passes)
+//   --after-cutover         Policy runs MIN_CONTRACT_VERSION=2: v1-shaped
+//                           sessions must be refused
+// The gateway's runtime account also mints the ID token for L0176's
+// /preflight (audience urn:graffiticode:0176), under the same role.
 
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile, rm, mkdir } from "node:fs/promises";
+import path from "node:path";
 import { parser } from "@graffiticode/parser";
 import { VERIFY_UID } from "../verify/auth.js";
 import { run } from "../packages/deploy/src/process.js";
@@ -67,7 +82,31 @@ const config = {
   consoleAccount: flag("--console-account") ?? "console-run@graffiticode-app.iam.gserviceaccount.com",
   connectionId,
   revocationProbe: !args.includes("--no-revocation-probe"),
+  chainAdmission: args.includes("--chain-admission"),
+  afterCutover: args.includes("--after-cutover"),
+  languageUrl: args.includes("--chain-admission") || args.includes("--after-cutover") ? await serviceUrl("l0176") : null,
 };
+const retryFile = flag("--retry-state");
+if (retryFile && !config.chainAdmission) {
+  console.error("--retry-state needs --chain-admission");
+  process.exit(2);
+}
+// The revision serving 100% of a language's traffic now.
+const servingRevision = async lang => {
+  const service = JSON.parse(await gcloud(["run", "services", "describe", `l${lang}`, `--region=${region}`, "--format=json"]));
+  const full = (service.status?.traffic ?? []).find(t => t.percent === 100);
+  return full?.revisionName ?? (full?.latestRevision ? service.status?.latestReadyRevisionName : null) ?? null;
+};
+const retryState = retryFile
+  ? {
+      load: async () => { try { return JSON.parse(await readFile(retryFile, "utf8")); } catch (e) { if (e.code === "ENOENT") return null; throw e; } },
+      save: async value => {
+        await mkdir(path.dirname(retryFile), { recursive: true });
+        await writeFile(retryFile, `${JSON.stringify(value, null, 2)}\n`);
+      },
+      clear: async () => rm(retryFile, { force: true }),
+    }
+  : null;
 const authUrl = deploy.l0176.env.AUTH_URL;
 
 const accessToken = async () => {
@@ -108,6 +147,6 @@ const parse = async src => {
 };
 
 console.log(`canary ${uid} on ${connectionId} via ${config.apiUrl}`);
-const { ok, results } = await runCanary({ http, idToken, accessToken, parse, config, log: line => console.log(`  ${line}`) });
+const { ok, results } = await runCanary({ http, idToken, accessToken, parse, config, servingRevision, retryState, log: line => console.log(`  ${line}`) });
 console.log(ok ? `canary passed (${results.length} checks)` : `canary FAILED (${results.filter(r => !r.ok).length} of ${results.length} checks)`);
 process.exit(ok ? 0 : 1);

@@ -37,16 +37,47 @@
 //                   refuses learnosity.sign-author with operation-not-enabled
 //                   before spending the (otherwise valid) token
 //
+// Chain admission (W4, capability plan section F; `chainAdmission`, once the
+// canary connection is in api's CHAIN_ADMISSION). The canary looks up the
+// gateway's own invocation as the gateway: the same connection, task, input
+// digest and idempotency key reuse it, which gives the invocation token
+// Policy's plan lookup needs.
+//   pinned          the write's invocation is marked and has a plan, every
+//                   stage pinned to an approved revision with its tag URL;
+//                   L0176's is the revision serving now
+//   denied final stage  (AT-03, live) a chain whose first stage saves and
+//                   whose final stage would sign an Author activity from
+//                   upstream data: refused at admission (fn-not-enabled),
+//                   with no effects in the response and no plan stored, so
+//                   no stage ran
+//   retry across a deploy  (AT-07, live; `retryState`) one run stores its
+//                   write's task, key and pinned revision; after L0176 is
+//                   deployed, the next run retries it: the same outcome,
+//                   replayed, under the same plan, still pinned to the old
+//                   revision (no plan-mismatch)
+//   direct path     a marked invocation is preflighted at L0176 and admitted
+//                   as the gateway would, and its snapshots carry the plan
+// After the cutover (`afterCutover`, Policy's MIN_CONTRACT_VERSION=2):
+//   v1 refused      every new invocation is marked, and a snapshot without
+//                   an admitted plan (the v1 shape) is refused, plan-required
+//
 // Returns one result per check; the caller decides how to report and exit.
 
 import { createHash, randomBytes } from "node:crypto";
 import { argsDigest as canonicalDigest } from "@graffiticode/broker";
+import { decodeChainId } from "@graffiticode/common/chain";
 
 const ITEM = "item [questions [mcq []] {}]";
 export const PREVIEW_PROGRAM = `set-var "lrn-id" "canary" items [${ITEM}] {}..`;
 export const SAVE_PROGRAM = `set-var "lrn-id" "canary" save-to-itembank items [${ITEM}] {}..`;
 
 const sha256 = s => createHash("sha256").update(s).digest("hex");
+// The gateway's input digest for a compile without options (api's
+// inputDigest({})), so the canary can reuse the gateway's invocation.
+const NO_OPTIONS_DIGEST = sha256("{}");
+// A final stage that would sign whatever activity arrives as data: L0176's
+// preflight declares `author` for it (W4 PR 5), which stays disabled.
+export const AUTHOR_FROM_DATA_PROGRAM = "init data {}..";
 
 // Anything in the output carrying a Learnosity signed request: a `security`
 // block (object or JSON text) with a string `signature`, as Items requests
@@ -84,8 +115,13 @@ const hasSavedItem = value => {
 // idToken(account, audience) -> a Google ID token for that service account
 // accessToken() -> the canary user's access token
 // parse(src) -> the program's AST (L0176)
-export const runCanary = async ({ http, idToken, accessToken, parse, config, runId = randomBytes(4).toString("hex"), log = () => {} }) => {
-  const { apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true } = config;
+// servingRevision(lang) -> the revision serving that language now (W4)
+// retryState { load, save, clear } -> the retry across a deploy's record (W4)
+export const runCanary = async ({ http, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {} }) => {
+  const {
+    apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
+    chainAdmission = false, afterCutover = false, languageUrl = null
+  } = config;
   const results = [];
   const record = (name, ok, detail) => {
     results.push({ name, ok, detail });
@@ -118,6 +154,57 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, run
   const compile = (id, idempotencyKey) =>
     http({ method: "POST", url: `${apiUrl}/compile`, headers: asUser, body: { id, data: {}, connectionId, idempotencyKey } });
   const errorsOf = res => [...(res.json?.data?.errors ?? []), ...(res.json?.errors ?? [])];
+  const policy = path => `${policyUrl}${path}`;
+  const broker = path => `${brokerUrl}${path}`;
+
+  // As the gateway: an invocation (the gateway's own, for the same task, input
+  // and key), and its plan.
+  const allocate = async ({ taskId, idempotencyKey, inputDigest = NO_OPTIONS_DIGEST, admission = false }) => {
+    const res = await http({
+      method: "POST",
+      url: policy("/v1/invocations"),
+      headers: { ...(await asService(gatewayAccount, policyUrl, "urn:graffiticode:policy")), ...asUser },
+      body: { connectionId, taskId, inputDigest, idempotencyKey, ...(admission ? { admission: true } : {}) }
+    });
+    if (typeof res.json?.data?.invocationToken !== "string") throw new Error(`POST /v1/invocations: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+    return res.json.data;
+  };
+  const planOf = async (taskId, idempotencyKey) => {
+    const invocation = await allocate({ taskId, idempotencyKey });
+    const res = await http({
+      method: "POST",
+      url: policy("/v1/invocations/plan"),
+      headers: { ...(await asService(gatewayAccount, policyUrl, "urn:graffiticode:policy")), ...asUser },
+      body: { invocationToken: invocation.invocationToken }
+    });
+    if (res.status !== 200 || !res.json?.data) throw new Error(`POST /v1/invocations/plan: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+    return { invocation, plan: res.json.data.plan ?? null };
+  };
+  const describePlan = plan => (plan ? `plan ${String(plan.planDigest).slice(0, 12)} ${plan.stages.map(s => `${s.stage}=${s.revision}${s.available ? "" : " (unavailable)"}`).join(" ")}` : "no plan");
+  const isWrite = res => res.status === 200 && errorsOf(res).length === 0 && hasSavedItem(res.json?.data);
+  const isReplayedWrite = res => {
+    const effects = saveEffects(res);
+    return effects.length === 1 && effects[0].status === "succeeded" && effects[0].replayed === true;
+  };
+
+  // The retry across a deploy (W4): a write recorded by an earlier run, under
+  // a plan pinned to the revision that served then, retried now.
+  const pending = chainAdmission && retryState ? await retryState.load() : null;
+  if (pending) {
+    await attempt("retry across a deploy", async () => {
+      const now = servingRevision ? await servingRevision("0176") : null;
+      if (!record("retry across a deploy: deployed", Boolean(now) && now !== pending.revision,
+        now === pending.revision ? `L0176 still serves ${now}, the revision the write was pinned to; deploy L0176, then run the canary again` : `pinned ${pending.revision}, serving ${now}`)) return;
+      const again = await compile(pending.taskId, pending.key);
+      const { plan } = await planOf(pending.taskId, pending.key);
+      const samePlan = plan?.planDigest === pending.planDigest && plan.stages.every(s => s.revision === pending.revision);
+      const ok = isWrite(again) && isReplayedWrite(again) && samePlan;
+      record("retry across a deploy", ok, ok
+        ? `replayed on ${pending.revision} under the same plan`
+        : `${again.status} ${JSON.stringify(errorsOf(again))} ${describeEffects(saveEffects(again))}; ${describePlan(plan)}`);
+      if (ok) await retryState.clear();
+    });
+  }
 
   // Gateway path.
   await attempt("gateway preview", async () => {
@@ -143,31 +230,90 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, run
     const replayed = saveEffects(again);
     record("gateway write retry effects", replayed.length === 1 && replayed[0].status === "succeeded" && replayed[0].replayed === true,
       describeEffects(replayed));
+    if (!chainAdmission) return;
+    // W4: that write ran under a plan, pinned to approved revisions.
+    const { invocation, plan } = await planOf(saveTaskId, key);
+    const serving = servingRevision ? await servingRevision("0176") : null;
+    const pinned = invocation.reused === true && invocation.contract === 2 && Boolean(plan) &&
+      plan.stages.length > 0 && plan.stages.every(s => s.available === true && typeof s.tagUrl === "string" && typeof s.revision === "string") &&
+      (!serving || plan.stages.every(s => s.lang !== "0176" || s.revision === serving));
+    record("chain admission: pinned", pinned, invocation.reused !== true
+      ? "the gateway's invocation for this write wasn't found"
+      : `contract ${invocation.contract}, ${describePlan(plan)}${serving ? `, L0176 serving ${serving}` : ""}`);
+    if (pinned && retryState && !pending) {
+      await retryState.save({ taskId: saveTaskId, key, revision: plan.stages[0].revision, planDigest: plan.planDigest });
+      log("recorded this write for the retry across a deploy: deploy L0176, then run the canary again");
+    }
   });
 
+  // W4, AT-03 live: the final stage is refused at admission, so the stage
+  // that would save never runs.
+  if (chainAdmission) {
+    await attempt("denied final stage", async () => {
+      const headId = await postTask(AUTHOR_FROM_DATA_PROGRAM);
+      const chainId = `${headId}+${saveTaskId ?? await postTask(SAVE_PROGRAM)}`;
+      const key = `canary:${runId}:denied`;
+      const res = await compile(chainId, key);
+      const errors = errorsOf(res);
+      const effects = Array.isArray(res.json?.data?.effects) ? res.json.data.effects : [];
+      const { plan } = await planOf(chainId, key);
+      const ok = res.status === 200 && errors.some(e => e?.code === "fn-not-enabled") && effects.length === 0 && !hasSavedItem(res.json?.data) && plan === null;
+      record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${describePlan(plan)}`);
+    });
+  }
+
   // Direct path: allocate an invocation as the gateway, then snapshot, mint
-  // and execute as the compiler.
-  const policy = path => `${policyUrl}${path}`;
-  const broker = path => `${brokerUrl}${path}`;
+  // and execute as the compiler. A marked invocation (W4) is preflighted at
+  // L0176 and admitted first, as the gateway does, and its snapshot carries
+  // the plan.
   const direct = async () => {
-    const gateway = await asService(gatewayAccount, policyUrl, "urn:graffiticode:policy");
     const compilerAtPolicy = await asService(compilerAccount, policyUrl, "urn:graffiticode:policy");
     const compilerAtBroker = await asService(compilerAccount, brokerUrl, "urn:graffiticode:broker");
     const taskId = saveTaskId ?? await postTask(SAVE_PROGRAM);
-    const inv = await http({
-      method: "POST",
-      url: policy("/v1/invocations"),
-      headers: { ...gateway, ...asUser },
-      body: { connectionId, taskId, inputDigest: sha256(`canary:${runId}`), idempotencyKey: `canary:${runId}:direct` }
-    });
-    const invocationToken = inv.json?.data?.invocationToken;
-    if (!invocationToken) throw new Error(`POST /v1/invocations: ${inv.status} ${JSON.stringify(inv.json?.error ?? null)}`);
-    const snap = await http({
+    const snapshotAt = (invocationToken, plan = {}) => http({
       method: "POST",
       url: policy("/v1/snapshot"),
       headers: { ...compilerAtPolicy, ...asUser },
-      body: { lang: "0176", connectionId, fns: ["init", "save-to-itembank", "author"], invocationToken, stage: "s0" }
+      body: { lang: "0176", connectionId, fns: ["init", "save-to-itembank", "author"], invocationToken, stage: "s0", ...plan }
     });
+
+    if (afterCutover) {
+      await attempt("v1 refused", async () => {
+        const inv = await allocate({ taskId, idempotencyKey: `canary:${runId}:v1`, inputDigest: sha256(`canary:${runId}:v1`) });
+        if (!record("v1 refused: invocation marked", inv.contract === 2 && inv.minContractVersion === 2,
+          `contract ${inv.contract}, Policy's minimum ${inv.minContractVersion}`)) return;
+        const snap = await snapshotAt(inv.invocationToken);
+        record("v1 refused", snap.status === 403 && snap.json?.error?.reason === "plan-required",
+          `a snapshot without a plan answered ${snap.status} ${snap.json?.error?.reason ?? "with a session"}`);
+      });
+    }
+
+    const inv = await allocate({ taskId, idempotencyKey: `canary:${runId}:direct`, inputDigest: sha256(`canary:${runId}`), admission: chainAdmission });
+    let plan = {};
+    if (inv.contract === 2) {
+      if (!languageUrl) throw new Error("a marked invocation needs L0176's URL (languageUrl) for its preflight");
+      const pre = await http({
+        method: "POST",
+        url: `${languageUrl}/preflight`,
+        headers: { "X-Caller-Identity": await idToken(gatewayAccount, "urn:graffiticode:0176") },
+        body: { stage: "s0", lang: "0176", code: await parse(SAVE_PROGRAM) }
+      });
+      const manifest = pre.json?.data?.manifest;
+      if (pre.status !== 200 || !manifest) throw new Error(`L0176 /preflight: ${pre.status} ${JSON.stringify(pre.json?.error ?? null)}`);
+      const admitted = await http({
+        method: "POST",
+        url: policy("/v1/admissions"),
+        headers: { ...(await asService(gatewayAccount, policyUrl, "urn:graffiticode:policy")), ...asUser },
+        // The canonical chain: a task id is itself an encoded chain of one.
+        body: { invocationToken: inv.invocationToken, taskIds: decodeChainId(taskId), stages: [manifest] }
+      });
+      const admissionToken = admitted.json?.data?.admissionToken;
+      if (!record("direct path: admitted", typeof admissionToken === "string",
+        typeof admissionToken === "string" ? `s0 pinned to ${manifest.revision}` : `${admitted.status} ${JSON.stringify(admitted.json?.error ?? null)}`)) return;
+      plan = { admissionToken, manifest };
+    }
+    const invocationToken = inv.invocationToken;
+    const snap = await snapshotAt(invocationToken, plan);
     const sessionToken = snap.json?.data?.sessionToken;
     if (!sessionToken) throw new Error(`POST /v1/snapshot: ${snap.status} ${JSON.stringify(snap.json?.error ?? null)}`);
     const allowed = snap.json.data.allowed ?? [];

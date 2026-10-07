@@ -97,7 +97,46 @@ console routes as the console's runtime account (`console-run@graffiticode-app`,
 release window if preferred. Before W2 is released the probe can't pass;
 `--no-revocation-probe` skips it. The canary account's API key is read from Secret
 Manager `canary-api-key`. The script refuses `VERIFY_UID`, and exits non-zero unless
-every check passes. Later releases add checks (W4: admission).
+every check passes.
+
+#### W4 checks (chain admission)
+
+```bash
+node scripts/canary.js --uid <uid> --connection <id> --chain-admission [--retry-state <file>] [--after-cutover]
+```
+
+`--chain-admission` is for once the canary connection is in api's `CHAIN_ADMISSION`
+(`canary` with it in `CHAIN_ADMISSION_CONNECTIONS`, or `all`). The canary finds the
+gateway's own invocation for a compile by allocating, as the gateway, with the same
+connection, task, input digest and idempotency key. That reuses the invocation and
+gives it the token for Policy's plan lookup. It adds:
+
+- **chain admission: pinned**: the gateway write's invocation is marked (contract 2)
+  and has a plan, with every stage pinned to an approved revision with a tag URL, and
+  L0176's stage pinned to the revision serving now;
+- **denied final stage** (AT-03, live): a chain whose first stage saves and whose
+  final stage would sign an Author activity arriving as data (`init data {}..`, which
+  L0176's preflight declares as needing `author`). It must be refused at admission
+  (`fn-not-enabled`), with no effects in the response and no plan stored, so no stage
+  ran;
+- **direct path: admitted**: the direct-path checks run on a marked invocation,
+  preflighted at L0176 and admitted as the gateway does, so their snapshots carry the
+  plan;
+- **retry across a deploy** (AT-07, live; `--retry-state <file>`): the first run
+  records its write's task, key, plan and pinned revision in the file. Deploy L0176,
+  then run the canary again with the same file. The second run retries that write: it
+  must give the same outcome, `replayed`, under the same plan, still pinned to the old
+  revision (no `plan-mismatch`). The file is removed once that passes. Run again
+  without a deploy, and the check fails and keeps the file.
+
+`--after-cutover` is for once Policy runs `MIN_CONTRACT_VERSION=2`. It adds **v1
+refused**: every new invocation is marked, and a snapshot without an admitted plan
+(the v1 shape) is refused with `plan-required`. The direct path then always runs
+under a plan.
+
+The W4 checks also mint an ID token for `api-run@` with audience
+`urn:graffiticode:0176`, for L0176's `/preflight`; the same OpenIdTokenCreator role
+covers it.
 
 ## Draining before a release
 
@@ -309,3 +348,113 @@ nothing, so its stale report can never retire a revision that a newer plan pins.
 Retention is advice, not automation: keep the last three approved revisions, plus any the report
 names. Keeping a revision runnable never permits re-running an uncertain write: that still needs
 provider evidence.
+
+## W4 activation and cutover
+
+Chain admission (capability plan W4) changes authority in exactly three steps, in this
+order: `CHAIN_ADMISSION=canary`, `CHAIN_ADMISSION=all`, and the cutover to
+`MIN_CONTRACT_VERSION=2`. Everything before them releases with no change in behaviour.
+
+### Before anything changes
+
+1. **The IAM gate** (IAM review, Step 11). Every unconditional writer of the
+   `revisions` database that isn't an operator is either removed or recorded as
+   accepted in `docs/capability-policy-iam-review.md`. That includes
+   `firebase-adminsdk-qflje`'s live key and its project-wide
+   `serviceAccountTokenCreator` and `firebase.sdkAdminServiceAgent` grants.
+2. **L0000 as a Policy caller.**
+   - A new version of the `policy-callers` secret that adds
+     `"l0000-run@graffiticode.iam.gserviceaccount.com": {"role": "compiler", "lang": "0000"}`,
+     with Policy's `POLICY_CALLERS` in `deploy.json` pointing at that version.
+   - `roles/run.invoker` on the `policy` service for `l0000-run@`.
+   - `POLICY_URL` in L0000's `env`.
+3. **Component releases**, all with `CHAIN_ADMISSION=off` and `MIN_CONTRACT_VERSION=1`
+   (or unset): policy, broker, l0000 (the 0.10.1 server, pinnable), l0176 (pinnable,
+   registry version 6) and api. Each candidate must pass. Then:
+   - `node scripts/revisions.js status l0000` and `status l0176`: the serving revisions
+     are `approved` and support contract versions 1 and 2;
+   - `npm run deploy -- release-check <service>` passes for all five.
+4. **The protected-chain inventory.** Every protected chain must have stages only in
+   L0000 and L0176: under `all`, a chain with a stage in any other language fails
+   admission (`stage-not-pinnable`). Record the evidence, including from the canary, in
+   the release notes.
+5. **The canary's roles**: OpenIdTokenCreator on `api-run@`, `l0176-run@` and
+   `console-run@graffiticode-app`, as for W2.
+
+### Canary
+
+1. In `deploy.json`, set api's `CHAIN_ADMISSION=canary` and
+   `CHAIN_ADMISSION_CONNECTIONS=<canary connection id>`. Commit, then
+   `npm run deploy -- api`. Only the canary connection's new invocations are marked;
+   everything else keeps the per-stage path.
+2. `node scripts/canary.js --uid <uid> --connection <id> --chain-admission --retry-state .gc-deploy/canary/w4-retry.json`.
+   Every check must pass. The run records its write for the next step.
+3. Release L0176 again (`npm run deploy -- l0176`). The old revision stays approved
+   behind its tag.
+4. Run step 2's command again: **retry across a deploy** must pass, and the file is
+   removed.
+5. In the audit, check that the `admission` events are the canary's, allowed, apart from
+   one `fn-not-enabled` denial (the denied final stage) per run.
+
+### All
+
+1. Set api's `CHAIN_ADMISSION=all`, commit, then `npm run deploy -- api`. Every new
+   invocation through a connection is now marked, and runs only under an admitted plan.
+   Invocations started earlier keep the per-stage path until the cutover.
+2. Run the canary with `--chain-admission`.
+3. Soak for at least a day of normal traffic. Watch for admission denials, especially
+   `stage-not-pinnable`, `preflight-unavailable` and `revision-not-approved`. A
+   denial for a legitimate chain means a missed inventory entry.
+
+To back out before the cutover, set `CHAIN_ADMISSION=off`. Marked invocations still
+run only under their plans (a retry still needs its plan), and new ones are no longer
+marked.
+
+### The cutover window (RELEASE-01)
+
+1. `node scripts/protected-execution.js disable --reason "W4 cutover"`, then `drain`.
+2. Set `MIN_CONTRACT_VERSION=2` in the `env` of policy and broker in `deploy.json`, and
+   commit. Then `GC_VERIFY_PROTECTED_EXECUTION=off npm run deploy -- policy`, then the
+   same for broker. Policy stops issuing v1 proofs and marks every new invocation;
+   Broker refuses any token without `cv: 2`.
+3. **Make the last v1 issuer unreachable.** The cutover revision serves 100%, and
+   every older Policy revision's tag is retired (`npm run deploy -- retire-tags
+   policy`), so `release-check policy` passes. The time this happened, from the
+   receipt in `.gc-deploy/`, is **T**.
+4. **Wait until T + 30 minutes.** That is the longest lifetime of a Policy proof
+   (invocation tokens, 30 minutes; sessions and admissions, 15; execution tokens,
+   60 s). The proof is the time elapsed since the last issuer became unreachable. The
+   audit is consulted, but it isn't the proof.
+5. **Record the W4 baselines.** Add `{ "milestone": "W4", "commit": "<sha>" }` to
+   `baselines` for policy, broker, api, l0000 and l0176, using each one's release
+   commit from its receipt. Commit.
+6. **Run the canary while paused**:
+   `node scripts/canary.js --uid <uid> --connection <id> --chain-admission --after-cutover`.
+   Every check must pass, including **v1 refused**.
+7. `node scripts/protected-execution.js enable --reason "W4 cutover verified"`. Its
+   `release-check` now requires every reachable revision of the five services to meet
+   W4 and support contract version 2, retained tags included.
+
+After the cutover, a retry of a run started before it gets `invocation-incompatible`.
+The caller must start a new run with a new idempotency key, which may repeat writes
+the old run already made. Old receipts are kept, but the invocations that wrote them
+can't resume (`scripts/test/at12-rollback.test.js`).
+
+### Rollback
+
+- **The guarantee:** protected execution stays off whenever a rollback would lose a
+  required check. Rolling any of the five services below W4 needs `--below-baseline`
+  with the switch off, and `enable` then refuses until it is rolled forward.
+- **What isn't claimed:** that old code refuses new claims. The W3 Policy ignores
+  plans and admission tokens entirely, and the W3 Broker skips the contract check. It
+  records a newer Policy's `contract-version-unsupported` as `unclassified-reason`, but
+  still does nothing (AT-12, against the actual W3 builds: `npm run test:at12-rollback`).
+- **Never lower `MIN_CONTRACT_VERSION` after the cutover.** A configuration release from
+  the same commit meets the W4 baseline, so `release-check` doesn't catch it, and it would
+  admit v1 proofs again. To stop protected chains, switch protected execution off.
+
+### As built
+
+Record the activation in `docs/capability-policy-as-built.md`: the release ids, T, the
+canary runs, the inventory, the baselines, and the restriction that every stage of a
+protected chain is pinned.
