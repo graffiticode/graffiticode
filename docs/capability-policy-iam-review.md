@@ -800,10 +800,14 @@ the database, including roles inherited from the folder or organization, custom 
 roles. A project-level `jq` over `get-iam-policy` would miss those.
 
 ```bash
+# Asked of the project, where every grant is made. The database itself isn't in Asset
+# Inventory's resource search (asking about it returns NOT_FOUND, "not fully explored").
+# A conditional binding is listed as CONDITIONAL; check that its condition names another
+# database.
+gcloud asset analyze-iam-policy --project=$P \
+  --full-resource-name=//cloudresourcemanager.googleapis.com/projects/$P \
+  --permissions=datastore.entities.create,datastore.entities.update,datastore.entities.delete --format=json
 R=//firestore.googleapis.com/projects/$P/databases/revisions
-gcloud asset analyze-iam-policy --project=$P --full-resource-name=$R \
-  --permissions=datastore.entities.create,datastore.entities.update,datastore.entities.delete \
-  --format='table(identityList.identities[].name, accessControlLists[].accesses[].permission, iamBinding.role)'
 ```
 
 Expected: only human operators (`user:`). Any service account listed can write approvals, which
@@ -844,6 +848,34 @@ gcloud iam service-accounts remove-iam-policy-binding $(sa policy) --project $P 
 The read probes passing and each write probe answering 403 is the evidence the boundary holds
 for `policy-run`. Record the output in the as-built release record. The Analyzer's list is the
 evidence that nothing else but the operators can write.
+**Applied and verified 2026-10-07:**
+- **Created:** the database (nam5, delete protection on, `concurrencyMode: PESSIMISTIC`, so
+  transactions lock what they read, which the retirement fence relies on). Granted `policy-run`
+  `datastore.viewer` with the condition `revisions-db-read-only`.
+- **Probes as `policy-run`** (impersonated, disposable documents): get 200, list 200, create
+  403, update 403, delete 403. Cleaned up, and the temporary token-creator grant revoked. IAM
+  changes took about a minute to apply, in both directions; the probe waits up to 8 minutes.
+- **Writers per Policy Analyzer** (project, fully explored):
+  - `api-run`, `auth-run`, `broker-run` and `policy-run`'s `datastore.user`: CONDITIONAL, each
+    scoped to its own database, so they can't write `revisions`.
+  - Unconditional: the three Owners (operators, as intended), and these:
+    - the legacy Cloud Build account (`roles/firebase.admin`). **Removed 2026-10-07**: no
+      triggers, no Firebase or Firestore admin activity in 30 days, and its remaining builds only
+      push images and `gcloud run deploy`, which `run.admin` and `serviceAccountUser` still
+      cover. Restore with `add-iam-policy-binding … --role roles/firebase.admin` if an old
+      recipe turns out to need it.
+    - `firebase-adminsdk-qflje` (`roles/firebase.sdkAdminServiceAgent`, and **project-wide
+      `roles/iam.serviceAccountTokenCreator`**, which lets it act as any service account,
+      `policy-run` and `broker-run` included). It has two user-managed, non-expiring keys. The
+      2022 key `d40cd54b…` (no recorded use) was **disabled 2026-10-07**. Key `6bfb0894…`
+      (created 2026-02-03) **last authenticated 2026-09-11**, from somewhere outside `~/work`.
+      **Open:** find that key's user, then remove the project-wide token-creator grant (Firebase's
+      Admin SDK signs with its own key and needs, at most, token-creator on itself). Until then,
+      this account can write approvals, a recorded gap that must be closed or explicitly
+      accepted before chain admission relies on approvals (W4 PR 8).
+    - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
+      `firebase-rules`, `gcp-gae-service`): accepted. They aren't workloads our code drives.
+
 - Rollback: `remove-iam-policy-binding` with the same condition. The database has delete
   protection: disable it explicitly before deleting it (`gcloud firestore databases update
   --no-delete-protection`). Never delete it while an admitted plan pins a revision it records.
