@@ -915,13 +915,28 @@ evidence that nothing else but the operators can write.
              Analyzer and the audit logs). A quiet week doesn't show there are no infrequent
              consumers.
           4. Delete the key.
-          5. Remove both authorities from `firebase-adminsdk-qflje`:
-             - the project-wide `roles/iam.serviceAccountTokenCreator`. Firebase's Admin SDK signs
-               with its own key, and needs at most token-creator on itself.
-             - its write access to `revisions`: remove `roles/firebase.sdkAdminServiceAgent`, or
-               replace it with a grant whose condition excludes the `revisions` database. Either
-               way it must stop writing approvals, whatever else it keeps.
-          6. **Verify both**, read-only:
+          5. **Show the account is unused.** Deleting its keys doesn't establish that: a workload
+             attached to it, or anyone who can impersonate it, can still use it. Check, read-only:
+             - no Cloud Run service or job, Cloud Function, App Engine version, Compute instance
+               or Cloud Build trigger runs as it;
+             - who can act as it (Policy Analyzer: `iam.serviceAccounts.actAs` and
+               `getAccessToken` on the account) is the operators only;
+             - its own authentications after the key's deletion (Policy Analyzer's
+               `serviceAccountLastAuthentication`, and the audit logs for token generation for
+               it) show none.
+
+             If a legitimate dependency turns up, migrate it to a dedicated identity with only the
+             permissions it needs, before step 6.
+          6. **Remove both authorities from `firebase-adminsdk-qflje` outright** (decided
+             2026-10-07):
+             - `roles/firebase.sdkAdminServiceAgent`, its direct Firestore write access, which
+               includes `revisions`;
+             - the project-wide `roles/iam.serviceAccountTokenCreator`.
+
+             Don't add a replacement grant unless a remaining requirement has been shown. This is
+             the retirement checklist's decision. It doesn't authorize changing production IAM
+             before steps 1-5 are done.
+          7. **Verify both**, read-only:
              - Policy Analyzer for writers of the `revisions` database (this step's check) lists
                no unintended principal;
              - for each service account that check lists, Policy Analyzer for who can impersonate
