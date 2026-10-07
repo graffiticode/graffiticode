@@ -516,15 +516,15 @@ The spec's AT-01 through AT-12 are the release acceptance backlog. In particular
   correlation, and mixed-version cutover/rollback evidence.
 
 **Milestones aren't conformance.** Completing W0-W4 doesn't make the implementation conform
-to the spec. These remain open, and each needs an owner and closure criteria alongside W5.
-Owners aren't assigned yet.
+to the spec. These remain open alongside W5. Jeff is the accountable owner of all four. The
+coding agent does the implementation work named, and Jeff accepts the production evidence.
 
-| Item | State | Closure criterion (proposed) |
-|---|---|---|
-| AUDIT-01 | Partial: denial records have no `category`; no reconciliation events | Every audited refusal carries its category, checked by the inventory test; reconciliation outcomes audited (with WRITE-02) |
-| WRITE-02 | Missing: no reconciliation from provider evidence. No exactly-once provider guarantee is claimed | Uncertain and partial writes reconciled against provider evidence, with AT-10 for Author (W5) |
-| RETAIN-01 | Retention and backups unverified | Retention configuration and backups of the Policy, Broker and `revisions` databases verified in production, and recorded |
-| ISOLATE-01 | Compiler isolation and egress evidence outstanding | Compiler egress allowlist enforced and shown by deployed negative tests (AT-11) |
+| Item | State | Responsibility | Closure criterion |
+|---|---|---|---|
+| AUDIT-01 | Partial: denial records have no `category`; no reconciliation events | Agent implements categories and reconciliation audit events. Jeff accepts production evidence | Every audited refusal carries its category, checked by the inventory test; reconciliation outcomes audited; both shown on deployed records |
+| WRITE-02 | Missing: no reconciliation from provider evidence. No exactly-once provider guarantee is claimed | Agent implements W5 reconciliation and its tests. Jeff accepts provider-backed evidence | Uncertain and partial writes reconciled against provider evidence, with AT-10 for Author, shown against the provider |
+| RETAIN-01 | Retention and backups unverified | Jeff owns production retention, backups and restore verification. Agent supplies the checks | A successful restore test, and verification that every record the spec names (invocations, plans, receipts, approvals) has no unintended expiry, not just backups configured; for the Policy, Broker and `revisions` databases, recorded |
+| ISOLATE-01 | Compiler isolation and egress evidence outstanding | Jeff owns production IAM and network controls. Agent supplies configuration changes and negative tests | Enforced egress allowlist; compilers denied access to credentials (secrets, keys, metadata tokens beyond their own) and denied impersonation; all shown by deployed negative tests (AT-11) |
 
 Update this record when each requirement is implemented and tested. Record source revision,
 command/environment, outcome, and date; retain the distinction between local implementation
