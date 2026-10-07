@@ -113,7 +113,12 @@ gives it the token for Policy's plan lookup. It adds:
 
 - **chain admission: pinned**: the gateway write's invocation is marked (contract 2)
   and has a plan, with every stage pinned to an approved revision with a tag URL, and
-  L0176's stage pinned to the revision serving now;
+  L0176's stage pinned to the revision serving now. If the serving revision can't be
+  read, the check fails;
+- **chain admission: L0000 stage**: a preview compiled with input data, which api runs
+  as an L0000 stage feeding L0176. So L0000 is preflighted, admitted and bound as a
+  Policy caller too. Both stages must be pinned, each to the revision serving its
+  language now. It's a preview, so it writes nothing;
 - **denied final stage** (AT-03, live): a chain whose first stage saves and whose
   final stage would sign an Author activity arriving as data (`init data {}..`, which
   L0176's preflight declares as needing `author`). It must be refused at admission
@@ -361,24 +366,29 @@ order: `CHAIN_ADMISSION=canary`, `CHAIN_ADMISSION=all`, and the cutover to
    `revisions` database that isn't an operator is either removed or recorded as
    accepted in `docs/capability-policy-iam-review.md`. That includes
    `firebase-adminsdk-qflje`'s live key and its project-wide
-   `serviceAccountTokenCreator` and `firebase.sdkAdminServiceAgent` grants.
+   `serviceAccountTokenCreator` and `firebase.sdkAdminServiceAgent` grants. Removal is
+   the intended outcome: find the key's consumer and migrate it, then remove the key
+   and the unintended impersonation and approvals-write authority.
 2. **L0000 as a Policy caller.**
    - A new version of the `policy-callers` secret that adds
      `"l0000-run@graffiticode.iam.gserviceaccount.com": {"role": "compiler", "lang": "0000"}`,
      with Policy's `POLICY_CALLERS` in `deploy.json` pointing at that version.
    - `roles/run.invoker` on the `policy` service for `l0000-run@`.
    - `POLICY_URL` in L0000's `env`.
-3. **Component releases**, all with `CHAIN_ADMISSION=off` and `MIN_CONTRACT_VERSION=1`
+3. **The minimum-version guard.** `release-check`, and so `enable`, inspects every
+   reachable Policy and Broker revision's effective `MIN_CONTRACT_VERSION`, and once the
+   cutover has been recorded, refuses any below 2 (PR 8). Don't activate without it.
+4. **Component releases**, all with `CHAIN_ADMISSION=off` and `MIN_CONTRACT_VERSION=1`
    (or unset): policy, broker, l0000 (the 0.10.1 server, pinnable), l0176 (pinnable,
    registry version 6) and api. Each candidate must pass. Then:
    - `node scripts/revisions.js status l0000` and `status l0176`: the serving revisions
      are `approved` and support contract versions 1 and 2;
    - `npm run deploy -- release-check <service>` passes for all five.
-4. **The protected-chain inventory.** Every protected chain must have stages only in
-   L0000 and L0176: under `all`, a chain with a stage in any other language fails
-   admission (`stage-not-pinnable`). Record the evidence, including from the canary, in
-   the release notes.
-5. **The canary's roles**: OpenIdTokenCreator on `api-run@`, `l0176-run@` and
+5. **The protected-chain inventory**, before `CHAIN_ADMISSION=all`. Every protected
+   chain must have stages only in L0000 and L0176: under `all`, a chain with a stage in
+   any other language fails admission (`stage-not-pinnable`). Record the evidence,
+   including the canary's L0000 → L0176 chain, in the release notes.
+6. **The canary's roles**: OpenIdTokenCreator on `api-run@`, `l0176-run@` and
    `console-run@graffiticode-app`, as for W2.
 
 ### Canary
@@ -450,8 +460,9 @@ can't resume (`scripts/test/at12-rollback.test.js`).
   records a newer Policy's `contract-version-unsupported` as `unclassified-reason`, but
   still does nothing (AT-12, against the actual W3 builds: `npm run test:at12-rollback`).
 - **Never lower `MIN_CONTRACT_VERSION` after the cutover.** A configuration release from
-  the same commit meets the W4 baseline, so `release-check` doesn't catch it, and it would
-  admit v1 proofs again. To stop protected chains, switch protected execution off.
+  the same commit meets the W4 baseline, but would admit v1 proofs again. The
+  minimum-version guard (prerequisite 3) makes `release-check` and `enable` refuse it. To
+  stop protected chains, switch protected execution off.
 
 ### As built
 

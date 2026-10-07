@@ -35,16 +35,17 @@ const CALLERS = {
 // What L0176's preflight declares for the canary's programs (W4 PR 5).
 const requiredFor = src => (src.includes("save-to-itembank") ? ["init", "save-to-itembank"] : src.startsWith("init data") ? ["author", "init"] : ["init"]);
 const imageOf = revision => `sha256:${canonicalDigest(revision)}`;
-const manifestOf = (code, stage, revision) => ({
+const manifestOf = (code, stage, revision, lang = "0176") => ({
   stage,
-  lang: "0176",
+  lang,
   sourceDigest: canonicalDigest(code),
   programDigest: canonicalDigest({ code, lowered: true }),
   optionsDigest: canonicalDigest({}),
   revision,
   imageDigest: imageOf(revision),
-  registryVersion: 6,
-  requiredFunctions: requiredFor(code.src),
+  // L0000 has no protected functions: registry version 0, nothing required.
+  registryVersion: lang === "0000" ? 0 : 6,
+  requiredFunctions: lang === "0000" ? [] : requiredFor(code.src),
 });
 
 // Real in-memory Policy and Broker behind a fake HTTP router. `tweak` breaks a
@@ -72,12 +73,13 @@ const world = async ({ tweak = {} } = {}) => {
   // L0176's approved revisions; `deploy` serves a new one, keeping the old
   // one approved behind its tag, as a release does.
   const approvals = createMemoryApprovals(new Map());
-  const serving = { revision: null };
-  const deploy = revision => {
-    approvals.records.set(`0176/${revision}`, { lang: "0176", revision, imageDigest: imageOf(revision), tag: revision, tagUrl: `https://${revision}.test`, status: "approved", contractVersions: [1, 2] });
-    serving.revision = revision;
+  const serving = { "0176": null, "0000": null };
+  const deploy = (revision, lang = "0176") => {
+    approvals.records.set(`${lang}/${revision}`, { lang, revision, imageDigest: imageOf(revision), tag: revision, tagUrl: `https://${revision}.test`, status: "approved", contractVersions: [1, 2] });
+    serving[lang] = revision;
   };
   deploy("l0176-ra");
+  deploy("l0000-ra", "0000");
   const leases = new Map();
   const policy = createPolicy({
     signer,
@@ -135,8 +137,11 @@ const world = async ({ tweak = {} } = {}) => {
     if (inv.contract !== 2) return null;
     const { plan } = await policy.planLookup({ caller: gateway, user: { uid: CANARY }, invocationToken: inv.invocationToken });
     // `ignorePlan` stands for a gateway that preflights what serves now on a retry.
-    const at = i => (plan && !tweak.ignorePlan ? plan.stages[i].revision : serving.revision);
-    const stages = taskIds.map((t, i) => manifestOf(tasks.get(t).code, `s${i}`, at(i)));
+    const at = (i, lang) => (plan && !tweak.ignorePlan ? plan.stages[i].revision : serving[lang]);
+    const stages = taskIds.map((t, i) => {
+      const { lang, code } = tasks.get(t);
+      return manifestOf(code, `s${i}`, at(i, lang), lang);
+    });
     try {
       await policy.admit({ caller: gateway, user: { uid: CANARY }, invocationToken: inv.invocationToken, taskIds, stages });
     } catch (e) {
@@ -155,18 +160,26 @@ const world = async ({ tweak = {} } = {}) => {
         return ok({ id });
       }
       if (origin === config.apiUrl && pathname === "/compile") {
+        // As api's compile route: input data becomes an L0000 task, run first.
+        // `noDataStage` stands for a gateway that drops it.
+        if (body.data && Object.keys(body.data).length && !tweak.noDataStage) {
+          const dataTask = `t${tasks.size + 1}`;
+          tasks.set(dataTask, { lang: "0000", code: { src: JSON.stringify(body.data) } });
+          body = { ...body, id: `${body.id}+${encodeChainId([dataTask])}` };
+        }
+        const withId = res => ({ ...res, json: { ...res.json, id: body.id } });
         if (tweak.chain) {
           const refusal = await admitChain(body);
-          if (refusal) return ok({ errors: [{ message: `Error: permission denied (${refusal})`, code: refusal }] });
+          if (refusal) return withId(ok({ errors: [{ message: `Error: permission denied (${refusal})`, code: refusal }] }));
         }
         const saving = decodeChainId(body.id).some(t => tasks.get(t).code.src.includes("save-to-itembank"));
-        if (tweak.unsignedPreview && !saving) return ok({ data: { request: "{}" }, errors: [] });
-        if (!saving) return ok({ data: { request: JSON.stringify({ security: { signature: "sig" } }) }, errors: [] });
+        if (tweak.unsignedPreview && !saving) return withId(ok({ data: { request: "{}" }, errors: [] }));
+        if (!saving) return withId(ok({ data: { request: JSON.stringify({ security: { signature: "sig" } }) }, errors: [] }));
         // As L0176 and api report a save (W3b): replayed on a retry with the same key.
         const seen = (compiles.get(body.idempotencyKey) ?? 0) + 1;
         compiles.set(body.idempotencyKey, seen);
         const effect = { fn: "save-to-itembank", op: "learnosity.write-items", status: "succeeded", steps: ["questions", "items"], stage: "s0", ...(seen > 1 ? { replayed: true } : {}) };
-        return ok({ data: { itemBank: { saved: true } }, errors: [], ...(tweak.noEffects ? {} : { effects: [effect] }) });
+        return withId(ok({ data: { itemBank: { saved: true } }, errors: [], ...(tweak.noEffects ? {} : { effects: [effect] }) }));
       }
       if (origin === config.policyUrl) {
         const caller = callerOf(headers, "urn:graffiticode:policy");
@@ -185,7 +198,7 @@ const world = async ({ tweak = {} } = {}) => {
       }
       if (origin === config.languageUrl && pathname === "/preflight") {
         assert.equal(headers["X-Caller-Identity"], `id|${config.gatewayAccount}|urn:graffiticode:0176`);
-        return ok({ manifest: manifestOf(body.code, body.stage, serving.revision) });
+        return ok({ manifest: manifestOf(body.code, body.stage, serving["0176"]) });
       }
       if (origin === config.brokerUrl && pathname === "/v1/execute") {
         const caller = callerOf(headers, "urn:graffiticode:broker");
@@ -206,13 +219,13 @@ const memoryRetryState = () => {
   const state = { value: null };
   return { state, load: async () => state.value, save: async v => { state.value = v; }, clear: async () => { state.value = null; } };
 };
-const run = async (w, over = {}, { retryState = null, runId = "t1" } = {}) => runCanary({
+const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang] } = {}) => runCanary({
   http: w.http,
   idToken: w.idToken,
   accessToken: async () => "user-token",
   parse: async src => ({ src, code: src }),
   config: { ...config, ...over },
-  servingRevision: async () => w.serving.revision,
+  servingRevision,
   retryState,
   runId
 });
@@ -326,7 +339,7 @@ test("fails when the gateway's write response doesn't say what the save did (W3b
 });
 
 // W4 (capability plan section F, AT-03 and AT-07 live, AT-12's canary).
-const W4_CHECKS = ["chain admission: pinned", "denied final stage", "direct path: admitted"];
+const W4_CHECKS = ["chain admission: pinned", "chain admission: L0000 stage: compiled", "chain admission: L0000 stage", "denied final stage", "direct path: admitted"];
 
 test("W4: passes with the canary connection under chain admission, every write pinned and the denied chain refused at admission", async () => {
   const w = await world({ tweak: { chain: true } });
@@ -335,6 +348,7 @@ test("W4: passes with the canary connection under chain admission, every write p
   const names = Object.keys(byName(results));
   for (const name of W4_CHECKS) assert.ok(names.includes(name), name);
   assert.match(results.find(r => r.name === "chain admission: pinned").detail, /s0=l0176-ra/);
+  assert.match(results.find(r => r.name === "chain admission: L0000 stage").detail, /s0=l0176-ra s1=l0000-ra/);
   // The denied chain wrote nothing: the receipt replay's and the probe's writes only.
   assert.deepEqual(w.writes, ["/itembank/questions", "/itembank/items", "/itembank/questions", "/itembank/items"]);
 });
@@ -390,4 +404,27 @@ test("W4: fails the v1 check if Policy hasn't cut over", async () => {
   const { ok, results } = await run(await world({ tweak: { chain: true } }), { chainAdmission: true, afterCutover: true });
   assert.equal(ok, false);
   assert.equal(byName(results)["v1 refused: invocation marked"], false);
+});
+
+// Review of PR 7c: missing evidence is a failure, never a pass.
+test("W4: fails pinned admission when the serving revision can't be resolved", async () => {
+  const { ok, results } = await run(await world({ tweak: { chain: true } }), { chainAdmission: true }, { servingRevision: async () => null });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["chain admission: pinned"], false);
+  assert.match(results.find(r => r.name === "chain admission: pinned").detail, /serving revision unknown/);
+  assert.equal(byName(results)["chain admission: L0000 stage"], false);
+});
+
+test("W4: fails pinned admission when L0176's stage is pinned to another revision than the one serving", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const { ok, results } = await run(w, { chainAdmission: true }, { servingRevision: async lang => (lang === "0176" ? "l0176-other" : w.serving[lang]) });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["chain admission: pinned"], false);
+});
+
+test("W4: fails the L0000 stage check when the chain runs without its L0000 stage", async () => {
+  const { ok, results } = await run(await world({ tweak: { chain: true, noDataStage: true } }), { chainAdmission: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["chain admission: L0000 stage: compiled"], true);
+  assert.equal(byName(results)["chain admission: L0000 stage"], false);
 });

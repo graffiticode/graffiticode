@@ -44,7 +44,10 @@
 // Policy's plan lookup needs.
 //   pinned          the write's invocation is marked and has a plan, every
 //                   stage pinned to an approved revision with its tag URL;
-//                   L0176's is the revision serving now
+//                   L0176's is the revision serving now (which must resolve)
+//   L0000 stage     a preview with input data, which api runs as an L0000
+//                   stage feeding L0176: both stages pinned, each to the
+//                   revision serving its language now
 //   denied final stage  (AT-03, live) a chain whose first stage saves and
 //                   whose final stage would sign an Author activity from
 //                   upstream data: refused at admission (fn-not-enabled),
@@ -180,6 +183,8 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
     if (res.status !== 200 || !res.json?.data) throw new Error(`POST /v1/invocations/plan: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
     return { invocation, plan: res.json.data.plan ?? null };
   };
+  const allPinned = plan => Boolean(plan) && plan.stages.length > 0 &&
+    plan.stages.every(s => s.available === true && typeof s.tagUrl === "string" && typeof s.revision === "string");
   const describePlan = plan => (plan ? `plan ${String(plan.planDigest).slice(0, 12)} ${plan.stages.map(s => `${s.stage}=${s.revision}${s.available ? "" : " (unavailable)"}`).join(" ")}` : "no plan");
   const isWrite = res => res.status === 200 && errorsOf(res).length === 0 && hasSavedItem(res.json?.data);
   const isReplayedWrite = res => {
@@ -233,18 +238,43 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
     if (!chainAdmission) return;
     // W4: that write ran under a plan, pinned to approved revisions.
     const { invocation, plan } = await planOf(saveTaskId, key);
+    // Evidence, not assumption: without the serving revision the check fails.
     const serving = servingRevision ? await servingRevision("0176") : null;
-    const pinned = invocation.reused === true && invocation.contract === 2 && Boolean(plan) &&
-      plan.stages.length > 0 && plan.stages.every(s => s.available === true && typeof s.tagUrl === "string" && typeof s.revision === "string") &&
-      (!serving || plan.stages.every(s => s.lang !== "0176" || s.revision === serving));
+    const l0176 = plan ? plan.stages.filter(s => s.lang === "0176") : [];
+    const pinned = invocation.reused === true && invocation.contract === 2 && allPinned(plan) &&
+      typeof serving === "string" && l0176.length > 0 && l0176.every(s => s.revision === serving);
     record("chain admission: pinned", pinned, invocation.reused !== true
       ? "the gateway's invocation for this write wasn't found"
-      : `contract ${invocation.contract}, ${describePlan(plan)}${serving ? `, L0176 serving ${serving}` : ""}`);
+      : `contract ${invocation.contract}, ${describePlan(plan)}, ${typeof serving === "string" ? `L0176 serving ${serving}` : "L0176's serving revision unknown"}`);
     if (pinned && retryState && !pending) {
       await retryState.save({ taskId: saveTaskId, key, revision: plan.stages[0].revision, planDigest: plan.planDigest });
       log("recorded this write for the retry across a deploy: deploy L0176, then run the canary again");
     }
   });
+
+  // W4: a real L0000 -> L0176 chain. Input data makes the gateway prepend an
+  // L0000 stage that runs first (api's compile route), so L0000 is
+  // preflighted, admitted and bound as a Policy caller too. A preview, so it
+  // writes nothing.
+  if (chainAdmission) {
+    await attempt("chain admission: L0000 stage", async () => {
+      const previewId = await postTask(PREVIEW_PROGRAM);
+      const key = `canary:${runId}:chain`;
+      const res = await http({ method: "POST", url: `${apiUrl}/compile`, headers: asUser, body: { id: previewId, data: { canary: runId }, connectionId, idempotencyKey: key } });
+      const errors = errorsOf(res);
+      const chainId = res.json?.id;
+      if (!record("chain admission: L0000 stage: compiled", res.status === 200 && errors.length === 0 && hasSignedRequest(res.json?.data) && typeof chainId === "string",
+        res.status === 200 && errors.length === 0 ? (hasSignedRequest(res.json?.data) ? "signed preview returned" : "no signed request in the output") : `${res.status} ${JSON.stringify(errors)}`)) return;
+      const { invocation, plan } = await planOf(chainId, key);
+      const serving = { "0176": servingRevision ? await servingRevision("0176") : null, "0000": servingRevision ? await servingRevision("0000") : null };
+      const langs = plan ? plan.stages.map(s => s.lang) : [];
+      const ok = invocation.reused === true && allPinned(plan) && JSON.stringify(langs) === JSON.stringify(["0176", "0000"]) &&
+        plan.stages.every(s => typeof serving[s.lang] === "string" && s.revision === serving[s.lang]);
+      record("chain admission: L0000 stage", ok, invocation.reused !== true
+        ? "the gateway's invocation for this chain wasn't found"
+        : `${describePlan(plan)}, serving L0176 ${serving["0176"] ?? "unknown"}, L0000 ${serving["0000"] ?? "unknown"}`);
+    });
+  }
 
   // W4, AT-03 live: the final stage is refused at admission, so the stage
   // that would save never runs.
