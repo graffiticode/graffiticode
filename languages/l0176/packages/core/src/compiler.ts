@@ -521,22 +521,41 @@ for (const [name, meta] of Object.entries(memberFields)) {
 // the system preview session when the policy client offers one. A selected
 // connection on a server with no policy client configured fails closed rather
 // than falling back.
+// The registry version L0176's protected declarations (protection.ts) were
+// written for: graffiticode's packages/common protected-registry. A plan pins
+// it (capability plan W4); policy refuses a stage reporting another.
+export const REGISTRY_VERSION = 6;
+
+// The compiler that knows L0176's protected functions: the brokered path's,
+// and preflight's (capability plan W4), which needs no policy client. Its
+// normalization is the legacy save lowering, so a plan pins the program that
+// actually executes, and the stored source's digest is of what was stored.
+const protectedCompilerConfig = (policy?: PolicyClient) => ({
+  langID: "0176",
+  version: "v0.0.1",
+  Checker,
+  Transformer,
+  protectedFunctions: PROTECTED_FUNCTIONS as any,
+  implicitProtectedFunctions: IMPLICIT_PROTECTED_FUNCTIONS as any,
+  normalize: lowerLegacySave,
+  registryVersion: REGISTRY_VERSION,
+  ...(policy ? { policy } : {}),
+});
+
 class L0176Compiler extends Compiler {
   #brokered: Compiler | null = null;
+  #preflight = new Compiler(protectedCompilerConfig());
 
   setPolicyClient(policy: PolicyClient & { getPreviewSession?: SystemPreviewClient["getPreviewSession"] }) {
     systemPreviewClient = typeof policy.getPreviewSession === "function" && typeof policy.invoke === "function"
       ? { getPreviewSession: policy.getPreviewSession.bind(policy), invoke: policy.invoke }
       : null;
-    this.#brokered = new Compiler({
-      langID: "0176",
-      version: "v0.0.1",
-      Checker,
-      Transformer,
-      protectedFunctions: PROTECTED_FUNCTIONS as any,
-      implicitProtectedFunctions: IMPLICIT_PROTECTED_FUNCTIONS as any,
-      policy,
-    });
+    this.#brokered = new Compiler(protectedCompilerConfig(policy));
+  }
+
+  // Preflight (W4): what a compile through a connection would run.
+  preflight(code: any, args: { stage: string; options?: any }) {
+    return (this.#brokered ?? this.#preflight).preflight(code, args);
   }
 
   compile(code: any, data: any, config: any, resume: any, identity?: any) {
@@ -552,7 +571,9 @@ class L0176Compiler extends Compiler {
         resume([{ message: "Error: connections are not available on this server.", from: -1, to: -1 }]);
         return;
       }
-      return this.#brokered.compile(lowered, data, config, resume, identity);
+      // The stored program: the brokered compiler lowers it itself, as its
+      // preflight did, so a plan's source and program digests both match.
+      return this.#brokered.compile(code, data, config, resume, identity);
     }
     return super.compile(lowered, data, config, resume, identity);
   }

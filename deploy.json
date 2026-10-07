@@ -535,7 +535,8 @@
       "env": {
         "AUTH_URL": "https://auth.graffiticode.org",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
-        "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app"
+        "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
+        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
       },
       "removeSecrets": [
         "GRAFFITICODE_SECRET_KEY"
@@ -552,7 +553,11 @@
       ],
       "retireTags": true,
       "pinnable": {
-        "lang": "0176"
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ]
       }
     },
     "l0003": {

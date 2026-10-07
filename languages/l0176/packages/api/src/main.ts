@@ -6,7 +6,9 @@ const port = process.env.PORT || "50176";
 const authUrl = process.env.AUTH_URL || "https://auth.graffiticode.org";
 
 const brokered = configureProtection();
-const app = createApp({ authUrl });
+// The gateway accounts allowed to preflight (capability plan W4).
+const preflightGateways = (process.env.PREFLIGHT_GATEWAYS ?? "").split(",").map(s => s.trim()).filter(Boolean);
+const app = createApp({ authUrl, preflightGateways });
 app.listen(Number(port), () => {
   console.log(`L0176 language server listening on ${port} (authUrl ${authUrl}, connections ${brokered ? "enabled" : "disabled"})`);
 });
