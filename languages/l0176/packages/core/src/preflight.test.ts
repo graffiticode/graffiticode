@@ -5,7 +5,7 @@
 // compile runs only on a binding that matches it.
 import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { parser } from "@graffiticode/parser";
-import { digestOf } from "@graffiticode/l0000";
+import { digestOf, createPreflightHandler } from "@graffiticode/l0000";
 import { compiler, lexicon, REGISTRY_VERSION, dataDependentAuthority } from "./index.js";
 
 const ITEM = "item [questions [mcq []] {}]";
@@ -118,5 +118,30 @@ describe("a planned compile through a connection", () => {
     const refused = await run(code);
     expect(refused.err[0].message).toMatch(/not the one the admitted plan pins/);
     expect(invoked).toEqual([]);
+  });
+});
+
+// Review of PR 5: L0176 runs the installed l0000's /preflight handler (0.10.1),
+// which hashes the request's `config`, the configuration compiles run with,
+// and ignores `options`. A preflight and the compile it admits agree.
+describe("preflight through the installed handler, then compile", () => {
+  test("hashes config, not options, and the compile it admits runs on that binding", async () => {
+    const handler = createPreflightHandler({ compiler, verifyCaller: async () => ({ email: "gateway" }) });
+    const code = await parse(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    const out: any = await handler({ headers: {}, body: { stage: "s1", lang: "0176", code, config: { a: 1 }, options: { b: 2 } } });
+    expect(out.status).toBe(200);
+    const { manifest } = out.body.data;
+    expect(manifest.optionsDigest).toBe(digestOf({ a: 1 }));
+    const { stage: _s, registryVersion: _r, ...bind } = manifest;
+    (compiler as any).setPolicyClient({
+      getSnapshot: async (args: any) => { args.exec.setSessionToken("session"); return { allowed: ["init"], bind }; },
+      invoke: async () => ({ status: "succeeded", result: { request: "signed" } }),
+    });
+    const identity = { uid: "u1", connectionId: "conn-1", userToken: "user", invocationToken: "inv", stage: "s1", admissionToken: "adm" };
+    const ran = await new Promise<any[]>(resolve => compiler.compile(code, {}, { a: 1 }, (err: any) => resolve(Array.isArray(err) ? err.filter(Boolean) : []), identity));
+    expect(ran).toEqual([]);
+    // Options never reach the compiler, so they don't change what's pinned.
+    const viaOptions: any = await handler({ headers: {}, body: { stage: "s1", lang: "0176", code, options: { a: 1 } } });
+    expect(viaOptions.body.data.manifest.optionsDigest).toBe(digestOf({}));
   });
 });

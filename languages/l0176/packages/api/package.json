@@ -11,7 +11,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@graffiticode/l0000": "^0.10.0",
+    "@graffiticode/l0000": "^0.10.1",
     "@graffiticode/l0176": "*",
     "cors": "^2.8.5",
     "errorhandler": "^1.5.1",
