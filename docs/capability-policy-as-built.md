@@ -71,12 +71,21 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   [gateway allocation](../packages/api/src/invocations.js),
   [Policy invocation storage](../packages/policy/src/firestore.ts), and
   [compiler client](../languages/l0000/packages/core/src/protected-client.ts).
-- **Missing — ADMIT-01, ADMIT-02, ADMIT-03, API-01.** Admission is per compiler stage.
-  Gateway `reduceRight` executes a stage before starting the next; there is no all-stage
-  preflight, consistent chain admission decision, durable pinned plan, or admission proof.
-  An earlier stage can write before a later stage discovers a denied function.
-  Existing tag scanning includes dead code and declared implicit behavior within a stage.
-  Evidence: [gateway](../packages/api/src/data.js),
+- **Implemented and tested, not released — ADMIT-01, ADMIT-02, ADMIT-03, API-01 (W4).** In
+  production, admission is still per compiler stage: the gateway executes a stage before
+  starting the next, so an earlier stage can write before a later one discovers a denied
+  function. W4 (merged to main, `CHAIN_ADMISSION=off` by default) adds:
+  - a preflight of every stage, and one admission decision for the chain before any stage
+    runs;
+  - a durable plan pinning each stage to an approved revision, and the admission token;
+  - execution through the pinned revisions, stopping at the first failure.
+
+  Tests cover AT-03/04/07/08 across real HTTP services, and AT-12's cutover and rollback
+  against the actual W3 builds. Production acceptance is pending; see "W4 status" in
+  section 4. Evidence: [gateway](../packages/api/src/data.js),
+  [gateway admission](../packages/api/src/admission.js),
+  [Policy admission](../packages/policy/src/policy.ts),
+  [cross-service tests](../packages/api/src/w4-cross.spec.js),
   [admission scan](../languages/l0000/packages/core/src/protected-functions.ts), and
   [compiler](../languages/l0000/packages/core/src/compiler.ts).
 - **Partial — TOKEN-01, EXEC-01.** Invocation/session/execution profiles, fixed ES256,
@@ -88,6 +97,9 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   (released 2026-10-06) adds provenance: execution tokens carry `prv` (`user`,
   `publication` with `pub`, or `system`), required by the profile, stamped by mint from the
   session it checked, and its combination checked by `provenanceRefusal` at Policy and Broker.
+  W4 (merged, not released) adds the admission profile and plan binding: `cv` on every
+  proof, and for user provenance `pld`, `stg` and `bind`, with a minimum contract version at
+  Policy and Broker.
   Evidence: [tokens](../packages/policy/src/tokens.ts),
   [provenance](../packages/policy/src/provenance.ts),
   [minting](../packages/policy/src/policy.ts), [Broker](../packages/broker/src/broker.ts), and
@@ -439,6 +451,34 @@ and broker `broker-rmux0u0z2-12c43f` (c6ae2ad), api `api-rmux53ise-374246` (66de
   FAIL-01 is now implemented (section 2). AUDIT-01 stays Partial: denial records carry
   `reason` without `category`, and reconciliation is missing.
 
+### W4 status (2026-10-07)
+
+W4 implementation and automated tests are complete. Production acceptance remains pending:
+- five component releases (policy, broker, api, l0000, l0176) with `CHAIN_ADMISSION=off`;
+- live W4 canary checks;
+- the protected-chain inventory;
+- a soak at `CHAIN_ADMISSION=all`;
+- the cutover to contract version 2 and its rollback safeguards.
+
+The supporting infrastructure and the l0000 npm releases are already delivered:
+- the `revisions` database, read-only to Policy;
+- approvals for the serving L0000 and L0176 revisions;
+- `@graffiticode/l0000` 0.10.0 and 0.10.1.
+
+Activation is blocked on the IAM gate (`docs/capability-policy-iam-review.md`, Step 11:
+`firebase-adminsdk-qflje`'s approvals-write and impersonation authority). The procedure is
+in `docs/protected-execution.md`, "W4 activation and cutover".
+
+**What W4 does and doesn't promise users:**
+- **Languages:** protected chains initially support only L0000 and L0176 stages. A chain with
+  a stage in any other language is refused at admission (`stage-not-pinnable`).
+- **Not atomic:** W4 prevents a *known* admission denial in a later stage from following an
+  earlier write. It doesn't make a chain atomic. Revocation, outages and lost responses can
+  still produce partial or uncertain outcomes, reported as effects.
+- **After the cutover:** invocations started before contract version 2 can't resume, even
+  when receipts exist (`invocation-incompatible`). Starting a new invocation may repeat writes
+  the old one made.
+
 The current `deploy.json` wires gateway/L0176 to Policy, L0176 to Broker, and a system
 connection into Policy. Configuration intent does not prove a deployment uses it. Refresh
 live identity, database, token-key, secret, egress, provider-session, and rollback evidence
@@ -474,6 +514,17 @@ The spec's AT-01 through AT-12 are the release acceptance backlog. In particular
 - AT-09/10 need full deployed view/answer and provider-session tests, plus the Author gate.
 - AT-11/12 need deployed isolation negatives, legacy credential invalidation, audit
   correlation, and mixed-version cutover/rollback evidence.
+
+**Milestones aren't conformance.** Completing W0-W4 doesn't make the implementation conform
+to the spec. These remain open, and each needs an owner and closure criteria alongside W5.
+Owners aren't assigned yet.
+
+| Item | State | Closure criterion (proposed) |
+|---|---|---|
+| AUDIT-01 | Partial: denial records have no `category`; no reconciliation events | Every audited refusal carries its category, checked by the inventory test; reconciliation outcomes audited (with WRITE-02) |
+| WRITE-02 | Missing: no reconciliation from provider evidence. No exactly-once provider guarantee is claimed | Uncertain and partial writes reconciled against provider evidence, with AT-10 for Author (W5) |
+| RETAIN-01 | Retention and backups unverified | Retention configuration and backups of the Policy, Broker and `revisions` databases verified in production, and recorded |
+| ISOLATE-01 | Compiler isolation and egress evidence outstanding | Compiler egress allowlist enforced and shown by deployed negative tests (AT-11) |
 
 Update this record when each requirement is implemented and tested. Record source revision,
 command/environment, outcome, and date; retain the distinction between local implementation
