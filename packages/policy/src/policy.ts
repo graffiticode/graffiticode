@@ -172,7 +172,8 @@ export const createPolicy = ({
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
     let allocated;
     try {
-      allocated = await invocations.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, admission });
+      // From the cutover every new invocation is admitted under a plan.
+      allocated = await invocations.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, admission: admission || minContractVersion >= 2 });
     } catch (e) {
       if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
       throw e;
@@ -185,7 +186,7 @@ export const createPolicy = ({
     await audit({ ...record, ownerUid: connection.ownerUid, invocationId, outcome: "allowed", reason: reused ? "reused" : "new" });
     // The owner and sequence go back to the gateway, which binds the private
     // result of this invocation to them.
-    return { invocationToken, invocationId, seq, reused, ownerUid: connection.ownerUid, contract, planDigest: allocated.planDigest ?? null };
+    return { invocationToken, invocationId, seq, reused, ownerUid: connection.ownerUid, contract, planDigest: allocated.planDigest ?? null, minContractVersion };
   };
 
   // The invocation comes only from a policy-issued invocation token for this
@@ -315,12 +316,14 @@ export const createPolicy = ({
     return { allowed, sessionToken };
   };
 
-  // An invocation allocated for chain admission runs only under its plan,
-  // whatever the minimum contract version (W4).
-  const requiresPlan = async invocationId => {
-    if (minContractVersion >= 2) return true;
+  // Why an unbound user-provenance proof can't run (W4), or null: a marked
+  // invocation runs only under its plan, whatever the minimum (plan-required);
+  // from minimum 2, an unmarked one, started before the cutover, can't be
+  // resumed at all (invocation-incompatible: a new run is needed).
+  const planRefusal = async invocationId => {
     const invocation = isId(invocationId) ? await invocations.get?.(invocationId) : null;
-    return invocation?.contract === 2;
+    if (invocation?.contract === 2) return "plan-required";
+    return minContractVersion >= 2 ? "invocation-incompatible" : null;
   };
   // Is the pinned revision still runnable? Read live: retirement blocks it
   // from `retiring` on.
@@ -376,8 +379,9 @@ export const createPolicy = ({
       bound = await planBinding({ admissionToken, invocationId, uid: user.uid, connectionId, lang, stage, manifest });
       if (bound.refusal) return deny(bound.refusal, record);
       Object.assign(record, { planDigest: bound.planDigest });
-    } else if (await requiresPlan(invocationId)) {
-      return deny("plan-required", record);
+    } else {
+      const refusal = await planRefusal(invocationId);
+      if (refusal) return deny(refusal, record);
     }
 
     const connection = await connections.get(connectionId);
@@ -573,7 +577,7 @@ export const createPolicy = ({
     if (!SUPPORTED_CONTRACT_VERSIONS.includes(cv)) return "contract-version-unsupported";
     if (cv < minContractVersion) return "contract-version-unsupported";
     if (provenance !== "user") return null;
-    if (!claims.pld) return (await requiresPlan(invocationId)) ? "plan-required" : null;
+    if (!claims.pld) return planRefusal(invocationId);
     const plan = await invocations.getPlan(claims.pld);
     const pinned = plan?.stages?.find(s => s.stage === stage);
     if (!plan || plan.invocationId !== invocationId || !pinned || pinned.lang !== lang || !pinned.requiredFunctions.includes(fn)) {

@@ -12,7 +12,7 @@ describe("invocations", () => {
     const fetch = /** @type {any} */ (jest.fn(reply(200, { data: { ...INVOCATION, reused: false, contract: 2 } })));
     const allocate = buildAllocateInvocation({ policyUrl: "https://policy", idToken, fetch });
     await expect(allocate({ authToken: "user", connectionId: "conn-1", taskId: "t1", options: {}, idempotencyKey: "job-1", admission: true }))
-      .resolves.toEqual({ ...INVOCATION, contract: 2 });
+      .resolves.toEqual({ ...INVOCATION, contract: 2, minContractVersion: 1 });
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({ admission: true });
   });
 
@@ -24,7 +24,7 @@ describe("invocations", () => {
 
     // An older Policy sends no marker: the invocation is contract 1 (W4).
     await expect(allocate({ authToken: "user", connectionId: "conn-1", taskId: "t1", options: {}, idempotencyKey: "job-1" }))
-      .resolves.toEqual({ ...INVOCATION, contract: 1 });
+      .resolves.toEqual({ ...INVOCATION, contract: 1, minContractVersion: 1 });
 
     // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
     const [url, init] = fetch.mock.calls[0];

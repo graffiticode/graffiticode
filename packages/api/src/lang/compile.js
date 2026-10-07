@@ -11,6 +11,8 @@ export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, re
       "ERROR",
       x,
     );
-    return { errors: [{ message: `Language server error: ${x.message}`, from: -1, to: -1 }] };
+    // No usable answer: the compiler may have acted before it was lost. The
+    // gateway decides what that means for the stage (data.js).
+    return { errors: [{ message: `Language server error: ${x.message}`, from: -1, to: -1 }], responseLost: true };
   }
 };

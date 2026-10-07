@@ -88,7 +88,7 @@ const buildGetData = ({
   // Chain admission for a marked invocation (W4 section F): returns
   // { admissionToken, stages: [{ stage, lang, revision, tagUrl }] }, or
   // { errors } with nothing executed.
-  const admitChain = async ({ tasks, id, invocation, authToken, connectionId, attemptId }) => {
+  const admitChain = async ({ tasks, id, invocation, authToken, connectionId, attemptId, override = null }) => {
     const refuseChain = async (message, code, stage = undefined) => {
       await audit({ event: "admission", outcome: code === "preflight-unavailable" || code === "policy-unavailable" ? "failed" : "denied", reason: code, category: classify(code).category, stage, invocationId: invocation.invocationId, connectionId, attemptId });
       return { errors: [failedWith(message, code)] };
@@ -105,6 +105,13 @@ const buildGetData = ({
       return refuseChain("Error: the task chain could not be read", "plan-binding-mismatch");
     }
     if (taskIds.length !== tasks.length) return refuseChain("Error: the task chain could not be read", "plan-binding-mismatch");
+    // A user's language override pins them to a revision no plan can admit:
+    // refused before anything is preflighted, never silently ignored.
+    const overridden = tasks.map(t => `L${normalizeLang(t.lang)}`).filter(lang => override?.bindings?.[lang]);
+    if (overridden.length) {
+      const message = `Error: a language override (${[...new Set(overridden)].join(", ")}) can't run through a connection; remove it to run this`;
+      return refuseChain(message, "language-override-refused");
+    }
     // A retry pins what its first admission pinned, before resolving any URL.
     let plan;
     try {
@@ -147,7 +154,11 @@ const buildGetData = ({
     } catch (e) {
       return policyFailure(e, "admit this compile");
     }
-    return { admissionToken: admission.admissionToken, stages: admission.stages };
+    // Each stage keeps the functions its plan admits (what it could do).
+    return {
+      admissionToken: admission.admissionToken,
+      stages: admission.stages.map((s, i) => ({ ...s, requiredFunctions: manifests[i].requiredFunctions ?? [] })),
+    };
   };
   const readPublished = buildReadPublished({ compile, artifactStorer, publications, audit });
   return async ({
@@ -256,8 +267,15 @@ const buildGetData = ({
     // CHAIN_ADMISSION says now (W4 section C): every stage preflighted and the
     // chain admitted before any stage executes, or nothing runs.
     let admitted = null;
+    // From the cutover (Policy's minimum contract 2), an invocation started
+    // before it has no plan and can't be resumed (spec RELEASE-01): an
+    // explicit new run is required, and it may repeat writes.
+    if (invocation && invocation.contract !== 2 && invocation.minContractVersion >= 2) {
+      await audit({ event: "admission", outcome: "denied", reason: "invocation-incompatible", category: classify("invocation-incompatible").category, invocationId: invocation.invocationId, connectionId, attemptId });
+      return { errors: [failedWith("Error: this run started under an earlier permission contract and can't be resumed. Start a new run (a new idempotency key); it may repeat writes this run already made", "invocation-incompatible")] };
+    }
     if (invocation?.contract === 2) {
-      const result = await admitChain({ tasks, id, invocation, authToken, connectionId, attemptId });
+      const result = await admitChain({ tasks, id, invocation, authToken, connectionId, attemptId, override });
       if (result.errors) return { errors: result.errors };
       admitted = result;
     }
@@ -298,11 +316,27 @@ const buildGetData = ({
           ...(pinned ? { admissionToken: admitted.admissionToken, baseUrl: pinned.tagUrl } : {})
         });
         if (pinned) {
-          // The revision that answered must be the one the plan pins.
-          const { revision, ...rest } = obj ?? {};
-          obj = revision === pinned.revision
-            ? rest
-            : { ...rest, data: null, errors: [failedWith(`Error: stage ${pinned.stage} answered from another compiler revision than the plan pins`, "plan-binding-mismatch")] };
+          const { revision, responseLost, ...rest } = obj ?? {};
+          if (responseLost) {
+            // No answer is not a mismatch: the stage may have acted through
+            // the connection before the response was lost. If it could have
+            // (its plan admits protected functions), that is reported as an
+            // uncertain effect, never hidden behind a compile error.
+            const mayHaveActed = pinned.requiredFunctions.length > 0;
+            obj = {
+              ...rest,
+              data: null,
+              errors: [failedWith(mayHaveActed
+                ? `Error: stage ${pinned.stage}'s compiler didn't answer, so what it did through the connection is uncertain. Check before running it again: a retry with the same key replays only what was recorded`
+                : `Error: stage ${pinned.stage}'s compiler didn't answer`, "compile-response-lost")],
+              ...(mayHaveActed ? { effects: [{ status: "uncertain", steps: [], reason: "compile-response-lost", category: "unavailable" }] } : {}),
+            };
+          } else if (revision !== pinned.revision) {
+            // The revision that answered must be the one the plan pins.
+            obj = { ...rest, data: null, errors: [failedWith(`Error: stage ${pinned.stage} answered from another compiler revision than the plan pins`, "plan-binding-mismatch")] };
+          } else {
+            obj = rest;
+          }
         }
         const out = takeEffects(obj, index);
         if (out && typeof out === "object" && out.cache === false) {

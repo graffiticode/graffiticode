@@ -86,18 +86,26 @@ beforeEach(async () => {
   const invocations = createMemoryInvocationStore({ leases });
   const approvals = createMemoryApprovals(new Map());
   const audit = createAudit({ sink: r => records.push(r), pseudonymize });
-  const policy = createPolicy({
+  // `policyAt(min)` builds a Policy with that minimum contract version over
+  // the same stores; `cutOver` swaps it in behind the same server.
+  const fence = createMemoryLeaseFence({ leases });
+  const grantsStore = createMemoryGrantStore();
+  const publicationsStore = createMemoryPublicationStore();
+  const policyAt = minContractVersion => createPolicy({
     protectedSwitch: on,
     signer,
     jwks,
     connections,
-    grants: createMemoryGrantStore(),
-    publications: createMemoryPublicationStore(),
+    grants: grantsStore,
+    publications: publicationsStore,
     invocations,
     approvals,
-    fence: createMemoryLeaseFence({ leases }),
+    fence,
     audit,
+    minContractVersion,
   });
+  const current = { policy: policyAt(1) };
+  const policy = new Proxy({}, { get: (_target, key) => current.policy[key] });
   const callers = { [SA.gateway]: { role: "gateway" }, [SA.compiler]: { role: "compiler", lang: "0176" }, [SA.broker]: { role: "broker" } };
   const policyUrl = await listen(createPolicyApp({
     policy,
@@ -198,20 +206,20 @@ beforeEach(async () => {
   };
 
   const { taskStorer, compileStorer } = createStorers();
-  const gatewayFor = ({ artifactStorer = buildMemoryArtifactStorer() } = {}) => buildDataApi(/** @type {any} */ ({
+  const gatewayFor = ({ artifactStorer = buildMemoryArtifactStorer(), wanted = true } = {}) => buildDataApi(/** @type {any} */ ({
     compile,
     allocateInvocation: buildAllocateInvocation({ policyUrl, idToken: idTokenFor(SA.gateway) }),
     artifactStorer,
     audit: createApiAudit({ sink: r => records.push({ service: "api", ...r }) }),
     chainAdmission: buildChainAdmission({ policyUrl, idToken: idTokenFor(SA.gateway), baseUrlFor: async () => serving.rev.url }),
-    admissionWanted: () => true,
+    admissionWanted: () => wanted,
   }));
   // s0 (leftmost, runs last) and s1 (runs first).
   const chain = async (s0, s1) => taskStorer.appendIds(
     await taskStorer.create(/** @type {any} */ ({ task: { lang: "0176", code: programOf(s0) } })),
     await taskStorer.create(/** @type {any} */ ({ task: { lang: "0176", code: programOf(s1) } })),
   );
-  w = { policy, approvals, connections, counts, records, serving, startRevision, chain, gatewayFor, taskStorer, compileStorer };
+  w = { policy, approvals, connections, counts, records, serving, startRevision, chain, gatewayFor, taskStorer, compileStorer, cutOver: () => { current.policy = policyAt(2); } };
 });
 
 const run = (id, { gateway = w.gatewayFor(), key = "job-1", uid = OWNER } = {}) =>
@@ -350,5 +358,28 @@ describe("AT-08: recovery", () => {
     expect(retry.errors[0].message).toMatch(/may repeat its writes/);
     expect(w.counts.provider.length).toBe(writes);
     expect(w.counts.compiles).toBe(compiles);
+  });
+});
+
+// Review of PR 6: the cutover, end to end. An invocation that ran before it
+// (unmarked, per-stage admission) can't be resumed after it; a new run is
+// marked by Policy itself and admitted, whatever CHAIN_ADMISSION says.
+describe("AT-12 portion: the cutover", () => {
+  it("refuses to resume a pre-cutover invocation, with the new-run warning, and admits a new run", async () => {
+    const id = await w.chain("preview", "save");
+    // Before the cutover, with chain admission off: today's per-stage path.
+    const old = await run(id, { gateway: w.gatewayFor({ wanted: false }), key: "old-job" });
+    expect(old.errors).toEqual([]);
+    expect(w.records.filter(r => r.event === "admission")).toEqual([]);
+    const writes = w.counts.provider.length;
+    w.cutOver();
+    const off = w.gatewayFor({ wanted: false });
+    const retry = await run(id, { gateway: off, key: "old-job" });
+    expect(retry.errors[0]).toMatchObject({ code: "invocation-incompatible" });
+    expect(retry.errors[0].message).toMatch(/may repeat writes/);
+    expect(w.counts.provider.length).toBe(writes);
+    const fresh = await run(id, { gateway: off, key: "new-job" });
+    expect(fresh.errors).toEqual([]);
+    expect(w.records.filter(r => r.event === "admission" && r.outcome === "allowed" && !r.service)).toHaveLength(1);
   });
 });

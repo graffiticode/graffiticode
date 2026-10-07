@@ -133,6 +133,22 @@ describe("the invocation marker (W4 section C)", () => {
   });
 });
 
+describe("the cutover (RELEASE-01; review of PR 6)", () => {
+  it("marks every new invocation from minimum 2 and says so; an invocation from before can't be resumed", async () => {
+    const before = await allocate({ idempotencyKey: "old-job", admission: false });
+    expect(before).toMatchObject({ contract: 1, minContractVersion: 1 });
+    policy = build({ minContractVersion: 2 });
+    expect(await allocate({ idempotencyKey: "new-job", admission: false })).toMatchObject({ contract: 2, minContractVersion: 2 });
+    // The old invocation's retry keeps its own marker, and the gateway is told the minimum.
+    expect(await allocate({ idempotencyKey: "old-job", admission: false })).toMatchObject({ invocationId: before.invocationId, contract: 1, minContractVersion: 2 });
+    // Its proofs are refused as incompatible, not as merely unbound.
+    const unbound = await issueToken(signer, "session", {
+      sub: OWNER, own: OWNER, conn: "conn-1", backend: "learnosity", lang: "0176", inv: before.invocationId, stg: "s1", rv: REGISTRY_VERSION, fns: ["save-to-itembank"], cv: 2,
+    });
+    await denied(mint(unbound), "invocation-incompatible");
+  });
+});
+
 describe("admission (ADMIT-01, ADMIT-02)", () => {
   it("decides the whole chain once, pins every stage, and returns a Policy-audience admission token", async () => {
     const inv = await allocate();
@@ -310,8 +326,9 @@ describe("plan-bound snapshots (ADMIT-03)", () => {
     const legacy = await snapshot(plain.invocationToken, null, { manifest: null });
     expect((await claimsOf("session", legacy.sessionToken))).toMatchObject({ cv: 1 });
     expect((await claimsOf("session", legacy.sessionToken)).pld).toBeUndefined();
+    // From the cutover an unmarked invocation can't be resumed at all.
     policy = build({ minContractVersion: 2 });
-    await denied(snapshot(plain.invocationToken, null, { manifest: null }), "plan-required");
+    await denied(snapshot(plain.invocationToken, null, { manifest: null }), "invocation-incompatible");
   });
 });
 

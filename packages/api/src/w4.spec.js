@@ -68,7 +68,7 @@ const fakeChain = ({ plan = null, manifests = null, refuse = null, preflightDown
     return { planDigest: hex("d"), admissionToken: "adm.tok.en", stages: stages.map(s => ({ stage: s.stage, lang: s.lang, revision: s.revision, tagUrl: `https://tag-${s.stage}` })) };
   }),
 });
-const api = ({ contract = 2, wanted = true, ...over } = {}) => {
+const api = ({ contract = 2, wanted = true, langOverrideStorer = undefined, ...over } = {}) => {
   const allocateInvocation = /** @type {any} */ (jest.fn)(async () => ({ invocationToken: "inv.tok.en", invocationId: "inv-1", seq: 1, ownerUid: "0xowner", contract }));
   const dataApi = buildDataApi(/** @type {any} */ ({
     compile,
@@ -77,6 +77,7 @@ const api = ({ contract = 2, wanted = true, ...over } = {}) => {
     audit: createApiAudit({ sink: r => records.push(r) }),
     chainAdmission: chain,
     admissionWanted: () => wanted,
+    langOverrideStorer,
     ...over,
   }));
   return { dataApi, allocateInvocation };
@@ -222,6 +223,63 @@ describe("refusals run nothing", () => {
     expect(down.errors[0]).toMatchObject({ code: "policy-unavailable" });
     expectNothingRan();
     expect(JSON.stringify(records)).not.toMatch(/0xuser|0xowner|ECONNRESET/);
+  });
+});
+
+// Review of PR 6.
+describe("what the gateway mustn't hide or ignore", () => {
+  it("reports a lost compiler response as an uncertain effect, not a revision mismatch", async () => {
+    chain = fakeChain({ manifests: { s0: { ...manifestFor(TASK1, "s0") }, s1: { ...manifestFor(TASK2, "s1"), requiredFunctions: ["save-to-itembank"] } } });
+    compile = jest.fn(async (/** @type {any} */ req) => {
+      calls.push(["compile", req.stage]);
+      return { errors: [{ message: "Language server error: socket hang up", from: -1, to: -1 }], responseLost: true };
+    });
+    const { id } = await chainOf();
+    const out = await get(api().dataApi, id);
+    expect(out.errors[0]).toMatchObject({ code: "compile-response-lost", category: "unavailable" });
+    expect(out.errors[0].message).toMatch(/uncertain.*Check before running it again/);
+    expect(out.effects).toEqual([{ status: "uncertain", steps: [], reason: "compile-response-lost", category: "unavailable", stage: "s1" }]);
+    expect(JSON.stringify(out)).not.toContain("plan-binding-mismatch");
+    // The chain stopped there.
+    expect(compiles().map(c => c[1])).toEqual(["s1"]);
+  });
+
+  it("reports a lost response from a stage that could do nothing without an effect", async () => {
+    chain = fakeChain();
+    compile = jest.fn(async () => ({ errors: [{ message: "Language server error: socket hang up", from: -1, to: -1 }], responseLost: true }));
+    const { id } = await chainOf();
+    const out = await get(api().dataApi, id);
+    expect(out.errors[0]).toMatchObject({ code: "compile-response-lost" });
+    expect(out.effects).toBeUndefined();
+  });
+
+  it("refuses a user's language override for a stage before preflighting anything", async () => {
+    chain = fakeChain();
+    const { id } = await chainOf();
+    const langOverrideStorer = { get: async () => ({ bindings: { L0000: "https://my-branch" } }) };
+    const out = await get(api({ langOverrideStorer }).dataApi, id);
+    expect(out.errors[0]).toMatchObject({ code: "language-override-refused", category: "permission" });
+    expect(out.errors[0].message).toMatch(/L0000/);
+    expect(calls).toEqual([]);
+  });
+
+  it("refuses an invocation from before the cutover with the new-run warning, running nothing", async () => {
+    chain = fakeChain();
+    const { id } = await chainOf();
+    const { dataApi } = api({ contract: 1, wanted: false });
+    const out = await get(buildDataApi(/** @type {any} */ ({
+      compile,
+      allocateInvocation: async () => ({ invocationToken: "inv.tok.en", invocationId: "inv-old", seq: 1, ownerUid: "0xowner", contract: 1, minContractVersion: 2 }),
+      artifactStorer: buildMemoryArtifactStorer(),
+      audit: createApiAudit({ sink: r => records.push(r) }),
+      chainAdmission: chain,
+      admissionWanted: () => false,
+    })), id);
+    expect(dataApi).toBeTruthy();
+    expect(out.errors[0]).toMatchObject({ code: "invocation-incompatible", category: "conflict" });
+    expect(out.errors[0].message).toMatch(/new run.*may repeat writes/);
+    expect(calls).toEqual([]);
+    expect(records.at(-1)).toMatchObject({ event: "admission", outcome: "denied", reason: "invocation-incompatible", invocationId: "inv-old" });
   });
 });
 

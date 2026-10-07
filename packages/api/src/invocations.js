@@ -67,7 +67,8 @@ export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = f
       throw new Error(`policy invocation failed (${status})`);
     }
     const { invocationToken, invocationId, seq, ownerUid } = data;
-    // The invocation's marker (an older Policy sends none: contract 1).
-    return { invocationToken, invocationId, seq, ownerUid, contract: data.contract === 2 ? 2 : 1 };
+    // The invocation's marker (an older Policy sends none: contract 1), and
+    // Policy's minimum contract version (from the cutover, 2).
+    return { invocationToken, invocationId, seq, ownerUid, contract: data.contract === 2 ? 2 : 1, minContractVersion: data.minContractVersion === 2 ? 2 : 1 };
   };
 };
