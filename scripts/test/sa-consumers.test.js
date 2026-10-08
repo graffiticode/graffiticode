@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { workloadChecks, analyzeImpersonation, authentications, disableWindow, activityFilter, verdict, SHORT_LIVED_MS } from "../lib/sa-consumers.js";
+import { workloadChecks, analyzeImpersonation, authentications, disableWindow, activityFilter, keyEventsFilter, verdict, SHORT_LIVED_MS } from "../lib/sa-consumers.js";
 
 const SA = "firebase-adminsdk-qflje@graffiticode.iam.gserviceaccount.com";
 const OTHER = "api-run@graffiticode.iam.gserviceaccount.com";
@@ -259,4 +259,14 @@ test("the activity filter matches credential minting wherever the entry names th
   const noId = activityFilter({ account: SA, disabledAt: DISABLED });
   assert.ok(noId.includes(`resource.labels.email_id="${SA}"`));
   assert.equal(noId.includes("unique_id"), false);
+});
+
+test("both log queries read only the Cloud Audit logs, with exact method names", () => {
+  const logs = "logName=(\"projects/graffiticode/logs/cloudaudit.googleapis.com%2Factivity\" OR \"projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access\")";
+  const k = keyEventsFilter({ project: "graffiticode", keyId: "6bfb0894" });
+  assert.ok(k.startsWith(`${logs} AND `));
+  assert.ok(k.includes("protoPayload.methodName=(\"google.iam.admin.v1.DisableServiceAccountKey\" OR \"google.iam.admin.v1.EnableServiceAccountKey\")"));
+  assert.ok(k.includes("protoPayload.resourceName:\"6bfb0894\""));
+  const a = activityFilter({ account: SA, uniqueId: "1", disabledAt: DISABLED, project: "graffiticode" });
+  assert.ok(a.startsWith(`${logs} AND timestamp>="${DISABLED}"`));
 });

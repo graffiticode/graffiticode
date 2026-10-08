@@ -251,7 +251,16 @@ export const SHORT_LIVED_MS = 60 * 60 * 1000;
 // `protoPayload.request.name`, `resource.labels.email_id`,
 // `resource.labels.unique_id`, or `protoPayload.resourceName`; any of them
 // counts. `uniqueId` may be null (then only the email forms are matched).
-export const activityFilter = ({ account, uniqueId = null, disabledAt }) => {
+// Both queries read only the Cloud Audit logs (Admin Activity and Data
+// Access): an unrestricted substring search over every log for 90 days ran
+// for over half an hour.
+export const auditLogs = project => `logName=("projects/${project}/logs/cloudaudit.googleapis.com%2Factivity" OR "projects/${project}/logs/cloudaudit.googleapis.com%2Fdata_access")`;
+
+// The key's disables and enables.
+export const keyEventsFilter = ({ project, keyId }) =>
+  `${auditLogs(project)} AND protoPayload.serviceName="iam.googleapis.com" AND protoPayload.methodName=("google.iam.admin.v1.DisableServiceAccountKey" OR "google.iam.admin.v1.EnableServiceAccountKey") AND (protoPayload.resourceName:"${keyId}" OR protoPayload.request.name:"${keyId}")`;
+
+export const activityFilter = ({ account, uniqueId = null, disabledAt, project = null }) => {
   const ids = [account, ...(uniqueId ? [uniqueId] : [])];
   const target = [
     ...ids.map(id => `protoPayload.request.name:"${id}"`),
@@ -259,7 +268,7 @@ export const activityFilter = ({ account, uniqueId = null, disabledAt }) => {
     ...(uniqueId ? [`resource.labels.unique_id="${uniqueId}"`] : []),
     ...ids.map(id => `protoPayload.resourceName:"${id}"`),
   ].join(" OR ");
-  return `timestamp>="${disabledAt}" AND (protoPayload.authenticationInfo.principalEmail="${account}" OR (protoPayload.serviceName="iamcredentials.googleapis.com" AND (${target})))`;
+  return `${project ? `${auditLogs(project)} AND ` : ""}timestamp>="${disabledAt}" AND (protoPayload.authenticationInfo.principalEmail="${account}" OR (protoPayload.serviceName="iamcredentials.googleapis.com" AND (${target})))`;
 };
 
 // An audit entry for a call that succeeded: no error status, not an ERROR.

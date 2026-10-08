@@ -17,7 +17,7 @@ import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  workloadChecks, assetSearch, analyzeImpersonation, authentications, disableWindow, activityFilter, verdict,
+  workloadChecks, assetSearch, analyzeImpersonation, authentications, disableWindow, activityFilter, keyEventsFilter, verdict,
   IMPERSONATION_PERMISSIONS, NOT_COVERED,
 } from "./lib/sa-consumers.js";
 
@@ -92,13 +92,11 @@ results.push(keys.incomplete
 // the account, or minting a credential for it, since.
 const describe = await queryJson(["iam", "service-accounts", "describe", account], "service-accounts describe");
 const uniqueId = describe.incomplete ? null : describe.value?.uniqueId;
-const keyEvents = await queryJson(["logging", "read",
-  `protoPayload.methodName:("DisableServiceAccountKey" OR "EnableServiceAccountKey") AND (protoPayload.resourceName:"${keyId}" OR protoPayload.request.name:"${keyId}")`,
-  "--freshness=90d", "--limit=50"], "logging read (key disable)");
+const keyEvents = await queryJson(["logging", "read", keyEventsFilter({ project, keyId }), "--freshness=90d", "--limit=50"], "logging read (key disable)");
 const window = keyEvents.incomplete ? { disabledAt: null } : disableWindow(keyEvents.value);
 const { disabledAt } = window;
 const entries = disabledAt
-  ? await queryJson(["logging", "read", activityFilter({ account, uniqueId, disabledAt }), "--freshness=90d", "--limit=500"], "logging read (activity)")
+  ? await queryJson(["logging", "read", activityFilter({ account, uniqueId, disabledAt, project }), "--freshness=90d", "--limit=500"], "logging read (activity)")
   : { incomplete: keyEvents.incomplete ?? "no successful disable of the key found, so no window to read" };
 const lastAuth = async (type, check, matches) => {
   const r = await queryJson(["policy-intelligence", "query-activity", `--activity-type=${type}`], `query-activity ${type}`);
