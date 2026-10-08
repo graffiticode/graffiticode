@@ -261,12 +261,20 @@ test("the activity filter matches credential minting wherever the entry names th
   assert.equal(noId.includes("unique_id"), false);
 });
 
-test("both log queries read only the Cloud Audit logs, with exact method names", () => {
+test("both log queries read only the Cloud Audit logs, with exact method names; activity includes Policy Denied", () => {
   const logs = "logName=(\"projects/graffiticode/logs/cloudaudit.googleapis.com%2Factivity\" OR \"projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access\")";
+  const withDenied = "logName=(\"projects/graffiticode/logs/cloudaudit.googleapis.com%2Factivity\" OR \"projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access\" OR \"projects/graffiticode/logs/cloudaudit.googleapis.com%2Fpolicy\")";
   const k = keyEventsFilter({ project: "graffiticode", keyId: "6bfb0894" });
   assert.ok(k.startsWith(`${logs} AND `));
   assert.ok(k.includes("protoPayload.methodName=(\"google.iam.admin.v1.DisableServiceAccountKey\" OR \"google.iam.admin.v1.EnableServiceAccountKey\")"));
   assert.ok(k.includes("protoPayload.resourceName:\"6bfb0894\""));
   const a = activityFilter({ account: SA, uniqueId: "1", disabledAt: DISABLED, project: "graffiticode" });
-  assert.ok(a.startsWith(`${logs} AND timestamp>="${DISABLED}"`));
+  assert.ok(a.startsWith(`${withDenied} AND timestamp>="${DISABLED}"`));
+});
+
+test("a denied attempt by the account after the disable is FOUND, and says it was denied", () => {
+  const denied = { timestamp: at(2 * SHORT_LIVED_MS), logName: "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fpolicy", protoPayload: { serviceName: "datastore.googleapis.com", methodName: "google.datastore.v1.Datastore.Commit", authenticationInfo: { principalEmail: SA } } };
+  const r = byCheck(authentications({ disabledAt: DISABLED, entries: { value: [denied] }, analyzer: [], account: SA, keyId: "6bfb" }));
+  assert.equal(r["audit-log-activity"].status, "FOUND");
+  assert.match(r["audit-log-activity"].found[0], /DENIED attempt/);
 });
