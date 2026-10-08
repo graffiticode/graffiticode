@@ -903,45 +903,52 @@ evidence that nothing else but the operators can write.
           credential variable and runs as `l0013-run@`.
         - **Not established:** that these are the only consumers, or which use was the
           2026-09-11 authentication.
-        - **Migration checklist.** The gate stays closed until every item is done.
+        - **Migration checklist.** The gate closes after step 6. Reordered 2026-10-08: the
+          gate depends on the account's authority, not on its key, so key deletion, the only
+          irreversible step, comes last.
           1. Move the consumers to application-default credentials, and merge: L0013 (this
-             repository) and the console's admin scripts (`graffiticode/console` #8).
-          2. **Exercise both migrated consumers successfully with ADC**: an L0013 thumbnail upload
-             in local development, and a console admin script against the `graffiticode`
-             project.
-          3. Key `6bfb0894…` **disabled 2026-10-07** (reversible). **2026-10-14 is the earliest
-             retirement review, not automatic clearance.** At the review, check for failures
-             during the observation period, including the key's own authentications (Policy
-             Analyzer and the audit logs). A quiet week doesn't show there are no infrequent
-             consumers.
-          4. Delete the key.
-          5. **Show the account is unused.** Deleting its keys doesn't establish that: a workload
+             repository) and the console's admin scripts (`graffiticode/console` #8). **Done
+             2026-10-07.**
+          2. **Exercise both migrated consumers successfully with ADC.** **Done 2026-10-08**: a
+             console admin script read the `graffiticode` project's Firestore; L0013's upload
+             path (its credential setup and public-read save) wrote to and deleted from
+             `thumbnails/`.
+          3. Key `6bfb0894…` **disabled 2026-10-07** (reversible). A disabled key can't
+             authenticate. The observation period continues alongside the steps below: failures
+             it turns up, or the key's own authentications, point to a missed consumer. A quiet
+             period doesn't show there are no infrequent consumers.
+          4. **Show the account is unused.** A disabled key doesn't establish that: a workload
              attached to it, or anyone who can impersonate it, can still use it. Check, read-only:
-             - no Cloud Run service or job, Cloud Function, App Engine version, Compute instance
-               or Cloud Build trigger runs as it;
-             - who can act as it (Policy Analyzer: `iam.serviceAccounts.actAs` and
-               `getAccessToken` on the account) is the operators only;
-             - its own authentications after the key's deletion (Policy Analyzer's
-               `serviceAccountLastAuthentication`, and the audit logs for token generation for
-               it) show none.
+             - nothing runs as it: Cloud Run services and jobs, Cloud Functions, App Engine
+               versions, Compute instances, Cloud Build triggers and Cloud Scheduler jobs, plus a
+               Cloud Asset Inventory search for the account anywhere in the project;
+             - who can act as it (Policy Analyzer: `actAs`, `getAccessToken`, `signJwt`,
+               `signBlob`, `getOpenIdToken` and `implicitDelegation` on the account) is the
+               operators only;
+             - it hasn't authenticated since the key was disabled (Policy Analyzer's
+               `serviceAccountLastAuthentication` and `serviceAccountKeyLastAuthentication`, and
+               the audit logs).
 
              If a legitimate dependency turns up, migrate it to a dedicated identity with only the
-             permissions it needs, before step 6.
-          6. **Remove both authorities from `firebase-adminsdk-qflje` outright** (decided
-             2026-10-07):
+             permissions it needs, before step 5.
+          5. **Remove both authorities from `firebase-adminsdk-qflje` outright** (decided
+             2026-10-07), once steps 1-4 are done:
              - `roles/firebase.sdkAdminServiceAgent`, its direct Firestore write access, which
                includes `revisions`;
              - the project-wide `roles/iam.serviceAccountTokenCreator`.
 
-             Don't add a replacement grant unless a remaining requirement has been shown. This is
-             the retirement checklist's decision. It doesn't authorize changing production IAM
-             before steps 1-5 are done.
-          7. **Verify both**, read-only:
+             Don't add a replacement grant unless a remaining requirement has been shown. Both
+             removals are reversible: re-adding a binding restores it, and whatever needed it is a
+             consumer to migrate.
+          6. **Verify both**, read-only. **The gate closes here**:
              - Policy Analyzer for writers of the `revisions` database (this step's check) lists
                no unintended principal;
              - for each service account that check lists, Policy Analyzer for who can impersonate
                it (`iam.serviceAccounts.getAccessToken`) shows nothing beyond the operators, and
                `firebase-adminsdk-qflje` holds no project-wide token-creator.
+          7. Delete the key, and its file on the workstation. This is hygiene, not authority: a
+             disabled key on an account with neither grant can't write approvals, even if it is
+             re-enabled.
     - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
       `firebase-rules`, `gcp-gae-service`): accepted. They aren't workloads our code drives.
 
