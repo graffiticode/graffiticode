@@ -1050,28 +1050,34 @@ evidence that nothing else but the operators can write.
             `INCOMPLETE`. Each agent lives in a Google-owned project, and the Analyzer reports "no
             resource found" in this project's scope, so its IAM can't be analyzed from here.
 
-          **Step 6 dispositions: PROPOSED 2026-10-08, pending Jeff's approval.** Every authority
-          path the evidence lists, each to be removed or accepted with a reason. W4 activation stays
-          blocked until each one is approved, and any proposed removal is done and re-verified.
+          **Step 6 dispositions: PROPOSED 2026-10-08, revised after review; pending Jeff's
+          approval.** One row per authority path the evidence lists, each to be removed, or
+          accepted with the function it serves and the residual risk accepted. **Step 6 is not
+          ready to close the gate:** who can act as the remaining Google-agent writers couldn't be
+          analyzed, so paths through them stay unresolved until accepted explicitly. W4
+          activation stays blocked until every row is approved, and any removal is done and
+          re-verified.
 
           | Authority path | Evidence | Proposed disposition |
           |---|---|---|
-          | `user:jeff@artcompiler.com`, Owner (writes `revisions`) | writers | **Accept:** operator |
-          | `user:admin@artcompiler.com`, Owner | writers | **Accept** as an operator, *if Jeff confirms the account is an operator's*; otherwise remove |
-          | `user:kevin.m.dyer@gmail.com`, Owner | writers | **Accept** as an operator, *if Jeff confirms*; otherwise remove |
-          | `service-PN@containerregistry`, Editor (writes `revisions`) | writers | **Remove** Editor. Container Registry is superseded by Artifact Registry here; its agent doesn't need project Editor |
-          | `PN@cloudservices` (Google APIs agent), Editor (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accept:** Google-managed and used by Google for internal operations; removing it can break them. Its impersonation can't be analyzed from the project |
-          | `service-PN@firebase-rules` agent, `roles/firebaserules.system` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accept:** Google-managed; Firestore Security Rules. Not analyzable from the project |
-          | `service-PN@gcp-gae-service` agent, `roles/appengine.serviceAgent` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accept:** Google-managed. The project has no App Engine application. Not analyzable from the project |
-          | `api-run`, `auth-run`, `broker-run`, `policy-run`: `datastore.user`, each conditioned to its own database | writers (`CONDITIONAL`) | **Accept:** the conditions exclude `revisions` (for `policy-run`, also shown by probes) |
-          | The eight principals able to act as `firebase-adminsdk-qflje` | step 4 run | **Accept:** acting as the account no longer reaches `revisions`, since it isn't a writer |
-          | `firebase-adminsdk-qflje`, project-wide `roles/storage.admin` | IAM policy | **Remove.** Not an approvals path, but no remaining consumer needs it (L0013's uploads use the developer's credentials) |
-          | Legacy Cloud Build account (`PN@cloudbuild`), project-wide `iam.serviceAccountUser` and more | IAM policy; writers | **No approvals path:** it isn't a writer, and every service account it can act as is either not a writer or only writes its own database. Its breadth stays the open Step 2 item, outside this gate |
+          | Owners: `user:admin@artcompiler.com`, `user:jeff@artcompiler.com`, `user:kevin.m.dyer@gmail.com` (write `revisions`) | writers | **Accept as operators, once Jeff confirms that all three remain authorized operators.** Any that doesn't: remove |
+          | `service-PN@containerregistry` agent, project Editor (writes `revisions`) | writers; Artifact Registry settings | **Remove Editor, after verifying dependencies.** Found so far: `gcr.io` in this project is redirected to Artifact Registry (`legacyRedirectionState: REDIRECTION_FROM_GCR_IO_ENABLED`; `gcr.io`, `us.gcr.io`, `eu.gcr.io` and `asia.gcr.io` are Artifact Registry repositories). The release pipeline pulls `gcr.io/graffiticode/firebase@sha256:8b553694…` (`deploy.json`), and the legacy Cloud Build account pushed there on 2026-10-06; both now go through Artifact Registry, not this agent. Still to verify before removing: that no build or pull fails without it. Residual dependency risk accepted; the binding can be restored |
+          | `PN@cloudservices` (Google APIs service agent), project Editor (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accept, explicitly covering both** its write authority and the unverified impersonation boundary. Function: Google uses it to run internal operations on the project's behalf (for example, managed instance groups and Deployment Manager), and removing its Editor role can break them. Residual risk accepted: Google's internal use of it, and that who can act as it can't be analyzed from this project |
+          | `service-PN@firebase-rules` agent, `roles/firebaserules.system` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accept, explicitly covering both.** Function: Firebase Security Rules, which Firestore uses. Residual risk accepted: its Firestore write authority, and an unverified impersonation boundary |
+          | `service-PN@gcp-gae-service` agent, `roles/appengine.serviceAgent` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accept, explicitly covering both,** or remove if App Engine isn't needed: the project has no App Engine application. Function: App Engine's service agent. Residual risk accepted: its write authority, and an unverified impersonation boundary |
+          | `api-run`, `auth-run`, `broker-run`, `policy-run`: `datastore.user`, each conditioned to its own database | writers (`CONDITIONAL`) | **Accept:** the conditions name their own databases, not `revisions` (for `policy-run`, also shown by probes) |
+          | The eight principals able to act as `firebase-adminsdk-qflje` | step 4 run | **Accept:** the account no longer appears among the writers of `revisions`, so acting as it doesn't reach them by its own grants |
+          | Legacy Cloud Build account (`PN@cloudbuild`): project-wide `iam.serviceAccountUser`, `run.admin` and more | IAM policy; writers | **Record:** no direct `revisions` write permission found. Paths through the remaining writers are **unresolved**: an incomplete impersonation analysis can't establish that it can't act as them. Its breadth stays the open Step 2 item, and must be resolved or explicitly accepted before activation |
           | The three `INCOMPLETE` inventories (Cloud Run jobs in `me-central2`; Scheduler; Eventarc) | step 4 runs | Accepted at step 4 for the reversible step 5 only: *inventory unavailable; residual dependency risk accepted* |
 
-          After the two proposed removals: re-run the writers analysis and the step 4 checker, and
-          record the results here. The gate closes when every row is approved and those re-runs
-          match.
+          **Additional cleanup, separate from the approvals authority:** remove
+          `firebase-adminsdk-qflje`'s project-wide `roles/storage.admin`. That fits retiring the
+          account; no remaining consumer was found that needs it. Dependency risk recorded and
+          accepted as for step 5; the binding can be restored.
+
+          After any approved removals: re-run the writers analysis and the step 4 checker, and
+          record the results here. The gate closes only when every row has an approved
+          disposition and those re-runs match.
     - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
       `firebase-rules`, `gcp-gae-service`): accepted. They aren't workloads our code drives.
 
