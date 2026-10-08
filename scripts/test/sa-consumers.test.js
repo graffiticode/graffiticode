@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { workloadChecks, analyzeImpersonation, authentications, disableWindow, verdict, SHORT_LIVED_MS } from "../lib/sa-consumers.js";
+import { workloadChecks, analyzeImpersonation, authentications, disableWindow, activityFilter, verdict, SHORT_LIVED_MS } from "../lib/sa-consumers.js";
 
 const SA = "firebase-adminsdk-qflje@graffiticode.iam.gserviceaccount.com";
 const OTHER = "api-run@graffiticode.iam.gserviceaccount.com";
@@ -238,4 +238,25 @@ test("credential minting for the account by another principal is FOUND, and a mi
   assert.equal(r["audit-log-activity"].status, "FOUND");
   assert.match(r["audit-log-activity"].found[0], /minted by someone@example.com/);
   assert.match(r["audit-log-activity"].found[1], /credential source unknown/);
+});
+
+// Review of #50: the activity query itself, not just classification.
+test("the activity filter matches credential minting wherever the entry names the target account", () => {
+  const f = activityFilter({ account: SA, uniqueId: "115770615674472306642", disabledAt: DISABLED });
+  assert.ok(f.startsWith(`timestamp>="${DISABLED}" AND (`));
+  assert.ok(f.includes(`protoPayload.authenticationInfo.principalEmail="${SA}"`));
+  // Google's documented credential-generation entry: request.name and the resource labels, no resourceName.
+  for (const field of [
+    `protoPayload.request.name:"${SA}"`,
+    "protoPayload.request.name:\"115770615674472306642\"",
+    `resource.labels.email_id="${SA}"`,
+    "resource.labels.unique_id=\"115770615674472306642\"",
+    `protoPayload.resourceName:"${SA}"`,
+    "protoPayload.resourceName:\"115770615674472306642\"",
+  ]) assert.ok(f.includes(field), field);
+  assert.ok(f.includes("protoPayload.serviceName=\"iamcredentials.googleapis.com\""));
+  // Without the unique id, the email forms still apply.
+  const noId = activityFilter({ account: SA, disabledAt: DISABLED });
+  assert.ok(noId.includes(`resource.labels.email_id="${SA}"`));
+  assert.equal(noId.includes("unique_id"), false);
 });

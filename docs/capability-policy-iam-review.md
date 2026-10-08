@@ -982,6 +982,26 @@ evidence that nothing else but the operators can write.
                authority. They do bear on step 6, which asks who can write `revisions` and who can
                act as those writers: the Editor-holding agents, and the legacy Cloud Build
                account's project-wide `actAs`, must be resolved or explicitly accepted there.
+
+             **Second run, 2026-10-08** (`.gc-deploy/iam/sa-consumers-2026-10-08T16-59-12-995Z.json`,
+             no exceptions accepted): the same eight access paths and three `INCOMPLETE` checks; no
+             reachable revision (118) runs as the account; both keys disabled; the authentication
+             checks pass within their limits.
+
+             **Step 4 decision, recorded 2026-10-08 (Jeff).** The checker's `FOUND` verdict
+             stands; step 4 is cleared by this recorded decision, not by a changed verdict:
+             - **The three `INCOMPLETE` inventories** (Cloud Run jobs in `me-central2`; Cloud
+               Scheduler; Eventarc): *inventory unavailable; residual dependency risk accepted*,
+               **for the reversible step 5 removal only.** Not recorded as empty: the errors say
+               "permission denied" and "never used or disabled", which don't establish that no
+               resources exist.
+             - **The seven Google-managed agents' access paths:** deferred to step 6. They are not
+               exempted by identity class: acting as this account is harmless to approvals only
+               once its effective authority is removed and verified. The two Editor-holding agents'
+               direct write access to `revisions` needs its own explicit disposition at step 6.
+             - **The legacy Cloud Build account:** handled at step 6. It doesn't delay step 5, but
+               its access to every other approvals writer must be resolved or explicitly accepted
+               before W4 activation.
           5. **Remove both authorities from `firebase-adminsdk-qflje` outright** (decided
              2026-10-07), once steps 1-4 are done:
              - `roles/firebase.sdkAdminServiceAgent`, its direct Firestore write access, which
@@ -999,8 +1019,16 @@ evidence that nothing else but the operators can write.
                (`actAs`, `getAccessToken`, `signJwt`, `signBlob`, `getOpenIdToken`,
                `implicitDelegation`), with indirect impersonation paths analyzed, and the analysis
                fully explored;
-             - `firebase-adminsdk-qflje` holds no project-wide token-creator, and step 4's check,
-               re-run, still passes.
+             - `firebase-adminsdk-qflje` holds no project-wide token-creator;
+             - **fresh step 4 evidence** (`node scripts/sa-consumers.js`, run after step 5) shows no
+               unresolved consumer finding: no workload runs as the account and no activity since
+               the disable;
+             - **every authority path has a recorded disposition**: each principal the evidence
+               lists as able to act as the account, each writer of `revisions`, and each principal
+               able to act as a writer, recorded as removed, or explicitly accepted with a reason.
+               This includes the two Editor-holding Google agents and the legacy Cloud Build
+               account. The checker's verdict may remain `FOUND` for access paths; what closes
+               the gate is that none is left without a disposition.
           7. Delete the key, and its file on the workstation. This is hygiene, not authority: a
              disabled key on an account with neither grant can't write approvals, even if it is
              re-enabled.

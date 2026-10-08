@@ -245,6 +245,23 @@ export const analyzeImpersonation = (response, { allowed }) => {
 // Policy Analyzer reports by day only: a last authentication on the day of
 // the disable can't be ordered against it.
 export const SHORT_LIVED_MS = 60 * 60 * 1000;
+// The audit-log filter for activity since the disable: entries made as the
+// account, and credentials minted for it by anyone. Credential-generation
+// entries name the target account in several places, depending on the entry:
+// `protoPayload.request.name`, `resource.labels.email_id`,
+// `resource.labels.unique_id`, or `protoPayload.resourceName`; any of them
+// counts. `uniqueId` may be null (then only the email forms are matched).
+export const activityFilter = ({ account, uniqueId = null, disabledAt }) => {
+  const ids = [account, ...(uniqueId ? [uniqueId] : [])];
+  const target = [
+    ...ids.map(id => `protoPayload.request.name:"${id}"`),
+    `resource.labels.email_id="${account}"`,
+    ...(uniqueId ? [`resource.labels.unique_id="${uniqueId}"`] : []),
+    ...ids.map(id => `protoPayload.resourceName:"${id}"`),
+  ].join(" OR ");
+  return `timestamp>="${disabledAt}" AND (protoPayload.authenticationInfo.principalEmail="${account}" OR (protoPayload.serviceName="iamcredentials.googleapis.com" AND (${target})))`;
+};
+
 // An audit entry for a call that succeeded: no error status, not an ERROR.
 const succeeded = e => !(e?.protoPayload?.status?.code) && e?.severity !== "ERROR";
 

@@ -17,7 +17,7 @@ import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  workloadChecks, assetSearch, analyzeImpersonation, authentications, disableWindow, verdict,
+  workloadChecks, assetSearch, analyzeImpersonation, authentications, disableWindow, activityFilter, verdict,
   IMPERSONATION_PERMISSIONS, NOT_COVERED,
 } from "./lib/sa-consumers.js";
 
@@ -97,11 +97,8 @@ const keyEvents = await queryJson(["logging", "read",
   "--freshness=90d", "--limit=50"], "logging read (key disable)");
 const window = keyEvents.incomplete ? { disabledAt: null } : disableWindow(keyEvents.value);
 const { disabledAt } = window;
-const target = [`protoPayload.resourceName:"${account}"`, ...(uniqueId ? [`protoPayload.resourceName:"${uniqueId}"`] : [])].join(" OR ");
 const entries = disabledAt
-  ? await queryJson(["logging", "read",
-    `timestamp>="${disabledAt}" AND (protoPayload.authenticationInfo.principalEmail="${account}" OR (protoPayload.serviceName="iamcredentials.googleapis.com" AND (${target})))`,
-    "--freshness=90d", "--limit=500"], "logging read (activity)")
+  ? await queryJson(["logging", "read", activityFilter({ account, uniqueId, disabledAt }), "--freshness=90d", "--limit=500"], "logging read (activity)")
   : { incomplete: keyEvents.incomplete ?? "no successful disable of the key found, so no window to read" };
 const lastAuth = async (type, check, matches) => {
   const r = await queryJson(["policy-intelligence", "query-activity", `--activity-type=${type}`], `query-activity ${type}`);
