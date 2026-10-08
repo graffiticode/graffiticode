@@ -913,21 +913,39 @@ evidence that nothing else but the operators can write.
              console admin script read the `graffiticode` project's Firestore; L0013's upload
              path (its credential setup and public-read save) wrote to and deleted from
              `thumbnails/`.
-          3. Key `6bfb0894…` **disabled 2026-10-07** (reversible). A disabled key can't
-             authenticate. The observation period continues alongside the steps below: failures
-             it turns up, or the key's own authentications, point to a missed consumer. A quiet
-             period doesn't show there are no infrequent consumers.
-          4. **Show the account is unused.** A disabled key doesn't establish that: a workload
-             attached to it, or anyone who can impersonate it, can still use it. Check, read-only:
-             - nothing runs as it: Cloud Run services and jobs, Cloud Functions, App Engine
-               versions, Compute instances, Cloud Build triggers and Cloud Scheduler jobs, plus a
-               Cloud Asset Inventory search for the account anywhere in the project;
-             - who can act as it (Policy Analyzer: `actAs`, `getAccessToken`, `signJwt`,
-               `signBlob`, `getOpenIdToken` and `implicitDelegation` on the account) is the
-               operators only;
-             - it hasn't authenticated since the key was disabled (Policy Analyzer's
-               `serviceAccountLastAuthentication` and `serviceAccountKeyLastAuthentication`, and
-               the audit logs).
+          3. Key `6bfb0894…` **disabled 2026-10-07** (reversible). New authentications with the
+             key are refused, but disabling doesn't revoke short-lived credentials already issued
+             with it (up to an hour). Step 4 records the exact disable time from the audit log, and
+             tells activity on those credentials apart from anything later. The observation period
+             continues alongside the steps below. A quiet period doesn't show there are no
+             infrequent consumers.
+          4. **Check for remaining consumers and record coverage**: `node scripts/sa-consumers.js`
+             (read-only; tests in `scripts/test/sa-consumers.test.js`). Each check reports
+             `PASS`, `FOUND` or `INCOMPLETE`. A failed command, including an API that's disabled,
+             is `INCOMPLETE`, never an empty inventory. The verdict passes only if every check is
+             `PASS`, or `INCOMPLETE` and accepted by the operator with a recorded reason
+             (`--accept <check>=<reason>`; a `FOUND` can't be accepted). It writes the evidence,
+             including the full Analyzer response, to `.gc-deploy/iam/`. The checks:
+             - **Workloads:** every reachable Cloud Run revision (serving or tagged), read from the
+               revision itself; Cloud Run jobs, Cloud Build triggers, Cloud Scheduler jobs and
+               Eventarc triggers in every enumerated region; Cloud Functions in all regions; App
+               Engine versions; Compute instances; Pub/Sub push subscriptions. An Asset Inventory
+               search is recorded as supplementary only, since it covers selected metadata.
+             - **Who can act as it:** Policy Analyzer for `actAs`, `getAccessToken`, `signJwt`,
+               `signBlob`, `getOpenIdToken` and `implicitDelegation`, with groups expanded and
+               indirect impersonation paths analyzed. The analysis must be fully explored, with
+               no errors, unexpanded groups or conditional bindings. Anyone other than the
+               project's Owners and the account itself is `FOUND`. Both user-managed keys must be
+               disabled.
+             - **Its authentications:** the key's disable time, and audit log entries made as the
+               account since then. Entries within an hour that used the key are credentials issued
+               before the disable; anything else means another consumer. Policy Analyzer's last
+               authentications for the account and the key are reported by day, so one on the
+               disable day itself is `INCOMPLETE`. Data Access logging is off, so empty logs are
+               limited evidence.
+             - **Not covered**, recorded with the evidence: Workflows, Cloud Tasks, Dataflow,
+               Vertex AI and GKE workload identity; resources in other projects; untagged
+               revisions with no traffic.
 
              If a legitimate dependency turns up, migrate it to a dedicated identity with only the
              permissions it needs, before step 5.
@@ -939,13 +957,17 @@ evidence that nothing else but the operators can write.
 
              Don't add a replacement grant unless a remaining requirement has been shown. Both
              removals are reversible: re-adding a binding restores it, and whatever needed it is a
-             consumer to migrate.
+             consumer to migrate. **If either grant is restored, the gate reopens.**
           6. **Verify both**, read-only. **The gate closes here**:
              - Policy Analyzer for writers of the `revisions` database (this step's check) lists
                no unintended principal;
              - for each service account that check lists, Policy Analyzer for who can impersonate
-               it (`iam.serviceAccounts.getAccessToken`) shows nothing beyond the operators, and
-               `firebase-adminsdk-qflje` holds no project-wide token-creator.
+               it shows nothing beyond the operators: every signing and delegation permission
+               (`actAs`, `getAccessToken`, `signJwt`, `signBlob`, `getOpenIdToken`,
+               `implicitDelegation`), with indirect impersonation paths analyzed, and the analysis
+               fully explored;
+             - `firebase-adminsdk-qflje` holds no project-wide token-creator, and step 4's check,
+               re-run, still passes.
           7. Delete the key, and its file on the workstation. This is hygiene, not authority: a
              disabled key on an account with neither grant can't write approvals, even if it is
              re-enabled.
