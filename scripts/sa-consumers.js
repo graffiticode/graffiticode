@@ -109,7 +109,7 @@ const analyzer = [
     : { check: "analyzer-account-last-auth", incomplete: describe.incomplete },
   await lastAuth("serviceAccountKeyLastAuthentication", "analyzer-key-last-auth", n => n.endsWith(`/keys/${keyId}`)),
 ];
-results.push(...authentications({ disabledAt, entries, analyzer }));
+results.push(...authentications({ disabledAt, disableIncomplete: disables.incomplete ?? null, entries, analyzer }));
 
 const decided = verdict(results, accept);
 const evidence = {

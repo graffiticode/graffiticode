@@ -244,11 +244,12 @@ export const analyzeImpersonation = (response, { allowed }) => {
 // Policy Analyzer reports by day only: a last authentication on the day of
 // the disable can't be ordered against it.
 export const SHORT_LIVED_MS = 60 * 60 * 1000;
-export const authentications = ({ disabledAt, entries, analyzer }) => {
+// `disableIncomplete`: why the disable time couldn't be read, if the read failed.
+export const authentications = ({ disabledAt, disableIncomplete = null, entries, analyzer }) => {
   const results = [];
   const disabled = disabledAt ? Date.parse(disabledAt) : NaN;
   if (Number.isNaN(disabled)) {
-    results.push({ check: "key-disable-time", status: "INCOMPLETE", incomplete: ["the key's disable time wasn't found in the audit logs"] });
+    results.push({ check: "key-disable-time", status: "INCOMPLETE", incomplete: [disableIncomplete ?? "the key's disable time wasn't found in the audit logs"] });
   } else {
     results.push({ check: "key-disable-time", status: "PASS", disabledAt });
   }

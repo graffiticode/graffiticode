@@ -163,6 +163,8 @@ test("authentications: activity after the disable is FOUND, told apart by how it
 
 test("authentications: no disable time, a failed log read, or a same-day Analyzer date is INCOMPLETE; a later date is FOUND", () => {
   assert.equal(byCheck(authentications({ disabledAt: null, entries: { value: [] }, analyzer: [] }))["key-disable-time"].status, "INCOMPLETE");
+  const unread = byCheck(authentications({ disabledAt: null, disableIncomplete: "logging read (key disable): exit 1: reauthentication failed", entries: { incomplete: "no window" }, analyzer: [] }));
+  assert.match(unread["key-disable-time"].incomplete[0], /reauthentication failed/);
   assert.equal(byCheck(authentications({ disabledAt: DISABLED, entries: { incomplete: "logging read: exit 1" }, analyzer: [] }))["audit-log-activity"].status, "INCOMPLETE");
   const sameDay = byCheck(authentications({ disabledAt: DISABLED, entries: { value: [] }, analyzer: [{ check: "analyzer-account-last-auth", last: "2026-10-07T07:00:00Z" }] }));
   assert.equal(sameDay["analyzer-account-last-auth"].status, "INCOMPLETE");
