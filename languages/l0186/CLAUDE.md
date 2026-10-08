@@ -87,9 +87,12 @@ default in one place. Pages show as tabs (`PageChrome`, ported from L0184's char
 there are two or more; one page shows neither tabs nor menu.
 
 **Fidelity.** Values the plugin sets are copied exactly. FigJam's own defaults in `figjam.ts`
-(sticky/shape/text sizes and colours, connector colour, section look) are best estimates until
-the fidelity board (`tools/fixtures.ts`, "fidelity: shapes") is drawn by the plugin and compared
-side by side with `/dev.html`; calibrate there, in one place.
+were measured on 2026-10-08: each node was created through the Plugin API (via the Figma MCP's
+`use_figma`) exactly as the plugin creates it and read back, and the fidelity board
+(`tools/fixtures.ts`, "fidelity: shapes") was drawn with the plugin's own drawing code and
+screenshotted next to `/dev.html`. Shape outlines (`shapes.ts`), cap placement, elbow rounding and
+the AUTO side rule (`layout.ts` `autoSides`) come from those screenshots. To recalibrate after a
+FigJam change, repeat that: create a scratch board, draw the fixture, compare, adjust in one place.
 
 ## Related repos
 

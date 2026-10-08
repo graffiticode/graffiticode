@@ -91,7 +91,7 @@ Sizes: `font-size` takes `SMALL` (16), `MEDIUM` (24), `LARGE` (40), `EXTRA_LARGE
 
 A `sticky`, `shape`, `textbox` or `stamp` sits at its `x` and `y`, in pixels from the top left of
 its page; both default to 0. Sizes left out take FigJam's defaults: a sticky is 240 by 240, a
-shape 200 by 200, a stamp 40 by 40, and text is as wide as it is written.
+shape 176 by 176, a stamp 40 by 40, and text is as wide as it is written.
 
 A node's key — what a connector names — is its `id`, or its `text` when it has none; a stamp's key
 is its reaction (`like`). Ids are unique on a page.

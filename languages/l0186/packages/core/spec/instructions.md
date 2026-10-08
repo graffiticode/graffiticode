@@ -107,7 +107,7 @@ Nothing is laid out for you: every node sits at its `x` and `y` (pixels from the
 left; both default to 0, and may be negative). Plan positions on a grid before writing them.
 
 - A sticky is about 240×240. Space stickies at least 280 apart; 300 is a comfortable grid cell.
-- A shape is about 200×200 unless `width`/`height` are given. Give flowchart shapes a size
+- A shape is 176×176 unless `width`/`height` are given. Give flowchart shapes a size
   (e.g. `width 200 height 120`) and leave at least 80 between them so a connector shows.
 - A text label is as wide as its text. `font-size` takes `SMALL` (16), `MEDIUM` (24), `LARGE`
   (40), `EXTRA_LARGE` (64), `HUGE` (96) or a number.

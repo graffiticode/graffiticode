@@ -10,7 +10,7 @@
  * and fit. A plain wheel is left to the page, so an embedded board never traps scrolling.
  */
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
-import { CANVAS, CONNECTOR, FONT_FAMILY, FONT_WEIGHT, SECTION, SHAPE, STAMP, STAMP_GLYPHS, STICKY, TEXT, darken, opacityOf, resolveColor } from "../../lib/figjam";
+import { CANVAS, CONNECTOR, FONT_FAMILY, FONT_WEIGHT, NODE_TEXT_COLOR, SECTION, SHAPE, STAMP, STAMP_GLYPHS, STICKY, TEXT, TEXTLESS_SHAPES, UNKNOWN_COLOR, darken, opacityOf, resolveColor } from "../../lib/figjam";
 import { layoutPage, type Box, type Placed, type Route } from "../../lib/layout";
 import { shapeGeometry } from "../../lib/shapes";
 import { fit, measure, wrap } from "../../lib/text";
@@ -57,12 +57,16 @@ function TextBlock({
   );
 }
 
-/** The outline a shape gets: an explicit stroke, or with only a width, its fill darkened. */
-function shapeStroke(n: any, fill: string): { stroke?: string; strokeWidth?: number } {
+/**
+ * The outline a shape gets, as the plugin's applyStroke leaves it: an explicit stroke at its width
+ * (or FigJam's 4); with only a width, the written fill darkened (grey when there is none); and
+ * otherwise FigJam's own grey outline.
+ */
+function shapeStroke(n: any): { stroke: string; strokeWidth: number } {
   const width = n.strokeWidth ?? n["stroke-width"];
   if (n.stroke) return { stroke: resolveColor(n.stroke), strokeWidth: width ?? SHAPE.strokeWidth };
-  if (width != null) return { stroke: darken(fill), strokeWidth: Number(width) };
-  return {};
+  if (width != null) return { stroke: darken(n.fill ? resolveColor(n.fill) : UNKNOWN_COLOR), strokeWidth: Number(width) };
+  return { stroke: SHAPE.stroke, strokeWidth: SHAPE.strokeWidth };
 }
 
 function Sticky({ p }: { p: Placed }) {
@@ -76,7 +80,7 @@ function Sticky({ p }: { p: Placed }) {
   return (
     <g data-node="sticky" opacity={opacityOf(n.opacity)}>
       <rect x={x} y={y} width={w} height={h} rx={2} fill={n.fill ? resolveColor(n.fill) : STICKY.fill} style={{ filter: STICKY.shadow }} />
-      <TextBlock lines={lines} box={inner} fontSize={fontSize} lineHeight={STICKY.lineHeight} color="#1e1e1e" align="start" valign="top" />
+      <TextBlock lines={lines} box={inner} fontSize={fontSize} lineHeight={STICKY.lineHeight} color={NODE_TEXT_COLOR} align="start" valign="top" />
     </g>
   );
 }
@@ -86,17 +90,17 @@ function Shape({ p }: { p: Placed }) {
   const { x, y, w, h } = p.box;
   const g = shapeGeometry(n.shapeType ?? "SQUARE", w, h);
   const fill = n.fill ? resolveColor(n.fill) : SHAPE.fill;
-  const stroke = shapeStroke(n, fill);
+  const stroke = shapeStroke(n);
   const fs = n.fontSize ?? SHAPE.fontSize;
   const tb = { x: x + g.text.x, y: y + g.text.y, w: Math.max(1, g.text.w), h: Math.max(1, g.text.h) };
-  const lines = n.text ? wrap(String(n.text), tb.w, fs) : [];
+  const lines = n.text && !TEXTLESS_SHAPES.has(n.shapeType) ? wrap(String(n.text), tb.w, fs) : [];
   return (
     <g data-node="shape" data-shape={n.shapeType ?? "SQUARE"} opacity={opacityOf(n.opacity)}>
       <g transform={`translate(${x} ${y})`}>
         <path d={g.d} fill={fill} {...stroke} strokeLinejoin="round" />
-        {g.details && <path d={g.details} fill="none" stroke={stroke.stroke ?? darken(fill)} strokeWidth={stroke.strokeWidth ?? 2} />}
+        {g.details && <path d={g.details} fill="none" stroke={stroke.stroke} strokeWidth={stroke.strokeWidth} strokeLinecap="round" />}
       </g>
-      {lines.length > 0 && <TextBlock lines={lines} box={tb} fontSize={fs} lineHeight={SHAPE.lineHeight} color="#1e1e1e" />}
+      {lines.length > 0 && <TextBlock lines={lines} box={tb} fontSize={fs} lineHeight={SHAPE.lineHeight} color={NODE_TEXT_COLOR} />}
     </g>
   );
 }
@@ -184,25 +188,42 @@ type Pt = { x: number; y: number };
 
 /** A cap at `tip`, pointing along `d` (the way the line travels into the tip). */
 function Cap({ kind, tip, d, sw, color }: { kind: string; tip: Pt; d: Pt; sw: number; color: string }) {
-  const L = Math.max(12, sw * 3.5);
+  // About 20px at FigJam's default 4px line, growing with the line (measured 2026-10-08).
+  const L = Math.max(16, sw * 5);
   const n = { x: -d.y, y: d.x };
   const at = (back: number, side: number) => `${tip.x - d.x * back + n.x * side} ${tip.y - d.y * back + n.y * side}`;
   switch (kind) {
     case "arrow-lines":
-      return <path d={`M${at(L, L * 0.6)} L${tip.x} ${tip.y} L${at(L, -L * 0.6)}`} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />;
+      return <path d={`M${at(L * 0.85, L * 0.5)} L${tip.x} ${tip.y} L${at(L * 0.85, -L * 0.5)}`} fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />;
     case "arrow-equilateral":
       return <path d={`M${tip.x} ${tip.y} L${at(L * 0.87, L / 2)} L${at(L * 0.87, -L / 2)} Z`} fill={color} stroke={color} strokeWidth={1} strokeLinejoin="round" />;
     case "triangle-filled":
-      return <path d={`M${tip.x} ${tip.y} L${at(L, L * 0.45)} L${at(L, -L * 0.45)} Z`} fill={color} />;
+      // FigJam's filled triangle sits with its flat side on the node and points back along the line.
+      return <path d={`M${at(0, L * 0.45)} L${at(0, -L * 0.45)} L${at(L * 0.85, 0)} Z`} fill={color} />;
     case "circle-filled":
-      return <circle cx={tip.x - d.x * L * 0.35} cy={tip.y - d.y * L * 0.35} r={L * 0.35} fill={color} />;
+      // Centred on the end point, half over the node.
+      return <circle cx={tip.x} cy={tip.y} r={L * 0.45} fill={color} />;
     case "diamond-filled":
-      return <path d={`M${tip.x} ${tip.y} L${at(L / 2, L * 0.35)} L${at(L, 0)} L${at(L / 2, -L * 0.35)} Z`} fill={color} />;
+      return <path d={`M${at(-L * 0.5, 0)} L${at(0, L * 0.4)} L${at(L * 0.5, 0)} L${at(0, -L * 0.4)} Z`} fill={color} />;
   }
   return null;
 }
 
-function Connector({ r }: { r: Route }) {
+/** A polyline with each interior corner rounded, as FigJam draws elbowed connectors. */
+function roundedPath(pts: Pt[], radius: number): string {
+  let d = `M${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [a, b, c] = [pts[i - 1], pts[i], pts[i + 1]];
+    const r = Math.min(radius, Math.hypot(b.x - a.x, b.y - a.y) / 2, Math.hypot(c.x - b.x, c.y - b.y) / 2);
+    const u = (p: Pt, q: Pt) => { const l = Math.hypot(q.x - p.x, q.y - p.y) || 1; return { x: (q.x - p.x) / l, y: (q.y - p.y) / l }; };
+    const [ub, uc] = [u(b, a), u(b, c)];
+    d += ` L${b.x + ub.x * r} ${b.y + ub.y * r} Q${b.x} ${b.y} ${b.x + uc.x * r} ${b.y + uc.y * r}`;
+  }
+  const z = pts[pts.length - 1];
+  return `${d} L${z.x} ${z.y}`;
+}
+
+function Connector({ r, background }: { r: Route; background: string }) {
   const c = r.connector;
   const sw = Number(c.strokeWidth ?? c["stroke-width"] ?? CONNECTOR.strokeWidth);
   const color = c.stroke ? resolveColor(c.stroke) : c.color ? resolveColor(c.color) : CONNECTOR.stroke;
@@ -210,7 +231,7 @@ function Connector({ r }: { r: Route }) {
   const d =
     r.lineType === "curved" && r.controls
       ? `M${p0.x} ${p0.y} C${r.controls[0].x} ${r.controls[0].y} ${r.controls[1].x} ${r.controls[1].y} ${p1.x} ${p1.y}`
-      : `M${r.points.map((p) => `${p.x} ${p.y}`).join(" L")}`;
+      : roundedPath(r.points, CONNECTOR.elbowRadius);
   const fromCap = c.fromCap ?? "none";
   const toCap = c.toCap ?? "arrow-lines";
   const label = c.label != null && c.label !== "" ? String(c.label) : "";
@@ -233,7 +254,7 @@ function Connector({ r }: { r: Route }) {
       <Cap kind={toCap} tip={p1} d={r.endDir} sw={sw} color={color} />
       {label && (
         <g>
-          <rect x={r.mid.x - lw / 2} y={r.mid.y - lh / 2} width={lw} height={lh} rx={lh / 2} fill={L.fill} />
+          <rect x={r.mid.x - lw / 2} y={r.mid.y - lh / 2} width={lw} height={lh} fill={background} />
           <text x={r.mid.x} y={r.mid.y} fontFamily={FONT_FAMILY} fontWeight={FONT_WEIGHT} fontSize={fs} fill={L.color} textAnchor="middle" dominantBaseline="central">
             {label}
           </text>
@@ -325,8 +346,9 @@ export const BoardPreview = ({ nodes, background, label }: { nodes: any[]; backg
 
   const dots = `l0186-dots-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const ratio = home.w / home.h;
+  const canvas = background ? resolveColor(background) : CANVAS.background;
   return (
-    <div className="l0186-canvas" style={{ background: background ? resolveColor(background) : CANVAS.background }}>
+    <div className="l0186-canvas" style={{ background: canvas }}>
       <svg
         ref={svgRef}
         role="img"
@@ -349,7 +371,7 @@ export const BoardPreview = ({ nodes, background, label }: { nodes: any[]; backg
           <Node key={i} p={p} />
         ))}
         {layout.routes.map((r, i) => (
-          <Connector key={i} r={r} />
+          <Connector key={i} r={r} background={canvas} />
         ))}
       </svg>
       <div className="l0186-zoom" role="group" aria-label="Zoom">

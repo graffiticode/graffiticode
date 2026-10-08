@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0186-view",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "L0186 view — an SVG preview of a FigJam board, rendered through the shared View inherited from @graffiticode/l0000-view",
   "type": "module",
   "main": "./dist/index.js",

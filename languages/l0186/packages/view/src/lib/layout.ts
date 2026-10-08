@@ -182,14 +182,24 @@ function clipToBox(b: Box, to: { x: number; y: number }) {
   return t >= 1 ? c : { x: c.x + dx * t, y: c.y + dy * t };
 }
 
-/** The facing sides of two boxes: across when they are further apart across than down. */
-function autoSides(a: Box, b: Box): [Side, Side] {
+/**
+ * The sides an AUTO elbowed connector uses, as FigJam picks them: boxes that share a band of rows
+ * connect across, boxes that share a band of columns connect up or down, and diagonal boxes get
+ * one bend — leaving the start vertically and entering the end from the side (measured
+ * 2026-10-08 on the fidelity board).
+ */
+export function autoSides(a: Box, b: Box): [Side, Side] {
   const ca = centre(a);
   const cb = centre(b);
   const dx = cb.x - ca.x;
   const dy = cb.y - ca.y;
-  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? ["right", "left"] : ["left", "right"];
-  return dy >= 0 ? ["bottom", "top"] : ["top", "bottom"];
+  const across: [Side, Side] = dx >= 0 ? ["right", "left"] : ["left", "right"];
+  const down: [Side, Side] = dy >= 0 ? ["bottom", "top"] : ["top", "bottom"];
+  const rowsOverlap = a.y < b.y + b.h && b.y < a.y + a.h;
+  const colsOverlap = a.x < b.x + b.w && b.x < a.x + a.w;
+  if (rowsOverlap) return across;
+  if (colsOverlap) return down;
+  return [down[0], across[1]];
 }
 
 const unit = (v: { x: number; y: number }) => {
