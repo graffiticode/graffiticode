@@ -949,6 +949,39 @@ evidence that nothing else but the operators can write.
 
              If a legitimate dependency turns up, migrate it to a dedicated identity with only the
              permissions it needs, before step 5.
+
+             **First run, 2026-10-08** (`.gc-deploy/iam/sa-consumers-2026-10-08T15-27-24-190Z.json`,
+             before the review fixes in `258d0d3`; to be re-run). Verdict `FOUND`, with no
+             exceptions accepted:
+             - **No consumer found.** No reachable Cloud Run revision (118), Cloud Function,
+               Compute instance, App Engine version or Cloud Build trigger runs as the account. Both
+               keys are disabled; the key's disable was recorded at 2026-10-07T23:38:49Z. No
+               matching activity since, and both Policy Analyzer last authentications are
+               2026-09-11, within the stated logging limits.
+             - **`INCOMPLETE` (3):** Cloud Run jobs in `me-central2` (permission denied: an opt-in
+               region), and the Scheduler and Eventarc APIs (reported as never used or disabled).
+               These are for the operator to accept or resolve.
+             - **`FOUND`: eight principals can act as the account, all through project-wide
+               roles** that reach every service account in the project, not this one in
+               particular. These are access paths, not evidence of use:
+               - seven Google-managed service agents: App Engine (`gcp-gae-service`), Cloud Build
+                 (`gcp-sa-cloudbuild`), Cloud Functions (`gcf-admin-robot`), Compute
+                 (`compute-system`), Cloud Run (`serverless-robot-prod`), Container Registry
+                 (Editor) and the Google APIs agent (`cloudservices`, Editor). Some, with Editor, can
+                 also write `revisions` directly. Section 3 lists some of these agents as accepted.
+                 Whether they're accepted on this path, the operator decides.
+               - **the legacy Cloud Build account** (`PN@cloudbuild.gserviceaccount.com`):
+                 project-wide `iam.serviceAccountUser` (`actAs`), so a build running as it can deploy
+                 a workload as any service account. It is still in active use: builds up to
+                 2026-10-06 (`global`) and 2026-10-03 (`us-central1`), for many language images. It
+                 can't be removed outright without checking which of those builds deploy and as
+                 whom. Narrowing it to per-account grants on the runtime accounts it deploys is the
+                 open item already listed for Step 2.
+             - **Assessment.** No consumer of this account was found. The access paths don't block
+               step 5: once its two grants are gone, acting as this account confers no approvals
+               authority. They do bear on step 6, which asks who can write `revisions` and who can
+               act as those writers: the Editor-holding agents, and the legacy Cloud Build
+               account's project-wide `actAs`, must be resolved or explicitly accepted there.
           5. **Remove both authorities from `firebase-adminsdk-qflje` outright** (decided
              2026-10-07), once steps 1-4 are done:
              - `roles/firebase.sdkAdminServiceAgent`, its direct Firestore write access, which
