@@ -17,7 +17,7 @@ import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  workloadChecks, assetSearch, analyzeImpersonation, authentications, verdict,
+  workloadChecks, assetSearch, analyzeImpersonation, authentications, disableWindow, verdict,
   IMPERSONATION_PERMISSIONS, NOT_COVERED,
 } from "./lib/sa-consumers.js";
 
@@ -87,16 +87,22 @@ results.push(keys.incomplete
       return { check: "user-managed-keys-disabled", status: enabled.length ? "FOUND" : "PASS", keys: keys.value.map(k => `${k.name.split("/").pop().slice(0, 8)}… ${k.disabled ? "disabled" : "ENABLED"}`), ...(enabled.length ? { found: enabled.map(k => `${k.slice(0, 8)}… is enabled`) } : {}) };
     })());
 
-// 4c. Its authentications since the key was disabled.
-const disables = await queryJson(["logging", "read",
-  `protoPayload.methodName="google.iam.admin.v1.DisableServiceAccountKey" AND (protoPayload.resourceName:"${keyId}" OR protoPayload.request.name:"${keyId}")`,
-  "--freshness=90d", "--limit=5"], "logging read (key disable)");
-const disabledAt = disables.incomplete ? null : (disables.value ?? []).map(e => e.timestamp).sort().at(-1) ?? null;
-const entries = disabledAt
-  ? await queryJson(["logging", "read", `protoPayload.authenticationInfo.principalEmail="${account}" AND timestamp>="${disabledAt}"`, "--freshness=90d", "--limit=200"], "logging read (activity)")
-  : { incomplete: disables.incomplete ?? "no disable time, so no window to read" };
+// 4c. Its authentications since the key was disabled: the key's disables and
+// enables (successful ones only decide the window), then every entry made as
+// the account, or minting a credential for it, since.
 const describe = await queryJson(["iam", "service-accounts", "describe", account], "service-accounts describe");
 const uniqueId = describe.incomplete ? null : describe.value?.uniqueId;
+const keyEvents = await queryJson(["logging", "read",
+  `protoPayload.methodName:("DisableServiceAccountKey" OR "EnableServiceAccountKey") AND (protoPayload.resourceName:"${keyId}" OR protoPayload.request.name:"${keyId}")`,
+  "--freshness=90d", "--limit=50"], "logging read (key disable)");
+const window = keyEvents.incomplete ? { disabledAt: null } : disableWindow(keyEvents.value);
+const { disabledAt } = window;
+const target = [`protoPayload.resourceName:"${account}"`, ...(uniqueId ? [`protoPayload.resourceName:"${uniqueId}"`] : [])].join(" OR ");
+const entries = disabledAt
+  ? await queryJson(["logging", "read",
+    `timestamp>="${disabledAt}" AND (protoPayload.authenticationInfo.principalEmail="${account}" OR (protoPayload.serviceName="iamcredentials.googleapis.com" AND (${target})))`,
+    "--freshness=90d", "--limit=500"], "logging read (activity)")
+  : { incomplete: keyEvents.incomplete ?? "no successful disable of the key found, so no window to read" };
 const lastAuth = async (type, check, matches) => {
   const r = await queryJson(["policy-intelligence", "query-activity", `--activity-type=${type}`], `query-activity ${type}`);
   if (r.incomplete) return { check, incomplete: r.incomplete };
@@ -109,7 +115,15 @@ const analyzer = [
     : { check: "analyzer-account-last-auth", incomplete: describe.incomplete },
   await lastAuth("serviceAccountKeyLastAuthentication", "analyzer-key-last-auth", n => n.endsWith(`/keys/${keyId}`)),
 ];
-results.push(...authentications({ disabledAt, disableIncomplete: disables.incomplete ?? null, entries, analyzer }));
+results.push(...authentications({
+  disabledAt,
+  disableIncomplete: keyEvents.incomplete ?? (disabledAt ? null : "no successful disable of the key in the audit logs"),
+  reenabled: window.reenabled ?? [],
+  entries,
+  analyzer,
+  account,
+  keyId,
+}));
 
 const decided = verdict(results, accept);
 const evidence = {

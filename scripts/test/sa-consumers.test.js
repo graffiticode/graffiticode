@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { workloadChecks, analyzeImpersonation, authentications, verdict, SHORT_LIVED_MS } from "../lib/sa-consumers.js";
+import { workloadChecks, analyzeImpersonation, authentications, disableWindow, verdict, SHORT_LIVED_MS } from "../lib/sa-consumers.js";
 
 const SA = "firebase-adminsdk-qflje@graffiticode.iam.gserviceaccount.com";
 const OTHER = "api-run@graffiticode.iam.gserviceaccount.com";
@@ -155,10 +155,12 @@ test("authentications: activity after the disable is FOUND, told apart by how it
     disabledAt: DISABLED,
     entries: { value: [entry(at(10 * 60 * 1000), "projects/-/serviceAccounts/x/keys/6bfb"), entry(at(SHORT_LIVED_MS + 60000))] },
     analyzer: [],
+    account: SA,
+    keyId: "6bfb",
   }));
   assert.equal(r["audit-log-activity"].status, "FOUND");
   assert.match(r["audit-log-activity"].found[0], /a credential issued with the key before it was disabled/);
-  assert.match(r["audit-log-activity"].found[1], /without the key/);
+  assert.match(r["audit-log-activity"].found[1], /credential source unknown/);
 });
 
 test("authentications: no disable time, a failed log read, or a same-day Analyzer date is INCOMPLETE; a later date is FOUND", () => {
@@ -184,4 +186,56 @@ test("the verdict: an accepted INCOMPLETE records its reason; FOUND is never acc
   assert.equal(accepted.checks[1].acceptedBecause, "checked by hand");
   assert.deepEqual(accepted.unusedAcceptances, ["c"]);
   assert.equal(verdict([{ check: "f", status: "FOUND" }], { f: "no" }).status, "FOUND");
+});
+
+// Review of #50: three gaps.
+test("App Engine: a version running as the account is FOUND (gcloud nests it under `version`)", async () => {
+  // As `gcloud app versions list --format=json` returns a version.
+  const version = (id, serviceAccount) => ({
+    id,
+    service: "default",
+    project: "graffiticode",
+    version: { id, name: `apps/graffiticode/services/default/versions/${id}`, servingStatus: "SERVING", ...(serviceAccount ? { serviceAccount } : {}) },
+  });
+  const results = byCheck(await runWorkloads(world({
+    "app describe": ok({ id: "graffiticode" }),
+    "app versions list": ok([version("v1", SA), version("v2", null)]),
+  })));
+  assert.equal(results["app-engine-versions"].status, "FOUND");
+  assert.deepEqual(results["app-engine-versions"].found, ["default/v1"]);
+  assert.equal(results["app-engine-versions"].scanned, 2);
+});
+
+const keyEvent = (timestamp, method, failed = false) => ({
+  timestamp,
+  severity: failed ? "ERROR" : "NOTICE",
+  protoPayload: { methodName: `google.iam.admin.v1.${method}`, ...(failed ? { status: { code: 7, message: "PERMISSION_DENIED" } } : {}) },
+});
+
+test("the window starts at the first SUCCESSFUL disable: a failed later attempt never moves it", () => {
+  const w = disableWindow([
+    keyEvent("2026-10-07T23:38:49Z", "DisableServiceAccountKey"),
+    keyEvent("2026-10-08T12:00:00Z", "DisableServiceAccountKey", true),
+  ]);
+  assert.equal(w.disabledAt, "2026-10-07T23:38:49Z");
+  assert.deepEqual(w.reenabled, []);
+  assert.equal(w.failed.length, 1);
+  assert.equal(disableWindow([keyEvent("2026-10-07T23:00:00Z", "DisableServiceAccountKey", true)]).disabledAt, null);
+});
+
+test("a re-enable after the disable is FOUND: the key was usable again", () => {
+  const w = disableWindow([keyEvent("2026-10-07T23:38:49Z", "DisableServiceAccountKey"), keyEvent("2026-10-09T10:00:00Z", "EnableServiceAccountKey"), keyEvent("2026-10-09T11:00:00Z", "DisableServiceAccountKey")]);
+  assert.equal(w.disabledAt, "2026-10-07T23:38:49Z");
+  const r = byCheck(authentications({ disabledAt: w.disabledAt, reenabled: w.reenabled, entries: { value: [] }, analyzer: [] }));
+  assert.equal(r["key-disable-time"].status, "FOUND");
+  assert.match(r["key-disable-time"].found[0], /re-enabled at 2026-10-09T10:00:00Z/);
+});
+
+test("credential minting for the account by another principal is FOUND, and a missing key name is 'source unknown'", () => {
+  const mint = { timestamp: at(2 * SHORT_LIVED_MS), protoPayload: { serviceName: "iamcredentials.googleapis.com", methodName: "GenerateAccessToken", resourceName: `projects/-/serviceAccounts/${SA}`, authenticationInfo: { principalEmail: "someone@example.com" } } };
+  const noKey = { timestamp: at(3 * SHORT_LIVED_MS), protoPayload: { serviceName: "storage.googleapis.com", methodName: "storage.objects.update", authenticationInfo: { principalEmail: SA } } };
+  const r = byCheck(authentications({ disabledAt: DISABLED, entries: { value: [mint, noKey] }, analyzer: [], account: SA, keyId: "6bfb0894" }));
+  assert.equal(r["audit-log-activity"].status, "FOUND");
+  assert.match(r["audit-log-activity"].found[0], /minted by someone@example.com/);
+  assert.match(r["audit-log-activity"].found[1], /credential source unknown/);
 });

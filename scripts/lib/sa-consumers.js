@@ -175,7 +175,8 @@ const appEngine = async (gcloud, account) => {
   return scan(gcloud, {
     name: "app-engine-versions",
     queries: [{ args: ["app", "versions", "list"], what: "app versions list" }],
-    identities: v => [{ account: v.serviceAccount, label: `${v.service}/${v.id}` }],
+    // `gcloud app versions list` wraps the version resource: { id, service, version: {...} }.
+    identities: v => [{ account: v.version?.serviceAccount ?? v.serviceAccount, label: `${v.service}/${v.id}` }],
   }, account);
 };
 
@@ -244,12 +245,43 @@ export const analyzeImpersonation = (response, { allowed }) => {
 // Policy Analyzer reports by day only: a last authentication on the day of
 // the disable can't be ordered against it.
 export const SHORT_LIVED_MS = 60 * 60 * 1000;
+// An audit entry for a call that succeeded: no error status, not an ERROR.
+const succeeded = e => !(e?.protoPayload?.status?.code) && e?.severity !== "ERROR";
+
+// The observation window starts at the key's FIRST successful disable in the
+// lookback: a failed attempt never moves it, and a later re-enable is reported,
+// since the key was usable again in between.
+export const disableWindow = keyEvents => {
+  const ok = (keyEvents ?? []).filter(succeeded).sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+  const disables = ok.filter(e => /DisableServiceAccountKey$/.test(e.protoPayload?.methodName ?? ""));
+  if (!disables.length) return { disabledAt: null };
+  const disabledAt = disables[0].timestamp;
+  const reenabled = ok.filter(e => /EnableServiceAccountKey$/.test(e.protoPayload?.methodName ?? "") && !/Disable/.test(e.protoPayload?.methodName) && e.timestamp > disabledAt).map(e => e.timestamp);
+  const failed = (keyEvents ?? []).filter(e => !succeeded(e)).map(e => `${e.timestamp} ${e.protoPayload?.methodName} failed`);
+  return { disabledAt, reenabled, failed };
+};
+
+// How an audit entry reached the account. Credential minting (iamcredentials)
+// names the requester as the principal and the account as the resource.
+const how = (e, account, keyId) => {
+  const p = e.protoPayload ?? {};
+  if (p.serviceName === "iamcredentials.googleapis.com" && !same(p.authenticationInfo?.principalEmail, account)) {
+    return `a credential for it minted by ${p.authenticationInfo?.principalEmail ?? "an unknown principal"}`;
+  }
+  const keyName = p.authenticationInfo?.serviceAccountKeyName ?? "";
+  if (keyId && keyName.includes(keyId)) return "the key";
+  if (/keys\//.test(keyName)) return "another key";
+  return "credential source unknown (the entry names no key; some services omit it)";
+};
+
 // `disableIncomplete`: why the disable time couldn't be read, if the read failed.
-export const authentications = ({ disabledAt, disableIncomplete = null, entries, analyzer }) => {
+export const authentications = ({ disabledAt, disableIncomplete = null, reenabled = [], entries, analyzer, account = null, keyId = null }) => {
   const results = [];
   const disabled = disabledAt ? Date.parse(disabledAt) : NaN;
   if (Number.isNaN(disabled)) {
     results.push({ check: "key-disable-time", status: "INCOMPLETE", incomplete: [disableIncomplete ?? "the key's disable time wasn't found in the audit logs"] });
+  } else if (reenabled.length) {
+    results.push({ check: "key-disable-time", status: "FOUND", disabledAt, found: reenabled.map(t => `the key was re-enabled at ${t}`) });
   } else {
     results.push({ check: "key-disable-time", status: "PASS", disabledAt });
   }
@@ -259,15 +291,16 @@ export const authentications = ({ disabledAt, disableIncomplete = null, entries,
   } else {
     const after = entries.value.filter(e => !Number.isNaN(disabled) && Date.parse(e.timestamp) >= disabled);
     const classify = e => {
-      const viaKey = /keys\//.test(e.protoPayload?.authenticationInfo?.serviceAccountKeyName ?? "");
+      const via = how(e, account, keyId);
       const within = Date.parse(e.timestamp) - disabled <= SHORT_LIVED_MS;
-      return `${e.timestamp} ${e.protoPayload?.serviceName} ${e.protoPayload?.methodName}: ${viaKey ? (within ? "a credential issued with the key before it was disabled" : "the key, after its credentials expired") : "without the key (an attached workload or impersonation)"}`;
+      const detail = via === "the key" ? (within ? "a credential issued with the key before it was disabled" : "the key, after its credentials expired") : via;
+      return `${e.timestamp} ${e.protoPayload?.serviceName} ${e.protoPayload?.methodName}: ${detail}`;
     };
     results.push({
       check: "audit-log-activity",
       status: Number.isNaN(disabled) ? "INCOMPLETE" : after.length ? "FOUND" : "PASS",
       ...(after.length ? { found: after.map(classify) } : {}),
-      limits: "Admin Activity logs only: Data Access logging (Firestore and Auth reads, token minting) is off, so an empty result doesn't rule those out",
+      limits: "Admin Activity logs only: Data Access logging (Firestore and Auth reads, and iamcredentials token minting) is off, so an empty result doesn't rule those out",
     });
   }
   // Policy Analyzer's last authentications (by day).
