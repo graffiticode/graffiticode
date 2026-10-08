@@ -38,6 +38,17 @@ sa() { echo "$1-run@$P.iam.gserviceaccount.com"; }
 w4sa() { case "$1" in policy|broker|api|l0000|l0176) echo "$1-run@$P.iam.gserviceaccount.com" ;; esac; }
 mkdir -p "$OUT"
 
+# Does this IAM policy (JSON on stdin) bind $MEMBER to exactly this role,
+# unconditionally? Exit 0 if so.
+has_binding() { # role
+  python3 -c '
+import json, sys
+role, member = sys.argv[1], sys.argv[2]
+policy = json.load(sys.stdin)
+ok = any(b.get("role") == role and member in b.get("members", []) and not b.get("condition") for b in policy.get("bindings", []))
+sys.exit(0 if ok else 1)' "$1" "$MEMBER"
+}
+
 troubleshoot() { # resource permission -> the allow-policy access state
   gcloud policy-intelligence troubleshoot-policy iam "$1" --principal-email="$LEGACY" --permission="$2" \
     --project=$P --format="value(allowPolicyExplanation.allowAccessState)" 2>/dev/null | tail -1 || echo "TROUBLESHOOTER_FAILED"
@@ -64,9 +75,9 @@ verify)
   bad=0
   for s in $SERVICES; do
     gcloud run services get-iam-policy "$s" --region=$REGION --project=$P --format=json \
-      | grep -q "\"$MEMBER\"" || { echo "MISSING run.admin on $s"; bad=1; }
+      | has_binding roles/run.admin || { echo "MISSING unconditional roles/run.admin on $s"; bad=1; }
     gcloud iam service-accounts get-iam-policy "$(sa "$s")" --project=$P --format=json \
-      | grep -q "\"$MEMBER\"" || { echo "MISSING serviceAccountUser on $(sa "$s")"; bad=1; }
+      | has_binding roles/iam.serviceAccountUser || { echo "MISSING unconditional roles/iam.serviceAccountUser on $(sa "$s")"; bad=1; }
   done
   [ $bad = 0 ] && echo "all 50 scoped grants present" || { echo "verify FAILED: don't run remove"; exit 1; }
   ;;
@@ -84,15 +95,31 @@ check)
     [ "$u" = ALLOW_ACCESS_STATE_NOT_GRANTED ] && [ "$a" = ALLOW_ACCESS_STATE_NOT_GRANTED ] || fail=1
   done
   for s in $SERVICES; do
-    u=$(troubleshoot "//run.googleapis.com/projects/$P/locations/$REGION/services/$s" run.services.setIamPolicy)
+    r="//run.googleapis.com/projects/$P/locations/$REGION/services/$s"
+    u=$(troubleshoot "$r" run.services.update)
+    i=$(troubleshoot "$r" run.services.setIamPolicy)
     a=$(troubleshoot "//iam.googleapis.com/projects/$P/serviceAccounts/$(sa "$s")" iam.serviceAccounts.actAs)
-    [ "$u" = ALLOW_ACCESS_STATE_GRANTED ] && [ "$a" = ALLOW_ACCESS_STATE_GRANTED ] || { echo "legacy $s: setIamPolicy $u, actAs $a (expected ALLOW_ACCESS_STATE_GRANTED)"; fail=1; }
+    [ "$u" = ALLOW_ACCESS_STATE_GRANTED ] && [ "$i" = ALLOW_ACCESS_STATE_GRANTED ] && [ "$a" = ALLOW_ACCESS_STATE_GRANTED ] \
+      || { echo "legacy $s: update $u, setIamPolicy $i, actAs $a (expected ALLOW_ACCESS_STATE_GRANTED)"; fail=1; }
   done
   [ $fail = 0 ] && echo "check passed: W4 deployment paths denied; the 25 scoped paths granted" || { echo "check FAILED"; exit 1; }
   ;;
 test)
-  image=$(gcloud run services describe l0158 --region=$REGION --project=$P --format="value(spec.template.spec.containers[0].image)")
-  [ -n "$image" ] || { echo "no image for l0158"; exit 1; }
+  # The serving revision's resolved digest, never the template's tag: a tag
+  # is resolved again at deploy time and could name different code.
+  rev=$(gcloud run services describe l0158 --region=$REGION --project=$P --format=json | python3 -c '
+import json, sys
+s = json.load(sys.stdin)["status"]
+full = [t for t in s.get("traffic", []) if t.get("percent") == 100]
+print((full[0].get("revisionName") if full else None) or "")')
+  [ -n "$rev" ] || { echo "l0158 has no single revision serving 100%"; exit 1; }
+  image=$(gcloud run revisions describe "$rev" --region=$REGION --project=$P --format="value(status.imageDigest)")
+  case "$image" in *@sha256:*) ;; *) echo "revision $rev has no resolved digest ($image)"; exit 1 ;; esac
+  # The build must run as the legacy account: assert the project's default
+  # build identity before submitting, then record what the build ran as.
+  default=$(gcloud builds get-default-service-account --project=$P --format="value(serviceAccountEmail)")
+  [ "${default##*/}" = "$LEGACY" ] || { echo "the default build account is ${default##*/}, not $LEGACY; not submitting"; exit 1; }
+  echo "redeploying l0158 at $image (serving revision $rev), as the default build account $LEGACY"
   cfg=$(mktemp)
   cat > "$cfg" <<EOF
 steps:
@@ -100,10 +127,23 @@ steps:
     entrypoint: gcloud
     args: ["run", "deploy", "l0158", "--image=$image", "--region=$REGION", "--allow-unauthenticated", "--quiet"]
 EOF
-  # No serviceAccount in the config: the build runs as the legacy account, as its deploys do.
-  gcloud builds submit --no-source --config="$cfg" --project=$P
+  # No serviceAccount in the config, in the global region: the build runs as
+  # the default account asserted above, as the legacy deploys do.
+  ts=$(date -u +%Y%m%dT%H%M%SZ)
+  build=$(gcloud builds submit --no-source --config="$cfg" --region=global --project=$P --async --format="value(id)")
   rm -f "$cfg"
-  echo "redeployed l0158's current image as the legacy account"
+  echo "build $build submitted; waiting for it"
+  while :; do
+    state=$(gcloud builds describe "$build" --region=global --project=$P --format="value(status)")
+    case "$state" in SUCCESS|FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED) break ;; esac
+    sleep 10
+  done
+  gcloud builds describe "$build" --region=global --project=$P --format=json > "$OUT/test-build-$ts.json"
+  ran_as=$(gcloud builds describe "$build" --region=global --project=$P --format="value(serviceAccount)")
+  echo "build $build: $state; ran as ${ran_as:-the default account (no serviceAccount recorded)}; evidence in $OUT/test-build-$ts.json"
+  [ -z "$ran_as" ] || [ "${ran_as##*/}" = "$LEGACY" ] || { echo "the build ran as ${ran_as##*/}, not $LEGACY: the test doesn't count"; exit 1; }
+  [ "$state" = SUCCESS ] || { echo "test FAILED: the narrowed account couldn't deploy l0158"; exit 1; }
+  echo "test passed: the legacy account deployed l0158 at its serving digest with only the scoped grants"
   ;;
 rollback)
   gcloud projects add-iam-policy-binding $P --member="$MEMBER" --role=roles/run.admin --condition=None --format=none
