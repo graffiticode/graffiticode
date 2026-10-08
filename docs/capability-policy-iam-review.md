@@ -1068,7 +1068,7 @@ evidence that nothing else but the operators can write.
           | `service-PN@gcp-gae-service` agent, `roles/appengine.serviceAgent` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Retain temporarily while its dependencies are checked; no removal proposed.** The project **has** an App Engine application (`gcloud app describe`: `id: graffiticode`, `locationId: us-central`, `servingStatus: SERVING`), with no versions. The step 4 inventory's zero versions don't mean there's no application. An application without versions is what a Firebase project with a default `graffiticode.appspot.com` bucket typically has, and that bucket is in use (L0013's thumbnails). Once its dependencies are known: accept, explicitly covering its write authority and the unverified impersonation boundary, or remove |
           | `api-run`, `auth-run`, `broker-run`, `policy-run`: `datastore.user`, each conditioned to its own database | writers (`CONDITIONAL`) | **Accept:** the conditions name their own databases, not `revisions` (for `policy-run`, also shown by probes) |
           | The eight principals able to act as `firebase-adminsdk-qflje` | step 4 run | **Accept:** the account no longer appears among the writers of `revisions`, so acting as it doesn't reach them by its own grants |
-          | Legacy Cloud Build account (`PN@cloudbuild`): project-wide `iam.serviceAccountUser`, `run.admin` and more | IAM policy; writers | **Unresolved; narrow it before activation** (see "Deployment paths", below). No direct `revisions` write permission was found, and paths through the remaining writers are unresolved. **It can replace Policy's, Broker's, api's, L0000's and L0176's code:** `run.admin` on each service and `actAs` on each runtime account, both project-wide |
+          | Legacy Cloud Build account (`PN@cloudbuild`): project-wide `iam.serviceAccountUser`, `run.admin` and more | IAM policy; writers | **Deployment path to the W4 services removed, 2026-10-08** (see "Narrowing done", below): it can no longer update `policy`, `broker`, `api`, `l0000` or `l0176`, or act as their runtime accounts. No direct `revisions` write permission was found. **Pending:** a disposition for its paths through the remaining writers, and one analysis still to re-run. Its other project-wide roles stay on the Step 2 list |
           | The three `INCOMPLETE` inventories (Cloud Run jobs in `me-central2`; Scheduler; Eventarc) | step 4 runs | Accepted at step 4 for the reversible step 5 only: *inventory unavailable; residual dependency risk accepted* |
 
           **Recommended dispositions (review, 2026-10-08), pending Jeff's approval:** accept the
@@ -1130,6 +1130,35 @@ evidence that nothing else but the operators can write.
           `rollback` re-adds the two project-wide grants, only if a legitimate deploy breaks. The
           gate then stays open until the narrowing is redone. The legacy Cloud Build row stays
           unresolved until step 7's analyses and the negative checks pass.
+
+          **Narrowing done, 2026-10-08** (Jeff ran each phase; evidence under
+          `.gc-deploy/iam/legacy-build-narrowing/`):
+          1. `save`: the project policy and the 25 services' and accounts' policies, as of
+             `20261008T184818Z` (51 files, all valid JSON).
+          2. `grant`, then `verify`: all 50 scoped grants present, each an exact, unconditional
+             binding.
+          3. `remove`: the project-wide `roles/run.admin` and `roles/iam.serviceAccountUser` removed
+             at 19:02:11 and 19:02:12 UTC (audit log). A second `remove` run then failed with "not
+             found"; `remove` now skips absent bindings. Its project roles are now
+             `cloudbuild.builds.builder`, `serviceusage.apiKeysAdmin` and `storage.admin`.
+          4. `check` (Policy Troubleshooter, allow policies; with retries after intermittent
+             failures): **passed.** Updating each W4 service and acting as its runtime account:
+             `ALLOW_ACCESS_STATE_NOT_GRANTED`. Update, set-IAM and act-as on each of the 25:
+             granted.
+          5. `test`: build `f2c0fe34-253d-4c36-afb2-8b55fa3ed8b5` redeployed `l0158` at its serving
+             digest (`gcr.io/graffiticode/l0158@sha256:822cf90a…`), with
+             `--allow-unauthenticated`. Before submitting, the project's default build account was
+             asserted to be the legacy account, and the build ran as it. Result: `SUCCESS`
+             (`test-build-20261008T204618Z.json`). No rollback.
+          6. **Deployment-path analyses after the narrowing**
+             (`.gc-deploy/iam/deploy-<service>-{update,actas}-after-narrowing.json`). Nine of ten
+             came back fully explored, and **none lists the legacy account**. The remaining
+             principals, other than the Owners, are `cloudservices` (Editor), Container
+             Registry's agent (Editor) and the Cloud Functions agent on update. On act-as, those
+             three plus Google's Compute, Cloud Build and Cloud Run agents. All have pending
+             dispositions above. The tenth, `l0000` update, hit Cloud Asset Inventory's daily
+             `analyzeIamPolicy` quota (`429`) and is **to be re-run**. For the legacy account
+             itself, step 4's Troubleshooter check already covers it (not granted).
 
           Its other project-wide roles (`storage.admin`, `serviceusage.apiKeysAdmin`,
           `cloudbuild.builds.builder`) don't deploy services. They're outside this gate, and stay
