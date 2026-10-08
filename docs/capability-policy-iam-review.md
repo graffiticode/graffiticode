@@ -1067,8 +1067,63 @@ evidence that nothing else but the operators can write.
           | `service-PN@gcp-gae-service` agent, `roles/appengine.serviceAgent` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Retain temporarily while its dependencies are checked; no removal proposed.** The project **has** an App Engine application (`gcloud app describe`: `id: graffiticode`, `locationId: us-central`, `servingStatus: SERVING`), with no versions. The step 4 inventory's zero versions don't mean there's no application. An application without versions is what a Firebase project with a default `graffiticode.appspot.com` bucket typically has, and that bucket is in use (L0013's thumbnails). Once its dependencies are known: accept, explicitly covering its write authority and the unverified impersonation boundary, or remove |
           | `api-run`, `auth-run`, `broker-run`, `policy-run`: `datastore.user`, each conditioned to its own database | writers (`CONDITIONAL`) | **Accept:** the conditions name their own databases, not `revisions` (for `policy-run`, also shown by probes) |
           | The eight principals able to act as `firebase-adminsdk-qflje` | step 4 run | **Accept:** the account no longer appears among the writers of `revisions`, so acting as it doesn't reach them by its own grants |
-          | Legacy Cloud Build account (`PN@cloudbuild`): project-wide `iam.serviceAccountUser`, `run.admin` and more | IAM policy; writers | **Record:** no direct `revisions` write permission found. Paths through the remaining writers are **unresolved**: an incomplete impersonation analysis can't establish that it can't act as them. Its breadth stays the open Step 2 item, and must be resolved or explicitly accepted before activation |
+          | Legacy Cloud Build account (`PN@cloudbuild`): project-wide `iam.serviceAccountUser`, `run.admin` and more | IAM policy; writers | **Unresolved; narrow it before activation** (see "Deployment paths", below). No direct `revisions` write permission was found, and paths through the remaining writers are unresolved. **It can replace Policy's, Broker's, api's, L0000's and L0176's code:** `run.admin` on each service and `actAs` on each runtime account, both project-wide |
           | The three `INCOMPLETE` inventories (Cloud Run jobs in `me-central2`; Scheduler; Eventarc) | step 4 runs | Accepted at step 4 for the reversible step 5 only: *inventory unavailable; residual dependency risk accepted* |
+
+          **Recommended dispositions (review, 2026-10-08), pending Jeff's approval:** accept the
+          four runtime accounts' database-scoped grants, keeping the condition evidence and
+          Policy's negative write probes attached. Accept the path through the eight principals
+          able to act as `firebase-adminsdk-qflje`, once its effective approvals authority is
+          verified as still removed; this doesn't accept those principals' other permissions.
+          Keep the three incomplete inventories accepted for the reversible removal only, never as
+          evidence of an empty inventory. Accepting `cloudservices` and Firebase Rules, with their
+          write authority and unverified impersonation boundary, is Jeff's explicit risk
+          decision. Container Registry and App Engine stay pending. The legacy Cloud Build account
+          stays unresolved, and narrowing it comes first.
+
+          **Deployment paths, 2026-10-08** (`.gc-deploy/iam/deploy-<service>-{update,actas}-2026-10-08.json`,
+          all fully explored). Cloud Run deployment needs permission to update the service *and*
+          to act as its runtime account. Principals other than the Owners holding both on
+          `policy`, `broker`, `api`, `l0000` and `l0176`:
+          - **the legacy Cloud Build account:** `run.admin` and `iam.serviceAccountUser`, both
+            project-wide. Any build running as it can deploy new code to any of the five;
+          - **Container Registry's agent and `cloudservices`:** project Editor;
+          - **Google's Cloud Functions agent:** `cloudfunctions.serviceAgent`.
+
+          **What the legacy Cloud Build account actually deploys**
+          (`.gc-deploy/iam/legacy-builds-*-2026-10-08.json`, the 539 most recent builds that ran as
+          it, read from their steps):
+          - **Everything now in `deploy.json`** it last deployed between 2026-08-25 and 2026-09-29,
+            before the deploy CLI took over. That includes `policy` (2026-09-28) and `broker`
+            (2026-09-27).
+          - **25 services it alone still deploys:** `l0002 l0011 l0012 l0137 l0151 l0152 l0153
+            l0154 l0155 l0156 l0157 l0158 l0159 l0160 l0161 l0163 l0165 l0166 l0167 l0168 l0169
+            l0170 l0171 l0172 l0173`, all in `us-central1`, the latest `l0158` on 2026-10-02. Each
+            runs as its own `lNNNN-run` account. Every deploy passes `--allow-unauthenticated`,
+            which sets the service's IAM, so it needs `run.admin` *on that service*.
+
+          **Proposed narrowing** (a production IAM change, for Jeff to run once approved):
+          1. Grant it `roles/run.admin` on each of the 25 services, and
+             `roles/iam.serviceAccountUser` on each of their 25 runtime accounts.
+          2. Check that one of those deploys still works, for example the next `l0158` release.
+          3. Remove its project-wide `roles/run.admin` and `roles/iam.serviceAccountUser`.
+          4. Re-run the deployment-path analyses: it must no longer appear for the five W4
+             services.
+
+          Its other project-wide roles (`storage.admin`, `serviceusage.apiKeysAdmin`,
+          `cloudbuild.builds.builder`) don't deploy services. They're outside this gate, and stay
+          on the Step 2 list.
+
+          **Container Registry and App Engine dependency checks, 2026-10-08:**
+          - **Neither agent made any request** recorded in the Admin Activity or Policy Denied logs
+            in the last 90 days (`.gc-deploy/iam/activity-<agent>-2026-10-08.json`). Data Access
+            logs are off, so reads aren't covered.
+          - **The App Engine application** is the project's legacy Firestore and default-bucket
+            anchor (`databaseType: CLOUD_FIRESTORE`, `defaultBucket: graffiticode.appspot.com`).
+            Its agent stays, pending; removing it isn't proposed.
+          - **Container Registry's agent holds Editor**, which also gives it the deployment path
+            above. With `gcr.io` redirected to Artifact Registry and no recorded activity, removal
+            remains the proposal. Residual risk: reads the logs don't show.
 
           **Additional cleanup, separate from the approvals authority:** remove
           `firebase-adminsdk-qflje`'s project-wide `roles/storage.admin`. That fits retiring the
