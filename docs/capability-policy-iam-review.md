@@ -1062,8 +1062,9 @@ evidence that nothing else but the operators can write.
           |---|---|---|
           | Owners: `user:admin@artcompiler.com`, `user:jeff@artcompiler.com`, `user:kevin.m.dyer@gmail.com` (write `revisions`) | writers; Jeff's confirmation, 2026-10-08 | **Accepted as authorized operators.** Jeff confirmed that all three remain current. |
           | `service-PN@containerregistry` agent, project Editor (writes `revisions`) | writers; Artifact Registry settings | **Remove Editor, after verifying dependencies.** Found so far: `gcr.io` in this project is redirected to Artifact Registry (`legacyRedirectionState: REDIRECTION_FROM_GCR_IO_ENABLED`; `gcr.io`, `us.gcr.io`, `eu.gcr.io` and `asia.gcr.io` are Artifact Registry repositories). The release pipeline pulls `gcr.io/graffiticode/firebase@sha256:8b553694…` (`deploy.json`), and the legacy Cloud Build account pushed there on 2026-10-06; both now go through Artifact Registry, not this agent. Still to verify before removing: that no build or pull fails without it. Residual dependency risk accepted; the binding can be restored |
-          | `PN@cloudservices` (Google APIs service agent), project Editor (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accept, explicitly covering both** its write authority and the unverified impersonation boundary. Function: Google uses it to run internal operations on the project's behalf (for example, managed instance groups and Deployment Manager), and removing its Editor role can break them. Residual risk accepted: Google's internal use of it, and that who can act as it can't be analyzed from this project |
-          | `service-PN@firebase-rules` agent, `roles/firebaserules.system` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accept, explicitly covering both.** Function: Firebase Security Rules, which Firestore uses. Residual risk accepted: its Firestore write authority, and an unverified impersonation boundary |
+          | `PN@cloudservices` (Google APIs service agent), project Editor (writes `revisions`) | writers; act-as `INCOMPLETE` | **Owner's explicit risk decision, not recorded as accepted.** A platform-trust exception would have to cover all three of its authorities: writing `revisions`, **replacing the five W4 services' code** (Editor gives it the deployment path below), and an impersonation boundary that can't be verified from this project. Function: Google uses it to run internal operations on the project's behalf (for example, managed instance groups and Deployment Manager), and removing its Editor role can break them |
+          | `service-PN@firebase-rules` agent, `roles/firebaserules.system` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Owner's explicit risk decision, not recorded as accepted.** An exception would cover its Firestore write authority and an unverified impersonation boundary. Function: Firebase Security Rules, which Firestore uses |
+          | `service-PN@gcf-admin-robot` (Cloud Functions service agent), `roles/cloudfunctions.serviceAgent` | deployment paths | **Its own disposition, pending.** It can update all five W4 services and act as their runtime accounts, so it can **replace their code**. Accepting it as able to act as `firebase-adminsdk-qflje` doesn't cover this. The project has no Cloud Functions (step 4 inventory). Options: an owner's platform-trust exception that names the code-replacement authority, or disabling the Cloud Functions API if nothing needs it, after a dependency check |
           | `service-PN@gcp-gae-service` agent, `roles/appengine.serviceAgent` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Retain temporarily while its dependencies are checked; no removal proposed.** The project **has** an App Engine application (`gcloud app describe`: `id: graffiticode`, `locationId: us-central`, `servingStatus: SERVING`), with no versions. The step 4 inventory's zero versions don't mean there's no application. An application without versions is what a Firebase project with a default `graffiticode.appspot.com` bucket typically has, and that bucket is in use (L0013's thumbnails). Once its dependencies are known: accept, explicitly covering its write authority and the unverified impersonation boundary, or remove |
           | `api-run`, `auth-run`, `broker-run`, `policy-run`: `datastore.user`, each conditioned to its own database | writers (`CONDITIONAL`) | **Accept:** the conditions name their own databases, not `revisions` (for `policy-run`, also shown by probes) |
           | The eight principals able to act as `firebase-adminsdk-qflje` | step 4 run | **Accept:** the account no longer appears among the writers of `revisions`, so acting as it doesn't reach them by its own grants |
@@ -1102,13 +1103,33 @@ evidence that nothing else but the operators can write.
             runs as its own `lNNNN-run` account. Every deploy passes `--allow-unauthenticated`,
             which sets the service's IAM, so it needs `run.admin` *on that service*.
 
-          **Proposed narrowing** (a production IAM change, for Jeff to run once approved):
-          1. Grant it `roles/run.admin` on each of the 25 services, and
+          **Narrowing: direction approved by review, 2026-10-08.** It's a production IAM change,
+          for Jeff to run phase by phase with `scripts/legacy-build-narrowing.sh`. **The order
+          matters.** IAM permissions are additive, so a deploy test passes while the project-wide
+          grants remain, whatever the scoped grants are. Testing only means something after the
+          broad grants are gone:
+          1. `save`: record the project policy and the 25 services' and accounts' policies, for
+             rollback (read-only).
+          2. `grant`: `roles/run.admin` on each of the 25 services, and
              `roles/iam.serviceAccountUser` on each of their 25 runtime accounts.
-          2. Check that one of those deploys still works, for example the next `l0158` release.
-          3. Remove its project-wide `roles/run.admin` and `roles/iam.serviceAccountUser`.
-          4. Re-run the deployment-path analyses: it must no longer appear for the five W4
-             services.
+          3. `verify`: all 50 scoped grants are present (read-only).
+          4. `remove`: the project-wide `roles/run.admin` and `roles/iam.serviceAccountUser`.
+          5. Wait a few minutes for propagation, then `check` (read-only), using the Policy
+             Troubleshooter's allow-policy answer:
+             - updating the five W4 services and acting as their runtime accounts: not granted;
+             - setting IAM on the 25 services and acting as their accounts: granted.
+
+             Deny policies can't be read with the operator's access, so the overall answer is
+             `UNKNOWN_INFO`. An unseen deny policy can only remove access: the W4 negatives stand,
+             and step 6 shows the 25 still work.
+          6. `test`: redeploy `l0158`'s current image through a build that runs as the legacy
+             account, with `--allow-unauthenticated`, as its deploys do. That's a new revision
+             with the same code.
+          7. Re-run the deployment-path analyses for the five W4 services, and record them here.
+
+          `rollback` re-adds the two project-wide grants, only if a legitimate deploy breaks. The
+          gate then stays open until the narrowing is redone. The legacy Cloud Build row stays
+          unresolved until step 7's analyses and the negative checks pass.
 
           Its other project-wide roles (`storage.admin`, `serviceusage.apiKeysAdmin`,
           `cloudbuild.builds.builder`) don't deploy services. They're outside this gate, and stay
