@@ -49,9 +49,21 @@ ok = any(b.get("role") == role and member in b.get("members", []) and not b.get(
 sys.exit(0 if ok else 1)' "$1" "$MEMBER"
 }
 
+# The Troubleshooter fails intermittently, so each call is tried three times;
+# a call that never answers is TROUBLESHOOTER_FAILED (with its last error on
+# stderr), which `check` counts as a failure.
 troubleshoot() { # resource permission -> the allow-policy access state
-  gcloud policy-intelligence troubleshoot-policy iam "$1" --principal-email="$LEGACY" --permission="$2" \
-    --project=$P --format="value(allowPolicyExplanation.allowAccessState)" 2>/dev/null | tail -1 || echo "TROUBLESHOOTER_FAILED"
+  local out err attempt
+  for attempt in 1 2 3; do
+    err=$(mktemp)
+    if out=$(gcloud policy-intelligence troubleshoot-policy iam "$1" --principal-email="$LEGACY" --permission="$2" \
+      --project=$P --format="value(allowPolicyExplanation.allowAccessState)" 2>"$err" | tail -1) && [ -n "$out" ]; then
+      rm -f "$err"; echo "$out"; return
+    fi
+    [ "$attempt" = 3 ] && echo "troubleshoot $2 on $1: $(tail -1 "$err")" >&2
+    rm -f "$err"; sleep $((attempt * 5))
+  done
+  echo "TROUBLESHOOTER_FAILED"
 }
 
 case "${1:-}" in
@@ -82,9 +94,16 @@ verify)
   [ $bad = 0 ] && echo "all 50 scoped grants present" || { echo "verify FAILED: don't run remove"; exit 1; }
   ;;
 remove)
-  gcloud projects remove-iam-policy-binding $P --member="$MEMBER" --role=roles/run.admin --condition=None --format=none
-  gcloud projects remove-iam-policy-binding $P --member="$MEMBER" --role=roles/iam.serviceAccountUser --condition=None --format=none
-  echo "removed project-wide run.admin and iam.serviceAccountUser; wait a few minutes before check"
+  # Safe to run again: a binding that's already gone is reported, not an error.
+  for role in roles/run.admin roles/iam.serviceAccountUser; do
+    if gcloud projects get-iam-policy $P --format=json | has_binding "$role"; then
+      gcloud projects remove-iam-policy-binding $P --member="$MEMBER" --role="$role" --condition=None --format=none
+      echo "removed project-wide $role"
+    else
+      echo "project-wide $role: already absent"
+    fi
+  done
+  echo "wait a few minutes before check"
   ;;
 check)
   fail=0
