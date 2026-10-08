@@ -3,7 +3,7 @@
 // plugin draws stop agreeing.
 import { describe, expect, it } from "vitest";
 import { darken, resolveColor } from "./figjam";
-import { keyMap, layoutPage, resolveEnds, route } from "./layout";
+import { autoSides, keyMap, layoutPage, resolveEnds, route } from "./layout";
 import { shapeGeometry } from "./shapes";
 import { estimate, fit, wrap } from "./text";
 
@@ -22,8 +22,8 @@ describe("nodes", () => {
     );
     expect(nodes.map((p) => p.box)).toEqual([
       { x: 10, y: 20, w: 240, h: 240 },
-      { x: 300, y: 0, w: 200, h: 200 },
-      { x: 0, y: 0, w: 120, h: 200 },
+      { x: 300, y: 0, w: 176, h: 176 },
+      { x: 0, y: 0, w: 120, h: 176 },
       { x: 0, y: -40, w: 40, h: 40 },
     ]);
   });
@@ -31,7 +31,7 @@ describe("nodes", () => {
   it("sizes text to its longest line", () => {
     const [p] = layoutPage([{ type: "text", text: "ab\nabcd", fontSize: 10 }], m).nodes;
     expect(p.box.w).toBeCloseTo(estimate("abcd", 10));
-    expect(p.box.h).toBeCloseTo(2 * 10 * 1.3);
+    expect(p.box.h).toBeCloseTo(2 * 10 * 1.21);
   });
 });
 
@@ -110,6 +110,23 @@ describe("routing", () => {
       { x: 100, y: 50 },
       { x: 300, y: 50 },
     ]);
+  });
+
+  it("bends once between diagonal boxes, leaving vertically and arriving from the side", () => {
+    // Measured in FigJam: "Elbowed" above-right of "Curved" leaves its bottom, enters Curved's right.
+    const elbowed = { x: 1400, y: 400, w: 240, h: 240 };
+    const curved = { x: 1000, y: 800, w: 240, h: 240 };
+    expect(autoSides(elbowed, curved)).toEqual(["bottom", "right"]);
+    expect(route({}, elbowed, curved).points).toEqual([
+      { x: 1520, y: 640 },
+      { x: 1520, y: 920 },
+      { x: 1240, y: 920 },
+    ]);
+  });
+
+  it("connects across when the boxes share rows, and up or down when they share columns", () => {
+    expect(autoSides(A, { x: 300, y: 60, w: 100, h: 100 })).toEqual(["right", "left"]);
+    expect(autoSides(A, { x: 40, y: 300, w: 100, h: 100 })).toEqual(["bottom", "top"]);
   });
 
   it("turns a corner between offset boxes, leaving and arriving square", () => {
