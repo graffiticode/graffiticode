@@ -54,8 +54,9 @@ that takes its value and the rest of the chain; closed sets are bare uppercase *
 | `line-style` | `<tag record: record>` | A connector's dash: SOLID (the default) or DASHED. |
 | `from-cap` | `<tag record: record>` | The cap at a connector's start: NONE, ARROW_LINES, ARROW_EQUILATERAL, TRIANGLE_FILLED, CIRCLE_FILLED, DIAMOND_FILLED. Defaults to NONE. |
 | `to-cap` | `<tag record: record>` | The cap at a connector's end: NONE, ARROW_LINES, ARROW_EQUILATERAL, TRIANGLE_FILLED, CIRCLE_FILLED, DIAMOND_FILLED. Defaults to ARROW_LINES. |
-| `from-side` | `<tag record: record>` | Which side of the start node a connector leaves from: AUTO, TOP, BOTTOM, LEFT, RIGHT, CENTER. Defaults to AUTO (the facing side) for ELBOWED connectors, CENTER for STRAIGHT and CURVED ones. |
+| `from-side` | `<tag record: record>` | Which side of the start node a connector leaves from: AUTO, TOP, BOTTOM, LEFT, RIGHT, CENTER. Defaults to AUTO (the facing side) for ELBOWED and CURVED connectors, CENTER for STRAIGHT ones; only a STRAIGHT connector can use CENTER. |
 | `to-side` | `<tag record: record>` | Which side of the end node a connector arrives at. Same choices and default as from-side. |
+| `waypoints` | `<list record: record>` | Points a connector passes through on its way, in order: waypoints [ waypoint [300 0] waypoint [300 400] ]. Needs a single from and a single to. |
 | `background` | `<string record: record>` | A page's canvas colour. |
 | `show-page-tabs` | `<boolean record: record>` | Show a tab per page. Defaults to true with two or more pages, false with one. |
 | `show-page-menu` | `<boolean record: record>` | Show the page menu, which lists every page. Defaults to false. |
@@ -64,6 +65,7 @@ that takes its value and the rest of the chain; closed sets are bare uppercase *
 | `textbox` | `<record: record>` | Free text on the page, e.g. `textbox text "Roadmap" font-size LARGE {}`. |
 | `stamp` | `<record: record>` | A reaction stamp, e.g. `stamp kind LIKE x 200 y 300 {}`. |
 | `connector` | `<record: record>` | A line between nodes, e.g. `connector from "kick" to "valid" {}`. |
+| `waypoint` | `<list: record>` | A point a connector passes through, as an [x y] pair of page pixels, inside `waypoints [ … ]`, e.g. `waypoint [300 0]`. It takes no `{}`. |
 | `board` | `<list record: record>` | The program: the FigJam board's pages, then its settings (title, show-page-tabs, show-page-menu). |
 | `page` | `<list record: record>` | One page: its nodes and connectors, then its settings (name, background). |
 | `section` | `<list record: record>` | A titled area of a page holding nodes, then its settings (name, x, y, width, height, fill, opacity). |
@@ -137,8 +139,28 @@ board [
 ```
 
 The default connector is elbowed, solid, 4 pixels wide, with no cap at its start and an open
-arrowhead at its end. An elbowed connector picks the facing sides (`AUTO`); a straight or curved
-one meets each node at its centre unless a side is given.
+arrowhead at its end. An elbowed or curved connector picks the facing sides (`AUTO`); a straight
+one meets each node at its centre unless a side is given. Only a straight connector can attach at
+`CENTER`: FigJam refuses it on elbowed and curved ones.
+
+`waypoints [ … ]` routes a connector through fixed points, in order. Each is `waypoint [x y]`, in
+page pixels like a node's `x` and `y`; it is a pair, not a description, so no `{}` follows it. A
+connector with waypoints joins one node to one node (a single `from` and `to`, no list or `"*"`).
+FigJam has no waypoints of its own, so the plugin draws one FigJam connector per leg: `from-side`
+and `from-cap` apply to the first leg, `to-side` and `to-cap` to the last, the label sits on the
+middle leg, and the points stay put when a node is dragged.
+
+```
+board [
+  page [
+    shape kind ROUNDED_RECTANGLE id "test" text "Test" x 0 y 0 {}
+    shape kind ROUNDED_RECTANGLE id "build" text "Build" x 0 y 400 {}
+    connector from "test" to "build" {}
+    connector from "build" to "test" label "fix" from-side LEFT to-side LEFT
+      waypoints [ waypoint [-120 488] waypoint [-120 88] ] {}
+  ] {}
+] {}..
+```
 
 # Pages
 

@@ -105,12 +105,12 @@ export const TAGS: Record<string, string> = {
   TRIANGLE_FILLED: "A filled triangle.",
   CIRCLE_FILLED: "A filled circle.",
   DIAMOND_FILLED: "A filled diamond.",
-  AUTO: "Whichever side faces the other end (elbowed connectors only).",
+  AUTO: "Whichever side faces the other end (elbowed and curved connectors).",
   TOP: "The top side.",
   BOTTOM: "The bottom side.",
   LEFT: "The left side.",
   RIGHT: "The right side.",
-  CENTER: "The centre.",
+  CENTER: "The centre (straight connectors only).",
   SMALL: "16px text.",
   MEDIUM: "24px text.",
   LARGE: "40px text.",
@@ -135,6 +135,8 @@ export const TAGS: Record<string, string> = {
  * - `tagOrNumber`: one of `oneOf`, or a number above 0; a tag is emitted as its `presets` value.
  * - `color`: a hex code ("#ffcc00") or one of `NAMED_COLORS`.
  * - `endpoints`: a node's key, a list of keys, or "*" — resolved per page in `board.ts`.
+ * - `point`: an `[x y]` pair of numbers, emitted as `{x, y}`.
+ * - `waypoints`: a list of `waypoint` members, emitted as their points in order.
  */
 export type Expects =
   | "text"
@@ -147,6 +149,8 @@ export type Expects =
   | "tagOrNumber"
   | "color"
   | "endpoints"
+  | "point"
+  | "waypoints"
   | "record";
 
 export interface AttributeMeta {
@@ -245,7 +249,7 @@ export const chainFields: Record<string, AttributeMeta> = {
     expects: "tag",
     oneOf: SIDES,
     emit: lower,
-    description: `Which side of the start node a connector leaves from: ${SIDES.join(", ")}. Defaults to AUTO (the facing side) for ELBOWED connectors, CENTER for STRAIGHT and CURVED ones.`,
+    description: `Which side of the start node a connector leaves from: ${SIDES.join(", ")}. Defaults to AUTO (the facing side) for ELBOWED and CURVED connectors, CENTER for STRAIGHT ones; only a STRAIGHT connector can use CENTER.`,
   },
   TO_SIDE: {
     field: "toSide",
@@ -253,6 +257,12 @@ export const chainFields: Record<string, AttributeMeta> = {
     oneOf: SIDES,
     emit: lower,
     description: "Which side of the end node a connector arrives at. Same choices and default as from-side.",
+  },
+  WAYPOINTS: {
+    field: "waypoints",
+    expects: "waypoints",
+    description:
+      "Points a connector passes through on its way, in order: waypoints [ waypoint [300 0] waypoint [300 400] ]. Needs a single from and a single to.",
   },
   BACKGROUND: { field: "background", expects: "color", description: "A page's canvas colour." },
   SHOW_PAGE_TABS: {
@@ -274,6 +284,11 @@ export const memberFields: Record<string, AttributeMeta> = {
   TEXTBOX: { field: "textbox", expects: "record", description: 'Free text on the page, e.g. `textbox text "Roadmap" font-size LARGE {}`.' },
   STAMP: { field: "stamp", expects: "record", description: "A reaction stamp, e.g. `stamp kind LIKE x 200 y 300 {}`." },
   CONNECTOR: { field: "connector", expects: "record", description: 'A line between nodes, e.g. `connector from "kick" to "valid" {}`.' },
+  WAYPOINT: {
+    field: "waypoint",
+    expects: "point",
+    description: "A point a connector passes through, as an [x y] pair of page pixels, inside `waypoints [ … ]`, e.g. `waypoint [300 0]`. It takes no `{}`.",
+  },
 };
 
 /** Arity 2: the containers. A member list, then a settings chain. */
@@ -319,6 +334,7 @@ export const validAttributes: Record<string, string[]> = {
     "stroke-width",
     "opacity",
     "font-size",
+    "waypoints",
   ],
 };
 
@@ -334,6 +350,7 @@ export const containerMembers: Record<string, string[]> = {
   board: ["page"],
   page: ["sticky", "shape", "textbox", "stamp", "section", "connector"],
   section: ["sticky", "shape", "textbox", "stamp"],
+  waypoints: ["waypoint"],
 };
 
 /* ------------------------------------------------------------------ spelling */
@@ -359,6 +376,8 @@ export const typeOf = (meta: AttributeMeta, arity: 1 | 2): string => {
       tag: "tag",
       tagOrNumber: "tag|number",
       endpoints: "string|list",
+      point: "list",
+      waypoints: "list",
     } as Record<string, string>
   )[meta.expects] ?? "string";
   return arity === 1 ? `<${arg}: record>` : `<${arg} record: record>`;
@@ -468,6 +487,29 @@ export function checkValue(name: string, meta: AttributeMeta, raw: any): { value
       if (Array.isArray(raw) && raw.length && raw.every(ok)) return { value: raw.map(String) };
       return { error: `${word}: expected a node's id in "quotes", a list of ids like ["a" "b"], or "*", got ${showValue(raw)}.` };
     }
+    case "point":
+      if (!Array.isArray(raw) || raw.length !== 2 || !raw.every(finite)) {
+        return { error: `${word}: expected an [x y] pair of numbers, like ${exampleOf(word)}, got ${showValue(raw)}.` };
+      }
+      return { value: { x: raw[0], y: raw[1] } };
+    case "waypoints": {
+      const example = "waypoints [ waypoint [300 0] waypoint [300 400] ]";
+      if (!Array.isArray(raw)) return { error: `${word}: expected a list of waypoints, like ${example}, got ${showValue(raw)}.` };
+      if (!raw.length) return { error: `${word}: needs at least one waypoint, like ${example}.` };
+      const points: any[] = [];
+      for (const [i, m] of raw.entries()) {
+        const keys = isRecord(m) ? Object.keys(m) : [];
+        if (isRecord(m) && !keys.length) {
+          return { error: `${word}: item ${i + 1} is a stray \`{}\`. A waypoint takes only its pair: write waypoint [300 0], not waypoint [300 0] {}.` };
+        }
+        if (keys.length !== 1 || keys[0] !== "waypoint") {
+          const what = keys.length === 1 ? `a \`${sourceWord(keys[0])}\`` : showValue(m);
+          return { error: `${word}: item ${i + 1} is ${what}, which is not a waypoint. Write each one as waypoint [x y], like ${example}.` };
+        }
+        points.push(m.waypoint);
+      }
+      return { value: points };
+    }
     case "record":
       if (!isRecord(raw)) return { error: `${word}: expected a description ending in \`{}\`, e.g. ${exampleOf(word)}, got ${showValue(raw)}.` };
       return { value: raw };
@@ -484,6 +526,7 @@ export const exampleOf = (word: string): string =>
     textbox: 'textbox text "Roadmap" font-size LARGE x 0 y -100 {}',
     stamp: "stamp kind LIKE x 200 y 300 {}",
     connector: 'connector from "kick" to "valid" {}',
+    waypoint: "waypoint [300 0]",
     section: 'section [ sticky text "A" {} ] name "Phase 1" {}',
     page: 'page [ sticky text "A" {} ] name "Planning" {}',
     board: 'board [ page [ sticky text "A" {} ] {} ] {}',

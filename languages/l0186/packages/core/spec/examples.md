@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0186 RAG Training Examples
 
-120 example prompts for training a RAG model on L0186, the FigJam board language — covering
+124 example prompts for training a RAG model on L0186, the FigJam board language — covering
 sticky notes, text, shapes (basic, flowchart, engineering and decorative), stamps, position and
 size, colour and opacity, sections, connectors (fan-out, every-node, line types, caps, dashes and
-the sides they attach to), ids, boards with several pages, and drawing a board into a FigJam file.
+the sides they attach to, routing through points), ids, boards with several pages, and drawing a board into a FigJam file.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT goes on the board
 and where, never how to write the program. Every prompt here is in scope.
@@ -157,25 +157,32 @@ and where, never how to write the program. Every prompt here is in scope.
 105. A database that receives three arrows on its left side from three services.
 106. A top-to-bottom flowchart whose elbowed arrows leave the bottom of each step and enter the top of the next.
 
-## Category 15: Names and Repeated Text (107–110)
+## Category 15: Routing Through Points (107–110)
 
-107. Two sticky notes that both say "Review", one for design and one for copy, with an arrow from the design review to the copy review.
-108. Five steps that each say "Step", joined in order.
-109. An "API" box and a "Database" cylinder joined by an arrow labelled "queries".
-110. Two sections that each hold a shape saying "Entry", with an arrow from the first entry to the second.
+107. An arrow from "Test" back up to "Build" that goes around the left side instead of crossing the boxes between them.
+108. A feedback loop: four steps in a column, with a dashed arrow from the last step back to the first, routed down the right-hand side.
+109. An elbowed arrow from "A" to "B" that drops straight down to y 400 before turning across.
+110. A line from "Start" to "End" that detours over a "Blocked" sticky sitting between them.
 
-## Category 16: Several Pages (111–115)
+## Category 16: Names and Repeated Text (111–114)
 
-111. A board with two pages: "Planning" with three stickies, and "Retro" with three more.
-112. A workshop board with an "Agenda" page, a "Brainstorm" page and a "Decisions" page.
-113. A board with a "Current state" page and a "Future state" page, each showing a small flow of four boxes.
-114. A two-page board where the second page, "Notes", has a light grey background.
-115. A board with one page per quarter, Q1 to Q4, each holding that quarter's three milestones.
+111. Two sticky notes that both say "Review", one for design and one for copy, with an arrow from the design review to the copy review.
+112. Five steps that each say "Step", joined in order.
+113. An "API" box and a "Database" cylinder joined by an arrow labelled "queries".
+114. Two sections that each hold a shape saying "Entry", with an arrow from the first entry to the second.
 
-## Category 17: Whole Boards (116–120)
+## Category 17: Several Pages (115–119)
 
-116. A retrospective with "Went well", "To improve" and "Action items" sections in pastel colours, three stickies in each.
-117. A flowchart: "Start", "Fetch data", a "Valid?" decision with "yes" and "no" branches to "Save" and "Report error".
-118. A system diagram: an API speech bubble, a database, a job queue and arrows showing how data flows.
-119. A brainstorm with a central "Idea" sticky and six stickies around it, all joined to the centre.
-120. Make a sprint board with "To do", "Doing" and "Done" sections, and draw it into my FigJam file https://www.figma.com/board/XYZ789/Sprint-12.
+115. A board with two pages: "Planning" with three stickies, and "Retro" with three more.
+116. A workshop board with an "Agenda" page, a "Brainstorm" page and a "Decisions" page.
+117. A board with a "Current state" page and a "Future state" page, each showing a small flow of four boxes.
+118. A two-page board where the second page, "Notes", has a light grey background.
+119. A board with one page per quarter, Q1 to Q4, each holding that quarter's three milestones.
+
+## Category 18: Whole Boards (120–124)
+
+120. A retrospective with "Went well", "To improve" and "Action items" sections in pastel colours, three stickies in each.
+121. A flowchart: "Start", "Fetch data", a "Valid?" decision with "yes" and "no" branches to "Save" and "Report error".
+122. A system diagram: an API speech bubble, a database, a job queue and arrows showing how data flows.
+123. A brainstorm with a central "Idea" sticky and six stickies around it, all joined to the centre.
+124. Make a sprint board with "To do", "Doing" and "Done" sections, and draw it into my FigJam file https://www.figma.com/board/XYZ789/Sprint-12.

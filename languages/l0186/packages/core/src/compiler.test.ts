@@ -135,7 +135,7 @@ describe("tags", () => {
       expect([c.fromCap, c.toCap]).toEqual([t.toLowerCase().replace(/_/g, "-"), t.toLowerCase().replace(/_/g, "-")]);
     }
     for (const t of SIDES) {
-      const c = (await nodesOf(`${two} connector from "A" to "B" from-side ${t} to-side ${t} {}`))[2];
+      const c = (await nodesOf(`${two} connector from "A" to "B" line-type STRAIGHT from-side ${t} to-side ${t} {}`))[2];
       expect([c.fromSide, c.toSide]).toEqual([t.toLowerCase(), t.toLowerCase()]);
     }
   });
@@ -165,6 +165,19 @@ describe("tags", () => {
 });
 
 describe("connectors", () => {
+  it("route through waypoints, in order, beside the other connector words", async () => {
+    const nodes = await nodesOf(`${two}
+      connector from "A" waypoints [ waypoint [300 0] waypoint [300 -40.5] ] to "B" label "back" line-type STRAIGHT {}`);
+    expect(nodes[2]).toEqual({
+      type: "connector",
+      from: "A",
+      waypoints: [{ x: 300, y: 0 }, { x: 300, y: -40.5 }],
+      to: "B",
+      label: "back",
+      lineType: "straight",
+    });
+  });
+
   it("resolve ids, fall back to text, and take lists and *", async () => {
     const nodes = await nodesOf(`
       sticky id "a" text "Alpha" {} sticky text "Beta" {} stamp kind LIKE {}

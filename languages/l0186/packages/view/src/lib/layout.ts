@@ -14,8 +14,10 @@
  *   its name, after its children — expanding lists and "*" into one connector per pair, self-pairs
  *   skipped
  *   (`resolveEndpoints`, `drawConnector`);
- * - an elbowed connector attaches at AUTO magnets, a straight or curved one at CENTER, unless a
- *   side is given, and AUTO on a non-elbowed connector is CENTER.
+ * - an elbowed or curved connector attaches at AUTO magnets, a straight one at CENTER, unless a
+ *   side is given; AUTO on a straight connector is CENTER, and CENTER on any other is AUTO
+ *   (FigJam refuses it there);
+ * - a connector with waypoints is one FigJam connector per leg, meeting at the points (`legs`).
  */
 import { CONNECTOR, SECTION, SHAPE, STAMP, STICKY, TEXT } from "./figjam";
 import { measure as defaultMeasure, type Measure } from "./text";
@@ -202,6 +204,25 @@ export function autoSides(a: Box, b: Box): [Side, Side] {
   return [down[0], across[1]];
 }
 
+/**
+ * The sides an AUTO curved connector uses: as an elbowed one where the boxes share a band of rows
+ * or columns, but diagonal boxes leave along the dominant axis and enter on the other (a tie
+ * leaves vertically) — measured 2026-10-08.
+ */
+export function autoSidesCurved(a: Box, b: Box): [Side, Side] {
+  const ca = centre(a);
+  const cb = centre(b);
+  const dx = cb.x - ca.x;
+  const dy = cb.y - ca.y;
+  const across: [Side, Side] = dx >= 0 ? ["right", "left"] : ["left", "right"];
+  const down: [Side, Side] = dy >= 0 ? ["bottom", "top"] : ["top", "bottom"];
+  const rowsOverlap = a.y < b.y + b.h && b.y < a.y + a.h;
+  const colsOverlap = a.x < b.x + b.w && b.x < a.x + a.w;
+  if (rowsOverlap) return across;
+  if (colsOverlap) return down;
+  return Math.abs(dx) > Math.abs(dy) ? [across[0], down[1]] : [down[0], across[1]];
+}
+
 const unit = (v: { x: number; y: number }) => {
   const l = Math.hypot(v.x, v.y) || 1;
   return { x: v.x / l, y: v.y / l };
@@ -258,23 +279,30 @@ const sideOf = (v: any): Side | "auto" | null => (typeof v === "string" && v ? (
 /** One connector between two boxes, routed as FigJam routes it. */
 export function route(c: any, from: Box, to: Box): Route {
   const lineType = (c.lineType ?? "elbowed") as Route["lineType"];
-  const elbowed = lineType === "elbowed";
-  const magnet = (v: any): Side | "auto" => {
-    const s = sideOf(v) ?? (elbowed ? "auto" : "center");
-    return s === "auto" && !elbowed ? "center" : s;
+  const straight = lineType === "straight";
+  // FigJam accepts CENTER only on a straight connector, and AUTO on any; the plugin defaults a
+  // straight one to CENTER and the others to AUTO. A waypoint (a zero-size box) has no magnet.
+  const magnet = (v: any, b: Box): Side | "auto" => {
+    if (!b.w && !b.h) return "center";
+    const s = sideOf(v) ?? (straight ? "center" : "auto");
+    if (s === "auto" && straight) return "center";
+    return s === "center" && !straight ? "auto" : s;
   };
-  let m0 = magnet(c.fromSide);
-  let m1 = magnet(c.toSide);
-  const [a0, a1] = autoSides(from, to);
+  let m0 = magnet(c.fromSide, from);
+  let m1 = magnet(c.toSide, to);
+  const [a0, a1] = lineType === "curved" ? autoSidesCurved(from, to) : autoSides(from, to);
+  // A curve's AUTO node end faces a waypoint the same way whichever end the waypoint is: as if
+  // the node were the start (measured 2026-10-08).
+  const pointToNode = lineType === "curved" && !from.w && !from.h && (to.w || to.h);
   if (m0 === "auto") m0 = a0;
-  if (m1 === "auto") m1 = a1;
+  if (m1 === "auto") m1 = pointToNode ? autoSidesCurved(to, from)[0] : a1;
 
   // A centre magnet meets the box where the line toward the other end crosses its edge.
   const other0 = m1 === "center" ? centre(to) : sidePoint(to, m1);
   const p0 = m0 === "center" ? clipToBox(from, other0) : sidePoint(from, m0);
   const p1 = m1 === "center" ? clipToBox(to, p0) : sidePoint(to, m1);
-  const d0 = m0 === "center" ? unit({ x: p1.x - p0.x, y: p1.y - p0.y }) : SIDE_DIR[m0];
-  const d1 = m1 === "center" ? unit({ x: p0.x - p1.x, y: p0.y - p1.y }) : SIDE_DIR[m1];
+  let d0 = m0 === "center" ? unit({ x: p1.x - p0.x, y: p1.y - p0.y }) : SIDE_DIR[m0];
+  let d1 = m1 === "center" ? unit({ x: p0.x - p1.x, y: p0.y - p1.y }) : SIDE_DIR[m1];
 
   if (lineType === "elbowed") {
     // Orthogonal routing needs axis-aligned directions; a centre end takes the dominant axis.
@@ -293,6 +321,29 @@ export function route(c: any, from: Box, to: Box): Route {
     };
   }
   if (lineType === "curved") {
+    // How FigJam aims a curve at a waypoint (a zero-size box), measured 2026-10-08 on a grid of
+    // curved connectors between a node side and a free position. With `n` the node side's
+    // outward normal, `a` how far the point lies in front of that side and `p` how far to the
+    // side of it:
+    // - ending at a point, the curve arrives along `n`'s axis, travelling towards the point;
+    // - starting at a point, it leaves along `n`'s axis, towards the side, when the point is
+    //   behind the side or more in front than beside it (a < 0 or a >= p), and otherwise leaves
+    //   sideways, towards the node.
+    const point = (b: Box) => !b.w && !b.h;
+    const sign = (v: number) => (v < 0 ? -1 : 1);
+    if (point(to) && !point(from) && m0 !== "center") {
+      const n = SIDE_DIR[m0];
+      const a = (p1.x - p0.x) * n.x + (p1.y - p0.y) * n.y;
+      d1 = { x: -sign(a) * n.x, y: -sign(a) * n.y };
+    }
+    if (point(from) && !point(to) && m1 !== "center") {
+      const n = SIDE_DIR[m1];
+      const v = { x: p0.x - p1.x, y: p0.y - p1.y };
+      const a = v.x * n.x + v.y * n.y;
+      const side = { x: v.x - a * n.x, y: v.y - a * n.y };
+      const p = Math.hypot(side.x, side.y);
+      d0 = a < 0 || a >= p ? { x: -sign(a) * n.x, y: -sign(a) * n.y } : { x: -Math.sign(side.x), y: -Math.sign(side.y) };
+    }
     const reach = Math.max(40, Math.hypot(p1.x - p0.x, p1.y - p0.y) * 0.4);
     const c0 = { x: p0.x + d0.x * reach, y: p0.y + d0.y * reach };
     const c1 = { x: p1.x + d1.x * reach, y: p1.y + d1.y * reach };
@@ -322,6 +373,30 @@ function connectorsOf(nodes: any[]): any[] {
   return nodes.flatMap((n) => (n?.type === "connector" ? [n] : n?.type === "section" && Array.isArray(n.nodes) ? connectorsOf(n.nodes) : []));
 }
 
+/**
+ * A connector between two boxes as the plugin draws it. With waypoints that is one FigJam
+ * connector per leg, meeting at fixed points: each leg is routed on its own, a point end has no
+ * side, the caps go on the outer ends only and the label on the middle leg.
+ */
+export function legs(c: any, from: Box, to: Box): Route[] {
+  const pts = Array.isArray(c.waypoints) ? c.waypoints.filter((p: any) => p && Number.isFinite(p.x) && Number.isFinite(p.y)) : [];
+  if (!pts.length) return [route(c, from, to)];
+  const stops: Box[] = [from, ...pts.map((p: any) => ({ x: p.x, y: p.y, w: 0, h: 0 })), to];
+  const n = stops.length - 1;
+  const labelled = Math.floor((n - 1) / 2);
+  return stops.slice(1).map((b, i) => {
+    const leg = {
+      ...c,
+      fromSide: i === 0 ? c.fromSide : "center",
+      toSide: i === n - 1 ? c.toSide : "center",
+      fromCap: i === 0 ? c.fromCap : "none",
+      toCap: i === n - 1 ? c.toCap : "none",
+      label: i === labelled ? c.label : undefined,
+    };
+    return route(leg, stops[i], b);
+  });
+}
+
 /** A page's nodes, placed, with every connector routed and the bounds of everything drawn. */
 export function layoutPage(nodes: any[], m: Measure = defaultMeasure): PageLayout {
   const placed = nodes.filter((n) => n && n.type !== "connector").map((n) => place(n, m));
@@ -330,7 +405,7 @@ export function layoutPage(nodes: any[], m: Measure = defaultMeasure): PageLayou
   for (const c of connectorsOf(nodes)) {
     for (const a of resolveEnds(c.from, c.to, keys)) {
       for (const b of resolveEnds(c.to, c.from, keys)) {
-        if (a !== b) routes.push(route(c, a, b));
+        if (a !== b) routes.push(...legs(c, a, b));
       }
     }
   }

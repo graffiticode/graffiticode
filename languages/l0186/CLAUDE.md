@@ -91,7 +91,11 @@ were measured on 2026-10-08: each node was created through the Plugin API (via t
 `use_figma`) exactly as the plugin creates it and read back, and the fidelity board
 (`tools/fixtures.ts`, "fidelity: shapes") was drawn with the plugin's own drawing code and
 screenshotted next to `/dev.html`. Shape outlines (`shapes.ts`), cap placement, elbow rounding and
-the AUTO side rule (`layout.ts` `autoSides`) come from those screenshots. To recalibrate after a
+the AUTO side rule (`layout.ts` `autoSides`) come from those screenshots. The same day a scratch
+board measured waypoints and curves: a connector with `waypoints` is one FigJam connector per leg
+(`legs`); FigJam refuses a CENTER magnet on elbowed and curved connectors (the compiler rejects
+it, the plugin defaults both to AUTO); curved AUTO sides (`autoSidesCurved`) and how a curve
+meets a free point are commented where they are encoded in `route`. To recalibrate after a
 FigJam change, repeat that: create a scratch board, draw the fixture, compare, adjust in one place.
 
 ## Related repos

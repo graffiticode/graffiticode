@@ -72,6 +72,20 @@ export function toNode(member: string, rec: any, where: string): any {
       for (const end of ["from", "to"]) {
         if (rec[end] === undefined) throw new Error(`${where}: needs both from and to, e.g. ${exampleOf("connector")}.`);
       }
+      // FigJam refuses a CENTER magnet on elbowed and curved connectors.
+      for (const [field, word] of [["fromSide", "from-side"], ["toSide", "to-side"]]) {
+        if (rec[field] === "center" && rec.lineType !== "straight") {
+          const type = (rec.lineType ?? "elbowed").toUpperCase();
+          throw new Error(
+            `${where}: ${word} CENTER needs line-type STRAIGHT; FigJam cannot attach ${type === "ELBOWED" ? "an" : "a"} ${type} connector at a node's centre. Use AUTO, TOP, BOTTOM, LEFT or RIGHT, or add line-type STRAIGHT.`,
+          );
+        }
+      }
+      if (rec.waypoints !== undefined &&[rec.from, rec.to].some((e) => Array.isArray(e) || e === "*")) {
+        throw new Error(
+          `${where}: waypoints route one line: give a single from and a single to, e.g. connector from "a" to "b" waypoints [ waypoint [300 0] ] {}.`,
+        );
+      }
       return { type: "connector", ...rec };
   }
   throw new Error(`${where}: unknown member ${member}.`);

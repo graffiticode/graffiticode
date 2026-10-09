@@ -5,7 +5,7 @@
     "Sticky notes and free text",
     "Shapes with text: basic, flowchart (decision, process, terminator, input/output), engineering (database, queue, file, folder) and decorative (star, shield, speech bubble, arrows)",
     "Sections that group nodes under a title",
-    "Connectors between nodes: labelled, straight, elbowed or curved, dashed, with arrowheads and attachment sides, fanning out to a list or to every node",
+    "Connectors between nodes: labelled, straight, elbowed or curved, dashed, with arrowheads and attachment sides, routed through given points, fanning out to a list or to every node",
     "Reaction stamps",
     "Colours, outlines, opacity and text sizes",
     "Explicit layout by coordinates",

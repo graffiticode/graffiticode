@@ -14,7 +14,7 @@ Graffiticode FigJam plugin, opened in that file, draws the board there.
 
 - The nodes and what they say: stickies, headings, shapes (a decision diamond, a database, a
   rounded start box), stamps.
-- How they connect: arrows with labels, two-way arrows, dashed or elbowed lines, one node to many.
+- How they connect: arrows with labels, two-way arrows, dashed or elbowed lines, one node to many, lines routed through given points.
 - How they are grouped: sections with names, and pages for separate parts of the work.
 - Colours, sizes and emphasis.
 - A FigJam link, if the board should be drawn into a FigJam file.

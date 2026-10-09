@@ -96,10 +96,18 @@ connector from "idea" to "plan" label "next" line-type ELBOWED to-cap ARROW_LINE
 - `from-cap` / `to-cap`: `NONE`, `ARROW_LINES`, `ARROW_EQUILATERAL`, `TRIANGLE_FILLED`,
   `CIRCLE_FILLED`, `DIAMOND_FILLED`. The default is no cap at the start and `ARROW_LINES` at the
   end; a two-way arrow sets both caps.
-- `from-side` / `to-side`: `AUTO`, `TOP`, `BOTTOM`, `LEFT`, `RIGHT`, `CENTER`. An elbowed
-  connector picks the facing sides (`AUTO`); a `STRAIGHT` or `CURVED` one meets each node at
-  its centre unless a side is given.
+- `from-side` / `to-side`: `AUTO`, `TOP`, `BOTTOM`, `LEFT`, `RIGHT`, `CENTER`. An elbowed or
+  curved connector picks the facing sides (`AUTO`); a `STRAIGHT` one meets each node at its
+  centre unless a side is given. `CENTER` is for `STRAIGHT` connectors only.
 - `label`, `stroke`, `stroke-width`, `opacity`, `font-size` style the line and its label.
+- `waypoints [ … ]` routes the line through fixed points, in order. Each point is
+  `waypoint [x y]` (page pixels, like a node's `x` and `y`). It is a pair, not a description,
+  so write no `{}` after it. Use waypoints to go around a node or to pick where an elbow bends.
+  A connector with waypoints needs a single `from` and a single `to`: no list, no `"*"`.
+
+```
+connector from "test" to "build" label "fix" waypoints [ waypoint [-120 400] waypoint [-120 0] ] {}
+```
 
 ## Layout
 
@@ -164,6 +172,7 @@ with a single page shows neither.
 | `to-cap` | `<tag record: record>` | The cap at a connector's end. Defaults to ARROW_LINES. |
 | `from-side` | `<tag record: record>` | Which side of the start node a connector leaves from. |
 | `to-side` | `<tag record: record>` | Which side of the end node a connector arrives at. |
+| `waypoints` | `<list record: record>` | Points a connector passes through, in order: waypoints [ waypoint [300 0] ]. |
 | `background` | `<string record: record>` | A page's canvas colour. |
 | `show-page-tabs` | `<boolean record: record>` | Show a tab per page. Defaults to true with two or more pages, false with one. |
 | `show-page-menu` | `<boolean record: record>` | Show the page menu, which lists every page. Defaults to false. |
@@ -172,6 +181,7 @@ with a single page shows neither.
 | `textbox` | `<record: record>` | Free text on the page. |
 | `stamp` | `<record: record>` | A reaction stamp. |
 | `connector` | `<record: record>` | A line between nodes. |
+| `waypoint` | `<list: record>` | One point a connector passes through, as an [x y] pair, inside `waypoints [ … ]`. No `{}`. |
 | `board` | `<list record: record>` | The program: the board's pages, then its settings. |
 | `page` | `<list record: record>` | One page: its nodes and connectors, then its settings. |
 | `section` | `<list record: record>` | A titled area holding nodes, then its settings. |
@@ -184,6 +194,7 @@ with a single page shows neither.
 | `board` | page |
 | `page` | sticky, shape, textbox, stamp, section, connector |
 | `section` | sticky, shape, textbox, stamp |
+| `waypoints` | waypoint |
 
 ## Which words each description takes
 
@@ -193,7 +204,7 @@ with a single page shows neither.
 | `shape` | id, kind, text, x, y, width, height, fill, stroke, stroke-width, opacity, font-size |
 | `textbox` | id, text, x, y, color, opacity, font-size |
 | `stamp` | kind, x, y, opacity |
-| `connector` | from, to, label, line-type, line-style, from-cap, to-cap, from-side, to-side, stroke, stroke-width, opacity, font-size |
+| `connector` | from, to, label, line-type, line-style, from-cap, to-cap, from-side, to-side, stroke, stroke-width, opacity, font-size, waypoints |
 
 ## Which settings each container takes
 

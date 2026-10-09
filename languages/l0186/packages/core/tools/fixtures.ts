@@ -44,7 +44,16 @@ programs.push({
     stamp kind LIKE x 700 y 0 {} stamp kind LOVE x 760 y 0 {} stamp kind LAUGH x 820 y 0 {}
     stamp kind SURPRISED x 880 y 0 {} stamp kind CELEBRATE x 940 y 0 {} stamp kind HEART x 1000 y 0 {}
     shape kind ROUNDED_RECTANGLE text "Faded" x 700 y 100 opacity 40 fill "green" {}
-  ] name "Nodes" background "#fafafa" {} ] title "Fidelity" {}..`,
+  ] name "Nodes" background "#fafafa" {} page [
+    sticky id "w1" text "Elbowed" x 0 y 0 {} sticky id "w2" text "around" x 600 y 0 {} sticky id "wx" text "Blocked" x 300 y 0 fill "red" {}
+    connector from "w1" to "w2" label "over" waypoints [ waypoint [120 -200] waypoint [720 -200] ] {}
+    sticky id "w3" text "Straight" x 0 y 500 {} sticky id "w4" text "zigzag" x 600 y 500 {}
+    connector from "w3" to "w4" line-type STRAIGHT to-cap TRIANGLE_FILLED waypoints [ waypoint [300 400] waypoint [450 860] ] {}
+    sticky id "w5" text "Curved" x 0 y 1000 {} sticky id "w6" text "loop" x 600 y 1000 {}
+    connector from "w5" to "w6" line-type CURVED from-side BOTTOM to-side BOTTOM label "under" waypoints [ waypoint [420 1400] ] {}
+    sticky id "w7" text "Sides" x 1100 y 0 {} sticky id "w8" text "feedback" x 1100 y 600 {}
+    connector from "w8" to "w7" from-side RIGHT to-side RIGHT line-style DASHED waypoints [ waypoint [1500 720] waypoint [1500 120] ] {}
+  ] name "Waypoints" {} ] title "Fidelity" {}..`,
 });
 const out = [];
 for (const p of programs) out.push({ from: p.from, src: p.src, data: await compile(p.src) });

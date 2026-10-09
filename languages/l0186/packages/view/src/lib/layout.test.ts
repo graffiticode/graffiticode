@@ -3,7 +3,7 @@
 // plugin draws stop agreeing.
 import { describe, expect, it } from "vitest";
 import { darken, resolveColor } from "./figjam";
-import { autoSides, keyMap, layoutPage, resolveEnds, route } from "./layout";
+import { autoSides, autoSidesCurved, keyMap, layoutPage, legs, resolveEnds, route } from "./layout";
 import { shapeGeometry } from "./shapes";
 import { estimate, fit, wrap } from "./text";
 
@@ -151,11 +151,105 @@ describe("routing", () => {
     expect(route({ lineType: "straight", fromSide: "auto", toSide: "auto" }, A, C).points[0]).toEqual({ x: 100, y: 100 });
   });
 
+  it("defaults a curve to AUTO, which leaves diagonal boxes along the dominant axis", () => {
+    const at = (x: number, y: number) => ({ x, y, w: 240, h: 240 });
+    const o = at(0, 0);
+    // Measured: b's offset from a → [a's side, b's side].
+    const cases: [number, number, string, string][] = [
+      [500, 0, "right", "left"],
+      [500, 150, "right", "left"],
+      [500, 400, "right", "top"],
+      [150, 500, "bottom", "top"],
+      [-400, 400, "bottom", "right"],
+      [400, -400, "top", "left"],
+      [-500, 100, "left", "right"],
+    ];
+    for (const [dx, dy, s0, s1] of cases) expect(autoSidesCurved(o, at(dx, dy)), `(${dx},${dy})`).toEqual([s0, s1]);
+    const r = route({ lineType: "curved" }, o, at(500, 400));
+    expect(r.points).toEqual([{ x: 240, y: 120 }, { x: 620, y: 400 }]);
+    expect(route({ lineType: "curved", fromSide: "center" }, o, at(500, 400)).points).toEqual(r.points);
+  });
+
   it("curves with controls along the sides it leaves and enters", () => {
     const r = route({ lineType: "curved", fromSide: "bottom", toSide: "top" }, A, C);
     expect(r.controls![0].x).toBe(50);
     expect(r.controls![0].y).toBeGreaterThan(100);
     expect(r.controls![1].y).toBeLessThan(300);
+  });
+});
+
+describe("waypoints", () => {
+  const a = { x: 0, y: 0, w: 100, h: 100 };
+  const b = { x: 400, y: 0, w: 100, h: 100 };
+  const c = { from: "a", to: "b", label: "via", toCap: "triangle-filled", fromSide: "bottom", waypoints: [{ x: 50, y: 300 }, { x: 450, y: 300 }] };
+
+  it("draw one leg per pair of stops, meeting at each point", () => {
+    const rs = legs({ ...c, lineType: "straight" }, a, b);
+    expect(rs.map((r) => [r.points[0], r.points[r.points.length - 1]])).toEqual([
+      [{ x: 50, y: 100 }, { x: 50, y: 300 }],
+      [{ x: 50, y: 300 }, { x: 450, y: 300 }],
+      [{ x: 450, y: 300 }, { x: 450, y: 100 }],
+    ]);
+  });
+
+  it("cap the outer ends only, and label the middle leg", () => {
+    const rs = legs(c, a, b);
+    expect(rs.map((r) => [r.connector.fromCap, r.connector.toCap])).toEqual([
+      [undefined, "none"],
+      ["none", "none"],
+      ["none", "triangle-filled"],
+    ]);
+    expect(rs.map((r) => r.connector.label)).toEqual([undefined, "via", undefined]);
+  });
+
+  it("keep from-side on the first leg; an elbowed leg into a point ends on it", () => {
+    const [first, , last] = legs(c, a, b);
+    expect(first.points[0]).toEqual({ x: 50, y: 100 });
+    expect(first.points[first.points.length - 1]).toEqual({ x: 50, y: 300 });
+    expect(last.points[last.points.length - 1].y).toBe(100);
+  });
+
+  it("aim a curve at a point as FigJam does (the measured grid)", () => {
+    // A 240 sticky centred on the origin; the point is offset from its right edge's centre line.
+    const node = { x: -120, y: -120, w: 240, h: 240 };
+    const at = (dx: number, dy: number) => ({ x: 120 + dx, y: dy, w: 0, h: 0 });
+    const axis = (d: { x: number; y: number }) => (Math.abs(d.x) > Math.abs(d.y) ? "H" : "V");
+    const offs: [number, number][] = [[300, 150], [150, 300], [300, -150]];
+    // node → point: the curve arrives along the side's axis.
+    for (const [side, want] of [["bottom", "VVV"], ["right", "HHH"], ["top", "VVV"]] as const) {
+      const got = offs.map(([dx, dy]) => axis(route({ lineType: "curved", fromSide: side, toSide: "center" }, node, at(dx, dy)).endDir)).join("");
+      expect(got, `node→point ${side}`).toBe(want);
+    }
+    // point → node: it leaves along the side's axis, or sideways when the point is beside it.
+    for (const [side, want] of [["bottom", "HHV"], ["right", "HVH"], ["top", "VVH"]] as const) {
+      const got = offs.map(([dx, dy]) => axis(route({ lineType: "curved", fromSide: "center", toSide: side }, at(dx, dy), node).startDir)).join("");
+      expect(got, `point→node ${side}`).toBe(want);
+    }
+  });
+
+  it("face a curve's AUTO node end towards a point either way round (measured)", () => {
+    const node = { x: -120, y: -120, w: 240, h: 240 };
+    const pt = (dx: number, dy: number) => ({ x: dx, y: dy, w: 0, h: 0 });
+    const side = (p: { x: number; y: number }, b: { x: number; y: number; w: number; h: number }) =>
+      p.y === b.y ? "top" : p.y === b.y + b.h ? "bottom" : p.x === b.x ? "left" : "right";
+    const cases: [number, number, string][] = [[500, 60, "right"], [500, 400, "right"], [100, 500, "bottom"], [-450, 300, "left"], [300, -500, "top"]];
+    for (const [dx, dy, want] of cases) {
+      const out = route({ lineType: "curved" }, node, pt(dx, dy));
+      const back = route({ lineType: "curved" }, pt(dx, dy), node);
+      expect([side(out.points[0], node), side(back.points[1], node)], `(${dx},${dy})`).toEqual([want, want]);
+    }
+  });
+
+  it("route a connector without waypoints as one leg", () => {
+    expect(legs({ from: "a", to: "b" }, a, b)).toEqual([route({ from: "a", to: "b" }, a, b)]);
+  });
+
+  it("reach the bounds of the page", () => {
+    const { bounds } = layoutPage(
+      [{ type: "sticky", id: "a" }, { type: "sticky", id: "b", x: 400 }, { type: "connector", from: "a", to: "b", waypoints: [{ x: 0, y: 900 }] }],
+      m,
+    );
+    expect(bounds.y + bounds.h).toBe(900);
   });
 });
 
