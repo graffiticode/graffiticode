@@ -104,7 +104,13 @@ connector from "idea" to "plan" label "next" line-type ELBOWED to-cap ARROW_LINE
   `waypoint [x y]` (page pixels, like a node's `x` and `y`). It is a pair, not a description,
   so write no `{}` after it. Write `_` for a coordinate to keep the current one — where the line
   already is: the previous waypoint, or the centre of the `from` node. `waypoint [_ 400]` drops
-  straight down (or up) to y 400. Use waypoints to go around a node or to pick where an elbow bends.
+  straight down (or up) to y 400.
+- A waypoint level with a node — one the line leaves from or arrives at in a straight run — uses
+  that node's **centre** on that axis: `x + width / 2`, `y + height / 2` (a sticky's centre is
+  `x + 120`, `y + 120`). Never its `x` or `y`, which are its top-left corner. For the start node,
+  `_` gives the centre without arithmetic: a line leaving a sticky at `x 300 y 400` from its left
+  side goes `waypoint [-120 _]` (y 520). Arriving at a sticky at `x 0 y 0` from the left is
+  `waypoint [-120 120]`, not `[-120 0]`. Use waypoints to go around a node or to pick where an elbow bends.
   A connector with waypoints needs a single `from` and a single `to`: no list, no `"*"`.
 
 ```
