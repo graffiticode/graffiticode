@@ -877,8 +877,9 @@ evidence that nothing else but the operators can write.
       It has two user-managed, non-expiring keys. The
       2022 key `d40cd54b…` (no recorded use) was **disabled 2026-10-07**. Key `6bfb0894…`
       (created 2026-02-03) **last authenticated 2026-09-11** (Policy Analyzer reports the day only; see the investigation below).
-      **Open, and blocking W4 activation.** Find that key's users and migrate them. Then remove
-      both authorities and verify that each is gone. Removing the key alone isn't enough: anyone
+      **CLOSED 2026-10-12 (Jeff):** the gate no longer blocks W4 activation. See "Gate
+      closed", at the end of this checklist. *(Original requirement:)* Find that key's users and
+      migrate them. Then remove both authorities and verify that each is gone. Removing the key alone isn't enough: anyone
       who can act as the account still holds both. The gap is to be closed by removal, not
       accepted. The 2026-09-11 authentication remains unattributed.
       - **Investigation, 2026-10-07.** No key material was read or printed: searches listed file
@@ -1204,10 +1205,51 @@ evidence that nothing else but the operators can write.
           After any approved removals: re-run the writers analysis and the step 4 checker, and
           record the results here. The gate closes only when every row has an approved
           disposition and those re-runs match.
+
+          **Final verification, 2026-10-12** (from main `22ef2fd`; evidence under
+          `.gc-deploy/iam/`):
+          - **Step 4 checker** (`sa-consumers-2026-10-12T17-46-17-818Z.json`, with the Policy
+            Denied log). Verdict `FOUND`, as expected for retained access paths. **No consumer:**
+            no reachable Cloud Run revision (121), App Engine version, Compute instance, Cloud
+            Build trigger or Pub/Sub push subscription runs as the account. Both keys are disabled.
+            No activity since the disable. Policy Analyzer's last authentications both predate it.
+            - `INCOMPLETE`: Cloud Run jobs in `me-central2`, Scheduler and Eventarc, still accepted
+              for the reversible removal only. Plus **Cloud Functions**, newly unreadable because
+              its API is disabled. Accepted on the strength of the clean dependency check made
+              before the disable, and because no function can run with the API disabled.
+            - `FOUND`: five Google agents can act as the account (App Engine, Cloud Build,
+              Compute, `cloudservices`, Cloud Run). That's down from eight: the Container Registry
+              and Cloud Functions agents are gone, and the legacy Cloud Build account was narrowed.
+              All five are covered by the approved disposition for paths through
+              `firebase-adminsdk-qflje`, which no longer reaches `revisions`. App Engine and
+              `cloudservices` are also individually accepted.
+          - **Writers of `revisions`** (`revisions-writers-final-2026-10-12.json`; fully explored,
+            no errors): exactly the principals in the table above. The three Owners; the four
+            runtime accounts, each conditioned to its own database; `cloudservices` (Editor);
+            the Firebase Rules agent; and the App Engine agent.
+          - **Cross-checked against the live policy** (`project-policy-final-2026-10-12.json`): 10
+            writer bindings in the Analyzer and 10 in the live policy. None stale, none missing.
+            The negatives the gate relies on were confirmed live with the Troubleshooter the same
+            day: `firebase-adminsdk-qflje` (no Firestore writes, no tokens for `policy-run`), the
+            legacy Cloud Build account (no W4 deployment, no act-as or tokens on the runtime
+            accounts, no `setIamPolicy`, no Firestore writes), and Container Registry's agent.
+
+          **Gate closed, 2026-10-12 (Jeff).** Every authority path in the step 6 table has a
+          recorded disposition, removed or accepted with a reason. The fresh step 4 evidence shows
+          no unresolved consumer, and the writers analysis matches the live policy. W4 activation
+          (PR 8, `docs/protected-execution.md`, "W4 activation and cutover") is no longer blocked
+          by this gate. **The gate reopens if:** any removed binding is restored; key `6bfb0894…`
+          is re-enabled; the Cloud Functions API is re-enabled (its new agent would get the role
+          back); or a new writer of `revisions` appears.
+
+          **Open cleanup, outside the gate:** remove `firebase-adminsdk-qflje`'s project-wide
+          `roles/storage.admin`; delete key `6bfb0894…` and its file on the workstation (step 7);
+          narrow the legacy Cloud Build account's remaining roles (Step 2 list); and, longer term,
+          investigate switching `(default)`'s App Engine integration off.
     - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
       `firebase-rules`, `gcp-gae-service`): **not accepted by this list.** Their dispositions are
-      the step 6 rows above, which are proposals pending approval. Merging this document doesn't
-      accept those risks or close the gate.
+      the step 6 rows above, each now approved or carried out (2026-10-12): `cloudservices`,
+      Firebase Rules and App Engine accepted; Container Registry's Editor removed.
 
 - Rollback: `remove-iam-policy-binding` with the same condition. The database has delete
   protection: disable it explicitly before deleting it (`gcloud firestore databases update
