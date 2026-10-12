@@ -531,7 +531,7 @@ services refuse to start without:
 
 | Secret | Env var | Mounted by | Value |
 |---|---|---|---|
-| `policy-callers` | `POLICY_CALLERS` | `policy-run` | JSON caller map (below) |
+| `policy-callers` | `POLICY_CALLERS` | `policy-run` | JSON caller map (below). Version 4 (2026-10-12, W4 PR 8 prerequisite) adds `l0000-run` as a `compiler` for `0000`, alongside `api-run` (`gateway`), `broker-run` (`broker`), `console-run@graffiticode-app` (`console`) and `l0176-run` (`compiler`, `0176`); validated with Policy's `parseCallers` before upload. `l0000-run` also holds `run.invoker` on `policy` (granted 2026-10-12). |
 | `broker-callers` | `BROKER_CALLERS` | `broker-run` | JSON caller map (below) |
 | `audit-pseudonym-secret` | `AUDIT_PSEUDONYM_SECRET` | `policy-run`, `broker-run` | random, ≥ 16 chars; **shared** so both services pseudonymize a user to the same audit id |
 
