@@ -123,7 +123,7 @@ board [
 
 A `connector` joins nodes on its own page, including nodes inside sections. `from` and `to` each
 name a node's key, a list of keys (one connector per pair), or `"*"` — every node on the page but
-the other end. A connector cannot attach to a section.
+the other end. A section is named by its `name`, and a connector can attach to it like any node.
 
 ```
 board [

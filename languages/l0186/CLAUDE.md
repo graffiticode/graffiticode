@@ -57,7 +57,8 @@ no L0000 word is overridden.
   PROG's Checker reports a `{}` that ended a description early (a second top-level description).
 - `board.ts` — members → the nodes the plugin draws (`toNode`), page names and tab defaults, id
   uniqueness and connector resolution per page (mirroring the plugin's `primaryKey`: id, else
-  text; a stamp by its reaction; a section holding nodes never), `parseFileKey`.
+  text; a section by its name, which must not be any other node's key; a stamp by its reaction),
+  `parseFileKey`.
 
 Value checks live in the Transformer (`Checker.LIST` visits only `elts[0]`). Errors are a product
 surface: `errors.test.ts` pins their exact wording.

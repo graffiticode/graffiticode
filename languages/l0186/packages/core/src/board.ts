@@ -99,15 +99,14 @@ export const nodeName = (member: string, rec: any, i: number): string => {
 
 /**
  * The key the plugin registers a drawn node under, mirroring its `primaryKey`: shapes, stickies
- * and text by id, falling back to text; stamps by their reaction. Plugins before the L0186 release
- * never register a section that holds nodes, so naming a section stays an error here until every
- * user has the plugin that does (figma-plugin `l0186-pages`); `"*"` may still reach one there.
+ * and text by id, falling back to text; sections by name; stamps by their reaction.
  */
 export function primaryKey(n: any): string | null {
   if (n.type === "shape" || n.type === "sticky" || n.type === "text") {
     if (n.id != null) return String(n.id);
     return n.text != null ? String(n.text) : null;
   }
+  if (n.type === "section") return n.name != null ? String(n.name) : null;
   if (n.type === "stamp") return String(n.stamp);
   return null;
 }
@@ -157,13 +156,16 @@ function checkPage(page: Page, pageWhere: string, others: Page[]): void {
         if (name === "*") continue;
         const count = keys.get(name) ?? 0;
         const where = `${pageWhere}: connector ${end} ${JSON.stringify(name)}`;
+        // The plugin registers a section after its contents and the first registration of a key
+        // wins, so a section that shares its name with a node is reached only sometimes — even when
+        // the node's id is the shared key. Ask for a different name rather than guess.
+        if (count > 1 && sectionNames.has(name)) {
+          throw new Error(`${where}: ${count} nodes are called ${JSON.stringify(name)}, one of them a section, so it could mean any of them. Give the section a name no other node uses.`);
+        }
         if (count > 1 && !ids.has(name)) {
           throw new Error(`${where}: ${count} nodes say ${JSON.stringify(name)}, so it could mean any of them. Give the one you mean an id, e.g. sticky id "a" text ${JSON.stringify(name)} {}, and connect to "a".`);
         }
         if (count) continue;
-        if (sectionNames.has(name)) {
-          throw new Error(`${where}: names a section, and a connector cannot attach to a section yet. Connect to a node inside it.`);
-        }
         const elsewhere = others.find((p) => {
           let found = false;
           walk(p.nodes, (m) => (found ||= primaryKey(m) === name));

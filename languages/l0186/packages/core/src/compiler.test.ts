@@ -204,9 +204,14 @@ describe("connectors", () => {
     );
   });
 
-  it("reject a section as an endpoint", async () => {
-    expect(await errorOf(`board [ page [ section [ sticky id "a" {} ] name "S" {} sticky id "b" {} connector from "b" to "S" {} ] {} ] {}`)).toMatch(
-      /names a section, and a connector cannot attach to a section yet/,
+  it("attach to a section by its name", async () => {
+    const nodes = await nodesOf(`section [ sticky id "a" {} ] name "S" {} sticky id "b" {} connector from "b" to "S" {} connector from "S" to "a" {}`);
+    expect(nodes.slice(2).map((c: any) => [c.from, c.to])).toEqual([["b", "S"], ["S", "a"]]);
+  });
+
+  it("reject a name a section shares with another node", async () => {
+    expect(await errorOf(`board [ page [ section [ sticky id "a" {} ] name "S" {} sticky id "S" {} sticky id "b" {} connector from "b" to "S" {} ] {} ] {}`)).toBe(
+      'page "Page 1": connector to "S": 2 nodes are called "S", one of them a section, so it could mean any of them. Give the section a name no other node uses.',
     );
   });
 

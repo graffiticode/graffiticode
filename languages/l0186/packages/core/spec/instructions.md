@@ -89,8 +89,8 @@ connector from "idea" to "plan" label "next" line-type ELBOWED to-cap ARROW_LINE
   id. Give a node an `id` whenever its text is long or another node says the same thing.
 - A list fans out or in: `to ["a" "b" "c"]` draws one connector to each. `"*"` means every
   other node on the page: `from "hub" to "*"`.
-- A connector joins nodes on its own page, including nodes inside sections. It cannot attach to a
-  section itself — connect to a node inside it.
+- A connector joins nodes on its own page, including nodes inside sections. It can also attach
+  to a section itself, named by the section's `name`; give the section a name no node uses.
 - `line-type`: `ELBOWED` (default), `STRAIGHT`, `CURVED`. `line-style`: `SOLID` (default),
   `DASHED`.
 - `from-cap` / `to-cap`: `NONE`, `ARROW_LINES`, `ARROW_EQUILATERAL`, `TRIANGLE_FILLED`,
