@@ -100,7 +100,7 @@
       "env": {
         "AUTH_URL": "https://auth.graffiticode.org",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
-        "CHAIN_ADMISSION": "canary",
+        "CHAIN_ADMISSION": "all",
         "CHAIN_ADMISSION_CONNECTIONS": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd"
       },
       "smoke": [
