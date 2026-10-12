@@ -1157,8 +1157,29 @@ evidence that nothing else but the operators can write.
              Registry's agent (Editor) and the Cloud Functions agent on update. On act-as, those
              three plus Google's Compute, Cloud Build and Cloud Run agents. All have pending
              dispositions above. The tenth, `l0000` update, hit Cloud Asset Inventory's daily
-             `analyzeIamPolicy` quota (`429`) and is **to be re-run**. For the legacy account
-             itself, step 4's Troubleshooter check already covers it (not granted).
+             `analyzeIamPolicy` quota (`429`): 200 a day per project, not raisable, reset at
+             midnight Pacific.
+          7. **The tenth analysis, re-run 2026-10-12** (`deploy-l0000-update-after-narrowing.json`).
+             It was fully explored, with no errors, but **its answer is stale.** It credits the
+             legacy account with project-level `roles/run.admin` and `roles/firebase.admin`.
+             `firebase.admin` was removed on 2026-10-07 and `run.admin` on 2026-10-08. The live
+             project policy holds neither: the account's project roles are
+             `cloudbuild.builds.builder`, `serviceusage.apiKeysAdmin` and `storage.admin`. The
+             audit log shows no project IAM change since the two removals at 19:02 on 2026-10-08.
+             The Policy Troubleshooter, which reads the live policy, again answers
+             `ALLOW_ACCESS_STATE_NOT_GRANTED` for the legacy account updating `l0000` (and
+             `policy`). **The narrowing holds;** the Analyzer answered from an out-of-date
+             snapshot of the project's IAM policy. It also lists `cloudservices`, Container
+             Registry's agent and the Cloud Functions agent (pending dispositions above), and the
+             three Owners.
+
+          **What this means for the evidence.** A Policy Analyzer result can lag the live policy,
+          even when it reports being fully explored. For any negative the gate relies on, the
+          authority is the live policy and the Troubleshooter's answer; the Analyzer is
+          supporting evidence. Step 6's final verification must cross-check each Analyzer result
+          against the live policy (`gcloud projects get-iam-policy` and the resource's own
+          policy) and record any disagreement. The 2026-10-08 analyses for `policy`, `broker` and
+          `api` agree with the live policy.
 
           Its other project-wide roles (`storage.admin`, `serviceusage.apiKeysAdmin`,
           `cloudbuild.builds.builder`) don't deploy services. They're outside this gate, and stay
