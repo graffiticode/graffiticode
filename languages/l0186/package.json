@@ -25,7 +25,8 @@
     "pack": "npm run build && npm -w packages/view pack",
     "publish": "npm -w packages/core publish --access=public && npm -w packages/view publish --access=public",
     "gcp:logs": "gcloud run services logs read l0186 --project graffiticode --region us-central1",
-    "typecheck": "npm run -w packages/core typecheck && npm run -w packages/api typecheck && npm run -w packages/view typecheck"
+    "typecheck": "npm run -w packages/core typecheck && npm run -w packages/api typecheck && npm run -w packages/view typecheck",
+    "check-corpus": "tsx packages/view/tools/check-corpus.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

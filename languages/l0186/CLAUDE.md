@@ -99,6 +99,19 @@ it, the plugin defaults both to AUTO); curved AUTO sides (`autoSidesCurved`) and
 meets a free point are commented where they are encoded in `route`. To recalibrate after a
 FigJam change, repeat that: create a scratch board, draw the fixture, compare, adjust in one place.
 
+## The corpus gate
+
+`npm run check-corpus -- <file>` (after `npm run build`) compiles every program in a generated
+corpus batch and lints its boards with `packages/view/src/lib/lint.ts`, on the routes the preview
+draws. Run it between the console's `create-items-from-prompts --output <file>` and
+`generate-embeddings-from-examples`; it also reads the embeddings log
+(`console/training/l0186-embeddings.json`). Exit 1 = do not embed: a line through a node it does
+not join, a waypoint inside a node, a missing or wrong end side with waypoints, a waypoint level
+with a node but off its centre, or one where the line turns anyway. Each finding names the fix;
+the summary prints the `--only` list to regenerate. The rules mirror the instructions' "Keep every
+line clear of other nodes" and waypoint bullets — change both together. When regenerating one
+example, delete its old vector first, or retrieval hands the generator the old program to copy.
+
 ## Related repos
 
 - `../figma-plugin` — draws the board into FigJam. It reads `pages` (falling back to L0172's
