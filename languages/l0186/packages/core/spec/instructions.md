@@ -159,6 +159,10 @@ side of its start, turns once or twice, and enters a side of its end. Nothing el
 - Use only the waypoints the route needs. The last leg turns into the end node's side by itself,
   so never put a waypoint just above, below or beside the end node — and never at its centre.
   "Down to y 600, then across to Finish" is one waypoint, `waypoint [_ 600]`, with the sides set.
+  A loop back needs one too: a feedback arrow from "Deploy" (`x 400 y 0`, 200×100) down to y 300
+  and back into "Plan" (`x 0 y 0`) from below is `from-side BOTTOM to-side BOTTOM waypoints
+  [ waypoint [_ 300] ]` — the line runs across under Plan and turns up into it by itself. Add the
+  corner under Plan only when the climb into Plan is longer than the run across to it.
 
 ## Colours
 
