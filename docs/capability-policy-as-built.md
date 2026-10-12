@@ -465,8 +465,9 @@ The supporting infrastructure and the l0000 npm releases are already delivered:
 - approvals for the serving L0000 and L0176 revisions;
 - `@graffiticode/l0000` 0.10.0 and 0.10.1.
 
-Activation is blocked on the IAM gate (`docs/capability-policy-iam-review.md`, Step 11:
-`firebase-adminsdk-qflje`'s approvals-write and impersonation authority). The procedure is
+The IAM gate (`docs/capability-policy-iam-review.md`, Step 11: `firebase-adminsdk-qflje`'s
+approvals-write and impersonation authority) **closed on 2026-10-12** (Jeff), after the final
+verification recorded there. Activation now waits only on the prerequisites in the runbook. The procedure is
 in `docs/protected-execution.md`, "W4 activation and cutover".
 
 **What W4 does and doesn't promise users:**

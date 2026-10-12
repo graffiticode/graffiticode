@@ -362,7 +362,8 @@ order: `CHAIN_ADMISSION=canary`, `CHAIN_ADMISSION=all`, and the cutover to
 
 ### Before anything changes
 
-1. **The IAM gate** (IAM review, Step 11). Every unconditional writer of the
+1. **The IAM gate** (IAM review, Step 11). **Closed 2026-10-12**, after the final verification
+   recorded there; it reopens on the conditions listed with it. Every unconditional writer of the
    `revisions` database that isn't an operator is either removed or recorded as
    accepted in `docs/capability-policy-iam-review.md`. That includes
    `firebase-adminsdk-qflje`'s live key and its project-wide
