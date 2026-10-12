@@ -467,7 +467,26 @@ The supporting infrastructure and the l0000 npm releases are already delivered:
 
 The IAM gate (`docs/capability-policy-iam-review.md`, Step 11: `firebase-adminsdk-qflje`'s
 approvals-write and impersonation authority) **closed on 2026-10-12** (Jeff), after the final
-verification recorded there. Activation now waits only on the prerequisites in the runbook. The procedure is
+verification recorded there. Activation now waits only on the prerequisites in the runbook.
+
+**Component releases, 2026-10-12** (prerequisite 4; `CHAIN_ADMISSION` unset, so off, and the
+minimum contract version 1, so behaviour is unchanged). In the runbook's order, each followed by
+the canary at 15/15 (without `--chain-admission`):
+
+| Service | Revision | Built from | Notes |
+|---|---|---|---|
+| policy | `policy-rmv5kkewa-c8602c` | `1cb4fff` | `POLICY_CALLERS` at `policy-callers:4`, which adds `l0000-run` as a compiler for `0000`; the W3 revision's tag retired |
+| broker | `broker-rmv5m556c-b22d87` | `1cb4fff` | the W3 revision's tag retired |
+| l0000 | `l0000-rmv5mguhi-2678e5` | `7ff6021` | approved in `revisions` before promotion; `release-check` ok |
+| l0176 | `l0176-rmv5moqn6-73db6d` | `7ff6021` | approved in `revisions` before promotion; `release-check` ok |
+| api | `api-rmv5mwrm0-53cfe7` | `7ff6021` | the gated chain-admission path, still off |
+
+Every build was clean (`gc-dirty=false`). Broker, L0000, L0176 and api were released from a
+clean worktree of main, because the shared checkout held another session's uncommitted L0186
+files. Their receipts are copied into `.gc-deploy/releases/`. Prerequisite 2 (L0000 as a Policy
+caller) is done too: the `policy-callers` version above, `run.invoker` on `policy` for
+`l0000-run`, and `POLICY_URL` in L0000's environment. Next: the canary phase
+(`CHAIN_ADMISSION=canary`), then the chain inventory. The procedure is
 in `docs/protected-execution.md`, "W4 activation and cutover".
 
 **What W4 does and doesn't promise users:**
