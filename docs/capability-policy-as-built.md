@@ -207,6 +207,47 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   Evidence: [Author operation](../packages/broker/src/operations.ts),
   [Policy](../packages/policy/src/policy.ts) and
   [registry](../packages/common/src/protected-registry.ts).
+  - **Notes for enabling Author (recorded 2026-10-12, for future investigation).**
+    - *Why Author is riskier than the other L0176 functions, and why it's owner-only and not
+      shareable.* `init` and `save-to-itembank` act through Broker, one narrow operation at a
+      time: each is authorized live, draft-only, receipted and audited, so revocation is
+      immediate and retries never repeat a write. `author` instead has Broker sign a Learnosity
+      **Author Site session**, and then Broker steps out:
+      1. **Scope:** the session can create, edit and delete items and activities across the
+         item bank the connection's credentials reach, not only the item at hand. Narrowing it
+         to items, references or widgets is what AT-10 still has to prove against the provider.
+      2. **Nothing mediates what happens next:** the edits go from the browser straight to
+         Learnosity. Broker sees only the signing, so there's no per-action authorization,
+         receipt or audit, and no record of what was changed.
+      3. **Revocation isn't immediate:** revoking access stops new sessions, but one already
+         signed works until it expires.
+      4. **The signed request is portable:** anyone holding it can use it while it's valid.
+      5. **No undo through Graffiticode:** deletes and overwrites happen in the provider
+         directly, with nothing to replay or reverse.
+
+      So sharing `author` would hand someone broad, unmediated and hard-to-revoke control of
+      the owner's item bank, under the owner's credentials. That's why the registry marks it
+      owner-only, non-delegable and not view-safe.
+    - *How enabling it should work* (a product request, 2026-10-12: "there should be a grant in
+      0176 settings to allow creating author items"). Under AUTHOR-01, owner permissions can't
+      bypass the deployment gate, so:
+      1. **The deployment gate** opens only after AT-10 passes: Policy's
+         `POLICY_ENABLED_GATED_FUNCTIONS` (`0176:author`) and Broker's
+         `BROKER_ENABLED_GATED_OPERATIONS` (`learnosity.sign-author`). Today neither is set.
+      2. **Per connection, inside the gate:** an `author` row in the console's L0176 access
+         table, in the owner's column only (never sharees'). Until the gate opens, show it
+         disabled, explaining that Author isn't enabled on this deployment. That's a
+         console-only change that grants nothing. The console shows no `author` row today.
+      3. **Proposed Policy change, to go with opening the gate:** require an *explicit* `author`
+         opt-in even for an owner whose permissions are "everything" (`null`). Otherwise every
+         owner gains Author the moment the gate opens. This is a security change, with tests.
+      4. **Questions for the AT-10 investigation:** can Author sessions be restricted to items,
+         references or widgets? Is their lifetime short enough to bound revocation? Can the
+         provider report what a session changed, so actions could be audited or reconciled
+         (WRITE-02)?
+    - *Related behaviour (L0176, 2026-10-12):* an Author activity compiled without a connection
+      is now a compile error (`fn-not-enabled`, category `permission`), not a silent unsigned
+      result, so a refreshed console preview keeps showing why it can't open.
 - **Partial — PREVIEW-01.** System preview sessions and separation from ordinary connection
   authority exist. L0176 ignores program credentials and reports unsigned preview failures.
   Saves without a connection expose a language-specific skip marker; the complete generic
