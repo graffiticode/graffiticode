@@ -485,8 +485,30 @@ Every build was clean (`gc-dirty=false`). Broker, L0000, L0176 and api were rele
 clean worktree of main, because the shared checkout held another session's uncommitted L0186
 files. Their receipts are copied into `.gc-deploy/releases/`. Prerequisite 2 (L0000 as a Policy
 caller) is done too: the `policy-callers` version above, `run.invoker` on `policy` for
-`l0000-run`, and `POLICY_URL` in L0000's environment. Next: the canary phase
-(`CHAIN_ADMISSION=canary`), then the chain inventory. The procedure is
+`l0000-run`, and `POLICY_URL` in L0000's environment.
+
+**Canary phase, 2026-10-12: chain admission live for the canary connection only.**
+- **Switched on:** api `api-rmv5pe4j4-9d8e50` with `CHAIN_ADMISSION=canary` and
+  `CHAIN_ADMISSION_CONNECTIONS` naming the canary's sandbox connection (`cd7198b`). A first
+  attempt, receipt `rmv5o8f75-83a4d4`, failed while polling its successful build on a DNS
+  outage, and deployed nothing.
+- **First W4 canary: 20/20.** The write ran under plan `a5d4d13b…`, contract 2, pinned to the
+  serving `l0176-rmv5moqn6-73db6d`. A real L0000→L0176 chain was preflighted, admitted and
+  bound: plan `967fcdb0…`, pinned to `l0176-rmv5moqn6-73db6d` and `l0000-rmv5mguhi-2678e5`. That
+  was L0000's first production use of Policy. The denied final stage was refused at admission
+  (`fn-not-enabled`), with no effects and no plan stored. The direct path was admitted. The 15
+  original checks still passed.
+- **Retry across a deploy: passed.** L0176 was released again (`l0176-rmv5qckjx-5d3c21`; the old
+  revision stayed approved and tagged), then the canary ran again: 22/22. The recorded write
+  replayed on `l0176-rmv5moqn6-73db6d` under its original plan, with no `plan-mismatch`, while new
+  writes and chains pinned to the new revision.
+- **Audit:** all 33 admission and plan-lookup records since the switch are the canary
+  connection's: 18 plan lookups, 11 admissions allowed (8 new, 3 reused), and 4
+  `fn-not-enabled` denials, which are the two runs' denied-final-stage checks, recorded by
+  Policy and api. No other connection took the admission path.
+
+Next: the protected-chain inventory, which now includes the canary's L0000→L0176 chain, then
+`CHAIN_ADMISSION=all`. The procedure is
 in `docs/protected-execution.md`, "W4 activation and cutover".
 
 **What W4 does and doesn't promise users:**
