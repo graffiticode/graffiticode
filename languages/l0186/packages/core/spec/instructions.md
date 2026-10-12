@@ -116,6 +116,10 @@ connector from "test" to "build" label "fix" waypoints [ waypoint [-120 400] way
 Nothing is laid out for you: every node sits at its `x` and `y` (pixels from the page's top
 left; both default to 0, and may be negative). Plan positions on a grid before writing them.
 
+A node's `x` and `y` are its **top-left corner**, not its centre, and a connector meets the middle
+of a side. A sticky at `x 600 y 0` is centred at 720, 120; a waypoint that should come straight
+down into it is `waypoint [720 -150]`, not `[600 -150]`.
+
 - A sticky is about 240×240. Space stickies at least 280 apart; 300 is a comfortable grid cell.
 - A shape is 176×176 unless `width`/`height` are given. Give flowchart shapes a size
   (e.g. `width 200 height 120`) and leave at least 80 between them so a connector shows.
