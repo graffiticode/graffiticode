@@ -156,6 +156,9 @@ side of its start, turns once or twice, and enters a side of its end. Nothing el
   box from its top or bottom, straight through its neighbour in the stack. For a row of nodes
   above or below one node, use `BOTTOM`/`TOP`.
 - A waypoint must be outside every node.
+- Use only the waypoints the route needs. The last leg turns into the end node's side by itself,
+  so never put a waypoint just above, below or beside the end node — and never at its centre.
+  "Down to y 600, then across to Finish" is one waypoint, `waypoint [_ 600]`, with the sides set.
 
 ## Colours
 
