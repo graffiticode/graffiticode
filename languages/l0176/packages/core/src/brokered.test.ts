@@ -170,9 +170,22 @@ describe("brokered compiles", () => {
     expect(saved.err).toEqual([]);
     expect(saved.val.data.itemBank).toMatchObject({ skipped: "no-connection" });
     const author = await compile(`set-var "lrn-id" "t" author {}..`);
-    expect(author.err).toEqual([]);
     expect(author.val.request).toBeUndefined();
     expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
+  });
+
+  // An Author activity without a connection can't run, and says so in
+  // `errors` on every compile, so a refreshed preview still shows why.
+  test.each([
+    ["as the program's value", `set-var "lrn-id" "t" author {}..`],
+    ["through init", `set-var "lrn-id" "t" init author {}..`],
+  ])("an Author activity without a connection is a compile error (%s), unsigned", async (_, src) => {
+    const { err, val } = await compile(src);
+    expect(err).toHaveLength(1);
+    expect(err[0]).toMatchObject({ code: "fn-not-enabled", category: "permission" });
+    expect(err[0].message).toMatch(/needs a connection with Author enabled/);
+    expect(val?.request).toBeUndefined();
+    expect(invocations.map((c) => c.op)).not.toContain("learnosity.sign-author");
   });
 
   test("a system session that claims more than preview is still used for preview only", async () => {

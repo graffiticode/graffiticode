@@ -90,7 +90,10 @@ async function compileFragment(src: string) {
   const code = await parser.parse(176, src, lexicon);
   return await new Promise<void>((res, rej) =>
     compiler.compile(code, {}, CONFIG, (e: any) => {
-      const errs = Array.isArray(e) ? e.filter(Boolean) : e ? [e] : [];
+      // An Author fragment compiles but can't run without a connection: its
+      // fn-not-enabled refusal isn't staleness. Any other error is.
+      const errs = (Array.isArray(e) ? e.filter(Boolean) : e ? [e] : [])
+        .filter((x: any) => x?.code !== "fn-not-enabled");
       if (errs.length) rej(errs); else res();
     }));
 }

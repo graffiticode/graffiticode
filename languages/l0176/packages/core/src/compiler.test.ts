@@ -1004,10 +1004,19 @@ describe("equivSyntax rules", () => {
 // nothing signs one: not config-supplied credentials, not a program's own.
 describe("Author signing", () => {
   const DEFAULT = { learnosity: { key: "server-key", secret: "s".repeat(32) } };
+  // Unsigned, and reported: an Author activity without a connection is a
+  // compile error (fn-not-enabled) beside its unsigned value.
+  const compileAuthor = async (src: string, config: any) => {
+    const code = await parser.parse(176, src, lexicon);
+    return await new Promise<{ err: any[]; out: any }>((resolve) =>
+      compiler.compile(code, {}, config, (err: any, val: any) =>
+        resolve({ err: Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [], out: val })));
+  };
   const OWN = 'set-var "learnosity-key" "own-key" set-var "learnosity-secret" "' + "o".repeat(32) + '"';
 
   test.each(['author { "mode": "item_edit" }', "init author {}"])("%s is not signed with the server's default account", async (expr) => {
-    const out = await compile(`set-var "lrn-id" "t" ${expr}..`, {}, DEFAULT);
+    const { err, out } = await compileAuthor(`set-var "lrn-id" "t" ${expr}..`, DEFAULT);
+    expect(err).toMatchObject([{ code: "fn-not-enabled", category: "permission" }]);
     expect(out.type).toBe("author");
     expect(out.request).toBeUndefined();
     expect(JSON.stringify(out)).not.toMatch(/server-key|signature/);
@@ -1017,7 +1026,8 @@ describe("Author signing", () => {
   // own credentials sign an Author session. Only a connection does, through
   // the broker (brokered.test.ts).
   test("a program's own credentials do not sign it either", async () => {
-    const out = await compile(`set-var "lrn-id" "t" ${OWN} author { "mode": "item_edit" }..`, {}, DEFAULT);
+    const { err, out } = await compileAuthor(`set-var "lrn-id" "t" ${OWN} author { "mode": "item_edit" }..`, DEFAULT);
+    expect(err).toMatchObject([{ code: "fn-not-enabled", category: "permission" }]);
     expect(out.request).toBeUndefined();
     expect(JSON.stringify(out)).not.toMatch(/own-key|server-key|signature/);
   });

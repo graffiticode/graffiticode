@@ -113,6 +113,18 @@ const createAuthor = buildCreateAuthor();
 // (re)compile even when the assessment is unchanged — that churn is why the
 // Form keys its one-time Learnosity init on the stable question content rather
 // than object identity (see packages/view/src/components/form/contentKey.ts).
+// An Author activity opens the Author Site, which can edit and delete items,
+// so it's signed only through a connection that admits `author`. Without one
+// it can't run: that's a compile error in `errors`, the same refusal (code and
+// category) a connection gives when Author isn't enabled, so every preview
+// reports it, not only the compile that first hit it.
+const AUTHOR_NEEDS_CONNECTION = {
+  message: "Error: this Author activity can't be opened here. The Author Site needs a connection with Author enabled (fn-not-enabled).",
+  code: "fn-not-enabled",
+  category: "permission",
+};
+const isUnsignedAuthor = (val: any, exec?: any) => val?.type === "author" && !isBrokered(exec);
+
 async function signForRender(plain: any, exec?: any): Promise<any> {
   // Only sign Learnosity render output: a `{ type, data }` activity that has
   // not already been signed. Leaves bare/non-Learnosity values untouched.
@@ -243,8 +255,12 @@ export class Transformer extends BaseTransformer {
         return;
       }
       // Without a connection there is no authority to open the Author Site
-      // (see signForRender): return it unsigned.
-      resume(err, type === "author" ? plain : undefined);
+      // (see signForRender): unsigned, and reported as an error.
+      if (type === "author") {
+        resume([...(err ?? []), AUTHOR_NEEDS_CONNECTION], plain);
+        return;
+      }
+      resume(err, undefined);
     });
   }
 
@@ -443,9 +459,11 @@ export class Transformer extends BaseTransformer {
         resume(err, val);
         return;
       }
-      // Attach the signed Learnosity `request` (see signForRender).
+      // Attach the signed Learnosity `request` (see signForRender). An Author
+      // activity without a connection stays unsigned and is reported.
       try {
-        resume(err, await signForRender(val, this.execContext));
+        const signed = await signForRender(val, this.execContext);
+        resume(isUnsignedAuthor(val, this.execContext) ? [AUTHOR_NEEDS_CONNECTION] : err, signed);
       } catch (e: any) {
         resume([protectedError(e, this.execContext)], undefined);
       }

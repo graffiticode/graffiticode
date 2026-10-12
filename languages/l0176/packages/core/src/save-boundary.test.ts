@@ -87,7 +87,8 @@ describe("save-to-itembank <activity> without a connection", () => {
     ["init author {}", "init author"],
   ])("%s is left unsigned", async (expr) => {
     const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} ${expr}..`);
-    expect(err).toEqual([]);
+    // Unsigned, and reported as the Author refusal.
+    expect(err).toMatchObject([{ code: "fn-not-enabled", category: "permission" }]);
     expect(val.type).toBe("author");
     expect(val.request).toBeUndefined();
     expect(JSON.stringify(val)).not.toMatch(/signature/);
