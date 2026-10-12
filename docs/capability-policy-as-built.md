@@ -207,6 +207,30 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   Evidence: [Author operation](../packages/broker/src/operations.ts),
   [Policy](../packages/policy/src/policy.ts) and
   [registry](../packages/common/src/protected-registry.ts).
+  - **Decided 2026-10-12 (Jeff): after the W4 cutover, remove `author` from L0176.**
+    L0176 becomes only items and activities for the item bank, and its authority only the
+    brokered, auditable kind (`init`, `save-to-itembank`). Graffiticode stops signing Author
+    sessions at all. L0177 is a read-only planner: it helps people plan an Author API
+    integration, which their own application signs with their own credentials, outside
+    Graffiticode. AUTHOR-01 and AT-10's Author questions then have nothing left to cover. If
+    Graffiticode ever needed to sign Author sessions, that would be a new, dedicated language
+    and protected function, decided from scratch. The plan:
+    1. **Check stored L0176 items for `author`** before removing it. The 30-day chain inventory
+       found only the canary's.
+    2. **Registry version 7:** remove `author` from `0176` (a security change). Policy's
+       admission compares each stage's registry version, so L0176, Policy and Broker are
+       released together.
+    3. **L0176:** remove the `author` activity, or make it a compile error pointing to L0177;
+       drop `author.ts`; and limit `dataDependentAuthority` to items and questions.
+    4. **Broker:** retire `learnosity.sign-author`. **Policy:** the gate has nothing to gate in
+       L0176. Remove `0176:author` from the gated-function handling and its tests.
+    5. **Canary:** replace the Author-based checks. "Author denied" goes. "Denied final stage"
+       needs another refusal, for example a stage needing `save-to-itembank` with the canary's
+       owner permissions narrowed to `init`.
+    6. **Docs and tests:** the W4 runbook, this record, the AT-03 Author-from-data cases, and
+       the AUTHOR-01 conformance entry, which becomes closed by removal.
+
+    The notes below explain why. They no longer describe a plan to enable Author in L0176.
   - **Notes for enabling Author (recorded 2026-10-12, for future investigation).**
     - *Why Author is riskier than the other L0176 functions, and why it's owner-only and not
       shareable.* `init` and `save-to-itembank` act through Broker, one narrow operation at a
@@ -228,8 +252,8 @@ Evidence: [gateway execution](../packages/api/src/data.js),
       So sharing `author` would hand someone broad, unmediated and hard-to-revoke control of
       the owner's item bank, under the owner's credentials. That's why the registry marks it
       owner-only, non-delegable and not view-safe.
-    - *How enabling it should work* (a product request, 2026-10-12: "there should be a grant in
-      0176 settings to allow creating author items"). Under AUTHOR-01, owner permissions can't
+    - *How enabling it would have worked* (a product request, 2026-10-12: "there should be a
+      grant in 0176 settings to allow creating author items"; superseded by the decision above). Under AUTHOR-01, owner permissions can't
       bypass the deployment gate, so:
       1. **The deployment gate** opens only after AT-10 passes: Policy's
          `POLICY_ENABLED_GATED_FUNCTIONS` (`0176:author`) and Broker's
