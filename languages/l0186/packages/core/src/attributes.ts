@@ -118,6 +118,7 @@ export const TAGS: Record<string, string> = {
   HUGE: "96px text.",
   THIN: "A 4px line.",
   THICK: "An 8px line.",
+  _: "In a waypoint's [x y] pair: keep the current x or y, where the line already is (the previous waypoint, or the centre of the start node).",
 };
 
 /* ------------------------------------------------------------------ word metadata */
@@ -135,7 +136,8 @@ export const TAGS: Record<string, string> = {
  * - `tagOrNumber`: one of `oneOf`, or a number above 0; a tag is emitted as its `presets` value.
  * - `color`: a hex code ("#ffcc00") or one of `NAMED_COLORS`.
  * - `endpoints`: a node's key, a list of keys, or "*" — resolved per page in `board.ts`.
- * - `point`: an `[x y]` pair of numbers, emitted as `{x, y}`.
+ * - `point`: an `[x y]` pair of numbers, emitted as `{x, y}`. Either may be `_`, emitted as
+ *   null: keep the current coordinate, resolved where the geometry is known (plugin, preview).
  * - `waypoints`: a list of `waypoint` members, emitted as their points in order.
  */
 export type Expects =
@@ -487,11 +489,14 @@ export function checkValue(name: string, meta: AttributeMeta, raw: any): { value
       if (Array.isArray(raw) && raw.length && raw.every(ok)) return { value: raw.map(String) };
       return { error: `${word}: expected a node's id in "quotes", a list of ids like ["a" "b"], or "*", got ${showValue(raw)}.` };
     }
-    case "point":
-      if (!Array.isArray(raw) || raw.length !== 2 || !raw.every(finite)) {
-        return { error: `${word}: expected an [x y] pair of numbers, like ${exampleOf(word)}, got ${showValue(raw)}.` };
+    case "point": {
+      const current = (v: any) => isTag(v) && v.tag === "_";
+      if (!Array.isArray(raw) || raw.length !== 2 || !raw.every((v) => finite(v) || current(v))) {
+        return { error: `${word}: expected an [x y] pair of numbers, like ${exampleOf(word)}, or _ for the current x or y, like waypoint [_ 400], got ${showValue(raw)}.` };
       }
-      return { value: { x: raw[0], y: raw[1] } };
+      if (raw.every(current)) return { error: `${word}: [_ _] keeps both coordinates, so it is not a new point. Give x or y a number, like waypoint [_ 400].` };
+      return { value: { x: current(raw[0]) ? null : raw[0], y: current(raw[1]) ? null : raw[1] } };
+    }
     case "waypoints": {
       const example = "waypoints [ waypoint [300 0] waypoint [300 400] ]";
       if (!Array.isArray(raw)) return { error: `${word}: expected a list of waypoints, like ${example}, got ${showValue(raw)}.` };

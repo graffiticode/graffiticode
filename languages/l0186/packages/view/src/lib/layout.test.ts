@@ -3,7 +3,7 @@
 // plugin draws stop agreeing.
 import { describe, expect, it } from "vitest";
 import { darken, resolveColor } from "./figjam";
-import { autoSides, autoSidesCurved, keyMap, layoutPage, legs, resolveEnds, route } from "./layout";
+import { autoSides, autoSidesCurved, cornerAt, keyMap, layoutPage, legs, resolveEnds, route } from "./layout";
 import { shapeGeometry } from "./shapes";
 import { estimate, fit, wrap } from "./text";
 
@@ -183,30 +183,67 @@ describe("waypoints", () => {
   const b = { x: 400, y: 0, w: 100, h: 100 };
   const c = { from: "a", to: "b", label: "via", toCap: "triangle-filled", fromSide: "bottom", waypoints: [{ x: 50, y: 300 }, { x: 450, y: 300 }] };
 
-  it("draw one leg per pair of stops, meeting at each point", () => {
+  it("draw one leg per pair of stops, each stopping a corner's radius short of a waypoint it turns at", () => {
     const rs = legs({ ...c, lineType: "straight" }, a, b);
-    expect(rs.map((r) => [r.points[0], r.points[r.points.length - 1]])).toEqual([
-      [{ x: 50, y: 100 }, { x: 50, y: 300 }],
-      [{ x: 50, y: 300 }, { x: 450, y: 300 }],
-      [{ x: 450, y: 300 }, { x: 450, y: 100 }],
+    expect(rs.slice(0, 3).map((r) => [r.points[0], r.points[r.points.length - 1]])).toEqual([
+      [{ x: 50, y: 100 }, { x: 50, y: 284 }],
+      [{ x: 66, y: 300 }, { x: 434, y: 300 }],
+      [{ x: 450, y: 284 }, { x: 450, y: 100 }],
     ]);
   });
 
-  it("cap the outer ends only, and label the middle leg", () => {
+  it("round each turn with a curve whose unrounded corner is the waypoint", () => {
+    const arcs = legs({ ...c, lineType: "straight" }, a, b).slice(3);
+    expect(arcs.map((r) => [r.points[0], r.points[1], r.mid])).toEqual([
+      [{ x: 50, y: 284 }, { x: 66, y: 300 }, { x: 50, y: 300 }],
+      [{ x: 434, y: 300 }, { x: 450, y: 284 }, { x: 450, y: 300 }],
+    ]);
+    // A quadratic through the corner, written as a cubic: both controls on the lines into it.
+    expect(arcs[0].controls).toEqual([{ x: 50, y: 284 + (16 * 2) / 3 }, { x: 66 - (16 * 2) / 3, y: 300 }]);
+  });
+
+  it("cap the outer ends only, and label the middle leg — never a corner", () => {
     const rs = legs(c, a, b);
     expect(rs.map((r) => [r.connector.fromCap, r.connector.toCap])).toEqual([
       [undefined, "none"],
       ["none", "none"],
       ["none", "triangle-filled"],
+      ["none", "none"],
+      ["none", "none"],
     ]);
-    expect(rs.map((r) => r.connector.label)).toEqual([undefined, "via", undefined]);
+    expect(rs.map((r) => r.connector.label)).toEqual([undefined, "via", undefined, undefined, undefined]);
   });
 
-  it("keep from-side on the first leg; an elbowed leg into a point ends on it", () => {
+  it("keep from-side on the first leg; an elbowed leg into a point ends at its corner", () => {
     const [first, , last] = legs(c, a, b);
     expect(first.points[0]).toEqual({ x: 50, y: 100 });
-    expect(first.points[first.points.length - 1]).toEqual({ x: 50, y: 300 });
+    expect(first.points[first.points.length - 1]).toEqual({ x: 50, y: 284 });
     expect(last.points[last.points.length - 1].y).toBe(100);
+  });
+
+  it("meet at the waypoint, unrounded, where the line runs straight on", () => {
+    const rs = legs({ lineType: "straight", waypoints: [{ x: 250, y: 50 }] }, a, b);
+    expect(rs).toHaveLength(2);
+    expect([rs[0].points[1], rs[1].points[0]]).toEqual([{ x: 250, y: 50 }, { x: 250, y: 50 }]);
+  });
+
+  it("face an elbow's AUTO node end towards a point as FigJam does (measured), either way round", () => {
+    const node = { x: -120, y: -120, w: 240, h: 240 };
+    const pt = (dx: number, dy: number) => ({ x: dx, y: dy, w: 0, h: 0 });
+    const side = (p: { x: number; y: number }) => (p.y === -120 ? "top" : p.y === 120 ? "bottom" : p.x === -120 ? "left" : "right");
+    const axis = (d: { x: number; y: number }) => (Math.abs(d.x) > Math.abs(d.y) ? "H" : "V");
+    // offset → node side, and the axis the line meets the point on.
+    const cases: [number, number, string, string][] = [[500, 60, "right", "H"], [500, 400, "right", "V"], [100, 500, "bottom", "V"], [-450, 300, "left", "H"], [300, -500, "top", "V"]];
+    for (const [dx, dy, s0, ax] of cases) {
+      const out = route({}, node, pt(dx, dy));
+      const back = route({}, pt(dx, dy), node);
+      expect([side(out.points[0]), axis(out.endDir), side(back.points[back.points.length - 1]), axis(back.startDir)], `(${dx},${dy})`).toEqual([s0, ax, s0, ax]);
+    }
+  });
+
+  it("hold the radius to a quarter of a short run", () => {
+    const k = cornerAt({ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 0 }, { x: 0, y: -40 }, { x: 400, y: 0 });
+    expect(k?.a).toEqual({ x: 0, y: -10 });
   });
 
   it("aim a curve at a point as FigJam does (the measured grid)", () => {
@@ -238,6 +275,11 @@ describe("waypoints", () => {
       const back = route({ lineType: "curved" }, pt(dx, dy), node);
       expect([side(out.points[0], node), side(back.points[1], node)], `(${dx},${dy})`).toEqual([want, want]);
     }
+  });
+
+  it("resolve a null coordinate to the current one (the start node's centre, then the last point)", () => {
+    const rs = legs({ lineType: "straight", waypoints: [{ x: null, y: 300 }, { x: 450, y: null }] }, a, b);
+    expect(rs.slice(3).map((r) => r.mid)).toEqual([{ x: 50, y: 300 }, { x: 450, y: 300 }]);
   });
 
   it("route a connector without waypoints as one leg", () => {

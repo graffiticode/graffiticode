@@ -291,11 +291,12 @@ export function route(c: any, from: Box, to: Box): Route {
   let m0 = magnet(c.fromSide, from);
   let m1 = magnet(c.toSide, to);
   const [a0, a1] = lineType === "curved" ? autoSidesCurved(from, to) : autoSides(from, to);
-  // A curve's AUTO node end faces a waypoint the same way whichever end the waypoint is: as if
-  // the node were the start (measured 2026-10-08).
-  const pointToNode = lineType === "curved" && !from.w && !from.h && (to.w || to.h);
-  if (m0 === "auto") m0 = a0;
-  if (m1 === "auto") m1 = pointToNode ? autoSidesCurved(to, from)[0] : a1;
+  // An AUTO node end facing a waypoint takes the curved rule whatever the line type, and the same
+  // side whichever end the waypoint is — as if the node were the start (measured 2026-10-08 for
+  // curves, 2026-10-12 for elbows).
+  const isPoint = (b: Box) => !b.w && !b.h;
+  if (m0 === "auto") m0 = isPoint(to) ? autoSidesCurved(from, to)[0] : a0;
+  if (m1 === "auto") m1 = isPoint(from) ? autoSidesCurved(to, from)[0] : a1;
 
   // A centre magnet meets the box where the line toward the other end crosses its edge.
   const other0 = m1 === "center" ? centre(to) : sidePoint(to, m1);
@@ -331,6 +332,14 @@ export function route(c: any, from: Box, to: Box): Route {
     //   sideways, towards the node.
     const point = (b: Box) => !b.w && !b.h;
     const sign = (v: number) => (v < 0 ? -1 : 1);
+    // Between two waypoints a curve leaves and arrives along the dominant axis (measured 2026-10-12).
+    if (point(from) && point(to)) {
+      const dx = p1.x - p0.x;
+      const dy = p1.y - p0.y;
+      const travel = Math.abs(dx) >= Math.abs(dy) ? { x: sign(dx), y: 0 } : { x: 0, y: sign(dy) };
+      d0 = travel;
+      d1 = { x: -travel.x, y: -travel.y };
+    }
     if (point(to) && !point(from) && m0 !== "center") {
       const n = SIDE_DIR[m0];
       const a = (p1.x - p0.x) * n.x + (p1.y - p0.y) * n.y;
@@ -377,24 +386,94 @@ function connectorsOf(nodes: any[]): any[] {
  * A connector between two boxes as the plugin draws it. With waypoints that is one FigJam
  * connector per leg, meeting at fixed points: each leg is routed on its own, a point end has no
  * side, the caps go on the outer ends only and the label on the middle leg.
+ *
+ * Where two legs meet at an angle the corner is rounded, as FigJam rounds an elbow: the waypoint is
+ * the corner's unrounded point, each leg stops `r` short of it, and the plugin draws the curve
+ * between them (`cornerAt` gives both the same corner). A leg that runs straight on, or doubles
+ * back, meets the next at the waypoint itself.
  */
 export function legs(c: any, from: Box, to: Box): Route[] {
-  const pts = Array.isArray(c.waypoints) ? c.waypoints.filter((p: any) => p && Number.isFinite(p.x) && Number.isFinite(p.y)) : [];
+  // A null coordinate (`_` in the program) keeps the current one: the previous point's, or for the
+  // first waypoint the centre of the start node — as the plugin resolves it.
+  let cur = centre(from);
+  const pts = (Array.isArray(c.waypoints) ? c.waypoints : [])
+    .filter((p: any) => p && (Number.isFinite(p.x) || Number.isFinite(p.y)))
+    .map((p: any) => (cur = { x: Number.isFinite(p.x) ? p.x : cur.x, y: Number.isFinite(p.y) ? p.y : cur.y }));
   if (!pts.length) return [route(c, from, to)];
-  const stops: Box[] = [from, ...pts.map((p: any) => ({ x: p.x, y: p.y, w: 0, h: 0 })), to];
+  const point = (p: { x: number; y: number }): Box => ({ x: p.x, y: p.y, w: 0, h: 0 });
+  const stops: Box[] = [from, ...pts.map(point), to];
   const n = stops.length - 1;
   const labelled = Math.floor((n - 1) / 2);
-  return stops.slice(1).map((b, i) => {
-    const leg = {
-      ...c,
-      fromSide: i === 0 ? c.fromSide : "center",
-      toSide: i === n - 1 ? c.toSide : "center",
-      fromCap: i === 0 ? c.fromCap : "none",
-      toCap: i === n - 1 ? c.toCap : "none",
-      label: i === labelled ? c.label : undefined,
-    };
-    return route(leg, stops[i], b);
+  const legOf = (i: number) => ({
+    ...c,
+    fromSide: i === 0 ? c.fromSide : "center",
+    toSide: i === n - 1 ? c.toSide : "center",
+    fromCap: i === 0 ? c.fromCap : "none",
+    toCap: i === n - 1 ? c.toCap : "none",
+    label: i === labelled ? c.label : undefined,
   });
+  // First pass: each leg to the waypoints themselves, for the direction it arrives and leaves.
+  const plain = stops.slice(1).map((b, i) => route(legOf(i), stops[i], b));
+  const anchors = [centre(from), ...pts, centre(to)];
+  const corners = pts.map((w: { x: number; y: number }, j: number) =>
+    cornerAt(w, plain[j].endDir, plain[j + 1].startDir, anchors[j], anchors[j + 2]),
+  );
+  // Second pass: each leg to where its corner starts, then the corners themselves.
+  const out = stops.slice(1).map((b, i) => {
+    const start = i === 0 ? stops[0] : point(corners[i - 1]?.b ?? pts[i - 1]);
+    const end = i === n - 1 ? b : point(corners[i]?.a ?? pts[i]);
+    return route(legOf(i), start, end);
+  });
+  corners.forEach((k: Corner | null) => {
+    if (!k) return;
+    const two = (p: { x: number; y: number }) => ({ x: p.x + ((k.w.x - p.x) * 2) / 3, y: p.y + ((k.w.y - p.y) * 2) / 3 });
+    out.push({
+      connector: { ...c, fromCap: "none", toCap: "none", label: undefined },
+      lineType: "curved",
+      points: [k.a, k.b],
+      controls: [two(k.a), two(k.b)],
+      startDir: k.din,
+      endDir: k.dout,
+      mid: k.w,
+    });
+  });
+  return out;
+}
+
+export interface Corner {
+  w: { x: number; y: number };
+  /** Where the incoming leg stops and the outgoing one starts. */
+  a: { x: number; y: number };
+  b: { x: number; y: number };
+  din: { x: number; y: number };
+  dout: { x: number; y: number };
+}
+
+/**
+ * The rounded corner at waypoint `w`, or null where the legs meet in a straight line or double
+ * back. The radius is FigJam's elbow radius, held to a quarter of each leg's run along its
+ * direction so a short leg is not eaten — measured between `prev`/`next` (the neighbouring
+ * waypoints, or the end nodes' centres) as the plugin measures it.
+ */
+export function cornerAt(
+  w: { x: number; y: number },
+  din: { x: number; y: number },
+  dout: { x: number; y: number },
+  prev: { x: number; y: number },
+  next: { x: number; y: number },
+): Corner | null {
+  if (Math.abs(din.x * dout.y - din.y * dout.x) < 1e-6) return null;
+  const runIn = Math.abs((w.x - prev.x) * din.x + (w.y - prev.y) * din.y);
+  const runOut = Math.abs((next.x - w.x) * dout.x + (next.y - w.y) * dout.y);
+  const r = Math.min(CONNECTOR.elbowRadius, runIn / 4, runOut / 4);
+  if (r < 1) return null;
+  return {
+    w,
+    a: { x: w.x - din.x * r, y: w.y - din.y * r },
+    b: { x: w.x + dout.x * r, y: w.y + dout.y * r },
+    din,
+    dout,
+  };
 }
 
 /** A page's nodes, placed, with every connector routed and the bounds of everything drawn. */

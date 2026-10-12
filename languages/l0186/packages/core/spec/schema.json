@@ -463,12 +463,19 @@
             "additionalProperties": false,
             "properties": {
               "x": {
-                "type": "number"
+                "type": [
+                  "number",
+                  "null"
+                ]
               },
               "y": {
-                "type": "number"
+                "type": [
+                  "number",
+                  "null"
+                ]
               }
-            }
+            },
+            "description": "A point in page pixels. null keeps the current coordinate (written _): the previous point, or the centre of the start node."
           }
         }
       }

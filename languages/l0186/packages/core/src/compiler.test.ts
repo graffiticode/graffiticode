@@ -165,6 +165,11 @@ describe("tags", () => {
 });
 
 describe("connectors", () => {
+  it("emit _ in a waypoint as null: keep the current coordinate", async () => {
+    const nodes = await nodesOf(`${two} connector from "A" to "B" waypoints [ waypoint [_ 400] waypoint [300 _] ] {}`);
+    expect(nodes[2].waypoints).toEqual([{ x: null, y: 400 }, { x: 300, y: null }]);
+  });
+
   it("route through waypoints, in order, beside the other connector words", async () => {
     const nodes = await nodesOf(`${two}
       connector from "A" waypoints [ waypoint [300 0] waypoint [300 -40.5] ] to "B" label "back" line-type STRAIGHT {}`);

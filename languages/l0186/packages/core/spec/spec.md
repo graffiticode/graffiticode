@@ -144,11 +144,14 @@ one meets each node at its centre unless a side is given. Only a straight connec
 `CENTER`: FigJam refuses it on elbowed and curved ones.
 
 `waypoints [ … ]` routes a connector through fixed points, in order. Each is `waypoint [x y]`, in
-page pixels like a node's `x` and `y`; it is a pair, not a description, so no `{}` follows it. A
+page pixels like a node's `x` and `y`; it is a pair, not a description, so no `{}` follows it.
+Either coordinate may be `_`, which keeps the current one — the previous waypoint's, or for the
+first waypoint the centre of the `from` node — so `waypoint [_ 400]` goes straight down to y 400. A
 connector with waypoints joins one node to one node (a single `from` and `to`, no list or `"*"`).
 FigJam has no waypoints of its own, so the plugin draws one FigJam connector per leg: `from-side`
 and `from-cap` apply to the first leg, `to-side` and `to-cap` to the last, the label sits on the
-middle leg, and the points stay put when a node is dragged.
+middle leg, and the points stay put when a node is dragged. Where the line turns at a waypoint
+the corner is rounded like an elbow's, with the waypoint as its unrounded corner.
 
 ```
 board [
@@ -157,7 +160,7 @@ board [
     shape kind ROUNDED_RECTANGLE id "build" text "Build" x 0 y 400 {}
     connector from "test" to "build" {}
     connector from "build" to "test" label "fix" from-side LEFT to-side LEFT
-      waypoints [ waypoint [-120 488] waypoint [-120 88] ] {}
+      waypoints [ waypoint [-120 _] waypoint [_ 88] ] {}
   ] {}
 ] {}..
 ```

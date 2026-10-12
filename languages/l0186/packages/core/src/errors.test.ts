@@ -88,10 +88,10 @@ describe("errors", () => {
     expect(await errorOf("board [ page [ sticky id \"a\" {} sticky id \"b\" {} connector from \"a\" to \"b\" waypoints [ waypoint [300 0] {} ] {} ] {} ] {}")).toBe("waypoints: item 2 is a stray `{}`. A waypoint takes only its pair: write waypoint [300 0], not waypoint [300 0] {}.");
   });
   it("waypointNotAPair", async () => {
-    expect(await errorOf("board [ page [ sticky id \"a\" {} sticky id \"b\" {} connector from \"a\" to \"b\" waypoints [ waypoint 300 0 ] {} ] {} ] {}")).toBe("waypoint: expected an [x y] pair of numbers, like waypoint [300 0], got 300.");
+    expect(await errorOf("board [ page [ sticky id \"a\" {} sticky id \"b\" {} connector from \"a\" to \"b\" waypoints [ waypoint 300 0 ] {} ] {} ] {}")).toBe("waypoint: expected an [x y] pair of numbers, like waypoint [300 0], or _ for the current x or y, like waypoint [_ 400], got 300.");
   });
   it("waypointOneNumber", async () => {
-    expect(await errorOf("board [ page [ sticky id \"a\" {} sticky id \"b\" {} connector from \"a\" to \"b\" waypoints [ waypoint [300] ] {} ] {} ] {}")).toBe("waypoint: expected an [x y] pair of numbers, like waypoint [300 0], got a list.");
+    expect(await errorOf("board [ page [ sticky id \"a\" {} sticky id \"b\" {} connector from \"a\" to \"b\" waypoints [ waypoint [300] ] {} ] {} ] {}")).toBe("waypoint: expected an [x y] pair of numbers, like waypoint [300 0], or _ for the current x or y, like waypoint [_ 400], got a list.");
   });
   it("waypointsNotAList", async () => {
     expect(await errorOf("board [ page [ sticky id \"a\" {} sticky id \"b\" {} connector from \"a\" to \"b\" waypoints \"a\" {} ] {} ] {}")).toBe("waypoints: expected a list of waypoints, like waypoints [ waypoint [300 0] waypoint [300 400] ], got \"a\".");
@@ -119,5 +119,8 @@ describe("errors", () => {
   });
   it("centerOnCurved", async () => {
     expect(await errorOf("board [ page [ sticky id \"a\" {} sticky id \"b\" {} connector from \"a\" to \"b\" line-type CURVED to-side CENTER {} ] {} ] {}")).toBe("page: connector 3: to-side CENTER needs line-type STRAIGHT; FigJam cannot attach a CURVED connector at a node's centre. Use AUTO, TOP, BOTTOM, LEFT or RIGHT, or add line-type STRAIGHT.");
+  });
+  it("waypointBothCurrent", async () => {
+    expect(await errorOf("board [ page [ sticky id \"a\" {} sticky id \"b\" {} connector from \"a\" to \"b\" waypoints [ waypoint [_ _] ] {} ] {} ] {}")).toBe("waypoint: [_ _] keeps both coordinates, so it is not a new point. Give x or y a number, like waypoint [_ 400].");
   });
 });

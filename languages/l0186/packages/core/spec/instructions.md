@@ -102,7 +102,9 @@ connector from "idea" to "plan" label "next" line-type ELBOWED to-cap ARROW_LINE
 - `label`, `stroke`, `stroke-width`, `opacity`, `font-size` style the line and its label.
 - `waypoints [ … ]` routes the line through fixed points, in order. Each point is
   `waypoint [x y]` (page pixels, like a node's `x` and `y`). It is a pair, not a description,
-  so write no `{}` after it. Use waypoints to go around a node or to pick where an elbow bends.
+  so write no `{}` after it. Write `_` for a coordinate to keep the current one — where the line
+  already is: the previous waypoint, or the centre of the `from` node. `waypoint [_ 400]` drops
+  straight down (or up) to y 400. Use waypoints to go around a node or to pick where an elbow bends.
   A connector with waypoints needs a single `from` and a single `to`: no list, no `"*"`.
 
 ```
