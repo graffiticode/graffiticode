@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0186 RAG Training Examples
 
-124 example prompts for training a RAG model on L0186, the FigJam board language — covering
+127 example prompts for training a RAG model on L0186, the FigJam board language — covering
 sticky notes, text, shapes (basic, flowchart, engineering and decorative), stamps, position and
 size, colour and opacity, sections, connectors (fan-out, every-node, line types, caps, dashes and
-the sides they attach to, routing through points), ids, boards with several pages, and drawing a board into a FigJam file.
+the sides they attach to, routing through points, including runs that keep the current x or y), ids, boards with several pages, and drawing a board into a FigJam file.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT goes on the board
 and where, never how to write the program. Every prompt here is in scope.
@@ -186,3 +186,9 @@ and where, never how to write the program. Every prompt here is in scope.
 122. A system diagram: an API speech bubble, a database, a job queue and arrows showing how data flows.
 123. A brainstorm with a central "Idea" sticky and six stickies around it, all joined to the centre.
 124. Make a sprint board with "To do", "Doing" and "Done" sections, and draw it into my FigJam file https://www.figma.com/board/XYZ789/Sprint-12.
+
+## Category 19: Routing From Where the Line Is (125–127)
+
+125. An arrow from "Start" that goes straight down to y 600 and then across to "Finish", which sits to the right and lower down.
+126. A dashed feedback arrow from "Deploy" back to "Plan": it drops straight down 200 pixels below "Deploy", runs left under both boxes, and rises into "Plan" from below.
+127. Three stickies in a row with a line from the first to the third that rises straight up above them, runs across, and comes straight down into the third, keeping clear of the middle one.
