@@ -142,6 +142,21 @@ down into it is `waypoint [720 -150]`, not `[600 -150]`.
   `height` out and the section fits its nodes. Leave room between sections for their titles.
 - Stamps are 40×40.
 
+### Keep every line clear of other nodes
+
+A connector must not cross a node it does not join, and its label (drawn at the middle of the
+line) must not sit on one. Before writing a connector, trace its path: an elbowed line leaves a
+side of its start, turns once or twice, and enters a side of its end. Nothing else may be on it.
+
+- Do not join two nodes in a row (or column) with another node between them: the line runs
+  through the middle one. Put the far node on its own row, or route around with `waypoints`.
+- Fanning in or out between a stack and one node beside it — three stickies in a column with
+  arrows to a box on their right — give every connector the side facing the box:
+  `from-side RIGHT` (and `to-side LEFT`). The default leaves a node that is not level with the
+  box from its top or bottom, straight through its neighbour in the stack. For a row of nodes
+  above or below one node, use `BOTTOM`/`TOP`.
+- A waypoint must be outside every node.
+
 ## Colours
 
 `fill`, `stroke`, `color` and `background` take a hex code (`"#ffcc00"`, `"#fc0"`) or one of
