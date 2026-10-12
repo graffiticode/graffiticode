@@ -507,8 +507,17 @@ caller) is done too: the `policy-callers` version above, `run.invoker` on `polic
   `fn-not-enabled` denials, which are the two runs' denied-final-stage checks, recorded by
   Policy and api. No other connection took the admission path.
 
-Next: the protected-chain inventory, which now includes the canary's L0000→L0176 chain, then
-`CHAIN_ADMISSION=all`. The procedure is
+**Protected-chain inventory, 2026-10-12: passed** (prerequisite 5;
+`.gc-deploy/inventory/chain-inventory-2026-10-12.json`). Window 2026-09-12 to 2026-10-12, 21:14
+UTC. Coverage complete: 100 of 100 invocations scanned, 22 distinct chains. Language sequences:
+L0176 alone, 19 chains and 96 invocations; L0176 ← L0000, 2 chains and 2 invocations (the
+canary's L0000→L0176 chain); L0176 ← L0176, 1 chain and 2 invocations (the canary's
+denied-final-stage chain). 0 unsupported, 0 unreadable. So no chain in use would be refused with
+`stage-not-pinnable` under `CHAIN_ADMISSION=all`. The window's volume is low and mostly the
+canary's, so a rare chain that didn't run in it isn't covered; the soak under `all` is where
+that shows.
+
+Next: `CHAIN_ADMISSION=all`, then at least a day's soak. The procedure is
 in `docs/protected-execution.md`, "W4 activation and cutover".
 
 **What W4 does and doesn't promise users:**
