@@ -582,7 +582,48 @@ denied-final-stage chain). 0 unsupported, 0 unreadable. So no chain in use would
 canary's, so a rare chain that didn't run in it isn't covered; the soak under `all` is where
 that shows.
 
-Next: `CHAIN_ADMISSION=all`, then at least a day's soak. The procedure is
+**`CHAIN_ADMISSION=all`, 2026-10-12, about 21:42 UTC:** api `api-rmv5rnbbi-50d277` (`1b8f60f`); the
+canary passed 20/20 under `all`. **Soak,** about 19 hours (shortened by Jeff): the audit held 54
+admission-path records, from the canary and Jeff's own test session only (4 admitted, 1
+`fn-not-enabled` for an Author item, as intended). There were no unexpected denials, and no
+other real traffic.
+
+**The cutover window, 2026-10-13, 16:18 to 17:09 UTC** (`docs/protected-execution.md`, "The cutover
+window"):
+1. **Before the window:** the pre-W4 revisions `l0176-rmuxb8bkg-02e234` and
+   `l0000-rmupvrtl5-da1639` were retired with `scripts/revisions.js retire`. Neither report named
+   a plan, no admissions were fenced, and both tags were removed after the 15-minute wait.
+2. **Disabled** at 16:18:23 UTC, then **drained** (no active writes).
+3. **Merged `0838b57`:** `POLICY_MIN_CONTRACT_VERSION=2` and `BROKER_MIN_CONTRACT_VERSION=2`,
+   `contractMinimum` floor 2 on both, and the W4 baselines (policy and broker at `1cb4fff`; api,
+   l0000 and l0176 at `7ff6021`).
+4. **Released Policy,** `policy-rmv6vydjz-a5729a`. Its release retired the old revision's tag
+   (`rmv5kkewa-c8602c`), the last revision able to issue v1 proofs. **T = 16:27:13 UTC,**
+   conservatively: the receipt doesn't record when tags are retired, so T is the time the release
+   command finished, after the retirement. **Released Broker,** `broker-rmv6w9xad-985b27` (old tag
+   `rmv5m556c-b22d87` retired). `release-check` passed on all five services at 16:36 UTC: W4
+   baselines, the floor, and approvals.
+5. **Waited** until T + 30 minutes (16:57:13 UTC), the longest proof lifetime.
+6. **Canary, paused, with `--chain-admission --after-cutover`:** 22/22 at about 17:05 UTC.
+   `v1 refused` passed: every new invocation is marked (contract 2, Policy's minimum 2), and a
+   snapshot without a plan is refused with `plan-required`. The first run was 21/22. Its gateway
+   preview hit `409 token-expiring`: the new Broker revision's first instance started about 20
+   seconds before the request arrived, longer than the execution token's spare lifetime. Broker
+   refused before spending it, as designed. The re-run, with Broker warm, passed.
+7. **Enabled** at 17:09:28 UTC, after `release-check` passed on all five services.
+
+**W4 is activated:** chain admission applies to every connection, and only contract version 2 is
+accepted. A retry of a run started before the cutover gets `invocation-incompatible`.
+
+**Follow-ups from the window:**
+- **Cold-start `token-expiring`:** a user whose compile is the first to wake an idle Broker can
+  see `409 token-expiring`. Broker's contract expects the caller to retry with a fresh token
+  (`broker.ts`), but l0000's protected client doesn't. Fix: retry once on `token-expiring`, with a
+  freshly minted token. Optionally also keep one Broker instance warm.
+- **Deploy CLI:** record each release's tag-retirement time in its receipt, so the cutover's T
+  comes from the receipt, as the runbook assumes.
+- **Post-cutover, already planned:** remove `author` from L0176 (AUTHOR-01, above); retire older
+  approved L0176 revisions (keep the last three); and the IAM cleanup outside the gate. The procedure is
 in `docs/protected-execution.md`, "W4 activation and cutover".
 
 **What W4 does and doesn't promise users:**
