@@ -19,6 +19,7 @@
   },
   "services": {
     "api": {
+      "blocked": "registry v7 (Author removed) must ship with policy, broker, l0176 and api in one paused window: docs/protected-execution.md, The registry v7 release. Remove this field from all four in that window.",
       "image": "us-central1-docker.pkg.dev/graffiticode/services/api",
       "dockerfile": "configs/Dockerfile.api.yaml",
       "port": 3100,
@@ -191,6 +192,7 @@
       }
     },
     "broker": {
+      "blocked": "registry v7 (Author removed) must ship with policy, broker, l0176 and api in one paused window: docs/protected-execution.md, The registry v7 release. Remove this field from all four in that window.",
       "image": "us-central1-docker.pkg.dev/graffiticode/services/broker",
       "dockerfile": "configs/Dockerfile.broker.yaml",
       "port": 8080,
@@ -297,6 +299,7 @@
       ]
     },
     "policy": {
+      "blocked": "registry v7 (Author removed) must ship with policy, broker, l0176 and api in one paused window: docs/protected-execution.md, The registry v7 release. Remove this field from all four in that window.",
       "image": "us-central1-docker.pkg.dev/graffiticode/services/policy",
       "dockerfile": "configs/Dockerfile.policy.yaml",
       "port": 8080,
@@ -528,6 +531,7 @@
       ]
     },
     "l0176": {
+      "blocked": "registry v7 (Author removed) must ship with policy, broker, l0176 and api in one paused window: docs/protected-execution.md, The registry v7 release. Remove this field from all four in that window.",
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176",
       "dockerfile": "configs/Dockerfile.l0176.yaml",
       "port": 50176,

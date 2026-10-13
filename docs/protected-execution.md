@@ -501,7 +501,9 @@ session from another version (`registry-version-changed`) and a stage reporting 
 (`registry-version-mismatch`). Broker refuses a token minted under another version
 (`registry-version-mismatch`), and api treats an artifact stored under another version as
 incompatible. So Policy, Broker, L0176 and api are released in one paused window. L0000
-declares no protected functions (registry version 0) and isn't released.
+declares no protected functions (registry version 0) and isn't released. Until then the
+four `deploy.json` entries are `blocked`, so no ordinary release (or
+`upgrade-l0000-and-deploy`) ships v7 on its own.
 
 What users see afterwards: every artifact stored under v6 is incompatible, so a saved
 item's result and every publication say "made by an older version" until the owner
@@ -521,8 +523,10 @@ The window:
 
 1. `node scripts/protected-execution.js disable --reason "registry v7 release"`, then
    `drain`.
-2. `GC_VERIFY_PROTECTED_EXECUTION=off npm run deploy -- <svc>` for policy, broker, l0176
-   and api, in that order. Nothing protected runs in between: the switch is off.
+2. Remove `blocked` from api, broker, policy and l0176 in `deploy.json` and commit (the CLI
+   deploys a clean tree). Then `GC_VERIFY_PROTECTED_EXECUTION=off npm run deploy -- <svc>`
+   for policy, broker, l0176 and api, in that order. Nothing protected runs in between: the
+   switch is off.
 3. Retire L0176's pre-v7 approved revisions (`node scripts/revisions.js retire l0176
    --release <id>`, for each). Their preflights report registry version 6, which a v7
    Policy refuses, so plans pinned to them can't resume either way. The report names them.
