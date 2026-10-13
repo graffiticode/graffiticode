@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0186 RAG Training Examples
 
-127 example prompts for training a RAG model on L0186, the FigJam board language — covering
+130 example prompts for training a RAG model on L0186, the FigJam board language — covering
 sticky notes, text, shapes (basic, flowchart, engineering and decorative), stamps, position and
 size, colour and opacity, sections, connectors (fan-out, every-node, line types, caps, dashes and
-the sides they attach to, routing through points, including runs that keep the current x or y), ids, boards with several pages, and drawing a board into a FigJam file.
+the sides they attach to, routing through points, including runs that keep the current x or y, and lines to whole sections), ids, boards with several pages, and drawing a board into a FigJam file.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT goes on the board
 and where, never how to write the program. Every prompt here is in scope.
@@ -192,3 +192,9 @@ and where, never how to write the program. Every prompt here is in scope.
 125. An arrow from "Start" that goes straight down to y 600 and then across to "Finish", which sits to the right and lower down.
 126. A dashed feedback arrow from "Deploy" back to "Plan": it drops straight down 200 pixels below "Deploy", runs left under both boxes, and rises into "Plan" from below.
 127. Three stickies in a row with a line from the first to the third that rises straight up above them, runs across, and comes straight down into the third, keeping clear of the middle one.
+
+## Category 20: Connecting to Sections (128–130)
+
+128. A "Backlog" section holding three stickies, with an arrow from a "Planning" sticky beside it to the whole section.
+129. Two sections side by side, "Design" with two stickies and "Build" with two stickies, and an arrow labelled "hand off" from the Design section to the Build section.
+130. A "Done" section holding two stickies, and a dashed line from a "Review" box above it to the section itself.
