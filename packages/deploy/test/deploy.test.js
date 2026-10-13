@@ -243,6 +243,32 @@ test("private smoke uses the service audience and candidate URL without followin
   await assert.rejects(smokeCheck(config, service, "release", { fetch: async () => new Response("bad", { status: 500 }) }), /got 500/);
 });
 
+test("smoke timeoutMs defaults to 30s, is per check, and is bounded", async t => {
+  const service = oldService();
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
+  service.status.traffic.push({ tag: "release", revisionName: "api-release", url: "https://release---api-example.run.app" });
+  const timeouts = [];
+  const realTimeout = AbortSignal.timeout;
+  AbortSignal.timeout = ms => { timeouts.push(ms); return realTimeout.call(AbortSignal, ms); };
+  t.after(() => { AbortSignal.timeout = realTimeout; });
+  const smoke = [{ path: "/", status: 200, timeoutMs: 240000 }, { path: "/health", status: 200 }];
+  await smokeCheck({ ...config, smoke }, service, "release", { cloud: async () => "", fetch: async () => new Response("OK") });
+  assert.deepEqual(timeouts, [240000, 30000]);
+
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-config-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const write = check => writeFile(path.join(root, "deploy.json"), JSON.stringify({
+    version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, smoke: [check] } }
+  }));
+  const options = parseArgs(["--plan"]);
+  await write({ path: "/", status: 200, timeoutMs: 240000 });
+  assert.equal((await loadConfig(options, root, {})).config.smoke[0].timeoutMs, 240000);
+  for (const timeoutMs of [999, 600001, 1.5, "60000"]) {
+    await write({ path: "/", status: 200, timeoutMs });
+    await assert.rejects(loadConfig(options, root, {}), /timeoutMs/);
+  }
+});
+
 test("traffic merges tagged entries and rejects incomplete allocations", () => {
   assert.deepEqual(traffic({ status: { traffic: [{ revisionName: "a", percent: 20 }, { revisionName: "b", percent: 80 }, { revisionName: "a", tag: "old" }] } }), { a: 20, b: 80 });
   assert.throws(() => traffic({ status: { traffic: [] } }), /100%/);

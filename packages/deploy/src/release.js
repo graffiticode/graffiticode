@@ -74,7 +74,9 @@ export async function smokeCheck(config, service, id, { cloud, fetch: request = 
     const url = new URL(check.path, base);
     requireValue(url.origin === base.origin, "Smoke check must stay on the candidate origin");
     // @ts-expect-error TS-MIGRATE: headers object built dynamically
-    const response = await request(url, { headers, redirect: "error", signal: AbortSignal.timeout(30000) });
+    // The first check usually lands on a cold instance, so a slow-starting
+    // service (Next.js) raises its own timeoutMs; the default stays 30s.
+    const response = await request(url, { headers, redirect: "error", signal: AbortSignal.timeout(check.timeoutMs ?? 30000) });
     requireValue(response.status === check.status, `Smoke check ${check.path}: expected ${check.status}, got ${response.status}`);
     const body = await response.text();
     if (check.bodyIncludes) requireValue(body.includes(check.bodyIncludes), `Smoke check ${check.path}: response did not match`);
