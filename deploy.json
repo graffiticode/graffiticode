@@ -550,7 +550,7 @@
         {
           "name": "rust:1.99-bookworm",
           "entrypoint": "cargo",
-          "dir": "languages/l0000r",
+          "dir": "languages/l0000",
           "args": [
             "test",
             "--locked"
@@ -571,7 +571,6 @@
         }
       ],
       "include": [
-        "languages/l0000r",
         "languages/l0000",
         "configs/Dockerfile.l0000r.yaml"
       ]
@@ -587,7 +586,7 @@
         {
           "name": "rust:1.99-bookworm",
           "entrypoint": "cargo",
-          "dir": "languages/l0003r",
+          "dir": "languages/l0003",
           "args": [
             "test",
             "--locked"
@@ -608,9 +607,8 @@
         }
       ],
       "include": [
-        "languages/l0003r",
-        "languages/l0000r",
         "languages/l0003",
+        "languages/l0000",
         "configs/Dockerfile.l0003r.yaml"
       ]
     },
@@ -625,7 +623,7 @@
         {
           "name": "rust:1.99-bookworm",
           "entrypoint": "cargo",
-          "dir": "languages/l0010r",
+          "dir": "languages/l0010",
           "args": [
             "test",
             "--locked"
@@ -646,9 +644,8 @@
         }
       ],
       "include": [
-        "languages/l0010r",
-        "languages/l0000r",
         "languages/l0010",
+        "languages/l0000",
         "configs/Dockerfile.l0010r.yaml"
       ]
     },

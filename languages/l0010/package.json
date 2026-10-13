@@ -23,7 +23,13 @@
     "format": "prettier --write .",
     "pack": "npm run build && npm -w packages/view pack",
     "publish": "npm -w packages/core publish --access=public && npm -w packages/view publish --access=public",
-    "gcp:logs": "gcloud run services logs read l0010 --project graffiticode --region us-central1"
+    "gcp:logs": "gcloud run services logs read l0010 --project graffiticode --region us-central1",
+    "rust:static": "node tools/assemble-static.mjs",
+    "rust:build": "npm run rust:static && cargo build --release -p l0010r-server",
+    "rust:dev": "AUTH_URL=\"http://127.0.0.1:4100\" PORT=50010 cargo run -p l0010r-server",
+    "rust:test": "cargo test",
+    "rust:lint": "cargo clippy --all-targets -- -D warnings",
+    "rust:fixtures": "npm run -w packages/core build && node crates/core/tests/conformance/generate.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

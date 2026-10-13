@@ -1,32 +1,34 @@
 # l0003r — the L0003 language server in Rust — from the monorepo root (deploy CLI, or
-# `docker build -f configs/Dockerfile.l0003r.yaml .`). The dialect lives in languages/l0003r and
-# builds on the kernel and server in languages/l0000r; its static assets are built by the
-# TypeScript project in languages/l0003.
+# `docker build -f configs/Dockerfile.l0003r.yaml .`). languages/l0003 holds both
+# implementations: this image is the Rust server (crates/), which builds on the kernel and
+# server crates in languages/l0000, with the static assets this language's npm packages build.
+# configs/Dockerfile.l0003.yaml builds the TypeScript server from the same directory.
 
 # Public static assets (spec documents, schema, language info) and the /form View bundle.
 FROM node:22-alpine AS static
-WORKDIR /src/languages/l0003
+WORKDIR /src
 COPY languages/l0003/package*.json ./
 COPY languages/l0003/packages/core/package*.json ./packages/core/
 COPY languages/l0003/packages/api/package*.json ./packages/api/
 COPY languages/l0003/packages/view/package*.json ./packages/view/
 RUN npm ci
-COPY languages/l0003/ ./
-COPY languages/l0003r/tools /src/languages/l0003r/tools
-RUN node /src/languages/l0003r/tools/build-static.mjs --skip-install
+COPY languages/l0003/tsconfig.base.json ./
+COPY languages/l0003/packages ./packages
+COPY languages/l0003/tools ./tools
+RUN node tools/assemble-static.mjs --skip-install
 
 FROM rust:1.99-bookworm AS server
-WORKDIR /src/languages/l0003r
-COPY languages/l0000r/Cargo.toml /src/languages/l0000r/Cargo.toml
-COPY languages/l0000r/crates /src/languages/l0000r/crates
-COPY languages/l0003r/Cargo.toml languages/l0003r/Cargo.lock ./
-COPY languages/l0003r/crates ./crates
+WORKDIR /src/languages/l0003
+COPY languages/l0000/Cargo.toml /src/languages/l0000/Cargo.toml
+COPY languages/l0000/crates /src/languages/l0000/crates
+COPY languages/l0003/Cargo.toml languages/l0003/Cargo.lock ./
+COPY languages/l0003/crates ./crates
 RUN cargo build --release --locked -p l0003r-server
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 WORKDIR /app
-COPY --from=server /src/languages/l0003r/target/release/l0003r ./l0003r
-COPY --from=static /src/languages/l0003r/static ./static
+COPY --from=server /src/languages/l0003/target/release/l0003r ./l0003r
+COPY --from=static /src/static ./static
 ENV STATIC_DIR=/app/static
 EXPOSE 8080
 CMD ["/app/l0003r"]

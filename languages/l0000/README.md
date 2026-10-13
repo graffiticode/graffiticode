@@ -48,3 +48,17 @@ Both are wired in via env vars in the `dev` script in `packages/api/package.json
 ## Docker
 
 A `Dockerfile` is provided for building a production image of the api server.
+
+## Rust implementation
+
+`crates/` holds L0000 in Rust: the kernel (`crates/core`, which Rust child languages build on)
+and a language server (`crates/server`, binary `l0000r`). It is released to its own Cloud Run
+service, `l0000r`, while the TypeScript in `packages/` remains production.
+
+```bash
+cargo test            # needs no Node and no network
+npm run rust:build    # ./static, then the release binary (target/release/l0000r)
+npm run rust:dev      # run it on :50000
+```
+
+See `CLAUDE.md` for the details.
