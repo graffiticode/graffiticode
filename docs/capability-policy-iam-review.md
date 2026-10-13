@@ -1242,10 +1242,19 @@ evidence that nothing else but the operators can write.
           is re-enabled; the Cloud Functions API is re-enabled (its new agent would get the role
           back); or a new writer of `revisions` appears.
 
-          **Open cleanup, outside the gate:** remove `firebase-adminsdk-qflje`'s project-wide
-          `roles/storage.admin`; delete key `6bfb0894…` and its file on the workstation (step 7);
-          narrow the legacy Cloud Build account's remaining roles (Step 2 list); and, longer term,
-          investigate switching `(default)`'s App Engine integration off.
+          **Cleanup, outside the gate, done 2026-10-13 (Jeff):** `firebase-adminsdk-qflje`'s
+          project-wide `roles/storage.admin` removed, and both of its user-managed keys
+          (`6bfb0894…` and the 2022 `d40cd54b…`, disabled since 2026-10-07) **deleted**. Verified
+          live: the account has no project roles, no user-managed keys and no act-as bindings, so
+          the "key re-enabled" reopening condition above can no longer occur. The canary's expired
+          `canary-window` grants (OpenIdTokenCreator on `api-run@`, `l0176-run@` and
+          `console-run@graffiticode-app`) and the `canary-window-w4` ones were removed too; each
+          canary window adds a fresh time-limited grant. The workstation copy of the deleted key
+          is to be removed by the operator.
+
+          **Still open, outside the gate:** narrow the legacy Cloud Build account's remaining roles
+          (Step 2 list); and, longer term, investigate switching `(default)`'s App Engine
+          integration off.
     - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
       `firebase-rules`, `gcp-gae-service`): **not accepted by this list.** Their dispositions are
       the step 6 rows above, each now approved or carried out (2026-10-12): `cloudservices`,
