@@ -198,7 +198,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   against the live provider. Evidence: [operations](../packages/broker/src/operations.ts),
   [provider client](../packages/broker/src/learnosity.ts), and
   [browser initialization](../languages/l0176/packages/view/src/components/form/Form.tsx).
-- **Closed by removal, in code; not yet released — AUTHOR-01.** Registry v7 removes `author`
+- **Closed by removal, released 2026-10-13 — AUTHOR-01.** Registry v7 removes `author`
   and `learnosity.sign-author`, and with them the enablement gate: Policy and Broker have no
   Author function or operation, and `POLICY_ENABLED_GATED_FUNCTIONS` /
   `BROKER_ENABLED_GATED_OPERATIONS` stop either service if set. L0176 has no `author`
@@ -207,8 +207,8 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   data-dependent programs beyond `init`. Stored tasks checked first (2026-10-13): of 2,953
   L0176 tasks, 3 call `author`, all the operator's own test programs. The canary's
   **author removed** and new **denied final stage** checks replace its Author-based ones.
-  Release: Policy, Broker, L0176 and api together, paused
-  ([runbook](protected-execution.md#the-registry-v7-release-author-removed)).
+  Released together, paused, on 2026-10-13
+  ([runbook](protected-execution.md#the-registry-v7-release-author-removed); record in section 4).
   Before v7 (v6): deny-by-default, Policy refused it (`fn-not-enabled`) and Broker omitted and
   refused its operation (`operation-not-enabled`) unless enabled; never enabled in production.
   Evidence: [registry](../packages/common/src/protected-registry.ts),
@@ -631,8 +631,8 @@ accepted. A retry of a run started before the cutover gets `invocation-incompati
 - **Deploy CLI:** record each release's tag-retirement time in its receipt, so the cutover's T
   comes from the receipt, as the runbook assumes. **Done 2026-10-13:** receipts carry
   `tagsRetiredAt`.
-- **Post-cutover, already planned:** remove `author` from L0176 (AUTHOR-01, above; in code, with
-  its release in `docs/protected-execution.md`, "The registry v7 release"); retire older
+- **Post-cutover, already planned:** remove `author` from L0176 (AUTHOR-01, above). **Done
+  2026-10-13**, the registry v7 release below; retire older
   approved L0176 revisions (keep the last three); and the IAM cleanup outside the gate. The procedure is
 in `docs/protected-execution.md`, "W4 activation and cutover".
 
@@ -651,6 +651,41 @@ connection into Policy. Configuration intent does not prove a deployment uses it
 live identity, database, token-key, secret, egress, provider-session, and rollback evidence
 before claiming production conformance. Keep old observations dated rather than rewriting
 historical records as current facts.
+
+### Registry v7 release (Author removed), 2026-10-13
+
+From main `d52cf66` (#79 code, #80 unblock), in one paused window
+(`docs/protected-execution.md`, "The registry v7 release"):
+
+1. **Before:** `release-check` passed for policy, broker, api and l0176. Neither
+   `POLICY_ENABLED_GATED_FUNCTIONS` nor `BROKER_ENABLED_GATED_OPERATIONS` was set on the live
+   services. Stored tasks: 3 of 2,953 L0176 tasks called `author`, all the operator's own.
+2. **Disabled** at 21:23:13 UTC and drained (no active writes).
+3. **Released**, each with `GC_VERIFY_PROTECTED_EXECUTION=off`, after #80 removed the four
+   `blocked` fields:
+
+   | Service | Revision | Old tag retired |
+   | --- | --- | --- |
+   | Policy | `policy-rmv76xiho-452413` | `rmv6vydjz-a5729a` |
+   | Broker | `broker-rmv77a8nu-0b868b` | `rmv6w9xad-985b27` |
+   | L0176 | `l0176-rmv77l8sj-2e0569` | none |
+   | api | `api-rmv77p2nz-ce5491` | `rmv5rnbbi-50d277` |
+
+4. **Retired the v6 L0176 revisions** `rmv5moqn6-73db6d`, `rmv5qckjx-5d3c21`,
+   `rmv5ty3bz-c06749` and `rmv73kqzv-03d0e4` (`--confirm-unrecoverable`). Their reports named
+   8 plans, all with 0 uncertain and 0 unfinished receipts and no stored artifact, which a v7
+   Policy refuses to resume anyway. The four ran in parallel; one tag removal hit a Cloud Run
+   update conflict and finished with `--resume`. L0176's only approved revision is now
+   `l0176-rmv77l8sj-2e0569`.
+5. **v7 baselines** at `d52cf66` for the four services (#81, `0d1888e`); `release-check` ok.
+6. **Canary while paused**, 22:33Z, `--chain-admission --after-cutover`: 23 of 23, including
+   **author removed** (Policy allowed `["init","save-to-itembank"]`; Broker answered
+   `sign-author` with 403 `operation-mismatch`) and **denied final stage** (200, `not-granted`,
+   0 effects, no plan; permissions restored).
+7. **Enabled** at 22:35:09 UTC, after `release-check` passed on all five services.
+
+Every artifact and publication stored under v6 is now incompatible until its owner recompiles
+(and republishes); runs started before the window can't resume.
 
 ## 5. Validation evidence and remaining acceptance work
 
