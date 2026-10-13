@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0186",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "L0186 language core — FigJam boards",
   "type": "module",
   "main": "./dist/index.js",
