@@ -18,12 +18,36 @@ describe("crossing nodes", () => {
   it("flags a fan-in from a stack left to AUTO, and passes it with the sides facing (87)", () => {
     const stack = [sticky("in1", 0, 0), sticky("in2", 0, 300), sticky("in3", 0, 600), shape("process", 400, 240, 200, 180)];
     const fan = (sides: object) => ["in1", "in2", "in3"].map((s) => ({ type: "connector", from: s, to: "process", ...sides }));
-    expect(rules([...stack, ...fan({})])).toEqual(["crosses-node", "crosses-node"]);
-    expect(rules([...stack, ...fan({ fromSide: "right", toSide: "left" })])).toEqual([]);
+    expect(rules([...stack, ...fan({})])).toEqual(["crosses-node", "jog", "crosses-node"]);
+    // With the sides facing, only the middle line's step is left (the box is not on its centre line).
+    expect(rules([...stack, ...fan({ fromSide: "right", toSide: "left" })])).toEqual(["jog"]);
   });
 
   it("ignores a line into a node inside a section", () => {
-    expect(rules([{ type: "section", name: "S", x: 0, y: 0, nodes: [sticky("a", 0, 0)] }, sticky("b", 600, 0), { type: "connector", from: "b", to: "a" }])).toEqual([]);
+    // The section pads its sticky 24px in, so b sits level with it at y 24.
+    expect(rules([{ type: "section", name: "S", x: 0, y: 0, nodes: [sticky("a", 0, 0)] }, sticky("b", 600, 24), { type: "connector", from: "b", to: "a" }])).toEqual([]);
+  });
+});
+
+describe("jogs", () => {
+  it("flags a box above a fitted section, left edges aligned instead of centres (130)", () => {
+    const nodes = [shape("review", 0, -220), { type: "section", name: "Done", x: 0, y: 0, nodes: [sticky("s1", 0, 0), sticky("s2", 0, 280)] }, { type: "connector", from: "review", to: "Done" }];
+    expect(lintPage(nodes, estimate).map((f) => f.message)).toEqual([
+      "review → Done: the line steps 44px sideways because the centres are not in line (x 100 and 144). Line up their centres: centre = x + width / 2.",
+    ]);
+    nodes[0] = shape("review", 44, -220);
+    expect(rules(nodes)).toEqual([]);
+  });
+
+  it("flags the middle of a fan-in off its target's centre line, and leaves diagonal lines alone (87)", () => {
+    const stack = [sticky("in1", 0, 0), sticky("in2", 0, 300), sticky("in3", 0, 600)];
+    const fan = (y: number) => [...stack, shape("process", 400, y, 200, 180), ...["in1", "in2", "in3"].map((s) => ({ type: "connector", from: s, to: "process", fromSide: "right", toSide: "left" }))];
+    expect(lintPage(fan(240), estimate).map((f) => f.connector)).toEqual(["in2 → process"]);
+    expect(rules(fan(330))).toEqual([]);
+  });
+
+  it("leaves straight and curved lines alone", () => {
+    expect(rules([sticky("a", 0, 0), sticky("b", 30, 400), { type: "connector", from: "a", to: "b", lineType: "straight" }])).toEqual([]);
   });
 });
 

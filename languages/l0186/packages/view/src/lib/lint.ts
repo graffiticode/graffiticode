@@ -11,7 +11,7 @@
 import { autoSidesCurved, keyMap, layoutPage, legs, resolveEnds, type Box, type Placed, type Route } from "./layout";
 import { measure as defaultMeasure, type Measure } from "./text";
 
-export type Rule = "crosses-node" | "enters-from-inside" | "doubles-back" | "waypoint-inside-node" | "off-centre" | "redundant-waypoint";
+export type Rule = "crosses-node" | "enters-from-inside" | "doubles-back" | "jog" | "waypoint-inside-node" | "off-centre" | "redundant-waypoint";
 
 export interface Finding {
   rule: Rule;
@@ -126,6 +126,10 @@ export function lintPage(nodes: any[], m: Measure = defaultMeasure): Finding[] {
   const layout = layoutPage(nodes, m);
   const keys = keyMap(layout.nodes);
   const boxes = drawn(layout.nodes);
+  // For names: every placed node, sections included (a connector may join a section).
+  const named: Placed[] = [];
+  const all = (ps: Placed[]) => ps.forEach((p) => (named.push(p), p.children && all(p.children)));
+  all(layout.nodes);
   const connectors: any[] = [];
   const walk = (ns: any[]) => ns.forEach((n) => (n?.type === "connector" ? connectors.push(n) : n?.type === "section" && walk(n.nodes ?? [])));
   walk(nodes);
@@ -134,7 +138,7 @@ export function lintPage(nodes: any[], m: Measure = defaultMeasure): Finding[] {
       for (const b of resolveEnds(c.to, c.from, keys)) {
         if (a === b) continue;
         const ends = boxes.filter((p) => p.box === a || p.box === b);
-        const label = `${nameOf(ends.find((p) => p.box === a)?.node)} → ${nameOf(ends.find((p) => p.box === b)?.node)}`;
+        const label = `${nameOf(named.find((p) => p.box === a)?.node)} → ${nameOf(named.find((p) => p.box === b)?.node)}`;
         // Waypoints as drawn: `_` keeps the current coordinate.
         let cur = centre(a);
         const pts: Pt[] = (Array.isArray(c.waypoints) ? c.waypoints : [])
@@ -155,6 +159,27 @@ export function lintPage(nodes: any[], m: Measure = defaultMeasure): Finding[] {
           out.push(...atStart, ...atEnd);
         }
         const routes = legs(c, a, b);
+        // Two nodes in line (stacked in a column, or level in a row) joined by an elbowed line
+        // that leaves and enters facing each other: it runs straight only when their centres line
+        // up. Off by any amount, it steps sideways on the way.
+        if (!pts.length && (c.lineType ?? "elbowed") === "elbowed" && routes.length === 1) {
+          const r = routes[0];
+          const vertical = r.startDir.x === 0 && r.endDir.x === 0;
+          const horizontal = r.startDir.y === 0 && r.endDir.y === 0;
+          const ca = centre(a);
+          const cb = centre(b);
+          const inColumn = a.x < b.x + b.w && b.x < a.x + a.w;
+          const inRow = a.y < b.y + b.h && b.y < a.y + a.h;
+          const off = vertical && inColumn ? cb.x - ca.x : horizontal && inRow ? cb.y - ca.y : 0;
+          if (Math.abs(off) > 1) {
+            const axis = vertical ? "x" : "y";
+            out.push({
+              rule: "jog",
+              connector: label,
+              message: `${label}: the line steps ${Math.round(Math.abs(off))}px sideways because the centres are not in line (${axis} ${Math.round(vertical ? ca.x : ca.y)} and ${Math.round(vertical ? cb.x : cb.y)}). Line up their centres: centre = ${axis} + ${vertical ? "width" : "height"} / 2.`,
+            });
+          }
+        }
         // Where two legs meet at a waypoint the line must not reverse along itself.
         const n = pts.length + 1;
         for (let i = 0; pts.length && i < n - 1; i++) {

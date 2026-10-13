@@ -157,6 +157,15 @@ side of its start, turns once or twice, and enters a side of its end. Nothing el
   `from-side RIGHT` (and `to-side LEFT`). The default leaves a node that is not level with the
   box from its top or bottom, straight through its neighbour in the stack. For a row of nodes
   above or below one node, use `BOTTOM`/`TOP`.
+- Two nodes in a column, or level in a row, are joined by a straight run only when their
+  **centres** line up; off by any amount, the line steps sideways between them. Line up centres,
+  not `x` or `y`: a 200-wide box above a sticky at `x 0` (centre 120) goes at `x 20`. A section
+  without `width` is as wide as its nodes plus 24 on each side — one column of stickies is 288
+  wide, centred at its `x + 144` — so a box above it centres there, or give the section a `width`.
+  A node beside a tall section lines up with the section's middle, not its top.
+- One node joined to many around it (a hub and its spokes, a cycle of three): put each outer node
+  either in line with the hub (same centre x or y) or clearly diagonal from it, or use
+  `line-type STRAIGHT` so each line runs direct.
 - A waypoint must be outside every node.
 - Use only the waypoints the route needs. The last leg turns into the end node's side by itself,
   so never put a waypoint just above, below or beside the end node — and never at its centre.
