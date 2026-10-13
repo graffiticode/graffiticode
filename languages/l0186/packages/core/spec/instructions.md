@@ -162,7 +162,10 @@ side of its start, turns once or twice, and enters a side of its end. Nothing el
   not `x` or `y`: a 200-wide box above a sticky at `x 0` (centre 120) goes at `x 20`. A section
   without `width` is as wide as its nodes plus 24 on each side — one column of stickies is 288
   wide, centred at its `x + 144` — so a box above it centres there, or give the section a `width`.
-  A node beside a tall section lines up with the section's middle, not its top.
+  A section's nodes are drawn 24 in from its `x` and `y`, so its height is its nodes' height
+  plus 48: three stickies at `y 0`, `280`, `560` inside a section at `y 0` make it 848 tall,
+  centred at `y 424`. A node beside it lines up with that middle — a sticky beside it goes at
+  `y 304` (304 + 120 = 424) — not with the section's top or a node's own `y`.
 - One node joined to many around it (a hub and its spokes, a cycle of three): put each outer node
   either in line with the hub (same centre x or y) or clearly diagonal from it, or use
   `line-type STRAIGHT` so each line runs direct.
