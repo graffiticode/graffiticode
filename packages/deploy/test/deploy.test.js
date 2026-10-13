@@ -245,8 +245,7 @@ test("private smoke uses the service audience and candidate URL without followin
 
 test("smoke timeoutMs defaults to 30s, is per check, and is bounded", async t => {
   const service = oldService();
-  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
-  service.status.traffic.push({ tag: "release", revisionName: "api-release", url: "https://release---api-example.run.app" });
+  /** @type {any[]} */ (service.status.traffic).push({ tag: "release", revisionName: "api-release", url: "https://release---api-example.run.app" });
   const timeouts = [];
   const realTimeout = AbortSignal.timeout;
   AbortSignal.timeout = ms => { timeouts.push(ms); return realTimeout.call(AbortSignal, ms); };
