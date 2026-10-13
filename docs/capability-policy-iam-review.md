@@ -1252,9 +1252,24 @@ evidence that nothing else but the operators can write.
           canary window adds a fresh time-limited grant. The workstation copy of the deleted key
           was removed the same day.
 
-          **Still open, outside the gate:** narrow the legacy Cloud Build account's remaining roles
-          (Step 2 list); and, longer term, investigate switching `(default)`'s App Engine
-          integration off.
+          **Legacy Cloud Build account narrowed further, 2026-10-13 (Jeff):** its project-wide
+          `roles/serviceusage.apiKeysAdmin` and `roles/storage.admin` removed; its only project
+          role is now `roles/cloudbuild.builds.builder`, with the scoped `run.admin` and act-as
+          grants on the 25 legacy language services kept. Evidence for removal: no legacy
+          `cloudbuild*.yaml` uses API keys or Cloud Storage beyond its own build source and logs,
+          and in 400 days of admin-activity audit logs the account made no `apikeys`,
+          `serviceusage` or `storage` call (its calls were `actAs`, Cloud Run
+          `ReplaceService`/`CreateService`/`SetIamPolicy` and `CreateBuild`). Object-level
+          Storage access isn't in admin-activity logs, so the removal was then tested as the
+          account: a build fetching its uploaded source and pushing to `gcr.io` (redirected to
+          Artifact Registry; build `26ec88d8-4ff1-4f5f-8927-0a867ee8e7fb`, image deleted after),
+          and `scripts/legacy-build-narrowing.sh test` redeploying l0158 at its serving digest
+          (build `9460831d-5b3d-4ce8-adec-92886cb88a46`); both succeeded. Policy before:
+          `.gc-deploy/iam/project-policy-before-legacy-roles-20261013T230333Z.json`. Rollback:
+          `add-iam-policy-binding` for either role.
+
+          **Still open, outside the gate:** longer term, investigate switching `(default)`'s App
+          Engine integration off.
     - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
       `firebase-rules`, `gcp-gae-service`): **not accepted by this list.** Their dispositions are
       the step 6 rows above, each now approved or carried out (2026-10-12): `cloudservices`,
