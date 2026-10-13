@@ -450,8 +450,9 @@ marked.
    Broker refuses any token without `cv: 2`.
 3. **Make the last v1 issuer unreachable.** The cutover revision serves 100%, and
    every older Policy revision's tag is retired (`npm run deploy -- retire-tags
-   policy`), so `release-check policy` passes. The time this happened, from the
-   receipt in `.gc-deploy/`, is **T**.
+   policy`), so `release-check policy` passes. The time this happened is **T**:
+   the cutover release receipt's `tagsRetiredAt` (in `.gc-deploy/releases/`), or the
+   time `retire-tags` prints if the tags were retired separately, whichever is later.
 4. **Wait until T + 30 minutes.** That is the longest lifetime of a Policy proof
    (invocation tokens, 30 minutes; sessions and admissions, 15; execution tokens,
    60 s). The proof is the time elapsed since the last issuer became unreachable. The

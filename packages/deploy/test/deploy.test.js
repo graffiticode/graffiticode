@@ -385,6 +385,10 @@ test("a release with retireTags removes tags on non-serving revisions, keeps its
   const receipt = await release({ ...context, config: { ...config, retireTags: true } }, source, h.deps);
   assert.equal(receipt.status, "released");
   assert.deepEqual(receipt.retiredTags, ["old-1", "old-2"]);
+  // When the removal was verified (the W4 cutover's T), after the last describe.
+  assert.ok(Date.parse(receipt.tagsRetiredAt) >= Date.parse(receipt.createdAt));
+  assert.ok(Date.parse(receipt.tagsRetiredAt) <= Date.now());
+  assert.equal(h.getReceipt().tagsRetiredAt, receipt.tagsRetiredAt);
   /** @type {any} */
   const final = await h.deps.cloud(["run", "services", "describe", "api"]);
   assert.deepEqual(final.status.traffic.filter(e => e.tag).map(e => e.tag), [receipt.id]);
@@ -395,6 +399,7 @@ test("a release without retireTags leaves tags alone", async t => {
   const h = await harness(t, { tags: ["old-1"] });
   const receipt = await release(context, source, h.deps);
   assert.equal(receipt.retiredTags, undefined);
+  assert.equal(receipt.tagsRetiredAt, undefined);
   assert.ok(!h.calls.some(c => c.some(a => String(a).startsWith("--remove-tags"))));
 });
 
@@ -647,6 +652,8 @@ test("a pinnable release is approved before it serves, with its tag, digest and 
   assert.equal(receipt.approval.revision, receipt.revision);
   // Its own tag is kept; an unknown old tag is not.
   assert.deepEqual(receipt.retiredTags, []);
+  // Nothing retired, so no retirement time.
+  assert.equal(receipt.tagsRetiredAt, undefined);
 });
 
 test("a pinnable release whose approval fails is never promoted", async t => {

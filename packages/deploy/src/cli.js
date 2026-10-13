@@ -121,7 +121,9 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     }
     if (options.command === "retire-tags") {
       const retired = await retireTags(context, { cloud, log: console.log, revisions });
-      console.log(`Retired ${retired.length} tag(s) on ${config.service}.`);
+      console.log(retired.length
+        ? `Retired ${retired.length} tag(s) on ${config.service}; removal verified at ${new Date().toISOString()}.`
+        : `Retired 0 tag(s) on ${config.service}.`);
       return;
     }
     if (options.command === "approve") {

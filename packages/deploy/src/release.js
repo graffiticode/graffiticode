@@ -232,6 +232,9 @@ export async function release(context, source, deps) {
     if (config.retireTags) {
       try {
         receipt.retiredTags = await retireTags(context, { cloud, log, keep: [receipt.id], revisions: deps.revisions });
+        // When the removal was verified: no later than the old tags stopped
+        // answering, so a wait measured from it (the W4 cutover's T) is safe.
+        if (receipt.retiredTags.length) receipt.tagsRetiredAt = new Date().toISOString();
       } catch (error) {
         receipt.tagRetirementError = error.message;
         log(`WARNING: released, but stale tags remain (${error.message}). Run: npm run deploy -- retire-tags ${config.service}`);
