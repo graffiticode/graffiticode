@@ -139,17 +139,27 @@ export function createProtectionClient({ policyUrl, brokerUrl = null, idToken, f
       if (!exec.sessionToken) {
         throw new ProtectedCallError("no policy session for this invocation", 403, "no-session");
       }
-      const { executionToken } = await post(policyUrl, POLICY_AUDIENCE, "/v1/mint", {
+      if (!brokerUrl) {
+        throw new ProtectedCallError("no broker is configured for this compiler", 0, "unavailable");
+      }
+      const mint = async () => (await post(policyUrl, POLICY_AUDIENCE, "/v1/mint", {
         sessionToken: exec.sessionToken,
         fn,
         op,
         occurrenceId,
         argsDigest: argsDigest(payload),
-      });
-      if (!brokerUrl) {
-        throw new ProtectedCallError("no broker is configured for this compiler", 0, "unavailable");
+      })).executionToken;
+      // An execution token must outlast the broker's deadline when it arrives.
+      // A slow arrival (a cold broker instance) is refused as token-expiring,
+      // before the token is spent or any receipt claimed, so the call is
+      // retried once with a fresh token for the same operation (the same
+      // occurrence id; the broker's receipt still guards a repeat).
+      try {
+        return await post(brokerUrl, BROKER_AUDIENCE, EXECUTE, { op, payload }, await mint());
+      } catch (e) {
+        if (!(e instanceof ProtectedCallError) || e.reason !== "token-expiring") throw e;
+        return post(brokerUrl, BROKER_AUDIENCE, EXECUTE, { op, payload }, await mint());
       }
-      return post(brokerUrl, BROKER_AUDIENCE, EXECUTE, { op, payload }, executionToken);
     },
   };
 }

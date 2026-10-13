@@ -227,6 +227,34 @@ describe("protected-write effects", () => {
     expect(err[0].message).toMatch(/\/v1\/mint failed \(403\)/);
   });
 
+  // A cold broker can receive a token too late to outlast its deadline; it
+  // refuses before spending it, and the call is retried once, freshly minted.
+  test("a token-expiring refusal is retried once with a fresh token for the same operation", async () => {
+    brokerReplies = [refusal(409, { code: 409, reason: "token-expiring", category: "conflict" })];
+    const { effects } = await compile("save-it 1..", IDENTITY);
+    expect(effects).toEqual([{ fn: "save-it", op: "toy.write", status: "succeeded", steps: [] }]);
+    const mints = requests.filter((r) => r.url.endsWith("/v1/mint"));
+    const executes = requests.filter((r) => r.url.endsWith("/v1/execute"));
+    expect(mints).toHaveLength(2);
+    expect(executes).toHaveLength(2);
+    expect(mints[1].body.occurrenceId).toBe(mints[0].body.occurrenceId);
+  });
+
+  test("a second token-expiring is reported, not retried again", async () => {
+    const expiring = refusal(409, { code: 409, reason: "token-expiring", category: "conflict" });
+    brokerReplies = [expiring, refusal(409, { code: 409, reason: "token-expiring", category: "conflict" })];
+    const { effects } = await compile("save-it 1..", IDENTITY);
+    expect(effects).toEqual([{ fn: "save-it", op: "toy.write", status: "failed", steps: [], reason: "token-expiring", category: "conflict" }]);
+    expect(requests.filter((r) => r.url.endsWith("/v1/execute"))).toHaveLength(2);
+  });
+
+  test("other broker refusals are not retried", async () => {
+    brokerReplies = [refusal(409, { code: 409, reason: "token-replayed", category: "conflict" })];
+    await compile("save-it 1..", IDENTITY);
+    expect(requests.filter((r) => r.url.endsWith("/v1/execute"))).toHaveLength(1);
+    expect(requests.filter((r) => r.url.endsWith("/v1/mint"))).toHaveLength(1);
+  });
+
   test("a broker refusal is definite: failed, nothing done", async () => {
     brokerReplies = [refusal(403, { code: 403, reason: "authorization-denied:not-granted", category: "permission" })];
     expect((await compile("save-it 1..", IDENTITY)).effects).toEqual([{ fn: "save-it", op: "toy.write", status: "failed", steps: [], reason: "authorization-denied:not-granted", category: "permission" }]);
