@@ -1,0 +1,16 @@
+[package]
+name = "graffiticode-l0010"
+version = "0.1.0"
+description = "L0010 — a Graffiticode dialect (plan) built on L0000"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait = "0.1"
+graffiticode-l0000 = { path = "../../../l0000r/crates/core", default-features = false }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -1,0 +1,9 @@
+{
+  "plan": {
+    "tk": 1,
+    "name": "PLAN",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  }
+}

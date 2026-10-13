@@ -1,0 +1,7 @@
+# build output
+/static
+/target
+
+# misc
+.DS_Store
+*.log
