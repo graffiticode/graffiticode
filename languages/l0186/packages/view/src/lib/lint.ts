@@ -11,7 +11,7 @@
 import { autoSidesCurved, keyMap, layoutPage, legs, resolveEnds, type Box, type Placed, type Route } from "./layout";
 import { measure as defaultMeasure, type Measure } from "./text";
 
-export type Rule = "crosses-node" | "waypoint-inside-node" | "side-not-given" | "side-mismatch" | "off-centre" | "redundant-waypoint";
+export type Rule = "crosses-node" | "enters-from-inside" | "doubles-back" | "waypoint-inside-node" | "off-centre" | "redundant-waypoint";
 
 export interface Finding {
   rule: Rule;
@@ -29,13 +29,6 @@ const inside = (p: Pt, b: Box) => p.x > b.x && p.x < b.x + b.w && p.y > b.y && p
 function sidePoint(b: Box, s: Side): Pt {
   const c = centre(b);
   return s === "top" ? { x: c.x, y: b.y } : s === "bottom" ? { x: c.x, y: b.y + b.h } : s === "left" ? { x: b.x, y: c.y } : { x: b.x + b.w, y: c.y };
-}
-
-/** The side of `b` facing `p`: top or bottom beyond its vertical span, else left or right. */
-export function facing(b: Box, p: Pt): Side {
-  if (p.y < b.y) return "top";
-  if (p.y > b.y + b.h) return "bottom";
-  return p.x < b.x + b.w / 2 ? "left" : "right";
 }
 
 /** Every drawn node, sections left out: a line may cross into a section to reach a node in it. */
@@ -98,30 +91,28 @@ const nameOf = (n: any): string => String(n?.id ?? n?.text ?? n?.name ?? n?.stam
 /**
  * The checks for one end of a connector with waypoints: `end` is the node, `w` the waypoint next
  * to it, `beyond` the stop past that (the next waypoint, or null). `leaving` is true at the start.
+ * Judged against the side the line actually uses there — the one given, or AUTO's.
  */
 function checkEnd(c: any, end: Box, w: Pt, beyond: Pt | null, leaving: boolean, label: string, out: Finding[]): boolean {
-  const word = leaving ? "from-side" : "to-side";
   const given = (leaving ? c.fromSide : c.toSide) as string | undefined;
-  const want = facing(end, w);
   const side = (given && given !== "auto" && given !== "center" ? given : autoSidesCurved(end, { ...w, w: 0, h: 0 })[0]) as Side;
   const where = leaving ? "first" : "last";
-  if (!given) {
-    out.push({ rule: "side-not-given", connector: label, message: `${label}: give ${word} with waypoints; the ${where} waypoint [${w.x} ${w.y}] is ${want === "top" ? "above" : want === "bottom" ? "below" : "beside"} it, so ${word} ${want.toUpperCase()}.` });
-  } else if (side !== want) {
-    out.push({ rule: "side-mismatch", connector: label, message: `${label}: ${word} ${side.toUpperCase()} does not face the ${where} waypoint [${w.x} ${w.y}]; it should be ${want.toUpperCase()}.` });
-  }
-  const sp = sidePoint(end, want);
-  const level = want === "left" || want === "right" ? w.y > end.y && w.y < end.y + end.h && w.y !== sp.y : w.x > end.x && w.x < end.x + end.w && w.x !== sp.x;
+  const across = side === "left" || side === "right";
+  const sp = sidePoint(end, side);
+  // A waypoint level with the side it runs straight into must be on the side's centre line.
+  const level = across ? w.y > end.y && w.y < end.y + end.h && w.y !== sp.y : w.x > end.x && w.x < end.x + end.w && w.x !== sp.x;
   if (level) {
-    const axis = want === "left" || want === "right" ? "y" : "x";
-    out.push({ rule: "off-centre", connector: label, message: `${label}: the ${where} waypoint [${w.x} ${w.y}] is level with the node but not its centre (${axis} ${axis === "y" ? sp.y : sp.x}), so the line jogs into it.` });
+    const axis = across ? "y" : "x";
+    out.push({ rule: "off-centre", connector: label, message: `${label}: the ${where} waypoint [${w.x} ${w.y}] is level with the node but not its centre (${axis} ${across ? sp.y : sp.x}), so the line jogs into it.` });
   }
   // A waypoint exactly where the leg to the node would turn anyway adds nothing.
-  if (beyond && (c.lineType ?? "elbowed") === "elbowed" && side === want) {
-    const corner = want === "left" || want === "right" ? { x: beyond.x, y: sp.y } : { x: sp.x, y: beyond.y };
+  if (beyond && (c.lineType ?? "elbowed") === "elbowed") {
+    const corner = across ? { x: beyond.x, y: sp.y } : { x: sp.x, y: beyond.y };
     const runsAcross = Math.abs(sp.x - beyond.x) >= Math.abs(sp.y - beyond.y);
-    const turnsThere = want === "left" || want === "right" ? !runsAcross : runsAcross;
-    if (w.x === corner.x && w.y === corner.y && (leaving || turnsThere)) {
+    const turnsThere = across ? !runsAcross : runsAcross;
+    // FigJam turns there only when the leg runs further across than up for a top/bottom side, or
+    // further up than across for a left/right one; otherwise it draws a Z and the waypoint is needed.
+    if (w.x === corner.x && w.y === corner.y && turnsThere) {
       out.push({ rule: "redundant-waypoint", connector: label, message: `${label}: the ${where} waypoint [${w.x} ${w.y}] is where the line turns into the node anyway; leave it out.` });
       return true;
     }
@@ -163,12 +154,30 @@ export function lintPage(nodes: any[], m: Measure = defaultMeasure): Finding[] {
           checkEnd(c, a, pts[0], lastRedundant && pts.length === 2 ? null : (pts[1] ?? null), true, label, atStart);
           out.push(...atStart, ...atEnd);
         }
+        const routes = legs(c, a, b);
+        // Where two legs meet at a waypoint the line must not reverse along itself.
+        const n = pts.length + 1;
+        for (let i = 0; pts.length && i < n - 1; i++) {
+          const din = routes[i].endDir;
+          const dout = routes[i + 1].startDir;
+          if (din.x * dout.x + din.y * dout.y < -0.99) {
+            const w = pts[i];
+            out.push({ rule: "doubles-back", connector: label, message: `${label}: the line doubles back on itself at waypoint [${w.x} ${w.y}]. Set the end's side so the last run enters it without retracing the route (e.g. to-side BOTTOM for a line that comes in from below).` });
+          }
+        }
         const hit = new Set<string>();
-        for (const r of legs(c, a, b)) {
+        const own = new Set<string>();
+        for (const r of routes) {
           const line = polyline(r);
           for (let i = 1; i < line.length; i++) {
-            for (const p of boxes) if (!ends.includes(p) && crosses(line[i - 1], line[i], p.box)) hit.add(nameOf(p.node));
+            for (const p of boxes) {
+              if (!crosses(line[i - 1], line[i], p.box)) continue;
+              (ends.includes(p) ? own : hit).add(nameOf(p.node));
+            }
           }
+        }
+        if (own.size) {
+          out.push({ rule: "enters-from-inside", connector: label, message: `${label} runs through its own end ${[...own].join(", ")}: it reaches a side from the wrong direction. Use the side the line arrives at (or leaves from) along its route.` });
         }
         if (hit.size) {
           out.push({ rule: "crosses-node", connector: label, message: `${label} runs through ${[...hit].join(", ")}, which it does not join. Move the nodes so the path is clear, set the sides facing each other, or route around with waypoints.` });

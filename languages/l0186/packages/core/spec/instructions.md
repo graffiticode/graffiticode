@@ -111,13 +111,15 @@ connector from "idea" to "plan" label "next" line-type ELBOWED to-cap ARROW_LINE
   `_` gives the centre without arithmetic: a line leaving a sticky at `x 300 y 400` from its left
   side goes `waypoint [-120 _]` (y 520). Arriving at a sticky at `x 0 y 0` from the left is
   `waypoint [-120 120]`, not `[-120 0]`.
-- With waypoints, give `from-side` and `to-side` so each end matches the route. The default
-  (`AUTO`) picks a side from where the waypoint is, not from the way the line is travelling, and
-  can send the last leg back over the route. `from-side` is the start node's side facing the
-  first waypoint, `to-side` the end node's side facing the last one: `BOTTOM` or `TOP` when that
-  waypoint is below or above the node, `LEFT` or `RIGHT` when it is level with it. An arrow that
-  drops from "A" to y 400 and runs across to "B" beside it arrives from below: `to-side BOTTOM`. Use waypoints to go around a node or to pick where an elbow bends.
-  A connector with waypoints needs a single `from` and a single `to`: no list, no `"*"`.
+- With waypoints, give `from-side` and `to-side`: the side the line's first run leaves by and the
+  side its last run enters by. The default (`AUTO`) picks a side from where the waypoint is, not
+  from the way the line travels, and can send the line back along its own route. Follow the last
+  run in: a line that drops below "B" and runs across under it turns up into `BOTTOM`; a line that
+  climbs past "B" on its right and turns in enters `RIGHT`. "Down from A to y 400, then across to
+  B beside A" ends `to-side BOTTOM`; a loop from the bottom step up the right of a column back to
+  the top step ends `to-side RIGHT`.
+- Use waypoints to go around a node or to pick where an elbow bends. A connector with waypoints
+  needs a single `from` and a single `to`: no list, no `"*"`.
 
 ```
 connector from "test" to "build" label "fix" waypoints [ waypoint [-120 400] waypoint [-120 0] ] {}

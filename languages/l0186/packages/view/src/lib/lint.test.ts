@@ -40,16 +40,24 @@ describe("waypoints", () => {
     expect(rules(nodes)).toContain("waypoint-inside-node");
   });
 
-  it("flags a missing side, naming the one that faces the waypoint (109)", () => {
+  it("flags a line that doubles back at a waypoint (109, left to AUTO)", () => {
     const f = lintPage([...ab, { type: "connector", from: "a", to: "b", waypoints: [{ x: null, y: 400 }] }], estimate);
-    expect(f.map((x) => x.message)).toEqual([
-      "a → b: give from-side with waypoints; the first waypoint [120 400] is below it, so from-side BOTTOM.",
-      "a → b: give to-side with waypoints; the last waypoint [120 400] is below it, so to-side BOTTOM.",
-    ]);
+    // Back up the way it came — and on up through "a" itself, to reach b's left side.
+    expect(f.map((x) => x.rule)).toEqual(["doubles-back", "enters-from-inside"]);
+    expect(f[0].message).toBe(
+      "a → b: the line doubles back on itself at waypoint [120 400]. Set the end's side so the last run enters it without retracing the route (e.g. to-side BOTTOM for a line that comes in from below).",
+    );
+    expect(rules([...ab, { type: "connector", from: "a", to: "b", fromSide: "bottom", toSide: "bottom", waypoints: [{ x: null, y: 400 }] }])).toEqual([]);
   });
 
-  it("flags a side that does not face its waypoint", () => {
-    expect(rules([...ab, { type: "connector", from: "a", to: "b", fromSide: "bottom", toSide: "left", waypoints: [{ x: null, y: 400 }] }])).toEqual(["side-mismatch"]);
+  it("passes a side the line climbs past and turns into (108)", () => {
+    const steps = [0, 300, 600, 900].map((y, i) => shape(`step${i + 1}`, 0, y));
+    const loop = { type: "connector", from: "step4", to: "step1", fromSide: "right", toSide: "right", waypoints: [{ x: 400, y: null }] };
+    expect(rules([...steps, loop])).toEqual([]);
+  });
+
+  it("flags a line that reaches its end's side from inside the node", () => {
+    expect(rules([...ab, { type: "connector", from: "a", to: "b", fromSide: "bottom", toSide: "top", waypoints: [{ x: null, y: 400 }, { x: 420, y: 400 }] }])).toContain("enters-from-inside");
   });
 
   it("flags a waypoint level with a node but off its centre (107), and the corner it did not need", () => {
