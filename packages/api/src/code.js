@@ -99,9 +99,12 @@ function nodeToObject(n) {
         break;
       default:
         obj = {};
+        // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
         obj.tag = n.tag;
+        // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
         obj.elts = [];
         for (let i = 0; i < n.elts.length; i++) {
+          // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
           obj.elts[i] = nodeToObject(n.elts[i]);
         }
         break;

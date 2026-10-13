@@ -1,0 +1,8 @@
+choice [
+  prompt "What is 2 + 2?"
+  options [
+    [ text "3" ]
+    [ text "4" assess [ correct ] ]
+    [ text "5" ]
+  ] {}
+]..

@@ -48,6 +48,7 @@ const buildAuthenticate = ({ authService, apiKeyService }) => buildHttpHandler(a
 });
 
 export const buildApiKeysRouter = deps => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.post("/", buildCreate(deps));
   router.delete("/:id", buildDelete(deps));

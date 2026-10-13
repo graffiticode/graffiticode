@@ -1,0 +1,17 @@
+{
+  "style": "ranked-choice",
+  "title": "What Matters Most?",
+  "instructions": "Below is a list of things people have said they'd like their representatives to focus on. Select the issues that matter most to you and put them in priority order, most important first. Then add one idea of your own that is not on the list.",
+  "options": [
+    "protect voting rights",
+    "remove profit from healthcare",
+    "mitigate climate change",
+    "implement term limits on Supreme Court",
+    "subsidize solar and wind energy",
+    "restore requirement that news be truthful",
+    "protect residents from illegal ICE activity",
+    "reduce the cost of raising a family",
+    "affordable housing",
+    "affordable utilities"
+  ]
+}

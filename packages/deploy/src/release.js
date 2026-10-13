@@ -1,7 +1,9 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { requireValue } from "./config.js";
+import { approvalRecord, reachableProblems, retainedTags } from "./revisions.js";
 
 export function traffic(service) {
   const totals = {};
@@ -36,13 +38,23 @@ export function buildConfig(config, image) {
 export function deployArgs(config, receipt) {
   const args = ["run", "deploy", config.service, `--image=${receipt.image}`, `--port=${config.port}`,
     `--service-account=${config.runtimeServiceAccount}`, "--no-traffic", `--tag=${receipt.id}`,
-    `--revision-suffix=${receipt.id}`, `--labels=gc-release=${receipt.id},commit-sha=${receipt.commit}`];
-  if (Object.keys(config.env || {}).length) args.push(`--update-env-vars=${envFlag(config.env)}`);
+    `--revision-suffix=${receipt.id}`, `--labels=gc-release=${receipt.id},commit-sha=${receipt.commit},gc-dirty=${receipt.dirty ? "true" : "false"}`];
+  // The revision's own identity, for a compiler to report in its preflight
+  // manifest (capability plan W4): its release, and the digest it runs (known
+  // before the revision exists, since every release deploys by digest).
+  const imageDigest = receipt.image?.split("@")[1];
+  const env = { ...(config.env || {}), GC_RELEASE: receipt.id, ...(imageDigest ? { GC_IMAGE_DIGEST: imageDigest } : {}) };
+  args.push(`--update-env-vars=${envFlag(env)}`);
   if (Object.keys(config.secrets || {}).length) args.push(`--update-secrets=${pairs(config.secrets)}`);
+  // --update-secrets only adds, so a secret mounted by an earlier release
+  // carries into new revisions until it is removed explicitly.
+  if (config.removeSecrets?.length) args.push(`--remove-secrets=${config.removeSecrets.join(",")}`);
   return args;
 }
 
-export async function smokeCheck(config, service, id, { cloud, fetch: request = fetch }) {
+// The tagged candidate's URL, and the headers that let the deployer invoke it
+// (Cloud Run IAM only; application credentials are the verifier's business).
+async function candidateAccess(config, service, id, cloud) {
   const target = service.status.traffic.find(entry => entry.tag === id);
   requireValue(target?.url && target.revisionName === `${config.service}-${id}`, "Candidate tag does not point to the expected revision");
   const base = new URL(target.url);
@@ -53,14 +65,40 @@ export async function smokeCheck(config, service, id, { cloud, fetch: request = 
     const token = await cloud(["auth", "print-identity-token", `--impersonate-service-account=${config.smokeServiceAccount}`, `--audiences=${service.status.url}`, "--include-email"], { json: false });
     headers["X-Serverless-Authorization"] = `Bearer ${token}`;
   }
+  return { base, headers };
+}
+
+export async function smokeCheck(config, service, id, { cloud, fetch: request = fetch }) {
+  const { base, headers } = await candidateAccess(config, service, id, cloud);
   for (const check of config.smoke) {
     const url = new URL(check.path, base);
     requireValue(url.origin === base.origin, "Smoke check must stay on the candidate origin");
+    // @ts-expect-error TS-MIGRATE: headers object built dynamically
     const response = await request(url, { headers, redirect: "error", signal: AbortSignal.timeout(30000) });
     requireValue(response.status === check.status, `Smoke check ${check.path}: expected ${check.status}, got ${response.status}`);
     const body = await response.text();
     if (check.bodyIncludes) requireValue(body.includes(check.bodyIncludes), `Smoke check ${check.path}: response did not match`);
   }
+}
+
+// Runs the service's verify module against the candidate, before promotion.
+// The module is loaded from the release's captured snapshot (the hashed copy
+// that was built), never from the working tree, and its sha256 is recorded in
+// the receipt before it runs. Its default export receives the candidate and
+// must resolve; any rejection fails the release with traffic unchanged. It
+// runs on the deployer's machine with the deployer's gcloud credentials
+// (`cloud`), and can import only Node built-ins and other snapshot files.
+export async function verifyCandidate(config, service, id, source, receipt, { cloud, fetch: request = fetch, log = () => {}, persist = async () => {} }) {
+  const file = path.join(source.dir, "source", config.verify.module);
+  const sha256 = createHash("sha256").update(await readFile(file)).digest("hex");
+  receipt.verify = { module: config.verify.module, sha256 };
+  await persist();
+  const { default: verify } = await import(pathToFileURL(file).href);
+  requireValue(typeof verify === "function", `Verify module ${config.verify.module} must export a default function`);
+  const { base, headers } = await candidateAccess(config, service, id, cloud);
+  // @ts-expect-error TS-MIGRATE: callee ignores the argument; checkJs infers no parameters
+  log(`Verifying the candidate with ${config.verify.module} (${sha256.slice(0, 12)})…`);
+  await verify({ candidateUrl: base, serviceUrl: service.status.url, headers, config, cloud, fetch: request, log });
 }
 
 async function checkService(config, cloud) {
@@ -75,11 +113,41 @@ async function checkService(config, cloud) {
   return service;
 }
 
+// Cloud Build's own status decides when a build is done; the log stream only
+// shows progress. `gcloud builds log --stream` can outlive the build (it once
+// held a release for an hour after a successful build), so once the build
+// finishes the stream gets a grace period to print its tail, then is stopped.
+// A stream that fails or never closes never fails or holds a release.
+const FINISHED = ["SUCCESS", "FAILURE", "INTERNAL_ERROR", "TIMEOUT", "CANCELLED", "EXPIRED"];
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * @param {string} buildId
+ * @param {{ cloud: Function, log?: (message: string) => void, streamLog?: (buildId: string) => { done: Promise<unknown>, stop: () => void }, sleep?: (ms: number) => Promise<unknown>, pollMs?: number, graceMs?: number }} deps
+ */
+export async function waitForBuild(buildId, { cloud, log = () => {}, streamLog, sleep = pause, pollMs = 10000, graceMs = 15000 }) {
+  const stream = streamLog?.(buildId);
+  const ended = stream?.done.then(() => {}, err => log(`(build log stream stopped: ${err.message})`));
+  try {
+    for (;;) {
+      const build = await cloud(["builds", "describe", buildId]);
+      if (FINISHED.includes(build.status)) {
+        if (ended) await Promise.race([ended, sleep(graceMs)]);
+        return build;
+      }
+      await sleep(pollMs);
+    }
+  } finally {
+    stream?.stop();
+  }
+}
+
 export async function release(context, source, deps) {
   const { config, configHash, environment } = context;
   const { cloud, log, save, temp } = deps;
   requireValue(!config.blocked, config.blocked);
   requireValue(!context.unresolved.length, `Set required variables: ${context.unresolved.join(", ")}`);
+  requireValue(!config.verify || source.files.includes(config.verify.module), `Verify module ${config.verify?.module} is missing from the source snapshot`);
   log("Checking existing service, identity, and secret versions…");
   const initial = await checkService(config, cloud);
   for (const account of [config.buildServiceAccount, config.runtimeServiceAccount]) {
@@ -119,8 +187,7 @@ export async function release(context, source, deps) {
     requireValue(submitted.id, "Cloud Build did not return a build ID");
     receipt.buildId = submitted.id;
     await persist();
-    await cloud(["builds", "log", receipt.buildId, "--stream"], { stream: true, json: false });
-    const build = await cloud(["builds", "describe", receipt.buildId]);
+    const build = await waitForBuild(receipt.buildId, deps);
     requireValue(build.status === "SUCCESS", `Build ${receipt.buildId} finished with ${build.status}; nothing deployed`);
     const artifact = build.results?.images?.find(image => image.name === imageTag);
     requireValue(artifact && /^sha256:[a-f0-9]{64}$/.test(artifact.digest), "Build returned no matching image digest");
@@ -140,8 +207,18 @@ export async function release(context, source, deps) {
     requireValue(same(traffic(candidate), receipt.previousTraffic), "Traffic changed during candidate deployment; refusing promotion");
     log("Checking the candidate revision…");
     await (deps.smoke || smokeCheck)(config, candidate, id, deps);
+    if (config.verify) await verifyCandidate(config, candidate, id, source, receipt, { ...deps, persist });
     const beforePromotion = await cloud(["run", "services", "describe", config.service]);
     requireValue(fingerprint(beforePromotion) === fingerprint(candidate), "Service changed during verification; refusing promotion");
+    // A pinnable revision is approved before it serves, so admission never sees
+    // a serving revision without a record. If approval fails, nothing is
+    // promoted.
+    if (config.pinnable) {
+      requireValue(deps.revisions, "A pinnable service needs the revisions store");
+      const record = await deps.revisions.approve(approvalRecord(config, receipt, beforePromotion));
+      receipt.approval = { ...record, approvedAt: record.approvedAt.toISOString() };
+      await persist();
+    }
     receipt.status = "promoting";
     await persist();
     log(`Promoting ${receipt.revision}…`);
@@ -151,6 +228,19 @@ export async function release(context, source, deps) {
     receipt.status = "released";
     receipt.url = final.status.url;
     await persist();
+    // Released either way; a failure here is reported, not undone.
+    if (config.retireTags) {
+      try {
+        receipt.retiredTags = await retireTags(context, { cloud, log, keep: [receipt.id], revisions: deps.revisions });
+        // When the removal was verified: no later than the old tags stopped
+        // answering, so a wait measured from it (the W4 cutover's T) is safe.
+        if (receipt.retiredTags.length) receipt.tagsRetiredAt = new Date().toISOString();
+      } catch (error) {
+        receipt.tagRetirementError = error.message;
+        log(`WARNING: released, but stale tags remain (${error.message}). Run: npm run deploy -- retire-tags ${config.service}`);
+      }
+      await persist();
+    }
     return receipt;
   } catch (error) {
     receipt.failedAt = receipt.status;
@@ -161,7 +251,167 @@ export async function release(context, source, deps) {
   }
 }
 
-export async function rollback(context, receipt, { cloud, log }) {
+// Tags on revisions that serve no traffic, except those in `keep`. A tag URL
+// reaches its revision directly, so an old revision of a protected service
+// stays callable through its tag after promotion (capability plan W0).
+export function staleTags(service, keep = []) {
+  const serving = new Set(Object.keys(traffic(service)));
+  return (service.status?.traffic || [])
+    .filter(entry => entry.tag && !keep.includes(entry.tag) && !serving.has(entry.revisionName))
+    .map(entry => entry.tag);
+}
+
+// Removes stale tags without touching traffic, and verifies both. Rollback
+// targets revision names, not tags, so it keeps working.
+export async function retireTags(context, { cloud, log, keep = [], revisions = undefined }) {
+  const { config } = context;
+  const before = await cloud(["run", "services", "describe", config.service]);
+  // A pinnable service keeps the tags of approved revisions: admitted plans
+  // route to them. Only `retire` (scripts/revisions.js) removes those.
+  if (config.pinnable) {
+    requireValue(revisions, "A pinnable service needs the revisions store");
+    keep = [...keep, ...retainedTags(before, await revisions.list())];
+  }
+  const tags = staleTags(before, keep);
+  if (!tags.length) {
+    log("No stale tags.");
+    return [];
+  }
+  log(`Retiring ${tags.length} tag(s) on revisions that serve no traffic: ${tags.join(", ")}`);
+  await cloud(["run", "services", "update-traffic", config.service, `--remove-tags=${tags.join(",")}`]);
+  const after = await cloud(["run", "services", "describe", config.service]);
+  requireValue(same(traffic(after), traffic(before)), "Traffic changed while retiring tags; inspect the service");
+  const left = staleTags(after, keep).filter(tag => tags.includes(tag));
+  requireValue(left.length === 0, `Tags could not be retired: ${left.join(", ")}`);
+  return tags;
+}
+
+// A revision's provenance, from the labels every release puts on it: the Git
+// commit it was built from and whether the workspace was dirty. A revision
+// without them was not made by this CLI (or predates provenance labels).
+export async function provenanceOf(cloud, revisionName) {
+  const revision = await cloud(["run", "revisions", "describe", revisionName]);
+  const labels = revision.metadata?.labels ?? {};
+  return { revision: revisionName, commit: labels["commit-sha"] ?? null, dirty: labels["gc-dirty"] ?? null };
+}
+
+// Does this revision carry the security guarantees of the milestone whose code
+// is `commit`? Only if it was built cleanly from that commit or a descendant of
+// it (capability plan W0). Neither the revision name nor its age counts: an
+// old commit redeployed under a new release id does not qualify. `git` answers
+// ancestry from the local history (fetch first).
+export async function meetsMilestone(git, provenance, commit) {
+  if (provenance.dirty !== "false" || !/^[0-9a-f]{40}$/.test(provenance.commit ?? "")) return false;
+  return provenance.commit === commit || git.isAncestor(commit, provenance.commit);
+}
+
+// The revisions (of `names`) that do not meet the given baseline: "current" is
+// the latest milestone, "first" the earliest (for a service that enforces the
+// protected-execution switch, the one that introduced it).
+export async function belowBaseline(context, names, { cloud, git }, which = "current") {
+  const baselines = context.config.baselines ?? [];
+  if (!baselines.length) return [];
+  const { commit } = which === "first" ? baselines[0] : baselines[baselines.length - 1];
+  const below = [];
+  for (const name of names) {
+    if (!(await meetsMilestone(git, await provenanceOf(cloud, name), commit))) below.push(name);
+  }
+  return below;
+}
+
+// Every revision a service's traffic can reach: serving, or kept by a tag.
+export const reachableRevisions = service => [...new Set((service.status?.traffic || []).map(t => t.revisionName).filter(Boolean))];
+
+// The contract minimum each revision actually runs with (capability plan W4,
+// RELEASE-01): `contractMinimum: { env, floor? }` names the variable Policy
+// or Broker reads (POLICY_/BROKER_MIN_CONTRACT_VERSION) and, from the
+// cutover, the floor. Read from each revision's own environment, since a
+// configuration release of the same commit meets every baseline. Returns the
+// revisions that fail, with why:
+//   unreadable   no container environment, or the value comes from a secret
+//   invalid      not 1 or 2 (the service would refuse to start)
+//   missing      unset (the service's default, 1) while a floor applies
+//   below-floor  set lower than the floor
+export async function contractMinimumProblems(context, names, { cloud }) {
+  const minimum = context.config.contractMinimum;
+  if (!minimum) return [];
+  const problems = [];
+  for (const name of names) {
+    const revision = await cloud(["run", "revisions", "describe", name]);
+    const containers = revision.spec?.containers;
+    if (!Array.isArray(containers) || containers.length === 0) {
+      problems.push({ revision: name, problem: "unreadable" });
+      continue;
+    }
+    const entry = (containers[0].env ?? []).find(e => e?.name === minimum.env);
+    if (entry && (entry.valueFrom || typeof entry.value !== "string")) {
+      problems.push({ revision: name, problem: "unreadable" });
+      continue;
+    }
+    const value = entry?.value ?? "";
+    if (value !== "" && value !== "1" && value !== "2") problems.push({ revision: name, value, problem: "invalid" });
+    else if (minimum.floor && value === "") problems.push({ revision: name, problem: "missing" });
+    else if (minimum.floor && Number(value) < minimum.floor) problems.push({ revision: name, value, problem: "below-floor" });
+  }
+  return problems;
+}
+const describeMinimum = (context, problems) => problems.map(p =>
+  `${p.revision} (${context.config.contractMinimum.env} ${p.problem === "missing" ? "unset" : p.problem === "unreadable" ? "unreadable" : `=${p.value}`}${p.problem === "below-floor" ? `, below the floor ${context.config.contractMinimum.floor}` : ""})`).join(", ");
+
+// What must hold before protected execution is switched back on: no tag still
+// reaches a non-serving revision (when the service retires tags), and nothing
+// serving is below the current milestone. Read-only.
+// For a pinnable service, every REACHABLE revision counts, serving or kept by
+// its tag (capability plan W4): each must be approved, not mid-retirement,
+// support the required contract version, and meet the milestone.
+export async function releaseCheck(context, { cloud, git, revisions = undefined }) {
+  const { config } = context;
+  const service = await cloud(["run", "services", "describe", config.service]);
+  const serving = Object.keys(traffic(service));
+  const baselines = config.baselines ?? [];
+  let pinned = null;
+  let keep = [];
+  if (config.pinnable) {
+    requireValue(revisions, "A pinnable service needs the revisions store");
+    const records = await revisions.list();
+    pinned = reachableProblems(service, records, { minContractVersion: config.pinnable.minContractVersion ?? 1 });
+    keep = retainedTags(service, records);
+  }
+  const result = {
+    service: config.service,
+    serving,
+    staleTags: config.retireTags ? staleTags(service, keep) : [],
+    baseline: baselines.length ? baselines[baselines.length - 1] : null,
+    belowBaseline: await belowBaseline(context, pinned ? pinned.reachable : serving, { cloud, git }),
+    ...(pinned ? { revisions: pinned } : {}),
+    // Every reachable revision, retained tags included.
+    ...(config.contractMinimum ? { contractMinimum: await contractMinimumProblems(context, reachableRevisions(service), { cloud }) } : {}),
+  };
+  const pinnedOk = !pinned || ["unapproved", "retiring", "retired", "unsupportedContract"].every(k => pinned[k].length === 0);
+  const minimumOk = (result.contractMinimum ?? []).length === 0;
+  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk };
+}
+
+// Approves an already-released revision of a pinnable service from its
+// receipt: for a revision released before the service was pinnable.
+export async function approveReleased(context, receipt, { cloud, revisions }) {
+  const { config } = context;
+  requireValue(config.pinnable, `${config.service} is not pinnable`);
+  requireValue(receipt.service === config.service && receipt.status === "released", `Release ${receipt.id} is not a released ${config.service} revision`);
+  const service = await cloud(["run", "services", "describe", config.service]);
+  const record = await revisions.approve(approvalRecord(config, receipt, service));
+  return { ...receipt, approval: { ...record, approvedAt: record.approvedAt.toISOString() } };
+}
+
+// Rolling back below the current milestone is refused unless
+// `allowBelowBaseline`, and even then only after `switchState` (Policy's and
+// Broker's own /v1/protected-execution) confirms protected execution is off in
+// both. A service that enforces the switch itself is never rolled back below
+// its first milestone: older code ignores the switch, so there would be no way
+// to keep protected execution off.
+/** @param {{ cloud: any, log: any, git?: any, switchState?: () => Promise<{ policy: boolean, broker: boolean }>, allowBelowBaseline?: boolean }} deps */
+export async function rollback(context, receipt, deps) {
+  const { cloud, log, git, switchState, allowBelowBaseline = false } = deps;
   const { config, environment } = context;
   requireValue(receipt.version === 1 && receipt.project === config.project && receipt.region === config.region && receipt.service === config.service && receipt.environment === environment, "Release receipt does not match the deployment target");
   requireValue(receipt.revision && receipt.previousTraffic, "Receipt has no rollback target");
@@ -169,11 +419,45 @@ export async function rollback(context, receipt, { cloud, log }) {
   requireValue(sum === 100 && Object.entries(receipt.previousTraffic).every(([k, v]) => /^[a-z][a-z0-9-]+$/.test(k) && Number.isInteger(v) && v > 0), "Invalid rollback traffic in receipt");
   const current = await cloud(["run", "services", "describe", config.service]);
   requireValue(same(traffic(current), { [receipt.revision]: 100 }), "Traffic no longer belongs exclusively to this release; refusing to overwrite a newer deployment");
+  const targets = Object.keys(receipt.previousTraffic);
+  const below = await belowBaseline(context, targets, { cloud, git });
+  // A configuration rollback from the same commit meets every baseline, but
+  // can lower the contract minimum: guarded the same way.
+  const belowFloor = await contractMinimumProblems(context, targets, { cloud });
+  if (belowFloor.length) {
+    requireValue(allowBelowBaseline,
+      `Rollback target ${describeMinimum(context, belowFloor)} doesn't keep the contract minimum. ` +
+      "Pass --below-baseline only with protected execution switched off; it cannot be switched back on until every reachable revision keeps it again.");
+  }
+  if (below.length) {
+    const baselines = config.baselines;
+    const milestone = baselines[baselines.length - 1].milestone;
+    requireValue(allowBelowBaseline,
+      `Rollback target ${below.join(", ")} is below the ${milestone} milestone. ` +
+      "Pass --below-baseline only with protected execution switched off; it cannot be switched back on until the service meets the milestone again.");
+    if (config.enforcesSwitch) {
+      const beforeSwitch = await belowBaseline(context, targets, { cloud, git }, "first");
+      requireValue(beforeSwitch.length === 0,
+        `Rollback target ${beforeSwitch.join(", ")} predates the ${baselines[0].milestone} milestone, whose code honours the protected-execution switch; refusing, since nothing could keep protected execution off. Roll forward instead.`);
+    }
+  }
+  if (below.length || belowFloor.length) {
+    requireValue(typeof switchState === "function", "Cannot verify that protected execution is off");
+    const state = await switchState();
+    requireValue(state.policy === false && state.broker === false,
+      `Protected execution must be off before rolling back below a milestone or the contract minimum (policy ${state.policy ? "on" : "off"}, broker ${state.broker ? "on" : "off"})`);
+  }
   log(`Restoring traffic to ${pairs(receipt.previousTraffic)}…`);
   await cloud(["run", "services", "update-traffic", config.service, `--to-revisions=${pairs(receipt.previousTraffic)}`]);
   const final = await cloud(["run", "services", "describe", config.service]);
   requireValue(same(traffic(final), receipt.previousTraffic), "Rollback traffic could not be verified");
-  return { ...receipt, status: "rolled-back", rolledBackAt: new Date().toISOString() };
+  return {
+    ...receipt,
+    status: "rolled-back",
+    rolledBackAt: new Date().toISOString(),
+    ...(below.length ? { rolledBackBelowBaseline: below } : {}),
+    ...(belowFloor.length ? { rolledBackBelowContractMinimum: belowFloor } : {}),
+  };
 }
 
 export async function readReceipt(root, id) {

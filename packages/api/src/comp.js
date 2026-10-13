@@ -1,7 +1,9 @@
 export const buildCompile = ({ langCompile }) =>
   ({
     lang, code, data = {}, auth = null, options = {}, uid = null,
-    connectionId = null, invocationToken = null, stage = null
+    connectionId = null, invocationToken = null, stage = null,
+    // Chain admission (W4): the plan's proof, and the pinned revision's URL.
+    admissionToken = null, baseUrl = null
   }) => {
     // connectionId, invocationToken and stage ride at the top level of the
     // compile request, where the language server moves them into
@@ -11,5 +13,6 @@ export const buildCompile = ({ langCompile }) =>
     if (connectionId) req.connectionId = connectionId;
     if (invocationToken) req.invocationToken = invocationToken;
     if (stage) req.stage = stage;
-    return langCompile(`L${lang}`, req, { uid });
+    if (admissionToken) req.admissionToken = admissionToken;
+    return langCompile(`L${lang}`, req, { uid, ...(baseUrl ? { baseUrl } : {}) });
   };

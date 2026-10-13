@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: MIT
+// L0176 under chain admission (capability plan W4, PR 5): preflight reports
+// what a compile through a connection would run (its protected functions,
+// implicit `init` included, after the legacy save lowering), and a planned
+// compile runs only on a binding that matches it.
+import { describe, test, expect, beforeAll, afterAll } from "vitest";
+import { parser } from "@graffiticode/parser";
+import { digestOf, createPreflightHandler } from "@graffiticode/l0000";
+import { compiler, lexicon, REGISTRY_VERSION } from "./index.js";
+
+const ITEM = "item [questions [mcq []] {}]";
+const parse = (src: string) => parser.parse(176, src, lexicon);
+const ENV = { K_REVISION: "l0176-rtest", GC_IMAGE_DIGEST: `sha256:${"3".repeat(64)}` };
+const saved: Record<string, string | undefined> = {};
+
+beforeAll(() => {
+  for (const [k, v] of Object.entries(ENV)) {
+    saved[k] = process.env[k];
+    process.env[k] = v;
+  }
+});
+afterAll(() => {
+  for (const [k, v] of Object.entries(saved)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+});
+
+describe("L0176 preflight", () => {
+  test("names its protected functions, implicit init included, with registry version 7", async () => {
+    const code = await parse(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
+    const out: any = await (compiler as any).preflight(code, { stage: "s1", options: {} });
+    expect(out.manifest).toMatchObject({
+      stage: "s1", lang: "0176", registryVersion: REGISTRY_VERSION, revision: ENV.K_REVISION, imageDigest: ENV.GC_IMAGE_DIGEST,
+      requiredFunctions: ["init", "save-to-itembank"], sourceDigest: digestOf(code),
+    });
+    expect(REGISTRY_VERSION).toBe(7);
+  });
+
+  test("pins the lowered program for the legacy save member form, and still finds its save", async () => {
+    const code = await parse(`set-var "lrn-id" "t" items [save-to-itembank true, ${ITEM}] {}..`);
+    const out: any = await (compiler as any).preflight(code, { stage: "s0", options: {} });
+    expect(out.manifest.requiredFunctions).toEqual(["init", "save-to-itembank"]);
+    expect(out.manifest.sourceDigest).toBe(digestOf(code));
+    expect(out.manifest.programDigest).not.toBe(out.manifest.sourceDigest);
+  });
+
+  test("a program that only previews requires init alone", async () => {
+    const out: any = await (compiler as any).preflight(await parse(`set-var "lrn-id" "t" items [${ITEM}] {}..`), { stage: "s0" });
+    expect(out.manifest.requiredFunctions).toEqual(["init"]);
+  });
+});
+
+// An activity can come from upstream data, which a static scan can't see. Since
+// registry v7 (AUTHOR-01, closed by removal) any activity L0176 accepts needs
+// only `init`, which every compile declares, so data-dependent programs
+// declare nothing more; an Author activity arriving as data is a compile error
+// (compiler.test.ts), never signed.
+describe("authority that depends on data", () => {
+  const required = async (src: string) =>
+    (await (compiler as any).preflight(await parse(src), { stage: "s0" })).manifest.requiredFunctions;
+
+  test.each([
+    ["init over upstream data", "init data {}..", ["init"]],
+    ["a program whose value is upstream data", "data {}..", ["init"]],
+    ["init over a variable", `set-var "x" data {} init get-val-public "x"..`, ["init"]],
+    ["an items activity", `set-var "lrn-id" "t" items [${ITEM}] {}..`, ["init"]],
+    ["a questions activity", `set-var "lrn-id" "t" questions [mcq []] {}..`, ["init"]],
+    ["a save", `set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`, ["init", "save-to-itembank"]],
+    ["init over an items activity", `set-var "lrn-id" "t" init items [${ITEM}] {}..`, ["init"]],
+  ])("declares only what %s needs", async (_label, src, fns) => {
+    expect(await required(src)).toEqual(fns);
+  });
+
+  test("never declares author", async () => {
+    for (const src of ["init data {}..", "data {}..", `set-var "lrn-id" "t" items [${ITEM}] {}..`]) {
+      expect(await required(src)).not.toContain("author");
+    }
+  });
+});
+
+describe("a planned compile through a connection", () => {
+  const planned = { uid: "u1", connectionId: "conn-1", userToken: "user", invocationToken: "inv", stage: "s1", admissionToken: "adm" };
+  const run = (code: any) => new Promise<{ err: any[]; val: any }>(resolve =>
+    compiler.compile(code, {}, {}, (err: any, val: any) => resolve({ err: Array.isArray(err) ? err.filter(Boolean) : [], val }), planned));
+
+  test("runs on a matching binding, and refuses before any protected call on another", async () => {
+    const code = await parse(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    const { manifest } = await (compiler as any).preflight(code, { stage: "s1", options: {} });
+    const { stage: _s, registryVersion: _r, ...bind } = manifest;
+    const invoked: any[] = [];
+    let reply = bind;
+    (compiler as any).setPolicyClient({
+      getSnapshot: async (args: any) => {
+        args.exec.setSessionToken("session");
+        return { allowed: ["init"], bind: reply };
+      },
+      invoke: async (_exec: any, call: any) => {
+        invoked.push(call);
+        return { status: "succeeded", result: { request: "signed" } };
+      },
+    });
+    const ok = await run(code);
+    expect(ok.err).toEqual([]);
+    expect(invoked.map(c => c.fn)).toEqual(["init"]);
+    invoked.length = 0;
+    reply = { ...bind, programDigest: "f".repeat(64) };
+    const refused = await run(code);
+    expect(refused.err[0].message).toMatch(/not the one the admitted plan pins/);
+    expect(invoked).toEqual([]);
+  });
+});
+
+// Review of PR 5: L0176 runs the installed l0000's /preflight handler (0.10.1),
+// which hashes the request's `config`, the configuration compiles run with,
+// and ignores `options`. A preflight and the compile it admits agree.
+describe("preflight through the installed handler, then compile", () => {
+  test("hashes config, not options, and the compile it admits runs on that binding", async () => {
+    const handler = createPreflightHandler({ compiler, verifyCaller: async () => ({ email: "gateway" }) });
+    const code = await parse(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    const out: any = await handler({ headers: {}, body: { stage: "s1", lang: "0176", code, config: { a: 1 }, options: { b: 2 } } });
+    expect(out.status).toBe(200);
+    const { manifest } = out.body.data;
+    expect(manifest.optionsDigest).toBe(digestOf({ a: 1 }));
+    const { stage: _s, registryVersion: _r, ...bind } = manifest;
+    (compiler as any).setPolicyClient({
+      getSnapshot: async (args: any) => { args.exec.setSessionToken("session"); return { allowed: ["init"], bind }; },
+      invoke: async () => ({ status: "succeeded", result: { request: "signed" } }),
+    });
+    const identity = { uid: "u1", connectionId: "conn-1", userToken: "user", invocationToken: "inv", stage: "s1", admissionToken: "adm" };
+    const ran = await new Promise<any[]>(resolve => compiler.compile(code, {}, { a: 1 }, (err: any) => resolve(Array.isArray(err) ? err.filter(Boolean) : []), identity));
+    expect(ran).toEqual([]);
+    // Options never reach the compiler, so they don't change what's pinned.
+    const viaOptions: any = await handler({ headers: {}, body: { stage: "s1", lang: "0176", code, options: { a: 1 } } });
+    expect(viaOptions.body.data.manifest.optionsDigest).toBe(digestOf({}));
+  });
+});

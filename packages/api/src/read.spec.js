@@ -24,6 +24,7 @@ describe("the read path", () => {
     compile = jest.fn(async () => ({ data: { ...ACTIVITY, request: "signed" }, errors: [], cache: false }));
     allocateInvocation = jest.fn(async () => ({ invocationToken: "read.tok", invocationId: "inv-read", seq: 2, ownerUid: "u1" }));
     artifactStorer = buildMemoryArtifactStorer();
+    // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
     dataApi = buildDataApi({ compile, allocateInvocation, artifactStorer });
   });
 

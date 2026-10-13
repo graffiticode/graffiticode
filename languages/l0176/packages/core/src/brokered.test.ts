@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // The brokered path: a compile that selects a connection signs and saves
 // through policy + broker (faked here at the client boundary), never with a
-// credential of its own.
+// credential of its own. A compile without one signs its preview through a
+// system preview session (policy POST /v1/preview-session), the same way.
 import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
 import { parser } from "@graffiticode/parser";
 import { compiler, lexicon } from "./index.js";
@@ -13,6 +14,9 @@ let invocations: any[];
 let snapshotReply: (args: any) => any;
 let brokerReply: (call: any) => any;
 let fetched: string[];
+let previewSessions: any[];
+let previewReply: () => any;
+let sessionsUsed: (string | null)[];
 
 const fakeClient = {
   async getSnapshot(args: any) {
@@ -22,16 +26,28 @@ const fakeClient = {
     args.exec.setSessionToken("session-1");
     return reply;
   },
-  async invoke(_exec: any, call: any) {
+  async invoke(exec: any, call: any) {
     invocations.push(call);
+    sessionsUsed.push(exec.sessionToken);
     return brokerReply(call);
   },
+  async getPreviewSession(args: any) {
+    previewSessions.push(args);
+    const reply = previewReply();
+    if (reply instanceof Error) throw reply;
+    return reply;
+  },
 };
+
+const refusal = (reason: string) => Object.assign(new Error("/v1/preview-session failed (403)"), { status: 403, reason });
 
 beforeEach(() => {
   snapshots = [];
   invocations = [];
   fetched = [];
+  previewSessions = [];
+  sessionsUsed = [];
+  previewReply = () => ({ allowed: ["init"], sessionToken: "system-session" });
   snapshotReply = (args) => ({ allowed: args.fns });
   brokerReply = (call) =>
     call.op === "learnosity.write-items"
@@ -46,12 +62,12 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks());
 
-async function compile(src: string, identity?: any) {
+async function compile(src: string, identity?: any, data: any = {}) {
   const code = await parser.parse(176, src, lexicon);
-  return new Promise<{ err: any[]; val: any }>((resolve) =>
-    compiler.compile(code, {}, {}, (err: any, val: any) => {
+  return new Promise<{ err: any[]; val: any; effects: any[] }>((resolve) =>
+    compiler.compile(code, data, {}, (err: any, val: any, meta?: any) => {
       const errors = Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [];
-      resolve({ err: errors, val });
+      resolve({ err: errors, val, effects: meta?.effects ?? [] });
     }, identity),
   );
 }
@@ -73,17 +89,125 @@ describe("brokered compiles", () => {
     }
   });
 
-  test("without a connection the legacy path is untouched", async () => {
-    const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+  test("without a connection a preview is signed by the broker under a system preview session", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
     expect(err).toEqual([]);
     expect(snapshots).toEqual([]);
+    expect(previewSessions).toEqual([{ langID: "0176" }]);
+    expect(invocations).toHaveLength(1);
+    expect(invocations[0]).toMatchObject({ fn: "init", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0" });
+    expect(Object.keys(invocations[0].payload).sort()).toEqual(["id", "name", "questions", "session_id"]);
+    expect(sessionsUsed).toEqual(["system-session"]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(val.signing).toBeUndefined();
+    expect(fetched).toEqual([]);
+  });
+
+  test("a connection compile never asks for a system preview session", async () => {
+    const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
+    expect(err).toEqual([]);
+    expect(previewSessions).toEqual([]);
+    expect(sessionsUsed).toEqual(["session-1"]);
+  });
+
+  test("`init` without a connection signs through the system session too", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" init questions [mcq []] {}..`);
+    expect(err).toEqual([]);
+    expect(previewSessions).toHaveLength(1);
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
+    expect(invocations[0].occurrenceId).toMatch(/^INIT:\d+\.0$/);
+    expect(val).toBe("signed:learnosity.sign-questions-preview");
+  });
+
+  test.each([
+    ["both", 'set-var "learnosity-key" "own-key" set-var "learnosity-secret" "own-secret-0123456789"'],
+    ["only the key", 'set-var "learnosity-key" "own-key"'],
+    ["only the secret", 'set-var "learnosity-secret" "own-secret-0123456789"'],
+  ])("program-supplied credentials (%s) are ignored: no error, and they sign nothing", async (_, creds) => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" ${creds} items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(sessionsUsed).toEqual(["system-session"]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(JSON.stringify({ invocations, val })).not.toMatch(/own-key|own-secret/);
+  });
+
+  test("config-supplied credentials are ignored too", async () => {
+    const code = await parser.parse(176, `set-var "lrn-id" "t" items [${ITEM}] {}..`, lexicon);
+    const { err, val } = await new Promise<{ err: any[]; val: any }>((resolve) =>
+      compiler.compile(code, {}, { learnosity: { key: "cfg-key", secret: "cfg-secret-0123456789" } },
+        (e: any, v: any) => resolve({ err: e ?? [], val: v })));
+    expect(err).toEqual([]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(JSON.stringify({ invocations, val })).not.toMatch(/cfg-key|cfg-secret/);
+  });
+
+  test.each([
+    ["policy refuses", () => refusal("no-system-connection"), "unavailable", /no-system-connection/],
+    ["policy is unreachable", () => new Error("fetch failed"), "unavailable", /no system preview session/],
+    ["the session lacks preview", () => ({ allowed: [], sessionToken: "s" }), "unavailable", /no-preview-permission/],
+    ["the reply is malformed", () => ({ allowed: ["init"] }), "unavailable", /no-preview-permission/],
+  ])("when %s, the preview compiles unsigned with a message", async (_, reply, unsigned, message) => {
+    previewReply = reply;
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(val.type).toBe("questions");
+    expect(val.request).toBeUndefined();
+    expect(val.signing).toMatchObject({ unsigned, message: expect.stringMatching(message) });
+    expect(val.signing.message).toMatch(/^Preview not signed/);
     expect(invocations).toEqual([]);
+  });
+
+  test("a failed system signing leaves the preview unsigned with a message, not an error", async () => {
+    brokerReply = () => ({ status: "failed", error: "provider down" });
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(val.request).toBeUndefined();
+    expect(val.signing).toMatchObject({ unsigned: "signing-failed" });
+  });
+
+  test("a system session never writes", async () => {
+    const saved = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
+    expect(saved.err).toEqual([]);
+    expect(saved.val.data.itemBank).toMatchObject({ skipped: "no-connection" });
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
+  });
+
+  // Registry v7 (AUTHOR-01, closed by removal): L0176 has no `author`, and an
+  // Author activity arriving as data, from an older program upstream, is
+  // refused on every path with a pointer to L0177. Nothing is signed.
+  const AUTHOR_DATA = { type: "author", data: { mode: "item_edit", reference: "r" } };
+  test.each([
+    ["as the program's value, without a connection", "data {}..", undefined],
+    ["through init, without a connection", "init data {}..", undefined],
+    ["as the program's value, through a connection", "data {}..", WITH_CONNECTION],
+    ["through init, through a connection", "init data {}..", WITH_CONNECTION],
+  ])("an Author activity arriving as data is refused (%s), unsigned", async (_, src, identity) => {
+    const { err, val } = await compile(src, identity, AUTHOR_DATA);
+    expect(err).toHaveLength(1);
+    expect(String(err[0]?.message ?? err[0])).toMatch(/doesn't open the Learnosity Author Site.*L0177/);
+    expect(val?.request).toBeUndefined();
+    expect(invocations).toEqual([]);
+  });
+
+  test("author is not an L0176 function", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" author {}..`);
+    expect(String(err[0]?.message ?? err[0])).toMatch(/author/);
+    expect(val?.request).toBeUndefined();
+    expect(invocations).toEqual([]);
+  });
+
+  test("a system session that claims more than preview is still used for preview only", async () => {
+    previewReply = () => ({ allowed: ["init", "save-to-itembank"], sessionToken: "wide" });
+    const { err, val } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(val.data.itemBank).toMatchObject({ skipped: "no-connection" });
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
   });
 
   test("a render is signed by the broker, with only preview fields sent", async () => {
     const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
     expect(err).toEqual([]);
-    expect(snapshots).toEqual([{ fns: ["preview-itembank"], langID: "0176", connectionId: "conn-1" }]);
+    expect(snapshots).toEqual([{ fns: ["init"], langID: "0176", connectionId: "conn-1" }]);
     expect(invocations).toHaveLength(1);
     expect(invocations[0].op).toBe("learnosity.sign-questions-preview");
     expect(Object.keys(invocations[0].payload).sort()).toEqual(["id", "name", "questions", "session_id"]);
@@ -109,6 +233,9 @@ describe("brokered compiles", () => {
   test("a stored result is signed on read by a data-only program, with nothing else run", async () => {
     const built = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
     const { request: _unsigned, ...activity } = built.val;
+    // Building it (no connection) signed through the system session; count
+    // only the read.
+    invocations.length = 0;
     const signProgram = {
       1: { tag: "STR", elts: [JSON.stringify(activity)] },
       2: { tag: "JSON", elts: [1] },
@@ -120,7 +247,7 @@ describe("brokered compiles", () => {
       compiler.compile(signProgram, {}, {}, (e: any, v: any) => resolve({ err: e ?? [], val: v }), WITH_CONNECTION),
     );
     expect(err).toEqual([]);
-    expect(snapshots).toEqual([{ fns: ["preview-itembank"], langID: "0176", connectionId: "conn-1" }]);
+    expect(snapshots).toEqual([{ fns: ["init"], langID: "0176", connectionId: "conn-1" }]);
     expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
     expect(val.request).toBe("signed:learnosity.sign-questions-preview");
     expect(val.data.itemBank).toMatchObject({ skipped: "no-connection" });
@@ -148,7 +275,7 @@ describe("brokered compiles", () => {
   });
 
   test("a save the connection does not grant is refused before anything runs", async () => {
-    snapshotReply = () => ({ allowed: ["preview-itembank"] });
+    snapshotReply = () => ({ allowed: ["init"] });
     const { err } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`, WITH_CONNECTION);
     expect(err[0].message).toMatch(/save-to-itembank is not permitted/);
     expect(invocations).toEqual([]);
@@ -185,21 +312,104 @@ describe("brokered compiles", () => {
   test("a snapshot without preview refuses every render", async () => {
     snapshotReply = () => ({ allowed: [] });
     const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
-    expect(err[0].message).toMatch(/preview-itembank is not permitted/);
+    expect(err[0].message).toMatch(/init is not permitted/);
     expect(invocations).toEqual([]);
   });
+});
 
-  test("an Author activity is signed through the broker when the connection grants it", async () => {
-    const { err, val } = await compile(`set-var "lrn-id" "t" author {}..`, WITH_CONNECTION);
-    expect(err).toEqual([]);
-    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-author"]);
-    expect(val.request).toBe("signed:learnosity.sign-author");
+// Spec FAIL-01 (W3b): a failed protected call is a structured compile error
+// (its message unchanged), and every save's effects reach the caller,
+// cumulatively, from current and older policy/broker bodies alike.
+describe("structured failures and effects", () => {
+  beforeEach(() => {
+    if (!(compiler as any).__configured) {
+      (compiler as any).setPolicyClient(fakeClient);
+      (compiler as any).__configured = true;
+    }
+  });
+  const SAVE = `set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`;
+  const TWO_SAVES = `set-var "lrn-id" "t" [save-to-itembank items [${ITEM}] {} save-to-itembank items [${ITEM}] {}]..`;
+  const writes = (...outcomes: any[]) => (call: any) =>
+    call.op === "learnosity.write-items" ? outcomes.shift() : { status: "succeeded", result: { request: "r" } };
+  const refused = (reason: string, category?: string, extra: any = {}) =>
+    Object.assign(new Error("/v1/execute failed (403)"), { status: 403, reason, category, effectUnknown: false, ...extra });
+
+  test("a partial save names its code, category, stage, function and failed step", async () => {
+    brokerReply = writes({ status: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-granted", category: "permission", error: "items write failed" });
+    const { err, effects } = await compile(SAVE, WITH_CONNECTION);
+    expect(err).toEqual([{
+      message: "Error: Item bank save partial: items write failed",
+      from: -1, to: -1,
+      code: "authorization-denied:not-granted", category: "permission", stage: "s0", fn: "save-to-itembank", step: "items",
+    }]);
+    expect(effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "partial", steps: ["questions"], failedStep: "items", reason: "authorization-denied:not-granted", category: "permission" }]);
   });
 
-  test("an Author activity is refused when the connection does not grant it", async () => {
-    snapshotReply = () => ({ allowed: ["preview-itembank"] });
-    const { err } = await compile(`set-var "lrn-id" "t" author {}..`, WITH_CONNECTION);
-    expect(err[0].message).toMatch(/author-itembank is not permitted/);
-    expect(invocations).toEqual([]);
+  test("an earlier save is still reported when a later one fails", async () => {
+    brokerReply = writes(
+      { status: "succeeded", steps: ["questions", "items"], result: { saved: true } },
+      { status: "failed", steps: [], failedStep: "questions", reason: "authorization-denied:not-granted", category: "permission", error: "denied" },
+    );
+    const { err, effects } = await compile(TWO_SAVES, WITH_CONNECTION);
+    expect(err.map((e) => e.message)).toEqual(["Error: Item bank save failed: denied"]);
+    expect(effects.map((e) => [e.status, e.steps])).toEqual([["succeeded", ["questions", "items"]], ["failed", []]]);
+  });
+
+  test("an uncertain save keeps its guidance in the message, with no completed step", async () => {
+    brokerReply = writes({ status: "uncertain", steps: [], failedStep: "questions", error: "no response" });
+    const { err, effects } = await compile(SAVE, WITH_CONNECTION);
+    expect(err[0]).toMatchObject({ fn: "save-to-itembank", step: "questions", stage: "s0" });
+    expect(err[0].message).toMatch(/Item bank save uncertain: no response — it may or may not have been written.*new idempotency key/);
+    expect(effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "uncertain", steps: [], failedStep: "questions" }]);
+  });
+
+  test("a lost broker answer is an uncertain save, said the same way", async () => {
+    brokerReply = (call: any) => {
+      if (call.op === "learnosity.write-items") throw Object.assign(new Error("/v1/execute unreachable"), { status: 0, effectUnknown: true });
+      return { status: "succeeded", result: { request: "r" } };
+    };
+    const { err, effects } = await compile(SAVE, WITH_CONNECTION);
+    expect(err[0]).toMatchObject({ fn: "save-to-itembank", stage: "s0" });
+    expect(err[0].message).toMatch(/Item bank save uncertain: \/v1\/execute unreachable — it may or may not have been written/);
+    expect(effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "uncertain", steps: [] }]);
+  });
+
+  test("a refusal carries policy's or the broker's reason and category", async () => {
+    brokerReply = (call: any) => {
+      if (call.op === "learnosity.write-items") throw refused("authorization-denied:not-granted", "permission");
+      return { status: "succeeded", result: { request: "r" } };
+    };
+    const { err, effects } = await compile(SAVE, WITH_CONNECTION);
+    expect(err).toEqual([{ message: "Error: /v1/execute failed (403)", from: -1, to: -1, code: "authorization-denied:not-granted", category: "permission", stage: "s0", fn: "save-to-itembank" }]);
+    expect(effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "failed", steps: [], reason: "authorization-denied:not-granted", category: "permission" }]);
+  });
+
+  test("a refused signing is structured too", async () => {
+    brokerReply = () => {
+      throw refused("maintenance", "unavailable", { message: "/v1/execute failed (503)", status: 503 });
+    };
+    const { err, effects } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
+    expect(err[0]).toMatchObject({ code: "maintenance", category: "unavailable", fn: "init", stage: "s0" });
+    // A signature is not an effect.
+    expect(effects).toEqual([]);
+  });
+
+  test("older policy and broker bodies, without category or failedStep, still give the same messages", async () => {
+    brokerReply = writes({ status: "partial", steps: ["questions"], error: "items write failed" });
+    const partial = await compile(SAVE, WITH_CONNECTION);
+    expect(partial.err).toEqual([{ message: "Error: Item bank save partial: items write failed", from: -1, to: -1, stage: "s0", fn: "save-to-itembank" }]);
+    expect(partial.effects).toEqual([{ fn: "save-to-itembank", op: "learnosity.write-items", status: "partial", steps: ["questions"] }]);
+    brokerReply = (call: any) => {
+      if (call.op === "learnosity.write-items") throw Object.assign(new Error("/v1/execute failed (403)"), { status: 403, reason: "not-granted" });
+      return { status: "succeeded", result: { request: "r" } };
+    };
+    const refusal = await compile(SAVE, WITH_CONNECTION);
+    expect(refusal.err).toEqual([{ message: "Error: /v1/execute failed (403)", from: -1, to: -1, code: "not-granted", stage: "s0", fn: "save-to-itembank" }]);
+  });
+
+  test("a compile with no save reports no effects, and other errors stay plain messages", async () => {
+    const ok = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
+    expect(ok.err).toEqual([]);
+    expect(ok.effects).toEqual([]);
   });
 });

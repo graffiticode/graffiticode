@@ -7,7 +7,9 @@ const Decimal: any = (DecimalImport as any)?.default ?? DecimalImport;
 import crypto from 'crypto';
 import { validateAgainstSchema, getLanguageSchema } from "./schema-validator.js";
 import { ExecContext, bindExecContext, execContextOf } from "./exec-context.js";
-import { admitProtectedFunctions } from "./protected-functions.js";
+import { admitProtectedFunctions, admitPlannedStage } from "./protected-functions.js";
+import { requiredProtectedFunctions, revisionIdentity, digestOf } from "./preflight.js";
+import { formatNumber, parsePattern } from "./format-number.js";
 
 // Decrypts secret values written by the console. Must stay in lockstep with
 // console src/lib/secret-crypto.ts. Understands two ciphertext formats:
@@ -80,6 +82,71 @@ function newNode(tag, elts) {
 
 const ASYNC = true;
 
+// --- Numbers ---
+//
+// A number value is a JS number when that number is exactly its decimal value, and a
+// Decimal otherwise (`12345678901234567890`, `1.00000000000000000001`). Ordinary values
+// reach dialects exactly as they always have; only those a JS number would round stay
+// Decimals, so arithmetic on them is exact (to decimal.js's 20 significant digits). The
+// Renderer turns any Decimal left in the result into a JS number.
+
+function isDecimal(v) {
+  return Decimal.isDecimal(v);
+}
+
+export function isNumber(v) {
+  return typeof v === "number" || isDecimal(v);
+}
+
+// The exact value of a finite JS number, which `new Decimal(n)` is not: that is the
+// shortest decimal that rounds to it (`1.7e+308`, not 1699…632).
+function exactDecimal(n) {
+  const view = new DataView(new ArrayBuffer(8));
+  view.setFloat64(0, n);
+  const bits = view.getBigUint64(0);
+  const sign = bits >> 63n ? "-" : "";
+  const biased = Number((bits >> 52n) & 0x7ffn);
+  let mantissa = bits & 0xfffffffffffffn;
+  let exponent = -1074; // subnormal
+  if (biased !== 0) {
+    mantissa |= 1n << 52n;
+    exponent = biased - 1075;
+  }
+  if (exponent >= 0) {
+    return new Decimal(sign + (mantissa << BigInt(exponent)).toString());
+  }
+  // m / 2^k = m * 5^k / 10^k
+  const k = BigInt(-exponent);
+  return new Decimal(`${sign}${(mantissa * 5n ** k).toString()}e-${k}`);
+}
+
+// A JS number holds a value when the value is the decimal that number prints as (`0.1`)
+// or the number's exact binary value (1699…632, which prints as `1.7e+308`).
+export function numberValue(d) {
+  if (!d.isFinite()) {
+    return d.toNumber(); // NaN, ±Infinity
+  }
+  const n = d.toNumber();
+  return new Decimal(n).equals(d) || (Number.isFinite(n) && exactDecimal(n).equals(d)) ? n : d;
+}
+
+// The value of a NUM literal's source text: "1.50", "0x1F", "2e4", "12345678901234567890".
+function parseNumber(text) {
+  try {
+    return numberValue(new Decimal(text));
+  } catch {
+    return NaN;
+  }
+}
+
+// `===`, except that numbers compare by value whichever form they are in.
+export function sameValue(a, b) {
+  if (isDecimal(a) || isDecimal(b)) {
+    return isNumber(a) && isNumber(b) && new Decimal(a).equals(new Decimal(b));
+  }
+  return a === b;
+}
+
 // --- Record key helpers ---
 
 function encodeKey(recordKey) {
@@ -101,7 +168,7 @@ function classifyRuntimeKey(v) {
     return makeRecordKey("tag", v.tag);
   } else if (typeof v === "string") {
     return makeRecordKey("string", v);
-  } else if (typeof v === "number") {
+  } else if (isNumber(v)) {
     return makeRecordKey("number", v);
   }
   return makeRecordKey("tag", String(v));
@@ -150,6 +217,33 @@ function recordHas(rec, recordKey) {
 // undefined — a raw JS TypeError thrown out of the visitor, which reached the caller
 // as a compile error carrying a JS stack trace. Report it as an ordinary compile error
 // naming the builtin and the type it got instead.
+// Visits each item in order, the next only once the previous one's callback
+// has fired, then calls `done`. A callback that fires at once continues the
+// loop in place, so a long list of synchronous work doesn't deepen the stack;
+// one that fires later (a lambda waiting on a protected call) resumes the loop
+// from there. The iterators used to resume straight after a forEach, before a
+// later callback had fired, so such a lambda's result (and its write's
+// effect) was lost, and expressions ran concurrently.
+function eachInOrder(items, step, done) {
+  let i = 0;
+  const run = () => {
+    while (i < items.length) {
+      const index = i++;
+      let inline = true;
+      let fired = false;
+      step(items[index], index, () => {
+        if (fired) return;
+        fired = true;
+        if (!inline) run();
+      });
+      inline = false;
+      if (!fired) return;
+    }
+    done();
+  };
+  run();
+}
+
 function listArgError(fn, val) {
   const what =
     val === undefined ? "undefined (a missing key or unbound upstream?)"
@@ -170,6 +264,9 @@ function recordRemove(rec, recordKey) {
 }
 
 function deepConvertRecords(val) {
+  if (isDecimal(val)) {
+    return val.toNumber();
+  }
   if (isRecord(val)) {
     const obj = {};
     for (const [encodedKey, value] of val._entries) {
@@ -213,6 +310,9 @@ function displayString(val, nested = false) {
   }
   if (val === null || val === undefined) {
     return "null";
+  }
+  if (isDecimal(val)) {
+    return val.toString();
   }
   if (typeof val !== "object") {
     return String(val);  // number, boolean
@@ -426,7 +526,7 @@ export class Checker extends Visitor {
   }
   NUM(node, options, resume) {
     const err = [];
-    const val = +node.elts[0];
+    const val = parseNumber(node.elts[0]);
     resume(err, val);
   }
   LAMBDA(node, options, resume) {
@@ -469,6 +569,24 @@ export class Checker extends Visitor {
   STR_OF(node, options, resume) {
     this.visit(node.elts[0], options, (e0, v0) => {
       resume([].concat(e0), node);
+    });
+  }
+  FORMAT_NUMBER(node, options, resume) {
+    // A literal pattern is checked here, so a bad one fails before transform and points
+    // at the pattern; a computed one is checked when it is used.
+    const pattern = this.nodePool[node.elts[0]];
+    const err = [];
+    if (pattern?.tag === "STR") {
+      try {
+        parsePattern(pattern.elts[0]);
+      } catch (e) {
+        err.push({ message: `format-number: ${e.message}`, from: pattern.coord?.from ?? -1, to: pattern.coord?.to ?? -1 });
+      }
+    }
+    this.visit(node.elts[0], options, (e0) => {
+      this.visit(node.elts[1], options, (e1) => {
+        resume([].concat(err, e0, e1), node);
+      });
     });
   }
   JSON(node, options, resume) {
@@ -1056,29 +1174,25 @@ export class Transformer extends Visitor {
       return;
     }
     // Execute expressions sequentially so side effects (set-var) complete before
-    // later expressions (get-var) observe them.
+    // later expressions (get-var) observe them, including when one waits.
     let err = [];
     const val = [];
-    let done = 0;
-    options.SYNC = true;
-    node.elts.forEach((elt, i) => {
-      this.visit(elt, options, (e0, v0) => {
-        err = err.concat(e0);
-        val[i] = v0;
-        if (++done === node.elts.length) {
-          options.SYNC = false;
-          resume(err, val);
-        }
-      });
-    });
     if (node.elts.length === 0) {
       val.push("");
       resume(err, val);
+      return;
     }
+    eachInOrder(node.elts, (elt, i, next) => {
+      this.visit(elt, options, (e0, v0) => {
+        err = err.concat(e0);
+        val[i] = v0;
+        next();
+      });
+    }, () => resume(err, val));
   }
   NUM(node, options, resume) {
     const err = [];
-    const val = +node.elts[0];
+    const val = parseNumber(node.elts[0]);
     resume(err, val);
   }
   LAMBDA(node, options, resume) {
@@ -1174,6 +1288,25 @@ export class Transformer extends Visitor {
       resume([].concat(e0), displayString(v0));
     });
   }
+  FORMAT_NUMBER(node, options, resume) {
+    // `format-number pattern value`: see format-number.ts.
+    this.visit(node.elts[0], options, (e0, v0) => {
+      this.visit(node.elts[1], options, (e1, v1) => {
+        const err = [].concat(e0).concat(e1);
+        if (typeof v0 !== "string") {
+          resume([...err, `format-number: the pattern must be a string, got ${displayString(v0, true)}`], "");
+        } else if (!isNumber(v1)) {
+          resume([...err, `format-number: expected a number, got ${displayString(v1, true)}`], "");
+        } else {
+          try {
+            resume(err, formatNumber(v0, v1));
+          } catch (e) {
+            resume([...err, `format-number: ${e.message}`], "");
+          }
+        }
+      });
+    });
+  }
   JSON(node, options, resume) {
     this.visit(node.elts[0], options, (e0, v0) => {
       const err = [];
@@ -1230,7 +1363,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = new Decimal(v0).plus(new Decimal(v1)).toNumber();
+          const val = numberValue(new Decimal(v0).plus(new Decimal(v1)));
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in ADD operation: ${e.message}`], NaN);
@@ -1243,7 +1376,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = new Decimal(v0).minus(new Decimal(v1)).toNumber();
+          const val = numberValue(new Decimal(v0).minus(new Decimal(v1)));
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in SUB operation: ${e.message}`], NaN);
@@ -1256,7 +1389,10 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = new Decimal(v0).dividedBy(new Decimal(v1)).toNumber();
+          // A quotient decimal.js had to round (1/3) is an approximation either way, so it
+          // stays a JS number, as it always has been.
+          const q = new Decimal(v0).dividedBy(new Decimal(v1));
+          const val = q.times(new Decimal(v1)).equals(new Decimal(v0)) ? numberValue(q) : q.toNumber();
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in DIV operation: ${e.message}`], NaN);
@@ -1322,7 +1458,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (err2, val2) => {
         let err = [].concat(err1).concat(err2);
         try {
-          const val = new Decimal(val1).times(new Decimal(val2)).toNumber();
+          const val = numberValue(new Decimal(val1).times(new Decimal(val2)));
           resume(err, val);
         } catch (e) {
           if (isNaN(+val1)) {
@@ -1341,7 +1477,11 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (err2, val2) => {
         let err = [].concat(err1).concat(err2);
         try {
-          const val = new Decimal(val1).pow(new Decimal(val2)).toNumber();
+          // Only a whole, non-negative exponent gives an exact power; any other is an
+          // approximation and stays a JS number, as it always has been.
+          const exponent = new Decimal(val2);
+          const p = new Decimal(val1).pow(exponent);
+          const val = exponent.isInteger() && !exponent.isNegative() ? numberValue(p) : p.toNumber();
           resume(err, val);
         } catch (e) {
           if (isNaN(+val1)) {
@@ -1360,7 +1500,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (err2, val2) => {
         let err = [].concat(err1).concat(err2);
         try {
-          const val = new Decimal(val1).mod(new Decimal(val2)).toNumber();
+          const val = numberValue(new Decimal(val1).mod(new Decimal(val2)));
           resume(err, val);
         } catch (e) {
           if (isNaN(+val1)) {
@@ -1493,8 +1633,6 @@ export class Transformer extends Visitor {
   // deep-copy through JSON, which erased every record argument (a record's entries are a Map)
   // and any other non-JSON value. An empty list resolves at once; it used to never resume.
   MAP(node, options, resume) {
-    // FIXME make async
-    options.SYNC = true;
     this.visit(node.elts[1], options, (e1, v1) => {
       let err = [].concat(e1);
       if (!Array.isArray(v1)) {
@@ -1504,19 +1642,16 @@ export class Transformer extends Visitor {
       const val = [];
       // Each element is ONE argument. Passing it bare let LAMBDA spread a list element
       // across the parameters, so `map (<x: length x>) [[1 2]]` bound x to 1.
-      v1.forEach((elt, i) => {
+      eachInOrder(v1, (elt, i, next) => {
         this.visit(node.elts[0], { ...options, SYNC: true, args: [elt] }, (e0, v0) => {
           err = err.concat(e0);
           val[i] = v0;
+          next();
         });
-      });
-      resume(err, val);
+      }, () => resume(err, val));
     });
-    options.SYNC = false;
   }
   FILTER(node, options, resume) {
-    // FIXME make async
-    options.SYNC = true;
     this.visit(node.elts[1], options, (e1, v1) => {
       let err = [].concat(e1);
       if (!Array.isArray(v1)) {
@@ -1524,22 +1659,19 @@ export class Transformer extends Visitor {
         return;
       }
       const val = [];
-      v1.forEach((elt) => {
+      eachInOrder(v1, (elt, _i, next) => {
         this.visit(node.elts[0], { ...options, SYNC: true, args: [elt] }, (e0, v0) => {
           err = err.concat(e0);
           if (v0) {
             val.push(elt);
           }
+          next();
         });
-      });
-      resume(err, val);
+      }, () => resume(err, val));
     });
-    options.SYNC = false;
   }
   REDUCE(node, options, resume) {
-    // FIXME make async
     // reduce (fn) acc list
-    options.SYNC = true;
     this.visit(node.elts[1], options, (e1, v1) => {
       this.visit(node.elts[2], options, (e2, v2) => {
         let err = [].concat(e1).concat(e2);
@@ -1550,16 +1682,15 @@ export class Transformer extends Visitor {
           resume([...err, listArgError("reduce", v2)], val);
           return;
         }
-        v2.forEach((elt) => {
+        eachInOrder(v2, (elt, _i, next) => {
           this.visit(node.elts[0], { ...options, SYNC: true, args: [val, elt] }, (e0, v0) => {
             err = err.concat(e0);
             val = v0;
+            next();
           });
-        });
-        resume(err, val);
+        }, () => resume(err, val));
       });
     });
-    options.SYNC = false;
   }
   STYLE(node, options, resume) {
     const err = [];
@@ -1588,7 +1719,11 @@ export class Transformer extends Visitor {
       return value !== null && typeof value === "object" && !value.elts && value.tag === head
         ? bindings : null;
     case "NUM":
-      return typeof value === "number" && Number(head) === value ? bindings : null;
+      try {
+        return isNumber(value) && new Decimal(head).equals(new Decimal(value)) ? bindings : null;
+      } catch {
+        return null; // NaN, or a pattern that is not a number
+      }
     case "STR":
       return value === head ? bindings : null;
     case "BOOL":
@@ -1715,7 +1850,7 @@ export class Transformer extends Visitor {
     this.visit(node.elts[0], options, (e0, v0) => {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [...e0, ...e1];
-        assert(typeof v0 === "number", "Type Error: expected v0 to be a number. Got " + (typeof v0));
+        assert(isNumber(v0), "Type Error: expected v0 to be a number. Got " + (typeof v0));
         if (isRecord(v1)) {
           const rk = makeRecordKey("number", v0);
           const val = recordGet(v1, rk);
@@ -1807,7 +1942,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = Decimal.min(new Decimal(v0), new Decimal(v1)).toNumber();
+          const val = numberValue(Decimal.min(new Decimal(v0), new Decimal(v1)));
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in MIN operation: ${e.message}`], NaN);
@@ -1820,7 +1955,7 @@ export class Transformer extends Visitor {
       this.visit(node.elts[1], options, (e1, v1) => {
         const err = [].concat(e0).concat(e1);
         try {
-          const val = Decimal.max(new Decimal(v0), new Decimal(v1)).toNumber();
+          const val = numberValue(Decimal.max(new Decimal(v0), new Decimal(v1)));
           resume(err, val);
         } catch (e) {
           resume([...err, `Error in MAX operation: ${e.message}`], NaN);
@@ -1845,12 +1980,12 @@ export class Transformer extends Visitor {
             let current = start;
             if (step.isPositive()) {
               while (current.lessThan(end)) {
-                result.push(current.toNumber());
+                result.push(numberValue(current));
                 current = current.plus(step);
               }
             } else {
               while (current.greaterThan(end)) {
-                result.push(current.toNumber());
+                result.push(numberValue(current));
                 current = current.plus(step);
               }
             }
@@ -1885,11 +2020,11 @@ export class Transformer extends Visitor {
           let val;
           if (isRecord(v0) && isRecord(v1)) {
             val = v0._entries.size === v1._entries.size &&
-              [...v0._entries].every(([k, v]) => v1._entries.has(k) && v1._entries.get(k) === v);
+              [...v0._entries].every(([k, v]) => v1._entries.has(k) && sameValue(v1._entries.get(k), v));
           } else if (v0 !== null && v1 !== null && typeof v0 === "object" && typeof v1 === "object" && v0.tag !== undefined && v1.tag !== undefined && !v0.elts && !v1.elts) {
             val = v0.tag === v1.tag;
           } else {
-            val = v0 === v1;
+            val = sameValue(v0, v1);
           }
           resume(err, val);
         } catch (e) {
@@ -2108,13 +2243,22 @@ export class Renderer {
   }
 }
 
+// Structured fields a compile error may carry beside its message (spec
+// FAIL-01): the refusal's reason as `code`, its category, the stage, and the
+// protected function and step that failed.
+const STRUCTURED_ERROR_FIELDS = ["code", "category", "stage", "fn", "step"];
+
 function normalizeError(err) {
   if (typeof err === "string") return { message: err, from: -1, to: -1 };
   if (err && typeof err === "object") {
     const message = typeof err.message === "string" ? err.message
       : (err.message?.tag === "STR" ? err.message.elts[0]
       : (typeof err.error === "string" ? err.error : JSON.stringify(err.message || err)));
-    return { message, from: err.from ?? -1, to: err.to ?? -1 };
+    const out = { message, from: err.from ?? -1, to: err.to ?? -1 };
+    for (const field of STRUCTURED_ERROR_FIELDS) {
+      if (typeof err[field] === "string" && err[field]) out[field] = err[field];
+    }
+    return out;
   }
   return { message: String(err), from: -1, to: -1 };
 }
@@ -2138,6 +2282,82 @@ export class Compiler {
     this.protectedFunctions = config.protectedFunctions || {};
     this.implicitProtectedFunctions = config.implicitProtectedFunctions || [];
     this.policy = config.policy;
+    // Chain admission (capability plan W4). `normalize` turns a stored program
+    // into the one that executes (L0176 lowers its legacy save member); both
+    // compile and preflight apply it, so they agree on what runs.
+    // `registryVersion` is the registry version the language's protected
+    // declarations were written for (0 for a language with none).
+    // `undeclarableProtected` marks a language whose protected behaviour can't
+    // be found by scanning the program: it can never be admitted.
+    this.normalize = config.normalize || (code => code);
+    this.registryVersion = config.registryVersion ?? (this.hasProtectedFunctions() ? null : 0);
+    this.undeclarableProtected = config.undeclarableProtected === true;
+    this.revisionIdentity = config.revisionIdentity || (() => revisionIdentity(process.env));
+  }
+  hasProtectedFunctions() {
+    return Object.keys(this.protectedFunctions).length > 0 || this.implicitProtectedFunctions.length > 0;
+  }
+  setPolicy(policy) {
+    this.policy = policy;
+  }
+  // This stage's manifest (preflight.ts): `code` as stored, `program` after
+  // normalization. Returns { errors } or { manifest }, without executing
+  // anything.
+  stageManifest(code, program, { stage, options }): { errors?: any[], manifest?: any } {
+    const failed = (message, code) => ({ errors: [{ message, from: -1, to: -1, code }] });
+    if (this.undeclarableProtected) {
+      return failed("This language's protected behaviour can't be declared in advance, so it can't run in an admitted plan.", "undeclarable-protected");
+    }
+    if (this.hasProtectedFunctions() && !Number.isInteger(this.registryVersion)) {
+      return failed("This compiler declares protected functions without the registry version they were written for.", "preflight-unavailable");
+    }
+    const { revision, imageDigest } = this.revisionIdentity();
+    if (!revision || !imageDigest) {
+      return failed("This compiler revision has no deployed identity, so it can't be pinned.", "preflight-unavailable");
+    }
+    return {
+      manifest: {
+        stage,
+        lang: this.langID,
+        sourceDigest: digestOf(code),
+        programDigest: digestOf(program),
+        optionsDigest: digestOf(options ?? {}),
+        revision,
+        imageDigest,
+        registryVersion: this.registryVersion,
+        requiredFunctions: requiredProtectedFunctions(program, this.protectedFunctions, this.implicitProtectedFunctions),
+      },
+    };
+  }
+  // Preflight (W4; spec ADMIT-01, API-01): validation errors, or the stage's
+  // manifest. Side-effect free: no snapshot, no mint, no signing, no
+  // provider call. The checker runs (it reads schemas at most), so a program
+  // that wouldn't compile is refused before anything is admitted.
+  preflight(code, { stage, options }: { stage: string, options?: any }) {
+    return new Promise(resolve => {
+      let program;
+      try {
+        program = this.normalize(code);
+      } catch (e) {
+        resolve({ errors: [{ message: `Error: ${String((e && e.message) || e)}`, from: -1, to: -1 }] });
+        return;
+      }
+      const result = this.stageManifest(code, program, { stage, options });
+      if (result.errors) {
+        resolve(result);
+        return;
+      }
+      try {
+        const checker = new this.Checker(program);
+        bindExecContext(checker, new ExecContext({}));
+        checker.check({ data: {}, config: options ?? {}, result: "" }, (err) => {
+          const normalized = normalizeErrors(err);
+          resolve(normalized.length > 0 ? { errors: normalized } : result);
+        });
+      } catch {
+        resolve({ errors: [{ message: "Compiler error", from: -1, to: -1 }] });
+      }
+    });
   }
   compile(code, data, config, resume, identity?) {
     // Compiler takes an AST in the form of a node pool (code) and transforms it
@@ -2155,31 +2375,54 @@ export class Compiler {
         result: '',
       };
       const exec = new ExecContext(identity);
+      // What executes is the normalized program (preflight applies the same).
+      const source = code;
+      code = this.normalize(code);
+      // The compile's protected-write effects go with every result, error or
+      // not (third argument; a caller that doesn't read it loses nothing).
+      const done = (err, val?) => resume(err, val, { effects: exec.effects });
       const runChecker = () => {
         const checker = new this.Checker(code);
         bindExecContext(checker, exec);
         checker.check(options, (err, val) => {
           const normalized = normalizeErrors(err);
           if (normalized.length > 0) {
-            resume(normalized);
+            done(normalized);
           } else {
             const transformer = new this.Transformer(code);
             bindExecContext(transformer, exec);
             transformer.transform(options, (err, val) => {
               const normalized = normalizeErrors(err);
               if (normalized.length > 0) {
-                resume(normalized, val);
+                done(normalized, val);
               } else {
                 const renderer = new this.Renderer(val);
                 renderer.render(options, (err, val) => {
-                  resume(normalizeErrors(err), val);
+                  done(normalizeErrors(err), val);
                 });
               }
             });
           }
         });
       };
-      if (Object.keys(this.protectedFunctions).length === 0 && this.implicitProtectedFunctions.length === 0) {
+      // A stage of an admitted plan (W4): bound to the plan before anything
+      // runs, whatever functions the language has.
+      if (exec.planned) {
+        const own = this.stageManifest(source, code, { stage: exec.stage, options: config });
+        if (own.errors) {
+          done(normalizeErrors(own.errors));
+          return;
+        }
+        admitPlannedStage({ exec, langID: this.langID, policy: this.policy, manifest: own.manifest, protectedFunctions: this.protectedFunctions }).then(
+          (errors) => (errors.length > 0 ? done(normalizeErrors(errors)) : runChecker()),
+          (x) => {
+            console.log("ERROR admitting a planned stage", x?.message);
+            done([{ message: "Permission check failed", from: -1, to: -1 }]);
+          },
+        );
+        return;
+      }
+      if (!this.hasProtectedFunctions()) {
         runChecker();
         return;
       }
@@ -2193,10 +2436,10 @@ export class Compiler {
         langID: this.langID,
         policy: this.policy,
       }).then(
-        (errors) => (errors.length > 0 ? resume(normalizeErrors(errors)) : runChecker()),
+        (errors) => (errors.length > 0 ? done(normalizeErrors(errors)) : runChecker()),
         (x) => {
           console.log("ERROR admitting protected functions", x?.message);
-          resume([{ message: "Permission check failed", from: -1, to: -1 }]);
+          done([{ message: "Permission check failed", from: -1, to: -1 }]);
         },
       );
     } catch (x) {

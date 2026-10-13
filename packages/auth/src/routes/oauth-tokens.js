@@ -64,8 +64,10 @@ const buildCreate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
   sendSuccessResponse(res, { token });
 });
 
+// Tokens that name an entry always travel in the request body: a token in a
+// URL (query or path) lands in the request logs.
 const buildGet = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
-  const { access_token, refresh_token } = req.query;
+  const { access_token, refresh_token } = req.body ?? {};
 
   let token;
   if (isNonEmptyString(access_token)) {
@@ -73,7 +75,7 @@ const buildGet = ({ oauthTokensService }) => buildHttpHandler(async (req, res) =
   } else if (isNonEmptyString(refresh_token)) {
     token = await oauthTokensService.getByRefreshToken(refresh_token);
   } else {
-    throw new InvalidArgumentError("must provide access_token or refresh_token query parameter");
+    throw new InvalidArgumentError("must provide access_token or refresh_token");
   }
 
   if (!token) {
@@ -84,7 +86,7 @@ const buildGet = ({ oauthTokensService }) => buildHttpHandler(async (req, res) =
 });
 
 const buildUpdate = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
-  const { access_token } = req.params;
+  const { access_token } = req.body ?? {};
 
   if (!isNonEmptyString(access_token)) {
     throw new InvalidArgumentError("must provide access_token");
@@ -113,7 +115,7 @@ const buildUpdate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
 });
 
 const buildDelete = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
-  const { access_token } = req.params;
+  const { access_token } = req.body ?? {};
 
   if (!isNonEmptyString(access_token)) {
     throw new InvalidArgumentError("must provide access_token");
@@ -178,15 +180,16 @@ const buildRotate = ({ oauthTokensService }) => buildHttpHandler(async (req, res
 });
 
 export const buildOAuthTokensRouter = deps => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
 
   // All routes require internal API key authentication
   router.use(requireInternalAuth);
 
   router.post("/", buildCreate(deps));
-  router.get("/", buildGet(deps));
-  router.patch("/:access_token", buildUpdate(deps));
-  router.delete("/:access_token", buildDelete(deps));
+  router.post("/lookup", buildGet(deps));
+  router.post("/update", buildUpdate(deps));
+  router.post("/delete", buildDelete(deps));
   router.post("/rotate", buildRotate(deps));
 
   return router;

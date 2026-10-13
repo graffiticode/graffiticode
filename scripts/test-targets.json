@@ -1,0 +1,151 @@
+{
+  "unit": [
+    {
+      "name": "common",
+      "cwd": "packages/common",
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "/.compiled-test/"
+      ]
+    },
+    {
+      "name": "policy",
+      "cwd": "packages/policy",
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "/.compiled-test/",
+        "src/revisions.spec.ts"
+      ]
+    },
+    {
+      "name": "broker",
+      "cwd": "packages/broker",
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "/.compiled-test/",
+        "src/firestore.spec.ts"
+      ]
+    }
+  ],
+  "emulated": [
+    {
+      "name": "root",
+      "cwd": ".",
+      "$comment": "No --testPathIgnorePatterns here: on the command line it replaces the root jest config's own list (packages/, languages/, .claude/), which already covers .compiled-test."
+    },
+    {
+      "name": "auth",
+      "cwd": "packages/auth",
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "/.compiled-test/"
+      ]
+    },
+    {
+      "name": "auth-client",
+      "cwd": "packages/auth-client",
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "/.compiled-test/"
+      ]
+    },
+    {
+      "name": "api",
+      "cwd": "packages/api",
+      "allowSkips": [
+        "packages/api/src/lang/compile.spec.js > compile should throw error if call throws",
+        "packages/api/src/routes/compile.spec.js > routes/compile should compile multiple items",
+        "packages/api/src/routes/form.spec.js > routes/form should handle bad id param"
+      ],
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "/.compiled-test/"
+      ]
+    },
+    {
+      "name": "broker-firestore",
+      "cwd": "packages/broker",
+      "args": [
+        "src/firestore.spec.ts"
+      ]
+    },
+    {
+      "name": "policy-firestore",
+      "cwd": "packages/policy",
+      "args": [
+        "src/revisions.spec.ts"
+      ]
+    }
+  ],
+  "compiled-unit": [
+    {
+      "name": "common-compiled",
+      "cwd": "packages/common",
+      "config": "packages/common/.compiled-test/jest.config.js"
+    },
+    {
+      "name": "policy-compiled",
+      "cwd": "packages/policy",
+      "config": "packages/policy/.compiled-test/jest.config.js",
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "revisions.spec.ts"
+      ]
+    },
+    {
+      "name": "broker-compiled",
+      "cwd": "packages/broker",
+      "config": "packages/broker/.compiled-test/jest.config.js",
+      "args": [
+        "--testPathIgnorePatterns",
+        "/node_modules/",
+        "firestore.spec.ts"
+      ]
+    }
+  ],
+  "compiled-emulated": [
+    {
+      "name": "auth-compiled",
+      "cwd": "packages/auth",
+      "config": "packages/auth/.compiled-test/jest.config.js"
+    },
+    {
+      "name": "auth-client-compiled",
+      "cwd": "packages/auth-client",
+      "config": "packages/auth-client/.compiled-test/jest.config.js"
+    },
+    {
+      "name": "api-compiled",
+      "cwd": "packages/api",
+      "config": "packages/api/.compiled-test/jest.config.js",
+      "allowSkips": [
+        "packages/api/.compiled-test/lang/compile.spec.js > compile should throw error if call throws",
+        "packages/api/.compiled-test/routes/compile.spec.js > routes/compile should compile multiple items",
+        "packages/api/.compiled-test/routes/form.spec.js > routes/form should handle bad id param"
+      ]
+    },
+    {
+      "name": "broker-firestore-compiled",
+      "cwd": "packages/broker",
+      "config": "packages/broker/.compiled-test/jest.config.js",
+      "args": [
+        "firestore.spec.ts"
+      ]
+    },
+    {
+      "name": "policy-firestore-compiled",
+      "cwd": "packages/policy",
+      "config": "packages/policy/.compiled-test/jest.config.js",
+      "args": [
+        "revisions.spec.ts"
+      ]
+    }
+  ]
+}

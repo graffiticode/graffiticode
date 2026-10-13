@@ -46,9 +46,27 @@ const buildLookup = ({ linkedEmailStorer }) => async ({ email }) => {
   return linkedEmailStorer.findByEmail({ email });
 };
 
+export const EMAIL_SEARCH_MIN_LENGTH = 2;
+export const EMAIL_SEARCH_MAX_RESULTS = 25;
+
+// Uids whose linked email contains the fragment (case-insensitive). Never
+// returns the emails themselves.
+const buildSearch = ({ linkedEmailStorer }) => async ({ fragment }) => {
+  const needle = typeof fragment === "string" ? fragment.trim().toLowerCase() : "";
+  if (needle.length < EMAIL_SEARCH_MIN_LENGTH) {
+    throw new InvalidArgumentError(`fragment must be at least ${EMAIL_SEARCH_MIN_LENGTH} characters`);
+  }
+  const uids = await linkedEmailStorer.searchUidsByEmailFragment({
+    fragment: needle,
+    limit: EMAIL_SEARCH_MAX_RESULTS,
+  });
+  return [...new Set(uids)].slice(0, EMAIL_SEARCH_MAX_RESULTS);
+};
+
 export const buildLinkedEmailsService = (deps) => ({
   addVerified: buildAddVerified(deps),
   list: buildList(deps),
   remove: buildRemove(deps),
   lookup: buildLookup(deps),
+  search: buildSearch(deps),
 });

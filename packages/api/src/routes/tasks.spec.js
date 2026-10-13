@@ -85,7 +85,8 @@ describe("routes/tasks", () => {
   it("should handle no task ids", async () => {
     await request(app)
       .get("/tasks")
-      .expect(400, createErrorResponse(createError(400, "must provide at least one id")));
+      // `category` (spec FAIL-01, W3) is the one reviewed addition to this body.
+      .expect(400, createErrorResponse({ ...createError(400, "must provide at least one id"), category: "malformed" }));
   });
 
   it("should get a task that has been created", async () => {
@@ -227,6 +228,24 @@ describe("routes/tasks", () => {
       .query({ id })
       .expect(200);
     expect(getRes.headers["cache-control"]).toBe("private, max-age=31536000, immutable");
+  });
+
+  it("should never let an edge cache a not-found", async () => {
+    const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
+    const res = await request(app)
+      .post("/tasks")
+      .set("Authorization", token)
+      .send({ task: TASK1 })
+      .expect(200);
+    const id = res.body.data.id;
+
+    // An anonymous probe of a private task is a 404. Cached, it was served to
+    // the owner too, because the edge's cache key ignores Authorization.
+    const getRes = await request(app)
+      .get("/tasks")
+      .query({ id })
+      .expect(404);
+    expect(getRes.headers["cache-control"]).toBe("no-store");
   });
 
   it("get from same storage type", async () => {

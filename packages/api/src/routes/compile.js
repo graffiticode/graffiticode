@@ -87,7 +87,9 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     res.set("Access-Control-Allow-Origin", "*");
 
     // Check if getData returned an error (e.g., usage limit reached)
+    // @ts-expect-error TS-MIGRATE: data is one item or an array; guarded by optional chaining
     if (data?.status === "error") {
+      // @ts-expect-error TS-MIGRATE: data is one item or an array; guarded by optional chaining
       const errorMessage = data.errors?.[0]?.message || "Compilation failed";
       res.status(402).json(createErrorResponse(createError(402, errorMessage)));
       return;
@@ -98,7 +100,9 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
 };
 
 export default ({ taskStorer, compileStorer, dataApi, compile }) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   router.post("/", buildPostCompileHandler({ taskStorer, compileStorer, dataApi, compile }));
   router.options("/", optionsHandler);
   return router;

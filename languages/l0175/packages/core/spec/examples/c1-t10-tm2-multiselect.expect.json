@@ -1,0 +1,1 @@
+{ "prompt": "From the same passage, author a c1-t10 Task Model 2 (Multi-Select) item: 'What does the word aqueduct most likely mean? Choose two answers.' Two correct meanings plus distractor meanings (dimension word-meaning, standard l-5c).", "expect": { "target": "c1-t10", "taskModel": "tm2", "itemType": "multi-select", "dimension": "word-meaning", "standard": "l-5c" } }

@@ -1,0 +1,10 @@
+{
+  "prompt": "From the same informational article about how a honeybee colony works, make a hot-text item (c1-t9, task model 4): the student clicks the sentence(s) that best show the central idea of the passage. Dimension central-idea, standard ri-2. Single-part select-text — the sentences that state the whole-colony main idea are correct; the sentences about a single job or a minor detail are the wrong clicks.",
+  "expect": {
+    "target": "c1-t9",
+    "taskModel": "tm4",
+    "itemType": "hot-text",
+    "dimension": "central-idea",
+    "standard": "ri-2"
+  }
+}

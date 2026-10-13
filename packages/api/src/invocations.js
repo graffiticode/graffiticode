@@ -8,13 +8,13 @@
 // again. Without a key, every request is a new invocation.
 
 import { createHash } from "node:crypto";
+import { buildPolicyRequest, PolicyRefused } from "@graffiticode/policy/client";
 
-export class InvocationRefused extends Error {
-  constructor(reason) {
-    super(`invocation refused: ${reason}`);
-    this.reason = reason;
-  }
-}
+// The client and its refusal live in @graffiticode/policy (shared with
+// Broker); re-exported here so api's imports and `instanceof` checks are
+// unchanged. InvocationRefused is the same class object as PolicyRefused.
+// The ./client subpath keeps api from loading the rest of Policy.
+export { buildPolicyRequest, PolicyRefused as InvocationRefused };
 
 const canonical = value => {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -47,37 +47,18 @@ export const buildMetadataIdToken = ({ fetch: doFetch = fetch } = {}) => {
   };
 };
 
-// One call to policy as the gateway: the invoker and caller identity tokens,
-// and the end user's token when there is one. A 403 is policy's refusal, with
-// its reason; anything else unexpected is an error.
-export const buildPolicyRequest = ({ policyUrl, idToken, fetch: doFetch = fetch }) =>
-  async (method, path, { body, authToken = null } = {}) => {
-    const [invoker, caller] = await Promise.all([idToken(policyUrl), idToken("urn:graffiticode:policy")]);
-    const res = await doFetch(`${policyUrl}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-        "X-Serverless-Authorization": `Bearer ${invoker}`,
-        "X-Caller-Identity": caller
-      },
-      ...(body ? { body: JSON.stringify(body) } : {})
-    });
-    const json = await res.json().catch(() => null);
-    if (res.status === 403) throw new InvocationRefused(json?.error?.reason ?? "denied");
-    return { status: res.status, ok: res.ok, body: json };
-  };
-
 export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = fetch }) => {
   const request = buildPolicyRequest({ policyUrl, idToken, fetch: doFetch });
-  return async ({ authToken, connectionId, taskId, options, idempotencyKey = null }) => {
+  return async ({ authToken, connectionId, taskId, options, idempotencyKey = null, admission = false }) => {
     const { ok, status, body } = await request("POST", "/v1/invocations", {
       authToken,
       body: {
         connectionId,
         taskId,
         inputDigest: inputDigest(options),
-        ...(idempotencyKey ? { idempotencyKey } : {})
+        ...(idempotencyKey ? { idempotencyKey } : {}),
+        // Chain admission (W4): mark a new invocation; a retry keeps its own.
+        ...(admission ? { admission: true } : {})
       }
     });
     const data = body?.data;
@@ -86,6 +67,8 @@ export const buildAllocateInvocation = ({ policyUrl, idToken, fetch: doFetch = f
       throw new Error(`policy invocation failed (${status})`);
     }
     const { invocationToken, invocationId, seq, ownerUid } = data;
-    return { invocationToken, invocationId, seq, ownerUid };
+    // The invocation's marker (an older Policy sends none: contract 1), and
+    // Policy's minimum contract version (from the cutover, 2).
+    return { invocationToken, invocationId, seq, ownerUid, contract: data.contract === 2 ? 2 : 1, minContractVersion: data.minContractVersion === 2 ? 2 : 1 };
   };
 };

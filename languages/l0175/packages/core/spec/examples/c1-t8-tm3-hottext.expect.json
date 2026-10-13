@@ -1,0 +1,1 @@
+{ "prompt": "From the same aqueducts article, author a c1-t8 Task Model 3 (Hot Text) single-part item: state the inference, then have students click the sentence(s) in the passage that support it (dimension supporting-evidence, standard ri-7).", "expect": { "target": "c1-t8", "taskModel": "tm3", "itemType": "hot-text", "dimension": "supporting-evidence", "standard": "ri-7" } }

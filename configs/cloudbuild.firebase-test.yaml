@@ -1,0 +1,8 @@
+# Builds the emulator test image (configs/Dockerfile.firebase-test.yaml), with configs/ as the context:
+#   gcloud builds submit configs --project graffiticode --config configs/cloudbuild.firebase-test.yaml
+# Pin the pushed digest, never the tag.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "gcr.io/graffiticode/firebase:node22", "-f", "Dockerfile.firebase-test.yaml", "."]
+images:
+  - gcr.io/graffiticode/firebase:node22

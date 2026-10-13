@@ -1,3 +1,4 @@
+import { categoryForStatus, classify } from "@graffiticode/common/failures";
 import { isNonEmptyString, getClientHost, getClientPort } from "../util.js";
 import { HttpError, InvalidArgumentError } from "./../errors/http.js";
 import { decodeID } from "./../id.js";
@@ -45,9 +46,18 @@ export const parseAuthTokenFromRequest = req => {
 
 const handleError = (err, res, next) => {
   if (err instanceof HttpError) {
+    // Errors are never cacheable. With no Cache-Control, Cloudflare's rule on
+    // /task and /data stored 404s under its default TTL and served them to every
+    // caller — its cache key ignores Authorization — so one anonymous probe of a
+    // private task hid it from its owner, and a just-published item stayed 404.
+    // Also overrides any immutable header a route set before it threw.
+    setNoStoreCacheHeaders(res);
+    // The failure category (spec FAIL-01): a relayed refusal's reason decides
+    // it; otherwise the status does. Status and message are unchanged.
+    const category = err.reason ? classify(err.reason).category : categoryForStatus(err.statusCode);
     res
       .status(err.statusCode)
-      .json(createErrorResponse(createError(err.code, err.message)));
+      .json(createErrorResponse({ ...createError(err.code, err.message), ...(err.reason ? { reason: err.reason } : {}), category }));
   } else {
     next(err);
   }
@@ -66,6 +76,7 @@ export const buildHttpHandler = handler => async (req, res, next) => {
 // only its shape is checked here. Anonymous callers cannot select one.
 const CONNECTION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const parseConnectionId = (value, { auth } = {}) => {
   if (value === undefined || value === null || value === "") {
     return null;
@@ -179,11 +190,15 @@ export const checkCompileAllowedRemote = async (token) => {
     const data = await response.json();
 
     // Check for GraphQL errors
+    // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
     if (data.errors?.length > 0) {
+      // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
       console.error("checkCompileAllowedRemote: GraphQL errors", data.errors);
+      // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
       return { allowed: false, reason: data.errors[0]?.message || "GraphQL error" };
     }
 
+    // @ts-expect-error TS-MIGRATE: parsed JSON response is untyped
     return data.data?.checkCompileAllowed || { allowed: false, reason: "Unknown error" };
   } catch (error) {
     console.error("checkCompileAllowedRemote error:", error.message || error);
@@ -212,6 +227,7 @@ export const parsePublicationId = value => {
 // accepted, with a selected connection.
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_:.-]{1,190}$/;
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const parseIdempotencyKey = (value, { connectionId } = {}) => {
   if (value === undefined || value === null || value === "") {
     return null;

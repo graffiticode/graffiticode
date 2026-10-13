@@ -162,36 +162,10 @@ export function num2dot(num) {
   let d = num % 256;
   for (let i = 3; i > 0; i--) {
     num = Math.floor(num / 256);
+    // @ts-expect-error TS-MIGRATE: num reassigned to a string in num2dot
     d = num % 256 + "." + d;
   }
   return d;
-}
-
-export function statusCodeFromErrors(errs) {
-  if (!Array.isArray(errs)) {
-    errs = [errs];
-  }
-  for (const err in errs) {
-    if (err.statusCode) {
-      return err.statusCode;
-    }
-  }
-  return 500;
-}
-
-export function messageFromErrors(errs) {
-  if (!Array.isArray(errs)) {
-    errs = [errs];
-  }
-  for (const err in errs) {
-    if (err.data) {
-      if (err.data.error) {
-        return err.data.error;
-      }
-      return err.data;
-    }
-  }
-  return "Internal error";
 }
 
 const INTERNAL_ERROR = {

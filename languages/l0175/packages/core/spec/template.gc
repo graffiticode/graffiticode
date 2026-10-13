@@ -1,0 +1,7 @@
+passage "Title"
+  type literary
+  lines [
+    "Line one."
+  ] claims []
+  evidence []
+  outcomes [] {}..

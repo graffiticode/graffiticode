@@ -1,0 +1,1 @@
+{ "prompt": "From the same county-fair story, author a c1-t2 Task Model 2 (Multi-Select) item asking which TWO sentences belong in a summary of the story; focus is a list of the two correct statements (dimension summary, standard rl-2).", "expect": { "target": "c1-t2", "taskModel": "tm2", "itemType": "multi-select", "dimension": "summary", "standard": "rl-2" } }

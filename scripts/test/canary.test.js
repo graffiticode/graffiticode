@@ -1,0 +1,435 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { generateKeyPair, exportJWK } from "jose";
+import { canonicalDigest } from "@graffiticode/common/canonical";
+import { encodeChainId, decodeChainId } from "@graffiticode/common/chain";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import {
+  createPolicy, createLocalSigner, createMemoryConnectionStore, createMemoryInvocationStore, createMemoryPublicationStore,
+  createAudit, createPseudonymizer, createProtectedSwitch, PolicyDenied, createConnectionManager,
+  createMemoryLeaseFence, createMemoryApprovals
+} from "@graffiticode/policy";
+import {
+  createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused, localAuthorizer
+} from "@graffiticode/broker";
+import { runCanary, hasSignedRequest } from "../lib/canary.js";
+
+const CANARY = "0xcanary";
+const CONN = "conn-canary";
+const config = {
+  apiUrl: "https://api.test",
+  policyUrl: "https://policy.test",
+  brokerUrl: "https://broker.test",
+  gatewayAccount: "api-run@p.iam.gserviceaccount.com",
+  compilerAccount: "l0176-run@p.iam.gserviceaccount.com",
+  consoleAccount: "console-run@p.iam.gserviceaccount.com",
+  languageUrl: "https://l0176.test",
+  connectionId: CONN
+};
+const CALLERS = {
+  [config.gatewayAccount]: { role: "gateway" },
+  [config.compilerAccount]: { role: "compiler", lang: "0176" },
+  [config.consoleAccount]: { role: "console" }
+};
+
+// What L0176's preflight declares for the canary's programs (W4 PR 5).
+const requiredFor = src => (src.includes("save-to-itembank") ? ["init", "save-to-itembank"] : ["init"]);
+const imageOf = revision => `sha256:${canonicalDigest(revision)}`;
+const manifestOf = (code, stage, revision, lang = "0176") => ({
+  stage,
+  lang,
+  sourceDigest: canonicalDigest(code),
+  programDigest: canonicalDigest({ code, lowered: true }),
+  optionsDigest: canonicalDigest({}),
+  revision,
+  imageDigest: imageOf(revision),
+  // L0000 has no protected functions: registry version 0, nothing required.
+  registryVersion: lang === "0000" ? 0 : REGISTRY_VERSION,
+  requiredFunctions: lang === "0000" ? [] : requiredFor(code.src),
+});
+
+// Real in-memory Policy and Broker behind a fake HTTP router. `tweak` breaks a
+// rule to prove the canary notices. With `tweak.chain`, the canary connection
+// is in CHAIN_ADMISSION: the gateway stand-in allocates a marked invocation,
+// preflights every stage (at the plan's pinned revision on a retry) and is
+// admitted before it runs anything, as api does (W4 section F); `tweak.min`
+// is Policy's minimum contract version.
+const world = async ({ tweak = {} } = {}) => {
+  const pair = await generateKeyPair("ES256", { extractable: true });
+  const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
+  const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
+  const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
+  // Paused, with the canary configured: the canary still runs.
+  const protectedSwitch = createProtectedSwitch({ cacheMs: 0, readFlag: async () => ({ enabled: false, canary: { uid: CANARY, connectionId: CONN } }) });
+  // The canary's connection, with owner permissions of its own (`initial`),
+  // which the revocation probe must restore exactly.
+  const connections = createMemoryConnectionStore([{
+    connectionId: CONN,
+    ownerUid: CANARY,
+    backend: "learnosity",
+    status: "active",
+    ...(tweak.initialPermissions !== undefined ? { ownerPermissions: tweak.initialPermissions } : {})
+  }]);
+  // L0176's approved revisions; `deploy` serves a new one, keeping the old
+  // one approved behind its tag, as a release does.
+  const approvals = createMemoryApprovals(new Map());
+  const serving = { "0176": null, "0000": null };
+  const deploy = (revision, lang = "0176") => {
+    approvals.records.set(`${lang}/${revision}`, { lang, revision, imageDigest: imageOf(revision), tag: revision, tagUrl: `https://${revision}.test`, status: "approved", contractVersions: [1, 2] });
+    serving[lang] = revision;
+  };
+  deploy("l0176-ra");
+  deploy("l0000-ra", "0000");
+  const leases = new Map();
+  const policy = createPolicy({
+    signer,
+    jwks,
+    protectedSwitch,
+    connections,
+    invocations: createMemoryInvocationStore({ leases }),
+    publications: createMemoryPublicationStore(),
+    approvals,
+    fence: createMemoryLeaseFence({ leases }),
+    ...(tweak.min ? { minContractVersion: tweak.min } : {}),
+    audit
+  });
+  const writes = [];
+  const broker = createBroker({
+    jwks,
+    audit,
+    protectedSwitch,
+    operations: buildOperations({
+      sdk: { init: (service, consumer, secret, body) => ({ service, body }) },
+      domain: "d",
+      dataApi: async ({ route }) => { writes.push(route); return { meta: { status: true } }; }
+    }),
+    secrets: createMemorySecretStore({ [CONN]: { ownerUid: CANARY, backend: "learnosity", key: "k", secret: "s" } }),
+    once: tweak.noReplayProtection ? { claim: async () => true } : createMemoryOnceStore(),
+    receipts: tweak.noReceipts ? { claim: async () => ({ created: true }), putStep: async () => {}, getSteps: async () => [], getOutcome: async () => null, putOutcome: async () => {} } : createMemoryReceiptStore(),
+    activity: createMemoryActivityStore(),
+    // `noLiveAuthorization` stands for a Broker that predates W2.
+    authorize: tweak.noLiveAuthorization ? async () => ({ decisionId: "always" }) : localAuthorizer(policy)
+  });
+  const manager = createConnectionManager({
+    connections, grants: null, audit, brokerAdmin: { createSecret: async () => {}, rotateSecret: async () => {}, deleteSecret: async () => {} }
+  });
+
+  const callerOf = (headers, urn) => {
+    const [kind, account, aud] = String(headers["X-Caller-Identity"] ?? "").split("|");
+    const invoker = String(headers["X-Serverless-Authorization"] ?? "").replace(/^Bearer /, "").split("|");
+    assert.equal(kind, "id");
+    assert.equal(aud, urn);
+    assert.equal(invoker[1], account, "invoker and caller identity must be the same account");
+    return CALLERS[account];
+  };
+  const user = headers => (headers.Authorization === "user-token" ? { uid: CANARY } : null);
+  const ok = data => ({ status: 200, json: { status: "success", data } });
+  const refused = (status, reason) => ({ status, json: { status: "error", error: { code: status, reason } } });
+  const tasks = new Map();
+  const compiles = new Map();
+  const gateway = { role: "gateway" };
+  // The gateway stand-in's admission of a chain: null, or the refusal.
+  const admitChain = async ({ id, idempotencyKey }) => {
+    const taskIds = decodeChainId(id);
+    const inv = await policy.allocateInvocation({ caller: gateway, user: { uid: CANARY }, connectionId: CONN, taskId: id, inputDigest: createHash("sha256").update("{}").digest("hex"), idempotencyKey, admission: !tweak.noAdmission });
+    if (inv.contract !== 2) return null;
+    const { plan } = await policy.planLookup({ caller: gateway, user: { uid: CANARY }, invocationToken: inv.invocationToken });
+    // `ignorePlan` stands for a gateway that preflights what serves now on a retry.
+    const at = (i, lang) => (plan && !tweak.ignorePlan ? plan.stages[i].revision : serving[lang]);
+    const stages = taskIds.map((t, i) => {
+      const { lang, code } = tasks.get(t);
+      return manifestOf(code, `s${i}`, at(i, lang), lang);
+    });
+    try {
+      await policy.admit({ caller: gateway, user: { uid: CANARY }, invocationToken: inv.invocationToken, taskIds, stages });
+    } catch (e) {
+      if (e instanceof PolicyDenied) return e.reason;
+      throw e;
+    }
+    return null;
+  };
+
+  const http = async ({ method, url, headers, body }) => {
+    const { origin, pathname } = new URL(url);
+    try {
+      if (origin === config.apiUrl && pathname === "/task") {
+        const id = encodeChainId([`t${tasks.size + 1}`]);
+        tasks.set(`t${tasks.size + 1}`, body.task);
+        return ok({ id });
+      }
+      if (origin === config.apiUrl && pathname === "/compile") {
+        // As api's compile route: input data becomes an L0000 task, run first.
+        // `noDataStage` stands for a gateway that drops it.
+        if (body.data && Object.keys(body.data).length && !tweak.noDataStage) {
+          const dataTask = `t${tasks.size + 1}`;
+          tasks.set(dataTask, { lang: "0000", code: { src: JSON.stringify(body.data) } });
+          body = { ...body, id: `${body.id}+${encodeChainId([dataTask])}` };
+        }
+        const withId = res => ({ ...res, json: { ...res.json, id: body.id } });
+        if (tweak.chain) {
+          const refusal = await admitChain(body);
+          if (refusal) return withId(ok({ errors: [{ message: `Error: permission denied (${refusal})`, code: refusal }] }));
+        }
+        const saving = decodeChainId(body.id).some(t => tasks.get(t).code.src.includes("save-to-itembank"));
+        if (tweak.unsignedPreview && !saving) return withId(ok({ data: { request: "{}" }, errors: [] }));
+        if (!saving) return withId(ok({ data: { request: JSON.stringify({ security: { signature: "sig" } }) }, errors: [] }));
+        // As L0176 and api report a save (W3b): replayed on a retry with the same key.
+        const seen = (compiles.get(body.idempotencyKey) ?? 0) + 1;
+        compiles.set(body.idempotencyKey, seen);
+        const effect = { fn: "save-to-itembank", op: "learnosity.write-items", status: "succeeded", steps: ["questions", "items"], stage: "s0", ...(seen > 1 ? { replayed: true } : {}) };
+        return withId(ok({ data: { itemBank: { saved: true } }, errors: [], ...(tweak.noEffects ? {} : { effects: [effect] }) }));
+      }
+      if (origin === config.policyUrl) {
+        const caller = callerOf(headers, "urn:graffiticode:policy");
+        if (pathname === "/v1/invocations") return ok(await policy.allocateInvocation({ caller, user: user(headers), ...body }));
+        if (pathname === "/v1/invocations/plan") return ok(await policy.planLookup({ caller, user: user(headers), ...body }));
+        if (pathname === "/v1/admissions") return ok(await policy.admit({ caller, user: user(headers), ...body }));
+        if (pathname === "/v1/snapshot") {
+          const snap = await policy.snapshot({ caller, user: user(headers), ...body });
+          // `policyAllowsAuthor` stands for a Policy still on registry v6 with Author enabled.
+          return ok(tweak.policyAllowsAuthor ? { ...snap, allowed: [...snap.allowed, "author"] } : snap);
+        }
+        if (pathname === "/v1/mint") return ok(await policy.mint({ caller, ...body }));
+        if (pathname === "/v1/connections" && method === "GET") return ok(await manager.list({ caller, user: user(headers) }));
+        const permissions = pathname.match(/^\/v1\/connections\/([^/]+)\/owner-permissions$/);
+        if (permissions && method === "PUT") {
+          // `brokenRestore` stands for a restore that doesn't put back what was there.
+          const asked = tweak.brokenRestore && body.permissions === (tweak.initialPermissions ?? null) ? [] : body.permissions;
+          return ok(await manager.setOwnerPermissions({ caller, user: user(headers), connectionId: decodeURIComponent(permissions[1]), permissions: asked }));
+        }
+      }
+      if (origin === config.languageUrl && pathname === "/preflight") {
+        assert.equal(headers["X-Caller-Identity"], `id|${config.gatewayAccount}|urn:graffiticode:0176`);
+        return ok({ manifest: manifestOf(body.code, body.stage, serving["0176"]) });
+      }
+      if (origin === config.brokerUrl && pathname === "/v1/execute") {
+        const caller = callerOf(headers, "urn:graffiticode:broker");
+        // `v6Broker` stands for a Broker still on registry v6, Author gated off.
+        if (tweak.v6Broker && body.op === "learnosity.sign-author") return refused(403, "operation-not-enabled");
+        return ok(await broker.execute({ caller, token: headers.Authorization.replace(/^Bearer /, ""), op: body.op, payload: body.payload }));
+      }
+    } catch (err) {
+      if (err instanceof BrokerRefused) return refused(err.status, err.reason);
+      if (err instanceof PolicyDenied) return refused(403, err.reason);
+      throw err;
+    }
+    return { status: 404, json: null };
+  };
+  const idToken = async (account, audience) => (tweak.noImpersonation ? Promise.reject(new Error("permission denied to impersonate")) : `id|${account}|${audience}`);
+  return { http, idToken, writes, connections, deploy, serving };
+};
+
+const memoryRetryState = () => {
+  const state = { value: null };
+  return { state, load: async () => state.value, save: async v => { state.value = v; }, clear: async () => { state.value = null; } };
+};
+const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang] } = {}) => runCanary({
+  http: w.http,
+  idToken: w.idToken,
+  accessToken: async () => "user-token",
+  parse: async src => ({ src, code: src }),
+  config: { ...config, ...over },
+  servingRevision,
+  retryState,
+  runId
+});
+const byName = results => Object.fromEntries(results.map(r => [r.name, r.ok]));
+
+test("passes end to end while paused with the canary configured, writing once for the replayed operation", async () => {
+  const w = await world();
+  const { ok, results } = await run(w);
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.deepEqual(Object.keys(byName(results)), [
+    "gateway preview", "gateway write", "gateway write effects", "gateway write retry", "gateway write retry effects",
+    "author removed: policy", "author removed",
+    "token replay: first use", "token replay", "receipt replay: first write", "receipt replay",
+    "revocation probe: first write", "revocation probe: replay after narrowing", "revocation probe: minted, then narrowed",
+    "revocation probe: permissions restored"
+  ]);
+  // One write for the receipt replay, one for the probe; nothing after narrowing.
+  assert.deepEqual(w.writes, ["/itembank/questions", "/itembank/items", "/itembank/questions", "/itembank/items"]);
+  assert.equal((await w.connections.get(CONN)).ownerPermissions ?? null, null);
+});
+
+test("restores owner permissions the canary connection already had, exactly", async () => {
+  const initial = [{ lang: "0176", fn: "init" }, { lang: "0176", fn: "save-to-itembank" }];
+  const w = await world({ tweak: { initialPermissions: initial } });
+  const { ok, results } = await run(w);
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.deepEqual((await w.connections.get(CONN)).ownerPermissions, initial);
+});
+
+test("fails the revocation probe against a Broker without live authorization", async () => {
+  const w = await world({ tweak: { noLiveAuthorization: true } });
+  const { ok, results } = await run(w);
+  assert.equal(ok, false);
+  assert.equal(byName(results)["revocation probe: replay after narrowing"], false);
+  assert.equal(byName(results)["revocation probe: minted, then narrowed"], false);
+  // Permissions are restored however the probe went.
+  assert.equal(byName(results)["revocation probe: permissions restored"], true);
+});
+
+test("fails the canary when owner permissions aren't restored exactly", async () => {
+  const { ok, results } = await run(await world({ tweak: { brokenRestore: true } }));
+  assert.equal(ok, false);
+  assert.equal(byName(results)["revocation probe: permissions restored"], false);
+});
+
+test("skips the probe when asked, before W2 is released", async () => {
+  const w = await world({ tweak: { noLiveAuthorization: true } });
+  const { ok, results } = await run(w, { revocationProbe: false });
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.equal(results.some(r => r.name.startsWith("revocation probe")), false);
+});
+
+test("fails token replay when the broker accepts a reused execution token", async () => {
+  const { results, ok } = await run(await world({ tweak: { noReplayProtection: true } }));
+  assert.equal(ok, false);
+  assert.equal(byName(results)["token replay"], false);
+});
+
+test("fails receipt replay when a fresh token for the same operation writes again", async () => {
+  const w = await world({ tweak: { noReceipts: true } });
+  // Without the probe's own write, so the count is the replay's alone.
+  const { results, ok } = await run(w, { revocationProbe: false });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["receipt replay"], false);
+  assert.equal(w.writes.length, 4);
+});
+
+test("fails the gateway preview without a signed request, and the direct path without impersonation", async () => {
+  const unsigned = await run(await world({ tweak: { unsignedPreview: true } }));
+  assert.equal(byName(unsigned.results)["gateway preview"], false);
+  const noImpersonation = await run(await world({ tweak: { noImpersonation: true } }));
+  assert.equal(noImpersonation.ok, false);
+  assert.match(noImpersonation.results.find(r => r.name === "direct path").detail, /impersonate/);
+  assert.equal(byName(noImpersonation.results)["gateway write"], true);
+});
+
+test("recognizes signed requests as objects or JSON text, and nothing else", () => {
+  assert.equal(hasSignedRequest({ request: { security: { signature: "s" } } }), true);
+  assert.equal(hasSignedRequest({ request: JSON.stringify({ security: { signature: "s" } }) }), true);
+  assert.equal(hasSignedRequest({ text: "mentions security and signature" }), false);
+  assert.equal(hasSignedRequest({ security: { signature: 7 } }), false);
+  // Questions requests carry the security fields at the top level.
+  // eslint-disable-next-line camelcase -- Learnosity's field names
+  const questions = { consumer_key: "k", timestamp: "20261005-2012", user_id: "u", signature: "s", questions: [] };
+  assert.equal(hasSignedRequest({ request: questions }), true);
+  assert.equal(hasSignedRequest({ request: JSON.stringify(questions) }), true);
+  assert.equal(hasSignedRequest({ request: { signature: "s" } }), false);
+});
+
+test("fails author removed when Policy still offers Author", async () => {
+  const { results, ok } = await run(await world({ tweak: { policyAllowsAuthor: true } }));
+  assert.equal(ok, false);
+  assert.equal(byName(results)["author removed: policy"], false);
+  assert.equal(byName(results)["token replay"], true);
+});
+
+test("fails author removed against a Broker still on registry v6", async () => {
+  const { results, ok } = await run(await world({ tweak: { v6Broker: true } }));
+  assert.equal(ok, false);
+  assert.equal(byName(results)["author removed: policy"], true);
+  assert.equal(byName(results)["author removed"], false);
+  assert.match(results.find(r => r.name === "author removed").detail, /operation-not-enabled/);
+});
+
+test("fails when the gateway's write response doesn't say what the save did (W3b effects)", async () => {
+  const w = await world({ tweak: { noEffects: true } });
+  const { ok, results } = await run(w);
+  assert.equal(ok, false);
+  const failed = results.filter(r => !r.ok).map(r => [r.name, r.detail]);
+  assert.deepEqual(failed, [["gateway write effects", "no save effect in the response"], ["gateway write retry effects", "no save effect in the response"]]);
+});
+
+// W4 (capability plan section F, AT-03 and AT-07 live, AT-12's canary).
+const W4_CHECKS = ["chain admission: pinned", "chain admission: L0000 stage: compiled", "chain admission: L0000 stage", "denied final stage", "direct path: admitted"];
+
+test("W4: passes with the canary connection under chain admission, every write pinned and the denied chain refused at admission", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const { ok, results } = await run(w, { chainAdmission: true });
+  assert.equal(ok, true, JSON.stringify(results));
+  const names = Object.keys(byName(results));
+  for (const name of W4_CHECKS) assert.ok(names.includes(name), name);
+  assert.match(results.find(r => r.name === "chain admission: pinned").detail, /s0=l0176-ra/);
+  assert.match(results.find(r => r.name === "chain admission: L0000 stage").detail, /s0=l0176-ra s1=l0000-ra/);
+  // The denied chain wrote nothing: the receipt replay's and the probe's writes only.
+  assert.deepEqual(w.writes, ["/itembank/questions", "/itembank/items", "/itembank/questions", "/itembank/items"]);
+});
+
+test("W4: fails pinned admission and the denied final stage when the gateway doesn't admit chains", async () => {
+  const { ok, results } = await run(await world({ tweak: { chain: true, noAdmission: true } }), { chainAdmission: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["chain admission: pinned"], false);
+  assert.equal(byName(results)["denied final stage"], false);
+  assert.match(results.find(r => r.name === "denied final stage").detail, /1 effects/);
+});
+
+test("W4: retries a write across an L0176 deploy, still pinned to the revision it was admitted on", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const retryState = memoryRetryState();
+  const first = await run(w, { chainAdmission: true }, { retryState, runId: "r1" });
+  assert.equal(first.ok, true, JSON.stringify(first.results));
+  assert.equal(retryState.state.value.revision, "l0176-ra");
+  // Run again without a deploy: refused, and the record is kept.
+  const early = await run(w, { chainAdmission: true }, { retryState, runId: "r2" });
+  assert.equal(byName(early.results)["retry across a deploy: deployed"], false);
+  assert.match(early.results.find(r => r.name === "retry across a deploy: deployed").detail, /deploy L0176/);
+  assert.notEqual(retryState.state.value, null);
+  w.deploy("l0176-rb");
+  const after = await run(w, { chainAdmission: true }, { retryState, runId: "r3" });
+  assert.equal(after.ok, true, JSON.stringify(after.results));
+  assert.equal(byName(after.results)["retry across a deploy"], true);
+  assert.match(after.results.find(r => r.name === "retry across a deploy").detail, /replayed on l0176-ra/);
+  assert.equal(retryState.state.value, null);
+});
+
+test("W4: fails the retry across a deploy when the gateway preflights the new revision instead of the pinned one", async () => {
+  const w = await world({ tweak: { chain: true, ignorePlan: true } });
+  const retryState = memoryRetryState();
+  assert.equal((await run(w, { chainAdmission: true }, { retryState, runId: "r1" })).ok, true);
+  w.deploy("l0176-rb");
+  const { ok, results } = await run(w, { chainAdmission: true }, { retryState, runId: "r2" });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["retry across a deploy"], false);
+  assert.match(results.find(r => r.name === "retry across a deploy").detail, /plan-mismatch/);
+});
+
+test("W4: after the cutover, v1-shaped sessions are refused and the direct path runs under plans", async () => {
+  const w = await world({ tweak: { chain: true, min: 2 } });
+  const { ok, results } = await run(w, { chainAdmission: true, afterCutover: true });
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.equal(byName(results)["v1 refused: invocation marked"], true);
+  assert.equal(byName(results)["v1 refused"], true);
+  assert.equal(byName(results)["receipt replay"], true);
+});
+
+test("W4: fails the v1 check if Policy hasn't cut over", async () => {
+  const { ok, results } = await run(await world({ tweak: { chain: true } }), { chainAdmission: true, afterCutover: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["v1 refused: invocation marked"], false);
+});
+
+// Review of PR 7c: missing evidence is a failure, never a pass.
+test("W4: fails pinned admission when the serving revision can't be resolved", async () => {
+  const { ok, results } = await run(await world({ tweak: { chain: true } }), { chainAdmission: true }, { servingRevision: async () => null });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["chain admission: pinned"], false);
+  assert.match(results.find(r => r.name === "chain admission: pinned").detail, /serving revision unknown/);
+  assert.equal(byName(results)["chain admission: L0000 stage"], false);
+});
+
+test("W4: fails pinned admission when L0176's stage is pinned to another revision than the one serving", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const { ok, results } = await run(w, { chainAdmission: true }, { servingRevision: async lang => (lang === "0176" ? "l0176-other" : w.serving[lang]) });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["chain admission: pinned"], false);
+});
+
+test("W4: fails the L0000 stage check when the chain runs without its L0000 stage", async () => {
+  const { ok, results } = await run(await world({ tweak: { chain: true, noDataStage: true } }), { chainAdmission: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["chain admission: L0000 stage: compiled"], true);
+  assert.equal(byName(results)["chain admission: L0000 stage"], false);
+});

@@ -6,10 +6,14 @@
 // and merges its lexicon over `lexicon` with `mergeLexicon`, which refuses to let a
 // child word shadow a base one unless the override is declared.
 
-export { Visitor, Checker, Transformer, Renderer, Compiler } from "./compiler.js";
+export { Visitor, Checker, Transformer, Renderer, Compiler, isNumber, numberValue, sameValue } from "./compiler.js";
+export { formatNumber, FormatPatternError } from "./format-number.js";
 export { ExecContext, execContextOf } from "./exec-context.js";
-export type { ExecIdentity, ProtectedCall, Invoker } from "./exec-context.js";
-export { findProtectedNodes, parseSnapshot } from "./protected-functions.js";
+export type { ExecIdentity, ProtectedCall, Invoker, ProtectedEffect } from "./exec-context.js";
+export { findProtectedNodes, parseSnapshot, admitPlannedStage } from "./protected-functions.js";
+export { requiredProtectedFunctions, revisionIdentity, bindingProblems, digestOf, BINDING_FIELDS } from "./preflight.js";
+export type { StageManifest } from "./preflight.js";
+export { createGatewayVerifier, createPreflightHandler, CallerRefused, languageAudience, metadataIdToken } from "./preflight-route.js";
 export { createProtectionClient, ProtectedCallError, POLICY_AUDIENCE, BROKER_AUDIENCE } from "./protected-client.js";
 export type { ProtectionClientOptions } from "./protected-client.js";
 export { canonicalJSON, argsDigest } from "./canonical.js";

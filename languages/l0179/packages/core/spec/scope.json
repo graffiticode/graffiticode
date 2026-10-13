@@ -1,0 +1,25 @@
+{
+  "id": "0179",
+  "summary": "Authors interactive spreadsheets (tabular cells, formatting, formulas), optionally with assessed cells the learner fills in, from natural-language descriptions.",
+  "in_scope": [
+    "Single-cell and grid spreadsheets",
+    "Multiple sheets in one item, with tabs and a sheet menu to move between them",
+    "Column / row / region styling: width, alignment, fonts, colors, borders",
+    "Cell text, formatting, and per-cell properties",
+    "Formulas (SUM, AVERAGE, ROUND, POWER, MAX, MIN, ABS, IF, arithmetic)",
+    "Parameterized values that vary per render (templateVariablesRecords)",
+    "Assessed cells: value-equivalence, formula-equivalence, per-cell points and partial credit",
+    "Display and worksheet (non-assessed) modes",
+    "Schema-validated output suitable for hosting as a Learnosity custom question via L0158"
+  ],
+  "out_of_scope": [
+    "Authoring assessment ITEMS or QUESTIONS as content — reading-comprehension or ELA items, multiple-choice / EBSR / short-answer questions, passages, stems, answer keys, or rubric-scored prose. L0179 authors a spreadsheet INTERACTION (cells and formulas the learner completes), NOT question items; assessment-item authoring belongs to a dedicated assessment dialect, not a spreadsheet",
+    "Any tabular tool that isn't a spreadsheet (database tables, CSV editors, query builders, pivot dashboards, Airtable-style relational tables, gantt charts)",
+    "Charts and visualizations (pie, bar, line) — charting belongs in a separate dialect",
+    "Pivot tables, cross-sheet FORMULA references, or aggregations across sheets. Several sheets in one item ARE supported; what is not is a formula on one sheet reading a cell on another (=Sheet2!A1), or a total computed across sheets",
+    "External data imports (CSV, database, HTTP ingestion)",
+    "Macros, user-defined functions, or event hooks — formula coverage is fixed",
+    "Activity-level assembly (sequencing multiple spreadsheets into a lesson)",
+    "Host-app embedding (React/Vite mount inside an LMS) — handled by the host runtime"
+  ]
+}

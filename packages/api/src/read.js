@@ -11,6 +11,8 @@
 
 import { REGISTRY_VERSION, compilerConfigForLang } from "@graffiticode/common/protected-registry";
 import { InvocationRefused } from "./invocations.js";
+import { classify } from "@graffiticode/common/failures";
+import { noAudit } from "./audit.js";
 
 export const signProgram = activity => ({
   1: { tag: "STR", elts: [JSON.stringify(activity)] },
@@ -20,7 +22,9 @@ export const signProgram = activity => ({
   root: 4
 });
 
-const failure = message => ({ errors: [{ message, from: -1, to: -1 }] });
+// `code` and `category` say which kind of failure (spec FAIL-01); `message` is
+// the text callers already read.
+const failure = (message, code) => ({ errors: [{ message, from: -1, to: -1, code, category: classify(code).category }] });
 
 const signsEveryRender = lang => compilerConfigForLang(lang).implicitProtectedFunctions.length > 0;
 
@@ -45,17 +49,17 @@ const signStored = async ({ compile, lang, content, connectionId, invocationToke
   return envelope;
 };
 
-export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation }) =>
+export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation, audit = noAudit }) =>
   async ({ tasks, id, uid, authToken, connectionId }) => {
     if (!artifactStorer || !allocateInvocation) {
-      return failure("Error: connections are not available on this server.");
+      return failure("Error: connections are not available on this server.", "connections-unavailable");
     }
     const current = await artifactStorer.getCurrent({ uid, taskId: id, connectionId, registryVersion: REGISTRY_VERSION });
     if (current.status === "missing") {
-      return failure("Error: this version has no result through this connection yet. Save or recompile the item to create one.");
+      return failure("Error: this version has no result through this connection yet. Save or recompile the item to create one.", "artifact-not-found");
     }
     if (current.status === "incompatible") {
-      return failure("Error: this item's result was made by an older version. Recompile the item to update it.");
+      return failure("Error: this item's result was made by an older version. Recompile the item to update it.", "artifact-incompatible");
     }
     const { content, invocationId } = current.artifact;
     const [head] = tasks;
@@ -70,9 +74,12 @@ export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation 
         authToken, connectionId, taskId: id, options: {}, idempotencyKey: `read.${invocationId}`
       });
     } catch (e) {
-      return failure(e instanceof InvocationRefused
-        ? `Error: permission denied (${e.reason})`
-        : "Error: could not authorize this view");
+      if (e instanceof InvocationRefused) {
+        await audit({ event: "gateway-invocation", outcome: "denied", reason: e.reason, category: classify(e.reason).category, connectionId });
+        return failure(`Error: permission denied (${e.reason})`, e.reason);
+      }
+      await audit({ event: "gateway-invocation", outcome: "failed", reason: "policy-unavailable", category: "unavailable", connectionId });
+      return failure("Error: could not authorize this view", "policy-unavailable");
     }
     return signStored({
       compile, lang: head.lang, content, connectionId, invocationToken: invocation.invocationToken, stage: "read", uid, authToken
@@ -83,31 +90,37 @@ export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation 
 // viewer: policy re-checks the publication live and answers with an
 // invocation confined to viewSafe functions, and the compiler is sent no user.
 // The artifact is the one the publication names, never the viewer's own.
-export const buildReadPublished = ({ compile, artifactStorer, publications }) =>
+export const buildReadPublished = ({ compile, artifactStorer, publications, audit = noAudit }) =>
   async ({ tasks, id, publicationId }) => {
     if (!artifactStorer || !publications) {
-      return failure("Error: publications are not available on this server.");
+      return failure("Error: publications are not available on this server.", "publications-unavailable");
     }
     let view;
     try {
       view = await publications.authorizeView({ publicationId });
     } catch (e) {
-      return failure(e instanceof InvocationRefused
-        ? `Error: this item is not published (${e.reason})`
-        : "Error: could not authorize this view");
+      // The audit names no publication: the id is the viewer's, unverified.
+      if (e instanceof InvocationRefused) {
+        await audit({ event: "publication-read", outcome: "denied", reason: e.reason, category: classify(e.reason).category });
+        return failure(`Error: this item is not published (${e.reason})`, e.reason);
+      }
+      await audit({ event: "publication-read", outcome: "failed", reason: "policy-unavailable", category: "unavailable" });
+      return failure("Error: could not authorize this view", "policy-unavailable");
     }
     const [head] = tasks;
     if (view.taskId !== id || view.lang !== head.lang) {
-      return failure("Error: this publication is for another item.");
+      return failure("Error: this publication is for another item.", "publication-other-item");
     }
     const artifact = await artifactStorer.getByInvocation(view.artifactInvocationId);
     if (!artifact || artifact.uid !== view.publisherUid || artifact.connectionId !== view.connectionId ||
         artifact.taskId !== id) {
-      return failure("Error: the published result is no longer available. The publisher can run it and publish again.");
+      return failure("Error: the published result is no longer available. The publisher can run it and publish again.", "published-artifact-unavailable");
     }
     if (artifact.registryVersion !== REGISTRY_VERSION) {
-      return failure("Error: the published result was made by an older version. The publisher can run it and publish again.");
+      return failure("Error: the published result was made by an older version. The publisher can run it and publish again.", "artifact-incompatible");
     }
+    // Verified by Policy (authorizeView), so the publication can be named.
+    await audit({ event: "publication-read", outcome: "allowed", publicationId, connectionId: view.connectionId });
     return signStored({
       compile,
       lang: head.lang,

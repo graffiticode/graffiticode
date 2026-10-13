@@ -8,9 +8,12 @@ import cors from "cors";
 import { buildValidateToken } from "./auth.js";
 import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
+import { createApiAudit } from "./audit.js";
+import { requestContextMiddleware } from "@graffiticode/policy/audit";
 import { buildAllocateInvocation, buildMetadataIdToken } from "./invocations.js";
 import { buildPublicationClient } from "./publications.js";
-import { compile as langCompile, validateOutput } from "./lang/index.js";
+import { compile as langCompile, validateOutput, getBaseUrlForLanguage } from "./lang/index.js";
+import { buildChainAdmission, parseChainAdmission } from "./admission.js";
 import * as routes from "./routes/index.js";
 import { createStorers } from "./storage/index.js";
 
@@ -28,6 +31,7 @@ global.config = require(process.env.CONFIG || "./../config/config.json");
 global.config.useLocalCompiles = process.env.LOCAL_COMPILES === "true";
 const env = process.env.NODE_ENV || "development";
 
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const createApp = ({ authUrl } = {}) => {
   const compile = buildCompile({ langCompile });
   const { taskStorer, compileStorer, langOverrideStorer, artifactStorer } = createStorers();
@@ -37,7 +41,26 @@ export const createApp = ({ authUrl } = {}) => {
   const idToken = policyUrl ? buildMetadataIdToken() : null;
   const allocateInvocation = policyUrl ? buildAllocateInvocation({ policyUrl, idToken }) : null;
   const publications = policyUrl ? buildPublicationClient({ policyUrl, idToken }) : null;
-  const dataApi = buildDataApi({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications });
+  // Chain admission (capability plan W4): CHAIN_ADMISSION decides which new
+  // invocations are allocated for it; a marked one always takes it. Compilers
+  // are resolved without any user's override.
+  const chainAdmissionMode = parseChainAdmission(process.env);
+  const chainAdmission = policyUrl
+    ? buildChainAdmission({ policyUrl, idToken, baseUrlFor: lang => getBaseUrlForLanguage(`L${String(lang).replace(/^L/i, "")}`) })
+    : null;
+  // Security audit, without user identifiers (audit.js).
+  const audit = createApiAudit();
+  const dataApi = buildDataApi({
+    compile,
+    langOverrideStorer,
+    validateOutput,
+    allocateInvocation,
+    artifactStorer,
+    publications,
+    audit,
+    chainAdmission,
+    admissionWanted: chainAdmissionMode.wants,
+  });
 
   const app = express();
   app.all("*", (req, res, next) => {
@@ -70,6 +93,8 @@ export const createApp = ({ authUrl } = {}) => {
     next();
   });
   app.use(express.json({ limit: "50mb" }));
+  // Every audit record written while handling a request names it.
+  app.use(requestContextMiddleware);
   app.use(methodOverride());
 
   // Authentication
@@ -78,6 +103,7 @@ export const createApp = ({ authUrl } = {}) => {
 
   // Routes
   app.use("/", routes.root());
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi }));
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi }));
@@ -92,6 +118,7 @@ export const createApp = ({ authUrl } = {}) => {
   // Error handling
   app.use((err, req, res, next) => {
     console.error(err);
+    res.set("Cache-Control", "no-store");
     res.sendStatus(500);
   });
 

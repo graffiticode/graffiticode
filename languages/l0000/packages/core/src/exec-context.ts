@@ -29,6 +29,10 @@ export interface ExecIdentity {
   // the same write receipts.
   invocationToken?: string | null;
   stage?: string | null;
+  // The plan this chain was admitted under (capability plan W4), from the
+  // gateway. Policy verifies it; with it, the compiler executes only what the
+  // plan pins for its stage.
+  admissionToken?: string | null;
 }
 
 // What a language's transformer asks the broker to do for one protected call.
@@ -43,6 +47,50 @@ export interface ProtectedCall {
 
 export type Invoker = (exec: ExecContext, call: ProtectedCall) => Promise<any>;
 
+// What one protected write did (spec FAIL-01's effects contract): the
+// broker's outcome, or what can be said without one. `steps` are the
+// completed provider steps; [] for an uncertain write means none is known to
+// have completed, not that nothing happened.
+export interface ProtectedEffect {
+  fn: string;
+  op: string;
+  status: "succeeded" | "failed" | "partial" | "uncertain";
+  steps: string[];
+  failedStep?: string;
+  reason?: string;
+  category?: string;
+  replayed?: true;
+}
+
+const OUTCOMES = new Set(["succeeded", "failed", "partial", "uncertain"]);
+const text = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+const defined = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
+
+// The broker's outcome for a write. One it doesn't recognize is uncertain:
+// the write was sent, and nothing says how it went.
+function effectOf({ fn, op }: ProtectedCall, out: any): ProtectedEffect {
+  const recognized = OUTCOMES.has(out?.status);
+  return defined({
+    fn,
+    op,
+    status: recognized ? out.status : "uncertain",
+    steps: Array.isArray(out?.steps) ? out.steps.filter((s: unknown) => typeof s === "string") : [],
+    failedStep: text(out?.failedStep),
+    reason: text(out?.reason),
+    category: text(out?.category),
+    replayed: out?.replayed === true ? (true as const) : undefined,
+  });
+}
+
+// A write that returned no outcome: refused before acting (failed, nothing
+// done), or sent with its answer lost (uncertain).
+function effectOfError({ fn, op }: ProtectedCall, e: any): ProtectedEffect {
+  if (e?.effectUnknown === true) {
+    return { fn, op, status: "uncertain", steps: [] };
+  }
+  return defined({ fn, op, status: "failed" as const, steps: [], reason: text(e?.reason), category: text(e?.category) });
+}
+
 export class ExecContext {
   readonly uid: string | null;
   readonly connectionId: string | null;
@@ -52,10 +100,13 @@ export class ExecContext {
   readonly compileId: string;
   #userToken: string | null;
   #invocationToken: string | null;
+  #admissionToken: string | null;
   #sessionToken: string | null = null;
   #invoker: Invoker | null = null;
   #occurrences = new Map<string, number>();
   #snapshot: unknown = undefined;
+  #writes: ReadonlySet<string> | null = null;
+  #effects: ProtectedEffect[] = [];
 
   constructor(identity: ExecIdentity = {}) {
     this.uid = typeof identity.uid === "string" && identity.uid ? identity.uid : null;
@@ -64,6 +115,8 @@ export class ExecContext {
     this.#userToken = typeof identity.userToken === "string" && identity.userToken ? identity.userToken : null;
     this.#invocationToken =
       typeof identity.invocationToken === "string" && identity.invocationToken ? identity.invocationToken : null;
+    this.#admissionToken =
+      typeof identity.admissionToken === "string" && identity.admissionToken ? identity.admissionToken : null;
     this.stage = typeof identity.stage === "string" && identity.stage ? identity.stage : null;
     this.compileId = randomUUID();
     Object.freeze(this);
@@ -71,8 +124,13 @@ export class ExecContext {
 
   // Credentials a policy client forwards. Language code may read them; no
   // program can (the context is unreachable from the AST).
-  policyCredentials(): { userToken: string | null; invocationToken: string | null } {
-    return { userToken: this.#userToken, invocationToken: this.#invocationToken };
+  policyCredentials(): { userToken: string | null; invocationToken: string | null; admissionToken: string | null } {
+    return { userToken: this.#userToken, invocationToken: this.#invocationToken, admissionToken: this.#admissionToken };
+  }
+
+  // Whether this compile runs under an admitted plan.
+  get planned(): boolean {
+    return this.#admissionToken !== null;
   }
 
   get sessionToken(): string | null {
@@ -112,7 +170,33 @@ export class ExecContext {
     if (!this.#invoker) {
       throw new Error("no protected-operation client is configured");
     }
-    return this.#invoker(this, call);
+    if (!this.#writes?.has(call.fn)) {
+      return this.#invoker(this, call);
+    }
+    let out;
+    try {
+      out = await this.#invoker(this, call);
+    } catch (e) {
+      this.#effects.push(effectOfError(call, e));
+      throw e;
+    }
+    this.#effects.push(effectOf(call, out));
+    return out;
+  }
+
+  // The write functions admitted for this compile (admission declares them
+  // once): their outcomes are this compile's effects.
+  declareWrites(fns: string[]): void {
+    if (this.#writes !== null) {
+      throw new Error("ExecContext writes are already declared for this invocation");
+    }
+    this.#writes = new Set(fns);
+  }
+
+  // Every protected write this compile made, in order, including one that
+  // failed after an earlier one succeeded.
+  get effects(): ProtectedEffect[] {
+    return this.#effects.map((e) => ({ ...e, steps: [...e.steps] }));
   }
 
   // The policy snapshot is fetched once per compile and is immutable for the

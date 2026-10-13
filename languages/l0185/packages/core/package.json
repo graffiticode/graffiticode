@@ -1,0 +1,42 @@
+{
+  "publishConfig": {
+    "access": "public"
+  },
+  "name": "@graffiticode/l0185",
+  "version": "0.1.0",
+  "description": "L0185 language core — fetch and shape data",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./spec/*": "./spec/*"
+  },
+  "files": [
+    "dist",
+    "spec",
+    "data"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build-static": "node tools/build-static.js",
+    "test": "vitest run",
+    "lint": "eslint src tools",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@graffiticode/l0000": "^0.8.0",
+    "papaparse": "^5.4.1",
+    "decimal.js": "^10.5.0"
+  },
+  "devDependencies": {
+    "@graffiticode/parser": "^1.7.0",
+    "ajv": "^8.20.0",
+    "spec-md": "^3.1.0",
+    "vitest": "^5.0.1",
+    "@types/papaparse": "^5.3.14"
+  }
+}

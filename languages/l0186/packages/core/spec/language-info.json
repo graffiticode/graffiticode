@@ -1,0 +1,34 @@
+{
+  "id": "0186",
+  "description": "FigJam boards — sticky notes, text, shapes (flowchart, engineering and decorative), sections, reaction stamps and connectors, on one or more pages, previewed as a picture of the board and drawn into a FigJam file by the Graffiticode FigJam plugin. Successor to L0172.",
+  "supported_item_types": [
+    "figjam_board"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "A retrospective board with Went well, To improve and Action items sections, three stickies in each.",
+      "produces": "figjam_board",
+      "notes": "One page holding three `section [ sticky … {} … ] name \"…\" x … {}` members; stickies spaced 280 apart."
+    },
+    {
+      "prompt": "A flowchart: Start, Fetch data, a Valid? decision, then Save or Report error.",
+      "produces": "figjam_board",
+      "notes": "`shape kind ROUNDED_RECTANGLE`/`DIAMOND` members with ids, and `connector from \"…\" to \"…\" label \"yes\" {}`."
+    },
+    {
+      "prompt": "A hub sticky called Idea joined to six stickies around it.",
+      "produces": "figjam_board",
+      "notes": "`connector from \"hub\" to \"*\" {}` joins the hub to every other node on the page."
+    },
+    {
+      "prompt": "A workshop board with Agenda, Brainstorm and Decisions pages.",
+      "produces": "figjam_board",
+      "notes": "Three `page [ … ] name \"…\" {}` members in the board; pages show as tabs."
+    },
+    {
+      "prompt": "Add a kanban board to my FigJam file https://www.figma.com/board/ABC123/Sprint.",
+      "produces": "figjam_board",
+      "notes": "`save-to-figjam \"https://www.figma.com/board/ABC123/Sprint\"` on its own line before the board; the plugin draws it into that file."
+    }
+  ]
+}

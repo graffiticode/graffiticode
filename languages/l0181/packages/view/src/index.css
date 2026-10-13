@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * Preflight is off (see tailwind.config.js) so this component never injects a global reset
+   * into a consumer app or into the page hosting the /form iframe. One preflight declaration
+   * is load-bearing for us, though: it sets `border-style: solid; border-width: 0` on every
+   * element, and without it Tailwind's `border-*` utilities set a colour and a width against
+   * CSS's default `border-style: none` — so every bordered card renders with no border at all.
+   *
+   * `box-sizing` is the other one. Without it a `w-full p-6 border` card computes its width as
+   * 100% of the parent and then ADDS the padding and border, so it overflows by exactly
+   * 50px and the page grows a horizontal scrollbar.
+   *
+   * Restore exactly those two rules, scoped to our own subtree rather than the document.
+   */
+  .l0181-deck,
+  .l0181-deck *,
+  .l0181-deck *::before,
+  .l0181-deck *::after {
+    box-sizing: border-box;
+    border-style: solid;
+    border-width: 0;
+  }
+
+  /*
+   * The third load-bearing preflight rule, for the same reason as the other two. A card side
+   * that is a URL renders as an image, and the author's image is whatever size the author's
+   * image is — a 2000px flag on a 256px card. Preflight's `max-width: 100%; height: auto` is
+   * what normally stops a replaced element from bursting out of its parent; with preflight
+   * off, nothing does. The utilities on the image cover the card, but the deck also renders
+   * images the utilities do not reach, so keep the floor here too.
+   */
+  .l0181-deck img,
+  .l0181-deck svg,
+  .l0181-deck video {
+    max-width: 100%;
+    height: auto;
+  }
+}

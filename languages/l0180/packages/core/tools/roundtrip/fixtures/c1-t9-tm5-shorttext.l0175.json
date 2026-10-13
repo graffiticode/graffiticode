@@ -1,0 +1,92 @@
+{
+  "kind": "item",
+  "id": "how-a-honeybee-colony-works-q1",
+  "type": "short-text",
+  "target": "c1-t9",
+  "taskModel": "5",
+  "standards": [
+    "ri-1",
+    "ri-2"
+  ],
+  "dok": "r-dok3",
+  "dimension": "central-idea",
+  "passage": {
+    "id": "how-a-honeybee-colony-works",
+    "heading": "How a Honeybee Colony Works",
+    "type": "informational",
+    "lines": [
+      {
+        "id": 1,
+        "text": "Honeybees live together in large groups called colonies."
+      },
+      {
+        "id": 2,
+        "text": "Every bee in the colony has a job that helps the whole group survive."
+      },
+      {
+        "id": 3,
+        "text": "Worker bees gather nectar, build the honeycomb, and feed the young."
+      },
+      {
+        "id": 4,
+        "text": "Guard bees stand at the entrance and protect the hive from intruders."
+      },
+      {
+        "id": 5,
+        "text": "The queen lays the eggs that become the colony's next generation."
+      },
+      {
+        "id": 6,
+        "text": "When a worker finds flowers, it dances to tell the others where to go."
+      },
+      {
+        "id": 7,
+        "text": "In winter, the bees cluster together and beat their wings to stay warm."
+      },
+      {
+        "id": 8,
+        "text": "Because each bee does its part, the colony can do things no single bee could do alone."
+      }
+    ]
+  },
+  "passages": null,
+  "stem": {
+    "partA": "Determine the central idea of the passage. Explain using key details from the passage to support your answer."
+  },
+  "distractorAnalysis": [],
+  "answerKey": {
+    "rationale": ""
+  },
+  "review": {
+    "target": "c1-t9",
+    "standards": [
+      "ri-1",
+      "ri-2"
+    ],
+    "dok": "r-dok3",
+    "dimension": "central-idea",
+    "scoring": "0–2 points; hand-scored against the rubric.",
+    "correctClaim": {
+      "id": "c1",
+      "text": "Every bee in a colony does a job that helps the whole group survive."
+    },
+    "alternativeClaims": 0
+  },
+  "warnings": [],
+  "prompt": "Determine the central idea of the passage. Explain using key details from the passage to support your answer.",
+  "rubric": [
+    {
+      "score": 2,
+      "descriptor": "Makes a valid inference and supports it with specific, relevant details from the passage."
+    },
+    {
+      "score": 1,
+      "descriptor": "Makes a partially valid inference, or supports it with limited or only partially relevant details."
+    },
+    {
+      "score": 0,
+      "descriptor": "Does not make a valid inference, or provides no relevant textual support."
+    }
+  ],
+  "grade": 5
+}

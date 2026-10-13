@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0178",
+  "title": "L0178",
+  "description": "Output of an L0178 program — the normalized Data API job plus steering warnings. This is NOT the deliverable; the developer-facing cookbook recipe is produced by get_spec. Atomic dialect (not a composition upstream).",
+  "type": "object",
+  "properties": {
+    "endpoint": {
+      "description": "The Learnosity endpoint path this job targets, minus the {LTS_VERSION} prefix (e.g. \"itembank/items\"). Selected by the block function. Use this on the wire, never the block keyword.",
+      "type": "string"
+    },
+    "action": {
+      "description": "The Data API action, sent in the request body. Every call is a POST regardless — the Data API is not REST. Note the verb does not imply read-vs-write: some get operations start jobs that mutate.",
+      "type": "string",
+      "enum": [
+        "get",
+        "set",
+        "update",
+        "delete"
+      ]
+    },
+    "paged": {
+      "description": "True when this operation returns meta.next and must be paged. When true, a paging policy is required for the design to be complete.",
+      "type": "boolean"
+    },
+    "paging_end": {
+      "description": "How a paged read knows it is finished, per endpoint. \"next-absent\": meta.next disappears at exhaustion (itembank/*). \"empty-page\": meta.next is ALWAYS present — it is a long-poll cursor — so the loop ends on a page with zero records (sessions/*). There is no correct universal loop; each family's rule is a bug in the other. Present only on paged blocks.",
+      "type": "string",
+      "enum": [
+        "next-absent",
+        "empty-page"
+      ]
+    },
+    "async": {
+      "description": "True when this operation returns { data: { job_reference } } instead of a result, to be polled with the jobs endpoint. Disjoint from paged — an operation returns one or the other, never both.",
+      "type": "boolean"
+    },
+    "poll_with": {
+      "description": "Where an asynchronous operation is redeemed. Present only when async is true. Carries the channel (always the jobs endpoint with action get) and job_reference_at — where the reference sits in THIS endpoint's response, which differs per endpoint: some return data[0].job_reference, others data.job_reference, and both are real. Reading the wrong one yields undefined and a poll that never finds its job.",
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "job_reference_at": {
+          "type": "string"
+        }
+      }
+    },
+    "writes": {
+      "description": "True when the operation persists. Not the same as action !== \"get\" — some get operations start jobs that mutate.",
+      "type": "boolean"
+    },
+    "write_semantics": {
+      "description": "How a write treats what is already there, measured per (endpoint, action) and NEVER inferred from the verb. \"replace\": anything omitted from the payload is cleared. \"merge\": the sent values are added to what is there. ABSENT means it has not been established for that operation — only the tag-assignment endpoints have been measured — and absence must be read as unknown, not as safe.",
+      "type": "string",
+      "enum": [
+        "merge",
+        "replace"
+      ]
+    },
+    "paging": {
+      "description": "The declared paging policy. DESIGN INTENT — it has no Learnosity path and is never sent in a request. \"exhaustive\" follows meta.next to the end; \"single-page\" deliberately takes one page and accepts an incomplete result.",
+      "type": "string",
+      "enum": [
+        "exhaustive",
+        "single-page"
+      ]
+    },
+    "request": {
+      "description": "The job's request fields, keyed by their kebab DSL names. Read the wire path for each from `paths` — do not derive it from the key name.",
+      "type": "object"
+    },
+    "paths": {
+      "description": "Every request field this job sets, mapped to its exact Learnosity path (e.g. \"include-items\" -> \"include.items\", \"item-pool-id\" -> \"item_pool_id\"). The recipe must read paths from here rather than deriving them from kebab key names, which are ambiguous about nesting. A key absent here was dropped and must not appear in the recipe.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "complete": {
+      "description": "True when the job has no unfilled holes (an operation is selected, and a paged operation declares how far it reads).",
+      "type": "boolean"
+    },
+    "warnings": {
+      "description": "Steering hints: holes first (missing operation, undeclared paging policy), then validity warnings for input that was rejected or dropped, then specificity advisories. The client refines the job until these clear.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -462,6 +462,20 @@ function unparseNodeCore(node, lexicon, indent = 0, options = {}) {
       if (path !== null && opts.patternVars && opts.patternVars.has(path)) {
         return opts.patternVars.get(path);
       }
+      // A `let` pattern's variable. The parser inlines a `let` away, so `let [x y] = [3 4]`
+      // leaves `x` as "element 0 of [3 4]" with no name to recover. Print the equivalent
+      // access — `nth 0 [3 4]`, `get "key" {…}` — rather than a `/* VAL */` placeholder,
+      // which silently corrupted every generated program that destructured with `let`.
+      const [key, inner] = node.elts || [];
+      if (key && typeof key === "object" && inner && typeof inner === "object") {
+        const base = unparseNode(inner, lexicon, indent, opts);
+        if (key.tag === "NUM") {
+          return `nth ${key.elts[0]} ${base}`;
+        }
+        if (key.elts && key.elts[0] !== undefined) {
+          return `get ${JSON.stringify(String(key.elts[0]))} ${base}`;
+        }
+      }
     }
     // Falls through.
     default: {

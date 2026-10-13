@@ -5,6 +5,7 @@ import { isNonEmptyString } from "../util.js";
 describe("baseUrl", () => {
   it("should throw if lang is not a string", async () => {
     // Arrange
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({ isNonEmptyString });
 
     // Act
@@ -20,6 +21,7 @@ describe("baseUrl", () => {
     const getConfig = jest.fn().mockReturnValue(config);
     const getCompilerHost = jest.fn().mockReturnValue("ltest.artcompiler.com");
     const getCompilerPort = jest.fn().mockReturnValue("443");
+    // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
       isNonEmptyString,
       env,
@@ -40,6 +42,7 @@ describe("baseUrl", () => {
     // Arrange
     const envBaseUrl = "http://localhost:5000";
     const env = { BASE_URL_L1: envBaseUrl };
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({ isNonEmptyString, env });
     const lang = "L1";
 
@@ -57,6 +60,7 @@ describe("baseUrl", () => {
     const getConfig = jest.fn().mockReturnValue(config);
     const getCompilerHost = jest.fn().mockReturnValue("localhost");
     const getCompilerPort = jest.fn().mockReturnValue("5000");
+    // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
       isNonEmptyString,
       env,
@@ -82,6 +86,7 @@ describe("baseUrl", () => {
     const getConfig = jest.fn().mockReturnValue(config);
     const getCompilerHost = jest.fn().mockReturnValue("localhost");
     const getCompilerPort = jest.fn().mockReturnValue("5000");
+    // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
       isNonEmptyString,
       env,
@@ -104,6 +109,7 @@ describe("baseUrl", () => {
     // Arrange
     const envBaseUrl = "http://localhost:5000";
     const env = { BASE_URL_L1: envBaseUrl };
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({ isNonEmptyString, env });
     const lang = "1";
 
@@ -121,6 +127,7 @@ describe("baseUrl", () => {
     const getConfig = jest.fn().mockReturnValue({});
     const getCompilerHost = jest.fn().mockReturnValue("l175.graffiticode.org");
     const getCompilerPort = jest.fn().mockReturnValue("443");
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getOverrideBaseUrl = jest.fn().mockResolvedValue(overrideBaseUrl);
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
       isNonEmptyString,
@@ -146,6 +153,7 @@ describe("baseUrl", () => {
     const getConfig = jest.fn().mockReturnValue({});
     const getCompilerHost = jest.fn().mockReturnValue("l175.graffiticode.org");
     const getCompilerPort = jest.fn().mockReturnValue("443");
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getOverrideBaseUrl = jest.fn().mockResolvedValue(undefined);
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
       isNonEmptyString,
@@ -171,6 +179,7 @@ describe("baseUrl", () => {
     const getConfig = jest.fn().mockReturnValue({});
     const getCompilerHost = jest.fn().mockReturnValue("l175.graffiticode.org");
     const getCompilerPort = jest.fn().mockReturnValue("443");
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     const getOverrideBaseUrl = jest.fn().mockResolvedValue("https://should-not-be-used");
     const getLanguageBaseUrl = buildGetBaseUrlForLanguage({
       isNonEmptyString,

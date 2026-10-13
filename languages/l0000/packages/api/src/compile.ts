@@ -4,7 +4,7 @@ import { Compiler, Checker, Transformer, Renderer } from "@graffiticode/l0000";
 // L0000 is the root language: the server compiles with the base Checker/Transformer
 // directly (no subclassing). Child language servers construct their Compiler with their
 // own subclasses instead.
-const compiler = new Compiler({
+export const compiler = new Compiler({
   langID: "0000",
   version: "v0.0.1",
   Checker,
@@ -29,13 +29,19 @@ export async function compile({
   }
   // Response envelope: successful compile output goes in `data`; compile errors go in
   // `errors` (always an array). Consumers (the View/Form) branch on `errors.length`.
+  // `effects`, when the compile made protected writes, says what each did; the api
+  // gateway collects it per stage and keeps it out of the next stage's input.
   return await new Promise((resolve) =>
-    compiler.compile(code, data, config, (err: any, out: any) => {
+    compiler.compile(code, data, config, (err: any, out: any, meta?: { effects?: unknown[] }) => {
       const errors = Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [];
+      const effects = Array.isArray(meta?.effects) && meta.effects.length > 0 ? { effects: meta.effects } : {};
+      // Under an admitted plan (W4) the gateway checks the revision that
+      // answered against the one the plan pins.
+      const revision = identity?.admissionToken ? { revision: process.env.K_REVISION ?? null } : {};
       if (errors.length > 0) {
-        resolve({ data: null, errors });
+        resolve({ data: null, errors, ...effects, ...revision });
       } else {
-        resolve({ data: out, errors: [] });
+        resolve({ data: out, errors: [], ...effects, ...revision });
       }
     }, identity),
   );

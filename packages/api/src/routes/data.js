@@ -98,6 +98,7 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
 };
 
 export default ({ taskStorer, compileStorer, dataApi }) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetDataHandler({ taskStorer, compileStorer, dataApi }));
   router.options("/", optionsHandler);

@@ -2,8 +2,9 @@
 # Dialect L0176 Specific Instructions
 
 L0176 is a Graffiticode dialect for building Learnosity assessment integrations.
-It compiles programs into Learnosity API requests (Items, Questions, Author APIs)
-and renders them via a React frontend.
+It compiles programs into Learnosity API requests (Items and Questions APIs)
+and renders them via a React frontend. It doesn't open the Author Site: to plan
+an Author API integration, use L0177.
 
 ## L0176 Specific Guidelines
 
@@ -12,7 +13,6 @@ and renders them via a React frontend.
 - Use `items` to create Items API requests for rendering assessments
 - Use `item` to define individual items when building a list for `items`
 - Use `questions [...] {}` inside an `item` to give it its questions
-- Use `author` to create Author API requests for item authoring
 - Do not use `init` or `hello`: `init` signs a bare session request and `hello` is a diagnostic; neither produces an assessment
 - `items` always takes a list of `item` objects: `items [item [questions [...] {}]] {}..`
 - When an assessment has multiple questions, place all questions in the same `item` rather than creating separate items: `items [item [questions [mcq [], shorttext []] {}]] {}..`
@@ -781,8 +781,9 @@ is not an error.
 **Never put Learnosity credentials in a program.** Do not emit
 `set-var "learnosity-key" ...` or `set-var "learnosity-secret" ...`, whether
 with `get-val-public`, `get-val-private` or a literal. The caller's connection
-holds their credentials: it signs the preview and performs the item-bank write,
-so a program needs neither and must not carry either.
+holds their credentials: it signs the preview and performs the item-bank write;
+without one, Graffiticode signs the preview itself. A program needs neither and
+must not carry either — credentials in a program are ignored.
 
 Prompts that should trigger `save-to-itembank`:
 
@@ -1059,9 +1060,4 @@ substitutes one row into the question text via `{{colname}}` placeholders.
 - Initialize an items session:
   ```
   init { "type": "items" }..
-  ```
-
-- Author mode for editing items:
-  ```
-  author { "mode": "item_edit" }..
   ```

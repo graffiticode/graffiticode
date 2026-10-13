@@ -22,6 +22,8 @@ const buildPostCompileHandler = ({ compile }: { compile: CompileFn }) =>
       userToken: uid ? authToken : null,
       invocationToken: typeof body.invocationToken === "string" ? body.invocationToken : null,
       stage: typeof body.stage === "string" ? body.stage : null,
+      // The admitted plan (capability plan W4), from the gateway; policy verifies it.
+      admissionToken: typeof body.admissionToken === "string" ? body.admissionToken : null,
     };
     try {
       const data = await compile({ ...body, auth, authToken, identity, lang: "0176" });

@@ -1,0 +1,27 @@
+{
+  "id": "0185",
+  "description": "Fetch and shape data: load JSON or CSV from a public https URL, or take data written inline, then filter, pick, rename, compute, group and summarize, sort and join it. The output is the transformed data — usually a list of records. Successor to L0170.",
+  "supported_item_types": ["data"],
+  "example_prompts": [
+    {
+      "prompt": "From https://l0185.graffiticode.org/data/sales.csv, total the paid order amounts by region, largest first.",
+      "produces": "data",
+      "notes": "Right to left: `sort-by [\"revenue\" DESC] summarize {revenue: [SUM \"amount\"]} group-by [\"region\"] where [\"status\" EQUALS \"paid\"] fetch \"…\" {}`."
+    },
+    {
+      "prompt": "List the names and emails of the users in https://l0185.graffiticode.org/data/api.json (they are under data.users).",
+      "produces": "data",
+      "notes": "`at` goes to the RIGHT of fetch: `pick [\"name\" \"email\"] fetch \"…\" at \"data.users\" {}`."
+    },
+    {
+      "prompt": "Join each order to its customer's name.",
+      "produces": "data",
+      "notes": "Bind the customers with `let`, then `join {with: customers on: [\"customer-id\" \"id\"] prefix: \"customer-\"}`."
+    },
+    {
+      "prompt": "Chart the data at this URL.",
+      "produces": "data",
+      "notes": "Not this language: charts are L0184."
+    }
+  ]
+}

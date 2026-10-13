@@ -20,5 +20,7 @@ try {
   }
 }
 
+// The return type is spelled out so declaration emit can name it (TS2742).
+/** @returns {import("firebase-admin").auth.Auth} */
 export const getAuth = () => admin.auth();
 export const getFirestore = () => admin.firestore();

@@ -16,7 +16,6 @@ semantics and base library can be found here:
 | `items` | 2 | `<list: list, continuation: record>` | The top-level block: builds one Learnosity item per `item` entry and renders their questions |
 | `item` | 1 | `<members: list>` | One item, for the list `items` takes: its `questions` and `metadata` |
 | `questions` | 2 | `<list: list, continuation: record>` | An item's questions — or, at top level, a questions-only activity |
-| `author` | 1 | `<record: record>` | Creates a Learnosity Author API request |
 | `init` | 1 | `<record: record>` | Signs a bare Learnosity API session request |
 | `hello` | 1 | `<string: string>` | Evaluates to its argument; a diagnostic |
 
@@ -146,9 +145,12 @@ The write happens only in a compile that selects a connection, through the
 credential broker. Without one, the save is checked but not run: the result
 carries `itemBank: { skipped: "no-connection", fn, occurrence }` beside the
 activity, the preview still renders, and it is not an error. Programs do not
-carry Learnosity credentials: the selected connection signs the preview and
-performs the write, and without one previews use the server's default
-credentials.
+carry Learnosity credentials (`set-var "learnosity-key"`/`"learnosity-secret"`
+are ignored): the selected connection signs the preview and performs the
+write, and without one the preview is signed by Graffiticode's own system
+connection, which can sign previews and nothing else. If no preview signing
+is available the activity comes back unsigned with a
+`signing: { unsigned, message }` note, and that is not an error either.
 
 ```
 set-var "lrn-id" "mitochondria-mcq"
@@ -216,22 +218,10 @@ questions [
 ] {}
 ```
 
-### author
-
-Creates a Learnosity Author API request from the given configuration record.
-Like `items`, it needs `set-var "lrn-id"`, which names the item being authored.
-An Author session is signed only in a compile that selects a connection; without
-one the request is returned unsigned, and the server's credentials never sign it.
-
-```
-set-var "lrn-id" "mitochondria-mcq"
-author { "mode": "item_edit" }..
-```
-
 ### init
 
 Signs a bare Learnosity session request built from the given record, whose
-`type` — `"items"`, `"questions"` or `"author"` — selects the API. Rarely
+`type` — `"items"` or `"questions"` — selects the API. Rarely
 needed: `items` and `questions` produce signed requests themselves.
 
 ```

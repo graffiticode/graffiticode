@@ -174,3 +174,9 @@ Natural-language prompts for training a RAG model on the L0000 root Graffiticode
 
 126. Adds 1 and 2 with the block comment `/* sum two numbers */` placed before the expression.
 127. Defines a `double` lambda preceded by a multi-line block comment that explains its purpose.
+
+## 16. Number Formatting
+
+128. Formats 1234.5 with two decimal places and a thousands separator using `format-number`.
+129. Shows 0.256 as a percentage with one decimal place.
+130. Returns the text `"Total: $1,234.50"` for the sum of 1000 and 234.5, formatting the sum with `format-number` inside a template.

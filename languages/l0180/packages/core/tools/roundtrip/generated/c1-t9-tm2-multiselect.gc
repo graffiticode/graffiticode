@@ -1,0 +1,49 @@
+item [
+  stimulus [
+    title "How a Honeybee Colony Works"
+    paragraphs [
+      "Honeybees live together in large groups called colonies."
+      "Every bee in the colony has a job that helps the whole group survive."
+      "Worker bees gather nectar, build the honeycomb, and feed the young."
+      "Guard bees stand at the entrance and protect the hive from intruders."
+      "The queen lays the eggs that become the colony's next generation."
+      "When a worker finds flowers, it dances to tell the others where to go."
+      "In winter, the bees cluster together and beat their wings to stay warm."
+      "Because each bee does its part, the colony can do things no single bee could do alone."
+    ]
+  ]
+  parts [
+    choice [
+      prompt "Choose the two sentences that should be included in a summary of the passage."
+      response-processing "match-correct"
+      min-choices 2
+      max-choices 2
+      options [
+        [
+          text "A worker bee dances to tell the others where flowers are."
+        ]
+        [
+          text "Every bee in the colony has a job that helps the group survive."
+          assess [
+            correct
+          ]
+        ]
+        [
+          text "Guard bees protect the entrance of the hive."
+        ]
+        [
+          text "The queen bee does all of the work in the colony."
+        ]
+        [
+          text "Because each bee does its part, the colony survives together."
+          assess [
+            correct
+          ]
+        ]
+        [
+          text "Insects are important animals all around the world."
+        ]
+      ] {}
+    ]
+  ] {}
+]..

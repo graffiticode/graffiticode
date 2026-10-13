@@ -64,6 +64,7 @@ const buildDeleteAllSessions = ({ authService }) => buildHttpHandler(async (req,
 });
 
 export const buildRefreshTokensRouter = (deps) => {
+  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
 
   router.post("/exchange", buildExchange(deps));

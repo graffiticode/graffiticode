@@ -1,4 +1,5 @@
 export const buildGetAsset = ({ getBaseUrlForLanguage, bent }) => {
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   return async (lang, path, { uid } = {}) => {
     const baseUrl = await getBaseUrlForLanguage(lang, { uid });
     const getLanguageAsset = bent(baseUrl, "string");

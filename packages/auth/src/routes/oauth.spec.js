@@ -60,6 +60,7 @@ describe("routes/oauth", () => {
     });
 
     it("should not throw an error for revoking non-existing refresh token", async () => {
+      // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await expect(authApp.client.revokeRefreshToken("foo")).resolves.toBe();
     });
 

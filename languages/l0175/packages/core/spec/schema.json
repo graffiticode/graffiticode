@@ -1,0 +1,162 @@
+{
+  "revised": "2026-06-18",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0175",
+  "title": "L0175",
+  "description": "Output of an L0175 program — a composed ELA assessment item, or a set of items (one per outcome).",
+  "oneOf": [{ "$ref": "#/$defs/item" }, { "$ref": "#/$defs/items" }],
+  "$defs": {
+    "items": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "items" },
+        "title": { "type": "string" },
+        "grade": { "type": "number" },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/item" } }
+      },
+      "required": ["kind", "items"]
+    },
+    "item": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "item" },
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "grade": { "type": "number" },
+        "type": { "type": "string", "enum": ["ebsr", "hot-text", "short-text", "multiple-choice", "multi-select"] },
+        "standards": { "type": "array", "items": { "type": "string" } },
+        "dok": { "type": "string" },
+        "dimension": { "type": "string" },
+        "passage": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "heading": { "type": "string" },
+            "type": { "type": "string", "enum": ["literary", "informational"] },
+            "lines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "id": { "type": "number" }, "text": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "passages": { "type": ["object", "null"] },
+        "stem": {
+          "type": "object",
+          "properties": {
+            "partA": { "type": "string" },
+            "partB": { "type": "string" },
+            "leadIn": { "type": "string" }
+          }
+        },
+        "partA": { "$ref": "#/$defs/optionGroup" },
+        "partB": { "$ref": "#/$defs/optionGroup" },
+        "choice": { "$ref": "#/$defs/optionGroup" },
+        "selectable": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "lineId": { "type": "number" },
+              "sentence": { "type": "number" },
+              "text": { "type": "string" },
+              "correct": { "type": "boolean" }
+            }
+          }
+        },
+        "selectCount": { "type": "number" },
+        "word": {
+          "type": "object",
+          "description": "T10 Word Meanings: the targeted word + its context",
+          "properties": {
+            "text": { "type": "string" },
+            "line": { "type": "number" },
+            "quote": { "type": "string" }
+          }
+        },
+        "wordSelect": {
+          "type": "object",
+          "description": "T10 click-the-word (TM3): the excerpt tokenized; selectable candidate words, one correct",
+          "properties": {
+            "excerpt": { "type": "string" },
+            "tokens": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "idx": { "type": "number" },
+                  "pre": { "type": "string" },
+                  "text": { "type": "string" },
+                  "post": { "type": "string" },
+                  "selectable": { "type": "boolean" },
+                  "correct": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "prompt": { "type": "string" },
+        "rubric": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "score": { "type": "number" }, "descriptor": { "type": "string" } }
+          }
+        },
+        "distractorAnalysis": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "part": { "type": "string", "enum": ["A", "B"] },
+              "key": { "type": "string" },
+              "claimId": { "type": "string" },
+              "sourceId": { "type": "string" },
+              "meaningId": { "type": "string" },
+              "errorType": { "type": "string" },
+              "status": { "type": "string" },
+              "tiesTo": {},
+              "plausibility": { "type": "number", "description": "0..1 temptingness of the foil (author override or computed)" },
+              "rationale": { "type": "string" }
+            }
+          }
+        },
+        "answerKey": {
+          "type": "object",
+          "properties": {
+            "partA": { "type": "string" },
+            "partB": { "type": "string" },
+            "choice": { "type": "string" },
+            "choices": { "type": "array", "items": { "type": "string" } },
+            "word": { "type": "string" },
+            "rationale": { "type": "string" }
+          }
+        },
+        "review": { "type": "object" },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["kind", "type", "passage", "standards", "dok", "dimension", "warnings"]
+    },
+    "optionGroup": {
+      "type": "object",
+      "properties": {
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "text": { "type": "string" },
+              "line": { "type": "number" },
+              "correct": { "type": "boolean" }
+            },
+            "required": ["key", "correct"]
+          }
+        }
+      }
+    }
+  }
+}

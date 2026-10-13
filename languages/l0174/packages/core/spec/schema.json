@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0174",
+  "title": "L0174",
+  "description": "Output of an L0174 program — a form definition: a title, theme, an ordered list of fields, a submit affordance, and optional metadata.",
+  "type": "object",
+  "properties": {
+    "title": {
+      "description": "Form title shown above the fields",
+      "type": "string"
+    },
+    "theme": {
+      "description": "Light or dark theme",
+      "type": "string",
+      "enum": ["light", "dark"]
+    },
+    "fields": {
+      "description": "Ordered list of form fields",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "description": "Field input type",
+            "type": "string",
+            "enum": [
+              "text",
+              "email",
+              "number",
+              "tel",
+              "url",
+              "textarea",
+              "select",
+              "radio",
+              "checkbox",
+              "date"
+            ]
+          },
+          "name": {
+            "description": "Submission key for this field (slug of the label unless overridden)",
+            "type": "string"
+          },
+          "label": { "description": "Human-readable field label", "type": "string" },
+          "placeholder": { "type": "string" },
+          "help": { "description": "Help text shown beneath the field", "type": "string" },
+          "required": { "type": "boolean" },
+          "min": { "description": "Minimum value (number/date)", "type": "number" },
+          "max": { "description": "Maximum value (number/date)", "type": "number" },
+          "minLength": { "type": "number" },
+          "maxLength": { "type": "number" },
+          "pattern": { "description": "Regex the value must match", "type": "string" },
+          "options": {
+            "description": "Choices for select/radio/checkbox fields",
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["type", "name"]
+      }
+    },
+    "submit": {
+      "description": "Submit affordance",
+      "type": "object",
+      "properties": {
+        "label": { "description": "Submit button text", "type": "string" },
+        "thankyou": { "description": "Inline message shown after submission", "type": "string" },
+        "redirect": { "description": "URL to navigate to after submission", "type": "string" }
+      }
+    },
+    "metadata": {
+      "description": "Reserved for form-level metadata (e.g. a campaign attribute) used by console filters; non-breaking extension point",
+      "type": "object"
+    }
+  }
+}

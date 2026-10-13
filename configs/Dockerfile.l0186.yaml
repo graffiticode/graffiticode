@@ -1,0 +1,12 @@
+# l0186 from the monorepo root (deploy CLI). languages/l0186 is a self-contained
+# npm project; its own Dockerfile builds the same image from that directory.
+FROM node:22-alpine
+
+WORKDIR /usr/src/app
+
+COPY languages/l0186/ ./
+RUN npm ci && npm run build && npm prune --omit=dev
+
+ENV NODE_ENV=production
+EXPOSE 8080
+CMD ["npm", "start"]

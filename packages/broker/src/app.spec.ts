@@ -1,0 +1,267 @@
+/* eslint-disable camelcase -- Google ID-token and Learnosity wire fields */
+import request from "supertest";
+import { generateKeyPair, exportJWK } from "jose";
+import {
+  createPolicy,
+  createCallerIdentity,
+  createLocalSigner,
+  createMemoryConnectionStore,
+  createMemoryInvocationStore,
+  createAudit,
+  createPseudonymizer,
+  createProtectedSwitch
+} from "@graffiticode/policy";
+import {
+  createBroker,
+  createBrokerApp,
+  buildOperations,
+  createMemoryOnceStore,
+  createMemoryReceiptStore,
+  createMemoryActivityStore,
+  localAuthorizer,
+  AuthorizationDenied,
+  createMemorySecretStore,
+  argsDigest
+} from "./index.js";
+
+// Protected execution on (the maintenance switch is tested on its own).
+const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
+
+const OWNER = "0xowneruid";
+const AUD = "urn:graffiticode:broker";
+const SA = {
+  l0176: "l0176-run@x.iam.gserviceaccount.com",
+  l0000: "l0000-run@x.iam.gserviceaccount.com",
+  policy: "policy-run@x.iam.gserviceaccount.com"
+};
+const PREVIEW = { id: "t", questions: [{ response_id: "q-0", type: "mcq" }] };
+
+const verifyIdToken = async (token, audience) => {
+  const [kind, email, aud] = token.split("|");
+  if (kind !== "idt" || aud !== audience) throw new Error("bad token");
+  return { email, email_verified: true };
+};
+const forwarded = email =>
+  `Bearer e30.${Buffer.from(JSON.stringify({ email })).toString("base64url")}.`;
+
+let app;
+let executionToken;
+let secrets;
+
+beforeEach(async () => {
+  const pair = await generateKeyPair("ES256", { extractable: true });
+  const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
+  const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
+  records = [];
+  const audit = createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
+  // Only the stores this test uses: createPolicy's untyped parameter makes
+  // every store required, including publications, which nothing here reaches.
+  const policy = createPolicy({
+    protectedSwitch: PROTECTED_ON,
+    signer,
+    jwks,
+    audit,
+    connections: createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]),
+    invocations: createMemoryInvocationStore()
+  } as Parameters<typeof createPolicy>[0]);
+  const caller = { role: "compiler", lang: "0176" };
+  const { sessionToken } = await policy.snapshot({
+    caller,
+    user: { uid: OWNER },
+    lang: "0176",
+    connectionId: "conn-1",
+    fns: ["init"],
+    invocationToken: (await policy.allocateInvocation({
+      caller: { role: "gateway" },
+      user: { uid: OWNER },
+      connectionId: "conn-1",
+      taskId: "task-1",
+      inputDigest: argsDigest({})
+    })).invocationToken,
+    stage: "s0"
+  });
+  ({ executionToken } = await policy.mint({
+    caller,
+    sessionToken,
+    fn: "init",
+    op: "learnosity.sign-questions-preview",
+    occurrenceId: "prog",
+    argsDigest: argsDigest(PREVIEW)
+  }));
+  // A broker whose authorizer always refuses with `refusal` (or Policy's own).
+  makeApp = (refusal = null) => createBrokerApp({
+    broker: createBroker({
+      protectedSwitch: PROTECTED_ON,
+      jwks,
+      audit,
+      operations: buildOperations({ sdk: { init: (service) => ({ service }) }, domain: "d", dataApi: async () => ({}) }),
+      secrets,
+      once: createMemoryOnceStore(),
+      receipts: createMemoryReceiptStore(),
+      activity: createMemoryActivityStore(),
+      authorize: refusal ? async () => { throw new AuthorizationDenied(refusal); } : localAuthorizer(policy)
+    }),
+    secrets,
+    identifyCaller,
+    audit
+  });
+  const broker = createBroker({
+    protectedSwitch: PROTECTED_ON,
+    jwks,
+    audit,
+    operations: buildOperations({ sdk: { init: (service) => ({ service }) }, domain: "d", dataApi: async () => ({}) }),
+    secrets: (secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "k", secret: "s" } })),
+    once: createMemoryOnceStore(),
+    receipts: createMemoryReceiptStore(),
+    activity: createMemoryActivityStore(),
+    authorize: localAuthorizer(policy)
+  });
+  const identifyCaller = createCallerIdentity({
+    verifyIdToken,
+    audience: AUD,
+    callers: {
+      [SA.l0176]: { role: "compiler", lang: "0176" },
+      [SA.l0000]: { role: "compiler", lang: "0000" },
+      [SA.policy]: { role: "policy" }
+    }
+  });
+  app = createBrokerApp({ broker, secrets, identifyCaller, audit });
+});
+
+let makeApp;
+let records;
+
+const exec = (email, { token = executionToken, identity = `idt|${email}|${AUD}` } = {}) =>
+  request(app).post("/v1/execute")
+    .set("X-Caller-Identity", identity)
+    .set("X-Serverless-Authorization", forwarded(email))
+    .set("Authorization", `Bearer ${token}`)
+    .send({ op: "learnosity.sign-questions-preview", payload: PREVIEW });
+
+describe("broker http", () => {
+  it("executes for the compiler of the token's language", async () => {
+    const res = await exec(SA.l0176);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ status: "succeeded", result: { request: { service: "questions" } } });
+  });
+
+  it("refuses the token when spent by another language's compiler", async () => {
+    const res = await exec(SA.l0000);
+    expect(res.status).toBe(403);
+    expect(res.body.error.reason).toBe("caller-language-mismatch");
+    expect(JSON.stringify(res.body)).not.toContain(executionToken);
+  });
+
+  it("refuses a caller identity minted for policy rather than the broker", async () => {
+    const res = await exec(SA.l0176, { identity: `idt|${SA.l0176}|urn:graffiticode:policy` });
+    expect(res.status).toBe(401);
+  });
+
+  it("refuses a request with no execution token", async () => {
+    const res = await request(app).post("/v1/execute")
+      .set("X-Caller-Identity", `idt|${SA.l0176}|${AUD}`)
+      .set("X-Serverless-Authorization", forwarded(SA.l0176))
+      .send({ op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    expect(res.status).toBe(401);
+  });
+
+  it("refuses a replay over http", async () => {
+    await exec(SA.l0176);
+    const res = await exec(SA.l0176);
+    expect(res.status).toBe(409);
+    expect(res.body.error.reason).toBe("token-replayed");
+  });
+});
+
+// Every error body carries its failure category (common/failures, spec
+// FAIL-01); statuses and reasons are unchanged.
+describe("failure categories over http", () => {
+  it("classifies refusals, keeping each status and reason", async () => {
+    const mismatch = await exec(SA.l0000);
+    expect([mismatch.status, mismatch.body.error.reason, mismatch.body.error.category]).toEqual([403, "caller-language-mismatch", "permission"]);
+    await exec(SA.l0176);
+    const replay = await exec(SA.l0176);
+    expect([replay.status, replay.body.error.reason, replay.body.error.category]).toEqual([409, "token-replayed", "conflict"]);
+  });
+
+  it("classifies authentication failures on the generic path", async () => {
+    const wrongAudience = await exec(SA.l0176, { identity: `idt|${SA.l0176}|urn:graffiticode:policy` });
+    expect([wrongAudience.status, wrongAudience.body.error.category]).toEqual([401, "authentication"]);
+    const noToken = await request(app).post("/v1/execute")
+      .set("X-Caller-Identity", `idt|${SA.l0176}|${AUD}`)
+      .set("X-Serverless-Authorization", forwarded(SA.l0176))
+      .send({ op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    expect([noToken.status, noToken.body.error.category]).toEqual([401, "authentication"]);
+  });
+
+  it("classifies a body the JSON parser rejects as malformed, keeping its status", async () => {
+    const res = await request(app).post("/v1/execute")
+      .set("X-Caller-Identity", `idt|${SA.l0176}|${AUD}`)
+      .set("X-Serverless-Authorization", forwarded(SA.l0176))
+      .set("Content-Type", "application/json")
+      .send("{ not json");
+    expect(res.status).toBe(500);
+    expect(res.body.error.category).toBe("malformed");
+  });
+
+  // Broker wraps Policy's reason; the category is the wrapped reason's.
+  it.each([
+    ["maintenance", "unavailable"],
+    ["token-expired", "authentication"],
+    ["not-granted", "permission"],
+  ])("classifies authorization-denied:%s by the reason it wraps", async (refusal, category) => {
+    app = makeApp(refusal);
+    const res = await exec(SA.l0176);
+    expect([res.status, res.body.error.reason, res.body.error.category]).toEqual([403, `authorization-denied:${refusal}`, category]);
+  });
+
+  it("reports an unknown reason as unavailable, auditing it without the value", async () => {
+    app = makeApp("something-new");
+    const res = await exec(SA.l0176);
+    expect([res.status, res.body.error.reason, res.body.error.category]).toEqual([403, "authorization-denied:something-new", "unavailable"]);
+    expect(records.some(r => r.reason === "unclassified-reason")).toBe(true);
+    expect(JSON.stringify(records)).not.toContain("something-new");
+  });
+});
+
+describe("credential provisioning", () => {
+  const as = (req, email) => req.set("X-Caller-Identity", `idt|${email}|${AUD}`).set("X-Serverless-Authorization", forwarded(email));
+
+  const CRED9 = { ownerUid: OWNER, backend: "learnosity", key: "k9", secret: "s9-secret" };
+
+  it("lets policy store, rotate and delete a credential, never echoing it", async () => {
+    const created = await as(request(app).post("/v1/secrets/conn-9"), SA.policy).send(CRED9);
+    expect(created.status).toBe(200);
+    expect(JSON.stringify(created.body)).not.toContain("s9-secret");
+    expect(await secrets.get("conn-9")).toEqual(CRED9);
+    const rotated = await as(request(app).put("/v1/secrets/conn-9"), SA.policy).send({ ...CRED9, secret: "s9-new" });
+    expect(rotated.status).toBe(200);
+    expect(await secrets.get("conn-9")).toEqual({ ...CRED9, secret: "s9-new" });
+    expect((await as(request(app).delete("/v1/secrets/conn-9"), SA.policy)).status).toBe(200);
+    expect(await secrets.get("conn-9")).toBeNull();
+  });
+
+  it("keeps owner, backend and provider account immutable, and never reuses an id", async () => {
+    await as(request(app).post("/v1/secrets/conn-9"), SA.policy).send(CRED9);
+    expect((await as(request(app).post("/v1/secrets/conn-9"), SA.policy).send(CRED9)).status).toBe(409);
+    for (const change of [{ ownerUid: "0xsomeoneelse" }, { backend: "other" }, { key: "another-account" }]) {
+      const res = await as(request(app).put("/v1/secrets/conn-9"), SA.policy).send({ ...CRED9, ...change, secret: "x" });
+      expect(res.status).toBe(409);
+    }
+    expect(await secrets.get("conn-9")).toEqual(CRED9);
+    await as(request(app).delete("/v1/secrets/conn-9"), SA.policy);
+    expect((await as(request(app).post("/v1/secrets/conn-9"), SA.policy).send(CRED9)).status).toBe(409);
+    expect((await as(request(app).put("/v1/secrets/conn-9"), SA.policy).send(CRED9)).status).toBe(404);
+  });
+
+  it("refuses compilers", async () => {
+    const res = await as(request(app).put("/v1/secrets/conn-1"), SA.l0176).send({ ownerUid: OWNER, backend: "learnosity", key: "k", secret: "evil" });
+    expect(res.status).toBe(403);
+    expect(await secrets.get("conn-1")).toMatchObject({ key: "k", secret: "s" });
+  });
+
+  it("refuses policy on the execute route", async () => {
+    const res = await exec(SA.policy);
+    expect(res.status).toBe(403);
+  });
+});

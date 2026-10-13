@@ -1,0 +1,24 @@
+{
+  "style": "rating",
+  "title": "Workplace Pulse",
+  "instructions": "Thinking about the last month, how much has each of these affected your work? There is no middle answer — lean one way or the other.",
+  "scales": {
+    "effect": {
+      "points": [
+        { "value": 1, "label": "Not at all" },
+        { "value": 2, "label": "A little" },
+        { "value": 3, "label": "Quite a bit" },
+        { "value": 4, "label": "Very much" }
+      ],
+      "optOut": "Prefer not to say"
+    }
+  },
+  "scale": "effect",
+  "items": [
+    "Meetings that ran over time",
+    "Interruptions from chat and email",
+    "Waiting on decisions from others",
+    "Unclear priorities",
+    "Working across time zones"
+  ]
+}

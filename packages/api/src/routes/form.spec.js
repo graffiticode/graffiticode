@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 
 // Mock bent to avoid slow HTTP calls to external language compilers
 jest.unstable_mockModule("bent", () => ({
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   default: jest.fn(() => jest.fn().mockResolvedValue({})),
 }));
 
@@ -76,7 +77,8 @@ describe("routes/form", () => {
   it("should handle missing params", async () => {
     await request(app)
       .get("/form")
-      .expect(400, createErrorResponse(createError(400, "Missing or invalid parameters")));
+      // `category` (spec FAIL-01, W3) is the one reviewed addition to this body.
+      .expect(400, createErrorResponse({ ...createError(400, "Missing or invalid parameters"), category: "malformed" }));
   });
 
   it.skip("should handle bad id param", async () => {

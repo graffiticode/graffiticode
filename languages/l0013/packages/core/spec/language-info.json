@@ -1,0 +1,24 @@
+{
+  "id": "0013",
+  "description": "Utility dialect that photographs an existing item: given its item id, it renders that item's form view (resolving the task id and language from the item id), crops it content-aware (trim whitespace to the inked content by default, or a densest-band `slice \"W:H\"`), uploads the PNG to an item-derived Storage path, and returns the image URL. Used to generate thumbnails; not a content-authoring target.",
+  "supported_item_types": [
+    "thumbnail"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "Capture a thumbnail of item item123.",
+      "produces": "thumbnail",
+      "notes": "Simplest snap: snap item \"item123\" {}.. — renders the item's form view and uploads the PNG."
+    },
+    {
+      "prompt": "A wide 4:1 banner of item item123's busiest region.",
+      "produces": "thumbnail",
+      "notes": "Adds the `slice` modifier: snap slice \"4:1\" item \"item123\" {}.. — crops the densest band at 4:1."
+    },
+    {
+      "prompt": "Thumbnail item item123 at 240px wide.",
+      "produces": "thumbnail",
+      "notes": "Adds the `width` modifier: snap width 240 item \"item123\" {}.. — height follows the crop's aspect."
+    }
+  ]
+}

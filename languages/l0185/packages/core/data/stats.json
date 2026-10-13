@@ -1,0 +1,141 @@
+{
+  "season": "2024",
+  "league": "Example League (fictional)",
+  "top_scorers": [
+    {
+      "rank": 1,
+      "player": {
+        "name": "Ada Mbeki",
+        "team": "Harbor City"
+      },
+      "goals": 27,
+      "matches": 37
+    },
+    {
+      "rank": 2,
+      "player": {
+        "name": "Luca Ferrante",
+        "team": "Northvale"
+      },
+      "goals": 22,
+      "matches": 36
+    },
+    {
+      "rank": 3,
+      "player": {
+        "name": "Tom\u00e1s Reyes",
+        "team": "Harbor City"
+      },
+      "goals": 21,
+      "matches": 35
+    },
+    {
+      "rank": 4,
+      "player": {
+        "name": "Kenji Arai",
+        "team": "Eastbrook United"
+      },
+      "goals": 19,
+      "matches": 34
+    },
+    {
+      "rank": 5,
+      "player": {
+        "name": "Ola Nordin",
+        "team": "Westmere"
+      },
+      "goals": 19,
+      "matches": 33
+    },
+    {
+      "rank": 6,
+      "player": {
+        "name": "Marcus Bell",
+        "team": "Northvale"
+      },
+      "goals": 19,
+      "matches": 38
+    },
+    {
+      "rank": 7,
+      "player": {
+        "name": "Yusuf Demir",
+        "team": "Riverside FC"
+      },
+      "goals": 17,
+      "matches": 37
+    },
+    {
+      "rank": 8,
+      "player": {
+        "name": "Theo Laurent",
+        "team": "Eastbrook United"
+      },
+      "goals": 16,
+      "matches": 36
+    },
+    {
+      "rank": 9,
+      "player": {
+        "name": "Idris Okoye",
+        "team": "Westmere"
+      },
+      "goals": 16,
+      "matches": 35
+    },
+    {
+      "rank": 10,
+      "player": {
+        "name": "Pavel Novak",
+        "team": "Riverside FC"
+      },
+      "goals": 16,
+      "matches": 34
+    },
+    {
+      "rank": 11,
+      "player": {
+        "name": "Sean Walsh",
+        "team": "Kingsport"
+      },
+      "goals": 14,
+      "matches": 33
+    },
+    {
+      "rank": 12,
+      "player": {
+        "name": "Diego Campos",
+        "team": "Kingsport"
+      },
+      "goals": 13,
+      "matches": 38
+    },
+    {
+      "rank": 13,
+      "player": {
+        "name": "Felix Brandt",
+        "team": "Harbor City"
+      },
+      "goals": 11,
+      "matches": 37
+    },
+    {
+      "rank": 14,
+      "player": {
+        "name": "Nico Rossi",
+        "team": "Lakeside Athletic"
+      },
+      "goals": 10,
+      "matches": 36
+    },
+    {
+      "rank": 15,
+      "player": {
+        "name": "Emil Sorensen",
+        "team": "Lakeside Athletic"
+      },
+      "goals": 9,
+      "matches": 35
+    }
+  ]
+}

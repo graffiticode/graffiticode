@@ -1,0 +1,171 @@
+{
+  "kind": "item",
+  "id": "how-a-honeybee-colony-works-q1",
+  "type": "multi-select",
+  "target": "c1-t9",
+  "taskModel": "2",
+  "standards": [
+    "ri-1",
+    "ri-2"
+  ],
+  "dok": "r-dok2",
+  "dimension": "summary",
+  "passage": {
+    "id": "how-a-honeybee-colony-works",
+    "heading": "How a Honeybee Colony Works",
+    "type": "informational",
+    "lines": [
+      {
+        "id": 1,
+        "text": "Honeybees live together in large groups called colonies."
+      },
+      {
+        "id": 2,
+        "text": "Every bee in the colony has a job that helps the whole group survive."
+      },
+      {
+        "id": 3,
+        "text": "Worker bees gather nectar, build the honeycomb, and feed the young."
+      },
+      {
+        "id": 4,
+        "text": "Guard bees stand at the entrance and protect the hive from intruders."
+      },
+      {
+        "id": 5,
+        "text": "The queen lays the eggs that become the colony's next generation."
+      },
+      {
+        "id": 6,
+        "text": "When a worker finds flowers, it dances to tell the others where to go."
+      },
+      {
+        "id": 7,
+        "text": "In winter, the bees cluster together and beat their wings to stay warm."
+      },
+      {
+        "id": 8,
+        "text": "Because each bee does its part, the colony can do things no single bee could do alone."
+      }
+    ]
+  },
+  "passages": null,
+  "stem": {
+    "partA": "Choose the two sentences that should be included in a summary of the passage. Choose two answers."
+  },
+  "distractorAnalysis": [
+    {
+      "part": "A",
+      "key": "A",
+      "claimId": "d1",
+      "errorType": "insignificant",
+      "tiesTo": [
+        "d1"
+      ],
+      "plausibility": 0.7,
+      "rationale": "A minor detail, not something a summary needs."
+    },
+    {
+      "part": "A",
+      "key": "C",
+      "claimId": "d3",
+      "errorType": "too-narrow",
+      "tiesTo": [
+        "d3"
+      ],
+      "plausibility": 0.6,
+      "rationale": "A single detail about one job, too narrow for a summary."
+    },
+    {
+      "part": "A",
+      "key": "D",
+      "claimId": "d4",
+      "errorType": "misreads-detail",
+      "tiesTo": [
+        "d4"
+      ],
+      "plausibility": 0.5,
+      "rationale": "Misreads the roles in the passage."
+    },
+    {
+      "part": "A",
+      "key": "F",
+      "claimId": "d2",
+      "errorType": "too-broad",
+      "tiesTo": [
+        "d2"
+      ],
+      "plausibility": 0.6,
+      "rationale": "An overgeneralization beyond the passage."
+    }
+  ],
+  "answerKey": {
+    "choices": [
+      "B",
+      "E"
+    ],
+    "rationale": ""
+  },
+  "review": {
+    "target": "c1-t9",
+    "standards": [
+      "ri-1",
+      "ri-2"
+    ],
+    "dok": "r-dok2",
+    "dimension": "summary",
+    "scoring": "All correct selections (and no others) = 1 point; otherwise 0.",
+    "correctClaim": {
+      "id": "s1",
+      "text": "Every bee in the colony has a job that helps the group survive."
+    },
+    "alternativeClaims": 1
+  },
+  "warnings": [],
+  "choice": {
+    "options": [
+      {
+        "key": "A",
+        "text": "A worker bee dances to tell the others where flowers are.",
+        "correct": false,
+        "claimId": "d1",
+        "errorType": "insignificant"
+      },
+      {
+        "key": "B",
+        "text": "Every bee in the colony has a job that helps the group survive.",
+        "correct": true,
+        "claimId": "s1"
+      },
+      {
+        "key": "C",
+        "text": "Guard bees protect the entrance of the hive.",
+        "correct": false,
+        "claimId": "d3",
+        "errorType": "too-narrow"
+      },
+      {
+        "key": "D",
+        "text": "The queen bee does all of the work in the colony.",
+        "correct": false,
+        "claimId": "d4",
+        "errorType": "misreads-detail"
+      },
+      {
+        "key": "E",
+        "text": "Because each bee does its part, the colony survives together.",
+        "correct": true,
+        "claimId": "s2"
+      },
+      {
+        "key": "F",
+        "text": "Insects are important animals all around the world.",
+        "correct": false,
+        "claimId": "d2",
+        "errorType": "too-broad"
+      }
+    ]
+  },
+  "selectCount": 2,
+  "grade": 5
+}

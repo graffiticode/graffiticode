@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0000",
-  "version": "0.6.0",
+  "version": "0.10.2",
   "description": "L0000 — the root Graffiticode language: base compiler, lexicon, and inheritance contract",
   "type": "module",
   "main": "./dist/index.js",
@@ -27,7 +27,8 @@
   },
   "dependencies": {
     "ajv": "^8.20.0",
-    "decimal.js": "^10.5.0"
+    "decimal.js": "^10.5.0",
+    "jose": "^5.10.0"
   },
   "devDependencies": {
     "@graffiticode/parser": "^1.10.0",

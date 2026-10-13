@@ -44,6 +44,25 @@ describe("unparse", () => {
       expect(unparsed).toBe("3.14159..");
     });
 
+    // Number literals keep their source text, including through negation.
+    it.each([
+      "-1.50..", "-007..", "-0..", "-.5..", "-12345678901234567890..",
+      "0x123..", "0X1f..", "-0x1F..",
+      "2e4..", "2E+4..", "1.5e-3..", ".5e3..", "-2e4..",
+      "[0x10 2e4 1.50]..",
+    ])("should round-trip the number literal %s", async (source) => {
+      expect(await testRoundTrip(source)).toBe(source);
+    });
+
+    it.each([
+      ["-(1.50)..", "-1.50.."],
+      ["-((2e4))..", "-2e4.."],
+      ["let f = <a: -a>.. f -5..", "5.."],
+      ["let f = <a: -a>.. f 1.50..", "-1.50.."],
+    ])("should fold the negation in %s", async (source, expected) => {
+      expect(await testRoundTrip(source)).toBe(expected);
+    });
+
     it("should unparse boolean true", async () => {
       const source = "true..";
       const unparsed = await testRoundTrip(source);
@@ -341,9 +360,10 @@ describe("unparse", () => {
 
   describe("multiple expressions", () => {
     it("should unparse multiple expressions separated by periods", async () => {
-      const source = "1.2.3..";
+      // Spaced: `1.2.3` is the number 1.2 followed by .3.
+      const source = "1 . 2 . 3..";
       const unparsed = await testRoundTrip(source);
-      expect(unparsed).toBe("1.2.3..");
+      expect(unparsed).toBe("1\n2\n3..");
     });
 
     it.skip("should unparse mixed expressions", async () => {
@@ -448,6 +468,22 @@ describe("unparse", () => {
       expect(unparsed).toContain("foo: add 1 2");
       expect(unparsed).toContain("_: 20");
       expect(unparsed).toContain("end");
+    });
+  });
+
+  describe("let patterns", () => {
+    // The parser inlines a `let` away; a destructured variable must still print as a
+    // working expression, never as a `/* VAL */` placeholder (2026-10-02).
+    it("prints a list-pattern variable as nth of the value", async () => {
+      const unparsed = await testRoundTrip("let [x y] = [3 4].. mul x y..", {}, { compact: true });
+      expect(unparsed).not.toContain("VAL");
+      expect(unparsed).toBe("mul nth 0 [3 4] nth 1 [3 4]..");
+    });
+
+    it("prints a record-pattern variable as get of the value", async () => {
+      const unparsed = await testRoundTrip("let {a b: c} = {a: 1 b: 2}.. mul a c..", {}, { compact: true });
+      expect(unparsed).not.toContain("VAL");
+      expect(unparsed).toMatch(/^mul get "a" \{.*\} get "b" \{.*\}\.\.$/);
     });
   });
 

@@ -1,0 +1,19 @@
+{
+  "style": "ranked-choice",
+  "title": "This Year's City Budget",
+  "instructions": "The council has money set aside for neighbourhood projects this year. These are the ideas residents put forward. Pick the ones you would most like to see funded and put them in priority order, most important first. Then add one idea of your own the list is missing.",
+  "minChoices": 0,
+  "maxChoices": 2,
+  "options": [
+    "repave the streets around the elementary school",
+    "extend library hours into the evening",
+    "add protected bike lanes on the main corridor",
+    "plant shade trees along the bus routes",
+    "open the community pool year round",
+    "put benches and shade at every bus stop",
+    "fund a second crossing guard downtown",
+    "restore the creek trail",
+    "add lighting to the park after dark",
+    "build a covered farmers market"
+  ]
+}

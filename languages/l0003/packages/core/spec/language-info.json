@@ -1,0 +1,50 @@
+{
+  "id": "0003",
+  "description": "The base Graffiticode dialect. Evaluates small functional-programming expressions (arithmetic, lists, lambdas, map/filter/reduce, pattern matching, tags) and renders a handful of UI primitives (hello, image, theme, id). Right tool for 'compute this value' or 'render a hello/image/themed greeting' requests; domain-specific artifacts (assessments, spreadsheets, SVG, board content) belong in the higher-numbered dialects.",
+  "supported_item_types": [
+    "expression",
+    "rendered_ui"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "Double every number in [1 2 3 4] and then sum them.",
+      "produces": "expression",
+      "notes": "Exercises map + reduce on an explicit list — the canonical list-transformation pattern."
+    },
+    {
+      "prompt": "Define a function `triple` that multiplies a number by 3, then map it over the range 1 to 5.",
+      "produces": "expression",
+      "notes": "Combines `let`-bound lambda, `range`, and `map` — covers user-defined functions applied to a generated list."
+    },
+    {
+      "prompt": "Filter the even numbers out of [1 2 3 4 5 6] using a lambda with `eq` and `mod`.",
+      "produces": "expression",
+      "notes": "Pins down the predicate shape (eq (mod x 2) 0) so the translator doesn't guess between `mod` and a custom helper."
+    },
+    {
+      "prompt": "Match a pair (x, y) and return whichever value is larger.",
+      "produces": "expression",
+      "notes": "Pattern matching on a pair — exercises `case` with destructuring plus a comparison operator."
+    },
+    {
+      "prompt": "Render a hello greeting for 'world' in the dark theme.",
+      "produces": "rendered_ui",
+      "notes": "Minimal UI program: `theme DARK hello \"world\"..` — covers the theme-wraps-hello composition."
+    },
+    {
+      "prompt": "Display the image at https://example.com/photo.jpg.",
+      "produces": "rendered_ui",
+      "notes": "Single-primitive UI program using the `image` function — the simplest rendered output L0003 can produce."
+    },
+    {
+      "prompt": "Define tags `yes` and `no`, then return `true` for `yes` and `false` for `no` using `case`.",
+      "produces": "expression",
+      "notes": "Exercises user-defined tags plus `case` dispatch — the core pattern for representing finite-choice values."
+    },
+    {
+      "prompt": "Sum the squares of the numbers from 1 to 10.",
+      "produces": "expression",
+      "notes": "Chains `range`, `map` with `pow x 2` (or a squaring lambda), and `reduce add 0` — a three-stage pipeline on computed inputs."
+    }
+  ]
+}

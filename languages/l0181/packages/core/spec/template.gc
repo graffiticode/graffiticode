@@ -1,0 +1,9 @@
+cards [
+  ["hola"      "hello"]
+  ["adiós"     "goodbye"]
+  ["por favor" "please"]
+  ["gracias"   "thank you"]
+  ["agua"      "water"]
+] title "Spanish Vocab"
+  instructions "Flip each card to see the translation."
+  {}..

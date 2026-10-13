@@ -6,6 +6,7 @@ import { createStorers } from "./storage/index.js";
 export const createApp = () => {
   const firebaseAuth = getAuth();
 
+  // @ts-expect-error TS-MIGRATE: callee ignores the argument; checkJs infers no parameters
   const storers = createStorers({ firebaseAuth });
   const services = createServices({ firebaseAuth, ...storers });
   const app = createHttpAuthApp({ firebaseAuth, ...storers, ...services });

@@ -33,7 +33,9 @@ describe("validateOutput", () => {
   const build = (opts = {}) => buildValidateOutput({ getBaseUrlForLanguage, getAsset, env, log, ...opts });
 
   beforeEach(() => {
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     getBaseUrlForLanguage = jest.fn().mockResolvedValue("http://localhost:50999");
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     getAsset = jest.fn().mockResolvedValue(JSON.stringify(SCHEMA_2020));
     log = jest.fn();
     env = { COMPILE_SCHEMA_CHECK: "emit" };

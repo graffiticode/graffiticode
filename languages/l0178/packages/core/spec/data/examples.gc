@@ -1,0 +1,84 @@
+// Comments
+
+| This is a comment
+let x = 10 ..
+
+// Basic variable declarations
+let x = 42..
+let greeting = "hello"..
+let flag = 1..
+
+// Lists
+let empty = []..
+let numbers = [1, 2, 3, 4, 5]..
+let mixed = [1, "two", [3, 4]]..
+
+// Records
+let point = {x: 10, y: 20}..
+let person = {name: "Alice", age: 30, hobbies: ["coding", "reading"]}..
+
+// Lambda expressions
+let identity = <x: x>..
+let add2 = <a b: add a b>..
+let double = <x: add x x>..
+let map = <fn arr: <i: fn arr[i]>>..
+
+// Function application
+let added = add2 3 4..
+let doubled = double 21..
+let mapped = map (double) numbers..
+
+// Composition
+let compose = <f g x: f g x>..
+let addThenDouble = compose (double) (add2)..
+let result2 = addThenDouble 5 7
+
+// Pattern matching (commented in grammar but showing syntax)
+case x of
+  0: "zero"
+  1: "one"
+  _: "many"
+end
+
+// Conditionals
+let max = <x y:
+  if gt x y
+  then x
+  else y
+>..
+
+// Recursive functions
+let factorial = <n:
+  case n of
+  1: 1
+  _: mul n factorial sub n 1
+>..
+
+// Higher order functions
+let filter = <pred arr:
+  case arr of
+    []: []
+    [x, rest]:
+      if (pred x)
+      then concat [x] (filter pred rest)
+      else filter pred rest
+  end
+> ..
+
+let reduce = <f acc xs:
+  case xs of
+    []: acc
+    [x, rest]: reduce f (f acc x) rest
+  end
+> ..
+
+// Real-world examples
+let sum = reduce plus 0 [1 2 3 4]  | yields 10
+
+let shoppingCart = [
+  {name: "Book", price: 10, quantity: 2},
+  {name: "Pen", price: 1, quantity: 5},
+  {name: "Notebook", price: 5, quantity: 1}
+]
+
+let total = calculateTotal shoppingCart

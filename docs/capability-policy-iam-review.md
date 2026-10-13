@@ -1,7 +1,7 @@
 # Capability policy — Phase 1 IAM & data-boundary review
 
-> **Status:** partly applied. Written 2026-09-25; §1.0b records what is live as of 2026-09-28,
-> including steps applied out of order and two interim deny policies that are not in §3.
+> **Status:** Phase 1 complete, 2026-09-30. §1.0c records the final state; §1.0b and §1.0 are
+> the history (steps applied out of order, and interim deny policies since removed).
 > Scope: GCP project `graffiticode` (us-central1) — `auth`, `api`, compilers `l0NNN`,
 > and the planned `policy` and `broker` services. Design context:
 > `console/docs/graffiticode_capability_policy_spec.md`.
@@ -10,13 +10,54 @@
 repo file (path given). **[UNVERIFIED]** = inferred or a GCP default. Needs confirming with the
 §1.4 commands before any step in §3 runs.
 
-**Live read status:** read 2026-09-27 and again 2026-09-28 with the §1.4 commands (as
-`jeff@artcompiler.com`). **§1.0b (2026-09-28) is the current state and supersedes §1.0; both
-supersede every [UNVERIFIED] below that they cover.**
+**Live read status:** read 2026-09-27, 2026-09-28 and 2026-09-30 with the §1.4 commands (as
+`jeff@artcompiler.com`). **§1.0c (2026-09-30) is the current state and supersedes §1.0b and
+§1.0; all three supersede every [UNVERIFIED] below that they cover.**
 
 ---
 
 ## 1. Current state
+
+### 1.0c Final state, 2026-09-30 [LIVE]
+
+Steps 1–9 are done. No workload runs as a default service account, and neither default
+account holds any project role.
+
+| Step | Final state |
+|---|---|
+| 1 SAs | One per service: `api-run`, `auth-run`, `policy-run`, `broker-run`, and `lNNNN-run` for all 41 compilers. Plus `deploy-build` and `deploy-smoke` for the deploy CLI |
+| 2 Deployers | `deploy-build` builds (the deploy CLI's builds run as it); Artifact Registry repo `services` exists. The compiler repos still deploy through the legacy Cloud Build SA |
+| 3 Roles | Compiler SAs hold no project roles (they need none). `l0158-run` and `l0176-run` read `learnosity-secret` and `GRAFFITICODE_SECRET_KEY`; `l0013-run` has `storage.objectAdmin` on `gs://graffiticode.appspot.com` |
+| 4 Databases | `policy`, `broker`, `(default)`: each limited to its own SA(s); delete protection on for all three |
+| 5 Key and secrets | Unchanged from §1.0b |
+| 6 Move services | **Every Cloud Run service runs as its own SA.** The last 27 compilers moved 2026-09-30 with `services update --service-account`, each checked by compiling its published `template.gc` against a same-day baseline (no regressions, none reverted) |
+| 7 Invokers | Unchanged from §1.0b |
+| 8 Shared secrets | Compute SA's access to `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` removed; readers are now `l0158-run` and `l0176-run` only |
+| 9 Strip Editor | `roles/editor` removed from the compute SA and `graffiticode@appspot`; neither holds any project role. The compute SA's `tokenCreator` on itself is removed too. The only Editor holders left are Google-managed service agents (`cloudservices`, `containerregistry`) |
+
+**Interim controls removed.** Deny policies `deny-compute-deploy` and `deny-compute-firestore`
+were deleted once the Policy Troubleshooter showed nothing grants the compute SA
+`run.services.update`, `iam.serviceAccounts.actAs` or `datastore.entities.get`. The org-level
+`roles/iam.denyAdmin` grant made to create them was removed. The GitHub Actions SAs remain
+disabled with no keys or roles (delete them after a quiet period).
+
+**Verified 2026-09-30.** All 41 compilers were compiled after Step 9: 33 compile; the other 8
+fail exactly as before any IAM change (template or input-data problems, and `l0156`'s missing
+Anthropic key). `api`, `auth` and `console` answer 200, and no service logged a permission
+error after Editor was removed. Pre-change policies are saved in the session scratchpad only.
+
+**Still open (outside Phase 1)**
+
+- The legacy Cloud Build SA keeps project-wide `run.admin`, `serviceAccountUser`,
+  `storage.admin`, `firebase.admin` and `serviceusage.apiKeysAdmin`, because the compiler repos
+  deploy through it. Narrowing it means moving those repos to the deploy CLI or a scoped build SA.
+- Org policy `iam.automaticIamGrantsForDefaultServiceAccounts` is not enforced; enforce it at the
+  org so new projects' default SAs don't get Editor.
+- Compilers stay publicly invokable by design (§3.1).
+- `l0156` has no Anthropic API key configured, and several compilers publish a `template.gc`
+  that does not compile on its own (`l0001`, `l0157`, `l0165`).
+- `auth` puts refresh tokens in request URLs (`GET /oauth-tokens?refresh_token=…`), so they land
+  in request logs.
 
 ### 1.0b Live state and progress, 2026-09-28 [LIVE]
 
@@ -490,7 +531,7 @@ services refuse to start without:
 
 | Secret | Env var | Mounted by | Value |
 |---|---|---|---|
-| `policy-callers` | `POLICY_CALLERS` | `policy-run` | JSON caller map (below) |
+| `policy-callers` | `POLICY_CALLERS` | `policy-run` | JSON caller map (below). Version 4 (2026-10-12, W4 PR 8 prerequisite) adds `l0000-run` as a `compiler` for `0000`, alongside `api-run` (`gateway`), `broker-run` (`broker`), `console-run@graffiticode-app` (`console`) and `l0176-run` (`compiler`, `0176`); validated with Policy's `parseCallers` before upload. `l0000-run` also holds `run.invoker` on `policy` (granted 2026-10-12). |
 | `broker-callers` | `BROKER_CALLERS` | `broker-run` | JSON caller map (below) |
 | `audit-pseudonym-secret` | `AUDIT_PSEUDONYM_SECRET` | `policy-run`, `broker-run` | random, ≥ 16 chars; **shared** so both services pseudonymize a user to the same audit id |
 
@@ -725,6 +766,494 @@ Rollback: `npm run rollback -- <service> --release <id>` restores the previous t
 does not undo IAM or secret versions.
 
 ---
+
+### Step 11: The approved-revisions database (capability plan W4, PR 1)
+
+Admitted plans pin compiler revisions that the `revisions` database records as `approved`
+(`packages/deploy/src/revisions.js`, `packages/policy/src/revisions.ts`). It's written only by the
+deploy identity (the operator, with their own credentials). Policy's runtime account reads it and
+can't write it. Firestore rules don't bind server clients, so the boundary is IAM. Create the
+database and grant the read **before** the first release of a `pinnable` service (`l0000`,
+`l0176`): such a release records its revision before promotion and doesn't promote if it can't.
+
+```bash
+P=graffiticode
+gcloud firestore databases create --project $P --database revisions --location nam5 \
+  --type firestore-native --delete-protection
+gcloud projects add-iam-policy-binding $P --member serviceAccount:$(sa policy) --role roles/datastore.viewer \
+  --condition='expression=resource.name=="projects/'$P'/databases/revisions",title=revisions-db-read-only'
+```
+
+Then record the revisions already serving (released before their service was pinnable), from
+their receipts:
+
+```bash
+npm run deploy -- approve l0176 --release <current l0176 release id>
+npm run deploy -- approve l0000 --release <current l0000 release id>
+```
+
+Verification, before anything relies on it. Two parts: who can write `revisions` at all, and
+behavioural probes of `policy-run`'s actual access.
+
+**1. Every principal that can write it.** Policy Analyzer resolves the effective permissions on
+the database, including roles inherited from the folder or organization, custom roles and basic
+roles. A project-level `jq` over `get-iam-policy` would miss those.
+
+```bash
+# Asked of the project, where every grant is made. The database itself isn't in Asset
+# Inventory's resource search (asking about it returns NOT_FOUND, "not fully explored").
+# A conditional binding is listed as CONDITIONAL; check that its condition names another
+# database.
+gcloud asset analyze-iam-policy --project=$P \
+  --full-resource-name=//cloudresourcemanager.googleapis.com/projects/$P \
+  --permissions=datastore.entities.create,datastore.entities.update,datastore.entities.delete --format=json
+R=//firestore.googleapis.com/projects/$P/databases/revisions
+```
+
+Expected: only human operators (`user:`). Any service account listed can write approvals, which
+defeats the boundary. Remove its role, or scope its condition to its own database, before relying
+on it. The Policy Troubleshooter answers the same question for one principal at a time, and is
+supporting evidence:
+`gcloud policy-intelligence troubleshoot-policy iam $R --principal-email=$(sa policy) --permission=datastore.entities.create`.
+
+**2. Behavioural probes as `policy-run`,** against disposable documents in a `probes`
+collection, which nothing reads. They need the operator to hold `serviceAccountTokenCreator` on
+`policy-run`, so grant it, probe, and revoke it:
+
+```bash
+OP=$(gcloud config get-value account)
+gcloud iam service-accounts add-iam-policy-binding $(sa policy) --project $P \
+  --member user:$OP --role roles/iam.serviceAccountTokenCreator
+D=https://firestore.googleapis.com/v1/projects/$P/databases/revisions/documents/probes
+N=probe-$(date +%s)
+OPT=$(gcloud auth print-access-token)
+# A document for policy-run to read, try to update and try to delete, seeded by the operator.
+curl -s -o /dev/null -w "seed %{http_code} (expect 200)\n" -X PATCH -H "Authorization: Bearer $OPT" \
+  -H "Content-Type: application/json" "$D/$N-seed" -d '{"fields":{"probe":{"stringValue":"seed"}}}'
+T=$(gcloud auth print-access-token --impersonate-service-account=$(sa policy))
+probe() { curl -s -o /dev/null -w "%{http_code}  $1\n" -X "$2" -H "Authorization: Bearer $T" \
+  -H "Content-Type: application/json" "$3" ${4:+-d "$4"}; }
+probe "get    (expect 200)" GET    "$D/$N-seed"
+probe "list   (expect 200)" GET    "$D"
+probe "create (expect 403)" POST   "$D?documentId=$N-created" '{"fields":{"probe":{"stringValue":"x"}}}'
+probe "update (expect 403)" PATCH  "$D/$N-seed?currentDocument.exists=true" '{"fields":{"probe":{"stringValue":"changed"}}}'
+probe "delete (expect 403)" DELETE "$D/$N-seed"
+# Clean up as the operator (the created one exists only if create was wrongly allowed),
+# and take the grant back.
+for doc in seed created; do curl -s -o /dev/null -X DELETE -H "Authorization: Bearer $OPT" "$D/$N-$doc"; done
+gcloud iam service-accounts remove-iam-policy-binding $(sa policy) --project $P \
+  --member user:$OP --role roles/iam.serviceAccountTokenCreator
+```
+
+The read probes passing and each write probe answering 403 is the evidence the boundary holds
+for `policy-run`. Record the output in the as-built release record. The Analyzer's list is the
+evidence that nothing else but the operators can write.
+**Applied and verified 2026-10-07:**
+- **Created:** the database (nam5, delete protection on, `concurrencyMode: PESSIMISTIC`, so
+  transactions lock what they read, which the retirement fence relies on). Granted `policy-run`
+  `datastore.viewer` with the condition `revisions-db-read-only`.
+- **Probes as `policy-run`** (impersonated, disposable documents): get 200, list 200, create
+  403, update 403, delete 403. Cleaned up, and the temporary token-creator grant revoked. IAM
+  changes took about a minute to apply, in both directions; the probe waits up to 8 minutes.
+- **Writers per Policy Analyzer** (project, fully explored):
+  - `api-run`, `auth-run`, `broker-run` and `policy-run`'s `datastore.user`: CONDITIONAL, each
+    scoped to its own database, so they can't write `revisions`.
+  - Unconditional: the three Owners (operators, as intended), and these:
+    - the legacy Cloud Build account (`roles/firebase.admin`). **Removed 2026-10-07**: no
+      triggers, no Firebase or Firestore admin activity in 30 days, and its remaining builds only
+      push images and `gcloud run deploy`, which `run.admin` and `serviceAccountUser` still
+      cover. Restore with `add-iam-policy-binding … --role roles/firebase.admin` if an old
+      recipe turns out to need it.
+    - `firebase-adminsdk-qflje`, which has two unintended authorities over approvals:
+      - **Direct writes:** `roles/firebase.sdkAdminServiceAgent` (Firestore access across the
+        project, the `revisions` database included). Policy Analyzer lists it as an unconditional
+        writer for this reason.
+      - **Impersonation:** project-wide `roles/iam.serviceAccountTokenCreator`, so it can act as
+        any service account in the project. That reaches approval writes through any service
+        account that can write `revisions`, or can grant that, now or later. (Impersonating
+        `policy-run` doesn't write: its access to `revisions` is read-only, verified by the
+        probes above.)
+
+      It has two user-managed, non-expiring keys. The
+      2022 key `d40cd54b…` (no recorded use) was **disabled 2026-10-07**. Key `6bfb0894…`
+      (created 2026-02-03) **last authenticated 2026-09-11** (Policy Analyzer reports the day only; see the investigation below).
+      **CLOSED 2026-10-12 (Jeff):** the gate no longer blocks W4 activation. See "Gate
+      closed", at the end of this checklist. *(Original requirement:)* Find that key's users and
+      migrate them. Then remove both authorities and verify that each is gone. Removing the key alone isn't enough: anyone
+      who can act as the account still holds both. The gap is to be closed by removal, not
+      accepted. The 2026-09-11 authentication remains unattributed.
+      - **Investigation, 2026-10-07.** No key material was read or printed: searches listed file
+        names only, and secrets by name and update date only.
+        - Local: no file under `~/work`, `~/Downloads`, `~/Desktop`, `~/Documents` or
+          `~/.config` names the key id or the account, except these docs and gcloud's own logs
+          of the IAM inspections above.
+        - GitHub, per-repository Actions secrets in the `graffiticode` organization: two could
+          hold a downloaded key, `console`'s `FIREBASE_SERVICE_ACCOUNT_GRAFFITICODE` (updated
+          2023-01-15) and `l0002`'s `GCP_SA_KEY` (updated 2025-10-20). Both were last updated
+          before the key was created (2026-02-03), so **neither holds it**. No current workflow
+          in either repository references them.
+        - Organization-level Actions secrets: only `NPM_TOKEN`, so no key there.
+        - Not checked: other GitHub organizations, hosting providers' environment variables,
+          other machines, and every deployed service's environment and mounted secrets.
+        - **Found: a key file on an operator workstation**, used by local tooling. The
+          key-specific audit logs show Storage writes from L0013's thumbnail upload during its
+          local development (2026-06-02). The console repository's admin scripts also use the
+          file, through `GRAFFITICODE_CREDENTIALS`; those read Firestore, which the audit logs
+          don't record (Data Access logs are off). The latest use found was 2026-09-10. **No
+          deployed consumer was identified in the checks performed**: deployed L0013 sets neither
+          credential variable and runs as `l0013-run@`.
+        - **Not established:** that these are the only consumers, or which use was the
+          2026-09-11 authentication.
+        - **Migration checklist.** The gate closes after step 6. Reordered 2026-10-08: the
+          gate depends on the account's authority, not on its key, so key deletion, the only
+          irreversible step, comes last.
+          1. Move the consumers to application-default credentials, and merge: L0013 (this
+             repository) and the console's admin scripts (`graffiticode/console` #8). **Done
+             2026-10-07.**
+          2. **Exercise both migrated consumers successfully with ADC.** **Done 2026-10-08**: a
+             console admin script read the `graffiticode` project's Firestore; L0013's upload
+             path (its credential setup and public-read save) wrote to and deleted from
+             `thumbnails/`.
+          3. Key `6bfb0894…` **disabled 2026-10-07** (reversible). New authentications with the
+             key are refused, but disabling doesn't revoke short-lived credentials already issued
+             with it (up to an hour). Step 4 records the exact disable time from the audit log, and
+             tells activity on those credentials apart from anything later. The observation period
+             continues alongside the steps below. A quiet period doesn't show there are no
+             infrequent consumers.
+          4. **Check for remaining consumers and record coverage**: `node scripts/sa-consumers.js`
+             (read-only; tests in `scripts/test/sa-consumers.test.js`). Each check reports
+             `PASS`, `FOUND` or `INCOMPLETE`. A failed command, including an API that's disabled,
+             is `INCOMPLETE`, never an empty inventory. The verdict passes only if every check is
+             `PASS`, or `INCOMPLETE` and accepted by the operator with a recorded reason
+             (`--accept <check>=<reason>`; a `FOUND` can't be accepted). It writes the evidence,
+             including the full Analyzer response, to `.gc-deploy/iam/`. The checks:
+             - **Workloads:** every reachable Cloud Run revision (serving or tagged), read from the
+               revision itself; Cloud Run jobs, Cloud Build triggers, Cloud Scheduler jobs and
+               Eventarc triggers in every enumerated region; Cloud Functions in all regions; App
+               Engine versions; Compute instances; Pub/Sub push subscriptions. An Asset Inventory
+               search is recorded as supplementary only, since it covers selected metadata.
+             - **Who can act as it:** Policy Analyzer for `actAs`, `getAccessToken`, `signJwt`,
+               `signBlob`, `getOpenIdToken` and `implicitDelegation`, with groups expanded and
+               indirect impersonation paths analyzed. The analysis must be fully explored, with
+               no errors, unexpanded groups or conditional bindings. Anyone other than the
+               project's Owners and the account itself is `FOUND`. Both user-managed keys must be
+               disabled.
+             - **Its authentications:** the key's disable time, and audit log entries made as the
+               account since then. Entries within an hour that used the key are credentials issued
+               before the disable; anything else means another consumer. Policy Analyzer's last
+               authentications for the account and the key are reported by day, so one on the
+               disable day itself is `INCOMPLETE`. Data Access logging is off, so empty logs are
+               limited evidence.
+             - **Not covered**, recorded with the evidence: Workflows, Cloud Tasks, Dataflow,
+               Vertex AI and GKE workload identity; resources in other projects; untagged
+               revisions with no traffic.
+
+             If a legitimate dependency turns up, migrate it to a dedicated identity with only the
+             permissions it needs, before step 5.
+
+             **First run, 2026-10-08** (`.gc-deploy/iam/sa-consumers-2026-10-08T15-27-24-190Z.json`,
+             before the review fixes in `258d0d3`; to be re-run). Verdict `FOUND`, with no
+             exceptions accepted:
+             - **No consumer found.** No reachable Cloud Run revision (118), Cloud Function,
+               Compute instance, App Engine version or Cloud Build trigger runs as the account. Both
+               keys are disabled; the key's disable was recorded at 2026-10-07T23:38:49Z. No
+               matching activity since, and both Policy Analyzer last authentications are
+               2026-09-11, within the stated logging limits.
+             - **`INCOMPLETE` (3):** Cloud Run jobs in `me-central2` (permission denied: an opt-in
+               region), and the Scheduler and Eventarc APIs (reported as never used or disabled).
+               These are for the operator to accept or resolve.
+             - **`FOUND`: eight principals can act as the account, all through project-wide
+               roles** that reach every service account in the project, not this one in
+               particular. These are access paths, not evidence of use:
+               - seven Google-managed service agents: App Engine (`gcp-gae-service`), Cloud Build
+                 (`gcp-sa-cloudbuild`), Cloud Functions (`gcf-admin-robot`), Compute
+                 (`compute-system`), Cloud Run (`serverless-robot-prod`), Container Registry
+                 (Editor) and the Google APIs agent (`cloudservices`, Editor). Some, with Editor, can
+                 also write `revisions` directly. Section 3 lists some of these agents as accepted.
+                 Whether they're accepted on this path, the operator decides.
+               - **the legacy Cloud Build account** (`PN@cloudbuild.gserviceaccount.com`):
+                 project-wide `iam.serviceAccountUser` (`actAs`), so a build running as it can deploy
+                 a workload as any service account. It is still in active use: builds up to
+                 2026-10-06 (`global`) and 2026-10-03 (`us-central1`), for many language images. It
+                 can't be removed outright without checking which of those builds deploy and as
+                 whom. Narrowing it to per-account grants on the runtime accounts it deploys is the
+                 open item already listed for Step 2.
+             - **Assessment.** No consumer of this account was found. The access paths don't block
+               step 5: once its two grants are gone, acting as this account confers no approvals
+               authority. They do bear on step 6, which asks who can write `revisions` and who can
+               act as those writers: the Editor-holding agents, and the legacy Cloud Build
+               account's project-wide `actAs`, must be resolved or explicitly accepted there.
+
+             **Second run, 2026-10-08** (`.gc-deploy/iam/sa-consumers-2026-10-08T16-59-12-995Z.json`,
+             no exceptions accepted): the same eight access paths and three `INCOMPLETE` checks; no
+             reachable revision (118) runs as the account; both keys disabled; the authentication
+             checks pass within their limits.
+
+             **Step 4 decision, recorded 2026-10-08 (Jeff).** The checker's `FOUND` verdict
+             stands; step 4 is cleared by this recorded decision, not by a changed verdict:
+             - **The three `INCOMPLETE` inventories** (Cloud Run jobs in `me-central2`; Cloud
+               Scheduler; Eventarc): *inventory unavailable; residual dependency risk accepted*,
+               **for the reversible step 5 removal only.** Not recorded as empty: the errors say
+               "permission denied" and "never used or disabled", which don't establish that no
+               resources exist.
+             - **The seven Google-managed agents' access paths:** deferred to step 6. They are not
+               exempted by identity class: acting as this account is harmless to approvals only
+               once its effective authority is removed and verified. The two Editor-holding agents'
+               direct write access to `revisions` needs its own explicit disposition at step 6.
+             - **The legacy Cloud Build account:** handled at step 6. It doesn't delay step 5, but
+               its access to every other approvals writer must be resolved or explicitly accepted
+               before W4 activation.
+          5. **Remove both authorities from `firebase-adminsdk-qflje` outright** (decided
+             2026-10-07), once steps 1-4 are done:
+             - `roles/firebase.sdkAdminServiceAgent`, its direct Firestore write access, which
+               includes `revisions`;
+             - the project-wide `roles/iam.serviceAccountTokenCreator`.
+
+             Don't add a replacement grant unless a remaining requirement has been shown. Both
+             removals are reversible: re-adding a binding restores it, and whatever needed it is a
+             consumer to migrate. **If either grant is restored, the gate reopens.**
+          6. **Verify both**, read-only. **The gate closes here**:
+             - Policy Analyzer for writers of the `revisions` database (this step's check) lists
+               no unintended principal;
+             - for each service account that check lists, Policy Analyzer for who can impersonate
+               it shows nothing beyond the operators: every signing and delegation permission
+               (`actAs`, `getAccessToken`, `signJwt`, `signBlob`, `getOpenIdToken`,
+               `implicitDelegation`), with indirect impersonation paths analyzed, and the analysis
+               fully explored;
+             - `firebase-adminsdk-qflje` holds no project-wide token-creator;
+             - **fresh step 4 evidence** (`node scripts/sa-consumers.js`, run after step 5) shows no
+               unresolved consumer finding: no workload runs as the account and no activity since
+               the disable;
+             - **every authority path has a recorded disposition**: each principal the evidence
+               lists as able to act as the account, each writer of `revisions`, and each principal
+               able to act as a writer, recorded as removed, or explicitly accepted with a reason.
+               This includes the two Editor-holding Google agents and the legacy Cloud Build
+               account. The checker's verdict may remain `FOUND` for access paths; what closes
+               the gate is that none is left without a disposition.
+          7. Delete the key, and its file on the workstation. This is hygiene, not authority: a
+             disabled key on an account with neither grant can't write approvals, even if it is
+             re-enabled.
+
+          **Step 5 done, 2026-10-08:** Jeff removed `roles/firebase.sdkAdminServiceAgent` and the
+          project-wide `roles/iam.serviceAccountTokenCreator` from `firebase-adminsdk-qflje`
+          (both unconditional bindings). Its only remaining project role is `roles/storage.admin`.
+
+          **Step 6 evidence, 2026-10-08** (all under `.gc-deploy/iam/`):
+          - **Fresh step 4 run** (`sa-consumers-2026-10-08T18-14-16-827Z.json`, after the
+            removals). No consumer: no reachable revision (118) or other inventoried workload runs
+            as the account; both keys disabled; no activity since the disable. The same three
+            inventories are `INCOMPLETE`, and the same eight principals can act as the account, now
+            by direct paths only. The indirect paths of the earlier runs are gone.
+          - **Writers of `revisions`** (`revisions-writers-2026-10-08.json`; project scope; fully
+            explored, no errors; `datastore.entities.create`, `update` and `delete`).
+            `firebase-adminsdk-qflje` is no longer listed.
+          - **Who can act as the Google-agent writers** (`actas-<agent>-2026-10-08.json`):
+            `INCOMPLETE`. Each agent lives in a Google-owned project, and the Analyzer reports "no
+            resource found" in this project's scope, so its IAM can't be analyzed from here.
+
+          **Step 6 dispositions: PROPOSED 2026-10-08, revised after review; pending Jeff's
+          approval.** One row per authority path the evidence lists, each to be removed, or
+          accepted with the function it serves and the residual risk accepted. **Step 6 is not
+          ready to close the gate:** who can act as the remaining Google-agent writers couldn't be
+          analyzed, so paths through them stay unresolved until accepted explicitly. W4
+          activation stays blocked until every row is approved, and any removal is done and
+          re-verified.
+
+          | Authority path | Evidence | Proposed disposition |
+          |---|---|---|
+          | Owners: `user:admin@artcompiler.com`, `user:jeff@artcompiler.com`, `user:kevin.m.dyer@gmail.com` (write `revisions`) | writers; Jeff's confirmation, 2026-10-08 | **Accepted as authorized operators.** Jeff confirmed that all three remain current. |
+          | `service-PN@containerregistry` agent, project Editor (wrote `revisions`, could replace W4 code) | writers; deployment paths; dependency check | **Removed, 2026-10-12.** **Dependency check** (read-only): `gcr.io` here is served by Artifact Registry (`REDIRECTION_FROM_GCR_IO_ENABLED`), and the images in use resolve there: `gcr.io/graffiticode/l0158@sha256:822cf90a…` and the release pipeline's pinned `gcr.io/graffiticode/firebase@sha256:8b553694…` both resolve to `us-docker.pkg.dev/graffiticode/gcr.io/…`. 26 of the 48 Cloud Run services pull from `gcr.io`, all served that way. Neither the agent nor the Container Registry API had any audit activity in 90 days. The legacy buckets (`artifacts.graffiticode.appspot.com`, `us.artifacts.…`) remain but aren't used. Jeff then **removed its Editor binding**. **Verified:** build `47aa0528-dbaa-4d5f-8e64-e545700aab70` redeployed `l0158` from its `gcr.io` image afterwards (`test-build-20261012T171501Z.json`), and the Troubleshooter (live) answers `ALLOW_ACCESS_STATE_NOT_GRANTED` for it updating `policy`, `broker` and `l0000`, acting as `policy-run`, and writing Firestore at project level. Restore, if a build or pull needs it: re-add the binding |
+          | `PN@cloudservices` (Google APIs service agent), project Editor (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accepted by Jeff, 2026-10-12, as a platform-trust exception covering all three of its authorities:** writing `revisions`; **replacing the five W4 services' code** (Editor gives it the deployment path below); and an impersonation boundary that can't be verified from this project. Function: Google uses it to run internal operations on the project's behalf (for example, managed instance groups and Deployment Manager), and removing its Editor role can break them. Residual risk accepted: Google's internal use of those authorities, and that who can act as it is unanalyzable from here |
+          | `service-PN@firebase-rules` agent, `roles/firebaserules.system` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accepted by Jeff, 2026-10-12, as a platform-trust exception covering** its Firestore write authority (including `revisions`) and an impersonation boundary that can't be verified from this project. Function: Firebase Security Rules, which Firestore uses. Residual risk accepted: Google's internal use of that write authority, and that who can act as it is unanalyzable from here |
+          | `service-PN@gcf-admin-robot` (Cloud Functions service agent), `roles/cloudfunctions.serviceAgent` | deployment paths | **Removed, 2026-10-12.** It could update all five W4 services and act as their runtime accounts. **Dependency check** (read-only, 2026-10-12): the API was enabled, but there were no functions of either generation in any region; none of the 48 Cloud Run services was function-backed; no Cloud Functions audit activity in 90 days, by the agent or against the API; and no function deploy configuration or command in the local repositories. Jeff then **disabled the Cloud Functions API**, which deleted the agent. Its binding now names `deleted:serviceAccount:…gcf-admin-robot…?uid=111028530608006311076` and grants nothing. The Troubleshooter answers `NOT_FOUND` for the agent's address on `policy` and `broker` update and on act-as `policy-run`. Jeff then removed that leftover binding (2026-10-12): the project policy no longer contains `roles/cloudfunctions.serviceAgent`. Re-enabling the API would create a new agent and grant it this role again, so that would reopen this row |
+          | `service-PN@gcp-gae-service` agent, `roles/appengine.serviceAgent` (writes `revisions`) | writers; act-as `INCOMPLETE`; dependency check | **Accepted by Jeff, 2026-10-12, as a platform-trust exception covering** its Firestore write authority (including `revisions`) and an impersonation boundary that can't be verified from this project. **Dependency check** (read-only, 2026-10-12): the App Engine application exists and is serving (`us-central`, `CLOUD_FIRESTORE`), with no services or versions, and the App Engine Admin API is enabled. The `(default)` Firestore database has **App Engine integration `ENABLED`**: disabling the application would disable the database that holds api's and auth's data, so removal isn't proposed. (`policy`, `broker` and `revisions` have integration disabled.) The default bucket `gs://graffiticode.appspot.com` is in use (L0013's thumbnails). No audit activity by the agent in 90 days. **Live (Troubleshooter):** it can't update `policy` or act as `policy-run` (not granted), so it has **no code-replacement path**; it can write Firestore at project level (granted). Residual risk accepted: Google's internal use of that write authority, and the unanalyzable impersonation boundary. Longer term, outside this gate: switching `(default)`'s App Engine integration off would let the application and this agent be retired, after its own investigation |
+          | `api-run`, `auth-run`, `broker-run`, `policy-run`: `datastore.user`, each conditioned to its own database | writers (`CONDITIONAL`) | **Accepted by Jeff, 2026-10-12, for this review:** the conditions name their own databases, not `revisions`. The condition evidence (`revisions-writers-2026-10-08.json`) and Policy's negative write probes (`policy-run`: create, update and delete on `revisions` refused) stay attached |
+          | The eight principals able to act as `firebase-adminsdk-qflje` | step 4 run | **Accepted by Jeff, 2026-10-12, for this specific path only,** after verifying that the account's effective approvals authority is still removed. Live, 2026-10-12: its only project role is `roles/storage.admin`; the Troubleshooter answers `ALLOW_ACCESS_STATE_NOT_GRANTED` for Firestore entity create, update and delete at project level, and for getting tokens for `policy-run`. This doesn't accept those eight principals' other permissions |
+          | Legacy Cloud Build account (`PN@cloudbuild`): formerly project-wide `iam.serviceAccountUser`, `run.admin` and more | IAM policy; writers; deployment paths; Troubleshooter | **Resolved, 2026-10-12: no path to approvals found.** Its deployment path to the W4 services was removed on 2026-10-08 ("Narrowing done", below). **Paths through the remaining writers, checked live** (Troubleshooter, 2026-10-12): it can't act as or get tokens for `api-run`, `auth-run`, `broker-run` or `policy-run`; can't set the project's IAM policy; and can't write Firestore at project level (all `ALLOW_ACCESS_STATE_NOT_GRANTED`). The Owners are users, which can't be impersonated. Who can act as the three accepted Google agents is governed outside this project; that's covered by the impersonation boundary accepted for each. Its remaining project roles (`cloudbuild.builds.builder`, `serviceusage.apiKeysAdmin`, `storage.admin`) give it no approvals path, and stay on the Step 2 list |
+          | The three `INCOMPLETE` inventories (Cloud Run jobs in `me-central2`; Scheduler; Eventarc) | step 4 runs | Accepted at step 4 for the reversible step 5 only: *inventory unavailable; residual dependency risk accepted*. **Confirmed by Jeff, 2026-10-12, limited to that purpose:** never evidence of an empty inventory |
+
+          **Recommended dispositions (review, 2026-10-08), pending Jeff's approval:** accept the
+          four runtime accounts' database-scoped grants, keeping the condition evidence and
+          Policy's negative write probes attached. Accept the path through the eight principals
+          able to act as `firebase-adminsdk-qflje`, once its effective approvals authority is
+          verified as still removed; this doesn't accept those principals' other permissions.
+          Keep the three incomplete inventories accepted for the reversible removal only, never as
+          evidence of an empty inventory. Accepting `cloudservices` and Firebase Rules, with their
+          write authority and unverified impersonation boundary, is Jeff's explicit risk
+          decision. Container Registry and App Engine stay pending. The legacy Cloud Build account
+          stays unresolved, and narrowing it comes first.
+
+          **Deployment paths, 2026-10-08** (`.gc-deploy/iam/deploy-<service>-{update,actas}-2026-10-08.json`,
+          all fully explored). Cloud Run deployment needs permission to update the service *and*
+          to act as its runtime account. Principals other than the Owners holding both on
+          `policy`, `broker`, `api`, `l0000` and `l0176`:
+          - **the legacy Cloud Build account:** `run.admin` and `iam.serviceAccountUser`, both
+            project-wide. Any build running as it can deploy new code to any of the five;
+          - **Container Registry's agent and `cloudservices`:** project Editor;
+          - **Google's Cloud Functions agent:** `cloudfunctions.serviceAgent`.
+
+          **What the legacy Cloud Build account actually deploys**
+          (`.gc-deploy/iam/legacy-builds-*-2026-10-08.json`, the 539 most recent builds that ran as
+          it, read from their steps):
+          - **Everything now in `deploy.json`** it last deployed between 2026-08-25 and 2026-09-29,
+            before the deploy CLI took over. That includes `policy` (2026-09-28) and `broker`
+            (2026-09-27).
+          - **25 services it alone still deploys:** `l0002 l0011 l0012 l0137 l0151 l0152 l0153
+            l0154 l0155 l0156 l0157 l0158 l0159 l0160 l0161 l0163 l0165 l0166 l0167 l0168 l0169
+            l0170 l0171 l0172 l0173`, all in `us-central1`, the latest `l0158` on 2026-10-02. Each
+            runs as its own `lNNNN-run` account. Every deploy passes `--allow-unauthenticated`,
+            which sets the service's IAM, so it needs `run.admin` *on that service*.
+
+          **Narrowing: direction approved by review, 2026-10-08.** It's a production IAM change,
+          for Jeff to run phase by phase with `scripts/legacy-build-narrowing.sh`. **The order
+          matters.** IAM permissions are additive, so a deploy test passes while the project-wide
+          grants remain, whatever the scoped grants are. Testing only means something after the
+          broad grants are gone:
+          1. `save`: record the project policy and the 25 services' and accounts' policies, for
+             rollback (read-only).
+          2. `grant`: `roles/run.admin` on each of the 25 services, and
+             `roles/iam.serviceAccountUser` on each of their 25 runtime accounts.
+          3. `verify`: all 50 scoped grants are present (read-only).
+          4. `remove`: the project-wide `roles/run.admin` and `roles/iam.serviceAccountUser`.
+          5. Wait a few minutes for propagation, then `check` (read-only), using the Policy
+             Troubleshooter's allow-policy answer:
+             - updating the five W4 services and acting as their runtime accounts: not granted;
+             - setting IAM on the 25 services and acting as their accounts: granted.
+
+             Deny policies can't be read with the operator's access, so the overall answer is
+             `UNKNOWN_INFO`. An unseen deny policy can only remove access: the W4 negatives stand,
+             and step 6 shows the 25 still work.
+          6. `test`: redeploy `l0158`'s current image through a build that runs as the legacy
+             account, with `--allow-unauthenticated`, as its deploys do. That's a new revision
+             with the same code.
+          7. Re-run the deployment-path analyses for the five W4 services, and record them here.
+
+          `rollback` re-adds the two project-wide grants, only if a legitimate deploy breaks. The
+          gate then stays open until the narrowing is redone. The legacy Cloud Build row stays
+          unresolved until step 7's analyses and the negative checks pass.
+
+          **Narrowing done, 2026-10-08** (Jeff ran each phase; evidence under
+          `.gc-deploy/iam/legacy-build-narrowing/`):
+          1. `save`: the project policy and the 25 services' and accounts' policies, as of
+             `20261008T184818Z` (51 files, all valid JSON).
+          2. `grant`, then `verify`: all 50 scoped grants present, each an exact, unconditional
+             binding.
+          3. `remove`: the project-wide `roles/run.admin` and `roles/iam.serviceAccountUser` removed
+             at 19:02:11 and 19:02:12 UTC (audit log). A second `remove` run then failed with "not
+             found"; `remove` now skips absent bindings. Its project roles are now
+             `cloudbuild.builds.builder`, `serviceusage.apiKeysAdmin` and `storage.admin`.
+          4. `check` (Policy Troubleshooter, allow policies; with retries after intermittent
+             failures): **passed.** Updating each W4 service and acting as its runtime account:
+             `ALLOW_ACCESS_STATE_NOT_GRANTED`. Update, set-IAM and act-as on each of the 25:
+             granted.
+          5. `test`: build `f2c0fe34-253d-4c36-afb2-8b55fa3ed8b5` redeployed `l0158` at its serving
+             digest (`gcr.io/graffiticode/l0158@sha256:822cf90a…`), with
+             `--allow-unauthenticated`. Before submitting, the project's default build account was
+             asserted to be the legacy account, and the build ran as it. Result: `SUCCESS`
+             (`test-build-20261008T204618Z.json`). No rollback.
+          6. **Deployment-path analyses after the narrowing**
+             (`.gc-deploy/iam/deploy-<service>-{update,actas}-after-narrowing.json`). Nine of ten
+             came back fully explored, and **none lists the legacy account**. The remaining
+             principals, other than the Owners, are `cloudservices` (Editor), Container
+             Registry's agent (Editor) and the Cloud Functions agent on update. On act-as, those
+             three plus Google's Compute, Cloud Build and Cloud Run agents. All have pending
+             dispositions above. The tenth, `l0000` update, hit Cloud Asset Inventory's daily
+             `analyzeIamPolicy` quota (`429`): 200 a day per project, not raisable, reset at
+             midnight Pacific.
+          7. **The tenth analysis, re-run 2026-10-12** (`deploy-l0000-update-after-narrowing.json`).
+             It was fully explored, with no errors, but **its answer is stale.** It credits the
+             legacy account with project-level `roles/run.admin` and `roles/firebase.admin`.
+             `firebase.admin` was removed on 2026-10-07 and `run.admin` on 2026-10-08. The live
+             project policy holds neither: the account's project roles are
+             `cloudbuild.builds.builder`, `serviceusage.apiKeysAdmin` and `storage.admin`. The
+             audit log shows no project IAM change since the two removals at 19:02 on 2026-10-08.
+             The Policy Troubleshooter, which reads the live policy, again answers
+             `ALLOW_ACCESS_STATE_NOT_GRANTED` for the legacy account updating `l0000` (and
+             `policy`). **The narrowing holds;** the Analyzer answered from an out-of-date
+             snapshot of the project's IAM policy. It also lists `cloudservices`, Container
+             Registry's agent and the Cloud Functions agent (pending dispositions above), and the
+             three Owners.
+
+          **What this means for the evidence.** A Policy Analyzer result can lag the live policy,
+          even when it reports being fully explored. For any negative the gate relies on, the
+          authority is the live policy and the Troubleshooter's answer; the Analyzer is
+          supporting evidence. Step 6's final verification must cross-check each Analyzer result
+          against the live policy (`gcloud projects get-iam-policy` and the resource's own
+          policy) and record any disagreement. The 2026-10-08 analyses for `policy`, `broker` and
+          `api` agree with the live policy.
+
+          Its other project-wide roles (`storage.admin`, `serviceusage.apiKeysAdmin`,
+          `cloudbuild.builds.builder`) don't deploy services. They're outside this gate, and stay
+          on the Step 2 list.
+
+          **Container Registry and App Engine dependency checks, 2026-10-08:**
+          - **Neither agent made any request** recorded in the Admin Activity or Policy Denied logs
+            in the last 90 days (`.gc-deploy/iam/activity-<agent>-2026-10-08.json`). Data Access
+            logs are off, so reads aren't covered.
+          - **The App Engine application** is the project's legacy Firestore and default-bucket
+            anchor (`databaseType: CLOUD_FIRESTORE`, `defaultBucket: graffiticode.appspot.com`).
+            Its agent stays, pending; removing it isn't proposed.
+          - **Container Registry's agent holds Editor**, which also gives it the deployment path
+            above. With `gcr.io` redirected to Artifact Registry and no recorded activity, removal
+            remains the proposal. Residual risk: reads the logs don't show.
+
+          **Additional cleanup, separate from the approvals authority:** remove
+          `firebase-adminsdk-qflje`'s project-wide `roles/storage.admin`. That fits retiring the
+          account; no remaining consumer was found that needs it. Dependency risk recorded and
+          accepted as for step 5; the binding can be restored.
+
+          After any approved removals: re-run the writers analysis and the step 4 checker, and
+          record the results here. The gate closes only when every row has an approved
+          disposition and those re-runs match.
+
+          **Final verification, 2026-10-12** (from main `22ef2fd`; evidence under
+          `.gc-deploy/iam/`):
+          - **Step 4 checker** (`sa-consumers-2026-10-12T17-46-17-818Z.json`, with the Policy
+            Denied log). Verdict `FOUND`, as expected for retained access paths. **No consumer:**
+            no reachable Cloud Run revision (121), App Engine version, Compute instance, Cloud
+            Build trigger or Pub/Sub push subscription runs as the account. Both keys are disabled.
+            No activity since the disable. Policy Analyzer's last authentications both predate it.
+            - `INCOMPLETE`: Cloud Run jobs in `me-central2`, Scheduler and Eventarc, still accepted
+              for the reversible removal only. Plus **Cloud Functions**, newly unreadable because
+              its API is disabled. Accepted on the strength of the clean dependency check made
+              before the disable, and because no function can run with the API disabled.
+            - `FOUND`: five Google agents can act as the account (App Engine, Cloud Build,
+              Compute, `cloudservices`, Cloud Run). That's down from eight: the Container Registry
+              and Cloud Functions agents are gone, and the legacy Cloud Build account was narrowed.
+              All five are covered by the approved disposition for paths through
+              `firebase-adminsdk-qflje`, which no longer reaches `revisions`. App Engine and
+              `cloudservices` are also individually accepted.
+          - **Writers of `revisions`** (`revisions-writers-final-2026-10-12.json`; fully explored,
+            no errors): exactly the principals in the table above. The three Owners; the four
+            runtime accounts, each conditioned to its own database; `cloudservices` (Editor);
+            the Firebase Rules agent; and the App Engine agent.
+          - **Cross-checked against the live policy** (`project-policy-final-2026-10-12.json`): 10
+            writer bindings in the Analyzer and 10 in the live policy. None stale, none missing.
+            The negatives the gate relies on were confirmed live with the Troubleshooter the same
+            day: `firebase-adminsdk-qflje` (no Firestore writes, no tokens for `policy-run`), the
+            legacy Cloud Build account (no W4 deployment, no act-as or tokens on the runtime
+            accounts, no `setIamPolicy`, no Firestore writes), and Container Registry's agent.
+
+          **Gate closed, 2026-10-12 (Jeff).** Every authority path in the step 6 table has a
+          recorded disposition, removed or accepted with a reason. The fresh step 4 evidence shows
+          no unresolved consumer, and the writers analysis matches the live policy. W4 activation
+          (PR 8, `docs/protected-execution.md`, "W4 activation and cutover") is no longer blocked
+          by this gate. **The gate reopens if:** any removed binding is restored; key `6bfb0894…`
+          is re-enabled; the Cloud Functions API is re-enabled (its new agent would get the role
+          back); or a new writer of `revisions` appears.
+
+          **Open cleanup, outside the gate:** remove `firebase-adminsdk-qflje`'s project-wide
+          `roles/storage.admin`; delete key `6bfb0894…` and its file on the workstation (step 7);
+          narrow the legacy Cloud Build account's remaining roles (Step 2 list); and, longer term,
+          investigate switching `(default)`'s App Engine integration off.
+    - Google-managed service agents (`cloudservices` and `containerregistry` with Editor,
+      `firebase-rules`, `gcp-gae-service`): **not accepted by this list.** Their dispositions are
+      the step 6 rows above, each now approved or carried out (2026-10-12): `cloudservices`,
+      Firebase Rules and App Engine accepted; Container Registry's Editor removed.
+
+- Rollback: `remove-iam-policy-binding` with the same condition. The database has delete
+  protection: disable it explicitly before deleting it (`gcloud firestore databases update
+  --no-delete-protection`). Never delete it while an admitted plan pins a revision it records.
 
 ## 4. Verification (read-only)
 

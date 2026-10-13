@@ -29,6 +29,7 @@ const DRAFT_2020 = /json-schema\.org\/draft\/2020-12/;
 // are cached below, so this runs at most once per TTL per language.
 const compileValidator = schema => {
   const Class = DRAFT_2020.test(String(schema?.$schema || "")) ? Ajv2020 : Ajv;
+  // @ts-expect-error TS-MIGRATE: ajv's default export under NodeNext interop
   return new Class({ allErrors: true, strict: false }).compile(schema);
 };
 
@@ -64,6 +65,7 @@ export const buildValidateOutput = ({
     return validate;
   };
 
+  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   return async (lang, obj, { uid, id } = {}) => {
     const mode = MODES.includes(env.COMPILE_SCHEMA_CHECK) ? env.COMPILE_SCHEMA_CHECK : "log";
     if (mode === "off") {

@@ -1,0 +1,58 @@
+item [
+  stimulus [
+    title "The Tide Pool"
+    paragraphs [
+      "Mara crouched at the edge of the tide pool, ignoring the picnic behind her."
+      "Her brother called twice, but she did not turn around."
+      "A tiny crab scuttled under a rock, and Mara smiled for the first time all day."
+      "She traced the cold water as if the pool were the only thing that mattered."
+      "Five more minutes, she whispered, though no one was listening."
+      "Behind her, paper plates rustled and her mother laughed."
+      "The waves pushed a ribbon of seaweed against her fingers."
+      "Her sandwich sat untouched on the blanket by the cooler."
+    ]
+  ]
+  scoring "conjunctive"
+  parts [
+    choice [
+      prompt "Which of these inferences about Mara is supported by the passage?"
+      options [
+        [
+          text "Mara is angry at her brother for calling her."
+        ]
+        [
+          text "Mara cares more about the tide pool than the picnic."
+          assess [
+            correct
+          ]
+        ]
+        [
+          text "Mara is afraid of her own family at the beach."
+        ]
+        [
+          text "Mara does not like being outdoors at the beach."
+        ]
+      ] {}
+    ]
+    choice [
+      prompt "Which sentence(s) from the passage best support your answer in Part A?"
+      options [
+        [
+          text "Mara crouched at the edge of the tide pool, ignoring the picnic behind her."
+          assess [
+            correct
+          ]
+        ]
+        [
+          text "Five more minutes, she whispered, though no one was listening."
+        ]
+        [
+          text "Her brother called twice, but she did not turn around."
+        ]
+        [
+          text "Behind her, paper plates rustled and her mother laughed."
+        ]
+      ] {}
+    ]
+  ] {}
+]..

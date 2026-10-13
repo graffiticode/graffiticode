@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { Env } from "./env.js";
 import { folder } from "./folder.js";
 import { assertErr } from "./parse.js";
@@ -323,9 +324,12 @@ export class Ast {
   // Node constructors
 
   static error(ctx, str, coord) {
+    // Length only: error text can carry program source (an unterminated
+    // string's message runs to the end of the program), and source is
+    // user content that must never reach logs.
     console.log(
       "error()",
-      "str=" + str,
+      "len=" + String(str).length,
       "coord=" + JSON.stringify(coord),
     );
     const from = coord?.from !== undefined ? coord.from : -1;
@@ -477,9 +481,19 @@ export class Ast {
     });
   }
 
-  static neg(ctx) {
-    const v1 = +Ast.node(ctx, Ast.pop(ctx)).elts[0];
-    Ast.number(ctx, -1 * v1);
+  // Negate a NUM's text. The sign is flipped on the text rather than computed, so the
+  // literal keeps its form and precision (`-1.50`, `-0`, `-0x1F`, `-2e4`). decimal.js
+  // checks the text is a number; the message never repeats it (it is user source).
+  static neg(ctx, text, coord) {
+    let valid = true;
+    try {
+      // eslint-disable-next-line no-new
+      new Decimal(text);
+    } catch (x) {
+      valid = false;
+    }
+    assertErr(ctx, valid, "Invalid number.", coord);
+    Ast.number(ctx, text.startsWith("-") ? text.slice(1) : "-" + text, coord);
   }
 
   static add(ctx) {

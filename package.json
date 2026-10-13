@@ -14,9 +14,18 @@
     "emulator": "npx firebase emulators:start",
     "auth": "npm run -w packages/auth dev",
     "api": "npm run -w packages/api dev",
-    "lint": "eslint test/",
-    "lint:fix": "eslint --fix test/",
+    "lint": "eslint test/ scripts/ verify/",
+    "lint:fix": "eslint --fix test/ scripts/ verify/",
+    "typecheck": "node scripts/typecheck.js",
+    "build": "tsc -b tsconfig.build.json && node scripts/fix-bin-modes.js",
+    "build:clean": "node scripts/clean-build.js",
+    "dev:build": "tsc -b tsconfig.build.json --watch --preserveWatchOutput",
     "test": "NODE_OPTIONS=--experimental-vm-modules firebase emulators:exec jest",
+    "test:unit": "node scripts/run-jest-targets.js unit",
+    "test:emulated": "node scripts/run-jest-targets.js emulated",
+    "test:ci:emulated": "firebase emulators:exec --only auth,firestore \"npm run test:emulated\"",
+    "test:compiled": "node scripts/prepare-compiled-specs.js && node scripts/run-jest-targets.js compiled-unit",
+    "test:ci:compiled-emulated": "node scripts/prepare-compiled-specs.js && firebase emulators:exec --only auth,firestore \"node scripts/run-jest-targets.js compiled-emulated\"",
     "gcp:api:build": "npm run deploy -- api",
     "gcp:api:deploy": "npm run deploy -- api",
     "gcp:api:logs": "gcloud run logs read api --region us-central1",
@@ -30,29 +39,51 @@
     "deploy": "node packages/deploy/src/cli.js",
     "rollback": "node packages/deploy/src/cli.js rollback",
     "test:deploy": "npm test -w @graffiticode/deploy",
+    "test:verify": "node --test verify/test/lib.test.js",
+    "test:at12-rollback": "node scripts/at12-baseline.js && node --test scripts/test/at12-rollback.test.js",
+    "test:scripts": "node --test scripts/test/protected-execution.test.js scripts/test/canary.test.js scripts/test/failures-inventory.test.js scripts/test/monitoring.test.js scripts/test/revisions.test.js scripts/test/chain-inventory.test.js scripts/test/sa-consumers.test.js",
     "gcp:broker:build": "npm run deploy -- broker",
-    "gcp:policy:build": "npm run deploy -- policy"
+    "gcp:policy:build": "npm run deploy -- policy",
+    "upgrade-l0000-and-deploy": "node scripts/upgrade-l0000-and-deploy.js",
+    "upgrade-l0000-view-and-deploy": "node scripts/upgrade-l0000-view-and-deploy.js"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.0",
-    "eslint": "^8.44.0",
+    "@graffiticode/deploy": "0.1.0",
+    "@swc/core": "1.16.13",
+    "@swc/jest": "0.2.39",
+    "@types/express": "4.17.25",
+    "@types/jest": "29.5.14",
+    "@types/node": "22.20.4",
+    "@typescript-eslint/eslint-plugin": "8.71.0",
+    "@typescript-eslint/parser": "8.71.0",
+    "acorn": "8.10.0",
+    "eslint": "8.57.1",
     "eslint-config-standard": "^17.1.0",
+    "eslint-import-resolver-typescript": "4.4.5",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-n": "^16.0.1",
     "eslint-plugin-promise": "^6.1.1",
     "firebase": "^10.0.0",
     "firebase-tools": "^12.4.3",
     "jest": "^29.6.1",
-    "@graffiticode/deploy": "0.1.0"
+    "typescript": "5.9.3"
   },
   "jest": {
     "testPathIgnorePatterns": [
       "<rootDir>/packages/",
       "<rootDir>/languages/",
-      "<rootDir>/node_modules/"
+      "<rootDir>/node_modules/",
+      "<rootDir>/.claude/",
+      "<rootDir>/verify/",
+      "<rootDir>/scripts/test/",
+      "<rootDir>/.at12-baseline/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.at12-baseline/"
     ]
   },
   "dependencies": {
-    "@graffiticode/parser": "^1.4.0"
+    "@graffiticode/parser": "^1.11.1"
   }
 }

@@ -52,6 +52,7 @@ describe("storage/api-keys", () => {
   });
 
   it("should delete a non-existing api-key", async () => {
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     await expect(storer.removeById("does-not-exist")).resolves.toBe();
   });
 
@@ -60,6 +61,10 @@ describe("storage/api-keys", () => {
       const apiKeys = [];
       for (let i = 0; i < num; i++) {
         apiKeys.push(await storer.create({ uid }));
+        // createdAt is a server timestamp; keys created in the same instant
+        // tie, and Firestore breaks ties by (random) doc id, so the expected
+        // order would be nondeterministic.
+        await new Promise(resolve => setTimeout(resolve, 2));
       }
       return apiKeys;
     };

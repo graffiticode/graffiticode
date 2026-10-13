@@ -91,6 +91,7 @@ The base library is universal across dialects. Every dialect adds its own vocabu
 | `get-val-public`, `get-val-private` | `<string: string>` | Read system-supplied values (e.g. `itemId`); the private variant is decrypted at compile time. |
 | `json` | `<string: any>` | Parse a string as JSON. |
 | `str` | `<any: string>` | Display text of any value; lists and records in Graffiticode syntax. |
+| `format-number` | `<string number: string>` | A number as text by an Excel pattern: `format-number "#,##0.00" 1234.5` is `"1,234.50"`. |
 | `log` | `<any: any>` | Print a value and return it (identity-with-side-effect). |
 | `apply` | `<function list: any>` | Apply a function to a list of arguments. |
 | `data` | `<record: record>` | Returns the upstream task's compiled output if a chained upstream is wired, or the argument otherwise. See "Composition" below. |

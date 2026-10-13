@@ -47,6 +47,9 @@ const RETIRED = [
   // training examples, so nothing ever emitted it — but a doc example is what the
   // generator copies, so keep it from returning.
   "id",
+  // Removed with protected-registry v7 (AUTHOR-01, closed by removal): L0176
+  // doesn't open the Author Site; L0177 plans Author API integrations.
+  "author",
 ];
 
 test("no retired keyword is still documented", () => {
@@ -110,15 +113,15 @@ test("every program fragment in spec/ compiles, not merely parses", async () => 
         ? src
         : QUESTION_TYPES.includes(head)
           ? `set-var "lrn-id" "t" questions [${src}] {}..`
-          : ["items", "questions", "author"].includes(head)
+          : ["items", "questions"].includes(head)
             ? `${src}..`
             : head === "item"
               ? `items [${src}] {}..`
               : null;
       if (prog === null) continue;
       // `get-val-public` reads task data the harness has no way to supply, and
-      // an `author` fragment may omit the lrn-id its own section establishes.
-      // Neither is staleness; substitute so the rest of the program is exercised.
+      // a fragment may omit the lrn-id its section establishes. Neither is
+      // staleness; substitute so the rest of the program is exercised.
       prog = prog.replace(/get-val-(public|private)\s+"[^"]*"/g, '"test-item-id"');
       if (!/set-var\s+"lrn-id"/.test(prog)) prog = `set-var "lrn-id" "t" ${prog}`;
       // save-to-itembank writes to the Learnosity Data API for real. The guard
@@ -133,7 +136,9 @@ test("every program fragment in spec/ compiles, not merely parses", async () => 
   }
   expect(bad, `${bad.length} of ${ok + bad.length} fragments failed to compile:\n${bad.join("\n")}`)
     .toEqual([]);
-});
+  // Compiles every fragment in the spec: well under a second locally, but past
+  // Vitest's 5 s default on a small Cloud Build machine.
+}, 30_000);
 
 // A cloze blank is placed by the *template*. The stimulus is the prompt above
 // it and is not scanned for `{{response}}`, so a question written with the

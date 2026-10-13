@@ -4,15 +4,18 @@
   "private": true,
   "type": "module",
   "description": "Graffiticode policy authority: connections, permission snapshots, execution-token minting",
-  "main": "./src/index.js",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./dist/index.js",
+    "./audit": "./dist/audit.js",
+    "./client": "./dist/client.js",
+    "./revisions": "./dist/revisions.js"
   },
   "scripts": {
-    "lint": "eslint src/",
-    "lint:fix": "eslint --fix src/",
+    "lint": "eslint --ext .js,.ts src/",
+    "lint:fix": "eslint --fix --ext .js,.ts src/",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "start": "node src/main.js"
+    "start": "node dist/main.js"
   },
   "dependencies": {
     "@google-cloud/kms": "^4.5.0",

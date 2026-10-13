@@ -1,0 +1,14 @@
+{
+  "style": "rating",
+  "title": "Workplace Pulse",
+  "instructions": "We are deciding where to focus next quarter. Tell us how important each of these is to you at work.",
+  "scale": "importance-5",
+  "items": [
+    "Flexible working hours",
+    "Time set aside for learning",
+    "Clear paths to promotion",
+    "A quieter place to concentrate",
+    "Regular one-to-one time with my manager"
+  ],
+  "comment": { "prompt": "What else should we focus on?" }
+}

@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /*
+   * Preflight is off (see tailwind.config.js) so this component never injects a global reset
+   * into a consumer app or into the page hosting the /form iframe. One preflight declaration
+   * is load-bearing for us, though: it sets `border-style: solid; border-width: 0` on every
+   * element, and without it Tailwind's `border-*` utilities set a colour and a width against
+   * CSS's default `border-style: none` — so every bordered card renders with no border at all.
+   *
+   * Restore exactly that one rule, scoped to our own subtree rather than the document.
+   */
+  .l0180-item,
+  .l0180-item *,
+  .l0180-item *::before,
+  .l0180-item *::after {
+    border-style: solid;
+    border-width: 0;
+  }
+}

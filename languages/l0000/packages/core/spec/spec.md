@@ -335,6 +335,7 @@ This approach draws inspiration from **Model-View-Update** (MVU) architectures, 
 | `eq` | `<number number: bool>` | Numeric equality |
 | `equiv` | `<any any: bool>` | Semantic equivalence for any type, including tags |
 | `filter` | `<function list: list>` | Keeps items matching predicate |
+| `format-number` | `<string number: string>` | Formats a number as text by an Excel number-format pattern |
 | `ge` | `<number number: bool>` | Returns true if first value is greater than or equal to second |
 | `get` | `<string record: any>` | Retrieves a value from a record by key |
 | `get-var` | `<string: any>` | Gets the value of a named variable |
@@ -483,6 +484,38 @@ equiv red blue   | returns false
 ### filter
 
 Filter elements matching predicate
+
+### format-number
+
+Formats a number as text by an Excel number-format pattern. The pattern comes first, so
+`<x: format-number "0.00" x>` formats each element under `map`. Rounding is half away from
+zero and exact: decimal, not binary, so `1.005` rounds to `1.01`.
+
+| Pattern element | Meaning |
+| :-------------- | :------ |
+| `0` `#` `?` | Digit placeholders: always shown / shown only if significant / shown or replaced by a space |
+| `.` | The decimal point |
+| `,` between placeholders | Thousands grouping |
+| `,` right after the last placeholder | Divides by 1000 per comma: `#,##0,,"M"` |
+| `%` | Multiplies by 100 and writes `%` |
+| `E+00` `E-00` `E00` | Scientific form. `E+` always writes the exponent's sign; `E-` and `E` only a minus. `e` writes a lowercase `e`. With `#` in the integer part the exponent is a multiple of its width (`##0.0E+0`) |
+| `"text"` `\c` `$ - + ( ) : /` space | Literal text |
+| `_c` | A space; `*c` is ignored |
+| `;` | Sections: `positive;negative;zero`, or `nonnegative;negative`. A negative section writes no minus |
+| `General` | The same text as `str` |
+
+Not supported, and reported as errors: `[…]` (colors, conditions, locales), `@` and text sections,
+date and time codes, fractions, and unquoted letters (quote literal text).
+
+```
+format-number "#,##0.00" 1234.5       | returns "1,234.50"
+format-number "0.0%" 0.256            | returns "25.6%"
+format-number "$#,##0" 1234567.8      | returns "$1,234,568"
+format-number "0.00E+00" 12345        | returns "1.23E+04"
+format-number "0.00e00" 0.00123       | returns "1.23e-03"
+format-number "#,##0;(#,##0)" -1500   | returns "(1,500)"
+format-number "0.00" 1.005            | returns "1.01"
+```
 
 ### ge
 
@@ -743,8 +776,8 @@ set "a" 2 {a: 1}  | returns {a: 2}
 
 Converts any value to display text. A string is itself; a number, boolean, null or tag is written
 as is (`red` for a tag); a list or record is written in Graffiticode syntax, with strings inside it
-quoted and tags written `tag red`. Never fails. Number formatting (fixed decimals) is not
-provided by `str`.
+quoted and tags written `tag red`. Never fails. Use `format-number` for fixed decimals,
+grouping, percent or scientific form.
 
 ```
 str 30                     | returns "30"

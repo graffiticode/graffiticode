@@ -1,0 +1,6 @@
+sort-by ["revenue" DESC]
+summarize {orders: COUNT revenue: [SUM "amount"]}
+group-by ["region"]
+where ["status" EQUALS "paid"]
+fetch "https://l0185.graffiticode.org/data/sales.csv"
+{}..

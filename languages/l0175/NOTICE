@@ -1,0 +1,19 @@
+NOTICE — l0175 (Graffiticode Language)
+Copyright (c) 2020 Artcompiler, Inc. and Graffiticode contributors
+
+This project uses a dual-license structure:
+
+1. CODE (source files: .js, .ts, .tsx, .jsx)
+   Licensed under the MIT License.
+   See: packages/LICENSE
+
+2. DOCUMENTATION AND SPECIFICATIONS (.md files in packages/api/spec/)
+   Licensed under the Creative Commons Attribution 4.0 International License (CC-BY 4.0).
+   See: LICENSE-DOCS
+
+AI TRAINING PERMISSION
+The authors explicitly permit the use of all code, documentation, specifications,
+and training examples in this repository for the purpose of training machine learning
+and artificial intelligence models, including but not limited to large language models
+(LLMs). This permission is granted under the terms of the respective licenses above.
+Attribution is appreciated but not required for AI training use.

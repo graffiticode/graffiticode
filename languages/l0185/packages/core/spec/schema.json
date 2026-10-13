@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://l0185.graffiticode.org/schema.json",
+  "title": "L0185 compiled output",
+  "description": "The transformed data itself — usually a list of records, but whatever the program's steps produce (a fetch with `at` can yield a record or a scalar). Nothing is added to it.",
+  "type": ["array", "object", "string", "number", "boolean", "null"]
+}

@@ -1,0 +1,89 @@
+{
+  "id": "0178",
+  "status": "Early: 30 modeled operation blocks, including both sessions-set variants, against the ledger's 57 documented blocks. Modeled coverage is separate from empirical coverage: observations support specific behaviors, while session submissions, deletion, and six of eight update operations remain documented only.",
+  "description": "Empirical integration oracle. Produces developer cookbook recipes for the Learnosity Data API — the server-to-server interface to a Learnosity Item bank. The client describes a data job (which operation, what the request carries, how far it reads) and L0178 validates it, flags holes as steering warnings, and via get_spec returns a host-language-neutral recipe: goal, preconditions, procedure, a dedicated paging section, gotchas, and verification steps. The failure it exists to prevent is a truncated read — measured against the live demo bank: meta.records read 2 on every one of 12 consecutive pages while 24 distinct Items came back, and a limit above the maximum is silently clamped so that every page looks short while meta.next is present throughout. Models 30 operation blocks: Item bank reads, session-response reads, supported writes, and asynchronous jobs. Operations absent from the vocabulary are unbuilt, not unsupported. It does NOT author item content (that is L0176), does NOT cover the Author API authoring experience (that is L0177), and never calls a Learnosity API. Use ONLY when the user names Learnosity. Its knowledge combines documentation with direct API observations. Recipes preserve consequential claims' evidence and limits; a complete design is not a verified deployment. It does not sign or send Learnosity requests when producing a recipe.",
+  "supported_item_types": [
+    "items-get",
+    "responses-get",
+    "jobs-get",
+    "offlinepackage-get",
+    "items-set",
+    "items-tags-set",
+    "activities-get",
+    "questions-get",
+    "features-get",
+    "pools-get",
+    "workflows-get",
+    "tagging-tags-get",
+    "tags-get",
+    "tag-hierarchies-get",
+    "tag-hierarchy-nodes-get",
+    "upload-assets-get",
+    "activity-templates-get",
+    "player-templates-get",
+    "activities-tags-set",
+    "activities-tags-update",
+    "pools-update",
+    "session-statuses-update",
+    "session-item-update",
+    "response-feedback-update",
+    "response-scores-update",
+    "response-grading-update",
+    "sessions-delete",
+    "sessions-set-from-template",
+    "sessions-set-failed-submission",
+    "items-tags-update"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "Read every published Item tagged subject=English from Item bank 123.",
+      "produces": "items-get",
+      "notes": "A filtered read of the whole match set — becomes paging EXHAUSTIVE plus a tag filter, and the recipe's paging loop terminates on the absence of meta.next."
+    },
+    {
+      "prompt": "Fetch Items Grade7_ELA_1021 and Grade7_ELA_1022 with their creation and update dates.",
+      "produces": "items-get",
+      "notes": "Named references plus include-items; small enough that a single page suffices, but the policy must still be declared."
+    },
+    {
+      "prompt": "Get every Item containing an mcq question, created since January, newest first.",
+      "produces": "items-get",
+      "notes": "Exercises questions-types, a mintime window, and sort/sort-field — and needs exhaustive paging, since the match set is open-ended."
+    },
+    {
+      "prompt": "Pull one page of archived Items so I can see the shape of the data.",
+      "produces": "items-get",
+      "notes": "The single-page case: accepted, but the recipe must say the result is not the full match set and that nothing in the response reveals that."
+    },
+    {
+      "prompt": "Pull every completed session response for activity numeracy since January.",
+      "produces": "responses-get",
+      "notes": "A sessions/* read — and a different paging contract from the Item bank: meta.next is always present there, so the loop must terminate on an empty page rather than on a missing token."
+    },
+    {
+      "prompt": "Build an offline device package for items calc-limit-2 and alg-quad-3 from bank 386.",
+      "produces": "offlinepackage-get",
+      "notes": "An async operation: it returns a job reference rather than a result, so the recipe writes a polling loop instead of a paging loop."
+    },
+    {
+      "prompt": "Check whether job dc39cf55-dbfc-4921 has finished yet.",
+      "produces": "jobs-get",
+      "notes": "The polling channel as a standalone job. Not paged — and the recipe must tell the reader to OMIT status, because mirroring the documented default hides the in-flight job."
+    },
+    {
+      "prompt": "Publish these three items into bank 386, replacing what is there.",
+      "produces": "items-set",
+      "notes": "A write. The recipe must lead with replace semantics — omitted fields are cleared, not preserved — and say that status defaults to unpublished, which makes the item undeliverable."
+    },
+    {
+      "prompt": "Add the tag Grade: 9 to item bio-cell-4 in bank 386 without touching its other tags.",
+      "produces": "items-tags-update",
+      "notes": "The merge case. Written as items-tags-set instead, this would silently delete every other tag on the item — same endpoint, different verb, identical documented parameters."
+    },
+    {
+      "prompt": "Delete session 88336e4c-04de-4274-ae31-39957b230f98 for a right-to-be-forgotten request.",
+      "produces": "sessions-delete",
+      "notes": "The only destructive operation, and capped at one session per request by design. The recipe must say it cannot be undone and that there is nothing to re-read afterwards."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "0185",
+  "summary": "Fetch JSON or CSV from a public https URL, or take data written inline, and reshape it: filter, pick and rename fields, compute new ones, group and summarize, sort, join two data sets. The output is the transformed data. Succeeds L0170.",
+  "in_scope": [
+    "Fetching JSON or CSV from a public https URL, and reaching the list inside a JSON document",
+    "Data written inline in the request, as records or as rows with column names",
+    "Keeping the records that match conditions, including tests written as functions of the record",
+    "Picking, dropping, renaming and computing fields",
+    "Grouping and summarizing: counts, sums, averages, medians, minimums, maximums, distinct counts",
+    "Sorting, taking the first n records, skipping, and removing duplicates",
+    "Joining two data sets on a key",
+    "Flattening nested records and lists into flat records",
+    "Formatting numbers as text"
+  ],
+  "out_of_scope": [
+    "Charts are L0184; do NOT route a request to draw a chart here, even when it also fetches the data.",
+    "Spreadsheets and editable tables are L0179; do NOT route them here.",
+    "Quizzes and assessment items do NOT belong here — use L0180.",
+    "Sources that need a login, an API key, custom headers or a POST request are not built yet — L0185 fetches only public https URLs with GET.",
+    "Writing data back to a service, a file or a database is not built yet.",
+    "Window functions, running totals across records, pivots and SQL or GraphQL queries are not built yet.",
+    "L0185 does NOT accept L0170 programs: it is a different language, and existing L0170 items stay with L0170."
+  ]
+}

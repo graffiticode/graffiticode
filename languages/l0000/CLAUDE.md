@@ -77,7 +77,7 @@ The runtime uses a `Record` type (`{ _type: "record", _entries: Map<encodedKey, 
 
 The `USE` visitor attaches a fetched schema to its returned Record via a `Symbol.for("gcSchema")` key (kept off `Object.entries` and JSON output). `DATA` reads that symbol to validate the upstream value before merging. If you add Record post-processing, preserve symbol keys.
 
-Arithmetic uses `decimal.js`. The `Decimal` default-export normalization at the top of `compiler.ts` exists because the package is consumed as both CJS and ESM across the toolchain — don't "simplify" that import.
+Arithmetic uses `decimal.js`. A number value is a JS number when that number is exactly its decimal value, and a `Decimal` only when a JS number would round it (`12345678901234567890`); `numberValue()` in `compiler.ts` makes that choice and every literal and exact result goes through it. Quotients and powers that decimal.js has to round stay JS numbers. So a dialect sees ordinary values as JS numbers, but code that accepts numbers should use `isNumber()` / `sameValue()` rather than `typeof === "number"` / `===`. The Renderer converts any remaining `Decimal` to a JS number, so output is unchanged JSON. The `Decimal` default-export normalization at the top of `compiler.ts` exists because the package is consumed as both CJS and ESM across the toolchain — don't "simplify" that import.
 
 ## `data` / `use` — cross-language composition
 

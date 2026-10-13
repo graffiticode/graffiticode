@@ -11,7 +11,9 @@ const main = {
       argcStack: [0],
       paramc: 0,
       paramcStack: [0],
-      env: [{ name: "global", lexicon }],
+      // A copy: top-level `let` adds words to the global scope, and they must not
+      // outlive this parse in the caller's (often shared) lexicon.
+      env: [{ name: "global", lexicon: { ...lexicon } }],
       exprc: 0,
       exprcStack: [0],
       nodeStack: [],

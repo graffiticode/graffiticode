@@ -1,0 +1,4 @@
+{
+  "prompt": "From an informational article on how bridge designs changed over time, author a c1-t11 Task Model 1 (ebsr) item about how each design is related to the one before it (dimension relationships-interactions, standard ri-3).",
+  "expect": { "target": "c1-t11", "taskModel": "tm1", "itemType": "ebsr", "dimension": "relationships-interactions", "standard": "ri-3" }
+}

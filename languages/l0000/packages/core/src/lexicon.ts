@@ -191,6 +191,14 @@ export const lexicon = {
     "type": "<any: string>",
     "description": "Converts any value to display text: a string as itself, a number, boolean, null or tag as written (`red`), and a list or record in Graffiticode syntax (`[1 \"a\"]`, `{a: 1}`). Template literals apply it to each `${…}`."
   },
+  "format-number": {
+    "tk": 1,
+    "name": "FORMAT_NUMBER",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string number: string>",
+    "description": "Formats a number as text by an Excel number-format pattern: `format-number \"#,##0.00\" 1234.5` is \"1,234.50\". Supports 0 # ? placeholders, the decimal point, thousands commas, %, scientific E+00, quoted literal text and positive;negative;zero sections. Rounds half away from zero, exactly."
+  },
   "eq": {
     "tk": 1,
     "name": "EQ",

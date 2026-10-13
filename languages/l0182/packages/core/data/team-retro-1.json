@@ -1,0 +1,41 @@
+{
+  "style": "ranked-choice",
+  "title": "What Should We Fix First?",
+  "instructions": "These came out of last sprint's retro. Pick the ones you think we should take on first and put them in priority order — your ranking helps us decide what to commit to. Then add one idea of your own that the list is missing.",
+  "minChoices": 1,
+  "maxChoices": 3,
+  "options": [
+    {
+      "id": "t1",
+      "text": "fix the flaky tests before adding features"
+    },
+    {
+      "id": "t2",
+      "text": "cut the build time in half"
+    },
+    {
+      "id": "t3",
+      "text": "write smaller pull requests"
+    },
+    {
+      "id": "t4",
+      "text": "timebox standup to ten minutes"
+    },
+    {
+      "id": "t5",
+      "text": "rotate the on-call fairly"
+    },
+    {
+      "id": "t6",
+      "text": "pair more often, especially on unfamiliar code"
+    },
+    {
+      "id": "t7",
+      "text": "keep a written decision log"
+    },
+    {
+      "id": "t8",
+      "text": "retire the two services nobody owns"
+    }
+  ]
+}

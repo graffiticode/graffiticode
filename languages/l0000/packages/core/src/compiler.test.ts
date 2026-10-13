@@ -662,3 +662,111 @@ describe("List builtins on a non-list", () => {
     expect(result).toEqual([2, 4, 6]);
   });
 });
+
+describe("Numbers keep their decimal value", () => {
+  // 12345678901234567890 and 12345678901234567891 are the same JS number.
+  const big = "12345678901234567890";
+  const big1 = "12345678901234567891";
+
+  // The Transformer's value before the Renderer converts it: what a dialect sees.
+  class RawRenderer {
+    data: any;
+    constructor(data) { this.data = data; }
+    render(options, resume) { resume([], this.data); }
+  }
+  function transform(src) {
+    return parser.parse(0, src, lexicon).then((code) => new Promise((resolve, reject) => {
+      new Compiler({ langID: "0", version: "v0.0.0", Checker, Transformer, Renderer: RawRenderer })
+        .compile(code, {}, {}, (err, val) => (err && err.length > 0 ? reject(err) : resolve(val)));
+    }));
+  }
+
+  test("arithmetic on large integers is exact", async () => {
+    expect(await compile(`sub ${big1} ${big}..`)).toBe(1);
+    expect(await compile(`length (range 9007199254740993 9007199254740996 1)..`)).toBe(3);
+  });
+
+  test("large values compare, match and key by their exact value", async () => {
+    expect(await compile(`equiv ${big} ${big1}..`)).toBe(false);
+    expect(await compile(`equiv {a: ${big}} {a: ${big}}..`)).toBe(true);
+    expect(await compile(`case ${big1} of ${big}: "a" _: "b" end..`)).toBe("b");
+    expect(await compile(`get ${big1} {${big1}: "b" ${big}: "a"}..`)).toBe("b");
+  });
+
+  test("display text shows every digit", async () => {
+    expect(await compile(`str ${big}..`)).toBe(big);
+  });
+
+  test("the result holds plain JS numbers", async () => {
+    expect(await compile(`{x: ${big}}..`)).toEqual({ x: Number(big) });
+    expect(await compile(`[${big}]..`)).toEqual([Number(big)]);
+  });
+
+  test("ordinary values stay JS numbers for dialects", async () => {
+    for (const src of ["add 0.1 0.2..", "1.50..", "div 10 4..", "div 1 3..", "pow 2 0.5..", "mul 3 4.."]) {
+      expect(typeof await transform(src)).toBe("number");
+    }
+    expect(await compile("div 1 3..")).toBe(1 / 3);
+    expect(await compile("add 0.1 0.2..")).toBe(0.3);
+  });
+
+  test("a value written as a JS number's exact binary value is that number", async () => {
+    // 1.7e308 and 12345678901234567168 written out in full: exactly JS numbers.
+    const full = "169999999999999993883079578865998174333346074304075874502773119193537729178160565864330091787584707988572262467983188919169916105593357174268369962062473635296474636515660464935663040684957844303524367815028553272712298986386310828644513212353921123253311675499856875650512437415429217994623324794855339589632";
+    expect(await transform(`${full}..`)).toBe(1.7e308);
+    expect(await transform("12345678901234567168..")).toBe(12345678901234567168);
+  });
+
+  test("only a value a JS number would round is a Decimal", async () => {
+    const val: any = await transform(`add ${big} 1..`);
+    expect(typeof val).toBe("object");
+    expect(val.toString()).toBe(big1);
+  });
+});
+
+describe("format-number", () => {
+  test.each([
+    ['format-number "#,##0.00" 1234.5..', "1,234.50"],
+    ['format-number "0.0%" 0.256..', "25.6%"],
+    ['format-number "$#,##0" 1234567.8..', "$1,234,568"],
+    ['format-number "0.00E+00" 12345..', "1.23E+04"],
+    ['format-number "#,##0;(#,##0)" (sub 0 1500)..', "(1,500)"],
+    ['format-number "0.00" 1.005..', "1.01"],
+    ['format-number "0.00" (div 1 3)..', "0.33"],
+    ['format-number "#,##0" 12345678901234567891..', "12,345,678,901,234,567,891"],
+    ['let p = "0.0".. format-number p 2.25..', "2.3"],
+    ['`total: ${format-number "#,##0.00" 1234.5}`..', "total: 1,234.50"],
+  ])("%s gives %j", async (src, expected) => {
+    expect(await compile(src)).toBe(expected);
+  });
+
+  test("formats each element under map", async () => {
+    expect(await compile('map (<x: format-number "0.0" x>) [1 2.25]..')).toEqual(["1.0", "2.3"]);
+  });
+
+  async function errorsOf(src) {
+    try {
+      await compile(src);
+    } catch (errs) {
+      return errs.map((e) => e.message);
+    }
+    throw new Error("expected compile errors");
+  }
+
+  test("a bad literal pattern is reported by the checker", async () => {
+    expect(await errorsOf('format-number "[Red]0" 1..')).toEqual([
+      "format-number: […] (colors, conditions and locales) is not supported",
+    ]);
+  });
+
+  test("a bad computed pattern is reported when used", async () => {
+    expect(await errorsOf('let p = "0 kg".. format-number p 1..')).toEqual([
+      "format-number: 'k': put literal text in double quotes",
+    ]);
+  });
+
+  test("a value that is not a number is reported", async () => {
+    expect(await errorsOf('format-number "0" "12"..')).toEqual(['format-number: expected a number, got "12"']);
+    expect(await errorsOf('format-number 0 1..')).toEqual(["format-number: the pattern must be a string, got 0"]);
+  });
+});

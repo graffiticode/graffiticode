@@ -57,5 +57,11 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "tasks",
+      "fieldPath": "code",
+      "indexes": []
+    }
+  ]
 }

@@ -65,6 +65,17 @@ function getPos(ctx) {
   return ctx.scan.stream.pos;
 }
 
+// A stack's first line is the error message, which can carry program source
+// (an unterminated string's message runs to the end of the program). Log the
+// message's length and the frames, never the message itself.
+function redactedStack(x) {
+  if (!(x instanceof Error)) {
+    return `non-Error ${typeof x}`;
+  }
+  const frames = String(x.stack || "").split("\n").filter(l => /^\s+at /.test(l));
+  return `${x.name} msgLen=${String(x.message).length}\n${frames.join("\n")}`;
+}
+
 export function assertErr(ctx, b, str, coord) {
   if (!b) {
     // Push error into state errors collection
@@ -1608,7 +1619,7 @@ export const parse = (function () {
         if (x.message === "comment") {
           cls = x;
         } else {
-          console.log("catch() x=" + x.stack);
+          console.log("catch() " + redactedStack(x));
 
           // Add generic "Syntax Error" message if not already handled
           if (!Ast.hasSyntaxError(ctx)) {
@@ -1624,7 +1635,7 @@ export const parse = (function () {
         // throw x
         next(ctx);
         cls = "error";
-        console.log(x.stack);
+        console.log("catch() " + redactedStack(x));
 
         // Add generic "Syntax Error" message for non-Error exceptions too
         if (!Ast.hasSyntaxError(ctx)) {
@@ -1775,16 +1786,48 @@ export const parse = (function () {
       return c >= "0".charCodeAt(0) && c <= "9".charCodeAt(0);
     }
 
+    function isHexDigit(ch) {
+      return ch !== undefined && /^[0-9a-fA-F]$/.test(ch);
+    }
+
+    // 123, 1.23, .123, 2e4, 1.5E-3, 0x1F. `c` is the first char, already consumed.
+    // The lexeme is kept as written (it is the NUM node's text), so a form is only
+    // consumed when it is complete: `1.` and `1e` leave the `.` and `e` unscanned.
+    // No digit separators: `1_000` is `1` then the identifier `_000`.
     function number(c) {
-      // 123, 1.23, .123
-      while (isNumeric(c) || c === ".".charCodeAt(0) && isNumeric(stream.peek())) {
-        lexeme += String.fromCharCode(c);
-        const s = stream.next();
-        c = s ? s.charCodeAt(0) : 0;
+      lexeme += String.fromCharCode(c);
+      if (c === "0".charCodeAt(0) && (stream.peek() === "x" || stream.peek() === "X") &&
+          isHexDigit(stream.peekAt(1))) {
+        lexeme += stream.next();
+        while (isHexDigit(stream.peek())) {
+          lexeme += stream.next();
+        }
+        return TK_NUM;
       }
-      if (c) {
-        stream.backUp(1);
-      } // otherwise, we are at the end of stream
+      let seenDot = c === ".".charCodeAt(0);
+      for (;;) {
+        const ch = stream.peek();
+        if (isNumeric(ch)) {
+          lexeme += stream.next();
+        } else if (ch === "." && !seenDot && isNumeric(stream.peekAt(1))) {
+          seenDot = true;
+          lexeme += stream.next();
+        } else {
+          break;
+        }
+      }
+      if (stream.peek() === "e" || stream.peek() === "E") {
+        const signed = stream.peekAt(1) === "+" || stream.peekAt(1) === "-";
+        if (isNumeric(stream.peekAt(signed ? 2 : 1))) {
+          lexeme += stream.next();
+          if (signed) {
+            lexeme += stream.next();
+          }
+          while (isNumeric(stream.peek())) {
+            lexeme += stream.next();
+          }
+        }
+      }
       return TK_NUM;
     }
 

@@ -1,0 +1,19 @@
+{
+  "$comment": "Shared TypeScript settings for packages/*. Phase 1 of the TS migration: type-check the existing JavaScript (checkJs), no emit, not strict. See packages/<name>/tsconfig.json.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

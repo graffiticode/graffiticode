@@ -1,0 +1,20 @@
+{
+  "id": "0181",
+  "summary": "Authors flashcard study decks — two-sided cards a learner flips, rates as known or needing practice, and re-runs by stack.",
+  "in_scope": [
+    "Flashcard decks of two-sided cards (front prompt / back answer)",
+    "Self-assessment while studying — rating each card, and re-running just the cards that did not stick",
+    "LaTeX math on either side of a card (e.g. \"$x^2$\")",
+    "Image cards — a side that is a URL renders as an image",
+    "An optional deck title and instructions",
+    "A light or dark deck, with a toggle for the learner"
+  ],
+  "out_of_scope": [
+    "Matching games and memory (concentration) card games — L0181 is flashcards only",
+    "Scored assessments — quizzes, tests, answer keys, rubrics: use L0180",
+    "Spaced repetition scheduling or long-term retention tracking",
+    "Dynamic deck generation — the cards are literal in the program",
+    "Cards with more than two sides, or more than one answer per prompt",
+    "Deck ordering and shuffling policy — the player shuffles, the program does not say how"
+  ]
+}

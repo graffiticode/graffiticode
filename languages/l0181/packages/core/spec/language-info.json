@@ -1,0 +1,37 @@
+{
+  "id": "0181",
+  "description": "Authors flashcard study decks — two-sided cards a learner flips one at a time, rates as 'I got this' or 'I need more practice', and re-runs by stack so a second pass is only the cards that did not stick. Produces a program built from a `cards` list of two-element [\"front\" \"back\"] pairs, followed by optional `title`, `instructions` and `theme`. A side may be prose, LaTeX math wrapped in $...$, or an image URL. Describe the subject and the pairs, plus any title or instructions, and L0181 emits the deck.",
+  "supported_item_types": ["flashcards_deck"],
+  "example_prompts": [
+    {
+      "prompt": "Make a flashcard deck titled 'Spanish Vocab' with five pairs: hola/hello, adiós/goodbye, por favor/please, gracias/thank you, agua/water.",
+      "produces": "flashcards_deck",
+      "notes": "Vocabulary with five explicit pairs and a title — the canonical `cards [...] title \"...\" {}` shape."
+    },
+    {
+      "prompt": "Flashcards for LaTeX-rendered math: $x^2 + 2x + 1$ / $(x+1)^2$; $a^2 - b^2$ / $(a+b)(a-b)$; $\\sin^2 x + \\cos^2 x$ / $1$.",
+      "produces": "flashcards_deck",
+      "notes": "Three algebra identities with $...$ on both sides — pins down that card content is LaTeX-capable."
+    },
+    {
+      "prompt": "Biology vocab flashcards: photosynthesis, mitosis, osmosis and respiration, each with its definition on the back. Add the instruction 'Flip each card to check yourself.'",
+      "produces": "flashcards_deck",
+      "notes": "Asymmetric pairs — a short term against a full sentence — plus the `instructions` wrapper."
+    },
+    {
+      "prompt": "A dark-themed deck of state capitals: California/Sacramento, Texas/Austin, Florida/Tallahassee, New York/Albany, Illinois/Springfield.",
+      "produces": "flashcards_deck",
+      "notes": "Exercises `theme DARK` as a bare tag alongside a plain-text deck."
+    },
+    {
+      "prompt": "Flashcards titled 'Flags' using a flag image on the front and the country name on the back, for Japan, Brazil, Egypt and Canada.",
+      "produces": "flashcards_deck",
+      "notes": "A URL on one side of each pair — exercises the image path, which has no keyword of its own."
+    },
+    {
+      "prompt": "Times tables flashcards for the sevens, 7×1 through 7×12, with the product on the back.",
+      "produces": "flashcards_deck",
+      "notes": "A twelve-card drill deck — exercises a longer deck where every card is the same shape."
+    }
+  ]
+}

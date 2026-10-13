@@ -13,13 +13,17 @@ import {
   createMemoryPublicationStore,
   createAudit,
   createPseudonymizer,
-  PolicyDenied
+  PolicyDenied,
+  createProtectedSwitch
 } from "@graffiticode/policy";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildDataApi } from "./data.js";
 import { InvocationRefused } from "./invocations.js";
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 import publicationsRouter from "./routes/publications.js";
+
+// Protected execution on (the maintenance switch is tested on its own).
+const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
 
 const OWNER = "0xowner";
 const OTHER = "0xother";
@@ -52,7 +56,7 @@ beforeEach(async () => {
   const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   connections = createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]);
   policy = createPolicy({
-    signer, jwks, connections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore(), audit
+    protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore(), audit
   });
 
   snapshots = [];
@@ -63,13 +67,13 @@ beforeEach(async () => {
         user: uid ? { uid } : null,
         lang: "0176",
         connectionId,
-        fns: ["preview-itembank", "save-to-itembank"],
+        fns: ["init", "save-to-itembank"],
         invocationToken,
         stage
       });
       snapshots.push({ uid, auth, allowed: snap.allowed });
       await policy.mint({
-        caller: L0176, sessionToken: snap.sessionToken, fn: "preview-itembank", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0", argsDigest: "a".repeat(64)
+        caller: L0176, sessionToken: snap.sessionToken, fn: "init", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0", argsDigest: "a".repeat(64)
       });
       const activity = JSON.parse(code[1].elts[0]);
       return { data: { ...activity, request: "signed" }, errors: [], cache: false };
@@ -83,6 +87,7 @@ beforeEach(async () => {
     authorizeView: asGateway(({ publicationId }) => policy.authorizeView({ caller: GATEWAY, publicationId }))
   };
   artifactStorer = buildMemoryArtifactStorer();
+  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   dataApi = buildDataApi({ compile, artifactStorer, publications });
 
   const taskStorer = { get: async () => [TASK] };
@@ -91,6 +96,7 @@ beforeEach(async () => {
   // Stand-in for the auth middleware: the bearer token is the uid.
   app.use((req, _res, next) => {
     const uid = (req.get("Authorization") || "").replace(/^Bearer /, "");
+    // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
     req.auth = { context: uid ? { uid } : null };
     next();
   });
@@ -121,7 +127,7 @@ describe("publications", () => {
     expect(res.status).toBe(200);
     const out = await view(res.body.data.publicationId);
     expect(out).toEqual({ data: { ...ACTIVITY, request: "signed" }, errors: [] });
-    expect(snapshots).toEqual([{ uid: null, auth: null, allowed: ["preview-itembank"] }]);
+    expect(snapshots).toEqual([{ uid: null, auth: null, allowed: ["init"] }]);
   });
 
   it("publish only the caller's own current result", async () => {
@@ -136,6 +142,8 @@ describe("publications", () => {
     const res = await publish(OTHER);
     expect(res.status).toBe(403);
     expect(res.body.error.message).toMatch(/not-owner/);
+    // Policy's reason is relayed, and decides the category (spec FAIL-01).
+    expect(res.body.error).toMatchObject({ reason: "not-owner", category: "permission" });
   });
 
   it("stop views once unpublished, or once the connection is disabled", async () => {

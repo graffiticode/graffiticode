@@ -1,0 +1,178 @@
+# Lint and test every workspace package on push and pull request.
+#
+# Two jobs, so tests that need the Firebase emulators run in exactly one
+# emulator session and everything else runs without it. Each jest target's
+# skips are checked on their own (scripts/check-skips.js): a suite that
+# silently skips (e.g. one gated on FIRESTORE_EMULATOR_HOST) fails its job.
+# Targets and per-target skip allowlists live in scripts/test-targets.json.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: |
+          npm run lint
+          npm run lint --workspaces --if-present
+      - name: Build (tsc -b, emits packages/*/dist)
+        run: npm run build
+      - name: Typecheck (checkJs, no emit)
+        run: npm run typecheck
+      - name: Unit tests (no emulator)
+        run: npm run test:unit
+      - name: Specs against the compiled output (no emulator)
+        run: npm run test:compiled
+      - name: Deploy CLI tests
+        run: npm run test:deploy
+      - name: Candidate verify helper tests
+        run: npm run test:verify
+      - name: Operator script tests
+        run: npm run test:scripts
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: jest-results-unit
+          path: .jest-results/
+          if-no-files-found: ignore
+
+  emulated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # The Firestore and Auth emulators run on the JVM.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      # Packages load @graffiticode/common from its dist/ (phase 2b), so build
+      # before any test.
+      - name: Build
+        run: npm run build
+      - name: Emulator tests (one session)
+        run: npm run test:ci:emulated
+      - name: Specs against the compiled output (one emulator session)
+        run: npm run test:ci:compiled-emulated
+      - if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: jest-results-emulated
+          path: .jest-results/
+          if-no-files-found: ignore
+
+  # AT-12 (cutover and rollback, capability plan W4 section G) against the
+  # actual W3 builds of Policy and Broker: scripts/at12-baseline.js checks out
+  # the W3 release commit in a worktree and builds it beside the current code,
+  # so the checkout needs full history.
+  at12-rollback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Rollback tests against the W3 baseline
+        run: npm run test:at12-rollback
+
+  # Builds each service's production image exactly as Cloud Build will
+  # (multi-stage; tsc runs inside the build stage) and checks that the image
+  # holds precisely the packages/<name>/dist directories that service loads,
+  # and that its entry point is there. Services already switched to dist/
+  # (phase 2b) with a `port` are also started with their real CMD and must
+  # answer GET / with 200. Policy and broker need KMS to start, so their
+  # candidate proves startup; here every compiled module of the package named
+  # by `loads` except main.js is imported with the image's production install,
+  # which proves the dist/ graph and its dependencies resolve.
+  images:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth
+            dists: common auth
+            entry: packages/auth/dist/main.js
+            port: 4100
+          - service: policy
+            dists: common auth policy
+            entry: packages/policy/dist/main.js
+            loads: policy
+          - service: broker
+            dists: common policy broker
+            entry: packages/broker/dist/main.js
+            loads: broker
+          - service: api
+            dists: common auth policy broker api
+            entry: packages/api/src/main.js
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Build ${{ matrix.service }} image
+        run: docker build -f configs/Dockerfile.${{ matrix.service }}.yaml -t gc-${{ matrix.service }} .
+      - name: Check image contents
+        run: |
+          expected=$(for p in ${{ matrix.dists }}; do echo "packages/$p/dist"; done | sort)
+          actual=$(docker run --rm --entrypoint sh gc-${{ matrix.service }} -c 'ls -d packages/*/dist 2>/dev/null' | sort)
+          echo "expected dist dirs:"; echo "$expected"; echo "actual dist dirs:"; echo "$actual"
+          test "$expected" = "$actual"
+          for p in ${{ matrix.dists }}; do
+            docker run --rm --entrypoint sh gc-${{ matrix.service }} -c "ls packages/$p/dist/*.js >/dev/null"
+          done
+          docker run --rm --entrypoint sh gc-${{ matrix.service }} -c 'test -f ${{ matrix.entry }}'
+      - name: Load ${{ matrix.loads }}'s compiled modules
+        if: matrix.loads
+        run: |
+          docker run --rm --entrypoint sh -e PKG=${{ matrix.loads }} gc-${{ matrix.service }} -c '
+            set -e
+            for f in packages/$PKG/dist/*.js; do
+              [ "$(basename "$f")" = main.js ] && continue
+              node --input-type=module -e "await import(\"./$f\")"
+              echo "loaded $f"
+            done'
+      - name: Start ${{ matrix.service }} with its real CMD
+        if: matrix.port
+        run: |
+          docker run -d --name svc -e PORT=${{ matrix.port }} -p ${{ matrix.port }}:${{ matrix.port }} gc-${{ matrix.service }}
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${{ matrix.port }}/ || true)
+            if [ "$code" = 200 ]; then echo "ready after ${i}s"; docker rm -f svc; exit 0; fi
+            sleep 1
+          done
+          docker logs svc; docker rm -f svc; exit 1

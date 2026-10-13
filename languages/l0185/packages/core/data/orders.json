@@ -1,0 +1,5 @@
+[
+  {"order-id": "A1", "customer-id": 10, "total": 30, "items": [{"sku": "pen", "qty": 2}, {"sku": "ink", "qty": 1}]},
+  {"order-id": "A2", "customer-id": 11, "total": 12, "items": [{"sku": "pad", "qty": 3}]},
+  {"order-id": "A3", "customer-id": 99, "total": 7, "items": []}
+]

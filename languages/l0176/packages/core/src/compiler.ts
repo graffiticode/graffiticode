@@ -3,15 +3,15 @@
 // L0176 inherits L0000: its Checker/Transformer extend L0000's, adding handlers
 // for the L0176 Learnosity vocabulary. Ported from L0158 (@graffiticode/basis) —
 // the record encoding, CPS visitor contract, and SET_VAR→options mechanism are
-// identical between basis and L0000, so the port is mechanical (import swap +
-// credential injection via config instead of module-scope env reads).
+// identical between basis and L0000, so the port is mechanical. The compiler
+// holds no Learnosity credential: every signature comes from the broker.
 import {
   Checker as BaseChecker,
   Transformer as BaseTransformer,
   Compiler,
 } from "@graffiticode/l0000";
 
-import { buildCreateItems, buildInitItems } from "./items.js";
+import { buildCreateItems } from "./items.js";
 import { lowerLegacySave } from "./save-lowering.js";
 import {
   PROTECTED_FUNCTIONS,
@@ -19,10 +19,12 @@ import {
   isBrokered,
   brokeredSign,
   brokeredSave,
+  systemPreviewSign,
+  protectedError,
 } from "./protection.js";
+import type { SystemPreviewClient } from "./protection.js";
 import type { PolicyClient } from "@graffiticode/l0000";
-import { buildCreateQuestions, buildInitQuestions } from "./questions.js";
-import { buildCreateAuthor } from "./author.js";
+import { buildCreateQuestions } from "./questions.js";
 import {
   questionTypeBuilders,
   memberFields,
@@ -52,15 +54,14 @@ function toPlainObject(val: any): any {
   return val;
 }
 
-import LearnositySDK from "learnosity-sdk-nodejs";
-const sdk = new LearnositySDK();
-// `domain` is non-secret wiring — baked at module scope from NODE_ENV. The
-// Learnosity consumer key/secret are secrets and are injected per-compile via
-// `config` (see resolveCredentials + packages/api/src/compile.ts).
-const domain = process.env.NODE_ENV === "production" ? "l0176.graffiticode.org" : "localhost";
 const createItems = buildCreateItems();
-const initItems = buildInitItems({ sdk, domain });
 const createQuestions = buildCreateQuestions();
+
+// The system preview client (policy's POST /v1/preview-session plus the
+// mint-then-broker invoker), set by the api with setPolicyClient. Module
+// state because the Compiler is a singleton and the per-compile Transformer
+// cannot reach it; it holds no credential and no per-invocation state.
+let systemPreviewClient: SystemPreviewClient | null = null;
 
 // Save plans belong to ONE invocation. The Compiler (a singleton reused across
 // requests) creates a fresh Transformer per compile; each Transformer gets its
@@ -88,57 +89,38 @@ const occurrenceKey = (node: any) => `${node?.tag}:${node?.coord?.from ?? "-"}`;
 const LEGACY_SAVE_MEMBER_ERROR =
   "Error: save-to-itembank wraps the activity to save: `save-to-itembank items [...] {}`. " +
   "As an items-list member it is only accepted as the literal `save-to-itembank true`.";
-const initQuestions = buildInitQuestions({ sdk, domain });
-const createAuthor = buildCreateAuthor();
 
-// Sentinel `lrn-id` (= get-val-public "itemId") injected by the console during
-// code-generation VERIFICATION. Must match VERIFY_ITEM_ID in the console
-// (code-generation-service.ts). A compile whose lrn-id is this value is a dry
-// run: the caller's Learnosity credentials aren't injected during verification,
-// so we validate the program but skip the credential-pairing check. Item-bank
-// writes need no sentinel: only a compile that selects a connection writes.
-const VERIFY_ITEM_ID = "verify-itemid";
-
-// Resolve the Learnosity credentials for a compilation. A program may supply
-// its own consumer key/secret via `set-var "learnosity-key" ...` /
-// `set-var "learnosity-secret" ...`, which L0000's SET_VAR writes into
-// `options`. The two must be supplied together (a key with a mismatched secret
-// fails Learnosity's signature validation). When both are present they're used
-// for preview signing; otherwise the config-injected defaults (from the api
-// layer's env) are used. Returns `{ error }` when exactly one is supplied.
-// These credentials never write and never sign an Author session: only a
-// compile that selects a connection does either, through the broker.
-function resolveCredentials(options: any): any {
-  const cfg = (options && options.config && options.config.learnosity) || {};
-  const optKey = options["learnosity-key"];
-  const optSecret = options["learnosity-secret"];
-  const hasKey = typeof optKey === "string" && optKey !== "";
-  const hasSecret = typeof optSecret === "string" && optSecret !== "";
-  if (hasKey !== hasSecret) {
-    return { error: `Error: set-var "learnosity-key" and "learnosity-secret" must both be set together.` };
-  }
-  if (hasKey && hasSecret) {
-    return { key: optKey, secret: optSecret };
-  }
-  return { key: cfg.key, secret: cfg.secret };
-}
+// Learnosity credentials never come from a program or from `config`. A legacy
+// program's `set-var "learnosity-key"/"learnosity-secret"` still compiles —
+// L0000's SET_VAR writes them into `options` — but nothing reads them: they
+// sign nothing. Signing is the broker's, through the selected connection or,
+// without one, the system preview session.
 
 // Sign the compiled Learnosity activity so the view can hand `request` straight
 // to LearnosityApp.init. The compile produces the unsigned `{ type, data }`
-// activity (createItems/createQuestions/createAuthor); the browser SDK needs a
+// activity (createItems/createQuestions); the browser SDK needs a
 // *signed* request. L0158 did this signing in a second, client-triggered
 // `init data {}` compile pass (its own View issued it after the cached
 // compile); L0176 renders through the shared @graffiticode/l0000-view, which
 // issues a single POST /compile and hands the result to the Form verbatim, so
 // we fold the signing into the compile output here.
 //
-// Signing is pure (no network) and runs after the full transform, so it never
-// duplicates a save-to-itembank write. Each signing stamps a fresh
+// Signing runs after the full transform, so it never duplicates a
+// save-to-itembank write. Each signing stamps a fresh
 // user_id / signature, so the compile output's `request` changes on every
 // (re)compile even when the assessment is unchanged — that churn is why the
 // Form keys its one-time Learnosity init on the stable question content rather
 // than object identity (see packages/view/src/components/form/contentKey.ts).
-async function signForRender(plain: any, options: any, exec?: any): Promise<any> {
+// L0176 signs no Author sessions (registry v7, AUTHOR-01 closed by removal):
+// it makes items and activities for the item bank. An Author activity can
+// still arrive as data (from an older program's output upstream); it is
+// refused with a compile error, never rendered or signed.
+const AUTHOR_NOT_SUPPORTED =
+  "Error: L0176 doesn't open the Learnosity Author Site. It makes items and activities for the item bank; " +
+  "to plan an Author API integration, which your own application signs, use L0177.";
+const isAuthorActivity = (val: any) => val?.type === "author";
+
+async function signForRender(plain: any, exec?: any): Promise<any> {
   // Only sign Learnosity render output: a `{ type, data }` activity that has
   // not already been signed. Leaves bare/non-Learnosity values untouched.
   if (!plain || typeof plain !== "object" || !plain.type || plain.request) {
@@ -149,31 +131,14 @@ async function signForRender(plain: any, options: any, exec?: any): Promise<any>
     const request = await brokeredSign(exec, plain, "prog");
     return request ? { ...plain, request } : plain;
   }
-  // Without a connection there is no authority to open the Author Site, which
-  // can edit and delete items: leave it unsigned. Previews are still signed
-  // with parse-time credentials until private artifacts replace them.
-  if (plain.type === "author") {
+  // Only the two preview types are signed without a connection.
+  if (plain.type !== "questions" && plain.type !== "items") {
     return plain;
   }
-  const creds = resolveCredentials(options);
-  if (creds.error || !creds.key || !creds.secret) {
-    // No usable credentials (e.g. a verification dry run without injected
-    // secrets): leave the unsigned activity as-is rather than throwing.
-    return plain;
-  }
-  const credArgs = { key: creds.key, secret: creds.secret };
-  let request;
-  switch (plain.type) {
-  case "questions":
-    request = await initQuestions(plain, credArgs);
-    break;
-  case "items":
-    request = await initItems(plain, credArgs);
-    break;
-  default:
-    return plain;
-  }
-  return { ...plain, request };
+  // Without a connection, a preview is signed by the broker under a system
+  // preview session. If none is available the activity goes out unsigned
+  // with `signing: { unsigned, message }` — not a compile error.
+  return systemPreviewSign(exec, systemPreviewClient, plain, "prog");
 }
 
 export class Checker extends BaseChecker {
@@ -218,14 +183,6 @@ export class Checker extends BaseChecker {
 
 
 
-  AUTHOR(node: any, options: any, resume: any) {
-    this.visit(node.elts[0], options, async (e0: any, _v0: any) => {
-      const err = ([] as any[]).concat(e0 || []);
-      const val = node;
-      resume(err, val);
-    });
-  }
-
 }
 
 // Generate Checker methods for question types (arity 1)
@@ -266,36 +223,28 @@ export class Transformer extends BaseTransformer {
     this.visit(node.elts[0], options, async (e0: any, v0: any) => {
       const plain = toPlainObject(v0);
       const err: any[] = [];
+      if (isAuthorActivity(plain)) {
+        resume([AUTHOR_NOT_SUPPORTED], undefined);
+        return;
+      }
       if (isBrokered(this.execContext)) {
         try {
           resume(err, await brokeredSign(this.execContext, plain, occurrenceKey(node)));
         } catch (e: any) {
-          resume([`Error: ${String((e && e.message) || e)}`], undefined);
+          resume([protectedError(e, this.execContext)], undefined);
         }
         return;
       }
-      const creds = resolveCredentials(options);
-      if (creds.error) {
-        resume([creds.error], undefined);
+      const { type } = plain ?? {};
+      if (type === "questions" || type === "items") {
+        // No connection: sign through the system preview session. `init`
+        // evaluates to the signed request; unsigned, to the activity with
+        // `signing: { unsigned, message }`.
+        const signed = await systemPreviewSign(this.execContext, systemPreviewClient, plain, occurrenceKey(node));
+        resume(err, signed.request ?? signed);
         return;
       }
-      const credArgs = { key: creds.key, secret: creds.secret };
-      const { type } = plain;
-      let val;
-      switch (type) {
-      case "questions":
-        val = await initQuestions(plain, credArgs);
-        break;
-      case "items":
-        val = await initItems(plain, credArgs);
-        break;
-      case "author":
-        // Without a connection there is no authority to open the Author Site
-        // (see signForRender): return it unsigned.
-        val = plain;
-        break;
-      }
-      resume(err, val);
+      resume(err, undefined);
     });
   }
 
@@ -339,15 +288,6 @@ export class Transformer extends BaseTransformer {
           assertItemsEntries(items);
         } catch (e: any) {
           resume([...err, String((e && e.message) || e)], undefined);
-          return;
-        }
-        // Dry run during generation-time verification: credentials aren't
-        // injected (and `get-val-private` of an absent value bakes encrypt("")),
-        // so skip BOTH credential gates and the write — just validate structure.
-        const dryRun = options["lrn-id"] === VERIFY_ITEM_ID;
-        const creds = resolveCredentials(options);
-        if (creds.error && !dryRun) {
-          resume([...err, creds.error], undefined);
           return;
         }
         // A save flag that survived lowering was not the literal member form
@@ -419,15 +359,6 @@ export class Transformer extends BaseTransformer {
           resume(err, {});
           return;
         }
-        // Dry run during generation-time verification: credentials aren't
-        // injected (and `get-val-private` of an absent value bakes encrypt("")),
-        // so skip BOTH credential gates and the write — just validate structure.
-        const dryRun = options["lrn-id"] === VERIFY_ITEM_ID;
-        const creds = resolveCredentials(options);
-        if (creds.error && !dryRun) {
-          resume([...err, creds.error], {});
-          return;
-        }
         if (members.save_to_itembank !== undefined) {
           resume([...err, LEGACY_SAVE_MEMBER_ERROR], {});
           return;
@@ -472,7 +403,7 @@ export class Transformer extends BaseTransformer {
           const itemBank = await brokeredSave(this.execContext, plan, occurrenceKey(node));
           resume(err, { ...v0, data: { ...v0.data, itemBank } });
         } catch (e: any) {
-          resume([`Error: ${String((e && e.message) || e)}`], undefined);
+          resume([protectedError(e, this.execContext)], undefined);
         }
         return;
       }
@@ -490,19 +421,6 @@ export class Transformer extends BaseTransformer {
     });
   }
 
-  AUTHOR(node: any, options: any, resume: any) {
-    this.visit(node.elts[0], options, async (e0: any, v0: any) => {
-      const plain = toPlainObject(v0);
-      const err: any[] = [];
-      if (!options["lrn-id"]) {
-        resume([`Error: set-var "lrn-id" must be set to a non-empty string before author is called.`], undefined);
-        return;
-      }
-      const val = await createAuthor({ ...plain, id: options["lrn-id"] });
-      resume(err, val);
-    });
-  }
-
   PROG(node: any, options: any, resume: any) {
     this.visit(node.elts[0], options, async (e0: any, v0: any) => {
       const err = e0;
@@ -512,11 +430,17 @@ export class Transformer extends BaseTransformer {
         resume(err, val);
         return;
       }
+      // An Author activity arriving as data is refused, never signed.
+      if (isAuthorActivity(toPlainObject(val))) {
+        resume([AUTHOR_NOT_SUPPORTED], undefined);
+        return;
+      }
       // Attach the signed Learnosity `request` (see signForRender).
       try {
-        resume(err, await signForRender(val, options, this.execContext));
+        const signed = await signForRender(val, this.execContext);
+        resume(err, signed);
       } catch (e: any) {
-        resume([`Error: ${String((e && e.message) || e)}`], undefined);
+        resume([protectedError(e, this.execContext)], undefined);
       }
     });
   }
@@ -586,22 +510,45 @@ for (const [name, meta] of Object.entries(memberFields)) {
 // admission, transformer — sees the program (see save-lowering.ts), then picks
 // the path: a compile that selects a connection is BROKERED (protected
 // functions admitted by policy, executed by the broker); one that does not
-// never writes and never signs an Author session, and still signs previews
-// with parse-time credentials. A selected connection on a server with no
-// policy client configured fails closed rather than falling back.
+// never writes, and signs previews through
+// the system preview session when the policy client offers one. A selected
+// connection on a server with no policy client configured fails closed rather
+// than falling back.
+// The registry version L0176's protected declarations (protection.ts) were
+// written for: graffiticode's packages/common protected-registry. A plan pins
+// it (capability plan W4); policy refuses a stage reporting another.
+export const REGISTRY_VERSION = 7;
+
+// The compiler that knows L0176's protected functions: the brokered path's,
+// and preflight's (capability plan W4), which needs no policy client. Its
+// normalization is the legacy save lowering, so a plan pins the program that
+// actually executes, and the stored source's digest is of what was stored.
+const protectedCompilerConfig = (policy?: PolicyClient) => ({
+  langID: "0176",
+  version: "v0.0.1",
+  Checker,
+  Transformer,
+  protectedFunctions: PROTECTED_FUNCTIONS as any,
+  implicitProtectedFunctions: IMPLICIT_PROTECTED_FUNCTIONS as any,
+  normalize: lowerLegacySave,
+  registryVersion: REGISTRY_VERSION,
+  ...(policy ? { policy } : {}),
+});
+
 class L0176Compiler extends Compiler {
   #brokered: Compiler | null = null;
+  #preflight = new Compiler(protectedCompilerConfig());
 
-  setPolicyClient(policy: PolicyClient) {
-    this.#brokered = new Compiler({
-      langID: "0176",
-      version: "v0.0.1",
-      Checker,
-      Transformer,
-      protectedFunctions: PROTECTED_FUNCTIONS as any,
-      implicitProtectedFunctions: IMPLICIT_PROTECTED_FUNCTIONS as any,
-      policy,
-    });
+  setPolicyClient(policy: PolicyClient & { getPreviewSession?: SystemPreviewClient["getPreviewSession"] }) {
+    systemPreviewClient = typeof policy.getPreviewSession === "function" && typeof policy.invoke === "function"
+      ? { getPreviewSession: policy.getPreviewSession.bind(policy), invoke: policy.invoke }
+      : null;
+    this.#brokered = new Compiler(protectedCompilerConfig(policy));
+  }
+
+  // Preflight (W4): what a compile through a connection would run.
+  preflight(code: any, args: { stage: string; options?: any }) {
+    return (this.#brokered ?? this.#preflight).preflight(code, args);
   }
 
   compile(code: any, data: any, config: any, resume: any, identity?: any) {
@@ -617,7 +564,9 @@ class L0176Compiler extends Compiler {
         resume([{ message: "Error: connections are not available on this server.", from: -1, to: -1 }]);
         return;
       }
-      return this.#brokered.compile(lowered, data, config, resume, identity);
+      // The stored program: the brokered compiler lowers it itself, as its
+      // preflight did, so a plan's source and program digests both match.
+      return this.#brokered.compile(code, data, config, resume, identity);
     }
     return super.compile(lowered, data, config, resume, identity);
   }

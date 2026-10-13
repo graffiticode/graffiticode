@@ -1,0 +1,122 @@
+[
+  {
+    "description": "Program structure",
+    "code": "42..",
+    "explanation": "Evaluates to the value 42. `..` is the program terminator.",
+    "expected_output": "42"
+  },
+  {
+    "description": "Basic let declaration",
+    "code": "let x = 42..",
+    "explanation": "Binds the value 42 to the variable x. `..` is the declaration terminator.",
+    "expected_output": "x = 42"
+  },
+  {
+    "description": "String declaration",
+    "code": "let greeting = \"hello world\"..",
+    "explanation": "Binds the string \"hello world\" to the variable greeting",
+    "expected_output": "greeting = \"hello world\""
+  },
+  {
+    "description": "List creation",
+    "code": "[1, 2, 3, 4, 5]",
+    "explanation": "Creates a list of integers",
+    "expected_output": "numbers = [1, 2, 3, 4, 5]"
+  },
+  {
+    "description": "List creation",
+    "code": "let numbers = [1, 2, 3, 4, 5]..",
+    "explanation": "Creates a list of integers and binds it to the variable numbers",
+    "expected_output": "numbers = [1, 2, 3, 4, 5]"
+  },
+  {
+    "description": "Record creation",
+    "code": "let person = {name: \"Alice\", age: 30}..",
+    "explanation": "Creates a record with two fields and binds it to the variable person",
+    "expected_output": "person = {name: \"Alice\", age: 30}"
+  },
+  {
+    "description": "Simple lambda expression",
+    "code": "let double = <x: add x x>..",
+    "explanation": "Creates a function that doubles its input and binds it to the variable double",
+    "expected_output": "double = <function>"
+  },
+  {
+    "description": "Function application",
+    "code": "let result = double 21..",
+    "explanation": "Applies the double function to the value 21 and binds the result to the variable result",
+    "expected_output": "result = 42"
+  },
+  {
+    "description": "Multi-parameter lambda",
+    "code": "let sum = <a b: add a b>",
+    "explanation": "Creates a function that adds two values and binds it to the variable sum",
+    "expected_output": "sum = <function>"
+  },
+  {
+    "description": "Multi-parameter function application",
+    "code": "let val = sum 3 4..",
+    "explanation": "Applies the sum function to the values 3 and 4 and binds the result to the variable val",
+    "expected_output": "val = 7"
+  },
+  {
+    "description": "Higher-order function - map implementation",
+    "code": "let map = <fn arr: <i: fn arr[i]>>..",
+    "explanation": "Creates a higher-order function that applies a function to each element of an array",
+    "expected_output": "map = <function>"
+  },
+  {
+    "description": "Using higher-order function",
+    "code": "let doubled = map (double) [1, 2, 3]..",
+    "explanation": "Applies the double function to each element in the array [1, 2, 3]. Function name double is in parens to control function application.",
+    "expected_output": "doubled = [2, 4, 6]"
+  },
+  {
+    "description": "List indexing",
+    "code": "let first = nth numbers 0..",
+    "explanation": "Accesses the first element of the numbers list",
+    "expected_output": "first = 1"
+  },
+  {
+    "description": "Record field access",
+    "code": "let name = get person \"name\"..",
+    "explanation": "Accesses the name field of the person record",
+    "expected_output": "name = \"Alice\""
+  },
+  {
+    "description": "Conditional expression",
+    "code": "let max = <a b: if gt a b then a else b>..",
+    "explanation": "Creates a function that returns the maximum of two values",
+    "expected_output": "max = <function>"
+  },
+  {
+    "description": "Using conditional",
+    "code": "let larger = max 10 20..",
+    "explanation": "Applies the max function to the values 10 and 20",
+    "expected_output": "larger = 20"
+  },
+  {
+    "description": "Recursive function",
+    "code": "let factorial = <n: if le n 1 then 1 else mul n factorial sub n 1>..",
+    "explanation": "Creates a recursive function that calculates the factorial of a number",
+    "expected_output": "factorial = <function>"
+  },
+  {
+    "description": "Using recursive function",
+    "code": "let fact5 = factorial 5..",
+    "explanation": "Calculates the factorial of 5",
+    "expected_output": "fact5 = 120"
+  },
+  {
+    "description": "Function composition",
+    "code": "let compose = <f g x: f g x>..\nlet addThenDouble = compose (double) (add)..\nlet result = addThenDouble 5 7..",
+    "explanation": "Creates a function that composes two functions, then uses it to first add 5 and 7, then double the result",
+    "expected_output": "result = 24"
+  },
+  {
+    "description": "Complex data processing",
+    "code": "let products = [\n  {id: 1, name: \"Laptop\", price: 1200, stock: 5},\n  {id: 2, name: \"Phone\", price: 800, stock: 10},\n  {id: 3, name: \"Tablet\", price: 500, stock: 0}\n]..\n\nlet inStock = <item: gt get item \"stock\" 0>..\nlet availableItems = filter (inStock) products",
+    "explanation": "Filters a list of products to only include those that are in stock",
+    "expected_output": "availableItems = [\n  {id: 1, name: \"Laptop\", price: 1200, stock: 5},\n  {id: 2, name: \"Phone\", price: 800, stock: 10}\n]"
+  }
+]
