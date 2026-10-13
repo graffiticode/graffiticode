@@ -20,6 +20,7 @@ import { generateKeyPair, exportJWK, decodeJwt } from "jose";
 import { BASELINE_COMMIT, BASELINE_DIR } from "../at12-baseline.js";
 import { releaseCheck } from "../../packages/deploy/src/release.js";
 import { createGit } from "../../packages/deploy/src/git.js";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 if (!existsSync(path.join(BASELINE_DIR, ".at12-built"))) {
@@ -115,47 +116,51 @@ test("the current Broker at minimum 2 refuses the W3 Policy's proofs, before any
   assert.deepEqual(providerCalls, []);
 });
 
-test("the W3 Broker skips the contract check, but the current Policy at minimum 2 still refuses at authorization", async () => {
+// The W3 builds are on registry v6; the current code is on v7 (Author
+// removed), so the two refuse each other's proofs on the registry before
+// anything else. A W3 Broker asks the current Policy about a W3 proof: refused
+// (registry-version-changed), nothing done. A proof re-signed for the current
+// registry is refused by the W3 Broker itself (registry-version-mismatch),
+// before it asks. The contract minimum at authorization is no longer
+// reachable across these versions; Policy's own tests cover it.
+const resigned = async (token, over) => {
+  const { iss: _iss, aud: _aud, iat: _iat, exp: _exp, jti: _jti, ...claims } = decodeJwt(token);
+  return NEW.policy.issueToken(await NEW.policy.createLocalSigner({ privateJwk, kid: "k1" }), "execution", { ...claims, ...over });
+};
+
+test("the W3 Broker and the current Policy at minimum 2 refuse each other's proofs, and nothing is done", async () => {
   const providerCalls = [];
   const refusals = [];
   const current = await policyOf(NEW, { minContractVersion: 2 });
   const old = await policyOf(OLD);
-  const broker = brokerOf(OLD, { authorizer: current, providerCalls, refusals });
-  // The old Broker accepts a proof without `cv` and asks Policy: refused.
-  // W3's failure table predates W4's reasons, so it records the refusal as
-  // unclassified (W3's rule for a reason it doesn't know): still nothing done.
-  const out = await execute(broker, await writeToken(old));
+  const broker = () => brokerOf(OLD, { authorizer: current, providerCalls, refusals });
+  const out = await execute(broker(), await writeToken(old));
   assert.equal(out.status, "failed");
   assert.deepEqual(out.steps, []);
-  assert.equal(out.reason, "unclassified-reason");
-  assert.deepEqual(refusals, ["contract-version-unsupported"]);
-  assert.deepEqual(providerCalls, []);
-  // A contract version no one supports, too.
-  const { iss: _iss, aud: _aud, iat: _iat, exp: _exp, jti: _jti, ...claims } = decodeJwt(await writeToken(old, { key: "job-3" }));
-  const sneaky = await NEW.policy.issueToken(await NEW.policy.createLocalSigner({ privateJwk, kid: "k1" }), "execution", { ...claims, cv: 3 });
-  const later = await execute(brokerOf(OLD, { authorizer: current, providerCalls, refusals }), sneaky);
-  assert.equal(later.status, "failed");
-  assert.equal(later.reason, "unclassified-reason");
-  assert.deepEqual(refusals, ["contract-version-unsupported", "contract-version-unsupported"]);
+  assert.equal(out.reason, "authorization-denied:registry-version-changed");
+  assert.deepEqual(refusals, ["registry-version-changed"]);
+  for (const over of [{ rv: REGISTRY_VERSION }, { rv: REGISTRY_VERSION, cv: 3 }]) {
+    await assert.rejects(execute(broker(), await resigned(await writeToken(old, { key: `job-${over.cv ?? 2}` }), over)), e => e.reason === "registry-version-mismatch");
+  }
+  assert.deepEqual(refusals, ["registry-version-changed"]);
   assert.deepEqual(providerCalls, []);
 });
 
-// Survival is at the current Broker's default minimum (1), before the cutover.
-// After it, a pre-cutover invocation can't resume: its v1 proofs are refused
-// before the receipt is read (the gateway answers invocation-incompatible).
-test("receipts the W3 Broker wrote survive the upgrade, but not the cutover", async () => {
+// Receipts the W3 Broker wrote are never executed again by the current one.
+// Their own proofs are refused on the registry (v6, now v7); a fresh token for
+// the same operation, on the current registry, is refused by the receipt's own
+// registry check; and after the cutover, by the contract minimum, before the
+// receipt is read (the gateway answers invocation-incompatible).
+test("receipts the W3 Broker wrote are never re-executed: refused across the registry change and the cutover", async () => {
   const providerCalls = [];
   const old = await policyOf(OLD);
   const receipts = OLD.broker.createMemoryReceiptStore();
   const first = await execute(brokerOf(OLD, { authorizer: old, receipts, providerCalls }), await writeToken(old));
   assert.equal(first.status, "succeeded");
   const written = [...providerCalls];
-  // The same operation again, now through the current Broker over the same receipts.
-  const again = await execute(brokerOf(NEW, { authorizer: old, receipts, providerCalls }), await writeToken(old));
-  assert.equal(again.status, "succeeded");
-  assert.equal(again.replayed, true);
-  assert.deepEqual(providerCalls, written);
-  // At minimum 2, the same operation is refused, replay or not.
+  const current = brokerOf(NEW, { authorizer: old, receipts, providerCalls });
+  await assert.rejects(execute(current, await writeToken(old)), e => e.reason === "registry-version-mismatch");
+  await assert.rejects(execute(current, await resigned(await writeToken(old), { rv: REGISTRY_VERSION })), e => e.reason === "receipt-registry-version-mismatch");
   const cutover = brokerOf(NEW, { authorizer: old, receipts, providerCalls, minContractVersion: 2 });
   await assert.rejects(execute(cutover, await writeToken(old)), e => e.reason === "contract-version-unsupported");
   assert.deepEqual(providerCalls, written);
