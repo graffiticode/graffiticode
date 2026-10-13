@@ -1,0 +1,29 @@
+# l0000r — the L0000 language server in Rust — from the monorepo root (deploy CLI, or
+# `docker build -f configs/Dockerfile.l0000r.yaml .`). The server lives in languages/l0000r;
+# its static assets are built by the TypeScript project in languages/l0000.
+
+# Public static assets (spec documents, schema, language info) and the /form View bundle.
+FROM node:22-alpine AS static
+WORKDIR /src/languages/l0000
+COPY languages/l0000/package*.json ./
+COPY languages/l0000/packages/core/package*.json ./packages/core/
+COPY languages/l0000/packages/api/package*.json ./packages/api/
+COPY languages/l0000/packages/view/package*.json ./packages/view/
+RUN npm ci
+COPY languages/l0000/ ./
+COPY languages/l0000r/tools /src/languages/l0000r/tools
+RUN node /src/languages/l0000r/tools/build-static.mjs --skip-install
+
+FROM rust:1.99-bookworm AS server
+WORKDIR /src
+COPY languages/l0000r/Cargo.toml languages/l0000r/Cargo.lock ./
+COPY languages/l0000r/crates ./crates
+RUN cargo build --release --locked -p l0000r-server
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+WORKDIR /app
+COPY --from=server /src/target/release/l0000r ./l0000r
+COPY --from=static /src/languages/l0000r/static ./static
+ENV STATIC_DIR=/app/static
+EXPOSE 8080
+CMD ["/app/l0000r"]

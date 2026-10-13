@@ -1,0 +1,34 @@
+[package]
+name = "graffiticode-l0000"
+version = "0.1.0"
+description = "L0000 — the root Graffiticode language: evaluator, lexicon, and the dialect kernel child languages build on"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["http"]
+# The HTTP-backed schema source and policy/broker client.
+http = ["dep:reqwest", "dep:tokio"]
+
+[dependencies]
+aes = "0.9.3"
+aes-gcm = "0.11.1"
+async-trait = "0.1.92"
+bigdecimal = "0.4.11"
+cbc = "0.2.1"
+hex = "0.4.3"
+indexmap = { version = "2.14.2", features = ["serde"] }
+jsonschema = { version = "0.58.6", default-features = false }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"], optional = true }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+sha2 = "0.11.1"
+stacker = "0.1.25"
+thiserror = "2.0.21"
+tokio = { version = "1.53.3", features = ["macros"], optional = true }
+tracing = "0.1.44"
+uuid = { version = "1.28.0", features = ["v4"] }
+
+[dev-dependencies]
+tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread"] }

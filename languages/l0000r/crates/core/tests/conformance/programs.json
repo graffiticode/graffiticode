@@ -1,0 +1,986 @@
+{
+ "hello \"world\"..": {
+  "2": {
+   "tag": "STR",
+   "elts": [
+    "world"
+   ],
+   "coord": {
+    "from": 6,
+    "to": 13
+   }
+  },
+  "4": {
+   "tag": "HELLO",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 0,
+    "to": 5
+   }
+  },
+  "6": {
+   "tag": "EXPRS",
+   "elts": [
+    4
+   ]
+  },
+  "7": {
+   "tag": "PROG",
+   "elts": [
+    6
+   ]
+  },
+  "root": 7
+ },
+ "hello add 1 2..": {
+  "3": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "4": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "7": {
+   "tag": "ADD",
+   "elts": [
+    3,
+    4
+   ]
+  },
+  "8": {
+   "tag": "HELLO",
+   "elts": [
+    7
+   ],
+   "coord": {
+    "from": 0,
+    "to": 5
+   }
+  },
+  "10": {
+   "tag": "EXPRS",
+   "elts": [
+    8
+   ]
+  },
+  "11": {
+   "tag": "PROG",
+   "elts": [
+    10
+   ]
+  },
+  "root": 11
+ },
+ "map (<x: hello x>) [1 2]..": {
+  "2": {
+   "tag": "IDENT",
+   "elts": [
+    "x"
+   ]
+  },
+  "6": {
+   "tag": "LIST",
+   "elts": [
+    2
+   ]
+  },
+  "7": {
+   "tag": "LIST",
+   "elts": []
+  },
+  "8": {
+   "tag": "LIST",
+   "elts": [
+    0
+   ]
+  },
+  "12": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "13": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "14": {
+   "tag": "LIST",
+   "elts": [
+    12,
+    13
+   ]
+  },
+  "18": {
+   "tag": "HELLO",
+   "elts": [
+    2
+   ]
+  },
+  "20": {
+   "tag": "LAMBDA",
+   "elts": [
+    6,
+    18,
+    7,
+    8
+   ]
+  },
+  "21": {
+   "tag": "PAREN",
+   "elts": [
+    20
+   ]
+  },
+  "22": {
+   "tag": "MAP",
+   "elts": [
+    21,
+    14
+   ],
+   "coord": {
+    "from": 0,
+    "to": 3
+   }
+  },
+  "24": {
+   "tag": "EXPRS",
+   "elts": [
+    22
+   ]
+  },
+  "25": {
+   "tag": "PROG",
+   "elts": [
+    24
+   ]
+  },
+  "root": 25
+ },
+ "add 1 2..": {
+  "2": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "3": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "6": {
+   "tag": "ADD",
+   "elts": [
+    2,
+    3
+   ]
+  },
+  "7": {
+   "tag": "EXPRS",
+   "elts": [
+    6
+   ]
+  },
+  "8": {
+   "tag": "PROG",
+   "elts": [
+    7
+   ]
+  },
+  "root": 8
+ },
+ "[1 2]..": {
+  "1": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "2": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "3": {
+   "tag": "LIST",
+   "elts": [
+    1,
+    2
+   ]
+  },
+  "4": {
+   "tag": "EXPRS",
+   "elts": [
+    3
+   ]
+  },
+  "5": {
+   "tag": "PROG",
+   "elts": [
+    4
+   ]
+  },
+  "root": 5
+ },
+ "save-it 1..": {
+  "2": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "4": {
+   "tag": "SAVE_IT",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 0,
+    "to": 7
+   }
+  },
+  "6": {
+   "tag": "EXPRS",
+   "elts": [
+    4
+   ]
+  },
+  "7": {
+   "tag": "PROG",
+   "elts": [
+    6
+   ]
+  },
+  "root": 7
+ },
+ "(save-it 1)..": {
+  "2": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "6": {
+   "tag": "SAVE_IT",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 1,
+    "to": 8
+   }
+  },
+  "8": {
+   "tag": "PAREN",
+   "elts": [
+    6
+   ]
+  },
+  "9": {
+   "tag": "EXPRS",
+   "elts": [
+    8
+   ]
+  },
+  "10": {
+   "tag": "PROG",
+   "elts": [
+    9
+   ]
+  },
+  "root": 10
+ },
+ "if true then save-it 1 else 2..": {
+  "1": {
+   "tag": "BOOL",
+   "elts": [
+    true
+   ]
+  },
+  "4": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "6": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "10": {
+   "tag": "SAVE_IT",
+   "elts": [
+    4
+   ],
+   "coord": {
+    "from": 13,
+    "to": 20
+   }
+  },
+  "12": {
+   "tag": "IF",
+   "elts": [
+    1,
+    10,
+    6
+   ]
+  },
+  "13": {
+   "tag": "EXPRS",
+   "elts": [
+    12
+   ]
+  },
+  "14": {
+   "tag": "PROG",
+   "elts": [
+    13
+   ]
+  },
+  "root": 14
+ },
+ "if false then save-it 1 else 2..": {
+  "1": {
+   "tag": "BOOL",
+   "elts": [
+    false
+   ]
+  },
+  "4": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "6": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "10": {
+   "tag": "SAVE_IT",
+   "elts": [
+    4
+   ],
+   "coord": {
+    "from": 14,
+    "to": 21
+   }
+  },
+  "12": {
+   "tag": "IF",
+   "elts": [
+    1,
+    10,
+    6
+   ]
+  },
+  "13": {
+   "tag": "EXPRS",
+   "elts": [
+    12
+   ]
+  },
+  "14": {
+   "tag": "PROG",
+   "elts": [
+    13
+   ]
+  },
+  "root": 14
+ },
+ "map (<x: save-it x>) [1 2]..": {
+  "2": {
+   "tag": "IDENT",
+   "elts": [
+    "x"
+   ]
+  },
+  "6": {
+   "tag": "LIST",
+   "elts": [
+    2
+   ]
+  },
+  "7": {
+   "tag": "LIST",
+   "elts": []
+  },
+  "8": {
+   "tag": "LIST",
+   "elts": [
+    0
+   ]
+  },
+  "12": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "13": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "14": {
+   "tag": "LIST",
+   "elts": [
+    12,
+    13
+   ]
+  },
+  "18": {
+   "tag": "SAVE_IT",
+   "elts": [
+    2
+   ]
+  },
+  "20": {
+   "tag": "LAMBDA",
+   "elts": [
+    6,
+    18,
+    7,
+    8
+   ]
+  },
+  "21": {
+   "tag": "PAREN",
+   "elts": [
+    20
+   ]
+  },
+  "22": {
+   "tag": "MAP",
+   "elts": [
+    21,
+    14
+   ],
+   "coord": {
+    "from": 0,
+    "to": 3
+   }
+  },
+  "24": {
+   "tag": "EXPRS",
+   "elts": [
+    22
+   ]
+  },
+  "25": {
+   "tag": "PROG",
+   "elts": [
+    24
+   ]
+  },
+  "root": 25
+ },
+ "reduce (<x acc: save-it x>) 0 [1 2]..": {
+  "2": {
+   "tag": "IDENT",
+   "elts": [
+    "x"
+   ]
+  },
+  "3": {
+   "tag": "IDENT",
+   "elts": [
+    "acc"
+   ]
+  },
+  "7": {
+   "tag": "LIST",
+   "elts": [
+    2,
+    3
+   ]
+  },
+  "8": {
+   "tag": "LIST",
+   "elts": []
+  },
+  "9": {
+   "tag": "LIST",
+   "elts": [
+    0,
+    0
+   ]
+  },
+  "13": {
+   "tag": "NUM",
+   "elts": [
+    "0"
+   ]
+  },
+  "14": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "15": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "16": {
+   "tag": "LIST",
+   "elts": [
+    14,
+    15
+   ]
+  },
+  "20": {
+   "tag": "SAVE_IT",
+   "elts": [
+    2
+   ]
+  },
+  "22": {
+   "tag": "LAMBDA",
+   "elts": [
+    7,
+    20,
+    8,
+    9
+   ]
+  },
+  "23": {
+   "tag": "PAREN",
+   "elts": [
+    22
+   ]
+  },
+  "24": {
+   "tag": "REDUCE",
+   "elts": [
+    23,
+    13,
+    16
+   ],
+   "coord": {
+    "from": 0,
+    "to": 6
+   }
+  },
+  "26": {
+   "tag": "EXPRS",
+   "elts": [
+    24
+   ]
+  },
+  "27": {
+   "tag": "PROG",
+   "elts": [
+    26
+   ]
+  },
+  "root": 27
+ },
+ "let f = save-it..f 1..": {
+  "4": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "6": {
+   "tag": "SAVE_IT",
+   "elts": [
+    4
+   ],
+   "coord": {
+    "from": 8,
+    "to": 15
+   }
+  },
+  "8": {
+   "tag": "EXPRS",
+   "elts": [
+    6
+   ]
+  },
+  "9": {
+   "tag": "PROG",
+   "elts": [
+    8
+   ]
+  },
+  "root": 9
+ },
+ "[peek-it 1 save-it 2]..": {
+  "2": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "4": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "7": {
+   "tag": "SAVE_IT",
+   "elts": [
+    4
+   ],
+   "coord": {
+    "from": 12,
+    "to": 19
+   }
+  },
+  "9": {
+   "tag": "PEEK_IT",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 1,
+    "to": 8
+   }
+  },
+  "11": {
+   "tag": "LIST",
+   "elts": [
+    9,
+    7
+   ]
+  },
+  "12": {
+   "tag": "EXPRS",
+   "elts": [
+    11
+   ]
+  },
+  "13": {
+   "tag": "PROG",
+   "elts": [
+    12
+   ]
+  },
+  "root": 13
+ },
+ "[1 save-it 2]..": {
+  "1": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "3": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "6": {
+   "tag": "SAVE_IT",
+   "elts": [
+    3
+   ],
+   "coord": {
+    "from": 4,
+    "to": 11
+   }
+  },
+  "8": {
+   "tag": "LIST",
+   "elts": [
+    1,
+    6
+   ]
+  },
+  "9": {
+   "tag": "EXPRS",
+   "elts": [
+    8
+   ]
+  },
+  "10": {
+   "tag": "PROG",
+   "elts": [
+    9
+   ]
+  },
+  "root": 10
+ },
+ "save-it add 1 2..": {
+  "3": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "4": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "7": {
+   "tag": "ADD",
+   "elts": [
+    3,
+    4
+   ]
+  },
+  "8": {
+   "tag": "SAVE_IT",
+   "elts": [
+    7
+   ],
+   "coord": {
+    "from": 0,
+    "to": 7
+   }
+  },
+  "10": {
+   "tag": "EXPRS",
+   "elts": [
+    8
+   ]
+  },
+  "11": {
+   "tag": "PROG",
+   "elts": [
+    10
+   ]
+  },
+  "root": 11
+ },
+ "edit-it 1..": {
+  "2": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "4": {
+   "tag": "EDIT_IT",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 0,
+    "to": 7
+   }
+  },
+  "6": {
+   "tag": "EXPRS",
+   "elts": [
+    4
+   ]
+  },
+  "7": {
+   "tag": "PROG",
+   "elts": [
+    6
+   ]
+  },
+  "root": 7
+ },
+ "peek-it 1..": {
+  "2": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "4": {
+   "tag": "PEEK_IT",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 0,
+    "to": 7
+   }
+  },
+  "6": {
+   "tag": "EXPRS",
+   "elts": [
+    4
+   ]
+  },
+  "7": {
+   "tag": "PROG",
+   "elts": [
+    6
+   ]
+  },
+  "root": 7
+ },
+ "get-var \"config\"..": {
+  "2": {
+   "tag": "STR",
+   "elts": [
+    "config"
+   ],
+   "coord": {
+    "from": 8,
+    "to": 16
+   }
+  },
+  "4": {
+   "tag": "GET_VAR",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 0,
+    "to": 7
+   }
+  },
+  "6": {
+   "tag": "EXPRS",
+   "elts": [
+    4
+   ]
+  },
+  "7": {
+   "tag": "PROG",
+   "elts": [
+    6
+   ]
+  },
+  "root": 7
+ },
+ "get-var \"data\"..": {
+  "2": {
+   "tag": "STR",
+   "elts": [
+    "data"
+   ],
+   "coord": {
+    "from": 8,
+    "to": 14
+   }
+  },
+  "4": {
+   "tag": "GET_VAR",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 0,
+    "to": 7
+   }
+  },
+  "6": {
+   "tag": "EXPRS",
+   "elts": [
+    4
+   ]
+  },
+  "7": {
+   "tag": "PROG",
+   "elts": [
+    6
+   ]
+  },
+  "root": 7
+ },
+ "get-val-public \"name\"..": {
+  "2": {
+   "tag": "STR",
+   "elts": [
+    "name"
+   ],
+   "coord": {
+    "from": 15,
+    "to": 21
+   }
+  },
+  "4": {
+   "tag": "GET_VAL_PUBLIC",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 0,
+    "to": 14
+   }
+  },
+  "6": {
+   "tag": "EXPRS",
+   "elts": [
+    4
+   ]
+  },
+  "7": {
+   "tag": "PROG",
+   "elts": [
+    6
+   ]
+  },
+  "root": 7
+ },
+ "[1 (hd [])]..": {
+  "1": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "3": {
+   "tag": "LIST",
+   "elts": []
+  },
+  "8": {
+   "tag": "HD",
+   "elts": [
+    3
+   ],
+   "coord": {
+    "from": 4,
+    "to": 6
+   }
+  },
+  "10": {
+   "tag": "PAREN",
+   "elts": [
+    8
+   ]
+  },
+  "11": {
+   "tag": "LIST",
+   "elts": [
+    1,
+    10
+   ]
+  },
+  "12": {
+   "tag": "EXPRS",
+   "elts": [
+    11
+   ]
+  },
+  "13": {
+   "tag": "PROG",
+   "elts": [
+    12
+   ]
+  },
+  "root": 13
+ }
+}
