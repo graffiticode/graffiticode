@@ -121,6 +121,10 @@
         {
           "milestone": "W4",
           "commit": "7ff60213fd7c6554221b688d6eaab89b7df3bed0"
+        },
+        {
+          "milestone": "v7",
+          "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
         }
       ]
     },
@@ -293,6 +297,10 @@
         {
           "milestone": "W4",
           "commit": "1cb4fff7cbf2b91f1043b64daff70b9bb51a2e47"
+        },
+        {
+          "milestone": "v7",
+          "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
         }
       ]
     },
@@ -404,6 +412,10 @@
         {
           "milestone": "W4",
           "commit": "1cb4fff7cbf2b91f1043b64daff70b9bb51a2e47"
+        },
+        {
+          "milestone": "v7",
+          "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
         }
       ]
     },
@@ -600,6 +612,10 @@
         {
           "milestone": "W4",
           "commit": "7ff60213fd7c6554221b688d6eaab89b7df3bed0"
+        },
+        {
+          "milestone": "v7",
+          "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
         }
       ],
       "env": {
