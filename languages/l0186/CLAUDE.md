@@ -106,11 +106,13 @@ corpus batch and lints its boards with `packages/view/src/lib/lint.ts`, on the r
 draws. Run it between the console's `create-items-from-prompts --output <file>` and
 `generate-embeddings-from-examples`; it also reads the embeddings log
 (`console/training/l0186-embeddings.json`). Exit 1 = do not embed: a line through a node it does
-not join, a waypoint inside a node, a missing or wrong end side with waypoints, a waypoint level
-with a node but off its centre, or one where the line turns anyway. Each finding names the fix;
-the summary prints the `--only` list to regenerate. The rules mirror the instructions' "Keep every
-line clear of other nodes" and waypoint bullets — change both together. When regenerating one
-example, delete its old vector first, or retrieval hands the generator the old program to copy.
+not join, a line that runs through its own end node or doubles back on itself at a waypoint, a
+waypoint inside a node, a waypoint level with a node but off its centre, or one where the line
+turns anyway. Each finding names the fix; the summary prints the `--only` list to regenerate. The
+rules mirror the instructions' "Keep every line clear of other nodes" and waypoint bullets —
+change both together. Regenerate with `create-items-from-prompts --refresh --only <list>`:
+`--refresh` deletes the replaced items' vectors too, so retrieval cannot hand the generator the
+program being replaced.
 
 ## Related repos
 
@@ -118,4 +120,6 @@ example, delete its old vector first, or retrieval hands the generator the old p
   `nodes`), refuses a board whose `fileKey` names another file, and registers section keys.
 - `../console` — `src/lib/languages.ts` registers L0186 (L0172 is marked Deprecated).
 - `../graffiticode-mcp-server` — `NATIVE_LANGUAGES` renders `@graffiticode/l0186-view` natively.
-- After any surface change, rebuild the RAG corpus from `spec/examples.md` (delete old vectors).
+- After any surface change, rebuild the RAG corpus from `spec/examples.md`: deploy, then
+  `create-items-from-prompts --lang 0186 --mark 1 --refresh` (it reads the served `examples.md`
+  and clears replaced items' vectors), the corpus gate, then `generate-embeddings-from-examples`.
