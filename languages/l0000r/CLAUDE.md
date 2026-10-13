@@ -38,7 +38,7 @@ parser (JS, upstream) → AST pool (JSON) → Dialect::normalize → Ast::from_j
 
 The server never parses source: `/compile` receives the AST the API's parser produced. `Compiler::compile(code, data, config, identity)` takes that JSON and returns a `Compilation { result, effects }`.
 
-- `ast.rs` — `Ast::from_json` resolves the pool once into `Node` (typed literals, or `Form { op, elts }`). `Op` is an enum of every kernel tag plus `Op::Dialect(tag)` for tags the kernel does not define.
+- `ast.rs` — `Ast::from_json` resolves the pool once into `Node` (typed literals, or `Form { op, elts }`). `Op` is an enum of every kernel tag plus `Op::Dialect(tag)` for tags the kernel does not define. `Ast::reachable()` lists the nodes a program can evaluate, for a dialect's own checks.
 - `value.rs` — `Value` (`Undefined`, `Null`, `Bool`, `Num`, `Str`, `Tag`, `List`, `Record`, `Lambda`). `Record` keys are `Key::{Tag, Str, Num}`; `Record::get` has the tag↔string fallback and no number fallback. JSON objects from upstream become records with tag keys; `{"tag": "x"}` reads back as a tag.
 - `number.rs` — `Number` and decimal arithmetic (20 significant digits, half-up) over `bigdecimal`, standing in for `decimal.js`. A `Number` is `Float(f64)` whenever an `f64` holds the value and `Exact(BigDecimal)` only when it would round (`12345678901234567890`), so equal values are always the same variant. `Decimal::evaluate` makes that choice for every result; quotients and powers that had to be rounded stay `f64`. Output is always `f64`.
 - `format.rs` — `format-number`: Excel number-format patterns, exact decimal rounding half away from zero. A literal pattern is validated in `check.rs`, a computed one when used.
@@ -65,7 +65,7 @@ Tests that need signing keys (policy's session key, Google's ID-token key) gener
 
 ## API server (`crates/server`)
 
-`app(state, static_dir)` in `src/lib.rs` builds the axum router; `src/main.rs` reads the environment and serves it. `AppState` holds the shared `Compiler`, a `TokenVerifier` (the auth service in production, a stub in tests), a `GatewayVerifier` for `/preflight`, and the revision name.
+`app(state, static_dir)` in `src/lib.rs` builds the axum router, and `serve(dialect, lexicon)` reads the environment and runs it. `src/main.rs` is `serve(L0000, Lexicon::base())`; a child language's server is the same line with its own `Dialect` and merged lexicon (see `languages/l0003r`), so anything changed here changes every Rust language server. `AppState` holds the shared `Compiler`, a `TokenVerifier` (the auth service in production, a stub in tests), a `GatewayVerifier` for `/preflight`, and the revision name.
 
 - `GET /` — health check.
 - `POST /compile` — `{ code, data, config }` → `{ data, errors }`. Missing/falsy `code` or `data` → 400. A token (`?access_token=`, body `auth`, or `Authorization`) is verified against `AUTH_URL` to learn the uid; a rejected token is 401, no token is anonymous. The uid comes only from the verified token; `connectionId`, `invocationToken`, `stage` and `admissionToken` are read from the body into the invocation's `Identity`. The response adds `effects` when the compile made protected writes, and `revision` when the request carried an `admissionToken`.

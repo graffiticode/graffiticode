@@ -1,0 +1,7252 @@
+[
+ {
+  "src": "hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "extra": 1,
+    "theme": "light",
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "hello 42..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "4": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "hello": 42
+   }
+  }
+ },
+ {
+  "src": "hello 42..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "4": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "hello 42..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "4": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "extra": 1,
+    "theme": "light",
+    "hello": 42
+   }
+  }
+ },
+ {
+  "src": "hello concat \"wor\" \"ld\"..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "wor"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "ld"
+    ],
+    "coord": {
+     "from": 19,
+     "to": 23
+    }
+   },
+   "7": {
+    "tag": "CONCAT",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "hello concat \"wor\" \"ld\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "wor"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "ld"
+    ],
+    "coord": {
+     "from": 19,
+     "to": 23
+    }
+   },
+   "7": {
+    "tag": "CONCAT",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "hello concat \"wor\" \"ld\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "wor"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "ld"
+    ],
+    "coord": {
+     "from": 19,
+     "to": 23
+    }
+   },
+   "7": {
+    "tag": "CONCAT",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "extra": 1,
+    "theme": "light",
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "image \"https://example.test/cat.png\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "https://example.test/cat.png"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 36
+    }
+   },
+   "4": {
+    "tag": "IMAGE",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "image": "https://example.test/cat.png"
+   }
+  }
+ },
+ {
+  "src": "image \"https://example.test/cat.png\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "https://example.test/cat.png"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 36
+    }
+   },
+   "4": {
+    "tag": "IMAGE",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "image": "https://example.test/cat.png",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "image \"https://example.test/cat.png\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "https://example.test/cat.png"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 36
+    }
+   },
+   "4": {
+    "tag": "IMAGE",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "image": "https://example.test/cat.png",
+    "extra": 1,
+    "theme": "light"
+   }
+  }
+ },
+ {
+  "src": "theme DARK hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 24
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "theme DARK hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 24
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme DARK hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 24
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "extra": 1,
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "theme LIGHT hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "LIGHT"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 25
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 12,
+     "to": 17
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "theme LIGHT hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "LIGHT"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 25
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 12,
+     "to": 17
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme LIGHT hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "LIGHT"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 25
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 12,
+     "to": 17
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "extra": 1,
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "theme DARK image \"https://example.test/cat.png\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "https://example.test/cat.png"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 47
+    }
+   },
+   "6": {
+    "tag": "IMAGE",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "image": "https://example.test/cat.png"
+   }
+  }
+ },
+ {
+  "src": "theme DARK image \"https://example.test/cat.png\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "https://example.test/cat.png"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 47
+    }
+   },
+   "6": {
+    "tag": "IMAGE",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "image": "https://example.test/cat.png",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme DARK image \"https://example.test/cat.png\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "https://example.test/cat.png"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 47
+    }
+   },
+   "6": {
+    "tag": "IMAGE",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "image": "https://example.test/cat.png",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "theme DARK 42..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "value": 42
+   }
+  }
+ },
+ {
+  "src": "theme DARK 42..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "value": 42,
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme DARK 42..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "value": 42,
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "theme LIGHT [1 2 3]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "LIGHT"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": [
+     3,
+     4,
+     5
+    ]
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "value": [
+     1,
+     2,
+     3
+    ]
+   }
+  }
+ },
+ {
+  "src": "theme LIGHT [1 2 3]..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "LIGHT"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": [
+     3,
+     4,
+     5
+    ]
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "value": [
+     1,
+     2,
+     3
+    ],
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme LIGHT [1 2 3]..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "LIGHT"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": [
+     3,
+     4,
+     5
+    ]
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "value": [
+     1,
+     2,
+     3
+    ],
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "theme DARK \"plain\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "plain"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 18
+    }
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "value": "plain"
+   }
+  }
+ },
+ {
+  "src": "theme DARK \"plain\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "plain"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 18
+    }
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "value": "plain",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme DARK \"plain\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "plain"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 18
+    }
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "value": "plain",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "id \"greeting\" hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "greeting"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 27
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 14,
+     "to": 19
+    }
+   },
+   "8": {
+    "tag": "ID",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "id": "greeting",
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "id \"greeting\" hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "greeting"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 27
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 14,
+     "to": 19
+    }
+   },
+   "8": {
+    "tag": "ID",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "id": "greeting",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "id \"greeting\" hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "greeting"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 27
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 14,
+     "to": 19
+    }
+   },
+   "8": {
+    "tag": "ID",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "id": "greeting",
+    "extra": 1,
+    "theme": "light",
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "id \"answer\" 42..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "answer"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 11
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "5": {
+    "tag": "ID",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "id": "answer",
+    "value": 42
+   }
+  }
+ },
+ {
+  "src": "id \"answer\" 42..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "answer"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 11
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "5": {
+    "tag": "ID",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "id": "answer",
+    "value": 42,
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "id \"answer\" 42..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "answer"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 11
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "5": {
+    "tag": "ID",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "id": "answer",
+    "value": 42,
+    "extra": 1,
+    "theme": "light"
+   }
+  }
+ },
+ {
+  "src": "id \"list\" [1 2]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "list"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 9
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "5": {
+    "tag": "LIST",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "7": {
+    "tag": "ID",
+    "elts": [
+     2,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {
+   "data": {
+    "id": "list",
+    "value": [
+     1,
+     2
+    ]
+   }
+  }
+ },
+ {
+  "src": "id \"list\" [1 2]..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "list"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 9
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "5": {
+    "tag": "LIST",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "7": {
+    "tag": "ID",
+    "elts": [
+     2,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {
+   "data": {
+    "id": "list",
+    "value": [
+     1,
+     2
+    ],
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "id \"list\" [1 2]..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "list"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 9
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "5": {
+    "tag": "LIST",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "7": {
+    "tag": "ID",
+    "elts": [
+     2,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {
+   "data": {
+    "id": "list",
+    "value": [
+     1,
+     2
+    ],
+    "extra": 1,
+    "theme": "light"
+   }
+  }
+ },
+ {
+  "src": "id \"g\" theme DARK hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "g"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 6
+    }
+   },
+   "4": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 17
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 31
+    }
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     6
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "10": {
+    "tag": "THEME",
+    "elts": [
+     4,
+     8
+    ],
+    "coord": {
+     "from": 7,
+     "to": 12
+    }
+   },
+   "12": {
+    "tag": "ID",
+    "elts": [
+     2,
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "id": "g",
+    "theme": "dark",
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "id \"g\" theme DARK hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "g"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 6
+    }
+   },
+   "4": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 17
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 31
+    }
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     6
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "10": {
+    "tag": "THEME",
+    "elts": [
+     4,
+     8
+    ],
+    "coord": {
+     "from": 7,
+     "to": 12
+    }
+   },
+   "12": {
+    "tag": "ID",
+    "elts": [
+     2,
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "id": "g",
+    "theme": "dark",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "id \"g\" theme DARK hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "g"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 6
+    }
+   },
+   "4": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 17
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 31
+    }
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     6
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "10": {
+    "tag": "THEME",
+    "elts": [
+     4,
+     8
+    ],
+    "coord": {
+     "from": 7,
+     "to": 12
+    }
+   },
+   "12": {
+    "tag": "ID",
+    "elts": [
+     2,
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "id": "g",
+    "theme": "light",
+    "extra": 1,
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "theme DARK id \"g\" hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "g"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 17
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 31
+    }
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     6
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "10": {
+    "tag": "ID",
+    "elts": [
+     4,
+     8
+    ],
+    "coord": {
+     "from": 11,
+     "to": 13
+    }
+   },
+   "12": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "id": "g",
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "theme DARK id \"g\" hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "g"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 17
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 31
+    }
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     6
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "10": {
+    "tag": "ID",
+    "elts": [
+     4,
+     8
+    ],
+    "coord": {
+     "from": 11,
+     "to": 13
+    }
+   },
+   "12": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "id": "g",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme DARK id \"g\" hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "g"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 17
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 31
+    }
+   },
+   "8": {
+    "tag": "HELLO",
+    "elts": [
+     6
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "10": {
+    "tag": "ID",
+    "elts": [
+     4,
+     8
+    ],
+    "coord": {
+     "from": 11,
+     "to": 13
+    }
+   },
+   "12": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "id": "g",
+    "extra": 1,
+    "hello": "world"
+   }
+  }
+ },
+ {
+  "src": "print hello \"world\"..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 19
+    }
+   },
+   "5": {
+    "tag": "HELLO",
+    "elts": [
+     3
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "7": {
+    "tag": "PRINT",
+    "elts": [
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {
+   "data": {
+    "print": {
+     "hello": "world"
+    }
+   }
+  }
+ },
+ {
+  "src": "print hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 19
+    }
+   },
+   "5": {
+    "tag": "HELLO",
+    "elts": [
+     3
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "7": {
+    "tag": "PRINT",
+    "elts": [
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {
+   "data": {
+    "print": {
+     "hello": "edited"
+    },
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "print hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 19
+    }
+   },
+   "5": {
+    "tag": "HELLO",
+    "elts": [
+     3
+    ],
+    "coord": {
+     "from": 6,
+     "to": 11
+    }
+   },
+   "7": {
+    "tag": "PRINT",
+    "elts": [
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {
+   "data": {
+    "print": {
+     "extra": 1,
+     "theme": "light",
+     "hello": "world"
+    },
+    "extra": 1,
+    "theme": "light"
+   }
+  }
+ },
+ {
+  "src": "let name = \"Ada\".. hello name..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Ada"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 19,
+     "to": 24
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "hello": "Ada"
+   }
+  }
+ },
+ {
+  "src": "let name = \"Ada\".. hello name..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Ada"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 19,
+     "to": 24
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "let name = \"Ada\".. hello name..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Ada"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 16
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 19,
+     "to": 24
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "extra": 1,
+    "theme": "light",
+    "hello": "Ada"
+   }
+  }
+ },
+ {
+  "src": "map (<x: hello x>) [\"a\" \"b\"]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "IDENT",
+    "elts": [
+     "x"
+    ]
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": [
+     2
+    ]
+   },
+   "7": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": [
+     0
+    ]
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 23
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 27
+    }
+   },
+   "14": {
+    "tag": "LIST",
+    "elts": [
+     12,
+     13
+    ]
+   },
+   "18": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ]
+   },
+   "20": {
+    "tag": "LAMBDA",
+    "elts": [
+     6,
+     18,
+     7,
+     8
+    ]
+   },
+   "21": {
+    "tag": "PAREN",
+    "elts": [
+     20
+    ]
+   },
+   "22": {
+    "tag": "MAP",
+    "elts": [
+     21,
+     14
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": [
+    {
+     "hello": "a"
+    },
+    {
+     "hello": "b"
+    }
+   ]
+  }
+ },
+ {
+  "src": "map (<x: hello x>) [\"a\" \"b\"]..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "IDENT",
+    "elts": [
+     "x"
+    ]
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": [
+     2
+    ]
+   },
+   "7": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": [
+     0
+    ]
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 23
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 27
+    }
+   },
+   "14": {
+    "tag": "LIST",
+    "elts": [
+     12,
+     13
+    ]
+   },
+   "18": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ]
+   },
+   "20": {
+    "tag": "LAMBDA",
+    "elts": [
+     6,
+     18,
+     7,
+     8
+    ]
+   },
+   "21": {
+    "tag": "PAREN",
+    "elts": [
+     20
+    ]
+   },
+   "22": {
+    "tag": "MAP",
+    "elts": [
+     21,
+     14
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": [
+    {
+     "hello": "edited"
+    },
+    {
+     "hello": "edited"
+    }
+   ]
+  }
+ },
+ {
+  "src": "map (<x: hello x>) [\"a\" \"b\"]..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "IDENT",
+    "elts": [
+     "x"
+    ]
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": [
+     2
+    ]
+   },
+   "7": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": [
+     0
+    ]
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 23
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 27
+    }
+   },
+   "14": {
+    "tag": "LIST",
+    "elts": [
+     12,
+     13
+    ]
+   },
+   "18": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ]
+   },
+   "20": {
+    "tag": "LAMBDA",
+    "elts": [
+     6,
+     18,
+     7,
+     8
+    ]
+   },
+   "21": {
+    "tag": "PAREN",
+    "elts": [
+     20
+    ]
+   },
+   "22": {
+    "tag": "MAP",
+    "elts": [
+     21,
+     14
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": [
+    {
+     "extra": 1,
+     "theme": "light",
+     "hello": "a"
+    },
+    {
+     "extra": 1,
+     "theme": "light",
+     "hello": "b"
+    }
+   ]
+  }
+ },
+ {
+  "src": "[hello \"a\" image \"b\"]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 20
+    }
+   },
+   "7": {
+    "tag": "IMAGE",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 12,
+     "to": 17
+    }
+   },
+   "9": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 1,
+     "to": 6
+    }
+   },
+   "11": {
+    "tag": "LIST",
+    "elts": [
+     9,
+     7
+    ]
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": [
+    {
+     "hello": "a"
+    },
+    {
+     "image": "b"
+    }
+   ]
+  }
+ },
+ {
+  "src": "[hello \"a\" image \"b\"]..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 20
+    }
+   },
+   "7": {
+    "tag": "IMAGE",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 12,
+     "to": 17
+    }
+   },
+   "9": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 1,
+     "to": 6
+    }
+   },
+   "11": {
+    "tag": "LIST",
+    "elts": [
+     9,
+     7
+    ]
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": [
+    {
+     "hello": "edited"
+    },
+    {
+     "image": "b",
+     "hello": "edited"
+    }
+   ]
+  }
+ },
+ {
+  "src": "[hello \"a\" image \"b\"]..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 20
+    }
+   },
+   "7": {
+    "tag": "IMAGE",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 12,
+     "to": 17
+    }
+   },
+   "9": {
+    "tag": "HELLO",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 1,
+     "to": 6
+    }
+   },
+   "11": {
+    "tag": "LIST",
+    "elts": [
+     9,
+     7
+    ]
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": [
+    {
+     "extra": 1,
+     "theme": "light",
+     "hello": "a"
+    },
+    {
+     "image": "b",
+     "extra": 1,
+     "theme": "light"
+    }
+   ]
+  }
+ },
+ {
+  "src": "if true then hello \"yes\" else hello \"no\"..",
+  "data": {},
+  "ast": {
+   "13": {
+    "tag": "NUM",
+    "elts": [
+     "-1"
+    ]
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'IF'."
+    ]
+   },
+   "15": {
+    "tag": "ERROR",
+    "elts": [
+     14,
+     13,
+     13
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'IF'."
+   ]
+  }
+ },
+ {
+  "src": "if true then hello \"yes\" else hello \"no\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "13": {
+    "tag": "NUM",
+    "elts": [
+     "-1"
+    ]
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'IF'."
+    ]
+   },
+   "15": {
+    "tag": "ERROR",
+    "elts": [
+     14,
+     13,
+     13
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'IF'."
+   ]
+  }
+ },
+ {
+  "src": "if true then hello \"yes\" else hello \"no\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "13": {
+    "tag": "NUM",
+    "elts": [
+     "-1"
+    ]
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'IF'."
+    ]
+   },
+   "15": {
+    "tag": "ERROR",
+    "elts": [
+     14,
+     13,
+     13
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'IF'."
+   ]
+  }
+ },
+ {
+  "src": "{x: 1}..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 1,
+     "to": 2
+    }
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "8": {
+    "tag": "BINDING",
+    "elts": [
+     1,
+     2
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": [
+     8
+    ]
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "x": 1
+   }
+  }
+ },
+ {
+  "src": "{x: 1}..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 1,
+     "to": 2
+    }
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "8": {
+    "tag": "BINDING",
+    "elts": [
+     1,
+     2
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": [
+     8
+    ]
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "{x: 1}..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 1,
+     "to": 2
+    }
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "8": {
+    "tag": "BINDING",
+    "elts": [
+     1,
+     2
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": [
+     8
+    ]
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "extra": 1,
+    "theme": "light"
+   }
+  }
+ },
+ {
+  "src": "theme DARK {x: 1}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "10": {
+    "tag": "BINDING",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "11": {
+    "tag": "RECORD",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "theme": "dark"
+   }
+  }
+ },
+ {
+  "src": "theme DARK {x: 1}..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "10": {
+    "tag": "BINDING",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "11": {
+    "tag": "RECORD",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "theme": "dark",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme DARK {x: 1}..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 13
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "10": {
+    "tag": "BINDING",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "11": {
+    "tag": "RECORD",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "theme": "light",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "id \"r\" {x: 1 y: [2]}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "r"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 6
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 8,
+     "to": 9
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "TAG",
+    "elts": [
+     "y"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 14
+    }
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     8
+    ]
+   },
+   "15": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     9
+    ]
+   },
+   "16": {
+    "tag": "BINDING",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "17": {
+    "tag": "RECORD",
+    "elts": [
+     16,
+     15
+    ]
+   },
+   "18": {
+    "tag": "ID",
+    "elts": [
+     2,
+     17
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "y": [
+     2
+    ],
+    "id": "r"
+   }
+  }
+ },
+ {
+  "src": "id \"r\" {x: 1 y: [2]}..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "r"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 6
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 8,
+     "to": 9
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "TAG",
+    "elts": [
+     "y"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 14
+    }
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     8
+    ]
+   },
+   "15": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     9
+    ]
+   },
+   "16": {
+    "tag": "BINDING",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "17": {
+    "tag": "RECORD",
+    "elts": [
+     16,
+     15
+    ]
+   },
+   "18": {
+    "tag": "ID",
+    "elts": [
+     2,
+     17
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "y": [
+     2
+    ],
+    "id": "r",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "id \"r\" {x: 1 y: [2]}..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "r"
+    ],
+    "coord": {
+     "from": 3,
+     "to": 6
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 8,
+     "to": 9
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "TAG",
+    "elts": [
+     "y"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 14
+    }
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     8
+    ]
+   },
+   "15": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     9
+    ]
+   },
+   "16": {
+    "tag": "BINDING",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "17": {
+    "tag": "RECORD",
+    "elts": [
+     16,
+     15
+    ]
+   },
+   "18": {
+    "tag": "ID",
+    "elts": [
+     2,
+     17
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "y": [
+     2
+    ],
+    "id": "r",
+    "extra": 1,
+    "theme": "light"
+   }
+  }
+ },
+ {
+  "src": "tag red..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "red"
+    ],
+    "coord": {
+     "from": 4,
+     "to": 7
+    }
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": {
+    "tag": "red"
+   }
+  }
+ },
+ {
+  "src": "tag red..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "red"
+    ],
+    "coord": {
+     "from": 4,
+     "to": 7
+    }
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": {
+    "tag": "red",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "tag red..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "red"
+    ],
+    "coord": {
+     "from": 4,
+     "to": 7
+    }
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": {
+    "tag": "red",
+    "extra": 1,
+    "theme": "light"
+   }
+  }
+ },
+ {
+  "src": "theme DARK tag red..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "red"
+    ],
+    "coord": {
+     "from": 15,
+     "to": 18
+    }
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "tag": "red"
+   }
+  }
+ },
+ {
+  "src": "theme DARK tag red..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "red"
+    ],
+    "coord": {
+     "from": 15,
+     "to": 18
+    }
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "tag": "red",
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme DARK tag red..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "red"
+    ],
+    "coord": {
+     "from": 15,
+     "to": 18
+    }
+   },
+   "5": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "tag": "red",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "theme DARK null..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "NULL",
+    "elts": []
+   },
+   "6": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "value": null
+   }
+  }
+ },
+ {
+  "src": "theme DARK null..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "NULL",
+    "elts": []
+   },
+   "6": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "theme": "dark",
+    "value": null,
+    "hello": "edited"
+   }
+  }
+ },
+ {
+  "src": "theme DARK null..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "NULL",
+    "elts": []
+   },
+   "6": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "theme": "light",
+    "value": null,
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "42..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": 42
+  }
+ },
+ {
+  "src": "42..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": 42
+  }
+ },
+ {
+  "src": "42..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": 42
+  }
+ },
+ {
+  "src": "add 1 2..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "6": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 3
+  }
+ },
+ {
+  "src": "add 1 2..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "6": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 3
+  }
+ },
+ {
+  "src": "add 1 2..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "6": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 3
+  }
+ },
+ {
+  "src": "\"text\"..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "STR",
+    "elts": [
+     "text"
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": "text"
+  }
+ },
+ {
+  "src": "\"text\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "STR",
+    "elts": [
+     "text"
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": "text"
+  }
+ },
+ {
+  "src": "\"text\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "STR",
+    "elts": [
+     "text"
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": "text"
+  }
+ },
+ {
+  "src": "[1 2 3]..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "4": {
+    "tag": "LIST",
+    "elts": [
+     1,
+     2,
+     3
+    ]
+   },
+   "5": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "6": {
+    "tag": "PROG",
+    "elts": [
+     5
+    ]
+   },
+   "root": 6
+  },
+  "expect": {
+   "data": [
+    1,
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "src": "[1 2 3]..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "4": {
+    "tag": "LIST",
+    "elts": [
+     1,
+     2,
+     3
+    ]
+   },
+   "5": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "6": {
+    "tag": "PROG",
+    "elts": [
+     5
+    ]
+   },
+   "root": 6
+  },
+  "expect": {
+   "data": [
+    1,
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "src": "[1 2 3]..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "4": {
+    "tag": "LIST",
+    "elts": [
+     1,
+     2,
+     3
+    ]
+   },
+   "5": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "6": {
+    "tag": "PROG",
+    "elts": [
+     5
+    ]
+   },
+   "root": 6
+  },
+  "expect": {
+   "data": [
+    1,
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "src": "true..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": true
+  }
+ },
+ {
+  "src": "true..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": true
+  }
+ },
+ {
+  "src": "true..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": true
+  }
+ },
+ {
+  "src": "null..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NULL",
+    "elts": []
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "4": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 4
+  },
+  "expect": {
+   "data": null
+  }
+ },
+ {
+  "src": "null..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "NULL",
+    "elts": []
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "4": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 4
+  },
+  "expect": {
+   "data": null
+  }
+ },
+ {
+  "src": "null..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "NULL",
+    "elts": []
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "4": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 4
+  },
+  "expect": {
+   "data": null
+  }
+ },
+ {
+  "src": "map (<x: add x 1>) [1 2 3]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "IDENT",
+    "elts": [
+     "x"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "LIST",
+    "elts": [
+     2
+    ]
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     0
+    ]
+   },
+   "13": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "14": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     5,
+     13,
+     14
+    ]
+   },
+   "19": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     5
+    ]
+   },
+   "20": {
+    "tag": "LAMBDA",
+    "elts": [
+     7,
+     19,
+     8,
+     9
+    ]
+   },
+   "21": {
+    "tag": "PAREN",
+    "elts": [
+     20
+    ]
+   },
+   "22": {
+    "tag": "MAP",
+    "elts": [
+     21,
+     15
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": [
+    2,
+    3,
+    4
+   ]
+  }
+ },
+ {
+  "src": "map (<x: add x 1>) [1 2 3]..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "IDENT",
+    "elts": [
+     "x"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "LIST",
+    "elts": [
+     2
+    ]
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     0
+    ]
+   },
+   "13": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "14": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     5,
+     13,
+     14
+    ]
+   },
+   "19": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     5
+    ]
+   },
+   "20": {
+    "tag": "LAMBDA",
+    "elts": [
+     7,
+     19,
+     8,
+     9
+    ]
+   },
+   "21": {
+    "tag": "PAREN",
+    "elts": [
+     20
+    ]
+   },
+   "22": {
+    "tag": "MAP",
+    "elts": [
+     21,
+     15
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": [
+    2,
+    3,
+    4
+   ]
+  }
+ },
+ {
+  "src": "map (<x: add x 1>) [1 2 3]..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "IDENT",
+    "elts": [
+     "x"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "LIST",
+    "elts": [
+     2
+    ]
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     0
+    ]
+   },
+   "13": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "14": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     5,
+     13,
+     14
+    ]
+   },
+   "19": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     5
+    ]
+   },
+   "20": {
+    "tag": "LAMBDA",
+    "elts": [
+     7,
+     19,
+     8,
+     9
+    ]
+   },
+   "21": {
+    "tag": "PAREN",
+    "elts": [
+     20
+    ]
+   },
+   "22": {
+    "tag": "MAP",
+    "elts": [
+     21,
+     15
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": [
+    2,
+    3,
+    4
+   ]
+  }
+ },
+ {
+  "src": "concat \"a\" \"b\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 14
+    }
+   },
+   "6": {
+    "tag": "CONCAT",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "ab"
+  }
+ },
+ {
+  "src": "concat \"a\" \"b\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 14
+    }
+   },
+   "6": {
+    "tag": "CONCAT",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "ab"
+  }
+ },
+ {
+  "src": "concat \"a\" \"b\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 14
+    }
+   },
+   "6": {
+    "tag": "CONCAT",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "ab"
+  }
+ },
+ {
+  "src": "case 2 of 1: \"one\" 2: \"two\" end..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "one"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "two"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 27
+    }
+   },
+   "14": {
+    "tag": "OF",
+    "elts": [
+     1,
+     7
+    ]
+   },
+   "15": {
+    "tag": "OF",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "16": {
+    "tag": "CASE",
+    "elts": [
+     1,
+     15,
+     14
+    ]
+   },
+   "17": {
+    "tag": "EXPRS",
+    "elts": [
+     16
+    ]
+   },
+   "18": {
+    "tag": "PROG",
+    "elts": [
+     17
+    ]
+   },
+   "root": 18
+  },
+  "expect": {
+   "data": "two"
+  }
+ },
+ {
+  "src": "case 2 of 1: \"one\" 2: \"two\" end..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "one"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "two"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 27
+    }
+   },
+   "14": {
+    "tag": "OF",
+    "elts": [
+     1,
+     7
+    ]
+   },
+   "15": {
+    "tag": "OF",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "16": {
+    "tag": "CASE",
+    "elts": [
+     1,
+     15,
+     14
+    ]
+   },
+   "17": {
+    "tag": "EXPRS",
+    "elts": [
+     16
+    ]
+   },
+   "18": {
+    "tag": "PROG",
+    "elts": [
+     17
+    ]
+   },
+   "root": 18
+  },
+  "expect": {
+   "data": "two"
+  }
+ },
+ {
+  "src": "case 2 of 1: \"one\" 2: \"two\" end..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "one"
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "two"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 27
+    }
+   },
+   "14": {
+    "tag": "OF",
+    "elts": [
+     1,
+     7
+    ]
+   },
+   "15": {
+    "tag": "OF",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "16": {
+    "tag": "CASE",
+    "elts": [
+     1,
+     15,
+     14
+    ]
+   },
+   "17": {
+    "tag": "EXPRS",
+    "elts": [
+     16
+    ]
+   },
+   "18": {
+    "tag": "PROG",
+    "elts": [
+     17
+    ]
+   },
+   "root": 18
+  },
+  "expect": {
+   "data": "two"
+  }
+ },
+ {
+  "src": "theme BLUE hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "10"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "6"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'BLUE'."
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "5": {
+    "tag": "ERROR",
+    "elts": [
+     4,
+     3,
+     2
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "root": 5
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'BLUE'."
+   ]
+  }
+ },
+ {
+  "src": "theme BLUE hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "10"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "6"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'BLUE'."
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "5": {
+    "tag": "ERROR",
+    "elts": [
+     4,
+     3,
+     2
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "root": 5
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'BLUE'."
+   ]
+  }
+ },
+ {
+  "src": "theme BLUE hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "10"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "6"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'BLUE'."
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "5": {
+    "tag": "ERROR",
+    "elts": [
+     4,
+     3,
+     2
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "root": 5
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'BLUE'."
+   ]
+  }
+ },
+ {
+  "src": "theme \"dark\" hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "dark"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 12
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 19,
+     "to": 26
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "errors": [
+    "Expecting a tag DARK or tag LIGHT. Got tag dark."
+   ]
+  }
+ },
+ {
+  "src": "theme \"dark\" hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "dark"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 12
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 19,
+     "to": 26
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "errors": [
+    "Expecting a tag DARK or tag LIGHT. Got tag dark."
+   ]
+  }
+ },
+ {
+  "src": "theme \"dark\" hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "dark"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 12
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 19,
+     "to": 26
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "8": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "errors": [
+    "Expecting a tag DARK or tag LIGHT. Got tag dark."
+   ]
+  }
+ },
+ {
+  "src": "id 5 hello \"world\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 18
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 5,
+     "to": 10
+    }
+   },
+   "8": {
+    "tag": "ID",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "errors": [
+    "id: expecting a string, e.g. id \"greeting\" hello \"world\". Got NUM."
+   ]
+  }
+ },
+ {
+  "src": "id 5 hello \"world\"..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 18
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 5,
+     "to": 10
+    }
+   },
+   "8": {
+    "tag": "ID",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "errors": [
+    "id: expecting a string, e.g. id \"greeting\" hello \"world\". Got NUM."
+   ]
+  }
+ },
+ {
+  "src": "id 5 hello \"world\"..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "world"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 18
+    }
+   },
+   "6": {
+    "tag": "HELLO",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 5,
+     "to": 10
+    }
+   },
+   "8": {
+    "tag": "ID",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "errors": [
+    "id: expecting a string, e.g. id \"greeting\" hello \"world\". Got NUM."
+   ]
+  }
+ },
+ {
+  "src": "hello..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "STR",
+    "elts": [
+     "Too few arguments for HELLO. Expected 1."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "ERROR",
+    "elts": [
+     5,
+     4,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "root": 6
+  },
+  "expect": {
+   "errors": [
+    "Too few arguments for HELLO. Expected 1."
+   ]
+  }
+ },
+ {
+  "src": "hello..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "STR",
+    "elts": [
+     "Too few arguments for HELLO. Expected 1."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "ERROR",
+    "elts": [
+     5,
+     4,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "root": 6
+  },
+  "expect": {
+   "errors": [
+    "Too few arguments for HELLO. Expected 1."
+   ]
+  }
+ },
+ {
+  "src": "hello..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "STR",
+    "elts": [
+     "Too few arguments for HELLO. Expected 1."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "ERROR",
+    "elts": [
+     5,
+     4,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "root": 6
+  },
+  "expect": {
+   "errors": [
+    "Too few arguments for HELLO. Expected 1."
+   ]
+  }
+ },
+ {
+  "src": "nope 1..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "4"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'nope'."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "4": {
+    "tag": "ERROR",
+    "elts": [
+     3,
+     2,
+     1
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "root": 4
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'nope'."
+   ]
+  }
+ },
+ {
+  "src": "nope 1..",
+  "data": {
+   "hello": "edited"
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "4"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'nope'."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "4": {
+    "tag": "ERROR",
+    "elts": [
+     3,
+     2,
+     1
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "root": 4
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'nope'."
+   ]
+  }
+ },
+ {
+  "src": "nope 1..",
+  "data": {
+   "extra": 1,
+   "theme": "light"
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "4"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'nope'."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "4": {
+    "tag": "ERROR",
+    "elts": [
+     3,
+     2,
+     1
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "root": 4
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'nope'."
+   ]
+  }
+ }
+]

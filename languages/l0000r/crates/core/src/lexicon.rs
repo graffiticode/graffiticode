@@ -23,8 +23,8 @@ pub struct LexiconEntry {
     pub name: String,
     pub cls: String,
     pub arity: u32,
-    #[serde(rename = "type")]
-    pub signature: String,
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(flatten)]
@@ -144,7 +144,7 @@ mod tests {
             name: name.to_owned(),
             cls: "function".to_owned(),
             arity: 1,
-            signature: "<any: any>".to_owned(),
+            signature: Some("<any: any>".to_owned()),
             description: None,
             extra: IndexMap::new(),
         }
@@ -190,7 +190,7 @@ mod tests {
     fn a_declared_override_replaces_the_base_word() {
         let merged = Lexicon::base().merge(words(&["min"]), &["min"], None).unwrap();
         assert_eq!(merged.len(), Lexicon::base().len());
-        assert_eq!(merged.get("min").unwrap().signature, "<any: any>");
+        assert_eq!(merged.get("min").unwrap().signature.as_deref(), Some("<any: any>"));
     }
 
     #[test]
