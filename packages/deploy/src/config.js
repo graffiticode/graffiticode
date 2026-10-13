@@ -63,6 +63,7 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   for (const check of config.smoke) {
     requireValue(typeof check.path === "string" && check.path.startsWith("/") && !check.path.startsWith("//") && !check.path.includes("\\"), "Smoke paths must be local URL paths");
     requireValue(Number.isInteger(check.status) && check.status >= 200 && check.status < 300, "Smoke checks must expect a successful HTTP status");
+    requireValue(check.timeoutMs === undefined || (Number.isInteger(check.timeoutMs) && check.timeoutMs >= 1000 && check.timeoutMs <= 600000), "Smoke timeoutMs must be an integer from 1000 to 600000");
   }
   requireValue(!config.verify || (object(config.verify) && typeof config.verify.module === "string" && /\.m?js$/.test(config.verify.module) && !path.isAbsolute(config.verify.module) && !config.verify.module.split(/[\\/]/).includes("..")), "verify.module must be a relative .js path in the workspace");
   requireValue(typeof config.runtimeServiceAccount === "string", "runtimeServiceAccount is required");
