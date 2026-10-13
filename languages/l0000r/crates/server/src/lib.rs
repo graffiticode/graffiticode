@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-//! The L0000 language server.
+//! The language server for L0000, and for any dialect built on it: [`serve`] runs one for a
+//! [`Dialect`] and its lexicon.
 //!
 //! | route | |
 //! |---|---|
@@ -28,15 +29,17 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use graffiticode_l0000::{Compiler, Identity, Lexicon};
+use graffiticode_l0000::policy_client::{HttpPolicyClient, MetadataIdTokens};
+use graffiticode_l0000::schema::HttpSchemas;
+use graffiticode_l0000::{Compiler, Dialect, Identity, Keyring, Lexicon, RevisionIdentity};
 use serde_json::{Value, json};
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 
-use crate::auth::{TokenVerifier, token_from_request};
-use crate::gateway::{GatewayVerifier, canonical_lang};
+use crate::auth::{AuthService, TokenVerifier, token_from_request};
+use crate::gateway::{GatewayVerifier, GoogleGateways, canonical_lang};
 
 const BODY_LIMIT: usize = 50 * 1024 * 1024;
 const MISSING_PARAMETERS: &str = "Missing required parameters: code and data";
@@ -49,6 +52,8 @@ pub struct AppState {
     pub gateways: Arc<dyn GatewayVerifier>,
     /// The Cloud Run revision this server runs as, reported to the gateway for a planned stage.
     pub revision: Option<String>,
+    /// The language's lexicon, as the JSON document served at `/lexicon.json`.
+    pub lexicon: Arc<str>,
 }
 
 /// `static_dir` holds the public assets (`schema.json`, `spec.html`, `instructions.md`, …) and
@@ -95,8 +100,8 @@ fn https_location(headers: &HeaderMap, uri: &Uri) -> Option<String> {
         .then(|| format!("https://{host}{}", uri.path_and_query().map_or("/", |path| path.as_str())))
 }
 
-async fn lexicon() -> impl IntoResponse {
-    ([(CONTENT_TYPE, "application/json")], Lexicon::base_json())
+async fn lexicon(State(state): State<AppState>) -> impl IntoResponse {
+    ([(CONTENT_TYPE, "application/json")], state.lexicon.to_string())
 }
 
 async fn compile(
@@ -230,4 +235,66 @@ fn query_param(query: &str, name: &str) -> Option<String> {
     struct Pair(String, String);
     let pairs: Vec<Pair> = serde_urlencoded::from_str(query).ok()?;
     pairs.into_iter().find(|Pair(key, _)| key == name).map(|Pair(_, value)| value)
+}
+
+fn env_or(name: &str, default: &str) -> String {
+    std::env::var(name).ok().filter(|value| !value.is_empty()).unwrap_or_else(|| default.to_owned())
+}
+
+/// Runs the language server for `dialect` until the process is told to stop.
+///
+/// Everything else comes from the environment: `PORT` (default `50000`), `AUTH_URL`,
+/// `STATIC_DIR` (default `static`), `LOG_LEVEL`, `GRAFFITICODE_API_URL`, the
+/// `GRAFFITICODE_SECRET_KEY(S)` keyring, and for chain admission `POLICY_URL`,
+/// `PREFLIGHT_GATEWAYS`, `K_REVISION` and `GC_IMAGE_DIGEST`.
+pub async fn serve(dialect: impl Dialect + 'static, lexicon: &Lexicon) -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt().with_env_filter(env_or("LOG_LEVEL", "info")).init();
+
+    let port: u16 = env_or("PORT", "50000").parse()?;
+    let auth_url = env_or("AUTH_URL", "https://auth.graffiticode.org");
+    let static_dir = env_or("STATIC_DIR", "static");
+    if !std::path::Path::new(&static_dir).join("index.html").is_file() {
+        tracing::warn!(%static_dir, "no index.html in the static directory; /form will be 404 (run `npm run build:static`)");
+    }
+
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)).build()?;
+    let revision = RevisionIdentity::from_env();
+    let mut compiler = Compiler::new(dialect)
+        .with_schemas(HttpSchemas::from_env(client.clone()))
+        .with_keyring(Keyring::from_env())
+        .with_revision(revision.clone());
+    // Chain admission: with POLICY_URL, a stage of an admitted plan asks policy for its
+    // binding. BROKER_URL is needed only by a language with protected functions.
+    let policy_url = env_or("POLICY_URL", "");
+    if !policy_url.is_empty() {
+        let broker_url = Some(env_or("BROKER_URL", "")).filter(|url| !url.is_empty());
+        let id_tokens = MetadataIdTokens::new(client.clone());
+        compiler = compiler.with_policy(HttpPolicyClient::new(client.clone(), policy_url, broker_url, id_tokens));
+    }
+    // The gateway service accounts allowed to preflight. With none, every preflight is refused.
+    let gateways: Vec<String> = env_or("PREFLIGHT_GATEWAYS", "").split(',').map(str::to_owned).collect();
+    let lang_id = compiler.lang_id().to_owned();
+    let state = AppState {
+        gateways: Arc::new(GoogleGateways::new(client.clone(), &lang_id, &gateways)),
+        verifier: Arc::new(AuthService::new(client, &auth_url)),
+        revision: revision.revision,
+        lexicon: serde_json::to_string(lexicon)?.into(),
+        compiler,
+    };
+
+    let address = std::net::SocketAddr::from((std::net::Ipv4Addr::UNSPECIFIED, port));
+    let listener = tokio::net::TcpListener::bind(address).await?;
+    tracing::info!(lang = %lang_id, port, %auth_url, %static_dir, "language server listening");
+    axum::serve(listener, app(state, static_dir)).with_graceful_shutdown(shutdown()).await?;
+    Ok(())
+}
+
+/// Cloud Run stops an instance with SIGTERM; finish the requests in flight first.
+async fn shutdown() {
+    use tokio::signal::unix::{SignalKind, signal};
+    let mut terminate = signal(SignalKind::terminate()).expect("install the SIGTERM handler");
+    tokio::select! {
+        _ = terminate.recv() => {}
+        _ = tokio::signal::ctrl_c() => {}
+    }
 }

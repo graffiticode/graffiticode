@@ -1,0 +1,17 @@
+[package]
+name = "l0003r-server"
+version = "0.1.0"
+description = "L0003 language server in Rust: /compile, /form, and the public static assets"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "l0003r"
+path = "src/main.rs"
+
+[dependencies]
+graffiticode-l0003 = { path = "../core" }
+l0000r-server = { path = "../../../l0000r/crates/server" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

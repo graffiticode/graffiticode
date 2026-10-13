@@ -100,6 +100,7 @@ fn server() -> Server {
         verifier: verifier.clone(),
         gateways: Arc::new(GoogleGateways::with_keys("0000", &[GATEWAY.to_owned()], keys)),
         revision: Some(REVISION.to_owned()),
+        lexicon: graffiticode_l0000::Lexicon::base_json().into(),
     };
     Server { app: app(state, static_dir.path()), verifier, _static_dir: static_dir }
 }

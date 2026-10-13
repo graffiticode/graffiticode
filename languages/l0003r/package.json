@@ -1,0 +1,18 @@
+{
+  "name": "@graffiticode/l0003r",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "L0003 in Rust: a Graffiticode dialect built on languages/l0000r. Uses the sibling languages/l0003 for static assets and conformance fixtures.",
+  "scripts": {
+    "build": "npm run build:static && cargo build --release -p l0003r-server",
+    "build:static": "node tools/build-static.mjs",
+    "dev": "AUTH_URL=\"http://127.0.0.1:4100\" PORT=50003 cargo run -p l0003r-server",
+    "start": "PORT=50003 cargo run --release -p l0003r-server",
+    "lint": "cargo clippy --all-targets -- -D warnings",
+    "format": "cargo fmt",
+    "test": "cargo test",
+    "fixtures": "npm --prefix ../l0003 run -w packages/core build && node crates/core/tests/conformance/generate.mjs",
+    "gcp:logs": "gcloud run services logs read l0003r --project graffiticode --region us-central1"
+  }
+}

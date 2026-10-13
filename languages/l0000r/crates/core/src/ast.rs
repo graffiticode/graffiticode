@@ -210,6 +210,24 @@ impl Ast {
         self.spans.get(&id).copied()
     }
 
+    /// The nodes a program can evaluate: those reachable from the root, each once, parents
+    /// before children and siblings in source order.
+    pub fn reachable(&self) -> Vec<(NodeId, &Node)> {
+        let mut seen = std::collections::HashSet::new();
+        let mut found = Vec::new();
+        let mut pending = vec![self.root];
+        while let Some(id) = pending.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            if let Some(node) = self.get(id) {
+                found.push((id, node));
+                pending.extend(node.elts().iter().rev());
+            }
+        }
+        found
+    }
+
     /// Every node in the pool in id order, reachable from the root or not.
     pub fn nodes(&self) -> impl Iterator<Item = (NodeId, &Node)> {
         self.nodes.iter().map(|(id, node)| (*id, node))
