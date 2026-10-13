@@ -1,0 +1,43 @@
+# l0013r — the L0013 language server in Rust — from the monorepo root (deploy CLI, or
+# `docker build -f configs/Dockerfile.l0013r.yaml .`). languages/l0013 holds both
+# implementations: this image is the Rust server (crates/), which builds on the kernel and
+# server crates in languages/l0000, with the static assets this language's npm packages build.
+# configs/Dockerfile.l0013.yaml builds the TypeScript server from the same directory.
+#
+# Unlike the other Rust language servers, the runtime is not distroless: `snap` drives a
+# headless Chromium, which the image must carry.
+
+# Public static assets (spec documents, schema, language info) and the /form View bundle.
+FROM node:22-alpine AS static
+WORKDIR /src
+# The TypeScript core depends on puppeteer; its browser download is not needed to build.
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+COPY languages/l0013/package*.json ./
+COPY languages/l0013/packages/core/package*.json ./packages/core/
+COPY languages/l0013/packages/api/package*.json ./packages/api/
+COPY languages/l0013/packages/view/package*.json ./packages/view/
+RUN npm ci
+COPY languages/l0013/tsconfig.base.json ./
+COPY languages/l0013/packages ./packages
+COPY languages/l0013/tools ./tools
+RUN node tools/assemble-static.mjs --skip-install
+
+FROM rust:1.99-bookworm AS server
+WORKDIR /src/languages/l0013
+COPY languages/l0000/Cargo.toml /src/languages/l0000/Cargo.toml
+COPY languages/l0000/crates /src/languages/l0000/crates
+COPY languages/l0013/Cargo.toml languages/l0013/Cargo.lock ./
+COPY languages/l0013/crates ./crates
+RUN cargo build --release --locked -p l0013r-server
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends chromium ca-certificates fonts-liberation fonts-noto-core fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=server /src/languages/l0013/target/release/l0013r ./l0013r
+COPY --from=static /src/static ./static
+ENV STATIC_DIR=/app/static \
+    CHROME_PATH=/usr/bin/chromium
+EXPOSE 8080
+CMD ["/app/l0013r"]

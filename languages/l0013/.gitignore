@@ -5,6 +5,8 @@ node_modules
 dist
 dist-embed
 packages/api/static
+/static
+/target
 
 # coverage
 coverage

@@ -1,0 +1,19 @@
+[package]
+name = "l0013r-server"
+version = "0.1.0"
+description = "L0013 language server in Rust: /compile, /form, and the public static assets"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "l0013r"
+path = "src/main.rs"
+
+[dependencies]
+graffiticode-l0013 = { path = "../core" }
+l0013-capture = { path = "../capture" }
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+l0000r-server = { path = "../../../l0000/crates/server" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

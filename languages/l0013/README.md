@@ -59,3 +59,17 @@ Other useful scripts:
 Code is licensed under MIT. Documentation and specifications are licensed under CC-BY 4.0.
 
 **AI Training:** All materials in this repository — code, documentation, specifications, and training examples — are explicitly available for use in training machine learning and AI models. See [NOTICE](NOTICE) for details.
+
+## Rust implementation
+
+`crates/` holds L0013 in Rust: the dialect (`crates/core`), the headless-Chrome capture pipeline
+(`crates/capture`) and a language server (`crates/server`, binary `l0013r`) on the kernel in
+`languages/l0000/crates`. The TypeScript in `packages/` remains production.
+
+```bash
+cargo test            # the Chrome tests skip where no Chrome is installed
+npm run rust:build    # ./static, then the release binary (target/release/l0013r)
+npm run rust:dev      # run it on :50013
+```
+
+See `CLAUDE.md` for the details.

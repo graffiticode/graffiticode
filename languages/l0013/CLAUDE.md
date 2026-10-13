@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0013 that production runs; `crates/` is L0013 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ### Development
@@ -110,3 +112,50 @@ The embedded form supports iframe embedding and communicates with parent windows
 - `@graffiticode/l0000` / `@graffiticode/l0000-view` (published) — base language / view, inherited by `core` / `view`
 - `@graffiticode/auth` — auth client used by `api`
 - **`puppeteer`** (headless Chrome render), **`sharp`** (crop/resize/PNG), **`firebase-admin`** (Storage upload) — `core` only, lazy-loaded inside `snap.ts`. These are why Cloud Run is sized at 2Gi/2CPU.
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0013**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0013`). `crates/` is the same language in Rust, to be released to its own service `l0013r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec are shared by both.
+
+- `crates/core` (`graffiticode-l0013`) — the dialect and nothing side-effecting. `L0013` implements `Dialect` from `graffiticode-l0000`: the modifiers build an options record, and `snap` turns it into a `SnapRequest` and hands it to a `Camera` (a trait). `crop.rs` is the content-aware crop as a pure function of a greyscale scan. `lexicon()` is the base lexicon merged with `src/lexicon-additions.json`.
+- `crates/capture` (`l0013-capture`) — the `Camera` that does the work, `ChromeCamera`: resolve the item, render its form in headless Chrome (`browser.rs`, over `chromiumoxide`), decide the crop, re-render at a higher device scale if the crop is smaller than the output, encode a PNG (`pixels.rs`, over `image`), and upload it (`storage.rs`). Storage is a trait too; `GoogleStorage` writes the bucket with application default credentials.
+- `crates/server` (`l0013r-server`, binary `l0013r`) — `l0000r_server::serve(L0013::new(camera), lexicon())`. Routes, auth and static serving live in `languages/l0000/crates/server`.
+- `tools/assemble-static.mjs` — builds `packages/core`'s static assets and `packages/view`'s embed bundle into `./static`, which the Rust server serves.
+
+**The Rust side depends on `languages/l0000` by relative path** (Cargo path dependencies on its kernel and server crates; the fixture generator uses its `node_modules` for the parser). Read "The Rust implementation" in `languages/l0000/CLAUDE.md` for how evaluation, values and the `Dialect` trait work.
+
+```bash
+cargo test            # everything; the Chrome tests skip, loudly, where no Chrome is installed
+cargo test -p graffiticode-l0013        # the dialect and the crop algorithm: no browser, no network
+cargo test -p l0013-capture --test chrome   # the pipeline against a real headless Chrome
+npm run rust:build    # rust:static, then cargo build --release -p l0013r-server
+npm run rust:dev      # cargo run -p l0013r-server on :50013 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate tests/conformance/cases.json and src/lexicon-additions.json
+```
+
+Capture env vars (same meaning as the TypeScript server's): `GRAFFITICODE_API_URL`, `GRAFFITICODE_APP_URL`, `THUMBNAIL_BUCKET`, `GC_SNAP_ACCESS_TOKEN`, and `CHROME_PATH` (or `PUPPETEER_EXECUTABLE_PATH`) for the browser; with neither, Chrome is found on the system.
+
+### What differs from the TypeScript
+
+- **The caller's token.** The TypeScript server copies the request's token into `config`, where a program can read it with `get-var "config"`. Here it travels in the invocation's identity: `snap` gets it only when the server verified it, and no program can see it.
+- **Pixels are not byte-identical.** The crop decision is the same algorithm, but it runs on a scan downscaled by the `image` crate, not `sharp`, and the final resize uses that crate's Lanczos filter. Crops can differ by a pixel and outputs by resampling. Nothing compares the two implementations' images.
+- **Full-page capture** is done with raw DevTools commands (`Page.captureScreenshot` with a clip of the content size), because `chromiumoxide`'s own full-page mode resets the device scale this pipeline depends on.
+- **One profile per browser.** Each snap launches Chrome with its own temporary profile, so concurrent snaps cannot collide.
+
+### Tests
+
+- `crates/core/tests/conformance.rs` — against the TypeScript compiler, for programs that never reach a successful `snap` (that would launch a browser and upload to production storage): the modifiers on their own, and `snap`'s refusals. Identical data and errors; no divergences.
+- `crates/core/tests/dialect.rs` — `snap` with a fake camera: the request it builds, that only a verified token reaches it, and how a failure is reported.
+- `crates/core/src/crop.rs` — the crop algorithm on synthetic pages.
+- `crates/capture/tests/chrome.rs` — the whole pipeline with a real headless Chrome, a local server standing in for the API and app, and in-memory storage. It checks the trim, the output sizes, a slice, an explicit crop, the sharp re-render, and that tokens go where they should. **Nothing in the tests writes to real storage or renders a real item.**
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0013r` entry (own service, `l0013r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0013r.yaml`; snapshot is this directory and `languages/l0000`; build step `cargo test --locked`, where the Chrome tests skip). The runtime image is Debian with Chromium and fonts, not distroless. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`).
+
+The service and account do not exist until provisioned. To do what `snap` does, the account needs `roles/storage.objectAdmin` on the thumbnail bucket (`graffiticode.appspot.com`), as `l0013-run` has, and the service needs the sizing Chrome requires (the TypeScript service runs with 2 CPU, 2Gi, concurrency 4). Until it has the bucket role, every `snap` fails at the upload.
+
+**A real `snap` on this service overwrites the production thumbnail** for that item (`thumbnails/{item}.png`), exactly as the TypeScript service does. Point `THUMBNAIL_BUCKET` elsewhere to try it without that.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/lexicon-additions.json` and `tests/conformance/cases.json` are generated, not edited.

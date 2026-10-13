@@ -1,0 +1,58 @@
+{
+  "snap": {
+    "tk": 1,
+    "name": "SNAP",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "item": {
+    "tk": 1,
+    "name": "ITEM",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "viewport": {
+    "tk": 1,
+    "name": "VIEWPORT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "slice": {
+    "tk": 1,
+    "name": "SLICE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "zoom": {
+    "tk": 1,
+    "name": "ZOOM",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "crop": {
+    "tk": 1,
+    "name": "CROP",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "width": {
+    "tk": 1,
+    "name": "WIDTH",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "height": {
+    "tk": 1,
+    "name": "HEIGHT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  }
+}

@@ -1,0 +1,13 @@
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/capture", "crates/server"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/graffiticode/graffiticode"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
