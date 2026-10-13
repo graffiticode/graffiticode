@@ -31,7 +31,10 @@
 //! }
 //! ```
 
+use std::borrow::Cow;
+
 use async_trait::async_trait;
+use serde_json::Value as Json;
 
 use crate::ast::{Ast, NodeId, Op};
 use crate::error::Diagnostic;
@@ -64,15 +67,34 @@ pub trait Dialect: Send + Sync {
     /// Static checks beyond the kernel's, run before evaluation.
     fn check(&self, _ast: &Ast, _errors: &mut Vec<Diagnostic>) {}
 
-    /// The protected function a node tag invokes, if any. See [`crate::protected`].
-    fn protected_function(&self, _tag: &str) -> Option<&ProtectedFunction> {
-        None
+    /// The protected functions this language's words invoke, each with the node tag that
+    /// invokes it. See [`crate::protected`].
+    fn protected_functions(&self) -> &[(String, ProtectedFunction)] {
+        &[]
     }
 
     /// Protected functions every compile of this language performs without a node in the
     /// source. None of them may be a write.
     fn implicit_protected_functions(&self) -> &[ProtectedFunction] {
         &[]
+    }
+
+    /// Turns a stored program into the one that executes (a language that lowers a legacy
+    /// form does it here). Compile and preflight both apply it, so they agree on what runs.
+    fn normalize<'a>(&self, code: &'a Json) -> Result<Cow<'a, Json>, String> {
+        Ok(Cow::Borrowed(code))
+    }
+
+    /// The registry version this language's protected declarations were written for. A
+    /// language with protected functions must say; one with none is version 0.
+    fn registry_version(&self) -> Option<u32> {
+        None
+    }
+
+    /// Whether this language's protected behaviour cannot be found by scanning a program. Such
+    /// a language can never run in an admitted plan.
+    fn undeclarable_protected(&self) -> bool {
+        false
     }
 }
 

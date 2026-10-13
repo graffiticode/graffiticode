@@ -6,6 +6,7 @@
 //! |---|---|
 //! | `GET /` | health check |
 //! | `POST /compile` | `{ code, data, config }` → `{ data, errors }` |
+//! | `POST /preflight` | the gateway only: a stage's manifest, without running anything |
 //! | `GET /form` | the embeddable View bundle |
 //! | `GET /lexicon.json`, `GET /lexicon.js` | the lexicon |
 //! | anything else | a file from the static directory |
@@ -14,19 +15,20 @@
 //! compiling, but does not require one.
 
 pub mod auth;
+pub mod gateway;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::extract::rejection::JsonRejection;
 use axum::extract::{DefaultBodyLimit, RawQuery, Request, State};
-use axum::http::header::{CONTENT_TYPE, HOST, HeaderName, HeaderValue};
+use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, HOST, HeaderName, HeaderValue};
 use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use graffiticode_l0000::{Ast, Compiler, Diagnostic, Identity, Lexicon};
+use graffiticode_l0000::{Compiler, Identity, Lexicon};
 use serde_json::{Value, json};
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
@@ -34,6 +36,7 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 
 use crate::auth::{TokenVerifier, token_from_request};
+use crate::gateway::{GatewayVerifier, canonical_lang};
 
 const BODY_LIMIT: usize = 50 * 1024 * 1024;
 const MISSING_PARAMETERS: &str = "Missing required parameters: code and data";
@@ -42,6 +45,10 @@ const MISSING_PARAMETERS: &str = "Missing required parameters: code and data";
 pub struct AppState {
     pub compiler: Compiler,
     pub verifier: Arc<dyn TokenVerifier>,
+    /// Who may preflight.
+    pub gateways: Arc<dyn GatewayVerifier>,
+    /// The Cloud Run revision this server runs as, reported to the gateway for a planned stage.
+    pub revision: Option<String>,
 }
 
 /// `static_dir` holds the public assets (`schema.json`, `spec.html`, `instructions.md`, …) and
@@ -51,6 +58,7 @@ pub fn app(state: AppState, static_dir: impl Into<PathBuf>) -> Router {
     Router::new()
         .route("/", get(|| async { "OK" }))
         .route("/compile", post(compile))
+        .route("/preflight", post(preflight))
         .route_service("/form", ServeFile::new(static_dir.join("index.html")))
         .route("/lexicon.json", get(lexicon))
         // The deployed console still asks for lexicon.js; it reads the body from the first `{`
@@ -130,21 +138,77 @@ async fn compile(
         connection_id: field("connectionId"),
         invocation_token: field("invocationToken"),
         stage: field("stage"),
+        // The admitted plan, from the gateway; policy verifies it.
+        admission_token: field("admissionToken"),
     };
-    let result = match Ast::from_json(code) {
-        Ok(ast) => state.compiler.compile(&ast, data, &body["config"], identity).await,
-        Err(err) => Err(vec![Diagnostic::new(err.to_string())]),
-    };
+    let planned = identity.admission_token.is_some();
+    let compiled = state.compiler.compile(code, data, &body["config"], identity).await;
     // Compiled output goes in `data` and compile errors in `errors`, which is always present;
     // consumers branch on whether it is empty.
-    Json(match result {
+    let mut envelope = match compiled.result {
         Ok(value) => match value.to_json() {
             Some(data) => json!({ "data": data, "errors": [] }),
             None => json!({ "errors": [] }),
         },
         Err(errors) => json!({ "data": null, "errors": errors }),
-    })
-    .into_response()
+    };
+    // What the compile's protected writes did. The gateway collects it per stage and keeps it
+    // out of the next stage's input.
+    if !compiled.effects.is_empty() {
+        envelope["effects"] = json!(compiled.effects);
+    }
+    // Under an admitted plan the gateway checks the revision that answered against the one
+    // the plan pins.
+    if planned {
+        envelope["revision"] = json!(state.revision);
+    }
+    Json(envelope).into_response()
+}
+
+/// Preflight is side-effect free: it reads no user token and runs nothing.
+async fn preflight(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Result<Json<Value>, JsonRejection>,
+) -> Response {
+    let refused = |status: StatusCode, reason: &str, message: String| {
+        let error = json!({ "code": status.as_u16(), "message": message, "reason": reason });
+        (status, Json(json!({ "status": "error", "error": error, "data": null })))
+    };
+    let (status, body) = 'answer: {
+        if let Err(caller) = state.gateways.verify(&headers).await {
+            break 'answer refused(caller.status, caller.reason, "preflight is for the gateway only".to_owned());
+        }
+        let body = body.map(|Json(body)| body).unwrap_or(Value::Null);
+        let stage = body["stage"].as_str().filter(|stage| is_stage(stage));
+        let (Some(stage), code @ Value::Object(_)) = (stage, &body["code"]) else {
+            let message = "preflight needs { stage, lang, code, config? }".to_owned();
+            break 'answer refused(StatusCode::BAD_REQUEST, "bad-request", message);
+        };
+        let lang = match &body["lang"] {
+            Value::String(lang) => Some(lang.clone()),
+            Value::Number(lang) => Some(lang.to_string()),
+            _ => None,
+        };
+        let ours = state.compiler.lang_id();
+        if let Some(lang) = lang.filter(|lang| canonical_lang(lang) != ours) {
+            let message = format!("this compiler is {ours}, not {lang}");
+            break 'answer refused(StatusCode::BAD_REQUEST, "bad-request", message);
+        }
+        // `config` is what a compile runs with; a caller's `options` never reach the compiler,
+        // so they are not hashed, and preflight and compile agree on the options digest.
+        let data = match state.compiler.preflight(code, stage, &body["config"]) {
+            Ok(manifest) => json!({ "manifest": manifest }),
+            Err(errors) => json!({ "errors": errors }),
+        };
+        (StatusCode::OK, Json(json!({ "status": "success", "data": data })))
+    };
+    (status, [(CACHE_CONTROL, "no-store")], body).into_response()
+}
+
+/// `s0` … `s999`: a stage's position in the chain.
+fn is_stage(stage: &str) -> bool {
+    stage.strip_prefix('s').is_some_and(|n| (1..=3).contains(&n.len()) && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 fn bad_request(message: &str) -> Response {

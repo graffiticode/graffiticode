@@ -13,6 +13,8 @@ use std::fmt;
 
 use serde_json::Value as Json;
 
+use crate::number::Number;
+
 /// A node id within an [`Ast`]. The parser uses `0` for "no node".
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(pub u32);
@@ -95,6 +97,7 @@ ops! {
     Equiv => "EQUIV",
     Concat => "CONCAT",
     StrOf => "STR_OF",
+    FormatNumber => "FORMAT_NUMBER",
     Json => "JSON",
     Length => "LENGTH",
     Get => "GET",
@@ -128,7 +131,7 @@ impl fmt::Display for Op {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
-    Num(f64),
+    Num(Number),
     Str(String),
     Ident(String),
     Bool(bool),
@@ -248,9 +251,9 @@ fn node(id: NodeId, tag: &str, elts: &[Json]) -> Result<Node, AstError> {
     Ok(match tag {
         // The parser stores a number as its lexeme.
         "NUM" => Node::Num(match head {
-            Some(Json::Number(n)) => n.as_f64().unwrap_or(f64::NAN),
-            Some(Json::String(s)) => s.trim().parse().unwrap_or(f64::NAN),
-            _ => f64::NAN,
+            Some(Json::Number(n)) => Number::Float(n.as_f64().unwrap_or(f64::NAN)),
+            Some(Json::String(s)) => Number::parse(s),
+            _ => Number::NAN,
         }),
         "STR" => Node::Str(text(head)),
         "IDENT" => Node::Ident(text(head)),

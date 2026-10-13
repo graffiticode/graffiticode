@@ -547,7 +547,9 @@
         }
       ],
       "env": {
-        "AUTH_URL": "https://auth.graffiticode.org"
+        "AUTH_URL": "https://auth.graffiticode.org",
+        "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
       },
       "smoke": [
         {

@@ -17,7 +17,8 @@ use crate::ast::{Ast, Node, NodeId, Op};
 use crate::dialect::Dialect;
 use crate::error::Diagnostic;
 use crate::exec::ExecContext;
-use crate::number::{BinaryOp, Decimal};
+use crate::format::format_number;
+use crate::number::{BinaryOp, Decimal, Number};
 use crate::schema::{LanguageSchema, SchemaSource};
 use crate::secret::Keyring;
 use crate::value::{Key, Lambda, Record, Value};
@@ -122,6 +123,12 @@ impl<'e> Evaluator<'e> {
         self.errors.push(Diagnostic::at(message, self.ast.span(at)));
     }
 
+    /// Records a compile error that carries structured fields (a refusal's code and category,
+    /// the function and step that failed). Evaluation continues.
+    pub fn report_diagnostic(&mut self, diagnostic: Diagnostic) {
+        self.errors.push(diagnostic);
+    }
+
     /// Evaluates a node.
     pub fn eval(&mut self, id: NodeId) -> Eval<'_> {
         Eval(Box::pin(async move {
@@ -208,7 +215,7 @@ impl<'e> Evaluator<'e> {
 
     async fn kernel(&mut self, id: NodeId, node: &'e Node, args: Option<Vec<Value>>) -> Value {
         let (op, elts) = match node {
-            Node::Num(n) => return Value::Num(*n),
+            Node::Num(n) => return Value::Num(n.clone()),
             Node::Str(s) => return Value::Str(s.clone()),
             Node::Bool(b) => return Value::Bool(*b),
             Node::Tag(name) => return Value::Tag(name.clone()),
@@ -266,8 +273,8 @@ impl<'e> Evaluator<'e> {
 
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod | Op::Pow | Op::Min | Op::Max => {
                 match self.operands(id, op, elts).await {
-                    Some((a, b)) => Value::Num(a.apply(binary_op(op), &b).to_f64()),
-                    None => Value::Num(f64::NAN),
+                    Some((a, b)) => Value::Num(a.evaluate(binary_op(op), &b)),
+                    None => Value::Num(Number::NAN),
                 }
             }
             Op::Eq | Op::Ne | Op::Lt | Op::Le | Op::Gt | Op::Ge => {
@@ -317,6 +324,21 @@ impl<'e> Evaluator<'e> {
                 }
             }
             Op::StrOf => Value::Str(self.eval_arg(id, elts, 0).await.display()),
+            Op::FormatNumber => {
+                let pattern = self.eval_arg(id, elts, 0).await;
+                let value = self.eval_arg(id, elts, 1).await;
+                let formatted = match (&pattern, &value) {
+                    (Value::Str(pattern), Value::Num(value)) => {
+                        format_number(pattern, value).map_err(|err| err.to_string())
+                    }
+                    (Value::Str(_), other) => Err(format!("expected a number, got {}", other.display_source())),
+                    (other, _) => Err(format!("the pattern must be a string, got {}", other.display_source())),
+                };
+                Value::Str(formatted.unwrap_or_else(|problem| {
+                    self.report(id, format!("format-number: {problem}"));
+                    String::new()
+                }))
+            }
             Op::Json => match self.eval_arg(id, elts, 0).await {
                 Value::Str(text) => match serde_json::from_str::<Json>(&text) {
                     Ok(json) => Value::from_json(&json),
@@ -330,7 +352,7 @@ impl<'e> Evaluator<'e> {
                     Value::Undefined
                 }
             },
-            Op::Length => Value::Num(match self.eval_arg(id, elts, 0).await {
+            Op::Length => Value::from(match self.eval_arg(id, elts, 0).await {
                 Value::Record(record) => record.len(),
                 Value::List(items) => items.len(),
                 // Counted as every other Graffiticode component counts it: in UTF-16 units.
@@ -636,7 +658,7 @@ impl<'e> Evaluator<'e> {
                 self.report(id, format!("Error in RANGE operation: more than {MAX_RANGE} elements"));
                 return Value::List(Vec::new());
             }
-            items.push(Value::Num(current.to_f64()));
+            items.push(Value::Num(current.clone().into_number()));
             current = current.apply(BinaryOp::Add, &step);
         }
         Value::List(items)
@@ -750,7 +772,7 @@ fn member(container: &Value, key: &Value) -> Option<Value> {
     match container {
         Value::Record(record) => Some(record.get(&Key::of(key)).cloned().unwrap_or(Value::Undefined)),
         Value::List(items) => Some(match key {
-            Value::Num(n) if n.fract() == 0.0 && *n >= 0.0 => {
+            Value::Num(Number::Float(n)) if n.fract() == 0.0 && *n >= 0.0 => {
                 items.get(*n as usize).cloned().unwrap_or(Value::Undefined)
             }
             _ => Value::Undefined,
@@ -763,7 +785,7 @@ fn member(container: &Value, key: &Value) -> Option<Value> {
 /// negative.
 fn slice_index(count: &Value, len: usize) -> usize {
     let n = match count {
-        Value::Num(n) => *n,
+        Value::Num(n) => n.to_f64(),
         Value::Str(s) => s.trim().parse().unwrap_or(f64::NAN),
         Value::Bool(b) => f64::from(u8::from(*b)),
         _ => f64::NAN,
@@ -797,7 +819,7 @@ fn bind_pattern(ast: &Ast, pattern: NodeId, value: &Value, bindings: &mut Vec<(S
             let key = match ast.get(key) {
                 Some(Node::Tag(name)) => Key::tag(name.as_str()),
                 Some(Node::Str(name)) => Key::str(name.as_str()),
-                Some(Node::Num(n)) => Key::num(*n),
+                Some(Node::Num(n)) => Key::num(n.clone()),
                 _ => return false,
             };
             match record.get(&key) {

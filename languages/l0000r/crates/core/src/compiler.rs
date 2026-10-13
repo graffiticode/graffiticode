@@ -2,15 +2,16 @@
 
 use std::sync::Arc;
 
-use serde_json::Value as Json;
+use serde_json::{Value as Json, json};
 
 use crate::ast::Ast;
 use crate::check::check;
 use crate::dialect::Dialect;
 use crate::error::Diagnostic;
 use crate::eval::{Context, Evaluator};
-use crate::exec::{ExecContext, Identity};
-use crate::protected::{PolicyClient, admit};
+use crate::exec::{ExecContext, Identity, ProtectedEffect};
+use crate::preflight::{RevisionIdentity, StageManifest, digest_of, required_protected_functions};
+use crate::protected::{PolicyClient, admit, admit_planned};
 use crate::schema::{NoSchemas, SchemaSource};
 use crate::secret::Keyring;
 use crate::value::Value;
@@ -27,11 +28,27 @@ pub struct Compiler {
     schemas: Arc<dyn SchemaSource>,
     keyring: Keyring,
     policy: Option<Arc<dyn PolicyClient>>,
+    revision: RevisionIdentity,
+}
+
+/// What a compile produced: its value or its errors, and what its protected writes did. The
+/// effects go with every result, an error included: a write that succeeded before a later
+/// failure still happened.
+#[derive(Debug, PartialEq)]
+pub struct Compilation {
+    pub result: Result<Value, Vec<Diagnostic>>,
+    pub effects: Vec<ProtectedEffect>,
 }
 
 impl Compiler {
     pub fn new(dialect: impl Dialect + 'static) -> Self {
-        Self { dialect: Arc::new(dialect), schemas: Arc::new(NoSchemas), keyring: Keyring::new(), policy: None }
+        Self {
+            dialect: Arc::new(dialect),
+            schemas: Arc::new(NoSchemas),
+            keyring: Keyring::new(),
+            policy: None,
+            revision: RevisionIdentity::default(),
+        }
     }
 
     /// Where `use "<lang>"` finds a language's schema. Without one, every `use` fails.
@@ -46,50 +63,142 @@ impl Compiler {
         self
     }
 
-    /// The policy authority that admits this language's protected functions. Without one,
-    /// none is ever allowed.
+    /// The policy authority that admits this language's protected functions and binds its
+    /// stage of an admitted plan. Without one, no protected function is ever allowed and no
+    /// planned stage runs.
     pub fn with_policy(mut self, policy: impl PolicyClient + 'static) -> Self {
         self.policy = Some(Arc::new(policy));
         self
     }
 
-    /// Compiles `ast` against the upstream `data` it is chained onto.
+    /// The deployed revision this compiler runs as. Without one it cannot be pinned by a plan.
+    pub fn with_revision(mut self, revision: RevisionIdentity) -> Self {
+        self.revision = revision;
+        self
+    }
+
+    pub fn lang_id(&self) -> &str {
+        self.dialect.lang_id()
+    }
+
+    /// Compiles `code`, the parser's AST as JSON, against the upstream `data` it is chained
+    /// onto.
     ///
     /// `data` may be a `{ data, errors }` envelope (the output of a chained task) or a bare
     /// value from a task compiled before the envelope existed; the data model is read from
     /// either. `identity` is the caller's verified identity and becomes this invocation's
     /// [`ExecContext`].
-    pub async fn compile(
+    pub async fn compile(&self, code: &Json, data: &Json, config: &Json, identity: Identity) -> Compilation {
+        let mut exec = ExecContext::new(identity);
+        let result = self.run(code, data, config, &mut exec).await;
+        Compilation { result, effects: exec.into_effects() }
+    }
+
+    async fn run(
         &self,
-        ast: &Ast,
+        code: &Json,
         data: &Json,
         config: &Json,
-        identity: Identity,
+        exec: &mut ExecContext,
     ) -> Result<Value, Vec<Diagnostic>> {
-        let mut exec = ExecContext::new(identity);
-        // Protected functions are admitted or refused before anything runs.
-        let refused = admit(ast, &*self.dialect, self.policy.as_ref(), &mut exec).await;
+        let dialect = &*self.dialect;
+        // What executes is the normalized program (preflight applies the same).
+        let (program, ast) = self.program(code)?;
+        // Admission comes before anything runs. A stage of an admitted plan is bound to the
+        // plan whatever functions its language has.
+        let refused = if exec.is_planned() {
+            let stage = exec.stage().map(str::to_owned);
+            let manifest = self.stage_manifest(code, &program, &ast, stage, config)?;
+            admit_planned(dialect, self.policy.as_ref(), exec, &manifest).await
+        } else {
+            admit(&ast, dialect, self.policy.as_ref(), exec).await
+        };
         if !refused.is_empty() {
             return Err(refused);
         }
-        let mut errors = check(ast);
-        self.dialect.check(ast, &mut errors);
-        if !errors.is_empty() {
-            return Err(errors);
-        }
+        self.check(&ast)?;
         let data = upstream(data);
         let config = Value::from_json(config);
         Evaluator::new(Context {
-            ast,
-            dialect: &*self.dialect,
+            ast: &ast,
+            dialect,
             schemas: &*self.schemas,
             keyring: &self.keyring,
             data: &data,
             config: &config,
-            exec: &mut exec,
+            exec,
         })
         .run()
         .await
+    }
+
+    /// Preflight: this stage's manifest, or the errors that would stop it compiling.
+    /// Side-effect free: no snapshot, no mint, no signing, no provider call, and nothing is
+    /// evaluated. The checks run, so a program that would not compile is refused before
+    /// anything is admitted.
+    pub fn preflight(&self, code: &Json, stage: &str, options: &Json) -> Result<StageManifest, Vec<Diagnostic>> {
+        let (program, ast) = self.program(code)?;
+        let manifest = self.stage_manifest(code, &program, &ast, Some(stage.to_owned()), options)?;
+        self.check(&ast)?;
+        Ok(manifest)
+    }
+
+    /// The program that executes, and its AST.
+    fn program(&self, code: &Json) -> Result<(Json, Ast), Vec<Diagnostic>> {
+        let program = self.dialect.normalize(code).map_err(|err| vec![Diagnostic::new(format!("Error: {err}"))])?;
+        let ast = Ast::from_json(&program).map_err(|err| vec![Diagnostic::new(err.to_string())])?;
+        Ok((program.into_owned(), ast))
+    }
+
+    fn check(&self, ast: &Ast) -> Result<(), Vec<Diagnostic>> {
+        let mut errors = check(ast);
+        self.dialect.check(ast, &mut errors);
+        if errors.is_empty() { Ok(()) } else { Err(errors) }
+    }
+
+    /// `code` is the program as stored, `program` after normalization.
+    fn stage_manifest(
+        &self,
+        code: &Json,
+        program: &Json,
+        ast: &Ast,
+        stage: Option<String>,
+        options: &Json,
+    ) -> Result<StageManifest, Vec<Diagnostic>> {
+        let dialect = &*self.dialect;
+        let refuse = |message: &str, code: &str| Err(vec![Diagnostic::new(message).with_code(code)]);
+        if dialect.undeclarable_protected() {
+            return refuse(
+                "This language's protected behaviour can't be declared in advance, so it can't run in an admitted plan.",
+                "undeclarable-protected",
+            );
+        }
+        let has_protected =
+            !dialect.protected_functions().is_empty() || !dialect.implicit_protected_functions().is_empty();
+        let Some(registry_version) = dialect.registry_version().or((!has_protected).then_some(0)) else {
+            return refuse(
+                "This compiler declares protected functions without the registry version they were written for.",
+                "preflight-unavailable",
+            );
+        };
+        let (Some(revision), Some(image_digest)) = (&self.revision.revision, &self.revision.image_digest) else {
+            return refuse(
+                "This compiler revision has no deployed identity, so it can't be pinned.",
+                "preflight-unavailable",
+            );
+        };
+        Ok(StageManifest {
+            stage,
+            lang: dialect.lang_id().to_owned(),
+            source_digest: digest_of(code),
+            program_digest: digest_of(program),
+            // Absent options are the empty options.
+            options_digest: if options.is_null() { digest_of(&json!({})) } else { digest_of(options) },
+            revision: revision.clone(),
+            image_digest: image_digest.clone(),
+            registry_version,
+            required_functions: required_protected_functions(ast, dialect),
+        })
     }
 }
 

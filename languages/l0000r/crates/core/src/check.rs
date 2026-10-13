@@ -9,6 +9,7 @@ use std::collections::HashSet;
 
 use crate::ast::{Ast, Node, NodeId, Op};
 use crate::error::Diagnostic;
+use crate::format::Pattern;
 
 pub fn check(ast: &Ast) -> Vec<Diagnostic> {
     let mut errors = Vec::new();
@@ -27,6 +28,16 @@ pub fn check(ast: &Ast) -> Vec<Diagnostic> {
                 let word = if *op == Op::GetValPrivate { "get-val-private" } else { "get-val-public" };
                 errors.push(Diagnostic::at(format!("{word} requires a resolved value."), ast.span(id)));
             }
+            // A literal pattern is checked here, so a bad one fails before anything runs and
+            // points at the pattern; a computed one is checked when it is used.
+            Op::FormatNumber => {
+                if let Some((&pattern, Some(Node::Str(text)))) = elts.first().map(|id| (id, ast.get(*id)))
+                    && let Err(err) = Pattern::parse(text)
+                {
+                    errors.push(Diagnostic::at(format!("format-number: {err}"), ast.span(pattern)));
+                }
+                pending.extend(elts.iter().rev());
+            }
             // Pushed in reverse so errors come out in source order.
             _ => pending.extend(elts.iter().rev()),
         }
@@ -41,11 +52,11 @@ fn parse_error(ast: &Ast, id: NodeId, elts: &[NodeId]) -> Diagnostic {
         _ => "Syntax error.".to_owned(),
     };
     let offset = |i: usize| match elts.get(i).and_then(|&elt| ast.get(elt)) {
-        Some(Node::Num(n)) if n.is_finite() => Some(*n as i64),
+        Some(Node::Num(n)) if n.to_f64().is_finite() => Some(n.to_f64() as i64),
         _ => None,
     };
     match (offset(1), offset(2)) {
-        (Some(from), Some(to)) => Diagnostic { message, from, to },
+        (Some(from), Some(to)) => Diagnostic::spanning(message, from, to),
         _ => Diagnostic::at(message, ast.span(id)),
     }
 }

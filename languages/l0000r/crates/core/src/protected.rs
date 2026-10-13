@@ -26,6 +26,7 @@ use crate::ast::Ast;
 use crate::dialect::Dialect;
 use crate::error::Diagnostic;
 use crate::exec::{ExecContext, Grant};
+use crate::preflight::{StageManifest, binding_problems};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProtectedKind {
@@ -58,6 +59,7 @@ pub struct ProtectedCall {
     pub occurrence_id: String,
 }
 
+/// A protected call that did not return an outcome.
 #[derive(Debug, thiserror::Error)]
 pub enum ProtectedCallError {
     #[error("{0} was not admitted for this invocation")]
@@ -66,10 +68,42 @@ pub enum ProtectedCallError {
     NoClient,
     #[error("no policy session for this invocation")]
     NoSession,
+    /// Policy or the broker answered with a refusal. `reason` and `category` are theirs (an
+    /// older service sends no category).
     #[error("{path} failed ({status})")]
-    Rejected { path: String, status: u16, reason: Option<String> },
+    Rejected { path: String, status: u16, reason: Option<String>, category: Option<String>, effect_unknown: bool },
+    /// No answer at all.
+    #[error("{path} unreachable")]
+    Unreachable { path: String, effect_unknown: bool },
+    #[error("the session from policy did not verify")]
+    BadSession,
     #[error("{0}")]
-    Transport(String),
+    Unavailable(String),
+}
+
+impl ProtectedCallError {
+    pub fn reason(&self) -> Option<&str> {
+        match self {
+            Self::Rejected { reason, .. } => reason.as_deref(),
+            Self::NoSession => Some("no-session"),
+            Self::BadSession => Some("bad-session"),
+            Self::Unavailable(_) => Some("unavailable"),
+            Self::NotAdmitted(_) | Self::NoClient | Self::Unreachable { .. } => None,
+        }
+    }
+
+    pub fn category(&self) -> Option<&str> {
+        match self {
+            Self::Rejected { category, .. } => category.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// Whether the broker was asked to act and its answer was lost, so the provider may have
+    /// changed: an uncertain write, not a refusal.
+    pub fn effect_unknown(&self) -> bool {
+        matches!(self, Self::Rejected { effect_unknown: true, .. } | Self::Unreachable { effect_unknown: true, .. })
+    }
 }
 
 /// The function names an invocation may call through its connection, and the session that
@@ -78,6 +112,8 @@ pub enum ProtectedCallError {
 pub struct PolicySnapshot {
     pub allowed: Vec<String>,
     pub session_token: Option<String>,
+    /// Under a plan: the stage binding policy signed into the session.
+    pub bind: Option<Json>,
 }
 
 impl PolicySnapshot {
@@ -99,6 +135,8 @@ pub struct SnapshotRequest<'a> {
     pub exec: &'a ExecContext,
     pub lang_id: &'a str,
     pub functions: &'a [String],
+    /// Under a plan: this stage's own manifest, which policy compares with what the plan pins.
+    pub manifest: Option<&'a StageManifest>,
 }
 
 /// The policy authority and credential broker, as the kernel sees them.
@@ -124,10 +162,13 @@ pub(crate) async fn admit(
     policy: Option<&Arc<dyn PolicyClient>>,
     exec: &mut ExecContext,
 ) -> Vec<Diagnostic> {
+    let protected = dialect.protected_functions();
     // Implicit operations have no node; they are required by every compile.
     let implicit = dialect.implicit_protected_functions().iter().map(|function| (None, function));
     let explicit = ast.nodes().filter_map(|(id, node)| match node {
-        crate::ast::Node::Form { op, .. } => dialect.protected_function(op.tag()).map(|function| (Some(id), function)),
+        crate::ast::Node::Form { op, .. } => {
+            protected.iter().find(|(tag, _)| tag == op.tag()).map(|(_, function)| (Some(id), function))
+        }
         _ => None,
     });
     let found: Vec<_> = implicit.chain(explicit).collect();
@@ -142,7 +183,8 @@ pub(crate) async fn admit(
         return vec![Diagnostic::new(format!("Implicit protected function {} cannot be a write.", function.name))];
     }
 
-    let mut grant = Grant { allowed: HashSet::new(), session_token: None, policy: None };
+    let writes = found.iter().filter(|(_, f)| f.kind == ProtectedKind::Write).map(|(_, f)| f.name.clone()).collect();
+    let mut grant = Grant { allowed: HashSet::new(), writes, session_token: None, policy: None };
     // A view of a published item has no user: it carries the publication's invocation token
     // instead, and policy confines it to view-safe functions.
     let has_principal = exec.uid().is_some() || exec.invocation_token().is_some();
@@ -156,7 +198,7 @@ pub(crate) async fn admit(
                 functions.push(function.name.clone());
             }
         }
-        let request = SnapshotRequest { exec, lang_id: dialect.lang_id(), functions: &functions };
+        let request = SnapshotRequest { exec, lang_id: dialect.lang_id(), functions: &functions, manifest: None };
         match policy.snapshot(request).await {
             Ok(snapshot) => {
                 grant.allowed = snapshot.allowed.into_iter().collect();
@@ -184,6 +226,56 @@ pub(crate) async fn admit(
         .collect();
     exec.set_grant(grant);
     errors
+}
+
+/// Admission for a stage of an admitted plan. Every stage of a planned chain is bound,
+/// including one whose language has no protected functions: the compiler asks policy for the
+/// stage's session with its own manifest, and executes only if the binding policy signed
+/// agrees with what it is about to run (revision, image, program, source and options digests,
+/// language, functions). Any failure refuses the compile before the program starts.
+pub(crate) async fn admit_planned(
+    dialect: &dyn Dialect,
+    policy: Option<&Arc<dyn PolicyClient>>,
+    exec: &mut ExecContext,
+    manifest: &StageManifest,
+) -> Vec<Diagnostic> {
+    let Some(policy) = policy else {
+        return vec![Diagnostic::new("This compiler can't run an admitted plan: no permission service is configured.")];
+    };
+    let request = SnapshotRequest {
+        exec,
+        lang_id: dialect.lang_id(),
+        functions: &manifest.required_functions,
+        manifest: Some(manifest),
+    };
+    let snapshot = match policy.snapshot(request).await {
+        Ok(snapshot) => snapshot,
+        Err(err) => {
+            tracing::warn!(error = %err, "policy snapshot failed for a planned stage");
+            let reason = err.reason().map(|reason| format!(" ({reason})")).unwrap_or_default();
+            return vec![Diagnostic::new(format!("Permission check is unavailable; this stage cannot run{reason}."))];
+        }
+    };
+    let problems = binding_problems(snapshot.bind.as_ref(), manifest);
+    if !problems.is_empty() {
+        return vec![Diagnostic::new(format!(
+            "This compiler is not the one the admitted plan pins ({}).",
+            problems.join(", ")
+        ))];
+    }
+    let writes = dialect
+        .protected_functions()
+        .iter()
+        .filter(|(_, f)| f.kind == ProtectedKind::Write && manifest.required_functions.contains(&f.name))
+        .map(|(_, f)| f.name.clone())
+        .collect();
+    exec.set_grant(Grant {
+        allowed: snapshot.allowed.into_iter().collect(),
+        writes,
+        session_token: snapshot.session_token,
+        policy: Some(Arc::clone(policy)),
+    });
+    Vec::new()
 }
 
 #[cfg(test)]

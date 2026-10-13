@@ -6,22 +6,21 @@
 //! JSON data model. [`Compiler`] does that for one language:
 //!
 //! ```
-//! use graffiticode_l0000::{Ast, Compiler, Identity, L0000, Value};
+//! use graffiticode_l0000::{Compiler, Identity, L0000, Value};
 //! use serde_json::json;
 //!
 //! # tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(async {
 //! // `add 1 2..`
-//! let ast = Ast::from_json(&json!({
+//! let code = json!({
 //!     "1": { "tag": "NUM", "elts": ["1"] },
 //!     "2": { "tag": "NUM", "elts": ["2"] },
 //!     "3": { "tag": "ADD", "elts": [1, 2] },
 //!     "4": { "tag": "EXPRS", "elts": [3] },
 //!     "5": { "tag": "PROG", "elts": [4] },
 //!     "root": 5,
-//! }))
-//! .unwrap();
-//! let value = Compiler::new(L0000).compile(&ast, &json!({}), &json!({}), Identity::default()).await;
-//! assert_eq!(value, Ok(Value::Num(3.0)));
+//! });
+//! let compiled = Compiler::new(L0000).compile(&code, &json!({}), &json!({}), Identity::default()).await;
+//! assert_eq!(compiled.result, Ok(Value::from(3.0)));
 //! # });
 //! ```
 //!
@@ -36,22 +35,26 @@ pub mod dialect;
 mod error;
 mod eval;
 pub mod exec;
+pub mod format;
 pub mod lexicon;
 pub mod number;
 #[cfg(feature = "http")]
 pub mod policy_client;
+pub mod preflight;
 pub mod protected;
 pub mod schema;
 pub mod secret;
 pub mod value;
 
 pub use ast::{Ast, AstError, Node, NodeId, Op, Span};
-pub use compiler::Compiler;
+pub use compiler::{Compilation, Compiler};
 pub use dialect::{Dialect, L0000};
 pub use error::Diagnostic;
 pub use eval::{Eval, Evaluator};
-pub use exec::{ExecContext, Identity};
+pub use exec::{EffectStatus, ExecContext, Identity, ProtectedEffect};
 pub use lexicon::{Lexicon, LexiconEntry, LexiconError};
+pub use number::Number;
+pub use preflight::{RevisionIdentity, StageManifest};
 pub use protected::{
     PolicyClient, PolicySnapshot, ProtectedCall, ProtectedCallError, ProtectedFunction, ProtectedKind, SnapshotRequest,
 };

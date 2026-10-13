@@ -38,7 +38,9 @@ const testSource = readFileSync(
   join(typescript, "packages/core/src/compiler.test.ts"),
   "utf8",
 );
-for (const m of testSource.matchAll(/'(?:[^'\\\n]|\\.)*\.\.'|"(?:[^"\\\n]|\\.)*\.\."/g)) {
+for (const m of testSource.matchAll(
+  /'(?:[^'\\\n]|\\.)*\.\.'|"(?:[^"\\\n]|\\.)*\.\."/g,
+)) {
   const src = (0, eval)(m[0]);
   if (!/\buse\b/.test(src)) pinned.push({ src });
 }
@@ -175,6 +177,42 @@ const extra = [
   "map (<x: add x true>) [1 2]..",
   'concat 1 "a"..',
   "[(hd []) (hd [])]..",
+  // numbers keep their decimal value
+  "sub 12345678901234567891 12345678901234567890..",
+  "length (range 9007199254740993 9007199254740996 1)..",
+  "range 9007199254740993 9007199254740996 1..",
+  "equiv 12345678901234567890 12345678901234567891..",
+  "equiv {a: 12345678901234567890} {a: 12345678901234567890}..",
+  'case 12345678901234567891 of 12345678901234567890: "a" _: "b" end..',
+  'get 12345678901234567891 {12345678901234567891: "b" 12345678901234567890: "a"}..',
+  "str 12345678901234567890..",
+  "{x: 12345678901234567890}..",
+  "[12345678901234567890]..",
+  "add 12345678901234567890 1..",
+  "str (add 12345678901234567890 1)..",
+  "1.50..",
+  "12345678901234567168..",
+  "str 12345678901234567168..",
+  "str 1.00000000000000000001..",
+  "str (mul 12345678901234567890 1000000)..",
+  "str (div 12345678901234567890 3)..",
+  "str (pow 3 40)..",
+  "str (pow 12345678901234567890 2)..",
+  "str (mod 12345678901234567891 10)..",
+  "max 12345678901234567890 12345678901234567891..",
+  "str (max 12345678901234567890 12345678901234567891)..",
+  "lt 12345678901234567890 12345678901234567891..",
+  "eq 12345678901234567890 12345678901234567890..",
+  "nth 12345678901234567890 [1 2]..",
+  "if 12345678901234567890 then 1 else 2..",
+  'format-number "0.00" (div 1 3)..',
+  'format-number "0" (div 1 0)..',
+  'format-number "0.00" "x"..',
+  'format-number "General" 12345678901234567890..',
+  'format-number "0.000E+00" 0.000123456..',
+  'format-number "#,##0.0#;[#,##0.0#]" 5..',
+  'map (<x: format-number "#,##0.00" x>) [1 1234.5 -2]..',
+  "take 12345678901234567890 [1 2 3]..",
   // functions that return functions
   "apply (<x: <y: add x y>>) [1]..",
   "map (<x: <y: x>>) [1 2]..",
@@ -188,10 +226,22 @@ const withData = [
   { src: "data {}..", data: { data: { x: 1 }, errors: [] } },
   { src: "data {}..", data: { x: 1 } },
   { src: "data {fallback: 1}..", data: {} },
-  { src: "data {fallback: 2}..", data: { data: null, errors: [{ message: "boom" }] } },
-  { src: 'map (<x: mul 2 x>) (get "items" (data {}))..', data: { items: [1, 2, 3] } },
-  { src: 'get "b" (get "a" (data {}))..', data: { a: { b: [1, { c: null }] } } },
-  { src: 'get "c" (nth 1 (get "b" (get "a" (data {}))))..', data: { a: { b: [1, { c: 7 }] } } },
+  {
+    src: "data {fallback: 2}..",
+    data: { data: null, errors: [{ message: "boom" }] },
+  },
+  {
+    src: 'map (<x: mul 2 x>) (get "items" (data {}))..',
+    data: { items: [1, 2, 3] },
+  },
+  {
+    src: 'get "b" (get "a" (data {}))..',
+    data: { a: { b: [1, { c: null }] } },
+  },
+  {
+    src: 'get "c" (nth 1 (get "b" (get "a" (data {}))))..',
+    data: { a: { b: [1, { c: 7 }] } },
+  },
   { src: "str (data {})..", data: { a: { b: [1, "s"] }, "x y": true } },
   { src: "length (data {})..", data: { a: 1, b: 2 } },
   { src: 'length (get "a" (data {}))..', data: { a: { b: 1 } } },
@@ -200,7 +250,10 @@ const withData = [
     src: "case (data {}) of {kind: tag circle r}: r _: 0 end..",
     data: { kind: { tag: "circle" }, r: 3 },
   },
-  { src: 'case (get "p" (data {})) of {a b}: add a b _: 0 end..', data: { p: { a: 1, b: 2 } } },
+  {
+    src: 'case (get "p" (data {})) of {a b}: add a b _: 0 end..',
+    data: { p: { a: 1, b: 2 } },
+  },
   { src: 'set "z" 1 (get "p" (data {}))..', data: { p: { a: 1 } } },
   { src: "data {}..", data: [1, 2] },
   { src: 'data use "0166"..', data: { x: 42 }, schema: true },
@@ -221,13 +274,22 @@ function run(code, data) {
       resolve(errors.length > 0 ? { errors: messages } : { data: val });
     }),
   );
-  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
+  const timeout = new Promise((resolve) =>
+    setTimeout(() => resolve(null), 2000),
+  );
   return Promise.race([compiled, timeout]);
 }
 
 // The parser adds a program's `let` names to the lexicon it is given, so the lexicon is
 // written out first and every parse gets its own copy.
-writeFileSync(join(root, "crates/core/src/lexicon.json"), JSON.stringify(lexicon, null, 2) + "\n");
+writeFileSync(
+  join(root, "crates/core/src/lexicon.json"),
+  JSON.stringify(lexicon, null, 2) + "\n",
+);
+
+// The TypeScript compiler can throw from a timer (a `json` of invalid text does), which no
+// compile callback ever reports. Such a case times out and is skipped; it must not end the run.
+process.on("uncaughtException", () => {});
 
 const log = console.log;
 const cases = [];
@@ -287,6 +349,10 @@ for (const src of [
   "[1 save-it 2]..",
   "save-it add 1 2..",
   "edit-it 1..",
+  "1..",
+  "[edit-it 1 <x: save-it x>]..",
+  "[edit-it 1 edit-it 2]..",
+  "[save-it 1 save-it 2]..",
   "peek-it 1..",
   'get-var "config"..',
   'get-var "data"..',
@@ -300,6 +366,52 @@ for (const src of [
     console.log = log;
   }
 }
-writeFileSync(join(here, "programs.json"), JSON.stringify(programs, null, 1) + "\n");
+writeFileSync(
+  join(here, "programs.json"),
+  JSON.stringify(programs, null, 1) + "\n",
+);
+
+// Stage manifests as the TypeScript compiler computes them: the digests a plan pins, which
+// both implementations must compute byte for byte.
+const REVISION = {
+  revision: "l0000-r1",
+  imageDigest: `sha256:${"1".repeat(64)}`,
+};
+const manifests = [];
+for (const [src, options] of [
+  ["add 1 2..", undefined],
+  ["add 0.1 0.2..", { a: 1 }],
+  [
+    '{b: 1, a: {c: [1 {d: "é quoted"}]}}..',
+    { z: [1, 2.5, null], a: { nested: true } },
+  ],
+  ["12345678901234567890..", {}],
+  ['`total: ${format-number "#,##0.00" 1234.5}`..', { theme: "dark" }],
+]) {
+  console.log = () => {};
+  let code, out;
+  try {
+    code = await parser.parse(0, src, structuredClone(lexicon));
+    out = await new Compiler({
+      langID: "0000",
+      revisionIdentity: () => REVISION,
+    }).preflight(code, {
+      stage: "s0",
+      options,
+    });
+  } finally {
+    console.log = log;
+  }
+  manifests.push({
+    src,
+    code,
+    options: options ?? null,
+    manifest: out.manifest,
+  });
+}
+writeFileSync(
+  join(here, "manifests.json"),
+  JSON.stringify(manifests, null, 1) + "\n",
+);
 
 console.log(`wrote ${cases.length} cases`);

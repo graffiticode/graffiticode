@@ -3,12 +3,20 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use aws_lc_rs::encoding::AsDer;
+use aws_lc_rs::rsa::{KeyPair as RsaKeyPair, KeySize};
+use aws_lc_rs::signature::KeyPair as _;
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
-use graffiticode_l0000::{Compiler, L0000};
+use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use graffiticode_l0000::canonical::args_digest;
+use graffiticode_l0000::{Compiler, L0000, RevisionIdentity};
 use http_body_util::BodyExt;
+use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use l0000r_server::auth::{AuthContext, AuthError, TokenVerifier};
+use l0000r_server::gateway::GoogleGateways;
 use l0000r_server::{AppState, app};
 use serde_json::{Value, json};
 use tower::ServiceExt;
@@ -36,6 +44,45 @@ struct Server {
     _static_dir: tempfile::TempDir,
 }
 
+const GATEWAY: &str = "api-run@graffiticode.iam.gserviceaccount.com";
+const REVISION: &str = "l0000-00042-abc";
+
+/// A throwaway RS256 key standing in for Google's ID-token signing key.
+struct GoogleKey {
+    encoding: EncodingKey,
+    jwk: Value,
+}
+
+impl GoogleKey {
+    fn generate() -> Self {
+        let pair = RsaKeyPair::generate(KeySize::Rsa2048).unwrap();
+        let public = pair.public_key();
+        let number = |bytes: &[u8]| URL_SAFE_NO_PAD.encode(bytes);
+        let jwk = json!({
+            "kty": "RSA", "kid": "g1", "alg": "RS256", "use": "sig",
+            "n": number(public.modulus().big_endian_without_leading_zero()),
+            "e": number(public.exponent().big_endian_without_leading_zero()),
+        });
+        // PKCS#8 wraps the PKCS#1 key the signer wants in a fixed 26-byte header.
+        let pkcs8 = AsDer::<aws_lc_rs::encoding::Pkcs8V1Der>::as_der(&pair).unwrap();
+        Self { encoding: EncodingKey::from_rsa_der(&pkcs8.as_ref()[26..]), jwk }
+    }
+
+    /// An ID token as Google issues one for a service account, with `claims` laid over it.
+    fn id_token(&self, claims: Value) -> String {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let mut all = json!({
+            "iss": "https://accounts.google.com", "aud": "urn:graffiticode:0000", "iat": now, "exp": now + 3600,
+            "email": GATEWAY, "email_verified": true,
+        });
+        all.as_object_mut().unwrap().extend(claims.as_object().unwrap().clone());
+        let header = Header { kid: Some("g1".to_owned()), ..Header::new(Algorithm::RS256) };
+        jsonwebtoken::encode(&header, &all, &self.encoding).unwrap()
+    }
+}
+
+static GOOGLE: std::sync::LazyLock<GoogleKey> = std::sync::LazyLock::new(GoogleKey::generate);
+
 fn server() -> Server {
     let static_dir = tempfile::tempdir().unwrap();
     std::fs::write(static_dir.path().join("index.html"), "<!doctype html><title>form</title>").unwrap();
@@ -43,7 +90,17 @@ fn server() -> Server {
     std::fs::create_dir(static_dir.path().join("assets")).unwrap();
     std::fs::write(static_dir.path().join("assets/index-abc123.js"), "console.log(1)").unwrap();
     let verifier = Arc::new(Verifier::default());
-    let state = AppState { compiler: Compiler::new(L0000), verifier: verifier.clone() };
+    let revision = RevisionIdentity {
+        revision: Some(REVISION.to_owned()),
+        image_digest: Some(format!("sha256:{}", "1".repeat(64))),
+    };
+    let keys = serde_json::from_value(json!({ "keys": [GOOGLE.jwk] })).unwrap();
+    let state = AppState {
+        compiler: Compiler::new(L0000).with_revision(revision),
+        verifier: verifier.clone(),
+        gateways: Arc::new(GoogleGateways::with_keys("0000", &[GATEWAY.to_owned()], keys)),
+        revision: Some(REVISION.to_owned()),
+    };
     Server { app: app(state, static_dir.path()), verifier, _static_dir: static_dir }
 }
 
@@ -278,4 +335,156 @@ async fn plain_http_behind_a_proxy_is_sent_to_https() {
 
     assert_eq!(send(&server.app, forwarded("l0000.graffiticode.org", "https")).await.status, StatusCode::OK);
     assert_eq!(send(&server.app, forwarded("localhost:50000", "http")).await.status, StatusCode::OK);
+}
+
+async fn preflight(app: &Router, caller: Option<&str>, body: Value) -> Reply {
+    let mut request = Request::post("/preflight").header(header::CONTENT_TYPE, "application/json");
+    if let Some(token) = caller {
+        request = request.header("x-caller-identity", token);
+    }
+    send(app, request.body(Body::from(body.to_string())).unwrap()).await
+}
+
+#[tokio::test]
+async fn preflight_answers_the_gateway_with_the_stage_manifest() {
+    let gateway = GOOGLE.id_token(json!({}));
+    let request =
+        json!({ "stage": "s1", "lang": "L0000", "code": add_1_2(), "config": { "a": 1 }, "options": { "b": 2 } });
+    let reply = preflight(&server().app, Some(&gateway), request).await;
+    assert_eq!(reply.status, StatusCode::OK);
+    assert_eq!(reply.headers[header::CACHE_CONTROL], "no-store");
+    assert_eq!(
+        reply.json(),
+        json!({
+            "status": "success",
+            "data": { "manifest": {
+                "stage": "s1", "lang": "0000",
+                "sourceDigest": args_digest(&add_1_2()), "programDigest": args_digest(&add_1_2()),
+                // The request's config is hashed, never its options, so preflight and compile agree.
+                "optionsDigest": args_digest(&json!({ "a": 1 })),
+                "revision": REVISION, "imageDigest": format!("sha256:{}", "1".repeat(64)),
+                "registryVersion": 0, "requiredFunctions": [],
+            } },
+        })
+    );
+
+    // With no config, the options are the empty options, whatever else the request carries.
+    let request = json!({ "stage": "s0", "code": add_1_2(), "options": { "a": 1 } });
+    let reply = preflight(&server().app, Some(&format!("Bearer {gateway}")), request).await;
+    assert_eq!(reply.json()["data"]["manifest"]["optionsDigest"], args_digest(&json!({})));
+}
+
+#[tokio::test]
+async fn preflight_reports_a_program_that_would_not_compile() {
+    let code = json!({
+        "4": { "tag": "NUM", "elts": ["3"] }, "5": { "tag": "NUM", "elts": ["0"] },
+        "6": { "tag": "STR", "elts": ["Too few arguments for ADD. Expected 2."] },
+        "7": { "tag": "ERROR", "elts": [6, 5, 4] }, "root": 7,
+    });
+    let reply =
+        preflight(&server().app, Some(&GOOGLE.id_token(json!({}))), json!({ "stage": "s0", "code": code })).await;
+    assert_eq!(reply.status, StatusCode::OK);
+    assert_eq!(reply.json()["data"]["errors"][0]["message"], "Too few arguments for ADD. Expected 2.");
+    assert_eq!(reply.json()["data"].get("manifest"), None);
+}
+
+#[tokio::test]
+async fn preflight_is_for_the_gateway_only() {
+    let server = server();
+    let impostor = GoogleKey::generate();
+    let unsigned = {
+        let part = |value: Value| URL_SAFE_NO_PAD.encode(value.to_string());
+        let claims = json!({
+            "email": GATEWAY, "email_verified": true, "aud": "urn:graffiticode:0000",
+            "iss": "https://accounts.google.com",
+        });
+        format!("{}.{}.", part(json!({ "alg": "none" })), part(claims))
+    };
+    let past = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - 10;
+    for (who, token, status, reason) in [
+        ("an anonymous caller", None, 401, "caller-rejected"),
+        (
+            "another service account",
+            Some(GOOGLE.id_token(json!({ "email": "l0176-run@graffiticode.iam.gserviceaccount.com" }))),
+            403,
+            "route-not-allowed-for-caller",
+        ),
+        (
+            "an unverified email",
+            Some(GOOGLE.id_token(json!({ "email_verified": false }))),
+            403,
+            "route-not-allowed-for-caller",
+        ),
+        (
+            "another language's audience",
+            Some(GOOGLE.id_token(json!({ "aud": "urn:graffiticode:0176" }))),
+            401,
+            "caller-rejected",
+        ),
+        ("another issuer", Some(GOOGLE.id_token(json!({ "iss": "https://example.test" }))), 401, "caller-rejected"),
+        ("an expired token", Some(GOOGLE.id_token(json!({ "exp": past }))), 401, "caller-rejected"),
+        ("a token signed by someone else", Some(impostor.id_token(json!({}))), 401, "caller-rejected"),
+        ("an unsigned token", Some(unsigned), 401, "caller-rejected"),
+    ] {
+        let reply = preflight(&server.app, token.as_deref(), json!({ "stage": "s1", "code": add_1_2() })).await;
+        assert_eq!(reply.status.as_u16(), status, "{who}");
+        assert_eq!(
+            reply.json(),
+            json!({
+                "status": "error", "data": null,
+                "error": { "code": status, "message": "preflight is for the gateway only", "reason": reason },
+            }),
+            "{who}"
+        );
+        assert_eq!(reply.headers[header::CACHE_CONTROL], "no-store", "{who}");
+    }
+
+    // The identity is read from its own header: the same token as a bearer token is no identity.
+    let bearer = Request::post("/preflight")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(header::AUTHORIZATION, format!("Bearer {}", GOOGLE.id_token(json!({}))))
+        .body(Body::from(json!({ "stage": "s1", "code": add_1_2() }).to_string()));
+    assert_eq!(send(&server.app, bearer.unwrap()).await.status, StatusCode::UNAUTHORIZED);
+    // Preflight reads no user token.
+    assert!(server.verifier.seen.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn preflight_refuses_a_malformed_request_or_another_languages_program() {
+    let server = server();
+    let gateway = GOOGLE.id_token(json!({}));
+    for (body, message) in [
+        (json!({ "stage": "first", "code": add_1_2() }), "preflight needs { stage, lang, code, config? }"),
+        (json!({ "stage": "s1234", "code": add_1_2() }), "preflight needs { stage, lang, code, config? }"),
+        (json!({ "stage": "s1" }), "preflight needs { stage, lang, code, config? }"),
+        (json!({ "stage": "s1", "code": [] }), "preflight needs { stage, lang, code, config? }"),
+        (json!({ "stage": "s1", "lang": "0176", "code": add_1_2() }), "this compiler is 0000, not 0176"),
+    ] {
+        let reply = preflight(&server.app, Some(&gateway), body).await;
+        assert_eq!(reply.status, StatusCode::BAD_REQUEST);
+        assert_eq!(reply.json()["error"], json!({ "code": 400, "message": message, "reason": "bad-request" }));
+    }
+}
+
+#[tokio::test]
+async fn a_planned_stage_reports_the_revision_that_answered() {
+    let server = server();
+    // No policy is configured here, so the stage is refused; the revision is reported anyway.
+    let planned = json!({ "code": add_1_2(), "data": {}, "stage": "s0", "admissionToken": "adm" });
+    let reply = compile(&server.app, planned).await;
+    assert_eq!(reply.status, StatusCode::OK);
+    assert_eq!(
+        reply.json(),
+        json!({
+            "data": null,
+            "errors": [{
+                "message": "This compiler can't run an admitted plan: no permission service is configured.",
+                "from": -1, "to": -1,
+            }],
+            "revision": REVISION,
+        })
+    );
+    // An ordinary compile carries neither a revision nor effects.
+    let reply = compile(&server.app, json!({ "code": add_1_2(), "data": {} })).await;
+    assert_eq!(reply.json(), json!({ "data": 3, "errors": [] }));
 }

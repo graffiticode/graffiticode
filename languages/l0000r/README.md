@@ -10,8 +10,8 @@ Both release to the same Cloud Run service, `l0000`: whichever was deployed last
 
 - **`crates/core`** (`graffiticode-l0000`) — the language: AST, values, evaluator, lexicon,
   schemas, protected-function admission.
-- **`crates/server`** (`l0000r-server`, binary `l0000r`) — `/compile`, `/form`, and the public
-  static assets.
+- **`crates/server`** (`l0000r-server`, binary `l0000r`) — `/compile`, `/preflight`, `/form`, and
+  the public static assets.
 - **`tools/build-static.mjs`** — assembles `./static` from `../l0000`, which owns the spec
   documents and the React View.
 
@@ -30,7 +30,8 @@ Requires Rust 1.99+. Node `>=22` is needed only for `build:static` and `fixtures
 which run against `../l0000`.
 
 The server reads `PORT` (default `50000`), `AUTH_URL`, `STATIC_DIR` (default `./static`),
-`GRAFFITICODE_API_URL`, `GRAFFITICODE_SECRET_KEY`/`GRAFFITICODE_SECRET_KEYS` and `LOG_LEVEL`.
+`GRAFFITICODE_API_URL`, `GRAFFITICODE_SECRET_KEY`/`GRAFFITICODE_SECRET_KEYS`, `LOG_LEVEL`, and for
+chain admission `POLICY_URL` and `PREFLIGHT_GATEWAYS` (see `CLAUDE.md`).
 
 ## Docker and deploy
 

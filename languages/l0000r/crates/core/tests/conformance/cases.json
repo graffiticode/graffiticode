@@ -15160,6 +15160,1031 @@
   }
  },
  {
+  "src": "1.50..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "1.50"
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": 1.5
+  }
+ },
+ {
+  "src": "div 1 3..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "6": {
+    "tag": "DIV",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 0.3333333333333333
+  }
+ },
+ {
+  "src": "pow 2 0.5..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "0.5"
+    ]
+   },
+   "6": {
+    "tag": "POW",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 1.4142135623730951
+  }
+ },
+ {
+  "src": "12345678901234567168..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567168"
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": 12345678901234567000
+  }
+ },
+ {
+  "src": "format-number \"#,##0.00\" 1234.5..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "#,##0.00"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 24
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1234.5"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "1,234.50"
+  }
+ },
+ {
+  "src": "format-number \"0.0%\" 0.256..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0.0%"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 20
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "0.256"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "25.6%"
+  }
+ },
+ {
+  "src": "format-number \"$#,##0\" 1234567.8..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "$#,##0"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 22
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1234567.8"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "$1,234,568"
+  }
+ },
+ {
+  "src": "format-number \"0.00E+00\" 12345..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0.00E+00"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 24
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "1.23E+04"
+  }
+ },
+ {
+  "src": "format-number \"#,##0;(#,##0)\" (sub 0 1500)..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "#,##0;(#,##0)"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 29
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "1500"
+    ]
+   },
+   "10": {
+    "tag": "SUB",
+    "elts": [
+     4,
+     5
+    ]
+   },
+   "11": {
+    "tag": "PAREN",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": "(1,500)"
+  }
+ },
+ {
+  "src": "format-number \"0.00\" 1.005..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0.00"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 20
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1.005"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "1.01"
+  }
+ },
+ {
+  "src": "format-number \"0.00\" (div 1 3)..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0.00"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 20
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "10": {
+    "tag": "DIV",
+    "elts": [
+     4,
+     5
+    ]
+   },
+   "11": {
+    "tag": "PAREN",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": "0.33"
+  }
+ },
+ {
+  "src": "format-number \"#,##0\" 12345678901234567891..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "#,##0"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 21
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "12,345,678,901,234,567,891"
+  }
+ },
+ {
+  "src": "let p = \"0.0\".. format-number p 2.25..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0.0"
+    ],
+    "coord": {
+     "from": 8,
+     "to": 13
+    }
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "2.25"
+    ]
+   },
+   "7": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     5
+    ],
+    "coord": {
+     "from": 16,
+     "to": 29
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {
+   "data": "2.3"
+  }
+ },
+ {
+  "src": "`total: ${format-number \"#,##0.00\" 1234.5}`..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "STR",
+    "elts": [
+     "total: "
+    ],
+    "coord": {
+     "from": 0,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "#,##0.00"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 34
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1234.5"
+    ]
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     ""
+    ],
+    "coord": {
+     "from": 41,
+     "to": 43
+    }
+   },
+   "13": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     3,
+     4
+    ],
+    "coord": {
+     "from": 10,
+     "to": 23
+    }
+   },
+   "15": {
+    "tag": "PAREN",
+    "elts": [
+     13
+    ]
+   },
+   "16": {
+    "tag": "STR_OF",
+    "elts": [
+     15
+    ],
+    "coord": {
+     "from": 10,
+     "to": 23
+    }
+   },
+   "17": {
+    "tag": "CONCAT",
+    "elts": [
+     1,
+     16
+    ]
+   },
+   "18": {
+    "tag": "CONCAT",
+    "elts": [
+     17,
+     8
+    ]
+   },
+   "19": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "20": {
+    "tag": "PROG",
+    "elts": [
+     19
+    ]
+   },
+   "root": 20
+  },
+  "expect": {
+   "data": "total: 1,234.50"
+  }
+ },
+ {
+  "src": "map (<x: format-number \"0.0\" x>) [1 2.25]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "IDENT",
+    "elts": [
+     "x"
+    ]
+   },
+   "7": {
+    "tag": "LIST",
+    "elts": [
+     2
+    ]
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     0
+    ]
+   },
+   "13": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "14": {
+    "tag": "NUM",
+    "elts": [
+     "2.25"
+    ]
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     13,
+     14
+    ]
+   },
+   "18": {
+    "tag": "STR",
+    "elts": [
+     "0.0"
+    ]
+   },
+   "20": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     18,
+     2
+    ]
+   },
+   "22": {
+    "tag": "LAMBDA",
+    "elts": [
+     7,
+     20,
+     8,
+     9
+    ]
+   },
+   "23": {
+    "tag": "PAREN",
+    "elts": [
+     22
+    ]
+   },
+   "24": {
+    "tag": "MAP",
+    "elts": [
+     23,
+     15
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "26": {
+    "tag": "EXPRS",
+    "elts": [
+     24
+    ]
+   },
+   "27": {
+    "tag": "PROG",
+    "elts": [
+     26
+    ]
+   },
+   "root": 27
+  },
+  "expect": {
+   "data": [
+    "1.0",
+    "2.3"
+   ]
+  }
+ },
+ {
+  "src": "format-number \"[Red]0\" 1..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "[Red]0"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 22
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "errors": [
+    "format-number: […] (colors, conditions and locales) is not supported"
+   ]
+  }
+ },
+ {
+  "src": "let p = \"0 kg\".. format-number p 1..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0 kg"
+    ],
+    "coord": {
+     "from": 8,
+     "to": 14
+    }
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     5
+    ],
+    "coord": {
+     "from": 17,
+     "to": 30
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {
+   "errors": [
+    "format-number: 'k': put literal text in double quotes"
+   ]
+  }
+ },
+ {
+  "src": "format-number \"0\" \"12\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 17
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "12"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 22
+    }
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "errors": [
+    "format-number: expected a number, got \"12\""
+   ]
+  }
+ },
+ {
+  "src": "format-number 0 1..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "errors": [
+    "format-number: the pattern must be a string, got 0"
+   ]
+  }
+ },
+ {
   "src": "sub 0.3 0.1..",
   "data": {},
   "ast": {
@@ -15233,47 +16258,6 @@
   },
   "expect": {
    "data": 1.21
-  }
- },
- {
-  "src": "div 1 3..",
-  "data": {},
-  "ast": {
-   "2": {
-    "tag": "NUM",
-    "elts": [
-     "1"
-    ]
-   },
-   "3": {
-    "tag": "NUM",
-    "elts": [
-     "3"
-    ]
-   },
-   "6": {
-    "tag": "DIV",
-    "elts": [
-     2,
-     3
-    ]
-   },
-   "7": {
-    "tag": "EXPRS",
-    "elts": [
-     6
-    ]
-   },
-   "8": {
-    "tag": "PROG",
-    "elts": [
-     7
-    ]
-   },
-   "root": 8
-  },
-  "expect": {
-   "data": 0.3333333333333333
   }
  },
  {
@@ -15555,47 +16539,6 @@
   },
   "expect": {
    "data": 0.25
-  }
- },
- {
-  "src": "pow 2 0.5..",
-  "data": {},
-  "ast": {
-   "2": {
-    "tag": "NUM",
-    "elts": [
-     "2"
-    ]
-   },
-   "3": {
-    "tag": "NUM",
-    "elts": [
-     "0.5"
-    ]
-   },
-   "6": {
-    "tag": "POW",
-    "elts": [
-     2,
-     3
-    ]
-   },
-   "7": {
-    "tag": "EXPRS",
-    "elts": [
-     6
-    ]
-   },
-   "8": {
-    "tag": "PROG",
-    "elts": [
-     7
-    ]
-   },
-   "root": 8
-  },
-  "expect": {
-   "data": 1.4142135623730951
   }
  },
  {
@@ -19747,50 +20690,6 @@
   }
  },
  {
-  "src": "json \"[1\"..",
-  "data": {},
-  "ast": {
-   "2": {
-    "tag": "STR",
-    "elts": [
-     "[1"
-    ],
-    "coord": {
-     "from": 5,
-     "to": 9
-    }
-   },
-   "4": {
-    "tag": "JSON",
-    "elts": [
-     2
-    ],
-    "coord": {
-     "from": 0,
-     "to": 4
-    }
-   },
-   "6": {
-    "tag": "EXPRS",
-    "elts": [
-     4
-    ]
-   },
-   "7": {
-    "tag": "PROG",
-    "elts": [
-     6
-    ]
-   },
-   "root": 7
-  },
-  "expect": {
-   "errors": [
-    "SyntaxError: \"undefined\" is not valid JSON"
-   ]
-  }
- },
- {
   "src": "print {a: 1}..",
   "data": {},
   "ast": {
@@ -21604,6 +22503,1809 @@
    "errors": [
     "Error in HD operation: empty array has no head",
     "Error in HD operation: empty array has no head"
+   ]
+  }
+ },
+ {
+  "src": "sub 12345678901234567891 12345678901234567890..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "6": {
+    "tag": "SUB",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 1
+  }
+ },
+ {
+  "src": "length (range 9007199254740993 9007199254740996 1)..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "9007199254740993"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "9007199254740996"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "9": {
+    "tag": "RANGE",
+    "elts": [
+     3,
+     4,
+     5
+    ],
+    "coord": {
+     "from": 8,
+     "to": 13
+    }
+   },
+   "11": {
+    "tag": "PAREN",
+    "elts": [
+     9
+    ]
+   },
+   "12": {
+    "tag": "LENGTH",
+    "elts": [
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": 3
+  }
+ },
+ {
+  "src": "range 9007199254740993 9007199254740996 1..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "9007199254740993"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "9007199254740996"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "6": {
+    "tag": "RANGE",
+    "elts": [
+     2,
+     3,
+     4
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": [
+    9007199254740992,
+    9007199254740994,
+    9007199254740996
+   ]
+  }
+ },
+ {
+  "src": "equiv 12345678901234567890 12345678901234567891..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "5": {
+    "tag": "EQUIV",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": false
+  }
+ },
+ {
+  "src": "equiv {a: 12345678901234567890} {a: 12345678901234567890}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 8
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "7": {
+    "tag": "TAG",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 33,
+     "to": 34
+    }
+   },
+   "12": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     3
+    ]
+   },
+   "13": {
+    "tag": "RECORD",
+    "elts": [
+     12
+    ]
+   },
+   "14": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "15": {
+    "tag": "RECORD",
+    "elts": [
+     14
+    ]
+   },
+   "16": {
+    "tag": "EQUIV",
+    "elts": [
+     15,
+     13
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "18": {
+    "tag": "EXPRS",
+    "elts": [
+     16
+    ]
+   },
+   "19": {
+    "tag": "PROG",
+    "elts": [
+     18
+    ]
+   },
+   "root": 19
+  },
+  "expect": {
+   "data": true
+  }
+ },
+ {
+  "src": "case 12345678901234567891 of 12345678901234567890: \"a\" _: \"b\" end..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 51,
+     "to": 54
+    }
+   },
+   "7": {
+    "tag": "TAG",
+    "elts": [
+     "_"
+    ],
+    "coord": {
+     "from": 55,
+     "to": 56
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 58,
+     "to": 61
+    }
+   },
+   "15": {
+    "tag": "OF",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "16": {
+    "tag": "OF",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "17": {
+    "tag": "CASE",
+    "elts": [
+     1,
+     16,
+     15
+    ]
+   },
+   "18": {
+    "tag": "EXPRS",
+    "elts": [
+     17
+    ]
+   },
+   "19": {
+    "tag": "PROG",
+    "elts": [
+     18
+    ]
+   },
+   "root": 19
+  },
+  "expect": {
+   "data": "b"
+  }
+ },
+ {
+  "src": "get 12345678901234567891 {12345678901234567891: \"b\" 12345678901234567890: \"a\"}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 48,
+     "to": 51
+    }
+   },
+   "6": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 74,
+     "to": 77
+    }
+   },
+   "13": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "14": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "15": {
+    "tag": "RECORD",
+    "elts": [
+     14,
+     13
+    ]
+   },
+   "16": {
+    "tag": "GET",
+    "elts": [
+     2,
+     15
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "18": {
+    "tag": "EXPRS",
+    "elts": [
+     16
+    ]
+   },
+   "19": {
+    "tag": "PROG",
+    "elts": [
+     18
+    ]
+   },
+   "root": 19
+  },
+  "expect": {
+   "data": "b"
+  }
+ },
+ {
+  "src": "str 12345678901234567890..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "4": {
+    "tag": "STR_OF",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": "12345678901234567890"
+  }
+ },
+ {
+  "src": "{x: 12345678901234567890}..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 1,
+     "to": 2
+    }
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "8": {
+    "tag": "BINDING",
+    "elts": [
+     1,
+     2
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": [
+     8
+    ]
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "x": 12345678901234567000
+   }
+  }
+ },
+ {
+  "src": "[12345678901234567890]..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "2": {
+    "tag": "LIST",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "EXPRS",
+    "elts": [
+     2
+    ]
+   },
+   "4": {
+    "tag": "PROG",
+    "elts": [
+     3
+    ]
+   },
+   "root": 4
+  },
+  "expect": {
+   "data": [
+    12345678901234567000
+   ]
+  }
+ },
+ {
+  "src": "add 12345678901234567890 1..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "6": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 12345678901234567000
+  }
+ },
+ {
+  "src": "str (add 12345678901234567890 1)..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "9": {
+    "tag": "ADD",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "10": {
+    "tag": "PAREN",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "STR_OF",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": "12345678901234567891"
+  }
+ },
+ {
+  "src": "str 12345678901234567168..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567168"
+    ]
+   },
+   "4": {
+    "tag": "STR_OF",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": "12345678901234567000"
+  }
+ },
+ {
+  "src": "str 1.00000000000000000001..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1.00000000000000000001"
+    ]
+   },
+   "4": {
+    "tag": "STR_OF",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": "1.00000000000000000001"
+  }
+ },
+ {
+  "src": "str (mul 12345678901234567890 1000000)..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1000000"
+    ]
+   },
+   "9": {
+    "tag": "MUL",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "10": {
+    "tag": "PAREN",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "STR_OF",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": "1.234567890123456789e+25"
+  }
+ },
+ {
+  "src": "str (div 12345678901234567890 3)..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "9": {
+    "tag": "DIV",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "10": {
+    "tag": "PAREN",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "STR_OF",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": "4115226300411522630"
+  }
+ },
+ {
+  "src": "str (pow 3 40)..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "40"
+    ]
+   },
+   "9": {
+    "tag": "POW",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "10": {
+    "tag": "PAREN",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "STR_OF",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": "12157665459056928801"
+  }
+ },
+ {
+  "src": "str (pow 12345678901234567890 2)..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "9": {
+    "tag": "POW",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "10": {
+    "tag": "PAREN",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "STR_OF",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": "1.524157875323883675e+38"
+  }
+ },
+ {
+  "src": "str (mod 12345678901234567891 10)..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "10"
+    ]
+   },
+   "9": {
+    "tag": "MOD",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "10": {
+    "tag": "PAREN",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "STR_OF",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": "1"
+  }
+ },
+ {
+  "src": "max 12345678901234567890 12345678901234567891..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "5": {
+    "tag": "MAX",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 12345678901234567000
+  }
+ },
+ {
+  "src": "str (max 12345678901234567890 12345678901234567891)..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "8": {
+    "tag": "MAX",
+    "elts": [
+     3,
+     4
+    ],
+    "coord": {
+     "from": 5,
+     "to": 8
+    }
+   },
+   "10": {
+    "tag": "PAREN",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "STR_OF",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": "12345678901234567891"
+  }
+ },
+ {
+  "src": "lt 12345678901234567890 12345678901234567891..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567891"
+    ]
+   },
+   "5": {
+    "tag": "LT",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": true
+  }
+ },
+ {
+  "src": "eq 12345678901234567890 12345678901234567890..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "4": {
+    "tag": "EQ",
+    "elts": [
+     2,
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 2
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": true
+  }
+ },
+ {
+  "src": "nth 12345678901234567890 [1 2]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "5": {
+    "tag": "LIST",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "7": {
+    "tag": "NTH",
+    "elts": [
+     2,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "9": {
+    "tag": "EXPRS",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "PROG",
+    "elts": [
+     9
+    ]
+   },
+   "root": 10
+  },
+  "expect": {}
+ },
+ {
+  "src": "if 12345678901234567890 then 1 else 2..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "9": {
+    "tag": "IF",
+    "elts": [
+     1,
+     3,
+     5
+    ]
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": 1
+  }
+ },
+ {
+  "src": "format-number \"0\" (div 1 0)..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 17
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "10": {
+    "tag": "DIV",
+    "elts": [
+     4,
+     5
+    ]
+   },
+   "11": {
+    "tag": "PAREN",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "errors": [
+    "format-number: cannot format Infinity"
+   ]
+  }
+ },
+ {
+  "src": "format-number \"0.00\" \"x\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0.00"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 20
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 21,
+     "to": 24
+    }
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "errors": [
+    "format-number: expected a number, got \"x\""
+   ]
+  }
+ },
+ {
+  "src": "format-number \"General\" 12345678901234567890..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "General"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 23
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "12345678901234567890"
+  }
+ },
+ {
+  "src": "format-number \"0.000E+00\" 0.000123456..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "0.000E+00"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 25
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "0.000123456"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": "1.235E-04"
+  }
+ },
+ {
+  "src": "format-number \"#,##0.0#;[#,##0.0#]\" 5..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "#,##0.0#;[#,##0.0#]"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 35
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "5": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 13
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "errors": [
+    "format-number: […] (colors, conditions and locales) is not supported"
+   ]
+  }
+ },
+ {
+  "src": "map (<x: format-number \"#,##0.00\" x>) [1 1234.5 -2]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "IDENT",
+    "elts": [
+     "x"
+    ]
+   },
+   "7": {
+    "tag": "LIST",
+    "elts": [
+     2
+    ]
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     0
+    ]
+   },
+   "13": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "14": {
+    "tag": "NUM",
+    "elts": [
+     "1234.5"
+    ]
+   },
+   "19": {
+    "tag": "NUM",
+    "elts": [
+     "-2"
+    ]
+   },
+   "20": {
+    "tag": "LIST",
+    "elts": [
+     13,
+     14,
+     19
+    ]
+   },
+   "22": {
+    "tag": "STR",
+    "elts": [
+     "#,##0.00"
+    ]
+   },
+   "24": {
+    "tag": "FORMAT_NUMBER",
+    "elts": [
+     22,
+     2
+    ]
+   },
+   "26": {
+    "tag": "LAMBDA",
+    "elts": [
+     7,
+     24,
+     8,
+     9
+    ]
+   },
+   "27": {
+    "tag": "PAREN",
+    "elts": [
+     26
+    ]
+   },
+   "28": {
+    "tag": "MAP",
+    "elts": [
+     27,
+     20
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "30": {
+    "tag": "EXPRS",
+    "elts": [
+     28
+    ]
+   },
+   "31": {
+    "tag": "PROG",
+    "elts": [
+     30
+    ]
+   },
+   "root": 31
+  },
+  "expect": {
+   "data": [
+    "1.00",
+    "1,234.50",
+    "-2.00"
+   ]
+  }
+ },
+ {
+  "src": "take 12345678901234567890 [1 2 3]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "12345678901234567890"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "5": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": [
+     3,
+     4,
+     5
+    ]
+   },
+   "8": {
+    "tag": "TAKE",
+    "elts": [
+     2,
+     6
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     8
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": [
+    1,
+    2,
+    3
    ]
   }
  },

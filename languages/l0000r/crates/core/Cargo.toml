@@ -9,7 +9,7 @@ repository.workspace = true
 [features]
 default = ["http"]
 # The HTTP-backed schema source and policy/broker client.
-http = ["dep:reqwest", "dep:tokio"]
+http = ["dep:reqwest", "dep:tokio", "dep:jsonwebtoken"]
 
 [dependencies]
 aes = "0.9.3"
@@ -20,7 +20,8 @@ cbc = "0.2.1"
 hex = "0.4.3"
 indexmap = { version = "2.14.2", features = ["serde"] }
 jsonschema = { version = "0.58.6", default-features = false }
-reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"], optional = true }
+jsonwebtoken = { version = "11.1.0", default-features = false, features = ["aws_lc_rs"], optional = true }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "query", "rustls"], optional = true }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 sha2 = "0.11.1"
@@ -31,4 +32,8 @@ tracing = "0.1.44"
 uuid = { version = "1.28.0", features = ["v4"] }
 
 [dev-dependencies]
-tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread"] }
+aws-lc-rs = "1"
+axum = "0.8.9"
+base64 = "0.22"
+jsonwebtoken = { version = "11.1.0", default-features = false, features = ["aws_lc_rs", "use_pem"] }
+tokio = { version = "1.53.3", features = ["macros", "net", "rt-multi-thread"] }

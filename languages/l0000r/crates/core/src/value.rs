@@ -9,6 +9,8 @@
 use indexmap::IndexMap;
 use serde_json::Value as Json;
 
+use crate::number::Number;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     /// The result of a lookup that found nothing. It is omitted from records on output and is
@@ -16,7 +18,7 @@ pub enum Value {
     Undefined,
     Null,
     Bool(bool),
-    Num(f64),
+    Num(Number),
     Str(String),
     /// A symbolic constant, `tag red`.
     Tag(String),
@@ -41,22 +43,27 @@ pub enum Key {
 }
 
 /// A number usable as a map key: compared by value, with `-0` and `0` the same key.
-#[derive(Clone, Copy, Debug)]
-pub struct NumKey(f64);
+#[derive(Clone, Debug)]
+pub struct NumKey(Number);
 
 impl NumKey {
-    pub fn new(n: f64) -> Self {
-        Self(if n == 0.0 { 0.0 } else { n })
+    pub fn new(n: Number) -> Self {
+        // `-0` and `0` are equal, and are one key.
+        Self(if n == Number::Float(0.0) { Number::Float(0.0) } else { n })
     }
 
-    pub fn get(self) -> f64 {
-        self.0
+    pub fn get(&self) -> &Number {
+        &self.0
     }
 }
 
 impl PartialEq for NumKey {
     fn eq(&self, other: &Self) -> bool {
-        self.0.to_bits() == other.0.to_bits()
+        match (&self.0, &other.0) {
+            // By bits, so that a NaN key is equal to itself.
+            (Number::Float(a), Number::Float(b)) => a.to_bits() == b.to_bits(),
+            (a, b) => a == b,
+        }
     }
 }
 
@@ -64,7 +71,10 @@ impl Eq for NumKey {}
 
 impl std::hash::Hash for NumKey {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.to_bits().hash(state);
+        match &self.0 {
+            Number::Float(n) => n.to_bits().hash(state),
+            Number::Exact(d) => d.hash(state),
+        }
     }
 }
 
@@ -77,8 +87,8 @@ impl Key {
         Key::Str(name.into())
     }
 
-    pub fn num(n: f64) -> Self {
-        Key::Num(NumKey::new(n))
+    pub fn num(n: impl Into<Number>) -> Self {
+        Key::Num(NumKey::new(n.into()))
     }
 
     /// The key a runtime value denotes: a tag, string or number is a key of its own kind, and
@@ -87,7 +97,7 @@ impl Key {
         match value {
             Value::Tag(name) => Key::tag(name),
             Value::Str(s) => Key::str(s),
-            Value::Num(n) => Key::num(*n),
+            Value::Num(n) => Key::num(n.clone()),
             other => Key::tag(other.display()),
         }
     }
@@ -96,7 +106,7 @@ impl Key {
     pub fn name(&self) -> std::borrow::Cow<'_, str> {
         match self {
             Key::Tag(name) | Key::Str(name) => name.into(),
-            Key::Num(n) => format_number(n.get()).into(),
+            Key::Num(n) => n.get().display().into(),
         }
     }
 }
@@ -167,7 +177,8 @@ impl Value {
         match self {
             Value::Undefined | Value::Null => false,
             Value::Bool(b) => *b,
-            Value::Num(n) => *n != 0.0 && !n.is_nan(),
+            Value::Num(Number::Float(n)) => *n != 0.0 && !n.is_nan(),
+            Value::Num(Number::Exact(_)) => true,
             Value::Str(s) => !s.is_empty(),
             Value::Tag(_) | Value::List(_) | Value::Record(_) | Value::Lambda(_) => true,
         }
@@ -198,11 +209,18 @@ impl Value {
         out
     }
 
+    /// The value as Graffiticode source: a string quoted, a tag as `tag red`.
+    pub fn display_source(&self) -> String {
+        let mut out = String::new();
+        self.write_display(&mut out, true);
+        out
+    }
+
     fn write_display(&self, out: &mut String, nested: bool) {
         match self {
             Value::Undefined | Value::Null => out.push_str("null"),
             Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
-            Value::Num(n) => out.push_str(&format_number(*n)),
+            Value::Num(n) => out.push_str(&n.display()),
             Value::Str(s) if nested => out.push_str(&quote(s)),
             Value::Str(s) => out.push_str(s),
             Value::Tag(name) => {
@@ -230,7 +248,7 @@ impl Value {
                     match key {
                         Key::Tag(name) if is_identifier(name) => out.push_str(name),
                         Key::Tag(name) | Key::Str(name) => out.push_str(&quote(name)),
-                        Key::Num(n) => out.push_str(&format_number(n.get())),
+                        Key::Num(n) => out.push_str(&n.get().display()),
                     }
                     out.push_str(": ");
                     value.write_display(out, true);
@@ -252,7 +270,7 @@ impl Value {
             Value::Undefined => return None,
             Value::Null => Json::Null,
             Value::Bool(b) => Json::Bool(*b),
-            Value::Num(n) => number_to_json(*n),
+            Value::Num(n) => number_to_json(n.to_f64()),
             Value::Str(s) => Json::String(s.clone()),
             Value::Tag(name) => serde_json::json!({ "tag": name }),
             Value::List(items) => Json::Array(items.iter().map(|item| item.to_json().unwrap_or(Json::Null)).collect()),
@@ -275,7 +293,7 @@ impl Value {
         match json {
             Json::Null => Value::Null,
             Json::Bool(b) => Value::Bool(*b),
-            Json::Number(n) => Value::Num(n.as_f64().unwrap_or(f64::NAN)),
+            Json::Number(n) => Value::from(n.as_f64().unwrap_or(f64::NAN)),
             Json::String(s) => Value::Str(s.clone()),
             Json::Array(items) => Value::List(items.iter().map(Value::from_json).collect()),
             Json::Object(object) => match (object.len(), object.get("tag")) {
@@ -290,6 +308,12 @@ impl Value {
 
 impl From<f64> for Value {
     fn from(n: f64) -> Self {
+        Value::Num(Number::Float(n))
+    }
+}
+
+impl From<Number> for Value {
+    fn from(n: Number) -> Self {
         Value::Num(n)
     }
 }
@@ -394,12 +418,12 @@ mod tests {
     #[test]
     fn record_lookup_falls_back_across_tag_and_string_only() {
         let record: Record =
-            [(Key::tag("x"), Value::Num(2.0)), (Key::str("y"), Value::Num(3.0)), (Key::num(0.0), Value::Num(4.0))]
+            [(Key::tag("x"), Value::from(2.0)), (Key::str("y"), Value::from(3.0)), (Key::num(0.0), Value::from(4.0))]
                 .into_iter()
                 .collect();
-        assert_eq!(record.get(&Key::str("x")), Some(&Value::Num(2.0)));
-        assert_eq!(record.get(&Key::tag("y")), Some(&Value::Num(3.0)));
-        assert_eq!(record.get(&Key::num(0.0)), Some(&Value::Num(4.0)));
+        assert_eq!(record.get(&Key::str("x")), Some(&Value::from(2.0)));
+        assert_eq!(record.get(&Key::tag("y")), Some(&Value::from(3.0)));
+        assert_eq!(record.get(&Key::num(0.0)), Some(&Value::from(4.0)));
         assert_eq!(record.get(&Key::str("0")), None);
     }
 
@@ -413,6 +437,6 @@ mod tests {
             .into_iter()
             .collect();
         assert_eq!(Value::Record(record).to_json(), Some(serde_json::json!({ "b": [null] })));
-        assert_eq!(Value::Num(f64::INFINITY).to_json(), Some(Json::Null));
+        assert_eq!(Value::from(f64::INFINITY).to_json(), Some(Json::Null));
     }
 }

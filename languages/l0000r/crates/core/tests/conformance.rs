@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use graffiticode_l0000::{Ast, Compiler, Identity, L0000, LanguageSchema, SchemaError, SchemaSource};
+use graffiticode_l0000::{Compiler, Identity, L0000, LanguageSchema, SchemaError, SchemaSource};
 use serde::Deserialize;
 use serde_json::{Value as Json, json};
 
@@ -108,7 +108,7 @@ fn comparable(message: &str) -> &str {
 #[tokio::test]
 async fn agrees_with_the_typescript_implementation() {
     let cases: Vec<Case> = serde_json::from_str(include_str!("conformance/cases.json")).unwrap();
-    assert!(cases.len() > 300, "the fixture looks truncated: {} cases", cases.len());
+    assert!(cases.len() > 350, "the fixture looks truncated: {} cases", cases.len());
     let mut failures = Vec::new();
     let mut diverged = 0;
     for case in &cases {
@@ -116,8 +116,7 @@ async fn agrees_with_the_typescript_implementation() {
             Some(schema) => Compiler::new(L0000).with_schemas(OneSchema(schema.clone())),
             None => Compiler::new(L0000),
         };
-        let ast = Ast::from_json(&case.ast).unwrap_or_else(|err| panic!("{}: {err}", case.src));
-        let actual = compiler.compile(&ast, &case.data, &json!({}), Identity::default()).await;
+        let actual = compiler.compile(&case.ast, &case.data, &json!({}), Identity::default()).await.result;
         let label = format!("{} (data {})", case.src, case.data);
 
         if let Some((_reason, expected)) = divergence(case) {
