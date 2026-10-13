@@ -81,18 +81,6 @@ describe("save-to-itembank <activity> without a connection", () => {
     expect(val.data.itemBank).toMatchObject(SKIPPED);
     expect(routes).toEqual([]);
   });
-
-  test.each([
-    ["author {}", "author"],
-    ["init author {}", "init author"],
-  ])("%s is left unsigned", async (expr) => {
-    const { err, val } = await compile(`set-var "lrn-id" "t" ${CREDS} ${expr}..`);
-    // Unsigned, and reported as the Author refusal.
-    expect(err).toMatchObject([{ code: "fn-not-enabled", category: "permission" }]);
-    expect(val.type).toBe("author");
-    expect(val.request).toBeUndefined();
-    expect(JSON.stringify(val)).not.toMatch(/signature/);
-  });
 });
 
 describe("the legacy literal member is lowered to the wrapper", () => {

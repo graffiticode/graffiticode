@@ -25,7 +25,6 @@ import {
 import type { SystemPreviewClient } from "./protection.js";
 import type { PolicyClient } from "@graffiticode/l0000";
 import { buildCreateQuestions } from "./questions.js";
-import { buildCreateAuthor } from "./author.js";
 import {
   questionTypeBuilders,
   memberFields,
@@ -90,7 +89,6 @@ const occurrenceKey = (node: any) => `${node?.tag}:${node?.coord?.from ?? "-"}`;
 const LEGACY_SAVE_MEMBER_ERROR =
   "Error: save-to-itembank wraps the activity to save: `save-to-itembank items [...] {}`. " +
   "As an items-list member it is only accepted as the literal `save-to-itembank true`.";
-const createAuthor = buildCreateAuthor();
 
 // Learnosity credentials never come from a program or from `config`. A legacy
 // program's `set-var "learnosity-key"/"learnosity-secret"` still compiles —
@@ -100,7 +98,7 @@ const createAuthor = buildCreateAuthor();
 
 // Sign the compiled Learnosity activity so the view can hand `request` straight
 // to LearnosityApp.init. The compile produces the unsigned `{ type, data }`
-// activity (createItems/createQuestions/createAuthor); the browser SDK needs a
+// activity (createItems/createQuestions); the browser SDK needs a
 // *signed* request. L0158 did this signing in a second, client-triggered
 // `init data {}` compile pass (its own View issued it after the cached
 // compile); L0176 renders through the shared @graffiticode/l0000-view, which
@@ -113,17 +111,14 @@ const createAuthor = buildCreateAuthor();
 // (re)compile even when the assessment is unchanged — that churn is why the
 // Form keys its one-time Learnosity init on the stable question content rather
 // than object identity (see packages/view/src/components/form/contentKey.ts).
-// An Author activity opens the Author Site, which can edit and delete items,
-// so it's signed only through a connection that admits `author`. Without one
-// it can't run: that's a compile error in `errors`, the same refusal (code and
-// category) a connection gives when Author isn't enabled, so every preview
-// reports it, not only the compile that first hit it.
-const AUTHOR_NEEDS_CONNECTION = {
-  message: "Error: this Author activity can't be opened here. The Author Site needs a connection with Author enabled (fn-not-enabled).",
-  code: "fn-not-enabled",
-  category: "permission",
-};
-const isUnsignedAuthor = (val: any, exec?: any) => val?.type === "author" && !isBrokered(exec);
+// L0176 signs no Author sessions (registry v7, AUTHOR-01 closed by removal):
+// it makes items and activities for the item bank. An Author activity can
+// still arrive as data (from an older program's output upstream); it is
+// refused with a compile error, never rendered or signed.
+const AUTHOR_NOT_SUPPORTED =
+  "Error: L0176 doesn't open the Learnosity Author Site. It makes items and activities for the item bank; " +
+  "to plan an Author API integration, which your own application signs, use L0177.";
+const isAuthorActivity = (val: any) => val?.type === "author";
 
 async function signForRender(plain: any, exec?: any): Promise<any> {
   // Only sign Learnosity render output: a `{ type, data }` activity that has
@@ -136,8 +131,7 @@ async function signForRender(plain: any, exec?: any): Promise<any> {
     const request = await brokeredSign(exec, plain, "prog");
     return request ? { ...plain, request } : plain;
   }
-  // Without a connection there is no authority to open the Author Site, which
-  // can edit and delete items: leave it unsigned.
+  // Only the two preview types are signed without a connection.
   if (plain.type !== "questions" && plain.type !== "items") {
     return plain;
   }
@@ -189,14 +183,6 @@ export class Checker extends BaseChecker {
 
 
 
-  AUTHOR(node: any, options: any, resume: any) {
-    this.visit(node.elts[0], options, async (e0: any, _v0: any) => {
-      const err = ([] as any[]).concat(e0 || []);
-      const val = node;
-      resume(err, val);
-    });
-  }
-
 }
 
 // Generate Checker methods for question types (arity 1)
@@ -237,6 +223,10 @@ export class Transformer extends BaseTransformer {
     this.visit(node.elts[0], options, async (e0: any, v0: any) => {
       const plain = toPlainObject(v0);
       const err: any[] = [];
+      if (isAuthorActivity(plain)) {
+        resume([AUTHOR_NOT_SUPPORTED], undefined);
+        return;
+      }
       if (isBrokered(this.execContext)) {
         try {
           resume(err, await brokeredSign(this.execContext, plain, occurrenceKey(node)));
@@ -252,12 +242,6 @@ export class Transformer extends BaseTransformer {
         // `signing: { unsigned, message }`.
         const signed = await systemPreviewSign(this.execContext, systemPreviewClient, plain, occurrenceKey(node));
         resume(err, signed.request ?? signed);
-        return;
-      }
-      // Without a connection there is no authority to open the Author Site
-      // (see signForRender): unsigned, and reported as an error.
-      if (type === "author") {
-        resume([...(err ?? []), AUTHOR_NEEDS_CONNECTION], plain);
         return;
       }
       resume(err, undefined);
@@ -437,19 +421,6 @@ export class Transformer extends BaseTransformer {
     });
   }
 
-  AUTHOR(node: any, options: any, resume: any) {
-    this.visit(node.elts[0], options, async (e0: any, v0: any) => {
-      const plain = toPlainObject(v0);
-      const err: any[] = [];
-      if (!options["lrn-id"]) {
-        resume([`Error: set-var "lrn-id" must be set to a non-empty string before author is called.`], undefined);
-        return;
-      }
-      const val = await createAuthor({ ...plain, id: options["lrn-id"] });
-      resume(err, val);
-    });
-  }
-
   PROG(node: any, options: any, resume: any) {
     this.visit(node.elts[0], options, async (e0: any, v0: any) => {
       const err = e0;
@@ -459,11 +430,15 @@ export class Transformer extends BaseTransformer {
         resume(err, val);
         return;
       }
-      // Attach the signed Learnosity `request` (see signForRender). An Author
-      // activity without a connection stays unsigned and is reported.
+      // An Author activity arriving as data is refused, never signed.
+      if (isAuthorActivity(toPlainObject(val))) {
+        resume([AUTHOR_NOT_SUPPORTED], undefined);
+        return;
+      }
+      // Attach the signed Learnosity `request` (see signForRender).
       try {
         const signed = await signForRender(val, this.execContext);
-        resume(isUnsignedAuthor(val, this.execContext) ? [AUTHOR_NEEDS_CONNECTION] : err, signed);
+        resume(err, signed);
       } catch (e: any) {
         resume([protectedError(e, this.execContext)], undefined);
       }
@@ -535,53 +510,19 @@ for (const [name, meta] of Object.entries(memberFields)) {
 // admission, transformer — sees the program (see save-lowering.ts), then picks
 // the path: a compile that selects a connection is BROKERED (protected
 // functions admitted by policy, executed by the broker); one that does not
-// never writes and never signs an Author session, and signs previews through
+// never writes, and signs previews through
 // the system preview session when the policy client offers one. A selected
 // connection on a server with no policy client configured fails closed rather
 // than falling back.
 // The registry version L0176's protected declarations (protection.ts) were
 // written for: graffiticode's packages/common protected-registry. A plan pins
 // it (capability plan W4); policy refuses a stage reporting another.
-export const REGISTRY_VERSION = 6;
+export const REGISTRY_VERSION = 7;
 
 // The compiler that knows L0176's protected functions: the brokered path's,
 // and preflight's (capability plan W4), which needs no policy client. Its
 // normalization is the legacy save lowering, so a plan pins the program that
 // actually executes, and the stored source's digest is of what was stored.
-// Authority a program can reach only through its data (capability plan W4,
-// ADMIT-01's conservative declaration). L0176 signs whatever activity it is
-// given in two places: `init <value>`, and PROG's render signing of the
-// program's final value. When that value isn't built in the program, it can
-// come from upstream data, and an Author activity there needs `author`. A
-// static scan can't see it, so the manifest declares it: with Author off,
-// such a chain is refused at admission with nothing executed, never midway.
-const ACTIVITY_BUILDERS = new Set(["ITEMS", "QUESTIONS", "SAVE_TO_ITEMBANK", "AUTHOR"]);
-export function dataDependentAuthority(nodePool: any): string[] {
-  const tagOf = (id: any) => nodePool?.[id]?.tag;
-  let dynamic = false;
-  for (const key of Object.keys(nodePool ?? {})) {
-    const node = nodePool[key];
-    if (key !== "root" && node?.tag === "INIT" && !ACTIVITY_BUILDERS.has(tagOf(node.elts?.[0]))) dynamic = true;
-  }
-  const prog = nodePool?.[nodePool?.root];
-  const exprs = prog?.tag === "PROG" ? nodePool[prog.elts?.[0]] : null;
-  const last = exprs?.elts?.length ? tagOf(exprs.elts[exprs.elts.length - 1]) : undefined;
-  if (last !== undefined && !ACTIVITY_BUILDERS.has(last) && last !== "INIT") dynamic = true;
-  return dynamic ? ["author"] : [];
-}
-
-// The protected compiler's manifest adds that authority to what the scan finds;
-// compile checks its binding against the same manifest, so they agree.
-class L0176ProtectedCompiler extends Compiler {
-  stageManifest(code: any, program: any, args: any) {
-    const out = super.stageManifest(code, program, args);
-    if (out.manifest) {
-      out.manifest.requiredFunctions = [...new Set([...out.manifest.requiredFunctions, ...dataDependentAuthority(program)])].sort();
-    }
-    return out;
-  }
-}
-
 const protectedCompilerConfig = (policy?: PolicyClient) => ({
   langID: "0176",
   version: "v0.0.1",
@@ -596,13 +537,13 @@ const protectedCompilerConfig = (policy?: PolicyClient) => ({
 
 class L0176Compiler extends Compiler {
   #brokered: Compiler | null = null;
-  #preflight = new L0176ProtectedCompiler(protectedCompilerConfig());
+  #preflight = new Compiler(protectedCompilerConfig());
 
   setPolicyClient(policy: PolicyClient & { getPreviewSession?: SystemPreviewClient["getPreviewSession"] }) {
     systemPreviewClient = typeof policy.getPreviewSession === "function" && typeof policy.invoke === "function"
       ? { getPreviewSession: policy.getPreviewSession.bind(policy), invoke: policy.invoke }
       : null;
-    this.#brokered = new L0176ProtectedCompiler(protectedCompilerConfig(policy));
+    this.#brokered = new Compiler(protectedCompilerConfig(policy));
   }
 
   // Preflight (W4): what a compile through a connection would run.

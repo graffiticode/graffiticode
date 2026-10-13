@@ -32,14 +32,14 @@ const SYSTEM_OWNER = "0xsystemowner";
 const L0176 = { role: "compiler", lang: "0176" };
 const BROKER = { role: "broker" };
 const ARGD = "a".repeat(64);
-const OPS = { init: "learnosity.sign-items-preview", "save-to-itembank": "learnosity.write-items", author: "learnosity.sign-author" };
+const OPS = { init: "learnosity.sign-items-preview", "save-to-itembank": "learnosity.write-items" };
 
 // Every reason liveRefusal returns. A new one must be added here and given a row.
 const REASONS = [
   "bad-session", "not-system-preview", "not-system-connection", "not-view-safe",
   "publication-not-found", "publication-mismatch", "publish-not-granted",
   "connection-not-found", "system-connection", "connection-disabled", "owner-changed",
-  "not-owner", "backend-changed", "fn-not-enabled", "not-granted",
+  "not-owner", "backend-changed", "not-granted",
 ];
 
 let signer;
@@ -189,7 +189,6 @@ const ROWS: Array<[string, Record<string, unknown>, string, string, (() => Promi
   ["no grant", { sub: STRANGER }, "init", "not-owner"],
   ["grant expired", { sub: "0xexpireduid" }, "init", "not-owner"],
   ["backend changed", { conn: "conn-x" }, "init", "backend-changed"],
-  ["Author, not enabled here", {}, "author", "fn-not-enabled"],
   ["a grantee, outside the grant", { sub: OTHER }, "save-to-itembank", "not-granted"],
 ];
 

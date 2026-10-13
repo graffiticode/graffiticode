@@ -24,8 +24,8 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ]),
   ...cat("permission", [
     "not-granted", "not-owner", "not-publisher", "self-grant", "publish-not-granted",
-    "fn-not-enabled", "fn-not-in-session", "not-view-safe", "not-system-preview",
-    "operation-not-allowed", "operation-not-enabled", "bad-provenance",
+    "fn-not-in-session", "not-view-safe", "not-system-preview",
+    "operation-not-allowed", "bad-provenance",
     // At Policy, a step the registry doesn't list for this operation; at Broker,
     // a step its own definition doesn't register. Refused either way.
     "step-not-registered",

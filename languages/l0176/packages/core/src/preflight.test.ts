@@ -6,7 +6,7 @@
 import { describe, test, expect, beforeAll, afterAll } from "vitest";
 import { parser } from "@graffiticode/parser";
 import { digestOf, createPreflightHandler } from "@graffiticode/l0000";
-import { compiler, lexicon, REGISTRY_VERSION, dataDependentAuthority } from "./index.js";
+import { compiler, lexicon, REGISTRY_VERSION } from "./index.js";
 
 const ITEM = "item [questions [mcq []] {}]";
 const parse = (src: string) => parser.parse(176, src, lexicon);
@@ -27,14 +27,14 @@ afterAll(() => {
 });
 
 describe("L0176 preflight", () => {
-  test("names its protected functions, implicit init included, with registry version 6", async () => {
+  test("names its protected functions, implicit init included, with registry version 7", async () => {
     const code = await parse(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
     const out: any = await (compiler as any).preflight(code, { stage: "s1", options: {} });
     expect(out.manifest).toMatchObject({
       stage: "s1", lang: "0176", registryVersion: REGISTRY_VERSION, revision: ENV.K_REVISION, imageDigest: ENV.GC_IMAGE_DIGEST,
       requiredFunctions: ["init", "save-to-itembank"], sourceDigest: digestOf(code),
     });
-    expect(REGISTRY_VERSION).toBe(6);
+    expect(REGISTRY_VERSION).toBe(7);
   });
 
   test("pins the lowered program for the legacy save member form, and still finds its save", async () => {
@@ -51,41 +51,31 @@ describe("L0176 preflight", () => {
   });
 });
 
-// Review of PR 5: an activity that comes from upstream data can be an Author
-// activity, which L0176 would sign through `init` or its render signing. The
-// manifest declares `author` for it, so with Author off the chain is refused
-// at admission instead of failing after an earlier stage saved.
+// An activity can come from upstream data, which a static scan can't see. Since
+// registry v7 (AUTHOR-01, closed by removal) any activity L0176 accepts needs
+// only `init`, which every compile declares, so data-dependent programs
+// declare nothing more; an Author activity arriving as data is a compile error
+// (compiler.test.ts), never signed.
 describe("authority that depends on data", () => {
   const required = async (src: string) =>
     (await (compiler as any).preflight(await parse(src), { stage: "s0" })).manifest.requiredFunctions;
 
   test.each([
-    ["init over upstream data", "init data {}.."],
-    ["a program whose value is upstream data", "data {}.."],
-    ["init over a variable", `set-var "x" data {} init get-val-public "x"..`],
-  ])("declares author for %s", async (_label, src) => {
-    expect(await required(src)).toContain("author");
-  });
-
-  test.each([
+    ["init over upstream data", "init data {}..", ["init"]],
+    ["a program whose value is upstream data", "data {}..", ["init"]],
+    ["init over a variable", `set-var "x" data {} init get-val-public "x"..`, ["init"]],
     ["an items activity", `set-var "lrn-id" "t" items [${ITEM}] {}..`, ["init"]],
     ["a questions activity", `set-var "lrn-id" "t" questions [mcq []] {}..`, ["init"]],
     ["a save", `set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`, ["init", "save-to-itembank"]],
     ["init over an items activity", `set-var "lrn-id" "t" init items [${ITEM}] {}..`, ["init"]],
-    ["an Author activity, found by the scan", `set-var "lrn-id" "t" author {}..`, ["author", "init"]],
-  ])("declares only what %s builds", async (_label, src, fns) => {
+  ])("declares only what %s needs", async (_label, src, fns) => {
     expect(await required(src)).toEqual(fns);
   });
 
-  test("the rule reads INIT arguments and the program's final value", async () => {
-    expect(dataDependentAuthority(await parse("init data {}.."))).toEqual(["author"]);
-    expect(dataDependentAuthority(await parse(`set-var "lrn-id" "t" items [${ITEM}] {}..`))).toEqual([]);
-  });
-
-  test("a planned compile binds the declared authority too, so an Author activity from data runs only if the plan admitted author", async () => {
-    const code = await parse("init data {}..");
-    const { manifest } = await (compiler as any).preflight(code, { stage: "s1", options: {} });
-    expect(manifest.requiredFunctions).toEqual(["author", "init"]);
+  test("never declares author", async () => {
+    for (const src of ["init data {}..", "data {}..", `set-var "lrn-id" "t" items [${ITEM}] {}..`]) {
+      expect(await required(src)).not.toContain("author");
+    }
   });
 });
 

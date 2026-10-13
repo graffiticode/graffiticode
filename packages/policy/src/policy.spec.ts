@@ -58,7 +58,7 @@ beforeEach(async () => {
   });
 });
 
-const ALL_FNS = ["init", "save-to-itembank", "author"];
+const ALL_FNS = ["init", "save-to-itembank"];
 const invoke = (over = {}) => policy.allocateInvocation({
   caller: GATEWAY,
   user: { uid: OWNER },
@@ -232,7 +232,7 @@ describe("token profiles", () => {
 });
 
 describe("snapshot (owner-only)", () => {
-  it("gives the owner every function the program calls, writes included, but not gated Author", async () => {
+  it("gives the owner every function the program calls, writes included", async () => {
     const result = await snap();
     expect(result.allowed).toEqual(["init", "save-to-itembank"]);
     expect(result.mode).toBeUndefined();
@@ -305,9 +305,8 @@ describe("mint", () => {
     expect(claims.exp - claims.iat).toBeLessThanOrEqual(60);
   });
 
-  it("never lets a preview-only session sign Author requests or write", async () => {
+  it("never lets a preview-only session write", async () => {
     const { sessionToken } = await snap({ fns: ["init"] });
-    await denied(mintWith(sessionToken, { op: "learnosity.sign-author" }), "operation-not-allowed");
     await denied(mintWith(sessionToken, { op: "learnosity.write-items" }), "operation-not-allowed");
     await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
   });
@@ -315,7 +314,7 @@ describe("mint", () => {
   it("mints a write for any session whose program calls it", async () => {
     const { sessionToken } = await snap();
     await expect(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.write-items" })).resolves.toBeTruthy();
-    await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.sign-author" }), "operation-not-allowed");
+    await denied(mintWith(sessionToken, { fn: "save-to-itembank", op: "learnosity.sign-items-preview" }), "operation-not-allowed");
   });
 
   it("accepts the occurrence ids compilers send, and nothing outside [A-Za-z0-9_:.-]", async () => {
@@ -381,20 +380,10 @@ describe("mint", () => {
   });
 });
 
-// AUTHOR-01: Author is disabled until verified. Policy refuses it unless its
-// deployment explicitly enables it, and an owner's own permissions cannot
-// bypass that.
-describe("enablement-gated functions (Author)", () => {
-  const withGates = enabledGated => createPolicy({
-    protectedSwitch: PROTECTED_ON,
-    signer,
-    jwks,
-    connections,
-    invocations: createMemoryInvocationStore(),
-    publications: createMemoryPublicationStore(),
-    audit: createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) }),
-    enabledGated
-  });
+// Registry v7 (AUTHOR-01, closed by removal): Author is no protected function,
+// so no session carries it and nothing mints it, whatever a program, an owner's
+// list or a forged session names.
+describe("Author, removed in registry v7", () => {
   const authorSession = () => issueToken(signer, "session", {
     sub: OWNER,
     own: OWNER,
@@ -404,34 +393,27 @@ describe("enablement-gated functions (Author)", () => {
     inv: "inv-1",
     stg: "s0",
     rv: REGISTRY_VERSION,
-    fns: ALL_FNS
+    fns: [...ALL_FNS, "author"]
   });
-  const mintAuthor = (p, sessionToken) => p.mint({
+  const mintAuthor = sessionToken => policy.mint({
     caller: L0176, sessionToken, fn: "author", op: "learnosity.sign-author", occurrenceId: "n3.0", argsDigest: digest("args")
   });
 
-  it("leaves Author out of an owner's session by default", async () => {
-    const result = await snap();
-    expect(result.allowed).not.toContain("author");
+  it("is left out of an owner's session even when the program calls it", async () => {
+    expect((await snap({ fns: [...ALL_FNS, "author"] })).allowed).toEqual(ALL_FNS);
   });
 
-  it("includes Author for the owner once the deployment enables it", async () => {
-    policy = withGates(new Set(["0176:author"]));
-    const result = await snap();
-    expect(result.allowed).toEqual(ALL_FNS);
-    await expect(mintAuthor(policy, result.sessionToken)).resolves.toBeTruthy();
+  it("is never minted, even for a session that lists it", async () => {
+    await denied(mintAuthor(await authorSession()), "operation-not-allowed");
+    // The audit records only registered function names; `author` is not one.
+    expect(records.at(-1)).toMatchObject({ event: "mint", outcome: "denied", reason: "operation-not-allowed", fn: "invalid" });
   });
 
-  it("refuses to mint Author even for a session that lists it", async () => {
-    await denied(mintAuthor(policy, await authorSession()), "fn-not-enabled");
-    expect(records.at(-1)).toMatchObject({ event: "mint", outcome: "denied", reason: "fn-not-enabled", fn: "author" });
-  });
-
-  it("is not reachable through an owner's own permission list", async () => {
+  it("is not reached through an owner's own permission list", async () => {
     await connections.put({ ...(await connections.get("conn-1")), ownerPermissions: [{ lang: "0176", fn: "author" }] });
     // init still comes with any function named in its language (GRANT-01).
-    expect((await snap()).allowed).toEqual(["init"]);
-    await denied(mintAuthor(policy, await authorSession()), "fn-not-enabled");
+    expect((await snap({ fns: [...ALL_FNS, "author"] })).allowed).toEqual(["init"]);
+    await denied(mintAuthor(await authorSession()), "operation-not-allowed");
   });
 });
 
@@ -675,7 +657,8 @@ describe("system preview sessions", () => {
       fns: ["init", "save-to-itembank", "author"]
     });
     await denied(mintWith(wide, { fn: "save-to-itembank", op: "learnosity.write-items" }), "not-system-preview");
-    await denied(mintWith(wide, { fn: "author", op: "learnosity.sign-author" }), "not-system-preview");
+    // No longer a registered operation, so refused before the system check.
+    await denied(mintWith(wide, { fn: "author", op: "learnosity.sign-author" }), "operation-not-allowed");
     await expect(mintWith(wide)).resolves.toBeTruthy();
   });
 

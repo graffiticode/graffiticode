@@ -48,7 +48,7 @@
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
 import { randomUUID } from "node:crypto";
-import { gatedOperations, isOperationAllowed, isStepRegistered, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { isOperationAllowed, isStepRegistered, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { verifyToken, provenanceRefusal, opidParts, MAINTENANCE, admission } from "@graffiticode/policy";
 import { SUPPORTED_CONTRACT_VERSIONS } from "@graffiticode/common/contract";
 import { argsDigest } from "./canonical.js";
@@ -293,8 +293,6 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // Never reinterpret a token under a different registry than it was minted
     // for.
     if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
-    // A gated operation this deployment has not enabled (spec AUTHOR-01).
-    if (!operation && gatedOperations().has(op)) return refuse("operation-not-enabled");
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
       return refuse("operation-not-allowed");

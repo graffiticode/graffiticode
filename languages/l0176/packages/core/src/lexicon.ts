@@ -10,7 +10,6 @@ const additions = {
   items: { tk: 1, name: "ITEMS", cls: "function", length: 2, arity: 2 },
   item: { tk: 1, name: "ITEM", cls: "function", length: 1, arity: 1 },
   questions: { tk: 1, name: "QUESTIONS", cls: "function", length: 2, arity: 2 },
-  author: { tk: 1, name: "AUTHOR", cls: "function", length: 1, arity: 1 },
   hello: { tk: 1, name: "HELLO", cls: "function", length: 1, arity: 1 },
 
   // Question-type keywords (arity 1)

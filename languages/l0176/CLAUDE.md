@@ -38,21 +38,26 @@ the spec table.
 
 L0176 is a Graffiticode dialect (child of `@graffiticode/l0000`) for building **Learnosity
 assessment integrations**. It compiles Graffiticode programs into Learnosity API requests
-(Items, Questions, Author APIs) and renders them via a React frontend that loads the
+(Items and Questions APIs) and renders them via a React frontend that loads the
 Learnosity browser SDK. It is the modern-architecture successor to **L0158** (which was
 built on the old `@graffiticode/basis` compiler); the vocabulary and compiled output are a
 faithful, byte-compatible port of L0158. It's an npm-workspaces monorepo with three packages.
+
+L0176 signs no Author API sessions: `author` was removed with protected-registry v7
+(AUTHOR-01, closed by removal). It makes items and activities for the item bank; an Author
+integration is signed by the customer's own application, and L0177 (read-only) plans one.
+An Author activity arriving as data is a compile error pointing to L0177.
 
 ### Structure
 
 - **`packages/core/`** — `@graffiticode/l0176`: the language itself. Pure TypeScript.
   - `src/lexicon.ts`: merges L0000's base lexicon with L0176's Learnosity vocabulary
-    (`init`, `items`, `item`, `questions`, `author`; the question-type keywords
+    (`init`, `items`, `item`, `questions`; the question-type keywords
     `mcq`/`shorttext`/`clozetext`/`choicematrix`/`bowtie`/`token-highlight`/… ; attribute keywords
     `stimulus`/`options`/`valid-response`/`save-to-itembank`/`metadata`/… ; and metadata
     member constructors `tags`/`notes`/`difficulty-level`/…)
   - `src/compiler.ts`: `Checker`/`Transformer` extending L0000's; hand-written block handlers
-    (`INIT`, `ITEMS`, `ITEM`, `QUESTIONS`, `AUTHOR`, `PROG`)
+    (`INIT`, `ITEMS`, `ITEM`, `QUESTIONS`, `PROG`)
     plus registry-driven generation of per-question-type / per-attribute / per-metadata
     methods. `signForRender` has the broker sign the activity at the end of `PROG` (through
     the selected connection, or the system preview session without one).
@@ -63,7 +68,7 @@ faithful, byte-compatible port of L0158. It's an npm-workspaces monorepo with th
     registries (`questionTypeBuilders`, `memberFields`, `validAttributes`, `inferShape`,
     `partitionItemsList`) — the single source of truth the generated compiler methods and
     `tools/gen-attribute-reference.mjs` both read
-  - `src/{items,questions,author}.ts`: build the unsigned activities and save plans (their
+  - `src/{items,questions}.ts`: build the unsigned activities and save plans (their
     `buildInit*` local signers are no longer called by the compiler)
   - `spec/`: language documentation, examples, schema, RAG training prompts — **executable
     documentation**, see below
@@ -165,8 +170,8 @@ items [item [questions [mcq []] {}]] {}..
 - **Metadata members (arity 1):** `tags`, `notes`, `distractor-rationale`, `acknowledgements`,
   `description`, `source`, `difficulty-level`.
 - **Control flow:** `save-to-itembank` sets `options["save-to-itembank"]` by side effect
-  rather than emitting a field. The item id comes from `set-var "lrn-id"` alone — ITEMS,
-  QUESTIONS and AUTHOR all error without it.
+  rather than emitting a field. The item id comes from `set-var "lrn-id"` alone — ITEMS
+  and QUESTIONS both error without it.
 
 Checker/Transformer methods for question types, attributes, and metadata members are generated
 programmatically by looping over the registries in `question-types.ts`; only the block-level

@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { generateKeyPair, exportJWK } from "jose";
 import { canonicalDigest } from "@graffiticode/common/canonical";
 import { encodeChainId, decodeChainId } from "@graffiticode/common/chain";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
   createPolicy, createLocalSigner, createMemoryConnectionStore, createMemoryInvocationStore, createMemoryPublicationStore,
   createAudit, createPseudonymizer, createProtectedSwitch, PolicyDenied, createConnectionManager,
@@ -33,7 +34,7 @@ const CALLERS = {
 };
 
 // What L0176's preflight declares for the canary's programs (W4 PR 5).
-const requiredFor = src => (src.includes("save-to-itembank") ? ["init", "save-to-itembank"] : src.startsWith("init data") ? ["author", "init"] : ["init"]);
+const requiredFor = src => (src.includes("save-to-itembank") ? ["init", "save-to-itembank"] : ["init"]);
 const imageOf = revision => `sha256:${canonicalDigest(revision)}`;
 const manifestOf = (code, stage, revision, lang = "0176") => ({
   stage,
@@ -44,7 +45,7 @@ const manifestOf = (code, stage, revision, lang = "0176") => ({
   revision,
   imageDigest: imageOf(revision),
   // L0000 has no protected functions: registry version 0, nothing required.
-  registryVersion: lang === "0000" ? 0 : 6,
+  registryVersion: lang === "0000" ? 0 : REGISTRY_VERSION,
   requiredFunctions: lang === "0000" ? [] : requiredFor(code.src),
 });
 
@@ -91,7 +92,6 @@ const world = async ({ tweak = {} } = {}) => {
     approvals,
     fence: createMemoryLeaseFence({ leases }),
     ...(tweak.min ? { minContractVersion: tweak.min } : {}),
-    ...(tweak.authorEnabled ? { enabledGated: new Set(["0176:author"]) } : {}),
     audit
   });
   const writes = [];
@@ -102,8 +102,7 @@ const world = async ({ tweak = {} } = {}) => {
     operations: buildOperations({
       sdk: { init: (service, consumer, secret, body) => ({ service, body }) },
       domain: "d",
-      dataApi: async ({ route }) => { writes.push(route); return { meta: { status: true } }; },
-      ...(tweak.authorEnabled || tweak.brokerAuthorEnabled ? { enabledGated: new Set(["learnosity.sign-author"]) } : {})
+      dataApi: async ({ route }) => { writes.push(route); return { meta: { status: true } }; }
     }),
     secrets: createMemorySecretStore({ [CONN]: { ownerUid: CANARY, backend: "learnosity", key: "k", secret: "s" } }),
     once: tweak.noReplayProtection ? { claim: async () => true } : createMemoryOnceStore(),
@@ -186,7 +185,11 @@ const world = async ({ tweak = {} } = {}) => {
         if (pathname === "/v1/invocations") return ok(await policy.allocateInvocation({ caller, user: user(headers), ...body }));
         if (pathname === "/v1/invocations/plan") return ok(await policy.planLookup({ caller, user: user(headers), ...body }));
         if (pathname === "/v1/admissions") return ok(await policy.admit({ caller, user: user(headers), ...body }));
-        if (pathname === "/v1/snapshot") return ok(await policy.snapshot({ caller, user: user(headers), ...body }));
+        if (pathname === "/v1/snapshot") {
+          const snap = await policy.snapshot({ caller, user: user(headers), ...body });
+          // `policyAllowsAuthor` stands for a Policy still on registry v6 with Author enabled.
+          return ok(tweak.policyAllowsAuthor ? { ...snap, allowed: [...snap.allowed, "author"] } : snap);
+        }
         if (pathname === "/v1/mint") return ok(await policy.mint({ caller, ...body }));
         if (pathname === "/v1/connections" && method === "GET") return ok(await manager.list({ caller, user: user(headers) }));
         const permissions = pathname.match(/^\/v1\/connections\/([^/]+)\/owner-permissions$/);
@@ -202,6 +205,8 @@ const world = async ({ tweak = {} } = {}) => {
       }
       if (origin === config.brokerUrl && pathname === "/v1/execute") {
         const caller = callerOf(headers, "urn:graffiticode:broker");
+        // `v6Broker` stands for a Broker still on registry v6, Author gated off.
+        if (tweak.v6Broker && body.op === "learnosity.sign-author") return refused(403, "operation-not-enabled");
         return ok(await broker.execute({ caller, token: headers.Authorization.replace(/^Bearer /, ""), op: body.op, payload: body.payload }));
       }
     } catch (err) {
@@ -237,7 +242,7 @@ test("passes end to end while paused with the canary configured, writing once fo
   assert.equal(ok, true, JSON.stringify(results));
   assert.deepEqual(Object.keys(byName(results)), [
     "gateway preview", "gateway write", "gateway write effects", "gateway write retry", "gateway write retry effects",
-    "author denied: policy", "author denied",
+    "author removed: policy", "author removed",
     "token replay: first use", "token replay", "receipt replay: first write", "receipt replay",
     "revocation probe: first write", "revocation probe: replay after narrowing", "revocation probe: minted, then narrowed",
     "revocation probe: permissions restored"
@@ -315,19 +320,19 @@ test("recognizes signed requests as objects or JSON text, and nothing else", () 
   assert.equal(hasSignedRequest({ request: { signature: "s" } }), false);
 });
 
-test("fails author denied when this deployment enables Author", async () => {
-  const { results, ok } = await run(await world({ tweak: { authorEnabled: true } }));
+test("fails author removed when Policy still offers Author", async () => {
+  const { results, ok } = await run(await world({ tweak: { policyAllowsAuthor: true } }));
   assert.equal(ok, false);
-  assert.equal(byName(results)["author denied: policy"], false);
+  assert.equal(byName(results)["author removed: policy"], false);
   assert.equal(byName(results)["token replay"], true);
 });
 
-test("fails author denied when only the broker enables Author", async () => {
-  const { results, ok } = await run(await world({ tweak: { brokerAuthorEnabled: true } }));
+test("fails author removed against a Broker still on registry v6", async () => {
+  const { results, ok } = await run(await world({ tweak: { v6Broker: true } }));
   assert.equal(ok, false);
-  assert.equal(byName(results)["author denied: policy"], true);
-  assert.equal(byName(results)["author denied"], false);
-  assert.match(results.find(r => r.name === "author denied").detail, /operation-mismatch/);
+  assert.equal(byName(results)["author removed: policy"], true);
+  assert.equal(byName(results)["author removed"], false);
+  assert.match(results.find(r => r.name === "author removed").detail, /operation-not-enabled/);
 });
 
 test("fails when the gateway's write response doesn't say what the save did (W3b effects)", async () => {

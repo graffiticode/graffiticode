@@ -62,10 +62,10 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks());
 
-async function compile(src: string, identity?: any) {
+async function compile(src: string, identity?: any, data: any = {}) {
   const code = await parser.parse(176, src, lexicon);
   return new Promise<{ err: any[]; val: any; effects: any[] }>((resolve) =>
-    compiler.compile(code, {}, {}, (err: any, val: any, meta?: any) => {
+    compiler.compile(code, data, {}, (err: any, val: any, meta?: any) => {
       const errors = Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [];
       resolve({ err: errors, val, effects: meta?.effects ?? [] });
     }, identity),
@@ -165,31 +165,39 @@ describe("brokered compiles", () => {
     expect(val.signing).toMatchObject({ unsigned: "signing-failed" });
   });
 
-  test("a system session never writes or signs an Author session", async () => {
+  test("a system session never writes", async () => {
     const saved = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
     expect(saved.err).toEqual([]);
     expect(saved.val.data.itemBank).toMatchObject({ skipped: "no-connection" });
-    const author = await compile(`set-var "lrn-id" "t" author {}..`);
-    expect(author.val.request).toBeUndefined();
     expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
   });
 
-  // An Author activity without a connection can't run, and says so in
-  // `errors` on every compile, so a refreshed preview still shows why.
+  // Registry v7 (AUTHOR-01, closed by removal): L0176 has no `author`, and an
+  // Author activity arriving as data, from an older program upstream, is
+  // refused on every path with a pointer to L0177. Nothing is signed.
+  const AUTHOR_DATA = { type: "author", data: { mode: "item_edit", reference: "r" } };
   test.each([
-    ["as the program's value", `set-var "lrn-id" "t" author {}..`],
-    ["through init", `set-var "lrn-id" "t" init author {}..`],
-  ])("an Author activity without a connection is a compile error (%s), unsigned", async (_, src) => {
-    const { err, val } = await compile(src);
+    ["as the program's value, without a connection", "data {}..", undefined],
+    ["through init, without a connection", "init data {}..", undefined],
+    ["as the program's value, through a connection", "data {}..", WITH_CONNECTION],
+    ["through init, through a connection", "init data {}..", WITH_CONNECTION],
+  ])("an Author activity arriving as data is refused (%s), unsigned", async (_, src, identity) => {
+    const { err, val } = await compile(src, identity, AUTHOR_DATA);
     expect(err).toHaveLength(1);
-    expect(err[0]).toMatchObject({ code: "fn-not-enabled", category: "permission" });
-    expect(err[0].message).toMatch(/needs a connection with Author enabled/);
+    expect(String(err[0]?.message ?? err[0])).toMatch(/doesn't open the Learnosity Author Site.*L0177/);
     expect(val?.request).toBeUndefined();
-    expect(invocations.map((c) => c.op)).not.toContain("learnosity.sign-author");
+    expect(invocations).toEqual([]);
+  });
+
+  test("author is not an L0176 function", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" author {}..`);
+    expect(String(err[0]?.message ?? err[0])).toMatch(/author/);
+    expect(val?.request).toBeUndefined();
+    expect(invocations).toEqual([]);
   });
 
   test("a system session that claims more than preview is still used for preview only", async () => {
-    previewReply = () => ({ allowed: ["init", "save-to-itembank", "author"], sessionToken: "wide" });
+    previewReply = () => ({ allowed: ["init", "save-to-itembank"], sessionToken: "wide" });
     const { err, val } = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
     expect(err).toEqual([]);
     expect(val.data.itemBank).toMatchObject({ skipped: "no-connection" });
@@ -305,20 +313,6 @@ describe("brokered compiles", () => {
     snapshotReply = () => ({ allowed: [] });
     const { err } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
     expect(err[0].message).toMatch(/init is not permitted/);
-    expect(invocations).toEqual([]);
-  });
-
-  test("an Author activity is signed through the broker when the connection grants it", async () => {
-    const { err, val } = await compile(`set-var "lrn-id" "t" author {}..`, WITH_CONNECTION);
-    expect(err).toEqual([]);
-    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-author"]);
-    expect(val.request).toBe("signed:learnosity.sign-author");
-  });
-
-  test("an Author activity is refused when the connection does not grant it", async () => {
-    snapshotReply = () => ({ allowed: ["init"] });
-    const { err } = await compile(`set-var "lrn-id" "t" author {}..`, WITH_CONNECTION);
-    expect(err[0].message).toMatch(/author is not permitted/);
     expect(invocations).toEqual([]);
   });
 });

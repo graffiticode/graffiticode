@@ -47,6 +47,9 @@ const RETIRED = [
   // training examples, so nothing ever emitted it — but a doc example is what the
   // generator copies, so keep it from returning.
   "id",
+  // Removed with protected-registry v7 (AUTHOR-01, closed by removal): L0176
+  // doesn't open the Author Site; L0177 plans Author API integrations.
+  "author",
 ];
 
 test("no retired keyword is still documented", () => {
@@ -90,10 +93,7 @@ async function compileFragment(src: string) {
   const code = await parser.parse(176, src, lexicon);
   return await new Promise<void>((res, rej) =>
     compiler.compile(code, {}, CONFIG, (e: any) => {
-      // An Author fragment compiles but can't run without a connection: its
-      // fn-not-enabled refusal isn't staleness. Any other error is.
-      const errs = (Array.isArray(e) ? e.filter(Boolean) : e ? [e] : [])
-        .filter((x: any) => x?.code !== "fn-not-enabled");
+      const errs = Array.isArray(e) ? e.filter(Boolean) : e ? [e] : [];
       if (errs.length) rej(errs); else res();
     }));
 }
@@ -113,15 +113,15 @@ test("every program fragment in spec/ compiles, not merely parses", async () => 
         ? src
         : QUESTION_TYPES.includes(head)
           ? `set-var "lrn-id" "t" questions [${src}] {}..`
-          : ["items", "questions", "author"].includes(head)
+          : ["items", "questions"].includes(head)
             ? `${src}..`
             : head === "item"
               ? `items [${src}] {}..`
               : null;
       if (prog === null) continue;
       // `get-val-public` reads task data the harness has no way to supply, and
-      // an `author` fragment may omit the lrn-id its own section establishes.
-      // Neither is staleness; substitute so the rest of the program is exercised.
+      // a fragment may omit the lrn-id its section establishes. Neither is
+      // staleness; substitute so the rest of the program is exercised.
       prog = prog.replace(/get-val-(public|private)\s+"[^"]*"/g, '"test-item-id"');
       if (!/set-var\s+"lrn-id"/.test(prog)) prog = `set-var "lrn-id" "t" ${prog}`;
       // save-to-itembank writes to the Learnosity Data API for real. The guard

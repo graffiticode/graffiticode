@@ -275,6 +275,13 @@ tests establish request shape, item/reference restrictions, edit/delete permissi
 restrictions, and PROVIDER-01 authority limits. Owner permissions cannot bypass this gate.
 Mocked SDK tests do not establish provider compatibility.
 
+*Closed by removal (protected-registry v7):* Graffiticode signs no Author sessions. `author`
+and `learnosity.sign-author` are gone from the registry, Policy, Broker and L0176, and so is
+the enablement gate (`POLICY_ENABLED_GATED_FUNCTIONS`, `BROKER_ENABLED_GATED_OPERATIONS`, which
+now stop either service if set). An Author integration is signed by the customer's own
+application; L0177 only plans one. Signing Author sessions again would be a new protected
+function, reviewed from scratch against this section.
+
 ## 8. Preview, artifact, and publication paths
 
 **PREVIEW-01 — No user connection.** Compilation without a selected user connection cannot
@@ -428,9 +435,9 @@ different boundaries; mocks do not replace provider validation.
   Missing configuration returns unsigned output. Private/anonymous published views use stored
   content; repeated views/answers never repeat saves. Missing artifacts do not rebuild.
   Recipients cannot publish; unpublishing blocks issuance.
-- **AT-10 (PROVIDER-01, L0176-01, AUTHOR-01):** Against the provider, verify draft-only saves,
-  preview scope, request/session lifetimes, replay, and revocation limits. Prove Author denial
-  by default; require real edit/delete/reference/widget tests before enabling it.
+- **AT-10 (PROVIDER-01, L0176-01):** Against the provider, verify draft-only saves,
+  preview scope, request/session lifetimes, replay, and revocation limits. (Its Author
+  questions closed with AUTHOR-01's removal, registry v7.)
 - **AT-11 (SECRET-01, ISOLATE-01):** As deployed compiler identities, attempt direct provider
   access, alternate paths/proxies, secret/key/database access, impersonation, and deployment
   changes. Forbidden paths fail. Verify legacy provider credentials no longer work.

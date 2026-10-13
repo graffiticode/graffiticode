@@ -43,7 +43,6 @@ import {
   protectedFunctionsForLang,
   systemPreviewFunctionsForLang,
   viewSafeFunctionsForLang,
-  isGatedFunction,
   isStepRegistered
 } from "@graffiticode/common/protected-registry";
 import { createHash, randomUUID } from "node:crypto";
@@ -90,7 +89,7 @@ export { SYSTEM_PREVIEW_SUBJECT };
 export const ADMISSION_MAX_AGE_MS = 5000;
 
 export const createPolicy = ({
-  signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, enabledGated = new Set(), protectedSwitch, audit,
+  signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, protectedSwitch, audit,
   // Contract v2 (W4): the approved-revisions reader and the lease fence, and
   // the lowest contract version accepted (1 until the cutover).
   approvals = null, fence = null, minContractVersion = 1, admissionMaxAgeMs = ADMISSION_MAX_AGE_MS, now = () => Date.now(),
@@ -142,13 +141,9 @@ export const createPolicy = ({
   // every registered function, or, once they have narrowed their own use, the
   // ones their list names by the same rule, delegable or not. A list without
   // permissions reaches nothing.
-  // An enablement-gated function (AUTHOR-01) is reachable only when this
-  // deployment enables it; owner permissions cannot bypass that.
-  const gateOpen = (lang, fn) =>
-    !isGatedFunction(lang, fn) || enabledGated.has(`${String(lang ?? "").replace(/^L/i, "").padStart(4, "0")}:${fn}`);
   const mayUse = (access, lang, fn) => {
     const spec = protectedFunctionsForLang(lang)?.[fn];
-    if (!spec || !gateOpen(lang, fn)) return false;
+    if (!spec) return false;
     if (access.owner && access.permissions === null) return true;
     const key = String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
     const list = access.owner ? access.permissions : access.grant?.permissions;
@@ -511,10 +506,6 @@ export const createPolicy = ({
     const access = await accessFor(connection, authority.sub, { ownerUid: authority.own });
     if (access.refusal) return access.refusal;
     if (connection.backend !== authority.backend) return "backend-changed";
-    // Re-checked on every user call, whatever the session lists (AUTHOR-01).
-    // System and publication sessions never reach a gated function: their
-    // sets (system-preview, viewSafe) exclude them by registry construction.
-    if (!gateOpen(authority.lang, fn)) return "fn-not-enabled";
     // A grant revoked or narrowed since the snapshot stops this call.
     if (!mayUse(access, authority.lang, fn)) return "not-granted";
     return null;
@@ -790,7 +781,7 @@ export const createPolicy = ({
       const registered = protectedFunctionsForLang(m.lang) || {};
       for (const fn of m.requiredFunctions) {
         if (registered[fn].backend !== connection.backend || !mayUse(access, m.lang, fn)) {
-          return deny(gateOpen(m.lang, fn) ? "not-granted" : "fn-not-enabled", { ...record, ownerUid: connection.ownerUid });
+          return deny("not-granted", { ...record, ownerUid: connection.ownerUid });
         }
       }
     }

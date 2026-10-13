@@ -5,7 +5,6 @@
 // set them.
 
 import { randomUUID } from "node:crypto";
-import { gatedOperations } from "@graffiticode/common/protected-registry";
 
 export class PayloadRejected extends Error {}
 
@@ -41,13 +40,6 @@ const validatePreview = payload => {
   });
 };
 
-// The widget types an Author Site session may offer (L0176's allowlist).
-export const AUTHOR_WIDGET_TYPES = Object.freeze([
-  "mcq", "shorttext", "longtextV2", "plaintext", "clozetext", "clozeassociation", "clozedropdown",
-  "clozeformulaV2", "choicematrix", "orderlist", "classification", "bowtie", "tokenhighlight",
-  "association", "graphplotting", "hotspot", "imageclozeassociationV2", "imageclozetext", "numberline"
-]);
-
 const validateWrite = payload => {
   onlyKeys(payload, ["questionRecords", "itemRecords"], "write");
   const { questionRecords, itemRecords } = payload;
@@ -72,12 +64,9 @@ const validateWrite = payload => {
   });
 };
 
-// Operations used only by enablement-gated functions (Author) are left out
-// unless this deployment enables them (spec AUTHOR-01).
-export const buildOperations = ({ sdk, domain, dataApi, enabledGated = new Set() }) => {
+export const buildOperations = ({ sdk, domain, dataApi }) => {
   const consumer = key => ({ consumer_key: key, domain, user_id: randomUUID() });
-  const gated = gatedOperations();
-  const all = {
+  return {
     "learnosity.sign-questions-preview": {
       kind: "sign",
       validate: validatePreview,
@@ -87,39 +76,6 @@ export const buildOperations = ({ sdk, domain, dataApi, enabledGated = new Set()
       kind: "sign",
       validate: validatePreview,
       run: async (payload, { key, secret }) => ({ request: sdk.init("items", consumer(key), secret, payload) }),
-    },
-    "learnosity.sign-author": {
-      kind: "sign",
-      validate: payload => {
-        onlyKeys(payload, ["reference", "widgetTypes"], "author");
-        if (!isRef(payload.reference)) throw new PayloadRejected("author.reference is required");
-        const types = payload.widgetTypes ?? AUTHOR_WIDGET_TYPES;
-        if (!Array.isArray(types) || !types.every(t => AUTHOR_WIDGET_TYPES.includes(t))) {
-          throw new PayloadRejected("author.widgetTypes must come from the allowlist");
-        }
-      },
-      // The request shape is fixed here; no caller data is merged into it.
-      // NOT YET VALIDATED against Learnosity's Author API reference: confirm
-      // the item_edit config keys before this operation is enabled (Author
-      // signing is contract-only until then; see the registry).
-      run: async ({ reference, widgetTypes }, { key, secret }) => {
-        const types = widgetTypes ?? [...AUTHOR_WIDGET_TYPES];
-        const user = consumer(key);
-        return {
-          request: sdk.init("author", user, secret, {
-            mode: "item_edit",
-            reference,
-            config: {
-              dependencies: { questions_api: { init_options: { widgetTypes: types } } },
-              item_edit: {
-                item: { reference: { show: true, edit: false } },
-                widget: { delete: true, edit: true },
-              },
-            },
-            user: { id: user.user_id },
-          }),
-        };
-      },
     },
     "learnosity.write-items": {
       kind: "write",
@@ -150,5 +106,4 @@ export const buildOperations = ({ sdk, domain, dataApi, enabledGated = new Set()
       },
     },
   };
-  return Object.fromEntries(Object.entries(all).filter(([op]) => !gated.has(op) || enabledGated.has(op)));
 };

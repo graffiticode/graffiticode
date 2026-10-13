@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 //
 // L0176's brokered path: when a compile selects a connection, every
-// Learnosity authority (preview signing, Author signing, item-bank writes) is
+// Learnosity authority (preview signing and item-bank writes) is
 // exercised by the credential broker under policy-issued tokens, and the
 // compiler never holds a credential. Without a selected connection, previews
 // are still signed by the broker, through a SYSTEM preview session policy
@@ -19,7 +19,6 @@ import type { ExecContext, Invoker } from "@graffiticode/l0000";
 export const PROTECTED_FUNCTIONS = Object.freeze({
   INIT: { fn: "init", kind: "sign" as const },
   SAVE_TO_ITEMBANK: { fn: "save-to-itembank", kind: "write" as const },
-  AUTHOR: { fn: "author", kind: "sign" as const },
 });
 
 // Every render is signed in PROG, so preview is required by every brokered
@@ -50,7 +49,7 @@ export interface SystemPreviewClient {
 }
 
 // Only preview signing ever runs on a system session, whatever a response
-// claims; writes and Author signing stay connection-only (they check
+// claims; writes stay connection-only (they check
 // isBrokered, which a system session never satisfies: it has no connection).
 const SYSTEM_PREVIEW_FN = "init";
 
@@ -217,10 +216,6 @@ export async function brokeredSign(exec: ExecContext, plain: any, occurrenceKey:
     break;
   case "items":
     call = { fn: "init", op: "learnosity.sign-items-preview", payload: pick(plain.data, PREVIEW_KEYS) };
-    break;
-  case "author":
-    // The broker builds the Author request itself from the reference alone.
-    call = { fn: "author", op: "learnosity.sign-author", payload: { reference: plain.data?.reference } };
     break;
   default:
     return undefined;

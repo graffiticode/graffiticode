@@ -12,8 +12,6 @@
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables protected execution.
 //                           Otherwise controls/protected-execution in this database
 //                           decides, and a missing flag means off (see maintenance.js)
-//   POLICY_ENABLED_GATED_FUNCTIONS  optional enabled gated functions, e.g. ["0176:author"]
-//                           (see config.js; empty in production until AT-10 evidence)
 
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -39,7 +37,7 @@ import {
   createFirestoreFlagReader,
   parseHardDisable
 } from "./index.js";
-import { requireEnv, parseCallers, parseSystemConnections, parseEnabledGatedFunctions, parseMinContractVersion, auditSink, createIdTokenSource } from "./config.js";
+import { requireEnv, parseCallers, parseSystemConnections, refuseRemovedSettings, parseMinContractVersion, auditSink, createIdTokenSource } from "./config.js";
 import { createFirestoreApprovals, createFirestoreLeaseFence } from "./revisions.js";
 
 const env = process.env;
@@ -50,7 +48,7 @@ const authUrl = requireEnv(env, "AUTH_URL");
 const brokerUrl = requireEnv(env, "BROKER_URL");
 const auditSecret = requireEnv(env, "AUDIT_PSEUDONYM_SECRET");
 const systemConnections = parseSystemConnections(env.POLICY_SYSTEM_CONNECTIONS);
-const enabledGated = parseEnabledGatedFunctions(env.POLICY_ENABLED_GATED_FUNCTIONS);
+refuseRemovedSettings(env);
 // Contract v2 (W4): 1 until the cutover raises it.
 const minContractVersion = parseMinContractVersion(env.POLICY_MIN_CONTRACT_VERSION);
 
@@ -82,7 +80,6 @@ const policy = createPolicy({
   publications,
   grants,
   systemConnections,
-  enabledGated,
   protectedSwitch,
   audit,
   approvals: createFirestoreApprovals(revisionsDb),
@@ -90,7 +87,7 @@ const policy = createPolicy({
   minContractVersion,
 });
 const idToken = createIdTokenSource({ GoogleAuth });
-const manager = createConnectionManager({ connections, grants, audit, systemConnections, enabledGated, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
+const manager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
 const authClient = createAuthClient(authUrl);
 const verifyUser = async token => ({ uid: (await authClient.verifyToken(token)).uid });
 

@@ -3,8 +3,6 @@ import {
   PROTECTED_FUNCTIONS,
   REGISTRY_VERSION,
   compilerConfigForLang,
-  gatedOperations,
-  isGatedFunction,
   isOperationAllowed,
   systemPreviewFunctionsForLang,
   taskRequiresProtected,
@@ -74,8 +72,7 @@ describe("protected-registry", () => {
       expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.sign-items-preview" })).toBe(true);
       expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.sign-questions-preview" })).toBe(true);
     });
-    it("never lets preview sign Author requests or write items", () => {
-      expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.sign-author" })).toBe(false);
+    it("never lets preview write items", () => {
       expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.write-items" })).toBe(false);
     });
     it("never lets save sign", () => {
@@ -102,47 +99,21 @@ describe("protected-registry", () => {
         }
       }
     });
-    it("allows Author signing only for the Author function, and never lets it write", () => {
-      expect(isOperationAllowed({ ...base, fn: "author", op: "learnosity.sign-author" })).toBe(true);
-      expect(isOperationAllowed({ ...base, fn: "author", op: "learnosity.write-items" })).toBe(false);
-      expect(isOperationAllowed({ ...base, fn: "save-to-itembank", op: "learnosity.sign-author" })).toBe(false);
-    });
-    it("keeps Author non-delegable and out of reach of published views", () => {
-      const author = PROTECTED_FUNCTIONS["0176"].author;
-      expect(author.delegable).toBe(false);
-      expect(author.viewSafe).toBe(false);
-      expect(viewSafeFunctionsForLang("0176")).toEqual(["init"]);
-    });
   });
 
-  // AUTHOR-01: Author is disabled until verified. The registry marks it, and
-  // Policy and Broker each refuse it unless explicitly enabled.
-  describe("enablement-gated functions", () => {
-    it("gates Author and nothing else", () => {
-      expect(PROTECTED_FUNCTIONS["0176"].author.requiresEnablement).toBe(true);
-      expect(isGatedFunction("0176", "author")).toBe(true);
-      expect(isGatedFunction("L0176", "author")).toBe(true);
-      expect(isGatedFunction("0176", "init")).toBe(false);
-      expect(isGatedFunction("0176", "save-to-itembank")).toBe(false);
-      expect(isGatedFunction("0176", "no-such-fn")).toBe(false);
-    });
-
-    it("lists the operations reachable only through gated functions", () => {
-      expect([...gatedOperations()]).toEqual(["learnosity.sign-author"]);
-    });
-
-    it("keeps gated functions out of the system preview and view-safe sets", () => {
-      for (const [lang, fns] of Object.entries(PROTECTED_FUNCTIONS)) {
-        for (const fn of Object.keys(fns)) {
-          if (!isGatedFunction(lang, fn)) continue;
-          expect(systemPreviewFunctionsForLang(lang)).not.toContain(fn);
-          expect(viewSafeFunctionsForLang(lang)).not.toContain(fn);
-        }
+  // v7 (AUTHOR-01, closed by removal): Graffiticode signs no Author sessions.
+  describe("no Author signing", () => {
+    it("registers no Author function or operation, in any language", () => {
+      expect(REGISTRY_VERSION).toBe(7);
+      expect(Object.keys(PROTECTED_FUNCTIONS["0176"]).sort()).toEqual(["init", "save-to-itembank"]);
+      expect(Object.keys(OPERATIONS)).not.toContain("learnosity.sign-author");
+      for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
+        for (const spec of Object.values(fns)) expect(spec.ops).not.toContain("learnosity.sign-author");
       }
-    });
-
-    it("is part of registry version 6", () => {
-      expect(REGISTRY_VERSION).toBe(6);
+      expect(isOperationAllowed({ ...base, fn: "author", op: "learnosity.sign-author" })).toBe(false);
+      expect(isOperationAllowed({ ...base, fn: "init", op: "learnosity.sign-author" })).toBe(false);
+      expect(compilerConfigForLang("0176").protectedFunctions.AUTHOR).toBeUndefined();
+      expect(viewSafeFunctionsForLang("0176")).toEqual(["init"]);
     });
   });
 
@@ -151,19 +122,17 @@ describe("protected-registry", () => {
       expect(systemPreviewFunctionsForLang("0176")).toEqual(["init"]);
       expect(systemPreviewFunctionsForLang("L0176")).toEqual(["init"]);
     });
-    it("never includes a write or Author signing", () => {
+    it("never includes a write", () => {
       for (const lang of Object.keys(PROTECTED_FUNCTIONS)) {
         for (const fn of systemPreviewFunctionsForLang(lang)) {
           const spec = PROTECTED_FUNCTIONS[lang][fn];
           expect(spec).toMatchObject({ kind: "sign", viewSafe: true, implicit: true });
           for (const op of spec.ops) {
             expect(OPERATIONS[op].kind).toBe("sign");
-            expect(op).not.toBe("learnosity.sign-author");
           }
         }
       }
       expect(systemPreviewFunctionsForLang("0176")).not.toContain("save-to-itembank");
-      expect(systemPreviewFunctionsForLang("0176")).not.toContain("author");
     });
     it("is empty for an unprotected language", () => {
       expect(systemPreviewFunctionsForLang("0002")).toEqual([]);
@@ -175,7 +144,6 @@ describe("protected-registry", () => {
       const { protectedFunctions, implicitProtectedFunctions } = compilerConfigForLang("0176");
       expect(protectedFunctions.SAVE_TO_ITEMBANK).toEqual({ fn: "save-to-itembank", kind: "write" });
       expect(protectedFunctions.INIT.fn).toBe("init");
-      expect(protectedFunctions.AUTHOR).toEqual({ fn: "author", kind: "sign" });
       expect(implicitProtectedFunctions.map(f => f.fn)).toEqual(["init"]);
     });
     it("is empty for an unprotected language", () => {
@@ -224,9 +192,10 @@ describe("registered execution steps", () => {
     expect(isStepRegistered({ op, step: "questions", purpose: "replay" })).toBe(false);
     expect(isStepRegistered({ op, step: "receipt", purpose: "dispatch" })).toBe(false);
     expect(isStepRegistered({ op, step: "delete", purpose: "dispatch" })).toBe(false);
-    expect(isStepRegistered({ op: "learnosity.sign-author", step: "sign", purpose: "sign" })).toBe(true);
-    expect(isStepRegistered({ op: "learnosity.sign-author", step: "sign", purpose: "dispatch" })).toBe(false);
-    expect(isStepRegistered({ op: "learnosity.sign-author", step: "receipt", purpose: "replay" })).toBe(false);
+    expect(isStepRegistered({ op: "learnosity.sign-items-preview", step: "sign", purpose: "sign" })).toBe(true);
+    expect(isStepRegistered({ op: "learnosity.sign-items-preview", step: "sign", purpose: "dispatch" })).toBe(false);
+    expect(isStepRegistered({ op: "learnosity.sign-items-preview", step: "receipt", purpose: "replay" })).toBe(false);
+    expect(isStepRegistered({ op: "learnosity.sign-author", step: "sign", purpose: "sign" })).toBe(false);
     expect(isStepRegistered({ op: "nope", step: "sign", purpose: "sign" })).toBe(false);
   });
 });

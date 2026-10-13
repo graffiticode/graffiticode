@@ -76,10 +76,10 @@ It checks, as the canary account:
   (409 `token-replayed`);
 - **receipt replay**: a fresh token for an operation that already wrote returns the
   recorded receipt (`replayed: true`) and writes nothing;
-- **author denied** (AUTHOR-01): for the connection's owner, who otherwise holds every
-  function, Policy's snapshot leaves `author` out, and Broker refuses
-  `learnosity.sign-author` with 403 `operation-not-enabled`. It fails once Author is
-  enabled; update the check then;
+- **author removed** (registry v7, AUTHOR-01 closed by removal): for the connection's
+  owner, who holds every function, Policy's snapshot leaves `author` out, and Broker,
+  which has no Author operation, refuses `learnosity.sign-author` with 403
+  `operation-mismatch` (a v6 Broker answered `operation-not-enabled`);
 - **revocation probe** (W2, live authorization): the canary owns its connection, so
   it narrows its own owner permissions to `init` and back. A fresh token for an
   operation that already wrote is refused once narrowed (403
@@ -119,11 +119,11 @@ gives it the token for Policy's plan lookup. It adds:
   as an L0000 stage feeding L0176. So L0000 is preflighted, admitted and bound as a
   Policy caller too. Both stages must be pinned, each to the revision serving its
   language now. It's a preview, so it writes nothing;
-- **denied final stage** (AT-03, live): a chain whose first stage saves and whose
-  final stage would sign an Author activity arriving as data (`init data {}..`, which
-  L0176's preflight declares as needing `author`). It must be refused at admission
-  (`fn-not-enabled`), with no effects in the response and no plan stored, so no stage
-  ran;
+- **denied final stage** (AT-03, live): a chain whose first stage previews and whose
+  final stage saves, run while the canary has narrowed its own owner permissions to
+  `init`. It must be refused at admission (`not-granted`), with no effects, no signed
+  request in the response and no plan stored, so no stage ran. The permissions are
+  restored in a `finally` and read back (**denied final stage: permissions restored**);
 - **direct path: admitted**: the direct-path checks run on a marked invocation,
   preflighted at L0176 and admitted as the gateway does, so their snapshots carry the
   plan;
@@ -424,7 +424,7 @@ order: `CHAIN_ADMISSION=canary`, `CHAIN_ADMISSION=all`, and the cutover to
 4. Run step 2's command again: **retry across a deploy** must pass, and the file is
    removed.
 5. In the audit, check that the `admission` events are the canary's, allowed, apart from
-   one `fn-not-enabled` denial (the denied final stage) per run.
+   one `not-granted` denial (the denied final stage) per run.
 
 ### All
 
@@ -492,3 +492,48 @@ can't resume (`scripts/test/at12-rollback.test.js`).
 Record the activation in `docs/capability-policy-as-built.md`: the release ids, T, the
 canary runs, the inventory, the baselines, and the restriction that every stage of a
 protected chain is pinned.
+
+## The registry v7 release (Author removed)
+
+Registry v7 removes `author` and `learnosity.sign-author` (AUTHOR-01, closed by removal).
+Every component that reads the registry version has to move together. Policy refuses a
+session from another version (`registry-version-changed`) and a stage reporting another
+(`registry-version-mismatch`). Broker refuses a token minted under another version
+(`registry-version-mismatch`), and api treats an artifact stored under another version as
+incompatible. So Policy, Broker, L0176 and api are released in one paused window. L0000
+declares no protected functions (registry version 0) and isn't released.
+
+What users see afterwards: every artifact stored under v6 is incompatible, so a saved
+item's result and every publication say "made by an older version" until the owner
+recompiles the item, and republishes it if it was published. The v6 release had the same
+effect. The three stored programs that called `author` (the operator's own) no longer
+parse.
+
+Before the window:
+
+1. `release-check` passes for policy, broker, api and l0176.
+2. `POLICY_ENABLED_GATED_FUNCTIONS` and `BROKER_ENABLED_GATED_OPERATIONS` are unset on
+   both services. A v7 Policy or Broker refuses to start if either is set.
+3. The canary's OpenIdTokenCreator grants on `api-run@`, `l0176-run@` and
+   `console-run@graffiticode-app` are in force for the window.
+
+The window:
+
+1. `node scripts/protected-execution.js disable --reason "registry v7 release"`, then
+   `drain`.
+2. `GC_VERIFY_PROTECTED_EXECUTION=off npm run deploy -- <svc>` for policy, broker, l0176
+   and api, in that order. Nothing protected runs in between: the switch is off.
+3. Retire L0176's pre-v7 approved revisions (`node scripts/revisions.js retire l0176
+   --release <id>`, for each). Their preflights report registry version 6, which a v7
+   Policy refuses, so plans pinned to them can't resume either way. The report names them.
+4. Record the v7 baselines: `{ "milestone": "v7", "commit": "<sha>" }` in `baselines`
+   for policy, broker, api and l0176, from each release receipt's commit, and commit.
+5. Run the canary while paused:
+   `node scripts/canary.js --uid <uid> --connection <id> --chain-admission --after-cutover`.
+   Every check must pass, including **author removed** and **denied final stage**.
+6. `node scripts/protected-execution.js enable --reason "registry v7 verified"`.
+
+A run started before the window can't resume after it, because its session and plan
+carry v6. Retrying with the same idempotency key is refused, and a new run starts with a
+new key. Rolling any of the four back below v7 needs `--below-baseline` with the switch
+off. Roll forward instead.

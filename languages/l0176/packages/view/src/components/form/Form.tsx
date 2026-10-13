@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // L0176's Form: renders a Learnosity assessment by dynamically loading the
-// matching Learnosity browser SDK (questions / author / items) and mounting the
+// matching Learnosity browser SDK (questions / items) and mounting the
 // signed request. Ported from L0158's Form.tsx, adapted to the shared View's
 // FormProps contract (state.data / state.errors) — the View (from
 // @graffiticode/l0000-view) owns the iframe postMessage/onload protocol, so this
@@ -45,7 +45,6 @@ export const Form = ({ state }: FormProps) => {
     const script = document.createElement("script");
     script.src =
       type === "questions" ? "https://questions.learnosity.com/?latest-lts" :
-      type === "author" ? "https://authorapi.learnosity.com/?latest-lts" :
       "https://items.learnosity.com/?latest-lts";
     script.async = true;
     script.onload = () => setScriptLoaded(true);
@@ -68,7 +67,6 @@ export const Form = ({ state }: FormProps) => {
     if (initedContentRef.current === key) return;
     const LearnosityApp =
       type === "questions" ? (window as any).LearnosityApp :
-      type === "author" ? (window as any).LearnosityAuthor :
       (window as any).LearnosityItems;
     // Defer one frame so React has committed the response spans before
     // Questions API validates the activity JSON against the DOM (error 10001
@@ -105,13 +103,10 @@ export const Form = ({ state }: FormProps) => {
   if (hasErrors) {
     return renderErrors(errors);
   }
-  if (type === "author") {
-    return <div id="learnosity-author" className="p-4" />;
-  }
   if (type === "questions") {
     // Questions API renders into .learnosity-response spans keyed by response_id.
     // The Questions SDK returns a flat signed request (questions at the top
-    // level); Items/Author SDKs wrap data in {security, request}.
+    // level); the Items SDK wraps data in {security, request}.
     const questions = request?.questions ?? request?.request?.questions ?? [];
     return (
       <div className="p-4">

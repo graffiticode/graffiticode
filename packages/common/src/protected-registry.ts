@@ -11,8 +11,8 @@
 // such and bump REGISTRY_VERSION.
 //
 // Shape: lang -> fn -> spec. A function is named for the language function
-// it guards (the lexicon name of its node tag: `init`, `save-to-itembank`,
-// `author`), so permissions, grants and audit records read like the program.
+// it guards (the lexicon name of its node tag: `init`, `save-to-itembank`),
+// so permissions, grants and audit records read like the program.
 //   backend    connection backend the function runs against
 //   kind       read | write | sign
 //   ops        broker operations a token for this fn may name — nothing else
@@ -21,19 +21,18 @@
 //   delegable  whether an owner may grant it to another account
 //   viewSafe   whether a view of a published item may use it (the viewer holds
 //              no grant; the publication's authority reaches only these)
-//   requiresEnablement
-//              disabled until verified (spec AUTHOR-01): Policy and Broker each
-//              refuse it unless their deployment explicitly enables it
-//              (POLICY_ENABLED_GATED_FUNCTIONS / BROKER_ENABLED_GATED_OPERATIONS).
-//              Owner permissions cannot bypass it.
 
 // There are no execution modes: running the program is the action, and the
 // grant is the authority. A function runs whenever its program calls it
 // through a connection whose grant covers it.
-// v6 (unreleased): Author gated behind explicit enablement (AUTHOR-01), and the
-// registered execution-step table (OPERATIONS[op].steps) that W2's live
-// authorization checks each Broker step against (spec API-02).
-export const REGISTRY_VERSION = 6;
+// v6: the registered execution-step table (OPERATIONS[op].steps) that W2's
+// live authorization checks each Broker step against (spec API-02).
+// v7: `author` and `learnosity.sign-author` removed (AUTHOR-01, closed by
+// removal). Graffiticode signs no Author API sessions: L0176 makes items and
+// activities for the item bank, and an Author integration is signed by the
+// customer's own application (L0177 only plans one). Signing Author sessions
+// again would be a new protected function, reviewed from scratch.
+export const REGISTRY_VERSION = 7;
 
 // What a step of an operation does:
 //   dispatch  one provider request
@@ -51,7 +50,6 @@ export type FunctionSpec = Readonly<{
   implicit: boolean;
   delegable: boolean;
   viewSafe: boolean;
-  requiresEnablement?: boolean;
 }>;
 
 // Broker operations. The broker builds each request itself from a constrained
@@ -70,14 +68,6 @@ export const OPERATIONS = Object.freeze({
   // uses for ordinary previews (packages/core/src/items.ts, questions.ts).
   "learnosity.sign-items-preview": Object.freeze({ backend: "learnosity", kind: "sign", steps: SIGN_STEPS }),
   "learnosity.sign-questions-preview": Object.freeze({ backend: "learnosity", kind: "sign", steps: SIGN_STEPS }),
-  // Author API signing. Its config carries edit and delete permissions
-  // (packages/core/src/author.ts), so it is NOT preview authority: it is
-  // non-delegable (only the connection's owner can reach it) and not viewSafe
-  // (a published view never can). The broker accepts a
-  // constrained payload and builds the request itself: mode fixed to
-  // `item_edit`, one item `reference` (required), widget types drawn only from
-  // the L0176 allowlist, and no custom widgets or caller-supplied config.
-  "learnosity.sign-author": Object.freeze({ backend: "learnosity", kind: "sign", steps: SIGN_STEPS }),
   // Data API item-bank write: two sequential provider writes (questions, then
   // the items that reference them), each recorded as it completes, and a
   // receipt replay for a retry of the same operation.
@@ -111,7 +101,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
   "0176": Object.freeze({
     // Every L0176 render is signed in PROG (signForRender), and `init` signs
     // explicitly. Both exercise this one permission, named for `init`; the op
-    // a token names decides which API is signed, and Author is not among them.
+    // a token names decides which API is signed.
     init: Object.freeze({
       backend: "learnosity",
       kind: "sign",
@@ -135,21 +125,6 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       delegable: true,
       viewSafe: false,
     }),
-    // Rendering an `author [...]` activity signs for the Author API. It is
-    // owner-only and not delegable until its edit/delete authority has its
-    // own reviewed boundary, and DISABLED (requiresEnablement) until provider
-    // integration tests establish its request shape, item/reference and
-    // widget restrictions and session limits (spec AUTHOR-01, AT-10).
-    author: Object.freeze({
-      backend: "learnosity",
-      kind: "sign",
-      ops: Object.freeze(["learnosity.sign-author"]),
-      tags: Object.freeze(["AUTHOR"]),
-      implicit: false,
-      delegable: false,
-      viewSafe: false,
-      requiresEnablement: true,
-    }),
   }),
 });
 
@@ -157,24 +132,6 @@ const normalizeLang = (lang: unknown): string => String(lang ?? "").replace(/^L/
 
 export const protectedFunctionsForLang = (lang: unknown): Readonly<Record<string, FunctionSpec>> | null =>
   PROTECTED_FUNCTIONS[normalizeLang(lang)] || null;
-
-// Is this function disabled unless a deployment explicitly enables it?
-export const isGatedFunction = (lang: unknown, fn: unknown): boolean =>
-  protectedFunctionsForLang(lang)?.[fn as string]?.requiresEnablement === true;
-
-// Operations that only gated functions can name: Broker refuses these unless
-// its own deployment enables them, independently of Policy.
-export const gatedOperations = (): Set<string> => {
-  const gated = new Set<string>();
-  const open = new Set<string>();
-  for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
-    for (const spec of Object.values(fns) as FunctionSpec[]) {
-      for (const op of spec.ops) (spec.requiresEnablement === true ? gated : open).add(op);
-    }
-  }
-  for (const op of open) gated.delete(op);
-  return gated;
-};
 
 // The functions a view of a published item may use.
 export const viewSafeFunctionsForLang = (lang: unknown): string[] =>
@@ -184,7 +141,7 @@ export const viewSafeFunctionsForLang = (lang: unknown): string[] =>
 // connection signs its render through a Graffiticode-owned system connection
 // (policy POST /v1/preview-session). Only functions that are signing,
 // view-safe AND implicit (required by every render) qualify, so a system
-// session can sign a preview and never write or open the Author Site. Derived
+// session can sign a preview and never write. Derived
 // from existing fields: this adds no authority and needs no version bump.
 export const systemPreviewFunctionsForLang = (lang: unknown): string[] =>
   Object.entries(protectedFunctionsForLang(lang) || {})
@@ -210,7 +167,7 @@ export const compilerConfigForLang = (lang: unknown) => {
 
 // Minting check: may a token for (lang, fn) name this op against this
 // connection backend? The full relationship must hold, so a preview grant can
-// never sign Author requests or write items.
+// never write items, and a write grant can never sign.
 export const isOperationAllowed = ({ lang, fn, op, backend }: { lang: unknown; fn: unknown; op: unknown; backend: unknown }): boolean => {
   const spec = protectedFunctionsForLang(lang)?.[fn as string];
   const operation = Object.prototype.hasOwnProperty.call(OPERATIONS, op) ? OPERATIONS[op as keyof typeof OPERATIONS] : null;

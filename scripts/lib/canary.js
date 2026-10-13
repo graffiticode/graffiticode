@@ -31,11 +31,12 @@
 //                   step taken. The exact original permissions are restored
 //                   in a finally and read back; any mismatch fails the run.
 //                   Real grant revocation is covered by Broker's tests.
-//   author denied   (AUTHOR-01, W1) Author stays disabled for the connection's
-//                   own owner, who otherwise holds every function: Policy's
-//                   snapshot leaves `author` out of `allowed`, and Broker
-//                   refuses learnosity.sign-author with operation-not-enabled
-//                   before spending the (otherwise valid) token
+//   author removed  (registry v7, AUTHOR-01 closed by removal) for the
+//                   connection's own owner, who holds every function: Policy's
+//                   snapshot leaves `author` out of `allowed`, and Broker,
+//                   which has no Author operation, refuses
+//                   learnosity.sign-author as operation-mismatch (a v6 Broker
+//                   answered operation-not-enabled)
 //
 // Chain admission (W4, capability plan section F; `chainAdmission`, once the
 // canary connection is in api's CHAIN_ADMISSION). The canary looks up the
@@ -48,11 +49,12 @@
 //   L0000 stage     a preview with input data, which api runs as an L0000
 //                   stage feeding L0176: both stages pinned, each to the
 //                   revision serving its language now
-//   denied final stage  (AT-03, live) a chain whose first stage saves and
-//                   whose final stage would sign an Author activity from
-//                   upstream data: refused at admission (fn-not-enabled),
-//                   with no effects in the response and no plan stored, so
-//                   no stage ran
+//   denied final stage  (AT-03, live) a chain whose first stage previews and
+//                   whose final stage saves, while the canary has narrowed
+//                   its own permissions to `init`: refused at admission
+//                   (not-granted), with no effects, no signed request in the
+//                   response and no plan stored, so no stage ran. The
+//                   permissions are restored in a finally and read back.
 //   retry across a deploy  (AT-07, live; `retryState`) one run stores its
 //                   write's task, key and pinned revision; after L0176 is
 //                   deployed, the next run retries it: the same outcome,
@@ -78,9 +80,6 @@ const sha256 = s => createHash("sha256").update(s).digest("hex");
 // The gateway's input digest for a compile without options (api's
 // inputDigest({})), so the canary can reuse the gateway's invocation.
 const NO_OPTIONS_DIGEST = sha256("{}");
-// A final stage that would sign whatever activity arrives as data: L0176's
-// preflight declares `author` for it (W4 PR 5), which stays disabled.
-export const AUTHOR_FROM_DATA_PROGRAM = "init data {}..";
 
 // Anything in the output carrying a Learnosity signed request: a `security`
 // block (object or JSON text) with a string `signature`, as Items requests
@@ -276,20 +275,57 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
     });
   }
 
-  // W4, AT-03 live: the final stage is refused at admission, so the stage
-  // that would save never runs.
-  if (chainAdmission) {
-    await attempt("denied final stage", async () => {
-      const headId = await postTask(AUTHOR_FROM_DATA_PROGRAM);
-      const chainId = `${headId}+${saveTaskId ?? await postTask(SAVE_PROGRAM)}`;
-      const key = `canary:${runId}:denied`;
-      const res = await compile(chainId, key);
-      const errors = errorsOf(res);
-      const effects = Array.isArray(res.json?.data?.effects) ? res.json.data.effects : [];
-      const { plan } = await planOf(chainId, key);
-      const ok = res.status === 200 && errors.some(e => e?.code === "fn-not-enabled") && effects.length === 0 && !hasSavedItem(res.json?.data) && plan === null;
-      record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${describePlan(plan)}`);
+  // The canary's own permissions on its connection, through Policy's console
+  // routes, as the console caller with the canary's user token. The denied
+  // final stage and the revocation probe narrow them to `init` and back.
+  const managing = async () => {
+    const asConsole = await asService(consoleAccount, policyUrl, "urn:graffiticode:policy");
+    const manage = (method, path, body) => http({ method, url: policy(path), headers: { ...asConsole, ...asUser }, body });
+    const current = async () => {
+      const listed = await manage("GET", "/v1/connections");
+      const mine = Array.isArray(listed.json?.data) ? listed.json.data.find(c => c.connectionId === connectionId) : null;
+      if (!mine) throw new Error(`GET /v1/connections: ${listed.status}, ${connectionId} not listed`);
+      return mine.ownerPermissions ?? null;
+    };
+    const setPermissions = async permissions => {
+      const res = await manage("PUT", `/v1/connections/${encodeURIComponent(connectionId)}/owner-permissions`, { permissions });
+      if (res.status !== 200) throw new Error(`PUT owner-permissions: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+    };
+    const narrow = () => setPermissions([{ lang: "0176", fn: "init" }]);
+    // Restore exactly what was there, and prove it.
+    const restore = async (name, saved) => attempt(name, async () => {
+      await setPermissions(saved);
+      const now = await current();
+      record(name, JSON.stringify(now) === JSON.stringify(saved), `owner permissions ${JSON.stringify(now)}, expected ${JSON.stringify(saved)}`);
     });
+    return { current, setPermissions, narrow, restore };
+  };
+
+  // W4, AT-03 live: the final stage is refused at admission, so the stage
+  // before it, which only previews and is granted, never runs either.
+  if (chainAdmission) {
+    // Set once the permissions have been read: only then is there anything to restore.
+    let owner = null;
+    let saved = null;
+    try {
+      await attempt("denied final stage", async () => {
+        const manager = await managing();
+        saved = await manager.current();
+        owner = manager;
+        const chainId = `${saveTaskId ?? await postTask(SAVE_PROGRAM)}+${await postTask(PREVIEW_PROGRAM)}`;
+        const key = `canary:${runId}:denied`;
+        await owner.narrow();
+        const res = await compile(chainId, key);
+        const errors = errorsOf(res);
+        const effects = Array.isArray(res.json?.data?.effects) ? res.json.data.effects : [];
+        const { plan } = await planOf(chainId, key);
+        const ok = res.status === 200 && errors.some(e => e?.code === "not-granted") && effects.length === 0 &&
+          !hasSavedItem(res.json?.data) && !hasSignedRequest(res.json?.data) && plan === null;
+        record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${describePlan(plan)}`);
+      });
+    } finally {
+      if (owner) await owner.restore("denied final stage: permissions restored", saved);
+    }
   }
 
   // Direct path: allocate an invocation as the gateway, then snapshot, mint
@@ -361,15 +397,16 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
     const execute = (token, op, payload) =>
       http({ method: "POST", url: broker("/v1/execute"), headers: { ...compilerAtBroker, Authorization: `Bearer ${token}` }, body: { op, payload } });
 
-    await attempt("author denied", async () => {
-      // The canary owns the connection, so only the gate can withhold Author.
-      if (!record("author denied: policy", allowed.includes("init") && !allowed.includes("author"),
+    await attempt("author removed", async () => {
+      // The canary owns the connection and holds every function, so only the
+      // registry can leave Author out.
+      if (!record("author removed: policy", allowed.includes("init") && !allowed.includes("author"),
         `snapshot allowed ${JSON.stringify(allowed)}`)) return;
       const op = "learnosity.sign-items-preview";
       const payload = { id: "canary", questions: [{ type: "mcq", response_id: `canary-author-${runId}` }] };
       const token = await mint("init", op, "CANARY_AUTHOR:1.0", payload);
       const res = await execute(token, "learnosity.sign-author", { reference: "graffiticode-canary" });
-      record("author denied", res.status === 403 && res.json?.error?.reason === "operation-not-enabled",
+      record("author removed", res.status === 403 && res.json?.error?.reason === "operation-mismatch",
         `broker answered ${res.status} ${res.json?.error?.reason ?? res.json?.data?.status}`);
     });
 
@@ -400,19 +437,8 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
     });
 
     if (!revocationProbe) return;
-    // The probe acts on the connection through Policy's console routes, as
-    // the console caller with the canary's own user token.
-    const asConsole = await asService(consoleAccount, policyUrl, "urn:graffiticode:policy");
-    const manage = (method, path, body) => http({ method, url: policy(path), headers: { ...asConsole, ...asUser }, body });
-    const listed = await manage("GET", "/v1/connections");
-    const mine = Array.isArray(listed.json?.data) ? listed.json.data.find(c => c.connectionId === connectionId) : null;
-    if (!mine) throw new Error(`GET /v1/connections: ${listed.status}, ${connectionId} not listed`);
-    const saved = mine.ownerPermissions ?? null;
-    const setPermissions = async permissions => {
-      const res = await manage("PUT", `/v1/connections/${encodeURIComponent(connectionId)}/owner-permissions`, { permissions });
-      if (res.status !== 200) throw new Error(`PUT owner-permissions: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
-    };
-    const narrow = () => setPermissions([{ lang: "0176", fn: "init" }]);
+    const { current, setPermissions, narrow, restore } = await managing();
+    const saved = await current();
     const op = "learnosity.write-items";
     const payload = {
       questionRecords: [{ type: "mcq", reference: "canary-q-0", data: { type: "mcq", stimulus: "Canary", options: [{ label: "A", value: "0" }], validation: { valid_response: { score: 1, value: ["0"] } } } }],
@@ -440,14 +466,7 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
         `answered ${late.status} ${data?.status ?? JSON.stringify(late.json?.error ?? null)} steps=${JSON.stringify(data?.steps)} ${data?.reason ?? ""}`);
       });
     } finally {
-      // Restore exactly what was there, and prove it.
-      await attempt("revocation probe: permissions restored", async () => {
-        await setPermissions(saved);
-        const after = await manage("GET", "/v1/connections");
-        const now = Array.isArray(after.json?.data) ? after.json.data.find(c => c.connectionId === connectionId) : null;
-        const restored = JSON.stringify(now?.ownerPermissions ?? null) === JSON.stringify(saved);
-        record("revocation probe: permissions restored", restored, `owner permissions ${JSON.stringify(now?.ownerPermissions ?? null)}, expected ${JSON.stringify(saved)}`);
-      });
+      await restore("revocation probe: permissions restored", saved);
     }
   };
   await attempt("direct path", direct);

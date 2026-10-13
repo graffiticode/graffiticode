@@ -1000,36 +1000,26 @@ describe("equivSyntax rules", () => {
   });
 });
 
-// An Author Site session can edit and delete items. Without a connection
-// nothing signs one: not config-supplied credentials, not a program's own.
-describe("Author signing", () => {
+// Nothing is signed with local credentials: not config-supplied ones, not a
+// program's own. L0176 has no `author` (registry v7, AUTHOR-01 closed by
+// removal), and an Author activity arriving as data is refused whatever
+// credentials are around.
+describe("local credentials", () => {
   const DEFAULT = { learnosity: { key: "server-key", secret: "s".repeat(32) } };
-  // Unsigned, and reported: an Author activity without a connection is a
-  // compile error (fn-not-enabled) beside its unsigned value.
-  const compileAuthor = async (src: string, config: any) => {
+  const OWN = 'set-var "learnosity-key" "own-key" set-var "learnosity-secret" "' + "o".repeat(32) + '"';
+  const compileWith = async (src: string, data: any, config: any) => {
     const code = await parser.parse(176, src, lexicon);
     return await new Promise<{ err: any[]; out: any }>((resolve) =>
-      compiler.compile(code, {}, config, (err: any, val: any) =>
+      compiler.compile(code, data, config, (err: any, val: any) =>
         resolve({ err: Array.isArray(err) ? err.filter(Boolean) : err ? [err] : [], out: val })));
   };
-  const OWN = 'set-var "learnosity-key" "own-key" set-var "learnosity-secret" "' + "o".repeat(32) + '"';
+  const AUTHOR_DATA = { type: "author", data: { mode: "item_edit", reference: "r" } };
 
-  test.each(['author { "mode": "item_edit" }', "init author {}"])("%s is not signed with the server's default account", async (expr) => {
-    const { err, out } = await compileAuthor(`set-var "lrn-id" "t" ${expr}..`, DEFAULT);
-    expect(err).toMatchObject([{ code: "fn-not-enabled", category: "permission" }]);
-    expect(out.type).toBe("author");
-    expect(out.request).toBeUndefined();
-    expect(JSON.stringify(out)).not.toMatch(/server-key|signature/);
-  });
-
-  // Stricter than main's hotfix: without a connection, not even the program's
-  // own credentials sign an Author session. Only a connection does, through
-  // the broker (brokered.test.ts).
-  test("a program's own credentials do not sign it either", async () => {
-    const { err, out } = await compileAuthor(`set-var "lrn-id" "t" ${OWN} author { "mode": "item_edit" }..`, DEFAULT);
-    expect(err).toMatchObject([{ code: "fn-not-enabled", category: "permission" }]);
-    expect(out.request).toBeUndefined();
-    expect(JSON.stringify(out)).not.toMatch(/own-key|server-key|signature/);
+  test.each(["data {}..", "init data {}..", `${OWN} data {}..`, `${OWN} init data {}..`])("an Author activity from data is refused, never signed: %s", async (src) => {
+    const { err, out } = await compileWith(src, AUTHOR_DATA, DEFAULT);
+    expect(err).toHaveLength(1);
+    expect(String(err[0]?.message ?? err[0])).toMatch(/L0177/);
+    expect(JSON.stringify(out ?? null)).not.toMatch(/own-key|server-key|signature/);
   });
 
   // The compiler holds no Learnosity credential: `config.learnosity` is not

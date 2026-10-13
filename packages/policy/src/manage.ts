@@ -30,7 +30,7 @@
 //   claim        a recipient turns pending grants for their emails into grants
 
 import { randomUUID } from "node:crypto";
-import { OPERATIONS, PROTECTED_FUNCTIONS, isGatedFunction } from "@graffiticode/common/protected-registry";
+import { OPERATIONS, PROTECTED_FUNCTIONS } from "@graffiticode/common/protected-registry";
 import { PolicyDenied } from "./policy.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { BrokerConflict } from "./broker-admin.js";
@@ -81,11 +81,8 @@ const validCredential = ({ key, secret }: { key?: unknown, secret?: unknown } = 
   typeof key === "string" && key.length > 0 && key.length <= 256 &&
   typeof secret === "string" && secret.length > 0 && secret.length <= 1024;
 
-export const createConnectionManager = ({ connections, brokerAdmin, audit, grants = null, systemConnections = {}, enabledGated = new Set() }) => {
-  // Enablement-gated functions (AUTHOR-01) are neither listed nor accepted in
-  // an owner's list or a grant unless this deployment enables them.
-  const available = backend => registered(backend)
-    .filter(f => !isGatedFunction(f.lang, f.fn) || enabledGated.has(`${f.lang}:${f.fn}`));
+export const createConnectionManager = ({ connections, brokerAdmin, audit, grants = null, systemConnections = {} }) => {
+  const available = backend => registered(backend);
   const grantable = backend => available(backend).filter(f => f.delegable);
   const deny = async (reason, record) => {
     await audit({ ...record, outcome: "denied", reason });

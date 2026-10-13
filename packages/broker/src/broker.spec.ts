@@ -98,7 +98,7 @@ beforeEach(async () => {
   brokerDeps = {
     protectedSwitch: PROTECTED_ON,
     jwks,
-    operations: (buildOps = (enabledGated?: Set<string>) => buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi, enabledGated }))(),
+    operations: (buildOps = () => buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi }))(),
     secrets,
     once: createMemoryOnceStore(),
     receipts,
@@ -126,7 +126,7 @@ const session = async ({ idempotencyKey, ...over }: { idempotencyKey?: string, [
   user: { uid: OWNER },
   lang: "0176",
   connectionId: "conn-1",
-  fns: ["init", "save-to-itembank", "author"],
+  fns: ["init", "save-to-itembank"],
   invocationToken: (await invocation(idempotencyKey)).invocationToken,
   stage: "s0",
   ...over
@@ -232,11 +232,9 @@ describe("preview signing", () => {
     await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-items-preview", payload: PREVIEW }), "operation-mismatch");
   });
 
-  it("never lets a preview token sign Author requests or write", async () => {
+  it("never lets a preview token write, or name an operation that does not exist", async () => {
     const token = await previewToken();
-    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload: { reference: "r" } }), "operation-not-enabled");
     await refused(broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE }), "operation-mismatch");
-    broker = createBroker({ ...brokerDeps, operations: buildOps(new Set(["learnosity.sign-author"])) });
     await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload: { reference: "r" } }), "operation-mismatch");
   });
 
@@ -506,43 +504,31 @@ describe("durable steps", () => {
   });
 });
 
-describe("author signing", () => {
-  const authorToken = async payload =>
-    mint(await session(), { fn: "author", op: "learnosity.sign-author", payload });
-
-  // Author is gated (spec AUTHOR-01): these tests enable it explicitly, in both
-  // Policy and Broker.
-  beforeEach(() => {
-    policy = createPolicy({ ...policyDeps, enabledGated: new Set(["0176:author"]) });
-    broker = createBroker({ ...brokerDeps, operations: buildOps(new Set(["learnosity.sign-author"])), authorize: localAuthorizer(policy) });
+// Registry v7 (AUTHOR-01, closed by removal): Broker has no Author operation,
+// so even a validly signed token naming one is refused before any signing.
+describe("no Author signing", () => {
+  it("has no Author operation to build", () => {
+    expect(Object.keys(buildOps()).sort()).toEqual(["learnosity.sign-items-preview", "learnosity.sign-questions-preview", "learnosity.write-items"]);
   });
 
-  it("is refused by a broker that has not enabled it, even with a valid token", async () => {
+  it("refuses a validly signed token for Author, and signs nothing", async () => {
     const payload = { reference: "graffiticode-t-0" };
-    const token = await authorToken(payload);
-    broker = createBroker(brokerDeps);
-    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload }), "operation-not-enabled");
-    expect(records.at(-1)).toMatchObject({ outcome: "denied", reason: "operation-not-enabled" });
-  });
-
-  it("is left out of the operations unless enabled", () => {
-    expect(Object.keys(buildOps())).not.toContain("learnosity.sign-author");
-    expect(Object.keys(buildOps(new Set(["learnosity.sign-author"])))).toContain("learnosity.sign-author");
-  });
-
-  it("builds a fixed request from the reference and allowed widget types", async () => {
-    const payload = { reference: "graffiticode-t-0", widgetTypes: ["mcq"] };
-    const { result } = await broker.execute({ caller: L0176, token: await authorToken(payload), op: "learnosity.sign-author", payload });
-    expect(result.request.service).toBe("author");
-    expect(result.request.body.mode).toBe("item_edit");
-    expect(result.request.body.reference).toBe("graffiticode-t-0");
-  });
-
-  it("rejects caller config and widget types outside the allowlist", async () => {
-    const withConfig = { reference: "r", config: { item_list: {} } };
-    await refused(broker.execute({ caller: L0176, token: await authorToken(withConfig), op: "learnosity.sign-author", payload: withConfig }), "payload-rejected");
-    const badWidget = { reference: "r", widgetTypes: ["anything"] };
-    await refused(broker.execute({ caller: L0176, token: await authorToken(badWidget), op: "learnosity.sign-author", payload: badWidget }), "payload-rejected");
+    const token = await issueToken(signer, "execution", {
+      sub: OWNER,
+      own: OWNER,
+      conn: "conn-1",
+      backend: "learnosity",
+      lang: "0176",
+      fn: "author",
+      op: "learnosity.sign-author",
+      sid: "sid-1",
+      opid: "inv-1/s0/n1",
+      argd: argsDigest(payload),
+      rv: REGISTRY_VERSION,
+      prv: "user"
+    });
+    await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-author", payload }), "operation-mismatch");
+    expect(records.at(-1)).toMatchObject({ outcome: "denied", reason: "operation-mismatch" });
   });
 });
 

@@ -27,8 +27,10 @@ const BOB = "0xbob";
 const CONSOLE = { role: "console" };
 const GATEWAY = { role: "gateway" };
 const L0176 = { role: "compiler", lang: "0176" };
+// What programs call: every registered function, plus `author`, which registry
+// v7 removed (AUTHOR-01) and nothing reaches.
 const ALL_FNS = ["init", "save-to-itembank", "author"];
-// What an owner reaches by default: every function but gated Author (AUTHOR-01).
+// What an owner reaches by default: every registered function.
 const OWNER_FNS = ["init", "save-to-itembank"];
 const hash = s => createHash("sha256").update(s).digest("hex");
 
@@ -36,7 +38,6 @@ let policy;
 let manager;
 let grants;
 let connections;
-let withGates;
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -45,13 +46,10 @@ beforeEach(async () => {
   const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   connections = createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active", label: "Bank" }]);
   grants = createMemoryGrantStore();
-  withGates = enabledGated => {
-    policy = createPolicy({
-      protectedSwitch: PROTECTED_ON, signer, jwks, connections, grants, audit, enabledGated, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore()
-    });
-    manager = createConnectionManager({ connections, grants, audit, enabledGated, brokerAdmin: { createSecret: async () => {}, rotateSecret: async () => {}, deleteSecret: async () => {} } });
-  };
-  withGates(new Set());
+  policy = createPolicy({
+    protectedSwitch: PROTECTED_ON, signer, jwks, connections, grants, audit, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore()
+  });
+  manager = createConnectionManager({ connections, grants, audit, brokerAdmin: { createSecret: async () => {}, rotateSecret: async () => {}, deleteSecret: async () => {} } });
 });
 
 const denied = async (promise, reason) => {
@@ -200,12 +198,12 @@ describe("the owner's own permissions", () => {
   const setOwn = (permissions, over = {}) =>
     manager.setOwnerPermissions({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", permissions, ...over });
 
-  it("default to everything but gated Author", async () => {
+  it("default to every registered function", async () => {
     expect((await snap(OWNER)).allowed).toEqual(OWNER_FNS);
     expect((await manager.list({ caller: CONSOLE, user: { uid: OWNER } }))[0].ownerPermissions).toBeNull();
   });
 
-  it("lists every enabled function on the backend for the owner's list, marking implicit and delegable", async () => {
+  it("lists every registered function on the backend for the owner's list, marking implicit and delegable", async () => {
     expect(await manager.functions({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" })).toEqual([
       { lang: "0176", fn: "init", kind: "sign", implicit: true, delegable: true },
       { lang: "0176", fn: "save-to-itembank", kind: "write", implicit: false, delegable: true },
@@ -222,18 +220,10 @@ describe("the owner's own permissions", () => {
     await expect(mint(narrowed.sessionToken, "init", "learnosity.sign-items-preview")).resolves.toBeTruthy();
   });
 
-  it("cannot name gated Author unless the deployment enables it", async () => {
+  it("cannot name Author, which registry v7 removed", async () => {
     await denied(setOwn([{ lang: "0176", fn: "author" }]), "bad-permissions");
-  });
-
-  it("once Author is enabled, may keep it, which no grant reaches, and rendering comes with it", async () => {
-    withGates(new Set(["0176:author"]));
     expect(await manager.functions({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1" }))
-      .toContainEqual({ lang: "0176", fn: "author", kind: "sign", implicit: false, delegable: false });
-    await denied(share({ permissions: [{ lang: "0176", fn: "author" }] }), "bad-permissions");
-    await setOwn([{ lang: "0176", fn: "author" }]);
-    expect((await snap(OWNER)).allowed).toEqual(["init", "author"]);
-    await expect(mint((await snap(OWNER)).sessionToken, "author", "learnosity.sign-author")).resolves.toBeTruthy();
+      .not.toContainEqual(expect.objectContaining({ fn: "author" }));
   });
 
   it("an empty list leaves the owner nothing; null restores everything", async () => {

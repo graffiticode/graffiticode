@@ -11,6 +11,7 @@
 import http from "node:http";
 import { generateKeyPair, exportJWK } from "jose";
 import { canonicalDigest } from "@graffiticode/common/canonical";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
   createPolicy, createPolicyApp, createConnectionManager, createCallerIdentity, createLocalSigner,
   createMemoryConnectionStore, createMemoryInvocationStore, createMemoryLeaseFence, createMemoryApprovals,
@@ -58,15 +59,15 @@ const readJson = req => new Promise(resolve => { let s = ""; req.on("data", d =>
 
 const WRITE_OP = "learnosity.write-items";
 const SIGN_OP = "learnosity.sign-items-preview";
-const AUTHOR_OP = "learnosity.sign-author";
 const PAYLOAD = {
   questionRecords: [{ type: "mcq", reference: "q-0", data: { type: "mcq", stimulus: "?", options: [{ label: "A", value: "0" }], validation: { valid_response: { score: 1, value: ["0"] } } } }],
   itemRecords: [{ reference: "item-0", status: "unpublished", definition: { widgets: [{ reference: "q-0" }] }, questions: [{ reference: "q-0" }] }]
 };
 const PREVIEW = { id: "p", questions: [{ type: "mcq", response_id: "r1" }] };
 // A stand-in program's kind is its one string. What each requires, as L0176's
-// preflight declares it (an Author activity arriving as data needs `author`).
-const REQUIRED = { save: ["init", "save-to-itembank"], preview: ["init"], "author-from-data": ["author", "init"] };
+// preflight declares it. `stale-author` is a compiler still declaring `author`,
+// which registry v7 removed (AUTHOR-01).
+const REQUIRED = { save: ["init", "save-to-itembank"], preview: ["init"], "stale-author": ["author", "init"] };
 const programOf = kind => ({ 1: { tag: "STR", elts: [kind] }, 2: { tag: "EXPRS", elts: [1] }, root: 2 });
 const kindOf = code => code?.[1]?.elts?.[0];
 
@@ -149,7 +150,7 @@ beforeEach(async () => {
     optionsDigest: canonicalDigest({}),
     revision: rev.report?.revision ?? rev.revision,
     imageDigest: rev.imageDigest,
-    registryVersion: 6,
+    registryVersion: REGISTRY_VERSION,
     requiredFunctions: REQUIRED[kindOf(code)] ?? ["init"],
   });
   const startRevision = async (name, { approved = true } = {}) => {
@@ -196,7 +197,7 @@ beforeEach(async () => {
     const { stage: _s, registryVersion: _r, ...own } = manifest;
     if (admissionToken && canonicalDigest(claims.bind) !== canonicalDigest({ ...own, requiredFunctions: [...own.requiredFunctions].sort() })) return fail("not the pinned compiler");
     const kind = kindOf(code);
-    const [fn, op, payload] = kind === "save" ? ["save-to-itembank", WRITE_OP, PAYLOAD] : kind === "author-from-data" ? ["author", AUTHOR_OP, { reference: "r" }] : ["init", SIGN_OP, PREVIEW];
+    const [fn, op, payload] = kind === "save" ? ["save-to-itembank", WRITE_OP, PAYLOAD] : ["init", SIGN_OP, PREVIEW];
     const mint = /** @type {any} */ (await asCompiler("POST", "/v1/mint", { body: { sessionToken: snap.body.data.sessionToken, fn, op, occurrenceId: "n1.0", argsDigest: argsDigest(payload) } }).catch(e => ({ refused: e })));
     if (mint.refused || mint.status !== 200) return fail(`mint refused: ${mint.refused?.reason ?? mint.body?.error?.reason}`, [{ fn, op, status: "failed", steps: [] }]);
     const out = await execute(mint.body.data.executionToken, op, payload);
@@ -242,16 +243,23 @@ describe("AT-03: one decision for the chain, before anything runs", () => {
     expect(w.records.filter(r => r.event === "admission" && r.outcome === "allowed")).toHaveLength(1);
   });
 
-  it("denies the final stage when the first would save: zero transformations, signatures and provider requests", async () => {
-    // s1 saves first; s0, the final stage, would sign an Author activity
-    // arriving as data. Author is off, so the whole chain is refused.
-    const out = await run(await w.chain("author-from-data", "save"));
-    expect(out.errors[0]).toMatchObject({ code: "fn-not-enabled", category: "permission" });
+  it("denies the final stage before an earlier one runs: zero transformations, signatures and provider requests", async () => {
+    // s1, run first, only previews; s0, the final stage, saves. The owner has
+    // narrowed their own use to previews, so the whole chain is refused.
+    await w.connections.put({ ...(await w.connections.get("conn-1")), ownerPermissions: [{ lang: "0176", fn: "init" }] });
+    const out = await run(await w.chain("save", "preview"));
+    expect(out.errors[0]).toMatchObject({ code: "not-granted", category: "permission" });
     expect(w.counts.preflights).toBe(2);
     expectZeroEffects();
     // Policy decided it; the gateway records the refusal it passed on.
-    expect(w.records.filter(r => r.event === "admission" && r.outcome === "denied" && !r.service)).toEqual([expect.objectContaining({ reason: "fn-not-enabled", callerRole: "gateway" })]);
-    expect(w.records.filter(r => r.event === "admission" && r.service === "api")).toEqual([expect.objectContaining({ outcome: "denied", reason: "fn-not-enabled" })]);
+    expect(w.records.filter(r => r.event === "admission" && r.outcome === "denied" && !r.service)).toEqual([expect.objectContaining({ reason: "not-granted", callerRole: "gateway" })]);
+    expect(w.records.filter(r => r.event === "admission" && r.service === "api")).toEqual([expect.objectContaining({ outcome: "denied", reason: "not-granted" })]);
+  });
+
+  it("refuses a compiler that still declares Author, which registry v7 removed, before anything runs", async () => {
+    const out = await run(await w.chain("stale-author", "save"));
+    expect(out.errors[0]).toMatchObject({ code: "bad-request" });
+    expectZeroEffects();
   });
 
   it("an unavailable preflight blocks the chain, as does a compiler revision that isn't approved", async () => {

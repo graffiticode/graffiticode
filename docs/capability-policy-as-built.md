@@ -198,15 +198,22 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   against the live provider. Evidence: [operations](../packages/broker/src/operations.ts),
   [provider client](../packages/broker/src/learnosity.ts), and
   [browser initialization](../languages/l0176/packages/view/src/components/form/Form.tsx).
-- **Partial / provider unverified — AUTHOR-01.** Since v6 Author is deny-by-default: the
-  registry marks it `requiresEnablement`, Policy refuses it (`fn-not-enabled`) unless
-  `POLICY_ENABLED_GATED_FUNCTIONS` names it, and Broker omits and refuses its operation
-  (`operation-not-enabled`) unless `BROKER_ENABLED_GATED_OPERATIONS` does. Both are empty in
-  production, where the canary confirms both refusals (section 4). Enabling it waits on
-  AT-10 provider evidence for its request shape.
-  Evidence: [Author operation](../packages/broker/src/operations.ts),
-  [Policy](../packages/policy/src/policy.ts) and
-  [registry](../packages/common/src/protected-registry.ts).
+- **Closed by removal, in code; not yet released — AUTHOR-01.** Registry v7 removes `author`
+  and `learnosity.sign-author`, and with them the enablement gate: Policy and Broker have no
+  Author function or operation, and `POLICY_ENABLED_GATED_FUNCTIONS` /
+  `BROKER_ENABLED_GATED_OPERATIONS` stop either service if set. L0176 has no `author`
+  keyword, no `author.ts` and no Author SDK in its view; an Author activity arriving as data
+  is a compile error pointing to L0177, never signed, and preflight declares nothing for
+  data-dependent programs beyond `init`. Stored tasks checked first (2026-10-13): of 2,953
+  L0176 tasks, 3 call `author`, all the operator's own test programs. The canary's
+  **author removed** and new **denied final stage** checks replace its Author-based ones.
+  Release: Policy, Broker, L0176 and api together, paused
+  ([runbook](protected-execution.md#the-registry-v7-release-author-removed)).
+  Before v7 (v6): deny-by-default, Policy refused it (`fn-not-enabled`) and Broker omitted and
+  refused its operation (`operation-not-enabled`) unless enabled; never enabled in production.
+  Evidence: [registry](../packages/common/src/protected-registry.ts),
+  [Policy](../packages/policy/src/policy.ts), [Broker operations](../packages/broker/src/operations.ts)
+  and [L0176 compiler](../languages/l0176/packages/core/src/compiler.ts).
   - **Decided 2026-10-12 (Jeff): after the W4 cutover, remove `author` from L0176.**
     L0176 becomes only items and activities for the item bank, and its authority only the
     brokered, auditable kind (`init`, `save-to-itembank`). Graffiticode stops signing Author
@@ -618,11 +625,14 @@ accepted. A retry of a run started before the cutover gets `invocation-incompati
 **Follow-ups from the window:**
 - **Cold-start `token-expiring`:** a user whose compile is the first to wake an idle Broker can
   see `409 token-expiring`. Broker's contract expects the caller to retry with a fresh token
-  (`broker.ts`), but l0000's protected client doesn't. Fix: retry once on `token-expiring`, with a
-  freshly minted token. Optionally also keep one Broker instance warm.
+  (`broker.ts`), but l0000's protected client didn't. **Done 2026-10-13:** the client retries once
+  with a freshly minted token for the same operation (l0000 0.10.2), released in L0176
+  `l0176-rmv73kqzv-03d0e4`; canary 22/22 after it. Keeping one Broker instance warm is optional.
 - **Deploy CLI:** record each release's tag-retirement time in its receipt, so the cutover's T
-  comes from the receipt, as the runbook assumes.
-- **Post-cutover, already planned:** remove `author` from L0176 (AUTHOR-01, above); retire older
+  comes from the receipt, as the runbook assumes. **Done 2026-10-13:** receipts carry
+  `tagsRetiredAt`.
+- **Post-cutover, already planned:** remove `author` from L0176 (AUTHOR-01, above; in code, with
+  its release in `docs/protected-execution.md`, "The registry v7 release"); retire older
   approved L0176 revisions (keep the last three); and the IAM cleanup outside the gate. The procedure is
 in `docs/protected-execution.md`, "W4 activation and cutover".
 
