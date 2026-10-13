@@ -532,8 +532,7 @@
       "dockerfile": "configs/Dockerfile.l0000r.yaml",
       "port": 8080,
       "access": "public",
-      "service": "l0000",
-      "runtimeServiceAccount": "l0000-run@graffiticode.iam.gserviceaccount.com",
+      "runtimeServiceAccount": "l0000r-run@graffiticode.iam.gserviceaccount.com",
       "exclude": [],
       "steps": [
         {
@@ -547,9 +546,7 @@
         }
       ],
       "env": {
-        "AUTH_URL": "https://auth.graffiticode.org",
-        "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
-        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
+        "AUTH_URL": "https://auth.graffiticode.org"
       },
       "smoke": [
         {
