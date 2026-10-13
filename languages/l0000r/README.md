@@ -3,8 +3,9 @@
 L0000 — the root Graffiticode language — in Rust: the evaluator, the lexicon, the `Dialect`
 trait child languages implement, and a language server that runs it.
 
-It sits beside the TypeScript implementation in [`../l0000`](../l0000), which is unchanged.
-Both release to the same Cloud Run service, `l0000`: whichever was deployed last is what runs.
+It sits beside the TypeScript implementation in [`../l0000`](../l0000), which is unchanged and
+is what production runs. `l0000r` is deployed as its own Cloud Run service; traffic reaches it
+only through a per-user language override or by repointing the language's address.
 
 ## Layout
 
@@ -39,7 +40,6 @@ The image is built from the repository root, because it needs `languages/l0000` 
 
 ```bash
 docker build -f configs/Dockerfile.l0000r.yaml .   # from the repository root
-npm run deploy -- l0000r                            # Rust → Cloud Run service l0000
-npm run deploy -- l0000                             # TypeScript → the same service
-npm run rollback -- l0000r --release <release-id>   # back to whatever ran before that release
+npm run deploy -- l0000r                            # release to the l0000r service
+npm run rollback -- l0000r --release <release-id>
 ```

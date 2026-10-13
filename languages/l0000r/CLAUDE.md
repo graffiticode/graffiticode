@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`languages/l0000r` is L0000, the root Graffiticode language, **in Rust**. It is a Cargo workspace beside the TypeScript implementation in `languages/l0000`, which is unchanged. Both implement the same language (the dialect's `lang_id` is `"0000"`) and both release to the **same Cloud Run service, `l0000`** — see "Deployment".
+`languages/l0000r` is L0000, the root Graffiticode language, **in Rust**. It is a Cargo workspace beside the TypeScript implementation in `languages/l0000`, which is unchanged. Both implement the same language (the dialect's `lang_id` is `"0000"`), but they are **separate Cloud Run services**: `l0000` (TypeScript, pinnable, what production routes to) and `l0000r` (this one) — see "Deployment".
 
 - `crates/core` (`graffiticode-l0000`) — the language: AST, values, evaluator, lexicon, and the `Dialect` trait.
 - `crates/server` (`l0000r-server`, binary `l0000r`) — axum language server. `/compile`, `/form`, and the public static assets.
@@ -78,15 +78,16 @@ Everything is public and CORS-open, with `Cross-Origin-Resource-Policy: cross-or
 
 ## Deployment
 
-`l0000r` and `l0000` are two `deploy.json` entries for **one Cloud Run service**, `l0000` in project `graffiticode` (the `l0000r` entry sets `"service": "l0000"` and the same runtime account, `l0000-run`). From the repository root, `npm run deploy -- l0000r` releases the Rust server to it and `npm run deploy -- l0000` releases the TypeScript one; each release takes 100% of traffic, so whichever was deployed last is what serves language `0000`. Nothing else has to change to switch: the API already routes to that service.
+`l0000r` is its own Cloud Run service in project `graffiticode`, public, running as `l0000r-run@graffiticode.iam.gserviceaccount.com` (no roles). Release it from the repository root with `npm run deploy -- l0000r` (entry in root `deploy.json`, image `services/l0000r` from `configs/Dockerfile.l0000r.yaml`). The entry's `include` covers `languages/l0000r` **and** `languages/l0000`, because the image's Node stage builds the static assets from the TypeScript project; the Rust stage builds `l0000r-server`, and the distroless runtime holds only the binary and `static/`. The only build step is `cargo test --locked`. Smoke checks: `/` and `/lexicon.js`. The service and its account were provisioned by hand (the deploy CLI does not provision; see `packages/deploy/README.md`). The CLI parses `gcloud run deploy --format=json`, and gcloud running on Python 3.9 appends a line to that output (`An error occurred: module 'importlib.metadata' has no attribute 'packages_distributions'`), which fails the release after the candidate is created; run it with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later.
 
-- The two entries share the CLI's per-service lock, so they cannot release at once.
-- `npm run rollback -- l0000r --release <id>` restores the traffic that preceded that release, which is how to go back to the TypeScript revision. It refuses if a later release owns traffic.
-- Images stay distinguishable: Rust builds push to `services/l0000r`, TypeScript builds to `services/l0000`. Receipts in `.gc-deploy/` record which.
-- The entry's `include` covers `languages/l0000r` **and** `languages/l0000`, because the image's Node stage builds the static assets from the TypeScript project; the Rust stage builds `l0000r-server`, and the distroless runtime holds only the binary and `static/`. The only build step is `cargo test --locked`. Smoke checks: `/` and `/lexicon.js`.
-- Because a release replaces the service's configuration, the `l0000r` entry's `env` must stay identical to the `l0000` entry's (`AUTH_URL`, `POLICY_URL`, `PREFLIGHT_GATEWAYS`). A difference would silently change the service on the next switch.
+**It is deliberately not the `l0000` service.** `l0000` is `pinnable` under protected execution: every reachable revision there must be recorded as approved, and an admitted plan pins its L0000 stage to one. This service is not pinnable and sets neither `POLICY_URL` nor `PREFLIGHT_GATEWAYS`, so it fails closed: a stage of an admitted plan is refused here, and so is every `/preflight`. Ordinary compiles work. Never point the `l0000r` entry at the `l0000` service without also giving it that entry's `pinnable`, `baselines` and `env` — a release would otherwise promote an unapproved revision.
 
-The Rust server is not byte-identical to the TypeScript one (see the divergences under "Conformance", and reworded error messages), so a release of `l0000r` changes behavior for every consumer of language `0000`, and for child languages only if they call this service — they compile with their own servers.
+Traffic reaches this service only when something sends it here; nothing does by default:
+
+- **One user**: seed `lang-overrides/{uid}` in Firestore with `bindings: { "L0000": "<this service's URL>" }`. The API applies it within 10 seconds, to that user's authenticated requests only.
+- **Everyone**: set `BASE_URL_L0000` on the API and release it, or repoint `l0000.graffiticode.org` (the API's default host for the language) at this service.
+
+The Rust server is not byte-identical to the TypeScript one (see the divergences under "Conformance", and reworded error messages).
 
 There is no Dockerfile in this directory: its build context would not reach `../l0000`. Build locally from the repository root with `docker build -f configs/Dockerfile.l0000r.yaml .`.
 
