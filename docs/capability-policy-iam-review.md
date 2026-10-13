@@ -1250,7 +1250,7 @@ evidence that nothing else but the operators can write.
           `canary-window` grants (OpenIdTokenCreator on `api-run@`, `l0176-run@` and
           `console-run@graffiticode-app`) and the `canary-window-w4` ones were removed too; each
           canary window adds a fresh time-limited grant. The workstation copy of the deleted key
-          is to be removed by the operator.
+          was removed the same day.
 
           **Still open, outside the gate:** narrow the legacy Cloud Build account's remaining roles
           (Step 2 list); and, longer term, investigate switching `(default)`'s App Engine
