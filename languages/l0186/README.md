@@ -23,3 +23,18 @@ board [
 | `packages/view` | `@graffiticode/l0186-view` | The Form (an SVG preview of the board), for the shared View |
 
 See `CLAUDE.md` for how it is built, and `packages/core/spec/` for the language.
+
+## Rust implementation
+
+`crates/` holds L0186's compiler in Rust: a `Dialect` on the kernel in `languages/l0000/crates`,
+with a language server (`crates/server`, binary `l0186r`). The TypeScript in `packages/` remains
+production; `attributes.ts` remains the single source of truth for the vocabulary, and the SVG
+preview stays in `packages/view`, which both servers serve.
+
+```bash
+cargo test            # needs no Node and no network
+npm run rust:build    # ./static, then the release binary (target/release/l0186r)
+npm run rust:dev      # run it on :50186
+```
+
+See `CLAUDE.md` for the details.

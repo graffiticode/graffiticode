@@ -1740,6 +1740,43 @@
         }
       ]
     },
+    "l0186r": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0186r",
+      "dockerfile": "configs/Dockerfile.l0186r.yaml",
+      "port": 8080,
+      "access": "public",
+      "runtimeServiceAccount": "l0186r-run@graffiticode.iam.gserviceaccount.com",
+      "exclude": [],
+      "steps": [
+        {
+          "name": "rust:1.99-bookworm",
+          "entrypoint": "cargo",
+          "dir": "languages/l0186",
+          "args": [
+            "test",
+            "--locked"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.js",
+          "status": 200
+        }
+      ],
+      "include": [
+        "languages/l0186",
+        "languages/l0000",
+        "configs/Dockerfile.l0186r.yaml"
+      ]
+    },
     "l0186": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0186",
       "dockerfile": "configs/Dockerfile.l0186.yaml",
