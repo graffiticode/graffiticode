@@ -78,6 +78,7 @@
       "<rootDir>/.claude/",
       "<rootDir>/verify/",
       "<rootDir>/scripts/test/",
+      "<rootDir>/deploy/",
       "<rootDir>/.at12-baseline/"
     ],
     "modulePathIgnorePatterns": [
