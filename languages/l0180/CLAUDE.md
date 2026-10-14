@@ -21,6 +21,8 @@ Ported conceptually from L0179 (the `validation` model), L0176 (the attribute ma
 L0175 (native React item rendering). No code is inherited from L0160, the previous attempt,
 which was a facade over the Learnosity Data API.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0180 that production runs; `crates/` is L0180's compiler in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ```bash
@@ -759,3 +761,46 @@ rather than a translation.
   user**; L0160's absence from that file is why it is invisible today.
 - `l0179`, `l0176`, `l0175` — the sources of the validation model, the attribute machinery, and
   the native renderer respectively.
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0180**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0180`). `crates/` is the same compiler in Rust, to be released to its own service `l0180r` so it can be vetted before it replaces the TypeScript. `packages/view` (the `Form`, the renderers and the DOM-free scorer) and `spec/` are shared by both.
+
+- `crates/core` (`graffiticode-l0180`) — `L0180` implements `Dialect` from `graffiticode-l0000`, claiming `PROG`. The compile path, module for module: `lib.rs` (the containers, `PROG` and the activity: `compiler.ts` and `activity.ts`), `attributes.rs` (`checkValue`, `mergeAttributes`, `assertKnownAttributes`, `assertAssessWords`), `hottext.rs`, `textentry.rs` (with `cut_markers`, shared by inline-choice and gap-match), `inlinechoice.rs`, `order.rs`, `pairing.rs` (with `gapmatch.ts`'s `fill`), `anchors.rs` (with `labels.ts`), `matching.rs` (the half of `matching.ts` the compiler calls) and `decimal.rs` (the slice of decimal.js that half goes through). The attribute table, the activity words and the container table are read from `src/vocab.json`, which is **generated from `src/attributes.ts`** by `npm run rust:fixtures`; `attributes.ts` stays the single source of truth. Only `fieldToWord`'s seed (the container words' spellings) is restated in Rust, because it is not exported. `src/plain.rs` and `src/text.rs` are the JavaScript readings of values and strings.
+- `crates/server` (`l0180r-server`, binary `l0180r`) — `l0000r_server::serve(L0180, lexicon())`.
+- `tools/assemble-static.mjs` — builds what `npm run assemble` puts in `packages/api/static` (`core/dist/static` and `view/dist-embed`) into `./static` for the Rust server.
+
+**Not ported, and why.** Everything off the compile path stays TypeScript: the scorer (`packages/view/src/scoring`, which runs in the browser and on a delivery host and reads compiled output, not programs), the half of `matching.ts` only it uses (`sameNumber`), `tools/build-static.js` and the spec, the L0175 round trip (`tools/roundtrip`), and the React view. decimal.js is not kept in JavaScript behind a worker as l0014's library is: the compiler uses a handful of its operations, which `decimal.rs` reproduces exactly (`BigUint` coefficients; quotients, sums and differences rounded to twenty significant digits, half away from zero; comparisons exact).
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation" in `languages/l0000/CLAUDE.md`.
+
+```bash
+cargo test            # conformance and unit tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0180r-server
+npm run rust:dev      # cargo run -p l0180r-server on :50180 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate src/vocab.json, src/lexicon-additions.json and the fixture
+```
+
+### What the Rust has to get exactly right
+
+- **Errors are values, and they accumulate.** Every TypeScript handler catches its own throw and resumes `{}` with the message appended, so a parent keeps assembling over a failed child and may add errors of its own. Each Rust word reports through `report_diagnostic` (span `-1`, as a string error is) and returns `{}`; children are evaluated in the TypeScript's order, so the errors come out in the same order. The message text is the product surface (the generator retries from it) and is held character for character.
+- **JavaScript objects.** Every value is read as plain JSON, and every object built is put in JavaScript's key order — array-index keys first — before it is emitted *and before it is summed*: `Object.values(mapping).reduce` adds float points in key order, so blanks keyed `"2"` then `"1"` sum the other way round. Spread (`{...x}`) of a string, an array or a number, truthiness, `Number()` coercion under `>`, and `Map` keys (SameValueZero: option ids `5` and `"5"` are different `seen` keys and the same `mapping` key) are reproduced.
+- **Numbers.** `parseNumber`, `terminates` and the collision check go through `decimal.rs`: `1/3` is `0.33333333333333333333`, a tolerance reaches decimal.js through JavaScript's `Number.prototype.toString`, and `keepsOrder` compares parsed values exactly.
+- **Text.** JavaScript's `\s` and `trim` (not Rust's), `\d` as ASCII, `/i` folding ASCII only, marker positions and excerpts in UTF-16 units, and `splitSentences`'s tail taken at the *summed length* of the matches rather than where the last one ended — which differ when a run of terminators was skipped.
+- **`PROG`.** The TypeScript reads every expression's value (it counts the questions written side by side without `items`), so the Rust evaluates the program's expressions itself, keeping `EXPRS`'s reading of a function applied to the rest as one value.
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` generates most of its corpus from the attribute table: every word, with every value of its type and wrong ones, in each interaction and member list that takes it, and with one value in every one that does not (which exercises every "belongs inside" hint); numeric blanks over twenty answers × three base types × eight settings, and pairs of answers that may collide; option lists whose order may or may not be information, in `choice`, `inline-choice` and `match`, with and without `shuffle`; every member list standing alone. Then the fenced programs of `spec/spec.md` and `spec/instructions.md`, `spec/template.gc`, the programs in the TypeScript suite, hand-written edge cases (each hottext and item path, degenerate programs, `42..`, functions, `null`, a reference to nothing) and eight compiles against upstream data. Every error message in the compiler's source appears at least once, except two in `pairing.ts` that the containers pre-empt. Programs the TypeScript visitor crashes on (a property read off `null`, whose "error" is the exception's stack) are skipped. `tests/conformance.rs` requires the same JSON text (field order included) or the same errors in the same order, for all 2,684 cases but the three that show the two differences below.
+
+Deliberate differences, each pinned by its own test:
+
+- **An upstream `{data, errors}` envelope.** The TypeScript `PROG` spreads `options.data` raw, so a chained task's envelope puts `data` and `errors` keys into the item. The kernel unwraps the envelope for every dialect, so the Rust spreads the data model inside it — the learner's response, which is what `PROG`'s spread is for.
+- **A reference to nothing inside a list** (`choice [ get-var "nope" … ]`, `paragraphs [ "a" get-var "nope" ]`): the same refusal, but TypeScript names the value `undefined` and the Rust, whose lists hold `null` there, says `null`.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0180r` entry (own service, `l0180r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0180r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`). Like the TypeScript it needs only `AUTH_URL`: no secrets, no protected functions, no network call at compile time. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`). The account needs no roles.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/vocab.json`, `src/lexicon-additions.json` and `tests/conformance/cases.json` are generated, not edited.

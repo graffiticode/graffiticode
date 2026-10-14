@@ -1,0 +1,458 @@
+{
+  "stimulus": {
+    "tk": 1,
+    "name": "STIMULUS",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "The passage or source material the item's parts are about."
+  },
+  "title": {
+    "tk": 1,
+    "name": "TITLE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "The stimulus's title."
+  },
+  "paragraphs": {
+    "tk": 1,
+    "name": "PARAGRAPHS",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "The stimulus text, one string per paragraph. Addressable as p1, p2, …"
+  },
+  "scoring": {
+    "tk": 1,
+    "name": "SCORING",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "How an item's parts combine: `additive` sums them (default), `conjunctive` awards the item only if every part is fully correct."
+  },
+  "prompt": {
+    "tk": 1,
+    "name": "PROMPT",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "The question stem shown to the candidate."
+  },
+  "shuffle": {
+    "tk": 1,
+    "name": "SHUFFLE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<boolean: record>",
+    "description": "Present the list in a random order — a choice's options, a dropdown's options, or an order's elements. Defaults to true; `shuffle false` keeps the authored order."
+  },
+  "min-choices": {
+    "tk": 1,
+    "name": "MIN_CHOICES",
+    "cls": "function",
+    "arity": 1,
+    "type": "<number: record>",
+    "description": "Fewest options the candidate may select. Defaults to 0."
+  },
+  "max-choices": {
+    "tk": 1,
+    "name": "MAX_CHOICES",
+    "cls": "function",
+    "arity": 1,
+    "type": "<number: record>",
+    "description": "Most options the candidate may select. Defaults to 1, which is single-select."
+  },
+  "granularity": {
+    "tk": 1,
+    "name": "GRANULARITY",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "What a hottext makes clickable: whole `sentence`s, or single `word`s."
+  },
+  "within": {
+    "tk": 1,
+    "name": "WITHIN",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "Select within the item's `stimulus` rather than the hottext's own text. One of `within` or `text` is required."
+  },
+  "quote": {
+    "tk": 1,
+    "name": "QUOTE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "The text this selection names, copied from the passage."
+  },
+  "upper-bound": {
+    "tk": 1,
+    "name": "UPPER_BOUND",
+    "cls": "function",
+    "arity": 1,
+    "type": "<number: record>",
+    "description": "Most points the mapped selections can earn. Set it below the number of correct answers to ask for any N of them."
+  },
+  "response": {
+    "tk": 1,
+    "name": "RESPONSE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "One answer a blank recognizes. Its `assess` says what that answer is worth."
+  },
+  "base-type": {
+    "tk": 1,
+    "name": "BASE_TYPE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "What this blank's answers are: `string` (the default) compares text, `float` and `integer` compare numbers."
+  },
+  "input-formats": {
+    "tk": 1,
+    "name": "INPUT_FORMATS",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "Which written forms a numeric blank accepts: `numeric` (any, the default), or a list of `decimal`, `fraction` and `scientific`."
+  },
+  "tolerance": {
+    "tk": 1,
+    "name": "TOLERANCE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<number: record>",
+    "description": "How far a numeric answer may be from the expected one and still count. Absolute and symmetric."
+  },
+  "case-sensitive": {
+    "tk": 1,
+    "name": "CASE_SENSITIVE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<boolean: record>",
+    "description": "Whether capitals have to match. Defaults to false, and a response may override the interaction's setting."
+  },
+  "exemplar": {
+    "tk": 1,
+    "name": "EXEMPLAR",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "A response that would earn full marks, shown to the reader alongside the rubric."
+  },
+  "descriptor": {
+    "tk": 1,
+    "name": "DESCRIPTOR",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "What a response has to do to earn this band."
+  },
+  "response-processing": {
+    "tk": 1,
+    "name": "RESPONSE_PROCESSING",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "How the response is scored: `map-response` scores each option and sums them (default), `match-correct` awards the points only for exactly the correct set."
+  },
+  "id": {
+    "tk": 1,
+    "name": "ID",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "Identifier for this option. Derived as A, B, C… when omitted."
+  },
+  "text": {
+    "tk": 1,
+    "name": "TEXT",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "The option's visible text."
+  },
+  "assess": {
+    "tk": 1,
+    "name": "ASSESS",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "Scoring for this option. Its presence turns scoring on."
+  },
+  "correct": {
+    "tk": 1,
+    "name": "CORRECT",
+    "cls": "function",
+    "arity": 0,
+    "type": "<: record>",
+    "description": "Marks the option as a right answer. Stands alone — it takes no value."
+  },
+  "points": {
+    "tk": 1,
+    "name": "POINTS",
+    "cls": "function",
+    "arity": 1,
+    "type": "<number: record>",
+    "description": "What this option is worth. Defaults to 1 with `correct`; negative penalizes."
+  },
+  "rationale": {
+    "tk": 1,
+    "name": "RATIONALE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "Why this option is right or wrong. Shown against it once the candidate has selected it."
+  },
+  "position": {
+    "tk": 1,
+    "name": "POSITION",
+    "cls": "function",
+    "arity": 1,
+    "type": "<number: record>",
+    "description": "`order` only: where this element belongs in the right sequence, counting from 1."
+  },
+  "target": {
+    "tk": 1,
+    "name": "TARGET",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "`match` only: the id of the target this item is matched with."
+  },
+  "category": {
+    "tk": 1,
+    "name": "CATEGORY",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "`classification` only: the id of the category this item belongs in."
+  },
+  "token": {
+    "tk": 1,
+    "name": "TOKEN",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "`gap-match` only: the id of the token that fills this gap."
+  },
+  "navigation": {
+    "tk": 1,
+    "name": "NAVIGATION",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "QTI's navigationMode. `linear` means the candidate cannot return to an item they have left; `nonlinear` (the default) lets them move freely."
+  },
+  "submission": {
+    "tk": 1,
+    "name": "SUBMISSION",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "QTI's submissionMode. `individual` submits each item as it is answered; `simultaneous` (the default) holds everything until the end."
+  },
+  "items": {
+    "tk": 1,
+    "name": "ITEMS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "An activity: the items a candidate works through, in order, then the activity's configuration."
+  },
+  "item": {
+    "tk": 1,
+    "name": "ITEM",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "An item: an optional stimulus and one or more interactions scored together."
+  },
+  "parts": {
+    "tk": 1,
+    "name": "PARTS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The interactions an item is made of, in the order they are presented."
+  },
+  "choice": {
+    "tk": 1,
+    "name": "CHOICE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "A choice interaction: a stem and a list of options to select from."
+  },
+  "options": {
+    "tk": 1,
+    "name": "OPTIONS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The options a choice interaction offers, each an attribute list."
+  },
+  "hottext": {
+    "tk": 1,
+    "name": "HOTTEXT",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "A hottext interaction: a passage with clickable sentences or words."
+  },
+  "selections": {
+    "tk": 1,
+    "name": "SELECTIONS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The places a hottext interaction can select, each named by a quote."
+  },
+  "text-entry": {
+    "tk": 1,
+    "name": "TEXT_ENTRY",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "A text-entry interaction: a sentence with blanks the candidate types into."
+  },
+  "blanks": {
+    "tk": 1,
+    "name": "BLANKS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The blanks in a text-entry's sentence, each named by the marker that positions it."
+  },
+  "responses": {
+    "tk": 1,
+    "name": "RESPONSES",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The answers a blank recognizes, each with what it is worth."
+  },
+  "inline-choice": {
+    "tk": 1,
+    "name": "INLINE_CHOICE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "An inline-choice interaction: a sentence with dropdowns the candidate picks from."
+  },
+  "dropdowns": {
+    "tk": 1,
+    "name": "DROPDOWNS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The dropdowns in an inline-choice's sentence, each named by the marker that positions it."
+  },
+  "order": {
+    "tk": 1,
+    "name": "ORDER",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "An order interaction: elements the candidate puts into the right sequence."
+  },
+  "elements": {
+    "tk": 1,
+    "name": "ELEMENTS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The things an order interaction sequences, in the order they are presented."
+  },
+  "match": {
+    "tk": 1,
+    "name": "MATCH",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "A match interaction: each item is paired with one of the targets."
+  },
+  "targets": {
+    "tk": 1,
+    "name": "TARGETS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The things a match's items are paired with, each named by an id."
+  },
+  "match-items": {
+    "tk": 1,
+    "name": "MATCH_ITEMS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The things a match pairs off, each saying which target it belongs with."
+  },
+  "classification": {
+    "tk": 1,
+    "name": "CLASSIFICATION",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "A classification interaction: each item is sorted into one of the categories."
+  },
+  "categories": {
+    "tk": 1,
+    "name": "CATEGORIES",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The categories a classification sorts into, each named by an id."
+  },
+  "classification-items": {
+    "tk": 1,
+    "name": "CLASSIFICATION_ITEMS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The things a classification sorts, each saying which category it belongs in."
+  },
+  "gap-match": {
+    "tk": 1,
+    "name": "GAP_MATCH",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "A gap-match interaction: a sentence whose gaps are filled from a shared bank of tokens."
+  },
+  "tokens": {
+    "tk": 1,
+    "name": "TOKENS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The bank a gap-match's gaps are filled from, each token named by an id."
+  },
+  "gaps": {
+    "tk": 1,
+    "name": "GAPS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The gaps in a gap-match's sentence, each named by the marker that positions it."
+  },
+  "extended-text": {
+    "tk": 1,
+    "name": "EXTENDED_TEXT",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "An extended-text interaction: a written response, scored by a person against a rubric."
+  },
+  "rubric": {
+    "tk": 1,
+    "name": "RUBRIC",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The bands a written response is scored against, each an attribute list."
+  }
+}

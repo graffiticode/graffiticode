@@ -1,0 +1,350 @@
+{
+  "attributeFields": {
+    "STIMULUS": {
+      "field": "stimulus",
+      "shape": "object",
+      "description": "The passage or source material the item's parts are about."
+    },
+    "TITLE": {
+      "field": "title",
+      "expects": "string",
+      "description": "The stimulus's title."
+    },
+    "PARAGRAPHS": {
+      "field": "paragraphs",
+      "expects": "strings",
+      "description": "The stimulus text, one string per paragraph. Addressable as p1, p2, …"
+    },
+    "SCORING": {
+      "field": "scoring",
+      "expects": "string",
+      "oneOf": [
+        "additive",
+        "conjunctive"
+      ],
+      "description": "How an item's parts combine: `additive` sums them (default), `conjunctive` awards the item only if every part is fully correct."
+    },
+    "PROMPT": {
+      "field": "prompt",
+      "expects": "string",
+      "description": "The question stem shown to the candidate."
+    },
+    "SHUFFLE": {
+      "field": "shuffle",
+      "expects": "boolean",
+      "description": "Present the list in a random order — a choice's options, a dropdown's options, or an order's elements. Defaults to true; `shuffle false` keeps the authored order."
+    },
+    "MIN_CHOICES": {
+      "field": "minChoices",
+      "expects": "number",
+      "description": "Fewest options the candidate may select. Defaults to 0."
+    },
+    "MAX_CHOICES": {
+      "field": "maxChoices",
+      "expects": "number",
+      "description": "Most options the candidate may select. Defaults to 1, which is single-select."
+    },
+    "GRANULARITY": {
+      "field": "granularity",
+      "expects": "string",
+      "oneOf": [
+        "sentence",
+        "word"
+      ],
+      "description": "What a hottext makes clickable: whole `sentence`s, or single `word`s."
+    },
+    "WITHIN": {
+      "field": "within",
+      "expects": "string",
+      "oneOf": [
+        "stimulus"
+      ],
+      "description": "Select within the item's `stimulus` rather than the hottext's own text. One of `within` or `text` is required."
+    },
+    "QUOTE": {
+      "field": "quote",
+      "expects": "string",
+      "description": "The text this selection names, copied from the passage."
+    },
+    "UPPER_BOUND": {
+      "field": "upperBound",
+      "expects": "number",
+      "description": "Most points the mapped selections can earn. Set it below the number of correct answers to ask for any N of them."
+    },
+    "RESPONSE": {
+      "field": "response",
+      "expects": "string",
+      "description": "One answer a blank recognizes. Its `assess` says what that answer is worth."
+    },
+    "BASE_TYPE": {
+      "field": "baseType",
+      "expects": "string",
+      "oneOf": [
+        "string",
+        "float",
+        "integer"
+      ],
+      "description": "What this blank's answers are: `string` (the default) compares text, `float` and `integer` compare numbers."
+    },
+    "INPUT_FORMATS": {
+      "field": "inputFormats",
+      "expects": "strings",
+      "oneOf": [
+        "numeric",
+        "decimal",
+        "fraction",
+        "scientific"
+      ],
+      "description": "Which written forms a numeric blank accepts: `numeric` (any, the default), or a list of `decimal`, `fraction` and `scientific`."
+    },
+    "TOLERANCE": {
+      "field": "tolerance",
+      "expects": "number",
+      "description": "How far a numeric answer may be from the expected one and still count. Absolute and symmetric."
+    },
+    "CASE_SENSITIVE": {
+      "field": "caseSensitive",
+      "expects": "boolean",
+      "description": "Whether capitals have to match. Defaults to false, and a response may override the interaction's setting."
+    },
+    "EXEMPLAR": {
+      "field": "exemplar",
+      "expects": "string",
+      "description": "A response that would earn full marks, shown to the reader alongside the rubric."
+    },
+    "DESCRIPTOR": {
+      "field": "descriptor",
+      "expects": "string",
+      "description": "What a response has to do to earn this band."
+    },
+    "RESPONSE_PROCESSING": {
+      "field": "responseProcessing",
+      "expects": "string",
+      "oneOf": [
+        "map-response",
+        "match-correct"
+      ],
+      "description": "How the response is scored: `map-response` scores each option and sums them (default), `match-correct` awards the points only for exactly the correct set."
+    },
+    "ID": {
+      "field": "id",
+      "expects": "string",
+      "description": "Identifier for this option. Derived as A, B, C… when omitted."
+    },
+    "TEXT": {
+      "field": "text",
+      "expects": "string",
+      "description": "The option's visible text."
+    },
+    "ASSESS": {
+      "field": "assess",
+      "shape": "object",
+      "description": "Scoring for this option. Its presence turns scoring on."
+    },
+    "CORRECT": {
+      "field": "correct",
+      "flag": true,
+      "description": "Marks the option as a right answer. Stands alone — it takes no value."
+    },
+    "POINTS": {
+      "field": "points",
+      "expects": "number",
+      "description": "What this option is worth. Defaults to 1 with `correct`; negative penalizes."
+    },
+    "RATIONALE": {
+      "field": "rationale",
+      "expects": "string",
+      "description": "Why this option is right or wrong. Shown against it once the candidate has selected it."
+    },
+    "POSITION": {
+      "field": "position",
+      "expects": "number",
+      "description": "`order` only: where this element belongs in the right sequence, counting from 1."
+    },
+    "TARGET": {
+      "field": "target",
+      "expects": "string",
+      "description": "`match` only: the id of the target this item is matched with."
+    },
+    "CATEGORY": {
+      "field": "category",
+      "expects": "string",
+      "description": "`classification` only: the id of the category this item belongs in."
+    },
+    "TOKEN": {
+      "field": "token",
+      "expects": "string",
+      "description": "`gap-match` only: the id of the token that fills this gap."
+    }
+  },
+  "configFields": {
+    "NAVIGATION": {
+      "field": "navigation",
+      "expects": "string",
+      "oneOf": [
+        "linear",
+        "nonlinear"
+      ],
+      "description": "QTI's navigationMode. `linear` means the candidate cannot return to an item they have left; `nonlinear` (the default) lets them move freely."
+    },
+    "SUBMISSION": {
+      "field": "submission",
+      "expects": "string",
+      "oneOf": [
+        "individual",
+        "simultaneous"
+      ],
+      "description": "QTI's submissionMode. `individual` submits each item as it is answered; `simultaneous` (the default) holds everything until the end."
+    }
+  },
+  "validAttributes": {
+    "activity": [
+      "navigation",
+      "submission",
+      "items"
+    ],
+    "item": [
+      "stimulus",
+      "scoring",
+      "points",
+      "parts"
+    ],
+    "stimulus": [
+      "title",
+      "paragraphs"
+    ],
+    "choice": [
+      "prompt",
+      "shuffle",
+      "min-choices",
+      "max-choices",
+      "response-processing",
+      "upper-bound",
+      "options"
+    ],
+    "hottext": [
+      "prompt",
+      "text",
+      "within",
+      "granularity",
+      "min-choices",
+      "max-choices",
+      "response-processing",
+      "upper-bound",
+      "selections"
+    ],
+    "selection": [
+      "quote",
+      "assess"
+    ],
+    "text-entry": [
+      "prompt",
+      "text",
+      "case-sensitive",
+      "blanks"
+    ],
+    "inline-choice": [
+      "prompt",
+      "shuffle",
+      "text",
+      "dropdowns"
+    ],
+    "dropdown": [
+      "id",
+      "options"
+    ],
+    "order": [
+      "prompt",
+      "shuffle",
+      "elements"
+    ],
+    "element": [
+      "id",
+      "text",
+      "assess"
+    ],
+    "match": [
+      "prompt",
+      "shuffle",
+      "response-processing",
+      "targets",
+      "match-items"
+    ],
+    "classification": [
+      "prompt",
+      "shuffle",
+      "response-processing",
+      "categories",
+      "classification-items"
+    ],
+    "target": [
+      "id",
+      "text"
+    ],
+    "category": [
+      "id",
+      "text"
+    ],
+    "match-item": [
+      "id",
+      "text",
+      "assess"
+    ],
+    "classification-item": [
+      "id",
+      "text",
+      "assess"
+    ],
+    "gap-match": [
+      "prompt",
+      "shuffle",
+      "response-processing",
+      "text",
+      "tokens",
+      "gaps"
+    ],
+    "token": [
+      "id",
+      "text"
+    ],
+    "gap": [
+      "id",
+      "assess"
+    ],
+    "blank": [
+      "id",
+      "responses",
+      "case-sensitive",
+      "base-type",
+      "tolerance",
+      "input-formats"
+    ],
+    "response": [
+      "response",
+      "assess"
+    ],
+    "extended-text": [
+      "prompt",
+      "rubric",
+      "exemplar"
+    ],
+    "band": [
+      "points",
+      "descriptor"
+    ],
+    "option": [
+      "id",
+      "text",
+      "assess"
+    ],
+    "assess": [
+      "correct",
+      "points",
+      "rationale",
+      "position",
+      "target",
+      "category",
+      "token"
+    ]
+  }
+}
