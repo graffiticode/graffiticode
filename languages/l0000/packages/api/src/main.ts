@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: MIT
+// First, before anything can make a request: outbound HTTP through the egress
+// proxy when HTTPS_PROXY is set (ISOLATE-01).
+import "@graffiticode/l0000/egress";
 import { createProtectionClient, metadataIdToken } from "@graffiticode/l0000";
 import { createApp } from "./app.js";
 import { compiler } from "./compile.js";
