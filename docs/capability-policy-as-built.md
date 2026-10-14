@@ -151,9 +151,15 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   [receipt tests](../packages/broker/src/broker.spec.ts).
 - **Partial / deployment unverified — RETAIN-01.** Invocation and receipt code has no
   automatic expiry. Token-ID documents carry an expiry field suitable for cleanup. W4's
-  admission plans (`plans`) and invocation markers have no expiry either. Indefinite
-  retention configuration, backups, and actual database cleanup policies have not been
-  verified in this review (W5 stage 2). Evidence:
+  admission plans (`plans`) and invocation markers have no expiry either. W5 stage 2 (in code,
+  not yet closed):
+  - `scripts/retention-check.js`, first run 2026-10-14: **no TTL policy** on any of `policy`,
+    `broker`, `(default)` or `revisions`. Point-in-time recovery is off and there are no
+    backup schedules on any of them, so the check fails until they're configured.
+  - Connection deletion keeps invocations, idempotency keys and receipts (claim, steps,
+    outcome), and refuses a retry with no provider call (`retention.spec.ts`, emulator).
+  - Still to do: backups and PITR (operator), then a recorded restore test (`--compare`).
+  Evidence:
   [Policy stores](../packages/policy/src/firestore.ts) and
   [Broker stores](../packages/broker/src/firestore.ts).
 - **Partial — RECOVER-01.** Atomic artifact storage, three storage attempts, and recovery

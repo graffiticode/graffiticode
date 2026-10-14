@@ -26,7 +26,8 @@
         "--testPathIgnorePatterns",
         "/node_modules/",
         "/.compiled-test/",
-        "src/firestore.spec.ts"
+        "src/firestore.spec.ts",
+        "src/retention.spec.ts"
       ]
     }
   ],
@@ -72,7 +73,8 @@
       "name": "broker-firestore",
       "cwd": "packages/broker",
       "args": [
-        "src/firestore.spec.ts"
+        "src/firestore.spec.ts",
+        "src/retention.spec.ts"
       ]
     },
     {
@@ -106,7 +108,8 @@
       "args": [
         "--testPathIgnorePatterns",
         "/node_modules/",
-        "firestore.spec.ts"
+        "firestore.spec.ts",
+        "retention.spec.ts"
       ]
     }
   ],
@@ -136,7 +139,8 @@
       "cwd": "packages/broker",
       "config": "packages/broker/.compiled-test/jest.config.js",
       "args": [
-        "firestore.spec.ts"
+        "firestore.spec.ts",
+        "retention.spec.ts"
       ]
     },
     {

@@ -320,6 +320,57 @@ nonce from each email, in any order. An alert whose email didn't arrive is left 
 recorded as not confirmed, as is one whose incident fired without its email arriving. The
 result is appended to `.gc-deploy/monitoring/alert-verification.json`.
 
+## Retention and restore (RETAIN-01)
+
+Invocation records, idempotency bindings, admission plans, receipt claims and outcomes never
+expire, and deleting a connection doesn't remove them (spec RETAIN-01). Only token-replay ids
+(`jtis`), in-flight execution markers (`active-executions`) and admission leases may expire.
+`packages/broker/src/retention.spec.ts` tests the deletion case against the emulator: the
+records stay, a retry is refused (`connection-not-found` at Policy, `no-credential` at
+Broker), and the provider isn't called.
+
+**The configuration check** (read-only; settings only, no documents):
+
+```
+node scripts/retention-check.js
+```
+
+For `policy`, `broker`, `(default)` and `revisions` it fails if any TTL policy covers a
+protected collection, if point-in-time recovery is off, or if there's no backup schedule. A
+gcloud failure is `incomplete`, never a pass. Evidence goes to `.gc-deploy/retention/`.
+
+**Backups and point-in-time recovery** (operator; all four databases are in `nam5`). The
+retention is a decision; this uses 14 weeks of daily backups and the 7-day PITR window:
+
+```
+for db in policy broker "(default)" revisions; do
+  gcloud firestore databases update --project=graffiticode --database="$db" --enable-pitr
+  gcloud firestore backups schedules create --project=graffiticode --database="$db" --recurrence=daily --retention=14w
+done
+```
+
+**The restore test,** once a daily backup of `policy` and of `broker` exists:
+
+```
+gcloud firestore backups list --project=graffiticode --location=nam5
+gcloud firestore databases restore --project=graffiticode --source-backup=<policy backup name> --destination-database=policy-restore-check
+gcloud firestore databases restore --project=graffiticode --source-backup=<broker backup name> --destination-database=broker-restore-check
+node scripts/retention-check.js --compare --policy-restore policy-restore-check --broker-restore broker-restore-check \
+  --canary-connection <canary connection id>
+gcloud firestore databases delete --project=graffiticode --database=policy-restore-check
+gcloud firestore databases delete --project=graffiticode --database=broker-restore-check
+```
+
+`--compare` takes the cutoff from the two backups' exact snapshot times (the earlier, minus a
+minute), never rounded, and reads no point-in-time versions:
+- documents last updated before the cutoff are compared field for field;
+- documents created before it but updated since are checked for existence;
+- the links idempotency key → invocation → plan → receipt are checked;
+- every canary receipt from before the cutoff must be in the restore.
+
+Its evidence holds counts and problem paths only, never document contents. Restoring copies
+production data into the scratch databases, so delete them when the check is done.
+
 ## Approved revisions
 
 Chain admission (capability plan W4) pins each stage of a protected chain to a specific compiler
