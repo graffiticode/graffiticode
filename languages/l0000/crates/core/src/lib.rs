@@ -61,4 +61,4 @@ pub use protected::{
 };
 pub use schema::{LanguageSchema, NoSchemas, SchemaError, SchemaSource};
 pub use secret::Keyring;
-pub use value::{Key, Lambda, Record, Value};
+pub use value::{Key, Lambda, Record, Value, json_text};

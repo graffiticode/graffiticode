@@ -89,7 +89,7 @@ async fn agrees_with_the_typescript_implementation() {
         let label = format!("{label}  (data {})", case.data);
         match (&case.expect.errors, &actual) {
             (None, Ok(value)) => {
-                let text = value.as_ref().map(Json::to_string);
+                let text = value.as_ref().map(graffiticode_l0000::json_text);
                 if text != case.expect.text {
                     failures.push(format!(
                         "{label}\n  expected {}\n  got      {}",

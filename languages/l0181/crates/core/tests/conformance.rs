@@ -39,7 +39,7 @@ async fn compile(case: &Case) -> Result<Option<String>, Vec<String>> {
     let data = case.data.clone().unwrap_or_else(|| json!({}));
     let compiled = Compiler::new(L0181).compile(&case.ast, &data, &json!({}), Identity::default()).await;
     match compiled.result {
-        Ok(value) => Ok(value.to_json().map(|json| json.to_string())),
+        Ok(value) => Ok(value.to_json().map(|json| graffiticode_l0000::json_text(&json))),
         Err(errors) => Err(errors.into_iter().map(|e| e.message).collect()),
     }
 }
