@@ -1,0 +1,17 @@
+[package]
+name = "graffiticode-l0178"
+version = "0.1.0"
+description = "L0178 — a Learnosity Data API cookbook in Graffiticode, built on L0000"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait = "0.1"
+graffiticode-l0000 = { path = "../../../l0000/crates/core", default-features = false }
+indexmap = { version = "2", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

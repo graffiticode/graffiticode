@@ -24,7 +24,13 @@
     "pack": "npm run build && npm -w packages/view pack",
     "publish": "npm -w packages/core publish --access=public && npm -w packages/view publish --access=public",
     "gcp:logs": "gcloud run services logs read l0178 --project graffiticode --region us-central1",
-    "test": "npm run -w packages/core test"
+    "test": "npm run -w packages/core test",
+    "rust:static": "node tools/assemble-static.mjs",
+    "rust:build": "npm run rust:static && cargo build --release -p l0178r-server",
+    "rust:dev": "AUTH_URL=\"http://127.0.0.1:4100\" PORT=50178 cargo run -p l0178r-server",
+    "rust:test": "cargo test",
+    "rust:lint": "cargo clippy --all-targets -- -D warnings",
+    "rust:fixtures": "npm run -w packages/core build && node crates/core/tests/conformance/generate.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

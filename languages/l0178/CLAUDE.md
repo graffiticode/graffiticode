@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0178 that production runs; `crates/` is L0178 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ### Development
@@ -312,3 +314,33 @@ The embedded form supports iframe embedding and communicates with parent windows
   (L0003 pinned `^0.1.3`, which predates it; upgraded on the way in)
 - `@graffiticode/l0000-view` (published) — base view, inherited by `view`
 - `@graffiticode/auth` — auth service client used by `api`
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0178**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0178`). `crates/` is the same language in Rust, to be released to its own service `l0178r` so it can be vetted before it replaces the TypeScript. `packages/view`, the spec and `get_spec`'s prompts are shared by both: the Rust compiles jobs; it does not produce recipes.
+
+- `crates/core` (`graffiticode-l0178`) — `src/lib.rs`: `L0178` implements `Dialect` from `graffiticode-l0000`. The blocks, top-level properties and paging tags are read from `src/vocab.json`, which is **generated from `src/vocab.ts`** by `npm run rust:fixtures`; `vocab.ts` stays the single source of truth. Properties only collect (except `paging`, resolved where it is written, as in TypeScript); `fold_block` checks a request in its operation's context and applies the cross-field rules; `finalize` orders the warnings (holes, then validity, then specificity) and states the paging and async contract. Warnings and paths found anywhere in the compile live in its `ExecContext::state`. `src/plain.rs` and `src/text.rs` are the JavaScript readings of values, as in `languages/l0177`.
+- `crates/server` (`l0178r-server`, binary `l0178r`) — `l0000r_server::serve(L0178, lexicon())`.
+- `tools/assemble-static.mjs` — builds the static assets and `/form` bundle into `./static` for the Rust server.
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation" in `languages/l0000/CLAUDE.md`.
+
+```bash
+cargo test            # conformance and unit tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0178r-server
+npm run rust:dev      # cargo run -p l0178r-server on :50178 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate src/vocab.json, src/lexicon-additions.json and the fixture
+```
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` generates most of its corpus from the vocabulary: every block with all its fields valid and all wrong, with no paging and with an over-limit single page, and each field on its own. Then the spec's programs, the TypeScript suite's, and hand-written cases. `tests/conformance.rs` requires the same JSON text (field order, warning order and recorded paths included) or the same errors, for all 360 but the one difference below. A new block or field in `vocab.ts` is covered as soon as the fixture is regenerated.
+
+One deliberate difference: a field given an undefined value (`item-pool-id get-var "nope"`) is kept as `null` in the request; TypeScript's holds `undefined` and vanishes from the JSON. The warnings are the same.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0178r` entry (own service, `l0178r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0178r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`). It holds no Learnosity credential and calls no Learnosity API, like the TypeScript. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`). The account needs no roles.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/vocab.json`, `src/lexicon-additions.json` and `tests/conformance/cases.json` are generated, not edited.

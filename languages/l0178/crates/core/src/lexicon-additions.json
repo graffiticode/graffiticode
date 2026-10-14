@@ -1,0 +1,667 @@
+{
+  "data-job": {
+    "tk": 1,
+    "name": "DATA_JOB",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "items-get": {
+    "tk": 1,
+    "name": "ITEMS_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "responses-get": {
+    "tk": 1,
+    "name": "RESPONSES_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "jobs-get": {
+    "tk": 1,
+    "name": "JOBS_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "offlinepackage-get": {
+    "tk": 1,
+    "name": "OFFLINEPACKAGE_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "items-set": {
+    "tk": 1,
+    "name": "ITEMS_SET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "items-tags-set": {
+    "tk": 1,
+    "name": "ITEMS_TAGS_SET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activities-get": {
+    "tk": 1,
+    "name": "ACTIVITIES_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "questions-get": {
+    "tk": 1,
+    "name": "QUESTIONS_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "features-get": {
+    "tk": 1,
+    "name": "FEATURES_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "pools-get": {
+    "tk": 1,
+    "name": "POOLS_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "workflows-get": {
+    "tk": 1,
+    "name": "WORKFLOWS_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tagging-tags-get": {
+    "tk": 1,
+    "name": "TAGGING_TAGS_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tags-get": {
+    "tk": 1,
+    "name": "TAGS_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tag-hierarchies-get": {
+    "tk": 1,
+    "name": "TAG_HIERARCHIES_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tag-hierarchy-nodes-get": {
+    "tk": 1,
+    "name": "TAG_HIERARCHY_NODES_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "upload-assets-get": {
+    "tk": 1,
+    "name": "UPLOAD_ASSETS_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activity-templates-get": {
+    "tk": 1,
+    "name": "ACTIVITY_TEMPLATES_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "player-templates-get": {
+    "tk": 1,
+    "name": "PLAYER_TEMPLATES_GET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activities-tags-set": {
+    "tk": 1,
+    "name": "ACTIVITIES_TAGS_SET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activities-tags-update": {
+    "tk": 1,
+    "name": "ACTIVITIES_TAGS_UPDATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "pools-update": {
+    "tk": 1,
+    "name": "POOLS_UPDATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "session-statuses-update": {
+    "tk": 1,
+    "name": "SESSION_STATUSES_UPDATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "session-item-update": {
+    "tk": 1,
+    "name": "SESSION_ITEM_UPDATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "response-feedback-update": {
+    "tk": 1,
+    "name": "RESPONSE_FEEDBACK_UPDATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "response-scores-update": {
+    "tk": 1,
+    "name": "RESPONSE_SCORES_UPDATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "response-grading-update": {
+    "tk": 1,
+    "name": "RESPONSE_GRADING_UPDATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sessions-delete": {
+    "tk": 1,
+    "name": "SESSIONS_DELETE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sessions-set-from-template": {
+    "tk": 1,
+    "name": "SESSIONS_SET_FROM_TEMPLATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sessions-set-failed-submission": {
+    "tk": 1,
+    "name": "SESSIONS_SET_FAILED_SUBMISSION",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "items-tags-update": {
+    "tk": 1,
+    "name": "ITEMS_TAGS_UPDATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "paging": {
+    "tk": 1,
+    "name": "PAGING",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "references": {
+    "tk": 1,
+    "name": "REFERENCES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "status": {
+    "tk": 1,
+    "name": "STATUS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "created-by": {
+    "tk": 1,
+    "name": "CREATED_BY",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "scoring-type": {
+    "tk": 1,
+    "name": "SCORING_TYPE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "item-pool-id": {
+    "tk": 1,
+    "name": "ITEM_POOL_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "organisation-id": {
+    "tk": 1,
+    "name": "ORGANISATION_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "authoring-workflow-reference": {
+    "tk": 1,
+    "name": "AUTHORING_WORKFLOW_REFERENCE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "authoring-workflow-states": {
+    "tk": 1,
+    "name": "AUTHORING_WORKFLOW_STATES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "questions-references": {
+    "tk": 1,
+    "name": "QUESTIONS_REFERENCES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "questions-types": {
+    "tk": 1,
+    "name": "QUESTIONS_TYPES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tags": {
+    "tk": 1,
+    "name": "TAGS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "advanced-tags-all": {
+    "tk": 1,
+    "name": "ADVANCED_TAGS_ALL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "advanced-tags-either": {
+    "tk": 1,
+    "name": "ADVANCED_TAGS_EITHER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "advanced-tags-none": {
+    "tk": 1,
+    "name": "ADVANCED_TAGS_NONE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "include-items": {
+    "tk": 1,
+    "name": "INCLUDE_ITEMS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sort": {
+    "tk": 1,
+    "name": "SORT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sort-field": {
+    "tk": 1,
+    "name": "SORT_FIELD",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "mintime": {
+    "tk": 1,
+    "name": "MINTIME",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "maxtime": {
+    "tk": 1,
+    "name": "MAXTIME",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "limit": {
+    "tk": 1,
+    "name": "LIMIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "next": {
+    "tk": 1,
+    "name": "NEXT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "session-id": {
+    "tk": 1,
+    "name": "SESSION_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "user-id": {
+    "tk": 1,
+    "name": "USER_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activity-id": {
+    "tk": 1,
+    "name": "ACTIVITY_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "mintime-started": {
+    "tk": 1,
+    "name": "MINTIME_STARTED",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "maxtime-started": {
+    "tk": 1,
+    "name": "MAXTIME_STARTED",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "mintime-completed": {
+    "tk": 1,
+    "name": "MINTIME_COMPLETED",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "maxtime-completed": {
+    "tk": 1,
+    "name": "MAXTIME_COMPLETED",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "include-session-metadata": {
+    "tk": 1,
+    "name": "INCLUDE_SESSION_METADATA",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "include": {
+    "tk": 1,
+    "name": "INCLUDE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activity-references": {
+    "tk": 1,
+    "name": "ACTIVITY_REFERENCES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "items": {
+    "tk": 1,
+    "name": "ITEMS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "base-directory": {
+    "tk": 1,
+    "name": "BASE_DIRECTORY",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "meta-user-id": {
+    "tk": 1,
+    "name": "META_USER_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "meta-user-firstname": {
+    "tk": 1,
+    "name": "META_USER_FIRSTNAME",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "meta-user-lastname": {
+    "tk": 1,
+    "name": "META_USER_LASTNAME",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "meta-user-email": {
+    "tk": 1,
+    "name": "META_USER_EMAIL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "item-references-all": {
+    "tk": 1,
+    "name": "ITEM_REFERENCES_ALL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "item-references-either": {
+    "tk": 1,
+    "name": "ITEM_REFERENCES_EITHER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "include-activities": {
+    "tk": 1,
+    "name": "INCLUDE_ACTIVITIES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "populate-userdata": {
+    "tk": 1,
+    "name": "POPULATE_USERDATA",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "item-references": {
+    "tk": 1,
+    "name": "ITEM_REFERENCES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "types": {
+    "tk": 1,
+    "name": "TYPES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "include-questions": {
+    "tk": 1,
+    "name": "INCLUDE_QUESTIONS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "content-search": {
+    "tk": 1,
+    "name": "CONTENT_SEARCH",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "include-features": {
+    "tk": 1,
+    "name": "INCLUDE_FEATURES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "names": {
+    "tk": 1,
+    "name": "NAMES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "reference": {
+    "tk": 1,
+    "name": "REFERENCE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "path": {
+    "tk": 1,
+    "name": "PATH",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "subkeys": {
+    "tk": 1,
+    "name": "SUBKEYS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "subkey-types": {
+    "tk": 1,
+    "name": "SUBKEY_TYPES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activities": {
+    "tk": 1,
+    "name": "ACTIVITIES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "pools": {
+    "tk": 1,
+    "name": "POOLS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "statuses": {
+    "tk": 1,
+    "name": "STATUSES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "session-ids": {
+    "tk": 1,
+    "name": "SESSION_IDS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "target-item-reference": {
+    "tk": 1,
+    "name": "TARGET_ITEM_REFERENCE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "target-item-organisation-id": {
+    "tk": 1,
+    "name": "TARGET_ITEM_ORGANISATION_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "target-item-pool-id": {
+    "tk": 1,
+    "name": "TARGET_ITEM_POOL_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sessions": {
+    "tk": 1,
+    "name": "SESSIONS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sessions-data": {
+    "tk": 1,
+    "name": "SESSIONS_DATA",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "ignore-response-revisions": {
+    "tk": 1,
+    "name": "IGNORE_RESPONSE_REVISIONS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "EXHAUSTIVE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "SINGLE-PAGE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  }
+}
