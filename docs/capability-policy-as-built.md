@@ -388,8 +388,11 @@ Evidence: [gateway execution](../packages/api/src/data.js),
       new ones, written 38 s after they were created, sent nothing: new log-based alerts take
       several minutes to start matching.
 
-  Missing: reconciliation events (W5 stage 3), and the validator that will require a category
-  (a later release; coverage is now shown on deployed records). Evidence:
+    - **Required (in code, not yet released):** a failure record whose category can't be
+      determined is written with `category: "invalid"`, still counted by outcome, and counted
+      by the `uncategorized_failures` metric (expected zero).
+
+  Missing: reconciliation events (W5 stage 3). Evidence:
   [audit](../packages/policy/src/audit.ts), [AT-12 harness](../packages/api/src/at12.spec.js),
   [monitoring](../scripts/monitoring.js).
 - **Missing — RELEASE-01.** No stronger-contract cutover/version enforcement, pinned-plan

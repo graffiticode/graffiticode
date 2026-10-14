@@ -277,6 +277,7 @@ once, by the record that reports it:
 | `gateway_policy_unavailable` | gateway requests refused with `policy-unavailable` |
 | `uncertain_writes` / `partial_writes` | Broker's final outcome; replays are excluded |
 | `artifact_failures` | api artifacts not stored, by category. `unavailable` is an outage. `conflict` includes a retry with the same key whose output differs from the stored artifact (the first is kept) |
+| `uncategorized_failures` | failure records whose category couldn't be determined (`category: "invalid"`), i.e. a reason missing from the failure table. Expected to stay at zero |
 | `receipt_replays` | answers from a recorded outcome; never a new effect |
 
 **Alerts** (email to the operator's channel, at most one email per alert every 5 minutes):
@@ -299,6 +300,9 @@ Every failure record carries a `category` (`authentication`, `permission`, `malf
 `conflict` or `unavailable`), the same one its response reports. The audit adds it from the
 reason, so Policy, Broker and api records agree. Broker's write outcomes always carry a reason
 too: a refusal's, or `provider-rejected`, `provider-response-lost` or `step-not-persisted`.
+The category is required: a failure whose category can't be determined is still written, with
+`category: "invalid"`, and counted by `uncategorized_failures`. Add its reason to
+`packages/common/src/failures.ts`.
 
 **The dry run** counts each metric's filter against the last 7 days of deployed entries
 (`--days N` changes the window). It fails when a metric's source records (service and
