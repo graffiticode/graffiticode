@@ -1,0 +1,50 @@
+{
+  "cards": {
+    "tk": 1,
+    "name": "CARDS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The deck: a list of two-element [\"front\" \"back\"] pairs, then the deck's configuration."
+  },
+  "title": {
+    "tk": 1,
+    "name": "TITLE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The deck's title."
+  },
+  "instructions": {
+    "tk": 1,
+    "name": "INSTRUCTIONS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Guidance shown above the deck."
+  },
+  "theme": {
+    "tk": 1,
+    "name": "THEME",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "The UI theme — DARK or LIGHT."
+  },
+  "DARK": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The dark theme."
+  },
+  "LIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The light theme."
+  }
+}

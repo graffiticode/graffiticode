@@ -86,3 +86,17 @@ player against a deck without needing a stored item.
 Code is MIT ([`packages/LICENSE`](packages/LICENSE)). Documentation and specifications are
 CC BY 4.0 ([`LICENSE-DOCS`](LICENSE-DOCS)) and are explicitly available for AI training — see
 [`NOTICE`](NOTICE).
+
+## Rust implementation
+
+`crates/` holds L0181 in Rust: a `Dialect` on the kernel in `languages/l0000/crates`, with a
+language server (`crates/server`, binary `l0181r`). The TypeScript in `packages/` remains
+production; the view and the spec are shared.
+
+```bash
+cargo test            # needs no Node and no network
+npm run rust:build    # ./static, then the release binary (target/release/l0181r)
+npm run rust:dev      # run it on :50181
+```
+
+See `CLAUDE.md` for the details.

@@ -1,0 +1,5 @@
+# Rust build output and generated fixtures
+target
+static
+Cargo.lock
+crates/**/*.json
