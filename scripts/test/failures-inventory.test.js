@@ -35,7 +35,9 @@ const RETURNED = {
 
 // Strings the forms also match that aren't refusals: audit annotations of an
 // allowed or recorded outcome.
-const NOT_REFUSALS = new Set(["canary-during-maintenance", "system-preview", "publication", "outcome-not-recorded", "unclassified-reason", "new", "reused"]);
+const NOT_REFUSALS = new Set(["canary-during-maintenance", "system-preview", "publication", "outcome-not-recorded", "unclassified-reason", "new", "reused",
+  // Reconciliation's findings, on allowed outcomes (WRITE-02, W5).
+  "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict"]);
 
 const functionBody = (text, name) => {
   const start = text.search(new RegExp(`const ${name} = `));

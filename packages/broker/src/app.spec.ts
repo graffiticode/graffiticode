@@ -125,8 +125,11 @@ beforeEach(async () => {
       [SA.policy]: { role: "policy" }
     }
   });
-  app = createBrokerApp({ broker, secrets, identifyCaller, audit });
+  reconciled = [];
+  app = createBrokerApp({ broker, secrets, identifyCaller, audit, reconcile: async args => { reconciled.push(args); return { invocationId: args.invocationId, operations: [] }; } });
 });
+
+let reconciled;
 
 let makeApp;
 let records;
@@ -263,5 +266,23 @@ describe("credential provisioning", () => {
   it("refuses policy on the execute route", async () => {
     const res = await exec(SA.policy);
     expect(res.status).toBe(403);
+  });
+});
+
+// Reconciliation (WRITE-02, W5): Policy only.
+describe("broker http: reconcile", () => {
+  const ask = (email, body = { connectionId: "conn-1", invocationId: "inv-0001", decisionId: "decision-0001" }) =>
+    request(app).post("/v1/reconcile").set("X-Caller-Identity", `idt|${email}|${AUD}`).set("X-Serverless-Authorization", forwarded(email)).send(body);
+
+  it("takes a request from Policy, and passes it on", async () => {
+    const res = await ask(SA.policy);
+    expect(res.status).toBe(200);
+    expect(reconciled).toEqual([{ connectionId: "conn-1", invocationId: "inv-0001", decisionId: "decision-0001" }]);
+  });
+
+  it("refuses any other caller, and a malformed request, before reconciling", async () => {
+    expect((await ask(SA.l0176)).status).toBe(403);
+    expect((await ask(SA.policy, { connectionId: "conn-1", invocationId: "../etc", decisionId: "decision-0001" })).status).toBe(400);
+    expect(reconciled).toEqual([]);
   });
 });

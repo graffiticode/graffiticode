@@ -49,6 +49,8 @@ let brokerSecrets;
 let SNAPSHOT;
 let grants;
 let protectedEnabled;
+let reconciled;
+let policyRef;
 
 beforeEach(async () => {
   protectedEnabled = true;
@@ -71,8 +73,11 @@ beforeEach(async () => {
     publications: createMemoryPublicationStore(),
     grants,
     systemConnections: { learnosity: "conn-sys" },
-    audit
+    audit,
+    brokerReconcile: async args => { reconciled.push(args); return { invocationId: args.invocationId, operations: [] }; }
   });
+  reconciled = [];
+  policyRef = policy;
   const identifyCaller = createCallerIdentity({
     verifyIdToken,
     audience: AUD,
@@ -438,5 +443,23 @@ describe("maintenance over http", () => {
     expect((await request(app).get("/v1/protected-execution")).body).toEqual({ enabled: false, source: "flag" });
     // Invocations are still allocated; they authorize nothing by themselves.
     expect((await invocation("conn-1")).status).toBe(200);
+  });
+});
+
+// Reconciliation (WRITE-02, W5): the console, for the signed-in user's own save.
+describe("policy http: reconcile", () => {
+  it("takes the console's request for the owner's save, by the key it used", async () => {
+    const { invocationId } = await policyRef.allocateInvocation({ caller: { role: "gateway" }, user: { uid: OWNER }, connectionId: "conn-1", taskId: "t", inputDigest: "a".repeat(64), idempotencyKey: "save:t" });
+    const res = await as(request(app).post("/v1/receipts/reconcile"), SA.console).send({ connectionId: "conn-1", idempotencyKey: "save:t" });
+    expect(res.status).toBe(200);
+    expect(reconciled).toEqual([expect.objectContaining({ connectionId: "conn-1", invocationId })]);
+  });
+
+  it("refuses any caller but the console", async () => {
+    for (const sa of [SA.gateway, SA.l0176, SA.broker]) {
+      const res = await as(request(app).post("/v1/receipts/reconcile"), sa).send({ connectionId: "conn-1", idempotencyKey: "save:t" });
+      expect(res.status).toBe(403);
+    }
+    expect(reconciled).toEqual([]);
   });
 });

@@ -63,6 +63,9 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // lost (the write may have applied), or a completed step couldn't be
   // recorded.
   ...cat("malformed", ["provider-rejected"]),
+  // Reconciliation (WRITE-02, W5): no write receipt for that invocation on
+  // that connection.
+  ...cat("malformed", ["receipt-not-found", "invocation-not-found"]),
   ...cat("unavailable", ["provider-response-lost", "step-not-persisted"]),
   ...cat("conflict", ["artifact-rejected", "artifact-incompatible", "published-artifact-unavailable", "signed-content"]),
   ...cat("malformed", ["artifact-not-found", "publication-other-item"]),

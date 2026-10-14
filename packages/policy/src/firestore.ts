@@ -68,6 +68,11 @@ export const createFirestoreInvocationStore = db => ({
     const data = snap.data();
     return { invocationId, ...data, contract: data.contract ?? 1, planDigest: data.planDigest ?? null };
   },
+  // The invocation a user's idempotency key named, if any (reconciliation).
+  async findByKey(uid, idempotencyKey) {
+    const key = await db.collection("idempotency-keys").doc(hashId([uid, idempotencyKey])).get();
+    return key.exists ? this.get(key.data().invocationId) : null;
+  },
   async getPlan(planDigest) {
     const snap = await db.collection("plans").doc(planDigest).get();
     return snap.exists ? snap.data().plan : null;

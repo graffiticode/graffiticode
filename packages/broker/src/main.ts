@@ -48,6 +48,7 @@ import {
   createFirestoreReceiptStore,
   createFirestoreSecretStore,
   createFirestoreActivityStore,
+  createReconciler,
   parseLimits,
   buildPolicyAuthorizer
 } from "./index.js";
@@ -71,25 +72,31 @@ const [publicKey] = await new KeyManagementServiceClient().getPublicKey({ name: 
 const jwks = { keys: [{ ...(await exportJWK(await importSPKI(publicKey.pem, "ES256"))), kid, alg: "ES256", use: "sig" }] };
 
 const secrets = createFirestoreSecretStore(db, { box });
+const receipts = createFirestoreReceiptStore(db);
+const limits = parseLimits(env);
+const operations = buildOperations({
+  sdk: new LearnositySDK(),
+  domain,
+  dataApi: buildLearnosityDataApi({ baseUrl: env.LEARNOSITY_DATA_API || "https://data.learnosity.com/v2025.2.LTS" })
+});
 const broker = createBroker({
   jwks,
   audit,
   secrets,
   once: createFirestoreOnceStore(db),
-  receipts: createFirestoreReceiptStore(db),
+  receipts,
   activity: createFirestoreActivityStore(db),
-  limits: parseLimits(env),
+  limits,
   // Contract v2 (W4): 1 until the cutover raises it.
   minContractVersion: parseMinContractVersion(env.BROKER_MIN_CONTRACT_VERSION, "BROKER_MIN_CONTRACT_VERSION"),
   protectedSwitch: createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) }),
   authorize: buildPolicyAuthorizer({ policyUrl: requireEnv(env, "POLICY_URL"), idToken: createIdTokenSource({ GoogleAuth }) }),
-  operations: buildOperations({
-    sdk: new LearnositySDK(),
-    domain,
-    dataApi: buildLearnosityDataApi({ baseUrl: env.LEARNOSITY_DATA_API || "https://data.learnosity.com/v2025.2.LTS" })
-  })
+  operations
 });
+// Reconciliation (WRITE-02, W5): reads only, over the same receipts and credentials.
+const reconcile = createReconciler({ receipts, secrets, operations, limits, audit });
 const server = createBrokerApp({
+  reconcile,
   broker,
   secrets,
   audit,

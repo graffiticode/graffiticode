@@ -51,6 +51,8 @@ const id = v => notAnAddress(match(ID)(v));
 const ANNOTATIONS = [
   "canary-during-maintenance", "system-preview", "publication", "new", "reused", "outcome-not-recorded",
   "unclassified-reason", "succeeded", "failed", "partial", "uncertain",
+  // Reconciliation's verdicts and findings (WRITE-02, W5).
+  "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict",
 ];
 const reason = v => {
   if (typeof v !== "string") return INVALID;

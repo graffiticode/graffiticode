@@ -181,6 +181,10 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     await decide(res, () => handler({ caller, user: u, body: req.body ?? {}, id: req.params.id }));
   });
   router.get("/connections", manage(({ caller, user }) => manager.list({ caller, user })));
+  // Reconciliation (WRITE-02, W5): the console, for the signed-in user's save.
+  router.post("/receipts/reconcile", manage(({ caller, user, body }) => policy.reconcile({
+    caller, user, connectionId: body.connectionId, idempotencyKey: body.idempotencyKey ?? null, invocationId: body.invocationId ?? null,
+  })));
   router.post("/connections", manage(({ caller, user, body }) =>
     manager.create({ caller, user, backend: body.backend, label: body.label ?? null, credential: body.credential })));
   router.post("/connections/:id/rotate", manage(({ caller, user, id, body }) =>

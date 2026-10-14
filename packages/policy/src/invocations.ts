@@ -76,6 +76,11 @@ export const createMemoryInvocationStore = ({ leases = new Map() } = {}) => {
       const found = invocations.get(invocationId);
       return found ? { ...found } : null;
     },
+    // The invocation a user's idempotency key named, if any (reconciliation).
+    async findByKey(uid, idempotencyKey) {
+      const hit = keys.get(JSON.stringify([uid, idempotencyKey]));
+      return hit ? { ...invocations.get(hit.invocation.invocationId) } : null;
+    },
     async getPlan(planDigest) {
       return plans.has(planDigest) ? structuredClone(plans.get(planDigest).plan) : null;
     },

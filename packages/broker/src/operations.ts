@@ -74,6 +74,36 @@ export const writeEvidence = ({ questionRecords, itemRecords }) => ({
   ],
 });
 
+// What a stored record says about an operation (format 1): whether it
+// carries this operation's mark (`landed`: proof its write of the record
+// happened, whatever came after), and whether its projected fields, without
+// the mark, currently match what the operation sent (an observation of
+// current state only; it resolves nothing).
+const markOf = (kind, stored) => (kind === "question" ? stored?.data?.metadata?.[MARK_KEY] : stored?.metadata?.[MARK_KEY]);
+const unmarked = (kind, stored) => {
+  const strip = metadata => {
+    const rest = withoutMark(metadata);
+    return isPlainObject(rest) && Object.keys(rest).length === 0 ? undefined : rest;
+  };
+  if (kind === "question") {
+    const data = isPlainObject(stored?.data) ? { ...stored.data, metadata: strip(stored.data.metadata) } : stored?.data;
+    if (isPlainObject(data) && data.metadata === undefined) delete data.metadata;
+    return { ...stored, data };
+  }
+  const item = { ...stored, metadata: strip(stored?.metadata) };
+  if (item.metadata === undefined) delete item.metadata;
+  return item;
+};
+export const observeRecord = ({ kind, digest }, stored, operationId) => {
+  if (!stored) return { found: false, landed: false, matches: false };
+  const fields = kind === "question" ? EVIDENCE_PROJECTION.questions : EVIDENCE_PROJECTION.items;
+  return {
+    found: true,
+    landed: markOf(kind, stored) === operationId,
+    matches: argsDigest(project(unmarked(kind, stored), fields)) === digest,
+  };
+};
+
 // The records as Broker sends them: each carries this operation's mark.
 const marked = ({ questionRecords, itemRecords }, operationId) => ({
   questionRecords: questionRecords.map(q => ({ ...q, data: { ...q.data, metadata: { ...withoutMark(q.data.metadata ?? {}), [MARK_KEY]: operationId } } })),
@@ -133,6 +163,19 @@ export const buildOperations = ({ sdk, domain, dataApi }) => {
       kind: "write",
       validate: validateWrite,
       evidence: writeEvidence,
+      // Reconciliation's read (WRITE-02): the stored records for exactly the
+      // references the claim's evidence names, never anything else. Reads
+      // only; returns { question: Map, item: Map } by reference.
+      readBack: async (evidence, { key, secret }, { timeoutMs }) => {
+        const refs = kind => evidence.records.filter(r => r.kind === kind).map(r => r.reference);
+        const get = async (route, references) => {
+          if (!references.length) return new Map();
+          const res = await dataApi({ route, request: sdk.init("data", { consumer_key: key, domain }, secret, { references, limit: references.length }, "get"), timeoutMs });
+          const rows = Array.isArray(res?.data) ? res.data : [];
+          return new Map(rows.filter(r => references.includes(r?.reference)).map(r => [r.reference, r]));
+        };
+        return { question: await get("/itembank/questions", refs("question")), item: await get("/itembank/items", refs("item")) };
+      },
       // Two provider writes: questions first (items reference them), then
       // items. Each step's status is reported so a failure after the first is
       // visible as `partial` rather than retried. `providerCall` (from the

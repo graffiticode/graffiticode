@@ -61,6 +61,8 @@ export const createMemoryReceiptStore = () => {
   const claims = new Map();
   const steps = new Map();
   const outcomes = new Map();
+  const attempts = new Map();
+  const resolutions = new Map();
   return {
     // -> { created: true } or { created: false, claim }
     async claim(operationId, binding, { pld = undefined, evidence = undefined } = {}) {
@@ -92,6 +94,28 @@ export const createMemoryReceiptStore = () => {
         throw new Error(`outcome already recorded for ${operationId}`);
       }
       outcomes.set(operationId, { ...outcome, at: new Date().toISOString() });
+    },
+    // Reconciliation (WRITE-02, W5): an invocation's claims, appended attempts,
+    // and a final resolution created once.
+    async listClaims(invocationId) {
+      return [...claims.entries()].filter(([id]) => id.startsWith(`${invocationId}/`)).map(([operationId, claim]) => ({ operationId, ...claim }));
+    },
+    async putAttempt(operationId, attemptId, attempt) {
+      const key = `${operationId}#${attemptId}`;
+      if (attempts.has(key)) throw new Error(`attempt ${attemptId} already recorded`);
+      attempts.set(key, { ...attempt, at: new Date().toISOString() });
+    },
+    async getAttempts(operationId) {
+      return [...attempts.entries()].filter(([k]) => k.startsWith(`${operationId}#`)).map(([, a]) => a);
+    },
+    async getResolution(operationId) {
+      return resolutions.get(operationId) ?? null;
+    },
+    // -> true if created, false if one was already there (unchanged).
+    async createResolution(operationId, resolution) {
+      if (resolutions.has(operationId)) return false;
+      resolutions.set(operationId, { ...resolution, at: new Date().toISOString() });
+      return true;
     },
   };
 };

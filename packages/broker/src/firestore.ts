@@ -60,6 +60,30 @@ export const createFirestoreReceiptStore = db => {
       const created = await createOnce(outcomeRef(operationId), { ...outcome, at: new Date().toISOString() });
       if (!created) throw new Error("outcome already recorded");
     },
+    // Reconciliation (WRITE-02, W5). An invocation's claims, by the operation
+    // ids it issued (`<invocationId>/<stage>/<occurrence>`).
+    async listClaims(invocationId) {
+      const prefix = `${invocationId}/`;
+      const snap = await db.collection("receipts").where("operationId", ">=", prefix).where("operationId", "<", `${prefix}\uf8ff`).get();
+      return snap.docs.map(d => d.data());
+    },
+    // Every attempt is its own document, beside the receipt's resolution.
+    async putAttempt(operationId, attemptId, attempt) {
+      const ref = claimRef(operationId).collection("reconciliation-attempts").doc(attemptId);
+      if (!(await createOnce(ref, { ...attempt, at: new Date().toISOString() }))) throw new Error(`attempt ${attemptId} already recorded`);
+    },
+    async getAttempts(operationId) {
+      const snap = await claimRef(operationId).collection("reconciliation-attempts").orderBy("at").get();
+      return snap.docs.map(d => d.data());
+    },
+    async getResolution(operationId) {
+      const snap = await claimRef(operationId).collection("resolution").doc("final").get();
+      return snap.exists ? snap.data() : null;
+    },
+    // Created only if absent: the first definitive resolution stands.
+    async createResolution(operationId, resolution) {
+      return createOnce(claimRef(operationId).collection("resolution").doc("final"), { ...resolution, at: new Date().toISOString() });
+    },
   };
 };
 

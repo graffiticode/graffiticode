@@ -43,7 +43,8 @@ import {
   protectedFunctionsForLang,
   systemPreviewFunctionsForLang,
   viewSafeFunctionsForLang,
-  isStepRegistered
+  isStepRegistered,
+  PROTECTED_FUNCTIONS
 } from "@graffiticode/common/protected-registry";
 import { createHash, randomUUID } from "node:crypto";
 import { decodeChainId } from "@graffiticode/common/chain";
@@ -90,6 +91,8 @@ export const ADMISSION_MAX_AGE_MS = 5000;
 
 export const createPolicy = ({
   signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, protectedSwitch, audit,
+  // Reconciliation (WRITE-02, W5): Broker's admin call, when configured.
+  brokerReconcile = null,
   // Contract v2 (W4): the approved-revisions reader and the lease fence, and
   // the lowest contract version accepted (1 until the cutover).
   approvals = null, fence = null, minContractVersion = 1, admissionMaxAgeMs = ADMISSION_MAX_AGE_MS, now = () => Date.now(),
@@ -801,6 +804,39 @@ export const createPolicy = ({
     };
   };
 
+  // Reconciliation (spec WRITE-02, W5 stage 3), asked from the console by the
+  // signed-in user, for one save: the exact attempt, named by the idempotency
+  // key it used (the user's own) or its invocation id. Allowed for the
+  // connection's owner, or for the user who made the save while their grant
+  // still covers a write. Broker then reads the provider and appends what it
+  // found; nothing is written to the provider and nothing re-executes.
+  const mayWrite = access => Object.entries(PROTECTED_FUNCTIONS).some(([lang, fns]) =>
+    Object.entries(fns).some(([fn, spec]) => spec.kind === "write" && mayUse(access, lang, fn)));
+  const reconcile = async ({ caller, user, connectionId, idempotencyKey = null, invocationId = null }) => {
+    const record = { event: "reconcile-request", uid: user?.uid, connectionId, callerRole: caller?.role };
+    if (caller?.role !== "console") return deny("caller-not-entry-point", record);
+    if (!user?.uid) return deny("no-user", record);
+    if (!brokerReconcile) return deny("unavailable", record);
+    if ((idempotencyKey === null) === (invocationId === null)) return deny("bad-request", record);
+    if (idempotencyKey !== null && (typeof idempotencyKey !== "string" || idempotencyKey.length === 0 || idempotencyKey.length > 256)) return deny("bad-request", record);
+    const connection = typeof connectionId === "string" ? await connections.get(connectionId) : null;
+    const access = await accessFor(connection, user.uid);
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    const invocation = idempotencyKey !== null ? await invocations.findByKey(user.uid, idempotencyKey) : await invocations.get(invocationId);
+    if (!invocation || invocation.connectionId !== connectionId) return deny("invocation-not-found", { ...record, ownerUid: connection.ownerUid });
+    if (!access.owner && !(invocation.uid === user.uid && mayWrite(access))) return deny("not-granted", { ...record, ownerUid: connection.ownerUid });
+    const decisionId = randomUUID();
+    const live = { ...record, ownerUid: connection.ownerUid, invocationId: invocation.invocationId, decisionId };
+    let result;
+    try {
+      result = await brokerReconcile({ connectionId, invocationId: invocation.invocationId, decisionId });
+    } catch (e) {
+      return deny(typeof e?.reason === "string" ? e.reason : "unavailable", live);
+    }
+    await audit({ ...live, outcome: "allowed" });
+    return result;
+  };
+
   // For the operator and candidate checks: on or off, and why. Never the flag's
   // other fields.
   const protectedExecution = async () => {
@@ -808,5 +844,5 @@ export const createPolicy = ({
     return { enabled, source };
   };
 
-  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, protectedExecution };
+  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
 };

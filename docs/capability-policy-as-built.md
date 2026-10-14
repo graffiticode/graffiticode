@@ -161,7 +161,25 @@ Evidence: [gateway execution](../packages/api/src/data.js),
       - So reconciliation will confirm `applied` from marks, and otherwise report
         `unresolved`; it never claims `not_applied`.
 
-    The reconcile route and the console flow are still missing.
+    Released as `broker-rmv8c7p8i-cea788` (2026-10-14); the canary passed 23 of 23 with marked
+    writes, so the sandbox accepts them.
+  - **Reconciliation (in code, not yet released):**
+    - **Policy** `POST /v1/receipts/reconcile`: the console only, for the signed-in user. Allowed
+      for the connection's owner, or for the user who made the save while their grant still
+      covers a write. The save is named by the exact idempotency key it used, or its invocation
+      id.
+    - **Broker** `POST /v1/reconcile`: Policy only. For each write receipt of that invocation on
+      that connection:
+      - after the write's deadline plus 60 s, it reads back exactly the claim's references with
+        the connection's credential;
+      - it decides each record `landed` (this operation's mark) or unknown;
+      - the verdict is `applied` or `unresolved`, and every attempt is appended;
+      - `resolution/final` is created only for `applied`, and only if absent;
+      - a disagreeing race is recorded as a conflict.
+
+      It never writes or re-executes, and older receipts without evidence stay unresolved.
+  - Still missing: the console's "Check the item bank" flow, which stores each attempt's key, and
+    a canary check.
   Evidence: [Broker](../packages/broker/src/broker.ts),
   [provider response classification](../packages/broker/src/learnosity.ts),
   [receipt store](../packages/broker/src/firestore.ts), and

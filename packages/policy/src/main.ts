@@ -72,7 +72,10 @@ const invocations = createFirestoreInvocationStore(db);
 const publications = createFirestorePublicationStore(db);
 const grants = createFirestoreGrantStore(db);
 const protectedSwitch = createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) });
+const idToken = createIdTokenSource({ GoogleAuth });
+const brokerAdmin = createBrokerAdminClient({ brokerUrl, idToken });
 const policy = createPolicy({
+  brokerReconcile: brokerAdmin.reconcile,
   signer,
   jwks: publicJwks,
   connections,
@@ -86,8 +89,7 @@ const policy = createPolicy({
   fence: createFirestoreLeaseFence(db),
   minContractVersion,
 });
-const idToken = createIdTokenSource({ GoogleAuth });
-const manager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin: createBrokerAdminClient({ brokerUrl, idToken }) });
+const manager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin });
 const authClient = createAuthClient(authUrl);
 const verifyUser = async token => ({ uid: (await authClient.verifyToken(token)).uid });
 

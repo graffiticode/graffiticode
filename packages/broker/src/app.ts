@@ -9,6 +9,7 @@
 //
 // A refusal carries only its reason — never the token, payload or credential.
 
+import { ReconcileRefused } from "./reconcile.js";
 import { Router } from "express";
 import { buildHttpHandler, createHttpApp, sendSuccessResponse, parseTokenFromRequest } from "@graffiticode/common/http";
 import { InvalidArgumentError, UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
@@ -18,7 +19,7 @@ import { BrokerRefused } from "./broker.js";
 
 const CONNECTION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
-export const createBrokerApp = ({ broker, secrets, identifyCaller, audit }) => {
+export const createBrokerApp = ({ broker, secrets, identifyCaller, audit, reconcile = null }) => {
   // express's Router is callable; its types reject `new`, which works.
   const router = new (Router as unknown as new () => ReturnType<typeof Router>)();
   // Only policy provisions credentials. The response never echoes them.
@@ -83,6 +84,36 @@ export const createBrokerApp = ({ broker, secrets, identifyCaller, audit }) => {
           error: { code: err.status, message: "broker refused", reason: err.reason, category, detail: err.detail },
           data: null,
         });
+        return;
+      }
+      throw err;
+    }
+  }));
+  // Reconciliation (WRITE-02, W5): Policy only, once it has decided the asking
+  // user may. Reads the provider for evidence and appends what it found;
+  // never writes to the provider or re-executes.
+  router.post("/reconcile", buildHttpHandler(async (req, res) => {
+    let caller;
+    try {
+      caller = await identifyCaller(req);
+    } catch (err) {
+      await audit({ event: "reconcile", outcome: "denied", reason: "caller-rejected" });
+      throw err;
+    }
+    if (caller.role !== "policy") {
+      await audit({ event: "reconcile", outcome: "denied", reason: "route-not-allowed-for-caller" });
+      throw new UnauthorizedError("route not allowed for this caller");
+    }
+    const { connectionId, invocationId, decisionId } = req.body ?? {};
+    if (!CONNECTION_ID_RE.test(connectionId ?? "") || !/^inv-[A-Za-z0-9-]{1,64}$/.test(invocationId ?? "") || !/^[A-Za-z0-9-]{8,64}$/.test(decisionId ?? "")) {
+      throw new InvalidArgumentError("connectionId, invocationId and decisionId are required");
+    }
+    if (!reconcile) throw new Error("reconciliation is not configured");
+    try {
+      sendSuccessResponse(res, await reconcile({ connectionId, invocationId, decisionId }));
+    } catch (err) {
+      if (err instanceof ReconcileRefused) {
+        res.status(err.status).json({ status: "error", error: { code: err.status, message: "reconcile refused", reason: err.reason, category: classify(err.reason).category }, data: null });
         return;
       }
       throw err;
