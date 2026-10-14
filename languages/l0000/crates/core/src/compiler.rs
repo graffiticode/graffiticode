@@ -81,6 +81,11 @@ impl Compiler {
         self.dialect.lang_id()
     }
 
+    /// Whether this language's output may be cached (see [`Dialect::cacheable`]).
+    pub fn cacheable(&self) -> bool {
+        self.dialect.cacheable()
+    }
+
     /// Compiles `code`, the parser's AST as JSON, against the upstream `data` it is chained
     /// onto.
     ///
@@ -90,6 +95,7 @@ impl Compiler {
     /// [`ExecContext`].
     pub async fn compile(&self, code: &Json, data: &Json, config: &Json, identity: Identity) -> Compilation {
         let mut exec = ExecContext::new(identity);
+        exec.set_policy(self.policy.clone());
         let result = self.run(code, data, config, &mut exec).await;
         Compilation { result, effects: exec.into_effects() }
     }

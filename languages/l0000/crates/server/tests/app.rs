@@ -84,6 +84,10 @@ impl GoogleKey {
 static GOOGLE: std::sync::LazyLock<GoogleKey> = std::sync::LazyLock::new(GoogleKey::generate);
 
 fn server() -> Server {
+    server_for(Compiler::new(L0000))
+}
+
+fn server_for(compiler: Compiler) -> Server {
     let static_dir = tempfile::tempdir().unwrap();
     std::fs::write(static_dir.path().join("index.html"), "<!doctype html><title>form</title>").unwrap();
     std::fs::write(static_dir.path().join("schema.json"), r#"{"type":"object"}"#).unwrap();
@@ -96,7 +100,7 @@ fn server() -> Server {
     };
     let keys = serde_json::from_value(json!({ "keys": [GOOGLE.jwk] })).unwrap();
     let state = AppState {
-        compiler: Compiler::new(L0000).with_revision(revision),
+        compiler: compiler.with_revision(revision),
         verifier: verifier.clone(),
         gateways: Arc::new(GoogleGateways::with_keys("0000", &[GATEWAY.to_owned()], keys)),
         revision: Some(REVISION.to_owned()),
@@ -488,4 +492,23 @@ async fn a_planned_stage_reports_the_revision_that_answered() {
     // An ordinary compile carries neither a revision nor effects.
     let reply = compile(&server.app, json!({ "code": add_1_2(), "data": {} })).await;
     assert_eq!(reply.json(), json!({ "data": 3, "errors": [] }));
+}
+
+/// A language whose output expires (L0176's signed previews) says so, so nothing caches it.
+#[tokio::test]
+async fn a_language_whose_output_expires_says_it_must_not_be_cached() {
+    struct Expiring;
+    impl graffiticode_l0000::Dialect for Expiring {
+        fn lang_id(&self) -> &str {
+            "0000"
+        }
+
+        fn cacheable(&self) -> bool {
+            false
+        }
+    }
+    let ok = compile(&server_for(Compiler::new(Expiring)).app, json!({ "code": add_1_2(), "data": {} })).await;
+    assert_eq!(ok.text(), r#"{"data":3,"errors":[],"cache":false}"#);
+    let ordinary = compile(&server().app, json!({ "code": add_1_2(), "data": {} })).await;
+    assert_eq!(ordinary.json().get("cache"), None);
 }

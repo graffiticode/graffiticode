@@ -139,6 +139,15 @@ pub struct SnapshotRequest<'a> {
     pub manifest: Option<&'a StageManifest>,
 }
 
+/// A system session from policy: one a compile with no connection of its own runs under, on a
+/// Graffiticode-owned connection whose credential only the broker holds.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PreviewSession {
+    /// What policy says the session may do. A malformed list is empty.
+    pub allowed: Vec<String>,
+    pub session_token: Option<String>,
+}
+
 /// The policy authority and credential broker, as the kernel sees them.
 #[async_trait]
 pub trait PolicyClient: Send + Sync {
@@ -147,6 +156,13 @@ pub trait PolicyClient: Send + Sync {
 
     /// Performs one admitted protected call. A client that only admits leaves this alone.
     async fn invoke(&self, _session_token: &str, _call: &ProtectedCall) -> Result<Json, ProtectedCallError> {
+        Err(ProtectedCallError::NoClient)
+    }
+
+    /// A system session for previews in `lang_id`, for a compile that selected no connection.
+    /// It carries no user: policy issues it to this compiler's own identity, on the connection
+    /// it has configured for the language, if any. See [`ExecContext::open_system_session`].
+    async fn preview_session(&self, _lang_id: &str) -> Result<PreviewSession, ProtectedCallError> {
         Err(ProtectedCallError::NoClient)
     }
 }
@@ -173,6 +189,10 @@ pub(crate) async fn admit(
     });
     let found: Vec<_> = implicit.chain(explicit).collect();
     if found.is_empty() {
+        return Vec::new();
+    }
+    // Nothing is granted, and the language's own fallback answers each protected call.
+    if exec.connection_id().is_none() && dialect.degrades_without_connection() {
         return Vec::new();
     }
     // A write must be visible in the program: an implicit one would run on every compile

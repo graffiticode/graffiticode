@@ -51,12 +51,13 @@ pub use compiler::{Compilation, Compiler};
 pub use dialect::{Dialect, L0000};
 pub use error::Diagnostic;
 pub use eval::{Eval, Evaluator};
-pub use exec::{EffectStatus, ExecContext, Identity, ProtectedEffect};
+pub use exec::{EffectStatus, ExecContext, Identity, ProtectedEffect, SystemSessionRefusal};
 pub use lexicon::{Lexicon, LexiconEntry, LexiconError};
 pub use number::Number;
 pub use preflight::{RevisionIdentity, StageManifest};
 pub use protected::{
-    PolicyClient, PolicySnapshot, ProtectedCall, ProtectedCallError, ProtectedFunction, ProtectedKind, SnapshotRequest,
+    PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, ProtectedFunction, ProtectedKind,
+    SnapshotRequest,
 };
 pub use schema::{LanguageSchema, NoSchemas, SchemaError, SchemaSource};
 pub use secret::Keyring;

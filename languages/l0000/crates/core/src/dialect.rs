@@ -96,6 +96,22 @@ pub trait Dialect: Send + Sync {
     fn undeclarable_protected(&self) -> bool {
         false
     }
+
+    /// Whether this language's protected functions have a behaviour of their own for a compile
+    /// that selects no connection (a preview left unsigned, a save reported as skipped), rather
+    /// than being refused. Such a compile is not admitted: nothing is granted, so every
+    /// protected call it attempts is refused at [`ExecContext::invoke`](crate::ExecContext::invoke)
+    /// and the language falls back. A compile that selects a connection is admitted as usual.
+    fn degrades_without_connection(&self) -> bool {
+        false
+    }
+
+    /// Whether a compile's output may be stored and served again. A language whose output
+    /// carries something that expires (a signature, say) answers `false`, and its server says
+    /// so in the response, so that nothing upstream caches it.
+    fn cacheable(&self) -> bool {
+        true
+    }
 }
 
 /// L0000 itself: the kernel with nothing added.

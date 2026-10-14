@@ -6,7 +6,7 @@
 //! | route | |
 //! |---|---|
 //! | `GET /` | health check |
-//! | `POST /compile` | `{ code, data, config }` → `{ data, errors }` |
+//! | `POST /compile` | `{ code, data, config }` → `{ data, errors }` (and `cache: false` for a language whose output expires) |
 //! | `POST /preflight` | the gateway only: a stage's manifest, without running anything |
 //! | `GET /form` | the embeddable View bundle |
 //! | `GET /lexicon.json`, `GET /lexicon.js` | the lexicon |
@@ -157,6 +157,12 @@ async fn compile(
         },
         Err(errors) => json!({ "data": null, "errors": errors }),
     };
+    // Output that carries something that expires (a signature) must not be stored or served
+    // again; the API reads this, strips it, and neither caches the compile nor lets the
+    // response be cached.
+    if !state.compiler.cacheable() {
+        envelope["cache"] = json!(false);
+    }
     // What the compile's protected writes did. The gateway collects it per stage and keeps it
     // out of the next stage's input.
     if !compiled.effects.is_empty() {

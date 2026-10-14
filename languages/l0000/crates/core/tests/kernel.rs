@@ -10,8 +10,8 @@ use std::sync::{Arc, LazyLock, Mutex};
 use async_trait::async_trait;
 use graffiticode_l0000::{
     Compiler, Diagnostic, Dialect, EffectStatus, Evaluator, Identity, Key, Keyring, L0000, NodeId, Op, PolicyClient,
-    PolicySnapshot, ProtectedCall, ProtectedCallError, ProtectedEffect, ProtectedFunction, ProtectedKind,
-    RevisionIdentity, SnapshotRequest, StageManifest, Value,
+    PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, ProtectedEffect, ProtectedFunction,
+    ProtectedKind, RevisionIdentity, SnapshotRequest, StageManifest, SystemSessionRefusal, Value,
 };
 use serde_json::{Value as Json, json};
 
@@ -50,6 +50,9 @@ struct Toy {
     failing: bool,
     /// What a stored program is lowered to before it runs; `Err` if it cannot be.
     lowered: Option<Result<&'static Json, &'static str>>,
+    /// Like L0176: without a connection a protected word falls back rather than being refused,
+    /// and `edit-it` signs through a system session.
+    degrades: bool,
 }
 
 impl Toy {
@@ -68,6 +71,7 @@ impl Toy {
             undeclarable: false,
             failing: false,
             lowered: None,
+            degrades: false,
         }
     }
 }
@@ -103,6 +107,32 @@ impl Dialect for Toy {
                     ..Diagnostic::spanning("Error: Item bank save partial", 3, -1)
                 });
                 return Some(Value::Null);
+            }
+            // Without a connection: a system session if policy grants one, else a refusal reason.
+            "EDIT_IT" if self.degrades && cx.exec().connection_id().is_none() => {
+                let arg = cx.eval_arg(id, elts, 0).await;
+                if let Err(refusal) = cx.exec().open_system_session("9999", "edit-it").await {
+                    return Some(Value::from(format!("unsigned: {refusal:?}")));
+                }
+                let occurrence_id = cx.exec().next_occurrence(&format!("n{id}"));
+                let payload = arg.to_json().unwrap_or(Json::Null);
+                let call =
+                    ProtectedCall { function: "edit-it".to_owned(), op: "toy.sign".to_owned(), payload, occurrence_id };
+                return Some(match cx.exec().invoke(&call).await {
+                    Ok(signed) => Value::from_json(&signed),
+                    Err(err) => Value::from(format!("refused: {err}")),
+                });
+            }
+            "SAVE_IT" if self.degrades && cx.exec().connection_id().is_none() => {
+                // A write never runs on a system session, which this compile may hold.
+                let call = ProtectedCall {
+                    function: "save-it".to_owned(),
+                    op: "toy.write".to_owned(),
+                    payload: Json::Null,
+                    occurrence_id: "n.0".to_owned(),
+                };
+                let refused = cx.exec().invoke(&call).await.is_err();
+                return Some(Value::from(if refused { "skipped" } else { "WROTE" }));
             }
             "SAVE_IT" => ("save-it", "saved"),
             "PEEK_IT" => ("peek-it", "peeked"),
@@ -150,6 +180,10 @@ impl Dialect for Toy {
     fn implicit_protected_functions(&self) -> &[ProtectedFunction] {
         &self.implicit
     }
+
+    fn degrades_without_connection(&self) -> bool {
+        self.degrades
+    }
 }
 
 /// A policy authority that allows a fixed list and remembers what it was asked.
@@ -163,6 +197,10 @@ struct Policy {
     outcomes: Arc<Mutex<Vec<Result<Json, ProtectedCallError>>>>,
     asked: Arc<Mutex<Vec<Json>>>,
     minted: Arc<Mutex<Vec<ProtectedCall>>>,
+    /// What `/v1/preview-session` answers: the functions it allows, or `None` to refuse.
+    preview: Option<Vec<String>>,
+    previews: Arc<AtomicUsize>,
+    sessions: Arc<Mutex<Vec<String>>>,
 }
 
 impl Policy {
@@ -197,10 +235,26 @@ impl PolicyClient for Policy {
     }
 
     async fn invoke(&self, session_token: &str, call: &ProtectedCall) -> Result<Json, ProtectedCallError> {
-        assert_eq!(session_token, "session-1");
+        self.sessions.lock().unwrap().push(session_token.to_owned());
         self.minted.lock().unwrap().push(call.clone());
         let mut outcomes = self.outcomes.lock().unwrap();
         if outcomes.is_empty() { Ok(json!({ "receipt": call.occurrence_id })) } else { outcomes.remove(0) }
+    }
+
+    async fn preview_session(&self, _lang_id: &str) -> Result<PreviewSession, ProtectedCallError> {
+        self.previews.fetch_add(1, Ordering::Relaxed);
+        match &self.preview {
+            Some(allowed) => {
+                Ok(PreviewSession { allowed: allowed.clone(), session_token: Some("system-session".to_owned()) })
+            }
+            None => Err(ProtectedCallError::Rejected {
+                path: "/v1/preview-session".into(),
+                status: 403,
+                reason: Some("not-configured".into()),
+                category: None,
+                effect_unknown: false,
+            }),
+        }
     }
 }
 
@@ -402,6 +456,88 @@ mod policy_snapshot {
             Compiler::new(Toy::new(&log)).compile(program("save-it 1.."), &json!({}), &json!({}), user()).await.result;
         assert!(result.is_err());
         assert!(log.calls().is_empty());
+    }
+}
+
+/// A language like L0176, whose protected words have a fallback of their own without a
+/// connection: nothing is admitted, and a sign may run on a system session from policy.
+mod without_a_connection {
+    use super::*;
+
+    fn anonymous() -> Identity {
+        Identity { uid: Some("u1".into()), ..Identity::default() }
+    }
+
+    async fn degraded(src: &str, policy: Policy, identity: Identity) -> Run {
+        run_as(src, policy, identity, |toy| {
+            toy.degrades = true;
+            toy.brokered = true;
+        })
+        .await
+    }
+
+    fn previewing(allowed: &[&str]) -> Policy {
+        Policy { preview: Some(allowed.iter().map(|f| (*f).to_owned()).collect()), ..Policy::allowing(&[]) }
+    }
+
+    #[tokio::test]
+    async fn nothing_is_admitted_and_a_write_falls_back_instead_of_failing() {
+        let run = degraded("save-it 1..", previewing(&["edit-it"]), anonymous()).await;
+        assert_eq!(run.result.unwrap(), Value::from("skipped"));
+        assert!(run.policy.asked().is_empty(), "no snapshot without a connection");
+        assert!(run.effects.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_sign_runs_on_a_system_session_opened_once_per_compile() {
+        let run = degraded("[edit-it 1 edit-it 2]..", previewing(&["edit-it"]), anonymous()).await;
+        let signed = run.result.unwrap().to_json().unwrap();
+        assert!(signed[0]["receipt"].as_str().unwrap().ends_with(".0") && signed[1]["receipt"] != signed[0]["receipt"]);
+        assert_eq!(run.policy.previews.load(Ordering::Relaxed), 1);
+        assert_eq!(*run.policy.sessions.lock().unwrap(), ["system-session", "system-session"]);
+        assert!(run.effects.is_empty(), "a sign is not an effect");
+    }
+
+    #[tokio::test]
+    async fn a_system_session_permits_its_one_function_whatever_policy_lists() {
+        // Policy's answer names a write too; the session still carries only the sign.
+        let run = degraded("[edit-it 1 save-it 2]..", previewing(&["edit-it", "save-it"]), anonymous()).await;
+        let out = run.result.unwrap().to_json().unwrap();
+        assert!(out[0]["receipt"].is_string() && out[1] == "skipped", "{out}");
+        assert_eq!(run.policy.minted.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_session_without_the_function_or_a_refusal_leaves_the_fallback() {
+        let run = degraded("edit-it 1..", previewing(&["peek-it"]), anonymous()).await;
+        let expected =
+            format!("unsigned: {:?}", SystemSessionRefusal::Unavailable(Some("no-preview-permission".into())));
+        assert_eq!(run.result.unwrap(), Value::from(expected));
+
+        let refused = Policy { preview: None, ..Policy::allowing(&[]) };
+        let run = degraded("edit-it 1..", refused, anonymous()).await;
+        let expected = format!("unsigned: {:?}", SystemSessionRefusal::Unavailable(Some("not-configured".into())));
+        assert_eq!(run.result.unwrap(), Value::from(expected));
+    }
+
+    #[tokio::test]
+    async fn without_a_policy_client_there_is_no_system_session() {
+        let log = Arc::new(Log::default());
+        let mut toy = Toy::new(&log);
+        toy.degrades = true;
+        toy.brokered = true;
+        let compiled = Compiler::new(toy).compile(program("edit-it 1.."), &json!({}), &json!({}), anonymous()).await;
+        assert_eq!(
+            compiled.result.unwrap(),
+            Value::from(format!("unsigned: {:?}", SystemSessionRefusal::NotConfigured))
+        );
+    }
+
+    #[tokio::test]
+    async fn a_compile_with_a_connection_is_admitted_as_usual() {
+        let run = degraded("save-it 1..", previewing(&["edit-it"]), user()).await;
+        assert_eq!(messages(&run.result.unwrap_err()), ["save-it is not permitted through the selected connection."]);
+        assert_eq!(run.policy.previews.load(Ordering::Relaxed), 0);
     }
 }
 

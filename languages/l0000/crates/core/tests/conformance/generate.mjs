@@ -342,6 +342,7 @@ for (const src of [
   "1..",
   "[edit-it 1 <x: save-it x>]..",
   "[edit-it 1 edit-it 2]..",
+  "[edit-it 1 save-it 2]..",
   "[save-it 1 save-it 2]..",
   "peek-it 1..",
   'get-var "config"..',

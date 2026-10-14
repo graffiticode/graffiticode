@@ -1,0 +1,17 @@
+[package]
+name = "graffiticode-l0176"
+version = "0.1.0"
+description = "L0176 — Learnosity assessments in Graffiticode, built on L0000"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait = "0.1"
+graffiticode-l0000 = { path = "../../../l0000/crates/core", default-features = false }
+serde_json = { version = "1", features = ["preserve_order"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -12,6 +12,7 @@
 //!    shares one compiler across concurrent requests, so state on the compiler would mix
 //!    users. Each compile allocates a fresh context.
 
+use std::any::{Any, TypeId};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
@@ -134,12 +135,27 @@ pub(crate) struct Grant {
     pub policy: Option<Arc<dyn PolicyClient>>,
 }
 
+/// Why a system session could not be opened (see [`ExecContext::open_system_session`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SystemSessionRefusal {
+    /// This compiler has no policy client, or the compile is not one a system session is for.
+    NotConfigured,
+    /// Policy did not issue a session for the function, with its reason when it gave one.
+    Unavailable(Option<String>),
+}
+
 pub struct ExecContext {
     identity: Identity,
     compile_id: Uuid,
     occurrences: HashMap<String, u64>,
     grant: Option<Grant>,
     effects: Vec<ProtectedEffect>,
+    /// The compiler's policy client, for a system session. Admission has its own copy.
+    policy: Option<Arc<dyn PolicyClient>>,
+    /// The outcome of this compile's one attempt at a system session.
+    system_session: Option<Result<(), SystemSessionRefusal>>,
+    /// What a dialect keeps for this invocation alone.
+    state: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
 impl ExecContext {
@@ -158,7 +174,69 @@ impl ExecContext {
             occurrences: HashMap::new(),
             grant: None,
             effects: Vec::new(),
+            policy: None,
+            system_session: None,
+            state: HashMap::new(),
         }
+    }
+
+    pub(crate) fn set_policy(&mut self, policy: Option<Arc<dyn PolicyClient>>) {
+        self.policy = policy;
+    }
+
+    /// State a dialect keeps for this invocation, created on first use. It dies with the
+    /// compile, so nothing in it reaches another invocation; and a program cannot reach it.
+    pub fn state<T: Default + Send + Sync + 'static>(&mut self) -> &mut T {
+        self.state
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(T::default()))
+            .downcast_mut()
+            .expect("state is keyed by its type")
+    }
+
+    /// Whether this invocation holds a policy session: admission granted one, or a system
+    /// session was opened.
+    pub fn has_session(&self) -> bool {
+        self.grant.as_ref().is_some_and(|grant| grant.session_token.is_some())
+    }
+
+    /// Opens a system session for a compile that selected no connection, permitting `function`
+    /// and nothing else, whatever else policy's answer lists. The function must be one that
+    /// writes nothing: the session's calls are never recorded as effects.
+    ///
+    /// Asked once per compile; later calls return the first answer. It is refused for a
+    /// compile with a connection (that one has its own session) and for one admission already
+    /// granted something (an admitted plan), so it never replaces a grant.
+    pub async fn open_system_session(&mut self, lang_id: &str, function: &str) -> Result<(), SystemSessionRefusal> {
+        if let Some(outcome) = &self.system_session {
+            return outcome.clone();
+        }
+        let outcome = self.request_system_session(lang_id, function).await;
+        self.system_session = Some(outcome.clone());
+        outcome
+    }
+
+    async fn request_system_session(&mut self, lang_id: &str, function: &str) -> Result<(), SystemSessionRefusal> {
+        if self.identity.connection_id.is_some() || self.grant.is_some() {
+            return Err(SystemSessionRefusal::NotConfigured);
+        }
+        let policy = self.policy.clone().ok_or(SystemSessionRefusal::NotConfigured)?;
+        let session = match policy.preview_session(lang_id).await {
+            Ok(session) => session,
+            Err(ProtectedCallError::NoClient) => return Err(SystemSessionRefusal::NotConfigured),
+            Err(error) => return Err(SystemSessionRefusal::Unavailable(error.reason().map(str::to_owned))),
+        };
+        let permitted = session.allowed.iter().any(|allowed| allowed == function);
+        let (Some(session_token), true) = (session.session_token, permitted) else {
+            return Err(SystemSessionRefusal::Unavailable(Some("no-preview-permission".to_owned())));
+        };
+        self.grant = Some(Grant {
+            allowed: HashSet::from([function.to_owned()]),
+            writes: HashSet::new(),
+            session_token: Some(session_token),
+            policy: Some(policy),
+        });
+        Ok(())
     }
 
     pub fn uid(&self) -> Option<&str> {

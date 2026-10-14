@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0176 that production runs; `crates/` is L0176 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ### Development
@@ -261,3 +263,58 @@ live example.
 - `@graffiticode/auth` — auth service client used by `api`
 - `learnosity-sdk-nodejs` — still a `core` dependency for the unused `buildInit*` signers; the
   broker does the signing
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0176**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0176`, pinnable). `crates/` is the same language in Rust, to be released to its own service `l0176r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec are shared by both.
+
+- `crates/core` (`graffiticode-l0176`) — the language:
+  - `src/lib.rs` — `L0176` implements `Dialect` from `graffiticode-l0000`: the block words (`items`, `item`, `questions`, `init`, `save-to-itembank`), the question types and attribute words, and the `PROG` override that signs the program's activity.
+  - `src/questions.rs` — the counterpart of `question-types.ts`: the attribute registry (`MEMBERS`, with each word's field and shape), `merge_members`, `infer_shape`, the question builders with their defaults, and every check (attributes, member shapes, scoring, cloze templates, math encoding, scoring methods).
+  - `src/activities.rs` — `items.ts` and `questions.ts`: the activities and their save plans.
+  - `src/protection.rs` — `protection.ts`: signing and saving through the broker, the system preview session, structured failures.
+  - `src/lowering.rs` — `save-lowering.ts`, as `Dialect::normalize`.
+  - `src/plain.rs` — values as the JSON the rest works on, with JavaScript's key order and `String()`.
+- `crates/server` (`l0176r-server`, binary `l0176r`) — `l0000r_server::serve(L0176::new(), lexicon())`.
+- `tools/assemble-static.mjs` — builds the static assets and `/form` bundle into `./static` for the Rust server.
+
+**Not ported:** the unused `buildInit*` local signers (and with them `learnosity-sdk-nodejs`), and the authoring tools (`tools/gen-attribute-reference.mjs`, `tools/attribute-docs.mjs`, `tools/build-static.js`).
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation" in `languages/l0000/CLAUDE.md` for evaluation, values, admission and the `Dialect` trait.
+
+```bash
+cargo test            # unit, conformance and brokered-path tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0176r-server
+npm run rust:dev      # cargo run -p l0176r-server on :50176 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate tests/conformance/* and src/lexicon-additions.json
+```
+
+### The protected path
+
+The same model as the TypeScript (see "Learnosity credentials" above); what carries it in Rust:
+
+- `protected_functions` declares `INIT` (`init`, sign) and `SAVE_TO_ITEMBANK` (`save-to-itembank`, write); `implicit_protected_functions` declares `init`, since every render is signed; `registry_version` is 7.
+- **A compile with a connection** is admitted by the kernel before it runs (one policy snapshot), and signs and saves through `ExecContext::invoke`.
+- **A compile without one** is not admitted at all (`Dialect::degrades_without_connection`): a save is reported as `itemBank: { skipped: "no-connection" }`, and a preview signs through `ExecContext::open_system_session`, which asks policy for a system session (`PolicyClient::preview_session`, `POST /v1/preview-session`) once per compile and grants it `init` alone, whatever policy's answer lists. A write can never run on it.
+- **Save plans** live in the compile's `ExecContext::state`. `save-to-itembank` saves only an activity this compile built, matched by value; an activity arriving as data, or built by another compile, is refused.
+- `Dialect::cacheable` is `false`, so the server answers `cache: false`, as the TypeScript does: every compile carries a fresh, expiring signature.
+
+These four kernel hooks were added for L0176 and are documented in `languages/l0000/CLAUDE.md`'s kernel section.
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` compiles, with the TypeScript compiler and no policy client, every program fragment in `spec/spec.md` and `spec/instructions.md` (each again with an id set), the programs in `src/compiler.test.ts`, and hand-written cases; `tests/conformance.rs` requires the same JSON text, field order included, or the same error messages, for all 203 but the two deliberate differences below that a fixture case shows (each has its own test). UUIDs and the timestamped dynamic-content references are masked on both sides. Programs that `use` another language are left out: the TypeScript fetches its schema over the network. `programs.json` holds ASTs for `tests/brokered.rs`, which follows `brokered.test.ts` against a fake policy and broker (23 tests).
+
+Deliberate differences:
+
+- An activity written as a record literal (`{type: "questions" data: …}..`) is signed. TypeScript cannot see a literal's `type` in its `PROG`, so it leaves that one unsigned, though it signs the same literal under `init`.
+- A compile with a connection on a server with no policy client is refused by the kernel's admission ("init is not permitted through the selected connection.") rather than "connections are not available on this server."
+- `get-val-*` without a resolved value says so without the `[object Object]` the published `@graffiticode/l0000` this package uses appends.
+- An attribute given an undefined value (an unset `get-var`) emits `null`; TypeScript drops the field.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0176r` entry: its own service, `l0176r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0176r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`, env `AUTH_URL` only. **Without `POLICY_URL` and `BROKER_URL`, `l0176r` signs nothing**: every preview comes back `signing: { unsigned: "not-configured" }` (the Learnosity form then renders blank) and a compile that selects a connection is refused. Giving it those means policy must also accept `l0176r-run` as a caller for language 0176, a change to the capability policy's reviewed configuration (see `docs/capability-policy-iam-review.md` at the repository root) — not done. It is not pinnable either. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`).
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/lexicon-additions.json` and `tests/conformance/*.json` are generated, not edited.

@@ -20,7 +20,9 @@ use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use serde_json::{Value as Json, json};
 
 use crate::canonical::args_digest;
-use crate::protected::{PolicyClient, PolicySnapshot, ProtectedCall, ProtectedCallError, SnapshotRequest};
+use crate::protected::{
+    PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, SnapshotRequest,
+};
 
 pub const POLICY_AUDIENCE: &str = "urn:graffiticode:policy";
 pub const BROKER_AUDIENCE: &str = "urn:graffiticode:broker";
@@ -228,6 +230,17 @@ impl<T: IdTokenSource> PolicyClient for HttpPolicyClient<T> {
             Err(err) if err.reason() == Some("token-expiring") => attempt().await,
             outcome => outcome,
         }
+    }
+
+    /// `POST /v1/preview-session`, as this compiler's own identity and with no user token: the
+    /// session is the system's.
+    async fn preview_session(&self, lang_id: &str) -> Result<PreviewSession, ProtectedCallError> {
+        let body = json!({ "lang": lang_id });
+        let data = self.post(&self.policy_url, POLICY_AUDIENCE, "/v1/preview-session", &body, None).await?;
+        Ok(PreviewSession {
+            allowed: PolicySnapshot::parse_allowed(&data).unwrap_or_default(),
+            session_token: data["sessionToken"].as_str().filter(|token| !token.is_empty()).map(str::to_owned),
+        })
     }
 }
 

@@ -949,6 +949,60 @@
   },
   "root": 13
  },
+ "[edit-it 1 save-it 2]..": {
+  "2": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "4": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "7": {
+   "tag": "SAVE_IT",
+   "elts": [
+    4
+   ],
+   "coord": {
+    "from": 12,
+    "to": 19
+   }
+  },
+  "9": {
+   "tag": "EDIT_IT",
+   "elts": [
+    2
+   ],
+   "coord": {
+    "from": 1,
+    "to": 8
+   }
+  },
+  "11": {
+   "tag": "LIST",
+   "elts": [
+    9,
+    7
+   ]
+  },
+  "12": {
+   "tag": "EXPRS",
+   "elts": [
+    11
+   ]
+  },
+  "13": {
+   "tag": "PROG",
+   "elts": [
+    12
+   ]
+  },
+  "root": 13
+ },
  "[save-it 1 save-it 2]..": {
   "2": {
    "tag": "NUM",

@@ -118,6 +118,17 @@ impl<'e> Evaluator<'e> {
         self.exec
     }
 
+    /// How many errors this compile has reported so far. A dialect that must not build on a
+    /// failed argument compares it before and after evaluating its arguments.
+    pub fn error_count(&self) -> usize {
+        self.errors.len()
+    }
+
+    /// The value `set-var` last gave `name`.
+    pub fn var(&self, name: &str) -> Option<&Value> {
+        self.vars.get(name)
+    }
+
     /// Records a compile error at a node. Evaluation continues.
     pub fn report(&mut self, at: NodeId, message: impl Into<String>) {
         self.errors.push(Diagnostic::at(message, self.ast.span(at)));

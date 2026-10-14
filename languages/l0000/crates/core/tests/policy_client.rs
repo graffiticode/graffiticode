@@ -102,6 +102,10 @@ async fn serve(fake: Arc<Fake>) -> String {
                     }
                     success(data)
                 }
+                "/v1/preview-session" => {
+                    let token = fake.session_token.lock().unwrap().clone();
+                    Fake::next(&fake.execute, success(json!({ "allowed": ["init"], "sessionToken": token })))
+                }
                 "/v1/mint" => {
                     let n = fake.sent("/v1/mint").len();
                     Fake::next(&fake.mint, success(json!({ "executionToken": format!("exec-{n}") })))
@@ -120,6 +124,7 @@ async fn serve(fake: Arc<Fake>) -> String {
         )
         .route("/v1/snapshot", post(record("/v1/snapshot")))
         .route("/v1/mint", post(record("/v1/mint")))
+        .route("/v1/preview-session", post(record("/v1/preview-session")))
         .route("/v1/execute", post(record("/v1/execute")))
         .with_state(fake);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -383,5 +388,38 @@ mod calls {
         let err = client(&url, None).invoke("session-1", &call()).await.unwrap_err();
         assert_eq!(err.reason(), Some("unavailable"));
         assert!(fake.requests.lock().unwrap().is_empty());
+    }
+}
+
+mod preview_sessions {
+    use super::*;
+
+    #[tokio::test]
+    async fn are_asked_for_as_the_compiler_with_no_user() {
+        let fake = Arc::new(Fake::default());
+        *fake.session_token.lock().unwrap() = Some("system-session".into());
+        let url = serve(fake.clone()).await;
+        let session = client(&url, None).preview_session("0176").await.unwrap();
+        assert_eq!(
+            (session.allowed, session.session_token.as_deref()),
+            (vec!["init".to_owned()], Some("system-session"))
+        );
+        let sent = fake.sent("/v1/preview-session");
+        assert_eq!(sent[0].0, json!({ "lang": "0176" }));
+        let headers = &sent[0].1;
+        assert_eq!(headers["x-caller-identity"], "id-urn:graffiticode:policy");
+        assert!(headers.get("authorization").is_none(), "a system session carries no user token");
+    }
+
+    #[tokio::test]
+    async fn a_malformed_answer_permits_nothing_and_a_refusal_keeps_its_reason() {
+        let fake = Arc::new(Fake::default());
+        fake.execute.lock().unwrap().push(success(json!({ "allowed": "init", "sessionToken": "" })));
+        fake.execute.lock().unwrap().push(refusal(403, json!({ "reason": "not-configured" })));
+        let url = serve(fake).await;
+        let session = client(&url, None).preview_session("0176").await.unwrap();
+        assert_eq!((session.allowed.len(), session.session_token), (0, None));
+        let refused = client(&url, None).preview_session("0176").await.unwrap_err();
+        assert_eq!(refused.reason(), Some("not-configured"));
     }
 }
