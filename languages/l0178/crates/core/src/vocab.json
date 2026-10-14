@@ -1,0 +1,1513 @@
+{
+  "blocks": {
+    "items-get": {
+      "endpoint": "itembank/items",
+      "action": "get",
+      "paged": true,
+      "pagingEnd": "next-absent",
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076386828189",
+      "fields": {
+        "references": [
+          "references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "status": [
+          "status",
+          "strings",
+          {
+            "values": [
+              "published",
+              "unpublished",
+              "archived"
+            ]
+          }
+        ],
+        "created-by": [
+          "created_by",
+          "strings"
+        ],
+        "scoring-type": [
+          "scoring_type",
+          "strings",
+          {
+            "values": [
+              "per-question",
+              "per-dichotomous",
+              "dependent"
+            ]
+          }
+        ],
+        "item-pool-id": [
+          "item_pool_id",
+          "string"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "authoring-workflow-reference": [
+          "authoring_workflow.reference",
+          "string"
+        ],
+        "authoring-workflow-states": [
+          "authoring_workflow.states",
+          "strings"
+        ],
+        "questions-references": [
+          "questions.references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "questions-types": [
+          "questions.types",
+          "strings"
+        ],
+        "tags": [
+          "tags",
+          "tags"
+        ],
+        "advanced-tags-all": [
+          "advanced_tags.all",
+          "tags"
+        ],
+        "advanced-tags-either": [
+          "advanced_tags.either",
+          "tags"
+        ],
+        "advanced-tags-none": [
+          "advanced_tags.none",
+          "tags"
+        ],
+        "include-items": [
+          "include.items",
+          "strings",
+          {
+            "values": [
+              "adaptive",
+              "dt_created",
+              "dt_updated",
+              "created_by",
+              "last_updated_by",
+              "max_score",
+              "dynamic_content_data",
+              "authoring_workflow"
+            ]
+          }
+        ],
+        "sort": [
+          "sort",
+          "string",
+          {
+            "values": [
+              "asc",
+              "desc"
+            ]
+          }
+        ],
+        "sort-field": [
+          "sort_field",
+          "string",
+          {
+            "values": [
+              "created",
+              "updated",
+              "reference",
+              "title"
+            ]
+          }
+        ],
+        "mintime": [
+          "mintime",
+          "timestamp"
+        ],
+        "maxtime": [
+          "maxtime",
+          "timestamp"
+        ],
+        "limit": [
+          "limit",
+          "number",
+          {
+            "max": 50
+          }
+        ],
+        "next": [
+          "next",
+          "string"
+        ]
+      }
+    },
+    "responses-get": {
+      "endpoint": "sessions/responses",
+      "action": "get",
+      "paged": true,
+      "pagingEnd": "empty-page",
+      "async": false,
+      "article": "26076304385565",
+      "fields": {
+        "session-id": [
+          "session_id",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "user-id": [
+          "user_id",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "activity-id": [
+          "activity_id",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "status": [
+          "status",
+          "strings",
+          {
+            "values": [
+              "Incomplete",
+              "Completed",
+              "Discarded",
+              "Pending Scoring"
+            ]
+          }
+        ],
+        "mintime": [
+          "mintime",
+          "timestamp"
+        ],
+        "maxtime": [
+          "maxtime",
+          "timestamp"
+        ],
+        "mintime-started": [
+          "mintime_started",
+          "timestamp"
+        ],
+        "maxtime-started": [
+          "maxtime_started",
+          "timestamp"
+        ],
+        "mintime-completed": [
+          "mintime_completed",
+          "timestamp"
+        ],
+        "maxtime-completed": [
+          "maxtime_completed",
+          "timestamp"
+        ],
+        "include-session-metadata": [
+          "include.sessions.session_metadata",
+          "strings"
+        ],
+        "sort": [
+          "sort",
+          "string",
+          {
+            "values": [
+              "asc",
+              "desc"
+            ]
+          }
+        ],
+        "limit": [
+          "limit",
+          "number",
+          {
+            "max": 50
+          }
+        ],
+        "next": [
+          "next",
+          "string"
+        ]
+      }
+    },
+    "jobs-get": {
+      "endpoint": "jobs",
+      "action": "get",
+      "paged": false,
+      "async": false,
+      "article": "26076318439197",
+      "fields": {
+        "references": [
+          "references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "status": [
+          "status",
+          "strings",
+          {
+            "values": [
+              "queued",
+              "running",
+              "halted",
+              "completed"
+            ]
+          }
+        ],
+        "include": [
+          "include",
+          "strings"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "mintime": [
+          "mintime",
+          "timestamp"
+        ],
+        "maxtime": [
+          "maxtime",
+          "timestamp"
+        ],
+        "limit": [
+          "limit",
+          "number",
+          {
+            "max": 50
+          }
+        ]
+      }
+    },
+    "offlinepackage-get": {
+      "endpoint": "itembank/offlinepackage",
+      "action": "get",
+      "paged": false,
+      "async": true,
+      "asyncEnvelope": "array",
+      "primaryBankDefault": true,
+      "article": "26076363707421",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "activity-references": [
+          "activity_references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "items": [
+          "items",
+          "records",
+          {
+            "required": [
+              "reference"
+            ],
+            "schema": {
+              "id": [
+                "id",
+                "string"
+              ],
+              "reference": [
+                "reference",
+                "string"
+              ],
+              "organisation-id": [
+                "organisation_id",
+                "number"
+              ]
+            }
+          }
+        ],
+        "base-directory": [
+          "base_directory",
+          "string"
+        ]
+      }
+    },
+    "items-set": {
+      "endpoint": "itembank/items",
+      "action": "set",
+      "paged": false,
+      "async": false,
+      "writes": true,
+      "writeSemantics": "replace",
+      "primaryBankDefault": true,
+      "article": "26076386828189",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "items": [
+          "items",
+          "records",
+          {
+            "maxEntries": 50,
+            "required": [
+              "reference",
+              "definition"
+            ],
+            "schema": {
+              "reference": [
+                "reference",
+                "string"
+              ],
+              "new-reference": [
+                "new_reference",
+                "string"
+              ],
+              "title": [
+                "title",
+                "string"
+              ],
+              "description": [
+                "description",
+                "string"
+              ],
+              "source": [
+                "source",
+                "string"
+              ],
+              "note": [
+                "note",
+                "string"
+              ],
+              "status": [
+                "status",
+                "string",
+                {
+                  "values": [
+                    "published",
+                    "unpublished",
+                    "archived"
+                  ]
+                }
+              ],
+              "tags": [
+                "tags",
+                "tags"
+              ],
+              "features": [
+                "features",
+                "strings"
+              ],
+              "questions": [
+                "questions",
+                "records",
+                {
+                  "required": [
+                    "reference"
+                  ],
+                  "schema": {
+                    "reference": [
+                      "reference",
+                      "string"
+                    ]
+                  }
+                }
+              ],
+              "metadata-acknowledgements": [
+                "metadata.acknowledgements",
+                "string"
+              ],
+              "metadata-scoring-type": [
+                "metadata.scoring_type",
+                "string",
+                {
+                  "values": [
+                    "per-question",
+                    "per-dichotomous",
+                    "dependent"
+                  ]
+                }
+              ],
+              "adaptive-difficulty": [
+                "adaptive.difficulty",
+                "number"
+              ],
+              "authoring-workflow-reference": [
+                "authoring_workflow.reference",
+                "string"
+              ],
+              "authoring-workflow-state": [
+                "authoring_workflow.state",
+                "string"
+              ],
+              "definition": [
+                "definition",
+                "unmodeled"
+              ],
+              "dynamic-content-data": [
+                "dynamic_content_data",
+                "unmodeled"
+              ],
+              "workflow": [
+                "workflow",
+                "unmodeled"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "items-tags-set": {
+      "endpoint": "itembank/items/tags",
+      "action": "set",
+      "paged": false,
+      "async": false,
+      "writes": true,
+      "writeSemantics": "replace",
+      "primaryBankDefault": true,
+      "article": "26076399449757",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "items": [
+          "items",
+          "records",
+          {
+            "maxEntries": 50,
+            "required": [
+              "reference"
+            ],
+            "schema": {
+              "reference": [
+                "reference",
+                "string"
+              ],
+              "tags": [
+                "tags",
+                "tags"
+              ]
+            }
+          }
+        ],
+        "meta-user-id": [
+          "meta.user.id",
+          "string"
+        ],
+        "meta-user-firstname": [
+          "meta.user.firstname",
+          "string"
+        ],
+        "meta-user-lastname": [
+          "meta.user.lastname",
+          "string"
+        ],
+        "meta-user-email": [
+          "meta.user.email",
+          "string"
+        ]
+      }
+    },
+    "activities-get": {
+      "endpoint": "itembank/activities",
+      "action": "get",
+      "paged": true,
+      "pagingEnd": "next-absent",
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076378893725",
+      "fields": {
+        "references": [
+          "references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "status": [
+          "status",
+          "strings",
+          {
+            "values": [
+              "published",
+              "unpublished",
+              "archived"
+            ]
+          }
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "item-pool-id": [
+          "item_pool_id",
+          "string"
+        ],
+        "item-references-all": [
+          "item_references.all",
+          "strings"
+        ],
+        "item-references-either": [
+          "item_references.either",
+          "strings"
+        ],
+        "tags": [
+          "tags",
+          "tags"
+        ],
+        "advanced-tags-all": [
+          "advanced_tags.all",
+          "tags"
+        ],
+        "advanced-tags-either": [
+          "advanced_tags.either",
+          "tags"
+        ],
+        "advanced-tags-none": [
+          "advanced_tags.none",
+          "tags"
+        ],
+        "include-activities": [
+          "include.activities",
+          "strings",
+          {
+            "values": [
+              "created_by",
+              "dt_created",
+              "dt_updated",
+              "last_updated_by",
+              "metadata",
+              "title"
+            ]
+          }
+        ],
+        "populate-userdata": [
+          "populate_userdata",
+          "boolean"
+        ],
+        "sort": [
+          "sort",
+          "string",
+          {
+            "values": [
+              "asc",
+              "desc"
+            ]
+          }
+        ],
+        "sort-field": [
+          "sort_field",
+          "string",
+          {
+            "values": [
+              "created",
+              "updated"
+            ]
+          }
+        ],
+        "mintime": [
+          "mintime",
+          "timestamp"
+        ],
+        "maxtime": [
+          "maxtime",
+          "timestamp"
+        ],
+        "limit": [
+          "limit",
+          "number"
+        ],
+        "next": [
+          "next",
+          "string"
+        ]
+      }
+    },
+    "questions-get": {
+      "endpoint": "itembank/questions",
+      "action": "get",
+      "paged": true,
+      "pagingEnd": "next-absent",
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076378985629",
+      "fields": {
+        "references": [
+          "references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "item-references": [
+          "item_references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "types": [
+          "types",
+          "strings"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "item-pool-id": [
+          "item_pool_id",
+          "string"
+        ],
+        "include-questions": [
+          "include.questions",
+          "strings",
+          {
+            "values": [
+              "dt_created",
+              "dt_updated"
+            ]
+          }
+        ],
+        "sort": [
+          "sort",
+          "string",
+          {
+            "values": [
+              "asc",
+              "desc"
+            ]
+          }
+        ],
+        "sort-field": [
+          "sort_field",
+          "string",
+          {
+            "values": [
+              "created",
+              "updated"
+            ]
+          }
+        ],
+        "mintime": [
+          "mintime",
+          "timestamp"
+        ],
+        "maxtime": [
+          "maxtime",
+          "timestamp"
+        ],
+        "limit": [
+          "limit",
+          "number"
+        ],
+        "next": [
+          "next",
+          "string"
+        ]
+      }
+    },
+    "features-get": {
+      "endpoint": "itembank/features",
+      "action": "get",
+      "paged": true,
+      "pagingEnd": "next-absent",
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076399481501",
+      "fields": {
+        "references": [
+          "references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "item-references": [
+          "item_references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "types": [
+          "types",
+          "strings"
+        ],
+        "content-search": [
+          "content_search",
+          "string"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "item-pool-id": [
+          "item_pool_id",
+          "string"
+        ],
+        "include-features": [
+          "include.features",
+          "strings",
+          {
+            "values": [
+              "dt_created",
+              "dt_updated"
+            ]
+          }
+        ],
+        "sort": [
+          "sort",
+          "string",
+          {
+            "values": [
+              "asc",
+              "desc"
+            ]
+          }
+        ],
+        "sort-field": [
+          "sort_field",
+          "string",
+          {
+            "values": [
+              "created",
+              "updated"
+            ]
+          }
+        ],
+        "mintime": [
+          "mintime",
+          "timestamp"
+        ],
+        "maxtime": [
+          "maxtime",
+          "timestamp"
+        ],
+        "limit": [
+          "limit",
+          "number"
+        ],
+        "next": [
+          "next",
+          "string"
+        ]
+      }
+    },
+    "pools-get": {
+      "endpoint": "itembank/pools",
+      "action": "get",
+      "paged": true,
+      "pagingEnd": "next-absent",
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076363663005",
+      "fields": {
+        "references": [
+          "references",
+          "strings"
+        ],
+        "status": [
+          "status",
+          "strings",
+          {
+            "values": [
+              "published",
+              "unpublished",
+              "pending",
+              "halted"
+            ]
+          }
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "sort": [
+          "sort",
+          "string",
+          {
+            "values": [
+              "asc",
+              "desc"
+            ]
+          }
+        ],
+        "sort-field": [
+          "sort_field",
+          "string",
+          {
+            "values": [
+              "created",
+              "updated"
+            ]
+          }
+        ],
+        "limit": [
+          "limit",
+          "number",
+          {
+            "max": 50
+          }
+        ],
+        "next": [
+          "next",
+          "string"
+        ]
+      }
+    },
+    "workflows-get": {
+      "endpoint": "itembank/workflows",
+      "action": "get",
+      "paged": true,
+      "pagingEnd": "next-absent",
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076399599005",
+      "fields": {
+        "references": [
+          "references",
+          "strings",
+          {
+            "maxEntries": 1000
+          }
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "limit": [
+          "limit",
+          "number",
+          {
+            "max": 50
+          }
+        ],
+        "next": [
+          "next",
+          "string"
+        ]
+      }
+    },
+    "tagging-tags-get": {
+      "endpoint": "itembank/tagging/tags",
+      "action": "get",
+      "paged": true,
+      "pagingEnd": "next-absent",
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076379042589",
+      "fields": {
+        "names": [
+          "names",
+          "strings"
+        ],
+        "types": [
+          "types",
+          "strings"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "item-pool-id": [
+          "item_pool_id",
+          "string"
+        ],
+        "sort": [
+          "sort",
+          "string",
+          {
+            "values": [
+              "asc",
+              "desc"
+            ]
+          }
+        ],
+        "sort-field": [
+          "sort_field",
+          "string",
+          {
+            "values": [
+              "sort_key",
+              "created",
+              "updated"
+            ]
+          }
+        ],
+        "limit": [
+          "limit",
+          "number",
+          {
+            "max": 50
+          }
+        ],
+        "next": [
+          "next",
+          "string"
+        ]
+      }
+    },
+    "tags-get": {
+      "endpoint": "itembank/tags",
+      "action": "get",
+      "paged": false,
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076379042589",
+      "fields": {
+        "tags": [
+          "tags",
+          "strings"
+        ],
+        "types": [
+          "types",
+          "strings"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "item-pool-id": [
+          "item_pool_id",
+          "string"
+        ]
+      }
+    },
+    "tag-hierarchies-get": {
+      "endpoint": "itembank/tagging/hierarchies",
+      "action": "get",
+      "paged": false,
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076373806749",
+      "fields": {
+        "references": [
+          "references",
+          "strings"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ]
+      }
+    },
+    "tag-hierarchy-nodes-get": {
+      "endpoint": "itembank/tagging/hierarchies/nodes",
+      "action": "get",
+      "paged": false,
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076373806749",
+      "fields": {
+        "reference": [
+          "reference",
+          "string"
+        ],
+        "path": [
+          "path",
+          "tags"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ]
+      }
+    },
+    "upload-assets-get": {
+      "endpoint": "itembank/upload/assets",
+      "action": "get",
+      "paged": false,
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076399578397",
+      "fields": {
+        "subkeys": [
+          "subkeys",
+          "strings"
+        ],
+        "subkey-types": [
+          "subkey_types",
+          "unmodeled"
+        ],
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ]
+      }
+    },
+    "activity-templates-get": {
+      "endpoint": "itembank/activities/templates",
+      "action": "get",
+      "paged": false,
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076390673565",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ]
+      }
+    },
+    "player-templates-get": {
+      "endpoint": "itembank/playertemplates",
+      "action": "get",
+      "paged": false,
+      "async": false,
+      "primaryBankDefault": true,
+      "article": "26076390673565",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ]
+      }
+    },
+    "activities-tags-set": {
+      "endpoint": "itembank/activities/tags",
+      "action": "set",
+      "paged": false,
+      "async": false,
+      "writes": true,
+      "writeSemantics": "replace",
+      "primaryBankDefault": true,
+      "article": "26076378932765",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "activities": [
+          "activities",
+          "records",
+          {
+            "maxEntries": 50,
+            "required": [
+              "reference"
+            ],
+            "schema": {
+              "reference": [
+                "reference",
+                "string"
+              ],
+              "tags": [
+                "tags",
+                "tags"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "activities-tags-update": {
+      "endpoint": "itembank/activities/tags",
+      "action": "update",
+      "paged": false,
+      "async": false,
+      "writes": true,
+      "writeSemantics": "merge",
+      "primaryBankDefault": true,
+      "article": "26076378932765",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "activities": [
+          "activities",
+          "records",
+          {
+            "maxEntries": 50,
+            "required": [
+              "reference"
+            ],
+            "schema": {
+              "reference": [
+                "reference",
+                "string"
+              ],
+              "tags": [
+                "tags",
+                "tags"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "pools-update": {
+      "endpoint": "itembank/pools",
+      "action": "update",
+      "paged": false,
+      "async": true,
+      "asyncEnvelope": "array",
+      "writes": true,
+      "primaryBankDefault": true,
+      "article": "26076363663005",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "pools": [
+          "pools",
+          "records",
+          {
+            "maxEntries": 50,
+            "required": [
+              "reference"
+            ],
+            "schema": {
+              "reference": [
+                "reference",
+                "string"
+              ],
+              "name": [
+                "name",
+                "string"
+              ],
+              "content": [
+                "content",
+                "unmodeled"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "session-statuses-update": {
+      "endpoint": "jobs/sessions/statuses",
+      "action": "update",
+      "paged": false,
+      "async": true,
+      "asyncEnvelope": "object",
+      "writes": true,
+      "article": "26076335907869",
+      "fields": {
+        "statuses": [
+          "statuses",
+          "records",
+          {
+            "maxEntries": 100,
+            "required": [
+              "session_id",
+              "status"
+            ],
+            "schema": {
+              "session-id": [
+                "session_id",
+                "string"
+              ],
+              "status": [
+                "status",
+                "string",
+                {
+                  "values": [
+                    "Completed",
+                    "Incomplete",
+                    "Discarded"
+                  ]
+                }
+              ],
+              "user-id": [
+                "user_id",
+                "string"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "session-item-update": {
+      "endpoint": "sessions/item",
+      "action": "update",
+      "paged": false,
+      "async": true,
+      "asyncEnvelope": "object",
+      "writes": true,
+      "article": "26076318688925",
+      "fields": {
+        "session-ids": [
+          "session_ids",
+          "strings",
+          {
+            "maxEntries": 100
+          }
+        ],
+        "target-item-reference": [
+          "target_item.reference",
+          "string"
+        ],
+        "target-item-organisation-id": [
+          "target_item.organisation_id",
+          "number"
+        ],
+        "target-item-pool-id": [
+          "target_item.item_pool_id",
+          "string"
+        ]
+      }
+    },
+    "response-feedback-update": {
+      "endpoint": "sessions/responses/feedback",
+      "action": "update",
+      "paged": false,
+      "async": false,
+      "writes": true,
+      "article": "27824043349661",
+      "fields": {
+        "session-id": [
+          "session_id",
+          "string"
+        ],
+        "items": [
+          "items",
+          "records",
+          {
+            "required": [
+              "item_reference"
+            ],
+            "schema": {
+              "item-reference": [
+                "item_reference",
+                "string"
+              ],
+              "responses": [
+                "responses",
+                "unmodeled"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "response-scores-update": {
+      "endpoint": "sessions/responses/scores",
+      "action": "update",
+      "paged": false,
+      "async": true,
+      "asyncEnvelope": "object",
+      "writes": true,
+      "article": "26076278639389",
+      "fields": {
+        "sessions": [
+          "sessions",
+          "records",
+          {
+            "maxEntries": 1000,
+            "required": [
+              "session_id"
+            ],
+            "schema": {
+              "session-id": [
+                "session_id",
+                "string"
+              ],
+              "user-id": [
+                "user_id",
+                "string"
+              ],
+              "responses": [
+                "responses",
+                "unmodeled"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "response-grading-update": {
+      "endpoint": "sessions/responses/scores/grading",
+      "action": "update",
+      "paged": false,
+      "async": false,
+      "writes": true,
+      "article": "37621876726813",
+      "fields": {
+        "session-id": [
+          "session_id",
+          "string"
+        ],
+        "items": [
+          "items",
+          "records",
+          {
+            "required": [
+              "item_reference"
+            ],
+            "schema": {
+              "item-reference": [
+                "item_reference",
+                "string"
+              ],
+              "responses": [
+                "responses",
+                "unmodeled"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "sessions-delete": {
+      "endpoint": "sessions",
+      "action": "delete",
+      "paged": false,
+      "async": true,
+      "asyncEnvelope": "array",
+      "writes": true,
+      "destructive": true,
+      "article": "26076304588445",
+      "fields": {
+        "session-ids": [
+          "session_ids",
+          "strings",
+          {
+            "maxEntries": 1
+          }
+        ]
+      }
+    },
+    "sessions-set-from-template": {
+      "endpoint": "sessions",
+      "action": "set",
+      "paged": false,
+      "async": true,
+      "asyncEnvelope": "object",
+      "writes": true,
+      "article": "26076278679069",
+      "fixed": {
+        "data-format": [
+          "data_format",
+          "from_template"
+        ]
+      },
+      "fields": {
+        "sessions-data": [
+          "data",
+          "records",
+          {
+            "maxEntries": 50,
+            "required": [
+              "activity_id"
+            ],
+            "schema": {
+              "user-id": [
+                "user_id",
+                "string"
+              ],
+              "activity-id": [
+                "activity_id",
+                "string"
+              ],
+              "session-id": [
+                "session_id",
+                "string"
+              ],
+              "responses": [
+                "responses",
+                "unmodeled"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "sessions-set-failed-submission": {
+      "endpoint": "sessions",
+      "action": "set",
+      "paged": false,
+      "async": true,
+      "asyncEnvelope": "object",
+      "writes": true,
+      "article": "26076336091933",
+      "fixed": {
+        "data-format": [
+          "data_format",
+          "failed_submission"
+        ]
+      },
+      "fields": {
+        "sessions-data": [
+          "data",
+          "strings",
+          {
+            "maxEntries": 50
+          }
+        ],
+        "ignore-response-revisions": [
+          "ignore_response_revisions",
+          "boolean"
+        ]
+      }
+    },
+    "items-tags-update": {
+      "endpoint": "itembank/items/tags",
+      "action": "update",
+      "paged": false,
+      "async": false,
+      "writes": true,
+      "writeSemantics": "merge",
+      "primaryBankDefault": true,
+      "article": "26076399449757",
+      "fields": {
+        "organisation-id": [
+          "organisation_id",
+          "number"
+        ],
+        "items": [
+          "items",
+          "records",
+          {
+            "maxEntries": 50,
+            "required": [
+              "reference"
+            ],
+            "schema": {
+              "reference": [
+                "reference",
+                "string"
+              ],
+              "tags": [
+                "tags",
+                "tags"
+              ]
+            }
+          }
+        ],
+        "meta-user-id": [
+          "meta.user.id",
+          "string"
+        ],
+        "meta-user-firstname": [
+          "meta.user.firstname",
+          "string"
+        ],
+        "meta-user-lastname": [
+          "meta.user.lastname",
+          "string"
+        ],
+        "meta-user-email": [
+          "meta.user.email",
+          "string"
+        ]
+      }
+    }
+  },
+  "toplevel": {
+    "paging": [
+      null,
+      "paging"
+    ]
+  },
+  "pagingTags": {
+    "EXHAUSTIVE": "exhaustive",
+    "SINGLE-PAGE": "single-page"
+  }
+}
