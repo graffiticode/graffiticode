@@ -1,0 +1,278 @@
+{
+  "standardFamilies": {
+    "RL_G5": [
+      "rl-1",
+      "rl-2",
+      "rl-3",
+      "rl-4",
+      "rl-5",
+      "rl-6",
+      "rl-7",
+      "rl-9"
+    ],
+    "RI_G5": [
+      "ri-1",
+      "ri-2",
+      "ri-3",
+      "ri-4",
+      "ri-5",
+      "ri-6",
+      "ri-7",
+      "ri-8",
+      "ri-9"
+    ],
+    "L_G5": [
+      "l-4",
+      "l-4a",
+      "l-4b",
+      "l-4c",
+      "l-5",
+      "l-5a",
+      "l-5b",
+      "l-5c"
+    ]
+  },
+  "targets": {
+    "c1-t4": {
+      "id": "c1-t4",
+      "label": "Grade 5 · Claim 1 · Target 4 (Reasoning & Evidence)",
+      "grade": 5,
+      "skill": "reasoning-evidence",
+      "textType": "literary",
+      "baseStandard": "rl-1",
+      "defaultDok": "r-dok3",
+      "answerKind": "statement",
+      "singlePartHotText": false,
+      "taskModels": {
+        "tm1": "ebsr",
+        "tm2": "hot-text",
+        "tm3": "short-text"
+      },
+      "standards": [
+        "RL_G5"
+      ],
+      "dimensions": [
+        "character",
+        "setting",
+        "event",
+        "point-of-view",
+        "theme",
+        "topic",
+        "narrators-feelings",
+        "character-relationship"
+      ],
+      "errorTypes": [
+        "misreads-detail",
+        "erroneous-inference",
+        "faulty-reasoning"
+      ],
+      "dimStandard": {
+        "character": "rl-3",
+        "character-relationship": "rl-3",
+        "setting": "rl-3",
+        "event": "rl-3",
+        "point-of-view": "rl-6",
+        "narrators-feelings": "rl-6",
+        "theme": "rl-2",
+        "topic": "rl-2"
+      }
+    },
+    "c1-t11": {
+      "id": "c1-t11",
+      "label": "Grade 5 · Claim 1 · Target 11 (Reasoning & Evidence)",
+      "grade": 5,
+      "skill": "reasoning-evidence",
+      "textType": "informational",
+      "baseStandard": "ri-1",
+      "defaultDok": "r-dok3",
+      "answerKind": "statement",
+      "singlePartHotText": false,
+      "taskModels": {
+        "tm1": "ebsr",
+        "tm2": "hot-text",
+        "tm3": "short-text"
+      },
+      "standards": [
+        "RI_G5"
+      ],
+      "dimensions": [
+        "relationships-interactions",
+        "author-use-of-information",
+        "point-of-view",
+        "purpose",
+        "authors-opinion"
+      ],
+      "errorTypes": [
+        "misreads-detail",
+        "erroneous-inference",
+        "faulty-reasoning"
+      ],
+      "dimStandard": {
+        "relationships-interactions": "ri-3",
+        "author-use-of-information": "ri-8",
+        "point-of-view": "ri-6",
+        "purpose": "ri-8",
+        "authors-opinion": "ri-8"
+      }
+    },
+    "c1-t2": {
+      "id": "c1-t2",
+      "label": "Grade 5 · Claim 1 · Target 2 (Central Ideas)",
+      "grade": 5,
+      "skill": "central-ideas",
+      "textType": "literary",
+      "baseStandard": "rl-1",
+      "defaultDok": "r-dok2",
+      "answerKind": "statement",
+      "singlePartHotText": true,
+      "taskModels": {
+        "tm1": "multiple-choice",
+        "tm2": "multi-select",
+        "tm3": "ebsr",
+        "tm4": "hot-text",
+        "tm5": "short-text"
+      },
+      "standards": [
+        "RL_G5"
+      ],
+      "dimensions": [
+        "theme",
+        "central-idea",
+        "key-detail",
+        "summary"
+      ],
+      "errorTypes": [
+        "too-narrow",
+        "too-broad",
+        "misreads-detail",
+        "insignificant"
+      ],
+      "dimStandard": {
+        "theme": "rl-2",
+        "central-idea": "rl-2",
+        "key-detail": "rl-2",
+        "summary": "rl-2"
+      }
+    },
+    "c1-t9": {
+      "id": "c1-t9",
+      "label": "Grade 5 · Claim 1 · Target 9 (Central Ideas)",
+      "grade": 5,
+      "skill": "central-ideas",
+      "textType": "informational",
+      "baseStandard": "ri-1",
+      "defaultDok": "r-dok2",
+      "answerKind": "statement",
+      "singlePartHotText": true,
+      "taskModels": {
+        "tm1": "multiple-choice",
+        "tm2": "multi-select",
+        "tm3": "ebsr",
+        "tm4": "hot-text",
+        "tm5": "short-text"
+      },
+      "standards": [
+        "RI_G5"
+      ],
+      "dimensions": [
+        "central-idea",
+        "key-detail",
+        "summary"
+      ],
+      "errorTypes": [
+        "too-narrow",
+        "too-broad",
+        "misreads-detail",
+        "insignificant"
+      ],
+      "dimStandard": {
+        "central-idea": "ri-2",
+        "key-detail": "ri-2",
+        "summary": "ri-2"
+      }
+    },
+    "c1-t1": {
+      "id": "c1-t1",
+      "label": "Grade 5 · Claim 1 · Target 1 (Key Details)",
+      "grade": 5,
+      "skill": "key-details",
+      "textType": "literary",
+      "baseStandard": "rl-1",
+      "defaultDok": "r-dok2",
+      "answerKind": "evidence",
+      "singlePartHotText": true,
+      "taskModels": {
+        "tm1": "multiple-choice",
+        "tm2": "multi-select",
+        "tm3": "hot-text"
+      },
+      "standards": [
+        "RL_G5"
+      ],
+      "dimensions": [
+        "supporting-evidence"
+      ],
+      "errorTypes": [],
+      "dimStandard": {
+        "supporting-evidence": "rl-1"
+      }
+    },
+    "c1-t8": {
+      "id": "c1-t8",
+      "label": "Grade 5 · Claim 1 · Target 8 (Key Details)",
+      "grade": 5,
+      "skill": "key-details",
+      "textType": "informational",
+      "baseStandard": "ri-1",
+      "defaultDok": "r-dok2",
+      "answerKind": "evidence",
+      "singlePartHotText": true,
+      "taskModels": {
+        "tm1": "multiple-choice",
+        "tm2": "multi-select",
+        "tm3": "hot-text"
+      },
+      "standards": [
+        "RI_G5"
+      ],
+      "dimensions": [
+        "supporting-evidence"
+      ],
+      "errorTypes": [],
+      "dimStandard": {
+        "supporting-evidence": "ri-7"
+      }
+    },
+    "c1-t10": {
+      "id": "c1-t10",
+      "label": "Grade 5 · Claim 1 · Target 10 (Word Meanings)",
+      "grade": 5,
+      "skill": "word-meanings",
+      "textType": "informational",
+      "baseStandard": "ri-4",
+      "defaultDok": "r-dok2",
+      "answerKind": "meaning",
+      "singlePartHotText": false,
+      "taskModels": {
+        "tm1": "multiple-choice",
+        "tm2": "multi-select",
+        "tm3": "hot-text"
+      },
+      "standards": [
+        "RI_G5",
+        "L_G5"
+      ],
+      "dimensions": [
+        "word-meaning"
+      ],
+      "errorTypes": [
+        "other-meaning",
+        "misinterprets",
+        "wrong-context"
+      ],
+      "dimStandard": {
+        "word-meaning": "l-4"
+      }
+    }
+  }
+}

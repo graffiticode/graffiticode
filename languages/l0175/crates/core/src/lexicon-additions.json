@@ -1,0 +1,856 @@
+{
+  "literary": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "informational": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ebsr": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "hot-text": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "short-text": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "multiple-choice": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "multi-select": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "tm1": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "tm2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "tm3": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "tm4": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "tm5": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "c1-t4": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "c1-t11": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "c1-t2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "c1-t9": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "c1-t1": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "c1-t8": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "c1-t10": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "character": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "setting": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "event": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "point-of-view": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "theme": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "topic": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "narrators-feelings": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "character-relationship": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "relationships-interactions": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "author-use-of-information": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "purpose": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "authors-opinion": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "central-idea": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "key-detail": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "summary": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "supporting-evidence": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "word-meaning": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "supported": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "distractor": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "correct": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "directly-supports": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "supports-wrong-claim": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "irrelevant": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "misreads-detail": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "erroneous-inference": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "faulty-reasoning": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "too-narrow": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "too-broad": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "insignificant": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "other-meaning": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "misinterprets": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "wrong-context": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "rl-1": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "rl-2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "rl-3": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "rl-4": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "rl-5": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "rl-6": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "rl-7": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "rl-9": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-1": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-3": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-4": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-5": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-6": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-7": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-8": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ri-9": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "l-4": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "l-4a": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "l-4b": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "l-4c": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "l-5": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "l-5a": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "l-5b": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "l-5c": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "r-dok1": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "r-dok2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "r-dok3": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "inference": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "conclusion": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "author-intent": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "id": {
+    "tk": 1,
+    "name": "ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "status": {
+    "tk": 1,
+    "name": "STATUS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "dimension": {
+    "tk": 1,
+    "name": "DIMENSION",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "error-type": {
+    "tk": 1,
+    "name": "ERROR_TYPE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "text": {
+    "tk": 1,
+    "name": "TEXT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "rationale": {
+    "tk": 1,
+    "name": "RATIONALE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "cites": {
+    "tk": 1,
+    "name": "CITES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "targets": {
+    "tk": 1,
+    "name": "TARGETS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "line": {
+    "tk": 1,
+    "name": "LINE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "quote": {
+    "tk": 1,
+    "name": "QUOTE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "supports": {
+    "tk": 1,
+    "name": "SUPPORTS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "type": {
+    "tk": 1,
+    "name": "TYPE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "task-model": {
+    "tk": 1,
+    "name": "TASK_MODEL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "subject": {
+    "tk": 1,
+    "name": "SUBJECT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "standard": {
+    "tk": 1,
+    "name": "STANDARD",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "focus": {
+    "tk": 1,
+    "name": "FOCUS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "passage": {
+    "tk": 1,
+    "name": "PASSAGE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "lines": {
+    "tk": 1,
+    "name": "LINES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "target": {
+    "tk": 1,
+    "name": "TARGET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "grade": {
+    "tk": 1,
+    "name": "GRADE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "stem": {
+    "tk": 1,
+    "name": "STEM",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "rubric": {
+    "tk": 1,
+    "name": "RUBRIC",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "dok": {
+    "tk": 1,
+    "name": "DOK",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "plausibility": {
+    "tk": 1,
+    "name": "PLAUSIBILITY",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "mode": {
+    "tk": 1,
+    "name": "MODE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "other": {
+    "tk": 1,
+    "name": "OTHER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "stem-b": {
+    "tk": 1,
+    "name": "STEM_B",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "score": {
+    "tk": 1,
+    "name": "SCORE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "descriptor": {
+    "tk": 1,
+    "name": "DESCRIPTOR",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "claims": {
+    "tk": 1,
+    "name": "CLAIMS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "evidence": {
+    "tk": 1,
+    "name": "EVIDENCE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "outcomes": {
+    "tk": 1,
+    "name": "OUTCOMES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "words": {
+    "tk": 1,
+    "name": "WORDS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "meanings": {
+    "tk": 1,
+    "name": "MEANINGS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "claim": {
+    "tk": 1,
+    "name": "CLAIM",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "source": {
+    "tk": 1,
+    "name": "SOURCE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "outcome": {
+    "tk": 1,
+    "name": "OUTCOME",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "band": {
+    "tk": 1,
+    "name": "BAND",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "word": {
+    "tk": 1,
+    "name": "WORD",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "meaning": {
+    "tk": 1,
+    "name": "MEANING",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  }
+}

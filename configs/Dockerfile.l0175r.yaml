@@ -1,0 +1,34 @@
+# l0175r — the L0175 language server in Rust — from the monorepo root (deploy CLI, or
+# `docker build -f configs/Dockerfile.l0175r.yaml .`). languages/l0175 holds both
+# implementations: this image is the Rust server (crates/), which builds on the kernel and
+# server crates in languages/l0000, with the static assets this language's npm packages build.
+# configs/Dockerfile.l0175.yaml builds the TypeScript server from the same directory.
+
+# Public static assets (spec documents, schema, language info) and the /form View bundle.
+FROM node:22-alpine AS static
+WORKDIR /src
+COPY languages/l0175/package*.json ./
+COPY languages/l0175/packages/core/package*.json ./packages/core/
+COPY languages/l0175/packages/api/package*.json ./packages/api/
+COPY languages/l0175/packages/view/package*.json ./packages/view/
+RUN npm ci
+COPY languages/l0175/tsconfig.base.json ./
+COPY languages/l0175/packages ./packages
+COPY languages/l0175/tools ./tools
+RUN node tools/assemble-static.mjs --skip-install
+
+FROM rust:1.99-bookworm AS server
+WORKDIR /src/languages/l0175
+COPY languages/l0000/Cargo.toml /src/languages/l0000/Cargo.toml
+COPY languages/l0000/crates /src/languages/l0000/crates
+COPY languages/l0175/Cargo.toml languages/l0175/Cargo.lock ./
+COPY languages/l0175/crates ./crates
+RUN cargo build --release --locked -p l0175r-server
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+WORKDIR /app
+COPY --from=server /src/languages/l0175/target/release/l0175r ./l0175r
+COPY --from=static /src/static ./static
+ENV STATIC_DIR=/app/static
+EXPOSE 8080
+CMD ["/app/l0175r"]
