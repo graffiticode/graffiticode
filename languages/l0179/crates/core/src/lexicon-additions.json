@@ -1,0 +1,261 @@
+{
+  "text": {
+    "tk": 1,
+    "name": "TEXT",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "width": {
+    "tk": 1,
+    "name": "WIDTH",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "align": {
+    "tk": 1,
+    "name": "ALIGN",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "background-color": {
+    "tk": 1,
+    "name": "BACKGROUND_COLOR",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "font-weight": {
+    "tk": 1,
+    "name": "FONT_WEIGHT",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "font-size": {
+    "tk": 1,
+    "name": "FONT_SIZE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "font-family": {
+    "tk": 1,
+    "name": "FONT_FAMILY",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "font-style": {
+    "tk": 1,
+    "name": "FONT_STYLE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "color": {
+    "tk": 1,
+    "name": "COLOR",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "text-decoration": {
+    "tk": 1,
+    "name": "TEXT_DECORATION",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "border": {
+    "tk": 1,
+    "name": "BORDER",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "vertical-align": {
+    "tk": 1,
+    "name": "VERTICAL_ALIGN",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "format": {
+    "tk": 1,
+    "name": "FORMAT",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "protected": {
+    "tk": 1,
+    "name": "PROTECTED",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "assess": {
+    "tk": 1,
+    "name": "ASSESS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "method": {
+    "tk": 1,
+    "name": "METHOD",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "expected": {
+    "tk": 1,
+    "name": "EXPECTED",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "points": {
+    "tk": 1,
+    "name": "POINTS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "name": {
+    "tk": 1,
+    "name": "NAME",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "hide-formulabar": {
+    "tk": 1,
+    "name": "HIDE_FORMULABAR",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "title": {
+    "tk": 1,
+    "name": "TITLE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "instructions": {
+    "tk": 1,
+    "name": "INSTRUCTIONS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-sheet-tabs": {
+    "tk": 1,
+    "name": "SHOW_SHEET_TABS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "hide-sheet-menu": {
+    "tk": 1,
+    "name": "HIDE_SHEET_MENU",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "hide-headings": {
+    "tk": 1,
+    "name": "HIDE_HEADINGS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "instant-feedback": {
+    "tk": 1,
+    "name": "INSTANT_FEEDBACK",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sheets": {
+    "tk": 1,
+    "name": "SHEETS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "cells": {
+    "tk": 1,
+    "name": "CELLS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "columns": {
+    "tk": 1,
+    "name": "COLUMNS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "rows": {
+    "tk": 1,
+    "name": "ROWS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sheet": {
+    "tk": 1,
+    "name": "SHEET",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "cell": {
+    "tk": 1,
+    "name": "CELL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "column": {
+    "tk": 1,
+    "name": "COLUMN",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "row": {
+    "tk": 1,
+    "name": "ROW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "params": {
+    "tk": 1,
+    "name": "PARAMS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "^[A-Z][0-9]+$": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "^[A-Z]$": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  }
+}

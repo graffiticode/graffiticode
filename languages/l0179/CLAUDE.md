@@ -20,6 +20,8 @@ is *testable* rather than asserted — see the differential test below.
 Output contract (built in `Transformer.PROG`):
 `{title, instructions, templateVariablesRecords, validation, interaction: {type: "table", rows, columns, cells}, errors}`.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0179 that production runs; `crates/` is the L0179 compiler in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ```bash
@@ -338,3 +340,49 @@ Two decision records, not API docs:
 - `l0176` — a sibling in the same style; several files here are ported from it.
 - `console` also consumes the grid's `focus` action (`src/components/FormIFrame.tsx`) to drive a
   properties panel keyed on `${type}-${name}`, so those payloads are a cross-repo contract.
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of the L0179 compiler**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0179`). `crates/` is the same compiler in Rust, released to its own service `l0179r` so it can be vetted before it replaces the TypeScript. Everything else is shared by both and stays TypeScript: `packages/view` (the grid, its spreadsheet engine and its scoring — they run in the browser), `packages/integrations/learnosity` (the custom question type L0176 items load), the spec, and the tooling (`differential-test.mjs`, the corpus gates). The Rust compiles programs; it does not evaluate formulas or score answers, and neither does the TypeScript compiler.
+
+- `crates/core` (`graffiticode-l0179`) — `src/lib.rs`: `L0179` implements `Dialect` from `graffiticode-l0000` and claims `PROG`. The attribute words are driven by `src/attributes.json`, **generated from `src/attributes.ts`** by `npm run rust:fixtures` (each row's field, shape, type, arity, and its coercion and validator by name; the generator refuses a coercion it does not recognize); `attributes.ts` stays the single source of truth. The containers (`SHEETS`/`SHEET`, `CELLS`/`CELL`, `COLUMNS`/`COLUMN`, `ROWS`/`ROW`), `PARAMS` and `PROG` are written by hand, as in TypeScript. `src/attributes.rs` is `checkValue`/`assertKnownAttributes`/`mergeAttributes`; `src/validation.rs` is `validation.ts`; `src/params.rs` is `params.ts`, stepping ranges in decimal over `bigdecimal` as `decimal.js` does; `src/js.rs` is a model of the plain JavaScript values the TypeScript handlers work on (see below). `src/lexicon-additions.json` is generated too, including the regex-keyed `TAG` entries (`^[A-Z][0-9]+$`, `^[A-Z]$`) that make `A1` and `A` barewords.
+- `crates/server` (`l0179r-server`, binary `l0179r`) — `l0000r_server::serve(L0179, lexicon())`.
+- `tools/assemble-static.mjs` — builds the spec assets, the `/form` bundle **and the Learnosity bundles** (`question.js`, `scorer.js`, `question.css`, whose URLs on `l0179.graffiticode.org` are a published contract) into `./static`, exactly what `npm run assemble` puts in `packages/api/static`.
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation" in `languages/l0000/CLAUDE.md`.
+
+```bash
+cargo test            # conformance and unit tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0179r-server
+npm run rust:dev      # cargo run -p l0179r-server on :50179 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate src/attributes.json, src/lexicon-additions.json and the fixtures
+```
+
+### What the Rust must get exactly right
+
+The output's shape follows from JavaScript semantics as much as from intent, so the words work on `js::Js` (undefined, null, boolean, number, `Decimal`, string, array, object) rather than on JSON:
+
+- **Key order.** An object puts array-index keys first, ascending (`"1"` before `"*"` before `"1..5"`), then the rest as inserted; an overwritten key keeps its place. `rowInRegion` picks the first region in that order.
+- **`undefined` keeps its place.** `{...val, ...data}` fills a key that was `undefined` where it stands; an attribute given `get-var "nope"` keeps its key (so a misplaced one is still reported) and JSON drops it — as in TypeScript.
+- **Spreads.** `{...x}` copies a string's characters and nothing of a number; `mergeAttributes` accepts any object entry (a record, a tag's `{tag}`).
+- **The transcribed quirks** in `validation.ts` (header of `src/validation.rs`): `||` in `rowInRegion`; row numbers read with `Number()`, so `A0`, `A`, `Ax` write to properties `-1`, `-1`, `NaN` that JSON never shows, and skipped rows are holes (`null`); `id` is `undefined` for order `"actual"` or row 0/`NaN`; an assessed cell without `points` counts 1.
+- **`params`.** Ranges step with `decimal.js` (20 digits, half up) and print as it does; a character range's value is `String.fromCharCode(n + i)` where `n + i` concatenates a number and a `Decimal`'s text (`"a..c"` is codes 970–972); `+start >= +stop` uses `Number()`, the range `parseFloat`; the upstream `limit` goes through JavaScript's `<` and `+` (a string limit `"1"` slices to `"11"`). The continuation is never read.
+- **Messages.** Every error is the TypeScript's text, including `describe`'s wording and numbers as `String()` writes them.
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` generates most of its corpus from the attribute table: every attribute in every container (those that take it and those that do not), with values of each kind its type accepts and refuses, last in a list after good ones, and every program-level word in the `sheets` slot. Then grading programs (points inheritance by row region and column), several sheets (ids, names, menus, qualified params), parameter expansion (ranges, lists, characters, steps, the array form, truncation at 249), raw-record programs that reach the validation passes directly, the spec's programs, the TypeScript suite's, and hand-written cases. Each is compiled against `{}`; a sample also against bare upstream data (spread over the output; its `params` and `limit` read) and a `{data, errors}` envelope. Every error message in the TypeScript source appears. `tests/conformance.rs` requires the same JSON text (field order included) or the same errors for all 1097 cases but the ones below; `tests/dialect.rs` pins the lexicon and what the TypeScript never answers (`programs.json`: parsed, not compiled). A new attribute in `attributes.ts` is covered as soon as the fixture is regenerated.
+
+Deliberate differences:
+
+- **An enveloped upstream is read from its `data`.** Upstream data given as `{ data, errors }` (any object whose `errors` is an array) is unwrapped by the kernel, as for every Rust language: its fields are laid over the output and its `params`/`limit` are read. TypeScript spreads the envelope itself, so its output gains a `data` field and the form's `params` are ignored. Bare upstream data behaves identically.
+- **A whole number above 2⁵³ in the output** is the same number written differently — `12345678901234567000` by JavaScript, `1.2345678901234567e+19` by the kernel's JSON. Kernel-wide, not this dialect's.
+- **What TypeScript never answers is an error here.** An exception thrown from its callbacks escapes the visitor and the request never resumes: a non-string param value (`params {"A1": 1}`), a param row that is not a list, a formula param value (`"=B1"`, an unimplemented `assert`), `Object.keys(null)`/`null[...]` in the validation passes (only reachable from a raw `{cells: null}` program). A range that never ends (step 0 or negative, or to `Infinity`) loops forever there; here it is refused, as is one past 1,000,000 values, and a row index past 2²⁴. Each is a compile error naming the cause.
+- `val1.limit` (a `limit` on the `params` argument itself) is never read: in TypeScript it is a property of the internal record representation, `undefined` for anything a program writes.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0179r` entry (own service, `l0179r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0179r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`, env `AUTH_URL` only — no secrets, no protected functions, no network at compile time). The Dockerfile's static stage installs all four workspaces, including `packages/integrations/learnosity`, so `/question.js`, `/scorer.js` and `/question.css` are served as the TypeScript serves them. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`). The account needs no roles.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/attributes.json`, `src/lexicon-additions.json` and `tests/conformance/*.json` are generated, not edited.

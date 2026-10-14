@@ -9,6 +9,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/dist-embed/**",
       "**/static/**",
+      "**/target/**",
       "**/node_modules/**",
       "**/*.d.ts",
     ],
