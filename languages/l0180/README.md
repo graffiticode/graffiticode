@@ -94,3 +94,18 @@ Other useful scripts:
 Code is licensed under MIT. Documentation and specifications are licensed under CC-BY 4.0.
 
 **AI Training:** All materials in this repository — code, documentation, specifications, and training examples — are explicitly available for use in training machine learning and AI models. See [NOTICE](NOTICE) for details.
+
+## Rust implementation
+
+`crates/` holds L0180's compiler in Rust: a `Dialect` on the kernel in `languages/l0000/crates`,
+with a language server (`crates/server`, binary `l0180r`). The TypeScript in `packages/` remains
+production; `attributes.ts` remains the single source of truth for the vocabulary, and the view
+and its scorer stay TypeScript.
+
+```bash
+cargo test            # needs no Node and no network
+npm run rust:build    # ./static, then the release binary (target/release/l0180r)
+npm run rust:dev      # run it on :50180
+```
+
+See `CLAUDE.md` for the details.
