@@ -173,7 +173,8 @@ async fn compile(
     if planned {
         envelope["revision"] = json!(state.revision);
     }
-    Json(envelope).into_response()
+    // Numbers as `JSON.stringify` writes them, as the TypeScript servers answer.
+    ([(CONTENT_TYPE, "application/json")], graffiticode_l0000::json_text(&envelope)).into_response()
 }
 
 /// Preflight is side-effect free: it reads no user token and runs nothing.

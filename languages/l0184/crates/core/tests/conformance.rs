@@ -89,7 +89,7 @@ async fn agrees_with_the_typescript_implementation() {
         };
         match (&case.expect.errors, &actual) {
             (None, Ok(value)) => {
-                let text = value.to_string();
+                let text = graffiticode_l0000::json_text(value);
                 if Some(&text) != case.expect.text.as_ref() {
                     failures.push(format!(
                         "{label}\n  expected {}\n  got      {text}",

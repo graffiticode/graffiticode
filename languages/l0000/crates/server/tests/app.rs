@@ -512,3 +512,12 @@ async fn a_language_whose_output_expires_says_it_must_not_be_cached() {
     let ordinary = compile(&server().app, json!({ "code": add_1_2(), "data": {} })).await;
     assert_eq!(ordinary.json().get("cache"), None);
 }
+
+/// The response writes numbers as the TypeScript servers do.
+#[tokio::test]
+async fn a_large_number_is_written_as_javascript_writes_it() {
+    let code = json!({ "1": { "tag": "NUM", "elts": ["12345678901234567890"] }, "2": { "tag": "EXPRS", "elts": [1] },
+        "3": { "tag": "PROG", "elts": [2] }, "root": 3 });
+    let reply = compile(&server().app, json!({ "code": code, "data": {} })).await;
+    assert_eq!(reply.text(), r#"{"data":12345678901234567000,"errors":[]}"#);
+}

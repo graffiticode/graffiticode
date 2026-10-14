@@ -49,7 +49,7 @@ async fn agrees_with_the_typescript_implementation() {
         let label: String = case.src.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(240).collect();
         match (&case.expect.errors, &actual) {
             (None, Ok(value)) => {
-                let text = Some(value.to_string());
+                let text = Some(graffiticode_l0000::json_text(value));
                 if text != case.expect.text {
                     failures.push(format!(
                         "{label}\n  expected {}\n  got      {}",

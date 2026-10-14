@@ -386,19 +386,46 @@ pub fn format_number(n: f64) -> String {
     }
 }
 
-/// A number as JSON, written exactly as `JSON.stringify` writes it — the text every other
-/// Graffiticode component produces and compares: `3`, not `3.0`; `12345678901234567000` and
-/// `100000000000000000000`, not `1.2345678901234567e19` and `1e20`; `1e+21` and `1e-7` beyond
-/// the positional range. A non-finite number has no JSON form and becomes `null`.
-///
-/// `serde_json`'s own writer prints a float its own way (`1e20`), so the kernel builds the
-/// number from its text, which needs `serde_json`'s `arbitrary_precision`.
-pub fn number_to_json(n: f64) -> Json {
-    if !n.is_finite() {
-        return Json::Null;
+/// A number as a JSON value: an integer when it is one that an `f64` holds exactly, so it is
+/// written without a fraction; otherwise the `f64`. A non-finite number has no JSON form and
+/// becomes `null`. How it is written as text is [`json_text`]'s business.
+fn number_to_json(n: f64) -> Json {
+    const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+    if n.fract() == 0.0 && n.abs() <= MAX_SAFE_INTEGER {
+        Json::from(n as i64)
+    } else {
+        serde_json::Number::from_f64(n).map_or(Json::Null, Json::Number)
     }
-    let text = format_number(n);
-    serde_json::from_str::<serde_json::Number>(&text).map_or(Json::Null, Json::Number)
+}
+
+/// Writes floating-point numbers as `JSON.stringify` does, through [`format_number`]:
+/// `12345678901234567000` and `100000000000000000000`, not `1.2345678901234567e19` and `1e20`;
+/// `1e+21` and `1e-7` beyond the positional range. Integers and everything else are written as
+/// `serde_json` writes them.
+struct JsNumbers;
+
+impl serde_json::ser::Formatter for JsNumbers {
+    fn write_f64<W: ?Sized + std::io::Write>(&mut self, writer: &mut W, value: f64) -> std::io::Result<()> {
+        writer.write_all(format_number(value).as_bytes())
+    }
+
+    fn write_f32<W: ?Sized + std::io::Write>(&mut self, writer: &mut W, value: f32) -> std::io::Result<()> {
+        self.write_f64(writer, f64::from(value))
+    }
+}
+
+/// JSON as text, written the way every other Graffiticode component writes it: like
+/// `serde_json::to_string`, except that every number is written as `JSON.stringify` writes it.
+/// The language servers answer with this, and the conformance tests compare it.
+///
+/// The kernel does not turn on `serde_json`'s `arbitrary_precision` to get the same result: the
+/// feature reaches every crate in a language's build, and it breaks `chromiumoxide`'s reading
+/// of Chrome's replies (`languages/l0013`'s capture hangs).
+pub fn json_text(json: &Json) -> String {
+    let mut out = Vec::new();
+    let mut serializer = serde_json::Serializer::with_formatter(&mut out, JsNumbers);
+    serde::Serialize::serialize(json, &mut serializer).expect("JSON serializes to memory");
+    String::from_utf8(out).expect("JSON text is UTF-8")
 }
 
 #[cfg(test)]
@@ -407,7 +434,7 @@ mod tests {
 
     #[test]
     fn numbers_are_written_as_json_stringify_writes_them() {
-        let text = |n: f64| number_to_json(n).to_string();
+        let text = |n: f64| json_text(&number_to_json(n));
         for (n, js) in [
             (3.0, "3"),
             (-0.0, "0"),
@@ -425,8 +452,9 @@ mod tests {
         }
         assert_eq!(number_to_json(f64::NAN), Json::Null);
         assert_eq!(number_to_json(f64::INFINITY), Json::Null);
-        // Read back, it is the same number.
-        assert_eq!(number_to_json(1e20).as_f64(), Some(1e20));
+        // Inside a document, and a float written as an integer.
+        let doc = serde_json::json!({ "a": [1e20, 2.0, "x"], "b": { "c": 0.5 } });
+        assert_eq!(json_text(&doc), r#"{"a":[100000000000000000000,2,"x"],"b":{"c":0.5}}"#);
     }
 
     #[test]
