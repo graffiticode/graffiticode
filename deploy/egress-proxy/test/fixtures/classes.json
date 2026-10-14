@@ -1,0 +1,25 @@
+{
+  "project": "graffiticode",
+  "region": "us-central1",
+  "network": "compilers",
+  "proxySubnet": { "name": "egress-proxy", "cidr": "10.8.0.0/27" },
+  "loadBalancerAddress": "10.8.0.2",
+  "classes": {
+    "compilers-default": { "cidr": "10.8.16.0/22" },
+    "compilers-l0013": { "cidr": "10.8.24.0/24" },
+    "compilers-l0185": { "cidr": "10.8.20.0/22", "open": true }
+  },
+  "open": { "denySuffixes": ["learnosity.com", "learnosity.net", "run.app", "internal", "googleapis.com"] },
+  "proxy": {
+    "listenPort": 3128,
+    "healthPort": 3129,
+    "adminPort": 9901,
+    "uid": 10101,
+    "resolvers": ["8.8.8.8", "8.8.4.4"],
+    "healthCheckRanges": ["35.191.0.0/16", "130.211.0.0/22"],
+    "machineType": "e2-small",
+    "envoyImage": "envoyproxy/envoy@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "cosImage": "cos-121-18867-0-0",
+    "serviceAccount": "egress-proxy@graffiticode.iam.gserviceaccount.com"
+  }
+}
