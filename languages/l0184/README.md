@@ -20,3 +20,18 @@ charts [
 | `packages/view` | `@graffiticode/l0184-view` | The Form (ECharts), for the shared View |
 
 See `CLAUDE.md` for how it is built, and `packages/core/spec/` for the language.
+
+## Rust implementation
+
+`crates/` holds L0184 in Rust: a `Dialect` on the kernel in `languages/l0000/crates`, with a
+language server (`crates/server`, binary `l0184r`). The TypeScript in `packages/` remains
+production; `attributes.ts` and `colors.ts` remain the single source of truth for the
+vocabulary and the colours. ECharts itself is only in the view, which stays TypeScript.
+
+```bash
+cargo test            # needs no Node and no network
+npm run rust:build    # ./static, then the release binary (target/release/l0184r)
+npm run rust:dev      # run it on :50184
+```
+
+See `CLAUDE.md` for the details.
