@@ -72,13 +72,11 @@ fn unresolved_public_value(case: &Case) -> bool {
 
 /// A number too precise for a float is an object (a `Decimal`) in TypeScript. Where a word
 /// only says it is not a string or a reference ("got a record") both agree, and those cases are
-/// compared like any other. The two places they part: as an entry of an attribute list the
-/// TypeScript merges the `Decimal`'s own fields, and written out it prints the integer's
-/// digits, where the kernel prints the nearest float in exponent form.
+/// compared like any other, as are cases that write it out (both print `12345678901234567000`).
+/// The one place they part: as an entry of an attribute list the TypeScript merges the
+/// `Decimal`'s own fields.
 fn decimal(case: &Case) -> bool {
-    case.src.contains("12345678901234567890")
-        && (case.expect.errors.iter().flatten().any(|e| e.contains("native code"))
-            || case.expect.text.as_deref().is_some_and(|t| t.contains("12345678901234567000")))
+    case.src.contains("12345678901234567890") && case.expect.errors.iter().flatten().any(|e| e.contains("native code"))
 }
 
 #[tokio::test]
@@ -107,12 +105,10 @@ async fn an_exact_number_is_a_record_but_not_a_decimal() {
         ["survey: every entry must be an attribute applied to a value, e.g. [id \"team-retro\"]. Got a record."]
     );
 
-    // Written out: the integer's digits there, the kernel's float here.
+    // Written out, both print the same digits; the comparison covers it.
     let written = find("ratings [ [ 12345678901234567890 ] ]..");
-    assert!(decimal(written));
+    assert!(!decimal(written));
     assert_eq!(written.expect.text.as_deref(), Some(r#"{"ratings":[[12345678901234567000]]}"#));
-    let text = compile(written).await.unwrap().unwrap();
-    assert_eq!(text, r#"{"ratings":[[1.2345678901234567e+19]]}"#);
 }
 
 #[tokio::test]

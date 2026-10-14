@@ -97,7 +97,7 @@ fn case(src: &str) -> Case {
 async fn an_exact_number_is_a_number_not_a_decimals_internals() {
     let case = case(EXACT_NUMBER);
     assert_eq!(case.expect.text.as_deref(), Some(r#"{"s":1,"e":19,"d":[123456,7890123,4567890]}"#));
-    assert_eq!(compile(&case).await.unwrap().as_deref(), Some("1.2345678901234567e+19"));
+    assert_eq!(compile(&case).await.unwrap().as_deref(), Some("12345678901234567000"));
 }
 
 #[tokio::test]

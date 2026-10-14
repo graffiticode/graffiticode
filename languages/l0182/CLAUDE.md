@@ -653,9 +653,9 @@ The deliberate differences, each pinned by its own test:
 - **An unresolved `get-val-public`** (no public value folded in at parse time) is refused by the
   kernel's checker; TypeScript evaluates it to undefined and `session-id` refuses that.
 - **A number too precise for a float** (`12345678901234567890`) is a `Decimal` object in
-  TypeScript. Where a word only says it got "a record" both agree; as an entry of an attribute
-  list TypeScript merges the `Decimal`'s internal fields as words, and written out it prints the
-  integer's digits, where the kernel prints the nearest float in exponent form.
+  TypeScript. Where a word only says it got "a record" both agree, and written out both print
+  `12345678901234567000`; as an entry of an attribute list TypeScript merges the `Decimal`'s
+  internal fields as words.
 - **A survey file that is not valid JSON** would name the parser's error in its message, which
   differs between `JSON.parse` and `serde_json`. No installed survey reaches it (untested).
 
