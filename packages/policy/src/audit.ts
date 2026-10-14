@@ -108,11 +108,16 @@ export const validateAuditRecord = record => {
 // Outcomes that are failures, so carry a category (spec AUDIT-01): the
 // category of the record's reason, as responses report it (FAIL-01), unless
 // the record gives one. Monitoring and the audit read the same category.
+// Required: a failure whose category can't be determined (no reason, or one
+// that isn't classified) is recorded with category "invalid", like any other
+// field that fails its check. It is still written, so it still counts by
+// outcome, and the uncategorized_failures metric shows the gap.
 const FAILURE_OUTCOMES = ["denied", "failed", "partial", "uncertain"];
 const withCategory = record => {
-  if (record.category !== undefined || !FAILURE_OUTCOMES.includes(record.outcome)) return record;
+  if (!FAILURE_OUTCOMES.includes(record.outcome)) return record;
+  if (record.category !== undefined) return record;
   const { category, classified } = classify(record.reason);
-  return classified ? { ...record, category } : record;
+  return { ...record, category: classified ? category : INVALID };
 };
 
 export const createAudit = ({ sink, pseudonymize }) => record => {

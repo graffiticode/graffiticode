@@ -103,6 +103,16 @@ export const metricSpecs = project => {
       match: "jsonPayload.outcome=\"failed\"",
     },
     {
+      // AUDIT-01 requires a category on every failure; the audit records one it
+      // can't determine as "invalid". Expected to stay at zero.
+      id: "uncategorized_failures",
+      labels: ["event", "reason"],
+      expected: false,
+      description: "Failure records whose category couldn't be determined (category invalid): a reason missing from the failure table.",
+      base: `${selector(project)} AND resource.type="cloud_run_revision" AND resource.labels.service_name=("policy" OR "broker" OR "api")`,
+      match: "jsonPayload.category=\"invalid\"",
+    },
+    {
       id: "receipt_replays",
       labels: ["reason"],
       expected: true,

@@ -102,13 +102,26 @@ describe("audit categories (spec AUDIT-01)", () => {
     expect(records[0]).toMatchObject({ outcome, category: "unavailable" });
   });
 
-  it("keeps a category the record gives, and adds none to successes or to reasons it can't classify", () => {
+  it("keeps a category the record gives, and adds none to successes or replays", () => {
     const { records, audit } = capture();
     audit({ event: "admission", outcome: "denied", reason: "not-granted", category: "permission" });
     audit({ event: "mint", outcome: "allowed", reason: "system-preview" });
     audit({ event: "execute", outcome: "replayed", reason: "uncertain" });
-    audit({ event: "execute", outcome: "uncertain", reason: "outcome-not-recorded" });
     expect(records[0].category).toBe("permission");
-    expect(records.slice(1).map(r => r.category)).toEqual([undefined, undefined, undefined]);
+    expect(records.slice(1).map(r => r.category)).toEqual([undefined, undefined]);
+  });
+
+  // Enforced: a failure always has a category. One that can't be determined is
+  // recorded as "invalid", never left out, and the record is still written.
+  it.each([
+    ["no reason", { outcome: "denied" }],
+    ["an annotation, not a refusal", { outcome: "uncertain", reason: "outcome-not-recorded" }],
+    ["an unclassified reason", { outcome: "failed", reason: "unclassified-reason" }],
+    ["a category that isn't one of the five", { outcome: "partial", reason: "provider-rejected", category: "oops" }],
+  ])("records a failure with %s as category invalid, and still writes it", (_, over) => {
+    const { records, audit } = capture();
+    audit({ event: "execute", ...over });
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({ event: "execute", outcome: over.outcome, category: "invalid" });
   });
 });
