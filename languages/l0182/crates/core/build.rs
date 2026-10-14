@@ -20,7 +20,9 @@ fn main() {
         .unwrap_or_else(|e| panic!("reading {}: {e}", data.display()))
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
-        .filter(|name| name.ends_with(".json"))
+        // Not a hidden file: a deploy snapshot packed on macOS carries an AppleDouble `._<name>`
+        // beside each file, which is metadata, not a survey.
+        .filter(|name| name.ends_with(".json") && !name.starts_with('.'))
         .collect();
     names.sort();
 
