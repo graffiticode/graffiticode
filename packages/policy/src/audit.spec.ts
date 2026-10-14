@@ -1,4 +1,5 @@
 import { createAudit, createPseudonymizer, validateAuditRecord, requestContextMiddleware } from "./index.js";
+import { REASON_CATEGORIES } from "@graffiticode/common/failures";
 
 const UID = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed";
 const capture = () => {
@@ -79,5 +80,35 @@ describe("audit values (spec AUDIT-01)", () => {
     // Outside any request, no id.
     audit({ event: "snapshot", outcome: "denied", reason: "no-user" });
     expect(records[3]).not.toHaveProperty("requestId");
+  });
+});
+
+// Every failure record carries its category (spec AUDIT-01), the same one its
+// response reports (FAIL-01), whichever service wrote it.
+describe("audit categories (spec AUDIT-01)", () => {
+  it("gives every denial its reason's category, for every classified reason, wrapped or not", () => {
+    const { records, audit } = capture();
+    for (const [reason, category] of Object.entries(REASON_CATEGORIES)) {
+      audit({ event: "mint", outcome: "denied", reason });
+      expect(records.at(-1)).toMatchObject({ reason, category });
+    }
+    audit({ event: "execute", outcome: "denied", reason: "authorization-denied:token-expired" });
+    expect(records.at(-1)).toMatchObject({ category: "authentication" });
+  });
+
+  it.each(["failed", "partial", "uncertain"])("gives a %s outcome its reason's category", outcome => {
+    const { records, audit } = capture();
+    audit({ event: "execute", outcome, reason: "provider-response-lost" });
+    expect(records[0]).toMatchObject({ outcome, category: "unavailable" });
+  });
+
+  it("keeps a category the record gives, and adds none to successes or to reasons it can't classify", () => {
+    const { records, audit } = capture();
+    audit({ event: "admission", outcome: "denied", reason: "not-granted", category: "permission" });
+    audit({ event: "mint", outcome: "allowed", reason: "system-preview" });
+    audit({ event: "execute", outcome: "replayed", reason: "uncertain" });
+    audit({ event: "execute", outcome: "uncertain", reason: "outcome-not-recorded" });
+    expect(records[0].category).toBe("permission");
+    expect(records.slice(1).map(r => r.category)).toEqual([undefined, undefined, undefined]);
   });
 });

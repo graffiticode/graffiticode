@@ -397,22 +397,25 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
         status = "uncertain";
         steps.push(e.step);
         error = e.message;
+        reason = "step-not-persisted";
         stopped = e.step;
       } else if (e instanceof ProviderRejected || authorizationReason(e)) {
         // Definite: the provider refused, or the next request was never sent
         // (deadline, or no authorization for it).
         status = steps.length > 0 ? "partial" : "failed";
         error = String(e?.message || e);
-        reason = authorizationReason(e) ? recordedReason(authorizationReason(e)) : undefined;
+        reason = authorizationReason(e) ? recordedReason(authorizationReason(e)) : "provider-rejected";
         stopped = failedStep() ?? undefined;
       } else {
         // A dispatched step whose response never resolved: the provider may
         // have applied it, with no completed step known (steps may be []).
         status = "uncertain";
         error = String(e?.message || e);
+        reason = "provider-response-lost";
         stopped = failedStep() ?? undefined;
       }
     }
+    // Every non-success outcome has a reason, so its category (spec AUDIT-01).
     const category = reason ? classify(reason).category : undefined;
     const effects = defined({ reason, failedStep: stopped, category });
     // Best effort: without a final outcome, a replay still reports uncertain

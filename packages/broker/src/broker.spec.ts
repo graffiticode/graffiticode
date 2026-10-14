@@ -353,7 +353,8 @@ describe("item-bank writes", () => {
   it("reports a failure after the first write as partial, and never re-runs it", async () => {
     failItems = true;
     const first = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
-    expect(first).toMatchObject({ status: "partial", steps: ["questions"] });
+    expect(first).toMatchObject({ status: "partial", steps: ["questions"], reason: "provider-rejected", category: "malformed" });
+    expect(records.at(-1)).toMatchObject({ outcome: "partial", reason: "provider-rejected", category: "malformed" });
     failItems = false;
     const retry = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
     expect(retry).toMatchObject({ status: "partial", replayed: true });
@@ -469,7 +470,8 @@ describe("durable steps", () => {
 
   it("stops, and records uncertain, when a completed step cannot be persisted", async () => {
     const out = await save(createBroker({ ...brokerDeps, receipts: faulty({ putStep: fail }) }));
-    expect(out).toMatchObject({ status: "uncertain", steps: ["questions"] });
+    expect(out).toMatchObject({ status: "uncertain", steps: ["questions"], reason: "step-not-persisted", category: "unavailable" });
+    expect(records.at(-1)).toMatchObject({ outcome: "uncertain", reason: "step-not-persisted", category: "unavailable" });
     expect(out.error).toMatch(/could not be recorded/);
     expect(routes).toEqual(["/itembank/questions"]);
     const retry = await save(broker);

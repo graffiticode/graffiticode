@@ -12,7 +12,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { OPERATIONS, operationSteps, protectedFunctionsForLang } from "@graffiticode/common/protected-registry";
-import { REASON_CATEGORIES, FAILURE_CATEGORIES, underlyingReason } from "@graffiticode/common/failures";
+import { REASON_CATEGORIES, FAILURE_CATEGORIES, underlyingReason, classify } from "@graffiticode/common/failures";
 
 // One JSON line on stdout per record. On Cloud Run that is the
 // run.googleapis.com/stdout log, with `jsonPayload.logName="security_audit"`.
@@ -105,9 +105,19 @@ export const validateAuditRecord = record => {
   return out;
 };
 
+// Outcomes that are failures, so carry a category (spec AUDIT-01): the
+// category of the record's reason, as responses report it (FAIL-01), unless
+// the record gives one. Monitoring and the audit read the same category.
+const FAILURE_OUTCOMES = ["denied", "failed", "partial", "uncertain"];
+const withCategory = record => {
+  if (record.category !== undefined || !FAILURE_OUTCOMES.includes(record.outcome)) return record;
+  const { category, classified } = classify(record.reason);
+  return classified ? { ...record, category } : record;
+};
+
 export const createAudit = ({ sink, pseudonymize }) => record => {
   const requestId = record.requestId ?? currentRequestId();
-  const out: Record<string, unknown> = { at: new Date().toISOString(), ...validateAuditRecord({ ...record, requestId }) };
+  const out: Record<string, unknown> = { at: new Date().toISOString(), ...validateAuditRecord({ ...withCategory(record), requestId }) };
   if (record.uid !== undefined) out.user = pseudonymize(record.uid);
   if (record.ownerUid !== undefined) out.owner = pseudonymize(record.ownerUid);
   return sink(out);
