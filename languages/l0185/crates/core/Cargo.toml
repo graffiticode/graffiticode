@@ -1,0 +1,27 @@
+[package]
+name = "graffiticode-l0185"
+version = "0.1.0"
+description = "L0185 — fetch and shape data in Graffiticode, built on L0000"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["http"]
+# The guarded HTTPS fetcher `fetch` uses in the language server. Without it a compile can only
+# fetch through a fetcher it is given (`L0185::with_fetcher`), as the tests do.
+http = ["dep:reqwest", "dep:tokio", "dep:url"]
+
+[dependencies]
+async-trait = "0.1"
+graffiticode-l0000 = { path = "../../../l0000/crates/core", default-features = false }
+icu_collator = "2"
+indexmap = { version = "2", features = ["serde"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "gzip", "brotli", "deflate", "stream"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+tokio = { version = "1", features = ["net", "sync", "time"], optional = true }
+url = { version = "2", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }

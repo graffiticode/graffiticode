@@ -1,0 +1,394 @@
+{
+  "fetch": {
+    "tk": 1,
+    "name": "FETCH",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Source: load a public https URL (JSON or CSV)."
+  },
+  "rows": {
+    "tk": 1,
+    "name": "ROWS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Source: inline data — a list of records, or a list of lists with `columns`."
+  },
+  "from": {
+    "tk": 1,
+    "name": "FROM",
+    "cls": "function",
+    "arity": 2,
+    "type": "<any record: record>",
+    "description": "Source: data produced elsewhere in the program, e.g. a source bound with `let`."
+  },
+  "parse": {
+    "tk": 1,
+    "name": "PARSE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "How to read a fetched body: JSON or CSV. Defaults to the content type, then a sniff."
+  },
+  "at": {
+    "tk": 1,
+    "name": "AT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Where the data is inside the fetched JSON, as a dot-path."
+  },
+  "columns": {
+    "tk": 1,
+    "name": "COLUMNS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Names for rows written as lists."
+  },
+  "connection-id": {
+    "tk": 1,
+    "name": "CONNECTION_ID",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Reserved for authenticated sources; not available yet."
+  },
+  "where": {
+    "tk": 1,
+    "name": "WHERE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|lambda record: record>",
+    "description": "Keep the records that match: `[field OP value]`, or a function of the record, e.g. `where [\"age\" ABOVE 30]`."
+  },
+  "pick": {
+    "tk": 1,
+    "name": "PICK",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Keep only these fields, in this order."
+  },
+  "omit": {
+    "tk": 1,
+    "name": "OMIT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Drop these fields."
+  },
+  "rename": {
+    "tk": 1,
+    "name": "RENAME",
+    "cls": "function",
+    "arity": 2,
+    "type": "<record record: record>",
+    "description": "Rename fields: `{old: \"new\"}`."
+  },
+  "derive": {
+    "tk": 1,
+    "name": "DERIVE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<record record: record>",
+    "description": "Add or replace fields computed from each record: `{field: <row: …>}`."
+  },
+  "fill": {
+    "tk": 1,
+    "name": "FILL",
+    "cls": "function",
+    "arity": 2,
+    "type": "<record record: record>",
+    "description": "Replace missing or null values: `{field: value}`."
+  },
+  "group-by": {
+    "tk": 1,
+    "name": "GROUP_BY",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Group the records by these fields, for the summarize to its left."
+  },
+  "summarize": {
+    "tk": 1,
+    "name": "SUMMARIZE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<record record: record>",
+    "description": "One record per group (or one for all): `{name: COUNT}` or `{name: [SUM \"field\"]}`."
+  },
+  "sort-by": {
+    "tk": 1,
+    "name": "SORT_BY",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Sort by fields, each optionally followed by ASC or DESC."
+  },
+  "limit": {
+    "tk": 1,
+    "name": "LIMIT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "Keep the first n records."
+  },
+  "skip": {
+    "tk": 1,
+    "name": "SKIP",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "Drop the first n records."
+  },
+  "distinct": {
+    "tk": 1,
+    "name": "DISTINCT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Drop duplicate records, compared on these fields, or on whole records with `[]`."
+  },
+  "unnest": {
+    "tk": 1,
+    "name": "UNNEST",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "One record per element of a list field; record elements merge in as field.key."
+  },
+  "spread": {
+    "tk": 1,
+    "name": "SPREAD",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Turn a record field into field.key fields."
+  },
+  "join": {
+    "tk": 1,
+    "name": "JOIN",
+    "cls": "function",
+    "arity": 2,
+    "type": "<record record: record>",
+    "description": "Join another data set: `{with: <source> on: \"id\" kind: LEFT prefix: \"c-\"}`."
+  },
+  "format": {
+    "tk": 1,
+    "name": "FORMAT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<record record: record>",
+    "description": "Format numbers or dates as text with an Excel pattern: `{revenue: \"$#,##0.00\" time: \"yyyy-mm-dd hh:mm\"}`."
+  },
+  "JSON": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Read the fetched body as JSON."
+  },
+  "CSV": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Read the fetched body as CSV, with a header row."
+  },
+  "EQUALS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field equals the value."
+  },
+  "NOT-EQUALS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field does not equal the value (missing fields count as not equal)."
+  },
+  "ABOVE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field is greater than the value."
+  },
+  "AT-LEAST": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field is greater than or equal to the value."
+  },
+  "BELOW": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field is less than the value."
+  },
+  "AT-MOST": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field is less than or equal to the value."
+  },
+  "IN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field is one of a list of values."
+  },
+  "NOT-IN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field is none of a list of values."
+  },
+  "CONTAINS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field's text contains the value."
+  },
+  "STARTS-WITH": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field's text starts with the value."
+  },
+  "ENDS-WITH": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field's text ends with the value."
+  },
+  "MISSING": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field is missing or null."
+  },
+  "PRESENT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The field is present and not null."
+  },
+  "COUNT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "How many records (or, with a field, how many non-null values)."
+  },
+  "SUM": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The total of a field."
+  },
+  "AVERAGE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The mean of a field."
+  },
+  "MEDIAN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The median of a field."
+  },
+  "MIN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The smallest value of a field."
+  },
+  "MAX": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The largest value of a field."
+  },
+  "COUNT-DISTINCT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "How many different values a field has."
+  },
+  "ASC": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Smallest first."
+  },
+  "DESC": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Largest first."
+  },
+  "LEFT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Keep every record on the left, matched or not."
+  },
+  "INNER": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Keep only records that match on both sides."
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "stepFields": {
+    "FETCH": {
+      "role": "source",
+      "expects": "url",
+      "description": "Source: load a public https URL (JSON or CSV).",
+      "example": "fetch \"https://example.org/data.json\" {}"
+    },
+    "ROWS": {
+      "role": "source",
+      "expects": "rows",
+      "description": "Source: inline data — a list of records, or a list of lists with `columns`.",
+      "example": "rows [{name: \"Pen\" price: 1.5}] {}"
+    },
+    "FROM": {
+      "role": "source",
+      "expects": "value",
+      "description": "Source: data produced elsewhere in the program, e.g. a source bound with `let`.",
+      "example": "from customers {}"
+    },
+    "PARSE": {
+      "role": "option",
+      "of": "fetch",
+      "expects": "tag",
+      "oneOf": [
+        "JSON",
+        "CSV"
+      ],
+      "description": "How to read a fetched body: JSON or CSV. Defaults to the content type, then a sniff.",
+      "example": "fetch \"https://example.org/data.csv\" parse CSV {}"
+    },
+    "AT": {
+      "role": "option",
+      "of": "fetch",
+      "expects": "path",
+      "description": "Where the data is inside the fetched JSON, as a dot-path.",
+      "example": "fetch \"https://example.org/api.json\" at \"data.users\" {}"
+    },
+    "COLUMNS": {
+      "role": "option",
+      "of": "rows",
+      "expects": "fields",
+      "description": "Names for rows written as lists.",
+      "example": "rows [[\"Oslo\" 709]] columns [\"city\" \"population\"] {}"
+    },
+    "CONNECTION_ID": {
+      "role": "option",
+      "of": "fetch",
+      "expects": "text",
+      "description": "Reserved for authenticated sources; not available yet.",
+      "example": "fetch \"https://example.org/data.json\" {}"
+    },
+    "WHERE": {
+      "role": "step",
+      "expects": "condition",
+      "description": "Keep the records that match: `[field OP value]`, or a function of the record, e.g. `where [\"age\" ABOVE 30]`.",
+      "example": "where [\"age\" ABOVE 30] fetch \"https://example.org/people.json\" {}"
+    },
+    "PICK": {
+      "role": "step",
+      "expects": "fields",
+      "description": "Keep only these fields, in this order.",
+      "example": "pick [\"name\" \"email\"] fetch \"https://example.org/users.json\" {}"
+    },
+    "OMIT": {
+      "role": "step",
+      "expects": "fields",
+      "description": "Drop these fields.",
+      "example": "omit [\"password\"] fetch \"https://example.org/users.json\" {}"
+    },
+    "RENAME": {
+      "role": "step",
+      "expects": "rename-record",
+      "description": "Rename fields: `{old: \"new\"}`.",
+      "example": "rename {pop: \"population\"} fetch \"https://example.org/cities.json\" {}"
+    },
+    "DERIVE": {
+      "role": "step",
+      "expects": "lambda-record",
+      "description": "Add or replace fields computed from each record: `{field: <row: …>}`.",
+      "example": "derive {total: <row: mul (get \"price\" row) (get \"qty\" row)>} fetch \"https://example.org/orders.json\" {}"
+    },
+    "FILL": {
+      "role": "step",
+      "expects": "value-record",
+      "description": "Replace missing or null values: `{field: value}`.",
+      "example": "fill {region: \"unknown\"} fetch \"https://example.org/sales.json\" {}"
+    },
+    "GROUP_BY": {
+      "role": "step",
+      "expects": "fields",
+      "description": "Group the records by these fields, for the summarize to its left.",
+      "example": "summarize {orders: COUNT} group-by [\"region\"] fetch \"https://example.org/sales.json\" {}"
+    },
+    "SUMMARIZE": {
+      "role": "step",
+      "expects": "agg-record",
+      "description": "One record per group (or one for all): `{name: COUNT}` or `{name: [SUM \"field\"]}`.",
+      "example": "summarize {orders: COUNT revenue: [SUM \"amount\"]} group-by [\"region\"] fetch \"https://example.org/sales.json\" {}"
+    },
+    "SORT_BY": {
+      "role": "step",
+      "expects": "sort-spec",
+      "description": "Sort by fields, each optionally followed by ASC or DESC.",
+      "example": "sort-by [\"revenue\" DESC] fetch \"https://example.org/sales.json\" {}"
+    },
+    "LIMIT": {
+      "role": "step",
+      "expects": "count",
+      "description": "Keep the first n records.",
+      "example": "limit 10 fetch \"https://example.org/sales.json\" {}"
+    },
+    "SKIP": {
+      "role": "step",
+      "expects": "count",
+      "description": "Drop the first n records.",
+      "example": "skip 10 fetch \"https://example.org/sales.json\" {}"
+    },
+    "DISTINCT": {
+      "role": "step",
+      "expects": "fields",
+      "description": "Drop duplicate records, compared on these fields, or on whole records with `[]`.",
+      "example": "distinct [\"email\"] fetch \"https://example.org/users.json\" {}"
+    },
+    "UNNEST": {
+      "role": "step",
+      "expects": "field",
+      "description": "One record per element of a list field; record elements merge in as field.key.",
+      "example": "unnest \"items\" fetch \"https://example.org/orders.json\" {}"
+    },
+    "SPREAD": {
+      "role": "step",
+      "expects": "field",
+      "description": "Turn a record field into field.key fields.",
+      "example": "spread \"address\" fetch \"https://example.org/users.json\" {}"
+    },
+    "JOIN": {
+      "role": "step",
+      "expects": "join-spec",
+      "description": "Join another data set: `{with: <source> on: \"id\" kind: LEFT prefix: \"c-\"}`.",
+      "example": "join {with: customers on: [\"customer-id\" \"id\"]} fetch \"https://example.org/orders.json\" {}"
+    },
+    "FORMAT": {
+      "role": "step",
+      "expects": "pattern-record",
+      "description": "Format numbers or dates as text with an Excel pattern: `{revenue: \"$#,##0.00\" time: \"yyyy-mm-dd hh:mm\"}`.",
+      "example": "format {revenue: \"$#,##0.00\"} fetch \"https://example.org/sales.json\" {}"
+    }
+  },
+  "tags": {
+    "JSON": "Read the fetched body as JSON.",
+    "CSV": "Read the fetched body as CSV, with a header row.",
+    "EQUALS": "The field equals the value.",
+    "NOT-EQUALS": "The field does not equal the value (missing fields count as not equal).",
+    "ABOVE": "The field is greater than the value.",
+    "AT-LEAST": "The field is greater than or equal to the value.",
+    "BELOW": "The field is less than the value.",
+    "AT-MOST": "The field is less than or equal to the value.",
+    "IN": "The field is one of a list of values.",
+    "NOT-IN": "The field is none of a list of values.",
+    "CONTAINS": "The field's text contains the value.",
+    "STARTS-WITH": "The field's text starts with the value.",
+    "ENDS-WITH": "The field's text ends with the value.",
+    "MISSING": "The field is missing or null.",
+    "PRESENT": "The field is present and not null.",
+    "COUNT": "How many records (or, with a field, how many non-null values).",
+    "SUM": "The total of a field.",
+    "AVERAGE": "The mean of a field.",
+    "MEDIAN": "The median of a field.",
+    "MIN": "The smallest value of a field.",
+    "MAX": "The largest value of a field.",
+    "COUNT-DISTINCT": "How many different values a field has.",
+    "ASC": "Smallest first.",
+    "DESC": "Largest first.",
+    "LEFT": "Keep every record on the left, matched or not.",
+    "INNER": "Keep only records that match on both sides."
+  }
+}

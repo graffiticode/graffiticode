@@ -6,3 +6,5 @@ packages/api/static
 .git
 *.log
 .DS_Store
+target
+/static
