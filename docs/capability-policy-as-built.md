@@ -359,16 +359,37 @@ Evidence: [gateway execution](../packages/api/src/data.js),
     separately. Alerts for outages and uncertain writes were applied, and both emails were
     confirmed delivered by nonce on 2026-10-06.
 
-  - **Categories (W5 stage 1, in code, not yet released):** every failure record (`denied`,
+  - **Categories (W5 stage 1, released 2026-10-14):** every failure record (`denied`,
     `failed`, `partial`, `uncertain`) carries its reason's category, added by the audit itself,
     and Broker's write outcomes always have a reason (`provider-rejected`,
-    `provider-response-lost`, `step-not-persisted`, or a refusal's). New: an `api_denials`
-    metric, and alerts for partial writes, artifact storage outages and permission denials
-    outside the canary, each still to be applied and delivery-checked.
+    `provider-response-lost`, `step-not-persisted`, or a refusal's). Released as
+    `policy-rmv888ia7-bdda82`, `broker-rmv88ik5s-d87210` and `api-rmv88w1vg-54fc59` (main
+    `93f8212`, which adds only other languages' changes to #85's `9547019`).
+    - **Deployed evidence:** the canary run at 15:31Z (23 of 23) produced these failure
+      records, every one with a category:
 
-  Missing: reconciliation events (W5 stage 3), deployed records showing the categories, and
-  the validator that will require them (a later release, once deployed records show full
-  coverage). Evidence:
+      | Service | Event | Outcome | Reason | Category |
+      | --- | --- | --- | --- | --- |
+      | Policy | `authorize-execution` (2) | denied | `not-granted` | permission |
+      | Policy | `admission` | denied | `not-granted` | permission |
+      | Policy | `snapshot` | denied | `plan-required` | conflict |
+      | Broker | `execute` | denied | `authorization-denied:not-granted` | permission |
+      | Broker | `execute` | failed | `authorization-denied:not-granted` | permission |
+      | Broker | `execute` | denied | `token-replayed` | conflict |
+      | Broker | `execute` | denied | `operation-mismatch` | malformed |
+      | api | `admission` | denied | `not-granted` | permission |
+      | api | `artifact` | failed | `artifact-rejected` | conflict |
+
+      The releases' own candidate checks recorded `caller-rejected` as `authentication` on
+      Policy and Broker.
+    - **Monitoring:** an `api_denials` metric and alerts for partial writes, artifact storage
+      outages and permission denials outside the canary were applied on 2026-10-14. All five
+      alerts' emails were confirmed delivered by nonce that day. The first test of the three
+      new ones, written 38 s after they were created, sent nothing: new log-based alerts take
+      several minutes to start matching.
+
+  Missing: reconciliation events (W5 stage 3), and the validator that will require a category
+  (a later release; coverage is now shown on deployed records). Evidence:
   [audit](../packages/policy/src/audit.ts), [AT-12 harness](../packages/api/src/at12.spec.js),
   [monitoring](../scripts/monitoring.js).
 - **Missing — RELEASE-01.** No stronger-contract cutover/version enforcement, pinned-plan
