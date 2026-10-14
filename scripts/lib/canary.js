@@ -62,6 +62,9 @@
 //                   revision (no plan-mismatch)
 //   direct path     a marked invocation is preflighted at L0176 and admitted
 //                   as the gateway would, and its snapshots carry the plan
+// Reconciliation (`reconcile`, W5 WRITE-02, once Policy and Broker have it):
+//   reconcile      the gateway write, by its key, as the console: applied and
+//                  final, every record carrying the operation's mark
 // After the cutover (`afterCutover`, Policy's MIN_CONTRACT_VERSION=2):
 //   v1 refused      every new invocation is marked, and a snapshot without
 //                   an admitted plan (the v1 shape) is refused, plan-required
@@ -119,10 +122,10 @@ const hasSavedItem = value => {
 // parse(src) -> the program's AST (L0176)
 // servingRevision(lang) -> the revision serving that language now (W4)
 // retryState { load, save, clear } -> the retry across a deploy's record (W4)
-export const runCanary = async ({ http, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {} }) => {
+export const runCanary = async ({ http, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {}, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now }) => {
   const {
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
-    chainAdmission = false, afterCutover = false, languageUrl = null
+    chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false
   } = config;
   const results = [];
   const record = (name, ok, detail) => {
@@ -219,9 +222,11 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
       res.status === 200 && errors.length === 0 ? (hasSignedRequest(res.json?.data) ? "signed preview returned" : "no signed request in the output") : `${res.status} ${JSON.stringify(errors)}`);
   });
   let saveTaskId = null;
+  let saveKey = null;
   await attempt("gateway write", async () => {
     saveTaskId = await postTask(SAVE_PROGRAM);
     const key = `canary:${runId}:save`;
+    saveKey = key;
     const first = await compile(saveTaskId, key);
     const ok = first.status === 200 && errorsOf(first).length === 0 && hasSavedItem(first.json?.data);
     if (!record("gateway write", ok, ok ? "draft saved through the connection" : `${first.status} ${JSON.stringify(errorsOf(first))}`)) return;
@@ -470,6 +475,34 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
     }
   };
   await attempt("direct path", direct);
+
+  // WRITE-02 (W5, `reconcile`): reconcile the gateway write, as the console
+  // with the canary's own user token, by the exact key it used. Broker reads
+  // nothing until the write's deadline plus a grace period, so a too-early
+  // answer is waited out once. Every record must carry the operation's mark:
+  // applied, and final.
+  if (reconcile) {
+    await attempt("reconcile", async () => {
+      if (!saveKey) throw new Error("no gateway write to reconcile");
+      const asConsole = await asService(consoleAccount, policyUrl, "urn:graffiticode:policy");
+      const ask = () => http({ method: "POST", url: policy("/v1/receipts/reconcile"), headers: { ...asConsole, ...asUser }, body: { connectionId, idempotencyKey: saveKey } });
+      let res = await ask();
+      const early = (res.json?.data?.operations ?? []).filter(o => o.verdict === "too-early");
+      if (res.status === 200 && early.length) {
+        const until = Math.max(...early.map(o => Date.parse(o.retryAfter)));
+        const wait = Math.min(Math.max(until - now(), 0) + 2000, 180_000);
+        log(`  reconcile: waiting ${Math.round(wait / 1000)} s for the write's deadline and grace period`);
+        await sleep(wait);
+        res = await ask();
+      }
+      const ops = res.json?.data?.operations ?? [];
+      const ok = res.status === 200 && ops.length > 0 && ops.every(o => o.verdict === "applied" && o.final === true);
+      const landed = ops.flatMap(o => o.records ?? []).filter(r => r.landed).length;
+      record("reconcile", ok, res.status === 200
+        ? `${ops.map(o => o.verdict).join(", ") || "no write operations"}; ${landed} record(s) carry the mark`
+        : `${res.status} ${res.json?.error?.reason ?? ""}`);
+    });
+  }
 
   return { ok: results.length > 0 && results.every(r => r.ok), results };
 };

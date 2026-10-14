@@ -80,6 +80,10 @@ It checks, as the canary account:
   owner, who holds every function, Policy's snapshot leaves `author` out, and Broker,
   which has no Author operation, refuses `learnosity.sign-author` with 403
   `operation-mismatch` (a v6 Broker answered `operation-not-enabled`);
+- **reconcile** (W5, WRITE-02; `--reconcile`): reconciles the gateway write by its exact
+  idempotency key, as the console with the canary's user token. Broker reads nothing until
+  the write's deadline plus 60 s, so the first answer is too early and the run waits it out,
+  about 90 s. Every record must carry the operation's mark: `applied`, and final;
 - **revocation probe** (W2, live authorization): the canary owns its connection, so
   it narrows its own owner permissions to `init` and back. A fresh token for an
   operation that already wrote is refused once narrowed (403

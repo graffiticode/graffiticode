@@ -82,6 +82,8 @@ const world = async ({ tweak = {} } = {}) => {
   deploy("l0176-ra");
   deploy("l0000-ra", "0000");
   const leases = new Map();
+  const reconcileAsks = [];
+  const clock = { now: Date.parse("2026-10-14T17:00:00Z"), slept: [] };
   const policy = createPolicy({
     signer,
     jwks,
@@ -92,7 +94,19 @@ const world = async ({ tweak = {} } = {}) => {
     approvals,
     fence: createMemoryLeaseFence({ leases }),
     ...(tweak.min ? { minContractVersion: tweak.min } : {}),
-    audit
+    audit,
+    // Broker's reconciliation, as it answers (its logic is tested in
+    // packages/broker/src/reconcile.spec.ts): too early on the first ask, then
+    // the verdict for the invocation Policy resolved. `unreconciled` stands
+    // for a write whose marks aren't found.
+    brokerReconcile: async ({ invocationId }) => {
+      reconcileAsks.push(invocationId);
+      const operationId = `${invocationId}/s0/n1.0`;
+      if (reconcileAsks.length === 1) return { invocationId, operations: [{ operationId, verdict: "too-early", retryAfter: new Date(clock.now + 90_000).toISOString() }] };
+      return tweak.unreconciled
+        ? { invocationId, operations: [{ operationId, verdict: "unresolved", final: false, records: [{ landed: false }] }] }
+        : { invocationId, operations: [{ operationId, verdict: "applied", final: true, records: [{ landed: true }, { landed: true }] }] };
+    },
   });
   const writes = [];
   const broker = createBroker({
@@ -192,6 +206,7 @@ const world = async ({ tweak = {} } = {}) => {
         }
         if (pathname === "/v1/mint") return ok(await policy.mint({ caller, ...body }));
         if (pathname === "/v1/connections" && method === "GET") return ok(await manager.list({ caller, user: user(headers) }));
+        if (pathname === "/v1/receipts/reconcile") return ok(await policy.reconcile({ caller, user: user(headers), ...body }));
         const permissions = pathname.match(/^\/v1\/connections\/([^/]+)\/owner-permissions$/);
         if (permissions && method === "PUT") {
           // `brokenRestore` stands for a restore that doesn't put back what was there.
@@ -217,7 +232,7 @@ const world = async ({ tweak = {} } = {}) => {
     return { status: 404, json: null };
   };
   const idToken = async (account, audience) => (tweak.noImpersonation ? Promise.reject(new Error("permission denied to impersonate")) : `id|${account}|${audience}`);
-  return { http, idToken, writes, connections, deploy, serving };
+  return { http, idToken, writes, connections, deploy, serving, reconcileAsks, clock };
 };
 
 const memoryRetryState = () => {
@@ -225,6 +240,9 @@ const memoryRetryState = () => {
   return { state, load: async () => state.value, save: async v => { state.value = v; }, clear: async () => { state.value = null; } };
 };
 const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang] } = {}) => runCanary({
+  // A clock the canary's waits advance, so nothing really sleeps.
+  now: () => w.clock.now,
+  sleep: async ms => { w.clock.slept.push(ms); w.clock.now += ms; },
   http: w.http,
   idToken: w.idToken,
   accessToken: async () => "user-token",
@@ -432,4 +450,31 @@ test("W4: fails the L0000 stage check when the chain runs without its L0000 stag
   assert.equal(ok, false);
   assert.equal(byName(results)["chain admission: L0000 stage: compiled"], true);
   assert.equal(byName(results)["chain admission: L0000 stage"], false);
+});
+
+// WRITE-02 (W5): the canary reconciles its own gateway write, by its key.
+test("reconcile: asks for the gateway write by its exact key, waits out the too-early answer once, and passes on applied", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const { ok, results } = await run(w, { chainAdmission: true, reconcile: true });
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.match(results.find(r => r.name === "reconcile").detail, /^applied; 2 record\(s\) carry the mark/);
+  // Two asks for the same invocation, with one wait between them (90 s + 2 s).
+  assert.equal(w.reconcileAsks.length, 2);
+  assert.equal(new Set(w.reconcileAsks).size, 1);
+  assert.deepEqual(w.clock.slept, [92_000]);
+});
+
+test("reconcile: fails when the write's marks aren't found", async () => {
+  const w = await world({ tweak: { chain: true, unreconciled: true } });
+  const { ok, results } = await run(w, { chainAdmission: true, reconcile: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results).reconcile, false);
+  assert.match(results.find(r => r.name === "reconcile").detail, /^unresolved; 0 record/);
+});
+
+test("reconcile is opt-in: without it, Policy is never asked", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const { ok } = await run(w, { chainAdmission: true });
+  assert.equal(ok, true);
+  assert.deepEqual(w.reconcileAsks, []);
 });

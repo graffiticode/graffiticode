@@ -31,6 +31,9 @@
 //                           write here; deploy L0176, then run again, and the
 //                           second run retries that write across the deploy
 //                           (the file is removed once it passes)
+//   --reconcile             reconcile the gateway write (W5, WRITE-02): Policy and
+//                           Broker must have reconciliation; adds about 90 s, the
+//                           write's deadline plus the grace period
 //   --after-cutover         Policy runs MIN_CONTRACT_VERSION=2: v1-shaped
 //                           sessions must be refused
 // The gateway's runtime account also mints the ID token for L0176's
@@ -84,6 +87,7 @@ const config = {
   revocationProbe: !args.includes("--no-revocation-probe"),
   chainAdmission: args.includes("--chain-admission"),
   afterCutover: args.includes("--after-cutover"),
+  reconcile: args.includes("--reconcile"),
   languageUrl: args.includes("--chain-admission") || args.includes("--after-cutover") ? await serviceUrl("l0176") : null,
 };
 const retryFile = flag("--retry-state");
