@@ -61,7 +61,10 @@ parentheses (`where (<row: …>)`); inside a record value it does not.
 
 https only, port 443, no userinfo, denied internal host names; **every** resolved address checked
 in the socket's lookup hook (closes DNS rebinding); manual redirects (≤3, each re-checked); 5 s
-connect, 10 s per URL, 5 MB decoded; 60 s cache. Errors never echo a resolved IP. Authenticated
+connect, 10 s per URL, 5 MB decoded; 60 s cache. Errors never echo a resolved IP. Behind the
+egress proxy (ISOLATE-01, `HTTPS_PROXY` set; the `proxy` option) it uses undici's `ProxyAgent`:
+the proxy resolves and enforces addresses, its 403 reads as "cannot be fetched", any other
+tunnel failure as "could not connect"; the URL checks and limits are unchanged. Authenticated
 sources are the goal (`connection-id` is reserved and refused) — they go through the broker,
 never raw proxying.
 
@@ -107,7 +110,7 @@ npm run rust:fixtures # build packages/core, then (TZ=UTC) regenerate src/vocab.
 
 ### Fetching (`src/fetch.rs`)
 
-Every `fetch` is a GET at compile time to the URL the program names, so this is an SSRF boundary, ported from `packages/api/src/fetch.ts`: https only, port 443, no userinfo; `localhost`, `*.localhost`, `*.local`, `*.internal`, `metadata.google.internal` refused; a literal IP, and **every** address a host name resolves to, must be public unicast (ipaddr.js 2.5's special ranges, IPv4-mapped IPv6 unwrapped), checked in the client's own DNS resolver so the connection uses exactly the addresses that passed; no proxy; redirects by hand, at most 3, each re-checked; 10 s per URL (redirects and body included), 5 s to connect; at most 5 MB decoded body (gzip, deflate, br); fixed headers (`user-agent: Graffiticode-L0185/1`); a 60 s in-process cache of at most 200 URLs, in-flight requests shared, failures not cached. Per compile a URL is fetched once, and at most 10 different URLs. No env and no secrets; `connection-id` is refused as in TypeScript. Output stays cacheable, as the TypeScript's is.
+Every `fetch` is a GET at compile time to the URL the program names, so this is an SSRF boundary, ported from `packages/api/src/fetch.ts`: https only, port 443, no userinfo; `localhost`, `*.localhost`, `*.local`, `*.internal`, `metadata.google.internal` refused; a literal IP, and **every** address a host name resolves to, must be public unicast (ipaddr.js 2.5's special ranges, IPv4-mapped IPv6 unwrapped), checked in the client's own DNS resolver so the connection uses exactly the addresses that passed; no proxy, except the egress proxy (ISOLATE-01: with `HTTPS_PROXY` set, `L0185::default()` builds the client from the kernel's `egress::client_builder_with`, the proxy enforces addresses, and a refused tunnel reads as "cannot be fetched"; `tests/egress.rs`); redirects by hand, at most 3, each re-checked; 10 s per URL (redirects and body included), 5 s to connect; at most 5 MB decoded body (gzip, deflate, br); fixed headers (`user-agent: Graffiticode-L0185/1`); a 60 s in-process cache of at most 200 URLs, in-flight requests shared, failures not cached. Per compile a URL is fetched once, and at most 10 different URLs. No env and no secrets; `connection-id` is refused as in TypeScript. Output stays cacheable, as the TypeScript's is.
 
 ### Conformance
 

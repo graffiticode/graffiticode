@@ -10,7 +10,7 @@
 //!   own resolver, so the connection uses exactly the addresses that passed (no DNS-rebinding
 //!   window). IPv4-mapped IPv6 is unwrapped; private, loopback, link-local (the metadata
 //!   server), CGNAT, multicast, reserved, NAT64/6to4/Teredo and other non-unicast ranges are
-//!   refused (ipaddr.js 2.5's ranges). No proxy is ever used.
+//!   refused (ipaddr.js 2.5's ranges). No proxy is used, except the egress proxy below.
 //! - Redirects are followed by hand, at most 3, each checked like the original URL.
 //! - 10 s per URL, redirects and body included (5 s to connect); 5 MB of decoded body,
 //!   counted while streaming.
@@ -18,12 +18,21 @@
 //!   URLs), with requests in flight shared; a failure is not cached.
 //!
 //! Messages never echo a resolved address.
+//!
+//! Behind the egress proxy (ISOLATE-01: `HTTPS_PROXY` set, [`GuardOptions::egress`]) the client
+//! comes from the kernel's `egress::client_builder_with`, and the proxy resolves each name, so the
+//! resolved-address check moves there: it refuses, by the actual connection, a name landing on a
+//! private, loopback, link-local or metadata address. A refused tunnel reads as the same
+//! "cannot be fetched". (The proxy's status isn't visible through `reqwest`, so a tunnel the
+//! proxy can't open for another reason reads the same way; the TypeScript says "could not
+//! connect" for those.) The URL checks, redirects, timeouts, size cap and cache are unchanged.
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+use graffiticode_l0000::egress::{EgressEnv, client_builder_with};
 use indexmap::IndexMap;
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use tokio::sync::OnceCell;
@@ -44,6 +53,9 @@ pub struct GuardOptions {
     pub allow_http: bool,
     /// TEST ONLY: which addresses may be connected to (default: public unicast).
     pub is_allowed_address: fn(IpAddr) -> bool,
+    /// The egress proxy and its CA. The default is none: connect directly. The language server
+    /// passes [`EgressEnv::from_env`].
+    pub egress: EgressEnv,
 }
 
 impl Default for GuardOptions {
@@ -56,6 +68,7 @@ impl Default for GuardOptions {
             cache_ttl: Duration::from_secs(60),
             allow_http: false,
             is_allowed_address: is_public_address,
+            egress: EgressEnv::default(),
         }
     }
 }
@@ -225,6 +238,20 @@ impl Resolve for GuardedResolver {
     }
 }
 
+/// The proxy answered the CONNECT with something other than 200: hyper-util's
+/// `TunnelError::TunnelUnsuccessful`, which isn't exported, so it's known by its `Debug` form
+/// (`tests/egress.rs` pins this).
+fn tunnel_refused(err: &(dyn std::error::Error + 'static)) -> bool {
+    let mut cur = Some(err);
+    while let Some(e) = cur {
+        if format!("{e:?}") == "TunnelUnsuccessful" {
+            return true;
+        }
+        cur = e.source();
+    }
+    false
+}
+
 fn caused_by<E: std::error::Error + 'static>(err: &(dyn std::error::Error + 'static)) -> bool {
     let mut cur = Some(err);
     while let Some(e) = cur {
@@ -247,11 +274,17 @@ pub struct GuardedFetcher {
 
 impl GuardedFetcher {
     pub fn new(opts: GuardOptions) -> Self {
-        let client = reqwest::Client::builder()
+        let builder = if opts.egress.proxy.is_some() {
+            // Through the egress proxy, which resolves the name and checks the address.
+            client_builder_with(&opts.egress).unwrap_or_else(|err| panic!("{err}"))
+        } else {
+            reqwest::Client::builder()
+                .no_proxy()
+                .dns_resolver(Arc::new(GuardedResolver { allowed: opts.is_allowed_address }))
+        };
+        let client = builder
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(opts.connect_timeout)
-            .no_proxy()
-            .dns_resolver(Arc::new(GuardedResolver { allowed: opts.is_allowed_address }))
             .build()
             .expect("the HTTP client builds");
         Self { client, opts, cache: Mutex::new(IndexMap::new()) }
@@ -286,7 +319,7 @@ impl GuardedFetcher {
             let mut response = match response {
                 Ok(response) => response,
                 Err(err) => {
-                    if caused_by::<BlockedAddress>(&err) {
+                    if caused_by::<BlockedAddress>(&err) || (self.opts.egress.proxy.is_some() && tunnel_refused(&err)) {
                         return Err(blocked(raw));
                     }
                     let why = if caused_by::<NotFound>(&err) { "no such host" } else { "could not connect" };

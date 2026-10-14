@@ -10,7 +10,7 @@ repository.workspace = true
 default = ["http"]
 # The guarded HTTPS fetcher `fetch` uses in the language server. Without it a compile can only
 # fetch through a fetcher it is given (`L0185::with_fetcher`), as the tests do.
-http = ["dep:reqwest", "dep:tokio", "dep:url"]
+http = ["dep:reqwest", "dep:tokio", "dep:url", "graffiticode-l0000/http"]
 
 [dependencies]
 async-trait = "0.1"
@@ -24,4 +24,6 @@ tokio = { version = "1", features = ["net", "sync", "time"], optional = true }
 url = { version = "2", optional = true }
 
 [dev-dependencies]
+rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "pem"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs"] }
