@@ -802,6 +802,8 @@ Gateway recovery/publication tests cited above were inspected, not rerun for thi
 Firestore integration, production IAM/egress, learner-answer routing, and live provider
 session behavior were not validated by those test runs.
 
+**Acceptance run, 2026-10-14 (W5 stage 5):** [capability-policy-acceptance.md](capability-policy-acceptance.md) maps each AT clause to its tests and the live evidence. AT-01, 03, 05, 06, 08 and 12 pass; AT-07 passes pending the restore test; AT-09 is partial; AT-02, 04 and 10 are open; AT-11 is deferred with ISOLATE-01. The backlog below is the pre-W4 view, kept for history.
+
 The spec's AT-01 through AT-12 are the release acceptance backlog. In particular:
 
 - AT-03/04 need new complete-chain admission, immutable-plan, and proof-substitution tests.
