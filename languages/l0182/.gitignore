@@ -20,3 +20,7 @@ coverage
 *~
 *#
 .#*
+
+# Rust build output
+/static
+/target

@@ -113,3 +113,18 @@ There is no service credential and no backend to configure. Everything a program
 the program.
 
 See [CLAUDE.md](CLAUDE.md) for the design record.
+
+## Rust implementation
+
+`crates/` holds L0182 in Rust: a `Dialect` on the kernel in `languages/l0000/crates`, with a
+language server (`crates/server`, binary `l0182r`). The TypeScript in `packages/` remains
+production; `attributes.ts`, `scales.ts` and `packages/core/data/` remain the single source of
+truth.
+
+```bash
+cargo test            # needs no Node and no network
+npm run rust:build    # ./static, then the release binary (target/release/l0182r)
+npm run rust:dev      # run it on :50182
+```
+
+See `CLAUDE.md` for the details.
