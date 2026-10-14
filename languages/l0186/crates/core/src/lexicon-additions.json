@@ -1,0 +1,794 @@
+{
+  "id": {
+    "tk": 1,
+    "name": "ID",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The name connectors use to refer to a node. Defaults to the node's text, so give an id whenever two nodes say the same thing or the text is long."
+  },
+  "text": {
+    "tk": 1,
+    "name": "TEXT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "What a sticky, shape or textbox says."
+  },
+  "name": {
+    "tk": 1,
+    "name": "NAME",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A section's or a page's name, shown as its title or tab."
+  },
+  "label": {
+    "tk": 1,
+    "name": "LABEL",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Text written on a connector."
+  },
+  "title": {
+    "tk": 1,
+    "name": "TITLE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The board's title, after the board's `]`."
+  },
+  "kind": {
+    "tk": 1,
+    "name": "KIND",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "A shape's outline (SQUARE, ELLIPSE, ROUNDED_RECTANGLE, DIAMOND, TRIANGLE_UP, TRIANGLE_DOWN, PARALLELOGRAM_RIGHT, PARALLELOGRAM_LEFT, ENG_DATABASE, ENG_QUEUE, ENG_FILE, ENG_FOLDER, TRAPEZOID, PREDEFINED_PROCESS, SHIELD, DOCUMENT_SINGLE, DOCUMENT_MULTIPLE, MANUAL_INPUT, HEXAGON, CHEVRON, PENTAGON, OCTAGON, STAR, PLUS, ARROW_LEFT, ARROW_RIGHT, SUMMING_JUNCTION, OR, SPEECH_BUBBLE, INTERNAL_STORAGE; defaults to SQUARE), or a stamp's reaction (LIKE, LOVE, LAUGH, SURPRISED, CELEBRATE, HEART; required)."
+  },
+  "x": {
+    "tk": 1,
+    "name": "X",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "Distance from the left of the page, in pixels. Defaults to 0."
+  },
+  "y": {
+    "tk": 1,
+    "name": "Y",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "Distance from the top of the page, in pixels. Defaults to 0."
+  },
+  "width": {
+    "tk": 1,
+    "name": "WIDTH",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "Width in pixels. Defaults to FigJam's size for the shape, or to fit a section's contents."
+  },
+  "height": {
+    "tk": 1,
+    "name": "HEIGHT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "Height in pixels. Defaults like width."
+  },
+  "fill": {
+    "tk": 1,
+    "name": "FILL",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The background colour of a sticky, shape or section: a hex code like \"#ffcc00\", or red, blue, green, yellow, purple, orange, pink, white, black, gray."
+  },
+  "stroke": {
+    "tk": 1,
+    "name": "STROKE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The outline colour of a shape, or a connector's line colour."
+  },
+  "color": {
+    "tk": 1,
+    "name": "COLOR",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A textbox's text colour."
+  },
+  "opacity": {
+    "tk": 1,
+    "name": "OPACITY",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "How opaque, from 0 (invisible) to 100 (solid). Defaults to 100."
+  },
+  "font-size": {
+    "tk": 1,
+    "name": "FONT_SIZE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag|number record: record>",
+    "description": "Text size: SMALL (16), MEDIUM (24), LARGE (40), EXTRA_LARGE (64), HUGE (96), or a number of pixels."
+  },
+  "stroke-width": {
+    "tk": 1,
+    "name": "STROKE_WIDTH",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag|number record: record>",
+    "description": "Line thickness: THIN (4), THICK (8), or a number of pixels."
+  },
+  "from": {
+    "tk": 1,
+    "name": "FROM",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string|list record: record>",
+    "description": "Where a connector starts: a node's id (or text), a list of them to fan in, or \"*\" for every other node on the page."
+  },
+  "to": {
+    "tk": 1,
+    "name": "TO",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string|list record: record>",
+    "description": "Where a connector ends: a node's id (or text), a list of them to fan out, or \"*\" for every other node on the page."
+  },
+  "line-type": {
+    "tk": 1,
+    "name": "LINE_TYPE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "A connector's path: ELBOWED (the default), STRAIGHT or CURVED."
+  },
+  "line-style": {
+    "tk": 1,
+    "name": "LINE_STYLE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "A connector's dash: SOLID (the default) or DASHED."
+  },
+  "from-cap": {
+    "tk": 1,
+    "name": "FROM_CAP",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "The cap at a connector's start: NONE, ARROW_LINES, ARROW_EQUILATERAL, TRIANGLE_FILLED, CIRCLE_FILLED, DIAMOND_FILLED. Defaults to NONE."
+  },
+  "to-cap": {
+    "tk": 1,
+    "name": "TO_CAP",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "The cap at a connector's end: NONE, ARROW_LINES, ARROW_EQUILATERAL, TRIANGLE_FILLED, CIRCLE_FILLED, DIAMOND_FILLED. Defaults to ARROW_LINES."
+  },
+  "from-side": {
+    "tk": 1,
+    "name": "FROM_SIDE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "Which side of the start node a connector leaves from: AUTO, TOP, BOTTOM, LEFT, RIGHT, CENTER. Defaults to AUTO (the facing side) for ELBOWED and CURVED connectors, CENTER for STRAIGHT ones; only a STRAIGHT connector can use CENTER."
+  },
+  "to-side": {
+    "tk": 1,
+    "name": "TO_SIDE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "Which side of the end node a connector arrives at. Same choices and default as from-side."
+  },
+  "waypoints": {
+    "tk": 1,
+    "name": "WAYPOINTS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Points a connector passes through on its way, in order: waypoints [ waypoint [300 0] waypoint [300 400] ]. Needs a single from and a single to."
+  },
+  "background": {
+    "tk": 1,
+    "name": "BACKGROUND",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A page's canvas colour."
+  },
+  "show-page-tabs": {
+    "tk": 1,
+    "name": "SHOW_PAGE_TABS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Show a tab per page. Defaults to true with two or more pages, false with one."
+  },
+  "show-page-menu": {
+    "tk": 1,
+    "name": "SHOW_PAGE_MENU",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Show the page menu, which lists every page. Defaults to false."
+  },
+  "sticky": {
+    "tk": 1,
+    "name": "STICKY",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "A sticky note, e.g. `sticky id \"kick\" text \"Kickoff\" x 0 y 0 {}`."
+  },
+  "shape": {
+    "tk": 1,
+    "name": "SHAPE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "A shape with text, e.g. `shape kind DIAMOND text \"Valid?\" x 300 y 0 {}`."
+  },
+  "textbox": {
+    "tk": 1,
+    "name": "TEXTBOX",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "Free text on the page, e.g. `textbox text \"Roadmap\" font-size LARGE {}`."
+  },
+  "stamp": {
+    "tk": 1,
+    "name": "STAMP",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "A reaction stamp, e.g. `stamp kind LIKE x 200 y 300 {}`."
+  },
+  "connector": {
+    "tk": 1,
+    "name": "CONNECTOR",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "A line between nodes, e.g. `connector from \"kick\" to \"valid\" {}`."
+  },
+  "waypoint": {
+    "tk": 1,
+    "name": "WAYPOINT",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "A point a connector passes through, as an [x y] pair of page pixels, inside `waypoints [ … ]`, e.g. `waypoint [300 0]`. It takes no `{}`."
+  },
+  "board": {
+    "tk": 1,
+    "name": "BOARD",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The program: the FigJam board's pages, then its settings (title, show-page-tabs, show-page-menu)."
+  },
+  "page": {
+    "tk": 1,
+    "name": "PAGE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "One page: its nodes and connectors, then its settings (name, background)."
+  },
+  "section": {
+    "tk": 1,
+    "name": "SECTION",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "A titled area of a page holding nodes, then its settings (name, x, y, width, height, fill, opacity)."
+  },
+  "save-to-figjam": {
+    "tk": 1,
+    "name": "SAVE_TO_FIGJAM",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "Draw this board into a FigJam file with the Graffiticode FigJam plugin: `save-to-figjam \"<file key or figma.com link>\"`, on its own line before the board."
+  },
+  "SQUARE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A square shape."
+  },
+  "ELLIPSE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A ellipse shape."
+  },
+  "ROUNDED_RECTANGLE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A rounded rectangle shape."
+  },
+  "DIAMOND": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A diamond shape."
+  },
+  "TRIANGLE_UP": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A triangle up shape."
+  },
+  "TRIANGLE_DOWN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A triangle down shape."
+  },
+  "PARALLELOGRAM_RIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A parallelogram right shape."
+  },
+  "PARALLELOGRAM_LEFT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A parallelogram left shape."
+  },
+  "ENG_DATABASE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A eng database shape."
+  },
+  "ENG_QUEUE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A eng queue shape."
+  },
+  "ENG_FILE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A eng file shape."
+  },
+  "ENG_FOLDER": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A eng folder shape."
+  },
+  "TRAPEZOID": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A trapezoid shape."
+  },
+  "PREDEFINED_PROCESS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A predefined process shape."
+  },
+  "SHIELD": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A shield shape."
+  },
+  "DOCUMENT_SINGLE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A document single shape."
+  },
+  "DOCUMENT_MULTIPLE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A document multiple shape."
+  },
+  "MANUAL_INPUT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A manual input shape."
+  },
+  "HEXAGON": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A hexagon shape."
+  },
+  "CHEVRON": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A chevron shape."
+  },
+  "PENTAGON": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A pentagon shape."
+  },
+  "OCTAGON": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A octagon shape."
+  },
+  "STAR": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A star shape."
+  },
+  "PLUS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A plus shape."
+  },
+  "ARROW_LEFT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A arrow left shape."
+  },
+  "ARROW_RIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A arrow right shape."
+  },
+  "SUMMING_JUNCTION": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A summing junction shape."
+  },
+  "OR": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A or shape."
+  },
+  "SPEECH_BUBBLE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A speech bubble shape."
+  },
+  "INTERNAL_STORAGE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A internal storage shape."
+  },
+  "LIKE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A thumbs-up stamp."
+  },
+  "LOVE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A heart-eyes (love) stamp."
+  },
+  "LAUGH": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A laughing stamp."
+  },
+  "SURPRISED": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A surprised stamp."
+  },
+  "CELEBRATE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A party (celebrate) stamp."
+  },
+  "HEART": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A heart stamp."
+  },
+  "STRAIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A straight connector."
+  },
+  "ELBOWED": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A connector drawn in right-angled segments (the default)."
+  },
+  "CURVED": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A curved connector."
+  },
+  "SOLID": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A solid line (the default)."
+  },
+  "DASHED": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A dashed line."
+  },
+  "NONE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "No end cap."
+  },
+  "ARROW_LINES": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "An open arrowhead."
+  },
+  "ARROW_EQUILATERAL": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A filled triangular arrowhead."
+  },
+  "TRIANGLE_FILLED": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A filled triangle."
+  },
+  "CIRCLE_FILLED": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A filled circle."
+  },
+  "DIAMOND_FILLED": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A filled diamond."
+  },
+  "AUTO": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Whichever side faces the other end (elbowed and curved connectors)."
+  },
+  "TOP": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The top side."
+  },
+  "BOTTOM": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The bottom side."
+  },
+  "LEFT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The left side."
+  },
+  "RIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The right side."
+  },
+  "CENTER": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The centre (straight connectors only)."
+  },
+  "SMALL": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "16px text."
+  },
+  "MEDIUM": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "24px text."
+  },
+  "LARGE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "40px text."
+  },
+  "EXTRA_LARGE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "64px text."
+  },
+  "HUGE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "96px text."
+  },
+  "THIN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A 4px line."
+  },
+  "THICK": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "An 8px line."
+  },
+  "_": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "In a waypoint's [x y] pair: keep the current x or y, where the line already is (the previous waypoint, or the centre of the start node)."
+  }
+}

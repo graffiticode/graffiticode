@@ -12,6 +12,8 @@ L0172 (a legacy `@graffiticode/basis` language) and does NOT accept L0172 progra
 It lives in the graffiticode monorepo as a **self-contained npm project**: its own lockfile,
 install, build and tests, all run from this directory.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0186 that production runs; `crates/` is L0186's compiler in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ```bash
@@ -127,3 +129,102 @@ program being replaced; embedding an item that was edited since replaces its old
   `create-items-from-prompts --lang 0186 --mark 1 --refresh` (it reads the served `examples.md`
   and clears replaced items' vectors), then `generate-embeddings-from-examples --lang 0186`,
   which runs the corpus gate before it writes.
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0186's compiler**. `packages/core` and
+`packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service
+`l0186`). `crates/` is the same compiler in Rust, to be released to its own service `l0186r` so it
+can be vetted before it replaces the TypeScript.
+
+- `crates/core` (`graffiticode-l0186`) — `L0186` implements `Dialect` from `graffiticode-l0000`.
+  `src/lib.rs` has the properties, members, containers, `save-to-figjam`, the `PROG` override
+  and the early-`{}` check (`Dialect::check`, the TypeScript Checker's `PROG`); `src/vocab.rs`
+  has `checkValue`, the hints and the `assert*` checks; `src/board.rs` is `board.ts` (nodes, page
+  names, ids, connector resolution, `parseFileKey`). The vocabulary tables are read from
+  `src/vocab.json`, which is **generated from `packages/core/src/attributes.ts`** by `npm run rust:fixtures`
+  (each tag's `emit` function written out as the value it emits, and `exampleOf` for every word);
+  `attributes.ts` stays the single source of truth. `src/lexicon-additions.json` is generated the
+  same way. `src/plain.rs` is the plain-JavaScript value model the words work on (see below).
+- `crates/server` (`l0186r-server`, binary `l0186r`) — `l0000r_server::serve(L0186, lexicon())`.
+- `tools/assemble-static.mjs` — builds `packages/core`'s static assets and `packages/view`'s embed
+  bundle into `./static` for the Rust server: exactly what `npm run assemble` puts in
+  `packages/api/static`.
+
+**Not ported, and why.** The SVG preview is not on the compile path: the compiler emits the board
+and `packages/view` (TypeScript/React, `lib/layout.ts`, `lib/shapes.ts`, `lib/text.ts`) draws it
+in the browser, so it is shared by both servers unchanged. Also left in TypeScript: the spec and
+its static build (`tools/build-static.js`), the dev fixtures (`tools/fixtures.ts`) and the corpus
+gate (`npm run check-corpus`), none of which a compile runs. Compiling makes no network call and
+needs no secret; `save-to-figjam` only records `fileKey`.
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation"
+in `languages/l0000/CLAUDE.md`.
+
+```bash
+cargo test            # conformance, dialect and unit tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0186r-server
+npm run rust:dev      # cargo run -p l0186r-server on :50186 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate src/vocab.json, src/lexicon-additions.json and the fixture
+```
+
+### What the Rust must get exactly right
+
+The TypeScript unwraps every argument to a plain JavaScript value (`toPlainObject`) and builds
+plain objects, and its messages print those values. `plain::Plain` models them, not JSON: a field
+given nothing keeps its key with `undefined` (dropped from the output, as `JSON.stringify` drops
+it); `div 1 0` is `Infinity` in a message; a number literal no double holds (a decimal.js object
+in TypeScript, `Number::Exact` here) is seen as a record, with decimal.js's own keys
+(`constructor`, `s`, `e`, `d`). Keys take JavaScript's order (array-index keys first). Strings
+are `String()`'s (`1e+21`, `[object Object]`, lists joined with commas), quoting is
+`JSON.stringify`'s, `trim` is JavaScript's white space, `Math.round` rounds halves up.
+
+Where the TypeScript reads a property of a record a literal wrote in the wrong shape, it throws a
+`TypeError` that becomes the error; `Plain::get`, `Plain::keys` and `board::walk` return the same
+V8 messages (`Cannot read properties of null (reading 'id')`, `nodes is not iterable`). Lookups in
+plain objects find `Object.prototype`: `fill "constructor"` is a named colour, and a record key
+`toString` is reported as `function toString() { [native code] }` (`vocab::source_word`).
+
+Errors accumulate as in TypeScript: a word reports its own error and yields `{}`, a property
+still checks its value when the rest of its chain failed, and a container (or `PROG`) whose
+arguments reported anything builds nothing more. A word's error has no position (`-1`); the
+early-`{}` error points at the second description, as the TypeScript's does.
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` generates most of its corpus from `attributes.ts`:
+every property with 42 values (good, wrong, quoted tags, tags from other sets, `_`, non-finite
+and undefined values, nested descriptions, `save-to-figjam`) in each description that takes it;
+every setting of every container with the same values; every word in every description and
+settings chain that does not take it, and as a bare list item; every member and container in
+every list; every tag of every tag word, bare and quoted; every side on every line type. Then the
+spec's programs (and its fragments, alone and on a page), the TypeScript suite's
+(`compiler.test.ts`, `errors.test.ts`, with `${two}` substituted and `nodesOf`/`conn` wrapped),
+and about 220 hand-written cases: literal records of every wrong shape, keys, connectors and
+sections, multi-page boards, `save-to-figjam` forms, decimals, L0000 expressions inside a board.
+3413 cases, 2776 of them errors; every error message in the TypeScript source appears except three
+the TypeScript cannot reach (the opacity-percentage hint, `describe`'s stray-`{}` branch,
+`Object.keys(null)` in `assertKnownAttributes`). `tests/conformance.rs` requires the same JSON
+text or the same messages in the same order for every case but the divergence below;
+`tests/dialect.rs` checks error positions, that upstream data never reaches the board, and the
+lexicon.
+
+One difference, and it is the kernel's, not L0186's: an integer above 2^53 − 1 in the output is
+written as serde writes an `f64` (`9007199254740992.0`, `1e+20`), where JavaScript writes every
+digit (`9007199254740992`, `100000000000000000000`). Same value; pinned by
+`a_huge_integer_is_written_as_an_f64`. Messages L0186 writes print JavaScript's form.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0186r` entry (own service, `l0186r-run@graffiticode.iam.gserviceaccount.com`,
+image from `configs/Dockerfile.l0186r.yaml`, snapshot this directory and `languages/l0000`, build
+step `cargo test --locked`, env `AUTH_URL` only). Like the TypeScript it needs no secret and has
+no protected function. The service and its account must be provisioned before the first release.
+Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see
+`languages/l0000/CLAUDE.md`). Nothing routes to `l0186r` by default.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and
+`cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build
+outputs; `src/vocab.json`, `src/lexicon-additions.json` and `tests/conformance/cases.json` are
+generated, not edited.

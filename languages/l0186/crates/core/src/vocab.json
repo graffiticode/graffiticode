@@ -1,0 +1,484 @@
+{
+  "chainFields": {
+    "ID": {
+      "field": "id",
+      "expects": "text"
+    },
+    "TEXT": {
+      "field": "text",
+      "expects": "content"
+    },
+    "NAME": {
+      "field": "name",
+      "expects": "text"
+    },
+    "LABEL": {
+      "field": "label",
+      "expects": "content"
+    },
+    "TITLE": {
+      "field": "title",
+      "expects": "text"
+    },
+    "KIND": {
+      "field": "kind",
+      "expects": "tag",
+      "oneOf": [
+        "SQUARE",
+        "ELLIPSE",
+        "ROUNDED_RECTANGLE",
+        "DIAMOND",
+        "TRIANGLE_UP",
+        "TRIANGLE_DOWN",
+        "PARALLELOGRAM_RIGHT",
+        "PARALLELOGRAM_LEFT",
+        "ENG_DATABASE",
+        "ENG_QUEUE",
+        "ENG_FILE",
+        "ENG_FOLDER",
+        "TRAPEZOID",
+        "PREDEFINED_PROCESS",
+        "SHIELD",
+        "DOCUMENT_SINGLE",
+        "DOCUMENT_MULTIPLE",
+        "MANUAL_INPUT",
+        "HEXAGON",
+        "CHEVRON",
+        "PENTAGON",
+        "OCTAGON",
+        "STAR",
+        "PLUS",
+        "ARROW_LEFT",
+        "ARROW_RIGHT",
+        "SUMMING_JUNCTION",
+        "OR",
+        "SPEECH_BUBBLE",
+        "INTERNAL_STORAGE",
+        "LIKE",
+        "LOVE",
+        "LAUGH",
+        "SURPRISED",
+        "CELEBRATE",
+        "HEART"
+      ]
+    },
+    "X": {
+      "field": "x",
+      "expects": "coord"
+    },
+    "Y": {
+      "field": "y",
+      "expects": "coord"
+    },
+    "WIDTH": {
+      "field": "width",
+      "expects": "size"
+    },
+    "HEIGHT": {
+      "field": "height",
+      "expects": "size"
+    },
+    "FILL": {
+      "field": "fill",
+      "expects": "color"
+    },
+    "STROKE": {
+      "field": "stroke",
+      "expects": "color"
+    },
+    "COLOR": {
+      "field": "color",
+      "expects": "color"
+    },
+    "OPACITY": {
+      "field": "opacity",
+      "expects": "opacity"
+    },
+    "FONT_SIZE": {
+      "field": "fontSize",
+      "expects": "tagOrNumber",
+      "oneOf": [
+        "SMALL",
+        "MEDIUM",
+        "LARGE",
+        "EXTRA_LARGE",
+        "HUGE"
+      ],
+      "emit": {
+        "SMALL": 16,
+        "MEDIUM": 24,
+        "LARGE": 40,
+        "EXTRA_LARGE": 64,
+        "HUGE": 96
+      }
+    },
+    "STROKE_WIDTH": {
+      "field": "strokeWidth",
+      "expects": "tagOrNumber",
+      "oneOf": [
+        "THIN",
+        "THICK"
+      ],
+      "emit": {
+        "THIN": 4,
+        "THICK": 8
+      }
+    },
+    "FROM": {
+      "field": "from",
+      "expects": "endpoints"
+    },
+    "TO": {
+      "field": "to",
+      "expects": "endpoints"
+    },
+    "LINE_TYPE": {
+      "field": "lineType",
+      "expects": "tag",
+      "oneOf": [
+        "STRAIGHT",
+        "ELBOWED",
+        "CURVED"
+      ],
+      "emit": {
+        "STRAIGHT": "straight",
+        "ELBOWED": "elbowed",
+        "CURVED": "curved"
+      }
+    },
+    "LINE_STYLE": {
+      "field": "lineStyle",
+      "expects": "tag",
+      "oneOf": [
+        "SOLID",
+        "DASHED"
+      ],
+      "emit": {
+        "SOLID": "solid",
+        "DASHED": "dashed"
+      }
+    },
+    "FROM_CAP": {
+      "field": "fromCap",
+      "expects": "tag",
+      "oneOf": [
+        "NONE",
+        "ARROW_LINES",
+        "ARROW_EQUILATERAL",
+        "TRIANGLE_FILLED",
+        "CIRCLE_FILLED",
+        "DIAMOND_FILLED"
+      ],
+      "emit": {
+        "NONE": "none",
+        "ARROW_LINES": "arrow-lines",
+        "ARROW_EQUILATERAL": "arrow-equilateral",
+        "TRIANGLE_FILLED": "triangle-filled",
+        "CIRCLE_FILLED": "circle-filled",
+        "DIAMOND_FILLED": "diamond-filled"
+      }
+    },
+    "TO_CAP": {
+      "field": "toCap",
+      "expects": "tag",
+      "oneOf": [
+        "NONE",
+        "ARROW_LINES",
+        "ARROW_EQUILATERAL",
+        "TRIANGLE_FILLED",
+        "CIRCLE_FILLED",
+        "DIAMOND_FILLED"
+      ],
+      "emit": {
+        "NONE": "none",
+        "ARROW_LINES": "arrow-lines",
+        "ARROW_EQUILATERAL": "arrow-equilateral",
+        "TRIANGLE_FILLED": "triangle-filled",
+        "CIRCLE_FILLED": "circle-filled",
+        "DIAMOND_FILLED": "diamond-filled"
+      }
+    },
+    "FROM_SIDE": {
+      "field": "fromSide",
+      "expects": "tag",
+      "oneOf": [
+        "AUTO",
+        "TOP",
+        "BOTTOM",
+        "LEFT",
+        "RIGHT",
+        "CENTER"
+      ],
+      "emit": {
+        "AUTO": "auto",
+        "TOP": "top",
+        "BOTTOM": "bottom",
+        "LEFT": "left",
+        "RIGHT": "right",
+        "CENTER": "center"
+      }
+    },
+    "TO_SIDE": {
+      "field": "toSide",
+      "expects": "tag",
+      "oneOf": [
+        "AUTO",
+        "TOP",
+        "BOTTOM",
+        "LEFT",
+        "RIGHT",
+        "CENTER"
+      ],
+      "emit": {
+        "AUTO": "auto",
+        "TOP": "top",
+        "BOTTOM": "bottom",
+        "LEFT": "left",
+        "RIGHT": "right",
+        "CENTER": "center"
+      }
+    },
+    "WAYPOINTS": {
+      "field": "waypoints",
+      "expects": "waypoints"
+    },
+    "BACKGROUND": {
+      "field": "background",
+      "expects": "color"
+    },
+    "SHOW_PAGE_TABS": {
+      "field": "showPageTabs",
+      "expects": "boolean"
+    },
+    "SHOW_PAGE_MENU": {
+      "field": "showPageMenu",
+      "expects": "boolean"
+    }
+  },
+  "memberFields": {
+    "STICKY": {
+      "field": "sticky",
+      "expects": "record"
+    },
+    "SHAPE": {
+      "field": "shape",
+      "expects": "record"
+    },
+    "TEXTBOX": {
+      "field": "textbox",
+      "expects": "record"
+    },
+    "STAMP": {
+      "field": "stamp",
+      "expects": "record"
+    },
+    "CONNECTOR": {
+      "field": "connector",
+      "expects": "record"
+    },
+    "WAYPOINT": {
+      "field": "waypoint",
+      "expects": "point"
+    }
+  },
+  "containerFields": {
+    "BOARD": "board",
+    "PAGE": "page",
+    "SECTION": "section"
+  },
+  "saveToFigjam": {
+    "name": "SAVE_TO_FIGJAM",
+    "word": "save-to-figjam",
+    "field": "saveToFigjam"
+  },
+  "validAttributes": {
+    "sticky": [
+      "id",
+      "text",
+      "x",
+      "y",
+      "fill",
+      "opacity",
+      "font-size"
+    ],
+    "shape": [
+      "id",
+      "kind",
+      "text",
+      "x",
+      "y",
+      "width",
+      "height",
+      "fill",
+      "stroke",
+      "stroke-width",
+      "opacity",
+      "font-size"
+    ],
+    "textbox": [
+      "id",
+      "text",
+      "x",
+      "y",
+      "color",
+      "opacity",
+      "font-size"
+    ],
+    "stamp": [
+      "kind",
+      "x",
+      "y",
+      "opacity"
+    ],
+    "connector": [
+      "from",
+      "to",
+      "label",
+      "line-type",
+      "line-style",
+      "from-cap",
+      "to-cap",
+      "from-side",
+      "to-side",
+      "stroke",
+      "stroke-width",
+      "opacity",
+      "font-size",
+      "waypoints"
+    ]
+  },
+  "validSettings": {
+    "board": [
+      "title",
+      "show-page-tabs",
+      "show-page-menu"
+    ],
+    "page": [
+      "name",
+      "background"
+    ],
+    "section": [
+      "name",
+      "x",
+      "y",
+      "width",
+      "height",
+      "fill",
+      "opacity"
+    ]
+  },
+  "containerMembers": {
+    "board": [
+      "page"
+    ],
+    "page": [
+      "sticky",
+      "shape",
+      "textbox",
+      "stamp",
+      "section",
+      "connector"
+    ],
+    "section": [
+      "sticky",
+      "shape",
+      "textbox",
+      "stamp"
+    ],
+    "waypoints": [
+      "waypoint"
+    ]
+  },
+  "namedColors": {
+    "red": "#ef4444",
+    "blue": "#3b82f6",
+    "green": "#22c55e",
+    "yellow": "#eab308",
+    "purple": "#a855f7",
+    "orange": "#f97316",
+    "pink": "#ec4899",
+    "white": "#ffffff",
+    "black": "#000000",
+    "gray": "#6b7280"
+  },
+  "shapeKinds": [
+    "SQUARE",
+    "ELLIPSE",
+    "ROUNDED_RECTANGLE",
+    "DIAMOND",
+    "TRIANGLE_UP",
+    "TRIANGLE_DOWN",
+    "PARALLELOGRAM_RIGHT",
+    "PARALLELOGRAM_LEFT",
+    "ENG_DATABASE",
+    "ENG_QUEUE",
+    "ENG_FILE",
+    "ENG_FOLDER",
+    "TRAPEZOID",
+    "PREDEFINED_PROCESS",
+    "SHIELD",
+    "DOCUMENT_SINGLE",
+    "DOCUMENT_MULTIPLE",
+    "MANUAL_INPUT",
+    "HEXAGON",
+    "CHEVRON",
+    "PENTAGON",
+    "OCTAGON",
+    "STAR",
+    "PLUS",
+    "ARROW_LEFT",
+    "ARROW_RIGHT",
+    "SUMMING_JUNCTION",
+    "OR",
+    "SPEECH_BUBBLE",
+    "INTERNAL_STORAGE"
+  ],
+  "stampKinds": [
+    "LIKE",
+    "LOVE",
+    "LAUGH",
+    "SURPRISED",
+    "CELEBRATE",
+    "HEART"
+  ],
+  "examples": {
+    "id": "id … {}",
+    "text": "text … {}",
+    "name": "name … {}",
+    "label": "label … {}",
+    "title": "title … {}",
+    "kind": "kind … {}",
+    "x": "x … {}",
+    "y": "y … {}",
+    "width": "width … {}",
+    "height": "height … {}",
+    "fill": "fill … {}",
+    "stroke": "stroke … {}",
+    "color": "color … {}",
+    "opacity": "opacity … {}",
+    "font-size": "font-size … {}",
+    "stroke-width": "stroke-width … {}",
+    "from": "from … {}",
+    "to": "to … {}",
+    "line-type": "line-type … {}",
+    "line-style": "line-style … {}",
+    "from-cap": "from-cap … {}",
+    "to-cap": "to-cap … {}",
+    "from-side": "from-side … {}",
+    "to-side": "to-side … {}",
+    "waypoints": "waypoints … {}",
+    "background": "background … {}",
+    "show-page-tabs": "show-page-tabs … {}",
+    "show-page-menu": "show-page-menu … {}",
+    "sticky": "sticky id \"kick\" text \"Kickoff\" x 0 y 0 {}",
+    "shape": "shape kind DIAMOND id \"valid\" text \"Valid?\" x 300 y 0 {}",
+    "textbox": "textbox text \"Roadmap\" font-size LARGE x 0 y -100 {}",
+    "stamp": "stamp kind LIKE x 200 y 300 {}",
+    "connector": "connector from \"kick\" to \"valid\" {}",
+    "waypoint": "waypoint [300 0]",
+    "board": "board [ page [ sticky text \"A\" {} ] {} ] {}",
+    "page": "page [ sticky text \"A\" {} ] name \"Planning\" {}",
+    "section": "section [ sticky text \"A\" {} ] name \"Phase 1\" {}",
+    "save-to-figjam": "save-to-figjam … {}"
+  }
+}
