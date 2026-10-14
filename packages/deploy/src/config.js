@@ -2,6 +2,22 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
+// ISOLATE-01 (W5 stage 4): a compiler's egress. Every revision runs on the
+// compiler network with all traffic through its VPC, reaches the outside only
+// through the host-policy proxy (HTTPS_PROXY/HTTP_PROXY; NO_PROXY is the
+// metadata server only), and trusts the proxy's inspection CA. `allow` is the
+// reviewed host list the proxy enforces, kept here so it's reviewed with the
+// service; the CLI records it but the proxy's policy is what enforces it.
+const HOSTNAME = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const validNetwork = n => object(n) &&
+  typeof n.network === "string" && /^[a-z][a-z0-9-]{0,62}$/.test(n.network) &&
+  typeof n.subnet === "string" && /^[a-z][a-z0-9-]{0,62}$/.test(n.subnet) &&
+  Array.isArray(n.tags) && n.tags.length > 0 && n.tags.every(t => typeof t === "string" && /^[a-z][a-z0-9-]{0,62}$/.test(t)) &&
+  typeof n.proxy === "string" && /^https?:\/\/[A-Za-z0-9.-]+:\d{2,5}$/.test(n.proxy) &&
+  object(n.ca) && typeof n.ca.secret === "string" && /^[A-Za-z0-9_-]+:(\d+|latest)$/.test(n.ca.secret) && n.ca.secret.split(":")[1] !== "latest" &&
+  typeof n.ca.path === "string" && /^\/[A-Za-z0-9._/-]+\/[A-Za-z0-9._-]+$/.test(n.ca.path) &&
+  Array.isArray(n.allow) && n.allow.every(h => typeof h === "string" && HOSTNAME.test(h));
+
 export const hash = value => createHash("sha256").update(value).digest("hex");
 export const requireValue = (value, message) => {
   if (!value) throw new Error(message);
@@ -91,6 +107,14 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
     const value = config.env?.[config.contractMinimum.env];
     requireValue((value === "1" || value === "2") && Number(value) >= config.contractMinimum.floor,
       `${config.contractMinimum.env} must be set in env to at least the contract floor ${config.contractMinimum.floor}`);
+  }
+  requireValue(config.network === undefined || validNetwork(config.network),
+    "network must be { network, subnet, tags: [..], proxy: \"http(s)://host:port\", ca: { secret: \"name:version\", path: \"/abs/file\" }, allow: [hostnames] }");
+  if (config.network) {
+    // The CLI sets these from `network`; a service may not set its own.
+    for (const name of ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "https_proxy", "http_proxy", "no_proxy"]) {
+      requireValue(!Object.prototype.hasOwnProperty.call(config.env || {}, name), `${name} comes from network; remove it from env`);
+    }
   }
   requireValue(config.protectedExecution === undefined || (object(config.protectedExecution) &&
     ["policyUrl", "brokerUrl"].every(k => typeof config.protectedExecution[k] === "string" && /^https:\/\/[^/]+$/.test(config.protectedExecution[k]))), "protectedExecution must be { policyUrl, brokerUrl } service origins");

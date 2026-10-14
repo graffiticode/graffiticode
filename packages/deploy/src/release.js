@@ -43,9 +43,14 @@ export function deployArgs(config, receipt) {
   // manifest (capability plan W4): its release, and the digest it runs (known
   // before the revision exists, since every release deploys by digest).
   const imageDigest = receipt.image?.split("@")[1];
-  const env = { ...(config.env || {}), GC_RELEASE: receipt.id, ...(imageDigest ? { GC_IMAGE_DIGEST: imageDigest } : {}) };
+  const env = { ...(config.env || {}), GC_RELEASE: receipt.id, ...(imageDigest ? { GC_IMAGE_DIGEST: imageDigest } : {}), ...networkEnv(config.network) };
   args.push(`--update-env-vars=${envFlag(env)}`);
-  if (Object.keys(config.secrets || {}).length) args.push(`--update-secrets=${pairs(config.secrets)}`);
+  const secrets = { ...(config.secrets || {}), ...(config.network ? { [config.network.ca.path]: config.network.ca.secret } : {}) };
+  if (Object.keys(secrets).length) args.push(`--update-secrets=${pairs(secrets)}`);
+  if (config.network) {
+    // All of the revision's traffic goes through the compiler network (ISOLATE-01).
+    args.push(`--network=${config.network.network}`, `--subnet=${config.network.subnet}`, "--vpc-egress=all-traffic", `--network-tags=${config.network.tags.join(",")}`);
+  }
   // --update-secrets only adds, so a secret mounted by an earlier release
   // carries into new revisions until it is removed explicitly.
   if (config.removeSecrets?.length) args.push(`--remove-secrets=${config.removeSecrets.join(",")}`);
@@ -155,7 +160,7 @@ export async function release(context, source, deps) {
   for (const account of [config.buildServiceAccount, config.runtimeServiceAccount]) {
     await cloud(["iam", "service-accounts", "describe", account]);
   }
-  for (const reference of Object.values(config.secrets || {})) {
+  for (const reference of [...Object.values(config.secrets || {}), ...(config.network ? [config.network.ca.secret] : [])]) {
     const [secret, version] = reference.split(":");
     const result = await cloud(["secrets", "versions", "describe", version, `--secret=${secret}`]);
     requireValue(result.state === "ENABLED", `Secret version ${reference} is not enabled`);
@@ -321,6 +326,54 @@ export async function belowBaseline(context, names, { cloud, git }, which = "cur
   return below;
 }
 
+// ISOLATE-01 (W5 stage 4): what every revision of a networked compiler runs
+// with. The proxy is its only route out; NO_PROXY exempts only the metadata
+// server, which the runtime uses for its own identity and tokens; the
+// inspection CA is mounted from Secret Manager and trusted by Node.
+export const METADATA_ONLY = "169.254.169.254,metadata.google.internal";
+export const NETWORK_ENV = Object.freeze(["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS"]);
+export function networkEnv(network) {
+  if (!network) return {};
+  return { HTTPS_PROXY: network.proxy, HTTP_PROXY: network.proxy, NO_PROXY: METADATA_ONLY, NODE_EXTRA_CA_CERTS: network.ca.path };
+}
+
+// The revisions among `names` that don't run with the network's settings, and
+// why: wrong or missing network interface, egress not all-traffic, any proxy
+// variable different (including NO_PROXY exempting more than the metadata
+// server), or the CA not mounted from the configured secret at its path.
+// Read from each revision itself, since an older revision keeps the settings
+// it was deployed with.
+export async function networkProblems(context, names, { cloud }) {
+  const network = context.config.network;
+  if (!network) return [];
+  const want = networkEnv(network);
+  const [secretName, secretVersion] = network.ca.secret.split(":");
+  const caDir = path.posix.dirname(network.ca.path);
+  const caFile = path.posix.basename(network.ca.path);
+  const problems = [];
+  for (const name of names) {
+    const revision = await cloud(["run", "revisions", "describe", name]);
+    const why = [];
+    const annotations = revision.metadata?.annotations ?? {};
+    let interfaces = [];
+    try { interfaces = JSON.parse(annotations["run.googleapis.com/network-interfaces"] ?? "[]"); } catch { interfaces = []; }
+    const nic = interfaces[0];
+    if (!nic || nic.network !== network.network || nic.subnetwork !== network.subnet ||
+        !network.tags.every(t => (nic.tags ?? []).includes(t))) why.push("network");
+    if (annotations["run.googleapis.com/vpc-access-egress"] !== "all-traffic") why.push("egress");
+    const container = revision.spec?.containers?.[0];
+    const env = Object.fromEntries((container?.env ?? []).filter(e => typeof e?.value === "string").map(e => [e.name, e.value]));
+    for (const [k, v] of Object.entries(want)) if (env[k] !== v) why.push(k);
+    const volume = (revision.spec?.volumes ?? []).find(v => v.secret?.secretName === secretName &&
+      (v.secret.items ?? []).some(i => i.path === caFile && i.key === secretVersion));
+    const mounted = volume && (container?.volumeMounts ?? []).some(m => m.name === volume.name && m.mountPath === caDir);
+    if (!mounted) why.push("ca");
+    if (why.length) problems.push({ revision: name, problems: why });
+  }
+  return problems;
+}
+const describeNetwork = problems => problems.map(p => `${p.revision} (${p.problems.join(", ")})`).join(", ");
+
 // Every revision a service's traffic can reach: serving, or kept by a tag.
 export const reachableRevisions = service => [...new Set((service.status?.traffic || []).map(t => t.revisionName).filter(Boolean))];
 
@@ -388,10 +441,13 @@ export async function releaseCheck(context, { cloud, git, revisions = undefined 
     ...(pinned ? { revisions: pinned } : {}),
     // Every reachable revision, retained tags included.
     ...(config.contractMinimum ? { contractMinimum: await contractMinimumProblems(context, reachableRevisions(service), { cloud }) } : {}),
+    // ISOLATE-01: every reachable revision, retained tags included, runs on the network.
+    ...(config.network ? { network: await networkProblems(context, reachableRevisions(service), { cloud }) } : {}),
   };
   const pinnedOk = !pinned || ["unapproved", "retiring", "retired", "unsupportedContract"].every(k => pinned[k].length === 0);
   const minimumOk = (result.contractMinimum ?? []).length === 0;
-  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk };
+  const networkOk = (result.network ?? []).length === 0;
+  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk && networkOk };
 }
 
 // Approves an already-released revision of a pinnable service from its
@@ -422,6 +478,11 @@ export async function rollback(context, receipt, deps) {
   const current = await cloud(["run", "services", "describe", config.service]);
   requireValue(same(traffic(current), { [receipt.revision]: 100 }), "Traffic no longer belongs exclusively to this release; refusing to overwrite a newer deployment");
   const targets = Object.keys(receipt.previousTraffic);
+  // ISOLATE-01: never put traffic back on a revision without the network's
+  // controls. No override: roll forward, or back to a controlled revision.
+  const uncontrolled = await networkProblems(context, targets, { cloud });
+  requireValue(uncontrolled.length === 0,
+    `Rollback target ${describeNetwork(uncontrolled)} doesn't run with this service's network controls (ISOLATE-01); refusing, with no override. Roll forward, or roll back to a revision that has them.`);
   const below = await belowBaseline(context, targets, { cloud, git });
   // A configuration rollback from the same commit meets every baseline, but
   // can lower the contract minimum: guarded the same way.

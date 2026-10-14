@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run, streamOutput } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased } from "../src/release.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV } from "../src/release.js";
 import { createRevisionClient, decodeFields, encodeFields, reachableProblems, retainedTags } from "../src/revisions.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
@@ -83,7 +83,28 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure,
           templateEnv[kv.slice(0, at)] = kv.slice(at + 1);
         }
       }
-      revisions.set(`api-${id}`, { metadata: { labels }, spec: { containers: [{ env: Object.entries(templateEnv).map(([name, value]) => ({ name, value })) }] } });
+      // Like Cloud Run: network flags become the revision's annotations, and a
+      // secret keyed by a path is mounted as a file there.
+      const flag = name => args.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+      const annotations = {};
+      if (flag("network")) {
+        annotations["run.googleapis.com/network-interfaces"] = JSON.stringify([{ network: flag("network"), subnetwork: flag("subnet"), tags: flag("network-tags").split(",") }]);
+        annotations["run.googleapis.com/vpc-access-egress"] = flag("vpc-egress");
+      }
+      const volumes = [];
+      const volumeMounts = [];
+      for (const kv of (flag("update-secrets") ?? "").split(",").filter(Boolean)) {
+        const [key, ref] = kv.split("=");
+        if (!key.startsWith("/")) continue;
+        const [secretName, version] = ref.split(":");
+        const name = `secret-${volumes.length}`;
+        volumes.push({ name, secret: { secretName, items: [{ key: version, path: path.posix.basename(key) }] } });
+        volumeMounts.push({ name, mountPath: path.posix.dirname(key) });
+      }
+      revisions.set(`api-${id}`, {
+        metadata: { labels, annotations },
+        spec: { volumes, containers: [{ env: Object.entries(templateEnv).map(([name, value]) => ({ name, value })), volumeMounts }] },
+      });
       service.metadata.generation++;
       service.status.latestReadyRevisionName = `api-${id}`;
       service.status.traffic.push({ tag: id, revisionName: `api-${id}`, url: `https://${id}---api-example.run.app` });
@@ -876,4 +897,92 @@ test("a configuration rollback from the same commit can't lower the contract min
   assert.equal(check.ok, false);
   assert.deepEqual(check.belowBaseline, []);
   assert.ok(check.contractMinimum.some(p => p.revision === first.revision && p.problem === "below-floor"));
+});
+
+// ISOLATE-01 (W5 stage 4): a compiler's network, proxy and CA, on every
+// revision its traffic can reach, and never rolled back onto one without them.
+const NETWORK = {
+  network: "compilers",
+  subnet: "compilers-us-central1",
+  tags: ["compiler"],
+  proxy: "http://10.10.0.2:3128",
+  ca: { secret: "proxy-inspection-ca:1", path: "/etc/gc-proxy/ca.pem" },
+  allow: ["policy-example.a.run.app"],
+};
+const networked = { ...context, config: { ...config, network: NETWORK } };
+
+test("network is validated, and the proxy variables come only from it", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-config-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const load = over => writeFile(path.join(root, "deploy.json"), JSON.stringify({ version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, ...over } } }))
+    .then(() => loadConfig(parseArgs([]), root, {}));
+  assert.deepEqual((await load({ network: NETWORK })).config.network, NETWORK);
+  for (const bad of [
+    { ...NETWORK, ca: { ...NETWORK.ca, secret: "proxy-inspection-ca:latest" } },
+    { ...NETWORK, proxy: "proxy.example" },
+    { ...NETWORK, tags: [] },
+    { ...NETWORK, allow: ["*.run.app"] },
+    { ...NETWORK, ca: { ...NETWORK.ca, path: "relative/ca.pem" } },
+  ]) await assert.rejects(load({ network: bad }), /network must be/);
+  await assert.rejects(load({ network: NETWORK, env: { ...config.env, NO_PROXY: "*" } }), /NO_PROXY comes from network/);
+});
+
+test("a networked release deploys on the compiler network, through the proxy, trusting its CA", async t => {
+  const h = await harness(t);
+  const receipt = await release(networked, source, h.deps);
+  const deploy = h.calls.find(c => c[1] === "deploy");
+  for (const flag of ["--network=compilers", "--subnet=compilers-us-central1", "--vpc-egress=all-traffic", "--network-tags=compiler"]) assert.ok(deploy.includes(flag), flag);
+  assert.ok(deploy.find(a => a.startsWith("--update-secrets=")).includes("/etc/gc-proxy/ca.pem=proxy-inspection-ca:1"));
+  assert.deepEqual(networkEnv(NETWORK), { HTTPS_PROXY: NETWORK.proxy, HTTP_PROXY: NETWORK.proxy, NO_PROXY: METADATA_ONLY, NODE_EXTRA_CA_CERTS: "/etc/gc-proxy/ca.pem" });
+  assert.deepEqual(await networkProblems(networked, [receipt.revision], h.deps), []);
+  // The secret check covers the CA too.
+  assert.ok(h.calls.some(c => c[0] === "secrets" && c.includes("--secret=proxy-inspection-ca")));
+});
+
+test("release-check fails while any reachable revision lacks the network controls, retained tags included", async t => {
+  const h = await harness(t, { tags: ["held-1"] });
+  const receipt = await release(networked, source, h.deps);
+  const check = await releaseCheck(networked, { ...h.deps, git });
+  // The old serving revision is gone from traffic; the tagged one isn't.
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.network.map(p => p.revision), ["api-held-1"]);
+  assert.deepEqual(check.network[0].problems, ["network", "egress", ...NETWORK_ENV, "ca"]);
+  assert.ok(!check.network.some(p => p.revision === receipt.revision));
+});
+
+test("each control is checked: a revision missing any one of them is reported for it", async t => {
+  const h = await harness(t);
+  const receipt = await release(networked, source, h.deps);
+  const good = h.revisions.get(receipt.revision);
+  const variant = (name, change) => { const r = structuredClone(good); change(r); h.revisions.set(name, r); return name; };
+  const env = (r, k, v) => { r.spec.containers[0].env = r.spec.containers[0].env.map(e => (e.name === k ? { ...e, value: v } : e)); };
+  const cases = {
+    [variant("api-wide", r => env(r, "NO_PROXY", `${METADATA_ONLY},*.googleapis.com`))]: ["NO_PROXY"],
+    [variant("api-direct", r => { r.metadata.annotations["run.googleapis.com/vpc-access-egress"] = "private-ranges-only"; })]: ["egress"],
+    [variant("api-othernet", r => { r.metadata.annotations["run.googleapis.com/network-interfaces"] = JSON.stringify([{ network: "default", subnetwork: "default", tags: ["compiler"] }]); })]: ["network"],
+    [variant("api-noca", r => { r.spec.containers[0].volumeMounts = []; })]: ["ca"],
+    [variant("api-oldca", r => { r.spec.volumes[0].secret.items[0].key = "0"; })]: ["ca"],
+  };
+  const found = await networkProblems(networked, Object.keys(cases), h.deps);
+  assert.deepEqual(Object.fromEntries(found.map(p => [p.revision, p.problems])), cases);
+});
+
+test("rollback refuses a target without the network controls, before moving traffic, with no override", async t => {
+  const h = await harness(t);
+  // api-old (serving before) predates the controls.
+  const receipt = await release(networked, source, h.deps);
+  const before = h.calls.length;
+  for (const allowBelowBaseline of [false, true]) {
+    await assert.rejects(rollback(networked, receipt, { ...h.deps, allowBelowBaseline, switchState: async () => ({ policy: false, broker: false }) }), /network controls \(ISOLATE-01\); refusing, with no override/);
+  }
+  assert.ok(!h.calls.slice(before).some(c => c.includes("update-traffic")));
+});
+
+test("rollback to an earlier controlled revision is allowed", async t => {
+  const h = await harness(t);
+  const first = await release(networked, source, h.deps);
+  const second = await release(networked, { ...source, commit: "c".repeat(40) }, h.deps);
+  assert.equal(second.previousTraffic[first.revision], 100);
+  const rolled = await rollback(networked, second, h.deps);
+  assert.equal(rolled.status, "rolled-back");
 });
