@@ -1,0 +1,1507 @@
+{
+  "author-embed": {
+    "tk": 1,
+    "name": "AUTHOR_EMBED",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "item": {
+    "tk": 1,
+    "name": "ITEM",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "widget": {
+    "tk": 1,
+    "name": "WIDGET",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "settings": {
+    "tk": 1,
+    "name": "SETTINGS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "filter-restricted": {
+    "tk": 1,
+    "name": "FILTER_RESTRICTED",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "toolbar": {
+    "tk": 1,
+    "name": "TOOLBAR",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "player-playback": {
+    "tk": 1,
+    "name": "PLAYER_PLAYBACK",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "item-search": {
+    "tk": 1,
+    "name": "ITEM_SEARCH",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "player-time": {
+    "tk": 1,
+    "name": "PLAYER_TIME",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "player-administration": {
+    "tk": 1,
+    "name": "PLAYER_ADMINISTRATION",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "duplicate": {
+    "tk": 1,
+    "name": "DUPLICATE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "player-scoring": {
+    "tk": 1,
+    "name": "PLAYER_SCORING",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "player-text": {
+    "tk": 1,
+    "name": "PLAYER_TEXT",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "activity-edit-save": {
+    "tk": 1,
+    "name": "ACTIVITY_EDIT_SAVE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "title": {
+    "tk": 1,
+    "name": "TITLE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "item-edit": {
+    "tk": 1,
+    "name": "ITEM_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "item-list": {
+    "tk": 1,
+    "name": "ITEM_LIST",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activity-edit": {
+    "tk": 1,
+    "name": "ACTIVITY_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activity-list": {
+    "tk": 1,
+    "name": "ACTIVITY_LIST",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "container": {
+    "tk": 1,
+    "name": "CONTAINER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "widget-templates": {
+    "tk": 1,
+    "name": "WIDGET_TEMPLATES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "global": {
+    "tk": 1,
+    "name": "GLOBAL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "domain": {
+    "tk": 1,
+    "name": "DOMAIN",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "user-id": {
+    "tk": 1,
+    "name": "USER_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "user-email": {
+    "tk": 1,
+    "name": "USER_EMAIL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "user-firstname": {
+    "tk": 1,
+    "name": "USER_FIRSTNAME",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "user-lastname": {
+    "tk": 1,
+    "name": "USER_LASTNAME",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "reference": {
+    "tk": 1,
+    "name": "REFERENCE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "organisation-id": {
+    "tk": 1,
+    "name": "ORGANISATION_ID",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "allow-widgets": {
+    "tk": 1,
+    "name": "ALLOW_WIDGETS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "question-type-groups": {
+    "tk": 1,
+    "name": "QUESTION_TYPE_GROUPS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "height": {
+    "tk": 1,
+    "name": "HEIGHT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "fixed-footer-height": {
+    "tk": 1,
+    "name": "FIXED_FOOTER_HEIGHT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "scroll-into-view-selector": {
+    "tk": 1,
+    "name": "SCROLL_INTO_VIEW_SELECTOR",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "back": {
+    "tk": 1,
+    "name": "BACK",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "save": {
+    "tk": 1,
+    "name": "SAVE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "require-validation": {
+    "tk": 1,
+    "name": "REQUIRE_VALIDATION",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "disable-onbeforeunload": {
+    "tk": 1,
+    "name": "DISABLE_ONBEFOREUNLOAD",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tags-on-create": {
+    "tk": 1,
+    "name": "TAGS_ON_CREATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "answers": {
+    "tk": 1,
+    "name": "ANSWERS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "columns": {
+    "tk": 1,
+    "name": "COLUMNS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "dynamic-content": {
+    "tk": 1,
+    "name": "DYNAMIC_CONTENT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "dynamic-image-tag": {
+    "tk": 1,
+    "name": "DYNAMIC_IMAGE_TAG",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "enable-audio-recording": {
+    "tk": 1,
+    "name": "ENABLE_AUDIO_RECORDING",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "scoring": {
+    "tk": 1,
+    "name": "SCORING",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "shared-passage": {
+    "tk": 1,
+    "name": "SHARED_PASSAGE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "status": {
+    "tk": 1,
+    "name": "STATUS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tabs": {
+    "tk": 1,
+    "name": "TABS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "actions-show": {
+    "tk": 1,
+    "name": "ACTIONS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-acknowledgements-show": {
+    "tk": 1,
+    "name": "DETAILS_ACKNOWLEDGEMENTS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-acknowledgements-edit": {
+    "tk": 1,
+    "name": "DETAILS_ACKNOWLEDGEMENTS_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-description-show": {
+    "tk": 1,
+    "name": "DETAILS_DESCRIPTION_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-description-edit": {
+    "tk": 1,
+    "name": "DETAILS_DESCRIPTION_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-difficulty-show": {
+    "tk": 1,
+    "name": "DETAILS_DIFFICULTY_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-difficulty-edit": {
+    "tk": 1,
+    "name": "DETAILS_DIFFICULTY_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-note-show": {
+    "tk": 1,
+    "name": "DETAILS_NOTE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-note-edit": {
+    "tk": 1,
+    "name": "DETAILS_NOTE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-scoring-type-show": {
+    "tk": 1,
+    "name": "DETAILS_SCORING_TYPE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-scoring-type-edit": {
+    "tk": 1,
+    "name": "DETAILS_SCORING_TYPE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-source-show": {
+    "tk": 1,
+    "name": "DETAILS_SOURCE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-source-edit": {
+    "tk": 1,
+    "name": "DETAILS_SOURCE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-status-show": {
+    "tk": 1,
+    "name": "DETAILS_STATUS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details-status-edit": {
+    "tk": 1,
+    "name": "DETAILS_STATUS_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "duplicate-show": {
+    "tk": 1,
+    "name": "DUPLICATE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "duplicate-shared-passages": {
+    "tk": 1,
+    "name": "DUPLICATE_SHARED_PASSAGES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "math-hints-generation-enable": {
+    "tk": 1,
+    "name": "MATH_HINTS_GENERATION_ENABLE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "mode-default": {
+    "tk": 1,
+    "name": "MODE_DEFAULT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "mode-show": {
+    "tk": 1,
+    "name": "MODE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "popup-content-enable": {
+    "tk": 1,
+    "name": "POPUP_CONTENT_ENABLE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "reference-show": {
+    "tk": 1,
+    "name": "REFERENCE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "reference-edit": {
+    "tk": 1,
+    "name": "REFERENCE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "reference-prefix": {
+    "tk": 1,
+    "name": "REFERENCE_PREFIX",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "save-show": {
+    "tk": 1,
+    "name": "SAVE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "save-persist": {
+    "tk": 1,
+    "name": "SAVE_PERSIST",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "save-restricted-tags-all": {
+    "tk": 1,
+    "name": "SAVE_RESTRICTED_TAGS_ALL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "save-restricted-tags-either": {
+    "tk": 1,
+    "name": "SAVE_RESTRICTED_TAGS_EITHER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "save-restricted-tags-allow-save": {
+    "tk": 1,
+    "name": "SAVE_RESTRICTED_TAGS_ALLOW_SAVE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tags-show": {
+    "tk": 1,
+    "name": "TAGS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tags-edit": {
+    "tk": 1,
+    "name": "TAGS_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "title-show": {
+    "tk": 1,
+    "name": "TITLE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "title-edit": {
+    "tk": 1,
+    "name": "TITLE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "title-mandatory": {
+    "tk": 1,
+    "name": "TITLE_MANDATORY",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "edit": {
+    "tk": 1,
+    "name": "EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "delete": {
+    "tk": 1,
+    "name": "DELETE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show": {
+    "tk": 1,
+    "name": "SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "full-height": {
+    "tk": 1,
+    "name": "FULL_HEIGHT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "limit": {
+    "tk": 1,
+    "name": "LIMIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "url": {
+    "tk": 1,
+    "name": "URL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "enable-selection": {
+    "tk": 1,
+    "name": "ENABLE_SELECTION",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "title-show-reference": {
+    "tk": 1,
+    "name": "TITLE_SHOW_REFERENCE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "current-user": {
+    "tk": 1,
+    "name": "CURRENT_USER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "created-by": {
+    "tk": 1,
+    "name": "CREATED_BY",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tags-all": {
+    "tk": 1,
+    "name": "TAGS_ALL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tags-either": {
+    "tk": 1,
+    "name": "TAGS_EITHER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "tags-none": {
+    "tk": 1,
+    "name": "TAGS_NONE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "allow-filtered-tags-overwrite": {
+    "tk": 1,
+    "name": "ALLOW_FILTERED_TAGS_OVERWRITE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "toolbar-add": {
+    "tk": 1,
+    "name": "TOOLBAR_ADD",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "search-show": {
+    "tk": 1,
+    "name": "SEARCH_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "search-status": {
+    "tk": 1,
+    "name": "SEARCH_STATUS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "search-tags-show": {
+    "tk": 1,
+    "name": "SEARCH_TAGS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "search-widget-type": {
+    "tk": 1,
+    "name": "SEARCH_WIDGET_TYPE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "search-controls": {
+    "tk": 1,
+    "name": "SEARCH_CONTROLS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activity-preview-item-reference-show": {
+    "tk": 1,
+    "name": "ACTIVITY_PREVIEW_ITEM_REFERENCE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "adaptive-fields-show": {
+    "tk": 1,
+    "name": "ADAPTIVE_FIELDS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "annotations-enable": {
+    "tk": 1,
+    "name": "ANNOTATIONS_ENABLE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "customize-presets-enable": {
+    "tk": 1,
+    "name": "CUSTOMIZE_PRESETS_ENABLE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "default-player-template": {
+    "tk": 1,
+    "name": "DEFAULT_PLAYER_TEMPLATE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "description-edit": {
+    "tk": 1,
+    "name": "DESCRIPTION_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "description-show": {
+    "tk": 1,
+    "name": "DESCRIPTION_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "details": {
+    "tk": 1,
+    "name": "DETAILS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "difficulty-edit": {
+    "tk": 1,
+    "name": "DIFFICULTY_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "difficulty-show": {
+    "tk": 1,
+    "name": "DIFFICULTY_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "enabled-player-templates": {
+    "tk": 1,
+    "name": "ENABLED_PLAYER_TEMPLATES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "intro-item-default-checked": {
+    "tk": 1,
+    "name": "INTRO_ITEM_DEFAULT_CHECKED",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "outro-item-default-checked": {
+    "tk": 1,
+    "name": "OUTRO_ITEM_DEFAULT_CHECKED",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "override-labels-enable": {
+    "tk": 1,
+    "name": "OVERRIDE_LABELS_ENABLE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "player-template-builder-show": {
+    "tk": 1,
+    "name": "PLAYER_TEMPLATE_BUILDER_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "reporting-enable": {
+    "tk": 1,
+    "name": "REPORTING_ENABLE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "resource-item-show": {
+    "tk": 1,
+    "name": "RESOURCE_ITEM_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "activity-edit-settings": {
+    "tk": 1,
+    "name": "ACTIVITY_EDIT_SETTINGS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "source": {
+    "tk": 1,
+    "name": "SOURCE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "status-show": {
+    "tk": 1,
+    "name": "STATUS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "distractor-rationale-edit": {
+    "tk": 1,
+    "name": "DISTRACTOR_RATIONALE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "distractor-rationale-response-level-edit": {
+    "tk": 1,
+    "name": "DISTRACTOR_RATIONALE_RESPONSE_LEVEL_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "distractor-rationale-response-level-show": {
+    "tk": 1,
+    "name": "DISTRACTOR_RATIONALE_RESPONSE_LEVEL_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "distractor-rationale-show": {
+    "tk": 1,
+    "name": "DISTRACTOR_RATIONALE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "scroll-to-top-edit": {
+    "tk": 1,
+    "name": "SCROLL_TO_TOP_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "scroll-to-top-show": {
+    "tk": 1,
+    "name": "SCROLL_TO_TOP_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "scrolling-indicator-edit": {
+    "tk": 1,
+    "name": "SCROLLING_INDICATOR_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "scrolling-indicator-show": {
+    "tk": 1,
+    "name": "SCROLLING_INDICATOR_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-acknowledgements-edit": {
+    "tk": 1,
+    "name": "SHOW_ACKNOWLEDGEMENTS_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-acknowledgements-show": {
+    "tk": 1,
+    "name": "SHOW_ACKNOWLEDGEMENTS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "shuffle-items-edit": {
+    "tk": 1,
+    "name": "SHUFFLE_ITEMS_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "shuffle-items-show": {
+    "tk": 1,
+    "name": "SHUFFLE_ITEMS_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "skip-submit-confirmation-edit": {
+    "tk": 1,
+    "name": "SKIP_SUBMIT_CONFIRMATION_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "skip-submit-confirmation-show": {
+    "tk": 1,
+    "name": "SKIP_SUBMIT_CONFIRMATION_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "submit-criteria-edit": {
+    "tk": 1,
+    "name": "SUBMIT_CRITERIA_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "submit-criteria-show": {
+    "tk": 1,
+    "name": "SUBMIT_CRITERIA_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "warning-on-change-edit": {
+    "tk": 1,
+    "name": "WARNING_ON_CHANGE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "warning-on-change-show": {
+    "tk": 1,
+    "name": "WARNING_ON_CHANGE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "filter-restricted-created-by": {
+    "tk": 1,
+    "name": "FILTER_RESTRICTED_CREATED_BY",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "item-banks": {
+    "tk": 1,
+    "name": "ITEM_BANKS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "filter-restricted-tags-all": {
+    "tk": 1,
+    "name": "FILTER_RESTRICTED_TAGS_ALL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "filter-restricted-tags-either": {
+    "tk": 1,
+    "name": "FILTER_RESTRICTED_TAGS_EITHER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "filter-restricted-tags-none": {
+    "tk": 1,
+    "name": "FILTER_RESTRICTED_TAGS_NONE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "filter-restricted-current-user": {
+    "tk": 1,
+    "name": "FILTER_RESTRICTED_CURRENT_USER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "sort": {
+    "tk": 1,
+    "name": "SORT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "toolbar-search-controls": {
+    "tk": 1,
+    "name": "TOOLBAR_SEARCH_CONTROLS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "toolbar-search-show": {
+    "tk": 1,
+    "name": "TOOLBAR_SEARCH_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "auto-save-edit": {
+    "tk": 1,
+    "name": "AUTO_SAVE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "auto-save-show": {
+    "tk": 1,
+    "name": "AUTO_SAVE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "idle-timeout-edit": {
+    "tk": 1,
+    "name": "IDLE_TIMEOUT_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "idle-timeout-show": {
+    "tk": 1,
+    "name": "IDLE_TIMEOUT_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "limit-type-edit": {
+    "tk": 1,
+    "name": "LIMIT_TYPE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "limit-type-show": {
+    "tk": 1,
+    "name": "LIMIT_TYPE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "reading-mode-goto-first-item-on-reading-time-completion-show": {
+    "tk": 1,
+    "name": "READING_MODE_GOTO_FIRST_ITEM_ON_READING_TIME_COMPLETION_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "warning-time-edit": {
+    "tk": 1,
+    "name": "WARNING_TIME_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "warning-time-show": {
+    "tk": 1,
+    "name": "WARNING_TIME_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "add-show": {
+    "tk": 1,
+    "name": "ADD_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "custom-points-toggle-default-checked": {
+    "tk": 1,
+    "name": "CUSTOM_POINTS_TOGGLE_DEFAULT_CHECKED",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "custom-points-toggle-show": {
+    "tk": 1,
+    "name": "CUSTOM_POINTS_TOGGLE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "edit-allow": {
+    "tk": 1,
+    "name": "EDIT_ALLOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-exit-edit": {
+    "tk": 1,
+    "name": "SHOW_EXIT_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-exit-show": {
+    "tk": 1,
+    "name": "SHOW_EXIT_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-extend-edit": {
+    "tk": 1,
+    "name": "SHOW_EXTEND_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-extend-show": {
+    "tk": 1,
+    "name": "SHOW_EXTEND_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-save-edit": {
+    "tk": 1,
+    "name": "SHOW_SAVE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "show-save-show": {
+    "tk": 1,
+    "name": "SHOW_SAVE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "deep-copy": {
+    "tk": 1,
+    "name": "DEEP_COPY",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "client-side-scoring-edit": {
+    "tk": 1,
+    "name": "CLIENT_SIDE_SCORING_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "client-side-scoring-show": {
+    "tk": 1,
+    "name": "CLIENT_SIDE_SCORING_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "font-size-edit": {
+    "tk": 1,
+    "name": "FONT_SIZE_EDIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "font-size-show": {
+    "tk": 1,
+    "name": "FONT_SIZE_SHOW",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "persist": {
+    "tk": 1,
+    "name": "PERSIST",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "restricted-tags-all": {
+    "tk": 1,
+    "name": "RESTRICTED_TAGS_ALL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "restricted-tags-either": {
+    "tk": 1,
+    "name": "RESTRICTED_TAGS_EITHER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "restricted-tags-allow-save": {
+    "tk": 1,
+    "name": "RESTRICTED_TAGS_ALLOW_SAVE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "mandatory": {
+    "tk": 1,
+    "name": "MANDATORY",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "full-activity-json": {
+    "tk": 1,
+    "name": "FULL_ACTIVITY_JSON",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "add-adaptive": {
+    "tk": 1,
+    "name": "ADD_ADAPTIVE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "add-branching": {
+    "tk": 1,
+    "name": "ADD_BRANCHING",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "add-random": {
+    "tk": 1,
+    "name": "ADD_RANDOM",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "search": {
+    "tk": 1,
+    "name": "SEARCH",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "MCQ": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "SHORT-TEXT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "LONG-TEXT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "PLAIN-TEXT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLOZE-TEXT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLOZE-ASSOCIATION": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLOZE-DROPDOWN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLOZE-FORMULA": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLOZE-INLINE-TEXT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CHOICE-MATRIX": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLASSIFICATION": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ORDER-LIST": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "SORT-LIST": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "FORMULA": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "GRAPH-PLOTTING": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "HIGHLIGHT-TEXT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "HOTSPOT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "TOKEN-HIGHLIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "NUMBER-LINE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "ASSOCIATION": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "FILL-IN-THE-BLANKS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "IMAGE-CLOZE-ASSOCIATION": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "IMAGE-CLOZE-TEXT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLOZE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "MATCH": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "WRITE-SPEAK": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "HIGHLIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "MATH": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "GRAPH": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CHART": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CHEMISTRY": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "OTHER": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  }
+}
