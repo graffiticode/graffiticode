@@ -248,6 +248,7 @@ impl<T: IdTokenSource> PolicyClient for HttpPolicyClient<T> {
 /// until shortly before they expire.
 pub struct MetadataIdTokens {
     client: reqwest::Client,
+    endpoint: String,
     cache: Mutex<HashMap<String, (String, u64)>>,
 }
 
@@ -255,8 +256,20 @@ const METADATA_IDENTITY: &str =
     "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity";
 
 impl MetadataIdTokens {
+    /// `client` should be [`crate::egress::metadata_client`]: a general client may send the
+    /// request through the egress proxy, which refuses it (ISOLATE-01).
     pub fn new(client: reqwest::Client) -> Self {
-        Self { client, cache: Mutex::default() }
+        Self::with_endpoint(client, METADATA_IDENTITY)
+    }
+
+    /// The metadata server's identity client, direct, never through a proxy.
+    pub fn direct() -> Result<Self, crate::egress::EgressError> {
+        Ok(Self::new(crate::egress::metadata_client()?))
+    }
+
+    /// With the identity endpoint somewhere else (for tests).
+    pub fn with_endpoint(client: reqwest::Client, endpoint: impl Into<String>) -> Self {
+        Self { client, endpoint: endpoint.into(), cache: Mutex::default() }
     }
 }
 
@@ -271,7 +284,7 @@ impl IdTokenSource for MetadataIdTokens {
         }
         let response = self
             .client
-            .get(METADATA_IDENTITY)
+            .get(&self.endpoint)
             .query(&[("audience", audience), ("format", "full")])
             .header("Metadata-Flavor", "Google")
             .send()

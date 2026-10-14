@@ -45,6 +45,10 @@ jobs:
         run: npm run test:compiled
       - name: Deploy CLI tests
         run: npm run test:deploy
+      - name: Egress proxy config tests (ISOLATE-01)
+        run: npm run test:egress-proxy
+      - name: Egress clients and bootstraps (ISOLATE-01)
+        run: node scripts/check-egress-clients.js
       - name: Candidate verify helper tests
         run: npm run test:verify
       - name: Operator script tests

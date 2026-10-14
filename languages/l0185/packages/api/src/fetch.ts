@@ -14,12 +14,18 @@
  *   requests shared — safe because only public data is ever fetched.
  *
  * Messages never echo a resolved address.
+ *
+ * Behind the egress proxy (ISOLATE-01, `HTTPS_PROXY` set) the connection goes to the proxy, which
+ * resolves the name itself, so the resolved-address check moves there: the proxy refuses a name
+ * that lands on a private, loopback, link-local or metadata address, by the actual connection,
+ * and answers a refused CONNECT with 403, which reads here as the same "cannot be fetched". The
+ * URL checks, redirects, timeouts, size cap and cache are the same in both modes.
  */
 import { lookup as dnsLookup } from "node:dns";
 import zlib from "node:zlib";
 import { Readable } from "node:stream";
 import ipaddr from "ipaddr.js";
-import { Agent, request } from "undici";
+import { Agent, ProxyAgent, request } from "undici";
 import type { Fetcher, FetchResult } from "@graffiticode/l0185";
 
 export interface GuardOptions {
@@ -34,7 +40,15 @@ export interface GuardOptions {
   resolve?: (host: string) => Promise<{ address: string; family: number }[]>;
   /** TEST ONLY: which addresses may be connected to (default: public unicast). */
   isAllowedAddress?: (address: string) => boolean;
+  /** The egress proxy (default: `HTTPS_PROXY` from the environment); `null` connects directly. */
+  proxy?: string | null;
 }
+
+const proxyFromEnv = () => process.env.HTTPS_PROXY || process.env.https_proxy || null;
+
+// The egress proxy refused the CONNECT (undici reports its status in the message).
+const proxyRefused = (e: any) => [e?.message, e?.cause?.message].some((m) => /Proxy response \(403\)/.test(String(m ?? "")));
+const proxyFailed = (e: any) => [e?.message, e?.cause?.message].some((m) => /Proxy response \(\d+\)/.test(String(m ?? "")));
 
 const DENIED_HOSTS = [/^localhost$/i, /\.localhost$/i, /\.local$/i, /\.internal$/i, /^metadata\.google\.internal$/i];
 
@@ -103,23 +117,28 @@ export function makeGuardedFetcher(opts: GuardOptions = {}): Fetcher {
   const resolve = opts.resolve ?? systemResolve;
   const allowed = opts.isAllowedAddress ?? isPublicAddress;
 
-  const agent = new Agent({
-    connect: {
-      timeout: opts.connectTimeoutMs ?? 5_000,
-      // Every resolved address must pass; the socket then connects to one that did.
-      lookup: (hostname: string, lookupOpts: any, cb: any) => {
-        resolve(hostname).then(
-          (addrs) => {
-            if (!addrs.length) return cb(new Error(`ENOTFOUND ${hostname}`));
-            if (addrs.some((a) => !allowed(a.address))) return cb(new BlockedAddress("blocked"));
-            if (lookupOpts && lookupOpts.all) cb(null, addrs);
-            else cb(null, addrs[0].address, addrs[0].family);
+  const connectTimeout = opts.connectTimeoutMs ?? 5_000;
+  const proxy = opts.proxy === undefined ? proxyFromEnv() : opts.proxy;
+  const agent = proxy
+    ? // The proxy resolves and checks the address; Node's roots include NODE_EXTRA_CA_CERTS.
+      new ProxyAgent({ uri: proxy, proxyTls: { timeout: connectTimeout }, requestTls: { timeout: connectTimeout } })
+    : new Agent({
+        connect: {
+          timeout: connectTimeout,
+          // Every resolved address must pass; the socket then connects to one that did.
+          lookup: (hostname: string, lookupOpts: any, cb: any) => {
+            resolve(hostname).then(
+              (addrs) => {
+                if (!addrs.length) return cb(new Error(`ENOTFOUND ${hostname}`));
+                if (addrs.some((a) => !allowed(a.address))) return cb(new BlockedAddress("blocked"));
+                if (lookupOpts && lookupOpts.all) cb(null, addrs);
+                else cb(null, addrs[0].address, addrs[0].family);
+              },
+              (err) => cb(err),
+            );
           },
-          (err) => cb(err),
-        );
-      },
-    } as any,
-  });
+        } as any,
+      });
 
   const once = async (raw: string): Promise<FetchResult> => {
     let current = raw;
@@ -139,7 +158,9 @@ export function makeGuardedFetcher(opts: GuardOptions = {}): Fetcher {
           },
         });
       } catch (e: any) {
-        if (e instanceof BlockedAddress || e?.cause instanceof BlockedAddress) throw blocked(raw);
+        if (e instanceof BlockedAddress || e?.cause instanceof BlockedAddress || proxyRefused(e)) throw blocked(raw);
+        // Any other refusal of the tunnel (undici reports it as an abort, so before that check).
+        if (proxyFailed(e)) throw new Error(`fetch: fetching ${JSON.stringify(raw)} failed: could not connect.`, { cause: e });
         if (signal.aborted || e?.name === "TimeoutError" || e?.name === "AbortError") {
           throw new Error(`fetch: fetching ${JSON.stringify(raw)} timed out after ${Math.round(timeoutMs / 1000)} s.`, { cause: e });
         }

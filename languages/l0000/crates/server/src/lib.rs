@@ -29,6 +29,8 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+/// For a child language's own clients (ISOLATE-01): build them with `egress::client_builder()`.
+pub use graffiticode_l0000::egress;
 use graffiticode_l0000::policy_client::{HttpPolicyClient, MetadataIdTokens};
 use graffiticode_l0000::schema::HttpSchemas;
 use graffiticode_l0000::{Compiler, Dialect, Identity, Keyring, Lexicon, RevisionIdentity};
@@ -264,7 +266,15 @@ pub async fn serve(dialect: impl Dialect + 'static, lexicon: &Lexicon) -> Result
         tracing::warn!(%static_dir, "no index.html in the static directory; /form will be 404 (run `npm run build:static`)");
     }
 
-    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)).build()?;
+    // ISOLATE-01: every outbound request goes through the egress proxy when HTTPS_PROXY is set;
+    // identity tokens come from the metadata server directly (`MetadataIdTokens::direct`).
+    let egress = graffiticode_l0000::egress::EgressEnv::from_env();
+    if let Some((proxy, _)) = &egress.proxy {
+        tracing::info!(%proxy, "outbound requests go through the egress proxy");
+    }
+    let client = graffiticode_l0000::egress::client_builder_with(&egress)?
+        .timeout(std::time::Duration::from_secs(15))
+        .build()?;
     let revision = RevisionIdentity::from_env();
     let mut compiler = Compiler::new(dialect)
         .with_schemas(HttpSchemas::from_env(client.clone()))
@@ -275,7 +285,7 @@ pub async fn serve(dialect: impl Dialect + 'static, lexicon: &Lexicon) -> Result
     let policy_url = env_or("POLICY_URL", "");
     if !policy_url.is_empty() {
         let broker_url = Some(env_or("BROKER_URL", "")).filter(|url| !url.is_empty());
-        let id_tokens = MetadataIdTokens::new(client.clone());
+        let id_tokens = MetadataIdTokens::direct()?;
         compiler = compiler.with_policy(HttpPolicyClient::new(client.clone(), policy_url, broker_url, id_tokens));
     }
     // The gateway service accounts allowed to preflight. With none, every preflight is refused.

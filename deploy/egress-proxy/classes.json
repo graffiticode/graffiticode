@@ -1,0 +1,28 @@
+{
+  "$comment": "ISOLATE-01 egress proxy (plan: ~/.claude/plans/isolate-01-compiler-egress.md). The compiler classes and the proxy's fixed settings. A class is a subnet: deploy.json's network.subnet names one, and the union of that class's services' network.allow lists is what it may reach. Images are null until rollout step 0 pins them; nothing that needs them is generated until then.",
+  "project": "graffiticode",
+  "region": "us-central1",
+  "network": "compilers",
+  "proxySubnet": { "name": "egress-proxy", "cidr": "10.8.0.0/27" },
+  "loadBalancerAddress": "10.8.0.2",
+  "classes": {
+    "compilers-default": { "cidr": "10.8.16.0/22" },
+    "compilers-l0185": { "cidr": "10.8.20.0/22", "open": true }
+  },
+  "open": {
+    "$comment": "D2: what L0185's open class may never name, refused by CONNECT authority (and Host, for plain http). Addresses are enforced by the network, not here.",
+    "denySuffixes": ["learnosity.com", "learnosity.net", "run.app", "internal", "googleapis.com"]
+  },
+  "proxy": {
+    "listenPort": 3128,
+    "healthPort": 3129,
+    "adminPort": 9901,
+    "uid": 10101,
+    "resolvers": ["8.8.8.8", "8.8.4.4"],
+    "healthCheckRanges": ["35.191.0.0/16", "130.211.0.0/22"],
+    "machineType": "e2-small",
+    "envoyImage": null,
+    "cosImage": null,
+    "serviceAccount": "egress-proxy@graffiticode.iam.gserviceaccount.com"
+  }
+}

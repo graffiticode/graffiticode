@@ -32,6 +32,8 @@ pub mod canonical;
 pub mod check;
 mod compiler;
 pub mod dialect;
+#[cfg(feature = "http")]
+pub mod egress;
 mod error;
 mod eval;
 pub mod exec;

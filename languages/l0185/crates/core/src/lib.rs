@@ -89,7 +89,12 @@ impl Default for L0185 {
     fn default() -> Self {
         #[cfg(feature = "http")]
         {
-            Self { fetcher: Some(Arc::new(fetch::GuardedFetcher::new(fetch::GuardOptions::default()))) }
+            // Through the egress proxy when the environment names one (ISOLATE-01).
+            let opts = fetch::GuardOptions {
+                egress: graffiticode_l0000::egress::EgressEnv::from_env(),
+                ..fetch::GuardOptions::default()
+            };
+            Self { fetcher: Some(Arc::new(fetch::GuardedFetcher::new(opts))) }
         }
         #[cfg(not(feature = "http"))]
         {

@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import http from "node:http";
 import zlib from "node:zlib";
+import net from "node:net";
 import type { AddressInfo } from "node:net";
 import { checkUrl, isPublicAddress, makeGuardedFetcher } from "./fetch.js";
 
@@ -65,6 +66,7 @@ describe("requests (stub server)", () => {
       resolve: async (h) => (fake[h] ?? []).map((address) => ({ address, family: 4 })),
       isAllowedAddress: (a) => a === "127.0.0.1",
       cacheTtlMs: 0,
+      proxy: null,
       ...o,
     });
   const at = (host: string, path: string) => `http://${host}:${port}${path}`;
@@ -98,5 +100,106 @@ describe("requests (stub server)", () => {
   });
   it("reports a status", async () => {
     await expect(fetcher()(at("good.test", "/nope"))).rejects.toThrow(/the server answered 404/);
+  });
+
+  // ISOLATE-01: behind the egress proxy. This stand-in tunnels a CONNECT for a name that
+  // resolves publicly (good.test, here the stub) and answers 403 for one landing on a private
+  // address (evil.test), as the egress proxy's network rules do. It never consults the
+  // fetcher's resolver: in proxy mode the fetcher doesn't resolve at all.
+  describe("through the egress proxy", () => {
+    let proxy: net.Server;
+    let proxyUrl = "";
+    let seen: string[] = [];
+    beforeAll(async () => {
+      proxy = net.createServer((socket) => {
+        socket.once("data", (head) => {
+          const line = head.toString().split("\r\n")[0];
+          seen.push(line);
+          const [method, target] = line.split(" ");
+          const host = target.split(":")[0];
+          if (host === "down.test") {
+            socket.end("HTTP/1.1 503 Service Unavailable\r\ncontent-length: 0\r\n\r\n");
+            return;
+          }
+          if (method !== "CONNECT" || host !== "good.test") {
+            socket.end("HTTP/1.1 403 Forbidden\r\nx-isolate01-refused: address\r\ncontent-length: 0\r\n\r\n");
+            return;
+          }
+          const upstream = net.connect(port, "127.0.0.1", () => {
+            socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+            upstream.pipe(socket);
+            socket.pipe(upstream);
+          });
+          upstream.on("error", () => socket.destroy());
+          socket.on("error", () => upstream.destroy());
+        });
+      });
+      await new Promise<void>((r) => proxy.listen(0, "127.0.0.1", r));
+      proxyUrl = `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`;
+    });
+    afterAll(() => proxy.close());
+
+    const proxied = (o: any = {}) =>
+      makeGuardedFetcher({
+        protocols: ["http:", "https:"],
+        isAllowedAddress: (a) => a === "127.0.0.1",
+        // Never called in proxy mode; fails the test if it is.
+        resolve: async () => {
+          throw new Error("the fetcher resolved a name itself");
+        },
+        cacheTtlMs: 0,
+        proxy: proxyUrl,
+        ...o,
+      });
+
+    it("fetches through the proxy", async () => {
+      seen = [];
+      expect(await proxied()(at("good.test", "/data.json"))).toEqual({ text: '[{"a":1}]', contentType: "application/json" });
+      expect(seen).toEqual([`CONNECT good.test:${port} HTTP/1.1`]);
+    });
+    it("a refusal by the proxy reads as the guard's own", async () => {
+      seen = [];
+      await expect(proxied()(at("evil.test", "/data.json"))).rejects.toThrow(/^fetch: "http:\/\/evil\.test:\d+\/data\.json" cannot be fetched/);
+      expect(seen).toEqual([`CONNECT evil.test:${port} HTTP/1.1`]);
+    });
+    it("any other failure of the tunnel is a failed connection, not a refusal or a timeout", async () => {
+      await expect(proxied()(at("down.test", "/data.json"))).rejects.toThrow(/failed: could not connect\./);
+    });
+    it("re-checks every redirect hop, at the proxy and before it", async () => {
+      seen = [];
+      await expect(proxied()(at("good.test", "/to-private"))).rejects.toThrow(/cannot be fetched/);
+      expect(seen.at(-1)).toBe(`CONNECT evil.test:${port} HTTP/1.1`);
+      seen = [];
+      // A literal private address is refused before any connection, proxy or not.
+      await expect(proxied()(at("good.test", "/to-literal"))).rejects.toThrow(/cannot be fetched/);
+      expect(seen).toEqual([`CONNECT good.test:${port} HTTP/1.1`]);
+      await expect(proxied()(at("good.test", "/to-ftp"))).rejects.toThrow(/cannot be fetched/);
+    });
+    it("keeps the redirect cap, timeout, size cap and decoding", async () => {
+      await expect(proxied()(at("good.test", "/loop"))).rejects.toThrow(/redirected more than 3 times/);
+      await expect(proxied({ timeoutMs: 300 })(at("good.test", "/slow"))).rejects.toThrow(/timed out/);
+      await expect(proxied({ maxBytes: 1_000_000 })(at("good.test", "/bomb"))).rejects.toThrow(/larger than 1 MB/);
+      expect((await proxied()(at("good.test", "/gz"))).text).toBe('{"ok":true}');
+      await expect(proxied()(at("good.test", "/nope"))).rejects.toThrow(/the server answered 404/);
+    });
+    it("checks the URL before going to the proxy", async () => {
+      seen = [];
+      await expect(proxied()("https://metadata.google.internal/x")).rejects.toThrow(/cannot be fetched/);
+      await expect(proxied()("https://169.254.169.254/latest")).rejects.toThrow(/cannot be fetched/);
+      expect(seen).toEqual([]);
+    });
+    it("reads the proxy from HTTPS_PROXY by default", async () => {
+      const before = process.env.HTTPS_PROXY;
+      process.env.HTTPS_PROXY = proxyUrl;
+      try {
+        seen = [];
+        const f = makeGuardedFetcher({ protocols: ["http:", "https:"], isAllowedAddress: (a) => a === "127.0.0.1", cacheTtlMs: 0 });
+        expect((await f(at("good.test", "/data.json"))).text).toBe('[{"a":1}]');
+        expect(seen.length).toBe(1);
+      } finally {
+        if (before === undefined) delete process.env.HTTPS_PROXY;
+        else process.env.HTTPS_PROXY = before;
+      }
+    });
   });
 });
