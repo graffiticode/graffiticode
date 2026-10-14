@@ -31,21 +31,6 @@ fn cases() -> Vec<Case> {
     serde_json::from_str(include_str!("conformance/cases.json")).unwrap()
 }
 
-/// Where this implementation deliberately differs from the TypeScript one.
-fn diverges(case: &Case) -> bool {
-    huge_integer(case)
-}
-
-/// An integer above 2^53 − 1 in the output is written as the kernel's JSON writer (serde's)
-/// writes an `f64`: `9007199254740992.0`, `1e+20`, `1.2345678901234568e+20`, where JavaScript
-/// writes `9007199254740992`, `100000000000000000000`, `123456789012345680000`. The value is
-/// the same. This is L0000's serialization (`Value::to_json`), shared by every Rust language,
-/// not L0186's; a message L0186 writes prints JavaScript's form.
-fn huge_integer(case: &Case) -> bool {
-    case.expect.text.is_some()
-        && (case.src.contains("100000000000000000000") || case.src.contains(": 123456789012345678901}"))
-}
-
 async fn compile(case: &Case) -> Result<Json, Vec<String>> {
     let compiled = Compiler::new(L0186).compile(&case.ast, &json!({}), &json!({}), Identity::default()).await;
     match compiled.result {
@@ -54,44 +39,12 @@ async fn compile(case: &Case) -> Result<Json, Vec<String>> {
     }
 }
 
-/// Every number as an `f64`, so values compare whatever form they were written in.
-fn as_floats(json: Json) -> Json {
-    match json {
-        Json::Number(n) => json!(n.as_f64().unwrap()),
-        Json::Array(items) => Json::Array(items.into_iter().map(as_floats).collect()),
-        Json::Object(object) => Json::Object(object.into_iter().map(|(k, v)| (k, as_floats(v))).collect()),
-        other => other,
-    }
-}
-
-#[tokio::test]
-async fn a_huge_integer_is_written_as_an_f64() {
-    let cases = cases();
-    let diverging: Vec<&Case> = cases.iter().filter(|case| huge_integer(case)).collect();
-    assert_eq!(diverging.len(), 4);
-    for case in diverging {
-        let expected = case.expect.text.as_deref().unwrap();
-        let actual = compile(case).await.unwrap();
-        // The same values, fields and order: only the digits are written differently.
-        assert_eq!(as_floats(serde_json::from_str::<Json>(expected).unwrap()), as_floats(actual.clone()));
-        let actual = actual.to_string();
-        let pairs: &[(&str, &str)] = if case.src.contains("100000000000000000000") {
-            &[("100000000000000000000", "1e+20"), ("\"y\":9007199254740992}", "\"y\":9007199254740992.0}")]
-        } else {
-            &[("123456789012345680000", "1.2345678901234568e+20")]
-        };
-        for (ts, rust) in pairs {
-            assert!(expected.contains(ts) && actual.contains(rust), "{expected}\n{actual}");
-        }
-    }
-}
-
 #[tokio::test]
 async fn agrees_with_the_typescript_implementation() {
     let cases = cases();
     assert!(cases.len() >= 3000, "the fixture looks truncated: {} cases", cases.len());
     let mut failures = Vec::new();
-    for case in cases.iter().filter(|case| !diverges(case)) {
+    for case in &cases {
         let actual = compile(case).await;
         let label: String = case.src.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(240).collect();
         match (&case.expect.errors, &actual) {

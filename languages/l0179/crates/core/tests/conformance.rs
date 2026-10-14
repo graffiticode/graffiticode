@@ -44,28 +44,8 @@ fn enveloped(data: &Json) -> bool {
 /// reads it for every Rust language: its fields are laid over the output, and `params` and
 /// `limit` come from it. The TypeScript reads the envelope itself — the output gains a `data`
 /// field holding the upstream data, and the form's `params` are ignored.
-///
-/// A whole number above 2^53 that reaches the output is the same number, written differently:
-/// JavaScript writes `12345678901234567000`, the kernel's JSON `1.2345678901234567e+19`. That is
-/// the kernel's number serialization (every Rust language shares it), not this dialect's.
 fn diverges(case: &Case) -> bool {
-    enveloped(&case.data) || case.src.contains(BIG_INTEGER)
-}
-
-const BIG_INTEGER: &str = "expected 12345678901234567890";
-
-#[tokio::test]
-async fn a_whole_number_above_2_53_is_the_same_number_written_differently() {
-    let cases = cases();
-    let case = cases.iter().find(|case| case.src.contains(BIG_INTEGER)).unwrap();
-    let text = case.expect.text.as_deref().unwrap();
-    assert!(text.contains(r#""expected":12345678901234567000"#));
-    let actual = compile(case).await.unwrap().unwrap();
-    assert!(actual.to_string().contains(r#""expected":1.2345678901234567e+19"#), "{actual}");
-    let expected: Json = serde_json::from_str(text).unwrap();
-    let number = |json: &Json| json["interaction"]["cells"]["A1"]["assess"]["expected"].as_f64();
-    assert_eq!(number(&actual), number(&expected));
-    assert_eq!(number(&actual), Some(12345678901234567890.0));
+    enveloped(&case.data)
 }
 
 async fn compile(case: &Case) -> Result<Option<Json>, Vec<String>> {

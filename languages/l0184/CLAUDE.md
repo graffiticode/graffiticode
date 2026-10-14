@@ -147,9 +147,9 @@ npm run rust:fixtures # build packages/core, then regenerate src/*.json and the 
 
 `crates/core/tests/conformance/generate.mjs` writes `cases.json` (2,864 cases, about 5MB): every word with a good value in every description and with every wrong value of its type in its own; every plot word on every plot kind, every pair of kinds in one chart, every label position; every tag in every tag slot, and quoted spellings; every scale in each direction with categories, bounds, positions and rotations; every Tailwind token and hex form and near misses; histogram, box-plot, radar, heatmap and gauge number sweeps; 110 date strings on a TIME axis; datasets and upstream rows (`data {}` and `data use "0185"` against L0185's schema, with list, record and empty upstreams); the spec's programs; **every program the TypeScript suite compiles, with its data**, recorded while vitest runs (`record.config.mjs` and `record.setup.mjs` wrap `parser.parse` and `Compiler.compile`); and hand-written edge cases, including fields written as record literals. Every error message in the TypeScript source appears in it, except the few no program can reach. `tests/conformance.rs` requires the same JSON text or the same errors for all of them but the difference below; the server returns `{"data":…,"errors":[]}` for every non-error case.
 
-### The deliberate difference
+### Deliberate differences
 
-- A number of 2^64 or more in the output (`values [1e20]`) is written `1e+20`; JavaScript writes `100000000000000000000`. The kernel's JSON numbers are `u64`, `i64` or `f64`, and serializes a large `f64` in exponent form. It is the same double; `huge_numbers_are_the_same_doubles_in_exponent_form` pins it.
+None in the fixture. (A number of 2^64 or more, `values [1e20]`, once came out as `1e+20`; the kernel now writes every number as `JSON.stringify` does, `100000000000000000000`.)
 
 ### Deploying the Rust server
 

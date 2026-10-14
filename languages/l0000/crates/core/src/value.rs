@@ -386,20 +386,48 @@ pub fn format_number(n: f64) -> String {
     }
 }
 
-/// An integral number is written without a fraction (`3`, not `3.0`); a non-finite one has no
-/// JSON form and becomes `null`.
-fn number_to_json(n: f64) -> Json {
-    const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
-    if n.fract() == 0.0 && n.abs() <= MAX_SAFE_INTEGER {
-        Json::from(n as i64)
-    } else {
-        serde_json::Number::from_f64(n).map_or(Json::Null, Json::Number)
+/// A number as JSON, written exactly as `JSON.stringify` writes it — the text every other
+/// Graffiticode component produces and compares: `3`, not `3.0`; `12345678901234567000` and
+/// `100000000000000000000`, not `1.2345678901234567e19` and `1e20`; `1e+21` and `1e-7` beyond
+/// the positional range. A non-finite number has no JSON form and becomes `null`.
+///
+/// `serde_json`'s own writer prints a float its own way (`1e20`), so the kernel builds the
+/// number from its text, which needs `serde_json`'s `arbitrary_precision`.
+pub fn number_to_json(n: f64) -> Json {
+    if !n.is_finite() {
+        return Json::Null;
     }
+    let text = format_number(n);
+    serde_json::from_str::<serde_json::Number>(&text).map_or(Json::Null, Json::Number)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn numbers_are_written_as_json_stringify_writes_them() {
+        let text = |n: f64| number_to_json(n).to_string();
+        for (n, js) in [
+            (3.0, "3"),
+            (-0.0, "0"),
+            (0.1 + 0.2, "0.30000000000000004"),
+            (9_007_199_254_740_992.0, "9007199254740992"),
+            (12_345_678_901_234_567_890.0, "12345678901234567000"),
+            (1e20, "100000000000000000000"),
+            (1e21, "1e+21"),
+            (1.2345678901234568e21, "1.2345678901234568e+21"),
+            (1e-7, "1e-7"),
+            (-2.5e-7, "-2.5e-7"),
+            (123.456, "123.456"),
+        ] {
+            assert_eq!(text(n), js, "{n:e}");
+        }
+        assert_eq!(number_to_json(f64::NAN), Json::Null);
+        assert_eq!(number_to_json(f64::INFINITY), Json::Null);
+        // Read back, it is the same number.
+        assert_eq!(number_to_json(1e20).as_f64(), Some(1e20));
+    }
 
     #[test]
     fn numbers_format_like_ecmascript() {

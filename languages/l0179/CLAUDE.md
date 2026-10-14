@@ -377,7 +377,6 @@ The output's shape follows from JavaScript semantics as much as from intent, so 
 Deliberate differences:
 
 - **An enveloped upstream is read from its `data`.** Upstream data given as `{ data, errors }` (any object whose `errors` is an array) is unwrapped by the kernel, as for every Rust language: its fields are laid over the output and its `params`/`limit` are read. TypeScript spreads the envelope itself, so its output gains a `data` field and the form's `params` are ignored. Bare upstream data behaves identically.
-- **A whole number above 2⁵³ in the output** is the same number written differently — `12345678901234567000` by JavaScript, `1.2345678901234567e+19` by the kernel's JSON. Kernel-wide, not this dialect's.
 - **What TypeScript never answers is an error here.** An exception thrown from its callbacks escapes the visitor and the request never resumes: a non-string param value (`params {"A1": 1}`), a param row that is not a list, a formula param value (`"=B1"`, an unimplemented `assert`), `Object.keys(null)`/`null[...]` in the validation passes (only reachable from a raw `{cells: null}` program). A range that never ends (step 0 or negative, or to `Infinity`) loops forever there; here it is refused, as is one past 1,000,000 values, and a row index past 2²⁴. Each is a compile error naming the cause.
 - `val1.limit` (a `limit` on the `params` argument itself) is never read: in TypeScript it is a property of the internal record representation, `undefined` for anything a program writes.
 

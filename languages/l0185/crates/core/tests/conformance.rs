@@ -121,7 +121,7 @@ async fn compile(src_ast: &Json) -> Result<Json, Vec<String>> {
 
 /// Where this implementation deliberately differs from the TypeScript one.
 fn diverges(case: &Case) -> bool {
-    kernel_error_in_function(case) || big_integer(case)
+    kernel_error_in_function(case)
 }
 
 /// An L0000 error inside a function of the record (`<row: add "a" 1>`) is the kernel's own
@@ -131,13 +131,6 @@ fn kernel_error_in_function(case: &Case) -> bool {
     case.expect.errors.as_ref().is_some_and(|errors| {
         errors.iter().any(|e| e.starts_with("Error in ") || e.contains(" argument must be a number"))
     })
-}
-
-/// An integer beyond 2^53 (and below 1e21) is written by the kernel's JSON serializer in
-/// exponent form, `1.2345678901234567e+19`, where `JSON.stringify` writes
-/// `12345678901234567000`. The number is the same.
-fn big_integer(case: &Case) -> bool {
-    case.expect.text.as_ref().is_some_and(|text| text.contains("12345678901234567000"))
 }
 
 #[tokio::test]
@@ -155,28 +148,6 @@ async fn kernel_errors_in_functions_are_the_rust_kernels() {
         );
         let expected = case.expect.errors.as_ref().unwrap();
         assert!(expected[0].contains("ADD") || expected[0].contains("MUL"));
-    }
-}
-
-#[tokio::test]
-async fn big_integers_are_the_same_number_in_another_notation() {
-    let cases = cases();
-    let diverging: Vec<&Case> = cases.iter().filter(|c| big_integer(c)).collect();
-    assert!(diverging.len() >= 4);
-    for case in diverging {
-        let actual = compile(&case.ast).await.unwrap();
-        let expected: Json = serde_json::from_str(case.expect.text.as_deref().unwrap()).unwrap();
-        fn as_f64(json: Json) -> Json {
-            match json {
-                Json::Number(n) => json!(n.as_f64()),
-                Json::Array(items) => Json::Array(items.into_iter().map(as_f64).collect()),
-                Json::Object(o) => Json::Object(o.into_iter().map(|(k, v)| (k, as_f64(v))).collect()),
-                other => other,
-            }
-        }
-        assert_eq!(as_f64(actual.clone()), as_f64(expected), "{}", case.src);
-        assert_ne!(actual.to_string(), *case.expect.text.as_ref().unwrap());
-        assert!(actual.to_string().contains("1.2345678901234567e+19"));
     }
 }
 

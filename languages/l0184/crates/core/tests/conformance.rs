@@ -63,33 +63,6 @@ async fn run(case: &Case) -> Result<Json, Vec<String>> {
     }
 }
 
-/// Where this implementation deliberately differs from the TypeScript one.
-///
-/// A number of 2^64 or more in the output (`1e20`) is written in exponent form (`1e+20`): the
-/// kernel's JSON numbers are `u64`, `i64` or `f64`, and an `f64` that large is written
-/// exponentially, where JavaScript writes digits up to 1e21. It is the same double. These are
-/// exactly the cases whose expected text does not survive a round trip through `serde_json`.
-fn diverges(case: &Case) -> bool {
-    case.expect.text.as_deref().is_some_and(|text| reserialized(text) != text)
-}
-
-fn reserialized(text: &str) -> String {
-    serde_json::from_str::<Json>(text).map(|json| json.to_string()).unwrap_or_default()
-}
-
-#[tokio::test]
-async fn huge_numbers_are_the_same_doubles_in_exponent_form() {
-    let all = cases();
-    let diverging: Vec<&Case> = all.iter().filter(|case| diverges(case)).collect();
-    assert!(!diverging.is_empty());
-    for case in diverging {
-        let expected: Json = serde_json::from_str(case.expect.text.as_deref().unwrap()).unwrap();
-        let actual = run(case).await.unwrap();
-        assert_eq!(actual, expected, "{}", case.src);
-        assert!(actual.to_string().contains("e+"), "{}", case.src);
-    }
-}
-
 /// An item given an undefined value (`get-var` of a name never set) is refused, as in
 /// TypeScript: it is not a value, though the kernel would write it as `null`.
 #[tokio::test]
@@ -107,7 +80,7 @@ async fn agrees_with_the_typescript_implementation() {
     let all = cases();
     assert!(all.len() >= 2500, "the fixture looks truncated: {} cases", all.len());
     let mut failures = Vec::new();
-    for case in all.iter().filter(|case| !diverges(case)) {
+    for case in &all {
         let actual = run(case).await;
         let label: String = case.src.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(300).collect();
         let label = match &case.data {

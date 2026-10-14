@@ -206,14 +206,12 @@ sections, multi-page boards, `save-to-figjam` forms, decimals, L0000 expressions
 3413 cases, 2776 of them errors; every error message in the TypeScript source appears except three
 the TypeScript cannot reach (the opacity-percentage hint, `describe`'s stray-`{}` branch,
 `Object.keys(null)` in `assertKnownAttributes`). `tests/conformance.rs` requires the same JSON
-text or the same messages in the same order for every case but the divergence below;
+text or the same messages in the same order for every case;
 `tests/dialect.rs` checks error positions, that upstream data never reaches the board, and the
 lexicon.
 
-One difference, and it is the kernel's, not L0186's: an integer above 2^53 − 1 in the output is
-written as serde writes an `f64` (`9007199254740992.0`, `1e+20`), where JavaScript writes every
-digit (`9007199254740992`, `100000000000000000000`). Same value; pinned by
-`a_huge_integer_is_written_as_an_f64`. Messages L0186 writes print JavaScript's form.
+There are no deliberate differences. (Integers above 2^53 − 1 once came out in serde's float
+form, `1e+20`; the kernel now writes every number as `JSON.stringify` does.)
 
 ### Deploying the Rust server
 
