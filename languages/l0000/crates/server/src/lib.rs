@@ -29,6 +29,8 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+/// For a child language's own clients (ISOLATE-01): build them with `egress::client_builder()`.
+pub use graffiticode_l0000::egress;
 use graffiticode_l0000::policy_client::{HttpPolicyClient, MetadataIdTokens};
 use graffiticode_l0000::schema::HttpSchemas;
 use graffiticode_l0000::{Compiler, Dialect, Identity, Keyring, Lexicon, RevisionIdentity};

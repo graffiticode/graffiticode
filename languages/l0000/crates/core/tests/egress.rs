@@ -128,8 +128,9 @@ impl TestCa {
         let issuer = Issuer::new(ca, ca_key);
         let leaf_key = KeyPair::generate().unwrap();
         let leaf = CertificateParams::new(vec![LISTED.to_owned()]).unwrap().signed_by(&leaf_key, &issuer).unwrap();
-        let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
-        let file = std::env::temp_dir().join(format!("egress-ca-{}-{nanos}.pem", std::process::id()));
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let file = std::env::temp_dir().join(format!("egress-ca-{}-{n}.pem", std::process::id()));
         std::fs::write(&file, ca_cert.pem()).unwrap();
         let key = rustls::pki_types::PrivateKeyDer::try_from(leaf_key.serialize_der()).unwrap();
         let config =
