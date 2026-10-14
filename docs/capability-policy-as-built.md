@@ -163,7 +163,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
 
     Released as `broker-rmv8c7p8i-cea788` (2026-10-14); the canary passed 23 of 23 with marked
     writes, so the sandbox accepts them.
-  - **Reconciliation (in code, not yet released):**
+  - **Reconciliation (released 2026-10-14):**
     - **Policy** `POST /v1/receipts/reconcile`: the console only, for the signed-in user. Allowed
       for the connection's owner, or for the user who made the save while their grant still
       covers a write. The save is named by the exact idempotency key it used, or its invocation
@@ -178,8 +178,27 @@ Evidence: [gateway execution](../packages/api/src/data.js),
       - a disagreeing race is recorded as a conflict.
 
       It never writes or re-executes, and older receipts without evidence stay unresolved.
-  - Still missing: the console's "Check the item bank" flow, which stores each attempt's key, and
-    a canary check.
+  - **Released:** `broker-rmv8dr19j-3ef04d` then `policy-rmv8e1zrv-84fd65` (main `9469b28`),
+    `release-check` ok.
+  - **Live check:** the canary with `--reconcile` (`1820f8b`) at 17:43Z passed 24 of 24. Its
+    reconcile check waited 44 s for the write's deadline and grace period, then found the
+    operation's mark on both of its records: `applied`, and final.
+  - **Console** (graffiticode-app #2 and #3, `55eed1b`):
+    - each save records the idempotency key that attempt used;
+    - "Check the item bank" asks Policy by that key: confirmed saves become a success,
+      anything else keeps the failure and shows what the check found;
+    - partial and uncertain saves are recognised before their cause, and Retry isn't offered
+      for them;
+    - the check is offered only when the server marks the save `checkable` (its key
+      recorded), and a refused check explains itself in plain language.
+
+    Deployed as `console-rmv8foi02-60caf5` on 2026-10-14. A first deploy attempt failed its
+    smoke check: the deploying checkout's `node_modules` held a deploy CLI from before
+    per-check `timeoutMs`, so the candidate's 39 s cold start hit the old fixed 30 s limit.
+    `npm ci` fixed it; nothing was promoted from the failed attempt, and its tag was retired.
+  - **Still open:** the verdicts are `applied` and `unresolved` only. `not_applied` and
+    `partially_applied` would need Learnosity to guarantee in writing that a rejected `set`
+    stores nothing; that's a question for their support.
   Evidence: [Broker](../packages/broker/src/broker.ts),
   [provider response classification](../packages/broker/src/learnosity.ts),
   [receipt store](../packages/broker/src/firestore.ts), and
