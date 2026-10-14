@@ -95,6 +95,23 @@ test("each alert's own condition matches its test record, and the real records",
   assert.deepEqual(uncertain.test, { outcome: "uncertain" });
 });
 
+// AUDIT-01 (W5): partial writes, artifact storage outages and permission
+// denials outside the canary are alerted too.
+test("the new alerts match their own records and test records, and the denial alert leaves the canary out", () => {
+  const alerts = Object.fromEntries(alertSpecs(P, { canaryConnections: ["conn-canary"] }).map(a => [a.id, a]));
+  assert.deepEqual(Object.keys(alerts), ["outage", "uncertain", "partial", "artifact", "denial"]);
+  assert.ok(alerts.partial.filter.includes(spec("partial_writes").filter));
+  assert.ok(alerts.artifact.filter.includes(`${spec("artifact_failures").filter} AND jsonPayload.category="unavailable"`));
+  for (const id of ["policy_denials", "broker_local_refusals", "api_denials"]) assert.ok(alerts.denial.filter.includes(spec(id).filter), id);
+  assert.match(alerts.denial.filter, /jsonPayload\.category="permission" AND NOT jsonPayload\.connectionId="conn-canary"\)/);
+  // Each test record carries what its own test clause matches.
+  assert.match(alerts.partial.filter, /monitoring-test" AND jsonPayload\.outcome="partial"\)$/);
+  assert.match(alerts.artifact.filter, /monitoring-test" AND jsonPayload\.reason="artifact-storage-unavailable"\)$/);
+  assert.match(alerts.denial.filter, /monitoring-test" AND jsonPayload\.outcome="denied" AND jsonPayload\.category="permission"\)$/);
+  assert.equal(alertSpecs(P).find(a => a.id === "denial").filter.includes("NOT jsonPayload.connectionId"), false);
+  assert.match(spec("api_denials").filter, /service_name="api" AND jsonPayload\.outcome="denied"$/);
+});
+
 test("the filter check fails a metric whose records match nothing, or that the canary should fill", async () => {
   const replays = spec("receipt_replays");
   const g = fakeGoogle({ count: f => f.includes("service_name=\"api\"") ? 0 : f.includes(replays.match) ? 0 : 3 });
@@ -115,7 +132,7 @@ test("a dry run writes nothing", async () => {
   const g = fakeGoogle();
   const { steps } = await plan({ api: g.api, project: P, email: "ops@example.com" });
   assert.deepEqual(steps.map(s => s.action), Array(steps.length).fill("create"));
-  assert.deepEqual(steps.map(s => s.kind), [...Array(metricSpecs(P).length).fill("metric"), "channel", "policy", "policy"]);
+  assert.deepEqual(steps.map(s => s.kind), [...Array(metricSpecs(P).length).fill("metric"), "channel", ...Array(alertSpecs(P).length).fill("policy")]);
   assert.equal(g.writes.length, 0);
 });
 
@@ -124,7 +141,7 @@ test("apply creates everything once, and a second apply changes nothing", async 
   await apply({ api: g.api, project: P, email: "ops@example.com" });
   assert.equal(g.metrics.size, metricSpecs(P).length);
   assert.equal(g.channels.length, 1);
-  assert.equal(g.policies.length, 2);
+  assert.equal(g.policies.length, 5);
   assert.ok(g.policies.every(p => p.notificationChannels[0] === g.channels[0].name));
   const outage = g.policies.find(p => p.displayName === "Security audit: authorization outage");
   assert.equal(outage.conditions[0].conditionMatchedLog.labelExtractors.nonce, "EXTRACT(jsonPayload.nonce)");
@@ -155,16 +172,23 @@ test("alert verification writes a test record per alert that its own condition m
   const g = fakeGoogle();
   await apply({ api: g.api, project: P, email: "ops@example.com" });
   const before = g.writes.length;
-  const nonces = ["n0nce001", "n0nce002"];
+  const nonces = ["n0nce001", "n0nce002", "n0nce003", "n0nce004", "n0nce005"];
   const written = await writeTestRecords({ api: g.api, project: P, email: "ops@example.com", nonce: () => nonces.shift(), now: () => new Date("2026-10-06T22:00:00Z") });
   const records = g.writes.slice(before);
-  assert.deepEqual(records.map(w => w.path), ["/v2/entries:write", "/v2/entries:write"]);
-  assert.deepEqual(records.map(w => w.body.logName), Array(2).fill(`projects/${P}/logs/${TEST_LOG}`));
+  assert.deepEqual(records.map(w => w.path), Array(5).fill("/v2/entries:write"));
+  assert.deepEqual(records.map(w => w.body.logName), Array(5).fill(`projects/${P}/logs/${TEST_LOG}`));
+  const at = "2026-10-06T22:00:00.000Z";
   assert.deepEqual(records.map(w => w.body.entries[0].jsonPayload), [
-    { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "authorization-unavailable", nonce: "n0nce001", at: "2026-10-06T22:00:00.000Z" },
-    { logName: "security_audit", event: "monitoring-test", outcome: "uncertain", nonce: "n0nce002", at: "2026-10-06T22:00:00.000Z" },
+    { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "authorization-unavailable", nonce: "n0nce001", at },
+    { logName: "security_audit", event: "monitoring-test", outcome: "uncertain", nonce: "n0nce002", at },
+    { logName: "security_audit", event: "monitoring-test", outcome: "partial", nonce: "n0nce003", at },
+    { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "artifact-storage-unavailable", category: "unavailable", nonce: "n0nce004", at },
+    { logName: "security_audit", event: "monitoring-test", outcome: "denied", reason: "not-granted", category: "permission", nonce: "n0nce005", at },
   ]);
-  assert.deepEqual(written.map(w => [w.alert, w.nonce]), [["Security audit: authorization outage", "n0nce001"], ["Security audit: uncertain write", "n0nce002"]]);
+  assert.deepEqual(written.map(w => [w.alert, w.nonce]), [
+    ["Security audit: authorization outage", "n0nce001"], ["Security audit: uncertain write", "n0nce002"], ["Security audit: partial write", "n0nce003"],
+    ["Security audit: artifact storage outage", "n0nce004"], ["Security audit: permission denial", "n0nce005"],
+  ]);
 });
 
 test("delivery is confirmed per alert by the nonce from its email, in any order", () => {
@@ -188,11 +212,15 @@ test("alert verification refuses until monitoring is applied as specified", asyn
 });
 
 test("options: dry run by default; apply and verify need an operator address", () => {
-  assert.deepEqual(parse([]), { project: P, email: null, days: 7, apply: false, verifyAlert: false, confirm: null });
+  assert.deepEqual(parse([]), { project: P, email: null, days: 7, apply: false, verifyAlert: false, confirm: null, canaryConnections: [] });
   assert.deepEqual(parse(["--confirm", "aa11bb22", "cc33dd44"]).confirm, ["aa11bb22", "cc33dd44"]);
   assert.deepEqual(parse(["--confirm"]).confirm, []);
   assert.throws(() => parse(["--verify-alert", "--email", "a@b.c", "--confirm", "x"]), /separate runs/);
-  assert.equal(parse(["--apply", "--email", "ops@example.com"]).apply, true);
+  assert.equal(parse(["--apply", "--email", "ops@example.com", "--canary-connection", "conn-canary"]).apply, true);
+  assert.deepEqual(parse(["--apply", "--email", "a@b.c", "--canary-connection", "conn-a", "--canary-connection", "conn-b"]).canaryConnections, ["conn-a", "conn-b"]);
+  assert.throws(() => parse(["--apply", "--email", "ops@example.com"]), /--canary-connection is required/);
+  assert.throws(() => parse(["--verify-alert", "--email", "ops@example.com"]), /--canary-connection is required/);
+  assert.throws(() => parse(["--canary-connection", "alice@example.com"]), /must be a connection id/);
   assert.throws(() => parse(["--apply"]), /--email is required/);
   assert.throws(() => parse(["--verify-alert", "--email", "nope"]), /must be an address/);
   assert.throws(() => parse(["--apply", "--verify-alert", "--email", "a@b.c"]), /separate runs/);

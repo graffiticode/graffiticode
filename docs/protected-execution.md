@@ -260,9 +260,9 @@ It reads the audit lines every service writes to `run.googleapis.com/stdout` wit
 
 ```
 node scripts/monitoring.js [--email <operator address>]           # dry run: filter check + plan
-node scripts/monitoring.js --apply --email <operator address>     # create or update
-node scripts/monitoring.js --verify-alert --email <operator address>
-node scripts/monitoring.js --confirm <nonce> <nonce>            # once both emails arrive
+node scripts/monitoring.js --apply --email <operator address> --canary-connection <id>    # create or update
+node scripts/monitoring.js --verify-alert --email <operator address> --canary-connection <id>
+node scripts/monitoring.js --confirm <nonce> ...                  # once the emails arrive
 ```
 
 **Metrics** (`logging.googleapis.com/user/security_audit/<id>`). Each failure is counted
@@ -271,6 +271,7 @@ once, by the record that reports it:
 | metric | counts |
 | --- | --- |
 | `policy_denials` | Policy refusals, by event and reason |
+| `api_denials` | the gateway's own refusals (chain admission, invocations, publication reads), by event, reason and category |
 | `broker_local_refusals` | Broker's own refusals, e.g. `bad-token`, `token-replayed` or `maintenance`. Broker's relays of Policy denials (`authorization-denied:*`) are excluded |
 | `authorization_outages` | Broker writes stopped by `authorization-unavailable` |
 | `gateway_policy_unavailable` | gateway requests refused with `policy-unavailable` |
@@ -284,6 +285,20 @@ once, by the record that reports it:
 - *Security audit: uncertain write*: the provider may or may not have applied a write.
   Reconcile it from the receipt (`steps`, `failedStep`) before anyone retries under a new
   operation. A retry with the same idempotency key only replays the recorded outcome.
+- *Security audit: partial write*: a write stopped after some of its steps, so part of it
+  landed. Check its reason and category, and the item bank, before anyone saves again.
+- *Security audit: artifact storage outage*: a compile result through a connection could not
+  be stored (category `unavailable`), so views of it fail until it's recompiled. Check api's
+  Firestore access.
+- *Security audit: permission denial*: a refusal with category `permission`, from Policy,
+  Broker or the gateway, on any connection but the canary's (`--canary-connection`, whose
+  runs deny on purpose). Someone without the access tried it, or access changed under a
+  running item.
+
+Every failure record carries a `category` (`authentication`, `permission`, `malformed`,
+`conflict` or `unavailable`), the same one its response reports. The audit adds it from the
+reason, so Policy, Broker and api records agree. Broker's write outcomes always carry a reason
+too: a refusal's, or `provider-rejected`, `provider-response-lost` or `step-not-persisted`.
 
 **The dry run** counts each metric's filter against the last 7 days of deployed entries
 (`--days N` changes the window). It fails when a metric's source records (service and

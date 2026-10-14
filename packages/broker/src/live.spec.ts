@@ -441,9 +441,9 @@ describe("effects and correlation", () => {
   it("keeps uncertain with no completed step when the first response is lost", async () => {
     onRoute = async route => { if (route === "/itembank/questions") throw new Error("socket hang up"); };
     const out = await write(broker());
-    expect(out).toMatchObject({ status: "uncertain", steps: [], failedStep: "questions" });
-    expect(out).not.toHaveProperty("category");
-    expect(finalRecord()).toMatchObject({ outcome: "uncertain", steps: [], failedStep: "questions" });
+    // A lost response has a reason and a category too (spec AUDIT-01).
+    expect(out).toMatchObject({ status: "uncertain", steps: [], failedStep: "questions", reason: "provider-response-lost", category: "unavailable" });
+    expect(finalRecord()).toMatchObject({ outcome: "uncertain", steps: [], failedStep: "questions", reason: "provider-response-lost", category: "unavailable" });
   });
 
   it("replays the recorded effects", async () => {

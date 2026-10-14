@@ -1,6 +1,7 @@
 // Monitoring for the security audit (capability plan W3, spec AUDIT-01):
-// log-based metrics that count each kind of failure once, two log-match alert
-// policies (authorization outages, uncertain writes) with an email channel,
+// log-based metrics that count each kind of failure once, log-match alert
+// policies (authorization outages, uncertain and partial writes, artifact
+// storage outages, permission denials outside the canary) with an email channel,
 // and a check that an alert's email really arrives. The Google APIs and the
 // clock are injected so the operator sequence is tested
 // (scripts/test/monitoring.test.js). See scripts/monitoring.js for usage.
@@ -46,6 +47,17 @@ export const metricSpecs = project => {
       description: "Broker's own refusals, which Policy never saw (Policy's relayed denials excluded).",
       base: from("broker", ["execute", "secret"]),
       match: "jsonPayload.outcome=\"denied\" AND NOT jsonPayload.reason=~\"^authorization-denied:\"",
+    },
+    {
+      // The gateway's own refusals: chain admission and its invocation and
+      // publication checks (W4). Policy's decisions it relays are also counted
+      // in policy_denials.
+      id: "api_denials",
+      labels: ["event", "reason", "category"],
+      expected: true,
+      description: "The gateway's refusals (admission, invocations, publication reads), by event, reason and category.",
+      base: `${selector(project)} AND ${service("api")}`,
+      match: "jsonPayload.outcome=\"denied\"",
     },
     {
       id: "authorization_outages",
@@ -117,8 +129,12 @@ export const desiredMetric = spec => ({
 // the metrics never do.
 const testRecords = project => `logName="projects/${project}/logs/${TEST_LOG}" AND jsonPayload.logName="security_audit" AND jsonPayload.event="monitoring-test"`;
 
-export const alertSpecs = project => {
+// `canaryConnections`: the canary's connection ids. Its runs deny on purpose
+// (denied final stage, revocation probe, author removed), so the denial alert
+// leaves them out.
+export const alertSpecs = (project, { canaryConnections = [] } = {}) => {
   const specs = Object.fromEntries(metricSpecs(project).map(s => [s.id, s]));
+  const notCanary = canaryConnections.map(c => ` AND NOT jsonPayload.connectionId="${c}"`).join("");
   return [
     {
       id: "outage",
@@ -133,6 +149,29 @@ export const alertSpecs = project => {
       filter: `(${specs.uncertain_writes.filter}) OR (${testRecords(project)} AND jsonPayload.outcome="uncertain")`,
       test: { outcome: "uncertain" },
       content: "A protected write's provider effect is unknown. Reconcile it before anyone retries with a new operation; see docs/protected-execution.md, Monitoring.",
+    },
+    {
+      id: "partial",
+      displayName: "Security audit: partial write",
+      filter: `(${specs.partial_writes.filter}) OR (${testRecords(project)} AND jsonPayload.outcome="partial")`,
+      test: { outcome: "partial" },
+      content: "A protected write stopped after some of its steps (Broker's outcome partial): part of it landed. Check the reason and category, and the item bank, before anyone saves again; see docs/protected-execution.md, Monitoring.",
+    },
+    {
+      // `unavailable` only: a `conflict` is a same-key retry whose output
+      // differs from the stored artifact, which is kept, not an outage.
+      id: "artifact",
+      displayName: "Security audit: artifact storage outage",
+      filter: `(${specs.artifact_failures.filter} AND jsonPayload.category="unavailable") OR (${testRecords(project)} AND jsonPayload.reason="artifact-storage-unavailable")`,
+      test: { outcome: "failed", reason: "artifact-storage-unavailable", category: "unavailable" },
+      content: "A compile result through a connection could not be stored (artifact storage unavailable): views of it will fail until it is recompiled. Check api's Firestore access; see docs/protected-execution.md, Monitoring.",
+    },
+    {
+      id: "denial",
+      displayName: "Security audit: permission denial",
+      filter: `(((${specs.policy_denials.filter}) OR (${specs.broker_local_refusals.filter}) OR (${specs.api_denials.filter})) AND jsonPayload.category="permission"${notCanary}) OR (${testRecords(project)} AND jsonPayload.outcome="denied" AND jsonPayload.category="permission")`,
+      test: { outcome: "denied", reason: "not-granted", category: "permission" },
+      content: "A protected request was refused for permission, outside the canary: someone without the access tried it, or access changed under a running item. Check the event and reason; see docs/protected-execution.md, Monitoring.",
     },
   ];
 };
@@ -222,7 +261,7 @@ const findPolicy = async (api, project, displayName) => {
 const metricUrl = (project, name) => `${LOGGING}/projects/${project}/metrics/${encodeURIComponent(name)}`;
 
 // The changes --apply would make: create, update or unchanged, per resource.
-export const plan = async ({ api, project, email }) => {
+export const plan = async ({ api, project, email, canaryConnections = [] }) => {
   const steps = [];
   for (const spec of metricSpecs(project)) {
     const res = await api("GET", metricUrl(project, spec.name));
@@ -233,7 +272,7 @@ export const plan = async ({ api, project, email }) => {
   if (!email) return { steps, channel: null };
   const channel = await findChannel(api, project, email);
   steps.push({ kind: "channel", name: email, action: channel ? "unchanged" : "create", existing: channel });
-  for (const spec of alertSpecs(project)) {
+  for (const spec of alertSpecs(project, { canaryConnections })) {
     const existing = await findPolicy(api, project, spec.displayName);
     const desired = desiredPolicy(spec, channel?.name ?? "(new channel)");
     const action = !existing ? "create" : channel && same(policyView(existing), policyView(desired)) ? "unchanged" : "update";
@@ -242,8 +281,8 @@ export const plan = async ({ api, project, email }) => {
   return { steps, channel };
 };
 
-export const apply = async ({ api, project, email, log = () => {} }) => {
-  const { steps } = await plan({ api, project, email });
+export const apply = async ({ api, project, email, canaryConnections = [], log = () => {} }) => {
+  const { steps } = await plan({ api, project, email, canaryConnections });
   let channelName = steps.find(s => s.kind === "channel")?.existing?.name;
   for (const step of steps) {
     if (step.action === "unchanged") continue;
@@ -275,12 +314,12 @@ export const apply = async ({ api, project, email, log = () => {} }) => {
 // each alert, one test record that its own condition matches, carrying a
 // nonce; once the emails arrive, confirmDelivery matches the nonces the
 // operator copied from them.
-export const writeTestRecords = async ({ api, project, email, now = () => new Date(), nonce = () => randomBytes(4).toString("hex"), log = () => {} }) => {
-  const { steps } = await plan({ api, project, email });
+export const writeTestRecords = async ({ api, project, email, canaryConnections = [], now = () => new Date(), nonce = () => randomBytes(4).toString("hex"), log = () => {} }) => {
+  const { steps } = await plan({ api, project, email, canaryConnections });
   const pending = steps.filter(s => s.action !== "unchanged").map(s => `${s.kind} ${s.name}`);
   if (pending.length) throw new Error(`monitoring is not applied (${pending.join(", ")}); run --apply first`);
   const written = [];
-  for (const spec of alertSpecs(project)) {
+  for (const spec of alertSpecs(project, { canaryConnections })) {
     const value = nonce();
     const writtenAt = now().toISOString();
     ok(await api("POST", `${LOGGING}/entries:write`, {

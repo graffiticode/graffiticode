@@ -150,9 +150,10 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   [receipt store](../packages/broker/src/firestore.ts), and
   [receipt tests](../packages/broker/src/broker.spec.ts).
 - **Partial / deployment unverified — RETAIN-01.** Invocation and receipt code has no
-  automatic expiry. Token-ID documents carry an expiry field suitable for cleanup.
-  Admission records do not exist. Indefinite retention configuration, backups, and actual
-  database cleanup policies have not been verified in this review. Evidence:
+  automatic expiry. Token-ID documents carry an expiry field suitable for cleanup. W4's
+  admission plans (`plans`) and invocation markers have no expiry either. Indefinite
+  retention configuration, backups, and actual database cleanup policies have not been
+  verified in this review (W5 stage 2). Evidence:
   [Policy stores](../packages/policy/src/firestore.ts) and
   [Broker stores](../packages/broker/src/firestore.ts).
 - **Partial — RECOVER-01.** Atomic artifact storage, three storage attempts, and recovery
@@ -358,8 +359,16 @@ Evidence: [gateway execution](../packages/api/src/data.js),
     separately. Alerts for outages and uncertain writes were applied, and both emails were
     confirmed delivered by nonce on 2026-10-06.
 
-  Missing: reconciliation events (there is no reconciliation yet), and `category` on denial
-  records (their reason is classified, but the category isn't written). Evidence:
+  - **Categories (W5 stage 1, in code, not yet released):** every failure record (`denied`,
+    `failed`, `partial`, `uncertain`) carries its reason's category, added by the audit itself,
+    and Broker's write outcomes always have a reason (`provider-rejected`,
+    `provider-response-lost`, `step-not-persisted`, or a refusal's). New: an `api_denials`
+    metric, and alerts for partial writes, artifact storage outages and permission denials
+    outside the canary, each still to be applied and delivery-checked.
+
+  Missing: reconciliation events (W5 stage 3), deployed records showing the categories, and
+  the validator that will require them (a later release, once deployed records show full
+  coverage). Evidence:
   [audit](../packages/policy/src/audit.ts), [AT-12 harness](../packages/api/src/at12.spec.js),
   [monitoring](../scripts/monitoring.js).
 - **Missing — RELEASE-01.** No stronger-contract cutover/version enforcement, pinned-plan

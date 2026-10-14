@@ -58,6 +58,12 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // api: artifacts and reads through a connection or publication.
   // (`signed-content` and `storage-failed` detail why an artifact wasn't stored.)
   ...cat("unavailable", ["artifact-storage-unavailable", "connections-unavailable", "publications-unavailable", "policy-unavailable", "storage-failed"]),
+  // Broker's write outcomes without a refusal: the provider refused the
+  // request (its content or the connection's credential), its response was
+  // lost (the write may have applied), or a completed step couldn't be
+  // recorded.
+  ...cat("malformed", ["provider-rejected"]),
+  ...cat("unavailable", ["provider-response-lost", "step-not-persisted"]),
   ...cat("conflict", ["artifact-rejected", "artifact-incompatible", "published-artifact-unavailable", "signed-content"]),
   ...cat("malformed", ["artifact-not-found", "publication-other-item"]),
 ]));

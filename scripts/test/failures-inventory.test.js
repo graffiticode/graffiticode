@@ -18,6 +18,7 @@ const FORMS = [
   /\brefusal: "([a-z0-9-]+)"/g, // policy: { refusal: "reason" }
   /\bnew (?:BrokerRefused|PolicyDenied|AuthorizationDenied|AdmissionRefused)\("([a-z0-9-]+)"/g,
   /\breason: "([a-z0-9-]+)"/g, // audited denials (caller-rejected, route-not-allowed-for-caller)
+  /\breason = (?:[^;]*?: )?"([a-z0-9-]+)";/g, // broker: an outcome's reason (provider-rejected, …)
   /\bdeny\([^;]*?\? "([a-z0-9-]+)" : "([a-z0-9-]+)"/g, // policy: deny(expired ? "token-expired" : "bad-token", …)
   /\b(?:failedWith|failure)\([^;]*?, "([a-z0-9-]+)"\)/g, // api: failedWith(message, "code"), failure(message, "code")
   /\bartifactNotStored\(\{ error: "([a-z0-9-]+)"/g, // api: artifactNotStored({ error: "code", … })

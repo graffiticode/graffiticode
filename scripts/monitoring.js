@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // Security-audit monitoring (capability plan W3; spec AUDIT-01): log-based
 // metrics counting each kind of failure once, alert policies for
-// authorization outages and uncertain writes, and a check that their email
+// authorization outages, uncertain and partial writes, artifact storage outages and
+// permission denials outside the canary, and a check that their email
 // really arrives. Runbook: docs/protected-execution.md, "Monitoring".
 //
 //   node scripts/monitoring.js [--email <operator address>]            dry run (default)
-//   node scripts/monitoring.js --apply --email <operator address>
-//   node scripts/monitoring.js --verify-alert --email <operator address>
+//   node scripts/monitoring.js --apply --email <operator address> --canary-connection <id>
+//   node scripts/monitoring.js --verify-alert --email <operator address> --canary-connection <id>
 //   node scripts/monitoring.js --confirm <nonce> [<nonce> ...]
 //
 // The dry run checks every metric's filter against deployed entries (default:
@@ -19,6 +20,10 @@
 // whose nonce isn't given is not confirmed. The result is appended to
 // .gc-deploy/monitoring/alert-verification.json. Neither run prompts, so both
 // work from a non-interactive shell.
+//
+// --canary-connection (repeatable) names the canary's connection, which the
+// denial alert leaves out; it is required with --apply and --verify-alert, so
+// the alert policy compared and written is always the same one.
 //
 // Options: --project (default graffiticode). Uses the gcloud account's access
 // token. The logic lives in scripts/lib/monitoring.js.
@@ -33,7 +38,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DAY = 24 * 3600 * 1000;
 
 export const parse = argv => {
-  const opts = { project: "graffiticode", email: null, days: 7, apply: false, verifyAlert: false, confirm: null };
+  const opts = { project: "graffiticode", email: null, days: 7, apply: false, verifyAlert: false, confirm: null, canaryConnections: [] };
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (key === "--confirm") {
@@ -44,7 +49,11 @@ export const parse = argv => {
     if (key === "--apply") { opts.apply = true; continue; }
     if (key === "--verify-alert") { opts.verifyAlert = true; continue; }
     const value = argv[++i];
-    if (!["--project", "--email", "--days"].includes(key) || value === undefined) throw new Error(`unknown or incomplete option ${key}`);
+    if (!["--project", "--email", "--days", "--canary-connection"].includes(key) || value === undefined) throw new Error(`unknown or incomplete option ${key}`);
+    if (key === "--canary-connection") {
+      if (!/^conn-[A-Za-z0-9_-]{1,120}$/.test(value)) throw new Error("--canary-connection must be a connection id");
+      opts.canaryConnections.push(value);
+    }
     if (key === "--project") opts.project = value;
     if (key === "--email") opts.email = value;
     if (key === "--days") opts.days = Number(value);
@@ -52,6 +61,7 @@ export const parse = argv => {
   if ([opts.apply, opts.verifyAlert, opts.confirm !== null].filter(Boolean).length > 1) throw new Error("--apply, --verify-alert and --confirm are separate runs");
   if ((opts.apply || opts.verifyAlert) && !opts.email) throw new Error("--email is required with --apply and --verify-alert");
   if (opts.email && !/^[^@\s]+@[^@\s]+$/.test(opts.email)) throw new Error("--email must be an address");
+  if ((opts.apply || opts.verifyAlert) && !opts.canaryConnections.length) throw new Error("--canary-connection is required with --apply and --verify-alert");
   if (!(opts.days > 0)) throw new Error("--days must be positive");
   return opts;
 };
@@ -104,7 +114,7 @@ const main = async () => {
   }
 
   if (opts.verifyAlert) {
-    const written = await writeTestRecords({ api, project, email, log });
+    const written = await writeTestRecords({ api, project, email, canaryConnections: opts.canaryConnections, log });
     await mkdir(MONITORING_DIR, { recursive: true });
     await writeFile(PENDING, `${JSON.stringify(written, null, 2)}\n`, { mode: 0o600 });
     log(`Each alert's email should reach ${email} within about 5 minutes, ending "Nonce: <nonce>".`);
@@ -121,7 +131,7 @@ const main = async () => {
   const failed = checks.filter(c => c.problem);
 
   if (!opts.apply) {
-    const { steps } = await plan({ api, project, email });
+    const { steps } = await plan({ api, project, email, canaryConnections: opts.canaryConnections });
     log(`\nDry run: --apply${email ? "" : " (with --email for the channel and alert policies)"} would make:`);
     for (const s of steps) log(`  ${s.action} ${s.kind} ${s.name}`);
     if (failed.length) process.exitCode = 1;
@@ -129,7 +139,7 @@ const main = async () => {
   }
   if (failed.length) throw new Error(`refusing to apply: ${failed.map(c => c.name).join(", ")} failed the filter check`);
   log("\nApplying:");
-  const steps = await apply({ api, project, email, log });
+  const steps = await apply({ api, project, email, canaryConnections: opts.canaryConnections, log });
   if (steps.every(s => s.action === "unchanged")) log("  nothing to change");
 };
 
