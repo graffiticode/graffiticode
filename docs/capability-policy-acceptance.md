@@ -52,7 +52,7 @@ Jeff accepts the production evidence. The agent did the mapping and the checks.
 | AT | Requirements | Verdict | Open items |
 | --- | --- | --- | --- |
 | AT-01 | MODEL-01/02, AUTH-01 | **Pass** | Broker has no invoker-mismatch test (Policy has one) |
-| AT-02 | CONN-01, GRANT-01/02 | **Open** | Account enumeration; verified-email claim; leave; provisioning failure |
+| AT-02 | CONN-01, GRANT-01/02 | **Pass once deployed** | Fixed 2026-10-14 (below); the console fix ships with its next release |
 | AT-03 | ADMIT-01/02, API-01 | **Pass** | Undeclarable behavior is refused at preflight; no gateway-level test |
 | AT-04 | ADMIT-03, REG-01, TOKEN-01 | **Open** | L0000's canonical vectors drifted; language changed after admission |
 | AT-05 | EXEC-01/02, REVOKE-01, API-02 | **Pass** | Single sub-cases (below) |
@@ -91,7 +91,7 @@ Test names are quoted from the specs.
 | Mismatched transport identity | Partial | pol/app.spec "…differs from the invoker", "…for another audience", "…unsigned, crafted caller identity". Broker only tests the wrong audience |
 | Direct compiler requests without authority | Covered | pol/policy.spec "must come from a policy invocation token…"; brk/app.spec "refuses a request with no execution token"; l0/protected-client.test; l176/brokered.test |
 
-### AT-02: connections and sharing: Open
+### AT-02: connections and sharing: Pass once deployed
 
 | Clause | Status | Evidence |
 | --- | --- | --- |
@@ -99,12 +99,12 @@ Test names are quoted from the specs.
 | Implicit preview | Covered | delegation.spec "can grant rendering alone: previews, never a save" |
 | Owner restrictions | Covered | delegation.spec owner's permissions; brk/live.spec owner narrowing. Live: canary revocation probe and denied final stage |
 | Expiry, revoke | Covered | delegation.spec "stops the recipient's next call once revoked or expired"; pol/live.spec "grant expired" |
-| Leave | Partial | delegation.spec only checks the recipient's list is empty, not that their next snapshot or mint is refused |
-| Verified pending-email claim | Partial | Policy's claim by hash is tested. The console's `verifiedEmailHashes` (`graffiticode-app/packages/console/src/lib/connection-sharing.ts`), which must send only verified emails, has no test |
-| No account enumeration | **Gap** | No test. An email share's `pending` flag in the owner's grant list (`ConnectionGrant.pending`, console `pages/api/index.ts`) shows whether that email has an account. The account-ID share's "No account has that ID." needs a 40-hex ID, so it can't be used to enumerate |
+| Leave | Covered | delegation.spec "stops the recipient's next call once they leave, and the owner's still work" |
+| Verified pending-email claim | Covered | Policy's claim by hash (delegation.spec); console `connection-sharing.test.ts`: `verifiedEmailHashes` sends only verified emails, and nothing when the auth service is unreachable (graffiticode-app #10) |
+| No account enumeration | Covered (graffiticode-app #10) | Found two leaks: the share dialogs' `findAccounts` search listed accounts by fragments of a name, email or ID, and an email share resolved to its account at once, so `pending` showed whether the email had one. Both removed: sharing takes an exact email (always pending by hash, never looked up) or an exact account ID. Console `connection-sharing.test.ts` (no lookup for an email share), `share-recipient.test.ts` (exact entries only). An exact account ID can still be checked for existence; IDs aren't secret and can't be listed |
 | No onward sharing | Covered | delegation.spec "…a recipient cannot reshare" |
 | Rotation account changes | Covered | pol/manage.spec "…a different provider account"; brk/app.spec "keeps owner, backend and provider account immutable…" |
-| Provisioning failures | Partial | manage.spec covers bad input. A Broker secret created before a failed Policy write is left behind, untested |
+| Provisioning failures | Covered | Fixed: a failed record write now deletes the Broker secret again (best effort) and audits `storage-failed`. manage.spec "deletes the secret again when the record can't be stored", "surfaces the store's error even when the cleanup fails", "stores no record when the broker refuses the secret" |
 | ID reuse | Covered | brk/app.spec "…and never reuses an id" |
 
 ### AT-03: chain denial before any effect: Pass
@@ -218,18 +218,17 @@ there is no job lookup. PROVIDER-01 stays provider-unverified.
    - preview scope against the sandbox.
 
    This needs sandbox tests, and possibly an `expires` on preview signing.
-2. **AT-02, account enumeration:** the owner's grant list shows `pending`, which reveals
-   whether an email has an account. Fix in the console, and add a test.
-3. **AT-02, verified-email claim:** add a test for `verifiedEmailHashes`.
+2. ~~**AT-02, account enumeration**~~: fixed 2026-10-14 (graffiticode-app #10).
+3. ~~**AT-02, verified-email claim**~~: tested (graffiticode-app #10).
 4. **AT-07 / RETAIN-01, restore test:** run it once the first daily backups exist.
 5. **AT-04, canonical vectors:** L0000's test is missing one vector. Import or check against
    `CANONICAL_VECTORS` (an l0000 release).
 6. **AT-12:** show that a W3 receipt is still reportable after rollback.
-7. **AT-02:** a failure partway through provisioning leaves a Broker secret behind.
+7. ~~**AT-02:** a failure partway through provisioning~~: fixed.
 8. **AT-09:** a test that repeated views and answers never save.
 9. **AT-03:** a gateway test that an `undeclarable-protected` preflight blocks the chain.
 10. **AT-04:** a test that changes the language after admission.
-11. **AT-02:** a test that a recipient who left is refused at the next snapshot or mint.
+11. ~~**AT-02:** leave~~: tested.
 12. **Single sub-cases:**
     - AT-05 signature expiry;
     - AT-01 Broker invoker mismatch;
