@@ -1,0 +1,858 @@
+{
+  "id": {
+    "tk": 1,
+    "name": "ID",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A name other parts refer to. Charts default to c1, c2, …; datasets to d1, d2, …; axes to x1, y1, …; plots to p1, p2, …."
+  },
+  "name": {
+    "tk": 1,
+    "name": "NAME",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A label people see: a chart's tab name, an axis title, or a plot's legend entry. A plot's name defaults to the column its values come from."
+  },
+  "title": {
+    "tk": 1,
+    "name": "TITLE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A heading: above a chart, or, after the outer `]`, above the whole collection."
+  },
+  "subtitle": {
+    "tk": 1,
+    "name": "SUBTITLE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A second line under a chart's title."
+  },
+  "description": {
+    "tk": 1,
+    "name": "DESCRIPTION",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "What the chart shows, for screen readers. Defaults to a summary generated from its plots."
+  },
+  "instructions": {
+    "tk": 1,
+    "name": "INSTRUCTIONS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Guidance shown under the collection's title."
+  },
+  "theme": {
+    "tk": 1,
+    "name": "THEME",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "The colour scheme for every chart, LIGHT or DARK. Defaults to LIGHT."
+  },
+  "palette": {
+    "tk": 1,
+    "name": "PALETTE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The colours plots take in order, e.g. palette [\"blue-500\" \"amber-500\" \"#10b981\"]. Tailwind tokens or hex codes."
+  },
+  "background": {
+    "tk": 1,
+    "name": "BACKGROUND",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The background colour behind every chart."
+  },
+  "show-chart-tabs": {
+    "tk": 1,
+    "name": "SHOW_CHART_TABS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Show a tab per chart. Defaults to true with two or more charts, false with one."
+  },
+  "show-chart-menu": {
+    "tk": 1,
+    "name": "SHOW_CHART_MENU",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Show the chart menu, which lists every chart. Defaults to false."
+  },
+  "dataset-id": {
+    "tk": 1,
+    "name": "DATASET_ID",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Which dataset a chart's column names refer to. May be left out when exactly one dataset is visible."
+  },
+  "width": {
+    "tk": 1,
+    "name": "WIDTH",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number|string record: record>",
+    "description": "A chart's width, in pixels or as a percentage like \"100%\". Defaults to \"100%\"."
+  },
+  "height": {
+    "tk": 1,
+    "name": "HEIGHT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "A chart's height in pixels. Defaults to 384."
+  },
+  "animation": {
+    "tk": 1,
+    "name": "ANIMATION",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Animate the chart as it draws. Defaults to true."
+  },
+  "columns": {
+    "tk": 1,
+    "name": "COLUMNS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "A dataset's column names, in order, e.g. columns [\"month\" \"revenue\"]."
+  },
+  "rows": {
+    "tk": 1,
+    "name": "ROWS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "A dataset's rows: lists in column order, e.g. rows [[\"Jan\" 120] [\"Feb\" 132]], records, e.g. rows [{month: \"Jan\" revenue: 120}], or data fetched and shaped by L0185: rows data use \"0185\"."
+  },
+  "direction": {
+    "tk": 1,
+    "name": "DIRECTION",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "Which way an axis runs: X (across), Y (up), or RADIAL (the spokes of a radar chart). Required."
+  },
+  "scale": {
+    "tk": 1,
+    "name": "SCALE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "An axis's scale: CATEGORY, LINEAR, LOG or TIME. Defaults to CATEGORY when the axis has categories, LINEAR otherwise."
+  },
+  "categories": {
+    "tk": 1,
+    "name": "CATEGORIES",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "A CATEGORY axis's steps: a list, or the name of a dataset column, e.g. categories \"month\"."
+  },
+  "min-value": {
+    "tk": 1,
+    "name": "MIN_VALUE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number|string record: record>",
+    "description": "Where a numeric, time or RADIAL axis starts, or the bottom of a GAUGE's dial (default 0). Defaults to fitting the data on an axis, 0 on a RADIAL axis."
+  },
+  "max-value": {
+    "tk": 1,
+    "name": "MAX_VALUE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number|string record: record>",
+    "description": "Where a numeric, time or RADIAL axis ends, or the top of a GAUGE's dial (default 100). On a RADIAL axis it defaults to a round number above the largest value."
+  },
+  "position": {
+    "tk": 1,
+    "name": "POSITION",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "Where something sits. An X axis: BOTTOM or TOP. A Y axis: LEFT or RIGHT. A legend: TOP, BOTTOM, LEFT or RIGHT. A label: see its plot kind."
+  },
+  "inverse": {
+    "tk": 1,
+    "name": "INVERSE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Run an axis the other way. Defaults to false."
+  },
+  "rotate": {
+    "tk": 1,
+    "name": "ROTATE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "Rotate an axis's labels by this many degrees, from -90 to 90."
+  },
+  "kind": {
+    "tk": 1,
+    "name": "KIND",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "What a plot draws: BAR, LINE, PIE, SCATTER, HISTOGRAM, BOXPLOT, CANDLESTICK, HEATMAP, FUNNEL, GAUGE or RADAR. Required."
+  },
+  "x-axis": {
+    "tk": 1,
+    "name": "X_AXIS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The id of the X axis a plot is drawn against. May be left out when the chart has one X axis."
+  },
+  "y-axis": {
+    "tk": 1,
+    "name": "Y_AXIS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The id of the Y axis a plot is drawn against. May be left out when the chart has one Y axis."
+  },
+  "values": {
+    "tk": 1,
+    "name": "VALUES",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "A plot's values: a list, or the name of a dataset column. One per category for BAR and LINE, one per spoke for RADAR, one per slice for PIE and FUNNEL, raw observations for HISTOGRAM and BOXPLOT, and rows of cells (or one per x/y pair) for HEATMAP."
+  },
+  "names": {
+    "tk": 1,
+    "name": "NAMES",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "A PIE's or FUNNEL's slice names, or a SCATTER's point names: a list, or a column name."
+  },
+  "x": {
+    "tk": 1,
+    "name": "X",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "The x of each point, for SCATTER and x/y LINE, or each cell's X category for a HEATMAP written as x/y/values: a list, or a column name."
+  },
+  "y": {
+    "tk": 1,
+    "name": "Y",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "The y of each point, for SCATTER and x/y LINE, or each cell's Y category for a HEATMAP written as x/y/values: a list, or a column name."
+  },
+  "value": {
+    "tk": 1,
+    "name": "VALUE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "A GAUGE's reading: one number within its min-value and max-value (0 to 100 by default)."
+  },
+  "bin-count": {
+    "tk": 1,
+    "name": "BIN_COUNT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "How many equal-width bins a HISTOGRAM uses: a whole number above 0. Defaults to Sturges' rule."
+  },
+  "group": {
+    "tk": 1,
+    "name": "GROUP",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "Which category each BOXPLOT value belongs to, one per value: a list, or a column name, e.g. group \"class\"."
+  },
+  "open": {
+    "tk": 1,
+    "name": "OPEN",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "A CANDLESTICK's opening values, one per category: a list, or a column name."
+  },
+  "close": {
+    "tk": 1,
+    "name": "CLOSE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "A CANDLESTICK's closing values, one per category: a list, or a column name."
+  },
+  "low": {
+    "tk": 1,
+    "name": "LOW",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "A CANDLESTICK's lowest values, one per category: a list, or a column name."
+  },
+  "high": {
+    "tk": 1,
+    "name": "HIGH",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list|string record: record>",
+    "description": "A CANDLESTICK's highest values, one per category: a list, or a column name."
+  },
+  "color": {
+    "tk": 1,
+    "name": "COLOR",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A plot's colour: a Tailwind token like \"blue-500\", or a hex code."
+  },
+  "colors": {
+    "tk": 1,
+    "name": "COLORS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "One colour per bar (BAR) or per slice (PIE), in order."
+  },
+  "stack": {
+    "tk": 1,
+    "name": "STACK",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Stack BAR or LINE plots that share this group name, e.g. stack \"total\". Category values only."
+  },
+  "smooth": {
+    "tk": 1,
+    "name": "SMOOTH",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Draw a LINE as a smooth curve."
+  },
+  "area": {
+    "tk": 1,
+    "name": "AREA",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Fill the area under a LINE, or inside a RADAR plot."
+  },
+  "step": {
+    "tk": 1,
+    "name": "STEP",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "Draw a LINE as steps: START, MIDDLE or END. Not with smooth."
+  },
+  "symbol": {
+    "tk": 1,
+    "name": "SYMBOL",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "The marker on a LINE or SCATTER: CIRCLE, RECT, TRIANGLE, DIAMOND, PIN, ARROW, NONE."
+  },
+  "symbol-size": {
+    "tk": 1,
+    "name": "SYMBOL_SIZE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "The marker's size in pixels."
+  },
+  "bar-width": {
+    "tk": 1,
+    "name": "BAR_WIDTH",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number|string record: record>",
+    "description": "A BAR's width, in pixels or as a percentage of its category, e.g. \"60%\"."
+  },
+  "inner-radius": {
+    "tk": 1,
+    "name": "INNER_RADIUS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number|string record: record>",
+    "description": "Makes a PIE a donut with a hole this size, e.g. inner-radius \"50%\"."
+  },
+  "radius": {
+    "tk": 1,
+    "name": "RADIUS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number|string record: record>",
+    "description": "A PIE's outer radius. Defaults to \"70%\"."
+  },
+  "rose": {
+    "tk": 1,
+    "name": "ROSE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "Makes a PIE a rose (nightingale) chart: RADIUS or AREA shows the value."
+  },
+  "start-angle": {
+    "tk": 1,
+    "name": "START_ANGLE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<number record: record>",
+    "description": "Where a PIE's first slice starts, in degrees. Defaults to 90 (twelve o'clock)."
+  },
+  "label": {
+    "tk": 1,
+    "name": "LABEL",
+    "cls": "function",
+    "arity": 2,
+    "type": "<record record: record>",
+    "description": "Labels on a plot's bars, points or slices, e.g. label show true position TOP formatter \"{c}%\" {}."
+  },
+  "show": {
+    "tk": 1,
+    "name": "SHOW",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "Whether a label, legend or tooltip shows."
+  },
+  "formatter": {
+    "tk": 1,
+    "name": "FORMATTER",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A label's template: {a} is the plot name, {b} the category or slice name, {c} the value, {d} a PIE slice's percent, e.g. \"{b}: {d}%\"."
+  },
+  "trigger": {
+    "tk": 1,
+    "name": "TRIGGER",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "What a tooltip reports: AXIS (everything at a category) or ITEM (one bar, point or slice)."
+  },
+  "dataset": {
+    "tk": 1,
+    "name": "DATASET",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "A table of data, e.g. dataset id \"sales\" columns [\"month\" \"revenue\"] rows [[\"Jan\" 120]] {}."
+  },
+  "axis": {
+    "tk": 1,
+    "name": "AXIS",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "One axis, e.g. axis id \"month\" direction X scale CATEGORY categories \"month\" {}."
+  },
+  "plot": {
+    "tk": 1,
+    "name": "PLOT",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "One plot, e.g. plot kind BAR values \"revenue\" {}."
+  },
+  "legend": {
+    "tk": 1,
+    "name": "LEGEND",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "A chart's legend, e.g. legend show true position TOP {}."
+  },
+  "tooltip": {
+    "tk": 1,
+    "name": "TOOLTIP",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "A chart's tooltip, e.g. tooltip trigger ITEM {}."
+  },
+  "charts": {
+    "tk": 1,
+    "name": "CHARTS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The program: its datasets and charts, then the collection's settings (title, instructions, theme, palette, …)."
+  },
+  "chart": {
+    "tk": 1,
+    "name": "CHART",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "One chart: its parts (datasets, axes, plots, legend, tooltip), then its settings (id, name, title, …)."
+  },
+  "datasets": {
+    "tk": 1,
+    "name": "DATASETS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "A list of datasets, then `{}`."
+  },
+  "axes": {
+    "tk": 1,
+    "name": "AXES",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "A chart's axes, then `{}`."
+  },
+  "plots": {
+    "tk": 1,
+    "name": "PLOTS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "A chart's plots, then `{}`."
+  },
+  "LIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The light theme (the default)."
+  },
+  "DARK": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The dark theme."
+  },
+  "X": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "An axis that runs across (horizontal)."
+  },
+  "Y": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "An axis that runs up (vertical)."
+  },
+  "CATEGORY": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "An axis of named steps, e.g. months."
+  },
+  "LINEAR": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "An evenly spaced numeric axis."
+  },
+  "LOG": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A logarithmic numeric axis. Every value on it must be above 0."
+  },
+  "TIME": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A date/time axis. Values are dates like \"2026-03-01\" or millisecond timestamps."
+  },
+  "TOP": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "At the top."
+  },
+  "BOTTOM": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "At the bottom."
+  },
+  "LEFT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "At the left."
+  },
+  "RIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "At the right."
+  },
+  "INSIDE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Inside the bar, slice or point."
+  },
+  "OUTSIDE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Outside the slice."
+  },
+  "CENTER": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "In the centre of a donut."
+  },
+  "BAR": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A bar plot: one bar per category."
+  },
+  "LINE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A line plot: values over categories, or x/y pairs."
+  },
+  "PIE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A pie (or donut, or rose): one slice per name."
+  },
+  "SCATTER": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A scatter plot: one point per x/y pair."
+  },
+  "HISTOGRAM": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A histogram: raw values counted into equal-width bins."
+  },
+  "BOXPLOT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A box plot: quartiles, whiskers and outliers per category."
+  },
+  "CANDLESTICK": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A candlestick: open, close, low and high per category."
+  },
+  "HEATMAP": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A heatmap: a colour per cell of two category axes."
+  },
+  "FUNNEL": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A funnel: stages narrowing by value."
+  },
+  "GAUGE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A gauge: one reading on a dial."
+  },
+  "RADAR": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A radar (spider) plot: one value per spoke of a RADIAL axis."
+  },
+  "RADIAL": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The spokes of a radar chart."
+  },
+  "START": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A step that rises at the start of each interval."
+  },
+  "MIDDLE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A step that rises in the middle of each interval."
+  },
+  "END": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A step that rises at the end of each interval."
+  },
+  "CIRCLE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A circle marker."
+  },
+  "RECT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A square marker."
+  },
+  "TRIANGLE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A triangle marker."
+  },
+  "DIAMOND": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A diamond marker."
+  },
+  "PIN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A pin marker."
+  },
+  "ARROW": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "An arrow marker."
+  },
+  "NONE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "No marker."
+  },
+  "RADIUS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A rose whose slice radius shows the value."
+  },
+  "AREA": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A rose whose slice area shows the value."
+  },
+  "AXIS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A tooltip for everything at the pointer's category."
+  },
+  "ITEM": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "A tooltip for the single bar, slice or point under the pointer."
+  }
+}
