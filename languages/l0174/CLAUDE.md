@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0174 that production runs; `crates/` is L0174 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ### Development
@@ -88,3 +90,47 @@ The embedded form supports iframe embedding and communicates with parent windows
 - `@graffiticode/l0000` (published) — base language, inherited by `core`
 - `@graffiticode/l0000-view` (published) — base view, inherited by `view`
 - `@graffiticode/auth` — auth service client used by `api`
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0174**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0174`). `crates/` is the same language in Rust, to be released to its own service `l0174r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec are shared by both.
+
+- `crates/core` (`graffiticode-l0174`) — the whole dialect, in `src/lib.rs`: `L0174` implements `Dialect` from `graffiticode-l0000`. Two tables drive it, as in `compiler.ts`: `ATTRIBUTES` (tag → the field an arity-2 word sets) and `ELEMENTS` (tag → the type an arity-1 field word stamps). `lexicon()` is the base lexicon merged with `src/lexicon-additions.json`.
+- `crates/server` (`l0174r-server`, binary `l0174r`) — `l0000r_server::serve(L0174, lexicon())`. Routes, auth and static serving live in `languages/l0000/crates/server`.
+- `tools/assemble-static.mjs` — builds the static assets and `/form` bundle into `./static` for the Rust server.
+
+**The Rust side depends on `languages/l0000` by relative path** (Cargo path dependencies on its kernel and server crates). Read "The Rust implementation" in `languages/l0000/CLAUDE.md` for how evaluation, values and the `Dialect` trait work.
+
+```bash
+cargo test            # conformance + dialect tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0174r-server
+npm run rust:dev      # cargo run -p l0174r-server on :50174 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate tests/conformance/cases.json and src/lexicon-additions.json
+```
+
+### `min` and `max` are overridden, on purpose
+
+This is the one dialect so far that **redefines base words**: here `min` and `max` are field-range attributes, not arithmetic. Both halves of that are explicit in the Rust:
+
+- The lexicon merge declares them (`OVERRIDES` in `lib.rs`). `Lexicon::merge` refuses a collision that is not declared, and a declaration that no longer collides; a test pins both.
+- The parser still emits the kernel's `MIN` and `MAX` tags for them, so `Dialect::overrides` claims `Op::Min` and `Op::Max` (and `Op::Prog`), and `eval` handles them as attributes. Without that claim the kernel would evaluate them as arithmetic.
+
+`src/lexicon-additions.json` therefore holds the new words *and* the two redefined ones; the generator writes every entry that differs from the base.
+
+### Semantics worth knowing
+
+- An attribute or top-level word is `<word> <value> <rest>`: the rest of the chain, as a record keyed by name, with one more field. The outermost occurrence of a word wins.
+- An element word stamps `type` and derives `name` from the label (`slug`), unless the attributes carry a `name` — including an empty one, which stands, as in TypeScript.
+- `select` and `radio` require a non-empty `options` list; `theme` requires the tag `DARK` or `LIGHT`. Both are checked while evaluating, not in a separate pass, and reported at the word.
+- The program's result, when it is a record, has the form's posted state (the upstream data) laid over it.
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` parses a corpus with L0174's TypeScript lexicon, compiles each program against two upstream inputs with `@graffiticode/l0174`, and writes `cases.json`. `tests/conformance.rs` requires identical data and identical error messages for all 90 cases. There are no divergences.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0174r` entry (own service, `l0174r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0174r.yaml`; snapshot is this directory and `languages/l0000`; build step `cargo test --locked`). Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`). The service and account do not exist until provisioned; the account needs no roles.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/lexicon-additions.json` and `tests/conformance/cases.json` are generated, not edited.
