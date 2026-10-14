@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0177 that production runs; `crates/` is L0177 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ### Development
@@ -296,3 +298,36 @@ Client design (natural language) → generator writes L0177 source → POST /com
 - `@graffiticode/l0000-view` (published) — base view, inherited by `view`
 - `@graffiticode/auth` — auth service client used by `api`
 - `@graffiticode/parser`, `spec-md` — dev-only in `core` (tests; spec HTML generation)
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0177**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0177`). `crates/` is the same language in Rust, to be released to its own service `l0177r` so it can be vetted before it replaces the TypeScript. `packages/view`, the spec and `get_spec`'s prompts are shared by both: the Rust compiles designs; it does not produce recipes.
+
+- `crates/core` (`graffiticode-l0177`):
+  - `src/vocab.rs` — the views, members, sections and top-level properties, read from `src/vocab.json`, which is **generated from `src/vocab.ts`** by `npm run rust:fixtures`. `vocab.ts` stays the single source of truth: change it, regenerate, commit both.
+  - `src/lib.rs` — `L0177` implements `Dialect` from `graffiticode-l0000`. Properties and members only collect; `check_value` / `check_fields` validate at the fold (a view, a section, `author-embed`), and `finalize` orders the warnings (holes, then validity, then specificity) and emits the paths. The warnings and paths found anywhere in the compile live in its `ExecContext::state`, as `options.__warnings` / `__paths` do in TypeScript.
+  - `src/plain.rs`, `src/text.rs` — values as JSON with JavaScript's key order and `String()`; JavaScript's notion of white space.
+- `crates/server` (`l0177r-server`, binary `l0177r`) — `l0000r_server::serve(L0177, lexicon())`.
+- `tools/assemble-static.mjs` — builds the static assets and `/form` bundle into `./static` for the Rust server.
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation" in `languages/l0000/CLAUDE.md`.
+
+```bash
+cargo test            # conformance and unit tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0177r-server
+npm run rust:dev      # cargo run -p l0177r-server on :50177 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate src/vocab.json, src/lexicon-additions.json and the fixture
+```
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` builds most of its corpus from the vocabulary: every field of every member, view and section, once with a value of its type and once with a wrong one, in a complete design and in one with holes; every member in each view that does not accept it; every top-level property. Then the spec's programs, the TypeScript suite's, and hand-written cases. `tests/conformance.rs` requires the same JSON text (field order, warning order and recorded paths included) or the same errors, for all 99 but the one difference below. A new field in `vocab.ts` is covered as soon as the fixture is regenerated.
+
+One deliberate difference: a property given an undefined value (`domain get-var "nope"`) is kept as `null`, so the design shows `"domain": null`; TypeScript's field holds `undefined` and vanishes from the JSON. The warnings are the same.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0177r` entry (own service, `l0177r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0177r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`). Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`). The account needs no roles.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/vocab.json`, `src/lexicon-additions.json` and `tests/conformance/cases.json` are generated, not edited.
