@@ -1,0 +1,198 @@
+{
+  "min": {
+    "tk": 1,
+    "name": "MIN",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "max": {
+    "tk": 1,
+    "name": "MAX",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "text": {
+    "tk": 1,
+    "name": "TEXT",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "email": {
+    "tk": 1,
+    "name": "EMAIL",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "number": {
+    "tk": 1,
+    "name": "NUMBER",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "tel": {
+    "tk": 1,
+    "name": "TEL",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "url": {
+    "tk": 1,
+    "name": "URL",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "textarea": {
+    "tk": 1,
+    "name": "TEXTAREA",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "select": {
+    "tk": 1,
+    "name": "SELECT",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "radio": {
+    "tk": 1,
+    "name": "RADIO",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "checkbox": {
+    "tk": 1,
+    "name": "CHECKBOX",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "date": {
+    "tk": 1,
+    "name": "DATE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "label": {
+    "tk": 1,
+    "name": "LABEL",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "name": {
+    "tk": 1,
+    "name": "NAME",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "placeholder": {
+    "tk": 1,
+    "name": "PLACEHOLDER",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "help": {
+    "tk": 1,
+    "name": "HELP",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "required": {
+    "tk": 1,
+    "name": "REQUIRED",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "minLength": {
+    "tk": 1,
+    "name": "MINLENGTH",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "maxLength": {
+    "tk": 1,
+    "name": "MAXLENGTH",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "pattern": {
+    "tk": 1,
+    "name": "PATTERN",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "options": {
+    "tk": 1,
+    "name": "OPTIONS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "fields": {
+    "tk": 1,
+    "name": "FIELDS",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "title": {
+    "tk": 1,
+    "name": "TITLE",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "theme": {
+    "tk": 1,
+    "name": "THEME",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "submit": {
+    "tk": 1,
+    "name": "SUBMIT",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "metadata": {
+    "tk": 1,
+    "name": "METADATA",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "DARK": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "LIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  }
+}

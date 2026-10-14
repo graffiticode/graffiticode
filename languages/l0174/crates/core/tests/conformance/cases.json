@@ -1,0 +1,7823 @@
+[
+ {
+  "src": "fields [ text label 'Full name' required true {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Full name"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 31
+    }
+   },
+   "6": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "REQUIRED",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 33,
+     "to": 41
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "15": {
+    "tag": "TEXT",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "full_name",
+      "required": true,
+      "label": "Full name"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text label 'Full name' required true {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Full name"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 31
+    }
+   },
+   "6": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "REQUIRED",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 33,
+     "to": 41
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "15": {
+    "tag": "TEXT",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "full_name",
+      "required": true,
+      "label": "Full name"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ email label 'Email' name 'contact_email' {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Email"
+    ],
+    "coord": {
+     "from": 21,
+     "to": 28
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "contact_email"
+    ],
+    "coord": {
+     "from": 34,
+     "to": 49
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "NAME",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 30,
+     "to": 34
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 16,
+     "to": 21
+    }
+   },
+   "15": {
+    "tag": "EMAIL",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 14
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "email",
+      "name": "contact_email",
+      "label": "Email"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ email label 'Email' name 'contact_email' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Email"
+    ],
+    "coord": {
+     "from": 21,
+     "to": 28
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "contact_email"
+    ],
+    "coord": {
+     "from": 34,
+     "to": 49
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "NAME",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 30,
+     "to": 34
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 16,
+     "to": 21
+    }
+   },
+   "15": {
+    "tag": "EMAIL",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 14
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "email",
+      "name": "contact_email",
+      "label": "Email"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ textarea label 'Message' required true minLength 20 {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Message"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 33
+    }
+   },
+   "6": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "20"
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "13": {
+    "tag": "MINLENGTH",
+    "elts": [
+     8,
+     9
+    ],
+    "coord": {
+     "from": 49,
+     "to": 58
+    }
+   },
+   "15": {
+    "tag": "REQUIRED",
+    "elts": [
+     6,
+     13
+    ],
+    "coord": {
+     "from": 35,
+     "to": 43
+    }
+   },
+   "17": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     15
+    ],
+    "coord": {
+     "from": 19,
+     "to": 24
+    }
+   },
+   "19": {
+    "tag": "TEXTAREA",
+    "elts": [
+     17
+    ],
+    "coord": {
+     "from": 9,
+     "to": 17
+    }
+   },
+   "21": {
+    "tag": "LIST",
+    "elts": [
+     19
+    ]
+   },
+   "22": {
+    "tag": "FIELDS",
+    "elts": [
+     21,
+     9
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "textarea",
+      "name": "message",
+      "minLength": 20,
+      "required": true,
+      "label": "Message"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ textarea label 'Message' required true minLength 20 {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Message"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 33
+    }
+   },
+   "6": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "20"
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "13": {
+    "tag": "MINLENGTH",
+    "elts": [
+     8,
+     9
+    ],
+    "coord": {
+     "from": 49,
+     "to": 58
+    }
+   },
+   "15": {
+    "tag": "REQUIRED",
+    "elts": [
+     6,
+     13
+    ],
+    "coord": {
+     "from": 35,
+     "to": 43
+    }
+   },
+   "17": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     15
+    ],
+    "coord": {
+     "from": 19,
+     "to": 24
+    }
+   },
+   "19": {
+    "tag": "TEXTAREA",
+    "elts": [
+     17
+    ],
+    "coord": {
+     "from": 9,
+     "to": 17
+    }
+   },
+   "21": {
+    "tag": "LIST",
+    "elts": [
+     19
+    ]
+   },
+   "22": {
+    "tag": "FIELDS",
+    "elts": [
+     21,
+     9
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "textarea",
+      "name": "message",
+      "minLength": 20,
+      "required": true,
+      "label": "Message"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ number label 'Guests' min 0 max 5 {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Guests"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 30
+    }
+   },
+   "6": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "13": {
+    "tag": "MAX",
+    "elts": [
+     8,
+     9
+    ],
+    "coord": {
+     "from": 38,
+     "to": 41
+    }
+   },
+   "15": {
+    "tag": "MIN",
+    "elts": [
+     6,
+     13
+    ],
+    "coord": {
+     "from": 32,
+     "to": 35
+    }
+   },
+   "17": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     15
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "19": {
+    "tag": "NUMBER",
+    "elts": [
+     17
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "21": {
+    "tag": "LIST",
+    "elts": [
+     19
+    ]
+   },
+   "22": {
+    "tag": "FIELDS",
+    "elts": [
+     21,
+     9
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "number",
+      "name": "guests",
+      "max": 5,
+      "min": 0,
+      "label": "Guests"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ number label 'Guests' min 0 max 5 {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Guests"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 30
+    }
+   },
+   "6": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "13": {
+    "tag": "MAX",
+    "elts": [
+     8,
+     9
+    ],
+    "coord": {
+     "from": 38,
+     "to": 41
+    }
+   },
+   "15": {
+    "tag": "MIN",
+    "elts": [
+     6,
+     13
+    ],
+    "coord": {
+     "from": 32,
+     "to": 35
+    }
+   },
+   "17": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     15
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "19": {
+    "tag": "NUMBER",
+    "elts": [
+     17
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "21": {
+    "tag": "LIST",
+    "elts": [
+     19
+    ]
+   },
+   "22": {
+    "tag": "FIELDS",
+    "elts": [
+     21,
+     9
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "24": {
+    "tag": "EXPRS",
+    "elts": [
+     22
+    ]
+   },
+   "25": {
+    "tag": "PROG",
+    "elts": [
+     24
+    ]
+   },
+   "root": 25
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "number",
+      "name": "guests",
+      "max": 5,
+      "min": 0,
+      "label": "Guests"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ select label 'Topic' options ['Sales' 'Support' 'Other'] {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Topic"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 29
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "Sales"
+    ],
+    "coord": {
+     "from": 39,
+     "to": 46
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "Support"
+    ],
+    "coord": {
+     "from": 47,
+     "to": 56
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "Other"
+    ],
+    "coord": {
+     "from": 57,
+     "to": 64
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     6,
+     7,
+     8
+    ]
+   },
+   "10": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "14": {
+    "tag": "OPTIONS",
+    "elts": [
+     9,
+     10
+    ],
+    "coord": {
+     "from": 31,
+     "to": 38
+    }
+   },
+   "16": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     14
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "18": {
+    "tag": "SELECT",
+    "elts": [
+     16
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "20": {
+    "tag": "LIST",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "FIELDS",
+    "elts": [
+     20,
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "23": {
+    "tag": "EXPRS",
+    "elts": [
+     21
+    ]
+   },
+   "24": {
+    "tag": "PROG",
+    "elts": [
+     23
+    ]
+   },
+   "root": 24
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "select",
+      "name": "topic",
+      "options": [
+       "Sales",
+       "Support",
+       "Other"
+      ],
+      "label": "Topic"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ select label 'Topic' options ['Sales' 'Support' 'Other'] {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Topic"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 29
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "Sales"
+    ],
+    "coord": {
+     "from": 39,
+     "to": 46
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "Support"
+    ],
+    "coord": {
+     "from": 47,
+     "to": 56
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "Other"
+    ],
+    "coord": {
+     "from": 57,
+     "to": 64
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     6,
+     7,
+     8
+    ]
+   },
+   "10": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "14": {
+    "tag": "OPTIONS",
+    "elts": [
+     9,
+     10
+    ],
+    "coord": {
+     "from": 31,
+     "to": 38
+    }
+   },
+   "16": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     14
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "18": {
+    "tag": "SELECT",
+    "elts": [
+     16
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "20": {
+    "tag": "LIST",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "FIELDS",
+    "elts": [
+     20,
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "23": {
+    "tag": "EXPRS",
+    "elts": [
+     21
+    ]
+   },
+   "24": {
+    "tag": "PROG",
+    "elts": [
+     23
+    ]
+   },
+   "root": 24
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "select",
+      "name": "topic",
+      "options": [
+       "Sales",
+       "Support",
+       "Other"
+      ],
+      "label": "Topic"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ radio label 'Size' options ['S' 'M'] {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Size"
+    ],
+    "coord": {
+     "from": 21,
+     "to": 27
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "S"
+    ],
+    "coord": {
+     "from": 37,
+     "to": 40
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "M"
+    ],
+    "coord": {
+     "from": 41,
+     "to": 44
+    }
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "13": {
+    "tag": "OPTIONS",
+    "elts": [
+     8,
+     9
+    ],
+    "coord": {
+     "from": 29,
+     "to": 36
+    }
+   },
+   "15": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     13
+    ],
+    "coord": {
+     "from": 16,
+     "to": 21
+    }
+   },
+   "17": {
+    "tag": "RADIO",
+    "elts": [
+     15
+    ],
+    "coord": {
+     "from": 9,
+     "to": 14
+    }
+   },
+   "19": {
+    "tag": "LIST",
+    "elts": [
+     17
+    ]
+   },
+   "20": {
+    "tag": "FIELDS",
+    "elts": [
+     19,
+     9
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "22": {
+    "tag": "EXPRS",
+    "elts": [
+     20
+    ]
+   },
+   "23": {
+    "tag": "PROG",
+    "elts": [
+     22
+    ]
+   },
+   "root": 23
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "radio",
+      "name": "size",
+      "options": [
+       "S",
+       "M"
+      ],
+      "label": "Size"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ radio label 'Size' options ['S' 'M'] {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Size"
+    ],
+    "coord": {
+     "from": 21,
+     "to": 27
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "S"
+    ],
+    "coord": {
+     "from": 37,
+     "to": 40
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "M"
+    ],
+    "coord": {
+     "from": 41,
+     "to": 44
+    }
+   },
+   "8": {
+    "tag": "LIST",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "13": {
+    "tag": "OPTIONS",
+    "elts": [
+     8,
+     9
+    ],
+    "coord": {
+     "from": 29,
+     "to": 36
+    }
+   },
+   "15": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     13
+    ],
+    "coord": {
+     "from": 16,
+     "to": 21
+    }
+   },
+   "17": {
+    "tag": "RADIO",
+    "elts": [
+     15
+    ],
+    "coord": {
+     "from": 9,
+     "to": 14
+    }
+   },
+   "19": {
+    "tag": "LIST",
+    "elts": [
+     17
+    ]
+   },
+   "20": {
+    "tag": "FIELDS",
+    "elts": [
+     19,
+     9
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "22": {
+    "tag": "EXPRS",
+    "elts": [
+     20
+    ]
+   },
+   "23": {
+    "tag": "PROG",
+    "elts": [
+     22
+    ]
+   },
+   "root": 23
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "radio",
+      "name": "size",
+      "options": [
+       "S",
+       "M"
+      ],
+      "label": "Size"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ checkbox label 'I agree' required true {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "I agree"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 33
+    }
+   },
+   "6": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "REQUIRED",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 35,
+     "to": 43
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 19,
+     "to": 24
+    }
+   },
+   "15": {
+    "tag": "CHECKBOX",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 17
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "checkbox",
+      "name": "i_agree",
+      "required": true,
+      "label": "I agree"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ checkbox label 'I agree' required true {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "I agree"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 33
+    }
+   },
+   "6": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "REQUIRED",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 35,
+     "to": 43
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 19,
+     "to": 24
+    }
+   },
+   "15": {
+    "tag": "CHECKBOX",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 17
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "checkbox",
+      "name": "i_agree",
+      "required": true,
+      "label": "I agree"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ date label 'When?' {}, tel label 'Phone' pattern '[0-9]+' {}, url label 'Site' placeholder 'https://' help 'Your home page' {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "When?"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 27
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "Phone"
+    ],
+    "coord": {
+     "from": 42,
+     "to": 49
+    }
+   },
+   "10": {
+    "tag": "STR",
+    "elts": [
+     "[0-9]+"
+    ],
+    "coord": {
+     "from": 58,
+     "to": 66
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "Site"
+    ],
+    "coord": {
+     "from": 81,
+     "to": 87
+    }
+   },
+   "15": {
+    "tag": "STR",
+    "elts": [
+     "https://"
+    ],
+    "coord": {
+     "from": 100,
+     "to": 110
+    }
+   },
+   "17": {
+    "tag": "STR",
+    "elts": [
+     "Your home page"
+    ],
+    "coord": {
+     "from": 116,
+     "to": 132
+    }
+   },
+   "21": {
+    "tag": "HELP",
+    "elts": [
+     17,
+     5
+    ],
+    "coord": {
+     "from": 112,
+     "to": 116
+    }
+   },
+   "23": {
+    "tag": "PLACEHOLDER",
+    "elts": [
+     15,
+     21
+    ],
+    "coord": {
+     "from": 89,
+     "to": 100
+    }
+   },
+   "25": {
+    "tag": "LABEL",
+    "elts": [
+     13,
+     23
+    ],
+    "coord": {
+     "from": 76,
+     "to": 81
+    }
+   },
+   "27": {
+    "tag": "URL",
+    "elts": [
+     25
+    ],
+    "coord": {
+     "from": 71,
+     "to": 74
+    }
+   },
+   "29": {
+    "tag": "PATTERN",
+    "elts": [
+     10,
+     5
+    ],
+    "coord": {
+     "from": 51,
+     "to": 58
+    }
+   },
+   "31": {
+    "tag": "LABEL",
+    "elts": [
+     8,
+     29
+    ],
+    "coord": {
+     "from": 37,
+     "to": 42
+    }
+   },
+   "33": {
+    "tag": "TEL",
+    "elts": [
+     31
+    ],
+    "coord": {
+     "from": 32,
+     "to": 35
+    }
+   },
+   "35": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "37": {
+    "tag": "DATE",
+    "elts": [
+     35
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "39": {
+    "tag": "LIST",
+    "elts": [
+     37,
+     33,
+     27
+    ]
+   },
+   "40": {
+    "tag": "FIELDS",
+    "elts": [
+     39,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "42": {
+    "tag": "EXPRS",
+    "elts": [
+     40
+    ]
+   },
+   "43": {
+    "tag": "PROG",
+    "elts": [
+     42
+    ]
+   },
+   "root": 43
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "date",
+      "name": "when",
+      "label": "When?"
+     },
+     {
+      "type": "tel",
+      "name": "phone",
+      "pattern": "[0-9]+",
+      "label": "Phone"
+     },
+     {
+      "type": "url",
+      "name": "site",
+      "help": "Your home page",
+      "placeholder": "https://",
+      "label": "Site"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ date label 'When?' {}, tel label 'Phone' pattern '[0-9]+' {}, url label 'Site' placeholder 'https://' help 'Your home page' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "When?"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 27
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "Phone"
+    ],
+    "coord": {
+     "from": 42,
+     "to": 49
+    }
+   },
+   "10": {
+    "tag": "STR",
+    "elts": [
+     "[0-9]+"
+    ],
+    "coord": {
+     "from": 58,
+     "to": 66
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "Site"
+    ],
+    "coord": {
+     "from": 81,
+     "to": 87
+    }
+   },
+   "15": {
+    "tag": "STR",
+    "elts": [
+     "https://"
+    ],
+    "coord": {
+     "from": 100,
+     "to": 110
+    }
+   },
+   "17": {
+    "tag": "STR",
+    "elts": [
+     "Your home page"
+    ],
+    "coord": {
+     "from": 116,
+     "to": 132
+    }
+   },
+   "21": {
+    "tag": "HELP",
+    "elts": [
+     17,
+     5
+    ],
+    "coord": {
+     "from": 112,
+     "to": 116
+    }
+   },
+   "23": {
+    "tag": "PLACEHOLDER",
+    "elts": [
+     15,
+     21
+    ],
+    "coord": {
+     "from": 89,
+     "to": 100
+    }
+   },
+   "25": {
+    "tag": "LABEL",
+    "elts": [
+     13,
+     23
+    ],
+    "coord": {
+     "from": 76,
+     "to": 81
+    }
+   },
+   "27": {
+    "tag": "URL",
+    "elts": [
+     25
+    ],
+    "coord": {
+     "from": 71,
+     "to": 74
+    }
+   },
+   "29": {
+    "tag": "PATTERN",
+    "elts": [
+     10,
+     5
+    ],
+    "coord": {
+     "from": 51,
+     "to": 58
+    }
+   },
+   "31": {
+    "tag": "LABEL",
+    "elts": [
+     8,
+     29
+    ],
+    "coord": {
+     "from": 37,
+     "to": 42
+    }
+   },
+   "33": {
+    "tag": "TEL",
+    "elts": [
+     31
+    ],
+    "coord": {
+     "from": 32,
+     "to": 35
+    }
+   },
+   "35": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "37": {
+    "tag": "DATE",
+    "elts": [
+     35
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "39": {
+    "tag": "LIST",
+    "elts": [
+     37,
+     33,
+     27
+    ]
+   },
+   "40": {
+    "tag": "FIELDS",
+    "elts": [
+     39,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "42": {
+    "tag": "EXPRS",
+    "elts": [
+     40
+    ]
+   },
+   "43": {
+    "tag": "PROG",
+    "elts": [
+     42
+    ]
+   },
+   "root": 43
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "date",
+      "name": "when",
+      "label": "When?"
+     },
+     {
+      "type": "tel",
+      "name": "phone",
+      "pattern": "[0-9]+",
+      "label": "Phone"
+     },
+     {
+      "type": "url",
+      "name": "site",
+      "help": "Your home page",
+      "placeholder": "https://",
+      "label": "Site"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ text {} ] {}..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "7": {
+    "tag": "TEXT",
+    "elts": [
+     3
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "FIELDS",
+    "elts": [
+     9,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "text"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "7": {
+    "tag": "TEXT",
+    "elts": [
+     3
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "FIELDS",
+    "elts": [
+     9,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "text"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ text label '  E-mail address!  ' maxLength 80 {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "  E-mail address!  "
+    ],
+    "coord": {
+     "from": 20,
+     "to": 41
+    }
+   },
+   "6": {
+    "tag": "NUM",
+    "elts": [
+     "80"
+    ]
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "MAXLENGTH",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 43,
+     "to": 52
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "15": {
+    "tag": "TEXT",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "e_mail_address",
+      "maxLength": 80,
+      "label": "  E-mail address!  "
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text label '  E-mail address!  ' maxLength 80 {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "  E-mail address!  "
+    ],
+    "coord": {
+     "from": 20,
+     "to": 41
+    }
+   },
+   "6": {
+    "tag": "NUM",
+    "elts": [
+     "80"
+    ]
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "MAXLENGTH",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 43,
+     "to": 52
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "15": {
+    "tag": "TEXT",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "e_mail_address",
+      "maxLength": 80,
+      "label": "  E-mail address!  "
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ text label '___' {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "___"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 25
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "9": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "11": {
+    "tag": "TEXT",
+    "elts": [
+     9
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "13": {
+    "tag": "LIST",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "FIELDS",
+    "elts": [
+     13,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "16": {
+    "tag": "EXPRS",
+    "elts": [
+     14
+    ]
+   },
+   "17": {
+    "tag": "PROG",
+    "elts": [
+     16
+    ]
+   },
+   "root": 17
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "field",
+      "label": "___"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text label '___' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "___"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 25
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "9": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "11": {
+    "tag": "TEXT",
+    "elts": [
+     9
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "13": {
+    "tag": "LIST",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "FIELDS",
+    "elts": [
+     13,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "16": {
+    "tag": "EXPRS",
+    "elts": [
+     14
+    ]
+   },
+   "17": {
+    "tag": "PROG",
+    "elts": [
+     16
+    ]
+   },
+   "root": 17
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "field",
+      "label": "___"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ text label 42 {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "9": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "11": {
+    "tag": "TEXT",
+    "elts": [
+     9
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "13": {
+    "tag": "LIST",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "FIELDS",
+    "elts": [
+     13,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "16": {
+    "tag": "EXPRS",
+    "elts": [
+     14
+    ]
+   },
+   "17": {
+    "tag": "PROG",
+    "elts": [
+     16
+    ]
+   },
+   "root": 17
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "42",
+      "label": 42
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text label 42 {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "9": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "11": {
+    "tag": "TEXT",
+    "elts": [
+     9
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "13": {
+    "tag": "LIST",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "FIELDS",
+    "elts": [
+     13,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "16": {
+    "tag": "EXPRS",
+    "elts": [
+     14
+    ]
+   },
+   "17": {
+    "tag": "PROG",
+    "elts": [
+     16
+    ]
+   },
+   "root": 17
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "42",
+      "label": 42
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ text name '' label 'Kept' {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     ""
+    ],
+    "coord": {
+     "from": 19,
+     "to": 21
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "Kept"
+    ],
+    "coord": {
+     "from": 28,
+     "to": 34
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "LABEL",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 23,
+     "to": 28
+    }
+   },
+   "13": {
+    "tag": "NAME",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 15,
+     "to": 19
+    }
+   },
+   "15": {
+    "tag": "TEXT",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "",
+      "label": "Kept"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text name '' label 'Kept' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     ""
+    ],
+    "coord": {
+     "from": 19,
+     "to": 21
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "Kept"
+    ],
+    "coord": {
+     "from": 28,
+     "to": 34
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "LABEL",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 23,
+     "to": 28
+    }
+   },
+   "13": {
+    "tag": "NAME",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 15,
+     "to": 19
+    }
+   },
+   "15": {
+    "tag": "TEXT",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "",
+      "label": "Kept"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ text label 'A' label 'B' {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "A"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 23
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "B"
+    ],
+    "coord": {
+     "from": 30,
+     "to": 33
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "LABEL",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 25,
+     "to": 30
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "15": {
+    "tag": "TEXT",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "a",
+      "label": "A"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text label 'A' label 'B' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "A"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 23
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "B"
+    ],
+    "coord": {
+     "from": 30,
+     "to": 33
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "LABEL",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 25,
+     "to": 30
+    }
+   },
+   "13": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "15": {
+    "tag": "TEXT",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "a",
+      "label": "A"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ text {extra: 1 \"quoted\": 2} ] {}..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "extra"
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "quoted"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 32
+    }
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "13": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "17": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "18": {
+    "tag": "BINDING",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "19": {
+    "tag": "RECORD",
+    "elts": [
+     18,
+     17
+    ]
+   },
+   "20": {
+    "tag": "TEXT",
+    "elts": [
+     19
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "22": {
+    "tag": "LIST",
+    "elts": [
+     20
+    ]
+   },
+   "23": {
+    "tag": "FIELDS",
+    "elts": [
+     22,
+     13
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "25": {
+    "tag": "EXPRS",
+    "elts": [
+     23
+    ]
+   },
+   "26": {
+    "tag": "PROG",
+    "elts": [
+     25
+    ]
+   },
+   "root": 26
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "text",
+      "extra": 1,
+      "quoted": 2
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text {extra: 1 \"quoted\": 2} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "3": {
+    "tag": "TAG",
+    "elts": [
+     "extra"
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "quoted"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 32
+    }
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "13": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "17": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "18": {
+    "tag": "BINDING",
+    "elts": [
+     3,
+     4
+    ]
+   },
+   "19": {
+    "tag": "RECORD",
+    "elts": [
+     18,
+     17
+    ]
+   },
+   "20": {
+    "tag": "TEXT",
+    "elts": [
+     19
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "22": {
+    "tag": "LIST",
+    "elts": [
+     20
+    ]
+   },
+   "23": {
+    "tag": "FIELDS",
+    "elts": [
+     22,
+     13
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "25": {
+    "tag": "EXPRS",
+    "elts": [
+     23
+    ]
+   },
+   "26": {
+    "tag": "PROG",
+    "elts": [
+     25
+    ]
+   },
+   "root": 26
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "text",
+      "extra": 1,
+      "quoted": 2
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ text label 'Nested' metadata {a: {b: 1}} {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Nested"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 28
+    }
+   },
+   "6": {
+    "tag": "TAG",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 39,
+     "to": 40
+    }
+   },
+   "7": {
+    "tag": "TAG",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 43,
+     "to": 44
+    }
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "15": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "20": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "21": {
+    "tag": "RECORD",
+    "elts": [
+     20
+    ]
+   },
+   "22": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     21
+    ]
+   },
+   "23": {
+    "tag": "RECORD",
+    "elts": [
+     22
+    ]
+   },
+   "24": {
+    "tag": "METADATA",
+    "elts": [
+     23,
+     15
+    ],
+    "coord": {
+     "from": 30,
+     "to": 38
+    }
+   },
+   "26": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     24
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "28": {
+    "tag": "TEXT",
+    "elts": [
+     26
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "30": {
+    "tag": "LIST",
+    "elts": [
+     28
+    ]
+   },
+   "31": {
+    "tag": "FIELDS",
+    "elts": [
+     30,
+     15
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "33": {
+    "tag": "EXPRS",
+    "elts": [
+     31
+    ]
+   },
+   "34": {
+    "tag": "PROG",
+    "elts": [
+     33
+    ]
+   },
+   "root": 34
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "nested",
+      "metadata": {
+       "a": {
+        "b": 1
+       }
+      },
+      "label": "Nested"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields [ text label 'Nested' metadata {a: {b: 1}} {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Nested"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 28
+    }
+   },
+   "6": {
+    "tag": "TAG",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 39,
+     "to": 40
+    }
+   },
+   "7": {
+    "tag": "TAG",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 43,
+     "to": 44
+    }
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "15": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "20": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "21": {
+    "tag": "RECORD",
+    "elts": [
+     20
+    ]
+   },
+   "22": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     21
+    ]
+   },
+   "23": {
+    "tag": "RECORD",
+    "elts": [
+     22
+    ]
+   },
+   "24": {
+    "tag": "METADATA",
+    "elts": [
+     23,
+     15
+    ],
+    "coord": {
+     "from": 30,
+     "to": 38
+    }
+   },
+   "26": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     24
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "28": {
+    "tag": "TEXT",
+    "elts": [
+     26
+    ],
+    "coord": {
+     "from": 9,
+     "to": 13
+    }
+   },
+   "30": {
+    "tag": "LIST",
+    "elts": [
+     28
+    ]
+   },
+   "31": {
+    "tag": "FIELDS",
+    "elts": [
+     30,
+     15
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "33": {
+    "tag": "EXPRS",
+    "elts": [
+     31
+    ]
+   },
+   "34": {
+    "tag": "PROG",
+    "elts": [
+     33
+    ]
+   },
+   "root": 34
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "nested",
+      "metadata": {
+       "a": {
+        "b": 1
+       }
+      },
+      "label": "Nested"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [] {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "FIELDS",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "fields": []
+   }
+  }
+ },
+ {
+  "src": "fields [] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "FIELDS",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "fields": [],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields (text label 'Only' {}) {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Only"
+    ],
+    "coord": {
+     "from": 19,
+     "to": 25
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "10": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "12": {
+    "tag": "TEXT",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 8,
+     "to": 12
+    }
+   },
+   "14": {
+    "tag": "PAREN",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "FIELDS",
+    "elts": [
+     14,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "17": {
+    "tag": "EXPRS",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "PROG",
+    "elts": [
+     17
+    ]
+   },
+   "root": 18
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "only",
+      "label": "Only"
+     }
+    ]
+   }
+  }
+ },
+ {
+  "src": "fields (text label 'Only' {}) {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Only"
+    ],
+    "coord": {
+     "from": 19,
+     "to": 25
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "10": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 13,
+     "to": 18
+    }
+   },
+   "12": {
+    "tag": "TEXT",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 8,
+     "to": 12
+    }
+   },
+   "14": {
+    "tag": "PAREN",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "FIELDS",
+    "elts": [
+     14,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "17": {
+    "tag": "EXPRS",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "PROG",
+    "elts": [
+     17
+    ]
+   },
+   "root": 18
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "only",
+      "label": "Only"
+     }
+    ],
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "title 'Get in touch'\n   theme LIGHT\n   fields [\n     text  label 'Name'  required true {},\n     email label 'Email' required true {}\n   ]\n   submit 'Send' {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Get in touch"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 20
+    }
+   },
+   "4": {
+    "tag": "TAG",
+    "elts": [
+     "LIGHT"
+    ],
+    "coord": {
+     "from": 30,
+     "to": 35
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "Name"
+    ],
+    "coord": {
+     "from": 65,
+     "to": 71
+    }
+   },
+   "10": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "11": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "Email"
+    ],
+    "coord": {
+     "from": 108,
+     "to": 115
+    }
+   },
+   "18": {
+    "tag": "STR",
+    "elts": [
+     "Send"
+    ],
+    "coord": {
+     "from": 148,
+     "to": 154
+    }
+   },
+   "21": {
+    "tag": "SUBMIT",
+    "elts": [
+     18,
+     11
+    ],
+    "coord": {
+     "from": 141,
+     "to": 147
+    }
+   },
+   "23": {
+    "tag": "REQUIRED",
+    "elts": [
+     10,
+     11
+    ],
+    "coord": {
+     "from": 117,
+     "to": 125
+    }
+   },
+   "25": {
+    "tag": "LABEL",
+    "elts": [
+     14,
+     23
+    ],
+    "coord": {
+     "from": 103,
+     "to": 108
+    }
+   },
+   "27": {
+    "tag": "EMAIL",
+    "elts": [
+     25
+    ],
+    "coord": {
+     "from": 96,
+     "to": 101
+    }
+   },
+   "29": {
+    "tag": "REQUIRED",
+    "elts": [
+     10,
+     11
+    ],
+    "coord": {
+     "from": 74,
+     "to": 82
+    }
+   },
+   "31": {
+    "tag": "LABEL",
+    "elts": [
+     8,
+     29
+    ],
+    "coord": {
+     "from": 60,
+     "to": 65
+    }
+   },
+   "33": {
+    "tag": "TEXT",
+    "elts": [
+     31
+    ],
+    "coord": {
+     "from": 53,
+     "to": 57
+    }
+   },
+   "35": {
+    "tag": "LIST",
+    "elts": [
+     33,
+     27
+    ]
+   },
+   "36": {
+    "tag": "FIELDS",
+    "elts": [
+     35,
+     21
+    ],
+    "coord": {
+     "from": 39,
+     "to": 45
+    }
+   },
+   "38": {
+    "tag": "THEME",
+    "elts": [
+     4,
+     36
+    ],
+    "coord": {
+     "from": 24,
+     "to": 29
+    }
+   },
+   "40": {
+    "tag": "TITLE",
+    "elts": [
+     2,
+     38
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "42": {
+    "tag": "EXPRS",
+    "elts": [
+     40
+    ]
+   },
+   "43": {
+    "tag": "PROG",
+    "elts": [
+     42
+    ]
+   },
+   "root": 43
+  },
+  "expect": {
+   "data": {
+    "submit": {
+     "label": "Send"
+    },
+    "fields": [
+     {
+      "type": "text",
+      "name": "name",
+      "required": true,
+      "label": "Name"
+     },
+     {
+      "type": "email",
+      "name": "email",
+      "required": true,
+      "label": "Email"
+     }
+    ],
+    "theme": "light",
+    "title": "Get in touch"
+   }
+  }
+ },
+ {
+  "src": "title 'Get in touch'\n   theme LIGHT\n   fields [\n     text  label 'Name'  required true {},\n     email label 'Email' required true {}\n   ]\n   submit 'Send' {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Get in touch"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 20
+    }
+   },
+   "4": {
+    "tag": "TAG",
+    "elts": [
+     "LIGHT"
+    ],
+    "coord": {
+     "from": 30,
+     "to": 35
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "Name"
+    ],
+    "coord": {
+     "from": 65,
+     "to": 71
+    }
+   },
+   "10": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "11": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "Email"
+    ],
+    "coord": {
+     "from": 108,
+     "to": 115
+    }
+   },
+   "18": {
+    "tag": "STR",
+    "elts": [
+     "Send"
+    ],
+    "coord": {
+     "from": 148,
+     "to": 154
+    }
+   },
+   "21": {
+    "tag": "SUBMIT",
+    "elts": [
+     18,
+     11
+    ],
+    "coord": {
+     "from": 141,
+     "to": 147
+    }
+   },
+   "23": {
+    "tag": "REQUIRED",
+    "elts": [
+     10,
+     11
+    ],
+    "coord": {
+     "from": 117,
+     "to": 125
+    }
+   },
+   "25": {
+    "tag": "LABEL",
+    "elts": [
+     14,
+     23
+    ],
+    "coord": {
+     "from": 103,
+     "to": 108
+    }
+   },
+   "27": {
+    "tag": "EMAIL",
+    "elts": [
+     25
+    ],
+    "coord": {
+     "from": 96,
+     "to": 101
+    }
+   },
+   "29": {
+    "tag": "REQUIRED",
+    "elts": [
+     10,
+     11
+    ],
+    "coord": {
+     "from": 74,
+     "to": 82
+    }
+   },
+   "31": {
+    "tag": "LABEL",
+    "elts": [
+     8,
+     29
+    ],
+    "coord": {
+     "from": 60,
+     "to": 65
+    }
+   },
+   "33": {
+    "tag": "TEXT",
+    "elts": [
+     31
+    ],
+    "coord": {
+     "from": 53,
+     "to": 57
+    }
+   },
+   "35": {
+    "tag": "LIST",
+    "elts": [
+     33,
+     27
+    ]
+   },
+   "36": {
+    "tag": "FIELDS",
+    "elts": [
+     35,
+     21
+    ],
+    "coord": {
+     "from": 39,
+     "to": 45
+    }
+   },
+   "38": {
+    "tag": "THEME",
+    "elts": [
+     4,
+     36
+    ],
+    "coord": {
+     "from": 24,
+     "to": 29
+    }
+   },
+   "40": {
+    "tag": "TITLE",
+    "elts": [
+     2,
+     38
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "42": {
+    "tag": "EXPRS",
+    "elts": [
+     40
+    ]
+   },
+   "43": {
+    "tag": "PROG",
+    "elts": [
+     42
+    ]
+   },
+   "root": 43
+  },
+  "expect": {
+   "data": {
+    "submit": {
+     "label": "Send"
+    },
+    "fields": [
+     {
+      "type": "text",
+      "name": "name",
+      "required": true,
+      "label": "Name"
+     },
+     {
+      "type": "email",
+      "name": "email",
+      "required": true,
+      "label": "Email"
+     }
+    ],
+    "theme": "light",
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "theme DARK fields [ text label 'X' {} ] {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "X"
+    ],
+    "coord": {
+     "from": 31,
+     "to": 34
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "LABEL",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 26,
+     "to": 31
+    }
+   },
+   "13": {
+    "tag": "TEXT",
+    "elts": [
+     11
+    ],
+    "coord": {
+     "from": 20,
+     "to": 24
+    }
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     13
+    ]
+   },
+   "16": {
+    "tag": "FIELDS",
+    "elts": [
+     15,
+     7
+    ],
+    "coord": {
+     "from": 11,
+     "to": 17
+    }
+   },
+   "18": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     16
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "x",
+      "label": "X"
+     }
+    ],
+    "theme": "dark"
+   }
+  }
+ },
+ {
+  "src": "theme DARK fields [ text label 'X' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "DARK"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 10
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "X"
+    ],
+    "coord": {
+     "from": 31,
+     "to": 34
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "LABEL",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 26,
+     "to": 31
+    }
+   },
+   "13": {
+    "tag": "TEXT",
+    "elts": [
+     11
+    ],
+    "coord": {
+     "from": 20,
+     "to": 24
+    }
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     13
+    ]
+   },
+   "16": {
+    "tag": "FIELDS",
+    "elts": [
+     15,
+     7
+    ],
+    "coord": {
+     "from": 11,
+     "to": 17
+    }
+   },
+   "18": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     16
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "fields": [
+     {
+      "type": "text",
+      "name": "x",
+      "label": "X"
+     }
+    ],
+    "theme": "dark",
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "title 'Only a title' {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Only a title"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 20
+    }
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "TITLE",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "title": "Only a title"
+   }
+  }
+ },
+ {
+  "src": "title 'Only a title' {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Only a title"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 20
+    }
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "TITLE",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "submit 'Go' {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Go"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 11
+    }
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "SUBMIT",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "submit": {
+     "label": "Go"
+    }
+   }
+  }
+ },
+ {
+  "src": "submit 'Go' {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Go"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 11
+    }
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "SUBMIT",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "submit": {
+     "label": "Go"
+    },
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "submit {label: 'Go' kind: 'primary'} {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "label"
+    ],
+    "coord": {
+     "from": 8,
+     "to": 13
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Go"
+    ],
+    "coord": {
+     "from": 15,
+     "to": 19
+    }
+   },
+   "6": {
+    "tag": "TAG",
+    "elts": [
+     "kind"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 24
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "primary"
+    ],
+    "coord": {
+     "from": 26,
+     "to": 35
+    }
+   },
+   "11": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "15": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "16": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "17": {
+    "tag": "RECORD",
+    "elts": [
+     16,
+     15
+    ]
+   },
+   "18": {
+    "tag": "SUBMIT",
+    "elts": [
+     17,
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "submit": {
+     "label": "Go",
+     "kind": "primary"
+    }
+   }
+  }
+ },
+ {
+  "src": "submit {label: 'Go' kind: 'primary'} {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "label"
+    ],
+    "coord": {
+     "from": 8,
+     "to": 13
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Go"
+    ],
+    "coord": {
+     "from": 15,
+     "to": 19
+    }
+   },
+   "6": {
+    "tag": "TAG",
+    "elts": [
+     "kind"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 24
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "primary"
+    ],
+    "coord": {
+     "from": 26,
+     "to": 35
+    }
+   },
+   "11": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "15": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "16": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "17": {
+    "tag": "RECORD",
+    "elts": [
+     16,
+     15
+    ]
+   },
+   "18": {
+    "tag": "SUBMIT",
+    "elts": [
+     17,
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "submit": {
+     "label": "Go",
+     "kind": "primary"
+    },
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "submit 5 {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "SUBMIT",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "submit": {}
+   }
+  }
+ },
+ {
+  "src": "submit 5 {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "SUBMIT",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "submit": {},
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "metadata {source: 'web' tags: ['a' 'b']} title 'T' {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "source"
+    ],
+    "coord": {
+     "from": 10,
+     "to": 16
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "web"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "6": {
+    "tag": "TAG",
+    "elts": [
+     "tags"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 28
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 31,
+     "to": 34
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 35,
+     "to": 38
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "T"
+    ],
+    "coord": {
+     "from": 47,
+     "to": 50
+    }
+   },
+   "15": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "18": {
+    "tag": "TITLE",
+    "elts": [
+     14,
+     15
+    ],
+    "coord": {
+     "from": 41,
+     "to": 46
+    }
+   },
+   "21": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     9
+    ]
+   },
+   "22": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "23": {
+    "tag": "RECORD",
+    "elts": [
+     22,
+     21
+    ]
+   },
+   "24": {
+    "tag": "METADATA",
+    "elts": [
+     23,
+     18
+    ],
+    "coord": {
+     "from": 0,
+     "to": 8
+    }
+   },
+   "26": {
+    "tag": "EXPRS",
+    "elts": [
+     24
+    ]
+   },
+   "27": {
+    "tag": "PROG",
+    "elts": [
+     26
+    ]
+   },
+   "root": 27
+  },
+  "expect": {
+   "data": {
+    "title": "T",
+    "metadata": {
+     "source": "web",
+     "tags": [
+      "a",
+      "b"
+     ]
+    }
+   }
+  }
+ },
+ {
+  "src": "metadata {source: 'web' tags: ['a' 'b']} title 'T' {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "source"
+    ],
+    "coord": {
+     "from": 10,
+     "to": 16
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "web"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "6": {
+    "tag": "TAG",
+    "elts": [
+     "tags"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 28
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 31,
+     "to": 34
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 35,
+     "to": 38
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "T"
+    ],
+    "coord": {
+     "from": 47,
+     "to": 50
+    }
+   },
+   "15": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "18": {
+    "tag": "TITLE",
+    "elts": [
+     14,
+     15
+    ],
+    "coord": {
+     "from": 41,
+     "to": 46
+    }
+   },
+   "21": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     9
+    ]
+   },
+   "22": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "23": {
+    "tag": "RECORD",
+    "elts": [
+     22,
+     21
+    ]
+   },
+   "24": {
+    "tag": "METADATA",
+    "elts": [
+     23,
+     18
+    ],
+    "coord": {
+     "from": 0,
+     "to": 8
+    }
+   },
+   "26": {
+    "tag": "EXPRS",
+    "elts": [
+     24
+    ]
+   },
+   "27": {
+    "tag": "PROG",
+    "elts": [
+     26
+    ]
+   },
+   "root": 27
+  },
+  "expect": {
+   "data": {
+    "title": "edited",
+    "metadata": {
+     "source": "web",
+     "tags": [
+      "a",
+      "b"
+     ]
+    },
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "title 'Second' title 'First' {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Second"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 14
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "First"
+    ],
+    "coord": {
+     "from": 21,
+     "to": 28
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "8": {
+    "tag": "TITLE",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "10": {
+    "tag": "TITLE",
+    "elts": [
+     2,
+     8
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": {
+    "title": "Second"
+   }
+  }
+ },
+ {
+  "src": "title 'Second' title 'First' {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "Second"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 14
+    }
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "First"
+    ],
+    "coord": {
+     "from": 21,
+     "to": 28
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "8": {
+    "tag": "TITLE",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 15,
+     "to": 20
+    }
+   },
+   "10": {
+    "tag": "TITLE",
+    "elts": [
+     2,
+     8
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": {
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "text label 'Alone' {}..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Alone"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 18
+    }
+   },
+   "4": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "7": {
+    "tag": "LABEL",
+    "elts": [
+     3,
+     4
+    ],
+    "coord": {
+     "from": 5,
+     "to": 10
+    }
+   },
+   "9": {
+    "tag": "TEXT",
+    "elts": [
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "11": {
+    "tag": "EXPRS",
+    "elts": [
+     9
+    ]
+   },
+   "12": {
+    "tag": "PROG",
+    "elts": [
+     11
+    ]
+   },
+   "root": 12
+  },
+  "expect": {
+   "data": {
+    "type": "text",
+    "name": "alone",
+    "label": "Alone"
+   }
+  }
+ },
+ {
+  "src": "text label 'Alone' {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Alone"
+    ],
+    "coord": {
+     "from": 11,
+     "to": 18
+    }
+   },
+   "4": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "7": {
+    "tag": "LABEL",
+    "elts": [
+     3,
+     4
+    ],
+    "coord": {
+     "from": 5,
+     "to": 10
+    }
+   },
+   "9": {
+    "tag": "TEXT",
+    "elts": [
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "11": {
+    "tag": "EXPRS",
+    "elts": [
+     9
+    ]
+   },
+   "12": {
+    "tag": "PROG",
+    "elts": [
+     11
+    ]
+   },
+   "root": 12
+  },
+  "expect": {
+   "data": {
+    "type": "text",
+    "name": "alone",
+    "label": "Alone",
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "label 'L' {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "L"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 9
+    }
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "LABEL",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "label": "L"
+   }
+  }
+ },
+ {
+  "src": "label 'L' {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "L"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 9
+    }
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "LABEL",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "data": {
+    "label": "L",
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "min 1 max 9 {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "9"
+    ]
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "8": {
+    "tag": "MAX",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 6,
+     "to": 9
+    }
+   },
+   "10": {
+    "tag": "MIN",
+    "elts": [
+     2,
+     8
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": {
+    "max": 9,
+    "min": 1
+   }
+  }
+ },
+ {
+  "src": "min 1 max 9 {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "9"
+    ]
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "8": {
+    "tag": "MAX",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 6,
+     "to": 9
+    }
+   },
+   "10": {
+    "tag": "MIN",
+    "elts": [
+     2,
+     8
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "data": {
+    "max": 9,
+    "min": 1,
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "label 'L' 5..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "L"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 9
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "5": {
+    "tag": "LABEL",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "label": "L"
+   }
+  }
+ },
+ {
+  "src": "label 'L' 5..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "L"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 9
+    }
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "5": {
+    "tag": "LABEL",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     5
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "label": "L",
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "42..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": 42
+  }
+ },
+ {
+  "src": "42..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": 42
+  }
+ },
+ {
+  "src": "add 1 2..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "6": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 3
+  }
+ },
+ {
+  "src": "add 1 2..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "6": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": 3
+  }
+ },
+ {
+  "src": "[1 2 3]..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "4": {
+    "tag": "LIST",
+    "elts": [
+     1,
+     2,
+     3
+    ]
+   },
+   "5": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "6": {
+    "tag": "PROG",
+    "elts": [
+     5
+    ]
+   },
+   "root": 6
+  },
+  "expect": {
+   "data": [
+    1,
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "src": "[1 2 3]..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "3"
+    ]
+   },
+   "4": {
+    "tag": "LIST",
+    "elts": [
+     1,
+     2,
+     3
+    ]
+   },
+   "5": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "6": {
+    "tag": "PROG",
+    "elts": [
+     5
+    ]
+   },
+   "root": 6
+  },
+  "expect": {
+   "data": [
+    1,
+    2,
+    3
+   ]
+  }
+ },
+ {
+  "src": "{x: 1}..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 1,
+     "to": 2
+    }
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "9": {
+    "tag": "BINDING",
+    "elts": [
+     1,
+     2
+    ]
+   },
+   "10": {
+    "tag": "RECORD",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "PROG",
+    "elts": [
+     11
+    ]
+   },
+   "root": 12
+  },
+  "expect": {
+   "data": {
+    "x": 1
+   }
+  }
+ },
+ {
+  "src": "{x: 1}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 1,
+     "to": 2
+    }
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "9": {
+    "tag": "BINDING",
+    "elts": [
+     1,
+     2
+    ]
+   },
+   "10": {
+    "tag": "RECORD",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "PROG",
+    "elts": [
+     11
+    ]
+   },
+   "root": 12
+  },
+  "expect": {
+   "data": {
+    "x": 1,
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "tag red..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "red"
+    ],
+    "coord": {
+     "from": 4,
+     "to": 7
+    }
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": {
+    "tag": "red"
+   }
+  }
+ },
+ {
+  "src": "tag red..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "red"
+    ],
+    "coord": {
+     "from": 4,
+     "to": 7
+    }
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": {
+    "tag": "red",
+    "title": "edited",
+    "extra": 1
+   }
+  }
+ },
+ {
+  "src": "fields [ select label 'Topic' {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Topic"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 29
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "9": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "11": {
+    "tag": "SELECT",
+    "elts": [
+     9
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "13": {
+    "tag": "LIST",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "FIELDS",
+    "elts": [
+     13,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "16": {
+    "tag": "EXPRS",
+    "elts": [
+     14
+    ]
+   },
+   "17": {
+    "tag": "PROG",
+    "elts": [
+     16
+    ]
+   },
+   "root": 17
+  },
+  "expect": {
+   "errors": [
+    "The select field \"Topic\" requires a non-empty options list."
+   ]
+  }
+ },
+ {
+  "src": "fields [ select label 'Topic' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "Topic"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 29
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "9": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "11": {
+    "tag": "SELECT",
+    "elts": [
+     9
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "13": {
+    "tag": "LIST",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "FIELDS",
+    "elts": [
+     13,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "16": {
+    "tag": "EXPRS",
+    "elts": [
+     14
+    ]
+   },
+   "17": {
+    "tag": "PROG",
+    "elts": [
+     16
+    ]
+   },
+   "root": 17
+  },
+  "expect": {
+   "errors": [
+    "The select field \"Topic\" requires a non-empty options list."
+   ]
+  }
+ },
+ {
+  "src": "fields [ radio name 'size' options [] {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "size"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 26
+    }
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "OPTIONS",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 28,
+     "to": 35
+    }
+   },
+   "13": {
+    "tag": "NAME",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 16,
+     "to": 20
+    }
+   },
+   "15": {
+    "tag": "RADIO",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 14
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "errors": [
+    "The radio field \"size\" requires a non-empty options list."
+   ]
+  }
+ },
+ {
+  "src": "fields [ radio name 'size' options [] {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "size"
+    ],
+    "coord": {
+     "from": 20,
+     "to": 26
+    }
+   },
+   "6": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "OPTIONS",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 28,
+     "to": 35
+    }
+   },
+   "13": {
+    "tag": "NAME",
+    "elts": [
+     4,
+     11
+    ],
+    "coord": {
+     "from": 16,
+     "to": 20
+    }
+   },
+   "15": {
+    "tag": "RADIO",
+    "elts": [
+     13
+    ],
+    "coord": {
+     "from": 9,
+     "to": 14
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15
+    ]
+   },
+   "18": {
+    "tag": "FIELDS",
+    "elts": [
+     17,
+     7
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "errors": [
+    "The radio field \"size\" requires a non-empty options list."
+   ]
+  }
+ },
+ {
+  "src": "fields [ select {} ] {}..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "7": {
+    "tag": "SELECT",
+    "elts": [
+     3
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "FIELDS",
+    "elts": [
+     9,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "errors": [
+    "The select field \"select\" requires a non-empty options list."
+   ]
+  }
+ },
+ {
+  "src": "fields [ select {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "7": {
+    "tag": "SELECT",
+    "elts": [
+     3
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     7
+    ]
+   },
+   "10": {
+    "tag": "FIELDS",
+    "elts": [
+     9,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "12": {
+    "tag": "EXPRS",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "PROG",
+    "elts": [
+     12
+    ]
+   },
+   "root": 13
+  },
+  "expect": {
+   "errors": [
+    "The select field \"select\" requires a non-empty options list."
+   ]
+  }
+ },
+ {
+  "src": "fields [ select label 'A' {}, radio label 'B' {} ] {}..",
+  "data": {},
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "A"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 25
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "B"
+    ],
+    "coord": {
+     "from": 42,
+     "to": 45
+    }
+   },
+   "12": {
+    "tag": "LABEL",
+    "elts": [
+     8,
+     5
+    ],
+    "coord": {
+     "from": 37,
+     "to": 42
+    }
+   },
+   "14": {
+    "tag": "RADIO",
+    "elts": [
+     12
+    ],
+    "coord": {
+     "from": 30,
+     "to": 35
+    }
+   },
+   "16": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "18": {
+    "tag": "SELECT",
+    "elts": [
+     16
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "20": {
+    "tag": "LIST",
+    "elts": [
+     18,
+     14
+    ]
+   },
+   "21": {
+    "tag": "FIELDS",
+    "elts": [
+     20,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "23": {
+    "tag": "EXPRS",
+    "elts": [
+     21
+    ]
+   },
+   "24": {
+    "tag": "PROG",
+    "elts": [
+     23
+    ]
+   },
+   "root": 24
+  },
+  "expect": {
+   "errors": [
+    "The select field \"A\" requires a non-empty options list.",
+    "The radio field \"B\" requires a non-empty options list."
+   ]
+  }
+ },
+ {
+  "src": "fields [ select label 'A' {}, radio label 'B' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "4": {
+    "tag": "STR",
+    "elts": [
+     "A"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 25
+    }
+   },
+   "5": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "B"
+    ],
+    "coord": {
+     "from": 42,
+     "to": 45
+    }
+   },
+   "12": {
+    "tag": "LABEL",
+    "elts": [
+     8,
+     5
+    ],
+    "coord": {
+     "from": 37,
+     "to": 42
+    }
+   },
+   "14": {
+    "tag": "RADIO",
+    "elts": [
+     12
+    ],
+    "coord": {
+     "from": 30,
+     "to": 35
+    }
+   },
+   "16": {
+    "tag": "LABEL",
+    "elts": [
+     4,
+     5
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "18": {
+    "tag": "SELECT",
+    "elts": [
+     16
+    ],
+    "coord": {
+     "from": 9,
+     "to": 15
+    }
+   },
+   "20": {
+    "tag": "LIST",
+    "elts": [
+     18,
+     14
+    ]
+   },
+   "21": {
+    "tag": "FIELDS",
+    "elts": [
+     20,
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "23": {
+    "tag": "EXPRS",
+    "elts": [
+     21
+    ]
+   },
+   "24": {
+    "tag": "PROG",
+    "elts": [
+     23
+    ]
+   },
+   "root": 24
+  },
+  "expect": {
+   "errors": [
+    "The select field \"A\" requires a non-empty options list.",
+    "The radio field \"B\" requires a non-empty options list."
+   ]
+  }
+ },
+ {
+  "src": "theme 'blue' fields [ text label 'X' {} ] {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "blue"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 12
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "X"
+    ],
+    "coord": {
+     "from": 33,
+     "to": 36
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "LABEL",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 28,
+     "to": 33
+    }
+   },
+   "13": {
+    "tag": "TEXT",
+    "elts": [
+     11
+    ],
+    "coord": {
+     "from": 22,
+     "to": 26
+    }
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     13
+    ]
+   },
+   "16": {
+    "tag": "FIELDS",
+    "elts": [
+     15,
+     7
+    ],
+    "coord": {
+     "from": 13,
+     "to": 19
+    }
+   },
+   "18": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     16
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "errors": [
+    "theme expects the tag DARK or LIGHT. Got \"blue\"."
+   ]
+  }
+ },
+ {
+  "src": "theme 'blue' fields [ text label 'X' {} ] {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "blue"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 12
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "X"
+    ],
+    "coord": {
+     "from": 33,
+     "to": 36
+    }
+   },
+   "7": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "11": {
+    "tag": "LABEL",
+    "elts": [
+     6,
+     7
+    ],
+    "coord": {
+     "from": 28,
+     "to": 33
+    }
+   },
+   "13": {
+    "tag": "TEXT",
+    "elts": [
+     11
+    ],
+    "coord": {
+     "from": 22,
+     "to": 26
+    }
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     13
+    ]
+   },
+   "16": {
+    "tag": "FIELDS",
+    "elts": [
+     15,
+     7
+    ],
+    "coord": {
+     "from": 13,
+     "to": 19
+    }
+   },
+   "18": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     16
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "errors": [
+    "theme expects the tag DARK or LIGHT. Got \"blue\"."
+   ]
+  }
+ },
+ {
+  "src": "theme 5 {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "errors": [
+    "theme expects the tag DARK or LIGHT. Got 5."
+   ]
+  }
+ },
+ {
+  "src": "theme 5 {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "errors": [
+    "theme expects the tag DARK or LIGHT. Got 5."
+   ]
+  }
+ },
+ {
+  "src": "theme tag PURPLE {}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "PURPLE"
+    ],
+    "coord": {
+     "from": 10,
+     "to": 16
+    }
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "errors": [
+    "theme expects the tag DARK or LIGHT. Got tag PURPLE."
+   ]
+  }
+ },
+ {
+  "src": "theme tag PURPLE {}..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "PURPLE"
+    ],
+    "coord": {
+     "from": 10,
+     "to": 16
+    }
+   },
+   "3": {
+    "tag": "RECORD",
+    "elts": []
+   },
+   "6": {
+    "tag": "THEME",
+    "elts": [
+     2,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "8": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "9": {
+    "tag": "PROG",
+    "elts": [
+     8
+    ]
+   },
+   "root": 9
+  },
+  "expect": {
+   "errors": [
+    "theme expects the tag DARK or LIGHT. Got tag PURPLE."
+   ]
+  }
+ },
+ {
+  "src": "fields..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "6"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "STR",
+    "elts": [
+     "Too few arguments for FIELDS. Expected 2."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "6": {
+    "tag": "ERROR",
+    "elts": [
+     5,
+     4,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "root": 6
+  },
+  "expect": {
+   "errors": [
+    "Too few arguments for FIELDS. Expected 2."
+   ]
+  }
+ },
+ {
+  "src": "fields..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "6"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "STR",
+    "elts": [
+     "Too few arguments for FIELDS. Expected 2."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "6": {
+    "tag": "ERROR",
+    "elts": [
+     5,
+     4,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 6
+    }
+   },
+   "root": 6
+  },
+  "expect": {
+   "errors": [
+    "Too few arguments for FIELDS. Expected 2."
+   ]
+  }
+ },
+ {
+  "src": "text..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "4"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "STR",
+    "elts": [
+     "Too few arguments for TEXT. Expected 1."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "6": {
+    "tag": "ERROR",
+    "elts": [
+     5,
+     4,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "root": 6
+  },
+  "expect": {
+   "errors": [
+    "Too few arguments for TEXT. Expected 1."
+   ]
+  }
+ },
+ {
+  "src": "text..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "4"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "STR",
+    "elts": [
+     "Too few arguments for TEXT. Expected 1."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "6": {
+    "tag": "ERROR",
+    "elts": [
+     5,
+     4,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "root": 6
+  },
+  "expect": {
+   "errors": [
+    "Too few arguments for TEXT. Expected 1."
+   ]
+  }
+ },
+ {
+  "src": "nope 1..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "4"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'nope'."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "4": {
+    "tag": "ERROR",
+    "elts": [
+     3,
+     2,
+     1
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "root": 4
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'nope'."
+   ]
+  }
+ },
+ {
+  "src": "nope 1..",
+  "data": {
+   "title": "edited",
+   "extra": 1
+  },
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "4"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'nope'."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "4": {
+    "tag": "ERROR",
+    "elts": [
+     3,
+     2,
+     1
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "root": 4
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'nope'."
+   ]
+  }
+ }
+]
