@@ -153,12 +153,14 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   automatic expiry. Token-ID documents carry an expiry field suitable for cleanup. W4's
   admission plans (`plans`) and invocation markers have no expiry either. W5 stage 2 (in code,
   not yet closed):
-  - `scripts/retention-check.js`, first run 2026-10-14: **no TTL policy** on any of `policy`,
-    `broker`, `(default)` or `revisions`. Point-in-time recovery is off and there are no
-    backup schedules on any of them, so the check fails until they're configured.
+  - `scripts/retention-check.js`, 2026-10-14: **no TTL policy** on any of `policy`, `broker`,
+    `(default)` or `revisions`. Point-in-time recovery (7 days) and daily backups (kept 14 weeks)
+    were enabled on all four at 16:07Z; the check then **passed** on every part
+    (`.gc-deploy/retention/config-2026-10-14T16-07-33-821Z.json`).
   - Connection deletion keeps invocations, idempotency keys and receipts (claim, steps,
     outcome), and refuses a retry with no provider call (`retention.spec.ts`, emulator).
-  - Still to do: backups and PITR (operator), then a recorded restore test (`--compare`).
+  - Still to do: a recorded restore test (`--compare`), once a daily backup of `policy` and of
+    `broker` exists.
   Evidence:
   [Policy stores](../packages/policy/src/firestore.ts) and
   [Broker stores](../packages/broker/src/firestore.ts).
