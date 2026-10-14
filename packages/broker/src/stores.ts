@@ -8,7 +8,7 @@
 //             Expiry is checked on the token itself; this ledger only needs to
 //             outlive the token, and storage TTL is just eventual cleanup.
 //   receipts  per operation id, documents each created once:
-//               claim    { binding, claimedAt }       — before the provider call
+//               claim    { binding, pld?, evidence?, claimedAt } — before the provider call; evidence (writes, W5) names each record, its digest and the mark
 //               steps/n  { n, step, at }              — after each provider
 //                        step completes, before the next one starts (spec
 //                        WRITE-01). putStep(id, n, step) acknowledges an
@@ -63,11 +63,11 @@ export const createMemoryReceiptStore = () => {
   const outcomes = new Map();
   return {
     // -> { created: true } or { created: false, claim }
-    async claim(operationId, binding, { pld = undefined } = {}) {
+    async claim(operationId, binding, { pld = undefined, evidence = undefined } = {}) {
       if (claims.has(operationId)) {
         return { created: false, claim: claims.get(operationId) };
       }
-      const claim = { binding, ...(pld ? { pld } : {}), claimedAt: new Date().toISOString() };
+      const claim = { binding, ...(pld ? { pld } : {}), ...(evidence ? { evidence } : {}), claimedAt: new Date().toISOString() };
       claims.set(operationId, claim);
       return { created: true };
     },

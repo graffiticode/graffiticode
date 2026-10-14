@@ -143,8 +143,25 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   separates refusals from outcomes: refused before the receipt claim, a typed refusal; after
   it, `failed` with no step taken or `partial` after one, the reason recorded on the receipt;
   a dispatched step without a resolved response stays `uncertain`; a request with no time
-  left is never sent. Evidence-based reconciliation is missing. No exactly-once provider
-  guarantee exists.
+  left is never sent. No exactly-once provider guarantee exists.
+  - **W5 stage 3, in code, not yet released:** the evidence reconciliation needs.
+    - **Claim:** a write's claim records, in the same create and before any provider
+      request, an evidence block (format 1):
+      - each record's step, kind and reference;
+      - a digest of its projected fields as the program sent them;
+      - where the mark goes.
+    - **Mark:** every record Broker sends carries the operation id, in a question's
+      `data.metadata.gc_operation` and an item's `metadata.gc_operation`. A program's record
+      that already carries it is refused. The binding's `argsDigest` still covers only the
+      program's payload.
+    - **Provider findings (sandbox spike, 2026-10-14):**
+      - The mark persists and reads back unchanged.
+      - A rejected `set` stored nothing, but that's observed, not guaranteed.
+      - There's no request or job lookup.
+      - So reconciliation will confirm `applied` from marks, and otherwise report
+        `unresolved`; it never claims `not_applied`.
+
+    The reconcile route and the console flow are still missing.
   Evidence: [Broker](../packages/broker/src/broker.ts),
   [provider response classification](../packages/broker/src/learnosity.ts),
   [receipt store](../packages/broker/src/firestore.ts), and

@@ -5,6 +5,7 @@
 // set them.
 
 import { randomUUID } from "node:crypto";
+import { argsDigest } from "./canonical.js";
 
 export class PayloadRejected extends Error {}
 
@@ -40,6 +41,45 @@ const validatePreview = payload => {
   });
 };
 
+// WRITE-02 (W5 stage 3): what lets a later reconciliation tell that this
+// operation's write of a record landed. Broker writes the operation id into
+// every record it saves, in a field that persists without affecting the
+// item (sandbox spike, 2026-10-14): a question's data.metadata and an item's
+// metadata. Finding this operation's mark on a stored record proves its write
+// of that record landed, whatever happened since. A program can't set it.
+export const MARK_KEY = "gc_operation";
+export const EVIDENCE_FORMAT = 1;
+// The fields compared for each record kind, format 1, as the program sent
+// them (before the mark is added).
+export const EVIDENCE_PROJECTION = Object.freeze({
+  questions: Object.freeze(["type", "data"]),
+  items: Object.freeze(["definition", "questions", "status", "metadata"]),
+});
+const withoutMark = metadata => {
+  if (!isPlainObject(metadata)) return metadata;
+  const { [MARK_KEY]: _mark, ...rest } = metadata;
+  return rest;
+};
+const project = (record, fields) => Object.fromEntries(fields.filter(f => record[f] !== undefined).map(f => [f, record[f]]));
+
+// Recorded on the receipt's claim, in the same create, before any provider
+// request: one entry per record the operation writes, in dispatch order.
+export const writeEvidence = ({ questionRecords, itemRecords }) => ({
+  format: EVIDENCE_FORMAT,
+  projection: EVIDENCE_PROJECTION,
+  mark: { questions: `data.metadata.${MARK_KEY}`, items: `metadata.${MARK_KEY}` },
+  records: [
+    ...questionRecords.map(q => ({ step: "questions", kind: "question", reference: q.reference, digest: argsDigest(project(q, EVIDENCE_PROJECTION.questions)) })),
+    ...itemRecords.map(it => ({ step: "items", kind: "item", reference: it.reference, digest: argsDigest(project(it, EVIDENCE_PROJECTION.items)) })),
+  ],
+});
+
+// The records as Broker sends them: each carries this operation's mark.
+const marked = ({ questionRecords, itemRecords }, operationId) => ({
+  questionRecords: questionRecords.map(q => ({ ...q, data: { ...q.data, metadata: { ...withoutMark(q.data.metadata ?? {}), [MARK_KEY]: operationId } } })),
+  itemRecords: itemRecords.map(it => ({ ...it, metadata: { ...withoutMark(it.metadata ?? {}), [MARK_KEY]: operationId } })),
+});
+
 const validateWrite = payload => {
   onlyKeys(payload, ["questionRecords", "itemRecords"], "write");
   const { questionRecords, itemRecords } = payload;
@@ -52,10 +92,22 @@ const validateWrite = payload => {
     if (typeof q.type !== "string" || !isRef(q.reference) || !isPlainObject(q.data)) {
       throw new PayloadRejected(`write.questionRecords[${i}] needs type, reference and data`);
     }
+    if (q.data.metadata !== undefined && !isPlainObject(q.data.metadata)) {
+      throw new PayloadRejected(`write.questionRecords[${i}].data.metadata must be an object`);
+    }
+    if (isPlainObject(q.data.metadata) && Object.prototype.hasOwnProperty.call(q.data.metadata, MARK_KEY)) {
+      throw new PayloadRejected(`write.questionRecords[${i}].data.metadata.${MARK_KEY} is set by Broker, never by a program`);
+    }
   });
   itemRecords.forEach((it, i) => {
     if (!isPlainObject(it) || !isRef(it.reference)) {
       throw new PayloadRejected(`write.itemRecords[${i}] needs a reference`);
+    }
+    if (it.metadata !== undefined && !isPlainObject(it.metadata)) {
+      throw new PayloadRejected(`write.itemRecords[${i}].metadata must be an object`);
+    }
+    if (isPlainObject(it.metadata) && Object.prototype.hasOwnProperty.call(it.metadata, MARK_KEY)) {
+      throw new PayloadRejected(`write.itemRecords[${i}].metadata.${MARK_KEY} is set by Broker, never by a program`);
     }
     // Saves land as drafts. Publishing is an Author Site action, never a save.
     if (it.status !== "unpublished") {
@@ -80,12 +132,15 @@ export const buildOperations = ({ sdk, domain, dataApi }) => {
     "learnosity.write-items": {
       kind: "write",
       validate: validateWrite,
+      evidence: writeEvidence,
       // Two provider writes: questions first (items reference them), then
       // items. Each step's status is reported so a failure after the first is
       // visible as `partial` rather than retried. `providerCall` (from the
       // broker) authorizes each request and refuses to start one past the
       // operation's deadline, then gives it its timeout.
-      run: async ({ questionRecords, itemRecords }, { key, secret }, { onStep, providerCall }) => {
+      run: async (payload, { key, secret }, { onStep, providerCall, operationId }) => {
+        if (typeof operationId !== "string" || !operationId) throw new Error("a write needs its operation id, for the mark");
+        const { questionRecords, itemRecords } = marked(payload, operationId);
         // `providerCall(step)` authorizes this registered step (W2), then
         // gives the request its timeout.
         const write = async (step, route, body) => {

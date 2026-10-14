@@ -27,6 +27,17 @@ run("firestore broker stores", () => {
     expect(results.filter(Boolean)).toHaveLength(1);
   });
 
+  it("keeps a write's evidence on its claim, created with it (W5, WRITE-02)", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = `${randomUUID()}/s0/n1.0`;
+    const evidence = { format: 1, mark: { questions: "data.metadata.gc_operation", items: "metadata.gc_operation" }, records: [{ step: "questions", kind: "question", reference: "q-0", digest: "d".repeat(64) }] };
+    await receipts.claim(op, { principal: "u" }, { evidence });
+    expect((await receipts.claim(op, { principal: "u" })).claim.evidence).toEqual(evidence);
+    // A later claim attempt can't replace it.
+    await receipts.claim(op, { principal: "u" }, { evidence: { ...evidence, format: 2 } });
+    expect((await receipts.claim(op, { principal: "u" })).claim.evidence.format).toBe(1);
+  });
+
   it("names its plan on the claim, where retiring a revision looks for it (W4)", async () => {
     const receipts = createFirestoreReceiptStore(db);
     const op = `${randomUUID()}/s1/n1.0`;

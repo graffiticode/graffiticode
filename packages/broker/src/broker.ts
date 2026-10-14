@@ -347,7 +347,10 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // effects.
     // The receipt names its plan (W4), so retiring a revision can report the
     // plans whose writes still need it.
-    const claimed = await receipts.claim(claims.opid, binding, claims.pld ? { pld: claims.pld } : {});
+    // The claim also records the write's evidence (WRITE-02, W5 stage 3): its
+    // records, their references and digests, and where Broker puts its mark.
+    const evidence = operation.evidence?.(payload);
+    const claimed = await receipts.claim(claims.opid, binding, { ...(claims.pld ? { pld: claims.pld } : {}), ...(evidence ? { evidence } : {}) });
     if (!claimed.created) {
       const recorded = claimed.claim.binding;
       if (recorded.registryVersion !== binding.registryVersion) return refuse("receipt-registry-version-mismatch", 409);
@@ -388,7 +391,7 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     let reason;
     let stopped;
     try {
-      result = await operation.run(payload, credential, { onStep, providerCall });
+      result = await operation.run(payload, credential, { onStep, providerCall, operationId: claims.opid });
       status = "succeeded";
     } catch (e) {
       if (e instanceof StepNotPersisted) {

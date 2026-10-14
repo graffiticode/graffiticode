@@ -22,7 +22,9 @@ import {
   StepConflict,
   createMemorySecretStore,
   argsDigest,
-  localAuthorizer
+  localAuthorizer,
+  MARK_KEY,
+  writeEvidence
 } from "./index.js";
 
 // Protected execution on (the maintenance switch is tested on its own).
@@ -50,6 +52,7 @@ let activity;
 let providerCalls;
 let onProviderCall;
 let routes;
+let sent;
 let failItems;
 let lostItems;
 let secrets;
@@ -77,13 +80,15 @@ beforeEach(async () => {
   policyDeps = { protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), audit };
   policy = createPolicy(policyDeps);
   routes = [];
+  sent = [];
   failItems = false;
   lostItems = false;
   const sdk = {
     init: (service, consumer, secret, body, action) => ({ service, consumer, signedWithSecret: secret === SECRET, body, action })
   };
-  const dataApi = async ({ route, timeoutMs }) => {
+  const dataApi = async ({ route, timeoutMs, request }) => {
     routes.push(route);
+    sent.push({ route, body: request?.body });
     providerCalls.push({ route, timeoutMs, active: await activity.count() });
     if (onProviderCall) await onProviderCall(route);
     if (failItems && route === "/itembank/items") throw new ProviderRejected("Learnosity Data API failed: /itembank/items");
@@ -296,6 +301,57 @@ describe("preview signing", () => {
       prv: "user"
     });
     await refused(broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "registry-version-mismatch");
+  });
+});
+
+// WRITE-02 (W5 stage 3): the claim records the write's evidence before any
+// provider request, and every record Broker sends carries the operation's mark.
+describe("write evidence and the operation mark", () => {
+  const META = { distractor_rationale_response_level: ["why"] };
+  const PAYLOAD = {
+    questionRecords: [{ type: "mcq", reference: "q-0", data: { type: "mcq", stimulus: "Q", metadata: META } }],
+    itemRecords: [{ reference: "graffiticode-t-0", definition: { widgets: [{ reference: "q-0" }] }, status: "unpublished" }]
+  };
+  const write = async (payload = PAYLOAD, occurrenceId = "n1.0") => broker.execute({ caller: L0176, token: await saveToken({ payload, occurrenceId }), op: "learnosity.write-items", payload });
+  const claimOf = async opid => (await receipts.claim(opid, {})).claim;
+
+  it("records each record's reference and digest, and where the mark goes, on the claim", async () => {
+    await write();
+    const [opid] = [...new Set(records.filter(r => r.event === "execute" && r.opid).map(r => r.opid))];
+    const { evidence } = await claimOf(opid);
+    expect(evidence).toEqual(writeEvidence(PAYLOAD));
+    expect(evidence).toMatchObject({
+      format: 1,
+      mark: { questions: `data.metadata.${MARK_KEY}`, items: `metadata.${MARK_KEY}` },
+      records: [
+        { step: "questions", kind: "question", reference: "q-0", digest: argsDigest({ type: "mcq", data: PAYLOAD.questionRecords[0].data }) },
+        { step: "items", kind: "item", reference: "graffiticode-t-0", digest: argsDigest({ definition: PAYLOAD.itemRecords[0].definition, status: "unpublished" }) },
+      ],
+    });
+  });
+
+  it("sends every record with this operation's mark, keeping the program's own metadata", async () => {
+    await write();
+    const [opid] = [...new Set(records.filter(r => r.event === "execute" && r.opid).map(r => r.opid))];
+    const [questions, items] = sent;
+    expect(questions.body.questions[0].data.metadata).toEqual({ ...META, [MARK_KEY]: opid });
+    expect(items.body.items[0].metadata).toEqual({ [MARK_KEY]: opid });
+    // The digests are of what the program sent, without the mark.
+    expect((await claimOf(opid)).evidence.records[0].digest).toBe(argsDigest({ type: "mcq", data: PAYLOAD.questionRecords[0].data }));
+  });
+
+  it("refuses a record that already carries the mark: only Broker sets it", async () => {
+    const forged = structuredClone(PAYLOAD);
+    forged.questionRecords[0].data.metadata[MARK_KEY] = "inv-other/s0/n1.0";
+    await refused(write(forged), "payload-rejected");
+    const forgedItem = { ...PAYLOAD, itemRecords: [{ ...PAYLOAD.itemRecords[0], metadata: { [MARK_KEY]: "inv-other/s0/n1.0" } }] };
+    await refused(write(forgedItem, "n2.0"), "payload-rejected");
+    expect(routes).toEqual([]);
+  });
+
+  it("leaves a preview's signing untouched", async () => {
+    await broker.execute({ caller: L0176, token: await previewToken(), op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    expect(JSON.stringify(sent)).not.toContain(MARK_KEY);
   });
 });
 
