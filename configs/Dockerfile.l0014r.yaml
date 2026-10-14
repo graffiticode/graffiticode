@@ -1,0 +1,55 @@
+# l0014r — the L0014 language server in Rust — from the monorepo root (deploy CLI, or
+# `docker build -f configs/Dockerfile.l0014r.yaml .`). languages/l0014 holds both
+# implementations: this image is the Rust server (crates/), which builds on the kernel and
+# server crates in languages/l0000, with the static assets this language's npm packages build.
+# configs/Dockerfile.l0014.yaml builds the TypeScript server from the same directory.
+#
+# Unlike the other Rust language servers, the runtime carries Node: a `tests` corpus is
+# translated by @graffiticode/translatex, a JavaScript library, through
+# tools/translatex-worker.mjs.
+
+# Public static assets (spec documents, schema, language info) and the /form View bundle.
+FROM node:22-alpine AS static
+WORKDIR /src
+COPY languages/l0014/package*.json ./
+COPY languages/l0014/packages/core/package*.json ./packages/core/
+COPY languages/l0014/packages/api/package*.json ./packages/api/
+COPY languages/l0014/packages/view/package*.json ./packages/view/
+RUN npm ci
+COPY languages/l0014/tsconfig.base.json ./
+COPY languages/l0014/packages ./packages
+COPY languages/l0014/tools ./tools
+RUN node tools/assemble-static.mjs --skip-install
+
+# The worker's runtime dependencies only: the core package's, at the versions the lockfile pins.
+FROM node:22-bookworm-slim AS worker
+WORKDIR /src
+COPY languages/l0014/package*.json ./
+COPY languages/l0014/packages/core/package*.json ./packages/core/
+COPY languages/l0014/packages/api/package*.json ./packages/api/
+COPY languages/l0014/packages/view/package*.json ./packages/view/
+RUN npm ci --omit=dev --workspace packages/core
+
+FROM rust:1.99-bookworm AS server
+WORKDIR /src/languages/l0014
+COPY languages/l0000/Cargo.toml /src/languages/l0000/Cargo.toml
+COPY languages/l0000/crates /src/languages/l0000/crates
+COPY languages/l0014/Cargo.toml languages/l0014/Cargo.lock ./
+COPY languages/l0014/crates ./crates
+RUN cargo build --release --locked -p l0014r-server
+
+FROM node:22-bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=worker /src/node_modules ./node_modules
+COPY languages/l0014/tools/translatex-worker.mjs ./tools/translatex-worker.mjs
+# Fail the build, not a compile in production, if the translator cannot be loaded.
+RUN node tools/translatex-worker.mjs --self-test
+COPY --from=server /src/languages/l0014/target/release/l0014r ./l0014r
+COPY --from=static /src/static ./static
+ENV STATIC_DIR=/app/static \
+    TRANSLATEX_WORKER=/app/tools/translatex-worker.mjs
+EXPOSE 8080
+CMD ["/app/l0014r"]

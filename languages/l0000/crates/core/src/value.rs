@@ -136,6 +136,11 @@ impl Record {
         self.entries.insert(key, value);
     }
 
+    /// Removes a key of exactly this kind, keeping the order of the rest.
+    pub fn remove(&mut self, key: &Key) -> Option<Value> {
+        self.entries.shift_remove(key)
+    }
+
     pub fn len(&self) -> usize {
         self.entries.len()
     }

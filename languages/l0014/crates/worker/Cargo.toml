@@ -1,0 +1,19 @@
+[package]
+name = "l0014-worker"
+version = "0.1.0"
+description = "Runs TransLaTeX for L0014: a client for a Node worker process that owns the JavaScript library"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+async-trait = "0.1"
+graffiticode-l0014 = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = { version = "1", features = ["process", "io-util", "time"] }
+
+[dev-dependencies]
+graffiticode-l0000 = { path = "../../../l0000/crates/core", default-features = false }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

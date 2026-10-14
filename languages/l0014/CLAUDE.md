@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0014 that production runs; `crates/` is L0014 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## What this is
 
 L0014 is an **internal** Graffiticode dialect for authoring TransLaTeX translation rule sets. It is
@@ -166,3 +168,50 @@ What does and doesn't work today:
 - `github.com/artcompiler/L120` — the original (private; branches `master`, `build`, `contexts`,
   `testing`). `tests/*.json` there carry real L120 **source** programs, including an ancestor of
   the shipping rule set and a ~50-case LaTeX corpus.
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0014**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0014`). `crates/` is the same language in Rust, to be released to its own service `l0014r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec are shared by both.
+
+**TransLaTeX itself is not ported.** `@graffiticode/translatex` and `@graffiticode/parselatex` are a JavaScript rule engine and LaTeX parser (about 5,900 lines) with their own repositories and other consumers. The Rust side reaches them through a trait, and the shipped implementation is a Node worker. So the Rust server's image carries Node, and a program with a `tests` corpus or a `translate` starts one short-lived Node process. Assembling a rule set, which is the product, needs no translator at all.
+
+- `crates/core` (`graffiticode-l0014`) — the whole language, in `src/lib.rs`: `L0014` implements `Dialect` from `graffiticode-l0000`. Statements each contribute one key; the `PROG` override walks every statement (not just the last), merges them, and scores the corpus through the `Translator` trait. `lexicon()` is the base lexicon merged with `src/lexicon-additions.json`.
+- `crates/worker` (`l0014-worker`) — `NodeTranslator`, the `Translator` that runs `tools/translatex-worker.mjs` as a child process, JSON over stdin and stdout. Env: `NODE_BIN` (default `node`), `TRANSLATEX_WORKER` (default `tools/translatex-worker.mjs`, relative to the working directory).
+- `crates/server` (`l0014r-server`, binary `l0014r`) — `l0000r_server::serve(L0014::new(NodeTranslator::from_env()), lexicon())`.
+- `tools/translatex-worker.mjs` — the Node side: `{ rules, sources }` in, `[{ value, errors }]` out. `--self-test` checks the library loads and translates; the image build runs it.
+- `tools/assemble-static.mjs` — builds the static assets and `/form` bundle into `./static` for the Rust server.
+
+`pretty.ts` (`toSource`, the DATA → source direction) and the `tools/*.mjs` generators are **not ported**: they are authoring tools, not part of a compile, and stay TypeScript.
+
+**The Rust side depends on `languages/l0000` by relative path** (Cargo path dependencies on its kernel and server crates). Read "The Rust implementation" in `languages/l0000/CLAUDE.md` for how evaluation, values and the `Dialect` trait work.
+
+```bash
+cargo test            # everything; the real-translator tests skip, loudly, without Node or node_modules
+cargo test -p graffiticode-l0014      # the language, byte for byte against TypeScript: no Node
+cargo test -p l0014-worker            # the same cases with the real TransLaTeX behind them
+npm run rust:build    # rust:static, then cargo build --release -p l0014r-server
+npm run rust:dev      # cargo run -p l0014r-server on :50014 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate tests/conformance/cases.json and src/lexicon-additions.json
+```
+
+### What the Rust has to get exactly right
+
+The output contract and the identity test described above apply unchanged, and the Rust is held to the same standard: `crates/core/tests/conformance.rs` compares the compiled JSON **text** with what TypeScript produced, not parsed values, because key order is rule precedence. Its last case is `spec/latex-to-latex.gc`, which must compile to the shipping rule set (49 words, 1 type, 80 rules).
+
+- **Key order.** Records keep the order written (`IndexMap`), and `plain()` re-keys them by name the way `toPlainObject` does: a later key of the same name stands in the earlier one's place, and keys that are array indices come first in numeric order, because that is where a JavaScript object puts them.
+- **Option order.** `OPTIONS` in `lib.rs` is the Rust copy of `optionFields`, in the same order. It must stay in step with `compiler.ts` and `pretty.ts`.
+- **`trim`** is applied to a test's expected text and never to the actual, as in TypeScript.
+
+### Tests
+
+- `crates/core/tests/conformance.rs` — 27 programs against the TypeScript compiler, byte for byte, with a translator that answers from the translations TypeScript recorded. This isolates the language from the JavaScript library and needs no Node.
+- `crates/worker/tests/node.rs` — the same cases with the real worker and the real library, again byte for byte, plus error handling: a source that does not parse is an answer with errors (message only, no stack trace or file paths), and a translator that cannot start is a compile error naming the cause, never a silently wrong score.
+
+One deliberate difference: a `translate` error is reported as its first line. TypeScript reports the library's whole stack trace, file paths included.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0014r` entry (own service, `l0014r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0014r.yaml`; snapshot is this directory and `languages/l0000`; build step `cargo test --locked`, where the real-translator tests skip). The runtime image is `node:22-bookworm-slim` with the core package's production dependencies (`npm ci --omit=dev --workspace packages/core`, about 5MB), the worker script and the Rust binary; the build runs the worker's self-test. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`). The service and account do not exist until provisioned; the account needs no roles.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/lexicon-additions.json` and `tests/conformance/cases.json` are generated, not edited.

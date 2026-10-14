@@ -1,0 +1,7179 @@
+[
+ {
+  "src": "words {\"\\\\alpha\": \"\\\\alpha\"}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "\\alpha"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 16
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "\\alpha"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 27
+    }
+   },
+   "9": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "10": {
+    "tag": "RECORD",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "WORDS",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "words": {
+      "\\alpha": "\\alpha"
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"words\":{\"\\\\alpha\":\"\\\\alpha\"}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "rules {\"?+?\": \"%1 + %2\"}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "?+?"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 12
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "%1 + %2"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 23
+    }
+   },
+   "9": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "10": {
+    "tag": "RECORD",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "RULES",
+    "elts": [
+     10
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "rules": {
+      "?+?": [
+       "%1 + %2"
+      ]
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"rules\":{\"?+?\":[\"%1 + %2\"]}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "types {\"number\": [\"\\\\type{number}\"]}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "number"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 15
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "\\type{number}"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 34
+    }
+   },
+   "4": {
+    "tag": "LIST",
+    "elts": [
+     3
+    ]
+   },
+   "10": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     4
+    ]
+   },
+   "11": {
+    "tag": "RECORD",
+    "elts": [
+     10
+    ]
+   },
+   "12": {
+    "tag": "TYPES",
+    "elts": [
+     11
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "types": {
+      "number": [
+       "\\type{number}"
+      ]
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"types\":{\"number\":[\"\\\\type{number}\"]}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "words {\"x\": \"X\"} rules {\"?+?\": \"%1 plus %2\", \"?\": \"%1\"} types {\"n\": [\"1\"]}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "X"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 15
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "?+?"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 29
+    }
+   },
+   "9": {
+    "tag": "STR",
+    "elts": [
+     "%1 plus %2"
+    ],
+    "coord": {
+     "from": 31,
+     "to": 43
+    }
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 45,
+     "to": 48
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 50,
+     "to": 54
+    }
+   },
+   "18": {
+    "tag": "STR",
+    "elts": [
+     "n"
+    ],
+    "coord": {
+     "from": 63,
+     "to": 66
+    }
+   },
+   "19": {
+    "tag": "STR",
+    "elts": [
+     "1"
+    ],
+    "coord": {
+     "from": 69,
+     "to": 72
+    }
+   },
+   "20": {
+    "tag": "LIST",
+    "elts": [
+     19
+    ]
+   },
+   "26": {
+    "tag": "BINDING",
+    "elts": [
+     18,
+     20
+    ]
+   },
+   "27": {
+    "tag": "RECORD",
+    "elts": [
+     26
+    ]
+   },
+   "28": {
+    "tag": "TYPES",
+    "elts": [
+     27
+    ],
+    "coord": {
+     "from": 56,
+     "to": 61
+    }
+   },
+   "30": {
+    "tag": "BINDING",
+    "elts": [
+     12,
+     13
+    ]
+   },
+   "31": {
+    "tag": "BINDING",
+    "elts": [
+     8,
+     9
+    ]
+   },
+   "32": {
+    "tag": "RECORD",
+    "elts": [
+     31,
+     30
+    ]
+   },
+   "33": {
+    "tag": "RULES",
+    "elts": [
+     32
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "35": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "36": {
+    "tag": "RECORD",
+    "elts": [
+     35
+    ]
+   },
+   "37": {
+    "tag": "WORDS",
+    "elts": [
+     36
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "39": {
+    "tag": "EXPRS",
+    "elts": [
+     37,
+     33,
+     28
+    ]
+   },
+   "40": {
+    "tag": "PROG",
+    "elts": [
+     39
+    ]
+   },
+   "root": 40
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "words": {
+      "x": "X"
+     },
+     "types": {
+      "n": [
+       "1"
+      ]
+     },
+     "rules": {
+      "?+?": [
+       "%1 plus %2"
+      ],
+      "?": [
+       "%1"
+      ]
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"words\":{\"x\":\"X\"},\"types\":{\"n\":[\"1\"]},\"rules\":{\"?+?\":[\"%1 plus %2\"],\"?\":[\"%1\"]}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "rules {\"a\": \"A\", \"b\": [\"B1\" \"B2\"], \"c\": {\"x\": \"X\"}, \"d\": [{\"y\": {\"z\": \"Z\"}}]}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "A"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 15
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 20
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "B1"
+    ],
+    "coord": {
+     "from": 23,
+     "to": 27
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "B2"
+    ],
+    "coord": {
+     "from": 28,
+     "to": 32
+    }
+   },
+   "9": {
+    "tag": "LIST",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "c"
+    ],
+    "coord": {
+     "from": 35,
+     "to": 38
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 41,
+     "to": 44
+    }
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "X"
+    ],
+    "coord": {
+     "from": 46,
+     "to": 49
+    }
+   },
+   "20": {
+    "tag": "STR",
+    "elts": [
+     "d"
+    ],
+    "coord": {
+     "from": 52,
+     "to": 55
+    }
+   },
+   "21": {
+    "tag": "STR",
+    "elts": [
+     "y"
+    ],
+    "coord": {
+     "from": 59,
+     "to": 62
+    }
+   },
+   "22": {
+    "tag": "STR",
+    "elts": [
+     "z"
+    ],
+    "coord": {
+     "from": 65,
+     "to": 68
+    }
+   },
+   "23": {
+    "tag": "STR",
+    "elts": [
+     "Z"
+    ],
+    "coord": {
+     "from": 70,
+     "to": 73
+    }
+   },
+   "36": {
+    "tag": "BINDING",
+    "elts": [
+     22,
+     23
+    ]
+   },
+   "37": {
+    "tag": "RECORD",
+    "elts": [
+     36
+    ]
+   },
+   "38": {
+    "tag": "BINDING",
+    "elts": [
+     21,
+     37
+    ]
+   },
+   "39": {
+    "tag": "RECORD",
+    "elts": [
+     38
+    ]
+   },
+   "40": {
+    "tag": "LIST",
+    "elts": [
+     39
+    ]
+   },
+   "41": {
+    "tag": "BINDING",
+    "elts": [
+     20,
+     40
+    ]
+   },
+   "42": {
+    "tag": "BINDING",
+    "elts": [
+     13,
+     14
+    ]
+   },
+   "43": {
+    "tag": "RECORD",
+    "elts": [
+     42
+    ]
+   },
+   "44": {
+    "tag": "BINDING",
+    "elts": [
+     12,
+     43
+    ]
+   },
+   "45": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     9
+    ]
+   },
+   "46": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "47": {
+    "tag": "RECORD",
+    "elts": [
+     46,
+     45,
+     44,
+     41
+    ]
+   },
+   "48": {
+    "tag": "RULES",
+    "elts": [
+     47
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "50": {
+    "tag": "EXPRS",
+    "elts": [
+     48
+    ]
+   },
+   "51": {
+    "tag": "PROG",
+    "elts": [
+     50
+    ]
+   },
+   "root": 51
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "rules": {
+      "a": [
+       "A"
+      ],
+      "b": [
+       "B1",
+       "B2"
+      ],
+      "c": [
+       {
+        "x": "X"
+       }
+      ],
+      "d": [
+       {
+        "y": {
+         "z": "Z"
+        }
+       }
+      ]
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"rules\":{\"a\":[\"A\"],\"b\":[\"B1\",\"B2\"],\"c\":[{\"x\":\"X\"}],\"d\":[{\"y\":{\"z\":\"Z\"}}]}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "rules {\"?\": \"%1\"} words {\"a\": \"A\"}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 25,
+     "to": 28
+    }
+   },
+   "9": {
+    "tag": "STR",
+    "elts": [
+     "A"
+    ],
+    "coord": {
+     "from": 30,
+     "to": 33
+    }
+   },
+   "15": {
+    "tag": "BINDING",
+    "elts": [
+     8,
+     9
+    ]
+   },
+   "16": {
+    "tag": "RECORD",
+    "elts": [
+     15
+    ]
+   },
+   "17": {
+    "tag": "WORDS",
+    "elts": [
+     16
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "19": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "20": {
+    "tag": "RECORD",
+    "elts": [
+     19
+    ]
+   },
+   "21": {
+    "tag": "RULES",
+    "elts": [
+     20
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "23": {
+    "tag": "EXPRS",
+    "elts": [
+     21,
+     17
+    ]
+   },
+   "24": {
+    "tag": "PROG",
+    "elts": [
+     23
+    ]
+   },
+   "root": 24
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "words": {
+      "a": "A"
+     },
+     "rules": {
+      "?": [
+       "%1"
+      ]
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"words\":{\"a\":\"A\"},\"rules\":{\"?\":[\"%1\"]}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "words {\"a\": \"A\"} words {\"b\": \"B\"}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "A"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 15
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 27
+    }
+   },
+   "9": {
+    "tag": "STR",
+    "elts": [
+     "B"
+    ],
+    "coord": {
+     "from": 29,
+     "to": 32
+    }
+   },
+   "15": {
+    "tag": "BINDING",
+    "elts": [
+     8,
+     9
+    ]
+   },
+   "16": {
+    "tag": "RECORD",
+    "elts": [
+     15
+    ]
+   },
+   "17": {
+    "tag": "WORDS",
+    "elts": [
+     16
+    ],
+    "coord": {
+     "from": 17,
+     "to": 22
+    }
+   },
+   "19": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "20": {
+    "tag": "RECORD",
+    "elts": [
+     19
+    ]
+   },
+   "21": {
+    "tag": "WORDS",
+    "elts": [
+     20
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "23": {
+    "tag": "EXPRS",
+    "elts": [
+     21,
+     17
+    ]
+   },
+   "24": {
+    "tag": "PROG",
+    "elts": [
+     23
+    ]
+   },
+   "root": 24
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "words": {
+      "b": "B"
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"words\":{\"b\":\"B\"}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "rhs false parsing-integral-expr false allow-interval true..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "BOOL",
+    "elts": [
+     false
+    ]
+   },
+   "5": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "7": {
+    "tag": "ALLOW_INTERVAL",
+    "elts": [
+     5
+    ],
+    "coord": {
+     "from": 38,
+     "to": 52
+    }
+   },
+   "9": {
+    "tag": "PARSING_INTEGRAL_EXPR",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 10,
+     "to": 31
+    }
+   },
+   "11": {
+    "tag": "RHS",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 3
+    }
+   },
+   "13": {
+    "tag": "EXPRS",
+    "elts": [
+     11,
+     9,
+     7
+    ]
+   },
+   "14": {
+    "tag": "PROG",
+    "elts": [
+     13
+    ]
+   },
+   "root": 14
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "allowInterval": true,
+     "parsingIntegralExpr": false,
+     "RHS": false
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"allowInterval\":true,\"parsingIntegralExpr\":false,\"RHS\":false},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "allow-thousands-separator true set-decimal-separator \",\" set-thousands-separator \".\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "4": {
+    "tag": "STR",
+    "elts": [
+     ","
+    ],
+    "coord": {
+     "from": 53,
+     "to": 56
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "."
+    ],
+    "coord": {
+     "from": 81,
+     "to": 84
+    }
+   },
+   "8": {
+    "tag": "SET_THOUSANDS_SEPARATOR",
+    "elts": [
+     6
+    ],
+    "coord": {
+     "from": 57,
+     "to": 80
+    }
+   },
+   "10": {
+    "tag": "SET_DECIMAL_SEPARATOR",
+    "elts": [
+     4
+    ],
+    "coord": {
+     "from": 31,
+     "to": 52
+    }
+   },
+   "12": {
+    "tag": "ALLOW_THOUSANDS_SEPARATOR",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 25
+    }
+   },
+   "14": {
+    "tag": "EXPRS",
+    "elts": [
+     12,
+     10,
+     8
+    ]
+   },
+   "15": {
+    "tag": "PROG",
+    "elts": [
+     14
+    ]
+   },
+   "root": 15
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "allowThousandsSeparator": true,
+     "setDecimalSeparator": ",",
+     "setThousandsSeparator": "."
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"allowThousandsSeparator\":true,\"setDecimalSeparator\":\",\",\"setThousandsSeparator\":\".\"},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "ignore-text true ignore-coefficient-one true no-parens true end-root false..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "6": {
+    "tag": "BOOL",
+    "elts": [
+     false
+    ]
+   },
+   "8": {
+    "tag": "END_ROOT",
+    "elts": [
+     6
+    ],
+    "coord": {
+     "from": 60,
+     "to": 68
+    }
+   },
+   "10": {
+    "tag": "NO_PARENS",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 45,
+     "to": 54
+    }
+   },
+   "12": {
+    "tag": "IGNORE_COEFFICIENT_ONE",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 17,
+     "to": 39
+    }
+   },
+   "14": {
+    "tag": "IGNORE_TEXT",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 11
+    }
+   },
+   "16": {
+    "tag": "EXPRS",
+    "elts": [
+     14,
+     12,
+     10,
+     8
+    ]
+   },
+   "17": {
+    "tag": "PROG",
+    "elts": [
+     16
+    ]
+   },
+   "root": 17
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "ignoreText": true,
+     "ignoreCoefficientOne": true,
+     "NoParens": true,
+     "EndRoot": false
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"ignoreText\":true,\"ignoreCoefficientOne\":true,\"NoParens\":true,\"EndRoot\":false},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "words {a: \"tag\", \"b\": \"str\", 0: \"num\"}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "TAG",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 8
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "tag"
+    ],
+    "coord": {
+     "from": 10,
+     "to": 15
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 17,
+     "to": 20
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "str"
+    ],
+    "coord": {
+     "from": 22,
+     "to": 27
+    }
+   },
+   "10": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "11": {
+    "tag": "STR",
+    "elts": [
+     "num"
+    ],
+    "coord": {
+     "from": 32,
+     "to": 37
+    }
+   },
+   "17": {
+    "tag": "BINDING",
+    "elts": [
+     10,
+     11
+    ]
+   },
+   "18": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "19": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "20": {
+    "tag": "RECORD",
+    "elts": [
+     19,
+     18,
+     17
+    ]
+   },
+   "21": {
+    "tag": "WORDS",
+    "elts": [
+     20
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "23": {
+    "tag": "EXPRS",
+    "elts": [
+     21
+    ]
+   },
+   "24": {
+    "tag": "PROG",
+    "elts": [
+     23
+    ]
+   },
+   "root": 24
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "words": {
+      "0": "num",
+      "a": "tag",
+      "b": "str"
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"words\":{\"0\":\"num\",\"a\":\"tag\",\"b\":\"str\"}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "rules {\"a\": \"first\", b: \"x\", a: \"second\"}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "first"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 19
+    }
+   },
+   "6": {
+    "tag": "TAG",
+    "elts": [
+     "b"
+    ],
+    "coord": {
+     "from": 21,
+     "to": 22
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 24,
+     "to": 27
+    }
+   },
+   "10": {
+    "tag": "TAG",
+    "elts": [
+     "a"
+    ],
+    "coord": {
+     "from": 29,
+     "to": 30
+    }
+   },
+   "11": {
+    "tag": "STR",
+    "elts": [
+     "second"
+    ],
+    "coord": {
+     "from": 32,
+     "to": 40
+    }
+   },
+   "17": {
+    "tag": "BINDING",
+    "elts": [
+     10,
+     11
+    ]
+   },
+   "18": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "19": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "20": {
+    "tag": "RECORD",
+    "elts": [
+     19,
+     18,
+     17
+    ]
+   },
+   "21": {
+    "tag": "RULES",
+    "elts": [
+     20
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "23": {
+    "tag": "EXPRS",
+    "elts": [
+     21
+    ]
+   },
+   "24": {
+    "tag": "PROG",
+    "elts": [
+     23
+    ]
+   },
+   "root": 24
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "rules": {
+      "a": [
+       "second"
+      ],
+      "b": [
+       "x"
+      ]
+     }
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"rules\":{\"a\":[\"second\"],\"b\":[\"x\"]}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "rules {\"?+?\": \"%1 plus %2\", \"?\": \"%1\"} tests [[\"1+2\" \"1 plus 2\"] [\"1+2\" \"wrong\"] [\"1+2\" \"\"]]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "?+?"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 12
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "%1 plus %2"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 26
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 28,
+     "to": 31
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 33,
+     "to": 37
+    }
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "1+2"
+    ],
+    "coord": {
+     "from": 47,
+     "to": 52
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "1 plus 2"
+    ],
+    "coord": {
+     "from": 53,
+     "to": 63
+    }
+   },
+   "14": {
+    "tag": "LIST",
+    "elts": [
+     12,
+     13
+    ]
+   },
+   "15": {
+    "tag": "STR",
+    "elts": [
+     "1+2"
+    ],
+    "coord": {
+     "from": 66,
+     "to": 71
+    }
+   },
+   "16": {
+    "tag": "STR",
+    "elts": [
+     "wrong"
+    ],
+    "coord": {
+     "from": 72,
+     "to": 79
+    }
+   },
+   "17": {
+    "tag": "LIST",
+    "elts": [
+     15,
+     16
+    ]
+   },
+   "18": {
+    "tag": "STR",
+    "elts": [
+     "1+2"
+    ],
+    "coord": {
+     "from": 82,
+     "to": 87
+    }
+   },
+   "19": {
+    "tag": "STR",
+    "elts": [
+     ""
+    ],
+    "coord": {
+     "from": 88,
+     "to": 90
+    }
+   },
+   "20": {
+    "tag": "LIST",
+    "elts": [
+     18,
+     19
+    ]
+   },
+   "21": {
+    "tag": "LIST",
+    "elts": [
+     14,
+     17,
+     20
+    ]
+   },
+   "23": {
+    "tag": "TESTS",
+    "elts": [
+     21
+    ],
+    "coord": {
+     "from": 39,
+     "to": 44
+    }
+   },
+   "26": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "27": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "28": {
+    "tag": "RECORD",
+    "elts": [
+     27,
+     26
+    ]
+   },
+   "29": {
+    "tag": "RULES",
+    "elts": [
+     28
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "31": {
+    "tag": "EXPRS",
+    "elts": [
+     29,
+     23
+    ]
+   },
+   "32": {
+    "tag": "PROG",
+    "elts": [
+     31
+    ]
+   },
+   "root": 32
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "rules": {
+      "?+?": [
+       "%1 plus %2"
+      ],
+      "?": [
+       "%1"
+      ]
+     }
+    },
+    "tests": [
+     {
+      "score": 1,
+      "source": "1+2",
+      "actual": "1 plus 2",
+      "expected": "1 plus 2"
+     },
+     {
+      "score": -1,
+      "source": "1+2",
+      "actual": "1 plus 2",
+      "expected": "wrong"
+     },
+     {
+      "score": -1,
+      "source": "1+2",
+      "actual": "1 plus 2",
+      "expected": ""
+     }
+    ]
+   },
+   "text": "{\"options\":{\"data\":{},\"rules\":{\"?+?\":[\"%1 plus %2\"],\"?\":[\"%1\"]}},\"tests\":[{\"score\":1,\"source\":\"1+2\",\"actual\":\"1 plus 2\",\"expected\":\"1 plus 2\"},{\"score\":-1,\"source\":\"1+2\",\"actual\":\"1 plus 2\",\"expected\":\"wrong\"},{\"score\":-1,\"source\":\"1+2\",\"actual\":\"1 plus 2\",\"expected\":\"\"}]}"
+  }
+ },
+ {
+  "src": "tests [[\"1+2\" \"1 plus 2\"]] rules {\"?+?\": \"%1 plus %2\", \"?\": \"%1\"}..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "1+2"
+    ],
+    "coord": {
+     "from": 8,
+     "to": 13
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "1 plus 2"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 24
+    }
+   },
+   "4": {
+    "tag": "LIST",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "5": {
+    "tag": "LIST",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "?+?"
+    ],
+    "coord": {
+     "from": 34,
+     "to": 39
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "%1 plus %2"
+    ],
+    "coord": {
+     "from": 41,
+     "to": 53
+    }
+   },
+   "11": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 55,
+     "to": 58
+    }
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 60,
+     "to": 64
+    }
+   },
+   "18": {
+    "tag": "BINDING",
+    "elts": [
+     11,
+     12
+    ]
+   },
+   "19": {
+    "tag": "BINDING",
+    "elts": [
+     7,
+     8
+    ]
+   },
+   "20": {
+    "tag": "RECORD",
+    "elts": [
+     19,
+     18
+    ]
+   },
+   "21": {
+    "tag": "RULES",
+    "elts": [
+     20
+    ],
+    "coord": {
+     "from": 27,
+     "to": 32
+    }
+   },
+   "23": {
+    "tag": "TESTS",
+    "elts": [
+     5
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "25": {
+    "tag": "EXPRS",
+    "elts": [
+     23,
+     21
+    ]
+   },
+   "26": {
+    "tag": "PROG",
+    "elts": [
+     25
+    ]
+   },
+   "root": 26
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "rules": {
+      "?+?": [
+       "%1 plus %2"
+      ],
+      "?": [
+       "%1"
+      ]
+     }
+    },
+    "tests": [
+     {
+      "score": 1,
+      "source": "1+2",
+      "actual": "1 plus 2",
+      "expected": "1 plus 2"
+     }
+    ]
+   },
+   "text": "{\"options\":{\"data\":{},\"rules\":{\"?+?\":[\"%1 plus %2\"],\"?\":[\"%1\"]}},\"tests\":[{\"score\":1,\"source\":\"1+2\",\"actual\":\"1 plus 2\",\"expected\":\"1 plus 2\"}]}"
+  }
+ },
+ {
+  "src": "rules {\"?+?\": \"%1 plus %2\", \"?\": \"%1\"} tests [[\"1+2\" \"  1   plus\n 2 \"]]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "?+?"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 12
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "%1 plus %2"
+    ],
+    "coord": {
+     "from": 14,
+     "to": 26
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 28,
+     "to": 31
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 33,
+     "to": 37
+    }
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "1+2"
+    ],
+    "coord": {
+     "from": 47,
+     "to": 52
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "  1   plus\n 2 "
+    ],
+    "coord": {
+     "from": 53,
+     "to": 69
+    }
+   },
+   "14": {
+    "tag": "LIST",
+    "elts": [
+     12,
+     13
+    ]
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": [
+     14
+    ]
+   },
+   "17": {
+    "tag": "TESTS",
+    "elts": [
+     15
+    ],
+    "coord": {
+     "from": 39,
+     "to": 44
+    }
+   },
+   "20": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "21": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "22": {
+    "tag": "RECORD",
+    "elts": [
+     21,
+     20
+    ]
+   },
+   "23": {
+    "tag": "RULES",
+    "elts": [
+     22
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "25": {
+    "tag": "EXPRS",
+    "elts": [
+     23,
+     17
+    ]
+   },
+   "26": {
+    "tag": "PROG",
+    "elts": [
+     25
+    ]
+   },
+   "root": 26
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "rules": {
+      "?+?": [
+       "%1 plus %2"
+      ],
+      "?": [
+       "%1"
+      ]
+     }
+    },
+    "tests": [
+     {
+      "score": 1,
+      "source": "1+2",
+      "actual": "1 plus 2",
+      "expected": "1 plus 2"
+     }
+    ]
+   },
+   "text": "{\"options\":{\"data\":{},\"rules\":{\"?+?\":[\"%1 plus %2\"],\"?\":[\"%1\"]}},\"tests\":[{\"score\":1,\"source\":\"1+2\",\"actual\":\"1 plus 2\",\"expected\":\"1 plus 2\"}]}"
+  }
+ },
+ {
+  "src": "rules {\"?\": \"%1\"} tests [[\"1\" \"1\"] \"not a case\" [\"\\\\frac{\" \"x\"] []]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "1"
+    ],
+    "coord": {
+     "from": 26,
+     "to": 29
+    }
+   },
+   "9": {
+    "tag": "STR",
+    "elts": [
+     "1"
+    ],
+    "coord": {
+     "from": 30,
+     "to": 33
+    }
+   },
+   "10": {
+    "tag": "LIST",
+    "elts": [
+     8,
+     9
+    ]
+   },
+   "11": {
+    "tag": "STR",
+    "elts": [
+     "not a case"
+    ],
+    "coord": {
+     "from": 35,
+     "to": 47
+    }
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "\\frac{"
+    ],
+    "coord": {
+     "from": 49,
+     "to": 58
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 59,
+     "to": 62
+    }
+   },
+   "14": {
+    "tag": "LIST",
+    "elts": [
+     12,
+     13
+    ]
+   },
+   "15": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "16": {
+    "tag": "LIST",
+    "elts": [
+     10,
+     11,
+     14,
+     15
+    ]
+   },
+   "18": {
+    "tag": "TESTS",
+    "elts": [
+     16
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "21": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "22": {
+    "tag": "RECORD",
+    "elts": [
+     21
+    ]
+   },
+   "23": {
+    "tag": "RULES",
+    "elts": [
+     22
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "25": {
+    "tag": "EXPRS",
+    "elts": [
+     23,
+     18
+    ]
+   },
+   "26": {
+    "tag": "PROG",
+    "elts": [
+     25
+    ]
+   },
+   "root": 26
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "rules": {
+      "?": [
+       "%1"
+      ]
+     }
+    },
+    "tests": [
+     {
+      "score": 1,
+      "source": "1",
+      "actual": "1",
+      "expected": "1"
+     },
+     {
+      "score": -1,
+      "source": "\\frac{",
+      "actual": "",
+      "expected": "x"
+     },
+     {
+      "score": -1,
+      "actual": "None",
+      "expected": ""
+     }
+    ]
+   },
+   "text": "{\"options\":{\"data\":{},\"rules\":{\"?\":[\"%1\"]}},\"tests\":[{\"score\":1,\"source\":\"1\",\"actual\":\"1\",\"expected\":\"1\"},{\"score\":-1,\"source\":\"\\\\frac{\",\"actual\":\"\",\"expected\":\"x\"},{\"score\":-1,\"actual\":\"None\",\"expected\":\"\"}]}"
+  }
+ },
+ {
+  "src": "tests []..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "4": {
+    "tag": "TESTS",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {}
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "tests \"not a list\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "not a list"
+    ],
+    "coord": {
+     "from": 6,
+     "to": 18
+    }
+   },
+   "4": {
+    "tag": "TESTS",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {}
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "rules {\"?\": \"%1\"} tests [[12 \"12\"]]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 10
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 12,
+     "to": 16
+    }
+   },
+   "8": {
+    "tag": "NUM",
+    "elts": [
+     "12"
+    ]
+   },
+   "9": {
+    "tag": "STR",
+    "elts": [
+     "12"
+    ],
+    "coord": {
+     "from": 29,
+     "to": 33
+    }
+   },
+   "10": {
+    "tag": "LIST",
+    "elts": [
+     8,
+     9
+    ]
+   },
+   "11": {
+    "tag": "LIST",
+    "elts": [
+     10
+    ]
+   },
+   "13": {
+    "tag": "TESTS",
+    "elts": [
+     11
+    ],
+    "coord": {
+     "from": 18,
+     "to": 23
+    }
+   },
+   "16": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "17": {
+    "tag": "RECORD",
+    "elts": [
+     16
+    ]
+   },
+   "18": {
+    "tag": "RULES",
+    "elts": [
+     17
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "20": {
+    "tag": "EXPRS",
+    "elts": [
+     18,
+     13
+    ]
+   },
+   "21": {
+    "tag": "PROG",
+    "elts": [
+     20
+    ]
+   },
+   "root": 21
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "rules": {
+      "?": [
+       "%1"
+      ]
+     }
+    },
+    "tests": [
+     {
+      "score": 1,
+      "source": 12,
+      "actual": "12",
+      "expected": "12"
+     }
+    ]
+   },
+   "text": "{\"options\":{\"data\":{},\"rules\":{\"?\":[\"%1\"]}},\"tests\":[{\"score\":1,\"source\":12,\"actual\":\"12\",\"expected\":\"12\"}]}"
+  }
+ },
+ {
+  "src": "words {\"\\\\alpha\": \"alpha\"} rules {\"?+?\": \"%1 and %2\", \"?\": \"%1\"} tests [[\"\\\\alpha+\\\\beta\" \"alpha and \\\\beta\"]]..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "\\alpha"
+    ],
+    "coord": {
+     "from": 7,
+     "to": 16
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "alpha"
+    ],
+    "coord": {
+     "from": 18,
+     "to": 25
+    }
+   },
+   "8": {
+    "tag": "STR",
+    "elts": [
+     "?+?"
+    ],
+    "coord": {
+     "from": 34,
+     "to": 39
+    }
+   },
+   "9": {
+    "tag": "STR",
+    "elts": [
+     "%1 and %2"
+    ],
+    "coord": {
+     "from": 41,
+     "to": 52
+    }
+   },
+   "12": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 54,
+     "to": 57
+    }
+   },
+   "13": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 59,
+     "to": 63
+    }
+   },
+   "18": {
+    "tag": "STR",
+    "elts": [
+     "\\alpha+\\beta"
+    ],
+    "coord": {
+     "from": 73,
+     "to": 89
+    }
+   },
+   "19": {
+    "tag": "STR",
+    "elts": [
+     "alpha and \\beta"
+    ],
+    "coord": {
+     "from": 90,
+     "to": 108
+    }
+   },
+   "20": {
+    "tag": "LIST",
+    "elts": [
+     18,
+     19
+    ]
+   },
+   "21": {
+    "tag": "LIST",
+    "elts": [
+     20
+    ]
+   },
+   "23": {
+    "tag": "TESTS",
+    "elts": [
+     21
+    ],
+    "coord": {
+     "from": 65,
+     "to": 70
+    }
+   },
+   "26": {
+    "tag": "BINDING",
+    "elts": [
+     12,
+     13
+    ]
+   },
+   "27": {
+    "tag": "BINDING",
+    "elts": [
+     8,
+     9
+    ]
+   },
+   "28": {
+    "tag": "RECORD",
+    "elts": [
+     27,
+     26
+    ]
+   },
+   "29": {
+    "tag": "RULES",
+    "elts": [
+     28
+    ],
+    "coord": {
+     "from": 27,
+     "to": 32
+    }
+   },
+   "31": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "32": {
+    "tag": "RECORD",
+    "elts": [
+     31
+    ]
+   },
+   "33": {
+    "tag": "WORDS",
+    "elts": [
+     32
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "35": {
+    "tag": "EXPRS",
+    "elts": [
+     33,
+     29,
+     23
+    ]
+   },
+   "36": {
+    "tag": "PROG",
+    "elts": [
+     35
+    ]
+   },
+   "root": 36
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "words": {
+      "\\alpha": "alpha"
+     },
+     "rules": {
+      "?+?": [
+       "%1 and %2"
+      ],
+      "?": [
+       "%1"
+      ]
+     }
+    },
+    "tests": [
+     {
+      "score": -1,
+      "source": "\\alpha+\\beta",
+      "actual": "alpha and beta",
+      "expected": "alpha and \\beta"
+     }
+    ]
+   },
+   "text": "{\"options\":{\"data\":{},\"words\":{\"\\\\alpha\":\"alpha\"},\"rules\":{\"?+?\":[\"%1 and %2\"],\"?\":[\"%1\"]}},\"tests\":[{\"score\":-1,\"source\":\"\\\\alpha+\\\\beta\",\"actual\":\"alpha and beta\",\"expected\":\"alpha and \\\\beta\"}]}"
+  }
+ },
+ {
+  "src": "42..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "42"
+    ]
+   },
+   "2": {
+    "tag": "EXPRS",
+    "elts": [
+     1
+    ]
+   },
+   "3": {
+    "tag": "PROG",
+    "elts": [
+     2
+    ]
+   },
+   "root": 3
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {}
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "add 1 2..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "2"
+    ]
+   },
+   "6": {
+    "tag": "ADD",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "7": {
+    "tag": "EXPRS",
+    "elts": [
+     6
+    ]
+   },
+   "8": {
+    "tag": "PROG",
+    "elts": [
+     7
+    ]
+   },
+   "root": 8
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {}
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "{x: 1}..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "TAG",
+    "elts": [
+     "x"
+    ],
+    "coord": {
+     "from": 1,
+     "to": 2
+    }
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "1"
+    ]
+   },
+   "8": {
+    "tag": "BINDING",
+    "elts": [
+     1,
+     2
+    ]
+   },
+   "9": {
+    "tag": "RECORD",
+    "elts": [
+     8
+    ]
+   },
+   "10": {
+    "tag": "EXPRS",
+    "elts": [
+     9
+    ]
+   },
+   "11": {
+    "tag": "PROG",
+    "elts": [
+     10
+    ]
+   },
+   "root": 11
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {}
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "translate \"1+2\"..",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "1+2"
+    ],
+    "coord": {
+     "from": 10,
+     "to": 15
+    }
+   },
+   "4": {
+    "tag": "TRANSLATE",
+    "elts": [
+     2
+    ],
+    "coord": {
+     "from": 0,
+     "to": 9
+    }
+   },
+   "6": {
+    "tag": "EXPRS",
+    "elts": [
+     4
+    ]
+   },
+   "7": {
+    "tag": "PROG",
+    "elts": [
+     6
+    ]
+   },
+   "root": 7
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {}
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{}},\"tests\":[]}"
+  }
+ },
+ {
+  "src": "words..",
+  "data": {},
+  "ast": {
+   "3": {
+    "tag": "NUM",
+    "elts": [
+     "5"
+    ]
+   },
+   "4": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "5": {
+    "tag": "STR",
+    "elts": [
+     "Too few arguments for WORDS. Expected 1."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "6": {
+    "tag": "ERROR",
+    "elts": [
+     5,
+     4,
+     3
+    ],
+    "coord": {
+     "from": 0,
+     "to": 5
+    }
+   },
+   "root": 6
+  },
+  "expect": {
+   "errors": [
+    "Too few arguments for WORDS. Expected 1."
+   ]
+  }
+ },
+ {
+  "src": "nope 1..",
+  "data": {},
+  "ast": {
+   "1": {
+    "tag": "NUM",
+    "elts": [
+     "4"
+    ]
+   },
+   "2": {
+    "tag": "NUM",
+    "elts": [
+     "0"
+    ]
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "Undefined reference 'nope'."
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "4": {
+    "tag": "ERROR",
+    "elts": [
+     3,
+     2,
+     1
+    ],
+    "coord": {
+     "from": 0,
+     "to": 4
+    }
+   },
+   "root": 4
+  },
+  "expect": {
+   "errors": [
+    "Undefined reference 'nope'."
+   ]
+  }
+ },
+ {
+  "src": "/*\nLaTeX to LaTeX translator.\n\nThe rule set @graffiticode/translatex ships as src/rules.js, as L0014 source.\n\nIt is a RECONSTRUCTION. The original L120 program lived in the item store\nbehind gc.acx.ac and did not survive; the compiled output did, identically,\nin two places — the shipping src/rules.js and the data.txt inside\nartcompiler-translatex-0.15.0.tgz. src/rules.test.ts compiles this file and\nrequires the result to match that output exactly, key order included, so an\nedit here that changes the rule set fails the build.\n\nRule order is precedence: translatex's match() takes the first pattern that\nmatches, which is why the catch-all \"?\" is last. Do not reorder.\n\nSection headings come from an ancestor of this rule set preserved in\ngithub.com/artcompiler/L120 (tests/*.json). Regenerate with\ntools/gen-latex-rules.mjs.\n\nBackslashes are DOUBLED here and were not in L120: the modern parser reads\n\"\\times\" as TAB + \"imes\". See src/pretty.ts.\n*/\n\nwords {\n  \"\\\\alpha\": \"\\\\alpha\",\n  \"\\\\beta\": \"\\\\beta\",\n  \"\\\\gamma\": \"\\\\gamma\",\n  \"\\\\delta\": \"\\\\delta\",\n  \"\\\\epsilon\": \"\\\\epsilon\",\n  \"\\\\zeta\": \"\\\\zeta\",\n  \"\\\\eta\": \"\\\\eta\",\n  \"\\\\theta\": \"\\\\theta\",\n  \"\\\\iota\": \"\\\\iota\",\n  \"\\\\kappa\": \"\\\\kappa\",\n  \"\\\\lambda\": \"\\\\lambda\",\n  \"\\\\mu\": \"\\\\mu\",\n  \"\\\\nu\": \"\\\\nu\",\n  \"\\\\xi\": \"\\\\xi\",\n  \"\\\\omicron\": \"\\\\omicron\",\n  \"\\\\pi\": \"\\\\pi\",\n  \"\\\\rho\": \"\\\\rho\",\n  \"\\\\sigma\": \"\\\\simga\",\n  \"\\\\tau\": \"\\\\tau\",\n  \"\\\\upsilon\": \"\\\\upsilon\",\n  \"\\\\phi\": \"\\\\phi\",\n  \"\\\\chi\": \"\\\\chi\",\n  \"\\\\psi\": \"\\\\psi\",\n  \"\\\\omega\": \"\\\\omega\",\n  \"\\\\Alpha\": \"\\\\Alpha\",\n  \"\\\\Beta\": \"\\\\Beta\",\n  \"\\\\Gamma\": \"\\\\Gamma\",\n  \"\\\\Delta\": \"\\\\Delta\",\n  \"\\\\Epsilon\": \"\\\\Epsilon\",\n  \"\\\\Zeta\": \"\\\\Zeta\",\n  \"\\\\Eta\": \"\\\\Eta\",\n  \"\\\\Theta\": \"\\\\Theta\",\n  \"\\\\Iota\": \"\\\\Iota\",\n  \"\\\\Kappa\": \"\\\\Kappa\",\n  \"\\\\Lambda\": \"\\\\Lambda\",\n  \"\\\\Mu\": \"\\\\Mu\",\n  \"\\\\Nu\": \"\\\\Nu\",\n  \"\\\\Xi\": \"\\\\Xi\",\n  \"\\\\Omicron\": \"\\\\Omicron\",\n  \"\\\\Pi\": \"\\\\Pi\",\n  \"\\\\Rho\": \"\\\\Rho\",\n  \"\\\\Sigma\": \"\\\\Simga\",\n  \"\\\\Tau\": \"\\\\Tau\",\n  \"\\\\Upsilon\": \"\\\\Upsilon\",\n  \"\\\\Phi\": \"\\\\Phi\",\n  \"\\\\Chi\": \"\\\\Chi\",\n  \"\\\\Psi\": \"\\\\Psi\",\n  \"\\\\Omega\": \"\\\\Omega\",\n  \"\\\\emptyset\": \"\\\\emptyset\"\n}\n\ntypes {\n  \"numberPosNeg\": [\"(\\\\type{numberPosNeg})\", \"\\\\type{number}\", \"-\\\\type{number}\"]\n}\n\nrules {\n  /* Sets */\n  \"\\\\left(?\\\\right]\": \"\\\\left(%1\\\\right]\",\n  \"\\\\left[?\\\\right)\": \"\\\\left[%1\\\\right)\",\n  \"\\\\left[?\\\\right]\": \"\\\\left[%1\\\\right]\",\n  \"\\\\left\\\\{?\\\\right\\\\}\": \"\\\\left\\\\{%1\\\\right\\\\}\",\n  \"?\\\\cup?\": \"%1\\\\cup %2\",\n  \"?\\\\cap?\": \"%1\\\\cap %2\",\n  \"?\\\\backslash?\": \"%1\\\\backslash %2\",\n  \"\\\\mathbb{?}\": \"\\\\mathbb{%2}\",\n\n  /* Logarithm */\n  \"\\\\ln{?}\": \"\\\\ln{%2}\",\n  \"\\\\log{?}\": \"\\\\log{%2}\",\n  \"\\\\log_{?}{?}\": \"\\\\log_{%1}{%2}\",\n\n  /* Matrices */\n  \"\\\\type{matrix}\": { \"\\\\begin{bmatrix}%1\\\\end{bmatrix}\": { \"\\\\type{row}\": \"%*\\\\\\\\\", \"\\\\type{column}\": \"%*&\" } },\n\n  /* Derivative */\n  \"\\\\frac{d}{d?}?\": \"\\\\frac{d}{d%2}{%1}\",\n  \"\\\\frac{d^?}{d?^?}?\": \"\\\\frac{d^%3}{d%2^%3}{%1}\",\n\n  /* Integral */\n  \"\\\\int_?^? ? d?\": \"\\\\int_{%1}^{%2} %3 d%4\",\n  \"\\\\int ? d?\": \"\\\\int %1 d%2\",\n\n  /* Limit */\n  \"\\\\lim_? ?\": {\n    \"\\\\lim_{%1}{%2}\": {\n      \"? \\\\rightarrow ?\": \"%1 \\\\rightarrow %2\",\n      \"? \\\\to ?\": \"%1 \\\\to %2\",\n      \"\\\\left(?,?\\\\right)\": \"\\\\left(%1, %2\\\\right)\"\n    }\n  },\n\n  /* Sum */\n  \"\\\\sum_?^? ?\": \"\\\\sum_{%1}^{%2}{%3}\",\n\n  /* Trig */\n  \"\\\\sin{?}\": \"\\\\sin{%1}\",\n  \"\\\\cos{?}\": \"\\\\cos{%1}\",\n  \"\\\\tan{?}\": \"\\\\tan{%1}\",\n  \"\\\\cot{?}\": \"\\\\cot{%1}\",\n  \"\\\\sec{?}\": \"\\\\sec{%1}\",\n  \"\\\\csc{?}\": \"\\\\csc{%1}\",\n  \"\\\\sin^{-1}?\": \"\\\\sin^{-1}{%1}\",\n  \"\\\\cos^{-1}{?}\": \"\\\\cos^{-1}{%1}\",\n  \"\\\\tan^{-1}{?}\": \"\\\\tan^{-1}{%1}\",\n  \"\\\\cot^{-1}{?}\": \"\\\\cot^{-1}{%1}\",\n  \"\\\\sec^{-1}{?}\": \"\\\\sec^{-1}{%1}\",\n  \"\\\\csc^{-1}{?}\": \"\\\\csc^{-1}{%1}\",\n  \"\\\\sinh{?}\": \"\\\\sinh{%1}\",\n  \"\\\\cosh{?}\": \"\\\\cosh{%1}\",\n  \"\\\\tanh{?}\": \"\\\\tanh{%1}\",\n  \"\\\\coth{?}\": \"\\\\coth{%1}\",\n  \"\\\\sech{?}\": \"\\\\sech{%1}\",\n  \"\\\\csch{?}\": \"\\\\csch{%1}\",\n  \"\\\\sinh^{-1}{?}\": \"\\\\sinh^{-1}{%1}\",\n  \"\\\\cosh^{-1}{?}\": \"\\\\cosh^{-1}{%1}\",\n  \"\\\\tanh^{-1}{?}\": \"\\\\tanh^{-1}{%1}\",\n  \"\\\\coth^{-1}{?}\": \"\\\\coth^{-1}{%1}\",\n  \"\\\\sech^{-1}{?}\": \"\\\\sech^{-1}{%1}\",\n  \"\\\\csch^{-1}{?}\": \"\\\\csch^{-1}{%1}\",\n\n  /* Relational */\n  \"?<?\": \"%1<%2\",\n  \"?\\\\nless?\": \"%1\\\\nless %2\",\n  \"?\\\\le?\": \"%1\\\\le %2\",\n  \"?>?\": \"%1>%2\",\n  \"?\\\\ge?\": \"%1\\\\ge %2\",\n  \"?\\\\ngtr?\": \"%1\\\\ngtr %2\",\n  \"?=?\": \"%1=%2\",\n  \"?\\\\ne?\": \"%1\\\\ne %2\",\n  \"?\\\\approx?\": \"%1\\\\approx %2\",\n\n  /* Various */\n  \"\\\\infty\": \"\\\\infty\",\n  \"\\\\type{mixedNumber}\": \"%1%2\",\n  \"?%\": \"{%1}%\",\n  \"?!\": \"{%1}!\",\n  \"\\\\frac{?}{?}\": \"\\\\frac{%1}{%2}\",\n  \"\\\\abs{?}\": \"\\\\abs{%1}\",\n  \"?\\\\degree\": \"{%1}\\\\degree\",\n  \"\\\\type{fraction}^?\": \"\\\\left(%1\\\\right)^{%2}\",\n  \"{-?}^?\": \"\\\\left(%1\\\\right)^{%2}\",\n  \"?^?\": \"{%1}^{%2}\",\n  \"\\\\sqrt{?}\": \"\\\\sqrt{%1}\",\n  \"\\\\sqrt[?]{?}\": \"\\\\sqrt[%2]{%1}\",\n  \"-?\": \"-%1\",\n  \"?+{-?}\": \"%1+\\\\left(%2\\\\right)\",\n  \"?+?\": \"%1+%2\",\n  \"?-{-?}\": \"%1-\\\\left(%2\\\\right)\",\n  \"?-?\": \"%1-%2\",\n  \"?*{-?}\": \"%1\\\\times\\\\left(%2\\\\right)\",\n  \"?*?\": \"%1\\\\times %2\",\n  \"?\\\\cdot{-?}\": \"%1\\\\cdot\\\\left(%2\\\\right)\",\n  \"?\\\\cdot?\": \"%1\\\\cdot %2\",\n  \"?\\\\div?\": \"%1\\\\div %2\",\n  \"?:?\": \"%1:%2\",\n  \"?_?\": \"%1_{%2}\",\n  \"\\\\left(?\\\\right)\": \"\\\\left(%1\\\\right)\",\n  \"{\\\\type{numberPosNeg}}{\\\\type{numberPosNeg}}\": \"(%1)(%2)\",\n  \"? ?\": \"%1 %2\",\n  \"?,?\": \"%1,%2\",\n  \"?\": \"%1\"\n}\n\nallow-interval true\nparsing-integral-expr false\nrhs false\n\ntests []\n..\n",
+  "data": {},
+  "ast": {
+   "2": {
+    "tag": "STR",
+    "elts": [
+     "\\alpha"
+    ],
+    "coord": {
+     "from": 965,
+     "to": 974
+    }
+   },
+   "3": {
+    "tag": "STR",
+    "elts": [
+     "\\alpha"
+    ],
+    "coord": {
+     "from": 976,
+     "to": 985
+    }
+   },
+   "6": {
+    "tag": "STR",
+    "elts": [
+     "\\beta"
+    ],
+    "coord": {
+     "from": 989,
+     "to": 997
+    }
+   },
+   "7": {
+    "tag": "STR",
+    "elts": [
+     "\\beta"
+    ],
+    "coord": {
+     "from": 999,
+     "to": 1007
+    }
+   },
+   "10": {
+    "tag": "STR",
+    "elts": [
+     "\\gamma"
+    ],
+    "coord": {
+     "from": 1011,
+     "to": 1020
+    }
+   },
+   "11": {
+    "tag": "STR",
+    "elts": [
+     "\\gamma"
+    ],
+    "coord": {
+     "from": 1022,
+     "to": 1031
+    }
+   },
+   "14": {
+    "tag": "STR",
+    "elts": [
+     "\\delta"
+    ],
+    "coord": {
+     "from": 1035,
+     "to": 1044
+    }
+   },
+   "15": {
+    "tag": "STR",
+    "elts": [
+     "\\delta"
+    ],
+    "coord": {
+     "from": 1046,
+     "to": 1055
+    }
+   },
+   "18": {
+    "tag": "STR",
+    "elts": [
+     "\\epsilon"
+    ],
+    "coord": {
+     "from": 1059,
+     "to": 1070
+    }
+   },
+   "19": {
+    "tag": "STR",
+    "elts": [
+     "\\epsilon"
+    ],
+    "coord": {
+     "from": 1072,
+     "to": 1083
+    }
+   },
+   "22": {
+    "tag": "STR",
+    "elts": [
+     "\\zeta"
+    ],
+    "coord": {
+     "from": 1087,
+     "to": 1095
+    }
+   },
+   "23": {
+    "tag": "STR",
+    "elts": [
+     "\\zeta"
+    ],
+    "coord": {
+     "from": 1097,
+     "to": 1105
+    }
+   },
+   "26": {
+    "tag": "STR",
+    "elts": [
+     "\\eta"
+    ],
+    "coord": {
+     "from": 1109,
+     "to": 1116
+    }
+   },
+   "27": {
+    "tag": "STR",
+    "elts": [
+     "\\eta"
+    ],
+    "coord": {
+     "from": 1118,
+     "to": 1125
+    }
+   },
+   "30": {
+    "tag": "STR",
+    "elts": [
+     "\\theta"
+    ],
+    "coord": {
+     "from": 1129,
+     "to": 1138
+    }
+   },
+   "31": {
+    "tag": "STR",
+    "elts": [
+     "\\theta"
+    ],
+    "coord": {
+     "from": 1140,
+     "to": 1149
+    }
+   },
+   "34": {
+    "tag": "STR",
+    "elts": [
+     "\\iota"
+    ],
+    "coord": {
+     "from": 1153,
+     "to": 1161
+    }
+   },
+   "35": {
+    "tag": "STR",
+    "elts": [
+     "\\iota"
+    ],
+    "coord": {
+     "from": 1163,
+     "to": 1171
+    }
+   },
+   "38": {
+    "tag": "STR",
+    "elts": [
+     "\\kappa"
+    ],
+    "coord": {
+     "from": 1175,
+     "to": 1184
+    }
+   },
+   "39": {
+    "tag": "STR",
+    "elts": [
+     "\\kappa"
+    ],
+    "coord": {
+     "from": 1186,
+     "to": 1195
+    }
+   },
+   "42": {
+    "tag": "STR",
+    "elts": [
+     "\\lambda"
+    ],
+    "coord": {
+     "from": 1199,
+     "to": 1209
+    }
+   },
+   "43": {
+    "tag": "STR",
+    "elts": [
+     "\\lambda"
+    ],
+    "coord": {
+     "from": 1211,
+     "to": 1221
+    }
+   },
+   "46": {
+    "tag": "STR",
+    "elts": [
+     "\\mu"
+    ],
+    "coord": {
+     "from": 1225,
+     "to": 1231
+    }
+   },
+   "47": {
+    "tag": "STR",
+    "elts": [
+     "\\mu"
+    ],
+    "coord": {
+     "from": 1233,
+     "to": 1239
+    }
+   },
+   "50": {
+    "tag": "STR",
+    "elts": [
+     "\\nu"
+    ],
+    "coord": {
+     "from": 1243,
+     "to": 1249
+    }
+   },
+   "51": {
+    "tag": "STR",
+    "elts": [
+     "\\nu"
+    ],
+    "coord": {
+     "from": 1251,
+     "to": 1257
+    }
+   },
+   "54": {
+    "tag": "STR",
+    "elts": [
+     "\\xi"
+    ],
+    "coord": {
+     "from": 1261,
+     "to": 1267
+    }
+   },
+   "55": {
+    "tag": "STR",
+    "elts": [
+     "\\xi"
+    ],
+    "coord": {
+     "from": 1269,
+     "to": 1275
+    }
+   },
+   "58": {
+    "tag": "STR",
+    "elts": [
+     "\\omicron"
+    ],
+    "coord": {
+     "from": 1279,
+     "to": 1290
+    }
+   },
+   "59": {
+    "tag": "STR",
+    "elts": [
+     "\\omicron"
+    ],
+    "coord": {
+     "from": 1292,
+     "to": 1303
+    }
+   },
+   "62": {
+    "tag": "STR",
+    "elts": [
+     "\\pi"
+    ],
+    "coord": {
+     "from": 1307,
+     "to": 1313
+    }
+   },
+   "63": {
+    "tag": "STR",
+    "elts": [
+     "\\pi"
+    ],
+    "coord": {
+     "from": 1315,
+     "to": 1321
+    }
+   },
+   "66": {
+    "tag": "STR",
+    "elts": [
+     "\\rho"
+    ],
+    "coord": {
+     "from": 1325,
+     "to": 1332
+    }
+   },
+   "67": {
+    "tag": "STR",
+    "elts": [
+     "\\rho"
+    ],
+    "coord": {
+     "from": 1334,
+     "to": 1341
+    }
+   },
+   "70": {
+    "tag": "STR",
+    "elts": [
+     "\\sigma"
+    ],
+    "coord": {
+     "from": 1345,
+     "to": 1354
+    }
+   },
+   "71": {
+    "tag": "STR",
+    "elts": [
+     "\\simga"
+    ],
+    "coord": {
+     "from": 1356,
+     "to": 1365
+    }
+   },
+   "74": {
+    "tag": "STR",
+    "elts": [
+     "\\tau"
+    ],
+    "coord": {
+     "from": 1369,
+     "to": 1376
+    }
+   },
+   "75": {
+    "tag": "STR",
+    "elts": [
+     "\\tau"
+    ],
+    "coord": {
+     "from": 1378,
+     "to": 1385
+    }
+   },
+   "78": {
+    "tag": "STR",
+    "elts": [
+     "\\upsilon"
+    ],
+    "coord": {
+     "from": 1389,
+     "to": 1400
+    }
+   },
+   "79": {
+    "tag": "STR",
+    "elts": [
+     "\\upsilon"
+    ],
+    "coord": {
+     "from": 1402,
+     "to": 1413
+    }
+   },
+   "82": {
+    "tag": "STR",
+    "elts": [
+     "\\phi"
+    ],
+    "coord": {
+     "from": 1417,
+     "to": 1424
+    }
+   },
+   "83": {
+    "tag": "STR",
+    "elts": [
+     "\\phi"
+    ],
+    "coord": {
+     "from": 1426,
+     "to": 1433
+    }
+   },
+   "86": {
+    "tag": "STR",
+    "elts": [
+     "\\chi"
+    ],
+    "coord": {
+     "from": 1437,
+     "to": 1444
+    }
+   },
+   "87": {
+    "tag": "STR",
+    "elts": [
+     "\\chi"
+    ],
+    "coord": {
+     "from": 1446,
+     "to": 1453
+    }
+   },
+   "90": {
+    "tag": "STR",
+    "elts": [
+     "\\psi"
+    ],
+    "coord": {
+     "from": 1457,
+     "to": 1464
+    }
+   },
+   "91": {
+    "tag": "STR",
+    "elts": [
+     "\\psi"
+    ],
+    "coord": {
+     "from": 1466,
+     "to": 1473
+    }
+   },
+   "94": {
+    "tag": "STR",
+    "elts": [
+     "\\omega"
+    ],
+    "coord": {
+     "from": 1477,
+     "to": 1486
+    }
+   },
+   "95": {
+    "tag": "STR",
+    "elts": [
+     "\\omega"
+    ],
+    "coord": {
+     "from": 1488,
+     "to": 1497
+    }
+   },
+   "98": {
+    "tag": "STR",
+    "elts": [
+     "\\Alpha"
+    ],
+    "coord": {
+     "from": 1501,
+     "to": 1510
+    }
+   },
+   "99": {
+    "tag": "STR",
+    "elts": [
+     "\\Alpha"
+    ],
+    "coord": {
+     "from": 1512,
+     "to": 1521
+    }
+   },
+   "102": {
+    "tag": "STR",
+    "elts": [
+     "\\Beta"
+    ],
+    "coord": {
+     "from": 1525,
+     "to": 1533
+    }
+   },
+   "103": {
+    "tag": "STR",
+    "elts": [
+     "\\Beta"
+    ],
+    "coord": {
+     "from": 1535,
+     "to": 1543
+    }
+   },
+   "106": {
+    "tag": "STR",
+    "elts": [
+     "\\Gamma"
+    ],
+    "coord": {
+     "from": 1547,
+     "to": 1556
+    }
+   },
+   "107": {
+    "tag": "STR",
+    "elts": [
+     "\\Gamma"
+    ],
+    "coord": {
+     "from": 1558,
+     "to": 1567
+    }
+   },
+   "110": {
+    "tag": "STR",
+    "elts": [
+     "\\Delta"
+    ],
+    "coord": {
+     "from": 1571,
+     "to": 1580
+    }
+   },
+   "111": {
+    "tag": "STR",
+    "elts": [
+     "\\Delta"
+    ],
+    "coord": {
+     "from": 1582,
+     "to": 1591
+    }
+   },
+   "114": {
+    "tag": "STR",
+    "elts": [
+     "\\Epsilon"
+    ],
+    "coord": {
+     "from": 1595,
+     "to": 1606
+    }
+   },
+   "115": {
+    "tag": "STR",
+    "elts": [
+     "\\Epsilon"
+    ],
+    "coord": {
+     "from": 1608,
+     "to": 1619
+    }
+   },
+   "118": {
+    "tag": "STR",
+    "elts": [
+     "\\Zeta"
+    ],
+    "coord": {
+     "from": 1623,
+     "to": 1631
+    }
+   },
+   "119": {
+    "tag": "STR",
+    "elts": [
+     "\\Zeta"
+    ],
+    "coord": {
+     "from": 1633,
+     "to": 1641
+    }
+   },
+   "122": {
+    "tag": "STR",
+    "elts": [
+     "\\Eta"
+    ],
+    "coord": {
+     "from": 1645,
+     "to": 1652
+    }
+   },
+   "123": {
+    "tag": "STR",
+    "elts": [
+     "\\Eta"
+    ],
+    "coord": {
+     "from": 1654,
+     "to": 1661
+    }
+   },
+   "126": {
+    "tag": "STR",
+    "elts": [
+     "\\Theta"
+    ],
+    "coord": {
+     "from": 1665,
+     "to": 1674
+    }
+   },
+   "127": {
+    "tag": "STR",
+    "elts": [
+     "\\Theta"
+    ],
+    "coord": {
+     "from": 1676,
+     "to": 1685
+    }
+   },
+   "130": {
+    "tag": "STR",
+    "elts": [
+     "\\Iota"
+    ],
+    "coord": {
+     "from": 1689,
+     "to": 1697
+    }
+   },
+   "131": {
+    "tag": "STR",
+    "elts": [
+     "\\Iota"
+    ],
+    "coord": {
+     "from": 1699,
+     "to": 1707
+    }
+   },
+   "134": {
+    "tag": "STR",
+    "elts": [
+     "\\Kappa"
+    ],
+    "coord": {
+     "from": 1711,
+     "to": 1720
+    }
+   },
+   "135": {
+    "tag": "STR",
+    "elts": [
+     "\\Kappa"
+    ],
+    "coord": {
+     "from": 1722,
+     "to": 1731
+    }
+   },
+   "138": {
+    "tag": "STR",
+    "elts": [
+     "\\Lambda"
+    ],
+    "coord": {
+     "from": 1735,
+     "to": 1745
+    }
+   },
+   "139": {
+    "tag": "STR",
+    "elts": [
+     "\\Lambda"
+    ],
+    "coord": {
+     "from": 1747,
+     "to": 1757
+    }
+   },
+   "142": {
+    "tag": "STR",
+    "elts": [
+     "\\Mu"
+    ],
+    "coord": {
+     "from": 1761,
+     "to": 1767
+    }
+   },
+   "143": {
+    "tag": "STR",
+    "elts": [
+     "\\Mu"
+    ],
+    "coord": {
+     "from": 1769,
+     "to": 1775
+    }
+   },
+   "146": {
+    "tag": "STR",
+    "elts": [
+     "\\Nu"
+    ],
+    "coord": {
+     "from": 1779,
+     "to": 1785
+    }
+   },
+   "147": {
+    "tag": "STR",
+    "elts": [
+     "\\Nu"
+    ],
+    "coord": {
+     "from": 1787,
+     "to": 1793
+    }
+   },
+   "150": {
+    "tag": "STR",
+    "elts": [
+     "\\Xi"
+    ],
+    "coord": {
+     "from": 1797,
+     "to": 1803
+    }
+   },
+   "151": {
+    "tag": "STR",
+    "elts": [
+     "\\Xi"
+    ],
+    "coord": {
+     "from": 1805,
+     "to": 1811
+    }
+   },
+   "154": {
+    "tag": "STR",
+    "elts": [
+     "\\Omicron"
+    ],
+    "coord": {
+     "from": 1815,
+     "to": 1826
+    }
+   },
+   "155": {
+    "tag": "STR",
+    "elts": [
+     "\\Omicron"
+    ],
+    "coord": {
+     "from": 1828,
+     "to": 1839
+    }
+   },
+   "158": {
+    "tag": "STR",
+    "elts": [
+     "\\Pi"
+    ],
+    "coord": {
+     "from": 1843,
+     "to": 1849
+    }
+   },
+   "159": {
+    "tag": "STR",
+    "elts": [
+     "\\Pi"
+    ],
+    "coord": {
+     "from": 1851,
+     "to": 1857
+    }
+   },
+   "162": {
+    "tag": "STR",
+    "elts": [
+     "\\Rho"
+    ],
+    "coord": {
+     "from": 1861,
+     "to": 1868
+    }
+   },
+   "163": {
+    "tag": "STR",
+    "elts": [
+     "\\Rho"
+    ],
+    "coord": {
+     "from": 1870,
+     "to": 1877
+    }
+   },
+   "166": {
+    "tag": "STR",
+    "elts": [
+     "\\Sigma"
+    ],
+    "coord": {
+     "from": 1881,
+     "to": 1890
+    }
+   },
+   "167": {
+    "tag": "STR",
+    "elts": [
+     "\\Simga"
+    ],
+    "coord": {
+     "from": 1892,
+     "to": 1901
+    }
+   },
+   "170": {
+    "tag": "STR",
+    "elts": [
+     "\\Tau"
+    ],
+    "coord": {
+     "from": 1905,
+     "to": 1912
+    }
+   },
+   "171": {
+    "tag": "STR",
+    "elts": [
+     "\\Tau"
+    ],
+    "coord": {
+     "from": 1914,
+     "to": 1921
+    }
+   },
+   "174": {
+    "tag": "STR",
+    "elts": [
+     "\\Upsilon"
+    ],
+    "coord": {
+     "from": 1925,
+     "to": 1936
+    }
+   },
+   "175": {
+    "tag": "STR",
+    "elts": [
+     "\\Upsilon"
+    ],
+    "coord": {
+     "from": 1938,
+     "to": 1949
+    }
+   },
+   "178": {
+    "tag": "STR",
+    "elts": [
+     "\\Phi"
+    ],
+    "coord": {
+     "from": 1953,
+     "to": 1960
+    }
+   },
+   "179": {
+    "tag": "STR",
+    "elts": [
+     "\\Phi"
+    ],
+    "coord": {
+     "from": 1962,
+     "to": 1969
+    }
+   },
+   "182": {
+    "tag": "STR",
+    "elts": [
+     "\\Chi"
+    ],
+    "coord": {
+     "from": 1973,
+     "to": 1980
+    }
+   },
+   "183": {
+    "tag": "STR",
+    "elts": [
+     "\\Chi"
+    ],
+    "coord": {
+     "from": 1982,
+     "to": 1989
+    }
+   },
+   "186": {
+    "tag": "STR",
+    "elts": [
+     "\\Psi"
+    ],
+    "coord": {
+     "from": 1993,
+     "to": 2000
+    }
+   },
+   "187": {
+    "tag": "STR",
+    "elts": [
+     "\\Psi"
+    ],
+    "coord": {
+     "from": 2002,
+     "to": 2009
+    }
+   },
+   "190": {
+    "tag": "STR",
+    "elts": [
+     "\\Omega"
+    ],
+    "coord": {
+     "from": 2013,
+     "to": 2022
+    }
+   },
+   "191": {
+    "tag": "STR",
+    "elts": [
+     "\\Omega"
+    ],
+    "coord": {
+     "from": 2024,
+     "to": 2033
+    }
+   },
+   "194": {
+    "tag": "STR",
+    "elts": [
+     "\\emptyset"
+    ],
+    "coord": {
+     "from": 2037,
+     "to": 2049
+    }
+   },
+   "195": {
+    "tag": "STR",
+    "elts": [
+     "\\emptyset"
+    ],
+    "coord": {
+     "from": 2051,
+     "to": 2063
+    }
+   },
+   "200": {
+    "tag": "STR",
+    "elts": [
+     "numberPosNeg"
+    ],
+    "coord": {
+     "from": 2077,
+     "to": 2091
+    }
+   },
+   "201": {
+    "tag": "STR",
+    "elts": [
+     "(\\type{numberPosNeg})"
+    ],
+    "coord": {
+     "from": 2094,
+     "to": 2118
+    }
+   },
+   "202": {
+    "tag": "STR",
+    "elts": [
+     "\\type{number}"
+    ],
+    "coord": {
+     "from": 2120,
+     "to": 2136
+    }
+   },
+   "203": {
+    "tag": "STR",
+    "elts": [
+     "-\\type{number}"
+    ],
+    "coord": {
+     "from": 2138,
+     "to": 2155
+    }
+   },
+   "204": {
+    "tag": "LIST",
+    "elts": [
+     201,
+     202,
+     203
+    ]
+   },
+   "209": {
+    "tag": "STR",
+    "elts": [
+     "\\left(?\\right]"
+    ],
+    "coord": {
+     "from": 2170,
+     "to": 2201
+    }
+   },
+   "210": {
+    "tag": "STR",
+    "elts": [
+     "\\left(%1\\right]"
+    ],
+    "coord": {
+     "from": 2203,
+     "to": 2222
+    }
+   },
+   "213": {
+    "tag": "STR",
+    "elts": [
+     "\\left[?\\right)"
+    ],
+    "coord": {
+     "from": 2226,
+     "to": 2244
+    }
+   },
+   "214": {
+    "tag": "STR",
+    "elts": [
+     "\\left[%1\\right)"
+    ],
+    "coord": {
+     "from": 2246,
+     "to": 2265
+    }
+   },
+   "217": {
+    "tag": "STR",
+    "elts": [
+     "\\left[?\\right]"
+    ],
+    "coord": {
+     "from": 2269,
+     "to": 2287
+    }
+   },
+   "218": {
+    "tag": "STR",
+    "elts": [
+     "\\left[%1\\right]"
+    ],
+    "coord": {
+     "from": 2289,
+     "to": 2308
+    }
+   },
+   "221": {
+    "tag": "STR",
+    "elts": [
+     "\\left\\{?\\right\\}"
+    ],
+    "coord": {
+     "from": 2312,
+     "to": 2334
+    }
+   },
+   "222": {
+    "tag": "STR",
+    "elts": [
+     "\\left\\{%1\\right\\}"
+    ],
+    "coord": {
+     "from": 2336,
+     "to": 2359
+    }
+   },
+   "225": {
+    "tag": "STR",
+    "elts": [
+     "?\\cup?"
+    ],
+    "coord": {
+     "from": 2363,
+     "to": 2372
+    }
+   },
+   "226": {
+    "tag": "STR",
+    "elts": [
+     "%1\\cup %2"
+    ],
+    "coord": {
+     "from": 2374,
+     "to": 2386
+    }
+   },
+   "229": {
+    "tag": "STR",
+    "elts": [
+     "?\\cap?"
+    ],
+    "coord": {
+     "from": 2390,
+     "to": 2399
+    }
+   },
+   "230": {
+    "tag": "STR",
+    "elts": [
+     "%1\\cap %2"
+    ],
+    "coord": {
+     "from": 2401,
+     "to": 2413
+    }
+   },
+   "233": {
+    "tag": "STR",
+    "elts": [
+     "?\\backslash?"
+    ],
+    "coord": {
+     "from": 2417,
+     "to": 2432
+    }
+   },
+   "234": {
+    "tag": "STR",
+    "elts": [
+     "%1\\backslash %2"
+    ],
+    "coord": {
+     "from": 2434,
+     "to": 2452
+    }
+   },
+   "237": {
+    "tag": "STR",
+    "elts": [
+     "\\mathbb{?}"
+    ],
+    "coord": {
+     "from": 2456,
+     "to": 2469
+    }
+   },
+   "238": {
+    "tag": "STR",
+    "elts": [
+     "\\mathbb{%2}"
+    ],
+    "coord": {
+     "from": 2471,
+     "to": 2485
+    }
+   },
+   "241": {
+    "tag": "STR",
+    "elts": [
+     "\\ln{?}"
+    ],
+    "coord": {
+     "from": 2490,
+     "to": 2517
+    }
+   },
+   "242": {
+    "tag": "STR",
+    "elts": [
+     "\\ln{%2}"
+    ],
+    "coord": {
+     "from": 2519,
+     "to": 2529
+    }
+   },
+   "245": {
+    "tag": "STR",
+    "elts": [
+     "\\log{?}"
+    ],
+    "coord": {
+     "from": 2533,
+     "to": 2543
+    }
+   },
+   "246": {
+    "tag": "STR",
+    "elts": [
+     "\\log{%2}"
+    ],
+    "coord": {
+     "from": 2545,
+     "to": 2556
+    }
+   },
+   "249": {
+    "tag": "STR",
+    "elts": [
+     "\\log_{?}{?}"
+    ],
+    "coord": {
+     "from": 2560,
+     "to": 2574
+    }
+   },
+   "250": {
+    "tag": "STR",
+    "elts": [
+     "\\log_{%1}{%2}"
+    ],
+    "coord": {
+     "from": 2576,
+     "to": 2592
+    }
+   },
+   "253": {
+    "tag": "STR",
+    "elts": [
+     "\\type{matrix}"
+    ],
+    "coord": {
+     "from": 2597,
+     "to": 2630
+    }
+   },
+   "254": {
+    "tag": "STR",
+    "elts": [
+     "\\begin{bmatrix}%1\\end{bmatrix}"
+    ],
+    "coord": {
+     "from": 2634,
+     "to": 2668
+    }
+   },
+   "255": {
+    "tag": "STR",
+    "elts": [
+     "\\type{row}"
+    ],
+    "coord": {
+     "from": 2672,
+     "to": 2685
+    }
+   },
+   "256": {
+    "tag": "STR",
+    "elts": [
+     "%*\\\\"
+    ],
+    "coord": {
+     "from": 2687,
+     "to": 2695
+    }
+   },
+   "259": {
+    "tag": "STR",
+    "elts": [
+     "\\type{column}"
+    ],
+    "coord": {
+     "from": 2697,
+     "to": 2713
+    }
+   },
+   "260": {
+    "tag": "STR",
+    "elts": [
+     "%*&"
+    ],
+    "coord": {
+     "from": 2715,
+     "to": 2720
+    }
+   },
+   "269": {
+    "tag": "STR",
+    "elts": [
+     "\\frac{d}{d?}?"
+    ],
+    "coord": {
+     "from": 2729,
+     "to": 2764
+    }
+   },
+   "270": {
+    "tag": "STR",
+    "elts": [
+     "\\frac{d}{d%2}{%1}"
+    ],
+    "coord": {
+     "from": 2766,
+     "to": 2786
+    }
+   },
+   "273": {
+    "tag": "STR",
+    "elts": [
+     "\\frac{d^?}{d?^?}?"
+    ],
+    "coord": {
+     "from": 2790,
+     "to": 2810
+    }
+   },
+   "274": {
+    "tag": "STR",
+    "elts": [
+     "\\frac{d^%3}{d%2^%3}{%1}"
+    ],
+    "coord": {
+     "from": 2812,
+     "to": 2838
+    }
+   },
+   "277": {
+    "tag": "STR",
+    "elts": [
+     "\\int_?^? ? d?"
+    ],
+    "coord": {
+     "from": 2843,
+     "to": 2876
+    }
+   },
+   "278": {
+    "tag": "STR",
+    "elts": [
+     "\\int_{%1}^{%2} %3 d%4"
+    ],
+    "coord": {
+     "from": 2878,
+     "to": 2902
+    }
+   },
+   "281": {
+    "tag": "STR",
+    "elts": [
+     "\\int ? d?"
+    ],
+    "coord": {
+     "from": 2906,
+     "to": 2918
+    }
+   },
+   "282": {
+    "tag": "STR",
+    "elts": [
+     "\\int %1 d%2"
+    ],
+    "coord": {
+     "from": 2920,
+     "to": 2934
+    }
+   },
+   "285": {
+    "tag": "STR",
+    "elts": [
+     "\\lim_? ?"
+    ],
+    "coord": {
+     "from": 2939,
+     "to": 2964
+    }
+   },
+   "286": {
+    "tag": "STR",
+    "elts": [
+     "\\lim_{%1}{%2}"
+    ],
+    "coord": {
+     "from": 2972,
+     "to": 2988
+    }
+   },
+   "287": {
+    "tag": "STR",
+    "elts": [
+     "? \\rightarrow ?"
+    ],
+    "coord": {
+     "from": 2998,
+     "to": 3016
+    }
+   },
+   "288": {
+    "tag": "STR",
+    "elts": [
+     "%1 \\rightarrow %2"
+    ],
+    "coord": {
+     "from": 3018,
+     "to": 3038
+    }
+   },
+   "291": {
+    "tag": "STR",
+    "elts": [
+     "? \\to ?"
+    ],
+    "coord": {
+     "from": 3046,
+     "to": 3056
+    }
+   },
+   "292": {
+    "tag": "STR",
+    "elts": [
+     "%1 \\to %2"
+    ],
+    "coord": {
+     "from": 3058,
+     "to": 3070
+    }
+   },
+   "295": {
+    "tag": "STR",
+    "elts": [
+     "\\left(?,?\\right)"
+    ],
+    "coord": {
+     "from": 3078,
+     "to": 3098
+    }
+   },
+   "296": {
+    "tag": "STR",
+    "elts": [
+     "\\left(%1, %2\\right)"
+    ],
+    "coord": {
+     "from": 3100,
+     "to": 3123
+    }
+   },
+   "305": {
+    "tag": "STR",
+    "elts": [
+     "\\sum_?^? ?"
+    ],
+    "coord": {
+     "from": 3138,
+     "to": 3163
+    }
+   },
+   "306": {
+    "tag": "STR",
+    "elts": [
+     "\\sum_{%1}^{%2}{%3}"
+    ],
+    "coord": {
+     "from": 3165,
+     "to": 3186
+    }
+   },
+   "309": {
+    "tag": "STR",
+    "elts": [
+     "\\sin{?}"
+    ],
+    "coord": {
+     "from": 3191,
+     "to": 3214
+    }
+   },
+   "310": {
+    "tag": "STR",
+    "elts": [
+     "\\sin{%1}"
+    ],
+    "coord": {
+     "from": 3216,
+     "to": 3227
+    }
+   },
+   "313": {
+    "tag": "STR",
+    "elts": [
+     "\\cos{?}"
+    ],
+    "coord": {
+     "from": 3231,
+     "to": 3241
+    }
+   },
+   "314": {
+    "tag": "STR",
+    "elts": [
+     "\\cos{%1}"
+    ],
+    "coord": {
+     "from": 3243,
+     "to": 3254
+    }
+   },
+   "317": {
+    "tag": "STR",
+    "elts": [
+     "\\tan{?}"
+    ],
+    "coord": {
+     "from": 3258,
+     "to": 3268
+    }
+   },
+   "318": {
+    "tag": "STR",
+    "elts": [
+     "\\tan{%1}"
+    ],
+    "coord": {
+     "from": 3270,
+     "to": 3281
+    }
+   },
+   "321": {
+    "tag": "STR",
+    "elts": [
+     "\\cot{?}"
+    ],
+    "coord": {
+     "from": 3285,
+     "to": 3295
+    }
+   },
+   "322": {
+    "tag": "STR",
+    "elts": [
+     "\\cot{%1}"
+    ],
+    "coord": {
+     "from": 3297,
+     "to": 3308
+    }
+   },
+   "325": {
+    "tag": "STR",
+    "elts": [
+     "\\sec{?}"
+    ],
+    "coord": {
+     "from": 3312,
+     "to": 3322
+    }
+   },
+   "326": {
+    "tag": "STR",
+    "elts": [
+     "\\sec{%1}"
+    ],
+    "coord": {
+     "from": 3324,
+     "to": 3335
+    }
+   },
+   "329": {
+    "tag": "STR",
+    "elts": [
+     "\\csc{?}"
+    ],
+    "coord": {
+     "from": 3339,
+     "to": 3349
+    }
+   },
+   "330": {
+    "tag": "STR",
+    "elts": [
+     "\\csc{%1}"
+    ],
+    "coord": {
+     "from": 3351,
+     "to": 3362
+    }
+   },
+   "333": {
+    "tag": "STR",
+    "elts": [
+     "\\sin^{-1}?"
+    ],
+    "coord": {
+     "from": 3366,
+     "to": 3379
+    }
+   },
+   "334": {
+    "tag": "STR",
+    "elts": [
+     "\\sin^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3381,
+     "to": 3397
+    }
+   },
+   "337": {
+    "tag": "STR",
+    "elts": [
+     "\\cos^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3401,
+     "to": 3416
+    }
+   },
+   "338": {
+    "tag": "STR",
+    "elts": [
+     "\\cos^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3418,
+     "to": 3434
+    }
+   },
+   "341": {
+    "tag": "STR",
+    "elts": [
+     "\\tan^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3438,
+     "to": 3453
+    }
+   },
+   "342": {
+    "tag": "STR",
+    "elts": [
+     "\\tan^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3455,
+     "to": 3471
+    }
+   },
+   "345": {
+    "tag": "STR",
+    "elts": [
+     "\\cot^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3475,
+     "to": 3490
+    }
+   },
+   "346": {
+    "tag": "STR",
+    "elts": [
+     "\\cot^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3492,
+     "to": 3508
+    }
+   },
+   "349": {
+    "tag": "STR",
+    "elts": [
+     "\\sec^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3512,
+     "to": 3527
+    }
+   },
+   "350": {
+    "tag": "STR",
+    "elts": [
+     "\\sec^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3529,
+     "to": 3545
+    }
+   },
+   "353": {
+    "tag": "STR",
+    "elts": [
+     "\\csc^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3549,
+     "to": 3564
+    }
+   },
+   "354": {
+    "tag": "STR",
+    "elts": [
+     "\\csc^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3566,
+     "to": 3582
+    }
+   },
+   "357": {
+    "tag": "STR",
+    "elts": [
+     "\\sinh{?}"
+    ],
+    "coord": {
+     "from": 3586,
+     "to": 3597
+    }
+   },
+   "358": {
+    "tag": "STR",
+    "elts": [
+     "\\sinh{%1}"
+    ],
+    "coord": {
+     "from": 3599,
+     "to": 3611
+    }
+   },
+   "361": {
+    "tag": "STR",
+    "elts": [
+     "\\cosh{?}"
+    ],
+    "coord": {
+     "from": 3615,
+     "to": 3626
+    }
+   },
+   "362": {
+    "tag": "STR",
+    "elts": [
+     "\\cosh{%1}"
+    ],
+    "coord": {
+     "from": 3628,
+     "to": 3640
+    }
+   },
+   "365": {
+    "tag": "STR",
+    "elts": [
+     "\\tanh{?}"
+    ],
+    "coord": {
+     "from": 3644,
+     "to": 3655
+    }
+   },
+   "366": {
+    "tag": "STR",
+    "elts": [
+     "\\tanh{%1}"
+    ],
+    "coord": {
+     "from": 3657,
+     "to": 3669
+    }
+   },
+   "369": {
+    "tag": "STR",
+    "elts": [
+     "\\coth{?}"
+    ],
+    "coord": {
+     "from": 3673,
+     "to": 3684
+    }
+   },
+   "370": {
+    "tag": "STR",
+    "elts": [
+     "\\coth{%1}"
+    ],
+    "coord": {
+     "from": 3686,
+     "to": 3698
+    }
+   },
+   "373": {
+    "tag": "STR",
+    "elts": [
+     "\\sech{?}"
+    ],
+    "coord": {
+     "from": 3702,
+     "to": 3713
+    }
+   },
+   "374": {
+    "tag": "STR",
+    "elts": [
+     "\\sech{%1}"
+    ],
+    "coord": {
+     "from": 3715,
+     "to": 3727
+    }
+   },
+   "377": {
+    "tag": "STR",
+    "elts": [
+     "\\csch{?}"
+    ],
+    "coord": {
+     "from": 3731,
+     "to": 3742
+    }
+   },
+   "378": {
+    "tag": "STR",
+    "elts": [
+     "\\csch{%1}"
+    ],
+    "coord": {
+     "from": 3744,
+     "to": 3756
+    }
+   },
+   "381": {
+    "tag": "STR",
+    "elts": [
+     "\\sinh^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3760,
+     "to": 3776
+    }
+   },
+   "382": {
+    "tag": "STR",
+    "elts": [
+     "\\sinh^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3778,
+     "to": 3795
+    }
+   },
+   "385": {
+    "tag": "STR",
+    "elts": [
+     "\\cosh^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3799,
+     "to": 3815
+    }
+   },
+   "386": {
+    "tag": "STR",
+    "elts": [
+     "\\cosh^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3817,
+     "to": 3834
+    }
+   },
+   "389": {
+    "tag": "STR",
+    "elts": [
+     "\\tanh^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3838,
+     "to": 3854
+    }
+   },
+   "390": {
+    "tag": "STR",
+    "elts": [
+     "\\tanh^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3856,
+     "to": 3873
+    }
+   },
+   "393": {
+    "tag": "STR",
+    "elts": [
+     "\\coth^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3877,
+     "to": 3893
+    }
+   },
+   "394": {
+    "tag": "STR",
+    "elts": [
+     "\\coth^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3895,
+     "to": 3912
+    }
+   },
+   "397": {
+    "tag": "STR",
+    "elts": [
+     "\\sech^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3916,
+     "to": 3932
+    }
+   },
+   "398": {
+    "tag": "STR",
+    "elts": [
+     "\\sech^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3934,
+     "to": 3951
+    }
+   },
+   "401": {
+    "tag": "STR",
+    "elts": [
+     "\\csch^{-1}{?}"
+    ],
+    "coord": {
+     "from": 3955,
+     "to": 3971
+    }
+   },
+   "402": {
+    "tag": "STR",
+    "elts": [
+     "\\csch^{-1}{%1}"
+    ],
+    "coord": {
+     "from": 3973,
+     "to": 3990
+    }
+   },
+   "405": {
+    "tag": "STR",
+    "elts": [
+     "?<?"
+    ],
+    "coord": {
+     "from": 3995,
+     "to": 4019
+    }
+   },
+   "406": {
+    "tag": "STR",
+    "elts": [
+     "%1<%2"
+    ],
+    "coord": {
+     "from": 4021,
+     "to": 4028
+    }
+   },
+   "409": {
+    "tag": "STR",
+    "elts": [
+     "?\\nless?"
+    ],
+    "coord": {
+     "from": 4032,
+     "to": 4043
+    }
+   },
+   "410": {
+    "tag": "STR",
+    "elts": [
+     "%1\\nless %2"
+    ],
+    "coord": {
+     "from": 4045,
+     "to": 4059
+    }
+   },
+   "413": {
+    "tag": "STR",
+    "elts": [
+     "?\\le?"
+    ],
+    "coord": {
+     "from": 4063,
+     "to": 4071
+    }
+   },
+   "414": {
+    "tag": "STR",
+    "elts": [
+     "%1\\le %2"
+    ],
+    "coord": {
+     "from": 4073,
+     "to": 4084
+    }
+   },
+   "417": {
+    "tag": "STR",
+    "elts": [
+     "?>?"
+    ],
+    "coord": {
+     "from": 4088,
+     "to": 4093
+    }
+   },
+   "418": {
+    "tag": "STR",
+    "elts": [
+     "%1>%2"
+    ],
+    "coord": {
+     "from": 4095,
+     "to": 4102
+    }
+   },
+   "421": {
+    "tag": "STR",
+    "elts": [
+     "?\\ge?"
+    ],
+    "coord": {
+     "from": 4106,
+     "to": 4114
+    }
+   },
+   "422": {
+    "tag": "STR",
+    "elts": [
+     "%1\\ge %2"
+    ],
+    "coord": {
+     "from": 4116,
+     "to": 4127
+    }
+   },
+   "425": {
+    "tag": "STR",
+    "elts": [
+     "?\\ngtr?"
+    ],
+    "coord": {
+     "from": 4131,
+     "to": 4141
+    }
+   },
+   "426": {
+    "tag": "STR",
+    "elts": [
+     "%1\\ngtr %2"
+    ],
+    "coord": {
+     "from": 4143,
+     "to": 4156
+    }
+   },
+   "429": {
+    "tag": "STR",
+    "elts": [
+     "?=?"
+    ],
+    "coord": {
+     "from": 4160,
+     "to": 4165
+    }
+   },
+   "430": {
+    "tag": "STR",
+    "elts": [
+     "%1=%2"
+    ],
+    "coord": {
+     "from": 4167,
+     "to": 4174
+    }
+   },
+   "433": {
+    "tag": "STR",
+    "elts": [
+     "?\\ne?"
+    ],
+    "coord": {
+     "from": 4178,
+     "to": 4186
+    }
+   },
+   "434": {
+    "tag": "STR",
+    "elts": [
+     "%1\\ne %2"
+    ],
+    "coord": {
+     "from": 4188,
+     "to": 4199
+    }
+   },
+   "437": {
+    "tag": "STR",
+    "elts": [
+     "?\\approx?"
+    ],
+    "coord": {
+     "from": 4203,
+     "to": 4215
+    }
+   },
+   "438": {
+    "tag": "STR",
+    "elts": [
+     "%1\\approx %2"
+    ],
+    "coord": {
+     "from": 4217,
+     "to": 4232
+    }
+   },
+   "441": {
+    "tag": "STR",
+    "elts": [
+     "\\infty"
+    ],
+    "coord": {
+     "from": 4237,
+     "to": 4262
+    }
+   },
+   "442": {
+    "tag": "STR",
+    "elts": [
+     "\\infty"
+    ],
+    "coord": {
+     "from": 4264,
+     "to": 4273
+    }
+   },
+   "445": {
+    "tag": "STR",
+    "elts": [
+     "\\type{mixedNumber}"
+    ],
+    "coord": {
+     "from": 4277,
+     "to": 4298
+    }
+   },
+   "446": {
+    "tag": "STR",
+    "elts": [
+     "%1%2"
+    ],
+    "coord": {
+     "from": 4300,
+     "to": 4306
+    }
+   },
+   "449": {
+    "tag": "STR",
+    "elts": [
+     "?%"
+    ],
+    "coord": {
+     "from": 4310,
+     "to": 4314
+    }
+   },
+   "450": {
+    "tag": "STR",
+    "elts": [
+     "{%1}%"
+    ],
+    "coord": {
+     "from": 4316,
+     "to": 4323
+    }
+   },
+   "453": {
+    "tag": "STR",
+    "elts": [
+     "?!"
+    ],
+    "coord": {
+     "from": 4327,
+     "to": 4331
+    }
+   },
+   "454": {
+    "tag": "STR",
+    "elts": [
+     "{%1}!"
+    ],
+    "coord": {
+     "from": 4333,
+     "to": 4340
+    }
+   },
+   "457": {
+    "tag": "STR",
+    "elts": [
+     "\\frac{?}{?}"
+    ],
+    "coord": {
+     "from": 4344,
+     "to": 4358
+    }
+   },
+   "458": {
+    "tag": "STR",
+    "elts": [
+     "\\frac{%1}{%2}"
+    ],
+    "coord": {
+     "from": 4360,
+     "to": 4376
+    }
+   },
+   "461": {
+    "tag": "STR",
+    "elts": [
+     "\\abs{?}"
+    ],
+    "coord": {
+     "from": 4380,
+     "to": 4390
+    }
+   },
+   "462": {
+    "tag": "STR",
+    "elts": [
+     "\\abs{%1}"
+    ],
+    "coord": {
+     "from": 4392,
+     "to": 4403
+    }
+   },
+   "465": {
+    "tag": "STR",
+    "elts": [
+     "?\\degree"
+    ],
+    "coord": {
+     "from": 4407,
+     "to": 4418
+    }
+   },
+   "466": {
+    "tag": "STR",
+    "elts": [
+     "{%1}\\degree"
+    ],
+    "coord": {
+     "from": 4420,
+     "to": 4434
+    }
+   },
+   "469": {
+    "tag": "STR",
+    "elts": [
+     "\\type{fraction}^?"
+    ],
+    "coord": {
+     "from": 4438,
+     "to": 4458
+    }
+   },
+   "470": {
+    "tag": "STR",
+    "elts": [
+     "\\left(%1\\right)^{%2}"
+    ],
+    "coord": {
+     "from": 4460,
+     "to": 4484
+    }
+   },
+   "473": {
+    "tag": "STR",
+    "elts": [
+     "{-?}^?"
+    ],
+    "coord": {
+     "from": 4488,
+     "to": 4496
+    }
+   },
+   "474": {
+    "tag": "STR",
+    "elts": [
+     "\\left(%1\\right)^{%2}"
+    ],
+    "coord": {
+     "from": 4498,
+     "to": 4522
+    }
+   },
+   "477": {
+    "tag": "STR",
+    "elts": [
+     "?^?"
+    ],
+    "coord": {
+     "from": 4526,
+     "to": 4531
+    }
+   },
+   "478": {
+    "tag": "STR",
+    "elts": [
+     "{%1}^{%2}"
+    ],
+    "coord": {
+     "from": 4533,
+     "to": 4544
+    }
+   },
+   "481": {
+    "tag": "STR",
+    "elts": [
+     "\\sqrt{?}"
+    ],
+    "coord": {
+     "from": 4548,
+     "to": 4559
+    }
+   },
+   "482": {
+    "tag": "STR",
+    "elts": [
+     "\\sqrt{%1}"
+    ],
+    "coord": {
+     "from": 4561,
+     "to": 4573
+    }
+   },
+   "485": {
+    "tag": "STR",
+    "elts": [
+     "\\sqrt[?]{?}"
+    ],
+    "coord": {
+     "from": 4577,
+     "to": 4591
+    }
+   },
+   "486": {
+    "tag": "STR",
+    "elts": [
+     "\\sqrt[%2]{%1}"
+    ],
+    "coord": {
+     "from": 4593,
+     "to": 4609
+    }
+   },
+   "489": {
+    "tag": "STR",
+    "elts": [
+     "-?"
+    ],
+    "coord": {
+     "from": 4613,
+     "to": 4617
+    }
+   },
+   "490": {
+    "tag": "STR",
+    "elts": [
+     "-%1"
+    ],
+    "coord": {
+     "from": 4619,
+     "to": 4624
+    }
+   },
+   "493": {
+    "tag": "STR",
+    "elts": [
+     "?+{-?}"
+    ],
+    "coord": {
+     "from": 4628,
+     "to": 4636
+    }
+   },
+   "494": {
+    "tag": "STR",
+    "elts": [
+     "%1+\\left(%2\\right)"
+    ],
+    "coord": {
+     "from": 4638,
+     "to": 4660
+    }
+   },
+   "497": {
+    "tag": "STR",
+    "elts": [
+     "?+?"
+    ],
+    "coord": {
+     "from": 4664,
+     "to": 4669
+    }
+   },
+   "498": {
+    "tag": "STR",
+    "elts": [
+     "%1+%2"
+    ],
+    "coord": {
+     "from": 4671,
+     "to": 4678
+    }
+   },
+   "501": {
+    "tag": "STR",
+    "elts": [
+     "?-{-?}"
+    ],
+    "coord": {
+     "from": 4682,
+     "to": 4690
+    }
+   },
+   "502": {
+    "tag": "STR",
+    "elts": [
+     "%1-\\left(%2\\right)"
+    ],
+    "coord": {
+     "from": 4692,
+     "to": 4714
+    }
+   },
+   "505": {
+    "tag": "STR",
+    "elts": [
+     "?-?"
+    ],
+    "coord": {
+     "from": 4718,
+     "to": 4723
+    }
+   },
+   "506": {
+    "tag": "STR",
+    "elts": [
+     "%1-%2"
+    ],
+    "coord": {
+     "from": 4725,
+     "to": 4732
+    }
+   },
+   "509": {
+    "tag": "STR",
+    "elts": [
+     "?*{-?}"
+    ],
+    "coord": {
+     "from": 4736,
+     "to": 4744
+    }
+   },
+   "510": {
+    "tag": "STR",
+    "elts": [
+     "%1\\times\\left(%2\\right)"
+    ],
+    "coord": {
+     "from": 4746,
+     "to": 4774
+    }
+   },
+   "513": {
+    "tag": "STR",
+    "elts": [
+     "?*?"
+    ],
+    "coord": {
+     "from": 4778,
+     "to": 4783
+    }
+   },
+   "514": {
+    "tag": "STR",
+    "elts": [
+     "%1\\times %2"
+    ],
+    "coord": {
+     "from": 4785,
+     "to": 4799
+    }
+   },
+   "517": {
+    "tag": "STR",
+    "elts": [
+     "?\\cdot{-?}"
+    ],
+    "coord": {
+     "from": 4803,
+     "to": 4816
+    }
+   },
+   "518": {
+    "tag": "STR",
+    "elts": [
+     "%1\\cdot\\left(%2\\right)"
+    ],
+    "coord": {
+     "from": 4818,
+     "to": 4845
+    }
+   },
+   "521": {
+    "tag": "STR",
+    "elts": [
+     "?\\cdot?"
+    ],
+    "coord": {
+     "from": 4849,
+     "to": 4859
+    }
+   },
+   "522": {
+    "tag": "STR",
+    "elts": [
+     "%1\\cdot %2"
+    ],
+    "coord": {
+     "from": 4861,
+     "to": 4874
+    }
+   },
+   "525": {
+    "tag": "STR",
+    "elts": [
+     "?\\div?"
+    ],
+    "coord": {
+     "from": 4878,
+     "to": 4887
+    }
+   },
+   "526": {
+    "tag": "STR",
+    "elts": [
+     "%1\\div %2"
+    ],
+    "coord": {
+     "from": 4889,
+     "to": 4901
+    }
+   },
+   "529": {
+    "tag": "STR",
+    "elts": [
+     "?:?"
+    ],
+    "coord": {
+     "from": 4905,
+     "to": 4910
+    }
+   },
+   "530": {
+    "tag": "STR",
+    "elts": [
+     "%1:%2"
+    ],
+    "coord": {
+     "from": 4912,
+     "to": 4919
+    }
+   },
+   "533": {
+    "tag": "STR",
+    "elts": [
+     "?_?"
+    ],
+    "coord": {
+     "from": 4923,
+     "to": 4928
+    }
+   },
+   "534": {
+    "tag": "STR",
+    "elts": [
+     "%1_{%2}"
+    ],
+    "coord": {
+     "from": 4930,
+     "to": 4939
+    }
+   },
+   "537": {
+    "tag": "STR",
+    "elts": [
+     "\\left(?\\right)"
+    ],
+    "coord": {
+     "from": 4943,
+     "to": 4961
+    }
+   },
+   "538": {
+    "tag": "STR",
+    "elts": [
+     "\\left(%1\\right)"
+    ],
+    "coord": {
+     "from": 4963,
+     "to": 4982
+    }
+   },
+   "541": {
+    "tag": "STR",
+    "elts": [
+     "{\\type{numberPosNeg}}{\\type{numberPosNeg}}"
+    ],
+    "coord": {
+     "from": 4986,
+     "to": 5032
+    }
+   },
+   "542": {
+    "tag": "STR",
+    "elts": [
+     "(%1)(%2)"
+    ],
+    "coord": {
+     "from": 5034,
+     "to": 5044
+    }
+   },
+   "545": {
+    "tag": "STR",
+    "elts": [
+     "? ?"
+    ],
+    "coord": {
+     "from": 5048,
+     "to": 5053
+    }
+   },
+   "546": {
+    "tag": "STR",
+    "elts": [
+     "%1 %2"
+    ],
+    "coord": {
+     "from": 5055,
+     "to": 5062
+    }
+   },
+   "549": {
+    "tag": "STR",
+    "elts": [
+     "?,?"
+    ],
+    "coord": {
+     "from": 5066,
+     "to": 5071
+    }
+   },
+   "550": {
+    "tag": "STR",
+    "elts": [
+     "%1,%2"
+    ],
+    "coord": {
+     "from": 5073,
+     "to": 5080
+    }
+   },
+   "553": {
+    "tag": "STR",
+    "elts": [
+     "?"
+    ],
+    "coord": {
+     "from": 5084,
+     "to": 5087
+    }
+   },
+   "554": {
+    "tag": "STR",
+    "elts": [
+     "%1"
+    ],
+    "coord": {
+     "from": 5089,
+     "to": 5093
+    }
+   },
+   "559": {
+    "tag": "BOOL",
+    "elts": [
+     true
+    ]
+   },
+   "561": {
+    "tag": "BOOL",
+    "elts": [
+     false
+    ]
+   },
+   "564": {
+    "tag": "LIST",
+    "elts": []
+   },
+   "566": {
+    "tag": "TESTS",
+    "elts": [
+     564
+    ],
+    "coord": {
+     "from": 5156,
+     "to": 5161
+    }
+   },
+   "568": {
+    "tag": "RHS",
+    "elts": [
+     561
+    ],
+    "coord": {
+     "from": 5145,
+     "to": 5148
+    }
+   },
+   "570": {
+    "tag": "PARSING_INTEGRAL_EXPR",
+    "elts": [
+     561
+    ],
+    "coord": {
+     "from": 5117,
+     "to": 5138
+    }
+   },
+   "572": {
+    "tag": "ALLOW_INTERVAL",
+    "elts": [
+     559
+    ],
+    "coord": {
+     "from": 5097,
+     "to": 5111
+    }
+   },
+   "575": {
+    "tag": "BINDING",
+    "elts": [
+     553,
+     554
+    ]
+   },
+   "576": {
+    "tag": "BINDING",
+    "elts": [
+     549,
+     550
+    ]
+   },
+   "577": {
+    "tag": "BINDING",
+    "elts": [
+     545,
+     546
+    ]
+   },
+   "578": {
+    "tag": "BINDING",
+    "elts": [
+     541,
+     542
+    ]
+   },
+   "579": {
+    "tag": "BINDING",
+    "elts": [
+     537,
+     538
+    ]
+   },
+   "580": {
+    "tag": "BINDING",
+    "elts": [
+     533,
+     534
+    ]
+   },
+   "581": {
+    "tag": "BINDING",
+    "elts": [
+     529,
+     530
+    ]
+   },
+   "582": {
+    "tag": "BINDING",
+    "elts": [
+     525,
+     526
+    ]
+   },
+   "583": {
+    "tag": "BINDING",
+    "elts": [
+     521,
+     522
+    ]
+   },
+   "584": {
+    "tag": "BINDING",
+    "elts": [
+     517,
+     518
+    ]
+   },
+   "585": {
+    "tag": "BINDING",
+    "elts": [
+     513,
+     514
+    ]
+   },
+   "586": {
+    "tag": "BINDING",
+    "elts": [
+     509,
+     510
+    ]
+   },
+   "587": {
+    "tag": "BINDING",
+    "elts": [
+     505,
+     506
+    ]
+   },
+   "588": {
+    "tag": "BINDING",
+    "elts": [
+     501,
+     502
+    ]
+   },
+   "589": {
+    "tag": "BINDING",
+    "elts": [
+     497,
+     498
+    ]
+   },
+   "590": {
+    "tag": "BINDING",
+    "elts": [
+     493,
+     494
+    ]
+   },
+   "591": {
+    "tag": "BINDING",
+    "elts": [
+     489,
+     490
+    ]
+   },
+   "592": {
+    "tag": "BINDING",
+    "elts": [
+     485,
+     486
+    ]
+   },
+   "593": {
+    "tag": "BINDING",
+    "elts": [
+     481,
+     482
+    ]
+   },
+   "594": {
+    "tag": "BINDING",
+    "elts": [
+     477,
+     478
+    ]
+   },
+   "595": {
+    "tag": "BINDING",
+    "elts": [
+     473,
+     474
+    ]
+   },
+   "596": {
+    "tag": "BINDING",
+    "elts": [
+     469,
+     470
+    ]
+   },
+   "597": {
+    "tag": "BINDING",
+    "elts": [
+     465,
+     466
+    ]
+   },
+   "598": {
+    "tag": "BINDING",
+    "elts": [
+     461,
+     462
+    ]
+   },
+   "599": {
+    "tag": "BINDING",
+    "elts": [
+     457,
+     458
+    ]
+   },
+   "600": {
+    "tag": "BINDING",
+    "elts": [
+     453,
+     454
+    ]
+   },
+   "601": {
+    "tag": "BINDING",
+    "elts": [
+     449,
+     450
+    ]
+   },
+   "602": {
+    "tag": "BINDING",
+    "elts": [
+     445,
+     446
+    ]
+   },
+   "603": {
+    "tag": "BINDING",
+    "elts": [
+     441,
+     442
+    ]
+   },
+   "604": {
+    "tag": "BINDING",
+    "elts": [
+     437,
+     438
+    ]
+   },
+   "605": {
+    "tag": "BINDING",
+    "elts": [
+     433,
+     434
+    ]
+   },
+   "606": {
+    "tag": "BINDING",
+    "elts": [
+     429,
+     430
+    ]
+   },
+   "607": {
+    "tag": "BINDING",
+    "elts": [
+     425,
+     426
+    ]
+   },
+   "608": {
+    "tag": "BINDING",
+    "elts": [
+     421,
+     422
+    ]
+   },
+   "609": {
+    "tag": "BINDING",
+    "elts": [
+     417,
+     418
+    ]
+   },
+   "610": {
+    "tag": "BINDING",
+    "elts": [
+     413,
+     414
+    ]
+   },
+   "611": {
+    "tag": "BINDING",
+    "elts": [
+     409,
+     410
+    ]
+   },
+   "612": {
+    "tag": "BINDING",
+    "elts": [
+     405,
+     406
+    ]
+   },
+   "613": {
+    "tag": "BINDING",
+    "elts": [
+     401,
+     402
+    ]
+   },
+   "614": {
+    "tag": "BINDING",
+    "elts": [
+     397,
+     398
+    ]
+   },
+   "615": {
+    "tag": "BINDING",
+    "elts": [
+     393,
+     394
+    ]
+   },
+   "616": {
+    "tag": "BINDING",
+    "elts": [
+     389,
+     390
+    ]
+   },
+   "617": {
+    "tag": "BINDING",
+    "elts": [
+     385,
+     386
+    ]
+   },
+   "618": {
+    "tag": "BINDING",
+    "elts": [
+     381,
+     382
+    ]
+   },
+   "619": {
+    "tag": "BINDING",
+    "elts": [
+     377,
+     378
+    ]
+   },
+   "620": {
+    "tag": "BINDING",
+    "elts": [
+     373,
+     374
+    ]
+   },
+   "621": {
+    "tag": "BINDING",
+    "elts": [
+     369,
+     370
+    ]
+   },
+   "622": {
+    "tag": "BINDING",
+    "elts": [
+     365,
+     366
+    ]
+   },
+   "623": {
+    "tag": "BINDING",
+    "elts": [
+     361,
+     362
+    ]
+   },
+   "624": {
+    "tag": "BINDING",
+    "elts": [
+     357,
+     358
+    ]
+   },
+   "625": {
+    "tag": "BINDING",
+    "elts": [
+     353,
+     354
+    ]
+   },
+   "626": {
+    "tag": "BINDING",
+    "elts": [
+     349,
+     350
+    ]
+   },
+   "627": {
+    "tag": "BINDING",
+    "elts": [
+     345,
+     346
+    ]
+   },
+   "628": {
+    "tag": "BINDING",
+    "elts": [
+     341,
+     342
+    ]
+   },
+   "629": {
+    "tag": "BINDING",
+    "elts": [
+     337,
+     338
+    ]
+   },
+   "630": {
+    "tag": "BINDING",
+    "elts": [
+     333,
+     334
+    ]
+   },
+   "631": {
+    "tag": "BINDING",
+    "elts": [
+     329,
+     330
+    ]
+   },
+   "632": {
+    "tag": "BINDING",
+    "elts": [
+     325,
+     326
+    ]
+   },
+   "633": {
+    "tag": "BINDING",
+    "elts": [
+     321,
+     322
+    ]
+   },
+   "634": {
+    "tag": "BINDING",
+    "elts": [
+     317,
+     318
+    ]
+   },
+   "635": {
+    "tag": "BINDING",
+    "elts": [
+     313,
+     314
+    ]
+   },
+   "636": {
+    "tag": "BINDING",
+    "elts": [
+     309,
+     310
+    ]
+   },
+   "637": {
+    "tag": "BINDING",
+    "elts": [
+     305,
+     306
+    ]
+   },
+   "638": {
+    "tag": "BINDING",
+    "elts": [
+     295,
+     296
+    ]
+   },
+   "639": {
+    "tag": "BINDING",
+    "elts": [
+     291,
+     292
+    ]
+   },
+   "640": {
+    "tag": "BINDING",
+    "elts": [
+     287,
+     288
+    ]
+   },
+   "641": {
+    "tag": "RECORD",
+    "elts": [
+     640,
+     639,
+     638
+    ]
+   },
+   "642": {
+    "tag": "BINDING",
+    "elts": [
+     286,
+     641
+    ]
+   },
+   "643": {
+    "tag": "RECORD",
+    "elts": [
+     642
+    ]
+   },
+   "644": {
+    "tag": "BINDING",
+    "elts": [
+     285,
+     643
+    ]
+   },
+   "645": {
+    "tag": "BINDING",
+    "elts": [
+     281,
+     282
+    ]
+   },
+   "646": {
+    "tag": "BINDING",
+    "elts": [
+     277,
+     278
+    ]
+   },
+   "647": {
+    "tag": "BINDING",
+    "elts": [
+     273,
+     274
+    ]
+   },
+   "648": {
+    "tag": "BINDING",
+    "elts": [
+     269,
+     270
+    ]
+   },
+   "649": {
+    "tag": "BINDING",
+    "elts": [
+     259,
+     260
+    ]
+   },
+   "650": {
+    "tag": "BINDING",
+    "elts": [
+     255,
+     256
+    ]
+   },
+   "651": {
+    "tag": "RECORD",
+    "elts": [
+     650,
+     649
+    ]
+   },
+   "652": {
+    "tag": "BINDING",
+    "elts": [
+     254,
+     651
+    ]
+   },
+   "653": {
+    "tag": "RECORD",
+    "elts": [
+     652
+    ]
+   },
+   "654": {
+    "tag": "BINDING",
+    "elts": [
+     253,
+     653
+    ]
+   },
+   "655": {
+    "tag": "BINDING",
+    "elts": [
+     249,
+     250
+    ]
+   },
+   "656": {
+    "tag": "BINDING",
+    "elts": [
+     245,
+     246
+    ]
+   },
+   "657": {
+    "tag": "BINDING",
+    "elts": [
+     241,
+     242
+    ]
+   },
+   "658": {
+    "tag": "BINDING",
+    "elts": [
+     237,
+     238
+    ]
+   },
+   "659": {
+    "tag": "BINDING",
+    "elts": [
+     233,
+     234
+    ]
+   },
+   "660": {
+    "tag": "BINDING",
+    "elts": [
+     229,
+     230
+    ]
+   },
+   "661": {
+    "tag": "BINDING",
+    "elts": [
+     225,
+     226
+    ]
+   },
+   "662": {
+    "tag": "BINDING",
+    "elts": [
+     221,
+     222
+    ]
+   },
+   "663": {
+    "tag": "BINDING",
+    "elts": [
+     217,
+     218
+    ]
+   },
+   "664": {
+    "tag": "BINDING",
+    "elts": [
+     213,
+     214
+    ]
+   },
+   "665": {
+    "tag": "BINDING",
+    "elts": [
+     209,
+     210
+    ]
+   },
+   "666": {
+    "tag": "RECORD",
+    "elts": [
+     665,
+     664,
+     663,
+     662,
+     661,
+     660,
+     659,
+     658,
+     657,
+     656,
+     655,
+     654,
+     648,
+     647,
+     646,
+     645,
+     644,
+     637,
+     636,
+     635,
+     634,
+     633,
+     632,
+     631,
+     630,
+     629,
+     628,
+     627,
+     626,
+     625,
+     624,
+     623,
+     622,
+     621,
+     620,
+     619,
+     618,
+     617,
+     616,
+     615,
+     614,
+     613,
+     612,
+     611,
+     610,
+     609,
+     608,
+     607,
+     606,
+     605,
+     604,
+     603,
+     602,
+     601,
+     600,
+     599,
+     598,
+     597,
+     596,
+     595,
+     594,
+     593,
+     592,
+     591,
+     590,
+     589,
+     588,
+     587,
+     586,
+     585,
+     584,
+     583,
+     582,
+     581,
+     580,
+     579,
+     578,
+     577,
+     576,
+     575
+    ]
+   },
+   "667": {
+    "tag": "RULES",
+    "elts": [
+     666
+    ],
+    "coord": {
+     "from": 2160,
+     "to": 2165
+    }
+   },
+   "669": {
+    "tag": "BINDING",
+    "elts": [
+     200,
+     204
+    ]
+   },
+   "670": {
+    "tag": "RECORD",
+    "elts": [
+     669
+    ]
+   },
+   "671": {
+    "tag": "TYPES",
+    "elts": [
+     670
+    ],
+    "coord": {
+     "from": 2067,
+     "to": 2072
+    }
+   },
+   "673": {
+    "tag": "BINDING",
+    "elts": [
+     194,
+     195
+    ]
+   },
+   "674": {
+    "tag": "BINDING",
+    "elts": [
+     190,
+     191
+    ]
+   },
+   "675": {
+    "tag": "BINDING",
+    "elts": [
+     186,
+     187
+    ]
+   },
+   "676": {
+    "tag": "BINDING",
+    "elts": [
+     182,
+     183
+    ]
+   },
+   "677": {
+    "tag": "BINDING",
+    "elts": [
+     178,
+     179
+    ]
+   },
+   "678": {
+    "tag": "BINDING",
+    "elts": [
+     174,
+     175
+    ]
+   },
+   "679": {
+    "tag": "BINDING",
+    "elts": [
+     170,
+     171
+    ]
+   },
+   "680": {
+    "tag": "BINDING",
+    "elts": [
+     166,
+     167
+    ]
+   },
+   "681": {
+    "tag": "BINDING",
+    "elts": [
+     162,
+     163
+    ]
+   },
+   "682": {
+    "tag": "BINDING",
+    "elts": [
+     158,
+     159
+    ]
+   },
+   "683": {
+    "tag": "BINDING",
+    "elts": [
+     154,
+     155
+    ]
+   },
+   "684": {
+    "tag": "BINDING",
+    "elts": [
+     150,
+     151
+    ]
+   },
+   "685": {
+    "tag": "BINDING",
+    "elts": [
+     146,
+     147
+    ]
+   },
+   "686": {
+    "tag": "BINDING",
+    "elts": [
+     142,
+     143
+    ]
+   },
+   "687": {
+    "tag": "BINDING",
+    "elts": [
+     138,
+     139
+    ]
+   },
+   "688": {
+    "tag": "BINDING",
+    "elts": [
+     134,
+     135
+    ]
+   },
+   "689": {
+    "tag": "BINDING",
+    "elts": [
+     130,
+     131
+    ]
+   },
+   "690": {
+    "tag": "BINDING",
+    "elts": [
+     126,
+     127
+    ]
+   },
+   "691": {
+    "tag": "BINDING",
+    "elts": [
+     122,
+     123
+    ]
+   },
+   "692": {
+    "tag": "BINDING",
+    "elts": [
+     118,
+     119
+    ]
+   },
+   "693": {
+    "tag": "BINDING",
+    "elts": [
+     114,
+     115
+    ]
+   },
+   "694": {
+    "tag": "BINDING",
+    "elts": [
+     110,
+     111
+    ]
+   },
+   "695": {
+    "tag": "BINDING",
+    "elts": [
+     106,
+     107
+    ]
+   },
+   "696": {
+    "tag": "BINDING",
+    "elts": [
+     102,
+     103
+    ]
+   },
+   "697": {
+    "tag": "BINDING",
+    "elts": [
+     98,
+     99
+    ]
+   },
+   "698": {
+    "tag": "BINDING",
+    "elts": [
+     94,
+     95
+    ]
+   },
+   "699": {
+    "tag": "BINDING",
+    "elts": [
+     90,
+     91
+    ]
+   },
+   "700": {
+    "tag": "BINDING",
+    "elts": [
+     86,
+     87
+    ]
+   },
+   "701": {
+    "tag": "BINDING",
+    "elts": [
+     82,
+     83
+    ]
+   },
+   "702": {
+    "tag": "BINDING",
+    "elts": [
+     78,
+     79
+    ]
+   },
+   "703": {
+    "tag": "BINDING",
+    "elts": [
+     74,
+     75
+    ]
+   },
+   "704": {
+    "tag": "BINDING",
+    "elts": [
+     70,
+     71
+    ]
+   },
+   "705": {
+    "tag": "BINDING",
+    "elts": [
+     66,
+     67
+    ]
+   },
+   "706": {
+    "tag": "BINDING",
+    "elts": [
+     62,
+     63
+    ]
+   },
+   "707": {
+    "tag": "BINDING",
+    "elts": [
+     58,
+     59
+    ]
+   },
+   "708": {
+    "tag": "BINDING",
+    "elts": [
+     54,
+     55
+    ]
+   },
+   "709": {
+    "tag": "BINDING",
+    "elts": [
+     50,
+     51
+    ]
+   },
+   "710": {
+    "tag": "BINDING",
+    "elts": [
+     46,
+     47
+    ]
+   },
+   "711": {
+    "tag": "BINDING",
+    "elts": [
+     42,
+     43
+    ]
+   },
+   "712": {
+    "tag": "BINDING",
+    "elts": [
+     38,
+     39
+    ]
+   },
+   "713": {
+    "tag": "BINDING",
+    "elts": [
+     34,
+     35
+    ]
+   },
+   "714": {
+    "tag": "BINDING",
+    "elts": [
+     30,
+     31
+    ]
+   },
+   "715": {
+    "tag": "BINDING",
+    "elts": [
+     26,
+     27
+    ]
+   },
+   "716": {
+    "tag": "BINDING",
+    "elts": [
+     22,
+     23
+    ]
+   },
+   "717": {
+    "tag": "BINDING",
+    "elts": [
+     18,
+     19
+    ]
+   },
+   "718": {
+    "tag": "BINDING",
+    "elts": [
+     14,
+     15
+    ]
+   },
+   "719": {
+    "tag": "BINDING",
+    "elts": [
+     10,
+     11
+    ]
+   },
+   "720": {
+    "tag": "BINDING",
+    "elts": [
+     6,
+     7
+    ]
+   },
+   "721": {
+    "tag": "BINDING",
+    "elts": [
+     2,
+     3
+    ]
+   },
+   "722": {
+    "tag": "RECORD",
+    "elts": [
+     721,
+     720,
+     719,
+     718,
+     717,
+     716,
+     715,
+     714,
+     713,
+     712,
+     711,
+     710,
+     709,
+     708,
+     707,
+     706,
+     705,
+     704,
+     703,
+     702,
+     701,
+     700,
+     699,
+     698,
+     697,
+     696,
+     695,
+     694,
+     693,
+     692,
+     691,
+     690,
+     689,
+     688,
+     687,
+     686,
+     685,
+     684,
+     683,
+     682,
+     681,
+     680,
+     679,
+     678,
+     677,
+     676,
+     675,
+     674,
+     673
+    ]
+   },
+   "723": {
+    "tag": "WORDS",
+    "elts": [
+     722
+    ],
+    "coord": {
+     "from": 955,
+     "to": 960
+    }
+   },
+   "725": {
+    "tag": "EXPRS",
+    "elts": [
+     723,
+     671,
+     667,
+     572,
+     570,
+     568,
+     566
+    ]
+   },
+   "726": {
+    "tag": "PROG",
+    "elts": [
+     725
+    ]
+   },
+   "root": 726
+  },
+  "expect": {
+   "data": {
+    "options": {
+     "data": {},
+     "words": {
+      "\\alpha": "\\alpha",
+      "\\beta": "\\beta",
+      "\\gamma": "\\gamma",
+      "\\delta": "\\delta",
+      "\\epsilon": "\\epsilon",
+      "\\zeta": "\\zeta",
+      "\\eta": "\\eta",
+      "\\theta": "\\theta",
+      "\\iota": "\\iota",
+      "\\kappa": "\\kappa",
+      "\\lambda": "\\lambda",
+      "\\mu": "\\mu",
+      "\\nu": "\\nu",
+      "\\xi": "\\xi",
+      "\\omicron": "\\omicron",
+      "\\pi": "\\pi",
+      "\\rho": "\\rho",
+      "\\sigma": "\\simga",
+      "\\tau": "\\tau",
+      "\\upsilon": "\\upsilon",
+      "\\phi": "\\phi",
+      "\\chi": "\\chi",
+      "\\psi": "\\psi",
+      "\\omega": "\\omega",
+      "\\Alpha": "\\Alpha",
+      "\\Beta": "\\Beta",
+      "\\Gamma": "\\Gamma",
+      "\\Delta": "\\Delta",
+      "\\Epsilon": "\\Epsilon",
+      "\\Zeta": "\\Zeta",
+      "\\Eta": "\\Eta",
+      "\\Theta": "\\Theta",
+      "\\Iota": "\\Iota",
+      "\\Kappa": "\\Kappa",
+      "\\Lambda": "\\Lambda",
+      "\\Mu": "\\Mu",
+      "\\Nu": "\\Nu",
+      "\\Xi": "\\Xi",
+      "\\Omicron": "\\Omicron",
+      "\\Pi": "\\Pi",
+      "\\Rho": "\\Rho",
+      "\\Sigma": "\\Simga",
+      "\\Tau": "\\Tau",
+      "\\Upsilon": "\\Upsilon",
+      "\\Phi": "\\Phi",
+      "\\Chi": "\\Chi",
+      "\\Psi": "\\Psi",
+      "\\Omega": "\\Omega",
+      "\\emptyset": "\\emptyset"
+     },
+     "types": {
+      "numberPosNeg": [
+       "(\\type{numberPosNeg})",
+       "\\type{number}",
+       "-\\type{number}"
+      ]
+     },
+     "rules": {
+      "\\left(?\\right]": [
+       "\\left(%1\\right]"
+      ],
+      "\\left[?\\right)": [
+       "\\left[%1\\right)"
+      ],
+      "\\left[?\\right]": [
+       "\\left[%1\\right]"
+      ],
+      "\\left\\{?\\right\\}": [
+       "\\left\\{%1\\right\\}"
+      ],
+      "?\\cup?": [
+       "%1\\cup %2"
+      ],
+      "?\\cap?": [
+       "%1\\cap %2"
+      ],
+      "?\\backslash?": [
+       "%1\\backslash %2"
+      ],
+      "\\mathbb{?}": [
+       "\\mathbb{%2}"
+      ],
+      "\\ln{?}": [
+       "\\ln{%2}"
+      ],
+      "\\log{?}": [
+       "\\log{%2}"
+      ],
+      "\\log_{?}{?}": [
+       "\\log_{%1}{%2}"
+      ],
+      "\\type{matrix}": [
+       {
+        "\\begin{bmatrix}%1\\end{bmatrix}": {
+         "\\type{row}": "%*\\\\",
+         "\\type{column}": "%*&"
+        }
+       }
+      ],
+      "\\frac{d}{d?}?": [
+       "\\frac{d}{d%2}{%1}"
+      ],
+      "\\frac{d^?}{d?^?}?": [
+       "\\frac{d^%3}{d%2^%3}{%1}"
+      ],
+      "\\int_?^? ? d?": [
+       "\\int_{%1}^{%2} %3 d%4"
+      ],
+      "\\int ? d?": [
+       "\\int %1 d%2"
+      ],
+      "\\lim_? ?": [
+       {
+        "\\lim_{%1}{%2}": {
+         "? \\rightarrow ?": "%1 \\rightarrow %2",
+         "? \\to ?": "%1 \\to %2",
+         "\\left(?,?\\right)": "\\left(%1, %2\\right)"
+        }
+       }
+      ],
+      "\\sum_?^? ?": [
+       "\\sum_{%1}^{%2}{%3}"
+      ],
+      "\\sin{?}": [
+       "\\sin{%1}"
+      ],
+      "\\cos{?}": [
+       "\\cos{%1}"
+      ],
+      "\\tan{?}": [
+       "\\tan{%1}"
+      ],
+      "\\cot{?}": [
+       "\\cot{%1}"
+      ],
+      "\\sec{?}": [
+       "\\sec{%1}"
+      ],
+      "\\csc{?}": [
+       "\\csc{%1}"
+      ],
+      "\\sin^{-1}?": [
+       "\\sin^{-1}{%1}"
+      ],
+      "\\cos^{-1}{?}": [
+       "\\cos^{-1}{%1}"
+      ],
+      "\\tan^{-1}{?}": [
+       "\\tan^{-1}{%1}"
+      ],
+      "\\cot^{-1}{?}": [
+       "\\cot^{-1}{%1}"
+      ],
+      "\\sec^{-1}{?}": [
+       "\\sec^{-1}{%1}"
+      ],
+      "\\csc^{-1}{?}": [
+       "\\csc^{-1}{%1}"
+      ],
+      "\\sinh{?}": [
+       "\\sinh{%1}"
+      ],
+      "\\cosh{?}": [
+       "\\cosh{%1}"
+      ],
+      "\\tanh{?}": [
+       "\\tanh{%1}"
+      ],
+      "\\coth{?}": [
+       "\\coth{%1}"
+      ],
+      "\\sech{?}": [
+       "\\sech{%1}"
+      ],
+      "\\csch{?}": [
+       "\\csch{%1}"
+      ],
+      "\\sinh^{-1}{?}": [
+       "\\sinh^{-1}{%1}"
+      ],
+      "\\cosh^{-1}{?}": [
+       "\\cosh^{-1}{%1}"
+      ],
+      "\\tanh^{-1}{?}": [
+       "\\tanh^{-1}{%1}"
+      ],
+      "\\coth^{-1}{?}": [
+       "\\coth^{-1}{%1}"
+      ],
+      "\\sech^{-1}{?}": [
+       "\\sech^{-1}{%1}"
+      ],
+      "\\csch^{-1}{?}": [
+       "\\csch^{-1}{%1}"
+      ],
+      "?<?": [
+       "%1<%2"
+      ],
+      "?\\nless?": [
+       "%1\\nless %2"
+      ],
+      "?\\le?": [
+       "%1\\le %2"
+      ],
+      "?>?": [
+       "%1>%2"
+      ],
+      "?\\ge?": [
+       "%1\\ge %2"
+      ],
+      "?\\ngtr?": [
+       "%1\\ngtr %2"
+      ],
+      "?=?": [
+       "%1=%2"
+      ],
+      "?\\ne?": [
+       "%1\\ne %2"
+      ],
+      "?\\approx?": [
+       "%1\\approx %2"
+      ],
+      "\\infty": [
+       "\\infty"
+      ],
+      "\\type{mixedNumber}": [
+       "%1%2"
+      ],
+      "?%": [
+       "{%1}%"
+      ],
+      "?!": [
+       "{%1}!"
+      ],
+      "\\frac{?}{?}": [
+       "\\frac{%1}{%2}"
+      ],
+      "\\abs{?}": [
+       "\\abs{%1}"
+      ],
+      "?\\degree": [
+       "{%1}\\degree"
+      ],
+      "\\type{fraction}^?": [
+       "\\left(%1\\right)^{%2}"
+      ],
+      "{-?}^?": [
+       "\\left(%1\\right)^{%2}"
+      ],
+      "?^?": [
+       "{%1}^{%2}"
+      ],
+      "\\sqrt{?}": [
+       "\\sqrt{%1}"
+      ],
+      "\\sqrt[?]{?}": [
+       "\\sqrt[%2]{%1}"
+      ],
+      "-?": [
+       "-%1"
+      ],
+      "?+{-?}": [
+       "%1+\\left(%2\\right)"
+      ],
+      "?+?": [
+       "%1+%2"
+      ],
+      "?-{-?}": [
+       "%1-\\left(%2\\right)"
+      ],
+      "?-?": [
+       "%1-%2"
+      ],
+      "?*{-?}": [
+       "%1\\times\\left(%2\\right)"
+      ],
+      "?*?": [
+       "%1\\times %2"
+      ],
+      "?\\cdot{-?}": [
+       "%1\\cdot\\left(%2\\right)"
+      ],
+      "?\\cdot?": [
+       "%1\\cdot %2"
+      ],
+      "?\\div?": [
+       "%1\\div %2"
+      ],
+      "?:?": [
+       "%1:%2"
+      ],
+      "?_?": [
+       "%1_{%2}"
+      ],
+      "\\left(?\\right)": [
+       "\\left(%1\\right)"
+      ],
+      "{\\type{numberPosNeg}}{\\type{numberPosNeg}}": [
+       "(%1)(%2)"
+      ],
+      "? ?": [
+       "%1 %2"
+      ],
+      "?,?": [
+       "%1,%2"
+      ],
+      "?": [
+       "%1"
+      ]
+     },
+     "allowInterval": true,
+     "parsingIntegralExpr": false,
+     "RHS": false
+    },
+    "tests": []
+   },
+   "text": "{\"options\":{\"data\":{},\"words\":{\"\\\\alpha\":\"\\\\alpha\",\"\\\\beta\":\"\\\\beta\",\"\\\\gamma\":\"\\\\gamma\",\"\\\\delta\":\"\\\\delta\",\"\\\\epsilon\":\"\\\\epsilon\",\"\\\\zeta\":\"\\\\zeta\",\"\\\\eta\":\"\\\\eta\",\"\\\\theta\":\"\\\\theta\",\"\\\\iota\":\"\\\\iota\",\"\\\\kappa\":\"\\\\kappa\",\"\\\\lambda\":\"\\\\lambda\",\"\\\\mu\":\"\\\\mu\",\"\\\\nu\":\"\\\\nu\",\"\\\\xi\":\"\\\\xi\",\"\\\\omicron\":\"\\\\omicron\",\"\\\\pi\":\"\\\\pi\",\"\\\\rho\":\"\\\\rho\",\"\\\\sigma\":\"\\\\simga\",\"\\\\tau\":\"\\\\tau\",\"\\\\upsilon\":\"\\\\upsilon\",\"\\\\phi\":\"\\\\phi\",\"\\\\chi\":\"\\\\chi\",\"\\\\psi\":\"\\\\psi\",\"\\\\omega\":\"\\\\omega\",\"\\\\Alpha\":\"\\\\Alpha\",\"\\\\Beta\":\"\\\\Beta\",\"\\\\Gamma\":\"\\\\Gamma\",\"\\\\Delta\":\"\\\\Delta\",\"\\\\Epsilon\":\"\\\\Epsilon\",\"\\\\Zeta\":\"\\\\Zeta\",\"\\\\Eta\":\"\\\\Eta\",\"\\\\Theta\":\"\\\\Theta\",\"\\\\Iota\":\"\\\\Iota\",\"\\\\Kappa\":\"\\\\Kappa\",\"\\\\Lambda\":\"\\\\Lambda\",\"\\\\Mu\":\"\\\\Mu\",\"\\\\Nu\":\"\\\\Nu\",\"\\\\Xi\":\"\\\\Xi\",\"\\\\Omicron\":\"\\\\Omicron\",\"\\\\Pi\":\"\\\\Pi\",\"\\\\Rho\":\"\\\\Rho\",\"\\\\Sigma\":\"\\\\Simga\",\"\\\\Tau\":\"\\\\Tau\",\"\\\\Upsilon\":\"\\\\Upsilon\",\"\\\\Phi\":\"\\\\Phi\",\"\\\\Chi\":\"\\\\Chi\",\"\\\\Psi\":\"\\\\Psi\",\"\\\\Omega\":\"\\\\Omega\",\"\\\\emptyset\":\"\\\\emptyset\"},\"types\":{\"numberPosNeg\":[\"(\\\\type{numberPosNeg})\",\"\\\\type{number}\",\"-\\\\type{number}\"]},\"rules\":{\"\\\\left(?\\\\right]\":[\"\\\\left(%1\\\\right]\"],\"\\\\left[?\\\\right)\":[\"\\\\left[%1\\\\right)\"],\"\\\\left[?\\\\right]\":[\"\\\\left[%1\\\\right]\"],\"\\\\left\\\\{?\\\\right\\\\}\":[\"\\\\left\\\\{%1\\\\right\\\\}\"],\"?\\\\cup?\":[\"%1\\\\cup %2\"],\"?\\\\cap?\":[\"%1\\\\cap %2\"],\"?\\\\backslash?\":[\"%1\\\\backslash %2\"],\"\\\\mathbb{?}\":[\"\\\\mathbb{%2}\"],\"\\\\ln{?}\":[\"\\\\ln{%2}\"],\"\\\\log{?}\":[\"\\\\log{%2}\"],\"\\\\log_{?}{?}\":[\"\\\\log_{%1}{%2}\"],\"\\\\type{matrix}\":[{\"\\\\begin{bmatrix}%1\\\\end{bmatrix}\":{\"\\\\type{row}\":\"%*\\\\\\\\\",\"\\\\type{column}\":\"%*&\"}}],\"\\\\frac{d}{d?}?\":[\"\\\\frac{d}{d%2}{%1}\"],\"\\\\frac{d^?}{d?^?}?\":[\"\\\\frac{d^%3}{d%2^%3}{%1}\"],\"\\\\int_?^? ? d?\":[\"\\\\int_{%1}^{%2} %3 d%4\"],\"\\\\int ? d?\":[\"\\\\int %1 d%2\"],\"\\\\lim_? ?\":[{\"\\\\lim_{%1}{%2}\":{\"? \\\\rightarrow ?\":\"%1 \\\\rightarrow %2\",\"? \\\\to ?\":\"%1 \\\\to %2\",\"\\\\left(?,?\\\\right)\":\"\\\\left(%1, %2\\\\right)\"}}],\"\\\\sum_?^? ?\":[\"\\\\sum_{%1}^{%2}{%3}\"],\"\\\\sin{?}\":[\"\\\\sin{%1}\"],\"\\\\cos{?}\":[\"\\\\cos{%1}\"],\"\\\\tan{?}\":[\"\\\\tan{%1}\"],\"\\\\cot{?}\":[\"\\\\cot{%1}\"],\"\\\\sec{?}\":[\"\\\\sec{%1}\"],\"\\\\csc{?}\":[\"\\\\csc{%1}\"],\"\\\\sin^{-1}?\":[\"\\\\sin^{-1}{%1}\"],\"\\\\cos^{-1}{?}\":[\"\\\\cos^{-1}{%1}\"],\"\\\\tan^{-1}{?}\":[\"\\\\tan^{-1}{%1}\"],\"\\\\cot^{-1}{?}\":[\"\\\\cot^{-1}{%1}\"],\"\\\\sec^{-1}{?}\":[\"\\\\sec^{-1}{%1}\"],\"\\\\csc^{-1}{?}\":[\"\\\\csc^{-1}{%1}\"],\"\\\\sinh{?}\":[\"\\\\sinh{%1}\"],\"\\\\cosh{?}\":[\"\\\\cosh{%1}\"],\"\\\\tanh{?}\":[\"\\\\tanh{%1}\"],\"\\\\coth{?}\":[\"\\\\coth{%1}\"],\"\\\\sech{?}\":[\"\\\\sech{%1}\"],\"\\\\csch{?}\":[\"\\\\csch{%1}\"],\"\\\\sinh^{-1}{?}\":[\"\\\\sinh^{-1}{%1}\"],\"\\\\cosh^{-1}{?}\":[\"\\\\cosh^{-1}{%1}\"],\"\\\\tanh^{-1}{?}\":[\"\\\\tanh^{-1}{%1}\"],\"\\\\coth^{-1}{?}\":[\"\\\\coth^{-1}{%1}\"],\"\\\\sech^{-1}{?}\":[\"\\\\sech^{-1}{%1}\"],\"\\\\csch^{-1}{?}\":[\"\\\\csch^{-1}{%1}\"],\"?<?\":[\"%1<%2\"],\"?\\\\nless?\":[\"%1\\\\nless %2\"],\"?\\\\le?\":[\"%1\\\\le %2\"],\"?>?\":[\"%1>%2\"],\"?\\\\ge?\":[\"%1\\\\ge %2\"],\"?\\\\ngtr?\":[\"%1\\\\ngtr %2\"],\"?=?\":[\"%1=%2\"],\"?\\\\ne?\":[\"%1\\\\ne %2\"],\"?\\\\approx?\":[\"%1\\\\approx %2\"],\"\\\\infty\":[\"\\\\infty\"],\"\\\\type{mixedNumber}\":[\"%1%2\"],\"?%\":[\"{%1}%\"],\"?!\":[\"{%1}!\"],\"\\\\frac{?}{?}\":[\"\\\\frac{%1}{%2}\"],\"\\\\abs{?}\":[\"\\\\abs{%1}\"],\"?\\\\degree\":[\"{%1}\\\\degree\"],\"\\\\type{fraction}^?\":[\"\\\\left(%1\\\\right)^{%2}\"],\"{-?}^?\":[\"\\\\left(%1\\\\right)^{%2}\"],\"?^?\":[\"{%1}^{%2}\"],\"\\\\sqrt{?}\":[\"\\\\sqrt{%1}\"],\"\\\\sqrt[?]{?}\":[\"\\\\sqrt[%2]{%1}\"],\"-?\":[\"-%1\"],\"?+{-?}\":[\"%1+\\\\left(%2\\\\right)\"],\"?+?\":[\"%1+%2\"],\"?-{-?}\":[\"%1-\\\\left(%2\\\\right)\"],\"?-?\":[\"%1-%2\"],\"?*{-?}\":[\"%1\\\\times\\\\left(%2\\\\right)\"],\"?*?\":[\"%1\\\\times %2\"],\"?\\\\cdot{-?}\":[\"%1\\\\cdot\\\\left(%2\\\\right)\"],\"?\\\\cdot?\":[\"%1\\\\cdot %2\"],\"?\\\\div?\":[\"%1\\\\div %2\"],\"?:?\":[\"%1:%2\"],\"?_?\":[\"%1_{%2}\"],\"\\\\left(?\\\\right)\":[\"\\\\left(%1\\\\right)\"],\"{\\\\type{numberPosNeg}}{\\\\type{numberPosNeg}}\":[\"(%1)(%2)\"],\"? ?\":[\"%1 %2\"],\"?,?\":[\"%1,%2\"],\"?\":[\"%1\"]},\"allowInterval\":true,\"parsingIntegralExpr\":false,\"RHS\":false},\"tests\":[]}"
+  }
+ }
+]

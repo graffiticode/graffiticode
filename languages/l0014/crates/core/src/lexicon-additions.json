@@ -1,0 +1,107 @@
+{
+  "words": {
+    "tk": 1,
+    "name": "WORDS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "rules": {
+    "tk": 1,
+    "name": "RULES",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "types": {
+    "tk": 1,
+    "name": "TYPES",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "tests": {
+    "tk": 1,
+    "name": "TESTS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "translate": {
+    "tk": 1,
+    "name": "TRANSLATE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "allow-thousands-separator": {
+    "tk": 1,
+    "name": "ALLOW_THOUSANDS_SEPARATOR",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "set-decimal-separator": {
+    "tk": 1,
+    "name": "SET_DECIMAL_SEPARATOR",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "set-thousands-separator": {
+    "tk": 1,
+    "name": "SET_THOUSANDS_SEPARATOR",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "allow-interval": {
+    "tk": 1,
+    "name": "ALLOW_INTERVAL",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "ignore-text": {
+    "tk": 1,
+    "name": "IGNORE_TEXT",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "ignore-coefficient-one": {
+    "tk": 1,
+    "name": "IGNORE_COEFFICIENT_ONE",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "parsing-integral-expr": {
+    "tk": 1,
+    "name": "PARSING_INTEGRAL_EXPR",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "rhs": {
+    "tk": 1,
+    "name": "RHS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "no-parens": {
+    "tk": 1,
+    "name": "NO_PARENS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "end-root": {
+    "tk": 1,
+    "name": "END_ROOT",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  }
+}
