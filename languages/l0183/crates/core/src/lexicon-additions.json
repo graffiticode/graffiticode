@@ -1,0 +1,242 @@
+{
+  "id": {
+    "tk": 1,
+    "name": "ID",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A name for a node or edge, so an edge can refer to it. Defaults to n1, n2, … for nodes and e1, e2, … for edges."
+  },
+  "text": {
+    "tk": 1,
+    "name": "TEXT",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "What a node shows. $…$ spans render as math, and a text that is just an image URL renders as the image. On a blank it is the answer, hidden until the learner fills it."
+  },
+  "shape": {
+    "tk": 1,
+    "name": "SHAPE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A node's outline: rounded, rect, pill, circle. Defaults to rounded."
+  },
+  "color": {
+    "tk": 1,
+    "name": "COLOR",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A node's colour: gray, red, orange, amber, yellow, green, teal, blue, indigo, purple, pink. Defaults to a neutral fill."
+  },
+  "size": {
+    "tk": 1,
+    "name": "SIZE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "A node's size: small, medium, large. The hub defaults to large, other nodes to medium."
+  },
+  "from": {
+    "tk": 1,
+    "name": "FROM",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Where an edge starts: a node's id, or its exact text. The hub is \"hub\" or its text."
+  },
+  "to": {
+    "tk": 1,
+    "name": "TO",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Where an edge ends: a node's id, or its exact text."
+  },
+  "label": {
+    "tk": 1,
+    "name": "LABEL",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The words on an edge, naming the relationship. On a blank edge it is the answer, hidden until the learner fills it."
+  },
+  "style": {
+    "tk": 1,
+    "name": "STYLE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "How an edge is drawn: solid, dashed, solid-arrow, dashed-arrow. Defaults to solid."
+  },
+  "assess": {
+    "tk": 1,
+    "name": "ASSESS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "Scores a node or edge: assess [expected] makes it a blank whose answer is its own text or label; assess [distractor points -1] makes it a wrong answer that sits only in the tray."
+  },
+  "title": {
+    "tk": 1,
+    "name": "TITLE",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "The heading shown above the web."
+  },
+  "instructions": {
+    "tk": 1,
+    "name": "INSTRUCTIONS",
+    "cls": "function",
+    "arity": 2,
+    "type": "<string record: record>",
+    "description": "Guidance shown under the title."
+  },
+  "theme": {
+    "tk": 1,
+    "name": "THEME",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "The colour scheme, DARK or LIGHT, written as a bare tag. Defaults to LIGHT."
+  },
+  "instant-feedback": {
+    "tk": 1,
+    "name": "INSTANT_FEEDBACK",
+    "cls": "function",
+    "arity": 2,
+    "type": "<boolean record: record>",
+    "description": "true colours each blank right or wrong as the learner fills it. Defaults to false: feedback waits until the learner checks."
+  },
+  "tray-align": {
+    "tk": 1,
+    "name": "TRAY_ALIGN",
+    "cls": "function",
+    "arity": 2,
+    "type": "<tag record: record>",
+    "description": "Where a tray sits beside the web, written as a bare tag: right, left, top, bottom. The node tray defaults to right, the label tray to bottom."
+  },
+  "hub": {
+    "tk": 1,
+    "name": "HUB",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "The node at the centre of the web, e.g. hub text \"The Cell\" {}. Every other node sits on a circle around it. Its id is always `hub`."
+  },
+  "node": {
+    "tk": 1,
+    "name": "NODE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "One node around the hub, described by a chain ending in {}, e.g. node text \"Nucleus\" {}."
+  },
+  "edge": {
+    "tk": 1,
+    "name": "EDGE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<record: record>",
+    "description": "One line between nodes, described by a chain ending in {}, e.g. edge from \"hub\" to \"Nucleus\" label \"contains\" {}."
+  },
+  "expected": {
+    "tk": 1,
+    "name": "EXPECTED",
+    "cls": "function",
+    "arity": 0,
+    "type": "<: record>",
+    "description": "Makes a node or edge a blank. Its own text (or label) is the answer, and joins the tray."
+  },
+  "distractor": {
+    "tk": 1,
+    "name": "DISTRACTOR",
+    "cls": "function",
+    "arity": 0,
+    "type": "<: record>",
+    "description": "Makes a node or edge a wrong answer: its text (or label) joins the tray, and it is not drawn in the web."
+  },
+  "points": {
+    "tk": 1,
+    "name": "POINTS",
+    "cls": "function",
+    "arity": 1,
+    "type": "<number: record>",
+    "description": "What a blank is worth when filled correctly (above 0, default 1), or what a distractor costs when dropped on a blank (0 or below, default 0)."
+  },
+  "concept-web": {
+    "tk": 1,
+    "name": "CONCEPT_WEB",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The program: a list of its children (hub, nodes, edges), then its settings (title, instructions, theme) ending in a record."
+  },
+  "nodes": {
+    "tk": 1,
+    "name": "NODES",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The nodes around the hub, each written node … {}, then the node tray's settings (tray-align) ending in a record."
+  },
+  "edges": {
+    "tk": 1,
+    "name": "EDGES",
+    "cls": "function",
+    "arity": 2,
+    "type": "<list record: record>",
+    "description": "The lines between nodes, each written edge … {}, then the label tray's settings (tray-align) ending in a record. Without `edges`, every node gets a line from the hub."
+  },
+  "DARK": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The dark theme."
+  },
+  "LIGHT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "The light theme."
+  },
+  "right": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Puts a tray on the right of the web."
+  },
+  "left": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Puts a tray on the left of the web."
+  },
+  "top": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Puts a tray on the top of the web."
+  },
+  "bottom": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "Puts a tray on the bottom of the web."
+  }
+}

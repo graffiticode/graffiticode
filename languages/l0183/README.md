@@ -48,3 +48,18 @@ npm run build
 npm test
 npm run dev    # the language server on :50183
 ```
+
+## Rust implementation
+
+`crates/` holds L0183 in Rust: a `Dialect` on the kernel in `languages/l0000/crates`, with a
+language server (`crates/server`, binary `l0183r`). The TypeScript in `packages/` remains
+production; `attributes.ts` remains the single source of truth for the vocabulary, and the view
+and Learnosity bundles are served unchanged.
+
+```bash
+cargo test            # needs no Node and no network
+npm run rust:build    # ./static, then the release binary (target/release/l0183r)
+npm run rust:dev      # run it on :50183
+```
+
+See `CLAUDE.md` for the details.
