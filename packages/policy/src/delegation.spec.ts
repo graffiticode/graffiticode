@@ -110,6 +110,17 @@ describe("delegation", () => {
     expect(await manager.claim({ caller: CONSOLE, user: { uid: BOB }, emailHashes: [hash("alice@example.com")] })).toEqual({ claimed: 0 });
   });
 
+  it("stops the recipient's next call once they leave, and the owner's still work", async () => {
+    await share();
+    const { sessionToken } = await snap(ALICE);
+    await manager.leave({ caller: CONSOLE, user: { uid: ALICE }, connectionId: "conn-1" });
+    await denied(mint(sessionToken, "save-to-itembank", "learnosity.write-items"), "not-owner");
+    await denied(invoke(ALICE), "not-owner");
+    const owner = await snap(OWNER);
+    expect(owner.allowed).toEqual(OWNER_FNS);
+    await expect(mint(owner.sessionToken, "save-to-itembank", "learnosity.write-items")).resolves.toBeTruthy();
+  });
+
   it("lists shared connections for the recipient, and lets them leave", async () => {
     await share();
     expect(await manager.shared({ caller: CONSOLE, user: { uid: ALICE } })).toEqual([{

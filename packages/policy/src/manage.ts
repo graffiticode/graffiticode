@@ -6,7 +6,9 @@
 //   list     the owner's connections (no secrets); system marks a configured
 //            system connection (preview signing only, never writes)
 //   create   new connection: secret to the broker first, then the record, so a
-//            record never exists without its credential
+//            record never exists without its credential; if the record can't
+//            be stored, the secret is deleted again (best effort), so a failed
+//            create leaves nothing behind
 //   rotate   replace the secret; grants attach to the connection, so they
 //            survive rotation. Owner, backend and provider account (the key)
 //            are immutable; the broker refuses a change to any of them
@@ -121,7 +123,15 @@ export const createConnectionManager = ({ connections, brokerAdmin, audit, grant
       if (!validCredential(credential)) return deny("bad-credential", record);
       const connectionId = `conn-${randomUUID()}`;
       await brokerAdmin.createSecret(connectionId, { ownerUid: user.uid, backend, key: credential.key, secret: credential.secret });
-      await connections.put({ connectionId, ownerUid: user.uid, backend, status: "active", label, ownerPermissions: null });
+      try {
+        await connections.put({ connectionId, ownerUid: user.uid, backend, status: "active", label, ownerPermissions: null });
+      } catch (e) {
+        // The original error is what the caller sees; a failed cleanup or
+        // audit must not replace it.
+        try { await brokerAdmin.deleteSecret(connectionId); } catch { /* the secret may be left; the record is not */ }
+        try { await audit({ ...record, connectionId, ownerUid: user.uid, outcome: "failed", reason: "storage-failed" }); } catch { /* keep e */ }
+        throw e;
+      }
       await audit({ ...record, connectionId, ownerUid: user.uid, outcome: "allowed" });
       return { connectionId, backend, status: "active", label, ownerPermissions: null };
     },

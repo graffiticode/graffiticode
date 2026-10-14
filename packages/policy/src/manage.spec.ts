@@ -114,6 +114,46 @@ describe("connection lifecycle", () => {
     expect(stored.size).toBe(0);
   });
 
+  it("stores no record when the broker refuses the secret", async () => {
+    const failing = createConnectionManager({
+      connections,
+      brokerAdmin: { createSecret: async () => { throw new Error("broker down"); }, rotateSecret: async () => {}, deleteSecret: async () => {} },
+      audit: async () => {}
+    });
+    await expect(failing.create({ caller: CONSOLE, user: { uid: OWNER }, backend: "learnosity", credential: CRED })).rejects.toThrow("broker down");
+    expect(await connections.listByOwner(OWNER)).toEqual([]);
+  });
+
+  // A record store whose put fails after the broker has the secret.
+  const withFailingPut = (deleteSecret = async id => { stored.delete(id); }) => {
+    const deleted = [];
+    const failing = createConnectionManager({
+      connections: { ...connections, put: async () => { throw new Error("firestore down"); } },
+      brokerAdmin: {
+        createSecret: async (id, cred) => { stored.set(id, cred); },
+        rotateSecret: async () => {},
+        deleteSecret: async id => { deleted.push(id); await deleteSecret(id); }
+      },
+      audit: createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) })
+    });
+    return { failing, deleted };
+  };
+
+  it("deletes the secret again when the record can't be stored", async () => {
+    const { failing, deleted } = withFailingPut();
+    await expect(failing.create({ caller: CONSOLE, user: { uid: OWNER }, backend: "learnosity", credential: CRED })).rejects.toThrow("firestore down");
+    expect(deleted).toHaveLength(1);
+    expect(stored.size).toBe(0);
+    expect(await connections.get(deleted[0])).toBeNull();
+    expect(records).toEqual([expect.objectContaining({ event: "connection-create", connectionId: deleted[0], outcome: "failed", reason: "storage-failed" })]);
+  });
+
+  it("surfaces the store's error even when the cleanup fails", async () => {
+    const { failing, deleted } = withFailingPut(async () => { throw new Error("broker down"); });
+    await expect(failing.create({ caller: CONSOLE, user: { uid: OWNER }, backend: "learnosity", credential: CRED })).rejects.toThrow("firestore down");
+    expect(deleted).toHaveLength(1);
+  });
+
   it("audits lifecycle events without the credential", async () => {
     const { connectionId } = await create();
     await manager.rotate({ caller: CONSOLE, user: { uid: OWNER }, connectionId, credential: CRED });
