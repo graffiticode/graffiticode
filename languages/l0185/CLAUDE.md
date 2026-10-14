@@ -12,6 +12,8 @@ programs. Built on `@graffiticode/l0000` ^0.8.0 and `@graffiticode/l0000-view` ^
 It lives in the graffiticode monorepo as a **self-contained npm project**: its own lockfile,
 install, build and tests, all run from this directory.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0185 that production runs; `crates/` is L0185 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ```bash
@@ -75,3 +77,48 @@ view never adds to the data.
 code spans); `examples.md` holds RAG prompts, never programs, pointing only at the sample data
 served from `/data` (`packages/core/data`); the word tables in both files are generated from the
 lexicon and guarded by `docs.test.ts`.
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0185**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0185`). `crates/` is the same language in Rust, to be released to its own service `l0185r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec (with the sample data served at `/data`) are shared by both.
+
+- `crates/core` (`graffiticode-l0185`) — `src/lib.rs`: `L0185` implements `Dialect` from `graffiticode-l0000`. A word evaluates its right-hand side, then its parameter (a function of the record is kept as its node and applied per record with `Evaluator::apply`), then its step. A `State` travels through the kernel (a `let`, a list, a `join`'s record) as a small record naming a state kept in the compile's `ExecContext::state`, which also holds the per-compile fetch dedupe. It claims `PROG` (checks and unwraps the state) and `take`/`drop`/`filter`/`map`/`last` (the pointed "not an L0185 step" error); its `check` is the TypeScript Checker's early-`{}` error.
+  - `src/vocab.json` is **generated from `attributes.ts`** (`stepFields`, `TAGS`) by `npm run rust:fixtures`; `src/vocab.rs` reads it. `attributes.ts` stays the single source of truth.
+  - `src/js.rs` — the data as JavaScript holds it (`Js`: `undefined`, NaN, `Date`, objects in JavaScript key order) with `JSON.stringify`, `String()`, `Number()`, `Object.entries` and spread. `src/steps.rs` — one function per word, as `steps.ts`. `src/paths.rs` — field lookup and did-you-mean. `src/source.rs` — the `Fetcher` seam and body parsing.
+  - `src/csv.rs` — a port of the Papa Parse 5.7 paths the TypeScript uses (`header`, `dynamicTyping`, `skipEmptyLines: "greedy"`): line-ending and delimiter guessing, quotes, duplicate headers, `__parsed_extra`, its error messages.
+  - `src/dates.rs` — `format`'s date patterns (`dates.ts`), and a port of V8's `Date.parse` (ISO 8601 plus the lenient legacy forms), which decides whether a string is a date.
+  - `src/fetch.rs` (feature `http`, on by default) — the guarded fetcher, `packages/api/src/fetch.ts` on `reqwest`. See below.
+- `crates/server` (`l0185r-server`, binary `l0185r`) — `l0000r_server::serve(L0185::default(), lexicon())`. `L0185::default()` fetches through the guarded fetcher; `L0185::with_fetcher` / `without_fetcher` are for tests.
+- `tools/assemble-static.mjs` — builds the static assets, sample data and `/form` bundle into `./static` for the Rust server, as `npm run build` does into `packages/api/static`.
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation" in `languages/l0000/CLAUDE.md`.
+
+```bash
+cargo test            # conformance and unit tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0185r-server
+npm run rust:dev      # cargo run -p l0185r-server on :50185 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then (TZ=UTC) regenerate src/vocab.json, src/lexicon-additions.json and the fixture
+```
+
+**Not ported:** the view (`packages/view`), the spec and its tooling (`build-static.js`, `fixtures.ts`, the docs tests) stay TypeScript. No JavaScript library had to stay JavaScript: Papa Parse, `decimal.js` (the kernel's `Decimal`), `localeCompare` (`icu_collator`, root collation — what V8's default locale gives) and `Date.parse` are reproduced in Rust.
+
+**What the Rust must get exactly right:** JavaScript object key order (array-index keys first); `JSON.stringify` (it is the key of grouping, `distinct`, `join` and `COUNT-DISTINCT`, and the 1 MB check); `String()`/`Number()`; `localeCompare` for sorting, MIN/MAX and string comparisons; decimal SUM/AVERAGE/MEDIAN (20 digits, half up); Papa's typing (a CSV ISO date-time is a `Date`, which the L0000 renderer turns into `{}` in the output); V8's date parsing in UTC; the renderer's `deepConvertRecords`.
+
+### Fetching (`src/fetch.rs`)
+
+Every `fetch` is a GET at compile time to the URL the program names, so this is an SSRF boundary, ported from `packages/api/src/fetch.ts`: https only, port 443, no userinfo; `localhost`, `*.localhost`, `*.local`, `*.internal`, `metadata.google.internal` refused; a literal IP, and **every** address a host name resolves to, must be public unicast (ipaddr.js 2.5's special ranges, IPv4-mapped IPv6 unwrapped), checked in the client's own DNS resolver so the connection uses exactly the addresses that passed; no proxy; redirects by hand, at most 3, each re-checked; 10 s per URL (redirects and body included), 5 s to connect; at most 5 MB decoded body (gzip, deflate, br); fixed headers (`user-agent: Graffiticode-L0185/1`); a 60 s in-process cache of at most 200 URLs, in-flight requests shared, failures not cached. Per compile a URL is fetched once, and at most 10 different URLs. No env and no secrets; `connection-id` is refused as in TypeScript. Output stays cacheable, as the TypeScript's is.
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` builds about 4,000 cases: every field of every sample data set (and test-only bodies) through every operator, aggregate, sort, `distinct`, `group-by`, `format`, `omit`, `rename`, `fill`, `spread`, `unnest`; every word given a value of each kind; every test-only body (CSV with CR/CRLF/tabs/semicolons/pipes, quotes, duplicate and numeric headers, ragged rows, BOM, typed values; JSON with numeric and duplicate keys, scalars; HTML) with each `parse`; number and date patterns; V8 date strings; Unicode sorting; then the spec's, the TypeScript suite's and hand-written cases. Fetching is a fixture on both sides, never the network: `https://example.org/<file>` and `https://l0185.graffiticode.org/data/<file>` read `packages/core/data/<file>`; `https://example.org/t/<name>` the bodies in `conformance/fetches.json`. `tests/conformance.rs` requires the same JSON text or the same error messages for every case but these deliberate differences (each with its own test):
+
+- An L0000 error inside a function of the record (`<row: add "a" 1>`) is the Rust kernel's message (`Error in ADD operation: expected a number, got "a"`), not the TypeScript kernel's; where such a body has several kernel errors the Rust reports each, the TypeScript only the first.
+- An integer beyond 2^53 and below 1e21 is written by the kernel's JSON serializer as `1.2345678901234567e+19` where `JSON.stringify` writes `12345678901234567000`. Same number.
+- Not in the fixture: a field given an undefined L0000 value is absent in both outputs but still listed by the TypeScript's `Object.keys`; a record literal imitating a state's object form (`{__l0185: true}`) is just a record here.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0185r` entry (own service, `l0185r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0185r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`, env `AUTH_URL` only). Like `l0185`, it makes outbound HTTPS requests to whatever public host a program names; the distroless `cc` image carries the CA certificates. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later. The account needs no roles.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored; `src/vocab.json`, `src/lexicon-additions.json` and `tests/conformance/*.json` are generated, not edited.

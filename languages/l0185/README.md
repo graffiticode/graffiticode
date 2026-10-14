@@ -20,3 +20,18 @@ fetch "https://l0185.graffiticode.org/data/sales.csv"
 | `packages/view` | `@graffiticode/l0185-view` | The Form (a record table or a JSON tree), for the shared View |
 
 See `CLAUDE.md` for how it is built, and `packages/core/spec/` for the language.
+
+## Rust implementation
+
+`crates/` holds L0185 in Rust: a `Dialect` on the kernel in `languages/l0000/crates`, with a
+language server (`crates/server`, binary `l0185r`) that fetches through the same guarded HTTPS
+fetcher. The TypeScript in `packages/` remains production; `attributes.ts` remains the single
+source of truth for the vocabulary.
+
+```bash
+cargo test            # needs no Node and no network
+npm run rust:build    # ./static, then the release binary (target/release/l0185r)
+npm run rust:dev      # run it on :50185
+```
+
+See `CLAUDE.md` for the details.
