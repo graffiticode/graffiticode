@@ -1,0 +1,268 @@
+{
+  "attributes": {
+    "ID": {
+      "field": "id",
+      "expects": "string"
+    },
+    "SESSION_ID": {
+      "field": "sessionId",
+      "expects": "string"
+    },
+    "CHOICES": {
+      "field": "choices",
+      "expects": "refs"
+    },
+    "WRITE_IN": {
+      "field": "writeIn",
+      "expects": "string"
+    },
+    "RATINGS": {
+      "field": "ratings",
+      "expects": "records"
+    },
+    "ITEM": {
+      "field": "item",
+      "expects": "ref"
+    },
+    "RATING": {
+      "field": "rating",
+      "expects": "answer"
+    },
+    "COMMENT": {
+      "field": "comment",
+      "expects": "string"
+    }
+  },
+  "validAttributes": {
+    "survey": [
+      "id",
+      "session-id",
+      "response"
+    ],
+    "response": [
+      "choices",
+      "write-in",
+      "ratings",
+      "comment"
+    ],
+    "ratings": [
+      "item",
+      "rating"
+    ]
+  },
+  "presets": {
+    "agreement-5": {
+      "points": [
+        {
+          "value": 1,
+          "label": "Strongly disagree"
+        },
+        {
+          "value": 2,
+          "label": "Disagree"
+        },
+        {
+          "value": 3,
+          "label": "Neither agree nor disagree"
+        },
+        {
+          "value": 4,
+          "label": "Agree"
+        },
+        {
+          "value": 5,
+          "label": "Strongly agree"
+        }
+      ]
+    },
+    "agreement-7": {
+      "points": [
+        {
+          "value": 1,
+          "label": "Strongly disagree"
+        },
+        {
+          "value": 2,
+          "label": "Disagree"
+        },
+        {
+          "value": 3,
+          "label": "Somewhat disagree"
+        },
+        {
+          "value": 4,
+          "label": "Neither agree nor disagree"
+        },
+        {
+          "value": 5,
+          "label": "Somewhat agree"
+        },
+        {
+          "value": 6,
+          "label": "Agree"
+        },
+        {
+          "value": 7,
+          "label": "Strongly agree"
+        }
+      ]
+    },
+    "frequency-5": {
+      "points": [
+        {
+          "value": 1,
+          "label": "Never"
+        },
+        {
+          "value": 2,
+          "label": "Rarely"
+        },
+        {
+          "value": 3,
+          "label": "Sometimes"
+        },
+        {
+          "value": 4,
+          "label": "Often"
+        },
+        {
+          "value": 5,
+          "label": "Always"
+        }
+      ]
+    },
+    "importance-5": {
+      "points": [
+        {
+          "value": 1,
+          "label": "Not at all important"
+        },
+        {
+          "value": 2,
+          "label": "Slightly important"
+        },
+        {
+          "value": 3,
+          "label": "Moderately important"
+        },
+        {
+          "value": 4,
+          "label": "Very important"
+        },
+        {
+          "value": 5,
+          "label": "Extremely important"
+        }
+      ]
+    },
+    "satisfaction-5": {
+      "points": [
+        {
+          "value": 1,
+          "label": "Very dissatisfied"
+        },
+        {
+          "value": 2,
+          "label": "Dissatisfied"
+        },
+        {
+          "value": 3,
+          "label": "Neither satisfied nor dissatisfied"
+        },
+        {
+          "value": 4,
+          "label": "Satisfied"
+        },
+        {
+          "value": 5,
+          "label": "Very satisfied"
+        }
+      ]
+    },
+    "likelihood-5": {
+      "points": [
+        {
+          "value": 1,
+          "label": "Very unlikely"
+        },
+        {
+          "value": 2,
+          "label": "Unlikely"
+        },
+        {
+          "value": 3,
+          "label": "Neither likely nor unlikely"
+        },
+        {
+          "value": 4,
+          "label": "Likely"
+        },
+        {
+          "value": 5,
+          "label": "Very likely"
+        }
+      ]
+    },
+    "nps": {
+      "points": [
+        {
+          "value": 0,
+          "label": "Not at all likely"
+        },
+        {
+          "value": 1
+        },
+        {
+          "value": 2
+        },
+        {
+          "value": 3
+        },
+        {
+          "value": 4
+        },
+        {
+          "value": 5
+        },
+        {
+          "value": 6
+        },
+        {
+          "value": 7
+        },
+        {
+          "value": 8
+        },
+        {
+          "value": 9
+        },
+        {
+          "value": 10,
+          "label": "Extremely likely"
+        }
+      ]
+    },
+    "stars-5": {
+      "points": [
+        {
+          "value": 1
+        },
+        {
+          "value": 2
+        },
+        {
+          "value": 3
+        },
+        {
+          "value": 4
+        },
+        {
+          "value": 5
+        }
+      ],
+      "display": "stars"
+    }
+  },
+  "defaultInstructions": "Below is a list of options. Please choose the ones that matter most to you.",
+  "defaultRatingInstructions": "Please answer each of the following on the scale beside it."
+}

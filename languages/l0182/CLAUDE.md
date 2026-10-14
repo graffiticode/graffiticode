@@ -35,6 +35,10 @@ This repo previously held a survey proxy, an in-memory mock backend, an adaptive
 five-screen React player. All of it is gone — see "What was deleted, and why it is not coming
 back" before proposing anything that resembles it.
 
+> **Two implementations live here.** `packages/` is the TypeScript L0182 that production runs;
+> `crates/` is L0182 in Rust. Everything down to "The Rust implementation" describes the
+> TypeScript side.
+
 ## Commands
 
 ```bash
@@ -560,3 +564,116 @@ items or any scoring of a scale. Ranking or rating objects other than a line of 
   The agent path is now plain `create_item` / `update_item`, which is exactly the path a person
   uses.
 - `l0180` — the assessment dialect this was originally copied from.
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0182**. `packages/core` and `packages/api` are the
+TypeScript compiler and server, which production runs (Cloud Run service `l0182`). `crates/` is
+the same language in Rust, released to its own service `l0182r` so it can be vetted before it
+replaces the TypeScript. `packages/view`, the spec and the surveys in `packages/core/data/` are
+shared by both.
+
+- `crates/core` (`graffiticode-l0182`) — `L0182` implements `Dialect` from `graffiticode-l0000`
+  (`src/lib.rs`): every attribute word, plus `survey` and `response`. The modules mirror the
+  TypeScript ones: `attributes.rs` (the type checks, the merge and the "belongs inside" hint),
+  `source.rs`, `survey.rs`, `ranked.rs`, `rating.rs`, `scales.rs`, `resolve.rs`. The attribute
+  table, the containers' words, the scale presets and the default wording are read from
+  `src/vocab.json`, **generated from `attributes.ts`, `scales.ts` and `survey.ts`** by
+  `npm run rust:fixtures`; the TypeScript stays the single source of truth. `src/js.rs` is the
+  JavaScript reading of values (`undefined` vs `null`, key order, `String()`, `JSON.stringify`,
+  `\s` and `trim`, `showValue`).
+- **The surveys are embedded.** `crates/core/build.rs` reads `packages/core/data/*.json` at build
+  time and `include_str!`s every file, so the binary carries them and the runtime image holds
+  only the binary and `static/` (the Dockerfile's Rust stage copies `data/` for the build).
+  `data/` stays the one place a survey is added; a rebuild picks it up. As in the TypeScript,
+  the files are never served.
+- `crates/server` (`l0182r-server`, binary `l0182r`) —
+  `l0000r_server::serve(L0182::default(), lexicon())`.
+- `tools/assemble-static.mjs` — builds the static assets and the `/form` bundle into `./static`,
+  exactly what `npm run build` assembles into `packages/api/static`.
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation"
+in `languages/l0000/CLAUDE.md`.
+
+```bash
+cargo test            # conformance, dialect and unit tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0182r-server
+npm run rust:dev      # cargo run -p l0182r-server on :50182 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate src/vocab.json, src/lexicon-additions.json and the fixture
+```
+
+**Not ported, and why.** The view (`packages/view`) is a React renderer and stays TypeScript.
+`build-static.js`, the spec, the docs tests and the TypeScript server stay as they are: none of
+them is on the compile path. The compile calls no library worth keeping in JavaScript.
+
+### What the Rust must get exactly right
+
+- **The draw.** `source.rs`'s `Files` holds the same per-process memory as `source.ts`: which
+  versions each survey id has handed out (drawn without replacement, the marks clearing once all
+  are taken) and which version each session holds. A named version (`civic-priorities-7`) neither
+  draws nor marks; an empty session is no session; an id is validated before any lookup. The
+  memory belongs to the dialect instance, so one server process has one, as in TypeScript. The
+  random pick is `fastrand`; `Files::installed(pick)` takes a deterministic one for tests.
+- **Messages are a product surface.** Every message is the TypeScript's, byte for byte,
+  including where a value is shown (`showValue`), quoted (`JSON.stringify`) or interpolated
+  (`String()`), and JavaScript's own `TypeError` text where a response written as a record
+  literal skips `response`'s checks (`authored.choices.forEach is not a function`, …).
+- **Field order.** Records are built in the TypeScript's order; a scale keeps the order its
+  fields were first set in (`display` from a preset precedes `optOut`; one set after follows
+  it). A program's record literal and a survey file's objects take JavaScript's key order
+  (array-index keys first).
+- **Errors accumulate** as in TypeScript: a word that fails reports and stands in `{}`, so its
+  container merges nothing and the compile goes on.
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` runs the TypeScript suite itself under
+`record.setup.mjs`, recording every program it parses with its public values and the survey its
+`setSource` fixture was serving, then compiles each one with the built TypeScript. Beyond those:
+the spec's programs and `template.gc`; every installed survey and version, bare and with a
+session, answered in every notation (text, id, position, folded text) and wrongly every way, and
+every point of every distinct scale answered by value, quoted value, label, folded label, anchor
+and opt-out; every attribute word with 25 kinds of value, alone and inside each container;
+160 fixture surveys (the suite's, and data breaking each rule in `ranked.ts`, `rating.ts` and
+`scales.ts`) taken bare and answered; and hand-written cases (bad ids, draws across several
+expressions, sessions, record-literal responses, degenerate programs). A case with a `fixture` is
+served that data as the suite serves one (`Fixture` in `source.rs`); the rest use the installed
+surveys with no draws taken and `Math.random()` always 0 (in Rust, `Files::installed(|_| 0)`).
+
+3,606 cases. Every reachable error message in the TypeScript appears at least once; the only ones
+that do not ("no options", "not readable JSON", "No surveys are installed") cannot happen with
+the installed data. `tests/conformance.rs` requires the same JSON text, field order included, or
+the same errors, for all but the three cases below. `tests/dialect.rs` covers what one compile
+cannot: a session keeping its version across compiles, a full draw cycle, and `data` never
+reaching the output.
+
+The deliberate differences, each pinned by its own test:
+
+- **An unresolved `get-val-public`** (no public value folded in at parse time) is refused by the
+  kernel's checker; TypeScript evaluates it to undefined and `session-id` refuses that.
+- **A number too precise for a float** (`12345678901234567890`) is a `Decimal` object in
+  TypeScript. Where a word only says it got "a record" both agree; as an entry of an attribute
+  list TypeScript merges the `Decimal`'s internal fields as words, and written out it prints the
+  integer's digits, where the kernel prints the nearest float in exponent form.
+- **A survey file that is not valid JSON** would name the parser's error in its message, which
+  differs between `JSON.parse` and `serde_json`. No installed survey reaches it (untested).
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0182r` entry (own service, `l0182r-run@graffiticode.iam.gserviceaccount.com`,
+image from `configs/Dockerfile.l0182r.yaml`, snapshot this directory and `languages/l0000`, build
+step `cargo test --locked`, env `AUTH_URL` only). Like the TypeScript it needs no credential and
+makes no network call at compile time. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python
+3.10 or later (see `languages/l0000/CLAUDE.md`). The account needs no roles.
+
+The shared Rust server does not send `/form`'s three `no-store` headers or `/assets/*`'s
+`immutable` header that `app.ts` sends (it does send `Cross-Origin-Resource-Policy` and alias
+`/lexicon.js`); read "What `app.ts` serves" before pointing the public hostname at `l0182r`. The
+session memory is per process in both, so moving traffic between `l0182` and `l0182r` forgets
+every session's version, as a restart does.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and
+`cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build
+outputs; `src/vocab.json`, `src/lexicon-additions.json` and `tests/conformance/cases.json` are
+generated, not edited.

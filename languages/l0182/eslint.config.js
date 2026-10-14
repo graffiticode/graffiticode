@@ -10,6 +10,7 @@ export default tseslint.config(
       "**/dist-embed/**",
       "**/static/**",
       "**/node_modules/**",
+      "**/target/**",
       "**/*.d.ts",
     ],
   },

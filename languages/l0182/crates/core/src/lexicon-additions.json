@@ -1,0 +1,82 @@
+{
+  "id": {
+    "tk": 1,
+    "name": "ID",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "The survey being taken, e.g. id \"civic-priorities\". The options, the wording and the bounds all come from the survey itself — the program names it and nothing more. An id naming one version outright (id \"civic-priorities-7\") takes that version rather than drawing one."
+  },
+  "session-id": {
+    "tk": 1,
+    "name": "SESSION_ID",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "One taking of a survey. Write it exactly as `session-id get-val-public \"itemId\"` — it is what keeps a response with the version of the survey it answers."
+  },
+  "choices": {
+    "tk": 1,
+    "name": "CHOICES",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "The options chosen, in priority order — the order IS the ranking, first is most important. Name each one by its exact text: choices [\"clean air and water\" \"affordable housing\"]. An id in quotes works too, and a bare whole number is a position counting from 0 — but reach for those only when you can see the set, because a wrong position records the wrong option and still compiles."
+  },
+  "write-in": {
+    "tk": 1,
+    "name": "WRITE_IN",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "One new option, contributed by whoever answered. It must not repeat an option already in the set — that is what makes it new."
+  },
+  "ratings": {
+    "tk": 1,
+    "name": "RATINGS",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "The answers to a rating survey, one [item … rating …] list per item: ratings [[item \"The course met its goals\" rating \"Agree\"] [item \"How likely are you to recommend us?\" rating 9]]."
+  },
+  "item": {
+    "tk": 1,
+    "name": "ITEM",
+    "cls": "function",
+    "arity": 1,
+    "type": "<any: record>",
+    "description": "Which item a rating answers. Name it by its exact text; an id in quotes, or a whole-number position counting from 0, work too once you can see the survey."
+  },
+  "rating": {
+    "tk": 1,
+    "name": "RATING",
+    "cls": "function",
+    "arity": 1,
+    "type": "<any: record>",
+    "description": "The answer on the item's scale: a point's label (\"Agree\", \"Very satisfied\"), or the scale's own value as a number (9 on a 0–10 scale is 9 — never a position). An item with its own end words takes those too, and a scale with an opt-out takes its words (\"Not applicable\")."
+  },
+  "comment": {
+    "tk": 1,
+    "name": "COMMENT",
+    "cls": "function",
+    "arity": 1,
+    "type": "<string: record>",
+    "description": "Free text alongside a rating survey's answers, where the survey asks for a comment."
+  },
+  "survey": {
+    "tk": 1,
+    "name": "SURVEY",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "The survey being taken, and optionally the response to it. What the survey asks — options or items, wording, bounds, scales — comes from the survey, not from the program."
+  },
+  "response": {
+    "tk": 1,
+    "name": "RESPONSE",
+    "cls": "function",
+    "arity": 1,
+    "type": "<list: record>",
+    "description": "The answer. To a ranked-choice survey: `choices` in priority order and optionally one `write-in`. To a rating survey: `ratings`, one per item, and a `comment` where the survey asks for one."
+  }
+}
