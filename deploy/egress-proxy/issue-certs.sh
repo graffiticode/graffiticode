@@ -24,7 +24,7 @@ case "$1" in
     openssl ecparam -name prime256v1 -genkey -noout -out "$dir/ca.key"
     openssl req -x509 -new -key "$dir/ca.key" -sha256 -days 3650 -subj "/O=Graffiticode/CN=Graffiticode compiler egress CA" \
       -addext "basicConstraints=critical,CA:TRUE,pathlen:0" -addext "keyUsage=critical,keyCertSign,cRLSign" \
-      -addext "nameConstraints=critical,permitted;DNS:.run.app,permitted;DNS:.googleapis.com" \
+      -addext "nameConstraints=critical,permitted;DNS:.run.app,permitted;DNS:.googleapis.com,permitted;DNS:.graffiticode.org" \
       -out "$dir/ca.crt"
     chmod 444 "$dir/ca.crt"
     echo "created $dir/ca.key (keep offline) and $dir/ca.crt"

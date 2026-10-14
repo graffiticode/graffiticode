@@ -1343,6 +1343,30 @@ evidence that nothing else but the operators can write.
    ASTs are removed from compilers. Plan that cut-over and `GRAFFITICODE_SECRET_KEY`'s role in it.
    Sharing the `GRAFFITICODE_SECRET_KEY` keyring with every compiler means compilers can decrypt
    console-encrypted secrets, and broker's `BROKER_SECRET_KEY` must not reuse it.
+
+   **ISOLATE-01, pending deployment (2026-10-14).** Built in the repository but not deployed
+   (deferred). The plan is `~/.claude/plans/isolate-01-compiler-egress.md`, and the runbook is
+   `deploy/egress-proxy/README.md`. None of the following exists yet. The rollout creates:
+   - the `compilers` VPC, with the subnets `egress-proxy`, `compilers-default`, `compilers-l0185`
+     and one `compilers-<lang>` per language with reviewed external hosts;
+   - firewall rules: compilers may reach only the proxy's internal passthrough load balancer
+     (TCP 3128), and DNS lockdown applies;
+   - the DNS response policy `compilers-dns-lockdown`, and Cloud NAT for the proxy subnet only;
+   - the `egress-proxy@graffiticode.iam.gserviceaccount.com` account, with:
+     - `secretAccessor` on `egress-proxy-cert-<host>` only;
+     - `roles/logging.logWriter` and `roles/monitoring.metricWriter`, for COS's logging agent.
+     Envoy's UID can't reach metadata, so it holds no credential;
+   - the secret `egress-proxy-ca-bundle` (the public CA certificate), readable by every compiler
+     account. That's the only new grant to an `lNNNN-run` account;
+   - one secret per terminated host, `egress-proxy-cert-<host-with-dashes>`, readable by
+     `egress-proxy` only;
+   - for AT-11: an `at11-control` account and its canary resources, and the time-limited
+     right to run the probe jobs as each compiler account.
+
+   Every compiler's `deploy.json` entry gets a `network` block whose `allow` list is its
+   reviewed hosts. The lists come from the rollout's inventory (step 3) and are recorded here.
+   Two exceptions are recorded: D1 (L0158's preview-only consumer, subject to its gate) and
+   D2 (L0185's open fetches, with their stated residuals).
 8. **`auth` private keys in Firestore `(default)`.** Move them to KMS or Secret Manager (a separate
    project) so `api-run`'s `(default)` access does not include the ability to mint auth tokens.
 9. **Receipts integrity.** Is Firestore-in-`broker`-DB enough, or do receipts also need a

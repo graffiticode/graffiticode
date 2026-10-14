@@ -105,8 +105,10 @@ updates don't reboot anyway, so the fleet is only ever replaced:
 The CA is created once on an offline machine with `issue-certs.sh ca <dir>`. Its key never
 leaves that machine.
 
-- **Name constraints:** the CA can only sign `.run.app` and `.googleapis.com`, which limits
-  what a leaked key could impersonate. A reviewed external host outside those suffixes needs
+- **Name constraints:** the CA can only sign `.run.app`, `.googleapis.com` and
+  `.graffiticode.org`, which limits what a leaked key could impersonate. The last is there
+  because compilers call `auth.graffiticode.org` (`AUTH_URL`) and `api.graffiticode.org`
+  (`GRAFFITICODE_API_URL`). A reviewed external host outside those suffixes needs
   a new CA, with the constraint extended, distributed to every compiler.
 - **Issuing:** run `issue-certs.sh issue <ca-dir> certs/ <host>...` with the hosts
   `generate.js` lists. Each certificate lasts 397 days. Then:
