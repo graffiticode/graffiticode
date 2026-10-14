@@ -1,0 +1,36 @@
+# l0179r — the L0179 language server in Rust — from the monorepo root (deploy CLI, or
+# `docker build -f configs/Dockerfile.l0179r.yaml .`). languages/l0179 holds both
+# implementations: this image is the Rust server (crates/), which builds on the kernel and
+# server crates in languages/l0000, with the static assets this language's npm packages build.
+# configs/Dockerfile.l0179.yaml builds the TypeScript server from the same directory.
+
+# Public static assets (spec documents, schema, language info), the /form View bundle, and the
+# Learnosity custom question type (question.js, scorer.js, question.css).
+FROM node:22-alpine AS static
+WORKDIR /src
+COPY languages/l0179/package*.json ./
+COPY languages/l0179/packages/core/package*.json ./packages/core/
+COPY languages/l0179/packages/api/package*.json ./packages/api/
+COPY languages/l0179/packages/view/package*.json ./packages/view/
+COPY languages/l0179/packages/integrations/learnosity/package*.json ./packages/integrations/learnosity/
+RUN npm ci
+COPY languages/l0179/tsconfig.base.json ./
+COPY languages/l0179/packages ./packages
+COPY languages/l0179/tools ./tools
+RUN node tools/assemble-static.mjs --skip-install
+
+FROM rust:1.99-bookworm AS server
+WORKDIR /src/languages/l0179
+COPY languages/l0000/Cargo.toml /src/languages/l0000/Cargo.toml
+COPY languages/l0000/crates /src/languages/l0000/crates
+COPY languages/l0179/Cargo.toml languages/l0179/Cargo.lock ./
+COPY languages/l0179/crates ./crates
+RUN cargo build --release --locked -p l0179r-server
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+WORKDIR /app
+COPY --from=server /src/languages/l0179/target/release/l0179r ./l0179r
+COPY --from=static /src/static ./static
+ENV STATIC_DIR=/app/static
+EXPOSE 8080
+CMD ["/app/l0179r"]

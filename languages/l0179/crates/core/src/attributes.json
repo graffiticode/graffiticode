@@ -1,0 +1,197 @@
+{
+  "attributes": {
+    "TEXT": {
+      "field": "text"
+    },
+    "WIDTH": {
+      "field": "width",
+      "expects": "number"
+    },
+    "ALIGN": {
+      "field": "align",
+      "expects": "string",
+      "coerce": "tag-value"
+    },
+    "BACKGROUND_COLOR": {
+      "field": "background-color",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "FONT_WEIGHT": {
+      "field": "font-weight",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "FONT_SIZE": {
+      "field": "font-size",
+      "expects": "string",
+      "coerce": "as-tag",
+      "validate": "css-size"
+    },
+    "FONT_FAMILY": {
+      "field": "font-family",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "FONT_STYLE": {
+      "field": "font-style",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "COLOR": {
+      "field": "color",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "TEXT_DECORATION": {
+      "field": "text-decoration",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "BORDER": {
+      "field": "border",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "VERTICAL_ALIGN": {
+      "field": "vertical-align",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "FORMAT": {
+      "field": "format",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "PROTECTED": {
+      "field": "protected",
+      "expects": "boolean"
+    },
+    "ASSESS": {
+      "field": "assess",
+      "shape": "object"
+    },
+    "METHOD": {
+      "field": "method",
+      "expects": "string",
+      "coerce": "lowercase"
+    },
+    "EXPECTED": {
+      "field": "expected"
+    },
+    "POINTS": {
+      "field": "points",
+      "expects": "number"
+    },
+    "NAME": {
+      "field": "name",
+      "expects": "string",
+      "coerce": "as-tag"
+    },
+    "HIDE_FORMULABAR": {
+      "field": "hideMenu",
+      "expects": "boolean"
+    },
+    "TITLE": {
+      "field": "title",
+      "chaining": true
+    },
+    "INSTRUCTIONS": {
+      "field": "instructions",
+      "chaining": true
+    },
+    "SHOW_SHEET_TABS": {
+      "field": "showSheetTabs",
+      "expects": "boolean",
+      "chaining": true
+    },
+    "HIDE_SHEET_MENU": {
+      "field": "hideSheetMenu",
+      "expects": "boolean",
+      "chaining": true
+    },
+    "HIDE_HEADINGS": {
+      "field": "hideHeadings",
+      "expects": "boolean",
+      "chaining": true
+    },
+    "INSTANT_FEEDBACK": {
+      "field": "feedback",
+      "expects": "boolean",
+      "chaining": true,
+      "coerce": "feedback"
+    }
+  },
+  "containers": {
+    "SHEETS": [
+      "title",
+      "instructions",
+      "show-sheet-tabs",
+      "hide-sheet-menu",
+      "hide-headings",
+      "instant-feedback",
+      "params",
+      "v"
+    ],
+    "SHEET": [
+      "name",
+      "hide-formulabar",
+      "columns",
+      "rows",
+      "cells"
+    ],
+    "CELL": [
+      "text",
+      "assess",
+      "width",
+      "align",
+      "background-color",
+      "font-weight",
+      "font-size",
+      "font-family",
+      "font-style",
+      "color",
+      "text-decoration",
+      "border",
+      "vertical-align",
+      "format",
+      "protected"
+    ],
+    "COLUMN": [
+      "width",
+      "align",
+      "background-color",
+      "font-weight",
+      "font-size",
+      "font-family",
+      "font-style",
+      "color",
+      "text-decoration",
+      "border",
+      "vertical-align",
+      "format",
+      "protected",
+      "assess"
+    ],
+    "ROW": [
+      "align",
+      "background-color",
+      "font-weight",
+      "font-size",
+      "font-family",
+      "font-style",
+      "color",
+      "text-decoration",
+      "border",
+      "vertical-align",
+      "format",
+      "protected",
+      "assess"
+    ],
+    "ASSESS": [
+      "method",
+      "expected",
+      "points"
+    ]
+  }
+}
