@@ -1,0 +1,202 @@
+{
+  "chainFields": {
+    "ID": {
+      "field": "id",
+      "expects": "text",
+      "description": "A name for a node or edge, so an edge can refer to it. Defaults to n1, n2, … for nodes and e1, e2, … for edges."
+    },
+    "TEXT": {
+      "field": "text",
+      "expects": "text",
+      "description": "What a node shows. $…$ spans render as math, and a text that is just an image URL renders as the image. On a blank it is the answer, hidden until the learner fills it."
+    },
+    "SHAPE": {
+      "field": "shape",
+      "expects": "text",
+      "oneOf": [
+        "rounded",
+        "rect",
+        "pill",
+        "circle"
+      ],
+      "description": "A node's outline: rounded, rect, pill, circle. Defaults to rounded."
+    },
+    "COLOR": {
+      "field": "color",
+      "expects": "text",
+      "oneOf": [
+        "gray",
+        "red",
+        "orange",
+        "amber",
+        "yellow",
+        "green",
+        "teal",
+        "blue",
+        "indigo",
+        "purple",
+        "pink"
+      ],
+      "description": "A node's colour: gray, red, orange, amber, yellow, green, teal, blue, indigo, purple, pink. Defaults to a neutral fill."
+    },
+    "SIZE": {
+      "field": "size",
+      "expects": "text",
+      "oneOf": [
+        "small",
+        "medium",
+        "large"
+      ],
+      "description": "A node's size: small, medium, large. The hub defaults to large, other nodes to medium."
+    },
+    "FROM": {
+      "field": "from",
+      "expects": "text",
+      "description": "Where an edge starts: a node's id, or its exact text. The hub is \"hub\" or its text."
+    },
+    "TO": {
+      "field": "to",
+      "expects": "text",
+      "description": "Where an edge ends: a node's id, or its exact text."
+    },
+    "LABEL": {
+      "field": "label",
+      "expects": "text",
+      "description": "The words on an edge, naming the relationship. On a blank edge it is the answer, hidden until the learner fills it."
+    },
+    "STYLE": {
+      "field": "style",
+      "expects": "text",
+      "oneOf": [
+        "solid",
+        "dashed",
+        "solid-arrow",
+        "dashed-arrow"
+      ],
+      "description": "How an edge is drawn: solid, dashed, solid-arrow, dashed-arrow. Defaults to solid."
+    },
+    "ASSESS": {
+      "field": "assess",
+      "expects": "list",
+      "description": "Scores a node or edge: assess [expected] makes it a blank whose answer is its own text or label; assess [distractor points -1] makes it a wrong answer that sits only in the tray."
+    },
+    "TITLE": {
+      "field": "title",
+      "expects": "text",
+      "description": "The heading shown above the web."
+    },
+    "INSTRUCTIONS": {
+      "field": "instructions",
+      "expects": "text",
+      "description": "Guidance shown under the title."
+    },
+    "THEME": {
+      "field": "theme",
+      "expects": "tag",
+      "oneOf": [
+        "DARK",
+        "LIGHT"
+      ],
+      "description": "The colour scheme, DARK or LIGHT, written as a bare tag. Defaults to LIGHT."
+    },
+    "INSTANT_FEEDBACK": {
+      "field": "instantFeedback",
+      "expects": "boolean",
+      "description": "true colours each blank right or wrong as the learner fills it. Defaults to false: feedback waits until the learner checks."
+    },
+    "TRAY_ALIGN": {
+      "field": "trayAlign",
+      "expects": "tag",
+      "oneOf": [
+        "right",
+        "left",
+        "top",
+        "bottom"
+      ],
+      "description": "Where a tray sits beside the web, written as a bare tag: right, left, top, bottom. The node tray defaults to right, the label tray to bottom."
+    }
+  },
+  "memberFields": {
+    "HUB": {
+      "field": "hub",
+      "expects": "record",
+      "description": "The node at the centre of the web, e.g. hub text \"The Cell\" {}. Every other node sits on a circle around it. Its id is always `hub`."
+    },
+    "NODE": {
+      "field": "node",
+      "expects": "record",
+      "description": "One node around the hub, described by a chain ending in {}, e.g. node text \"Nucleus\" {}."
+    },
+    "EDGE": {
+      "field": "edge",
+      "expects": "record",
+      "description": "One line between nodes, described by a chain ending in {}, e.g. edge from \"hub\" to \"Nucleus\" label \"contains\" {}."
+    }
+  },
+  "assessFields": {
+    "EXPECTED": {
+      "field": "expected",
+      "expects": "flag",
+      "description": "Makes a node or edge a blank. Its own text (or label) is the answer, and joins the tray."
+    },
+    "DISTRACTOR": {
+      "field": "distractor",
+      "expects": "flag",
+      "description": "Makes a node or edge a wrong answer: its text (or label) joins the tray, and it is not drawn in the web."
+    },
+    "POINTS": {
+      "field": "points",
+      "expects": "number",
+      "description": "What a blank is worth when filled correctly (above 0, default 1), or what a distractor costs when dropped on a blank (0 or below, default 0)."
+    }
+  },
+  "validAttributes": {
+    "concept-web": [
+      "hub",
+      "nodes",
+      "edges"
+    ],
+    "hub": [
+      "text",
+      "shape",
+      "color",
+      "size",
+      "assess"
+    ],
+    "node": [
+      "id",
+      "text",
+      "shape",
+      "color",
+      "size",
+      "assess"
+    ],
+    "edge": [
+      "id",
+      "from",
+      "to",
+      "label",
+      "style",
+      "assess"
+    ],
+    "assess": [
+      "expected",
+      "distractor",
+      "points"
+    ]
+  },
+  "validSettings": {
+    "concept-web": [
+      "title",
+      "instructions",
+      "theme",
+      "instant-feedback"
+    ],
+    "nodes": [
+      "tray-align"
+    ],
+    "edges": [
+      "tray-align"
+    ]
+  }
+}

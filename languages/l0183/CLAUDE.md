@@ -14,6 +14,8 @@ It is also the base of a **Learnosity custom question type**, embedded from L017
 `custom [lang "0183" …]`, exactly as L0179 is. That fixes the compiled output's shape; see
 "The output contract".
 
+> **Two implementations live here.** `packages/` is the TypeScript L0183 that production runs; `crates/` is L0183 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+
 ## Commands
 
 ```bash
@@ -232,3 +234,53 @@ Defects in L0169 deliberately not reproduced — don't reintroduce them by copyi
 - `console/src/lib/languages.ts` — the catalog. L0183 must be registered there to reach users,
   and L0169's entry marked deprecated in its favour.
 - `graffiticode-mcp-server` — `NATIVE_LANGUAGES` and `item-content.ts` need an L0183 entry.
+
+## The Rust implementation (`crates/`)
+
+This directory holds **two implementations of L0183**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0183`). `crates/` is the same language in Rust, to be released to its own service `l0183r` so it can be vetted before it replaces the TypeScript. `packages/view` (the Form and `./scoring`), `packages/integrations/learnosity` (`question.js`, `scorer.js`, `question.css`) and the spec are shared by both: the Rust server serves the bundles they build.
+
+- `crates/core` (`graffiticode-l0183`) — `L0183` implements `Dialect` from `graffiticode-l0000` and claims `PROG`.
+  - `src/attributes.rs` — the vocabulary tables, read from `src/attributes.json`, which is **generated from `src/attributes.ts`** by `npm run rust:fixtures` (`chainFields`, `memberFields`, `assessFields`, `validAttributes`, `validSettings`); `attributes.ts` stays the single source of truth. `check_value`, `merge_attributes`, `assert_known_attributes`/`assert_known_settings` and the "belongs in" hints, word for word.
+  - `src/lib.rs` — the words, dispatched from the tables as the TypeScript generates its handlers: chain words, typed members, the `assess` words, the containers `nodes`/`edges`/`concept-web`, and `PROG`'s "a program is one concept web" check.
+  - `src/web.rs` — `build_web`: ids, edge references, blanks, trays, pools, the learner's answers from upstream data, and every web-level error.
+  - `src/js.rs`, `src/text.rs` — the JavaScript readings of values (as in `languages/l0178`).
+- `crates/server` (`l0183r-server`, binary `l0183r`) — `l0000r_server::serve(L0183, lexicon())`.
+- `tools/assemble-static.mjs` — builds what `npm run build` assembles into `packages/api/static` (core's static assets, the `/form` embed, and the Learnosity bundles) into `./static` for the Rust server. The two directories are identical.
+
+Not ported, deliberately: the view, the Learnosity integration and its scorer (browser and Learnosity-side JavaScript, served as static files), `build-static.js` and the spec, and the TypeScript tests. Nothing on the compile path calls a JavaScript library, so no Node worker is needed.
+
+**The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation" in `languages/l0000/CLAUDE.md`.
+
+```bash
+cargo test            # conformance and unit tests; needs no Node and no network
+npm run rust:build    # rust:static, then cargo build --release -p l0183r-server
+npm run rust:dev      # cargo run -p l0183r-server on :50183 with AUTH_URL=http://127.0.0.1:4100
+npm run rust:lint     # cargo clippy --all-targets -- -D warnings
+npm run rust:fixtures # build packages/core, then regenerate src/attributes.json, src/lexicon-additions.json and the fixture
+```
+
+### What the Rust must get exactly right
+
+- **Error order and short-circuiting.** A word reports after its arguments (the TypeScript concatenates `e0`, `e1`, then its own). A chain word and a member still report their own error over a failed argument, but `nodes`, `edges` and `concept-web` add nothing when an argument failed (compared with `Evaluator::error_count`), and `PROG` checks the program only when nothing failed.
+- **Key order.** A chain builds its record innermost first (`text "A" color "b" {}` is `{color, text}`), and every object takes JavaScript's order: array-index keys first. Blank ids and distractor texts like `"2"` move to the front of `cells` and `distractors`.
+- **JavaScript readings of record literals.** A description, list or settings record may be a record literal instead of words, so `build_web` reads plain JSON as JavaScript does: `Object.keys` of a string is its indices, `??` falls back on null, comparisons are `===`, `points` is compared through `ToNumber` and summed with `+`, `trayAlign || default`, and Node's `TypeError`s (`Cannot read properties of undefined (reading 'forEach')`, `rest.text.trim is not a function`) where the TypeScript would throw them.
+- **Upstream data.** Only each blank's `value` (a string) is taken; the `{data, errors}` envelope is unwrapped however deep it nests (the kernel unwraps the first).
+- **Pools** sort edge signatures by UTF-16 code units, as `Array.prototype.sort` does.
+
+### Conformance
+
+`crates/core/tests/conformance/generate.mjs` builds its corpus mostly from the tables: every chain word written in every description and settings record (values of every kind where it belongs, a good and a wrong one where it does not), each typed member and `assess` word with good and wrong values, every container given every kind of value, and webs of one to five nodes with blanks, distractors, labelled, styled and assessed edges and pools. Then the spec's programs, `template.gc`, the TypeScript suite's programs (`compiler.test.ts`, `errors.test.ts`, with their helpers evaluated), the learner's answers in upstream data (bare, in nested envelopes, stale models, wrong types), and hand-written cases: record literals in place of words, index-like ids, numbers, special characters, degenerate programs. Every error message in the TypeScript appears at least once. `tests/conformance.rs` requires the same JSON text (field order included) or the same errors for all 1698 cases but the three below.
+
+The deliberate differences, each pinned by its own test:
+
+- A program whose value is a record literal shaped like a compiled web (`{interaction: {type: "concept-web"}}..`) is that record in Rust; TypeScript sees L0000's internal record, its fields unread, and refuses it.
+- An undefined value inside a list is `null` in Rust (`assess [get-var "nope"]` is refused with "Got null." rather than "Got nothing.").
+- A record literal's field given an undefined value is absent in Rust, so `node text "B" {a: get-var "nope"}` compiles; TypeScript keeps the key and refuses `a`.
+
+Not reproduced, and not in the corpus: a number literal no double holds exactly (`12345678901234567890`) is a `Decimal` object in TypeScript and a number here, and a record-literal key naming an `Object.prototype` member (`constructor`) trips TypeScript's plain-object lookups.
+
+### Deploying the Rust server
+
+`deploy.json` has an `l0183r` entry (own service, `l0183r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0183r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`, env `AUTH_URL` only). Its static stage also installs the `packages/integrations/learnosity` workspace, because L0176's `custom [lang "0183" …]` loads `question.js`/`scorer.js`/`question.css` from this language's host. Compiling makes no network call and needs no secret. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`). The account needs no roles.
+
+Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/attributes.json`, `src/lexicon-additions.json` and `tests/conformance/cases.json` are generated, not edited.
