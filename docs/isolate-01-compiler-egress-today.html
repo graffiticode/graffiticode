@@ -1,0 +1,260 @@
+<title>Compiler Egress Today</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #f4f6f4;
+    --panel: #ffffff;
+    --ink: #18221f;
+    --muted: #56645f;
+    --line: #8b9994;
+    --hair: #d5ddd9;
+    --ok: #0d7466;
+    --ok-soft: #e1f1ed;
+    --tls: #8a5d00;
+    --tls-soft: #f6ecd6;
+    --no: #b0281f;
+    --no-soft: #f8e3e0;
+    --band: #e9eeeb;
+    --note: #fbfcfb;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f1513; --panel: #151d1a; --ink: #e2e9e6; --muted: #9aa9a3; --line: #66756f;
+      --hair: #2a3531; --ok: #4fc0ad; --ok-soft: #12302a; --tls: #e2b54e; --tls-soft: #33290f;
+      --no: #ff7b6f; --no-soft: #3a1714; --band: #1a2420; --note: #18211e;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f1513; --panel: #151d1a; --ink: #e2e9e6; --muted: #9aa9a3; --line: #66756f;
+    --hair: #2a3531; --ok: #4fc0ad; --ok-soft: #12302a; --tls: #e2b54e; --tls-soft: #33290f;
+    --no: #ff7b6f; --no-soft: #3a1714; --band: #1a2420; --note: #18211e;
+  }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 56px; }
+  header { max-width: 72ch; }
+  .eyebrow { font-family: var(--cond); font-size: 12px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  h1 { font-family: var(--cond); font-weight: 600; font-size: clamp(26px, 4vw, 36px); line-height: 1.12; margin: 0 0 12px; text-wrap: balance; }
+  h2 { font-family: var(--cond); font-weight: 600; font-size: 21px; margin: 0 0 10px; text-wrap: balance; }
+  p { margin: 0 0 12px; }
+  code, .mono { font-family: var(--mono); font-size: .9em; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-family: var(--cond); font-size: 13px; font-weight: 500; color: var(--tls); background: var(--tls-soft); padding: 3px 10px; border-radius: 3px; margin-bottom: 18px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 22px 0 14px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend svg { flex: none; }
+  .diagram { background: var(--panel); border: 1px solid var(--hair); border-radius: 4px; overflow-x: auto; }
+  .diagram svg { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px 40px; margin-top: 40px; }
+  .layer { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: baseline; padding-block: 12px; border-top: 1px solid var(--hair); }
+  .layer b { font-family: var(--cond); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .layer div { grid-column: 2; }
+  .layer .k { font-family: var(--cond); font-weight: 600; font-size: 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th { text-align: left; font-family: var(--cond); font-weight: 600; font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--hair); }
+  td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--hair); vertical-align: top; }
+  td:first-child { font-family: var(--mono); font-size: 13px; color: var(--no); white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
+  footer { margin-top: 36px; font-size: 13px; color: var(--muted); max-width: 80ch; }
+  /* diagram text */
+  .p-name { font-family: var(--cond); font-weight: 600; font-size: 14px; fill: var(--ink); }
+  .p-sub { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); }
+  .band-t { font-family: var(--cond); font-weight: 600; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; fill: var(--muted); }
+  .sec-t { font-family: var(--cond); font-weight: 600; font-size: 13px; fill: var(--ink); }
+  .sec-n { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+  .m-t { font-family: var(--mono); font-size: 11px; }
+  .n-t { font-family: var(--sans); font-size: 11.5px; fill: var(--ink); }
+</style>
+
+<style>
+  .vuln-list { display: grid; gap: 0; counter-reset: v; margin: 0; padding: 0; list-style: none; }
+  .vuln-list li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; padding-block: 12px; border-top: 1px solid var(--hair); }
+  .badge { width: 22px; height: 22px; border-radius: 50%; background: var(--no); color: var(--panel); font-family: var(--cond); font-weight: 600; font-size: 13px; display: grid; place-items: center; margin-top: 2px; }
+  .vuln-list .k { font-family: var(--cond); font-weight: 600; font-size: 16px; display: block; }
+  .fix { color: var(--ok); font-size: 13.5px; display: block; margin-top: 4px; }
+  .holds li { margin-bottom: 8px; }
+  .holds { padding-left: 18px; margin: 0; }
+  .peer { font-size: 14px; margin-top: 4px; }
+  .peer a { color: var(--ok); }
+  .b-t { font-family: var(--cond); font-weight: 600; font-size: 11px; fill: var(--panel); }
+</style>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">ISOLATE-01 · compiler egress · today</p>
+    <h1>What a compromised compiler can reach without ISOLATE-01</h1>
+    <div class="status" style="color:var(--no);background:var(--no-soft)">Today's production: no egress controls on any compiler</div>
+    <p>Compilers run as public Cloud Run services, each with its own <span class="mono">lNNNN-run</span> account and no VPC, proxy or allowlist. Policy, Broker and the registry still gate every brokered operation, so a <em>well-behaved</em> compiler can only act on Learnosity through Broker. ISOLATE-01 is about a <em>compromised</em> one: a malicious dependency or a bad build. The red flows below succeed today.</p>
+    <p class="peer">Peer page: <a href="isolate-01-compiler-egress.html">the same architecture with the Envoy egress proxy</a>.</p>
+  </header>
+
+  <div class="legend" aria-label="Legend">
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--ok)" stroke-width="1.6"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--ok)"/></svg>Intended request</span>
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--line)" stroke-width="1.4" stroke-dasharray="4 3"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--line)"/></svg>Response</span>
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--no)" stroke-width="2.4"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--no)"/></svg>Succeeds today, and shouldn't</span>
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="26" y2="5" stroke="var(--ok)" stroke-width="1.6"/><path d="M27 1 L33 9 M33 1 L27 9" stroke="var(--ok)" stroke-width="1.8"/></svg>Refused today</span>
+  </div>
+
+  <div class="diagram" role="img" aria-label="Sequence diagram of compiler egress today, without ISOLATE-01, with the vulnerable flows highlighted.">
+    <svg id="seq" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+
+  <div class="grid">
+    <section>
+      <h2>The vulnerabilities, and what closes each</h2>
+      <ol class="vuln-list">
+        <li><span class="badge">1</span><div><span class="k">Anything a compiler sees can leave</span>Programs, item content, a pipeline's earlier-stage data and a user's form state go to any host. Nothing records where.<span class="fix">With ISOLATE-01: every compiler but L0185 reaches only its reviewed hosts, and the proxy logs every request, refused ones included.</span></div></li>
+        <li><span class="badge">2</span><div><span class="k">L0158 holds the shared Learnosity credential</span>Its deploy mounts <span class="mono">learnosity-secret</span>, so a compromised L0158 can call Learnosity directly: no Policy, no Broker, no receipt, no audit.<span class="fix">With ISOLATE-01 (D1): its own preview-only consumer, recorded as an exception, and the shared secret rotated.</span></div></li>
+        <li><span class="badge">3</span><div><span class="k">A credential found in a program works anywhere</span>A key pasted into a program or its data can be used against the provider from the compiler, outside every check.<span class="fix">With ISOLATE-01: provider hosts, IP literals and fronted requests are refused for every class.</span></div></li>
+        <li><span class="badge">4</span><div><span class="k">A compiler's identity can be shipped out</span>An ID token for Policy or Broker, sent elsewhere, lets someone call as that compiler until it expires. Policy and Broker still demand a user's invocation or execution token, so this widens the surface rather than opening the provider.<span class="fix">With ISOLATE-01: the token can't leave; only the metadata server is reached directly.</span></div></li>
+        <li><span class="badge">5</span><div><span class="k">L0185's fetches rest on its own code</span>Nothing outside L0185 stops a program's URL from naming the metadata address, a private address, a Google API or any public host.<span class="fix">With ISOLATE-01 (D2): still open to public hosts, but <span class="mono">run.app</span>, <span class="mono">googleapis.com</span>, <span class="mono">internal</span> and Learnosity names, IP literals and every internal address are refused.</span></div></li>
+      </ol>
+    </section>
+    <section>
+      <h2>What still holds without it</h2>
+      <ul class="holds">
+        <li>Broker is the only place the per-user connection credentials live, sealed; no compiler can read them.</li>
+        <li>Every brokered operation needs a Policy execution token bound to one operation, its arguments' digest and a single-use <span class="mono">jti</span>, minted for a user's invocation and checked live.</li>
+        <li>Broker accepts a token only from that language's own compiler identity, and claims a receipt before it calls the provider.</li>
+        <li>Compiler accounts hold no project roles, so a metadata token can't alter deployments or IAM.</li>
+      </ul>
+      <p style="margin-top:14px">These stop a compiler from <em>misusing Broker</em>. They can't stop it from going around Broker, which is what an egress control is for.</p>
+    </section>
+  </div>
+
+  <footer>
+    Facts from <span class="mono">docs/capability-policy-iam-review.md</span> and the ISOLATE-01 plan ("Today"). Hostnames are shortened as on the peer page.
+  </footer>
+</div>
+<script>
+(() => {
+  const P = [
+    { id: "md", name: "Metadata server", sub: "169.254.169.254" },
+    { id: "g",  name: "Google APIs", sub: "googleapis.com" },
+    { id: "f",  name: "L0185 compiler", sub: "l0185-run" },
+    { id: "o",  name: "L0158 compiler", sub: "l0158-run" },
+    { id: "c",  name: "L0176 compiler", sub: "l0176-run" },
+    { id: "p",  name: "Policy", sub: "policy-….run.app" },
+    { id: "b",  name: "Broker", sub: "broker-….run.app" },
+    { id: "l",  name: "Learnosity", sub: "Data API" },
+    { id: "x",  name: "Attacker host", sub: "anywhere" },
+  ];
+  const BANDS = [
+    { from: "md", to: "g", label: "Google" },
+    { from: "f", to: "c", label: "Compilers · public Cloud Run, no VPC" },
+    { from: "p", to: "b", label: "Graffiticode services" },
+    { from: "l", to: "x", label: "Outside" },
+  ];
+  const S = [
+    { sec: "Intended", note: "The brokered path, unchanged" },
+    { from: "c", to: "md", kind: "ok", t: "ID token (aud: policy)" },
+    { from: "c", to: "p", kind: "ok", t: "snapshot, execution token" },
+    { from: "c", to: "b", kind: "ok", t: "POST /v1/execute (token, args)" },
+    { from: "b", to: "l", kind: "ok", t: "set items (sealed credential)" },
+    { from: "b", to: "c", kind: "reply", t: "result + receipt" },
+
+    { sec: "1 · Exfiltrate", note: "Whatever the compiler was given" },
+    { from: "c", to: "x", kind: "vuln", n: 1, t: "POST programs, item data, earlier-stage data" },
+
+    { sec: "2 · L0158", note: "Holds the shared Learnosity credential as a mounted secret" },
+    { from: "o", to: "l", kind: "vuln", n: 2, t: "Data API with LEARNOSITY_SECRET" },
+
+    { sec: "3 · A found key", note: "A credential in a program or its data" },
+    { from: "c", to: "l", kind: "vuln", n: 3, t: "provider request with the found key" },
+
+    { sec: "4 · Identity out", note: "Ship the compiler's token, use it elsewhere" },
+    { from: "c", to: "x", kind: "vuln", n: 4, t: "send ID token (aud: broker)" },
+    { from: "x", to: "b", kind: "vuln", t: "call as l0176-run until it expires" },
+    { from: "b", to: "x", kind: "no", t: "no execution token: refused" },
+
+    { sec: "5 · L0185", note: "A program's URL decides where it goes" },
+    { from: "f", to: "md", kind: "vuln", n: 5, t: "request the metadata address" },
+    { note: "md", w: 2, lines: ["answers only with Metadata-Flavor;", "nothing outside L0185 stops the try"] },
+    { from: "f", to: "g", kind: "vuln", t: "fetch a Google API" },
+    { from: "f", to: "x", kind: "vuln", t: "fetch anything public" },
+  ];
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("seq");
+  const COL = 138, LEFT = 30, TOP = 30;
+  const W = LEFT * 2 + COL * P.length;
+  const x = id => LEFT + COL * P.findIndex(p => p.id === id) + COL / 2;
+  const el = (tag, attrs, parent = svg, text) => {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (text != null) n.textContent = text;
+    parent.appendChild(n);
+    return n;
+  };
+  const defs = el("defs", {});
+  const marker = (id, color) => {
+    const m = el("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+    el("path", { d: "M0 0 L10 5 L0 10 Z", fill: color }, m);
+  };
+  marker("a-ok", "var(--ok)"); marker("a-reply", "var(--line)"); marker("a-vuln", "var(--no)");
+
+  const lifeG = el("g", {});
+  const bodyG = el("g", {});
+  const headY = TOP + 26;
+  for (const b of BANDS) {
+    const x1 = x(b.from) - COL / 2 + 6, x2 = x(b.to) + COL / 2 - 6;
+    el("rect", { x: x1, y: TOP - 18, width: x2 - x1, height: 76, rx: 3, fill: "var(--band)" }, lifeG);
+    el("text", { x: x1 + 8, y: TOP - 5, class: "band-t" }, lifeG, b.label);
+  }
+  for (const p of P) {
+    el("text", { x: x(p.id), y: headY + 14, "text-anchor": "middle", class: "p-name" }, bodyG, p.name);
+    el("text", { x: x(p.id), y: headY + 30, "text-anchor": "middle", class: "p-sub" }, bodyG, p.sub);
+  }
+
+  let y = headY + 66;
+  for (const s of S) {
+    if (s.sec) {
+      y += 14;
+      el("line", { x1: LEFT, x2: W - LEFT, y1: y, y2: y, stroke: "var(--hair)", "stroke-width": 1 }, bodyG);
+      const t = el("text", { x: LEFT + 2, y: y + 18, class: "sec-t" }, bodyG, s.sec);
+      el("text", { x: LEFT + 2 + s.sec.length * 7.4 + 12, y: y + 18, class: "sec-n" }, bodyG, s.note);
+      y += 42;
+      continue;
+    }
+    if (s.note) {
+      const w = COL * s.w - 10, h = 12 + s.lines.length * 15;
+      const nx = Math.min(x(s.note) - COL / 2 + 5, W - LEFT - w);
+      el("rect", { x: nx, y: y - 12, width: w, height: h, rx: 2, fill: s.warn ? "var(--no-soft)" : "var(--note)", stroke: s.warn ? "var(--no)" : "var(--hair)" }, bodyG);
+      s.lines.forEach((line, i) => el("text", { x: nx + 8, y: y + 3 + i * 15, class: "n-t" }, bodyG, line));
+      y += h + 10;
+      continue;
+    }
+    const x1 = x(s.from), xt = x(s.to);
+    const dir = Math.sign(xt - x1);
+    const color = { ok: "var(--ok)", reply: "var(--line)", vuln: "var(--no)", no: "var(--ok)" }[s.kind];
+    const end = xt - dir * 3;
+    const line = { x1, x2: end, y1: y, y2: y, stroke: color, "stroke-width": s.kind === "vuln" ? 2.4 : 1.6 };
+    if (s.kind === "reply") line["stroke-dasharray"] = "5 4";
+    if (s.kind !== "no") line["marker-end"] = `url(#a-${s.kind})`;
+    el("line", line, bodyG);
+    if (s.kind === "no") {
+      el("path", { d: `M${end - 5} ${y - 5} L${end + 5} ${y + 5} M${end + 5} ${y - 5} L${end - 5} ${y + 5}`, stroke: color, "stroke-width": 2, fill: "none" }, bodyG);
+    }
+    if (s.n) {
+      el("circle", { cx: x1 - dir * 14, cy: y, r: 9, fill: "var(--no)" }, bodyG);
+      el("text", { x: x1 - dir * 14, y: y + 4, "text-anchor": "middle", class: "b-t" }, bodyG, String(s.n));
+    }
+    const lx1 = Math.min(x1, end), lx2 = Math.max(x1, end);
+    const span = lx2 - lx1;
+    const start = span < 230 && dir > 0;
+    el("text", { x: start ? lx1 + 6 : (lx1 + lx2) / 2, y: y - 7, "text-anchor": start ? "start" : "middle", class: "m-t", fill: s.kind === "reply" ? "var(--muted)" : color }, bodyG, s.t);
+    y += 34;
+  }
+  y += 10;
+  for (const p of P) {
+    el("line", { x1: x(p.id), x2: x(p.id), y1: headY + 42, y2: y, stroke: "var(--hair)", "stroke-width": 1.2 }, lifeG);
+  }
+  svg.setAttribute("viewBox", `0 0 ${W} ${y + 16}`);
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", y + 16);
+})();
+</script>

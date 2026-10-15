@@ -4,7 +4,10 @@ The enforced outbound control for compilers: Envoy on two Container-Optimized OS
 internal passthrough Network Load Balancer, in the `compilers` VPC. The design and its reasons
 are in the ISOLATE-01 plan (`~/.claude/plans/isolate-01-compiler-egress.md`, "The proxy").
 A sequence diagram of the flows (identity, Policy, Broker, refusals, L0185's open class) is
-[docs/isolate-01-compiler-egress.html](../../docs/isolate-01-compiler-egress.html); open it in a browser.
+[docs/isolate-01-compiler-egress.html](../../docs/isolate-01-compiler-egress.html), and today's
+architecture without it, with each vulnerability it closes, is
+[docs/isolate-01-compiler-egress-today.html](../../docs/isolate-01-compiler-egress-today.html); open
+them in a browser.
 
 **Status: not deployed.** Deployment is deferred (2026-10-14). `infra.js` prints its commands
 and refuses to run them, and no `deploy.json` service has a `network` block yet. Rollout step 0

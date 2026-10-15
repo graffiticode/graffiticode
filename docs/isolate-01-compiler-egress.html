@@ -77,6 +77,7 @@
     <h1>How a compiler reaches Policy, Broker and nothing else</h1>
     <div class="status">Designed and coded in <span class="mono">deploy/egress-proxy</span>, not deployed</div>
     <p>Every compiler runs on the <span class="mono">compilers</span> VPC with all outbound traffic sent to an internal load balancer at <span class="mono">10.8.0.2:3128</span>, in front of two Envoy VMs. Envoy decides by the compiler's <em>subnet</em> (its class), terminates TLS only for Graffiticode's own <span class="mono">run.app</span> hosts, and refuses everything else. Broker is the only thing that ever talks to Learnosity, and it does so from outside the compiler network with its own sealed credential.</p>
+    <p class="peer" style="font-size:14px;margin-top:4px">Peer page: <a href="isolate-01-compiler-egress-today.html" style="color:var(--ok)">what a compromised compiler can reach today, without ISOLATE-01</a>.</p>
   </header>
 
   <div class="legend" aria-label="Legend">
