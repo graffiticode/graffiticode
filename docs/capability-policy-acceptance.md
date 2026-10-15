@@ -51,18 +51,18 @@ Jeff accepts the production evidence. The agent did the mapping and the checks.
 
 | AT | Requirements | Verdict | Open items |
 | --- | --- | --- | --- |
-| AT-01 | MODEL-01/02, AUTH-01 | **Pass** | Broker has no invoker-mismatch test (Policy has one) |
+| AT-01 | MODEL-01/02, AUTH-01 | **Pass** | None |
 | AT-02 | CONN-01, GRANT-01/02 | **Pass** | Fixed 2026-10-14 and deployed: console `console-rmv8rkauu-336058`, Policy `policy-rmv8rkci1-bba5e2` |
-| AT-03 | ADMIT-01/02, API-01 | **Pass** | Undeclarable behavior is refused at preflight; no gateway-level test |
-| AT-04 | ADMIT-03, REG-01, TOKEN-01 | **Open** | L0000's canonical vectors drifted; language changed after admission |
-| AT-05 | EXEC-01/02, REVOKE-01, API-02 | **Pass** | Single sub-cases (below) |
+| AT-03 | ADMIT-01/02, API-01 | **Pass** | None |
+| AT-04 | ADMIT-03, REG-01, TOKEN-01 | **Pass** | None (both closed 2026-10-14) |
+| AT-05 | EXEC-01/02, REVOKE-01, API-02 | **Pass** | None |
 | AT-06 | MODEL-03, WRITE-01, FAIL-01 | **Pass** | None |
 | AT-07 | RUN-01, WRITE-01/02, RETAIN-01 | **Pass, pending restore** | RETAIN-01's restore test |
-| AT-08 | RECOVER-01, ARTIFACT-01 | **Pass** | Cross-account denial isn't tested on the recovery path itself |
-| AT-09 | PREVIEW-01, READ-01, PUB-01 | **Partial** | Repeated views and answers never repeating saves is implied, not tested |
+| AT-08 | RECOVER-01, ARTIFACT-01 | **Pass** | None |
+| AT-09 | PREVIEW-01, READ-01, PUB-01 | **Pass** | Learner answers aren't a gateway path (the Learnosity client handles them), so only views are tested |
 | AT-10 | PROVIDER-01, L0176-01 | **Open** | No provider-side evidence for lifetimes, replay, revocation or preview scope |
 | AT-11 | SECRET-01, ISOLATE-01 | **Deferred** | The ISOLATE-01 plan (self-hosted egress proxy) is deferred |
-| AT-12 | AUDIT-01, RELEASE-01 | **Pass** | Old receipts are shown never to re-execute, not still to be reportable |
+| AT-12 | AUDIT-01, RELEASE-01 | **Pass** | None |
 
 ## Detail
 
@@ -88,7 +88,7 @@ Test names are quoted from the specs.
 | Wrong caller role | Covered | pol/app.spec "route authorization by caller"; brk/app.spec "refuses policy on the execute route", "refuses compilers" |
 | Wrong caller language | Covered | pol/app.spec "binds a compiler to its own language"; brk/app.spec "…spent by another language's compiler" |
 | Missing service identity | Covered | pol/app.spec "refuses a missing caller identity", "…unknown service account"; l0/preflight.test anonymous caller |
-| Mismatched transport identity | Partial | pol/app.spec "…differs from the invoker", "…for another audience", "…unsigned, crafted caller identity". Broker only tests the wrong audience |
+| Mismatched transport identity | Covered | pol/app.spec "…differs from the invoker", "…for another audience", "…unsigned, crafted caller identity"; brk/app.spec "refuses a caller identity that differs from the invoker, spending nothing" |
 | Direct compiler requests without authority | Covered | pol/policy.spec "must come from a policy invocation token…"; brk/app.spec "refuses a request with no execution token"; l0/protected-client.test; l176/brokered.test |
 
 ### AT-02: connections and sharing: Pass
@@ -116,14 +116,14 @@ Test names are quoted from the specs.
 | Implicit behavior | Covered | l0/protected-functions.test; l176/preflight.test "…implicit init included" |
 | Legacy lowering | Covered (unit) | l176/preflight.test legacy save member form; l176/save-boundary.test |
 | Unavailable preflight | Covered | w4-cross.spec "an unavailable preflight blocks the chain…"; api/w4.spec |
-| Undeclarable dynamic behavior | Partial | l0/preflight.test "refuses undeclarable protected behaviour"; l176/brokered.test Author activity as data. No gateway test that an `undeclarable-protected` preflight blocks the chain |
+| Undeclarable dynamic behavior | Covered | l0/preflight.test "refuses undeclarable protected behaviour"; l176/brokered.test Author activity as data; w4-cross.spec "an undeclarable-protected preflight blocks the chain: zero transformations, signatures and provider requests" |
 
-### AT-04: bindings and tokens: Open
+### AT-04: bindings and tokens: Pass
 
 | Clause | Status | Evidence |
 | --- | --- | --- |
 | Source, options, revision, ordering changed | Covered | w4.spec; l0/preflight.test `bindingProblems`; admissions.spec "refuses stages out of order". Live: canary retry across a deploy |
-| Language changed | Partial | Checked at admission and preflight only. No test changes `lang` in the binding after admission |
+| Language changed | Covered | w4-cross.spec "a stage whose binding names another language once admitted is refused at its snapshot, and nothing runs", "a retry whose stage now reports another language is refused before admission…"; admissions.spec "refuses a manifest naming another language", "refuses another language's compiler presenting the stage"; l0/preflight.test "another language" row |
 | Registry, plan digest, required functions | Covered | admissions.spec (registry rows, plan, functions); brk/broker.spec "…minted for another registry version" |
 | Token type/audience substitution, missing claims, excessive lifetime | Covered | pol/policy.spec (typ, missing claim, profile lifetime caps); brk/live.spec "refuses a token without prv" |
 | Tampered arguments | Covered | broker.spec "rejects a payload other than the one the token was minted for"; pol/authorize.spec |
@@ -135,7 +135,7 @@ Test names are quoted from the specs.
 | Clause | Status | Evidence |
 | --- | --- | --- |
 | Mint, revoke, execute: zero effects | Covered | brk/live.spec "AT-05: authority removed after mint…" (write and signature) |
-| Expiry | Partial | live.spec covers writes, not signatures |
+| Expiry | Covered | live.spec "a write, the grant expired", "a signature, the grant expired" |
 | Owner narrowing | Covered (write) | live.spec. Live: canary revocation probe |
 | Disable | Covered | live.spec, write and signature |
 | Unpublish, system-connection replacement | Covered (signature) | live.spec; pol/policy.spec. These apply to signatures only, so that is full coverage |
@@ -170,18 +170,18 @@ Test names are quoted from the specs.
 | Storage retries exhausted | Covered | recovery.spec "reports, beside the result, an artifact it could not store, with the retry identity" |
 | Recover with the same plan, no repeated writes | Covered | w4-cross.spec; recovery.spec |
 | Revoked recovery, unavailable pinned revisions | Covered | recovery.spec; w4-cross.spec "can't recover against a revision retired since…"; admissions.spec |
-| Cross-account/connection denial | Partial | artifacts.spec, read.spec and policy.spec cover each piece. No recovery-path test with another user |
+| Cross-account/connection denial | Covered | artifacts.spec, read.spec, policy.spec; recovery.spec "refuses another user's retry of a save whose artifact was lost, and the owner can still recover it", "refuses another user's retry of an uncertain save, without contacting the provider" |
 | Signed-content rejection | Covered | api/data.spec |
 | Slow-old-run ordering, changed retry output vs a publication | Covered | artifacts.spec; recovery.spec |
 
-### AT-09: previews and published views: Partial
+### AT-09: previews and published views: Pass
 
 | Clause | Status | Evidence |
 | --- | --- | --- |
 | System previews can't save; no Author authority | Covered | policy.spec "never mints a write or Author signing"; l176/brokered.test "a system session never writes" |
 | Missing configuration is unsigned | Covered | brokered.test; policy.spec |
 | Private/anonymous views use stored content | Covered | publication.spec; read.spec "…with a data-only program, never the source" |
-| Repeated views/answers never repeat saves | Partial | Implied by the data-only program, and by policy.spec "…the publisher's preview signing, and nothing else". No repeated-view count; no learner-answer test |
+| Repeated views/answers never repeat saves | Covered (views) | publication.spec "serve repeated views, anonymous and signed in, from the stored artifact: preview signing each time, never a save"; read.spec "signs every repeated view from the stored activity, under the artifact's one invocation, never the source". Learner answers go to Learnosity from its client, not through the gateway |
 | Missing artifacts don't rebuild | Covered | read.spec |
 | Recipients can't publish; unpublishing blocks issuance | Covered | delegation.spec; pol/live.spec; policy.spec; publication.spec |
 
@@ -206,7 +206,7 @@ there is no job lookup. PROVIDER-01 stays provider-unverified.
 | Redaction | Covered | at12.spec `afterEach` scans every record for the markers; pol/audit.spec pseudonymization; broker.spec "…without tokens, secrets or raw ids" |
 | Categories (AUDIT-01) | Covered | pol/audit.spec categories; scr/failures-inventory.test. Live: categorized records on deployed revisions; alerts delivered |
 | Cutover/rollback fails closed | Covered | scr/at12-rollback.test (both directions, `release-check` below W4) |
-| Old receipts survive | Partial | at12-rollback shows W3 receipts are never re-executed; live.spec "replays an older receipt without the new fields". No check that the W3 receipt is still reportable after rollback |
+| Old receipts survive | Covered | scr/at12-rollback.test "a W3 receipt survives: still as written, replayed after a rollback, and reported by reconciliation"; live.spec "replays an older receipt without the new fields" |
 | Old proofs can't bypass new checks | Covered | at12-rollback; admissions.spec v1 refusal; w4-cross.spec. Live: canary v1 refused |
 
 ## Gaps, most important first
@@ -223,16 +223,17 @@ there is no job lookup. PROVIDER-01 stays provider-unverified.
 4. **AT-07 / RETAIN-01, restore test:** run it once the first daily backups exist.
 5. ~~**AT-04, canonical vectors**~~: both L0000 copies carry all 6, checked against
    `CANONICAL_VECTORS` (tests only; no l0000 release needed).
-6. **AT-12:** show that a W3 receipt is still reportable after rollback.
+6. ~~**AT-12:** old receipts reportable~~: tested.
 7. ~~**AT-02:** a failure partway through provisioning~~: fixed.
-8. **AT-09:** a test that repeated views and answers never save.
-9. **AT-03:** a gateway test that an `undeclarable-protected` preflight blocks the chain.
-10. **AT-04:** a test that changes the language after admission.
+8. ~~**AT-09:** repeated views~~: tested (answers aren't a gateway path).
+9. ~~**AT-03:** undeclarable preflight at the gateway~~: tested.
+10. ~~**AT-04:** language changed after admission~~: tested.
 11. ~~**AT-02:** leave~~: tested.
-12. **Single sub-cases:**
-    - AT-05 signature expiry;
-    - AT-01 Broker invoker mismatch;
-    - AT-08 cross-account recovery.
+12. ~~**Single sub-cases**~~ (AT-05 signature expiry, AT-01 Broker invoker mismatch, AT-08
+    cross-account recovery): tested.
+
+No test written for these gaps found a bug. What remains is AT-10 (provider-side), AT-07's
+restore test, and AT-11 (deferred).
 
 Live coverage doesn't reach AT-01, AT-06, AT-08 or AT-09's save prohibition. These rest on
 CI tests.
