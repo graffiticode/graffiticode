@@ -1,6 +1,6 @@
 {
-  "title": "Capability security, in 60 seconds",
-  "duration": 60,
+  "title": "Capability security, in 70 seconds",
+  "duration": 70,
   "width": 1920,
   "height": 1080,
   "fps": 30,
@@ -12,49 +12,65 @@
       "chapter": "The request",
       "title": "Code can ask. Permission decides.",
       "subtitle": "Client agent → gateway → compiler with protected functions",
-      "narration": "A client agent sends a program to the compiler through the gateway. Ordinary computation runs freely. Protected functions need permission."
+      "narration": "A client agent sends a program to the compiler through the gateway. Ordinary computation runs freely. Protected functions need permission.",
+      "scene": "request"
     },
     {
       "start": 10,
       "chapter": "The grant",
       "title": "Share one action. Keep the credential.",
       "subtitle": "The owner grants an exact language and function on a connection.",
-      "narration": "The connection owner grants a user specific language functions, such as saving to the item bank. The provider credential stays inside the broker."
+      "narration": "The connection owner grants a user specific language functions, such as saving to the item bank. The provider credential stays inside the broker.",
+      "scene": "grant"
     },
     {
       "start": 20,
       "chapter": "Admission",
       "title": "Check the whole chain before it runs.",
       "subtitle": "Preflight is side-effect free. Every stage must be admitted.",
-      "narration": "The gateway preflights every compiler stage. Policy checks the entire chain. One denied function blocks the run before any stage executes."
+      "narration": "The gateway preflights every compiler stage. Policy checks the entire chain. One denied function blocks the run before any stage executes.",
+      "scene": "admission"
     },
     {
       "start": 30,
       "chapter": "The capability",
       "title": "Mint authority for this exact call.",
       "subtitle": "Policy issues the capability. The compiler presents it to Broker.",
-      "narration": "Policy issues the compiler a capability: single use, valid for sixty seconds at most, bound to the function and exact arguments."
+      "narration": "Policy issues the compiler a capability: single use, valid for sixty seconds at most, bound to the function and exact arguments.",
+      "scene": "capability"
     },
     {
       "start": 40,
       "chapter": "Live checks",
       "title": "Check permission at the point of use.",
       "subtitle": "Broker verifies the token and asks Policy before each effect.",
-      "narration": "Broker verifies the capability and checks live permission before each effect. Active grants allow the provider call. Revoked permission blocks the next effect."
+      "narration": "Broker verifies the capability and checks live permission before each effect. Active grants allow the provider call. Revoked permission blocks the next effect.",
+      "scene": "live"
     },
     {
       "start": 50,
+      "scene": "egress",
+      "chapter": "Contained egress",
+      "title": "Nothing goes around Broker.",
+      "subtitle": "ISOLATE-01: every compiler reaches the outside only through the egress proxy.",
+      "narration": "Compilers reach the outside only through the egress proxy. Listed hosts pass. Learnosity, attacker hosts and internal addresses are refused."
+    },
+    {
+      "start": 60,
       "chapter": "Safe retries",
       "title": "Record the outcome. Make retries safe.",
       "subtitle": "Same operation ID + fresh authorization → recorded receipt, no repeated write.",
-      "narration": "A durable receipt records the outcome. Retrying the same operation returns its receipt without repeating the write. The agent gets results, never credentials."
+      "narration": "A durable receipt records the outcome. Retrying the same operation returns its receipt without repeating the write. The agent gets results, never credentials.",
+      "scene": "retries"
     }
   ],
   "sources": [
     "../graffiticode_capability_policy_spec.md",
     "../capability-policy-as-built.md (W4 activated, 2026-10-13)",
     "../../packages/common/src/protected-registry.ts (registry v7)",
-    "../../languages/l0000/packages/core/src/protected-client.ts"
+    "../../languages/l0000/packages/core/src/protected-client.ts",
+    "../isolate-01-compiler-egress.html and ../../deploy/egress-proxy (ISOLATE-01, designed and coded, not yet deployed)"
   ],
-  "scope": "Conceptual explanation of the repository model, not a production conformance audit. No transactionality, provider exactly-once guarantee, or rollback is implied. Live checks prevent the next effect; they cannot undo a dispatched operation."
+  "scope": "Conceptual explanation of the repository model, not a production conformance audit. No transactionality, provider exactly-once guarantee, or rollback is implied. Live checks prevent the next effect; they cannot undo a dispatched operation. The egress scene shows ISOLATE-01 as designed; it is not yet deployed (compare ../capability-animation-today, the model as it runs now).",
+  "file": "capability-security-70s.mp4"
 }

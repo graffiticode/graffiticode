@@ -1,4 +1,4 @@
-"""Rebuild the narrated 60-second animation on macOS; no third-party packages.
+"""Rebuild the narrated animation (length: storyboard.json `duration`) on macOS; no third-party packages.
 
     python3 docs/capability-animation/build.py
 
@@ -32,4 +32,4 @@ for scene in spec['scenes']:
     stamp = lambda t: f'{t // 60:02d}:{t % 60:02d}.000'
     vtt.extend([f'{stamp(start)} --> {stamp(end)}', scene['narration'], ''])
 (ROOT / 'captions.vtt').write_text('\n'.join(vtt))
-print(f'Ready: {ROOT / "capability-security-60s.mp4"}')
+print(f'Ready: {ROOT / spec["file"]}')

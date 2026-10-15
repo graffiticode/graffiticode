@@ -18,6 +18,11 @@ let scratch = URL(fileURLWithPath: "/private/tmp/gc-capability-animation")
 let mode = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "preview"
 let spec = try JSONSerialization.jsonObject(with: Data(contentsOf: output.appendingPathComponent("storyboard.json"))) as! [String: Any]
 let scenes = spec["scenes"] as! [[String: Any]]
+let N = scenes.count
+let DURATION = spec["duration"] as! Int
+let FILE = spec["file"] as! String
+let TITLE = spec["title"] as! String
+precondition(DURATION == N*10, "each scene is 10 seconds")
 let bg = NSColor(srgbRed: 0.031, green: 0.049, blue: 0.077, alpha: 1).cgColor
 let panel = NSColor(srgbRed: 0.063, green: 0.090, blue: 0.129, alpha: 1).cgColor
 let white = NSColor(srgbRed: 0.94, green: 0.96, blue: 0.98, alpha: 1).cgColor
@@ -155,6 +160,16 @@ func pill(_ label:String,_ x:Double,_ y:Double,_ color:CGColor = teal,_ size:Dou
     let width = measure(label,size:size,mono:true)+32
     box(x,y,width,38,alpha(color,0.09),stroke:alpha(color,0.25),radius:19); text(label,x+16,y+8,size,color,mono:true)
 }
+// A compiler's own outbound call passes the egress proxy (ISOLATE-01), shown quietly on the
+// arrow before the egress chapter explains it. Drawn over the arrow and its pulse.
+func proxyChip(_ cx:Double,_ cy:Double,_ time:Double,_ at:Double) {
+    let p = ease((time-at)/0.5); guard p > 0 else { return }
+    let w = measure("egress proxy",size:15,mono:true)+22, h = 24.0
+    c.saveGState(); c.setAlpha(p)
+    box(cx-w/2,cy-h/2,w,h,bg,stroke:alpha(secondary,0.4),radius:8)
+    text("egress proxy",cx-w/2+11,cy-9,15,alpha(secondary,0.9),mono:true)
+    c.restoreGState()
+}
 func actor(_ name:String,_ kind:String,_ detail:String,_ x:Double,_ y:Double,_ w:Double,_ h:Double,_ color:CGColor) {
     box(x,y,w,h); icon(kind,x+48,y+55,color,0.8); text(name,x+86,y+37,30,white,bold:true)
     if !detail.isEmpty { wrapped(detail,x+28,y+102,w-56,24,secondary,lineHeight:33) }
@@ -246,6 +261,7 @@ func scene3(_ t:Double) {
     }
     reveal(t,0.8) { actor("Policy","policy","Re-checks the grant",710,325,485,190,purple) }
     arrow(525,433,710,433,purple,p:ease((t-1)/0.7)); pulse(525,433,710,433,t,1.7,0.8,purple)
+    proxyChip(617,433,t,1.3)
     reveal(t,2.1) {
         box(658,565,590,210,alpha(teal,0.075),stroke:alpha(teal,0.5),radius:17)
         text("EXECUTION CAPABILITY",685,588,20,teal,bold:true)
@@ -263,6 +279,7 @@ func scene3(_ t:Double) {
     pulse(658,668,525,668,t,3.6,0.7,teal)
     path([CGPoint(x:312,y:735),CGPoint(x:312,y:790),CGPoint(x:1360,y:790),CGPoint(x:1360,y:525),CGPoint(x:1425,y:525)],teal,width:2.5,progress:ease((t-4.4)/2))
     if t > 6.4 { arrow(1360,525,1425,525,teal) }
+    proxyChip(1240,790,t,5.6)
     reveal(t,6.1) { text("Compiler presents capability + exact payload",650,803,22,teal) }
     reveal(t,7.4) { text("Changing the arguments breaks the binding.",1480,725,23,secondary,align:"center") }
 }
@@ -274,6 +291,7 @@ func scene4(_ t:Double) {
         text("claim receipt before a write",700,696,21,secondary)
     }
     arrow(450,565,675,565,teal,p:ease((t-0.7)/0.7)); pulse(450,565,675,565,t,1.4,0.8,teal)
+    proxyChip(562,565,t,0.9)
     reveal(t,1.7) {
         box(675,280,470,110,alpha(purple,0.07),stroke:alpha(purple,0.3),radius:16)
         icon("policy",719,335,purple,0.6); text("Policy · live state",760,313,29,white,bold:true)
@@ -293,6 +311,45 @@ func scene4(_ t:Double) {
         pill("REVOKED → DENY",1170,727,red,17)
     }
     reveal(t,7.7) { text("A fresh decision before every provider step, signature, or receipt replay.",960,801,25,secondary,align:"center") }
+}
+// ISOLATE-01: compilers reach the outside only through the egress proxy.
+func sceneEgress(_ t:Double) {
+    reveal(t,0.1) {
+        actor("Compiler","compiler","Compromised dependency",100,400,330,230,teal)
+        pill("ISOLATE-01 · not yet deployed",100,322,amber,16)
+    }
+    reveal(t,0.8) {
+        box(560,365,430,300,alpha(blue,0.06),stroke:alpha(blue,0.4))
+        text("Egress proxy",590,392,31,white,bold:true)
+        text("Envoy · internal load balancer",590,437,21,secondary)
+        text("reviewed allowlist per compiler",590,490,19,white,mono:true)
+        text("host = SNI = CONNECT target",590,527,19,white,mono:true)
+        text("internal addresses refused",590,564,19,white,mono:true)
+        text("every request logged",590,601,19,white,mono:true)
+    }
+    arrow(430,515,560,515,teal,p:ease((t-1.2)/0.6))
+    let rows: [(String,String,Bool,Double)] = [
+        ("Policy · Broker","listed Graffiticode hosts",true,2.0),
+        ("Learnosity","direct, around Broker",false,3.4),
+        ("Attacker host","any unlisted host",false,4.4),
+        ("Metadata · private IPs","by name or by address",false,5.4),
+    ]
+    for (i,row) in rows.enumerated() {
+        let y = 320+Double(i)*112
+        reveal(t,row.3) {
+            box(1225,y,595,90,alpha(row.2 ? teal : red,0.06),stroke:alpha(row.2 ? teal : red,0.3),radius:14)
+            text(row.0,1300,y+16,26,white,bold:true); text(row.1,1300,y+52,20,secondary)
+            if row.2 { check(1262,y+45,teal,24) } else { cross(1262,y+45,red,22) }
+        }
+        let color = row.2 ? teal : red
+        arrow(990,515,1225,y+45,color,p:ease((t-row.3-0.1)/0.6))
+        if row.2 { pulse(990,515,1225,y+45,t,row.3+0.3,0.8,teal) }
+    }
+    reveal(t,6.6) {
+        path([CGPoint(x:265,y:630),CGPoint(x:265,y:770)],teal,width:2.5,dashed:true)
+        text("Identity tokens: metadata server, direct",290,742,21,teal)
+        pill("DNS locked down",1225,770,secondary,17); pill("L0185: public hosts only",1225+measure("DNS locked down",size:17,mono:true)+52,770,secondary,17)
+    }
 }
 func scene5(_ t:Double) {
     let fade = 1-ease((t-7.4)/0.7)
@@ -320,7 +377,7 @@ func scene5(_ t:Double) {
         icon("agent",350,470,blue,1.5); icon("broker",1570,470,amber,1.5)
         text("The agent gets the result.",960,390,62,white,bold:true,align:"center")
         text("The credential stays in Broker.",960,490,56,teal,bold:true,align:"center")
-        text("Scoped grants  /  Protected functions  /  Brokered effects",960,650,27,secondary,align:"center")
+        text("Scoped grants  /  Protected functions  /  Brokered effects  /  Contained egress",960,650,27,secondary,align:"center")
     }
 }
 
@@ -334,27 +391,32 @@ func draw(_ time:Double,_ ctx:CGContext) {
     for x in stride(from:80,through:1840,by:40) { for y in stride(from:290,through:810,by:40) { dot(Double(x),Double(y),0.8,alpha(secondary,0.14)) } }
     dot(108,76,8,teal); text("GRAFFITICODE",129,60,23,white,bold:true)
     text("CAPABILITY SECURITY",350,63,20,secondary)
-    text("60 SECOND EXPLAINER",1818,63,19,secondary,mono:true,align:"right")
-    let sceneIndex = min(5,Int(time/10)); let t = time-Double(sceneIndex)*10
+    text("\(DURATION) SECOND EXPLAINER",1818,63,19,secondary,mono:true,align:"right")
+    let sceneIndex = min(N-1,Int(time/10)); let t = time-Double(sceneIndex)*10
     let scene = scenes[sceneIndex]
-    let fade = min(ease(t/0.45),sceneIndex == 5 ? 1 : ease((10-t)/0.35))
+    let fade = min(ease(t/0.45),sceneIndex == N-1 ? 1 : ease((10-t)/0.35))
     c.saveGState(); c.setAlpha(fade); c.beginTransparencyLayer(auxiliaryInfo:nil)
-    text(String(format:"%02d / 06",sceneIndex+1),100,135,19,teal,mono:true)
+    text(String(format:"%02d / %02d",sceneIndex+1,N),100,135,19,teal,mono:true)
     text(scene["title"] as! String,100,177,57,white,bold:true)
     text(scene["subtitle"] as! String,100,252,27,secondary)
-    switch sceneIndex { case 0: scene0(t); case 1: scene1(t); case 2: scene2(t); case 3: scene3(t); case 4: scene4(t); default: scene5(t) }
+    switch scene["scene"] as! String {
+    case "request": scene0(t); case "grant": scene1(t); case "admission": scene2(t)
+    case "capability": scene3(t); case "live": scene4(t); case "egress": sceneEgress(t); default: scene5(t)
+    }
     c.endTransparencyLayer(); c.restoreGState()
     // Burned-in captions match the narration, with an accompanying WebVTT track.
     path([CGPoint(x:100,y:855),CGPoint(x:1820,y:855)],alpha(border,0.75),width:1)
     wrapped(scene["narration"] as! String,960,879,1660,29,white,lineHeight:40,align:"center")
-    for i in 0..<6 {
-        let x = 100+Double(i)*290
-        box(x,1003,265,4,alpha(secondary,0.15),stroke:nil,radius:2)
+    let segment = (1720-Double(N-1)*25)/Double(N)
+    for i in 0..<N {
+        let x = 100+Double(i)*(segment+25)
+        box(x,1003,segment,4,alpha(secondary,0.15),stroke:nil,radius:2)
         let p = clamp((time-Double(i)*10)/10)
-        if p > 0 { box(x,1003,max(4,265*p),4,teal,stroke:nil,radius:2) }
+        if p > 0 { box(x,1003,max(4,segment*p),4,teal,stroke:nil,radius:2) }
         text(scenes[i]["chapter"] as! String,x,1024,19,i == sceneIndex ? white : secondary)
     }
-    text(String(format:"00:%02d / 01:00",min(59,Int(time))),1820,135,17,secondary,mono:true,align:"right")
+    let shown = min(DURATION-1,Int(time))
+    text(String(format:"%02d:%02d / %02d:%02d",shown/60,shown%60,DURATION/60,DURATION%60),1820,135,17,secondary,mono:true,align:"right")
     c.restoreGState()
 }
 
@@ -373,12 +435,13 @@ func waitExport(_ export:AVAssetExportSession) throws {
 }
 func removeGenerated(_ path:URL) { if fm.fileExists(atPath:path.path) { try? fm.removeItem(at:path) } }
 
+let frames = (0..<N).map { Double($0)*10+6.5 } + [Double(DURATION)-0.7]
 if mode == "preview" {
-    for (i,t) in [6.0,16.0,26.0,36.8,47.0,55.5,59.3].enumerated() {
+    for (i,t) in frames.enumerated() {
         try savePNG(t,scratch.appendingPathComponent("preview-\(i+1).png"))
     }
     try savePNG(6,output.appendingPathComponent("poster.png"))
-    print("Rendered seven 1920×1080 preview frames.")
+    print("Rendered \(frames.count) 1920×1080 preview frames.")
 } else if mode == "video" {
     let videoURL = scratch.appendingPathComponent("silent.mp4")
     removeGenerated(videoURL)
@@ -402,7 +465,7 @@ if mode == "preview" {
     writer.add(input)
     guard writer.startWriting() else { throw writer.error! }
     writer.startSession(atSourceTime:.zero)
-    for frame in 0..<(60*FPS) {
+    for frame in 0..<(DURATION*FPS) {
         while !input.isReadyForMoreMediaData {
             if writer.status == .failed { throw writer.error! }
             Thread.sleep(forTimeInterval:0.004)
@@ -417,16 +480,16 @@ if mode == "preview" {
             CVPixelBufferUnlockBaseAddress(pixel,[])
             guard adaptor.append(pixel,withPresentationTime:CMTime(value:Int64(frame),timescale:Int32(FPS))) else { throw writer.error ?? NSError(domain:"Append",code:1) }
         }
-        if frame % 150 == 0 { print("Video \(frame/FPS)/60 s"); fflush(stdout) }
+        if frame % 150 == 0 { print("Video \(frame/FPS)/\(DURATION) s"); fflush(stdout) }
     }
-    writer.endSession(atSourceTime:CMTime(seconds:60,preferredTimescale:600))
+    writer.endSession(atSourceTime:CMTime(seconds:Double(DURATION),preferredTimescale:600))
     input.markAsFinished()
     let sem = DispatchSemaphore(value:0); writer.finishWriting { sem.signal() }; sem.wait()
     guard writer.status == .completed else { throw writer.error! }
     print("Video rendered. Assembling narration."); fflush(stdout)
     let audioComposition = AVMutableComposition()
     let audioTrack = audioComposition.addMutableTrack(withMediaType:.audio,preferredTrackID:kCMPersistentTrackID_Invalid)!
-    for i in 0..<6 {
+    for i in 0..<N {
         let audio = AVURLAsset(url:scratch.appendingPathComponent("scene-\(i).aiff"))
         let duration = CMTimeGetSeconds(audio.duration)
         guard duration > 0 else { throw NSError(domain:"Empty narration scene \(i)",code:1) }
@@ -441,31 +504,31 @@ if mode == "preview" {
     let composition = AVMutableComposition()
     let video = AVURLAsset(url:videoURL), audio = AVURLAsset(url:audioURL)
     let videoTrack = composition.addMutableTrack(withMediaType:.video,preferredTrackID:kCMPersistentTrackID_Invalid)!
-    try videoTrack.insertTimeRange(CMTimeRange(start:.zero,duration:CMTime(seconds:60,preferredTimescale:600)),of:video.tracks(withMediaType:.video)[0],at:.zero)
+    try videoTrack.insertTimeRange(CMTimeRange(start:.zero,duration:CMTime(seconds:Double(DURATION),preferredTimescale:600)),of:video.tracks(withMediaType:.video)[0],at:.zero)
     let finalAudio = composition.addMutableTrack(withMediaType:.audio,preferredTrackID:kCMPersistentTrackID_Invalid)!
     try finalAudio.insertTimeRange(CMTimeRange(start:.zero,duration:audio.duration),of:audio.tracks(withMediaType:.audio)[0],at:.zero)
-    let finalURL = output.appendingPathComponent("capability-security-60s.mp4"); removeGenerated(finalURL)
+    let finalURL = output.appendingPathComponent(FILE); removeGenerated(finalURL)
     let export = AVAssetExportSession(asset:composition,presetName:AVAssetExportPresetPassthrough)!
     export.outputURL = finalURL; export.outputFileType = .mp4; export.shouldOptimizeForNetworkUse = true
-    let title = AVMutableMetadataItem(); title.identifier = .commonIdentifierTitle; title.value = "Capability security, in 60 seconds" as NSString
-    let description = AVMutableMetadataItem(); description.identifier = .commonIdentifierDescription; description.value = "Client agent, compiler protected functions, scoped grants, chain admission, single-use capabilities, live Policy checks, Broker credential custody, and durable receipts." as NSString
+    let title = AVMutableMetadataItem(); title.identifier = .commonIdentifierTitle; title.value = TITLE as NSString
+    let description = AVMutableMetadataItem(); description.identifier = .commonIdentifierDescription; description.value = "Client agent, compiler protected functions, scoped grants, chain admission, single-use capabilities, live Policy checks, Broker credential custody, compiler egress through the ISOLATE-01 proxy, and durable receipts." as NSString
     export.metadata = [title,description]
     try waitExport(export)
     print("Exported \(finalURL.path)")
 } else if mode == "verify" {
-    let url = output.appendingPathComponent("capability-security-60s.mp4")
+    let url = output.appendingPathComponent(FILE)
     let asset = AVURLAsset(url:url)
     let duration = CMTimeGetSeconds(asset.duration)
     let video = asset.tracks(withMediaType:.video)[0]
     let audio = asset.tracks(withMediaType:.audio)[0]
     print("Duration: \(duration) seconds; size: \(video.naturalSize); fps: \(video.nominalFrameRate); audio: \(CMTimeGetSeconds(audio.timeRange.duration)) seconds")
-    guard abs(duration-60) < 0.04, video.naturalSize.width == 1920, video.naturalSize.height == 1080, video.nominalFrameRate == 30 else { throw NSError(domain:"Video verification",code:1) }
+    guard abs(duration-Double(DURATION)) < 0.04, video.naturalSize.width == 1920, video.naturalSize.height == 1080, video.nominalFrameRate == 30 else { throw NSError(domain:"Video verification",code:1) }
     let reader = try AVAssetReader(asset:asset)
     let trackOut = AVAssetReaderTrackOutput(track:video,outputSettings:[kCVPixelBufferPixelFormatTypeKey as String:kCVPixelFormatType_32BGRA])
     reader.add(trackOut); reader.startReading()
     var count = 0
     while let sample = trackOut.copyNextSampleBuffer() { count += 1; if CMSampleBufferGetNumSamples(sample) != 1 { throw NSError(domain:"Unexpected sample",code:1) } }
-    guard reader.status == .completed, count == 1800 else { throw reader.error ?? NSError(domain:"Frame count \(count)",code:1) }
+    guard reader.status == .completed, count == DURATION*FPS else { throw reader.error ?? NSError(domain:"Frame count \(count)",code:1) }
     print("Decoded all \(count) video frames successfully.")
     let ar = try AVAssetReader(asset:asset)
     let ao = AVAssetReaderTrackOutput(track:audio,outputSettings:[AVFormatIDKey:kAudioFormatLinearPCM,AVLinearPCMIsFloatKey:true,AVLinearPCMBitDepthKey:32])
@@ -484,10 +547,10 @@ if mode == "preview" {
     guard ar.status == .completed, peak > 0.02 else { throw ar.error ?? NSError(domain:"Silent audio",code:1) }
     print("Decoded \(samples) narration samples; peak \(peak).")
     let generator = AVAssetImageGenerator(asset:asset); generator.appliesPreferredTrackTransform = true
-    for (i,time) in [6.0,16.0,26.0,36.8,47.0,55.5,59.3].enumerated() {
+    for (i,time) in frames.enumerated() {
         let img = try generator.copyCGImage(at:CMTime(seconds:time,preferredTimescale:600),actualTime:nil)
         let dest = CGImageDestinationCreateWithURL(scratch.appendingPathComponent("verified-\(i+1).png") as CFURL,UTType.png.identifier as CFString,1,nil)!
         CGImageDestinationAddImage(dest,img,nil); CGImageDestinationFinalize(dest)
     }
-    print("Extracted seven verification frames from the final MP4.")
+    print("Extracted \(frames.count) verification frames from the final MP4.")
 }

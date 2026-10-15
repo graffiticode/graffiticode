@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Capability security, in 60 seconds — Graffiticode</title>
+  <title>Capability security, in 70 seconds — Graffiticode</title>
   <style>
     :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #eef4fa; background: #080d14; }
     * { box-sizing: border-box; }
@@ -28,11 +28,12 @@
 </head>
 <body>
 <main>
-  <header><h1>Capability security, in 60 seconds</h1><span class="meta">GRAFFITICODE · 1080p · Narrated · Captioned</span></header>
-  <video id="film" controls playsinline preload="metadata" poster="poster.png" aria-label="60-second narrated animation of the Graffiticode capability security model">
-    <source src="capability-security-60s.mp4" type="video/mp4">
+  <header><h1>Capability security, in 70 seconds</h1><span class="meta">GRAFFITICODE · with ISOLATE-01 egress (not yet deployed) · 1080p · Narrated · Captioned</span></header>
+  <p class="meta">Without ISOLATE-01, as it runs today: <a href="../capability-animation-today/">the 60-second version</a> · <a href="../capability-animation-compare.html">side by side</a></p>
+  <video id="film" controls playsinline preload="metadata" poster="poster.png" aria-label="70-second narrated animation of the Graffiticode capability security model, with ISOLATE-01 compiler egress">
+    <source src="capability-security-70s.mp4" type="video/mp4">
     <track kind="captions" src="captions.vtt" srclang="en" label="English (also embedded in video)">
-    <p><a href="capability-security-60s.mp4">Open the MP4 animation</a>.</p>
+    <p><a href="capability-security-70s.mp4">Open the MP4 animation</a>.</p>
   </video>
   <nav aria-label="Animation chapters">
     <button type="button" data-time="0">00:00 · The request</button>
@@ -40,9 +41,10 @@
     <button type="button" data-time="20">00:20 · Admission</button>
     <button type="button" data-time="30">00:30 · The capability</button>
     <button type="button" data-time="40">00:40 · Live checks</button>
-    <button type="button" data-time="50">00:50 · Safe retries</button>
+    <button type="button" data-time="50">00:50 · Contained egress</button>
+    <button type="button" data-time="60">01:00 · Safe retries</button>
   </nav>
-  <div class="actions"><a href="capability-security-60s.mp4" download>Download MP4</a><a href="captions.vtt" download>Download captions</a><a href="storyboard.json">View storyboard</a></div>
+  <div class="actions"><a href="capability-security-70s.mp4" download>Download MP4</a><a href="captions.vtt" download>Download captions</a><a href="storyboard.json">View storyboard</a></div>
   <details>
     <summary>Transcript and technical sources</summary>
     <div id="transcript">
@@ -51,9 +53,10 @@
       <p><strong>00:20 · Admission.</strong> The gateway preflights every compiler stage. Policy checks the entire chain. One denied function blocks the run before any stage executes.</p>
       <p><strong>00:30 · The capability.</strong> Policy issues the compiler a capability: single use, valid for sixty seconds at most, bound to the function and exact arguments.</p>
       <p><strong>00:40 · Live checks.</strong> Broker verifies the capability and checks live permission before each effect. Active grants allow the provider call. Revoked permission blocks the next effect.</p>
-      <p><strong>00:50 · Safe retries.</strong> A durable receipt records the outcome. Retrying the same operation returns its receipt without repeating the write. The agent gets results, never credentials.</p>
+      <p><strong>00:50 · Contained egress.</strong> Compilers reach the outside only through the egress proxy. Listed hosts pass. Learnosity, attacker hosts and internal addresses are refused. <em>ISOLATE-01 is designed and coded, not yet deployed.</em></p>
+      <p><strong>01:00 · Safe retries.</strong> A durable receipt records the outcome. Retrying the same operation returns its receipt without repeating the write. The agent gets results, never credentials.</p>
     </div>
-    <p>Based on the repository's <a href="../graffiticode_capability_policy_spec.md">security specification</a>, <a href="../capability-policy-as-built.md">implementation record</a> (W4 activated October 13, 2026), <a href="../../packages/common/src/protected-registry.ts">registry v7</a>, and <a href="../../languages/l0000/packages/core/src/protected-client.ts">compiler's protected client</a>.</p>
+    <p>Based on the repository's <a href="../graffiticode_capability_policy_spec.md">security specification</a>, <a href="../capability-policy-as-built.md">implementation record</a> (W4 activated October 13, 2026), <a href="../../packages/common/src/protected-registry.ts">registry v7</a>, <a href="../../languages/l0000/packages/core/src/protected-client.ts">compiler's protected client</a>, and the ISOLATE-01 <a href="../isolate-01-compiler-egress.html">egress diagram</a> and <a href="../../deploy/egress-proxy/README.md">proxy runbook</a>.</p>
     <p>Live checks can block the next effect; they cannot undo dispatched operations. Receipt replay prevents the same operation from being executed again by Broker; it does not promise provider transactionality or exactly-once provider effects. Outcomes include success, failed, partial, and uncertain.</p>
   </details>
 </main>
@@ -65,7 +68,7 @@
     film.play().catch(() => {});
   }));
   film.addEventListener('timeupdate', () => {
-    const current = Math.min(5, Math.floor(film.currentTime / 10));
+    const current = Math.min(chapters.length - 1, Math.floor(film.currentTime / 10));
     chapters.forEach((button, index) => button.setAttribute('aria-current', String(index === current)));
   });
 </script>
