@@ -63,6 +63,20 @@ describe("the read path", () => {
     expect(action.noStore).toBe(true);
   });
 
+  it("signs every repeated view from the stored activity, under the artifact's one invocation, never the source", async () => {
+    await store();
+    const put = jest.spyOn(artifactStorer, "put");
+    for (let i = 0; i < 4; i++) {
+      await expect(read()).resolves.toEqual({ data: { ...ACTIVITY, request: "signed" }, errors: [] });
+    }
+    expect(compile).toHaveBeenCalledTimes(4);
+    for (const [args] of compile.mock.calls) {
+      expect(args).toMatchObject({ code: signProgram(ACTIVITY), stage: "read" });
+    }
+    expect(allocateInvocation.mock.calls.map(([args]) => args.idempotencyKey)).toEqual(Array(4).fill("read.inv-run"));
+    expect(put).not.toHaveBeenCalled();
+  });
+
   it("serves a language that does not sign as stored, with no compile", async () => {
     await store();
     await expect(read(L0000_TASK)).resolves.toEqual(STORED);

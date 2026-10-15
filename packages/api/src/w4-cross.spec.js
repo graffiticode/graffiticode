@@ -66,7 +66,9 @@ const PAYLOAD = {
 const PREVIEW = { id: "p", questions: [{ type: "mcq", response_id: "r1" }] };
 // A stand-in program's kind is its one string. What each requires, as L0176's
 // preflight declares it. `stale-author` is a compiler still declaring `author`,
-// which registry v7 removed (AUTHOR-01).
+// which registry v7 removed (AUTHOR-01). `undeclarable` is a program whose
+// protected behaviour can't be declared in advance: its preflight answers as
+// @graffiticode/l0000 does for `undeclarableProtected`.
 const REQUIRED = { save: ["init", "save-to-itembank"], preview: ["init"], "stale-author": ["author", "init"] };
 const programOf = kind => ({ 1: { tag: "STR", elts: [kind] }, 2: { tag: "EXPRS", elts: [1] }, root: 2 });
 const kindOf = code => code?.[1]?.elts?.[0];
@@ -139,12 +141,13 @@ beforeEach(async () => {
 
   // Compiler revisions: each serves /preflight for the gateway, and runs the
   // stage's compile when the gateway routes to its tag URL. `report` lets a
-  // test make a revision describe itself as another.
+  // test make a revision describe itself as another; `drift` changes only what
+  // its compile presents, after admission.
   const asCompiler = buildPolicyRequest({ policyUrl, idToken: idTokenFor(SA.compiler) });
   const revisions = new Map();
   const manifestFrom = (rev, code, stage) => ({
     stage,
-    lang: "0176",
+    lang: rev.report?.lang ?? "0176",
     sourceDigest: canonicalDigest(code),
     programDigest: canonicalDigest({ kind: kindOf(code), lowered: true }),
     optionsDigest: canonicalDigest({}),
@@ -154,7 +157,7 @@ beforeEach(async () => {
     requiredFunctions: REQUIRED[kindOf(code)] ?? ["init"],
   });
   const startRevision = async (name, { approved = true } = {}) => {
-    const rev = { revision: `l0176-${name}`, imageDigest: `sha256:${canonicalDigest(name)}`, url: null, report: null, down: false };
+    const rev = { revision: `l0176-${name}`, imageDigest: `sha256:${canonicalDigest(name)}`, url: null, report: null, drift: null, down: false };
     rev.url = await listen(async (req, res) => {
       const body = await readJson(req);
       const reply = (status, json) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(json)); };
@@ -162,6 +165,10 @@ beforeEach(async () => {
       if (req.url !== "/preflight") return reply(404, {});
       if (req.headers["x-caller-identity"] !== `idt|${SA.gateway}|urn:graffiticode:0176`) return reply(401, { status: "error", error: { reason: "caller-rejected" } });
       counts.preflights += 1;
+      if (kindOf(body.code) === "undeclarable") {
+        const message = "This language's protected behaviour can't be declared in advance, so it can't run in an admitted plan.";
+        return reply(200, { status: "success", data: { errors: [{ message, from: -1, to: -1, code: "undeclarable-protected" }] } });
+      }
       return reply(200, { status: "success", data: { manifest: manifestFrom(rev, body.code, body.stage) } });
     });
     revisions.set(rev.url, rev);
@@ -185,7 +192,7 @@ beforeEach(async () => {
   const compile = async ({ code, data, auth, connectionId, invocationToken, stage, admissionToken = null, baseUrl = null }) => {
     counts.compiles += 1;
     const rev = baseUrl ? revisions.get(baseUrl) : serving.rev;
-    const manifest = manifestFrom(rev, code, stage);
+    const manifest = { ...manifestFrom(rev, code, stage), ...rev.drift };
     const fail = (message, effects = []) => ({ errors: [{ message }], effects, revision: rev.revision });
     const snap = /** @type {any} */ (await asCompiler("POST", "/v1/snapshot", {
       authToken: auth, body: { lang: "0176", connectionId, fns: manifest.requiredFunctions, invocationToken, stage, ...(admissionToken ? { admissionToken, manifest } : {}) },
@@ -272,6 +279,14 @@ describe("AT-03: one decision for the chain, before anything runs", () => {
     expect(rogue.errors[0]).toMatchObject({ code: "revision-not-approved" });
     expectZeroEffects();
   });
+
+  it("an undeclarable-protected preflight blocks the chain: zero transformations, signatures and provider requests", async () => {
+    // s0, the final stage, can't declare what it does; s1, run first, saves.
+    const out = await run(await w.chain("undeclarable", "save"));
+    expect(out.errors).toEqual([expect.objectContaining({ code: "undeclarable-protected" })]);
+    expect(w.records.filter(r => r.event === "admission" && !r.service)).toEqual([]);
+    expectZeroEffects();
+  });
 });
 
 describe("AT-04: what changes after admission is refused", () => {
@@ -300,6 +315,29 @@ describe("AT-04: what changes after admission is refused", () => {
     w.approvals.records.set("0176/l0176-swapped", { ...w.approvals.records.get("0176/l0176-ra"), revision: "l0176-swapped" });
     const retry = await run(id, { key: "job-1" });
     expect(retry.errors[0].code).toMatch(/plan-mismatch|plan-binding-mismatch/);
+    expect(w.counts.provider.length).toBe(writes);
+  });
+
+  it("a stage whose binding names another language once admitted is refused at its snapshot, and nothing runs", async () => {
+    // Preflight reports L0176; the compile then presents the stage as L0000's.
+    w.serving.rev.drift = { lang: "0000" };
+    const out = await run(await w.chain("preview", "save"));
+    expect(out.errors[0].message).toMatch(/plan-binding-mismatch/);
+    expect(w.records.filter(r => r.event === "admission" && r.outcome === "allowed" && !r.service)).toHaveLength(1);
+    expect(w.records.filter(r => r.event === "snapshot" && r.outcome === "denied")).toEqual([expect.objectContaining({ reason: "plan-binding-mismatch" })]);
+    expect(snapshots()).toBe(0);
+    expect(mints()).toBe(0);
+    expect(w.counts.provider).toEqual([]);
+  });
+
+  it("a retry whose stage now reports another language is refused before admission, and writes nothing again", async () => {
+    const id = await w.chain("preview", "save");
+    await run(id);
+    const writes = w.counts.provider.length;
+    w.serving.rev.report = { lang: "0000" };
+    const retry = await run(id);
+    expect(retry.errors[0]).toMatchObject({ code: "plan-binding-mismatch" });
+    expect(w.records.filter(r => r.event === "admission" && r.outcome === "allowed" && !r.service)).toHaveLength(1);
     expect(w.counts.provider.length).toBe(writes);
   });
 });

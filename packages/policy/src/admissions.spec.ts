@@ -303,6 +303,8 @@ describe("plan-bound snapshots (ADMIT-03)", () => {
     ["a different program", { manifest: { ...manifests()[1], programDigest: hex("5") } }, "plan-binding-mismatch"],
     ["different options", { manifest: { ...manifests()[1], optionsDigest: hex("5") } }, "plan-binding-mismatch"],
     ["a different revision", { manifest: { ...manifests()[1], revision: "l0176-r2" } }, "plan-binding-mismatch"],
+    ["a manifest naming another language", { manifest: { ...manifests()[1], lang: "0000" } }, "plan-binding-mismatch"],
+    ["another language's compiler presenting the stage", { caller: L0000, lang: "0000", fns: [], manifest: { ...manifests()[1], lang: "0000" } }, "plan-binding-mismatch"],
     ["another stage", { stage: "s0" }, "plan-binding-mismatch"],
     ["no manifest", { manifest: null }, "plan-binding-mismatch"],
     ["a forged admission token", { admissionToken: "x.y.z" }, "bad-token"],

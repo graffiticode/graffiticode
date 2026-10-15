@@ -33,6 +33,7 @@ import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
 
 const OWNER = "0xowner";
+const OTHER = "0xother";
 const L0176 = { role: "compiler", lang: "0176" };
 const TASK = { lang: "0176", code: { 1: { tag: "NUM", elts: ["1"] }, root: 1 } };
 const WRITE = {
@@ -125,12 +126,12 @@ beforeEach(async () => {
   dataApi = buildDataApi({ compile, allocateInvocation, artifactStorer });
 });
 
-const run = (idempotencyKey = "job-1") => dataApi.get({
+const run = (idempotencyKey = "job-1", uid = OWNER) => dataApi.get({
   taskStorer: { get: async () => [TASK] },
   compileStorer: { get: async () => undefined, create: async () => {} },
   id: "task-1",
-  auth: { uid: OWNER },
-  authToken: OWNER,
+  auth: { uid },
+  authToken: uid,
   connectionId: "conn-1",
   idempotencyKey,
   action: {}
@@ -215,6 +216,32 @@ describe("recovery", () => {
     expect((await run("job-2")).errors).toEqual([]);
     expect(routes).toHaveLength(4);
     expect((await current()).status).toBe("ok");
+  });
+
+  it("refuses another user's retry of a save whose artifact was lost, and the owner can still recover it", async () => {
+    artifactFailures = 3;
+    const first = await run();
+    expect(first.artifact).toMatchObject({ error: "artifact-storage-unavailable", idempotencyKey: "job-1" });
+    const theirs = await run("job-1", OTHER);
+    expect(theirs.errors[0].message).toMatch(/permission denied \(not-owner\)/);
+    expect(theirs.data).toBeUndefined();
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+    expect((await current()).status).toBe("missing");
+    expect((await run()).errors).toEqual([]);
+    expect((await current()).status).toBe("ok");
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+  });
+
+  it("refuses another user's retry of an uncertain save, without contacting the provider", async () => {
+    loseItems = true;
+    expect((await run()).errors[0].message).toMatch(/uncertain/);
+    loseItems = false;
+    const theirs = await run("job-1", OTHER);
+    expect(theirs.errors[0].message).toMatch(/permission denied \(not-owner\)/);
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
+    // The owner's own retry is still blocked as uncertain.
+    expect((await run()).errors[0].message).toMatch(/uncertain/);
+    expect(routes).toEqual(["/itembank/questions", "/itembank/items"]);
   });
 
   it("refuses the retry once the connection is revoked, without contacting the provider", async () => {

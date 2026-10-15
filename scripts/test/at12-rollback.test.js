@@ -166,6 +166,52 @@ test("receipts the W3 Broker wrote are never re-executed: refused across the reg
   assert.deepEqual(providerCalls, written);
 });
 
+// The refusals leave a W3 receipt as it was written. Rolled back, the W3
+// Broker replays its stored outcome; on the current code, reconciliation
+// reports it (claimed before W5, so without evidence) and changes nothing.
+// The receipts are the current code's store over what the W3 Broker wrote,
+// as Firestore keeps the same documents across a release.
+test("a W3 receipt survives: still as written, replayed after a rollback, and reported by reconciliation", async () => {
+  const providerCalls = [];
+  const old = await policyOf(OLD);
+  const receipts = NEW.broker.createMemoryReceiptStore();
+  const token = await writeToken(old);
+  const first = await execute(brokerOf(OLD, { authorizer: old, receipts, providerCalls }), token);
+  assert.equal(first.status, "succeeded");
+  const { opid } = decodeJwt(token);
+  const invocationId = String(opid).split("/")[0];
+  const written = [...providerCalls];
+  const receipt = async () => ({ claims: await receipts.listClaims(invocationId), outcome: await receipts.getOutcome(opid), steps: await receipts.getSteps(opid) });
+  const before = await receipt();
+  assert.equal(before.claims.length, 1);
+  assert.equal(before.outcome.status, "succeeded");
+
+  const current = brokerOf(NEW, { authorizer: old, receipts, providerCalls });
+  await assert.rejects(execute(current, await writeToken(old)), e => e.reason === "registry-version-mismatch");
+  await assert.rejects(execute(current, await resigned(await writeToken(old), { rv: REGISTRY_VERSION })), e => e.reason === "receipt-registry-version-mismatch");
+  const cutover = brokerOf(NEW, { authorizer: old, receipts, providerCalls, minContractVersion: 2 });
+  await assert.rejects(execute(cutover, await writeToken(old)), e => e.reason === "contract-version-unsupported");
+  assert.deepEqual(await receipt(), before);
+
+  const replay = await execute(brokerOf(OLD, { authorizer: old, receipts, providerCalls }), await writeToken(old));
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.status, "succeeded");
+  assert.deepEqual(replay.steps, first.steps);
+  assert.deepEqual(replay.result, first.result);
+
+  const reconcile = NEW.broker.createReconciler({
+    receipts,
+    secrets: NEW.broker.createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "k", secret: "s" } }),
+    operations: NEW.broker.buildOperations({ sdk: { init: () => ({}) }, domain: "d", dataApi: async ({ route }) => { providerCalls.push(route); return { meta: { status: true } }; } }),
+    limits: { executionMs: 1000, providerCallMs: 1000 },
+    audit: async () => {},
+  });
+  const report = await reconcile({ connectionId: "conn-1", invocationId, decisionId: "decision-1" });
+  assert.deepEqual(report, { invocationId, operations: [{ operationId: opid, verdict: "unresolved", reason: "no-evidence" }] });
+  assert.deepEqual((await receipt()).outcome, before.outcome);
+  assert.deepEqual(providerCalls, written);
+});
+
 test("release-check refuses while a revision below the W4 milestone is reachable, by its tag", async () => {
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
   const service = {

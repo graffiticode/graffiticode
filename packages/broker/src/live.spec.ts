@@ -163,6 +163,7 @@ describe("AT-05: authority removed after mint, then execute: zero effects", () =
 
   it.each([
     ["the grant revoked", { sub: OTHER }, revokeGrant, "not-owner"],
+    ["the grant expired", { sub: OTHER }, async () => grants.put({ ...(await grants.get(grantIdFor({ connectionId: "conn-1", recipientUid: OTHER }))), expiresAt: "2000-01-01T00:00:00.000Z" }), "not-owner"],
     ["the connection disabled", {}, () => disable("conn-1"), "connection-disabled"],
     ["unpublished", { prv: "publication", pub: "pub-1" }, () => publications.delete("pub-1"), "publication-not-found"],
     ["the system connection replaced", { sub: SYSTEM_PREVIEW_SUBJECT, own: SYSTEM, conn: "conn-sys", prv: "system" }, async () => { systemConnections.learnosity = "conn-other"; }, "not-system-connection"],

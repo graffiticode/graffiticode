@@ -160,6 +160,15 @@ describe("broker http", () => {
     expect(res.status).toBe(401);
   });
 
+  it("refuses a caller identity that differs from the invoker, spending nothing", async () => {
+    const res = await exec(SA.l0000, { identity: `idt|${SA.l0176}|${AUD}` });
+    expect(res.status).toBe(403);
+    expect(res.body.error.message).toMatch(/does not match invoker/);
+    expect(JSON.stringify(res.body)).not.toContain(executionToken);
+    // The token is still unspent for its own compiler.
+    expect((await exec(SA.l0176)).status).toBe(200);
+  });
+
   it("refuses a request with no execution token", async () => {
     const res = await request(app).post("/v1/execute")
       .set("X-Caller-Identity", `idt|${SA.l0176}|${AUD}`)

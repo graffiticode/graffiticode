@@ -125,6 +125,7 @@ describe("the execution binding check (ADMIT-03)", () => {
   });
 
   test.each([
+    ["another language", { lang: "0176" }],
     ["another program", { programDigest: "f".repeat(64) }],
     ["other options", { optionsDigest: "f".repeat(64) }],
     ["another revision", { revision: "l9999-r2" }],

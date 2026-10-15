@@ -18,6 +18,7 @@ import {
 } from "@graffiticode/policy";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildDataApi } from "./data.js";
+import { signProgram } from "./read.js";
 import { InvocationRefused } from "./invocations.js";
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 import publicationsRouter from "./routes/publications.js";
@@ -38,6 +39,9 @@ let artifactStorer;
 let dataApi;
 let app;
 let snapshots;
+let sessions;
+let records;
+let puts;
 
 // Policy errors surface to the gateway as refusals, as over HTTP.
 const asGateway = fn => async (...args) => {
@@ -53,13 +57,15 @@ beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
   const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
   const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
-  const audit = createAudit({ sink: () => {}, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
+  records = [];
+  const audit = createAudit({ sink: r => { records.push(r); }, pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   connections = createMemoryConnectionStore([{ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" }]);
   policy = createPolicy({
     protectedSwitch: PROTECTED_ON, signer, jwks, connections, invocations: createMemoryInvocationStore(), publications: createMemoryPublicationStore(), audit
   });
 
   snapshots = [];
+  sessions = [];
   const compile = async ({ uid, auth, connectionId, invocationToken, stage, code }) => {
     try {
       const snap = await policy.snapshot({
@@ -72,6 +78,7 @@ beforeEach(async () => {
         stage
       });
       snapshots.push({ uid, auth, allowed: snap.allowed });
+      sessions.push({ code, sessionToken: snap.sessionToken });
       await policy.mint({
         caller: L0176, sessionToken: snap.sessionToken, fn: "init", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0", argsDigest: "a".repeat(64)
       });
@@ -87,6 +94,9 @@ beforeEach(async () => {
     authorizeView: asGateway(({ publicationId }) => policy.authorizeView({ caller: GATEWAY, publicationId }))
   };
   artifactStorer = buildMemoryArtifactStorer();
+  puts = 0;
+  const put = artifactStorer.put;
+  artifactStorer.put = args => { puts += 1; return put(args); };
   // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   dataApi = buildDataApi({ compile, artifactStorer, publications });
 
@@ -109,12 +119,12 @@ const ran = (uid = OWNER) => artifactStorer.put({
 });
 const publish = (uid = OWNER) =>
   request(app).post("/publications").set("Authorization", `Bearer ${uid}`).send({ id: "task-1", connectionId: "conn-1" });
-const view = (publicationId, id = "task-1") => dataApi.get({
+const view = (publicationId, id = "task-1", viewer = null) => dataApi.get({
   taskStorer: { get: async () => [TASK] },
   compileStorer: { get: async () => undefined, create: async () => {} },
   id,
-  auth: null,
-  authToken: null,
+  auth: viewer && { uid: viewer },
+  authToken: viewer,
   publicationId,
   read: true,
   action: {}
@@ -128,6 +138,30 @@ describe("publications", () => {
     const out = await view(res.body.data.publicationId);
     expect(out).toEqual({ data: { ...ACTIVITY, request: "signed" }, errors: [] });
     expect(snapshots).toEqual([{ uid: null, auth: null, allowed: ["init"] }]);
+  });
+
+  it("serve repeated views, anonymous and signed in, from the stored artifact: preview signing each time, never a save", async () => {
+    await ran();
+    const { publicationId } = (await publish()).body.data;
+    const stored = puts;
+    const viewers = [null, null, OTHER, null, OWNER, OTHER];
+    for (const viewer of viewers) {
+      expect(await view(publicationId, "task-1", viewer)).toEqual({ data: { ...ACTIVITY, request: "signed" }, errors: [] });
+    }
+    // Every view signs the stored activity, under the publication, not the viewer.
+    expect(sessions.map(s => s.code)).toEqual(viewers.map(() => signProgram(ACTIVITY)));
+    expect(snapshots).toEqual(viewers.map(() => ({ uid: null, auth: null, allowed: ["init"] })));
+    expect(puts).toBe(stored);
+    const minted = records.filter(r => r.event === "mint" && r.outcome === "allowed");
+    expect(minted).toHaveLength(viewers.length);
+    expect(minted.every(r => r.fn === "init")).toBe(true);
+    // No view's session can mint a save.
+    for (const { sessionToken } of sessions) {
+      await expect(policy.mint({
+        caller: L0176, sessionToken, fn: "save-to-itembank", op: "learnosity.write-items", occurrenceId: "n1.0", argsDigest: "a".repeat(64)
+      })).rejects.toMatchObject({ reason: "fn-not-in-session" });
+    }
+    expect(records.filter(r => r.event === "mint" && r.outcome === "allowed" && r.fn !== "init")).toEqual([]);
   });
 
   it("publish only the caller's own current result", async () => {
