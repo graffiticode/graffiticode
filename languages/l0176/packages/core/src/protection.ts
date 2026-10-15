@@ -103,16 +103,38 @@ export interface UnsignedPreview {
   message: string;
 }
 
+// The viewer-facing text for the system signing limits (plan
+// system-preview-rate-limit): Policy's per-instance mint bucket refuses
+// `rate-limited`, Broker's per-session allowance `session-exhausted`. The
+// View shows the same words for the api's 429.
+export const BUSY_MESSAGE = "Previews are busy right now; try again in a moment.";
+
+// Refusals that mean the system signing limits are reached, not that signing
+// is broken: each becomes its own unsigned reason, with the busy message.
+const BUSY_REASONS = new Set(["rate-limited", "session-exhausted"]);
+
 const UNSIGNED_MESSAGES: Record<string, string> = {
   "not-configured": "Preview not signed: this server has no system preview signing configured. Select a Learnosity connection to sign it.",
   unavailable: "Preview not signed: no system preview session is available. Select a Learnosity connection to sign it.",
   "signing-failed": "Preview not signed: the system preview signing failed. Select a Learnosity connection to sign it.",
+  "gateway-only": "Preview not signed: a preview without a connection is signed only through the Graffiticode api. Select a Learnosity connection to sign it.",
+  "rate-limited": BUSY_MESSAGE,
+  "session-exhausted": BUSY_MESSAGE,
 };
 
 export const unsignedPreview = (unsigned: string, reason?: string): UnsignedPreview => ({
   unsigned,
   message: UNSIGNED_MESSAGES[unsigned] + (reason ? ` (${reason})` : ""),
 });
+
+// A refusal as the unsigned preview it becomes: a busy limit under its own
+// reason, anything else under `fallback` with the reason appended. The
+// reason is a ProtectedCallError's `reason` (policy or the broker refused
+// the call) or a refused outcome's `code` (ProtectedFailure).
+const unsignedFor = (fallback: string, e: any): UnsignedPreview => {
+  const reason = text(e?.reason) ?? text(e?.code);
+  return reason && BUSY_REASONS.has(reason) ? unsignedPreview(reason) : unsignedPreview(fallback, reason);
+};
 
 // One system session per compile, shared by every signing in it (INIT and
 // PROG may both sign). Keyed by the invocation's ExecContext.
@@ -122,9 +144,18 @@ const systemSessions = new WeakMap<ExecContext, Promise<UnsignedPreview | null>>
 // Resolves to null when installed, or to the reason signing cannot happen.
 // Only for compiles with no connection: a connection compile has its own
 // session and never reaches here.
+//
+// `permitted` is the server's decision that this compile may sign on the
+// system path at all (gateway-only, plan system-preview-rate-limit): true
+// only when the request's `X-Caller-Identity` verified as the api's, or the
+// server runs with SYSTEM_PREVIEW_DIRECT=1. It is fixed by the compile's
+// dispatch (L0176Compiler.compile), never by program input or a request
+// body. Without it policy is never asked, and the preview goes out unsigned,
+// `gateway-only`.
 export function ensureSystemPreviewSession(
   exec: ExecContext | undefined,
   client: SystemPreviewClient | null,
+  permitted = false,
 ): Promise<UnsignedPreview | null> {
   if (!exec || exec.connectionId) {
     return Promise.resolve(unsignedPreview("not-configured"));
@@ -133,11 +164,12 @@ export function ensureSystemPreviewSession(
   if (!pending) {
     pending = (async () => {
       if (!client) return unsignedPreview("not-configured");
+      if (permitted !== true) return unsignedPreview("gateway-only");
       let session: PreviewSession;
       try {
         session = await client.getPreviewSession({ langID: "0176" });
       } catch (e: any) {
-        return unsignedPreview("unavailable", typeof e?.reason === "string" ? e.reason : undefined);
+        return unsignedFor("unavailable", e);
       }
       if (!session || typeof session.sessionToken !== "string" || !Array.isArray(session.allowed) ||
           !session.allowed.includes(SYSTEM_PREVIEW_FN)) {
@@ -155,14 +187,17 @@ export function ensureSystemPreviewSession(
 
 // Signs a questions/items preview through the system session. Returns the
 // activity with `request`, or with `signing: { unsigned, message }` when it
-// cannot be signed. Never throws for a signing failure.
+// cannot be signed. Never throws for a signing failure: Policy's
+// `rate-limited` (at the mint) and Broker's `session-exhausted` (at execute)
+// come back as `signing: { unsigned: <reason>, message: BUSY_MESSAGE }`.
 export async function systemPreviewSign(
   exec: ExecContext | undefined,
   client: SystemPreviewClient | null,
   plain: any,
   occurrenceKey: string,
+  permitted = false,
 ): Promise<any> {
-  const refusal = await ensureSystemPreviewSession(exec, client);
+  const refusal = await ensureSystemPreviewSession(exec, client, permitted);
   if (refusal) {
     return { ...plain, signing: refusal };
   }
@@ -170,7 +205,7 @@ export async function systemPreviewSign(
     const request = await brokeredSign(exec as ExecContext, plain, occurrenceKey);
     return request ? { ...plain, request } : plain;
   } catch (e: any) {
-    return { ...plain, signing: unsignedPreview("signing-failed", typeof e?.reason === "string" ? e.reason : undefined) };
+    return { ...plain, signing: unsignedFor("signing-failed", e) };
   }
 }
 

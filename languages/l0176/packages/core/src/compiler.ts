@@ -65,6 +65,15 @@ const createQuestions = buildCreateQuestions();
 // cannot reach it; it holds no credential and no per-invocation state.
 let systemPreviewClient: SystemPreviewClient | null = null;
 
+// Whether this compile may sign on the system path (gateway-only, plan
+// system-preview-rate-limit). A property of the compile's Transformer class,
+// chosen by L0176Compiler.compile from the server's verified decision
+// (`identity.systemPreview === true`), so nothing a program or a request body
+// carries can set it, and concurrent compiles never share it. The ExecContext
+// (from the published @graffiticode/l0000) is frozen and keeps only its own
+// fields, so it can't carry this.
+const SYSTEM_SIGNING: unique symbol = Symbol("l0176.systemSigning");
+
 // Save plans belong to ONE invocation. The Compiler (a singleton reused across
 // requests) creates a fresh Transformer per compile; each Transformer gets its
 // own map from the activities it built to their save plans.
@@ -122,7 +131,7 @@ const AUTHOR_NOT_SUPPORTED =
   "to plan an Author API integration, which your own application signs, use L0177.";
 const isAuthorActivity = (val: any) => val?.type === "author";
 
-async function signForRender(given: any, exec?: any): Promise<any> {
+async function signForRender(given: any, exec: any, systemSigning: boolean): Promise<any> {
   // Only sign Learnosity render output: a `{ type, data }` activity. Leaves
   // bare/non-Learnosity values (a signed request from `init` has no `type`)
   // untouched. An activity that arrives already carrying a `request` (an old
@@ -143,8 +152,9 @@ async function signForRender(given: any, exec?: any): Promise<any> {
   }
   // Without a connection, a preview is signed by the broker under a system
   // preview session. If none is available the activity goes out unsigned
-  // with `signing: { unsigned, message }` — not a compile error.
-  return systemPreviewSign(exec, systemPreviewClient, plain, "prog");
+  // with `signing: { unsigned, message }` — not a compile error; so too a
+  // compile the server hasn't permitted to sign that way (`gateway-only`).
+  return systemPreviewSign(exec, systemPreviewClient, plain, "prog", systemSigning);
 }
 
 export class Checker extends BaseChecker {
@@ -217,6 +227,12 @@ for (const name of Object.keys(memberFields)) {
 export class Transformer extends BaseTransformer {
   [key: string]: any;
 
+  // No system-path signing unless the compile was dispatched to
+  // SystemSigningTransformer (see SYSTEM_SIGNING).
+  get [SYSTEM_SIGNING](): boolean {
+    return false;
+  }
+
   HELLO(node: any, options: any, resume: any) {
     this.visit(node.elts[0], options, async (e0: any, v0: any) => {
       const err: any[] = [];
@@ -259,7 +275,7 @@ export class Transformer extends BaseTransformer {
       // No connection: sign through the system preview session. `init`
       // evaluates to the signed request; unsigned, to the activity with
       // `signing: { unsigned, message }`.
-      const signed = await systemPreviewSign(this.execContext, systemPreviewClient, plain, occurrenceKey(node));
+      const signed = await systemPreviewSign(this.execContext, systemPreviewClient, plain, occurrenceKey(node), this[SYSTEM_SIGNING]);
       resume(err, signed.request ?? signed);
     });
   }
@@ -460,7 +476,7 @@ export class Transformer extends BaseTransformer {
         plainVal.type && plainVal.request !== undefined;
       // Attach the signed Learnosity `request` (see signForRender).
       try {
-        const signed = await signForRender(carriesRequest ? plainVal : val, this.execContext);
+        const signed = await signForRender(carriesRequest ? plainVal : val, this.execContext, this[SYSTEM_SIGNING]);
         resume(err, signed);
       } catch (e: any) {
         resume([protectedError(e, this.execContext)], undefined);
@@ -558,9 +574,23 @@ const protectedCompilerConfig = (policy?: PolicyClient) => ({
   ...(policy ? { policy } : {}),
 });
 
+// The Transformer of a compile the server has permitted to sign on the
+// system path: its request's `X-Caller-Identity` verified as the api's
+// (`urn:graffiticode:0176`, a PREFLIGHT_GATEWAYS account), or the server runs
+// with SYSTEM_PREVIEW_DIRECT=1. Everything else is the plain Transformer.
+class SystemSigningTransformer extends Transformer {
+  override get [SYSTEM_SIGNING](): boolean {
+    return true;
+  }
+}
+
 class L0176Compiler extends Compiler {
   #brokered: Compiler | null = null;
   #preflight = new Compiler(protectedCompilerConfig());
+  // Compiles with no connection whose system-path signing the server
+  // permitted (identity.systemPreview === true). The same language as this
+  // compiler, differing only in its Transformer's SYSTEM_SIGNING.
+  #systemSigning = new Compiler({ langID: "0176", version: "v0.0.1", Checker, Transformer: SystemSigningTransformer });
 
   setPolicyClient(policy: PolicyClient & { getPreviewSession?: SystemPreviewClient["getPreviewSession"] }) {
     systemPreviewClient = typeof policy.getPreviewSession === "function" && typeof policy.invoke === "function"
@@ -590,6 +620,13 @@ class L0176Compiler extends Compiler {
       // The stored program: the brokered compiler lowers it itself, as its
       // preflight did, so a plan's source and program digests both match.
       return this.#brokered.compile(code, data, config, resume, identity);
+    }
+    // No connection. Its preview is signed on the system path only when the
+    // server says so (`systemPreview`, set by the language server from the
+    // verified caller identity, never from the request body); otherwise it
+    // goes out unsigned, `gateway-only`.
+    if (identity?.systemPreview === true) {
+      return this.#systemSigning.compile(lowered, data, config, resume, identity);
     }
     return super.compile(lowered, data, config, resume, identity);
   }

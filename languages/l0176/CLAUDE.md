@@ -12,9 +12,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Start production**: `npm run start` (runs the built API server)
 
 ### Testing
-Vitest, in `packages/core` and `packages/view` (jsdom, with `@testing-library/react`; the
-Learnosity SDK and `fetch` are stubbed at their boundaries).
-- **Run all**: `npm test` (`npm -w packages/core test`, then `npm -w packages/view test`)
+Vitest, in `packages/core`, `packages/api` (the server through `supertest`, against the
+core's sources via an alias in its `vitest.config.ts`) and `packages/view` (jsdom, with
+`@testing-library/react`; the Learnosity SDK and `fetch` are stubbed at their boundaries).
+- **Run all**: `npm test` (`npm -w packages/core test`, `npm -w packages/api test`, then `npm -w packages/view test`)
 - **One file**: `npm -w packages/core exec vitest run src/docs.test.ts`
 - **One test by name**: `npm -w packages/core exec vitest run -t "questions path"`
 - **Watch**: `npm -w packages/core exec vitest`
@@ -121,8 +122,20 @@ credential broker under a policy-minted token:
   it on the compile's `ExecContext` once (`setSessionToken`/`setSnapshot`/`bindInvoker`, all
   public on l0000's `ExecContext`) and calls the same `brokeredSign`. It never writes and never
   signs Author: those check `isBrokered`, which needs a connection.
+- **Gateway-only** (plan system-preview-rate-limit): the system path signs only for a
+  compile whose `X-Caller-Identity` verifies as the api's (`urn:graffiticode:0176`, a
+  `PREFLIGHT_GATEWAYS` account; the verifier `/preflight` uses). `routes/compile.ts` sets
+  `identity.systemPreview` from that alone (never from the body), and `L0176Compiler.compile`
+  dispatches such a compile to a `SystemSigningTransformer`; any other no-connection compile
+  (a direct caller on `l0176.graffiticode.org` or `*.run.app`) gets its activity back
+  unsigned, `signing: { unsigned: "gateway-only" }`, without asking policy. On by default;
+  `SYSTEM_PREVIEW_DIRECT=1` (exactly `"1"`) turns it off, for the rollout window only.
+  Connection compiles are unaffected.
 - No session (no policy client, not configured, denied, unreachable) or a failed signing
   returns the activity **unsigned** with `signing: { unsigned, message }` — not a compile error.
+  The system signing limits come back the same way, each under its own reason with the
+  message "Previews are busy right now; try again in a moment.": Policy's `rate-limited` (at
+  the mint, or for the session) and Broker's `session-exhausted` (at execute).
 
 Program-supplied `set-var "learnosity-key"/"learnosity-secret"` and a request's
 `config.learnosity` are **ignored** (no error, even when only one is set); they sign nothing.
@@ -153,9 +166,16 @@ L0158 task here once its generation is active): its compiled data is an **unsign
 L0158's View, the Form picks one `dynamic_content_data` row per mount and substitutes
 `{{var:X}}` everywhere, custom-question data included (Learnosity passes custom data through
 unsubstituted). When the activity has no `request`, or it is an already-signed `questions`
-activity that substitution changed, it posts the resolved activity to L0176's own
-`POST /compile` with `init data {}` and no connection or user token, so the system preview
-session signs it for `l0176.graffiticode.org`, and renders `{ type: activity.type, request }`.
+activity that substitution changed, it posts the resolved activity to the api's stateless
+`POST /preview/sign { activity }` (the api host the View loads data from: `localhost:3100`
+in dev, `api.graffiticode.org` otherwise), with no connection or user token. The api
+compiles L0176's `init data {}` with the activity inline, as the api, so the system preview
+session signs it for `l0176.graffiticode.org` (gateway-only, above), and the Form renders
+`{ type: activity.type, request }`. Never L0176's own `/compile` (a direct compile is
+unsigned) and never the api's `/compile` (it stores posted data as a task, public for an
+anonymous caller). The api answers `{ request }`, `{ signing: { unsigned, message } }` or a
+4xx; a 429, `rate-limited` or `session-exhausted` shows "Previews are busy right now; try
+again in a moment."
 Any other already-signed activity renders its own request with no second compile: one with
 nothing to substitute, and **every signed `items` activity**, dynamic data or not. The system
 session is a different Learnosity consumer from a user's connection, and an items activity may
@@ -285,6 +305,10 @@ live example.
 - `FIRESTORE_EMULATOR_HOST`: Local Firestore emulator (dev: `127.0.0.1:8080`)
 - `NODE_ENV`: `development` or `production` (the Learnosity signing `domain` is the broker's
   `LEARNOSITY_DOMAIN`, not L0176's)
+- `PREFLIGHT_GATEWAYS`: the gateway accounts (`api-run`) allowed to preflight, and the only
+  callers whose no-connection previews are signed (gateway-only)
+- `SYSTEM_PREVIEW_DIRECT`: `1` lets any direct caller's no-connection preview be signed on the
+  system path; the gateway-only rollout window only, then removed
 
 ### Dependencies
 - `@graffiticode/l0000` (published) — base language, inherited by `core`
@@ -348,6 +372,12 @@ arrives with (in `init` and `PROG`) before signing it afresh. The Rust `init` st
 non-activity to nothing and `{ type: "items" }` with no data to an unsigned preview, and the conformance
 fixtures (`init { "type": "items" }`, `init {type: "other"}`) predate the change; regenerate
 them with `npm run rust:fixtures` when the Rust side is brought level.
+
+**Parity gap (not yet ported): gateway-only.** The TypeScript server signs a no-connection
+preview only for a verified api identity (or `SYSTEM_PREVIEW_DIRECT=1`), and maps Policy's
+`rate-limited` and Broker's `session-exhausted` to unsigned busy results. The Rust side has
+neither. `l0176r` has no policy or broker configured, so it signs nothing today; bring this
+level before giving it `POLICY_URL`/`BROKER_URL`.
 
 ### Deploying the Rust server
 

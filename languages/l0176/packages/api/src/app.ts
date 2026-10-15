@@ -21,10 +21,32 @@ const STATIC_DIR = path.join(__dirname, "..", "static");
 EventEmitter.defaultMaxListeners = 15;
 const env = process.env.NODE_ENV || "development";
 
+// SYSTEM_PREVIEW_DIRECT=1, and only exactly "1", lets a direct caller (no
+// verified api identity) have a no-connection preview signed on the system
+// path: for the gateway-only rollout window only (plan
+// system-preview-rate-limit). Anything else leaves the gate on.
+export const systemPreviewDirect = (env: NodeJS.ProcessEnv = process.env): boolean => env.SYSTEM_PREVIEW_DIRECT === "1";
+
 // `preflightGateways`: the gateway service accounts allowed to preflight
-// (capability plan W4). With none, every preflight is refused.
-export const createApp = ({ authUrl, preflightGateways = [], verifyCaller }: { authUrl?: string; preflightGateways?: string[]; verifyCaller?: (headers: Record<string, unknown>) => Promise<unknown> } = {}) => {
+// (capability plan W4), and the only callers whose no-connection compiles are
+// signed on the system path (gateway-only). With none, every preflight is
+// refused and, unless `systemPreviewDirect`, every no-connection preview goes
+// out unsigned.
+export const createApp = ({
+  authUrl,
+  preflightGateways = [],
+  verifyCaller,
+  systemPreviewDirect: direct = false,
+}: {
+  authUrl?: string;
+  preflightGateways?: string[];
+  verifyCaller?: (headers: Record<string, unknown>) => Promise<unknown>;
+  systemPreviewDirect?: boolean;
+} = {}) => {
   const app = express();
+  // One verifier for both: the api's ID token, audience urn:graffiticode:0176,
+  // for a PREFLIGHT_GATEWAYS account.
+  const verifyGateway = verifyCaller ?? createGatewayVerifier({ lang: "0176", gateways: preflightGateways });
 
   // Force HTTPS in production (except localhost).
   app.all("*", (req: Request, res: Response, next: NextFunction) => {
@@ -77,7 +99,7 @@ export const createApp = ({ authUrl, preflightGateways = [], verifyCaller }: { a
   // Before the user-token middleware: it reads no user token.
   const preflight = createPreflightHandler({
     compiler,
-    verifyCaller: verifyCaller ?? createGatewayVerifier({ lang: "0176", gateways: preflightGateways }),
+    verifyCaller: verifyGateway,
   });
   app.post("/preflight", async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -95,7 +117,7 @@ export const createApp = ({ authUrl, preflightGateways = [], verifyCaller }: { a
 
   // Routes
   app.use("/", routes.root());
-  app.use("/compile", routes.compile({ compile }));
+  app.use("/compile", routes.compile({ compile, verifyGateway, systemPreviewDirect: direct }));
   app.get("/form", (_req: Request, res: Response) => {
     res.sendFile(path.join(STATIC_DIR, "index.html"));
   });

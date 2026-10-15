@@ -2,25 +2,24 @@
 /**
  * Resolve-then-sign, in the browser (jsdom). The Learnosity SDK and the signing compile are
  * stubbed at their boundaries: `window.LearnosityApp` (whose stub writes each question it is
- * given into its response span, as the real one renders it) and `fetch` (L0176's own
- * `POST /compile`). These assert on what reaches `LearnosityApp.init` and on the compiles
- * made, not just on markup.
+ * given into its response span, as the real one renders it) and `fetch` (the api's
+ * `POST /preview/sign`). These assert on what reaches `LearnosityApp.init` and on the signing
+ * requests made, not just on markup.
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor, act, cleanup } from "@testing-library/react";
 import { Form } from "./Form";
-import { INIT_DATA_CODE, getLangUrl } from "./sign";
+import { BUSY_MESSAGE, getSignUrl } from "./sign";
 
 let init: ReturnType<typeof vi.fn>;
-let compiles: { url: string; body: any }[];
+let compiles: { url: string; method: string; headers: Record<string, string>; body: any }[];
 let signReply: (body: any) => any;
+let signStatus: number;
 
-// What L0176's server answers for `init data {}` when the system session signs: the signed
-// request (no `type`), with the payload's fields in it.
+// What the api's /preview/sign answers when the system session signs: the signed request
+// (no `type`), with the payload's fields in it.
 const signed = (body: any) => ({
-  data: { consumer_key: "K", timestamp: "t", signature: "$02$signed", user_id: "u", ...body.data.data },
-  errors: [],
-  cache: false,
+  request: { consumer_key: "K", timestamp: "t", signature: "$02$signed", user_id: "u", ...body.activity.data },
 });
 
 beforeEach(() => {
@@ -37,12 +36,14 @@ beforeEach(() => {
   }
   compiles = [];
   signReply = signed;
+  signStatus = 200;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, opts: any) => {
       const body = JSON.parse(opts.body);
-      compiles.push({ url: String(url), body });
-      return { json: async () => signReply(body) };
+      compiles.push({ url: String(url), method: opts.method, headers: opts.headers ?? {}, body });
+      const status = signStatus;
+      return { status, ok: status >= 200 && status < 300, json: async () => signReply(body) };
     }),
   );
 });
@@ -90,9 +91,7 @@ describe("resolve, then sign", () => {
     await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
 
     expect(compiles).toHaveLength(1);
-    expect(compiles[0].url).toBe(`${getLangUrl()}/compile`);
-    expect(compiles[0].body.code).toEqual(INIT_DATA_CODE);
-    const posted = compiles[0].body.data;
+    const posted = compiles[0].body.activity;
     expect(posted.type).toBe("questions");
     expect(posted.request).toBeUndefined();
     expect(JSON.stringify(posted)).not.toMatch(/\{\{var:/);
@@ -164,7 +163,7 @@ describe("resolve, then sign", () => {
     await loadLearnosity();
     await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
     expect(compiles).toHaveLength(1);
-    expect(compiles[0].body.data).toEqual(l0158([mcq]));
+    expect(compiles[0].body).toEqual({ activity: l0158([mcq]) });
     expect(init.mock.calls[0][0]).toMatchObject({ signature: "$02$signed", questions: [mcq] });
   });
 
@@ -198,7 +197,7 @@ describe("without a signed request, the SDK is never initialized", () => {
 
   test("(e) signing unavailable shows L0176's message", async () => {
     const message = "Preview not signed: no system preview session is available. Select a Learnosity connection to sign it.";
-    signReply = (body) => ({ data: { ...body.data, signing: { unsigned: "unavailable", message } }, errors: [], cache: false });
+    signReply = () => ({ signing: { unsigned: "unavailable", message } });
     mount(l0158([mcq]));
     expect((await screen.findByRole("alert")).textContent).toBe(message);
     await settle();
@@ -208,7 +207,7 @@ describe("without a signed request, the SDK is never initialized", () => {
   });
 
   test("an unsigned answer with no reason shows the plain message", async () => {
-    signReply = (body) => ({ data: { ...body.data }, errors: [], cache: false });
+    signReply = () => ({ signing: { unsigned: "signing-failed" } });
     mount(l0158([mcq]));
     expect((await screen.findByRole("alert")).textContent).toBe("This preview couldn't be signed.");
     expect(init).not.toHaveBeenCalled();
@@ -240,7 +239,7 @@ describe("without a signed request, the SDK is never initialized", () => {
   test("while signing is in flight nothing is initialized", async () => {
     let release!: () => void;
     vi.stubGlobal("fetch", vi.fn((_url: string, opts: any) => new Promise((resolve) => {
-      release = () => resolve({ json: async () => signed(JSON.parse(opts.body)) });
+      release = () => resolve({ status: 200, ok: true, json: async () => signed(JSON.parse(opts.body)) });
     })));
     mount(l0158([mcq]));
     await settle();
@@ -250,5 +249,74 @@ describe("without a signed request, the SDK is never initialized", () => {
     await act(async () => release());
     await loadLearnosity();
     await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("the signing request", () => {
+  const mcq = { response_id: "artcompiler-mcq-x-0", type: "mcq", stimulus: "2 + 2?" };
+
+  test("goes to exactly POST <api>/preview/sign, with only the activity and no connection, never to /compile", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const compiled = { signature: "$02$compiled", questions: [mcq] };
+    const data = l0158([{ ...mcq, stimulus: "{{var:A1}}?" }], { dynamic_content_data: DCD });
+    mount({ ...data, request: compiled, signing: { unsigned: "stale" } });
+    await loadLearnosity();
+    await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
+    expect(compiles).toHaveLength(1);
+    const [call] = compiles;
+    // jsdom's page is on localhost, so the api is the dev api, as for the View's data load.
+    expect(call.url).toBe("http://localhost:3100/preview/sign");
+    expect(call.url).toBe(getSignUrl());
+    expect(call.method).toBe("POST");
+    expect(call.url).not.toMatch(/\/compile$/);
+    expect(call.url).not.toMatch(/l0176\.graffiticode\.org|:50176/);
+    // The resolved activity and nothing else: no code, connection, request, signing or credential.
+    expect(Object.keys(call.body)).toEqual(["activity"]);
+    expect(Object.keys(call.body.activity).sort()).toEqual(["data", "type"]);
+    expect(call.body.activity.data.questions[0].stimulus).toBe("7?");
+    expect(JSON.stringify(call.body)).not.toMatch(/connection|\$02\$compiled|"request"|"signing"/);
+    expect(Object.keys(call.headers).map((h) => h.toLowerCase())).toEqual(["content-type"]);
+    const calls = (globalThis.fetch as any).mock.calls as any[][];
+    expect(calls.every(([url]) => !String(url).endsWith("/compile"))).toBe(true);
+  });
+
+  test("goes to the production api off localhost", () => {
+    expect(getSignUrl("https://api.graffiticode.org")).toBe("https://api.graffiticode.org/preview/sign");
+  });
+
+  test.each([
+    ["the api's 429", 429, () => ({ status: "error", error: { message: "Too many requests" } })],
+    ["a 429 with no readable body", 429, () => { throw new Error("no json"); }],
+    ["Policy's rate-limited", 200, () => ({ signing: { unsigned: "rate-limited", message: "Previews are busy right now; try again in a moment." } })],
+    ["Broker's session-exhausted", 200, () => ({ signing: { unsigned: "session-exhausted", message: "any text" } })],
+  ])("%s shows the busy message, and the SDK is never initialized", async (_, status, reply) => {
+    signStatus = status;
+    signReply = reply;
+    mount(l0158([mcq]));
+    expect((await screen.findByRole("alert")).textContent).toBe("Previews are busy right now; try again in a moment.");
+    expect(BUSY_MESSAGE).not.toBe("This preview couldn't be signed.");
+    await settle();
+    expect(compiles).toHaveLength(1);
+    expect(init).not.toHaveBeenCalled();
+    expect(document.querySelector('script[src*="learnosity.com"]')).toBeNull();
+  });
+
+  test("a gateway-only answer shows its own message, not the busy one", async () => {
+    const message = "Preview not signed: a preview without a connection is signed only through the Graffiticode api.";
+    signReply = () => ({ signing: { unsigned: "gateway-only", message } });
+    mount(l0158([mcq]));
+    expect((await screen.findByRole("alert")).textContent).toBe(message);
+    expect(init).not.toHaveBeenCalled();
+  });
+
+  test("another 4xx is \"couldn't be signed\", with the api's reason", async () => {
+    signStatus = 400;
+    signReply = () => ({ status: "error", error: { message: "activity must be a questions or items activity" } });
+    mount(l0158([mcq]));
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "This preview couldn't be signed. (activity must be a questions or items activity)",
+    );
+    await settle();
+    expect(init).not.toHaveBeenCalled();
   });
 });

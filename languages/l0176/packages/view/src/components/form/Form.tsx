@@ -12,13 +12,14 @@
 //   - one row of its `dynamic_content_data` is picked per mount and
 //     substituted everywhere, custom-question data included (resolve.ts);
 //   - when the activity has no `request`, or it is a `questions` activity
-//     substitution changed, the resolved activity is signed by L0176's
-//     `init data {}` (sign.ts) and rendered as `{ type: activity.type, request }`;
+//     substitution changed, the resolved activity is signed through the api's
+//     `POST /preview/sign` (sign.ts; the api compiles L0176's `init data {}`)
+//     and rendered as `{ type: activity.type, request }`;
 //   - any other already-signed activity (one with nothing to substitute, and
 //     every signed `items` activity) renders its own request directly, with
 //     no second compile.
-// Without a request (signing unavailable, or still pending) the Learnosity
-// SDK is never initialized; an unsigned preview shows why.
+// Without a request (signing unavailable, busy, or still pending) the
+// Learnosity SDK is never initialized; an unsigned preview shows why.
 import "../../index.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormProps, CompileError } from "@graffiticode/l0000-view";

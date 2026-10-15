@@ -1,34 +1,33 @@
 // SPDX-License-Identifier: MIT
-// Signs an activity the Form has resolved, through L0176's own language
-// server: `POST /compile { code: init data {}, data: <activity> }`, as
-// L0158's View posted its second `init data {}` compile (l0158
-// packages/app/lib/swr/fetchers.js initRequest, lib/api.js postLangCompile).
+// Signs an activity the Form has resolved, through the Graffiticode api's
+// stateless `POST /preview/sign { activity }` (plan system-preview-rate-limit).
 //
-// The compile carries no connection and no user token, so L0176 signs it
-// under the system preview session (Broker, for l0176.graffiticode.org, the
-// domain Learnosity checks against the page). `init` evaluates to the signed
-// request, which has no `type`; the Form renders `{ type: activity.type,
-// request }`. When signing is unavailable L0176 answers, by design, with no
-// error and the activity carrying `signing: { unsigned, message }`.
+// The api compiles L0176's fixed `init data {}` program with the activity
+// inline, as the api, with no connection, so L0176 signs it under the system
+// preview session (Broker, for l0176.graffiticode.org, the domain Learnosity
+// checks against the page). It stores nothing: not a task, not a compile.
+//
+// Never L0176's own `/compile`: L0176 signs a no-connection compile only for
+// a verified api identity (gateway-only), so a direct one comes back unsigned.
+// Never the api's `/compile` either: that stores the posted data as a task,
+// public for an anonymous caller, which would publish an activity resolved
+// from a private connection artifact.
+//
+// The api answers `{ request }` (the signed request, which has no `type`; the
+// Form renders `{ type: activity.type, request }`), `{ signing: { unsigned,
+// message } }` when it can't be signed, or a 4xx (429 when the per-client
+// limit is reached).
 import type { CompileError } from "@graffiticode/l0000-view";
-
-// `init data {}..`, as @graffiticode/parser emits it (language 0176).
-export const INIT_DATA_CODE = {
-  3: { tag: "RECORD", elts: [] },
-  6: { tag: "DATA", elts: [3] },
-  8: { tag: "INIT", elts: [6] },
-  10: { tag: "EXPRS", elts: [8] },
-  11: { tag: "PROG", elts: [10] },
-  root: 11,
-};
+import { getApiUrl } from "../../generation";
 
 export const UNSIGNED_MESSAGE = "This preview couldn't be signed.";
 
-/** L0176's language server: the /form's own host in production, :50176 in dev. */
-export function getLangUrl(): string {
-  const host = window.document.location.host;
-  return host.indexOf("localhost") === 0 ? "http://localhost:50176" : "https://l0176.graffiticode.org";
-}
+/** The system signing limits are reached: Policy's `rate-limited`, Broker's `session-exhausted`, or the api's 429. */
+export const BUSY_MESSAGE = "Previews are busy right now; try again in a moment.";
+const BUSY_REASONS = new Set(["rate-limited", "session-exhausted"]);
+
+/** The api's signing endpoint: the api host the View loads data from. */
+export const getSignUrl = (apiUrl: string = getApiUrl()): string => `${apiUrl}/preview/sign`;
 
 export interface SignResult {
   request?: any;
@@ -38,32 +37,50 @@ export interface SignResult {
 
 const isPlainObject = (v: any): boolean => v !== null && typeof v === "object" && !Array.isArray(v);
 
-export async function signActivity(activity: { type: string; data: any }, langUrl: string = getLangUrl()): Promise<SignResult> {
-  let out: any;
+const detail = (error: any): string => String(error?.message ?? error);
+
+export async function signActivity(activity: { type: string; data: any }, apiUrl: string = getApiUrl()): Promise<SignResult> {
+  let resp: any;
+  let out: any = null;
   try {
-    const resp = await fetch(`${langUrl}/compile`, {
+    resp = await fetch(getSignUrl(apiUrl), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // Only the activity: never a request or signing note it arrived with.
-      body: JSON.stringify({ code: INIT_DATA_CODE, data: { type: activity.type, data: activity.data } }),
+      // Only the activity: never a request or signing note it arrived with,
+      // and no connection or user credential.
+      body: JSON.stringify({ activity: { type: activity.type, data: activity.data } }),
     });
-    out = await resp.json();
   } catch (e: any) {
-    return { message: `${UNSIGNED_MESSAGE} (${String(e?.message ?? e)})` };
+    return { message: `${UNSIGNED_MESSAGE} (${detail(e)})` };
+  }
+  if (resp?.status === 429) {
+    return { message: BUSY_MESSAGE };
+  }
+  try {
+    out = await resp.json();
+  } catch {
+    // An unreadable body is handled below as "couldn't be signed".
+  }
+  // The platform's `{ status: "success", data }` envelope, if the api uses it.
+  if (out?.status === "success" && isPlainObject(out.data)) {
+    out = out.data;
   }
   if (Array.isArray(out?.errors) && out.errors.length > 0) {
     return {
-      errors: out.errors.map((e: any) => (typeof e === "string" ? { message: e } : { ...e, message: String(e?.message ?? e) })),
+      errors: out.errors.map((e: any) => (typeof e === "string" ? { message: e } : { ...e, message: detail(e) })),
     };
   }
-  const data = out?.data;
-  if (!isPlainObject(data)) {
-    return { message: out?.error ? `${UNSIGNED_MESSAGE} (${String(out.error?.message ?? out.error)})` : UNSIGNED_MESSAGE };
+  const reason = out?.signing?.unsigned ?? out?.error?.reason;
+  if (typeof reason === "string" && BUSY_REASONS.has(reason)) {
+    return { message: BUSY_MESSAGE };
   }
-  // Unsigned: the activity came back, with or without a reason.
-  if (data.signing !== undefined || (typeof data.type === "string" && isPlainObject(data.data))) {
-    const message = typeof data.signing?.message === "string" && data.signing.message ? data.signing.message : UNSIGNED_MESSAGE;
-    return { message };
+  if (resp?.ok === false) {
+    return { message: out?.error ? `${UNSIGNED_MESSAGE} (${detail(out.error)})` : `${UNSIGNED_MESSAGE} (${resp.status})` };
   }
-  return { request: data };
+  if (isPlainObject(out?.request)) {
+    return { request: out.request };
+  }
+  // Unsigned, with or without a reason.
+  const message = typeof out?.signing?.message === "string" && out.signing.message ? out.signing.message : UNSIGNED_MESSAGE;
+  return { message };
 }

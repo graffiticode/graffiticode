@@ -62,7 +62,13 @@ beforeEach(() => {
 
 afterEach(() => vi.restoreAllMocks());
 
-async function compile(src: string, identity?: any, data: any = {}) {
+// A compile with no connection the server has permitted to sign on the
+// system path (its caller verified as the api, or SYSTEM_PREVIEW_DIRECT=1):
+// what every no-connection compile here was before gateway-only. The
+// default unless a test says otherwise.
+const SYSTEM = { systemPreview: true };
+
+async function compile(src: string, identity: any = SYSTEM, data: any = {}) {
   const code = await parser.parse(176, src, lexicon);
   return new Promise<{ err: any[]; val: any; effects: any[] }>((resolve) =>
     compiler.compile(code, data, {}, (err: any, val: any, meta?: any) => {
@@ -135,7 +141,7 @@ describe("brokered compiles", () => {
     const code = await parser.parse(176, `set-var "lrn-id" "t" items [${ITEM}] {}..`, lexicon);
     const { err, val } = await new Promise<{ err: any[]; val: any }>((resolve) =>
       compiler.compile(code, {}, { learnosity: { key: "cfg-key", secret: "cfg-secret-0123456789" } },
-        (e: any, v: any) => resolve({ err: e ?? [], val: v })));
+        (e: any, v: any) => resolve({ err: e ?? [], val: v }), SYSTEM));
     expect(err).toEqual([]);
     expect(val.request).toBe("signed:learnosity.sign-questions-preview");
     expect(JSON.stringify({ invocations, val })).not.toMatch(/cfg-key|cfg-secret/);
@@ -163,6 +169,93 @@ describe("brokered compiles", () => {
     expect(err).toEqual([]);
     expect(val.request).toBeUndefined();
     expect(val.signing).toMatchObject({ unsigned: "signing-failed" });
+  });
+
+  // Gateway-only (plan system-preview-rate-limit): the system path signs only
+  // when the server permitted it (`systemPreview: true`, from a verified api
+  // identity or SYSTEM_PREVIEW_DIRECT=1). Anything else is unsigned, and
+  // policy is never asked for a session.
+  test.each([
+    ["no identity at all", null],
+    ["an identity without the permission", { uid: null, connectionId: null }],
+    ["a permission that isn't exactly true", { systemPreview: "true" }],
+  ])("without the server's permission (%s), a preview is unsigned `gateway-only`", async (_, identity) => {
+    for (const src of [`set-var "lrn-id" "t" items [${ITEM}] {}..`, `set-var "lrn-id" "t" init questions [mcq []] {}..`]) {
+      const code = await parser.parse(176, src, lexicon);
+      const { err, val } = await new Promise<{ err: any[]; val: any }>((resolve) =>
+        compiler.compile(code, {}, {}, (e: any, v: any) => resolve({ err: e ?? [], val: v }), identity ?? undefined));
+      expect(err).toEqual([]);
+      expect(val.request).toBeUndefined();
+      expect(val.type).toBe("questions");
+      expect(val.signing).toEqual({
+        unsigned: "gateway-only",
+        message: expect.stringMatching(/^Preview not signed: .*only through the Graffiticode api/),
+      });
+    }
+    expect(previewSessions).toEqual([]);
+    expect(invocations).toEqual([]);
+  });
+
+  test("`init data {}` of an activity without the permission comes back unsigned `gateway-only`", async () => {
+    const activity = { type: "questions", data: { questions: [{ response_id: "r-0", type: "mcq" }] } };
+    const code = await parser.parse(176, "init data {}..", lexicon);
+    const { err, val } = await new Promise<{ err: any[]; val: any }>((resolve) =>
+      compiler.compile(code, activity, {}, (e: any, v: any) => resolve({ err: e ?? [], val: v })));
+    expect(err).toEqual([]);
+    expect(val).toMatchObject({ ...activity, signing: { unsigned: "gateway-only" } });
+    expect(previewSessions).toEqual([]);
+  });
+
+  test("a connection compile is unaffected by the permission", async () => {
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`, WITH_CONNECTION);
+    expect(err).toEqual([]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(sessionsUsed).toEqual(["session-1"]);
+    expect(previewSessions).toEqual([]);
+  });
+
+  // The system signing limits: Policy refuses the execution token's mint
+  // `rate-limited`; Broker refuses the execution `session-exhausted`. Each is
+  // the unsigned busy result, never a compile error.
+  const BUSY = "Previews are busy right now; try again in a moment.";
+  const refusedCall = (path: string, status: number, reason: string) =>
+    Object.assign(new Error(`${path} failed (${status})`), { status, reason, category: "unavailable", effectUnknown: false });
+  test.each([
+    ["Policy's mint refuses rate-limited", () => { throw refusedCall("/v1/mint", 429, "rate-limited"); }, "rate-limited"],
+    ["Broker refuses session-exhausted", () => { throw refusedCall("/v1/execute", 429, "session-exhausted"); }, "session-exhausted"],
+    ["Broker's outcome is session-exhausted", () => ({ status: "failed", reason: "session-exhausted", category: "unavailable" }), "session-exhausted"],
+  ])("when %s, the preview is unsigned with the busy message", async (_, reply, reason) => {
+    brokerReply = reply;
+    for (const src of [`set-var "lrn-id" "t" items [${ITEM}] {}..`, `set-var "lrn-id" "t" init questions [mcq []] {}..`]) {
+      const { err, val } = await compile(src);
+      expect(err).toEqual([]);
+      expect(val.type).toBe("questions");
+      expect(val.request).toBeUndefined();
+      expect(val.signing).toEqual({ unsigned: reason, message: BUSY });
+    }
+  });
+
+  test("`init data {}` of an activity when the limits are reached is the activity, unsigned and busy", async () => {
+    brokerReply = () => { throw refusedCall("/v1/mint", 429, "rate-limited"); };
+    const activity = { type: "items", data: { questions: [{ response_id: "r-0", type: "mcq" }] } };
+    const { err, val } = await compile("init data {}..", SYSTEM, activity);
+    expect(err).toEqual([]);
+    expect(val).toEqual({ ...activity, signing: { unsigned: "rate-limited", message: BUSY } });
+  });
+
+  test("a rate-limited preview session is busy too", async () => {
+    previewReply = () => refusal("rate-limited");
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(val.signing).toEqual({ unsigned: "rate-limited", message: BUSY });
+    expect(invocations).toEqual([]);
+  });
+
+  test("any other refused system signing is still `signing-failed`, with its reason", async () => {
+    brokerReply = () => { throw refusedCall("/v1/execute", 403, "payload-rejected"); };
+    const { err, val } = await compile(`set-var "lrn-id" "t" items [${ITEM}] {}..`);
+    expect(err).toEqual([]);
+    expect(val.signing).toMatchObject({ unsigned: "signing-failed", message: expect.stringMatching(/\(payload-rejected\)$/) });
   });
 
   test("a system session never writes", async () => {

@@ -2,8 +2,8 @@
 /**
  * The /form bundle end to end in jsdom: the shared View loads an L0158 item's data from the
  * api, carrying the compile generation of the `?url=` the api's /form redirect passed, and
- * L0176's Form resolves and signs it. `fetch` stands in for the api (`/data`) and for L0176's
- * own server (`/compile`); `window.LearnosityApp` for the SDK.
+ * L0176's Form resolves and signs it. `fetch` stands in for the api (`/data`, and
+ * `/preview/sign` for the signing); `window.LearnosityApp` for the SDK.
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, waitFor, act, cleanup } from "@testing-library/react";
@@ -38,7 +38,7 @@ beforeEach(() => {
       return { json: async () => ({ status: "success", data: ACTIVITY }) };
     }
     const body = JSON.parse(opts.body);
-    return { json: async () => ({ data: { signature: "$02$signed", ...body.data.data }, errors: [] }) };
+    return { status: 200, ok: true, json: async () => ({ request: { signature: "$02$signed", ...body.activity.data } }) };
   }));
 });
 
@@ -77,7 +77,9 @@ describe("the data load", () => {
     expect(query.get("generation")).toBe("g-2026-10-15");
     // The credential goes in the header, as the View sends it; never copied into the query.
     expect(query.get("access_token")).toBeNull();
-    expect(urls.filter((u) => u.endsWith("/compile"))).toHaveLength(1);
+    // Signed through the same api host's /preview/sign; nothing goes to a /compile.
+    expect(urls.filter((u) => u.endsWith("/compile"))).toHaveLength(0);
+    expect(urls.filter((u) => u.endsWith("/preview/sign"))).toEqual([`${new URL(data[0]).origin}/preview/sign`]);
     expect(init.mock.calls[0][0]).toMatchObject({ signature: "$02$signed", questions: [{ stimulus: "What is 7 + 5?" }] });
   });
 
