@@ -267,6 +267,8 @@ node scripts/monitoring.js [--email <operator address>]           # dry run: fil
 node scripts/monitoring.js --apply --email <operator address> --canary-connection <id>    # create or update
 node scripts/monitoring.js --verify-alert --email <operator address> --canary-connection <id>
 node scripts/monitoring.js --confirm <nonce> ...                  # once the emails arrive
+node scripts/monitoring.js --verify-threshold --email <operator address> [--apply]   # the metric-threshold path
+node scripts/monitoring.js --verify-threshold --cleanup [--apply]                     # remove its scratch metric and policy
 ```
 
 **Metrics** (`logging.googleapis.com/user/security_audit/<id>`). Each failure is counted
@@ -283,8 +285,11 @@ once, by the record that reports it:
 | `artifact_failures` | api artifacts not stored, by category. `unavailable` is an outage. `conflict` includes a retry with the same key whose output differs from the stored artifact (the first is kept) |
 | `uncategorized_failures` | failure records whose category couldn't be determined (`category: "invalid"`), i.e. a reason missing from the failure table. Expected to stay at zero |
 | `receipt_replays` | answers from a recorded outcome; never a new effect |
+| `system_signings` | Broker `execute` records under a system preview session (`provenance: "system"`), by outcome: signatures (`allowed`) and refused attempts. A system session carries only signing functions, so every one is a signature or an attempt at one. The `execute-step` record of the same signature isn't counted again. Connection and publication signatures (`provenance` `user`, `publication`) are excluded |
+| `system_preview_limited` | refusals by the system preview signing limits, labelled `source` by the refusing service (`resource.labels.service_name`). Each source is named in the filter: Policy `mint` with reason `rate-limited` (the per-instance mint bucket); Broker `execute` with `session-exhausted` (a system session's signing slots, `SYSTEM_SESSION_MAX_SIGNINGS`); api `system-signing-limit` with `rate-limited` (the per-client limit's 429s). All `outcome: "denied"`. Expected to stay at zero |
 
-**Alerts** (email to the operator's channel, at most one email per alert every 5 minutes):
+**Alerts** (email to the operator's channel; log-match alerts send at most one email per alert
+every 5 minutes):
 - *Security audit: authorization outage*: any `authorization-unavailable` or
   `policy-unavailable`. Check Policy's health and its latest release first.
 - *Security audit: uncertain write*: the provider may or may not have applied a write.
@@ -299,6 +304,17 @@ once, by the record that reports it:
   Broker or the gateway, on any connection but the canary's (`--canary-connection`, whose
   runs deny on purpose). Someone without the access tried it, or access changed under a
   running item.
+- *Security audit: system preview signing rate-limited*: Policy refused a system-session mint
+  as `rate-limited`. The global safeguard is engaged, so previews without a connection show
+  "Previews are busy right now". Check `system_signings`, and `system_preview_limited` by
+  source, for a burst or abuse.
+- *Security audit: system signings over 600 in an hour*: a **metric-threshold** condition, not
+  a log match. It sums `system_signings` (`ALIGN_DELTA` over 3,600 s, `REDUCE_SUM` across
+  instances, revisions and outcomes) and opens when the sum is over 600 (`COMPARISON_GT`,
+  duration 0). Its email gives the metric, the 1-hour window and the threshold; the observed
+  value is in the incident summary Monitoring puts at the top (no documentation variable carries
+  it, and a metric incident has no log entry, so none of the `${log.extracted_label.*}` used
+  by the other alerts). Find the clients in api's `system-signing-limit` records.
 
 Every failure record carries a `category` (`authentication`, `permission`, `malformed`,
 `conflict` or `unavailable`), the same one its response reports. The audit adds it from the
@@ -313,7 +329,11 @@ The category is required: a failure whose category can't be determined is still 
 event) match nothing. It also fails when a metric the canary produces matches nothing:
 policy denials, Broker-local refusals and replays. `--apply` refuses in either case.
 `--apply` is idempotent: run it again after a change to these definitions, and it updates
-only what differs.
+only what differs. For a threshold condition that includes the threshold, comparison, window,
+aligner, reducer, duration and documentation. On the first apply, Monitoring can refuse the
+threshold policy if `system_signings` was created moments before; run `--apply` again a minute
+later. `system_signings` is expected to match: L0176 and L0158 item views sign through the system
+session every day, so a dry run that finds none in the window fails.
 
 **After every apply**, check delivery in two runs; neither prompts, so both work from
 `!` in Claude Code. `--verify-alert` writes one test record per alert to its own log,
@@ -322,7 +342,32 @@ keeps their nonces in `.gc-deploy/monitoring/pending.json`. Each email ends
 `Nonce: <nonce>`. Once they arrive (usually within 5 minutes), run `--confirm` with the
 nonce from each email, in any order. An alert whose email didn't arrive is left out and
 recorded as not confirmed, as is one whose incident fired without its email arriving. The
-result is appended to `.gc-deploy/monitoring/alert-verification.json`.
+result is appended to `.gc-deploy/monitoring/alert-verification.json`. `--verify-alert`
+covers the log-match alerts only.
+
+**The threshold alert** is checked separately, because a test record on a log-match alert never
+exercises metric ingestion or a threshold's evaluation. `--verify-threshold` uses a scratch
+log-based metric (`security_audit/monitoring_test_threshold_<run>`, a new one each run) and a
+scratch policy, *Security audit: monitoring test (threshold)*, shaped like the real one (the
+same window, aligner, reducer, comparison and duration) with a threshold of 5 (`--threshold N`).
+Without `--apply` it prints the scratch metric, the policy and a nonce, and writes nothing. With
+`--apply`, in one run of about 10 minutes:
+1. It creates the scratch metric (a log-based metric counts only entries written after it
+   exists) and the scratch policy, whose documentation holds a fresh nonce **literally**. The
+   run id in the metric's name isn't the nonce: the email shows the metric type.
+2. It writes 5 test records (`security_audit_test`, event `monitoring-test`, `check:
+   "threshold"`), waits until the metric's hourly sum, queried as the condition aggregates it,
+   shows exactly 5, and holds for 5 minutes. At the threshold, a `COMPARISON_GT` condition
+   must not open.
+3. It writes one more, waits until the sum shows 6, and prints the crossing time and the
+   nonce. No real metric or log-match alert matches these records.
+
+The email from the scratch policy must contain `Nonce: <nonce>` and be dated after the
+crossing: that shows the metric was ingested, the condition evaluated and the notification
+delivered. An email with the nonce dated before the crossing means the condition opened at the
+threshold; don't confirm it. The nonce is added to `pending.json`, so `--confirm <nonce>`
+records the result like the others. Afterwards, `--verify-threshold --cleanup --apply` removes
+every scratch metric and the scratch policy (dry without `--apply`).
 
 ## Retention and restore (RETAIN-01)
 

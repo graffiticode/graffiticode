@@ -1,8 +1,11 @@
 // Monitoring for the security audit (capability plan W3, spec AUDIT-01):
 // log-based metrics that count each kind of failure once, log-match alert
 // policies (authorization outages, uncertain and partial writes, artifact
-// storage outages, permission denials outside the canary) with an email channel,
-// and a check that an alert's email really arrives. The Google APIs and the
+// storage outages, permission denials outside the canary, the global system
+// preview signing limit), a metric-threshold policy (system signings per
+// hour) with an email channel, and checks that an alert's email really
+// arrives: one test record per log-match alert, and a scratch metric and
+// threshold policy for the metric path. The Google APIs and the
 // clock are injected so the operator sequence is tested
 // (scripts/test/monitoring.test.js). See scripts/monitoring.js for usage.
 //
@@ -21,6 +24,22 @@ const MONITORING = "https://monitoring.googleapis.com/v3";
 const selector = project => `logName="projects/${project}/logs/run.googleapis.com%2Fstdout" AND jsonPayload.logName="security_audit"`;
 const service = name => `resource.type="cloud_run_revision" AND resource.labels.service_name="${name}"`;
 const events = names => names.length === 1 ? `jsonPayload.event="${names[0]}"` : `jsonPayload.event=(${names.map(n => `"${n}"`).join(" OR ")})`;
+
+// The refusals of system preview signing (plan system-preview-rate-limit,
+// design point 4), each named by the service, event and reason that write it:
+//   policy  the per-instance mint bucket refuses a system-session execution token
+//   broker  a system session has used all its signing slots
+//   api     the per-client limit refuses a signing stage (a 429)
+// The service is the Cloud Run service (resource.labels.service_name), as in
+// every other metric: the audit validators keep only known fields, so a
+// `service` field in the record itself would not reach the log.
+export const SYSTEM_PREVIEW_LIMIT_SOURCES = Object.freeze([
+  Object.freeze({ service: "policy", event: "mint", reason: "rate-limited" }),
+  Object.freeze({ service: "broker", event: "execute", reason: "session-exhausted" }),
+  Object.freeze({ service: "api", event: "system-signing-limit", reason: "rate-limited" }),
+]);
+const or = clauses => clauses.length === 1 ? clauses[0] : `(${clauses.map(c => `(${c})`).join(" OR ")})`;
+const limitSource = ({ service: svc, event }) => `resource.labels.service_name="${svc}" AND jsonPayload.event="${event}"`;
 
 // One count per failure, defined by the record that reports it.
 //   base     the records a metric is drawn from (selector, service, events);
@@ -113,6 +132,33 @@ export const metricSpecs = project => {
       match: "jsonPayload.category=\"invalid\"",
     },
     {
+      // Broker's records of executions under a system preview session: the
+      // execution token's provenance (`prv`, recorded as `provenance`) is
+      // "system", which Broker re-checks against the system subject
+      // (provenanceRefusal). A system session carries only signing functions
+      // (systemPreviewFunctionsForLang), so these are signatures and refused
+      // signing attempts, by outcome. `execute` only: the `execute-step`
+      // record of the same signature is not counted again.
+      id: "system_signings",
+      labels: ["outcome"],
+      expected: true,
+      description: "Broker executions under a system preview session (provenance system): signatures and refused attempts, by outcome.",
+      base: from("broker", ["execute"]),
+      match: "jsonPayload.provenance=\"system\"",
+    },
+    {
+      // Every refusal that limits system preview signing, by the service
+      // that refused (Policy's mint bucket, Broker's session slots, api's
+      // per-client limit).
+      id: "system_preview_limited",
+      labels: ["source"],
+      extractors: { source: "EXTRACT(resource.labels.service_name)" },
+      expected: false,
+      description: "System preview signing refused by a limit, by source: Policy's mint bucket (rate-limited), Broker's session slots (session-exhausted), api's per-client limit (rate-limited).",
+      base: `${selector(project)} AND resource.type="cloud_run_revision" AND resource.labels.service_name=("policy" OR "broker" OR "api") AND ${or(SYSTEM_PREVIEW_LIMIT_SOURCES.map(limitSource))}`,
+      match: `jsonPayload.outcome="denied" AND ${or(SYSTEM_PREVIEW_LIMIT_SOURCES.map(src => `${limitSource(src)} AND jsonPayload.reason="${src.reason}"`))}`,
+    },
+    {
       id: "receipt_replays",
       labels: ["reason"],
       expected: true,
@@ -127,7 +173,7 @@ export const desiredMetric = spec => ({
   name: spec.name,
   description: spec.description,
   filter: spec.filter,
-  labelExtractors: Object.fromEntries(spec.labels.map(label => [label, `EXTRACT(jsonPayload.${label})`])),
+  labelExtractors: Object.fromEntries(spec.labels.map(label => [label, spec.extractors?.[label] ?? `EXTRACT(jsonPayload.${label})`])),
   metricDescriptor: {
     metricKind: "DELTA",
     valueType: "INT64",
@@ -138,6 +184,45 @@ export const desiredMetric = spec => ({
 // Test records, written by --verify-alert: the alert conditions match them,
 // the metrics never do.
 const testRecords = project => `logName="projects/${project}/logs/${TEST_LOG}" AND jsonPayload.logName="security_audit" AND jsonPayload.event="monitoring-test"`;
+
+export const metricType = name => `logging.googleapis.com/user/${name}`;
+
+// A metric-threshold condition: the metric's points summed across every
+// series (instances, revisions, label values) over a window, compared with a
+// value. Log-match conditions match one record each and can't count.
+export const thresholdCondition = ({ metric, resourceType = "cloud_run_revision", value, period = "3600s", comparison = "COMPARISON_GT", displayName }) => ({
+  displayName,
+  conditionThreshold: {
+    filter: `metric.type="${metricType(metric)}" AND resource.type="${resourceType}"`,
+    aggregations: [{ alignmentPeriod: period, perSeriesAligner: "ALIGN_DELTA", crossSeriesReducer: "REDUCE_SUM" }],
+    comparison,
+    thresholdValue: value,
+    duration: "0s",
+    trigger: { count: 1 },
+  },
+});
+
+const hours = period => {
+  const s = Number(String(period).replace(/s$/, ""));
+  return s % 3600 === 0 ? `${s / 3600} h` : `${s} s`;
+};
+const COMPARISONS = { COMPARISON_GT: "above", COMPARISON_GE: "at or above", COMPARISON_LT: "below", COMPARISON_LE: "at or below" };
+
+// Notification text for a threshold policy. A metric incident has no log
+// entry, so no ${log.extracted_label.*}: only variables Monitoring fills for
+// metric conditions (${metric.*}, ${condition.*}, ${policy.*}), and the
+// window and threshold written out. The observed value is in the incident
+// summary Monitoring puts at the top of every notification; no documentation
+// variable carries it. `nonce` (verifyThreshold's scratch policy only) goes
+// in literally, so the email proves this policy, as applied, sent it.
+export const thresholdDocumentation = (spec, { nonce } = {}) => {
+  const { value, period = "3600s", comparison = "COMPARISON_GT" } = spec.threshold;
+  return [
+    spec.content,
+    `Metric: \${metric.display_name} (\${metric.type}), summed across instances and revisions over ${hours(period)}. Condition: \${condition.display_name}, open while the sum is ${COMPARISONS[comparison] ?? comparison} ${value}. The observed value is in the incident summary above. Policy: \${policy.display_name}.`,
+    ...(nonce ? [`Nonce: ${nonce}`] : []),
+  ].join("\n\n");
+};
 
 // `canaryConnections`: the canary's connection ids. Its runs deny on purpose
 // (denied final stage, revocation probe, author removed), so the denial alert
@@ -183,10 +268,40 @@ export const alertSpecs = (project, { canaryConnections = [] } = {}) => {
       test: { outcome: "denied", reason: "not-granted", category: "permission" },
       content: "A protected request was refused for permission, outside the canary: someone without the access tried it, or access changed under a running item. Check the event and reason; see docs/protected-execution.md, Monitoring.",
     },
+    {
+      // The global safeguard: Policy's mint bucket for system-session
+      // execution tokens. Every viewer's preview shows the busy message
+      // while it holds.
+      id: "rate-limited",
+      displayName: "Security audit: system preview signing rate-limited",
+      filter: `(${selector(project)} AND resource.type="cloud_run_revision" AND ${limitSource(SYSTEM_PREVIEW_LIMIT_SOURCES[0])} AND jsonPayload.outcome="denied" AND jsonPayload.reason="${SYSTEM_PREVIEW_LIMIT_SOURCES[0].reason}") OR (${testRecords(project)} AND jsonPayload.reason="rate-limited")`,
+      test: { outcome: "denied", reason: "rate-limited", category: "unavailable" },
+      content: "Policy refused a system preview mint as `rate-limited`: the global signing safeguard is engaged, so previews without a connection show the busy message. Check `security_audit/system_signings`, and `system_preview_limited` by source, for a burst or abuse; see docs/protected-execution.md, Monitoring.",
+    },
+    {
+      id: "system-signings",
+      displayName: "Security audit: system signings over 600 in an hour",
+      threshold: { metric: specs.system_signings.name, value: 600, period: "3600s", comparison: "COMPARISON_GT" },
+      content: "More than 600 executions under the system preview session in an hour (baseline: a few a day, about one per L0176 or L0158 item view's signing compile). Find the clients in api's `system-signing-limit` records and the refusals in `system_preview_limited` by source; see docs/protected-execution.md, Monitoring.",
+    },
   ];
 };
 
-export const desiredPolicy = (spec, channel) => ({
+export const desiredPolicy = (spec, channel) => spec.threshold ? desiredThresholdPolicy(spec, channel) : desiredLogPolicy(spec, channel);
+
+// A metric-threshold policy. No notificationRateLimit: Monitoring accepts it
+// only on log-match policies.
+export const desiredThresholdPolicy = (spec, channel, { nonce } = {}) => ({
+  displayName: spec.displayName,
+  combiner: "OR",
+  enabled: true,
+  notificationChannels: [channel],
+  documentation: { mimeType: "text/markdown", content: thresholdDocumentation(spec, { nonce }) },
+  conditions: [thresholdCondition({ ...spec.threshold, displayName: spec.displayName })],
+  alertStrategy: { autoClose: "1800s" },
+});
+
+const desiredLogPolicy = (spec, channel) => ({
   displayName: spec.displayName,
   combiner: "OR",
   enabled: true,
@@ -222,10 +337,31 @@ const policyView = p => p && {
   enabled: p.enabled !== false,
   notificationChannels: p.notificationChannels ?? [],
   documentation: p.documentation?.content,
-  conditions: (p.conditions ?? []).map(c => ({ displayName: c.displayName, filter: c.conditionMatchedLog?.filter, labelExtractors: c.conditionMatchedLog?.labelExtractors ?? {} })),
+  conditions: (p.conditions ?? []).map(conditionView),
   rateLimit: p.alertStrategy?.notificationRateLimit?.period,
   autoClose: p.alertStrategy?.autoClose,
 };
+// Every field the script sets on a condition, of either kind: a changed
+// threshold, comparison, window, aligner, reducer, duration or filter is an
+// update, never "unchanged".
+const conditionView = c => {
+  if (c.conditionThreshold) {
+    const t = c.conditionThreshold;
+    return {
+      displayName: c.displayName,
+      kind: "threshold",
+      filter: t.filter,
+      aggregations: (t.aggregations ?? []).map(a => ({ alignmentPeriod: a.alignmentPeriod, perSeriesAligner: a.perSeriesAligner, crossSeriesReducer: a.crossSeriesReducer, groupByFields: a.groupByFields ?? [] })),
+      comparison: t.comparison,
+      // Monitoring returns the value as a double.
+      thresholdValue: Number(t.thresholdValue ?? 0),
+      duration: t.duration ?? "0s",
+      trigger: t.trigger?.count ?? 1,
+    };
+  }
+  return { displayName: c.displayName, kind: "log", filter: c.conditionMatchedLog?.filter, labelExtractors: c.conditionMatchedLog?.labelExtractors ?? {} };
+};
+export const policyChanged = (existing, desired) => !same(policyView(existing), policyView(desired));
 const same = (a, b) => JSON.stringify(sortKeys(a)) === JSON.stringify(sortKeys(b));
 const sortKeys = v => Array.isArray(v) ? v.map(sortKeys) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sortKeys(v[k])])) : v;
 
@@ -329,7 +465,9 @@ export const writeTestRecords = async ({ api, project, email, canaryConnections 
   const pending = steps.filter(s => s.action !== "unchanged").map(s => `${s.kind} ${s.name}`);
   if (pending.length) throw new Error(`monitoring is not applied (${pending.join(", ")}); run --apply first`);
   const written = [];
-  for (const spec of alertSpecs(project, { canaryConnections })) {
+  // Log-match alerts only: a threshold alert has no record to match (see
+  // verifyThreshold).
+  for (const spec of alertSpecs(project, { canaryConnections }).filter(s => s.test)) {
     const value = nonce();
     const writtenAt = now().toISOString();
     ok(await api("POST", `${LOGGING}/entries:write`, {
@@ -350,4 +488,153 @@ export const confirmDelivery = (written, typed, now = () => new Date()) => {
   const results = written.map(w => ({ alert: w.alert, writtenAt: w.writtenAt, confirmedAt: now().toISOString(), delivered: given.includes(w.nonce) }));
   const unknown = given.filter(g => !written.some(w => w.nonce === g));
   return { results, unknown };
+};
+
+// Threshold verification (plan system-preview-rate-limit, step 5). The
+// log-match test above never exercises a metric: a threshold incident has no
+// log entry, so its email can't carry a nonce from one. So, against a
+// scratch metric and policy shaped like the real ones (same window, aligner,
+// reducer and comparison, a low threshold):
+//   1. the scratch metric is created first (a log-based metric counts only
+//      entries written after it exists), and the scratch policy with a fresh
+//      nonce written literally in its documentation;
+//   2. `threshold` test records: the hourly sum reaches the threshold, which
+//      a COMPARISON_GT condition must not open on; the run waits until the
+//      metric shows exactly that sum, then holds;
+//   3. one more record crosses it; the run waits until the metric shows it.
+// The email that crossing causes carries the nonce: the metric was ingested,
+// the condition evaluated and the notification delivered, in one test. An
+// email with the nonce dated before the crossing means the condition opened
+// at the threshold, not past it.
+//
+// The scratch records go to the test log (event monitoring-test, check
+// threshold): no real metric counts them, and no log-match alert's test
+// clause matches them (they carry no outcome, reason or category). Each run
+// has its own metric, named by a run id that is not the nonce (the email
+// shows the metric type, which must not give the nonce away); --cleanup
+// removes every scratch metric and the scratch policy.
+export const SCRATCH_METRIC_PREFIX = "security_audit/monitoring_test_threshold_";
+export const SCRATCH_POLICY = "Security audit: monitoring test (threshold)";
+export const SCRATCH_THRESHOLD = 5;
+
+export const thresholdScratch = ({ project, channel, nonce, runId, threshold = SCRATCH_THRESHOLD }) => {
+  const name = `${SCRATCH_METRIC_PREFIX}${runId}`;
+  const metric = {
+    name,
+    description: "Scratch metric for scripts/monitoring.js --verify-threshold; remove with --cleanup.",
+    filter: `${testRecords(project)} AND jsonPayload.check="threshold" AND jsonPayload.run="${runId}"`,
+    labelExtractors: {},
+    metricDescriptor: { metricKind: "DELTA", valueType: "INT64", labels: [] },
+  };
+  const spec = {
+    displayName: SCRATCH_POLICY,
+    threshold: { metric: name, resourceType: "global", value: threshold, period: "3600s", comparison: "COMPARISON_GT" },
+    content: `Scratch policy for scripts/monitoring.js --verify-threshold (test records only, not an incident). It opens past ${threshold} test records in an hour, as the system-signings alert opens past 600. Remove it with --verify-threshold --cleanup --apply.`,
+  };
+  const policy = desiredThresholdPolicy(spec, channel, { nonce });
+  const record = at => ({ jsonPayload: { logName: "security_audit", event: "monitoring-test", check: "threshold", run: runId, at } });
+  return { metric, spec, policy, record, under: threshold, over: threshold + 1 };
+};
+
+// The metric's sum over the last window, aggregated as the condition does.
+export const windowSum = async ({ api, project, metric, resourceType, period = "3600s", now = () => new Date() }) => {
+  const end = now();
+  const start = new Date(end.getTime() - Number(period.replace(/s$/, "")) * 1000);
+  const q = new URLSearchParams({
+    filter: `metric.type="${metricType(metric)}" AND resource.type="${resourceType}"`,
+    "interval.startTime": start.toISOString(),
+    "interval.endTime": end.toISOString(),
+    "aggregation.alignmentPeriod": period,
+    "aggregation.perSeriesAligner": "ALIGN_DELTA",
+    "aggregation.crossSeriesReducer": "REDUCE_SUM",
+  });
+  const res = ok(await api("GET", `${MONITORING}/projects/${project}/timeSeries?${q}`), "timeSeries.list");
+  const point = res.timeSeries?.[0]?.points?.[0];
+  return point ? Number(point.value?.int64Value ?? point.value?.doubleValue ?? 0) : 0;
+};
+
+const MINUTE = 60 * 1000;
+
+// Dry run unless `apply`: returns what it would create and write, and the
+// nonce, with no write. `wait` and the timings are injected for tests.
+export const verifyThreshold = async ({
+  api, project, email, apply: doApply = false, threshold = SCRATCH_THRESHOLD,
+  nonce = randomBytes(4).toString("hex"), runId = randomBytes(4).toString("hex"),
+  now = () => new Date(), wait = ms => new Promise(resolve => setTimeout(resolve, ms)),
+  settleMs = 2 * MINUTE, holdMs = 5 * MINUTE, pollMs = 30 * 1000, ingestMs = 15 * MINUTE, log = () => {},
+}) => {
+  if (nonce === runId) throw new Error("the run id must not be the nonce");
+  const channel = await findChannel(api, project, email);
+  if (!channel && doApply) throw new Error(`no email channel for ${email}; run --apply first`);
+  const scratch = thresholdScratch({ project, channel: channel?.name ?? "(the operator's channel)", nonce, runId, threshold });
+  const existing = await findPolicy(api, project, SCRATCH_POLICY);
+  const steps = [
+    `create metric ${scratch.metric.name}`,
+    `${existing ? "update" : "create"} policy ${SCRATCH_POLICY} (threshold ${threshold}, documentation ending "Nonce: ${nonce}")`,
+    `write ${scratch.under} test records (at the threshold; must not open), wait until the metric shows ${scratch.under}, hold ${Math.round(holdMs / 1000)} s`,
+    `write 1 more (past it), wait until the metric shows ${scratch.over}`,
+  ];
+  if (!doApply) return { applied: false, nonce, runId, scratch, steps };
+
+  ok(await api("POST", `${LOGGING}/projects/${project}/metrics`, scratch.metric), `metrics.create ${scratch.metric.name}`);
+  log(`  created metric ${scratch.metric.name}`);
+  // A new log-based metric takes a moment to exist for Monitoring (a policy
+  // on it can be refused until then) and to start counting.
+  await wait(settleMs);
+  if (existing) {
+    ok(await api("PATCH", `${MONITORING}/${existing.name}?updateMask=displayName,combiner,enabled,notificationChannels,documentation,conditions,alertStrategy`, scratch.policy), `alertPolicies.patch ${SCRATCH_POLICY}`);
+  } else {
+    ok(await api("POST", `${MONITORING}/projects/${project}/alertPolicies`, scratch.policy), `alertPolicies.create ${SCRATCH_POLICY}`);
+  }
+  log(`  ${existing ? "updated" : "created"} policy ${SCRATCH_POLICY}`);
+
+  const write = async n => {
+    const at = now().toISOString();
+    ok(await api("POST", `${LOGGING}/entries:write`, {
+      logName: `projects/${project}/logs/${TEST_LOG}`,
+      resource: { type: "global", labels: { project_id: project } },
+      entries: Array.from({ length: n }, () => scratch.record(at)),
+    }), "entries:write");
+    return at;
+  };
+  const sum = () => windowSum({ api, project, metric: scratch.metric.name, resourceType: "global", now });
+  const until = async target => {
+    const deadline = now().getTime() + ingestMs;
+    for (;;) {
+      const seen = await sum();
+      if (seen === target) return seen;
+      if (seen > target) throw new Error(`the scratch metric shows ${seen}, past ${target}: records from elsewhere; run --cleanup and start again`);
+      if (now().getTime() >= deadline) throw new Error(`the scratch metric shows ${seen}, not ${target}, after ${Math.round(ingestMs / 1000)} s: not ingested`);
+      await wait(pollMs);
+    }
+  };
+
+  const underAt = await write(scratch.under);
+  await until(scratch.under);
+  log(`  the metric shows ${scratch.under} (written ${underAt}); holding ${Math.round(holdMs / 1000)} s at the threshold`);
+  await wait(holdMs);
+  const crossedAt = await write(1);
+  await until(scratch.over);
+  log(`  the metric shows ${scratch.over} (crossed ${crossedAt})`);
+  return { applied: true, nonce, runId, scratch, steps, underAt, crossedAt };
+};
+
+// The scratch metrics and policy, removed only with `apply`.
+export const cleanupThreshold = async ({ api, project, apply: doApply = false, log = () => {} }) => {
+  const metrics = [];
+  let pageToken;
+  do {
+    const res = ok(await api("GET", `${LOGGING}/projects/${project}/metrics?pageSize=100${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ""}`), "metrics.list");
+    metrics.push(...(res.metrics ?? []).filter(m => m.name.startsWith(SCRATCH_METRIC_PREFIX)));
+    pageToken = res.nextPageToken;
+  } while (pageToken);
+  const res = ok(await api("GET", `${MONITORING}/projects/${project}/alertPolicies?filter=${encodeURIComponent(`display_name="${SCRATCH_POLICY}"`)}`), "alertPolicies.list");
+  const policies = res.alertPolicies ?? [];
+  const steps = [...policies.map(p => `delete policy ${p.displayName} (${p.name})`), ...metrics.map(m => `delete metric ${m.name}`)];
+  if (!doApply) return { applied: false, steps };
+  // The policy first: it refers to the metric.
+  for (const p of policies) ok(await api("DELETE", `${MONITORING}/${p.name}`), `alertPolicies.delete ${p.name}`);
+  for (const m of metrics) ok(await api("DELETE", metricUrl(project, m.name)), `metrics.delete ${m.name}`);
+  for (const s of steps) log(`  ${s}`);
+  return { applied: true, steps };
 };
