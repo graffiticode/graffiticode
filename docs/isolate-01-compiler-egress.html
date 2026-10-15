@@ -1,0 +1,262 @@
+<title>Compiler Egress Through Envoy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #f4f6f4;
+    --panel: #ffffff;
+    --ink: #18221f;
+    --muted: #56645f;
+    --line: #8b9994;
+    --hair: #d5ddd9;
+    --ok: #0d7466;
+    --ok-soft: #e1f1ed;
+    --tls: #8a5d00;
+    --tls-soft: #f6ecd6;
+    --no: #b0281f;
+    --no-soft: #f8e3e0;
+    --band: #e9eeeb;
+    --note: #fbfcfb;
+    --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --cond: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f1513; --panel: #151d1a; --ink: #e2e9e6; --muted: #9aa9a3; --line: #66756f;
+      --hair: #2a3531; --ok: #4fc0ad; --ok-soft: #12302a; --tls: #e2b54e; --tls-soft: #33290f;
+      --no: #ff7b6f; --no-soft: #3a1714; --band: #1a2420; --note: #18211e;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f1513; --panel: #151d1a; --ink: #e2e9e6; --muted: #9aa9a3; --line: #66756f;
+    --hair: #2a3531; --ok: #4fc0ad; --ok-soft: #12302a; --tls: #e2b54e; --tls-soft: #33290f;
+    --no: #ff7b6f; --no-soft: #3a1714; --band: #1a2420; --note: #18211e;
+  }
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 56px; }
+  header { max-width: 72ch; }
+  .eyebrow { font-family: var(--cond); font-size: 12px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  h1 { font-family: var(--cond); font-weight: 600; font-size: clamp(26px, 4vw, 36px); line-height: 1.12; margin: 0 0 12px; text-wrap: balance; }
+  h2 { font-family: var(--cond); font-weight: 600; font-size: 21px; margin: 0 0 10px; text-wrap: balance; }
+  p { margin: 0 0 12px; }
+  code, .mono { font-family: var(--mono); font-size: .9em; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-family: var(--cond); font-size: 13px; font-weight: 500; color: var(--tls); background: var(--tls-soft); padding: 3px 10px; border-radius: 3px; margin-bottom: 18px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 22px 0 14px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend svg { flex: none; }
+  .diagram { background: var(--panel); border: 1px solid var(--hair); border-radius: 4px; overflow-x: auto; }
+  .diagram svg { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 28px 40px; margin-top: 40px; }
+  .layer { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: baseline; padding-block: 12px; border-top: 1px solid var(--hair); }
+  .layer b { font-family: var(--cond); font-weight: 600; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .layer div { grid-column: 2; }
+  .layer .k { font-family: var(--cond); font-weight: 600; font-size: 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th { text-align: left; font-family: var(--cond); font-weight: 600; font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--hair); }
+  td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--hair); vertical-align: top; }
+  td:first-child { font-family: var(--mono); font-size: 13px; color: var(--no); white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
+  footer { margin-top: 36px; font-size: 13px; color: var(--muted); max-width: 80ch; }
+  /* diagram text */
+  .p-name { font-family: var(--cond); font-weight: 600; font-size: 14px; fill: var(--ink); }
+  .p-sub { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); }
+  .band-t { font-family: var(--cond); font-weight: 600; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; fill: var(--muted); }
+  .sec-t { font-family: var(--cond); font-weight: 600; font-size: 13px; fill: var(--ink); }
+  .sec-n { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+  .m-t { font-family: var(--mono); font-size: 11px; }
+  .n-t { font-family: var(--sans); font-size: 11.5px; fill: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">ISOLATE-01 · compiler egress</p>
+    <h1>How a compiler reaches Policy, Broker and nothing else</h1>
+    <div class="status">Designed and coded in <span class="mono">deploy/egress-proxy</span>, not deployed</div>
+    <p>Every compiler runs on the <span class="mono">compilers</span> VPC with all outbound traffic sent to an internal load balancer at <span class="mono">10.8.0.2:3128</span>, in front of two Envoy VMs. Envoy decides by the compiler's <em>subnet</em> (its class), terminates TLS only for Graffiticode's own <span class="mono">run.app</span> hosts, and refuses everything else. Broker is the only thing that ever talks to Learnosity, and it does so from outside the compiler network with its own sealed credential.</p>
+  </header>
+
+  <div class="legend" aria-label="Legend">
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--ok)" stroke-width="1.6"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--ok)"/></svg>Allowed request</span>
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--line)" stroke-width="1.4" stroke-dasharray="4 3"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--line)"/></svg>Response</span>
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--tls)" stroke-width="2.4"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--tls)"/></svg>TLS to Envoy (private-CA certificate)</span>
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="26" y2="5" stroke="var(--no)" stroke-width="1.6"/><path d="M27 1 L33 9 M33 1 L27 9" stroke="var(--no)" stroke-width="1.8"/></svg>Refused</span>
+  </div>
+
+  <div class="diagram" role="img" aria-label="Sequence diagram of compiler egress through the Envoy proxy to Policy and Broker, with refusals.">
+    <svg id="seq" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+
+  <div class="grid">
+    <section>
+      <h2>Three layers, each enforced without the compiler's help</h2>
+      <div class="layer"><b>1</b><div><div class="k">VPC firewall</div>Compiler subnets may send only to the load balancer (and the metadata server). A compiler that ignores <span class="mono">HTTPS_PROXY</span> and dials an address directly is dropped here.</div></div>
+      <div class="layer"><b>2</b><div><div class="k">Envoy</div>The class is the filter chain matching the connection's direct source address, never a header. Listed hosts are terminated: the SNI picks the host, RBAC requires the CONNECT target to equal it, and the route accepts only that host as <span class="mono">Host</span>. Envoy then opens its own TLS to the real host and verifies its public certificate.</div></div>
+      <div class="layer"><b>3</b><div><div class="k"><span class="mono">ENVOY_OUT</span> and the proxy's firewall</div>Whatever a name resolved to, new connections from Envoy's UID 10101 can't reach private, loopback, metadata, CGNAT, Google private-access, compiler or load-balancer addresses. This is what stops L0185's open class reaching anything internal.</div></div>
+    </section>
+    <section>
+      <h2>Refusals the proxy names</h2>
+      <p>Every 403 carries <span class="mono">x-isolate01-refused</span> and one JSON log line.</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Reason</th><th>When</th></tr></thead>
+          <tbody>
+            <tr><td>unlisted</td><td>A strict class names a host outside its <span class="mono">network.allow</span> list, Learnosity's included.</td></tr>
+            <tr><td>host-mismatch</td><td>A terminated host's request carries a different <span class="mono">Host</span> or <span class="mono">:authority</span>: domain fronting through Google's shared front ends.</td></tr>
+            <tr><td>name</td><td>L0185's open class names <span class="mono">learnosity.com</span>, <span class="mono">learnosity.net</span>, <span class="mono">run.app</span>, <span class="mono">internal</span> or <span class="mono">googleapis.com</span>.</td></tr>
+            <tr><td>ip-literal</td><td>The open class names an address instead of a host.</td></tr>
+            <tr><td>port</td><td>The open class CONNECTs to any port but 443.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Hostnames are shortened: <span class="mono">policy-….run.app</span> stands for the Policy service's own <span class="mono">run.app</span> host, and the same for Broker. Classes today: <span class="mono">compilers-default</span> (10.8.16.0/22, strictly allowlisted) and <span class="mono">compilers-l0185</span> (10.8.20.0/22, open, decision D2). Hosts per compiler come from <span class="mono">deploy.json</span> <span class="mono">network.allow</span>, which no service sets yet. Source: <span class="mono">deploy/egress-proxy/README.md</span>, <span class="mono">classes.json</span> and the ISOLATE-01 plan.
+  </footer>
+</div>
+
+<script>
+(() => {
+  const P = [
+    { id: "md", name: "Metadata server", sub: "169.254.169.254" },
+    { id: "f",  name: "L0185 compiler", sub: "compilers-l0185" },
+    { id: "c",  name: "L0176 compiler", sub: "compilers-default" },
+    { id: "lb", name: "Internal LB", sub: "10.8.0.2:3128" },
+    { id: "e",  name: "Envoy", sub: "2 VMs, UID 10101" },
+    { id: "p",  name: "Policy", sub: "policy-….run.app" },
+    { id: "b",  name: "Broker", sub: "broker-….run.app" },
+    { id: "l",  name: "Learnosity", sub: "Data API" },
+    { id: "x",  name: "Other host", sub: "internet" },
+  ];
+  const BANDS = [
+    { from: "f", to: "e", label: "Compiler network · compilers VPC" },
+    { from: "p", to: "b", label: "Graffiticode services" },
+    { from: "l", to: "x", label: "Outside" },
+  ];
+  // kind: ok | reply | tls | no. stop: refused short of the target, at a column.
+  const S = [
+    { sec: "Identity", note: "Straight to the metadata server: NO_PROXY names it alone" },
+    { from: "c", to: "md", kind: "ok", t: "GET identity token (aud: policy)" },
+    { from: "md", to: "c", kind: "reply", t: "ID token" },
+
+    { sec: "Policy", note: "A snapshot, then an execution token for one operation" },
+    { from: "c", to: "lb", kind: "ok", t: "CONNECT policy-….run.app:443" },
+    { from: "lb", to: "e", kind: "ok", t: "passthrough, source kept" },
+    { note: "e", w: 2, lines: ["class = compilers-default (source subnet)", "listed host → terminate-compilers-default"] },
+    { from: "c", to: "e", kind: "tls", t: "TLS, SNI = policy host" },
+    { note: "e", w: 2, lines: ["RBAC: CONNECT target = SNI", "route: Host = SNI, else 403"] },
+    { from: "e", to: "p", kind: "ok", t: "new TLS · POST /v1/… + ID token" },
+    { from: "p", to: "e", kind: "reply", t: "execution token" },
+    { from: "e", to: "c", kind: "reply", t: "relayed" },
+
+    { sec: "Broker", note: "The protected operation; only Broker holds the credential" },
+    { from: "c", to: "e", kind: "tls", t: "via LB · TLS, SNI = broker host" },
+    { from: "e", to: "b", kind: "ok", t: "POST /v1/execute (token, args)" },
+    { note: "b", w: 2, lines: ["checks registry, args digest, jti;", "claims the receipt before calling out"] },
+    { from: "b", to: "l", kind: "ok", t: "set items (sealed credential)" },
+    { note: "l", w: 1.6, lines: ["Broker's own egress,", "not through this proxy"] },
+    { from: "l", to: "b", kind: "reply", t: "stored, unpublished" },
+    { from: "b", to: "e", kind: "reply", t: "result + receipt" },
+    { from: "e", to: "c", kind: "reply", t: "result" },
+
+    { sec: "Refused", note: "What a compromised strict-class compiler can't do" },
+    { from: "c", to: "e", kind: "ok", t: "CONNECT api.learnosity.com:443" },
+    { from: "e", to: "c", kind: "no", t: "403 unlisted" },
+    { from: "c", to: "e", kind: "tls", t: "SNI = broker host, Host: other.run.app" },
+    { from: "e", to: "c", kind: "no", t: "403 host-mismatch" },
+    { from: "c", to: "x", stop: "lb", kind: "no", t: "dial 203.0.113.7:443 directly → VPC firewall drops it" },
+
+    { sec: "L0185", note: "The open class (D2): any public host, never an internal one" },
+    { from: "f", to: "e", kind: "ok", t: "CONNECT example.org:443" },
+    { note: "e", w: 2, lines: ["dynamic forward proxy;", "ENVOY_OUT refuses internal addresses"] },
+    { from: "e", to: "x", kind: "ok", t: "TLS passthrough (L0185 ↔ host)" },
+    { from: "f", to: "e", kind: "ok", t: "CONNECT data.learnosity.com:443" },
+    { from: "e", to: "f", kind: "no", t: "403 name" },
+    { from: "f", to: "e", kind: "ok", t: "CONNECT 10.0.0.5:443" },
+    { from: "e", to: "f", kind: "no", t: "403 ip-literal" },
+  ];
+
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("seq");
+  const COL = 138, LEFT = 30, TOP = 30;
+  const W = LEFT * 2 + COL * P.length;
+  const x = id => LEFT + COL * P.findIndex(p => p.id === id) + COL / 2;
+  const el = (tag, attrs, parent = svg, text) => {
+    const n = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    if (text != null) n.textContent = text;
+    parent.appendChild(n);
+    return n;
+  };
+  const defs = el("defs", {});
+  const marker = (id, color) => {
+    const m = el("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+    el("path", { d: "M0 0 L10 5 L0 10 Z", fill: color }, m);
+  };
+  marker("a-ok", "var(--ok)"); marker("a-reply", "var(--line)"); marker("a-tls", "var(--tls)");
+
+  const lifeG = el("g", {});
+  const bodyG = el("g", {});
+
+  // bands and heads
+  const headY = TOP + 26;
+  for (const b of BANDS) {
+    const x1 = x(b.from) - COL / 2 + 6, x2 = x(b.to) + COL / 2 - 6;
+    el("rect", { x: x1, y: TOP - 18, width: x2 - x1, height: 18 + 58, rx: 3, fill: "var(--band)" }, lifeG);
+    el("text", { x: x1 + 8, y: TOP - 5, class: "band-t" }, lifeG, b.label);
+  }
+  for (const p of P) {
+    el("text", { x: x(p.id), y: headY + 14, "text-anchor": "middle", class: "p-name" }, bodyG, p.name);
+    el("text", { x: x(p.id), y: headY + 30, "text-anchor": "middle", class: "p-sub" }, bodyG, p.sub);
+  }
+
+  let y = headY + 66;
+  const STEP = 34;
+  for (const s of S) {
+    if (s.sec) {
+      y += 14;
+      el("line", { x1: LEFT, x2: W - LEFT, y1: y, y2: y, stroke: "var(--hair)", "stroke-width": 1 }, bodyG);
+      el("text", { x: LEFT + 2, y: y + 18, class: "sec-t" }, bodyG, s.sec);
+      el("text", { x: LEFT + 2 + s.sec.length * 7.6 + 12, y: y + 18, class: "sec-n" }, bodyG, s.note);
+      y += 42;
+      continue;
+    }
+    if (s.note) {
+      const w = COL * s.w - 10, h = 12 + s.lines.length * 15;
+      const nx = Math.min(x(s.note) - COL / 2 + 5, W - LEFT - w);
+      el("rect", { x: nx, y: y - 12, width: w, height: h, rx: 2, fill: "var(--note)", stroke: "var(--hair)" }, bodyG);
+      s.lines.forEach((line, i) => el("text", { x: nx + 8, y: y + 3 + i * 15, class: "n-t" }, bodyG, line));
+      y += h + 10;
+      continue;
+    }
+    const x1 = x(s.from), xt = x(s.to);
+    const dir = Math.sign(xt - x1);
+    const color = { ok: "var(--ok)", reply: "var(--line)", tls: "var(--tls)", no: "var(--no)" }[s.kind];
+    const end = s.stop ? x(s.stop) + dir * 16 : xt - dir * 3;
+    const line = { x1, x2: end, y1: y, y2: y, stroke: color, "stroke-width": s.kind === "tls" ? 2.4 : 1.6 };
+    if (s.kind === "reply") line["stroke-dasharray"] = "5 4";
+    if (s.kind !== "no") line["marker-end"] = `url(#a-${s.kind})`;
+    el("line", line, bodyG);
+    if (s.kind === "no") {
+      el("path", { d: `M${end - 5} ${y - 5} L${end + 5} ${y + 5} M${end + 5} ${y - 5} L${end - 5} ${y + 5}`, stroke: color, "stroke-width": 2, fill: "none" }, bodyG);
+    }
+    const lx1 = Math.min(x1, end), lx2 = Math.max(x1, end);
+    const span = lx2 - lx1;
+    const tx = span < 230 && dir > 0 ? lx1 + 6 : (lx1 + lx2) / 2;
+    el("text", { x: tx, y: y - 7, "text-anchor": span < 230 && dir > 0 ? "start" : "middle", class: "m-t", fill: s.kind === "reply" ? "var(--muted)" : color }, bodyG, s.t);
+    y += STEP;
+  }
+  y += 10;
+  for (const p of P) {
+    el("line", { x1: x(p.id), x2: x(p.id), y1: headY + 42, y2: y, stroke: "var(--hair)", "stroke-width": 1.2 }, lifeG);
+  }
+  svg.setAttribute("viewBox", `0 0 ${W} ${y + 16}`);
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", y + 16);
+})();
+</script>
