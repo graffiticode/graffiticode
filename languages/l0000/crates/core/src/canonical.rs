@@ -61,8 +61,9 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    // These digests were computed by the broker's implementation. If either side changes, an
-    // execution token minted by one would never match the payload the other sees.
+    // packages/common's CANONICAL_VECTORS, every one (scripts/test/canonical-vectors.test.js
+    // checks this copy against it). If either side changes, an execution token minted by one
+    // would never match the payload the other sees.
     #[test]
     fn matches_the_broker() {
         let vectors = [
@@ -82,6 +83,18 @@ mod tests {
                 "2f51203a604c465370f084c3f413c5ce3f11bd736f1507cb2a6b96b1d46e632d",
             ),
             (json!("plain"), r#""plain""#, "945603a8f587786b463c3f94fce115c0fae88fac2728cc96ddf5981cf7f61741"),
+            // An artifact's content: a compile envelope.
+            (
+                json!({ "data": { "type": "questions", "data": { "itemBank": { "saved": true, "references": ["graffiticode-t-0"] } } }, "errors": [] }),
+                r#"{"data":{"data":{"itemBank":{"references":["graffiticode-t-0"],"saved":true}},"type":"questions"},"errors":[]}"#,
+                "d5878057449f4231395e16ce6dfa6837b785cef4eeaeaffec47f87f18c401fd9",
+            ),
+            // Edges: an empty key, U+2028 kept literal, -0 as 0, exponent form.
+            (
+                json!({ "": { "\u{2028}": [{}, [], 0, -0.0, 1e21] } }),
+                "{\"\":{\"\u{2028}\":[{},[],0,0,1e+21]}}",
+                "1a91f0a4878b55e1f0f238c8ac4f15a3a9918674077ad0b2b2bb3947f442e4a2",
+            ),
         ];
         for (value, canonical, digest) in vectors {
             assert_eq!(canonical_json(&value), canonical);

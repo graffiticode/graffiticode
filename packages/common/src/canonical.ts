@@ -7,8 +7,9 @@
 // array slots as null, no whitespace; SHA-256 hex over the UTF-8 text.
 //
 // CANONICAL_VECTORS pins the encoding. Every implementation, including the
-// TypeScript copy in languages/l0000 (packages/core/src/canonical.ts, whose
-// tests carry the first four vectors), must reproduce them exactly.
+// copies in languages/l0000 (TypeScript packages/core/src/canonical.ts and Rust
+// crates/core/src/canonical.rs), must reproduce them exactly; their tests carry
+// every vector, checked by scripts/test/canonical-vectors.test.js.
 
 import { createHash } from "node:crypto";
 

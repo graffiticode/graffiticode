@@ -52,7 +52,7 @@ Jeff accepts the production evidence. The agent did the mapping and the checks.
 | AT | Requirements | Verdict | Open items |
 | --- | --- | --- | --- |
 | AT-01 | MODEL-01/02, AUTH-01 | **Pass** | Broker has no invoker-mismatch test (Policy has one) |
-| AT-02 | CONN-01, GRANT-01/02 | **Pass once deployed** | Fixed 2026-10-14 (below); the console fix ships with its next release |
+| AT-02 | CONN-01, GRANT-01/02 | **Pass** | Fixed 2026-10-14 and deployed: console `console-rmv8rkauu-336058`, Policy `policy-rmv8rkci1-bba5e2` |
 | AT-03 | ADMIT-01/02, API-01 | **Pass** | Undeclarable behavior is refused at preflight; no gateway-level test |
 | AT-04 | ADMIT-03, REG-01, TOKEN-01 | **Open** | L0000's canonical vectors drifted; language changed after admission |
 | AT-05 | EXEC-01/02, REVOKE-01, API-02 | **Pass** | Single sub-cases (below) |
@@ -91,7 +91,7 @@ Test names are quoted from the specs.
 | Mismatched transport identity | Partial | pol/app.spec "…differs from the invoker", "…for another audience", "…unsigned, crafted caller identity". Broker only tests the wrong audience |
 | Direct compiler requests without authority | Covered | pol/policy.spec "must come from a policy invocation token…"; brk/app.spec "refuses a request with no execution token"; l0/protected-client.test; l176/brokered.test |
 
-### AT-02: connections and sharing: Pass once deployed
+### AT-02: connections and sharing: Pass
 
 | Clause | Status | Evidence |
 | --- | --- | --- |
@@ -128,7 +128,7 @@ Test names are quoted from the specs.
 | Token type/audience substitution, missing claims, excessive lifetime | Covered | pol/policy.spec (typ, missing claim, profile lifetime caps); brk/live.spec "refuses a token without prv" |
 | Tampered arguments | Covered | broker.spec "rejects a payload other than the one the token was minted for"; pol/authorize.spec |
 | Token replay | Covered | broker.spec; brk/app.spec; brk/firestore.spec "claims a jti once, even under concurrency". Live: canary token replay |
-| Canonical digest agreement | Partial | com/ and brk/ share `CANONICAL_VECTORS`. `l0/canonical.test.ts` keeps a hand-copied list of 4 of the 5 vectors, missing `d5878057…`, and nothing compares it with the shared set. Live: the canary's pinned admission, gateway write and token first use agree |
+| Canonical digest agreement | Covered | com/ and brk/ share `CANONICAL_VECTORS` (6 vectors). L0000's TypeScript (`l0/canonical.test.ts`) and Rust (`crates/core/src/canonical.rs`) copies carried only 4; both now carry all 6, and scr/canonical-vectors.test.js fails if either copy lacks one. Live: the canary's pinned admission, gateway write and token first use agree |
 
 ### AT-05: authority removed after mint: Pass
 
@@ -221,8 +221,8 @@ there is no job lookup. PROVIDER-01 stays provider-unverified.
 2. ~~**AT-02, account enumeration**~~: fixed 2026-10-14 (graffiticode-app #10).
 3. ~~**AT-02, verified-email claim**~~: tested (graffiticode-app #10).
 4. **AT-07 / RETAIN-01, restore test:** run it once the first daily backups exist.
-5. **AT-04, canonical vectors:** L0000's test is missing one vector. Import or check against
-   `CANONICAL_VECTORS` (an l0000 release).
+5. ~~**AT-04, canonical vectors**~~: both L0000 copies carry all 6, checked against
+   `CANONICAL_VECTORS` (tests only; no l0000 release needed).
 6. **AT-12:** show that a W3 receipt is still reportable after rollback.
 7. ~~**AT-02:** a failure partway through provisioning~~: fixed.
 8. **AT-09:** a test that repeated views and answers never save.
