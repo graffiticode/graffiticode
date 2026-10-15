@@ -55,6 +55,11 @@ const handleError = (err, res, next) => {
     // The failure category (spec FAIL-01): a relayed refusal's reason decides
     // it; otherwise the status does. Status and message are unchanged.
     const category = err.reason ? classify(err.reason).category : categoryForStatus(err.statusCode);
+    // A refusal that ends (a 429) says when; browsers may read it cross-origin.
+    if (err.retryAfter) {
+      res.set("Retry-After", String(err.retryAfter));
+      res.set("Access-Control-Expose-Headers", "Retry-After");
+    }
     res
       .status(err.statusCode)
       .json(createErrorResponse({ ...createError(err.code, err.message), ...(err.reason ? { reason: err.reason } : {}), category }));

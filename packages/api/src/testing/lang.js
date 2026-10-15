@@ -32,10 +32,13 @@ export const startLangApp = async () => {
   // compile answers with the data set when it arrived, once released.
   let calls = 0;
   const gates = [];
+  // Every compile received: its headers and body.
+  const received = [];
 
   const app = createHttpApp(app => {
     app.post("/compile", async (req, res) => {
       calls++;
+      received.push({ headers: req.headers, body: req.body });
       const key = createKey(req.body.code);
       const answer = db.get(key);
       const gate = gates.shift();
@@ -82,5 +85,5 @@ export const startLangApp = async () => {
     return { arrived, release };
   };
 
-  return { url, setData, cleanUp, hold, calls: () => calls };
+  return { url, setData, cleanUp, hold, calls: () => calls, received: () => received };
 };

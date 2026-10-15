@@ -13,6 +13,7 @@ import {
 } from "./utils.js";
 import { isNonNullObject } from "../util.js";
 import { InvalidArgumentError } from "../errors/http.js";
+import { countSigningStages, isSigningLang } from "../signing-limit.js";
 
 function getItemsFromRequest(req) {
   const { body } = req;
@@ -51,7 +52,15 @@ const getTaskFromData = data => ({
 
 let EMPTY_OBJECT_ID;
 
-const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
+// An item's signing stages (signing-limit.js): those of its stored chain, or
+// its inline task. The data task an item's `data` becomes is L0000's.
+const signingStagesOf = async ({ taskStorer, item, auth }) => (
+  item.id
+    ? countSigningStages(await taskStorer.get({ id: item.id, auth }))
+    : (isSigningLang(item.lang) ? 1 : 0)
+);
+
+const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   const postTasks = buildPostTasks({ taskStorer });
   return buildHttpHandler(async (req, res) => {
@@ -60,6 +69,13 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
     const items = getItemsFromRequest(req);
     const connectionId = parseConnectionId(req.body?.connectionId, { auth });
     const idempotencyKey = parseIdempotencyKey(req.get("Idempotency-Key") ?? req.body?.idempotencyKey, { connectionId });
+    // The per-client signing limit: with no connection, every L0176 stage of
+    // every item signs under the system preview session. Charged for the
+    // whole request before any task is written or any stage dispatched.
+    if (signingLimiter && !connectionId) {
+      const counts = await Promise.all(items.map(item => signingStagesOf({ taskStorer, item, auth })));
+      await signingLimiter.charge(req, counts.reduce((a, b) => a + b, 0));
+    }
     const ids = [];
     EMPTY_OBJECT_ID =
       EMPTY_OBJECT_ID ||
@@ -99,11 +115,12 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi }) => {
   });
 };
 
-export default ({ taskStorer, compileStorer, dataApi, compile }) => {
+// `signingLimiter` (signing-limit.js), when given, charges each request's
+// system signing stages; without one nothing is charged.
+export default ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
-  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-  router.post("/", buildPostCompileHandler({ taskStorer, compileStorer, dataApi, compile }));
+  router.post("/", buildPostCompileHandler({ taskStorer, compileStorer, dataApi, signingLimiter }));
   router.options("/", optionsHandler);
   return router;
 };

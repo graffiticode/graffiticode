@@ -1,11 +1,12 @@
 // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 // `baseUrl`, when given, is a pinned revision's URL (chain admission, W4): it
 // is used as is, never resolved, so no override or redeploy can redirect it.
-export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid, baseUrl: pinned = null } = {}) => {
+// `headers`, when given, ride with the compile (the api's identity, comp.js).
+export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid, baseUrl: pinned = null, headers = null } = {}) => {
   const baseUrl = pinned ?? await getBaseUrlForLanguage(lang, { uid });
   try {
     const compilePost = bent(baseUrl, "POST", "json", 200, 202);
-    return await compilePost("/compile", req);
+    return await (headers ? compilePost("/compile", req, headers) : compilePost("/compile", req));
   } catch (x) {
     console.log(
       "ERROR",

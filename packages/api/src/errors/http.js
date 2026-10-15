@@ -1,10 +1,12 @@
 export class HttpError extends Error {
   // `reason`: the refusal reason when the error relays one (e.g. Policy's).
-  constructor({ code = 500, statusCode = code, message, reason = undefined }) {
+  // `retryAfter`: seconds, for a refusal that ends (sent as Retry-After).
+  constructor({ code = 500, statusCode = code, message, reason = undefined, retryAfter = undefined }) {
     super(message);
     this.code = code;
     this.statusCode = statusCode;
     this.reason = reason;
+    this.retryAfter = retryAfter;
   }
 }
 

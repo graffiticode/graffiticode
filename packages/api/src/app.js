@@ -9,6 +9,8 @@ import { buildValidateToken } from "./auth.js";
 import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
 import { createApiAudit } from "./audit.js";
+import { buildCallerIdentity } from "./caller-identity.js";
+import { buildSigningLimiter, parseSigningLimitConfig } from "./signing-limit.js";
 import { requestContextMiddleware } from "@graffiticode/policy/audit";
 import { buildAllocateInvocation, buildMetadataIdToken } from "./invocations.js";
 import { buildPublicationClient } from "./publications.js";
@@ -32,13 +34,22 @@ global.config.useLocalCompiles = process.env.LOCAL_COMPILES === "true";
 const env = process.env.NODE_ENV || "development";
 
 // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-export const createApp = ({ authUrl } = {}) => {
-  const compile = buildCompile({ langCompile });
+// Tests may supply `validateToken`, `callerIdToken` (the api's ID-token
+// minter for compiles, caller-identity.js), `audit` and `signingLimiter`.
+export const createApp = ({ authUrl, validateToken: givenValidateToken, callerIdToken, audit: givenAudit, signingLimiter: givenLimiter } = {}) => {
   const { taskStorer, compileStorer, langOverrideStorer, artifactStorer } = createStorers();
   // POLICY_URL (the policy service's run.app URL) enables compiles through a
   // selected connection; without it they are refused, never run unguarded.
   const policyUrl = process.env.POLICY_URL;
   const idToken = policyUrl ? buildMetadataIdToken() : null;
+  // Every compile to L0176 carries the api's identity (caller-identity.js),
+  // minted like preflight's. On Cloud Run (K_SERVICE) the metadata server
+  // mints it even without POLICY_URL; locally there is none, and compiles go
+  // without it.
+  const identityMinter = callerIdToken !== undefined
+    ? callerIdToken
+    : (idToken ?? (process.env.K_SERVICE ? buildMetadataIdToken() : null));
+  const compile = buildCompile({ langCompile, callerIdentity: buildCallerIdentity({ idToken: identityMinter }) });
   const allocateInvocation = policyUrl ? buildAllocateInvocation({ policyUrl, idToken }) : null;
   const publications = policyUrl ? buildPublicationClient({ policyUrl, idToken }) : null;
   // Chain admission (capability plan W4): CHAIN_ADMISSION decides which new
@@ -49,7 +60,9 @@ export const createApp = ({ authUrl } = {}) => {
     ? buildChainAdmission({ policyUrl, idToken, baseUrlFor: lang => getBaseUrlForLanguage(`L${String(lang).replace(/^L/i, "")}`) })
     : null;
   // Security audit, without user identifiers (audit.js).
-  const audit = createApiAudit();
+  const audit = givenAudit ?? createApiAudit();
+  // The per-client limit on system preview signing (signing-limit.js).
+  const signingLimiter = givenLimiter ?? buildSigningLimiter({ ...parseSigningLimitConfig(process.env), audit });
   const dataApi = buildDataApi({
     compile,
     langOverrideStorer,
@@ -92,21 +105,23 @@ export const createApp = ({ authUrl } = {}) => {
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     next();
   });
+  // /preview/sign holds its body to its own, smaller cap (routes/preview.js).
+  app.use("/preview/sign", routes.previewSignBodyParser);
   app.use(express.json({ limit: "50mb" }));
   // Every audit record written while handling a request names it.
   app.use(requestContextMiddleware);
   app.use(methodOverride());
 
   // Authentication
-  const validateToken = buildValidateToken({ authUrl });
+  const validateToken = givenValidateToken ?? buildValidateToken({ authUrl });
   app.use(routes.auth({ validateToken }));
 
   // Routes
   app.use("/", routes.root());
-  // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-  app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi }));
+  app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi, signingLimiter }));
   app.use("/config", routes.configHandler);
-  app.use("/data", routes.data({ taskStorer, compileStorer, dataApi }));
+  app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));
+  app.use("/preview", routes.preview({ compile, signingLimiter }));
   app.use("/lang-overrides", routes.langOverrides({ langOverrideStorer }));
   app.use("/lang", routes.langRouter);
   app.use("/L*", routes.langRouter);

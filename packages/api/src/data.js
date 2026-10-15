@@ -167,13 +167,16 @@ const buildGetData = ({
   return async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
     connectionId = null, idempotencyKey = null, read = false, publicationId = null,
-    generation = /** @type {string | undefined} */ (undefined)
+    generation = /** @type {string | undefined} */ (undefined),
+    // The id's tasks, when the route already loaded them (to charge the
+    // per-client signing limit, signing-limit.js), so they're read once.
+    preloadedTasks = /** @type {any} */ (undefined)
   }) => {
     // Captured before anything else and kept for this request's read and its
     // write: a request that started without a generation, or before one was
     // active, never writes under it, however late it finishes.
     const active = getActiveGeneration();
-    const tasks = await taskStorer.get({ id, auth });
+    const tasks = preloadedTasks !== undefined ? preloadedTasks : await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
     }

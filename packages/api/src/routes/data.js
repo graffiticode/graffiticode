@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { InvalidArgumentError } from "../errors/http.js";
 import { parseGenerationParam } from "../generation.js";
+import { countSigningStages } from "../signing-limit.js";
 import {
   buildHttpHandler,
   createSuccessResponse,
@@ -19,7 +20,9 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // Callers that don't care (routes/compile.js) can omit it.
   return async ({
     auth, authToken, ids, action = {}, refresh = false, connectionId = null, idempotencyKey = null,
-    read = false, publicationId = null, generation = /** @type {string | undefined} */ (undefined)
+    read = false, publicationId = null, generation = /** @type {string | undefined} */ (undefined),
+    // Each id's tasks, already loaded by the route (or undefined).
+    preloadedTasks = /** @type {any[] | undefined} */ (undefined)
   }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
@@ -38,7 +41,8 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       idempotencyKey: keyFor(i),
       read,
       publicationId,
-      generation
+      generation,
+      ...(preloadedTasks ? { preloadedTasks: preloadedTasks[i] } : {})
     })));
     let data;
     if (objs.length > 1) {
@@ -50,7 +54,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   };
 };
 
-const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
+const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   return buildHttpHandler(async (req, res) => {
     const auth = req.auth.context;
@@ -79,10 +83,19 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
     // It changes no response header: the parameter alone makes the URL distinct
     // for browsers and the CDN.
     const generation = parseGenerationParam(req.query.generation);
+    // The per-client signing limit (signing-limit.js): with no connection and
+    // no publication, each L0176 stage of each id signs under the system
+    // preview session, so each is charged, before anything dispatches. The
+    // tasks are loaded once, here, and handed on.
+    let preloadedTasks;
+    if (signingLimiter && !connectionId && !publicationId && ids.length > 0) {
+      preloadedTasks = await Promise.all(ids.map(id => taskStorer.get({ id, auth })));
+      await signingLimiter.charge(req, preloadedTasks.reduce((n, tasks) => n + countSigningStages(tasks), 0));
+    }
     const action = {};
     // GET /data is a view: through a connection it reads the caller's stored
     // result; through a publication, the published one.
-    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true, generation });
+    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true, generation, preloadedTasks });
     // A refreshed response must not be held anywhere. The id is immutable but
     // we just proved its data is not, and the whole point of asking was to get
     // past a stale copy — an immutable header here would plant another one in
@@ -104,10 +117,12 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
   });
 };
 
-export default ({ taskStorer, compileStorer, dataApi }) => {
+// `signingLimiter` (signing-limit.js), when given, charges each request's
+// system signing stages; without one nothing is charged.
+export default ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
-  router.get("/", buildGetDataHandler({ taskStorer, compileStorer, dataApi }));
+  router.get("/", buildGetDataHandler({ taskStorer, compileStorer, dataApi, signingLimiter }));
   router.options("/", optionsHandler);
   return router;
 };

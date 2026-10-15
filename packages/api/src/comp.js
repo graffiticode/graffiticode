@@ -1,5 +1,7 @@
-export const buildCompile = ({ langCompile }) =>
-  ({
+// `callerIdentity(lang)`: the identity headers a compile to this language
+// carries (caller-identity.js), or null. It never fails a compile.
+export const buildCompile = ({ langCompile, callerIdentity = async _lang => null }) =>
+  async ({
     lang, code, data = {}, auth = null, options = {}, uid = null,
     connectionId = null, invocationToken = null, stage = null,
     // Chain admission (W4): the plan's proof, and the pinned revision's URL.
@@ -14,5 +16,6 @@ export const buildCompile = ({ langCompile }) =>
     if (invocationToken) req.invocationToken = invocationToken;
     if (stage) req.stage = stage;
     if (admissionToken) req.admissionToken = admissionToken;
-    return langCompile(`L${lang}`, req, { uid, ...(baseUrl ? { baseUrl } : {}) });
+    const headers = await callerIdentity(lang);
+    return langCompile(`L${lang}`, req, { uid, ...(baseUrl ? { baseUrl } : {}), ...(headers ? { headers } : {}) });
   };
