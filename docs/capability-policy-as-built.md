@@ -413,6 +413,9 @@ Evidence: [gateway execution](../packages/api/src/data.js),
       records the old L0158 had made were deleted, so every view compiles through the new one.
     - Checked live: L0158 items render in L0176's form, signed; `save-to-itembank` shows the
       error pointing to L0176.
+    - Canary after the releases, 2026-10-15: **passed (24 checks)** against
+      `l0176-rmv9xzfol-ab9092` and `api-rmva17zn4-89777d`, reconcile `applied` (a first run
+      failed 4 checks on IAM grant propagation only, all `getOpenIdToken` 403s).
     - Secrets: `l0176-run`'s and `l0158-run`'s access to `learnosity-secret` removed; its only
       version disabled, to be deleted; `GRAFFITICODE_SECRET_KEY` deleted. The credential that
       secret held was already retired at its provider.
