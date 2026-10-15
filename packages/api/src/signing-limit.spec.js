@@ -39,6 +39,22 @@ describe("client key", () => {
     expect(key(reqWith({ "X-Forwarded-For": "2001:db8::1" }))).toBe("ip:2001:db8::1");
   });
 
+  it("keys a user the api verified by uid, ahead of any address", () => {
+    const verified = (uid, headers) => ({ ...reqWith(headers), auth: { context: { uid } } });
+    expect(key(verified("0xalice", { "X-Forwarded-For": "198.51.100.7" }))).toBe("uid:0xalice");
+    expect(key(verified("0xalice", { "X-Graffiticode-Edge": SECRET, "CF-Connecting-IP": "203.0.113.5" }))).toBe("uid:0xalice");
+    // No verified context (anonymous, or an invalid token treated as such): by address.
+    expect(key({ ...reqWith({ "X-Forwarded-For": "198.51.100.7" }), auth: { context: null, token: "forged" } })).toBe("ip:198.51.100.7");
+    expect(key({ ...reqWith({ "X-Forwarded-For": "198.51.100.7" }), auth: { context: { uid: "" } } })).toBe("ip:198.51.100.7");
+  });
+
+  it("prefixes each kind of key, so a uid can't collide with an address", () => {
+    const asUid = key({ ...reqWith({}), auth: { context: { uid: "198.51.100.7" } } });
+    const asIp = key(reqWith({ "X-Forwarded-For": "198.51.100.7" }));
+    const asCf = key(reqWith({ "X-Graffiticode-Edge": SECRET, "CF-Connecting-IP": "198.51.100.7" }));
+    expect(new Set([asUid, asIp, asCf]).size).toBe(3);
+  });
+
   it("falls back to the socket address with no X-Forwarded-For, and never a client-chosen key", () => {
     expect(key(reqWith({}, "127.0.0.1"))).toBe("ip:127.0.0.1");
     expect(key(reqWith({ "X-Forwarded-For": "1.1.1.1, not-an-address" }))).toBe("ip:unknown");
@@ -73,7 +89,7 @@ describe("token bucket", () => {
     expect(err.reason).toBe("rate-limited");
     expect(err.message).toBe(BUSY_MESSAGE);
     expect(err.retryAfter).toBe(6);
-    expect(records).toEqual([{ event: "system-signing-limit", outcome: "denied", reason: "rate-limited", category: "unavailable", service: "api", lang: "0176" }]);
+    expect(records).toEqual([{ event: "system-signing-limit", outcome: "denied", reason: "rate-limited", category: "unavailable", lang: "0176" }]);
     // 6 s refills one stage.
     t += 6000;
     await l.charge(req, 1);

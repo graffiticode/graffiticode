@@ -159,7 +159,65 @@ describe("the limit's refusal", () => {
     const audited = records.filter(r => r.event === "system-signing-limit");
     expect(audited).toHaveLength(1);
     expect(audited[0]).toMatchObject({ event: "system-signing-limit", outcome: "denied", category: "unavailable", lang: "0176" });
+    expect(audited[0]).not.toHaveProperty("service");
     expect(JSON.stringify(audited[0])).not.toMatch(/127\.0\.0\.1|::1|::ffff/);
+  });
+
+  it("audits a verified user's refusal with no uid or address", async () => {
+    const app = limited();
+    const as = { Authorization: "user:0xalice", "X-Forwarded-For": "198.51.100.7" };
+    await sign(app, as).expect(200);
+    await sign(app, as).expect(200);
+    await sign(app, as).expect(429);
+    const audited = records.filter(r => r.event === "system-signing-limit");
+    expect(audited).toHaveLength(1);
+    expect(audited[0]).not.toHaveProperty("user");
+    expect(JSON.stringify(audited[0])).not.toMatch(/0xalice|198\.51\.100\.7/);
+  });
+
+  it("gives two verified users behind one address separate buckets", async () => {
+    const app = limited();
+    const egress = { "X-Forwarded-For": "198.51.100.7" };
+    await sign(app, { ...egress, Authorization: "user:0xalice" }).expect(200);
+    await sign(app, { ...egress, Authorization: "user:0xalice" }).expect(200);
+    await sign(app, { ...egress, Authorization: "user:0xalice" }).expect(429);
+    await sign(app, { ...egress, Authorization: "user:0xbob" }).expect(200);
+    await sign(app, { ...egress, Authorization: "user:0xbob" }).expect(200);
+    // And anonymous callers from that address have their own.
+    await sign(app, egress).expect(200);
+  });
+
+  it("gives one verified user one bucket from any address", async () => {
+    const app = limited();
+    await sign(app, { "X-Forwarded-For": "198.51.100.7", Authorization: "user:0xalice" }).expect(200);
+    await sign(app, { "X-Forwarded-For": "198.51.100.8", Authorization: "user:0xalice" }).expect(200);
+    await sign(app, { "X-Forwarded-For": "198.51.100.9", Authorization: "user:0xalice" }).expect(429);
+  });
+
+  it("keys an invalid token by address, as anonymous, never in a bucket of its own", async () => {
+    const app = limited();
+    const a = await taskStorer.create({ task: TASK_A });
+    const egress = { "X-Forwarded-For": "198.51.100.7" };
+    // GET /data treats an invalid token as anonymous; it shares the address's bucket.
+    await request(app).get("/data").set(egress).query({ id: a }).expect(200);
+    await request(app).get("/data").set({ ...egress, Authorization: "expired-token" }).query({ id: a }).expect(200);
+    await request(app).get("/data").set(egress).query({ id: a }).expect(429);
+    await request(app).get("/data").set({ ...egress, Authorization: "another-bad-token" }).query({ id: a }).expect(429);
+    // Elsewhere an invalid token is still refused outright, uncharged.
+    const res = await sign(app, { "X-Forwarded-For": "198.51.100.9", Authorization: "expired-token" });
+    expect(res.status).not.toBe(200);
+    expect(langApp.calls()).toBe(2);
+  });
+
+  it("no longer shares one bucket across a server-side caller's users (the console/MCP shape)", async () => {
+    const app = limited();
+    const egress = { "X-Forwarded-For": "34.1.2.3" };
+    for (const uid of ["0xu1", "0xu2", "0xu3", "0xu4"]) {
+      await request(app).post("/compile").set({ ...egress, Authorization: `user:${uid}` })
+        .send([{ ...TASK_A }, { ...TASK_B }]).expect(200);
+    }
+    // Each user has spent its own burst.
+    await request(app).post("/compile").set({ ...egress, Authorization: "user:0xu1" }).send({ item: TASK_A }).expect(429);
   });
 
   it("is no-store on GET /data too, over its immutable header", async () => {

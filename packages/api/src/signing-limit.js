@@ -16,7 +16,9 @@
 // (N instances allow about N times as much). A request is charged all or
 // nothing, so a refused batch dispatches none of its stages.
 //
-// The client is its address, never a header it could forge:
+// The client, prefixed by kind so keys never collide, never a header it
+// could forge:
+//   - a user the api verified: `uid:<uid>`;
 //   - through our Cloudflare zone, CF-Connecting-IP, but only when the request
 //     carries X-Graffiticode-Edge with the exact EDGE_AUTH_SECRET (set by our
 //     zone's Transform Rule; unset secret = never trusted);
@@ -67,7 +69,20 @@ const address = value => {
   return ADDRESS_RE.test(s) ? s : null;
 };
 
+// A user the api verified (req.auth.context, set by the auth middleware from
+// the token it validated, never from an unverified claim) is its own client,
+// whatever address it comes from, so users of one server-side caller (the
+// console, the MCP server) don't share a bucket. An invalid token never gets
+// here: its route refuses it, or (public reads) treats it as anonymous, so
+// it's keyed by address like any anonymous request.
+const verifiedUid = req => {
+  const uid = req.auth?.context?.uid;
+  return typeof uid === "string" && uid ? uid : null;
+};
+
 export const buildClientKey = ({ edgeSecret = null } = {}) => req => {
+  const uid = verifiedUid(req);
+  if (uid) return `uid:${uid}`;
   const header = name => {
     const v = req.headers?.[name.toLowerCase()];
     return Array.isArray(v) ? v.join(",") : v;
@@ -122,7 +137,7 @@ export const buildSigningLimiter = ({
     }
     // A request with more stages than the burst can never be covered.
     const retryAfter = Math.max(1, Math.ceil((Math.min(stages, burst) - tokens) / perMs / 1000));
-    await audit({ event: "system-signing-limit", outcome: "denied", reason: "rate-limited", category: "unavailable", service: "api", lang: SIGNING_LANG });
+    await audit({ event: "system-signing-limit", outcome: "denied", reason: "rate-limited", category: "unavailable", lang: SIGNING_LANG });
     throw new SigningRateLimited({
       retryAfter,
       message: stages > burst ? `${BUSY_MESSAGE} (this request has ${stages} signing stages; at most ${burst} are allowed at once)` : BUSY_MESSAGE,
