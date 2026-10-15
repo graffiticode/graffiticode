@@ -1,7 +1,7 @@
 // RETAIN-01 checks (scripts/lib/retention.js), against fakes.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkDatabase, configVerdict, compareDatabase, compareRelationships, cutoffFor, fixtureCheck, CUTOFF_MARGIN_MS } from "../lib/retention.js";
+import { checkDatabase, configVerdict, compareDatabase, compareRelationships, cutoffFor, fixtureCheck, CUTOFF_MARGIN_MS, MAY_EXPIRE, PROTECTED } from "../lib/retention.js";
 import { parse } from "../retention-check.js";
 
 const P = "proj";
@@ -46,6 +46,19 @@ test("PITR off or no backup schedule fails; a gcloud failure is incomplete, neve
 // Documents as the comparison reads them (times in ms).
 const doc = (path, data, createTime, updateTime = createTime) => ({ path, data, createTime, updateTime });
 const T = 1_000_000;
+
+test("system preview sessions' signature slots may expire (cleanup only), only in Broker's database, and are no protected record", async () => {
+  const r = await checkDatabase({ run: gcloud({ ...GOOD, "firestore fields ttls list": [ttl("broker", "jtis"), ttl("broker", "system-session-slots")] }), project: P, database: "broker" });
+  assert.equal(r.ttl.result, "pass");
+  assert.match(r.ttl.detail, /system-session-slots/);
+  assert.ok(MAY_EXPIRE.broker.includes("system-session-slots"));
+  assert.ok(Object.values(PROTECTED).every(patterns => patterns.every(p => !p.startsWith("system-session-slots"))));
+  const elsewhere = await checkDatabase({ run: gcloud({ ...GOOD, "firestore fields ttls list": [ttl("policy", "system-session-slots")] }), project: P, database: "policy" });
+  assert.equal(elsewhere.ttl.result, "fail");
+  // A restore comparison never expects them.
+  const restore = compareDatabase({ database: "broker", production: [doc("system-session-slots/sid-1:0", { k: 0 }, 10)], restored: [], cutoff: T });
+  assert.deepEqual([restore.reference, restore.problems], [0, []]);
+});
 
 test("documents unchanged before the cutoff are compared field for field; later updates only for existence", () => {
   const production = [

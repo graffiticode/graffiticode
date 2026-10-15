@@ -31,6 +31,17 @@
 //      `partial` after one, with the reason recorded. A token that can't
 //      outlast the deadline is refused on arrival (`token-expiring`), before
 //      it is spent, so the caller can retry with a fresh one.
+//   8. A `sign` under a system preview session (provenance `system`) first
+//      claims one of the session's SYSTEM_SESSION_MAX_SIGNINGS slots
+//      (session-slots.js); with all taken it is refused `session-exhausted`
+//      (429) before any signing. The slot is claimed after the jti: each
+//      token is claimed once, so it can take at most one slot and sign at
+//      most once, and a token refused for want of a slot is spent, not
+//      replayable (it could only be refused again: slots never free up while
+//      the session can produce tokens). A slot taken by an execution that
+//      then fails (authorization, signing) stays taken: the allowance counts
+//      attempts, so it never allows more than N signatures. A system token
+//      without a valid `sexp` is refused `bad-token` on arrival.
 //
 // Time limits (limits.js): each provider request has a timeout, and no request
 // starts after the operation's deadline. A request that times out is
@@ -56,6 +67,8 @@ import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operation
 import { DEFAULT_LIMITS, headroomMs, maxExecutionMs } from "./limits.js";
 import { AuthorizationDenied, AuthorizationUnavailable } from "./authorizer.js";
 import { classify } from "@graffiticode/common/failures";
+import { createMemorySessionSlotStore, type SessionSlotStore } from "./stores.js";
+import { DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS, slotExpiresAt, systemSessionClaimsValid } from "./session-slots.js";
 
 // Only defined fields: Firestore refuses undefined values in a receipt.
 const defined = fields => Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
@@ -123,7 +136,13 @@ export const contractRefusal = (claims, minContractVersion = 1) => {
   return null;
 };
 
-export const createBroker = ({ jwks, operations, secrets, once, receipts, activity, protectedSwitch, authorize, limits = DEFAULT_LIMITS, now = Date.now, audit, minContractVersion = 1 }) => {
+export const createBroker = ({
+  jwks, operations, secrets, once, receipts, activity, protectedSwitch, authorize, limits = DEFAULT_LIMITS, now = Date.now, audit, minContractVersion = 1,
+  // A system preview session's signature allowance (session-slots.js).
+  // main.js passes the Firestore store; the in-memory default still enforces
+  // the allowance, per instance, for embedders and tests that don't.
+  slots = createMemorySessionSlotStore() as SessionSlotStore, systemSessionMaxSignings = DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS,
+}) => {
   // No default: a broker built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
   // Nor without Policy's live authorization (authorizer.js): it would act on
@@ -136,6 +155,8 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
   }
   // Nor without activity tracking, which draining relies on.
   if (!activity || typeof activity.begin !== "function") throw new Error("createBroker needs an activity store");
+  if (!slots || typeof slots.claim !== "function") throw new Error("createBroker needs a session slot store");
+  if (!(Number.isInteger(systemSessionMaxSignings) && systemSessionMaxSignings > 0)) throw new Error("createBroker needs a positive integer systemSessionMaxSignings");
   // Wait for one decision, at most `waitMs`. The timer aborts pending work;
   // it doesn't decide lateness, since a busy event loop can run it after a
   // decision that already took too long. The cutoff does: a decision that
@@ -202,6 +223,9 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     // The authority it rests on (Policy's provenance.js), checked here too.
     const badProvenance = provenanceRefusal(claims);
     if (badProvenance) return refuse(badProvenance);
+    // A system-session token carries its session's expiry (`sexp`), which its
+    // signature slots are retained by; one without isn't valid.
+    if (!systemSessionClaimsValid(claims)) return refuse("bad-token", 401);
     // The contract it was issued under, before anything is spent.
     const badContract = contractRefusal(claims, minContractVersion);
     if (badContract) return refuse(badContract, 409);
@@ -316,6 +340,12 @@ export const createBroker = ({ jwks, operations, secrets, once, receipts, activi
     }
 
     if (operation.kind !== "write") {
+      // A system session's signature allowance: one slot per signing, claimed
+      // before its authorization and any signing, after the jti (see 8 above).
+      if (claims.prv === "system") {
+        const slot = await slots.claim(claims.sid, systemSessionMaxSignings, { expiresAt: slotExpiresAt(claims.sexp), jti: claims.jti, opid: claims.opid });
+        if (slot === null) return refuse("session-exhausted", 429);
+      }
       // A local signature is an effect: authorized immediately before it.
       try {
         await authorizeStep("sign", "sign");

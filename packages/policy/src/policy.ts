@@ -23,7 +23,11 @@
 //             lang/fn/op/backend relationship against the registry, and
 //             issues a short execution token scoped to that one request. The
 //             operation id is invocation/stage/occurrence, so a retry of the
-//             same invocation reaches the same write receipt.
+//             same invocation reaches the same write receipt. A mint under a
+//             system preview session takes a token from this instance's
+//             bucket (rate-limit.js; `rate-limited` when it is empty) and
+//             carries the session's expiry as `sexp`, which Broker's
+//             per-session signature slots are retained by.
 //   admission (contract v2, capability plan W4) once per chain, by the
 //             gateway, before any stage executes: every stage's preflight
 //             manifest, pinned to approved compiler revisions, decided in one
@@ -55,12 +59,16 @@ import { InvocationConflict, AdmissionRefused } from "./invocations.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
+import { DEFAULT_SYSTEM_SIGNING, createTokenBucket } from "./rate-limit.js";
 
 export class PolicyDenied extends Error {
   declare reason: string;
-  constructor(reason: string) {
+  // Seconds after which a retry may succeed (`rate-limited` only).
+  declare retryAfter?: number;
+  constructor(reason: string, { retryAfter }: { retryAfter?: number } = {}) {
     super(`policy denied: ${reason}`);
     this.reason = reason;
+    if (retryAfter !== undefined) this.retryAfter = retryAfter;
   }
 }
 
@@ -96,12 +104,16 @@ export const createPolicy = ({
   // Contract v2 (W4): the approved-revisions reader and the lease fence, and
   // the lowest contract version accepted (1 until the cutover).
   approvals = null, fence = null, minContractVersion = 1, admissionMaxAgeMs = ADMISSION_MAX_AGE_MS, now = () => Date.now(),
+  // The per-instance bucket on system preview mints (config.js
+  // parseSystemSigningLimits), on the same clock.
+  systemSigning = DEFAULT_SYSTEM_SIGNING,
 }) => {
   // No default: a policy built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createPolicy needs a protectedSwitch");
-  const deny = async (reason, record) => {
+  const systemSignings = createTokenBucket({ perMinute: systemSigning?.perMinute, burst: systemSigning?.burst, now });
+  const deny = async (reason, record, { retryAfter }: { retryAfter?: number } = {}) => {
     await audit({ ...record, outcome: "denied", reason });
-    throw new PolicyDenied(reason);
+    throw new PolicyDenied(reason, { retryAfter });
   };
   // Every protected entry point asks first, before reading or issuing
   // anything. `principal` is verified identity only (the authenticated user,
@@ -554,6 +566,13 @@ export const createPolicy = ({
     const live = { ...record, provenance };
     const contractRefusal = await contractRefusalFor({ claims: session, provenance, fn, invocationId: session.inv, stage: session.stg, lang: session.lang });
     if (contractRefusal) return deny(contractRefusal, { ...live, planDigest: session.pld });
+    // Every system-session mint takes a token, before the live reads it would
+    // cost, so repeated sessions or `init`s can't multiply signatures past
+    // it. Connection and publication mints are never limited.
+    if (provenance === "system") {
+      const taken = systemSignings.take();
+      if (!taken.ok) return deny("rate-limited", live, { retryAfter: taken.retryAfter });
+    }
     const refusal = await liveRefusal({ ...session, provenance }, fn);
     if (refusal) return deny(refusal, live);
     return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, record: { ...live, planDigest: session.pld } });
@@ -600,6 +619,9 @@ export const createPolicy = ({
       rv: session.rv,
       prv: provenance,
       ...(provenance === "publication" ? { pub: session.pub } : {}),
+      // The system session's expiry, signed: Broker keeps the session's
+      // signature slots until every token it can produce has expired.
+      ...(provenance === "system" ? { sexp: session.exp } : {}),
       cv: session.cv ?? 1,
       ...(session.pld ? { pld: session.pld, stg: session.stg } : {}),
     });

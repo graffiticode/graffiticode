@@ -54,9 +54,11 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
     "invocation-incompatible", "contract-version-unsupported",
   ]),
   ...cat("unavailable", ["admission-stale", "preflight-unavailable", "compile-response-lost"]),
-  // System preview signing limits: the api's per-client 429s. Busy, not
-  // denied: a later request may succeed.
-  ...cat("unavailable", ["rate-limited"]),
+  // System preview signing limits: Policy's per-instance bucket on
+  // system-session mints (and the api's per-client 429s), and Broker's
+  // per-session signature allowance. Busy, not denied: a later request, or a
+  // new session, may succeed.
+  ...cat("unavailable", ["rate-limited", "session-exhausted"]),
   ...cat("permission", ["language-override-refused"]),
   // api: artifacts and reads through a connection or publication.
   // (`signed-content` and `storage-failed` detail why an artifact wasn't stored.)

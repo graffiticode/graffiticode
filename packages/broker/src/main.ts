@@ -14,6 +14,8 @@
 //                           caller role in Policy's POLICY_CALLERS)
 //   BROKER_PROVIDER_CALL_TIMEOUT_MS, BROKER_EXECUTION_DEADLINE_MS, BROKER_AUTHORIZE_TIMEOUT_MS
 //                           optional time limits (see limits.js; defaults 10 s, 30 s, 5 s)
+//   SYSTEM_SESSION_MAX_SIGNINGS  optional; signatures one system preview session may
+//                           make (session-slots.js; default 4, at most 100)
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables execution. Otherwise
 //                           controls/protected-execution in this database decides, and
 //                           a missing flag means off (@graffiticode/policy maintenance.js)
@@ -48,6 +50,8 @@ import {
   createFirestoreReceiptStore,
   createFirestoreSecretStore,
   createFirestoreActivityStore,
+  createFirestoreSessionSlotStore,
+  parseSystemSessionMaxSignings,
   createReconciler,
   parseLimits,
   buildPolicyAuthorizer
@@ -74,6 +78,7 @@ const jwks = { keys: [{ ...(await exportJWK(await importSPKI(publicKey.pem, "ES2
 const secrets = createFirestoreSecretStore(db, { box });
 const receipts = createFirestoreReceiptStore(db);
 const limits = parseLimits(env);
+const systemSessionMaxSignings = parseSystemSessionMaxSignings(env);
 const operations = buildOperations({
   sdk: new LearnositySDK(),
   domain,
@@ -86,6 +91,8 @@ const broker = createBroker({
   once: createFirestoreOnceStore(db),
   receipts,
   activity: createFirestoreActivityStore(db),
+  slots: createFirestoreSessionSlotStore(db),
+  systemSessionMaxSignings,
   limits,
   // Contract v2 (W4): 1 until the cutover raises it.
   minContractVersion: parseMinContractVersion(env.BROKER_MIN_CONTRACT_VERSION, "BROKER_MIN_CONTRACT_VERSION"),

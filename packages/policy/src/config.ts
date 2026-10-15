@@ -3,6 +3,7 @@
 // running it with a weaker default.
 
 import { OPERATIONS } from "@graffiticode/common/protected-registry";
+import { DEFAULT_SYSTEM_SIGNING } from "./rate-limit.js";
 
 export const requireEnv = (env, name) => {
   const value = env[name];
@@ -111,6 +112,28 @@ export const refuseRemovedSettings = env => {
   const set = REMOVED_SETTINGS.filter(name => env[name] !== undefined && String(env[name]).trim() !== "");
   if (set.length) throw new Error(`${set.join(", ")} no longer exist (registry v7 removed Author signing); unset them`);
 };
+
+// A positive integer setting, at most `max`, or `fallback` when unset.
+// Anything else (a fraction, zero, a negative, text, an absurd value) stops
+// the service. Shared with Broker (SYSTEM_SESSION_MAX_SIGNINGS).
+export const parsePositiveInt = (env, name: string, fallback: number, max: number) => {
+  const value = env[name];
+  if (value === undefined || value === null || String(value).trim() === "") return fallback;
+  const text = String(value).trim();
+  const n = Number(text);
+  if (!/^\d+$/.test(text) || !Number.isSafeInteger(n) || n <= 0 || n > max) {
+    throw new Error(`${name} must be a whole number from 1 to ${max}, not ${JSON.stringify(value)}`);
+  }
+  return n;
+};
+
+// The per-instance bucket on system preview signing (rate-limit.js):
+// SYSTEM_SIGNINGS_PER_MINUTE (default 120) and SYSTEM_SIGNINGS_BURST
+// (default 60).
+export const parseSystemSigningLimits = env => Object.freeze({
+  perMinute: parsePositiveInt(env, "SYSTEM_SIGNINGS_PER_MINUTE", DEFAULT_SYSTEM_SIGNING.perMinute, 100_000),
+  burst: parsePositiveInt(env, "SYSTEM_SIGNINGS_BURST", DEFAULT_SYSTEM_SIGNING.burst, 100_000),
+});
 
 // The lowest admission/execution contract version accepted (W4): 1 (the
 // default) until the cutover sets 2. Anything else refuses to start.

@@ -118,6 +118,8 @@ beforeEach(async () => {
 });
 
 const broker = (over = {}) => createBroker({ ...deps, ...over });
+// A system session's expiry, as Policy signs it into the session's tokens.
+const SEXP = Math.floor(Date.now() / 1000) + 600;
 // An execution token as mint would issue it; `over` changes any claim.
 const token = (over: Record<string, unknown> = {}, s = signer) => issueToken(s, "execution", {
   sub: OWNER,
@@ -166,7 +168,7 @@ describe("AT-05: authority removed after mint, then execute: zero effects", () =
     ["the grant expired", { sub: OTHER }, async () => grants.put({ ...(await grants.get(grantIdFor({ connectionId: "conn-1", recipientUid: OTHER }))), expiresAt: "2000-01-01T00:00:00.000Z" }), "not-owner"],
     ["the connection disabled", {}, () => disable("conn-1"), "connection-disabled"],
     ["unpublished", { prv: "publication", pub: "pub-1" }, () => publications.delete("pub-1"), "publication-not-found"],
-    ["the system connection replaced", { sub: SYSTEM_PREVIEW_SUBJECT, own: SYSTEM, conn: "conn-sys", prv: "system" }, async () => { systemConnections.learnosity = "conn-other"; }, "not-system-connection"],
+    ["the system connection replaced", { sub: SYSTEM_PREVIEW_SUBJECT, own: SYSTEM, conn: "conn-sys", prv: "system", sexp: SEXP }, async () => { systemConnections.learnosity = "conn-other"; }, "not-system-connection"],
   ])("a signature, %s", async (_name, claims, revoke, reason) => {
     const t = await signToken(claims);
     await expect(sign(broker(), t)).resolves.toMatchObject({ status: "succeeded" });
@@ -512,7 +514,7 @@ describe("contract v2 (RELEASE-01, TOKEN-01)", () => {
     await refused(write(strict, await token({ cv: 2, pld: PLAN, stg: "s1" })), "plan-binding-mismatch", 409);
     expect(routes).toEqual([]);
     await expect(write(strict, await token({ cv: 2, pld: PLAN, stg: "s0" }))).resolves.toMatchObject({ status: "succeeded" });
-    await expect(sign(strict, await signToken({ sub: SYSTEM_PREVIEW_SUBJECT, own: SYSTEM, conn: "conn-sys", prv: "system", cv: 2, opid: "sys-1/preview/p.0" }))).resolves.toMatchObject({ status: "succeeded" });
+    await expect(sign(strict, await signToken({ sub: SYSTEM_PREVIEW_SUBJECT, own: SYSTEM, conn: "conn-sys", prv: "system", sexp: SEXP, cv: 2, opid: "sys-1/preview/p.0" }))).resolves.toMatchObject({ status: "succeeded" });
   });
 
   it("names the plan on the receipt and in the audit, so retiring a revision can find its writes", async () => {

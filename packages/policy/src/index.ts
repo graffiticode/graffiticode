@@ -15,4 +15,5 @@ export { createFirestoreApprovals, createFirestoreLeaseFence } from "./revisions
 export { createConnectionManager } from "./manage.js";
 export { createBrokerAdminClient, BrokerConflict } from "./broker-admin.js";
 export { buildPolicyRequest, PolicyRefused } from "./client.js";
-export { requireEnv, parseCallers, parseSystemConnections, refuseRemovedSettings, REMOVED_SETTINGS, parseMinContractVersion, auditSink, createIdTokenSource } from "./config.js";
+export { requireEnv, parseCallers, parseSystemConnections, refuseRemovedSettings, REMOVED_SETTINGS, parseMinContractVersion, parsePositiveInt, parseSystemSigningLimits, auditSink, createIdTokenSource } from "./config.js";
+export { createTokenBucket, DEFAULT_SYSTEM_SIGNING } from "./rate-limit.js";

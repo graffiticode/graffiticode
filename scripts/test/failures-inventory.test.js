@@ -80,6 +80,17 @@ test("the table has no stale reasons the code no longer emits", () => {
   assert.deepEqual(stale, [], `reasons in the table that nothing emits: ${stale.join(", ")}`);
 });
 
+test("system preview signing limits are busy, not denied: unavailable", () => {
+  const found = emitted();
+  // Policy's mint bucket and Broker's per-session slots.
+  assert.ok(found.get("rate-limited")?.some(f => f.startsWith("policy/")), "rate-limited is emitted by Policy");
+  assert.ok(found.get("session-exhausted")?.some(f => f.startsWith("broker/")), "session-exhausted is emitted by Broker");
+  for (const reason of ["rate-limited", "session-exhausted"]) assert.deepEqual(classify(reason), { category: "unavailable", classified: true });
+  assert.equal(classify("authorization-denied:rate-limited").category, "unavailable");
+  // A system-session token without `sexp` is the existing bad-token.
+  assert.equal(classify("bad-token").category, "authentication");
+});
+
 test("wrapped reasons classify as the reason they wrap", () => {
   assert.equal(classify("authorization-denied:token-expired").category, "authentication");
   assert.equal(classify("authorization-denied:maintenance").category, "unavailable");

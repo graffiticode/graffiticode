@@ -24,6 +24,15 @@
 //               count(now) -> number            entries not yet expired
 //             An entry left by a crash expires at its deadline, so a count
 //             never waits past the maximum execution duration.
+//   slots     a system preview session's signature allowance (the
+//             system-preview rate limits plan, design point 3):
+//               claim(sid, max, { expiresAt, jti, opid }) -> k | null
+//             creates the first absent slot `${sid}:${k}`, k = 0..max-1,
+//             each create-if-absent, and returns its index; null when all
+//             `max` are taken. Atomic across instances and concurrent calls,
+//             and durable across restarts. `expiresAt` (epoch ms) is a
+//             cleanup-only TTL: it outlives every token the session can
+//             produce, so a cleaned-up slot can never be claimed again by one.
 //   secrets   One credential per connection, bound to the connection's
 //             immutable owner and backend. Never logged, never returned to
 //             callers.
@@ -45,6 +54,34 @@ export const createMemoryOnceStore = () => {
       if (seen.has(id)) return false;
       seen.set(id, expiresAt);
       return true;
+    },
+  };
+};
+
+export type SessionSlotStore = { claim(sid: string, max: number, slot: { expiresAt: number, jti?: string, opid?: string }): Promise<number | null> };
+// `sweep(at)` stands in for storage TTL cleanup in tests: it removes the slots
+// whose expiresAt is at or before `at` (epoch ms) and returns how many.
+export const createMemorySessionSlotStore = () => {
+  const slots = new Map<string, { expiresAt: number, jti?: string, opid?: string }>();
+  return {
+    async claim(sid: string, max: number, { expiresAt, jti, opid }: { expiresAt: number, jti?: string, opid?: string }) {
+      for (let k = 0; k < max; k++) {
+        const id = `${sid}:${k}`;
+        if (slots.has(id)) continue;
+        slots.set(id, { expiresAt, jti, opid });
+        return k;
+      }
+      return null;
+    },
+    async sweep(at: number) {
+      let removed = 0;
+      for (const [id, slot] of slots) {
+        if (slot.expiresAt <= at) {
+          slots.delete(id);
+          removed++;
+        }
+      }
+      return removed;
     },
   };
 };

@@ -82,8 +82,11 @@ export const PROFILES = Object.freeze({
     // one for the same operation. `pub` names a publication's.
     required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER, prv: STRING },
     // Contract v2 (W4): `cv`, and for user provenance the plan (`pld`) and
-    // stage (`stg`) its session was bound to.
-    optional: { pub: STRING, cv: NUMBER, pld: STRING, stg: STRING },
+    // stage (`stg`) its session was bound to. `sexp`: a system preview
+    // session's expiry (epoch seconds), on every token minted under one, so
+    // Broker's per-session signature slots outlive every token the session
+    // can produce.
+    optional: { pub: STRING, cv: NUMBER, pld: STRING, stg: STRING, sexp: NUMBER },
   }),
   // One admitted plan for one invocation (W4): issued to the gateway by
   // admission, and presented with each stage's snapshot. Policy's audience.

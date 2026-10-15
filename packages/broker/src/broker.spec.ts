@@ -1,5 +1,5 @@
 /* eslint-disable camelcase -- Learnosity wire fields are snake_case */
-import { generateKeyPair, exportJWK } from "jose";
+import { generateKeyPair, exportJWK, decodeJwt } from "jose";
 import {
   createPolicy,
   createLocalSigner,
@@ -8,7 +8,8 @@ import {
   createMemoryInvocationStore,
   createAudit,
   createPseudonymizer,
-  createProtectedSwitch
+  createProtectedSwitch,
+  SYSTEM_PREVIEW_SUBJECT
 } from "@graffiticode/policy";
 import { REGISTRY_VERSION, isStepRegistered, operationSteps } from "@graffiticode/common/protected-registry";
 import {
@@ -24,7 +25,13 @@ import {
   argsDigest,
   localAuthorizer,
   MARK_KEY,
-  writeEvidence
+  writeEvidence,
+  AuthorizationUnavailable,
+  createMemorySessionSlotStore,
+  DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS,
+  MAX_EXECUTION_TOKEN_LIFETIME_S,
+  slotExpiresAt,
+  parseSystemSessionMaxSignings
 } from "./index.js";
 
 // Protected execution on (the maintenance switch is tested on its own).
@@ -206,6 +213,130 @@ describe("system preview sessions", () => {
   it("is refused if the stored credential belongs to another owner", async () => {
     const token = await sysToken({ op: "learnosity.sign-questions-preview", payload: PREVIEW, p: misbound });
     await refused(sysBroker(misbound).execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "credential-binding-mismatch");
+  });
+
+  // The system-preview rate limits plan, design point 3: a system session
+  // allows SYSTEM_SESSION_MAX_SIGNINGS signatures, accounted here.
+  describe("the per-session signature allowance", () => {
+    const OP = "learnosity.sign-questions-preview";
+    let slots;
+    beforeEach(() => { slots = createMemorySessionSlotStore(); });
+    const allowanceBroker = (over = {}) => createBroker({ ...brokerDeps, authorize: localAuthorizer(sysPolicy), slots, ...over });
+    const newSession = async () => (await sysPolicy.previewSession({ caller: L0176, lang: "0176" })).sessionToken;
+    // One mint per signing, as repeated `init`s in one compile make them.
+    const mintIn = async (sessionToken, n) =>
+      (await sysPolicy.mint({ caller: L0176, sessionToken, fn: "init", op: OP, occurrenceId: `init.${n}`, argsDigest: argsDigest(PREVIEW) })).executionToken;
+    const signWith = (b, token) => b.execute({ caller: L0176, token, op: OP, payload: PREVIEW });
+    const jtiOf = token => decodeJwt(token).jti;
+    const stepsFor = jti => records.filter(r => r.event === "execute-step" && r.jti === jti);
+
+    it("signs 4 times by default in one session, then refuses session-exhausted before any signing, audited as unavailable", async () => {
+      const b = allowanceBroker();
+      const s = await newSession();
+      for (let n = 0; n < DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS; n++) {
+        await expect(signWith(b, await mintIn(s, n))).resolves.toMatchObject({ status: "succeeded" });
+      }
+      const fifth = await mintIn(s, 4);
+      const err = await signWith(b, fifth).catch(e => e);
+      expect(err).toBeInstanceOf(BrokerRefused);
+      expect(err).toMatchObject({ reason: "session-exhausted", status: 429 });
+      expect(records.at(-1)).toMatchObject({ event: "execute", outcome: "denied", reason: "session-exhausted", category: "unavailable", provenance: "system" });
+      // Refused before its authorization, so before any signature.
+      expect(stepsFor(jtiOf(fifth))).toEqual([]);
+      // Spent, not replayable: the jti is claimed before the slot.
+      await refused(signWith(b, fifth), "token-replayed");
+      // Another session has its own allowance.
+      await expect(signWith(b, await mintIn(await newSession(), 0))).resolves.toMatchObject({ status: "succeeded" });
+    });
+
+    it("keeps the count across a restart (a new Broker on the same store)", async () => {
+      const s = await newSession();
+      await signWith(allowanceBroker(), await mintIn(s, 0));
+      await signWith(allowanceBroker(), await mintIn(s, 1));
+      await signWith(allowanceBroker(), await mintIn(s, 2));
+      await signWith(allowanceBroker(), await mintIn(s, 3));
+      await refused(signWith(allowanceBroker(), await mintIn(s, 4)), "session-exhausted");
+    });
+
+    it("takes its size from systemSessionMaxSignings, and refuses a nonsense one", async () => {
+      const b = allowanceBroker({ systemSessionMaxSignings: 2 });
+      const s = await newSession();
+      await signWith(b, await mintIn(s, 0));
+      await signWith(b, await mintIn(s, 1));
+      await refused(signWith(b, await mintIn(s, 2)), "session-exhausted");
+      for (const systemSessionMaxSignings of [0, -1, 1.5, "4"]) {
+        expect(() => allowanceBroker({ systemSessionMaxSignings })).toThrow(/systemSessionMaxSignings/);
+      }
+      expect(() => allowanceBroker({ slots: {} })).toThrow(/session slot store/);
+    });
+
+    it("counts a slot as soon as it is claimed, even if that execution then fails", async () => {
+      const s = await newSession();
+      const tokens = [];
+      for (let n = 0; n < 5; n++) tokens.push(await mintIn(s, n));
+      // Policy unreachable for the first: its slot is spent, with no signature.
+      await refused(signWith(allowanceBroker({ authorize: async () => { throw new AuthorizationUnavailable("down"); } }), tokens[0]), "authorization-unavailable");
+      const b = allowanceBroker();
+      for (const t of tokens.slice(1, 4)) await expect(signWith(b, t)).resolves.toMatchObject({ status: "succeeded" });
+      await refused(signWith(b, tokens[4]), "session-exhausted");
+    });
+
+    it("retains each slot past the last moment any token of its session can execute", async () => {
+      const s = await newSession();
+      const { exp: sexp } = decodeJwt(s);
+      await signWith(allowanceBroker(), await mintIn(s, 0));
+      // Storage TTL cleanup at any time up to sexp + the longest token lifetime finds nothing to remove.
+      expect(await slots.sweep((sexp + MAX_EXECUTION_TOKEN_LIFETIME_S) * 1000)).toBe(0);
+      expect(slotExpiresAt(sexp)).toBe((sexp + 60 + 300) * 1000);
+      expect(await slots.sweep(slotExpiresAt(sexp))).toBe(1);
+    });
+
+    it("refuses a system-session token without a valid sexp as bad-token, before anything is spent", async () => {
+      const b = allowanceBroker();
+      const now = Math.floor(Date.now() / 1000);
+      const claims = {
+        sub: SYSTEM_PREVIEW_SUBJECT,
+        own: SYSTEM,
+        conn: "conn-sys",
+        backend: "learnosity",
+        lang: "0176",
+        fn: "init",
+        op: OP,
+        sid: "sid-sys-1",
+        opid: "sys-1/preview/init.0",
+        argd: argsDigest(PREVIEW),
+        rv: REGISTRY_VERSION,
+        prv: "system",
+        cv: 2,
+      };
+      for (const over of [{}, { sexp: now - 120 }, { sexp: now + 3600 }, { sexp: now + 0.5 }, { sexp: now + 600, sid: "a/b" }]) {
+        const token = await issueToken(signer, "execution", { ...claims, ...over });
+        await refused(signWith(b, token), "bad-token");
+        expect(records.at(-1)).toMatchObject({ event: "execute", outcome: "denied", reason: "bad-token", category: "authentication" });
+      }
+      // Nothing claimed: the same session id still has its whole allowance.
+      const ok = await issueToken(signer, "execution", { ...claims, sexp: now + 600 });
+      await expect(signWith(b, ok)).resolves.toMatchObject({ status: "succeeded" });
+      expect(await slots.claim("sid-sys-1", 4, { expiresAt: 0 })).toBe(1);
+    });
+
+    it("never limits a connection's signatures", async () => {
+      const b = allowanceBroker({ systemSessionMaxSignings: 1, authorize: localAuthorizer(policy) });
+      const s = await session();
+      for (let n = 0; n < 6; n++) {
+        const token = await mint(s, { fn: "init", op: OP, payload: PREVIEW, occurrenceId: `n${n}.0` });
+        expect(decodeJwt(token).sexp).toBeUndefined();
+        await expect(signWith(b, token)).resolves.toMatchObject({ status: "succeeded" });
+      }
+    });
+
+    it("reads SYSTEM_SESSION_MAX_SIGNINGS: default 4, 1 to 100, nonsense refused", () => {
+      expect(parseSystemSessionMaxSignings({})).toBe(4);
+      expect(parseSystemSessionMaxSignings({ SYSTEM_SESSION_MAX_SIGNINGS: "2" })).toBe(2);
+      for (const v of ["0", "-1", "2.5", "101", "four"]) {
+        expect(() => parseSystemSessionMaxSignings({ SYSTEM_SESSION_MAX_SIGNINGS: v })).toThrow(/SYSTEM_SESSION_MAX_SIGNINGS/);
+      }
+    });
   });
 });
 

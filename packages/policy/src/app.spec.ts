@@ -234,6 +234,23 @@ describe("system preview sessions over http", () => {
   it("refuse a missing caller identity", async () => {
     expect((await request(app).post("/v1/preview-session").send({ lang: "0176" })).status).toBe(401);
   });
+
+  it("answer 429 with Retry-After, never cached, once this instance's signing bucket is empty (default burst 60)", async () => {
+    const res = await as(request(app).post("/v1/preview-session"), SA.l0176, { user: null }).send({ lang: "0176" });
+    const mint = n => as(request(app).post("/v1/mint"), SA.l0176, { user: null })
+      .send({ sessionToken: res.body.data.sessionToken, fn: "init", op: "learnosity.sign-questions-preview", occurrenceId: `prog.${n}`, argsDigest: "a".repeat(64) });
+    for (let n = 0; n < 60; n++) expect((await mint(n)).status).toBe(200);
+    const busy = await mint(60);
+    expect(busy.status).toBe(429);
+    expect(busy.headers["retry-after"]).toBe("1");
+    expect(busy.headers["cache-control"]).toBe("no-store");
+    expect(busy.body.error).toMatchObject({ code: 429, reason: "rate-limited", category: "unavailable", retryAfter: 1 });
+    // A connection's mint is never limited.
+    const session = await as(request(app).post("/v1/snapshot"), SA.l0176).send(SNAPSHOT);
+    const own = await as(request(app).post("/v1/mint"), SA.l0176)
+      .send({ sessionToken: session.body.data.sessionToken, fn: "init", op: "learnosity.sign-questions-preview", occurrenceId: "n1.0", argsDigest: "a".repeat(64) });
+    expect(own.status).toBe(200);
+  });
 });
 
 describe("caller identity", () => {

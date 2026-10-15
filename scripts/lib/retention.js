@@ -5,15 +5,19 @@
 //
 // Protected records (spec RETAIN-01): invocation records, idempotency
 // bindings, admission plans, receipt claims and outcomes. Only token-replay
-// records and leases may expire.
+// records, in-flight markers, system preview sessions' signature slots and
+// leases may expire.
 
 export const DATABASES = Object.freeze(["policy", "broker", "(default)", "revisions"]);
 
 // Collections whose documents may expire (spec RETAIN-01): token replay ids,
-// in-flight execution markers, and admission leases.
+// in-flight execution markers, system preview sessions' signature slots
+// (`system-session-slots`, cleanup-only: each slot's expiresAt is past the
+// last moment any token of its session can execute, so its count holds until
+// then; Broker session-slots.js), and admission leases.
 export const MAY_EXPIRE = Object.freeze({
   policy: ["admission-leases"],
-  broker: ["jtis", "active-executions"],
+  broker: ["jtis", "active-executions", "system-session-slots"],
   "(default)": [],
   revisions: [],
 });

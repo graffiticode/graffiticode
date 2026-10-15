@@ -695,6 +695,98 @@ describe("system preview sessions", () => {
     await denied(mintWith(await issueToken(signer, "session", { ...base, sub: OWNER, sys: true })), "bad-session");
   });
 
+  it("signs the session's expiry into every system execution token as `sexp`, and into no other", async () => {
+    const { sessionToken } = await session();
+    const { claims: s } = await verifyToken(jwks, "session", sessionToken);
+    for (const occurrenceId of ["init.0", "prog.0"]) {
+      const { claims } = await verifyToken(jwks, "execution", (await mintWith(sessionToken, { occurrenceId })).executionToken);
+      expect(claims.sexp).toBe(s.exp);
+      expect(claims.sid).toBe(s.jti);
+      expect(claims.prv).toBe("system");
+    }
+    // A connection's token carries none.
+    const own = await sys.mint({ caller: L0176, sessionToken: (await snap()).sessionToken, fn: "init", op: "learnosity.sign-items-preview", occurrenceId: "n1.0", argsDigest: digest("args") });
+    expect((await verifyToken(jwks, "execution", own.executionToken)).claims.sexp).toBeUndefined();
+  });
+
+  describe("the per-instance signing bucket", () => {
+    let t;
+    const limited = (systemSigning, systemConnections = { learnosity: "conn-sys" }) => {
+      sysRecords = [];
+      return createPolicy({
+        protectedSwitch: PROTECTED_ON,
+        signer,
+        jwks,
+        connections,
+        invocations: createMemoryInvocationStore(),
+        publications: createMemoryPublicationStore(),
+        systemConnections,
+        systemSigning,
+        now: () => t,
+        audit: createAudit({ sink: r => sysRecords.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) })
+      });
+    };
+    beforeEach(() => { t = 1_000_000; });
+
+    it("refuses system mints past the burst, rate-limited with retryAfter, audited as unavailable; and refills on the clock", async () => {
+      sys = limited({ perMinute: 6, burst: 2 });
+      // Two sessions: the bucket counts mints, not sessions.
+      const a = (await session()).sessionToken;
+      const b = (await session()).sessionToken;
+      await mintWith(a, { occurrenceId: "1" });
+      await mintWith(b, { occurrenceId: "1" });
+      const err = await mintWith(a, { occurrenceId: "2" }).catch(e => e);
+      expect(err).toBeInstanceOf(PolicyDenied);
+      expect(err).toMatchObject({ reason: "rate-limited", retryAfter: 10 });
+      expect(sysRecords.at(-1)).toMatchObject({ event: "mint", outcome: "denied", reason: "rate-limited", category: "unavailable", provenance: "system" });
+      // 6 a minute: one token every 10 s.
+      t += 9_000;
+      await denied(mintWith(a, { occurrenceId: "3" }), "rate-limited");
+      expect(sysRecords.at(-1)).toMatchObject({ reason: "rate-limited", category: "unavailable" });
+      t += 1_000;
+      await expect(mintWith(a, { occurrenceId: "4" })).resolves.toBeTruthy();
+      await denied(mintWith(a, { occurrenceId: "5" }), "rate-limited");
+      // Never more than the burst, however long it waits.
+      t += 3_600_000;
+      await mintWith(a, { occurrenceId: "6" });
+      await mintWith(a, { occurrenceId: "7" });
+      await denied(mintWith(a, { occurrenceId: "8" }), "rate-limited");
+    });
+
+    it("never limits a connection's mints, even with the system bucket empty", async () => {
+      sys = limited({ perMinute: 1, burst: 1 });
+      const s = (await session()).sessionToken;
+      await mintWith(s, { occurrenceId: "1" });
+      await denied(mintWith(s, { occurrenceId: "2" }), "rate-limited");
+      const own = (await snap()).sessionToken;
+      for (let n = 0; n < 5; n++) {
+        await expect(sys.mint({ caller: L0176, sessionToken: own, fn: "init", op: "learnosity.sign-items-preview", occurrenceId: `n${n}.0`, argsDigest: digest("args") })).resolves.toBeTruthy();
+      }
+    });
+
+    it("isn't spent by a mint refused before it (a write on a system session)", async () => {
+      sys = limited({ perMinute: 1, burst: 1 });
+      const s = (await session()).sessionToken;
+      await denied(mintWith(s, { fn: "save-to-itembank", op: "learnosity.write-items" }), "fn-not-in-session");
+      await expect(mintWith(s)).resolves.toBeTruthy();
+    });
+
+    it("defaults to 120 a minute with a burst of 60", async () => {
+      sys = limited(undefined);
+      const s = (await session()).sessionToken;
+      for (let n = 0; n < 60; n++) await mintWith(s, { occurrenceId: `${n}` });
+      await expect(mintWith(s, { occurrenceId: "60" })).rejects.toMatchObject({ reason: "rate-limited", retryAfter: 1 });
+      t += 500;
+      await expect(mintWith(s, { occurrenceId: "61" })).resolves.toBeTruthy();
+    });
+
+    it("refuses nonsense limits at construction", () => {
+      for (const systemSigning of [{ perMinute: 0, burst: 1 }, { perMinute: 1, burst: 0 }, { perMinute: 1.5, burst: 1 }, { perMinute: 1 }, null]) {
+        expect(() => limited(systemSigning)).toThrow(/token bucket/);
+      }
+    });
+  });
+
   it("leaves the system connection unusable as an ordinary connection", async () => {
     await denied(sys.snapshot({
       caller: L0176,

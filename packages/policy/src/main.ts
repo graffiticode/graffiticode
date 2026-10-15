@@ -9,6 +9,8 @@
 //   BROKER_URL              broker service URL (credential provisioning)
 //   AUDIT_PSEUDONYM_SECRET  HMAC secret for pseudonymous audit ids (Secret Manager)
 //   POLICY_SYSTEM_CONNECTIONS  optional backend -> system connection id (see config.js)
+//   SYSTEM_SIGNINGS_PER_MINUTE, SYSTEM_SIGNINGS_BURST  optional; this instance's bucket on
+//                           system preview mints (rate-limit.js; defaults 120 and 60)
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables protected execution.
 //                           Otherwise controls/protected-execution in this database
 //                           decides, and a missing flag means off (see maintenance.js)
@@ -37,7 +39,7 @@ import {
   createFirestoreFlagReader,
   parseHardDisable
 } from "./index.js";
-import { requireEnv, parseCallers, parseSystemConnections, refuseRemovedSettings, parseMinContractVersion, auditSink, createIdTokenSource } from "./config.js";
+import { requireEnv, parseCallers, parseSystemConnections, refuseRemovedSettings, parseMinContractVersion, parseSystemSigningLimits, auditSink, createIdTokenSource } from "./config.js";
 import { createFirestoreApprovals, createFirestoreLeaseFence } from "./revisions.js";
 
 const env = process.env;
@@ -51,6 +53,7 @@ const systemConnections = parseSystemConnections(env.POLICY_SYSTEM_CONNECTIONS);
 refuseRemovedSettings(env);
 // Contract v2 (W4): 1 until the cutover raises it.
 const minContractVersion = parseMinContractVersion(env.POLICY_MIN_CONTRACT_VERSION);
+const systemSigning = parseSystemSigningLimits(env);
 
 const app = admin.apps.length ? admin.app() : admin.initializeApp();
 const db = getFirestore(app, env.POLICY_FIRESTORE_DB || "policy");
@@ -88,6 +91,7 @@ const policy = createPolicy({
   approvals: createFirestoreApprovals(revisionsDb),
   fence: createFirestoreLeaseFence(db),
   minContractVersion,
+  systemSigning,
 });
 const manager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin });
 const authClient = createAuthClient(authUrl);

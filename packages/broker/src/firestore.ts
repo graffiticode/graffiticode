@@ -30,6 +30,21 @@ export const createFirestoreOnceStore = db => ({
   },
 });
 
+// See stores.js for the contract. `system-session-slots/{sid}:{k}`, each
+// created once; expiresAt (a Date) feeds a cleanup-only TTL policy. Slots are
+// tried in order, so a session's claims fill 0, 1, …; a racer that loses slot
+// k moves on to k+1, and with every slot taken the claim is refused.
+export const SYSTEM_SESSION_SLOTS = "system-session-slots";
+export const createFirestoreSessionSlotStore = db => ({
+  async claim(sid, max, { expiresAt, jti, opid }) {
+    for (let k = 0; k < max; k++) {
+      const ref = db.collection(SYSTEM_SESSION_SLOTS).doc(`${sid}:${k}`);
+      if (await createOnce(ref, { sid, k, jti, opid, claimedAt: new Date().toISOString(), expiresAt: new Date(expiresAt) })) return k;
+    }
+    return null;
+  },
+});
+
 export const createFirestoreReceiptStore = db => {
   const claimRef = operationId => db.collection("receipts").doc(docId(operationId));
   const outcomeRef = operationId => claimRef(operationId).collection("outcome").doc("final");

@@ -22,6 +22,8 @@
 //                                                                 -> { allowed, sessionToken }
 //   POST /v1/mint      compiler   { sessionToken, fn, op, occurrenceId, argsDigest }
 //                                                                 -> { executionToken, operationId }
+//                                 (429 `rate-limited` with Retry-After when this instance's
+//                                 system preview signing bucket is empty)
 //   GET    /v1/connections              console  the user's connections (no secrets)
 //   POST   /v1/connections              console  { backend, label?, credential: { key, secret } }
 //   POST   /v1/connections/:id/rotate   console  { credential: { key, secret } }
@@ -102,6 +104,14 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     } catch (err) {
       if (err instanceof PolicyMaintenance) {
         res.status(503).json({ status: "error", error: { code: 503, message: "protected execution is paused", reason: err.reason, category: await categoryOf(err.reason, null) }, data: null });
+        return;
+      }
+      // Busy, not denied (rate-limit.js): 429 with when to try again, never
+      // cached.
+      if (err instanceof PolicyDenied && err.retryAfter !== undefined) {
+        res.set("Retry-After", String(err.retryAfter));
+        res.set("Cache-Control", "no-store");
+        res.status(429).json({ status: "error", error: { code: 429, message: "policy busy", reason: err.reason, category: await categoryOf(err.reason, null), retryAfter: err.retryAfter }, data: null });
         return;
       }
       if (err instanceof PolicyDenied) {
