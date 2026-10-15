@@ -31,6 +31,48 @@ const PREVIEW_KEYS = ["id", "name", "questions", "session_id", "dynamic_content_
 const pick = (obj: any, keys: string[]) =>
   Object.fromEntries(keys.filter((k) => obj?.[k] !== undefined).map((k) => [k, obj[k]]));
 
+const isPlainObject = (v: any) => v !== null && typeof v === "object" && !Array.isArray(v);
+// Broker's isRef (graffiticode packages/broker/src/operations.ts); keep in step.
+const isRef = (v: any) => typeof v === "string" && /^[A-Za-z0-9_.:-]{1,250}$/.test(v);
+
+const describeValue = (v: any) =>
+  v === undefined ? "nothing" : v === null ? "null" : Array.isArray(v) ? "a list" :
+  typeof v !== "object" ? `a ${typeof v}` : "type" in v ? `a "${String(v.type)}" record` :
+  "a record with no type (a bare signed request is not an activity)";
+
+const NOT_AN_ACTIVITY =
+  "Error: init signs a Learnosity activity, `{ type: \"questions\" | \"items\", data: { questions, ... } }`; it was given ";
+
+// Why `init` can't sign this value, or null when it can. `init` signs an
+// activity arriving as data (an upstream compile's output, or a View's
+// resolved activity): exactly what Broker's validatePreview accepts, checked
+// here so a refusal is a compile error, not an unsigned preview. Nothing is
+// adapted: a legacy `{ type, reference, data }` question, a bare signed
+// request or any other value is refused.
+export function activityRefusal(plain: any): string | null {
+  if (!isPlainObject(plain) || (plain.type !== "questions" && plain.type !== "items") || !isPlainObject(plain.data)) {
+    return NOT_AN_ACTIVITY + describeValue(plain) + ".";
+  }
+  const { questions } = plain.data;
+  if (!Array.isArray(questions)) {
+    return "Error: init: the activity's data.questions must be a list.";
+  }
+  const bad = questions.findIndex((q: any) => !isPlainObject(q) || typeof q.type !== "string" || !isRef(q.response_id));
+  if (bad >= 0) {
+    return `Error: init: questions[${bad}] needs a type and response_id. ` +
+      "A legacy `{ type, reference, data }` question record is not accepted; recompile the program that made it.";
+  }
+  return null;
+}
+
+// The activity with any signing envelope it arrived with removed: an
+// incoming `request` (signed elsewhere, perhaps for another domain) is never
+// passed through, and a stale `signing` never outlives a new signature.
+export const withoutSigning = (plain: any) => {
+  const { request: _request, signing: _signing, ...activity } = plain;
+  return activity;
+};
+
 export const isBrokered = (exec: ExecContext | undefined): exec is ExecContext =>
   Boolean(exec?.connectionId && exec.sessionToken);
 

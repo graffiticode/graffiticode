@@ -413,3 +413,135 @@ describe("structured failures and effects", () => {
     expect(ok.effects).toEqual([]);
   });
 });
+
+// L0158 renders through L0176 (plan l0158-via-l0176, step 2). L0158's compile
+// output is an unsigned activity whose questions are inline
+// `{ response_id, type, ...data }`; L0176's View resolves its dynamic data and
+// sends it as data to `init data {}`, which signs it. Old L0158 outputs
+// (cached in Firestore, Redis, CDNs) come in shapes that must never be
+// signed or passed through: they are compile errors, never adapted.
+describe("an L0158 activity arriving as data", () => {
+  beforeEach(() => {
+    if (!(compiler as any).__configured) {
+      (compiler as any).setPolicyClient(fakeClient);
+      (compiler as any).__configured = true;
+    }
+  });
+
+  const L0158_ACTIVITY = {
+    type: "questions",
+    data: {
+      id: "act-1",
+      name: "L0158 item",
+      session_id: "3f2a9d1e-0000-4000-8000-000000000001",
+      questions: [
+        { response_id: "artcompiler-mcq-x-0", type: "mcq", stimulus: "What is 7 + 5?", options: [{ label: "12", value: "0" }] },
+        { response_id: "artcompiler-custom-x-1", type: "custom", js: { question: "https://example.org/q.js" }, data: { cells: { A1: { text: "7" } } } },
+      ],
+      dynamic_content_data: { cols: ["A1"], rows: { r1: { values: ["7"] } } },
+    },
+  };
+
+  test.each([
+    ["without a connection (system preview session)", undefined, "system-session"],
+    ["through a connection", WITH_CONNECTION, "session-1"],
+  ])("is signed by init %s, with only preview fields sent", async (_, identity, session) => {
+    const { err, val } = await compile("init data {}..", identity, L0158_ACTIVITY);
+    expect(err).toEqual([]);
+    expect(val).toBe("signed:learnosity.sign-questions-preview");
+    expect(invocations).toHaveLength(1);
+    expect(invocations[0].fn).toBe("init");
+    expect(invocations[0].payload).toEqual(L0158_ACTIVITY.data);
+    expect(sessionsUsed).toEqual([session]);
+    expect(fetched).toEqual([]);
+  });
+
+  test("an activity that arrives with a request is signed afresh; its request is never sent or returned", async () => {
+    const cached = { ...L0158_ACTIVITY, request: { consumer_key: "old", signature: "$02$old-for-l0158", questions: [] } };
+    const { err, val } = await compile("init data {}..", undefined, cached);
+    expect(err).toEqual([]);
+    expect(val).toBe("signed:learnosity.sign-questions-preview");
+    expect(JSON.stringify(invocations)).not.toMatch(/old-for-l0158/);
+  });
+
+  test("when signing is unavailable, the incoming request is not passed through either", async () => {
+    previewReply = () => refusal("no-system-connection");
+    const cached = { type: "items", data: L0158_ACTIVITY.data, request: { security: { signature: "$02$old-for-l0158" } } };
+    const { err, val } = await compile("init data {}..", undefined, cached);
+    expect(err).toEqual([]);
+    expect(val.request).toBeUndefined();
+    expect(val.signing).toMatchObject({ unsigned: "unavailable" });
+    expect(JSON.stringify(val)).not.toMatch(/old-for-l0158/);
+  });
+
+  test("as the program's value (`data {}`), an activity with a request is re-signed too", async () => {
+    const cached = { ...L0158_ACTIVITY, request: "signed-for-l0158", signing: { unsigned: "stale", message: "stale" } };
+    const { err, val } = await compile("data {}..", undefined, cached);
+    expect(err).toEqual([]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(val.signing).toBeUndefined();
+    expect(invocations).toHaveLength(1);
+  });
+
+  // Cached old shapes.
+  const LEGACY_QUESTIONS = {
+    type: "questions",
+    data: {
+      id: "act-1", name: "legacy", session_id: "s",
+      questions: [{ type: "mcq", reference: "artcompiler-mcq-x-0", data: { type: "mcq", stimulus: "?" } }],
+    },
+  };
+  const BARE_REQUEST = {
+    consumer_key: "K", timestamp: "20261015-1200", signature: "$02$abc", user_id: "u",
+    questions: [{ response_id: "r-0", type: "mcq" }],
+  };
+  const CACHED_ITEMS_WITH_LEGACY = { type: "items", data: { questions: [{ reference: "q" }] }, request: { security: {} } };
+
+  test.each([
+    ["a legacy { type, reference, data } question record", LEGACY_QUESTIONS, /questions\[0\] needs a type and response_id/],
+    ["an old explicit init's bare signed request", BARE_REQUEST, /init signs a Learnosity activity.*a record with no type/],
+    ["an Items request carrying a request, with legacy questions", CACHED_ITEMS_WITH_LEGACY, /questions\[0\] needs a type and response_id/],
+    ["a list of activities", [LEGACY_QUESTIONS], /init signs a Learnosity activity/],
+    ["an empty record", {}, /init signs a Learnosity activity/],
+    ["a record of another type", { type: "other", data: {} }, /init signs a Learnosity activity.*"other" record/],
+    ["an activity with no data", { type: "items" }, /init signs a Learnosity activity/],
+  ])("%s is a compile error on both paths, never signed", async (_, data, message) => {
+    for (const identity of [undefined, WITH_CONNECTION]) {
+      invocations.length = 0;
+      const { err, val } = await compile("init data {}..", identity, data);
+      expect(err).toHaveLength(1);
+      expect(String(err[0]?.message ?? err[0])).toMatch(message);
+      expect(val?.request).toBeUndefined();
+      expect(invocations).toEqual([]);
+    }
+  });
+
+  test.each([
+    ["a number", "init 5.."],
+    ["a string", `init "questions"..`],
+    ["a list", "init [1, 2].."],
+    ["nothing (an unset variable)", `init get-var "unset"..`],
+  ])("init of %s is a compile error, not a silent undefined", async (_, src) => {
+    const { err } = await compile(src);
+    expect(err).toHaveLength(1);
+    expect(String(err[0]?.message ?? err[0])).toMatch(/init signs a Learnosity activity/);
+    expect(invocations).toEqual([]);
+  });
+
+  test.each([
+    ["questions is not a list", { type: "questions", data: { questions: "q" } }, /data.questions must be a list/],
+    ["a question with no type", { type: "questions", data: { questions: [{ response_id: "r-0" }] } }, /questions\[0\] needs/],
+    ["a response_id Broker would refuse", { type: "questions", data: { questions: [{ type: "mcq", response_id: "r 0/../x" }] } }, /questions\[0\] needs/],
+    ["a question that is not a record", { type: "questions", data: { questions: [L0158_ACTIVITY.data.questions[0], "mcq"] } }, /questions\[1\] needs/],
+  ])("a malformed activity (%s) is refused", async (_, data, message) => {
+    const { err } = await compile("init data {}..", undefined, data);
+    expect(String(err[0]?.message ?? err[0])).toMatch(message);
+    expect(invocations).toEqual([]);
+  });
+
+  test("an Author activity is still refused, even with a request", async () => {
+    const { err } = await compile("init data {}..", undefined, { type: "author", data: { mode: "item_edit" }, request: "r" });
+    expect(String(err[0]?.message ?? err[0])).toMatch(/L0177/);
+    expect(invocations).toEqual([]);
+  });
+});

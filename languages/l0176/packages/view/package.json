@@ -24,7 +24,8 @@
     "build": "tsc -p tsconfig.json && vite build",
     "build:embed": "vite build --config vite.embed.config.ts",
     "preview": "vite preview --config vite.embed.config.ts",
-    "lint": "eslint src embed"
+    "lint": "eslint src embed",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
@@ -35,13 +36,17 @@
   },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.59.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.4.20",
+    "jsdom": "^25.0.1",
     "postcss": "^8.4.47",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "swr": "^2.5.1",
     "tailwindcss": "^3.4.13",
     "vite": "^8.3.0",
     "vite-plugin-dts": "^5.1.0"

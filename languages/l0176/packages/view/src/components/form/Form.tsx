@@ -5,10 +5,26 @@
 // FormProps contract (state.data / state.errors) — the View (from
 // @graffiticode/l0000-view) owns the iframe postMessage/onload protocol, so this
 // Form no longer posts to the parent itself.
+//
+// Resolve, then sign (ported from L0158's View). The compiled data is a
+// `{ type, data }` activity, signed at compile time (an L0176 item) or not
+// (an L0158 item, which renders here since L0158 holds no credential):
+//   - one row of its `dynamic_content_data` is picked per mount and
+//     substituted everywhere, custom-question data included (resolve.ts);
+//   - when the activity has no `request`, or substitution changed it, the
+//     resolved activity is signed by L0176's `init data {}` (sign.ts) and
+//     rendered as `{ type: activity.type, request }`;
+//   - an already-signed activity with nothing to substitute renders its
+//     request directly, with no second compile.
+// Without a request (signing unavailable, or still pending) the Learnosity
+// SDK is never initialized; an unsigned preview shows why.
 import "../../index.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormProps, CompileError } from "@graffiticode/l0000-view";
 import { contentKey } from "./contentKey";
+import { activityKey, isActivity, pickRow, resolveVariables } from "./resolve";
+import { signActivity, UNSIGNED_MESSAGE } from "./sign";
+import type { SignResult } from "./sign";
 
 function renderErrors(errors: CompileError[]) {
   return (
@@ -25,10 +41,70 @@ function renderErrors(errors: CompileError[]) {
   );
 }
 
+interface Renderable {
+  type?: string;
+  request?: any;
+  /** A signing compile is in flight for the current content. */
+  pending: boolean;
+  /** Why there is no request, when there is none. */
+  message?: string;
+  errors: CompileError[];
+}
+
+// What to render for the compiled data: its own request, or the request
+// signed for its resolved content.
+function useRenderable(data: any): Renderable {
+  const activity = isActivity(data) ? data : null;
+  const key = activity ? activityKey(activity) : null;
+  // One row per mount; picked again only if the table itself changes.
+  const table = JSON.stringify(activity?.data?.dynamic_content_data ?? null);
+  const env = useMemo(() => (activity ? pickRow(activity.data.dynamic_content_data) : null), [table]);
+  const resolved = useMemo(() => {
+    if (!activity) return null;
+    if (!env) return { activity, changed: false };
+    const out = resolveVariables({ type: activity.type, data: activity.data }, env);
+    return { activity: out, changed: JSON.stringify(out.data) !== JSON.stringify(activity.data) };
+  }, [key, env]);
+  const needsSign = Boolean(resolved && (!activity.request || resolved.changed));
+  // Keyed on the RESOLVED content, so the same content is signed once
+  // whatever the identity of the data the host hands down.
+  const signKey = needsSign ? activityKey(resolved.activity) : null;
+  const [signed, setSigned] = useState<{ key: string; result: SignResult } | null>(null);
+  const resolvedRef = useRef(resolved);
+  resolvedRef.current = resolved;
+
+  useEffect(() => {
+    if (!signKey) return;
+    let cancelled = false;
+    signActivity(resolvedRef.current.activity).then((result) => {
+      if (!cancelled) setSigned({ key: signKey, result });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [signKey]);
+
+  if (!activity) {
+    return { type: data?.type, request: data?.request, pending: false, message: data?.signing?.message, errors: [] };
+  }
+  if (!needsSign) {
+    return { type: activity.type, request: activity.request, pending: false, errors: [] };
+  }
+  const result = signed?.key === signKey ? signed.result : null;
+  return {
+    type: activity.type,
+    request: result?.request,
+    pending: !result,
+    message: result?.message,
+    errors: result?.errors ?? [],
+  };
+}
+
 export const Form = ({ state }: FormProps) => {
-  const errors: CompileError[] = state.errors ?? [];
+  const { type, request, pending, message, errors: signErrors } = useRenderable(state.data);
+  const errors: CompileError[] = [...(state.errors ?? []), ...signErrors];
   const hasErrors = errors.length > 0;
-  const { type, request } = state.data || {};
+  const hasRequest = Boolean(request);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   // The content key of the assessment currently mounted into Learnosity. Guards
   // against the host's re-signed-request churn re-initializing the SDK (see
@@ -37,7 +113,7 @@ export const Form = ({ state }: FormProps) => {
 
   useEffect(() => {
     if (hasErrors) return;
-    if (!type) return;
+    if (!type || !hasRequest) return;
     // Dynamically load the Learnosity script for this result type. Re-run on
     // type change so preview (questions) and save (items) swap scripts
     // correctly when state.data.type flips post-compile.
@@ -55,11 +131,14 @@ export const Form = ({ state }: FormProps) => {
     return () => {
       document.body.removeChild(script);
     };
-  }, [type]);
+  }, [type, hasRequest]);
 
   useEffect(() => {
     if (!scriptLoaded) return;
     if (hasErrors) return;
+    // No signed request, no SDK: Learnosity can't initialize an unsigned
+    // activity, and trying throws inside the SDK.
+    if (!request) return;
     // Skip re-initialization when only the signing envelope changed (host
     // re-signs on focus/reconnect via SWR — see contentKey above). Re-init on
     // the same mounted DOM throws Learnosity's "triggerBufferedEvents" error.
@@ -102,6 +181,16 @@ export const Form = ({ state }: FormProps) => {
 
   if (hasErrors) {
     return renderErrors(errors);
+  }
+  if ((type === "questions" || type === "items") && !request) {
+    if (pending) {
+      return <div className="p-4" role="status" aria-busy="true" />;
+    }
+    return (
+      <div role="alert" className="m-4 rounded-md p-3 border text-sm bg-amber-50 border-amber-200 text-amber-900">
+        {message || UNSIGNED_MESSAGE}
+      </div>
+    );
   }
   if (type === "questions") {
     // Questions API renders into .learnosity-response spans keyed by response_id.

@@ -13,7 +13,7 @@ an Author API integration, use L0177.
 - Use `items` to create Items API requests for rendering assessments
 - Use `item` to define individual items when building a list for `items`
 - Use `questions [...] {}` inside an `item` to give it its questions
-- Do not use `init` or `hello`: `init` signs a bare session request and `hello` is a diagnostic; neither produces an assessment
+- Do not use `init` or `hello`: `init` signs an activity arriving as data and `hello` is a diagnostic; neither produces an assessment
 - `items` always takes a list of `item` objects: `items [item [questions [...] {}]] {}..`
 - When an assessment has multiple questions, place all questions in the same `item` rather than creating separate items: `items [item [questions [mcq [], shorttext []] {}]] {}..`
 
@@ -1057,7 +1057,3 @@ substitutes one row into the question text via `{{colname}}` placeholders.
   ] {}..
   ```
 
-- Initialize an items session:
-  ```
-  init { "type": "items" }..
-  ```

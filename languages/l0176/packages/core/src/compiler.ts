@@ -21,6 +21,8 @@ import {
   brokeredSave,
   systemPreviewSign,
   protectedError,
+  activityRefusal,
+  withoutSigning,
 } from "./protection.js";
 import type { SystemPreviewClient } from "./protection.js";
 import type { PolicyClient } from "@graffiticode/l0000";
@@ -120,12 +122,16 @@ const AUTHOR_NOT_SUPPORTED =
   "to plan an Author API integration, which your own application signs, use L0177.";
 const isAuthorActivity = (val: any) => val?.type === "author";
 
-async function signForRender(plain: any, exec?: any): Promise<any> {
-  // Only sign Learnosity render output: a `{ type, data }` activity that has
-  // not already been signed. Leaves bare/non-Learnosity values untouched.
-  if (!plain || typeof plain !== "object" || !plain.type || plain.request) {
-    return plain;
+async function signForRender(given: any, exec?: any): Promise<any> {
+  // Only sign Learnosity render output: a `{ type, data }` activity. Leaves
+  // bare/non-Learnosity values (a signed request from `init` has no `type`)
+  // untouched. An activity that arrives already carrying a `request` (an old
+  // cached output, signed elsewhere) is never passed through: its request is
+  // dropped and it is signed afresh.
+  if (!given || typeof given !== "object" || Array.isArray(given) || !given.type) {
+    return given;
   }
+  const plain = withoutSigning(given);
   // Brokered: the connection's credential signs, inside the broker.
   if (isBrokered(exec)) {
     const request = await brokeredSign(exec, plain, "prog");
@@ -219,14 +225,29 @@ export class Transformer extends BaseTransformer {
     });
   }
 
+  // `init <activity>` signs a `{ type, data }` activity, typically one
+  // arriving as data: an upstream compile's output (L0158's), or the
+  // activity L0176's View has resolved dynamic data in (`init data {}`). Any
+  // other value is a compile error, never a silent undefined; an incoming
+  // `request` is dropped and the activity signed afresh.
   INIT(node: any, options: any, resume: any) {
     this.visit(node.elts[0], options, async (e0: any, v0: any) => {
-      const plain = toPlainObject(v0);
+      if (e0 && e0.length > 0) {
+        resume(e0, undefined);
+        return;
+      }
+      const given = toPlainObject(v0);
       const err: any[] = [];
-      if (isAuthorActivity(plain)) {
+      if (isAuthorActivity(given)) {
         resume([AUTHOR_NOT_SUPPORTED], undefined);
         return;
       }
+      const refusal = activityRefusal(given);
+      if (refusal) {
+        resume([refusal], undefined);
+        return;
+      }
+      const plain = withoutSigning(given);
       if (isBrokered(this.execContext)) {
         try {
           resume(err, await brokeredSign(this.execContext, plain, occurrenceKey(node)));
@@ -235,16 +256,11 @@ export class Transformer extends BaseTransformer {
         }
         return;
       }
-      const { type } = plain ?? {};
-      if (type === "questions" || type === "items") {
-        // No connection: sign through the system preview session. `init`
-        // evaluates to the signed request; unsigned, to the activity with
-        // `signing: { unsigned, message }`.
-        const signed = await systemPreviewSign(this.execContext, systemPreviewClient, plain, occurrenceKey(node));
-        resume(err, signed.request ?? signed);
-        return;
-      }
-      resume(err, undefined);
+      // No connection: sign through the system preview session. `init`
+      // evaluates to the signed request; unsigned, to the activity with
+      // `signing: { unsigned, message }`.
+      const signed = await systemPreviewSign(this.execContext, systemPreviewClient, plain, occurrenceKey(node));
+      resume(err, signed.request ?? signed);
     });
   }
 
@@ -431,13 +447,20 @@ export class Transformer extends BaseTransformer {
         return;
       }
       // An Author activity arriving as data is refused, never signed.
-      if (isAuthorActivity(toPlainObject(val))) {
+      const plainVal = toPlainObject(val);
+      if (isAuthorActivity(plainVal)) {
         resume([AUTHOR_NOT_SUPPORTED], undefined);
         return;
       }
+      // An activity arriving as data with a `request` already in it (an old
+      // cached output, signed elsewhere) is signed afresh rather than passed
+      // through: signForRender drops the request. A record value is otherwise
+      // left as it is (see the record-literal note in CLAUDE.md).
+      const carriesRequest = plainVal !== null && typeof plainVal === "object" && !Array.isArray(plainVal) &&
+        plainVal.type && plainVal.request !== undefined;
       // Attach the signed Learnosity `request` (see signForRender).
       try {
-        const signed = await signForRender(val, this.execContext);
+        const signed = await signForRender(carriesRequest ? plainVal : val, this.execContext);
         resume(err, signed);
       } catch (e: any) {
         resume([protectedError(e, this.execContext)], undefined);

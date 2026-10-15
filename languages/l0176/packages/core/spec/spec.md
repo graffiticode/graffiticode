@@ -16,7 +16,7 @@ semantics and base library can be found here:
 | `items` | 2 | `<list: list, continuation: record>` | The top-level block: builds one Learnosity item per `item` entry and renders their questions |
 | `item` | 1 | `<members: list>` | One item, for the list `items` takes: its `questions` and `metadata` |
 | `questions` | 2 | `<list: list, continuation: record>` | An item's questions — or, at top level, a questions-only activity |
-| `init` | 1 | `<record: record>` | Signs a bare Learnosity API session request |
+| `init` | 1 | `<activity: record>` | Signs a `{ type, data }` activity, usually one arriving as data; evaluates to its signed request |
 | `hello` | 1 | `<string: string>` | Evaluates to its argument; a diagnostic |
 
 ### Question Type Functions
@@ -220,12 +220,19 @@ questions [
 
 ### init
 
-Signs a bare Learnosity session request built from the given record, whose
-`type` — `"items"` or `"questions"` — selects the API. Rarely
-needed: `items` and `questions` produce signed requests themselves.
+Signs a Learnosity activity, `{ type: "questions" | "items", data }`, and
+evaluates to the signed request. Its usual argument is an activity arriving as
+data (`init data {}`): an upstream compile's output, or the activity the form
+has resolved dynamic data in before it renders. Every question must carry a
+`type` and a `response_id`. Any other value (a bare record, a signed request, a
+list, a legacy `{ type, reference, data }` question record) is a compile error,
+and a `request` the activity arrives with is dropped and signed afresh. Rarely
+needed in a program: `items` and `questions` produce signed requests
+themselves.
 
 ```
-init { "type": "items" }
+set-var "lrn-id" get-val-public "itemId"
+init questions [mcq [stimulus "What is 2 + 2?"]] {}
 ```
 
 ### hello

@@ -12,8 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Start production**: `npm run start` (runs the built API server)
 
 ### Testing
-Vitest, in `packages/core` (plus one view test that is not wired to a script).
-- **Run all**: `npm test` (delegates to `npm -w packages/core test` → `vitest run`)
+Vitest, in `packages/core` and `packages/view` (jsdom, with `@testing-library/react`; the
+Learnosity SDK and `fetch` are stubbed at their boundaries).
+- **Run all**: `npm test` (`npm -w packages/core test`, then `npm -w packages/view test`)
 - **One file**: `npm -w packages/core exec vitest run src/docs.test.ts`
 - **One test by name**: `npm -w packages/core exec vitest run -t "questions path"`
 - **Watch**: `npm -w packages/core exec vitest`
@@ -92,6 +93,9 @@ An Author activity arriving as data is a compile error pointing to L0177.
 - **`packages/view/`** — `@graffiticode/l0176-view`: React view component. Vite + TypeScript + Tailwind.
   - `src/components/form/Form.tsx`: language-specific form rendering
   - `src/components/form/contentKey.ts`: stable key for the one-time `LearnosityApp.init`
+  - `src/components/form/resolve.ts` / `sign.ts`: resolve-then-sign (below)
+  - `src/generation.ts`: SWR middleware the `/form` bundle installs around the View, so its
+    data load carries the `generation` of the `?url=` the api's `/form` redirect passes
   - `embed/`: standalone HTML entry built by `vite.embed.config.ts` for embedding in the API's static bundle
   - Built on top of `@graffiticode/l0000-view`
 
@@ -140,6 +144,27 @@ Two consequences: L0176 wants `min-instances=1` on Cloud Run (cold start is on e
 path), and the Form must key its one-time `LearnosityApp.init` on stable question content
 (`contentKey.ts`) rather than object identity, since `request` churns on every recompile.
 Re-initializing on already-mounted DOM throws Learnosity's `triggerBufferedEvents` error.
+
+### Resolve, then sign (the Form)
+
+L0158 holds no credential, so its items render in this Form (the api's `/form` redirects an
+L0158 task here once its generation is active): its compiled data is an **unsigned**
+`{ type, data }` activity with inline `{ response_id, type, ... }` questions. Ported from
+L0158's View, the Form picks one `dynamic_content_data` row per mount and substitutes
+`{{var:X}}` everywhere, custom-question data included (Learnosity passes custom data through
+unsubstituted). When the activity has no `request`, or substitution changed it, it posts the
+resolved activity to L0176's own `POST /compile` with `init data {}` and no connection or user
+token, so the system preview session signs it for `l0176.graffiticode.org`, and renders
+`{ type: activity.type, request }`. An already-signed activity with nothing to substitute
+renders its own request with no second compile. Without a request (signing unavailable,
+pending, or refused) the SDK is never initialized; an unsigned result shows its
+`signing.message`, or "This preview couldn't be signed."
+
+`init` signs only a `{ type: "questions" | "items", data }` activity whose questions each have
+a `type` and a Broker-acceptable `response_id`, checked before signing so a refusal is a
+compile error. Anything else (a bare signed request, a list, a primitive, nothing, a legacy
+`{ type, reference, data }` question record) is a compile error, never adapted. A `request`
+the activity arrives with is dropped and the activity signed afresh, in `init` and in `PROG`.
 
 ### Data Flow
 
@@ -312,6 +337,13 @@ Deliberate differences:
 - A compile with a connection on a server with no policy client is refused by the kernel's admission ("init is not permitted through the selected connection.") rather than "connections are not available on this server."
 - `get-val-*` without a resolved value says so without the `[object Object]` the published `@graffiticode/l0000` this package uses appends.
 - An attribute given an undefined value (an unset `get-var`) emits `null`; TypeScript drops the field.
+
+**Parity gap (not yet ported):** the TypeScript `init` now refuses any value that isn't a
+`{ type, data }` activity with Broker-shaped questions, and drops a `request` an activity
+arrives with (in `init` and `PROG`) before signing it afresh. The Rust `init` still evaluates a
+non-activity to nothing and `{ type: "items" }` with no data to an unsigned preview, and the conformance
+fixtures (`init { "type": "items" }`, `init {type: "other"}`) predate the change; regenerate
+them with `npm run rust:fixtures` when the Rust side is brought level.
 
 ### Deploying the Rust server
 
