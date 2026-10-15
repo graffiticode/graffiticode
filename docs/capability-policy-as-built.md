@@ -368,7 +368,8 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   data and checks owner/backend at execution. Rotation preserves provider key identity.
   L0176 no longer reads legacy program/config credentials. The legacy `get-val-private`
   shared-secret path is retired: no service mounts the key, and the key is destroyed (see the
-  inventory below). Deployed ISOLATE-01 controls and AT-11 remain open. Evidence:
+  inventory below). **Since 2026-10-15 no compiler holds or can read a provider credential**
+  (L0158 below). Deployed ISOLATE-01 controls and AT-11 remain open. Evidence:
   [secret storage](../packages/broker/src/firestore.ts),
   [rotation rules](../packages/broker/src/stores.ts), and [deployment manifest](../deploy.json).
 
@@ -398,6 +399,23 @@ Evidence: [gateway execution](../packages/api/src/data.js),
     - Key version 1 destroyed: graffiticode 2026-10-03T00:08:05Z, graffiticode-app
       2026-10-03T00:08:24Z. Ciphertext remaining in old task ASTs is permanently
       undecryptable.
+  - **L0158, 2026-10-15.** L0158 signed its own Questions API previews with the shared
+    `learnosity-secret`. It now compiles to an unsigned activity, and its items render in
+    L0176's form, which resolves dynamic data and signs through Broker under the system preview
+    session. Saves and Author were removed from L0158 (they're compile errors pointing to L0176
+    and L0177). Stored programs were checked first: no live item used Author or an explicit
+    `init`, and none was published.
+    - Code: graffiticode #101 (L0176 resolve-then-sign; stricter `init`), #102 (the api's `/form`
+      redirect and the generation-scoped compile cache), #103 (activation,
+      `COMPILE_GENERATION_L0158`); l0158 #1.
+    - Released: `l0176-rmv9xzfol-ab9092`; L0158 `l0158-00167-bd6` (no secret mounted, no
+      `LEARNOSITY_KEY`); api `api-rmva17zn4-89777d` with the generation set. The 15,761 compile
+      records the old L0158 had made were deleted, so every view compiles through the new one.
+    - Checked live: L0158 items render in L0176's form, signed; `save-to-itembank` shows the
+      error pointing to L0176.
+    - Secrets: `l0176-run`'s and `l0158-run`'s access to `learnosity-secret` removed; its only
+      version disabled, to be deleted; `GRAFFITICODE_SECRET_KEY` deleted. The credential that
+      secret held was already retired at its provider.
   - Follow-ups (not SECRET-01 blockers): remove the inert keyring `decrypt` from l0000 core
     (`compiler.ts`); review project-level Editor on the graffiticode-app default compute
     account; delete stale local `.env.local` copies of the destroyed key.
@@ -490,7 +508,8 @@ The [IAM review](capability-policy-iam-review.md) records historical live eviden
 - On 2026-09-30, all services used dedicated identities and the default accounts held no
   project roles. The review records separate databases and private Policy/Broker services.
 - That same record still lists L0158/L0176 access to legacy Learnosity/decryption secrets
-  and broad legacy build permissions. Their present state needs verification.
+  and broad legacy build permissions. Their present state needs verification. *(Verified and
+  closed 2026-10-15: no compiler can read either secret; see SECRET-01.)*
 
 W0 release controls, released 2026-10-03 (UTC) from main `14cc636` (clean):
 
@@ -823,7 +842,7 @@ coding agent does the implementation work named, and Jeff accepts the production
 | AUDIT-01 | Partial: denial records have no `category`; no reconciliation events | Agent implements categories and reconciliation audit events. Jeff accepts production evidence | Every audited refusal carries its category, checked by the inventory test; reconciliation outcomes audited; both shown on deployed records |
 | WRITE-02 | Missing: no reconciliation from provider evidence. No exactly-once provider guarantee is claimed | Agent implements W5 reconciliation and its tests. Jeff accepts provider-backed evidence | Uncertain and partial writes reconciled against provider evidence, with AT-10 for Author, shown against the provider |
 | RETAIN-01 | Retention and backups unverified | Jeff owns production retention, backups and restore verification. Agent supplies the checks | A successful restore test, and verification that every record RETAIN-01 names (invocation records, idempotency bindings, admission plans, receipt claims and outcomes) has no unintended expiry and survives connection deletion, not just backups configured; in the Policy and Broker databases, recorded |
-| ISOLATE-01 | Compiler isolation and egress evidence outstanding | Jeff owns production IAM and network controls. Agent supplies configuration changes and negative tests | Enforced egress allowlist; compilers denied access to credentials (secrets, keys, metadata tokens beyond their own) and denied impersonation; all shown by deployed negative tests (AT-11) |
+| ISOLATE-01 | Compiler isolation and egress evidence outstanding. Credentials part done 2026-10-15: no compiler holds or can read a provider credential (SECRET-01) | Jeff owns production IAM and network controls. Agent supplies configuration changes and negative tests | Enforced egress allowlist; compilers denied access to credentials (secrets, keys, metadata tokens beyond their own) and denied impersonation; all shown by deployed negative tests (AT-11) |
 
 Update this record when each requirement is implemented and tested. Record source revision,
 command/environment, outcome, and date; retain the distinction between local implementation

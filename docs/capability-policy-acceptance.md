@@ -61,7 +61,7 @@ Jeff accepts the production evidence. The agent did the mapping and the checks.
 | AT-08 | RECOVER-01, ARTIFACT-01 | **Pass** | None |
 | AT-09 | PREVIEW-01, READ-01, PUB-01 | **Pass** | Learner answers aren't a gateway path (the Learnosity client handles them), so only views are tested |
 | AT-10 | PROVIDER-01, L0176-01 | **Open** | No provider-side evidence for lifetimes, replay, revocation or preview scope |
-| AT-11 | SECRET-01, ISOLATE-01 | **Deferred** | The ISOLATE-01 plan (self-hosted egress proxy) is deferred |
+| AT-11 | SECRET-01, ISOLATE-01 | **Deferred** | The ISOLATE-01 plan (self-hosted egress proxy) is deferred. Its "legacy provider credentials no longer work" clause is met as of 2026-10-15: no compiler can read a provider secret, the shared Learnosity secret is disabled, and the credential it held was retired at its provider |
 | AT-12 | AUDIT-01, RELEASE-01 | **Pass** | None |
 
 ## Detail

@@ -27,12 +27,12 @@ account holds any project role.
 |---|---|
 | 1 SAs | One per service: `api-run`, `auth-run`, `policy-run`, `broker-run`, and `lNNNN-run` for all 41 compilers. Plus `deploy-build` and `deploy-smoke` for the deploy CLI |
 | 2 Deployers | `deploy-build` builds (the deploy CLI's builds run as it); Artifact Registry repo `services` exists. The compiler repos still deploy through the legacy Cloud Build SA |
-| 3 Roles | Compiler SAs hold no project roles (they need none). `l0158-run` reads `learnosity-secret`, its only reader (`l0176-run`'s access removed 2026-10-15; no reachable L0176 revision mounts it). `GRAFFITICODE_SECRET_KEY` has no readers (checked 2026-10-15). `l0013-run` has `storage.objectAdmin` on `gs://graffiticode.appspot.com` |
+| 3 Roles | Compiler SAs hold no project roles (they need none) and **no compiler can read a provider secret** (2026-10-15): `learnosity-secret` has no readers and its only version is disabled, and `GRAFFITICODE_SECRET_KEY` is deleted. `l0013-run` has `storage.objectAdmin` on `gs://graffiticode.appspot.com` |
 | 4 Databases | `policy`, `broker`, `(default)`: each limited to its own SA(s); delete protection on for all three |
 | 5 Key and secrets | Unchanged from §1.0b |
 | 6 Move services | **Every Cloud Run service runs as its own SA.** The last 27 compilers moved 2026-09-30 with `services update --service-account`, each checked by compiling its published `template.gc` against a same-day baseline (no regressions, none reverted) |
 | 7 Invokers | Unchanged from §1.0b |
-| 8 Shared secrets | Compute SA's access to `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` removed. As of 2026-10-15 the only reader of either is `l0158-run`, of `learnosity-secret`. Rotating that secret is pending, with L0158's own consumer (ISOLATE-01, D1) |
+| 8 Shared secrets | Compute SA's access to `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` removed. 2026-10-15: `l0176-run`'s and then `l0158-run`'s access to `learnosity-secret` removed, and its version 1 disabled (to be deleted); `GRAFFITICODE_SECRET_KEY` deleted. L0158 holds no credential: its previews are signed by L0176 through Broker. The credential that secret held was already retired at its provider |
 | 9 Strip Editor | `roles/editor` removed from the compute SA and `graffiticode@appspot`; neither holds any project role. The compute SA's `tokenCreator` on itself is removed too. The only Editor holders left are Google-managed service agents (`cloudservices`, `containerregistry`) |
 
 **Interim controls removed.** Deny policies `deny-compute-deploy` and `deny-compute-firestore`
@@ -1397,6 +1397,10 @@ and openapi produce v2 jobs. No new grant lets `console-run@` invoke `auth`: it 
 7. **Compiler egress.** Nothing stops a compiler from calling Learnosity directly with a key it
    already holds. The boundary only holds once `learnosity-secret` and the parse-time credentials in
    ASTs are removed from compilers. Plan that cut-over and `GRAFFITICODE_SECRET_KEY`'s role in it.
+   **Credentials done (2026-10-15):** no compiler holds or can read a provider credential. The
+   parse-time credentials were retired 2026-10-02/03; L0176 signs only through Broker;
+   L0158 now renders through L0176 (graffiticode #101, #102, #103; l0158 #1), and both shared
+   secrets are retired. Egress enforcement (below) is still open.
    Sharing the `GRAFFITICODE_SECRET_KEY` keyring with every compiler means compilers can decrypt
    console-encrypted secrets, and broker's `BROKER_SECRET_KEY` must not reuse it.
 
@@ -1421,8 +1425,9 @@ and openapi produce v2 jobs. No new grant lets `console-run@` invoke `auth`: it 
 
    Every compiler's `deploy.json` entry gets a `network` block whose `allow` list is its
    reviewed hosts. The lists come from the rollout's inventory (step 3) and are recorded here.
-   Two exceptions are recorded: D1 (L0158's preview-only consumer, subject to its gate) and
-   D2 (L0185's open fetches, with their stated residuals).
+   One exception is recorded: D2 (L0185's open fetches, with their stated residuals). D1 (L0158's
+   preview-only consumer) was superseded on 2026-10-15: L0158 holds no credential, so it joins the
+   strict default class with no Learnosity host.
 8. **`auth` private keys in Firestore `(default)`.** Move them to KMS or Secret Manager (a separate
    project) so `api-run`'s `(default)` access does not include the ability to mint auth tokens.
 9. **Receipts integrity.** Is Firestore-in-`broker`-DB enough, or do receipts also need a
