@@ -27,12 +27,12 @@ account holds any project role.
 |---|---|
 | 1 SAs | One per service: `api-run`, `auth-run`, `policy-run`, `broker-run`, and `lNNNN-run` for all 41 compilers. Plus `deploy-build` and `deploy-smoke` for the deploy CLI |
 | 2 Deployers | `deploy-build` builds (the deploy CLI's builds run as it); Artifact Registry repo `services` exists. The compiler repos still deploy through the legacy Cloud Build SA |
-| 3 Roles | Compiler SAs hold no project roles (they need none). `l0158-run` and `l0176-run` read `learnosity-secret` and `GRAFFITICODE_SECRET_KEY`; `l0013-run` has `storage.objectAdmin` on `gs://graffiticode.appspot.com` |
+| 3 Roles | Compiler SAs hold no project roles (they need none). `l0158-run` reads `learnosity-secret`, its only reader (`l0176-run`'s access removed 2026-10-15; no reachable L0176 revision mounts it). `GRAFFITICODE_SECRET_KEY` has no readers (checked 2026-10-15). `l0013-run` has `storage.objectAdmin` on `gs://graffiticode.appspot.com` |
 | 4 Databases | `policy`, `broker`, `(default)`: each limited to its own SA(s); delete protection on for all three |
 | 5 Key and secrets | Unchanged from §1.0b |
 | 6 Move services | **Every Cloud Run service runs as its own SA.** The last 27 compilers moved 2026-09-30 with `services update --service-account`, each checked by compiling its published `template.gc` against a same-day baseline (no regressions, none reverted) |
 | 7 Invokers | Unchanged from §1.0b |
-| 8 Shared secrets | Compute SA's access to `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` removed; readers are now `l0158-run` and `l0176-run` only |
+| 8 Shared secrets | Compute SA's access to `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` removed. As of 2026-10-15 the only reader of either is `l0158-run`, of `learnosity-secret`. Rotating that secret is pending, with L0158's own consumer (ISOLATE-01, D1) |
 | 9 Strip Editor | `roles/editor` removed from the compute SA and `graffiticode@appspot`; neither holds any project role. The compute SA's `tokenCreator` on itself is removed too. The only Editor holders left are Google-managed service agents (`cloudservices`, `containerregistry`) |
 
 **Interim controls removed.** Deny policies `deny-compute-deploy` and `deny-compute-firestore`
