@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { InvalidArgumentError, NotFoundError } from "../errors/http.js";
+import { allInGenerationLang, getActiveGeneration, GENERATION_LANG } from "../generation.js";
 import { buildGetTasks } from "./tasks.js";
 import {
   buildHttpHandler,
@@ -10,6 +11,9 @@ import {
   parseConnectionId,
   parsePublicationId,
 } from "./utils.js";
+
+// The language whose View renders L0158 items once a generation is active.
+const RENDER_LANG = "0176";
 
 const checkLangParam = async ({ lang, pingLang, uid }) => {
   if (/^\d+$/.test(lang)) {
@@ -65,6 +69,20 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
       // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
       const tasks = await getTasks({ auth, ids, req });
       lang = tasks[0].lang;
+      // With a compile generation active, an L0158 item renders in L0176's
+      // View, which signs its preview through Broker for L0176's host, and
+      // reads the item's data under that generation (generation.js). Unset,
+      // nothing changes.
+      const generation = getActiveGeneration();
+      if (generation && allInGenerationLang(tasks)) {
+        // L0158 isn't connectable; a connection must not reach L0176's View
+        // with an L0158 item.
+        if (connection) {
+          throw new InvalidArgumentError(`L${GENERATION_LANG} items can't be viewed through a connection`);
+        }
+        lang = RENDER_LANG;
+        dataParams.set("generation", generation);
+      }
       params.set("id", id);
       params.set("url", `${protocol}://${req.headers.host}/data?${dataParams.toString()}`);
     } else {

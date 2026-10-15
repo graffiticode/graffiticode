@@ -28,12 +28,23 @@ const createKey = code => {
 
 export const startLangApp = async () => {
   const db = new Map();
+  // Compiles received, and gates that hold the next compiles open: a held
+  // compile answers with the data set when it arrived, once released.
+  let calls = 0;
+  const gates = [];
 
   const app = createHttpApp(app => {
-    app.post("/compile", (req, res) => {
+    app.post("/compile", async (req, res) => {
+      calls++;
       const key = createKey(req.body.code);
-      if (db.has(key)) {
-        res.status(200).json(db.get(key));
+      const answer = db.get(key);
+      const gate = gates.shift();
+      if (gate) {
+        gate.arrived();
+        await gate.released;
+      }
+      if (answer !== undefined) {
+        res.status(200).json(answer);
       } else {
         console.log(key);
         res.sendStatus(404);
@@ -60,5 +71,16 @@ export const startLangApp = async () => {
     });
   };
 
-  return { url, setData, cleanUp };
+  // Holds the next compile open: `arrived` resolves when it reaches the
+  // server, and `release()` lets it answer.
+  const hold = () => {
+    const gate = {};
+    const arrived = new Promise(resolve => { gate.arrived = resolve; });
+    let release;
+    gate.released = new Promise(resolve => { release = resolve; });
+    gates.push(gate);
+    return { arrived, release };
+  };
+
+  return { url, setData, cleanUp, hold, calls: () => calls };
 };

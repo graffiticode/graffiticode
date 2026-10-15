@@ -8,6 +8,7 @@ import { canonicalDigest } from "@graffiticode/common/canonical";
 import { decodeChainId } from "@graffiticode/common/chain";
 import { noAudit } from "./audit.js";
 import { normalizeLang, PreflightUnavailable } from "./admission.js";
+import { checkGeneration, generationKey, getActiveGeneration as readActiveGeneration } from "./generation.js";
 
 // A compile error that names why it failed (spec FAIL-01): `message` is the
 // text callers already read; `code` and `category` say which kind of failure.
@@ -81,7 +82,9 @@ const buildGetData = ({
   compile, langOverrideStorer, validateOutput, allocateInvocation = null, artifactStorer = null, publications = null, audit = noAudit,
   // Chain admission (W4): the admission client, and whether a new invocation
   // through this connection is allocated for it (CHAIN_ADMISSION).
-  chainAdmission = null, admissionWanted = _connectionId => false
+  chainAdmission = null, admissionWanted = _connectionId => false,
+  // The active compile generation (generation.js), read at each request's start.
+  getActiveGeneration = readActiveGeneration
 }) => {
   const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation, audit });
 
@@ -163,12 +166,21 @@ const buildGetData = ({
   const readPublished = buildReadPublished({ compile, artifactStorer, publications, audit });
   return async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
-    connectionId = null, idempotencyKey = null, read = false, publicationId = null
+    connectionId = null, idempotencyKey = null, read = false, publicationId = null,
+    generation = /** @type {string | undefined} */ (undefined)
   }) => {
+    // Captured before anything else and kept for this request's read and its
+    // write: a request that started without a generation, or before one was
+    // active, never writes under it, however late it finishes.
+    const active = getActiveGeneration();
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
     }
+    // Refused (400) unless it is the active generation and every task is
+    // L0158. It changes nothing but the compile store's key.
+    checkGeneration({ generation, active, tasks });
+    const cacheKey = generationKey(id, generation);
     // A view of a published item serves the result the publication names,
     // under the publisher's authority; the viewer may be anonymous.
     if (read && publicationId) {
@@ -212,7 +224,7 @@ const buildGetData = ({
       Boolean(override) || Boolean(refresh) || Boolean(connectionId) || requiresProtected;
     // There exists a task that we are authorized to see.
     if (!bypassCache) {
-      const cached = await compileStorer.get({ id, auth });
+      const cached = await compileStorer.get({ id: cacheKey, auth });
       if (cached && cached.data) {
         return cached.data;
       }
@@ -413,7 +425,7 @@ const buildGetData = ({
     // pollute the shared cache for everyone else.
     if ((!bypassCache || refresh) && cacheable) {
       await compileStorer.create({
-        id,
+        id: cacheKey,
         compile: {
           timestamp: Date.now(),
           data: obj
@@ -428,6 +440,6 @@ const buildGetData = ({
     return notStored ? { ...result, artifact: notStored } : result;
   };
 };
-export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null, admissionWanted = _connectionId => false }) => {
-  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted }) };
+export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null, admissionWanted = _connectionId => false, getActiveGeneration = readActiveGeneration }) => {
+  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration }) };
 };

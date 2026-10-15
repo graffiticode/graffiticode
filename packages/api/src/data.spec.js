@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildDataApi } from "./data.js";
 import { createStorers } from "./storage/index.js";
+import { admin } from "./storage/firebase.js";
 import { clearFirestore } from "./testing/firestore.js";
 import { DATA1, DATA2, TASK1, TASK2 } from "./testing/fixture.js";
 
@@ -433,6 +434,154 @@ describe("data", () => {
       const refused = await dataApi.get({ taskStorer, compileStorer, id, connectionId: "conn-1" });
       expect(refused.errors[0].message).toMatch(/permission denied \(not-owner\)/);
       expect(compile).not.toHaveBeenCalled();
+    });
+  });
+
+  // The compile generation (generation.js): a request naming the active one
+  // reads and writes `compiles/{id}@{generation}`, never `compiles/{id}`.
+  describe("compile generation", () => {
+    const L0158_TASK = { lang: "0158", code: TASK1.code };
+    const OLD = { val: "old compiler" };
+    const NEW = { val: "new compiler" };
+    // The test sets the configured value; the data api reads it per request.
+    let active;
+    // A cast, not a suppression: the test double omits the optional services.
+    const buildApi = /** @type {any} */ (buildDataApi);
+    beforeEach(() => {
+      active = "g1";
+      dataApi = buildApi({ compile, getActiveGeneration: () => active });
+    });
+    const stored = async key => {
+      const doc = await admin.firestore().doc(`compiles/${key}`).get();
+      return doc.exists ? JSON.parse(doc.data().data) : undefined;
+    };
+    const deferred = () => {
+      /** @type {(value: any) => void} */
+      let resolve = () => {};
+      const promise = new Promise(_resolve => { resolve = _resolve; });
+      return { promise, resolve };
+    };
+    const until = async check => {
+      for (let i = 0; i < 200 && !check(); i++) await new Promise(resolve => setTimeout(resolve, 5));
+      expect(check()).toBe(true);
+    };
+
+    it("misses an unversioned record and leaves it alone", async () => {
+      const id = await taskStorer.create({ task: L0158_TASK });
+      await compileStorer.create({ id, compile: { timestamp: Date.now(), data: OLD } });
+      mockCompileData(NEW);
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id, generation: "g1" })).resolves.toStrictEqual(NEW);
+      expect(compile).toHaveBeenCalledTimes(1);
+      // Unversioned reads still get the old record, with no compile.
+      await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(OLD);
+      // The scoped record answers the next scoped read.
+      await expect(dataApi.get({ taskStorer, compileStorer, id, generation: "g1" })).resolves.toStrictEqual(NEW);
+      expect(compile).toHaveBeenCalledTimes(1);
+      expect(await stored(id)).toStrictEqual(OLD);
+      expect(await stored(`${id}@g1`)).toStrictEqual(NEW);
+    });
+
+    it("writes a scoped compile only under the scoped key, so an unversioned read misses it", async () => {
+      const id = await taskStorer.create({ task: L0158_TASK });
+      mockCompileData(NEW);
+      await dataApi.get({ taskStorer, compileStorer, id, generation: "g1" });
+      expect(await stored(id)).toBeUndefined();
+
+      mockCompileData(OLD);
+      await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(OLD);
+      expect(compile).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      ["no generation is active", null, "g1"],
+      ["the value isn't the active one", "g1", "g2"],
+      ["the value is empty", "g1", ""],
+    ])("refuses a generation when %s", async (_, configured, requested) => {
+      active = configured;
+      const id = await taskStorer.create({ task: L0158_TASK });
+      await expect(dataApi.get({ taskStorer, compileStorer, id, generation: requested }))
+        .rejects.toMatchObject({ statusCode: 400 });
+      expect(compile).not.toHaveBeenCalled();
+      expect(await stored(`${id}@${requested}`)).toBeUndefined();
+    });
+
+    it("refuses a generation for a chain with a non-L0158 task", async () => {
+      const id = taskStorer.appendIds(
+        await taskStorer.create({ task: L0158_TASK }),
+        await taskStorer.create({ task: TASK1 }));
+      await expect(dataApi.get({ taskStorer, compileStorer, id, generation: "g1" }))
+        .rejects.toMatchObject({ statusCode: 400 });
+      const other = await taskStorer.create({ task: TASK1 });
+      await expect(dataApi.get({ taskStorer, compileStorer, id: other, generation: "g1" }))
+        .rejects.toMatchObject({ statusCode: 400 });
+      expect(compile).not.toHaveBeenCalled();
+    });
+
+    it("accepts a chain of L0158 tasks", async () => {
+      const id = taskStorer.appendIds(
+        await taskStorer.create({ task: L0158_TASK }),
+        await taskStorer.create({ task: { lang: "L0158", code: TASK2.code } }));
+      mockCompileData(OLD);
+      mockCompileData(NEW);
+      await expect(dataApi.get({ taskStorer, compileStorer, id, generation: "g1" })).resolves.toStrictEqual(NEW);
+      expect(await stored(`${id}@g1`)).toStrictEqual(NEW);
+      expect(await stored(id)).toBeUndefined();
+    });
+
+    it("refreshes only the scoped key", async () => {
+      const id = await taskStorer.create({ task: L0158_TASK });
+      await compileStorer.create({ id, compile: { timestamp: Date.now(), data: OLD } });
+      await compileStorer.create({ id: `${id}@g1`, compile: { timestamp: Date.now(), data: OLD } });
+      mockCompileData(NEW);
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id, generation: "g1", refresh: true }))
+        .resolves.toStrictEqual(NEW);
+      expect(await stored(`${id}@g1`)).toStrictEqual(NEW);
+      expect(await stored(id)).toStrictEqual(OLD);
+    });
+
+    it("never lets a handler that started without the generation write under it", async () => {
+      // Started before activation, in this process: it captured no generation.
+      active = null;
+      const id = await taskStorer.create({ task: L0158_TASK });
+      const held = deferred();
+      compile.mockReturnValueOnce(held.promise);
+      const oldRequest = dataApi.get({ taskStorer, compileStorer, id });
+      await until(() => compile.mock.calls.length === 1);
+
+      // Activation, then cleanup of the old record, while it's still compiling.
+      active = "g1";
+      await admin.firestore().doc(`compiles/${id}`).delete();
+
+      // A scoped read meanwhile compiles fresh.
+      mockCompileData(NEW);
+      await expect(dataApi.get({ taskStorer, compileStorer, id, generation: "g1" })).resolves.toStrictEqual(NEW);
+      expect(compile).toHaveBeenCalledTimes(2);
+
+      // The old handler finally finishes, and writes only the unversioned key.
+      held.resolve(OLD);
+      await expect(oldRequest).resolves.toStrictEqual(OLD);
+      expect(await stored(id)).toStrictEqual(OLD);
+      expect(await stored(`${id}@g1`)).toStrictEqual(NEW);
+
+      // Scoped reads never return the stale value.
+      await expect(dataApi.get({ taskStorer, compileStorer, id, generation: "g1" })).resolves.toStrictEqual(NEW);
+      expect(compile).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps the generation a request started with, whatever is configured when it writes", async () => {
+      const id = await taskStorer.create({ task: L0158_TASK });
+      const held = deferred();
+      compile.mockReturnValueOnce(held.promise);
+      const request = dataApi.get({ taskStorer, compileStorer, id, generation: "g1" });
+      await until(() => compile.mock.calls.length === 1);
+      active = "g2";
+      held.resolve(NEW);
+      await expect(request).resolves.toStrictEqual(NEW);
+      expect(await stored(`${id}@g1`)).toStrictEqual(NEW);
+      expect(await stored(`${id}@g2`)).toBeUndefined();
+      expect(await stored(id)).toBeUndefined();
     });
   });
 });

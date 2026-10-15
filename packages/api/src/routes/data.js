@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { InvalidArgumentError } from "../errors/http.js";
+import { parseGenerationParam } from "../generation.js";
 import {
   buildHttpHandler,
   createSuccessResponse,
@@ -18,7 +19,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // Callers that don't care (routes/compile.js) can omit it.
   return async ({
     auth, authToken, ids, action = {}, refresh = false, connectionId = null, idempotencyKey = null,
-    read = false, publicationId = null
+    read = false, publicationId = null, generation = /** @type {string | undefined} */ (undefined)
   }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
@@ -36,7 +37,8 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       connectionId,
       idempotencyKey: keyFor(i),
       read,
-      publicationId
+      publicationId,
+      generation
     })));
     let data;
     if (objs.length > 1) {
@@ -72,10 +74,15 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi }) => {
     if (connectionId && publicationId) {
       throw new InvalidArgumentError("choose a connection or a publication, not both");
     }
+    // ?generation=<value> reads and writes L0158's compile store under the
+    // active compile generation (generation.js); any other value is refused.
+    // It changes no response header: the parameter alone makes the URL distinct
+    // for browsers and the CDN.
+    const generation = parseGenerationParam(req.query.generation);
     const action = {};
     // GET /data is a view: through a connection it reads the caller's stored
     // result; through a publication, the published one.
-    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true });
+    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true, generation });
     // A refreshed response must not be held anywhere. The id is immutable but
     // we just proved its data is not, and the whole point of asking was to get
     // past a stale copy — an immutable header here would plant another one in

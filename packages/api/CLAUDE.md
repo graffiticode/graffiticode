@@ -78,6 +78,7 @@ This is the Graffiticode API Gateway - a service that acts as the central compil
   - `LOCAL_COMPILES` - Enable local compilation mode
   - `FIRESTORE_EMULATOR_HOST` - Firebase emulator host for development
   - `CONFIG` - Path to config file (default: `config/config.json`)
+  - `COMPILE_GENERATION_L0158` - The active L0158 compile generation (`src/generation.js`). Unset (the default), it is inert. Set, `/form` sends L0158 items to L0176's form with `generation=<value>` on their data URL, and `GET /data?generation=<value>` reads and writes `compiles/{id}@{value}`; any other value is a 400
 
 - **ESLint Configuration**: Uses parent `.eslintrc.cjs` with:
   - Standard style guide
