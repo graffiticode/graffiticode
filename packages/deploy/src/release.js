@@ -54,6 +54,11 @@ export function deployArgs(config, receipt) {
   // --update-secrets only adds, so a secret mounted by an earlier release
   // carries into new revisions until it is removed explicitly.
   if (config.removeSecrets?.length) args.push(`--remove-secrets=${config.removeSecrets.join(",")}`);
+  // Likewise --update-env-vars keeps variables it isn't given: removeEnv
+  // removes them (no name is in both; config.js refuses that).
+  if (config.removeEnv?.length) args.push(`--remove-env-vars=${config.removeEnv.join(",")}`);
+  if (config.minInstances !== undefined) args.push(`--min-instances=${config.minInstances}`);
+  if (config.maxInstances !== undefined) args.push(`--max-instances=${config.maxInstances}`);
   return args;
 }
 
@@ -215,6 +220,10 @@ export async function release(context, source, deps) {
     log("Checking the candidate revision…");
     await (deps.smoke || smokeCheck)(config, candidate, id, deps);
     if (config.verify) await verifyCandidate(config, candidate, id, source, receipt, { ...deps, persist });
+    // A candidate that inherited a forbidden variable from the service's
+    // template (one not listed in removeEnv) is never promoted.
+    const forbidden = await forbiddenEnvProblems(context, [receipt.revision], { cloud });
+    requireValue(forbidden.length === 0, `Candidate ${describeForbidden(forbidden)}; add it to removeEnv. Not promoted.`);
     const beforePromotion = await cloud(["run", "services", "describe", config.service]);
     requireValue(fingerprint(beforePromotion) === fingerprint(candidate), "Service changed during verification; refusing promotion");
     // A pinnable revision is approved before it serves, so admission never sees
@@ -374,6 +383,30 @@ export async function networkProblems(context, names, { cloud }) {
 }
 const describeNetwork = problems => problems.map(p => `${p.revision} (${p.problems.join(", ")})`).join(", ");
 
+// The revisions among `names` that carry a variable in `forbiddenEnv`, set
+// to anything (a value or a secret reference) in any container, or whose
+// environment can't be read. Read from each revision itself: an older
+// revision keeps the variables it was made with, whatever its commit, so this
+// applies to every reachable revision, not only those past a milestone.
+export async function forbiddenEnvProblems(context, names, { cloud }) {
+  const forbidden = context.config.forbiddenEnv ?? [];
+  if (!forbidden.length) return [];
+  const problems = [];
+  for (const name of names) {
+    const revision = await cloud(["run", "revisions", "describe", name]);
+    const containers = revision.spec?.containers;
+    if (!Array.isArray(containers) || containers.length === 0) {
+      problems.push({ revision: name, problem: "unreadable" });
+      continue;
+    }
+    const carried = forbidden.filter(v => containers.some(c => (c.env ?? []).some(e => e?.name === v)));
+    if (carried.length) problems.push({ revision: name, problem: "forbidden", env: carried });
+  }
+  return problems;
+}
+const describeForbidden = problems => problems.map(p =>
+  `${p.revision} ${p.problem === "unreadable" ? "has no readable environment" : `carries forbidden ${p.env.join(", ")}`}`).join("; ");
+
 // Every revision a service's traffic can reach: serving, or kept by a tag.
 export const reachableRevisions = service => [...new Set((service.status?.traffic || []).map(t => t.revisionName).filter(Boolean))];
 
@@ -443,11 +476,14 @@ export async function releaseCheck(context, { cloud, git, revisions = undefined 
     ...(config.contractMinimum ? { contractMinimum: await contractMinimumProblems(context, reachableRevisions(service), { cloud }) } : {}),
     // ISOLATE-01: every reachable revision, retained tags included, runs on the network.
     ...(config.network ? { network: await networkProblems(context, reachableRevisions(service), { cloud }) } : {}),
+    // Every reachable revision, retained tags included, is free of forbiddenEnv.
+    ...(config.forbiddenEnv ? { forbiddenEnv: await forbiddenEnvProblems(context, reachableRevisions(service), { cloud }) } : {}),
   };
   const pinnedOk = !pinned || ["unapproved", "retiring", "retired", "unsupportedContract"].every(k => pinned[k].length === 0);
   const minimumOk = (result.contractMinimum ?? []).length === 0;
   const networkOk = (result.network ?? []).length === 0;
-  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk && networkOk };
+  const forbiddenOk = (result.forbiddenEnv ?? []).length === 0;
+  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk && networkOk && forbiddenOk };
 }
 
 // Approves an already-released revision of a pinnable service from its
@@ -483,6 +519,11 @@ export async function rollback(context, receipt, deps) {
   const uncontrolled = await networkProblems(context, targets, { cloud });
   requireValue(uncontrolled.length === 0,
     `Rollback target ${describeNetwork(uncontrolled)} doesn't run with this service's network controls (ISOLATE-01); refusing, with no override. Roll forward, or roll back to a revision that has them.`);
+  // Nor on one carrying a forbidden variable: a revision of the current commit
+  // can still carry one from its release's configuration. No override.
+  const forbidden = await forbiddenEnvProblems(context, targets, { cloud });
+  requireValue(forbidden.length === 0,
+    `Rollback target ${describeForbidden(forbidden)} (forbiddenEnv); refusing, with no override. Roll forward, or roll back to a revision without it.`);
   const below = await belowBaseline(context, targets, { cloud, git });
   // A configuration rollback from the same commit meets every baseline, but
   // can lower the contract minimum: guarded the same way.

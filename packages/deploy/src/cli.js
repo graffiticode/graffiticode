@@ -87,6 +87,10 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       for (const p of result.contractMinimum ?? []) {
         console.log(`  reachable with ${config.contractMinimum.env} ${p.problem === "missing" ? "unset" : p.problem === "unreadable" ? "unreadable" : `=${p.value}`} (${p.problem}): ${p.revision}`);
       }
+      for (const p of result.network ?? []) console.log(`  reachable without the network controls (${p.problems.join(", ")}): ${p.revision}`);
+      for (const p of result.forbiddenEnv ?? []) {
+        console.log(`  reachable ${p.problem === "unreadable" ? "with an unreadable environment" : `carrying forbidden ${p.env.join(", ")}`}: ${p.revision}`);
+      }
     }
     if (!result.ok) process.exitCode = 1;
     return;

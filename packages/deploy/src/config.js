@@ -25,6 +25,16 @@ export const requireValue = (value, message) => {
 };
 const object = value => value && typeof value === "object" && !Array.isArray(value);
 const namePattern = /^[a-z][a-z0-9-]{0,39}$/;
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// Every setting the CLI reads. Anything else is refused rather than ignored,
+// so a misspelt or unsupported setting (`maxInstance`, `minInstances` before
+// it was supported) can't be silently dropped from a release.
+export const SETTINGS = Object.freeze([
+  "service", "project", "region", "image", "dockerfile", "port", "access", "runtimeServiceAccount", "buildServiceAccount",
+  "smokeServiceAccount", "steps", "smoke", "verify", "env", "secrets", "removeSecrets", "removeEnv", "forbiddenEnv",
+  "minInstances", "maxInstances", "retireTags", "pinnable", "baselines", "enforcesSwitch", "contractMinimum", "network",
+  "protectedExecution", "exclude", "include", "blocked",
+]);
 
 export function parseArgs(args) {
   const options = { command: "deploy", env: "production", config: "deploy.json" };
@@ -68,6 +78,8 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   const { environments, ...definition } = raw.services[service];
   const config = expand({ ...raw.environments[options.env], ...definition, ...environments?.[options.env] });
   config.service = config.service || service;
+  const unknown = Object.keys(config).filter(key => !SETTINGS.includes(key));
+  requireValue(unknown.length === 0, `Unknown setting(s) for ${service}: ${unknown.join(", ")}`);
   for (const key of ["service", "project", "region"]) requireValue(namePattern.test(config[key]), `Invalid ${key}`);
   requireValue(typeof config.image === "string" && /^[a-z0-9.-]+\/(?:[a-z0-9_-]+\/)+[a-z0-9_-]+$/.test(config.image), "image must be an untagged registry image path");
   requireValue(["public", "private"].includes(config.access), "access must be public or private");
@@ -123,6 +135,33 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   for (const name of config.removeSecrets || []) {
     requireValue(!Object.prototype.hasOwnProperty.call(config.secrets || {}, name), `Secret ${name} cannot be both mounted and removed`);
   }
+  // Variables each release removes from the service (--remove-env-vars):
+  // --update-env-vars keeps every variable it isn't given, so dropping a name
+  // from `env` leaves it set. The CLI's own variables can't be removed.
+  const envNames = (list, key) => requireValue(list === undefined || (Array.isArray(list) && list.length > 0 &&
+    list.every(n => typeof n === "string" && ENV_NAME.test(n)) && new Set(list).size === list.length),
+  `${key} must be a non-empty array of distinct environment variable names`);
+  envNames(config.removeEnv, "removeEnv");
+  envNames(config.forbiddenEnv, "forbiddenEnv");
+  const managed = ["GC_RELEASE", "GC_IMAGE_DIGEST", ...(config.network ? ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS"] : [])];
+  for (const name of config.removeEnv || []) {
+    requireValue(!Object.prototype.hasOwnProperty.call(config.env || {}, name), `${name} cannot be both set in env and listed in removeEnv`);
+    requireValue(!managed.includes(name), `${name} is set by the deploy CLI; it can't be in removeEnv`);
+    requireValue(!Object.prototype.hasOwnProperty.call(config.secrets || {}, name), `${name} is a secret mount; remove it with removeSecrets, not removeEnv`);
+  }
+  // Variables no reachable revision may carry (release-check, rollback, and
+  // each release's candidate before promotion).
+  for (const name of config.forbiddenEnv || []) {
+    requireValue(!Object.prototype.hasOwnProperty.call(config.env || {}, name), `${name} is in forbiddenEnv; it can't be set in env`);
+    requireValue(!Object.prototype.hasOwnProperty.call(config.secrets || {}, name), `${name} is in forbiddenEnv; it can't be mounted in secrets`);
+    requireValue(!managed.includes(name), `${name} is set by the deploy CLI; it can't be in forbiddenEnv`);
+  }
+  // Revision scaling (--min-instances / --max-instances). Like every template
+  // setting, a value persists on later releases until changed, so deleting the
+  // field doesn't clear it.
+  requireValue(config.minInstances === undefined || (Number.isInteger(config.minInstances) && config.minInstances >= 0 && config.minInstances <= 1000), "minInstances must be an integer from 0 to 1000");
+  requireValue(config.maxInstances === undefined || (Number.isInteger(config.maxInstances) && config.maxInstances >= 1 && config.maxInstances <= 1000), "maxInstances must be an integer from 1 to 1000");
+  requireValue(config.minInstances === undefined || config.maxInstances === undefined || config.minInstances <= config.maxInstances, "minInstances cannot exceed maxInstances");
   requireValue(!config.exclude || (Array.isArray(config.exclude) && config.exclude.every(p => typeof p === "string" && p.length > 0)), "exclude must be an array of relative paths");
   requireValue(!config.include || (Array.isArray(config.include) && config.include.length > 0 && config.include.every(p => typeof p === "string" && p.length > 0 && !path.isAbsolute(p) && !p.split(/[\\/]/).includes(".."))), "include must be a non-empty array of relative paths");
   for (const key of ["runtimeServiceAccount", "buildServiceAccount", ...(config.access === "private" ? ["smokeServiceAccount"] : [])]) {

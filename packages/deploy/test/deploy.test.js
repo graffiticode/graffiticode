@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { parseArgs, loadConfig } from "../src/config.js";
+import { parseArgs, loadConfig, SETTINGS } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run, streamOutput } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV } from "../src/release.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV, forbiddenEnvProblems } from "../src/release.js";
 import { createRevisionClient, decodeFields, encodeFields, reachableProblems, retainedTags } from "../src/revisions.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
@@ -83,6 +83,7 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure,
           templateEnv[kv.slice(0, at)] = kv.slice(at + 1);
         }
       }
+      for (const name of (args.find(a => a.startsWith("--remove-env-vars="))?.slice(18) ?? "").split(",").filter(Boolean)) delete templateEnv[name];
       // Like Cloud Run: network flags become the revision's annotations, and a
       // secret keyed by a path is mounted as a file there.
       const flag = name => args.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -985,4 +986,169 @@ test("rollback to an earlier controlled revision is allowed", async t => {
   assert.equal(second.previousTraffic[first.revision], 100);
   const rolled = await rollback(networked, second, h.deps);
   assert.equal(rolled.status, "rolled-back");
+});
+
+// removeEnv, forbiddenEnv and instance limits (system preview rate limits,
+// release steps 5 and 6: a variable removed for good, and never reachable again).
+const loader = async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-env-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  return over => writeFile(path.join(root, "deploy.json"), JSON.stringify({ version: 1, environments: { production: { project: "graffiticode", region: "us-central1" } }, services: { api: { ...config, ...over } } }))
+    .then(() => loadConfig(parseArgs(["--plan"]), root, {}));
+};
+const DIRECT = "SYSTEM_PREVIEW_DIRECT";
+const carries = (h, revision) => h.revisions.get(revision).spec.containers[0].env.some(e => e.name === DIRECT);
+
+test("removeEnv removes variables explicitly, and a name can't be both set and removed", async t => {
+  const args = deployArgs({ ...config, removeEnv: [DIRECT, "OTHER"] }, { id: "release", commit: source.commit, image: `image@${digest}` });
+  assert.ok(args.includes(`--remove-env-vars=${DIRECT},OTHER`));
+  // Beside --update-env-vars, which still carries env.
+  assert.ok(args.some(a => a.startsWith("--update-env-vars=") && a.includes("AUTH_URL=")));
+  assert.ok(!deployArgs(config, { id: "release", commit: source.commit }).some(a => a.startsWith("--remove-env-vars")));
+  const load = await loader(t);
+  // --plan prints the resolved config, so removeEnv shows there.
+  assert.deepEqual((await load({ removeEnv: [DIRECT] })).config.removeEnv, [DIRECT]);
+  await assert.rejects(load({ removeEnv: ["AUTH_URL"] }), /AUTH_URL cannot be both set in env and listed in removeEnv/);
+  await assert.rejects(load({ removeEnv: ["KEY"] }), /KEY is a secret mount; remove it with removeSecrets/);
+  await assert.rejects(load({ removeEnv: ["GC_RELEASE"] }), /set by the deploy CLI/);
+  await assert.rejects(load({ network: NETWORK, removeEnv: ["HTTPS_PROXY"] }), /set by the deploy CLI/);
+  for (const bad of [[], ["bad-name"], [DIRECT, DIRECT], DIRECT, [1]]) await assert.rejects(load({ removeEnv: bad }), /removeEnv must be/);
+});
+
+test("a release with removeEnv deploys a revision without the variable", async t => {
+  const h = await harness(t);
+  const rollout = await release({ ...context, config: { ...config, env: { ...config.env, [DIRECT]: "1" } } }, source, h.deps);
+  assert.ok(carries(h, rollout.revision));
+  // Dropping it from env alone keeps it: --update-env-vars only adds.
+  const kept = await release(context, source, h.deps);
+  assert.ok(carries(h, kept.revision));
+  const removed = await release({ ...context, config: { ...config, removeEnv: [DIRECT] } }, source, h.deps);
+  assert.ok(!carries(h, removed.revision));
+  assert.ok(h.revisions.get(removed.revision).spec.containers[0].env.some(e => e.name === "AUTH_URL"));
+});
+
+test("forbiddenEnv is validated, and this file can't set what it forbids", async t => {
+  const load = await loader(t);
+  assert.deepEqual((await load({ forbiddenEnv: [DIRECT], removeEnv: [DIRECT] })).config.forbiddenEnv, [DIRECT]);
+  await assert.rejects(load({ forbiddenEnv: ["AUTH_URL"] }), /AUTH_URL is in forbiddenEnv; it can't be set in env/);
+  await assert.rejects(load({ forbiddenEnv: ["KEY"] }), /KEY is in forbiddenEnv; it can't be mounted/);
+  await assert.rejects(load({ forbiddenEnv: ["GC_IMAGE_DIGEST"] }), /set by the deploy CLI/);
+  for (const bad of [[], ["no-dash"], {}]) await assert.rejects(load({ forbiddenEnv: bad }), /forbiddenEnv must be/);
+});
+
+const forbidding = (extra = {}) => ({ ...context, config: { ...config, forbiddenEnv: [DIRECT], ...extra } });
+const withDirect = (extra = {}) => ({ ...context, config: { ...config, env: { ...config.env, [DIRECT]: "1" }, ...extra } });
+
+test("release-check fails while any reachable revision carries a forbidden variable, tagged ones included", async t => {
+  const h = await harness(t);
+  // The rollout revision (with the variable), then the gateway-only release:
+  // the rollout one no longer serves, but its tag still reaches it.
+  const rollout = await release(withDirect(), source, h.deps);
+  const final = await release(forbidding({ removeEnv: [DIRECT] }), source, h.deps);
+  const check = await releaseCheck(forbidding(), { ...h.deps, git });
+  assert.deepEqual(check.serving, [final.revision]);
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.forbiddenEnv, [{ revision: rollout.revision, problem: "forbidden", env: [DIRECT] }]);
+  // Set to anything counts: an empty value, or a secret reference.
+  for (const entry of [{ name: DIRECT, value: "" }, { name: DIRECT, valueFrom: { secretKeyRef: { name: "s", key: "1" } } }]) {
+    h.revisions.get(rollout.revision).spec.containers[0].env = [entry];
+    assert.deepEqual((await releaseCheck(forbidding(), { ...h.deps, git })).forbiddenEnv.map(p => p.revision), [rollout.revision]);
+  }
+  // In any container; and an unreadable revision fails too.
+  h.revisions.get(rollout.revision).spec.containers = [{ env: [] }, { env: [{ name: DIRECT, value: "1" }] }];
+  assert.equal((await releaseCheck(forbidding(), { ...h.deps, git })).forbiddenEnv.length, 1);
+  h.revisions.set(rollout.revision, { metadata: { labels: {} } });
+  assert.deepEqual((await releaseCheck(forbidding(), { ...h.deps, git })).forbiddenEnv, [{ revision: rollout.revision, problem: "unreadable" }]);
+  // Once its tag is retired, the service passes.
+  await retireTags(forbidding({ retireTags: true }), { ...h.deps, keep: [final.id] });
+  const after = await releaseCheck(forbidding(), { ...h.deps, git });
+  assert.deepEqual(after.forbiddenEnv, []);
+  assert.equal(after.ok, true);
+  // Without forbiddenEnv nothing is checked or reported.
+  assert.equal((await releaseCheck(context, { ...h.deps, git })).forbiddenEnv, undefined);
+});
+
+test("with a gateway-only milestone: old code fails on the milestone, new code with the variable on forbiddenEnv, new code without it passes", async t => {
+  const h = await harness(t);
+  const guarded = forbidding({ baselines: [{ milestone: "W4", commit: A }, { milestone: "gateway-only", commit: B }], removeEnv: [DIRECT] });
+  const retire = keep => retireTags(forbidding({ retireTags: true }), { ...h.deps, keep });
+  // Old code, variable absent: below the milestone, nothing forbidden.
+  await release(context, { ...source, commit: A }, h.deps);
+  const old = await releaseCheck(guarded, { ...h.deps, git });
+  assert.equal(old.ok, false);
+  assert.equal(old.belowBaseline.length, 1);
+  assert.deepEqual(old.forbiddenEnv, []);
+  // New code with the variable (the rollout release): meets the milestone, fails on forbiddenEnv.
+  const rollout = await release(withDirect(), source, h.deps);
+  await retire([rollout.id]);
+  const set = await releaseCheck(guarded, { ...h.deps, git });
+  assert.deepEqual(set.belowBaseline, []);
+  assert.deepEqual(set.forbiddenEnv.map(p => p.revision), [rollout.revision]);
+  assert.equal(set.ok, false);
+  // New code without it.
+  const final = await release(guarded, source, h.deps);
+  await retire([final.id]);
+  const ok = await releaseCheck(guarded, { ...h.deps, git });
+  assert.deepEqual([ok.belowBaseline, ok.forbiddenEnv, ok.ok], [[], [], true]);
+});
+
+test("a candidate that inherits a forbidden variable is never promoted", async t => {
+  const h = await harness(t);
+  await release(withDirect(), source, h.deps);
+  // forbiddenEnv without removeEnv: the template still carries the variable.
+  await assert.rejects(release(forbidding(), source, h.deps), /carries forbidden SYSTEM_PREVIEW_DIRECT; add it to removeEnv\. Not promoted/);
+  assert.equal(h.getReceipt().failedAt, "candidate");
+  assert.equal(h.calls.filter(c => c.includes("update-traffic") && c.some(a => a.startsWith("--to-revisions="))).length, 1);
+  assert.equal((await release(forbidding({ removeEnv: [DIRECT] }), source, h.deps)).status, "released");
+});
+
+test("rollback refuses a same-commit target carrying a forbidden variable, before moving traffic, with no override", async t => {
+  const h = await harness(t);
+  const baselines = [{ milestone: "gateway-only", commit: B }];
+  // Both from one commit: the target meets every baseline.
+  const rollout = await release(withDirect({ baselines }), source, h.deps);
+  const final = await release(forbidding({ removeEnv: [DIRECT], baselines }), source, h.deps);
+  assert.equal(final.previousTraffic[rollout.revision], 100);
+  assert.deepEqual(await belowBaseline(forbidding({ baselines }), [rollout.revision], { ...h.deps, git }), []);
+  const before = h.calls.length;
+  for (const allowBelowBaseline of [false, true]) {
+    await assert.rejects(rollback(forbidding({ baselines }), final, { ...h.deps, git, allowBelowBaseline, switchState: switchOff }),
+      new RegExp(`${rollout.revision} carries forbidden ${DIRECT} \\(forbiddenEnv\\); refusing, with no override`));
+  }
+  assert.ok(!h.calls.slice(before).some(c => c.includes("update-traffic")));
+  assert.deepEqual(traffic(await h.deps.cloud(["run", "services", "describe", "api"])), { [final.revision]: 100 });
+  // The same target without it rolls back.
+  const container = h.revisions.get(rollout.revision).spec.containers[0];
+  container.env = container.env.filter(e => e.name !== DIRECT);
+  assert.deepEqual(await forbiddenEnvProblems(forbidding(), [rollout.revision], h.deps), []);
+  assert.equal((await rollback(forbidding({ baselines }), final, { ...h.deps, git })).status, "rolled-back");
+});
+
+test("minInstances and maxInstances become deploy flags and are validated", async t => {
+  const args = deployArgs({ ...config, minInstances: 0, maxInstances: 20 }, { id: "release", commit: source.commit });
+  assert.ok(args.includes("--min-instances=0"));
+  assert.ok(args.includes("--max-instances=20"));
+  assert.ok(!deployArgs(config, { id: "release", commit: source.commit }).some(a => /--(min|max)-instances/.test(a)));
+  const load = await loader(t);
+  assert.equal((await load({ maxInstances: 20 })).config.maxInstances, 20);
+  assert.equal((await load({ minInstances: 1, maxInstances: 1 })).config.minInstances, 1);
+  for (const bad of [{ maxInstances: 0 }, { maxInstances: "20" }, { maxInstances: 2.5 }, { minInstances: -1 }]) await assert.rejects(load(bad), /Instances must be/);
+  await assert.rejects(load({ minInstances: 5, maxInstances: 2 }), /minInstances cannot exceed maxInstances/);
+});
+
+test("an unknown setting is refused, not silently dropped", async t => {
+  const load = await loader(t);
+  await assert.rejects(load({ maxInstance: 20 }), /Unknown setting\(s\) for api: maxInstance/);
+  await assert.rejects(load({ environments: { production: { minInstanecs: 1 } } }), /Unknown setting\(s\) for api: minInstanecs/);
+  assert.ok(SETTINGS.includes("maxInstances") && SETTINGS.includes("minInstances"));
+});
+
+test("every service in this repository's deploy.json loads", async () => {
+  const root = path.resolve(import.meta.dirname, "../../..");
+  const raw = JSON.parse(await readFile(path.join(root, "deploy.json"), "utf8"));
+  for (const service of Object.keys(raw.services)) {
+    for (const env of Object.keys(raw.environments)) {
+      assert.equal((await loadConfig({ ...parseArgs(["--plan"]), service, env }, root, {})).service, service);
+    }
+  }
 });
