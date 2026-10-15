@@ -136,6 +136,28 @@ describe("resolve, then sign", () => {
     expect(init.mock.calls[0][0].questions[0].stimulus).toBe("7?");
   });
 
+  test("an already-signed items activity is never re-signed, even with dynamic data", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const q = { response_id: "artcompiler-mcq-t-0", type: "mcq", stimulus: "{{var:A1}}?" };
+    const request = { security: { signature: "$02$own-connection" }, request: { items: ["bank-item-1"], questions: [q] } };
+    const activity = { type: "items", data: { id: "a", name: "n", session_id: "s", questions: [q], dynamic_content_data: DCD }, request };
+    mount(activity);
+    await loadLearnosity();
+    await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
+    await settle();
+    expect(compiles).toEqual([]);
+    expect(init.mock.calls[0][0]).toBe(request);
+  });
+
+  test("an unsigned items activity (no request) is still signed", async () => {
+    const q = { response_id: "artcompiler-mcq-x-0", type: "mcq", stimulus: "2 + 2?" };
+    mount({ type: "items", data: { id: "a", name: "n", session_id: "s", questions: [q] } });
+    await loadLearnosity();
+    await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
+    expect(compiles).toHaveLength(1);
+    expect(init.mock.calls[0][0].signature).toBe("$02$signed");
+  });
+
   test("(c) a static unsigned activity is signed, then rendered", async () => {
     const mcq = { response_id: "artcompiler-mcq-x-0", type: "mcq", stimulus: "2 + 2?" };
     mount(l0158([mcq]));

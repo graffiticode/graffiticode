@@ -152,11 +152,15 @@ L0158 task here once its generation is active): its compiled data is an **unsign
 `{ type, data }` activity with inline `{ response_id, type, ... }` questions. Ported from
 L0158's View, the Form picks one `dynamic_content_data` row per mount and substitutes
 `{{var:X}}` everywhere, custom-question data included (Learnosity passes custom data through
-unsubstituted). When the activity has no `request`, or substitution changed it, it posts the
-resolved activity to L0176's own `POST /compile` with `init data {}` and no connection or user
-token, so the system preview session signs it for `l0176.graffiticode.org`, and renders
-`{ type: activity.type, request }`. An already-signed activity with nothing to substitute
-renders its own request with no second compile. Without a request (signing unavailable,
+unsubstituted). When the activity has no `request`, or it is an already-signed `questions`
+activity that substitution changed, it posts the resolved activity to L0176's own
+`POST /compile` with `init data {}` and no connection or user token, so the system preview
+session signs it for `l0176.graffiticode.org`, and renders `{ type: activity.type, request }`.
+Any other already-signed activity renders its own request with no second compile: one with
+nothing to substitute, and **every signed `items` activity**, dynamic data or not. The system
+session is a different Learnosity consumer from a user's connection, and an items activity may
+load bank items by reference that consumer can't see (Learnosity still substitutes its
+standard fields). Without a request (signing unavailable,
 pending, or refused) the SDK is never initialized; an unsigned result shows its
 `signing.message`, or "This preview couldn't be signed."
 
