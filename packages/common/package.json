@@ -13,7 +13,9 @@
     "./failures": "./dist/failures.js",
     "./http": "./dist/http.js",
     "./protected-registry": "./dist/protected-registry.js",
-    "./utils": "./dist/utils.js"
+    "./utils": "./dist/utils.js",
+    "./caller": "./dist/caller.js",
+    "./act-as": "./dist/act-as.js"
   },
   "files": [
     "dist/**/*.js",

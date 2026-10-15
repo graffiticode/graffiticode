@@ -1,3 +1,5 @@
+import { OAuth2Client } from "google-auth-library";
+import { buildActAsConfig } from "./act-as-config.js";
 import { getAuth } from "./firebase.js";
 import { createHttpAuthApp } from "./routes/index.js";
 import { createServices } from "./services/index.js";
@@ -9,6 +11,7 @@ export const createApp = () => {
   // @ts-expect-error TS-MIGRATE: callee ignores the argument; checkJs infers no parameters
   const storers = createStorers({ firebaseAuth });
   const services = createServices({ firebaseAuth, ...storers });
-  const app = createHttpAuthApp({ firebaseAuth, ...storers, ...services });
+  const actAs = buildActAsConfig(process.env, { OAuth2Client });
+  const app = createHttpAuthApp({ firebaseAuth, ...storers, ...services, actAs });
   return { ...storers, ...services, app };
 };
