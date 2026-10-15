@@ -1,0 +1,60 @@
+{
+  "title": "Capability security, in 60 seconds",
+  "duration": 60,
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "voice": "Samantha",
+  "speechRate": 176,
+  "scenes": [
+    {
+      "start": 0,
+      "chapter": "The request",
+      "title": "Code can ask. Permission decides.",
+      "subtitle": "Client agent → gateway → compiler with protected functions",
+      "narration": "A client agent sends a program to the compiler through the gateway. Ordinary computation runs freely. Protected functions need permission."
+    },
+    {
+      "start": 10,
+      "chapter": "The grant",
+      "title": "Share one action. Keep the credential.",
+      "subtitle": "The owner grants an exact language and function on a connection.",
+      "narration": "The connection owner grants a user specific language functions, such as saving to the item bank. The provider credential stays inside the broker."
+    },
+    {
+      "start": 20,
+      "chapter": "Admission",
+      "title": "Check the whole chain before it runs.",
+      "subtitle": "Preflight is side-effect free. Every stage must be admitted.",
+      "narration": "The gateway preflights every compiler stage. Policy checks the entire chain. One denied function blocks the run before any stage executes."
+    },
+    {
+      "start": 30,
+      "chapter": "The capability",
+      "title": "Mint authority for this exact call.",
+      "subtitle": "Policy issues the capability. The compiler presents it to Broker.",
+      "narration": "Policy issues the compiler a capability: single use, valid for sixty seconds at most, bound to the function and exact arguments."
+    },
+    {
+      "start": 40,
+      "chapter": "Live checks",
+      "title": "Check permission at the point of use.",
+      "subtitle": "Broker verifies the token and asks Policy before each effect.",
+      "narration": "Broker verifies the capability and checks live permission before each effect. Active grants allow the provider call. Revoked permission blocks the next effect."
+    },
+    {
+      "start": 50,
+      "chapter": "Safe retries",
+      "title": "Record the outcome. Make retries safe.",
+      "subtitle": "Same operation ID + fresh authorization → recorded receipt, no repeated write.",
+      "narration": "A durable receipt records the outcome. Retrying the same operation returns its receipt without repeating the write. The agent gets results, never credentials."
+    }
+  ],
+  "sources": [
+    "../graffiticode_capability_policy_spec.md",
+    "../capability-policy-as-built.md (W4 activated, 2026-10-13)",
+    "../../packages/common/src/protected-registry.ts (registry v7)",
+    "../../languages/l0000/packages/core/src/protected-client.ts"
+  ],
+  "scope": "Conceptual explanation of the repository model, not a production conformance audit. No transactionality, provider exactly-once guarantee, or rollback is implied. Live checks prevent the next effect; they cannot undo a dispatched operation."
+}
