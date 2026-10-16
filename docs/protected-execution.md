@@ -410,9 +410,15 @@ gcloud firestore databases restore --project=graffiticode --source-backup=<polic
 gcloud firestore databases restore --project=graffiticode --source-backup=<broker backup name> --destination-database=broker-restore-check
 node scripts/retention-check.js --compare --policy-restore policy-restore-check --broker-restore broker-restore-check \
   --canary-connection <canary connection id>
-gcloud firestore databases delete --project=graffiticode --database=policy-restore-check
-gcloud firestore databases delete --project=graffiticode --database=broker-restore-check
+# A restore inherits its source's delete protection; turn it off on the scratch copy first.
+for db in policy-restore-check broker-restore-check; do
+  gcloud firestore databases update --project=graffiticode --database=$db --no-delete-protection
+  gcloud firestore databases delete --project=graffiticode --database=$db --quiet
+done
 ```
+
+The restore command waits for its operation; delete may still refuse for a few minutes after
+it, while the restore finishes ("in the middle of restore"): retry.
 
 `--compare` takes the cutoff from the two backups' exact snapshot times (the earlier, minus a
 minute), never rounded, and reads no point-in-time versions:

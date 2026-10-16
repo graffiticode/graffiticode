@@ -203,18 +203,29 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   [provider response classification](../packages/broker/src/learnosity.ts),
   [receipt store](../packages/broker/src/firestore.ts), and
   [receipt tests](../packages/broker/src/broker.spec.ts).
-- **Partial / deployment unverified — RETAIN-01.** Invocation and receipt code has no
+- **Closed 2026-10-16 — RETAIN-01.** Invocation and receipt code has no
   automatic expiry. Token-ID documents carry an expiry field suitable for cleanup. W4's
-  admission plans (`plans`) and invocation markers have no expiry either. W5 stage 2 (in code,
-  not yet closed):
+  admission plans (`plans`) and invocation markers have no expiry either. W5 stage 2:
   - `scripts/retention-check.js`, 2026-10-14: **no TTL policy** on any of `policy`, `broker`,
     `(default)` or `revisions`. Point-in-time recovery (7 days) and daily backups (kept 14 weeks)
     were enabled on all four at 16:07Z; the check then **passed** on every part
     (`.gc-deploy/retention/config-2026-10-14T16-07-33-821Z.json`).
   - Connection deletion keeps invocations, idempotency keys and receipts (claim, steps,
     outcome), and refuses a retry with no provider call (`retention.spec.ts`, emulator).
-  - Still to do: a recorded restore test (`--compare`), once a daily backup of `policy` and of
-    `broker` exists.
+  - **Restore test passed, 2026-10-16:**
+    - **Restored:** the daily backups of `policy` (snapshot 12:02:53Z) and `broker`
+      (10:41:44Z), into scratch databases.
+    - **Compared** with `retention-check --compare` to a cutoff of 10:40:44Z:
+      - Policy, 465 documents: 182 invocations, 182 idempotency keys, 38 sequences, 63 plans;
+        3 updated since were checked for existence. 0 problems.
+      - Broker, 432 documents: 124 receipts, 184 steps, 124 outcomes. 0 problems.
+      - The key → invocation → plan → receipt links: 0 problems.
+      - The 117 canary records from before the cutoff: none missing.
+    - **Evidence:** `.gc-deploy/retention/restore-2026-10-16T19-50-00-401Z.json`.
+    - **Cleanup:** the scratch databases were deleted afterwards. Their delete protection,
+      inherited from the source, was turned off first.
+    - **Also fixed:** the check's backup lookup, which passed `gcloud` the full backup name
+      where it takes `--backup` and `--location`.
   Evidence:
   [Policy stores](../packages/policy/src/firestore.ts) and
   [Broker stores](../packages/broker/src/firestore.ts).
@@ -844,7 +855,7 @@ coding agent does the implementation work named, and Jeff accepts the production
 |---|---|---|---|
 | AUDIT-01 | Partial: denial records have no `category`; no reconciliation events | Agent implements categories and reconciliation audit events. Jeff accepts production evidence | Every audited refusal carries its category, checked by the inventory test; reconciliation outcomes audited; both shown on deployed records |
 | WRITE-02 | Missing: no reconciliation from provider evidence. No exactly-once provider guarantee is claimed | Agent implements W5 reconciliation and its tests. Jeff accepts provider-backed evidence | Uncertain and partial writes reconciled against provider evidence, with AT-10 for Author, shown against the provider |
-| RETAIN-01 | Retention and backups unverified | Jeff owns production retention, backups and restore verification. Agent supplies the checks | A successful restore test, and verification that every record RETAIN-01 names (invocation records, idempotency bindings, admission plans, receipt claims and outcomes) has no unintended expiry and survives connection deletion, not just backups configured; in the Policy and Broker databases, recorded |
+| RETAIN-01 | **Closed 2026-10-16:** restore test passed (see RETAIN-01 above) | Jeff owns production retention, backups and restore verification. Agent supplies the checks | A successful restore test, and verification that every record RETAIN-01 names (invocation records, idempotency bindings, admission plans, receipt claims and outcomes) has no unintended expiry and survives connection deletion, not just backups configured; in the Policy and Broker databases, recorded |
 | ISOLATE-01 | Compiler isolation and egress evidence outstanding. Credentials part done 2026-10-15: no compiler holds or can read a provider credential (SECRET-01) | Jeff owns production IAM and network controls. Agent supplies configuration changes and negative tests | Enforced egress allowlist; compilers denied access to credentials (secrets, keys, metadata tokens beyond their own) and denied impersonation; all shown by deployed negative tests (AT-11) |
 
 Update this record when each requirement is implemented and tested. Record source revision,

@@ -105,7 +105,10 @@ const snapshotTimeOf = (project, database) => {
   const described = gcloud(["firestore", "databases", "describe", `--project=${project}`, `--database=${database}`, "--format=json"]);
   const backup = described?.sourceInfo?.backup?.backup;
   if (!backup) throw new Error(`${database} has no source backup recorded; is it a restore?`);
-  const info = gcloud(["firestore", "backups", "describe", backup, "--format=json"]);
+  // gcloud takes the backup id and location as flags, not the full name.
+  const m = /^projects\/([^/]+)\/locations\/([^/]+)\/backups\/([^/]+)$/.exec(backup);
+  if (!m) throw new Error(`${database}'s source backup ${backup} isn't a backup name`);
+  const info = gcloud(["firestore", "backups", "describe", `--project=${m[1]}`, `--location=${m[2]}`, `--backup=${m[3]}`, "--format=json"]);
   const t = Date.parse(info?.snapshotTime);
   if (!Number.isFinite(t)) throw new Error(`backup ${backup} has no snapshot time`);
   return { backup, snapshotTime: info.snapshotTime, ms: t };

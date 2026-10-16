@@ -57,7 +57,7 @@ Jeff accepts the production evidence. The agent did the mapping and the checks.
 | AT-04 | ADMIT-03, REG-01, TOKEN-01 | **Pass** | None (both closed 2026-10-14) |
 | AT-05 | EXEC-01/02, REVOKE-01, API-02 | **Pass** | None |
 | AT-06 | MODEL-03, WRITE-01, FAIL-01 | **Pass** | None |
-| AT-07 | RUN-01, WRITE-01/02, RETAIN-01 | **Pass, pending restore** | RETAIN-01's restore test |
+| AT-07 | RUN-01, WRITE-01/02, RETAIN-01 | **Pass** | None (the restore test passed 2026-10-16) |
 | AT-08 | RECOVER-01, ARTIFACT-01 | **Pass** | None |
 | AT-09 | PREVIEW-01, READ-01, PUB-01 | **Pass** | Learner answers aren't a gateway path (the Learnosity client handles them), so only views are tested |
 | AT-10 | PROVIDER-01, L0176-01 | **Open** | No provider-side evidence for lifetimes, replay, revocation or preview scope |
@@ -150,7 +150,7 @@ Test names are quoted from the specs.
 | Lost response or crash | Covered | live.spec; broker.spec "…never finished as uncertain", "…stopped between steps"; at12.spec |
 | Authorization/dispatch race | Covered | live.spec "lets a step authorized before the revocation dispatch, and stops the next", with no rollback asserted |
 
-### AT-07: one execution per operation: Pass, pending restore
+### AT-07: one execution per operation: Pass
 
 | Clause | Status | Evidence |
 | --- | --- | --- |
@@ -159,7 +159,7 @@ Test names are quoted from the specs.
 | Key reused with changed input | Covered | policy.spec; broker.spec; w4-cross.spec |
 | Replay after revocation | Covered | live.spec; w4-cross.spec. Live: canary replay after narrowing |
 | Stable binding | Covered | policy.spec; w4-cross.spec. Live: canary gateway write retry, retry across a deploy |
-| Identities never expire | Covered, restore pending | brk/retention.spec (emulator) survival after connection deletion; scr/retention.test; deployed `retention-check` (no TTL on a protected collection; PITR and backups). The restore test is outstanding |
+| Identities never expire | Covered | brk/retention.spec (emulator) survival after connection deletion; scr/retention.test; deployed `retention-check` (no TTL on a protected collection; PITR and backups); **the restore test, 2026-10-16:** every protected record before the cutoff restored intact, with its links (see the as-built, RETAIN-01) |
 | A deliberate new invocation writes again | Covered | broker.spec "writes again for an intentional rerun"; recovery.spec |
 | Reconciliation (WRITE-02) | Covered | brk/ and pol/ reconcile.spec; broker.spec evidence and mark tests. Live: canary reconcile `applied` |
 
@@ -220,7 +220,7 @@ there is no job lookup. PROVIDER-01 stays provider-unverified.
    This needs sandbox tests, and possibly an `expires` on preview signing.
 2. ~~**AT-02, account enumeration**~~: fixed 2026-10-14 (graffiticode-app #10).
 3. ~~**AT-02, verified-email claim**~~: tested (graffiticode-app #10).
-4. **AT-07 / RETAIN-01, restore test:** run it once the first daily backups exist.
+4. ~~**AT-07 / RETAIN-01, restore test**~~: passed 2026-10-16.
 5. ~~**AT-04, canonical vectors**~~: both L0000 copies carry all 6, checked against
    `CANONICAL_VECTORS` (tests only; no l0000 release needed).
 6. ~~**AT-12:** old receipts reportable~~: tested.
@@ -232,8 +232,8 @@ there is no job lookup. PROVIDER-01 stays provider-unverified.
 12. ~~**Single sub-cases**~~ (AT-05 signature expiry, AT-01 Broker invoker mismatch, AT-08
     cross-account recovery): tested.
 
-No test written for these gaps found a bug. What remains is AT-10 (provider-side), AT-07's
-restore test, and AT-11 (deferred).
+No test written for these gaps found a bug. What remains is AT-10 (provider-side) and AT-11
+(deferred).
 
 Live coverage doesn't reach AT-01, AT-06, AT-08 or AT-09's save prohibition. These rest on
 CI tests.
