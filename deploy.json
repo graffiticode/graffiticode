@@ -894,14 +894,17 @@
         {
           "milestone": "v7",
           "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
+        },
+        {
+          "milestone": "gateway-only",
+          "commit": "dd5b903142c56eb215b5538c2219fa2e37655e66"
         }
       ],
       "env": {
         "AUTH_URL": "https://auth.graffiticode.org",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
         "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
-        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com",
-        "SYSTEM_PREVIEW_DIRECT": "1"
+        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
       },
       "removeSecrets": [
         "GRAFFITICODE_SECRET_KEY"
@@ -923,7 +926,13 @@
           1,
           2
         ]
-      }
+      },
+      "removeEnv": [
+        "SYSTEM_PREVIEW_DIRECT"
+      ],
+      "forbiddenEnv": [
+        "SYSTEM_PREVIEW_DIRECT"
+      ]
     },
     "l0003": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0003",
