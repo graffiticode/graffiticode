@@ -570,7 +570,7 @@ export const verifyThreshold = async ({
   api, project, email, apply: doApply = false, threshold = SCRATCH_THRESHOLD,
   nonce = randomBytes(4).toString("hex"), runId = randomBytes(4).toString("hex"),
   now = () => new Date(), wait = ms => new Promise(resolve => setTimeout(resolve, ms)),
-  settleMs = 2 * MINUTE, holdMs = 5 * MINUTE, pollMs = 30 * 1000, ingestMs = 15 * MINUTE, log = () => {},
+  settleMs = 2 * MINUTE, holdMs = 5 * MINUTE, pollMs = 30 * 1000, ingestMs = 15 * MINUTE, metricReadyMs = 12 * MINUTE, log = () => {},
 }) => {
   if (nonce === runId) throw new Error("the run id must not be the nonce");
   const channel = await findChannel(api, project, email);
@@ -590,10 +590,22 @@ export const verifyThreshold = async ({
   // A new log-based metric takes a moment to exist for Monitoring (a policy
   // on it can be refused until then) and to start counting.
   await wait(settleMs);
-  if (existing) {
-    ok(await api("PATCH", `${MONITORING}/${existing.name}?updateMask=displayName,combiner,enabled,notificationChannels,documentation,conditions,alertStrategy`, scratch.policy), `alertPolicies.patch ${SCRATCH_POLICY}`);
-  } else {
-    ok(await api("POST", `${MONITORING}/projects/${project}/alertPolicies`, scratch.policy), `alertPolicies.create ${SCRATCH_POLICY}`);
+  // Monitoring can take up to 10 minutes to know a new log-based metric, and
+  // refuses a policy on it until then (404 "Cannot find metric(s)"), so retry
+  // that refusal until `metricReadyMs`.
+  const putPolicy = () => (existing
+    ? api("PATCH", `${MONITORING}/${existing.name}?updateMask=displayName,combiner,enabled,notificationChannels,documentation,conditions,alertStrategy`, scratch.policy)
+    : api("POST", `${MONITORING}/projects/${project}/alertPolicies`, scratch.policy));
+  const policyDeadline = now().getTime() + metricReadyMs;
+  for (;;) {
+    const res = await putPolicy();
+    const unknownMetric = res.status === 404 && /Cannot find metric/.test(JSON.stringify(res.json ?? ""));
+    if (!unknownMetric || now().getTime() >= policyDeadline) {
+      ok(res, `alertPolicies.${existing ? "patch" : "create"} ${SCRATCH_POLICY}`);
+      break;
+    }
+    log("  Monitoring doesn't know the new metric yet; retrying the policy");
+    await wait(pollMs);
   }
   log(`  ${existing ? "updated" : "created"} policy ${SCRATCH_POLICY}`);
 

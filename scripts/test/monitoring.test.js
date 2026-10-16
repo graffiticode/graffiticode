@@ -592,6 +592,39 @@ test("verify-threshold applied: metric first, the threshold reached and held, th
   assert.ok(run.crossedAt);
 });
 
+test("verify-threshold retries the scratch policy while Monitoring doesn't know the new metric", async () => {
+  const g = withChannel();
+  const real = g.api;
+  let refusals = 2;
+  const slow = async (method, url, body) => {
+    if (method === "POST" && new URL(url).pathname.endsWith("/alertPolicies") && refusals > 0) {
+      refusals--;
+      return { status: 404, json: { error: { code: 404, message: "Cannot find metric(s) that match type = \"x\". If a metric was created recently, it could take up to 10 minutes to become available." } } };
+    }
+    return real(method, url, body);
+  };
+  const run = await verifyThreshold({
+    api: slow,
+    project: P,
+    email: "ops@example.com",
+    apply: true,
+    nonce: "c0ffee01",
+    runId: "run00001",
+    wait: async () => {},
+    settleMs: 1,
+    holdMs: 1,
+    pollMs: 1,
+  });
+  assert.equal(run.applied, true);
+  assert.equal(refusals, 0);
+  // Any other refusal is not retried.
+  const g2 = withChannel();
+  const other = async (method, url, body) => (method === "POST" && new URL(url).pathname.endsWith("/alertPolicies")
+    ? { status: 400, json: { error: { message: "bad" } } }
+    : g2.api(method, url, body));
+  await assert.rejects(verifyThreshold({ api: other, project: P, email: "ops@example.com", apply: true, wait: async () => {}, settleMs: 1, holdMs: 1, pollMs: 1 }), /alertPolicies.create.*400/);
+});
+
 test("verify-threshold refuses without the operator's channel, and stops when the metric isn't ingested", async () => {
   await assert.rejects(verifyThreshold({ api: fakeGoogle().api, project: P, email: "ops@example.com", apply: true }), /run --apply first/);
   const g = withChannel();
