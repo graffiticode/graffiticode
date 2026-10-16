@@ -270,7 +270,8 @@
         "POLICY_KMS_KID": "policy-1",
         "LEARNOSITY_DOMAIN": "l0176.graffiticode.org",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
-        "BROKER_MIN_CONTRACT_VERSION": "2"
+        "BROKER_MIN_CONTRACT_VERSION": "2",
+        "SYSTEM_SESSION_MAX_SIGNINGS": "4"
       },
       "smoke": [
         {
@@ -310,6 +311,12 @@
         {
           "milestone": "v7",
           "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
+        }
+      ],
+      "requires": [
+        {
+          "service": "policy",
+          "milestone": "sexp"
         }
       ]
     },
@@ -381,7 +388,9 @@
         "POLICY_KMS_KID": "policy-1",
         "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
         "POLICY_SYSTEM_CONNECTIONS": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}",
-        "POLICY_MIN_CONTRACT_VERSION": "2"
+        "POLICY_MIN_CONTRACT_VERSION": "2",
+        "SYSTEM_SIGNINGS_PER_MINUTE": "120",
+        "SYSTEM_SIGNINGS_BURST": "60"
       },
       "smoke": [
         {
@@ -425,8 +434,13 @@
         {
           "milestone": "v7",
           "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
+        },
+        {
+          "milestone": "sexp",
+          "commit": "bd4bbc23670540f9f5126379e23db0405bad9d1c"
         }
-      ]
+      ],
+      "maxInstances": 20
     },
     "l0000": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0000",
