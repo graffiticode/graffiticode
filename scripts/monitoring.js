@@ -28,7 +28,7 @@
 // on a log-match alert never exercises: a scratch log-based metric and a
 // scratch threshold policy (default threshold 5, the real policy's window,
 // aligner, reducer and comparison) whose documentation holds a fresh nonce,
-// then test records at the threshold, a hold, and one past it. It prints the
+// then test records under the threshold, a hold, and more well past it. It prints the
 // nonce and the crossing time and adds the nonce to pending.json, so
 // --confirm records it like the others; an email with the nonce dated
 // before the crossing is a failure. Without --apply it prints what it would

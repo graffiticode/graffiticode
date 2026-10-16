@@ -501,10 +501,10 @@ export const confirmDelivery = (written, typed, now = () => new Date()) => {
 //   1. the scratch metric is created first (a log-based metric counts only
 //      entries written after it exists), and the scratch policy with a fresh
 //      nonce written literally in its documentation;
-//   2. `threshold` test records: the hourly sum reaches the threshold, which
-//      a COMPARISON_GT condition must not open on; the run waits until the
-//      metric shows exactly that sum, then holds;
-//   3. one more record crosses it; the run waits until the metric shows it.
+//   2. a few test records, two under the threshold; the run waits until the
+//      metric shows them, then holds, and the reading must stay at or below
+//      the threshold, where a COMPARISON_GT condition must not open;
+//   3. more records take it well past; the run waits until the metric does.
 // The email that crossing causes carries the nonce: the metric was ingested,
 // the condition evaluated and the notification delivered, in one test. An
 // email with the nonce dated before the crossing means the condition opened
@@ -536,7 +536,12 @@ export const thresholdScratch = ({ project, channel, nonce, runId, threshold = S
   };
   const policy = desiredThresholdPolicy(spec, channel, { nonce });
   const record = at => ({ jsonPayload: { logName: "security_audit", event: "monitoring-test", check: "threshold", run: runId, at } });
-  return { metric, spec, policy, record, under: threshold, over: threshold + 1 };
+  // Margins, not exact counts: Monitoring regrids a delta point into the
+  // query's windows, so a point split by a window edge can be counted in two,
+  // and a reading may run one or two above the records written. So the check
+  // writes well under the threshold, holds while the reading stays at or below
+  // it, then writes well past it.
+  return { metric, spec, policy, record, under: Math.max(1, threshold - 2), over: threshold + 3 };
 };
 
 // The metric's sum over the last window, aggregated as the condition does.
@@ -575,8 +580,8 @@ export const verifyThreshold = async ({
   const steps = [
     `create metric ${scratch.metric.name}`,
     `${existing ? "update" : "create"} policy ${SCRATCH_POLICY} (threshold ${threshold}, documentation ending "Nonce: ${nonce}")`,
-    `write ${scratch.under} test records (at the threshold; must not open), wait until the metric shows ${scratch.under}, hold ${Math.round(holdMs / 1000)} s`,
-    `write 1 more (past it), wait until the metric shows ${scratch.over}`,
+    `write ${scratch.under} test records (under the threshold ${threshold}; must not open), wait until the metric shows them, hold ${Math.round(holdMs / 1000)} s with it at or below ${threshold}`,
+    `write ${scratch.over - scratch.under} more (${scratch.over} in all, past it), wait until the metric shows more than ${threshold}`,
   ];
   if (!doApply) return { applied: false, nonce, runId, scratch, steps };
 
@@ -602,24 +607,29 @@ export const verifyThreshold = async ({
     return at;
   };
   const sum = () => windowSum({ api, project, metric: scratch.metric.name, resourceType: "global", now });
-  const until = async target => {
+  const limit = scratch.spec.threshold.value;
+  // Wait until the reading reaches `atLeast`; while waiting, a reading past
+  // `atMost` fails (the condition could already open).
+  const until = async (atLeast, atMost = Infinity) => {
     const deadline = now().getTime() + ingestMs;
     for (;;) {
       const seen = await sum();
-      if (seen === target) return seen;
-      if (seen > target) throw new Error(`the scratch metric shows ${seen}, past ${target}: records from elsewhere; run --cleanup and start again`);
-      if (now().getTime() >= deadline) throw new Error(`the scratch metric shows ${seen}, not ${target}, after ${Math.round(ingestMs / 1000)} s: not ingested`);
+      if (seen > atMost) throw new Error(`the scratch metric shows ${seen}, past the threshold ${atMost} with only ${atLeast} written: the condition could open early; run --cleanup and start again`);
+      if (seen >= atLeast) return seen;
+      if (now().getTime() >= deadline) throw new Error(`the scratch metric shows ${seen}, not ${atLeast}, after ${Math.round(ingestMs / 1000)} s: not ingested`);
       await wait(pollMs);
     }
   };
 
   const underAt = await write(scratch.under);
-  await until(scratch.under);
-  log(`  the metric shows ${scratch.under} (written ${underAt}); holding ${Math.round(holdMs / 1000)} s at the threshold`);
+  const seenUnder = await until(scratch.under, limit);
+  log(`  the metric shows ${seenUnder} for ${scratch.under} written (${underAt}); holding ${Math.round(holdMs / 1000)} s under the threshold ${limit}`);
   await wait(holdMs);
-  const crossedAt = await write(1);
-  await until(scratch.over);
-  log(`  the metric shows ${scratch.over} (crossed ${crossedAt})`);
+  const held = await sum();
+  if (held > limit) throw new Error(`the scratch metric rose to ${held} during the hold, past the threshold ${limit}: run --cleanup and start again`);
+  const crossedAt = await write(scratch.over - scratch.under);
+  const seenOver = await until(limit + 1);
+  log(`  the metric shows ${seenOver} for ${scratch.over} written (crossed ${crossedAt})`);
   return { applied: true, nonce, runId, scratch, steps, underAt, crossedAt };
 };
 

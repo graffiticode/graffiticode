@@ -355,12 +355,16 @@ Without `--apply` it prints the scratch metric, the policy and a nonce, and writ
 1. It creates the scratch metric (a log-based metric counts only entries written after it
    exists) and the scratch policy, whose documentation holds a fresh nonce **literally**. The
    run id in the metric's name isn't the nonce: the email shows the metric type.
-2. It writes 5 test records (`security_audit_test`, event `monitoring-test`, `check:
+2. It writes 3 test records (`security_audit_test`, event `monitoring-test`, `check:
    "threshold"`), waits until the metric's hourly sum, queried as the condition aggregates it,
-   shows exactly 5, and holds for 5 minutes. At the threshold, a `COMPARISON_GT` condition
-   must not open.
-3. It writes one more, waits until the sum shows 6, and prints the crossing time and the
-   nonce. No real metric or log-match alert matches these records.
+   shows them, and holds for 5 minutes. Through the hold the sum must stay at or below the
+   threshold, where a `COMPARISON_GT` condition must not open.
+3. It writes 5 more (8 in all), waits until the sum passes the threshold, and prints the
+   crossing time and the nonce. No real metric or log-match alert matches these records.
+
+   Margins, not exact counts: Monitoring regrids a delta point into the query's windows, so
+   a point split by a window edge can be counted twice, and a reading may run one or two
+   above the records written. That's noise at the real alert's 600.
 
 The email from the scratch policy must contain `Nonce: <nonce>` and be dated after the
 crossing: that shows the metric was ingested, the condition evaluated and the notification

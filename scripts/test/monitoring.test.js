@@ -583,8 +583,9 @@ test("verify-threshold applied: metric first, the threshold reached and held, th
   ]);
   const [, created, under, over] = g.writes;
   assert.match(created.body.documentation.content, /Nonce: c0ffee01$/);
-  assert.equal(under.body.entries.length, 5);
-  assert.equal(over.body.entries.length, 1);
+  // Well under the threshold of 5, then well past it.
+  assert.equal(under.body.entries.length, 3);
+  assert.equal(over.body.entries.length, 5);
   assert.deepEqual(waits, [1, 2]);
   // Queried as the condition aggregates.
   assert.ok(g.timeSeries.every(q => q["aggregation.alignmentPeriod"] === "3600s" && q["aggregation.perSeriesAligner"] === "ALIGN_SUM" && q["aggregation.crossSeriesReducer"] === "REDUCE_SUM"));
@@ -610,7 +611,7 @@ test("verify-threshold refuses without the operator's channel, and stops when th
     holdMs: 1,
     pollMs: 60000,
     ingestMs: 300000,
-  }), /shows 0, not 5.*not ingested/);
+  }), /shows 0, not 3.*not ingested/);
   // Nothing crossed.
   assert.equal(g.writes.filter(w => w.path.endsWith("entries:write")).length, 1);
 });
