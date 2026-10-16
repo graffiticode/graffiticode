@@ -146,18 +146,37 @@ const validateWrite = payload => {
   });
 };
 
-export const buildOperations = ({ sdk, domain, dataApi }) => {
+// A preview signature's acceptance window (PROVIDER-01, AT-10). Without
+// `expires` Learnosity accepts a signature for 7 days, and an established
+// session can save or submit for as long; the Questions API doesn't sign the
+// request, so a holder can change its type and store responses. `expires` is
+// in the signature, so it can't be extended, and after it every save or submit
+// fails. Minutes, 1 to 60 (BROKER_PREVIEW_EXPIRES_MINUTES).
+export const DEFAULT_PREVIEW_EXPIRES_MINUTES = 10;
+
+// Learnosity's security-packet time, UTC to the minute (YYYYMMDD-HHmm).
+export const learnosityTime = (date: Date) => {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${date.getUTCFullYear()}${p(date.getUTCMonth() + 1)}${p(date.getUTCDate())}-${p(date.getUTCHours())}${p(date.getUTCMinutes())}`;
+};
+
+export const buildOperations = ({ sdk, domain, dataApi, previewExpiresMinutes = DEFAULT_PREVIEW_EXPIRES_MINUTES, now = () => new Date() }) => {
+  if (!Number.isInteger(previewExpiresMinutes) || previewExpiresMinutes < 1 || previewExpiresMinutes > 60) {
+    throw new Error("previewExpiresMinutes must be a whole number of minutes, 1 to 60");
+  }
   const consumer = key => ({ consumer_key: key, domain, user_id: randomUUID() });
+  // Previews only: Data API requests keep their own timestamp check.
+  const previewConsumer = key => ({ ...consumer(key), expires: learnosityTime(new Date(now().getTime() + previewExpiresMinutes * 60_000)) });
   return {
     "learnosity.sign-questions-preview": {
       kind: "sign",
       validate: validatePreview,
-      run: async (payload, { key, secret }) => ({ request: sdk.init("questions", consumer(key), secret, payload) }),
+      run: async (payload, { key, secret }) => ({ request: sdk.init("questions", previewConsumer(key), secret, payload) }),
     },
     "learnosity.sign-items-preview": {
       kind: "sign",
       validate: validatePreview,
-      run: async (payload, { key, secret }) => ({ request: sdk.init("items", consumer(key), secret, payload) }),
+      run: async (payload, { key, secret }) => ({ request: sdk.init("items", previewConsumer(key), secret, payload) }),
     },
     "learnosity.write-items": {
       kind: "write",

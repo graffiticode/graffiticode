@@ -16,6 +16,8 @@ import {
   createBroker,
   BrokerRefused,
   buildOperations,
+  learnosityTime,
+  DEFAULT_PREVIEW_EXPIRES_MINUTES,
   ProviderRejected,
   createMemoryOnceStore,
   createMemoryReceiptStore,
@@ -349,6 +351,29 @@ describe("preview signing", () => {
     expect(result.request.signedWithSecret).toBe(true);
     expect(result.request.consumer.domain).toBe("l0176.graffiticode.org");
     expect(routes).toEqual([]);
+  });
+
+  it("bounds every preview signature with expires, 10 minutes by default", async () => {
+    const at = new Date(Date.UTC(2026, 9, 16, 21, 55, 30));
+    const calls = [];
+    const sdk = { init: (service, consumer) => { calls.push({ service, consumer }); return { service, consumer }; } };
+    const ops = buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi: async () => ({ meta: { status: true } }), now: () => at });
+    await ops["learnosity.sign-questions-preview"].run(PREVIEW, { key: "k", secret: "s" });
+    await ops["learnosity.sign-items-preview"].run(PREVIEW, { key: "k", secret: "s" });
+    expect(DEFAULT_PREVIEW_EXPIRES_MINUTES).toBe(10);
+    expect(calls.map(c => [c.service, c.consumer.expires])).toEqual([["questions", "20261016-2205"], ["items", "20261016-2205"]]);
+    // The configured window, and nonsense refused.
+    const five = buildOperations({ sdk, domain: "d", dataApi: async () => ({}), now: () => at, previewExpiresMinutes: 5 });
+    await five["learnosity.sign-questions-preview"].run(PREVIEW, { key: "k", secret: "s" });
+    expect(calls.at(-1).consumer.expires).toBe("20261016-2200");
+    for (const bad of [0, 61, 1.5, "10"]) expect(() => buildOperations({ sdk, domain: "d", dataApi: async () => ({}), previewExpiresMinutes: bad as unknown as number })).toThrow(/1 to 60/);
+    expect(learnosityTime(new Date(Date.UTC(2026, 0, 2, 3, 4)))).toBe("20260102-0304");
+  });
+
+  it("a preview signed through Broker carries expires in its security packet", async () => {
+    const token = await previewToken();
+    const { result } = await broker.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW });
+    expect(result.request.consumer.expires).toMatch(/^\d{8}-\d{4}$/);
   });
 
   it("rejects a payload carrying identity or config fields", async () => {

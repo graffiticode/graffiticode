@@ -265,6 +265,12 @@ Evidence: [gateway execution](../packages/api/src/data.js),
 
 ### Provider authority, artifacts, and views
 
+- **Hardening, 2026-10-16 — PROVIDER-01:** preview signatures (`learnosity.sign-questions-preview`,
+  `learnosity.sign-items-preview`) now carry `expires`, set by Broker and covered by the
+  signature: 10 minutes by default (`BROKER_PREVIEW_EXPIRES_MINUTES`, 1 to 60). Without it, a
+  Learnosity signature is accepted for 7 days by default. Shipped ahead of the AT-10 work as an
+  interim narrowing of issued authority. Under REG-01 it's recorded here and folded into the
+  registry v8 contract, which AT-10's containment completes.
 - **Partial / provider unverified — PROVIDER-01, L0176-01.** Broker has constrained preview,
   draft save, and Author operations. Saves make sequential provider requests. Preview/Author
   operations sign locally and return authority for browser SDK use. The repository does not

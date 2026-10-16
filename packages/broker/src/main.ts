@@ -39,12 +39,14 @@ import {
   createFirestoreFlagReader,
   parseHardDisable,
   parseMinContractVersion,
-  createIdTokenSource
+  createIdTokenSource,
+  parsePositiveInt
 } from "@graffiticode/policy";
 import {
   createBroker,
   createBrokerApp,
   buildOperations,
+  DEFAULT_PREVIEW_EXPIRES_MINUTES,
   createSecretBox,
   createFirestoreOnceStore,
   createFirestoreReceiptStore,
@@ -82,6 +84,7 @@ const systemSessionMaxSignings = parseSystemSessionMaxSignings(env);
 const operations = buildOperations({
   sdk: new LearnositySDK(),
   domain,
+  previewExpiresMinutes: parsePositiveInt(env, "BROKER_PREVIEW_EXPIRES_MINUTES", DEFAULT_PREVIEW_EXPIRES_MINUTES, 60),
   dataApi: buildLearnosityDataApi({ baseUrl: env.LEARNOSITY_DATA_API || "https://data.learnosity.com/v2025.2.LTS" })
 });
 const broker = createBroker({
