@@ -87,6 +87,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       for (const p of result.contractMinimum ?? []) {
         console.log(`  reachable with ${config.contractMinimum.env} ${p.problem === "missing" ? "unset" : p.problem === "unreadable" ? "unreadable" : `=${p.value}`} (${p.problem}): ${p.revision}`);
       }
+      for (const p of result.requires ?? []) console.log(`  requires ${p.service} at ${p.milestone}, but reachable below it: ${p.below.join(", ")}`);
       for (const p of result.network ?? []) console.log(`  reachable without the network controls (${p.problems.join(", ")}): ${p.revision}`);
       for (const p of result.forbiddenEnv ?? []) {
         console.log(`  reachable ${p.problem === "unreadable" ? "with an unreadable environment" : `carrying forbidden ${p.env.join(", ")}`}: ${p.revision}`);
@@ -157,7 +158,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       requiredVariables: context.unresolved
     }, null, 2));
     if (options.plan) return;
-    const receipt = await release(context, source, { cloud, streamLog, log: console.log, save, temp: source.dir, revisions });
+    const receipt = await release(context, source, { cloud, streamLog, log: console.log, save, temp: source.dir, revisions, git });
     console.log(`Released ${receipt.revision}: ${receipt.url}\nReceipt: ${path.join(receiptDir, `${receipt.id}.json`)}\nRollback: npm run rollback -- ${context.service} --env ${context.environment} --release ${receipt.id}`);
     // Released, but not ready for protected execution: make that a failed run.
     if (receipt.tagRetirementError) process.exitCode = 1;

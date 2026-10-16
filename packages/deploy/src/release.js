@@ -224,6 +224,16 @@ export async function release(context, source, deps) {
     // template (one not listed in removeEnv) is never promoted.
     const forbidden = await forbiddenEnvProblems(context, [receipt.revision], { cloud });
     requireValue(forbidden.length === 0, `Candidate ${describeForbidden(forbidden)}; add it to removeEnv. Not promoted.`);
+    // Cross-service requirements, both ways: every reachable revision of each
+    // service this one requires meets the milestone, and the candidate meets
+    // every milestone of this service that another requires.
+    if (context.requires?.length || context.requiredBy?.length) {
+      requireValue(deps.git, "Checking cross-service requirements needs the local Git history");
+      const unmet = await requirementProblems(context, deps);
+      requireValue(unmet.length === 0, `${describeRequirements(unmet)}. Not promoted.`);
+      const breaks = await requiredByProblems(context, [receipt.revision], deps);
+      requireValue(breaks.length === 0, `Candidate ${describeRequiredBy(breaks)}. Not promoted.`);
+    }
     const beforePromotion = await cloud(["run", "services", "describe", config.service]);
     requireValue(fingerprint(beforePromotion) === fingerprint(candidate), "Service changed during verification; refusing promotion");
     // A pinnable revision is approved before it serves, so admission never sees
@@ -410,6 +420,41 @@ const describeForbidden = problems => problems.map(p =>
 // Every revision a service's traffic can reach: serving, or kept by a tag.
 export const reachableRevisions = service => [...new Set((service.status?.traffic || []).map(t => t.revisionName).filter(Boolean))];
 
+// Cross-service requirements (`requires`, resolved by loadConfig into
+// context.requires): each reachable revision of each required service, serving
+// or tagged, must meet the named milestone by the same provenance test as
+// `baselines`. Returns the unmet ones, with the revisions below them.
+export async function requirementProblems(context, { cloud, git }) {
+  const problems = [];
+  for (const r of context.requires ?? []) {
+    const service = await cloud(["run", "services", "describe", r.cloudService]);
+    const below = [];
+    for (const name of reachableRevisions(service)) {
+      if (!(await meetsMilestone(git, await provenanceOf(cloud, name), r.commit))) below.push(name);
+    }
+    if (below.length) problems.push({ service: r.service, milestone: r.milestone, below });
+  }
+  return problems;
+}
+const describeRequirements = problems => problems.map(p =>
+  `Requires ${p.service} at its ${p.milestone} milestone, but ${p.below.join(", ")} ${p.below.length === 1 ? "is" : "are"} reachable below it`).join("; ");
+
+// The other direction (context.requiredBy): revisions of this service, among
+// `names`, below a milestone another service requires of it.
+export async function requiredByProblems(context, names, { cloud, git }) {
+  const problems = [];
+  for (const r of context.requiredBy ?? []) {
+    const below = [];
+    for (const name of names) {
+      if (!(await meetsMilestone(git, await provenanceOf(cloud, name), r.commit))) below.push(name);
+    }
+    if (below.length) problems.push({ requiredBy: r.service, milestone: r.milestone, below });
+  }
+  return problems;
+}
+const describeRequiredBy = problems => problems.map(p =>
+  `${p.below.join(", ")} ${p.below.length === 1 ? "is" : "are"} below the ${p.milestone} milestone, which ${p.requiredBy} requires`).join("; ");
+
 // The contract minimum each revision actually runs with (capability plan W4,
 // RELEASE-01): `contractMinimum: { env, floor? }` names the variable Policy
 // or Broker reads (POLICY_/BROKER_MIN_CONTRACT_VERSION) and, from the
@@ -478,12 +523,15 @@ export async function releaseCheck(context, { cloud, git, revisions = undefined 
     ...(config.network ? { network: await networkProblems(context, reachableRevisions(service), { cloud }) } : {}),
     // Every reachable revision, retained tags included, is free of forbiddenEnv.
     ...(config.forbiddenEnv ? { forbiddenEnv: await forbiddenEnvProblems(context, reachableRevisions(service), { cloud }) } : {}),
+    // Each required service's reachable revisions meet the milestone this one needs.
+    ...(context.requires?.length ? { requires: await requirementProblems(context, { cloud, git }) } : {}),
   };
   const pinnedOk = !pinned || ["unapproved", "retiring", "retired", "unsupportedContract"].every(k => pinned[k].length === 0);
   const minimumOk = (result.contractMinimum ?? []).length === 0;
   const networkOk = (result.network ?? []).length === 0;
   const forbiddenOk = (result.forbiddenEnv ?? []).length === 0;
-  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk && networkOk && forbiddenOk };
+  const requiresOk = (result.requires ?? []).length === 0;
+  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk && networkOk && forbiddenOk && requiresOk };
 }
 
 // Approves an already-released revision of a pinnable service from its
@@ -524,6 +572,11 @@ export async function rollback(context, receipt, deps) {
   const forbidden = await forbiddenEnvProblems(context, targets, { cloud });
   requireValue(forbidden.length === 0,
     `Rollback target ${describeForbidden(forbidden)} (forbiddenEnv); refusing, with no override. Roll forward, or roll back to a revision without it.`);
+  // Nor below a milestone another service requires of this one: that service
+  // would fail closed. No override, --below-baseline included.
+  const required = await requiredByProblems(context, targets, { cloud, git });
+  requireValue(required.length === 0,
+    `Rollback target ${describeRequiredBy(required)}; refusing, with no override. Roll forward; the requirement stays until ${[...new Set(required.map(p => p.requiredBy))].join(", ")}'s requires entry is removed from deploy.json, once no reachable revision of it needs the milestone.`);
   const below = await belowBaseline(context, targets, { cloud, git });
   // A configuration rollback from the same commit meets every baseline, but
   // can lower the contract minimum: guarded the same way.

@@ -33,7 +33,7 @@ export const SETTINGS = Object.freeze([
   "service", "project", "region", "image", "dockerfile", "port", "access", "runtimeServiceAccount", "buildServiceAccount",
   "smokeServiceAccount", "steps", "smoke", "verify", "env", "secrets", "removeSecrets", "removeEnv", "forbiddenEnv",
   "minInstances", "maxInstances", "retireTags", "pinnable", "baselines", "enforcesSwitch", "contractMinimum", "network",
-  "protectedExecution", "exclude", "include", "blocked",
+  "protectedExecution", "requires", "exclude", "include", "blocked",
 ]);
 
 export function parseArgs(args) {
@@ -63,21 +63,30 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   requireValue(service && raw.services[service], `Choose a service: ${Object.keys(raw.services).join(", ")}`);
   requireValue(object(raw.environments?.[options.env]), `Unknown environment: ${options.env}`);
   const unresolved = [];
-  const expand = value => {
-    if (typeof value === "string") {
-      return value.replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, (match, key) => {
-        if (!env[key]) unresolved.push(key);
-        return env[key] || match;
-      });
-    }
-    if (Array.isArray(value)) return value.map(expand);
-    if (object(value)) return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, expand(v)]));
-    return value;
+  const expander = sink => {
+    const expand = value => {
+      if (typeof value === "string") {
+        return value.replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, (match, key) => {
+          if (!env[key]) sink.push(key);
+          return env[key] || match;
+        });
+      }
+      if (Array.isArray(value)) return value.map(expand);
+      if (object(value)) return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, expand(v)]));
+      return value;
+    };
+    return expand;
   };
-  // Environment-wide settings, service settings, then per-environment service overrides.
-  const { environments, ...definition } = raw.services[service];
-  const config = expand({ ...raw.environments[options.env], ...definition, ...environments?.[options.env] });
-  config.service = config.service || service;
+  // Environment-wide settings, service settings, then per-environment service
+  // overrides. Other services' settings (for `requires`) resolve the same way,
+  // without adding to this release's required variables.
+  const resolve = (name, sink = []) => {
+    const { environments, ...definition } = raw.services[name];
+    const resolved = expander(sink)({ ...raw.environments[options.env], ...definition, ...environments?.[options.env] });
+    resolved.service = resolved.service || name;
+    return resolved;
+  };
+  const config = resolve(service, unresolved);
   const unknown = Object.keys(config).filter(key => !SETTINGS.includes(key));
   requireValue(unknown.length === 0, `Unknown setting(s) for ${service}: ${unknown.join(", ")}`);
   for (const key of ["service", "project", "region"]) requireValue(namePattern.test(config[key]), `Invalid ${key}`);
@@ -175,5 +184,41 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   for (const [key, value] of Object.entries(config.env || {})) {
     requireValue(/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && typeof value === "string", `Invalid environment variable ${key}`);
   }
-  return { root: path.dirname(filename), config, service, environment: options.env, unresolved: [...new Set(unresolved)], configHash: hash(JSON.stringify(config)) };
+  // Cross-service requirements: `requires` names milestones of other services
+  // that every reachable revision of each must meet while this service serves
+  // (broker refuses system-session tokens without Policy's `sexp` claim).
+  // `requires` is resolved for this service's releases and release-check;
+  // `requiredBy` lists the services requiring one of this service's
+  // milestones, which its own releases and rollbacks must not go below.
+  const requirement = (from, entry) => {
+    requireValue(object(entry) && Object.keys(entry).every(k => ["service", "milestone"].includes(k)) &&
+      typeof entry.service === "string" && typeof entry.milestone === "string",
+    `${from}: requires must be a non-empty list of { service, milestone }`);
+    requireValue(entry.service !== from, `${from} cannot require itself`);
+    requireValue(object(raw.services[entry.service]), `${from} requires ${entry.service}, which is not a service in deploy.json`);
+    const target = resolve(entry.service);
+    const baseline = (Array.isArray(target.baselines) ? target.baselines : []).find(b => b?.milestone === entry.milestone);
+    requireValue(baseline && /^[0-9a-f]{40}$/.test(baseline.commit ?? ""), `${from} requires the ${entry.milestone} milestone of ${entry.service}, which is not in its baselines`);
+    return { service: entry.service, cloudService: target.service, project: target.project, region: target.region, milestone: entry.milestone, commit: baseline.commit };
+  };
+  const requirementsOf = (from, settings) => {
+    if (settings.requires === undefined) return [];
+    requireValue(Array.isArray(settings.requires) && settings.requires.length > 0, `${from}: requires must be a non-empty list of { service, milestone }`);
+    const list = settings.requires.map(entry => requirement(from, entry));
+    requireValue(new Set(list.map(r => `${r.service}/${r.milestone}`)).size === list.length, `${from}: requires lists a milestone twice`);
+    return list;
+  };
+  const requires = requirementsOf(service, config);
+  for (const r of requires) {
+    // Releases and release-check read the required service with this service's gcloud scope.
+    requireValue(r.project === config.project && r.region === config.region, `${service} requires ${r.service}, which is in another project or region`);
+  }
+  const requiredBy = [];
+  for (const other of Object.keys(raw.services)) {
+    if (other === service) continue;
+    for (const r of requirementsOf(other, resolve(other))) {
+      if (r.service === service) requiredBy.push({ service: other, milestone: r.milestone, commit: r.commit });
+    }
+  }
+  return { root: path.dirname(filename), config, service, environment: options.env, unresolved: [...new Set(unresolved)], configHash: hash(JSON.stringify(config)), requires, requiredBy };
 }

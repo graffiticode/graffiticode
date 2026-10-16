@@ -1152,3 +1152,107 @@ test("every service in this repository's deploy.json loads", async () => {
     }
   }
 });
+
+// Cross-service requirements: broker refuses system-session tokens without
+// Policy's `sexp` claim, so broker `requires` Policy's milestone. The harness
+// service plays the requiring (or required) side; `policy` is a second fake
+// service whose revisions carry provenance labels.
+const SEXP = { service: "policy", cloudService: "policy", project: "graffiticode", region: "us-central1", milestone: "sexp", commit: B };
+const requiring = { ...context, requires: [SEXP] };
+const requiredBy = (extra = {}) => ({ ...context, config: { ...config, baselines: [{ milestone: "sexp", commit: B }], ...extra }, requiredBy: [{ service: "broker", milestone: "sexp", commit: B }] });
+const withPolicy = (h, revisions) => {
+  // revisions: { name: { commit, percent?, tag? } }
+  const policy = () => ({ status: { traffic: Object.entries(revisions).map(([revisionName, r]) => ({ revisionName, ...(r.percent ? { percent: r.percent } : {}), ...(r.tag ? { tag: r.tag } : {}) })) } });
+  return async (args, ...rest) => {
+    if (args[1] === "services" && args[2] === "describe" && args[3] === "policy") return policy();
+    if (args[1] === "revisions" && args[2] === "describe" && args[3].startsWith("policy-")) {
+      return { metadata: { labels: { "commit-sha": revisions[args[3]].commit, "gc-dirty": "false" } } };
+    }
+    return h.deps.cloud(args, ...rest);
+  };
+};
+const promotions = h => h.calls.filter(c => c.includes("update-traffic") && c.some(a => a.startsWith("--to-revisions=")));
+
+test("a service that requires another's milestone isn't promoted while any reachable revision of it is below", async t => {
+  const h = await harness(t);
+  const policy = { "policy-new": { commit: C, percent: 100 }, "policy-old": { commit: A, tag: "old" } };
+  const cloud = withPolicy(h, policy);
+  await assert.rejects(release(requiring, source, { ...h.deps, cloud, git }),
+    /Requires policy at its sexp milestone, but policy-old is reachable below it\. Not promoted/);
+  assert.equal(h.getReceipt().failedAt, "candidate");
+  assert.equal(promotions(h).length, 0);
+  // It needs the Git history to check.
+  await assert.rejects(release(requiring, source, { ...h.deps, cloud }), /needs the local Git history/);
+  // Once the old tag is gone, it's promoted.
+  delete policy["policy-old"];
+  assert.equal((await release(requiring, source, { ...h.deps, cloud, git })).status, "released");
+});
+
+test("release-check reports a required service's reachable revisions below the milestone", async t => {
+  const h = await harness(t);
+  const policy = { "policy-new": { commit: B, percent: 100 }, "policy-old": { commit: A, tag: "old" } };
+  const cloud = withPolicy(h, policy);
+  const check = await releaseCheck(requiring, { ...h.deps, cloud, git });
+  assert.equal(check.ok, false);
+  assert.deepEqual(check.requires, [{ service: "policy", milestone: "sexp", below: ["policy-old"] }]);
+  delete policy["policy-old"];
+  const after = await releaseCheck(requiring, { ...h.deps, cloud, git });
+  assert.deepEqual([after.requires, after.ok], [[], true]);
+  assert.equal((await releaseCheck(context, { ...h.deps, cloud, git })).requires, undefined);
+});
+
+test("a required service is never released or rolled back below a milestone another requires, with no override", async t => {
+  const h = await harness(t);
+  // Policy's pre-sexp revision (nothing required it then), then the sexp release.
+  const first = await release(context, { ...source, commit: A }, h.deps);
+  const second = await release(requiredBy(), source, { ...h.deps, git });
+  assert.equal(second.previousTraffic[first.revision], 100);
+  const before = h.calls.length;
+  for (const allowBelowBaseline of [false, true]) {
+    await assert.rejects(rollback(requiredBy(), second, { ...h.deps, git, allowBelowBaseline, switchState: switchOff }),
+      new RegExp(`${first.revision} is below the sexp milestone, which broker requires; refusing, with no override`));
+  }
+  assert.ok(!h.calls.slice(before).some(c => c.includes("update-traffic")));
+  // A fresh release of the old code is refused before promotion too.
+  const promoted = promotions(h).length;
+  await assert.rejects(release(requiredBy(), { ...source, commit: A }, { ...h.deps, git }), /is below the sexp milestone, which broker requires\. Not promoted/);
+  assert.equal(promotions(h).length, promoted);
+  assert.equal(h.getReceipt().failedAt, "candidate");
+  // When nothing requires it, the same rollback goes ahead.
+  assert.equal((await rollback(context, second, { ...h.deps, git })).status, "rolled-back");
+});
+
+test("requires is validated against deploy.json, and resolved both ways", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "deploy-requires-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const load = async (service, broker, policy = {}) => {
+    await writeFile(path.join(root, "deploy.json"), JSON.stringify({
+      version: 1,
+      environments: { production: { project: "graffiticode", region: "us-central1" } },
+      services: {
+        policy: { ...config, service: "policy", baselines: [{ milestone: "W4", commit: A }, { milestone: "sexp", commit: B }], ...policy },
+        broker: { ...config, service: "broker", ...broker },
+        api: config,
+      },
+    }));
+    return loadConfig({ ...parseArgs(["--plan"]), service }, root, {});
+  };
+  const ok = { requires: [{ service: "policy", milestone: "sexp" }] };
+  assert.deepEqual((await load("broker", ok)).requires, [SEXP]);
+  assert.deepEqual((await load("policy", ok)).requiredBy, [{ service: "broker", milestone: "sexp", commit: B }]);
+  assert.deepEqual((await load("api", ok)).requiredBy, []);
+  assert.deepEqual((await load("broker", {})).requires, []);
+  for (const [broker, error] of [
+    [{ requires: [] }, /requires must be a non-empty list/],
+    [{ requires: { service: "policy", milestone: "sexp" } }, /requires must be a non-empty list/],
+    [{ requires: [{ service: "policy" }] }, /requires must be a non-empty list/],
+    [{ requires: [{ service: "policy", milestone: "sexp", commit: B }] }, /requires must be a non-empty list/],
+    [{ requires: [{ service: "nope", milestone: "sexp" }] }, /requires nope, which is not a service in deploy.json/],
+    [{ requires: [{ service: "policy", milestone: "W9" }] }, /requires the W9 milestone of policy, which is not in its baselines/],
+    [{ requires: [{ service: "broker", milestone: "sexp" }] }, /broker cannot require itself/],
+    [{ requires: [ok.requires[0], ok.requires[0]] }, /lists a milestone twice/],
+  ]) await assert.rejects(load("broker", broker), error);
+  await assert.rejects(load("broker", ok, { region: "europe-west1" }), /in another project or region/);
+  // A broken requirement elsewhere fails the required service's own load too.
+  await assert.rejects(load("policy", { requires: [{ service: "policy", milestone: "W9" }] }), /not in its baselines/);
+});
