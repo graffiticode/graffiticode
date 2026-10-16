@@ -429,7 +429,7 @@ test("the hourly signings alert is a metric-threshold condition, summed over an 
     displayName: "Security audit: system signings over 600 in an hour",
     conditionThreshold: {
       filter: "metric.type=\"logging.googleapis.com/user/security_audit/system_signings\" AND resource.type=\"cloud_run_revision\"",
-      aggregations: [{ alignmentPeriod: "3600s", perSeriesAligner: "ALIGN_DELTA", crossSeriesReducer: "REDUCE_SUM" }],
+      aggregations: [{ alignmentPeriod: "3600s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }],
       comparison: "COMPARISON_GT",
       thresholdValue: 600,
       duration: "0s",
@@ -508,7 +508,7 @@ test("a changed threshold is applied, not reported unchanged", async () => {
 test("threshold conditions take other windows and comparisons", () => {
   const c = thresholdCondition({ metric: "security_audit/x", resourceType: "global", value: 5, period: "600s", comparison: "COMPARISON_GE", displayName: "x" });
   assert.equal(c.conditionThreshold.filter, "metric.type=\"logging.googleapis.com/user/security_audit/x\" AND resource.type=\"global\"");
-  assert.deepEqual(c.conditionThreshold.aggregations, [{ alignmentPeriod: "600s", perSeriesAligner: "ALIGN_DELTA", crossSeriesReducer: "REDUCE_SUM" }]);
+  assert.deepEqual(c.conditionThreshold.aggregations, [{ alignmentPeriod: "600s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }]);
   assert.equal(c.conditionThreshold.comparison, "COMPARISON_GE");
 });
 
@@ -587,7 +587,7 @@ test("verify-threshold applied: metric first, the threshold reached and held, th
   assert.equal(over.body.entries.length, 1);
   assert.deepEqual(waits, [1, 2]);
   // Queried as the condition aggregates.
-  assert.ok(g.timeSeries.every(q => q["aggregation.alignmentPeriod"] === "3600s" && q["aggregation.perSeriesAligner"] === "ALIGN_DELTA" && q["aggregation.crossSeriesReducer"] === "REDUCE_SUM"));
+  assert.ok(g.timeSeries.every(q => q["aggregation.alignmentPeriod"] === "3600s" && q["aggregation.perSeriesAligner"] === "ALIGN_SUM" && q["aggregation.crossSeriesReducer"] === "REDUCE_SUM"));
   assert.ok(run.crossedAt);
 });
 

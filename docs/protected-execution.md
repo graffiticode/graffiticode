@@ -309,7 +309,7 @@ every 5 minutes):
   "Previews are busy right now". Check `system_signings`, and `system_preview_limited` by
   source, for a burst or abuse.
 - *Security audit: system signings over 600 in an hour*: a **metric-threshold** condition, not
-  a log match. It sums `system_signings` (`ALIGN_DELTA` over 3,600 s, `REDUCE_SUM` across
+  a log match. It sums `system_signings` (`ALIGN_SUM` over 3,600 s, `REDUCE_SUM` across
   instances, revisions and outcomes) and opens when the sum is over 600 (`COMPARISON_GT`,
   duration 0). Its email gives the metric, the 1-hour window and the threshold; the observed
   value is in the incident summary Monitoring puts at the top (no documentation variable carries

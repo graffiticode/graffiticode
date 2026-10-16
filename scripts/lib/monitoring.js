@@ -194,7 +194,10 @@ export const thresholdCondition = ({ metric, resourceType = "cloud_run_revision"
   displayName,
   conditionThreshold: {
     filter: `metric.type="${metricType(metric)}" AND resource.type="${resourceType}"`,
-    aggregations: [{ alignmentPeriod: period, perSeriesAligner: "ALIGN_DELTA", crossSeriesReducer: "REDUCE_SUM" }],
+    // ALIGN_SUM, not ALIGN_DELTA: log-based counters are DELTA metrics, and
+    // ALIGN_DELTA interpolates across alignment boundaries, so a window could
+    // read 6 for 5 records and open early. ALIGN_SUM counts exactly.
+    aggregations: [{ alignmentPeriod: period, perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }],
     comparison,
     thresholdValue: value,
     duration: "0s",
@@ -545,12 +548,13 @@ export const windowSum = async ({ api, project, metric, resourceType, period = "
     "interval.startTime": start.toISOString(),
     "interval.endTime": end.toISOString(),
     "aggregation.alignmentPeriod": period,
-    "aggregation.perSeriesAligner": "ALIGN_DELTA",
+    "aggregation.perSeriesAligner": "ALIGN_SUM",
     "aggregation.crossSeriesReducer": "REDUCE_SUM",
   });
   const res = ok(await api("GET", `${MONITORING}/projects/${project}/timeSeries?${q}`), "timeSeries.list");
   const point = res.timeSeries?.[0]?.points?.[0];
-  return point ? Number(point.value?.int64Value ?? point.value?.doubleValue ?? 0) : 0;
+  // A count: round any double the API returns.
+  return point ? Math.round(Number(point.value?.int64Value ?? point.value?.doubleValue ?? 0)) : 0;
 };
 
 const MINUTE = 60 * 1000;
