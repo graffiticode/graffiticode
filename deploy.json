@@ -102,7 +102,9 @@
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
         "CHAIN_ADMISSION": "all",
         "CHAIN_ADMISSION_CONNECTIONS": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
-        "COMPILE_GENERATION_L0158": "l0158-cutover-1"
+        "COMPILE_GENERATION_L0158": "l0158-cutover-1",
+        "SYSTEM_SIGNING_STAGES_PER_CLIENT_PER_MINUTE": "10",
+        "SYSTEM_SIGNING_STAGES_BURST": "10"
       },
       "smoke": [
         {
@@ -127,7 +129,10 @@
           "milestone": "v7",
           "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
         }
-      ]
+      ],
+      "secrets": {
+        "EDGE_AUTH_SECRET": "edge-auth-secret:1"
+      }
     },
     "auth": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/auth",
