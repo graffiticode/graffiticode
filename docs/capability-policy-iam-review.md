@@ -293,6 +293,7 @@ so a shared compiler SA would let any compiler mint tokens for L0176's protected
 | other `lNNNN-run` | ✗ (add when a language gains a protected function) | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | `l0013-run` | ✗ | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗. Separately: `storage.objectCreator` on bucket `graffiticode.appspot.com` |
 | Console runtime SA (project `graffiticode-app`) | ✓ `run.invoker` (cross-project; see §3 step 7). The only caller `auth` accepts on `/internal/act-as` (Step 12; auth is public, so this is the caller-identity check, not IAM) | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| App-tier front doors `mcp-run@`, `openapi-run@` (project `graffiticode-app`) | ✗: they call no Policy route (core skips the connection lookup for them; connection writes run only in the console). Not in `policy-callers` | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗. They sign act-as grants (Step 12) but are not act-as callers, and hold no model key |
 | Default compute SA | ✗ | ✗ | ✓ public | ✗ | ✗ | ✗ after Editor removal | ✗ after Editor removal | ✗ after Editor removal | ✗ |
 | Cloud Build SA | ✗ | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗. Needs `run.admin` plus `serviceAccountUser` on each runtime SA to deploy it |
 | Humans / deployers (Owners) | Owners can do everything; that is accepted. Keep day-to-day deployers on `run.developer` + `serviceAccountUser`, not Owner | | | | | | | | |
@@ -535,7 +536,7 @@ services refuse to start without:
 | `broker-callers` | `BROKER_CALLERS` | `broker-run` | JSON caller map (below) |
 | `audit-pseudonym-secret` | `AUDIT_PSEUDONYM_SECRET` | `policy-run`, `broker-run`, `auth-run` (Step 12) | random, ≥ 16 chars; **shared** so the services pseudonymize a user to the same audit id |
 | `act-as-callers` | `ACT_AS_CALLERS` | `auth-run` | JSON caller map for `/internal/act-as` (Step 12): `console-run@graffiticode-app` (`console`) only |
-| `act-as-grant-secret` | `ACT_AS_GRANT_SECRET` | `auth-run` here; `console-run@` (and later `mcp-run@`, `openapi-run@`) in project `graffiticode-app`, as its own secret there | random, ≥ 32 chars; signs job-bound act-as grants (Step 12) |
+| `act-as-grant-secret` | `ACT_AS_GRANT_SECRET` | `auth-run` here (verifies); in project `graffiticode-app`, as its own secret there, the producers that sign: `console-run@`, `mcp-run@` (2026-10-16, R2), `openapi-run@` (2026-10-16, Phase 4) | random, ≥ 32 chars; signs job-bound act-as grants (Step 12) |
 
 ```bash
 for s in policy-callers broker-callers audit-pseudonym-secret; do
@@ -1323,9 +1324,17 @@ openssl rand -base64 48 | tee >(gcloud secrets versions add act-as-grant-secret 
   gcloud secrets versions add ACT_AS_GRANT_SECRET --project graffiticode-app --data-file=-
 ```
 
-Then pin the three versions in `auth`'s `deploy.json` secrets and release `auth`. In
-`graffiticode-app`, only `console-run@` gets `secretAccessor` on `ACT_AS_GRANT_SECRET` until mcp
-and openapi produce v2 jobs. No new grant lets `console-run@` invoke `auth`: it is public.
+Then pin the three versions in `auth`'s `deploy.json` secrets and release `auth`. No new grant
+lets `console-run@` invoke `auth`: it is public.
+
+**Who signs and who exchanges.** In `graffiticode-app`, `ACT_AS_GRANT_SECRET` is read by every
+producer that reserves v2 generation jobs, since each signs its job's grant when it reserves:
+`console-run@` (from the start), `mcp-run@` (2026-10-16, when mcp moved to core mode, app tier R2)
+and `openapi-run@` (2026-10-16, the REST API, Phase 4). **Only `console-run@` exchanges grants**:
+`act-as-callers` still names it alone, and generation runs only in the console's worker. So a
+compromised front door can sign a grant but can't turn it into a user token: `/internal/act-as`
+refuses its identity before the grant is looked at. Widening the signers widened nothing in
+project `graffiticode`.
 
 - Rollback: remove `ACT_AS_CALLERS` from `auth`'s config (the route answers 503), or disable the
   grant secret's version. Tokens already issued expire within 5 minutes.
@@ -1357,7 +1366,8 @@ and openapi produce v2 jobs. No new grant lets `console-run@` invoke `auth`: it 
 | 9 | `gcloud projects get-iam-policy $P --flatten=bindings --filter="bindings.members:$COMPUTE_SA" --format='value(bindings.role)'` | empty |
 | 10 | `npm run deploy -- policy` output and `.gc-deploy/releases/<id>.json` | candidate checks pass (`/`, `/v1/jwks`); status `released` |
 | 12 | `for s in act-as-callers act-as-grant-secret; do gcloud secrets get-iam-policy $s --project $P; done` | only `auth-run` as `secretAccessor` |
-| 12 | `gcloud secrets get-iam-policy ACT_AS_GRANT_SECRET --project graffiticode-app` | only `console-run@` (until mcp/openapi produce v2 jobs) |
+| 12 | `gcloud secrets get-iam-policy ACT_AS_GRANT_SECRET --project graffiticode-app` | exactly `console-run@`, `mcp-run@`, `openapi-run@` (the producers that sign) |
+| 12 | `gcloud secrets versions access latest --secret act-as-callers --project $P` | names `console-run@graffiticode-app` only (the one service that exchanges grants) |
 | 12 (negative) | `curl -s -o /dev/null -w '%{http_code}' -X POST https://auth.graffiticode.org/internal/act-as -H "X-Internal-API-Key: …"` | `401`, and a `security_audit` line with `reason: caller-rejected` |
 | 12 (negative) | same with `X-Caller-Identity: $(gcloud auth print-identity-token --impersonate-service-account mcp-run@graffiticode-app.iam.gserviceaccount.com --audiences urn:graffiticode:auth --include-email)` | `403` (not an allowed caller) |
 | 12 (positive, canary window) | as `console-run@`, with a grant signed for a test uid | `200`; the token verifies at `/oauth/verify` as that uid |
