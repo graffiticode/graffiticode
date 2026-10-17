@@ -40,7 +40,33 @@ test("the load balancer is internal passthrough TCP, and patching rolls one VM a
   const text = render(commands(await fixture()));
   assert.match(text, /backend-services create egress-proxy .*--load-balancing-scheme=INTERNAL --protocol=TCP/);
   assert.match(text, /forwarding-rules create egress-proxy .*--address=10\.8\.0\.2 .*--ports=3128/);
-  assert.match(text, /rolling-action start-update .*--max-surge=1 --max-unavailable=0/);
+  assert.match(text, /rolling-action start-update .*--max-surge=2 --max-unavailable=0/);
+  assert.match(text, /instance-groups managed create egress-proxy .*--zones=us-central1-a,us-central1-b /);
   assert.match(text, /cos-update-strategy=update_disabled/);
   assert.match(text, /--image=cos-121-18867-0-0 /);
+});
+
+test("compiler egress is matched by subnet source range, never by a network tag (A6)", async () => {
+  const model = await fixture();
+  const text = render(commands(model));
+  assert.doesNotMatch(text, /--target-tags/, "no firewall rule depends on a tag a deployment could leave out");
+  const cidrs = Object.values(model.classes).map(c => c.cidr).join(",");
+  const rules = text.split("\n").filter(l => l.includes("network-firewall-policies rules create"));
+  assert.equal(rules.length, 3);
+  for (const r of rules) {
+    assert.ok(r.includes(`--src-ip-ranges=${cidrs}`), r);
+    assert.match(r, /--direction=EGRESS/);
+  }
+  assert.match(rules.find(r => r.includes("--action=allow")), /--layer4-configs=tcp:3128 .*--dest-ip-ranges=10\.8\.0\.2\/32/);
+  assert.match(rules.find(r => r.includes("tcp:53,udp:53,tcp:853")), /--action=deny .*--enable-logging/);
+  assert.match(rules.find(r => r.includes("--layer4-configs=all")), /--action=deny .*--dest-ip-ranges=0\.0\.0\.0\/0 --enable-logging/);
+  assert.match(text, /network-firewall-policies associations create --firewall-policy=compilers-egress .*--network=compilers/);
+  assert.match(text, /firewall-rules create egress-proxy-deny-internal .*--enable-logging/);
+});
+
+test("the group pins exactly two zones in its region, and surges by that many (A7)", async () => {
+  const model = await fixture();
+  for (const zones of [undefined, ["us-central1-a"], ["us-central1-a", "us-east1-b"], ["us-central1-a", "us-central1-b", "us-central1-c"]]) {
+    assert.throws(() => commands({ ...model, proxy: { ...model.proxy, zones } }), /two zones/);
+  }
 });
