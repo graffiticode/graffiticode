@@ -53,7 +53,12 @@ export function commands(model) {
   step("Compiler VPC and subnets (IPv4 only)",
     cmd("gcloud", "compute", "networks", "create", network, p, "--subnet-mode=custom"),
     cmd("gcloud", "compute", "networks", "subnets", "create", model.proxySubnet.name, p, r, `--network=${network}`, `--range=${model.proxySubnet.cidr}`, "--stack-type=IPV4_ONLY"),
-    ...classes.map(c => cmd("gcloud", "compute", "networks", "subnets", "create", c.name, p, r, `--network=${network}`, `--range=${c.cidr}`, "--stack-type=IPV4_ONLY")));
+    ...classes.map(c => cmd("gcloud", "compute", "networks", "subnets", "create", c.name, p, r, `--network=${network}`, `--range=${c.cidr}`, "--stack-type=IPV4_ONLY")),
+    // Reserved before any proxy VM exists: unreserved, a VM in the proxy subnet
+    // could be given the load balancer's address, and the forwarding rule would
+    // then fail. A reservation takes it out of automatic allocation.
+    cmd("gcloud", "compute", "addresses", "create", "egress-proxy-lb", p, r, `--subnet=${model.proxySubnet.name}`, `--addresses=${lb}`, "--purpose=GCE_ENDPOINT",
+      "--description=ISOLATE-01: the egress proxy's internal load balancer"));
 
   // Matched by the compiler subnets' source ranges, never by a network tag a
   // deployment could leave out (A6). Classic VPC egress rules can only target
@@ -78,6 +83,10 @@ export function commands(model) {
       `--rules=tcp:${model.proxy.listenPort}`, `--source-ranges=${classes.map(c => c.cidr).join(",")}`, `--target-service-accounts=${sa}`, "--priority=1000"),
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-allow-health", p, `--network=${network}`, "--direction=INGRESS", "--action=ALLOW",
       `--rules=tcp:${model.proxy.healthPort}`, `--source-ranges=${model.proxy.healthCheckRanges.join(",")}`, `--target-service-accounts=${sa}`, "--priority=1000"),
+    // The metadata ranges are listed for completeness, but Google's firewall
+    // always allows a VM's own metadata server (169.254.169.254), so this rule
+    // doesn't keep Envoy from it: the host's UID rules (ENVOY_OUT) do, and step 0
+    // proves them on the VM.
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-deny-internal", p, `--network=${network}`, "--direction=EGRESS", "--action=DENY", "--rules=all",
       `--destination-ranges=${[...BLOCKED, ...classes.map(c => c.cidr), `${lb}/32`].join(",")}`, `--target-service-accounts=${sa}`, "--priority=900", "--enable-logging"),
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-allow-resolvers", p, `--network=${network}`, "--direction=EGRESS", "--action=ALLOW",
@@ -130,7 +139,7 @@ export function commands(model) {
     cmd("gcloud", "compute", "backend-services", "create", "egress-proxy", p, r, "--load-balancing-scheme=INTERNAL", "--protocol=TCP", "--health-checks=egress-proxy-ready", "--health-checks-region=" + region),
     cmd("gcloud", "compute", "backend-services", "add-backend", "egress-proxy", p, r, "--instance-group=egress-proxy", `--instance-group-region=${region}`),
     cmd("gcloud", "compute", "forwarding-rules", "create", "egress-proxy", p, r, "--load-balancing-scheme=INTERNAL", `--network=${network}`, `--subnet=${model.proxySubnet.name}`,
-      `--address=${lb}`, "--ip-protocol=TCP", `--ports=${model.proxy.listenPort}`, "--backend-service=egress-proxy", `--backend-service-region=${region}`));
+      "--address=egress-proxy-lb", "--ip-protocol=TCP", `--ports=${model.proxy.listenPort}`, "--backend-service=egress-proxy", `--backend-service-region=${region}`));
 
   step("Alerts: a failing health check, a spike in refusals, and access logs stopping",
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-access", p, "--description=ISOLATE-01 proxy access log lines", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\")"),
