@@ -530,6 +530,7 @@ const dstPattern = a => new RegExp(`\\bDST=${a.replace(/\./g, "\\.")}(\\s|$)`);
 // address outside the blocked ranges, so it never passes.
 export function attributeNetwork(result, { accessLines = [], kernelLines = [], firewallHits = [], canaryPassed = false, blocked } = {}) {
   if (result.outcome !== "pending:network") return result;
+  if (!result.probe) return { outcome: "error", detail: "a connect failure without a probe id can't be matched to its log line" };
   if (!canaryPassed) return { outcome: "error", detail: "no reachable canary in this run, so a connect failure proves nothing" };
   const lines = accessLines.filter(l => l.probe === result.probe && l.isolate01 === "egress");
   if (!lines.length) return { outcome: "error", detail: `no proxy access line for probe ${result.probe}` };
@@ -545,12 +546,33 @@ export function attributeNetwork(result, { accessLines = [], kernelLines = [], f
   return { outcome: "refused:network", addresses, probe: result.probe };
 }
 
-// Applies attributeNetwork to every pending row of a net result, and re-derives the verdict.
+// A proxy refusal counts only if the proxy's own access line for that probe says it refused,
+// for the same reason. A 403 with the header but no such line (or another reason) is an error.
+export function confirmRefusal(result, probe, accessLines = []) {
+  if (result.outcome !== "refused:proxy") return result;
+  if (!probe) return { outcome: "error", detail: "a proxy refusal without a probe id can't be matched to its log line" };
+  const lines = accessLines.filter(l => l.probe === probe);
+  if (!lines.length) return { outcome: "error", detail: `no proxy access line for probe ${probe}` };
+  if (!lines.some(l => l.decision === "refuse" && l.reason === result.reason)) {
+    return { outcome: "error", detail: `the proxy's log for probe ${probe} doesn't refuse it for ${result.reason}` };
+  }
+  return result;
+}
+
+// Settles a net result with the collector's evidence: each proxy refusal confirmed by its log
+// line, and each pending row decided by attributeNetwork. Row states are re-derived.
 export function settleNetwork(netResult, evidence = {}) {
   const canaryPassed = netResult.rows.find(r => r.id === "canary")?.state === "passed";
   const rows = netResult.rows.map(row => {
-    if (row.state !== "pending-evidence") return row;
-    const results = row.results.map(r => ({ ...r, result: attributeNetwork(r.result, { ...evidence, canaryPassed }) }));
+    if (!row.results || ["n/a", "not run", "residual"].includes(row.state) || row.id === "dns-exfil") return row;
+    const results = row.results.map(r => {
+      let result = r.result;
+      // A redirect chain's refusal is its last hop's.
+      const probe = r.observation?.probe ?? r.observation?.hops?.at(-1)?.observation?.probe;
+      if (result.outcome === "refused:proxy") result = confirmRefusal(result, probe, evidence.accessLines);
+      if (result.outcome === "pending:network") result = attributeNetwork(result, { ...evidence, canaryPassed });
+      return result === r.result ? r : { ...r, result };
+    });
     return { ...row, results, state: rowState(row, row.expected, results) };
   });
   return { ...netResult, rows };
