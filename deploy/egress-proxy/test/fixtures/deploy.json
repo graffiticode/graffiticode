@@ -1,10 +1,10 @@
 {
   "version": 1,
   "services": {
-    "l0000": { "network": { "network": "compilers", "subnet": "compilers-default", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["policy-sja7fatcta-uc.a.run.app"] } },
-    "l0176": { "network": { "network": "compilers", "subnet": "compilers-default", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["policy-sja7fatcta-uc.a.run.app", "broker-sja7fatcta-uc.a.run.app"] } },
-    "l0013": { "network": { "network": "compilers", "subnet": "compilers-l0013", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["storage.googleapis.com"] } },
-    "l0185": { "network": { "network": "compilers", "subnet": "compilers-l0185", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["api-sja7fatcta-uc.a.run.app"] } },
-    "api": {}
+    "l0000": { "runtimeServiceAccount": "l0000-run@graffiticode.iam.gserviceaccount.com", "network": { "network": "compilers", "subnet": "compilers-default", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["policy-sja7fatcta-uc.a.run.app"] } },
+    "l0176": { "runtimeServiceAccount": "l0176-run@graffiticode.iam.gserviceaccount.com", "network": { "network": "compilers", "subnet": "compilers-default", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["policy-sja7fatcta-uc.a.run.app", "broker-sja7fatcta-uc.a.run.app"] } },
+    "l0013": { "runtimeServiceAccount": "l0013-run@graffiticode.iam.gserviceaccount.com", "network": { "network": "compilers", "subnet": "compilers-l0013", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["storage.googleapis.com"] } },
+    "l0185": { "runtimeServiceAccount": "l0185-run@graffiticode.iam.gserviceaccount.com", "network": { "network": "compilers", "subnet": "compilers-l0185", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["api.graffiticode.org"] } },
+    "api": { "runtimeServiceAccount": "api-run@graffiticode.iam.gserviceaccount.com" }
   }
 }

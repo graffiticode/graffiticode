@@ -18,7 +18,10 @@
     "resolvers": ["8.8.8.8", "8.8.4.4"],
     "healthCheckRanges": ["35.191.0.0/16", "130.211.0.0/22"],
     "machineType": "e2-small",
+    "zones": ["us-central1-a", "us-central1-b"],
     "envoyImage": "envoyproxy/envoy@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "reportImage": "node@sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "reportUid": 10102,
     "cosImage": "cos-121-18867-0-0",
     "serviceAccount": "egress-proxy@graffiticode.iam.gserviceaccount.com"
   }
