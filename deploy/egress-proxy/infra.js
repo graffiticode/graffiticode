@@ -8,14 +8,14 @@
 // Deployment is deferred (Jeff, 2026-10-14): this prints the commands for
 // review and never runs them. Without --plan it refuses.
 
-import { load, terminatedHosts, slug, BLOCKED } from "./generate.js";
+import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig } from "./generate.js";
 
 export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
 
 const q = s => (/^[A-Za-z0-9_./:=@,+-]+$/.test(s) ? s : `'${String(s).replace(/'/g, "'\\''")}'`);
 const cmd = (...args) => args.flat().filter(a => a !== null && a !== undefined && a !== false).map(String).map(q).join(" ");
 
-export function commands(model, { compilerAccounts = [] } = {}) {
+export function commands(model) {
   const { project, region, network } = model;
   const p = `--project=${project}`;
   const r = `--region=${region}`;
@@ -23,6 +23,11 @@ export function commands(model, { compilerAccounts = [] } = {}) {
   const classes = Object.values(model.classes);
   const hosts = terminatedHosts(model);
   const lb = model.loadBalancerAddress;
+  const zones = model.proxy.zones ?? [];
+  if (zones.length !== 2 || zones.some(z => !z.startsWith(`${region}-`))) {
+    throw new Error(`classes.json: proxy.zones must pin two zones in ${region}`);
+  }
+  const accounts = compilerAccounts(model);
   const steps = [];
   const step = (title, ...lines) => steps.push({ title, lines });
 
@@ -31,13 +36,23 @@ export function commands(model, { compilerAccounts = [] } = {}) {
     cmd("gcloud", "compute", "networks", "subnets", "create", model.proxySubnet.name, p, r, `--network=${network}`, `--range=${model.proxySubnet.cidr}`, "--stack-type=IPV4_ONLY"),
     ...classes.map(c => cmd("gcloud", "compute", "networks", "subnets", "create", c.name, p, r, `--network=${network}`, `--range=${c.cidr}`, "--stack-type=IPV4_ONLY")));
 
-  step("Firewall: compilers reach only the load balancer",
-    cmd("gcloud", "compute", "firewall-rules", "create", "compilers-deny-all-egress", p, `--network=${network}`, "--direction=EGRESS", "--action=DENY", "--rules=all",
-      "--destination-ranges=0.0.0.0/0", "--target-tags=compiler", "--priority=65000"),
-    cmd("gcloud", "compute", "firewall-rules", "create", "compilers-allow-proxy", p, `--network=${network}`, "--direction=EGRESS", "--action=ALLOW",
-      `--rules=tcp:${model.proxy.listenPort}`, `--destination-ranges=${lb}/32`, "--target-tags=compiler", "--priority=1000"),
-    cmd("gcloud", "compute", "firewall-rules", "create", "compilers-deny-dns", p, `--network=${network}`, "--direction=EGRESS", "--action=DENY",
-      "--rules=tcp:53,udp:53,tcp:853", "--destination-ranges=0.0.0.0/0", "--target-tags=compiler", "--priority=900"));
+  // Matched by the compiler subnets' source ranges, never by a network tag a
+  // deployment could leave out (A6). Classic VPC egress rules can only target
+  // tags or service accounts, so this is a network firewall policy, whose
+  // egress rules take --src-ip-ranges and are evaluated before the VPC rules
+  // (the proxy VMs' own rules below never match a compiler source).
+  const compilerRanges = `--src-ip-ranges=${classes.map(c => c.cidr).join(",")}`;
+  const fp = ["--firewall-policy=compilers-egress", "--global-firewall-policy", p];
+  step("Firewall: compilers reach only the load balancer (a network firewall policy, matched by the compiler subnets' source ranges)",
+    cmd("gcloud", "compute", "network-firewall-policies", "create", "compilers-egress", "--global", p, "--description=ISOLATE-01: compiler subnets reach only the egress proxy"),
+    cmd("gcloud", "compute", "network-firewall-policies", "rules", "create", "100", ...fp, "--direction=EGRESS", "--action=allow",
+      `--layer4-configs=tcp:${model.proxy.listenPort}`, compilerRanges, `--dest-ip-ranges=${lb}/32`, "--description=compilers to the proxy's load balancer"),
+    cmd("gcloud", "compute", "network-firewall-policies", "rules", "create", "200", ...fp, "--direction=EGRESS", "--action=deny",
+      "--layer4-configs=tcp:53,udp:53,tcp:853", compilerRanges, "--dest-ip-ranges=0.0.0.0/0", "--enable-logging", "--description=no DNS but the metadata server's"),
+    cmd("gcloud", "compute", "network-firewall-policies", "rules", "create", "1000", ...fp, "--direction=EGRESS", "--action=deny",
+      "--layer4-configs=all", compilerRanges, "--dest-ip-ranges=0.0.0.0/0", "--enable-logging", "--description=nothing else"),
+    cmd("gcloud", "compute", "network-firewall-policies", "associations", "create", ...fp, `--network=${network}`, "--name=compilers-egress"),
+    "# Rollout step 0 confirms Direct VPC egress traffic from Cloud Run matches these source ranges.");
 
   step("Firewall: the proxy VMs (stateful: replies to compilers and health checks are return traffic)",
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-allow-compilers", p, `--network=${network}`, "--direction=INGRESS", "--action=ALLOW",
@@ -45,7 +60,7 @@ export function commands(model, { compilerAccounts = [] } = {}) {
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-allow-health", p, `--network=${network}`, "--direction=INGRESS", "--action=ALLOW",
       `--rules=tcp:${model.proxy.healthPort}`, `--source-ranges=${model.proxy.healthCheckRanges.join(",")}`, `--target-service-accounts=${sa}`, "--priority=1000"),
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-deny-internal", p, `--network=${network}`, "--direction=EGRESS", "--action=DENY", "--rules=all",
-      `--destination-ranges=${[...BLOCKED, ...classes.map(c => c.cidr), `${lb}/32`].join(",")}`, `--target-service-accounts=${sa}`, "--priority=900"),
+      `--destination-ranges=${[...BLOCKED, ...classes.map(c => c.cidr), `${lb}/32`].join(",")}`, `--target-service-accounts=${sa}`, "--priority=900", "--enable-logging"),
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-allow-resolvers", p, `--network=${network}`, "--direction=EGRESS", "--action=ALLOW",
       "--rules=tcp:53,udp:53", `--destination-ranges=${model.proxy.resolvers.map(x => `${x}/32`).join(",")}`, `--target-service-accounts=${sa}`, "--priority=950"),
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-allow-web", p, `--network=${network}`, "--direction=EGRESS", "--action=ALLOW",
@@ -73,8 +88,9 @@ export function commands(model, { compilerAccounts = [] } = {}) {
   step("Secrets: the public CA bundle (compilers) and one certificate key per host (the proxy only)",
     cmd("gcloud", "secrets", "create", "egress-proxy-ca-bundle", p, "--replication-policy=automatic"),
     cmd("gcloud", "secrets", "versions", "add", "egress-proxy-ca-bundle", p, "--data-file=ca.crt"),
-    ...compilerAccounts.map(a => cmd("gcloud", "secrets", "add-iam-policy-binding", "egress-proxy-ca-bundle", p, `--member=serviceAccount:${a}`, "--role=roles/secretmanager.secretAccessor")),
-    ...(compilerAccounts.length ? [] : ["# each compiler account: gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --member=serviceAccount:<lNNNN-run@...> --role=roles/secretmanager.secretAccessor"]),
+    // Every runtime account of a service with a network block (deploy.json).
+    ...accounts.map(a => cmd("gcloud", "secrets", "add-iam-policy-binding", "egress-proxy-ca-bundle", p, `--member=serviceAccount:${a}`, "--role=roles/secretmanager.secretAccessor")),
+    ...(accounts.length ? [] : ["# no deploy.json service has a network block yet: no compiler account reads the CA bundle"]),
     ...hosts.flatMap(h => [
       cmd("gcloud", "secrets", "create", `egress-proxy-cert-${slug(h)}`, p, "--replication-policy=automatic"),
       cmd("gcloud", "secrets", "versions", "add", `egress-proxy-cert-${slug(h)}`, p, `--data-file=certs/${slug(h)}.pem`),
@@ -85,11 +101,11 @@ export function commands(model, { compilerAccounts = [] } = {}) {
     cmd("gcloud", "compute", "instance-templates", "create", "egress-proxy-<template-version>", p, `--machine-type=${model.proxy.machineType}`,
       `--image=${model.proxy.cosImage ?? "<cos-image, pinned in step 0>"}`, "--image-project=cos-cloud", `--network=${network}`, `--subnet=${model.proxySubnet.name}`,
       `--region=${region}`, "--no-address", `--service-account=${sa}`, "--scopes=cloud-platform", "--shielded-secure-boot",
-      "--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled",
+      `--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=${envoyConfig(model).node.metadata.isolate01.config_sha256}`,
       "--metadata-from-file=user-data=out/cloud-init.yaml"),
-    cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready"),
+    cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready", "--enable-logging"),
     cmd("gcloud", "compute", "instance-groups", "managed", "create", "egress-proxy", p, r, "--template=egress-proxy-<template-version>", "--size=2",
-      "--health-check=egress-proxy-ready", "--initial-delay=120", "--target-distribution-shape=EVEN"));
+      `--zones=${zones.join(",")}`, "--health-check=egress-proxy-ready", "--initial-delay=120", "--target-distribution-shape=EVEN"));
 
   step("Internal passthrough Network Load Balancer (keeps the compiler's source address)",
     cmd("gcloud", "compute", "backend-services", "create", "egress-proxy", p, r, "--load-balancing-scheme=INTERNAL", "--protocol=TCP", "--health-checks=egress-proxy-ready", "--health-checks-region=" + region),
@@ -99,12 +115,19 @@ export function commands(model, { compilerAccounts = [] } = {}) {
 
   step("Alerts: a failing health check, a spike in refusals, and access logs stopping",
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-access", p, "--description=ISOLATE-01 proxy access log lines", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\")"),
-    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-refused", p, "--description=ISOLATE-01 proxy refusals", "--log-filter=jsonPayload.isolate01=\"egress\" AND jsonPayload.code=\"403\""),
-    "# alert policies, written in step 1: egress-proxy-access absent for 10 minutes on any instance; egress-proxy-refused above its baseline rate; the group's health check failing");
+    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-refused", p, "--description=ISOLATE-01 proxy refusals", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\") AND jsonPayload.decision=\"refuse\""),
+    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-config-mismatch", p, "--description=ISOLATE-01 a proxy VM running another config than its template's",
+      "--log-filter=jsonPayload.isolate01=\"config\" AND jsonPayload.match=false"),
+    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-unhealthy", p, "--description=ISOLATE-01 proxy VMs marked unhealthy",
+      "--log-filter=resource.type=\"gce_instance_group\" AND jsonPayload.healthCheckProbeResult.healthState=\"UNHEALTHY\""),
+    ...Object.keys(alertPolicies(model)).map(name => cmd("gcloud", "alpha", "monitoring", "policies", "create", p, `--policy-from-file=out/alerts/${name}.json`)),
+    ...((model.proxy.alerts?.notificationChannels ?? []).length ? [] : ["# classes.json proxy.alerts.notificationChannels is empty: set it before step 1, or the policies alert no one"]));
 
-  step("Rolling update (patching: a new template, then replace one VM at a time)",
+  // A regional group's fixed surge must be 0 or at least its number of zones
+  // (A7): two pinned zones, so a surge of two, and never an unavailable VM.
+  step("Rolling update (patching: a new template, new VMs up before old ones go)",
     cmd("gcloud", "compute", "instance-groups", "managed", "rolling-action", "start-update", "egress-proxy", p, r, "--version=template=egress-proxy-<new-template-version>",
-      "--max-surge=1", "--max-unavailable=0", "--type=proactive"));
+      `--max-surge=${zones.length}`, "--max-unavailable=0", "--type=proactive"));
 
   return steps;
 }

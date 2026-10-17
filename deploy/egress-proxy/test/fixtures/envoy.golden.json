@@ -1,4 +1,14 @@
 {
+  "node": {
+    "id": "egress-proxy",
+    "cluster": "egress-proxy",
+    "metadata": {
+      "isolate01": {
+        "resources_sha256": "2b9a65f31149fc0396f9308f92e9a5dea5b000f6dfff56e74c98bebf42337e7b",
+        "config_sha256": "2bf9313228cdc01363ca1f0c6703b47d9e8f0083d47e90f7272b0f78ba267a5f"
+      }
+    }
+  },
   "admin": {
     "address": {
       "socket_address": {
@@ -19,6 +29,31 @@
     "listeners": [
       {
         "name": "egress",
+        "access_log": [
+          {
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+              "log_format": {
+                "json_format": {
+                  "isolate01": "egress-tcp",
+                  "class": "-",
+                  "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                  "sni": "%REQUESTED_SERVER_NAME%",
+                  "target": "%DYNAMIC_METADATA(isolate01:target)%",
+                  "termination": "%CONNECTION_TERMINATION_DETAILS%",
+                  "flags": "%RESPONSE_FLAGS%",
+                  "filter_chain": "%FILTER_CHAIN_NAME%",
+                  "duration": "%DURATION%",
+                  "bytes_in": "%BYTES_RECEIVED%",
+                  "bytes_out": "%BYTES_SENT%",
+                  "probe": "-",
+                  "start": "%START_TIME%"
+                }
+              }
+            }
+          }
+        ],
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
@@ -46,6 +81,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -74,7 +110,7 @@
                               "connect_matcher": {}
                             },
                             "route": {
-                              "cluster": "terminate-compilers-default",
+                              "cluster": "terminate-compilers-default-broker-sja7fatcta-uc-a-run-app",
                               "upgrade_configs": [
                                 {
                                   "upgrade_type": "CONNECT",
@@ -82,13 +118,25 @@
                                 }
                               ]
                             },
-                            "metadata": {
-                              "filter_metadata": {
-                                "isolate01": {
-                                  "target": "broker-sja7fatcta-uc.a.run.app"
-                                }
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
-                            }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -103,7 +151,7 @@
                               "connect_matcher": {}
                             },
                             "route": {
-                              "cluster": "terminate-compilers-default",
+                              "cluster": "terminate-compilers-default-policy-sja7fatcta-uc-a-run-app",
                               "upgrade_configs": [
                                 {
                                   "upgrade_type": "CONNECT",
@@ -111,13 +159,25 @@
                                 }
                               ]
                             },
-                            "metadata": {
-                              "filter_metadata": {
-                                "isolate01": {
-                                  "target": "policy-sja7fatcta-uc.a.run.app"
-                                }
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
-                            }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -127,6 +187,94 @@
                           "*"
                         ],
                         "routes": [
+                          {
+                            "match": {
+                              "connect_matcher": {},
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ]
+                          },
+                          {
+                            "match": {
+                              "prefix": "",
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ]
+                          },
                           {
                             "match": {
                               "connect_matcher": {}
@@ -142,7 +290,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "unlisted"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "unlisted"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -161,7 +324,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "unlisted"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "unlisted"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -189,11 +367,17 @@
                             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
                             "method": "%REQ(:METHOD)%",
                             "target": "%REQ(:AUTHORITY)%",
+                            "sni": "%REQUESTED_SERVER_NAME%",
+                            "host": "%REQ(:AUTHORITY)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "upstream_cluster": "%UPSTREAM_CLUSTER%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
                             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "bytes_in": "%BYTES_RECEIVED%",
                             "bytes_out": "%BYTES_SENT%",
@@ -227,6 +411,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -255,7 +440,7 @@
                               "connect_matcher": {}
                             },
                             "route": {
-                              "cluster": "terminate-compilers-l0013",
+                              "cluster": "terminate-compilers-l0013-storage-googleapis-com",
                               "upgrade_configs": [
                                 {
                                   "upgrade_type": "CONNECT",
@@ -263,13 +448,25 @@
                                 }
                               ]
                             },
-                            "metadata": {
-                              "filter_metadata": {
-                                "isolate01": {
-                                  "target": "storage.googleapis.com"
-                                }
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
-                            }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -279,6 +476,94 @@
                           "*"
                         ],
                         "routes": [
+                          {
+                            "match": {
+                              "connect_matcher": {},
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ]
+                          },
+                          {
+                            "match": {
+                              "prefix": "",
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ]
+                          },
                           {
                             "match": {
                               "connect_matcher": {}
@@ -294,7 +579,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "unlisted"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "unlisted"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -313,7 +613,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "unlisted"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "unlisted"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -341,11 +656,17 @@
                             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
                             "method": "%REQ(:METHOD)%",
                             "target": "%REQ(:AUTHORITY)%",
+                            "sni": "%REQUESTED_SERVER_NAME%",
+                            "host": "%REQ(:AUTHORITY)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "upstream_cluster": "%UPSTREAM_CLUSTER%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
                             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "bytes_in": "%BYTES_RECEIVED%",
                             "bytes_out": "%BYTES_SENT%",
@@ -379,6 +700,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -397,9 +719,9 @@
                     "name": "egress-compilers-l0185",
                     "virtual_hosts": [
                       {
-                        "name": "listed-api-sja7fatcta-uc-a-run-app",
+                        "name": "listed-api-graffiticode-org",
                         "domains": [
-                          "api-sja7fatcta-uc.a.run.app:443"
+                          "api.graffiticode.org:443"
                         ],
                         "routes": [
                           {
@@ -407,7 +729,7 @@
                               "connect_matcher": {}
                             },
                             "route": {
-                              "cluster": "terminate-compilers-l0185",
+                              "cluster": "terminate-compilers-l0185-api-graffiticode-org",
                               "upgrade_configs": [
                                 {
                                   "upgrade_type": "CONNECT",
@@ -415,13 +737,25 @@
                                 }
                               ]
                             },
-                            "metadata": {
-                              "filter_metadata": {
-                                "isolate01": {
-                                  "target": "api-sja7fatcta-uc.a.run.app"
-                                }
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
-                            }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -475,7 +809,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "name"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "name"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -494,7 +843,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "name"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "name"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -506,6 +870,94 @@
                           "*"
                         ],
                         "routes": [
+                          {
+                            "match": {
+                              "connect_matcher": {},
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ]
+                          },
+                          {
+                            "match": {
+                              "prefix": "",
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ]
+                          },
                           {
                             "match": {
                               "connect_matcher": {},
@@ -531,7 +983,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "ip-literal"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "ip-literal"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -560,7 +1027,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "ip-literal"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "ip-literal"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -571,9 +1053,7 @@
                                 {
                                   "name": ":authority",
                                   "string_match": {
-                                    "safe_regex": {
-                                      "regex": ":443$"
-                                    }
+                                    "suffix": ":443"
                                   }
                                 }
                               ]
@@ -586,7 +1066,26 @@
                                   "connect_config": {}
                                 }
                               ]
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "open"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           },
                           {
                             "match": {
@@ -603,7 +1102,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "port"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "port"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -614,7 +1128,26 @@
                             "route": {
                               "cluster": "open-forward",
                               "timeout": "30s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "open"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       }
@@ -675,11 +1208,17 @@
                             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
                             "method": "%REQ(:METHOD)%",
                             "target": "%REQ(:AUTHORITY)%",
+                            "sni": "%REQUESTED_SERVER_NAME%",
+                            "host": "%REQ(:AUTHORITY)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "upstream_cluster": "%UPSTREAM_CLUSTER%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
                             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "bytes_in": "%BYTES_RECEIVED%",
                             "bytes_out": "%BYTES_SENT%",
@@ -715,6 +1254,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -785,6 +1325,31 @@
       {
         "name": "terminate-compilers-default",
         "internal_listener": {},
+        "access_log": [
+          {
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+              "log_format": {
+                "json_format": {
+                  "isolate01": "terminate-tcp",
+                  "class": "compilers-default",
+                  "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                  "sni": "%REQUESTED_SERVER_NAME%",
+                  "target": "%DYNAMIC_METADATA(isolate01:target)%",
+                  "termination": "%CONNECTION_TERMINATION_DETAILS%",
+                  "flags": "%RESPONSE_FLAGS%",
+                  "filter_chain": "%FILTER_CHAIN_NAME%",
+                  "duration": "%DURATION%",
+                  "bytes_in": "%BYTES_RECEIVED%",
+                  "bytes_out": "%BYTES_SENT%",
+                  "probe": "-",
+                  "start": "%START_TIME%"
+                }
+              }
+            }
+          }
+        ],
         "listener_filters": [
           {
             "name": "envoy.filters.listener.tls_inspector",
@@ -872,6 +1437,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -903,7 +1469,26 @@
                             "route": {
                               "cluster": "upstream-broker-sja7fatcta-uc-a-run-app",
                               "timeout": "300s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -928,7 +1513,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "host-mismatch"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "host-mismatch"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -953,14 +1553,22 @@
                           "json_format": {
                             "isolate01": "terminate",
                             "class": "compilers-default",
+                            "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                            "method": "%REQ(:METHOD)%",
+                            "target": "broker-sja7fatcta-uc.a.run.app",
+                            "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "method": "%REQ(:METHOD)%",
                             "path": "%REQ(:PATH)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
+                            "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "start": "%START_TIME%"
                           }
                         }
@@ -1049,6 +1657,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -1080,7 +1689,26 @@
                             "route": {
                               "cluster": "upstream-policy-sja7fatcta-uc-a-run-app",
                               "timeout": "300s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -1105,7 +1733,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "host-mismatch"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "host-mismatch"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -1130,14 +1773,22 @@
                           "json_format": {
                             "isolate01": "terminate",
                             "class": "compilers-default",
+                            "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                            "method": "%REQ(:METHOD)%",
+                            "target": "policy-sja7fatcta-uc.a.run.app",
+                            "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "method": "%REQ(:METHOD)%",
                             "path": "%REQ(:PATH)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
+                            "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "start": "%START_TIME%"
                           }
                         }
@@ -1153,6 +1804,31 @@
       {
         "name": "terminate-compilers-l0013",
         "internal_listener": {},
+        "access_log": [
+          {
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+              "log_format": {
+                "json_format": {
+                  "isolate01": "terminate-tcp",
+                  "class": "compilers-l0013",
+                  "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                  "sni": "%REQUESTED_SERVER_NAME%",
+                  "target": "%DYNAMIC_METADATA(isolate01:target)%",
+                  "termination": "%CONNECTION_TERMINATION_DETAILS%",
+                  "flags": "%RESPONSE_FLAGS%",
+                  "filter_chain": "%FILTER_CHAIN_NAME%",
+                  "duration": "%DURATION%",
+                  "bytes_in": "%BYTES_RECEIVED%",
+                  "bytes_out": "%BYTES_SENT%",
+                  "probe": "-",
+                  "start": "%START_TIME%"
+                }
+              }
+            }
+          }
+        ],
         "listener_filters": [
           {
             "name": "envoy.filters.listener.tls_inspector",
@@ -1240,6 +1916,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -1271,7 +1948,26 @@
                             "route": {
                               "cluster": "upstream-storage-googleapis-com",
                               "timeout": "300s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -1296,7 +1992,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "host-mismatch"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "host-mismatch"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -1321,14 +2032,22 @@
                           "json_format": {
                             "isolate01": "terminate",
                             "class": "compilers-l0013",
+                            "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                            "method": "%REQ(:METHOD)%",
+                            "target": "storage.googleapis.com",
+                            "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "method": "%REQ(:METHOD)%",
                             "path": "%REQ(:PATH)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
+                            "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "start": "%START_TIME%"
                           }
                         }
@@ -1344,6 +2063,31 @@
       {
         "name": "terminate-compilers-l0185",
         "internal_listener": {},
+        "access_log": [
+          {
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+              "log_format": {
+                "json_format": {
+                  "isolate01": "terminate-tcp",
+                  "class": "compilers-l0185",
+                  "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                  "sni": "%REQUESTED_SERVER_NAME%",
+                  "target": "%DYNAMIC_METADATA(isolate01:target)%",
+                  "termination": "%CONNECTION_TERMINATION_DETAILS%",
+                  "flags": "%RESPONSE_FLAGS%",
+                  "filter_chain": "%FILTER_CHAIN_NAME%",
+                  "duration": "%DURATION%",
+                  "bytes_in": "%BYTES_RECEIVED%",
+                  "bytes_out": "%BYTES_SENT%",
+                  "probe": "-",
+                  "start": "%START_TIME%"
+                }
+              }
+            }
+          }
+        ],
         "listener_filters": [
           {
             "name": "envoy.filters.listener.tls_inspector",
@@ -1354,10 +2098,10 @@
         ],
         "filter_chains": [
           {
-            "name": "compilers-l0185-api-sja7fatcta-uc-a-run-app",
+            "name": "compilers-l0185-api-graffiticode-org",
             "filter_chain_match": {
               "server_names": [
-                "api-sja7fatcta-uc.a.run.app"
+                "api.graffiticode.org"
               ]
             },
             "transport_socket": {
@@ -1375,10 +2119,10 @@
                   "tls_certificates": [
                     {
                       "certificate_chain": {
-                        "filename": "/run/egress-proxy/certs/api-sja7fatcta-uc-a-run-app.crt"
+                        "filename": "/run/egress-proxy/certs/api-graffiticode-org.crt"
                       },
                       "private_key": {
-                        "filename": "/run/egress-proxy/certs/api-sja7fatcta-uc-a-run-app.key"
+                        "filename": "/run/egress-proxy/certs/api-graffiticode-org.key"
                       }
                     }
                   ]
@@ -1390,7 +2134,7 @@
                 "name": "envoy.filters.network.rbac",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
-                  "stat_prefix": "target_api_sja7fatcta_uc_a_run_app",
+                  "stat_prefix": "target_api_graffiticode_org",
                   "rules": {
                     "action": "ALLOW",
                     "policies": {
@@ -1411,7 +2155,7 @@
                               ],
                               "value": {
                                 "string_match": {
-                                  "exact": "api-sja7fatcta-uc.a.run.app"
+                                  "exact": "api.graffiticode.org"
                                 }
                               }
                             }
@@ -1426,11 +2170,12 @@
                 "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
-                  "stat_prefix": "terminate_api_sja7fatcta_uc_a_run_app",
+                  "stat_prefix": "terminate_api_graffiticode_org",
                   "codec_type": "AUTO",
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -1446,13 +2191,13 @@
                     }
                   ],
                   "route_config": {
-                    "name": "terminate-compilers-l0185-api-sja7fatcta-uc-a-run-app",
+                    "name": "terminate-compilers-l0185-api-graffiticode-org",
                     "virtual_hosts": [
                       {
-                        "name": "api-sja7fatcta-uc-a-run-app",
+                        "name": "api-graffiticode-org",
                         "domains": [
-                          "api-sja7fatcta-uc.a.run.app",
-                          "api-sja7fatcta-uc.a.run.app:443"
+                          "api.graffiticode.org",
+                          "api.graffiticode.org:443"
                         ],
                         "routes": [
                           {
@@ -1460,9 +2205,28 @@
                               "prefix": "/"
                             },
                             "route": {
-                              "cluster": "upstream-api-sja7fatcta-uc-a-run-app",
+                              "cluster": "upstream-api-graffiticode-org",
                               "timeout": "300s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -1487,7 +2251,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "host-mismatch"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "host-mismatch"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -1512,14 +2291,22 @@
                           "json_format": {
                             "isolate01": "terminate",
                             "class": "compilers-l0185",
+                            "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                            "method": "%REQ(:METHOD)%",
+                            "target": "api.graffiticode.org",
+                            "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "method": "%REQ(:METHOD)%",
                             "path": "%REQ(:PATH)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
+                            "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "start": "%START_TIME%"
                           }
                         }
@@ -1535,11 +2322,11 @@
     ],
     "clusters": [
       {
-        "name": "terminate-compilers-default",
+        "name": "terminate-compilers-default-broker-sja7fatcta-uc-a-run-app",
         "type": "STATIC",
         "connect_timeout": "1s",
         "load_assignment": {
-          "cluster_name": "terminate-compilers-default",
+          "cluster_name": "terminate-compilers-default-broker-sja7fatcta-uc-a-run-app",
           "endpoints": [
             {
               "lb_endpoints": [
@@ -1550,6 +2337,13 @@
                         "server_listener_name": "terminate-compilers-default"
                       }
                     }
+                  },
+                  "metadata": {
+                    "filter_metadata": {
+                      "isolate01": {
+                        "target": "broker-sja7fatcta-uc.a.run.app"
+                      }
+                    }
                   }
                 }
               ]
@@ -1563,7 +2357,7 @@
             "passthrough_metadata": [
               {
                 "kind": {
-                  "route": {}
+                  "host": {}
                 },
                 "name": "isolate01"
               }
@@ -1578,11 +2372,61 @@
         }
       },
       {
-        "name": "terminate-compilers-l0013",
+        "name": "terminate-compilers-default-policy-sja7fatcta-uc-a-run-app",
         "type": "STATIC",
         "connect_timeout": "1s",
         "load_assignment": {
-          "cluster_name": "terminate-compilers-l0013",
+          "cluster_name": "terminate-compilers-default-policy-sja7fatcta-uc-a-run-app",
+          "endpoints": [
+            {
+              "lb_endpoints": [
+                {
+                  "endpoint": {
+                    "address": {
+                      "envoy_internal_address": {
+                        "server_listener_name": "terminate-compilers-default"
+                      }
+                    }
+                  },
+                  "metadata": {
+                    "filter_metadata": {
+                      "isolate01": {
+                        "target": "policy-sja7fatcta-uc.a.run.app"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "transport_socket": {
+          "name": "envoy.transport_sockets.internal_upstream",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
+            "passthrough_metadata": [
+              {
+                "kind": {
+                  "host": {}
+                },
+                "name": "isolate01"
+              }
+            ],
+            "transport_socket": {
+              "name": "envoy.transport_sockets.raw_buffer",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "terminate-compilers-l0013-storage-googleapis-com",
+        "type": "STATIC",
+        "connect_timeout": "1s",
+        "load_assignment": {
+          "cluster_name": "terminate-compilers-l0013-storage-googleapis-com",
           "endpoints": [
             {
               "lb_endpoints": [
@@ -1593,47 +2437,11 @@
                         "server_listener_name": "terminate-compilers-l0013"
                       }
                     }
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "transport_socket": {
-          "name": "envoy.transport_sockets.internal_upstream",
-          "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
-            "passthrough_metadata": [
-              {
-                "kind": {
-                  "route": {}
-                },
-                "name": "isolate01"
-              }
-            ],
-            "transport_socket": {
-              "name": "envoy.transport_sockets.raw_buffer",
-              "typed_config": {
-                "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
-              }
-            }
-          }
-        }
-      },
-      {
-        "name": "terminate-compilers-l0185",
-        "type": "STATIC",
-        "connect_timeout": "1s",
-        "load_assignment": {
-          "cluster_name": "terminate-compilers-l0185",
-          "endpoints": [
-            {
-              "lb_endpoints": [
-                {
-                  "endpoint": {
-                    "address": {
-                      "envoy_internal_address": {
-                        "server_listener_name": "terminate-compilers-l0185"
+                  },
+                  "metadata": {
+                    "filter_metadata": {
+                      "isolate01": {
+                        "target": "storage.googleapis.com"
                       }
                     }
                   }
@@ -1649,7 +2457,7 @@
             "passthrough_metadata": [
               {
                 "kind": {
-                  "route": {}
+                  "host": {}
                 },
                 "name": "isolate01"
               }
@@ -1664,7 +2472,57 @@
         }
       },
       {
-        "name": "upstream-api-sja7fatcta-uc-a-run-app",
+        "name": "terminate-compilers-l0185-api-graffiticode-org",
+        "type": "STATIC",
+        "connect_timeout": "1s",
+        "load_assignment": {
+          "cluster_name": "terminate-compilers-l0185-api-graffiticode-org",
+          "endpoints": [
+            {
+              "lb_endpoints": [
+                {
+                  "endpoint": {
+                    "address": {
+                      "envoy_internal_address": {
+                        "server_listener_name": "terminate-compilers-l0185"
+                      }
+                    }
+                  },
+                  "metadata": {
+                    "filter_metadata": {
+                      "isolate01": {
+                        "target": "api.graffiticode.org"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "transport_socket": {
+          "name": "envoy.transport_sockets.internal_upstream",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
+            "passthrough_metadata": [
+              {
+                "kind": {
+                  "host": {}
+                },
+                "name": "isolate01"
+              }
+            ],
+            "transport_socket": {
+              "name": "envoy.transport_sockets.raw_buffer",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "upstream-api-graffiticode-org",
         "type": "LOGICAL_DNS",
         "dns_lookup_family": "V4_ONLY",
         "typed_dns_resolver_config": {
@@ -1693,7 +2551,7 @@
         },
         "connect_timeout": "5s",
         "load_assignment": {
-          "cluster_name": "upstream-api-sja7fatcta-uc-a-run-app",
+          "cluster_name": "upstream-api-graffiticode-org",
           "endpoints": [
             {
               "lb_endpoints": [
@@ -1701,7 +2559,7 @@
                   "endpoint": {
                     "address": {
                       "socket_address": {
-                        "address": "api-sja7fatcta-uc.a.run.app",
+                        "address": "api.graffiticode.org",
                         "port_value": 443
                       }
                     }
@@ -1715,7 +2573,7 @@
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
             "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
-            "sni": "api-sja7fatcta-uc.a.run.app",
+            "sni": "api.graffiticode.org",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2",
@@ -1729,7 +2587,7 @@
                   {
                     "san_type": "DNS",
                     "matcher": {
-                      "exact": "api-sja7fatcta-uc.a.run.app"
+                      "exact": "api.graffiticode.org"
                     }
                   }
                 ]

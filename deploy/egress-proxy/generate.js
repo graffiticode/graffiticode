@@ -7,11 +7,14 @@
 //
 //   node deploy/egress-proxy/generate.js [--deploy deploy.json] [--classes classes.json] [--out dir]
 //
-// Writes envoy.json and cloud-init.yaml to --out (default deploy/egress-proxy/out).
+// Writes envoy.json, cloud-init.yaml and alerts/*.json to --out (default
+// deploy/egress-proxy/out), and prints the config digest (A25).
 // Nothing here contacts the cloud; infra.js prints the commands that use these.
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
+import { canonical, normaliseResource, resourcesDigest } from "./digest.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const ROOT = path.resolve(HERE, "../..");
@@ -69,7 +72,7 @@ export function buildModel(deployConfig, classes) {
   for (const [name, c] of Object.entries(classes.classes ?? {})) {
     if (!/^compilers-[a-z0-9-]+$/.test(name)) throw new Error(`classes.json: class ${name} must be named compilers-<name>`);
     if (!cidr.test(c.cidr ?? "")) throw new Error(`classes.json: class ${name} needs an IPv4 cidr`);
-    model.classes[name] = { name, cidr: c.cidr, open: c.open === true, hosts: new Set(), services: [] };
+    model.classes[name] = { name, cidr: c.cidr, open: c.open === true, hosts: new Set(), services: [], accounts: [] };
   }
   for (const [service, config] of Object.entries(deployConfig.services ?? {})) {
     const n = config.network;
@@ -81,18 +84,33 @@ export function buildModel(deployConfig, classes) {
       throw new Error(`deploy.json: ${service}'s network.proxy must be http://${model.loadBalancerAddress}:${model.proxy.listenPort}`);
     }
     cls.services.push(service);
+    // The runtime identity reads the CA bundle (infra.js binds it).
+    if (!/^[a-z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com$/.test(config.runtimeServiceAccount ?? "")) {
+      throw new Error(`deploy.json: ${service} has a network block but no runtimeServiceAccount`);
+    }
+    cls.accounts.push(config.runtimeServiceAccount);
     for (const host of n.allow) {
-      if (cls.open && denied(host, model.denySuffixes) && !host.endsWith(".run.app")) {
-        throw new Error(`deploy.json: ${service} lists ${host}, which the open class refuses`);
+      // An exact listed route would win over the open class's wildcard
+      // refusals, so a refused name can never be listed for it (D2: no
+      // run.app at all; L0185 reaches Graffiticode by *.graffiticode.org).
+      if (cls.open && denied(host, model.denySuffixes)) {
+        throw new Error(`deploy.json: ${service} lists ${host}, which the open class refuses (${model.denySuffixes.find(s => host === s || host.endsWith(`.${s}`))})`);
       }
       cls.hosts.add(host);
     }
   }
-  for (const cls of Object.values(model.classes)) cls.hosts = [...cls.hosts].sort();
+  for (const cls of Object.values(model.classes)) {
+    cls.hosts = [...cls.hosts].sort();
+    cls.accounts = [...new Set(cls.accounts)].sort();
+  }
   return model;
 }
 
 const denied = (host, suffixes) => suffixes.some(s => host === s || host.endsWith(`.${s}`));
+
+// Every compiler runtime account behind the proxy: each reads the CA bundle.
+export const compilerAccounts = model =>
+  [...new Set(Object.values(model.classes).flatMap(c => c.accounts))].sort();
 
 // Every host terminated anywhere, each with its own certificate.
 export const terminatedHosts = model =>
@@ -116,44 +134,118 @@ const accessLog = (fields) => [{
   },
 }];
 
+// The access-log contract (AT-11's collector reads these exact fields).
+// Every HTTP line, outer and inner: what was asked, what Envoy decided and
+// why, where it went, and the probe id AT-11 sends in x-isolate01-probe.
+// `decision` and `reason` come from response headers every route sets
+// (allowed routes too), since a log line can't compute them.
+export const LOG_FIELDS = ["isolate01", "class", "downstream", "method", "target", "sni", "host", "upstream", "upstream_host", "code", "flags", "details", "decision", "reason", "probe", "start"];
+const decisionFields = {
+  decision: "%RESP(X-ISOLATE01-DECISION)%",
+  reason: "%RESP(X-ISOLATE01-REASON)%",
+  probe: "%REQ(X-ISOLATE01-PROBE)%",
+};
+
 const outerLogFields = className => ({
   isolate01: "egress",
   class: className,
   downstream: "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
   method: "%REQ(:METHOD)%",
   target: "%REQ(:AUTHORITY)%",
+  sni: "%REQUESTED_SERVER_NAME%",
+  host: "%REQ(:AUTHORITY)%",
   upstream: "%UPSTREAM_REMOTE_ADDRESS%",
+  upstream_host: "%UPSTREAM_HOST%",
   upstream_cluster: "%UPSTREAM_CLUSTER%",
   code: "%RESPONSE_CODE%",
   flags: "%RESPONSE_FLAGS%",
   details: "%RESPONSE_CODE_DETAILS%",
+  ...decisionFields,
   refused: "%RESP(X-ISOLATE01-REFUSED)%",
   bytes_in: "%BYTES_RECEIVED%",
   bytes_out: "%BYTES_SENT%",
   start: "%START_TIME%",
 });
 
-const innerLogFields = className => ({
+// Inner: one HCM per (class, host) chain, so `target` is that chain's host,
+// which RBAC has already required the CONNECT target to equal.
+// `target_metadata` is the passed-through value itself, where Envoy exposes
+// the connection's dynamic metadata to an HTTP log (step 0 checks it; "-" if not).
+const innerLogFields = (className, host) => ({
   isolate01: "terminate",
   class: className,
+  downstream: "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+  method: "%REQ(:METHOD)%",
+  target: host,
+  target_metadata: "%DYNAMIC_METADATA(isolate01:target)%",
   sni: "%REQUESTED_SERVER_NAME%",
   host: "%REQ(:AUTHORITY)%",
-  method: "%REQ(:METHOD)%",
   path: "%REQ(:PATH)%",
   upstream: "%UPSTREAM_REMOTE_ADDRESS%",
+  upstream_host: "%UPSTREAM_HOST%",
   code: "%RESPONSE_CODE%",
   flags: "%RESPONSE_FLAGS%",
   details: "%RESPONSE_CODE_DETAILS%",
+  ...decisionFields,
+  refused: "%RESP(X-ISOLATE01-REFUSED)%",
   start: "%START_TIME%",
 });
 
-const refuse = (reason) => ({
-  direct_response: { status: 403, body: { inline_string: `isolate01: refused (${reason})\n` } },
-  response_headers_to_add: [{ header: { key: "x-isolate01-refused", value: reason } }],
+// Connection-level lines, for what closes before HTTP runs: an inner
+// listener's unknown SNI (flags NR) and RBAC refusal (termination details
+// name rbac), and an outer connection from outside every class subnet (NR).
+// No decision field: refusals.js's tcpDecision derives it.
+export const TCP_LOG_FIELDS = ["isolate01", "class", "sni", "target", "termination", "flags", "filter_chain", "probe", "start"];
+const tcpLogFields = (kind, className) => ({
+  isolate01: kind,
+  class: className,
+  downstream: "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+  sni: "%REQUESTED_SERVER_NAME%",
+  target: "%DYNAMIC_METADATA(isolate01:target)%",
+  termination: "%CONNECTION_TERMINATION_DETAILS%",
+  flags: "%RESPONSE_FLAGS%",
+  filter_chain: "%FILTER_CHAIN_NAME%",
+  duration: "%DURATION%",
+  bytes_in: "%BYTES_RECEIVED%",
+  bytes_out: "%BYTES_SENT%",
+  probe: "-",
+  start: "%START_TIME%",
 });
 
-// IPv4 and bracketed IPv6 literals, with or without a port.
-const IP_LITERAL = String.raw`^(\[[0-9A-Fa-f:.]+\]|[0-9]{1,3}(\.[0-9]{1,3}){3})(:[0-9]+)?$`;
+const OVERWRITE = "OVERWRITE_IF_EXISTS_OR_ADD";
+const decisionHeaders = (decision, reason) => [
+  { header: { key: "x-isolate01-decision", value: decision }, append_action: OVERWRITE },
+  { header: { key: "x-isolate01-reason", value: reason }, append_action: OVERWRITE },
+];
+
+const refuse = (reason) => ({
+  direct_response: { status: 403, body: { inline_string: `isolate01: refused (${reason})\n` } },
+  response_headers_to_add: [
+    { header: { key: "x-isolate01-refused", value: reason }, append_action: OVERWRITE },
+    ...decisionHeaders("refuse", reason),
+  ],
+});
+
+// An allowed route: its decision headers, and never an upstream's own
+// x-isolate01-* headers, so an upstream can't forge a refusal or a decision.
+const allow = (reason, route) => ({
+  route,
+  response_headers_to_add: decisionHeaders("allow", reason),
+  response_headers_to_remove: ["x-isolate01-refused"],
+});
+
+// IPv4 and bracketed IPv6 literals, with or without a port. Envoy's
+// safe_regex is a full match (RE2), so this matches the whole authority; every
+// regex here is written anchored on both ends to say so.
+export const IP_LITERAL = String.raw`^(\[[0-9A-Fa-f:.]+\]|[0-9]{1,3}(\.[0-9]{1,3}){3})(:[0-9]+)?$`;
+
+// An authority still ending in a dot after strip_trailing_host_dot (two dots,
+// or a form Envoy doesn't strip): refused outright, never routed.
+export const TRAILING_DOT = String.raw`^[^\[]*\.(:[0-9]+)?$`;
+const trailingDotRoutes = () => {
+  const headers = [{ name: ":authority", string_match: { safe_regex: { regex: TRAILING_DOT } } }];
+  return [{ match: { connect_matcher: {}, headers }, ...refuse("trailing-dot") }, { match: { prefix: "", headers }, ...refuse("trailing-dot") }];
+};
 
 const hcm = (statPrefix, routeConfig, httpFilters, logFields) => ({
   name: "envoy.filters.network.http_connection_manager",
@@ -166,6 +258,9 @@ const hcm = (statPrefix, routeConfig, httpFilters, logFields) => ({
     use_remote_address: true,
     xff_num_trusted_hops: 0,
     skip_xff_append: true,
+    // "learnosity.com." is learnosity.com: strip the dot before any routing,
+    // so a trailing dot can't step around an exact or wildcard domain.
+    strip_trailing_host_dot: true,
     normalize_path: true,
     merge_slashes: true,
     path_with_escaped_slashes_action: "REJECT_REQUEST",
@@ -182,11 +277,12 @@ const hcm = (statPrefix, routeConfig, httpFilters, logFields) => ({
 });
 
 // A CONNECT to a listed host: terminate the CONNECT and hand its bytes to
-// this class's internal listener, carrying the target as route metadata.
+// this class's internal listener through the host's own internal cluster,
+// whose one endpoint carries the target as host metadata (A2).
+export const internalClusterName = (className, host) => `terminate-${className}-${slug(host)}`;
 const tunnelRoute = (host, className) => ({
   match: { connect_matcher: {} },
-  route: { cluster: `terminate-${className}`, upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] },
-  metadata: { filter_metadata: { [META]: { target: host } } },
+  ...allow("listed", { cluster: internalClusterName(className, host), upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] }),
 });
 
 function outerRouteConfig(cls, model) {
@@ -199,21 +295,24 @@ function outerRouteConfig(cls, model) {
     const deny = model.denySuffixes.flatMap(s => [s, `*.${s}`]).flatMap(d => [d, `${d}:443`, `${d}:80`]);
     virtual_hosts.push({ name: "open-refused-names", domains: deny, routes: [{ match: { prefix: "" }, ...refuse("name") }, { match: { connect_matcher: {} }, ...refuse("name") }] });
     const ipLiteral = [{ name: ":authority", string_match: { safe_regex: { regex: IP_LITERAL } } }];
-    const port443 = [{ name: ":authority", string_match: { safe_regex: { regex: ":443$" } } }];
+    // A suffix, not a regex: Envoy's safe_regex must match the whole value,
+    // so ":443$" would never match "example.com:443".
+    const port443 = [{ name: ":authority", string_match: { suffix: ":443" } }];
     virtual_hosts.push({
       name: "open",
       domains: ["*"],
       routes: [
+        ...trailingDotRoutes(),
         { match: { connect_matcher: {}, headers: ipLiteral }, ...refuse("ip-literal") },
         { match: { prefix: "/", headers: ipLiteral }, ...refuse("ip-literal") },
-        { match: { connect_matcher: {}, headers: port443 }, route: { cluster: "open-forward", upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] } },
+        { match: { connect_matcher: {}, headers: port443 }, ...allow("open", { cluster: "open-forward", upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] }) },
         { match: { connect_matcher: {} }, ...refuse("port") },
         // Plain http, absolute form: forwarded the same way, same checks.
-        { match: { prefix: "/" }, route: { cluster: "open-forward", timeout: "30s" } },
+        { match: { prefix: "/" }, ...allow("open", { cluster: "open-forward", timeout: "30s" }) },
       ],
     });
   } else {
-    virtual_hosts.push({ name: "unlisted", domains: ["*"], routes: [{ match: { connect_matcher: {} }, ...refuse("unlisted") }, { match: { prefix: "" }, ...refuse("unlisted") }] });
+    virtual_hosts.push({ name: "unlisted", domains: ["*"], routes: [...trailingDotRoutes(), { match: { connect_matcher: {} }, ...refuse("unlisted") }, { match: { prefix: "" }, ...refuse("unlisted") }] });
   }
   return { name: `egress-${cls.name}`, virtual_hosts };
 }
@@ -246,6 +345,7 @@ function outerListener(model) {
   // No default filter chain: a connection from outside every class subnet is closed.
   return {
     name: "egress",
+    access_log: accessLog(tcpLogFields("egress-tcp", "-")),
     address: { socket_address: { address: "0.0.0.0", port_value: model.proxy.listenPort } },
     filter_chains,
   };
@@ -304,15 +404,16 @@ function innerListener(cls) {
       hcm(`terminate_${slug(host).replace(/-/g, "_")}`, {
         name: `terminate-${cls.name}-${slug(host)}`,
         virtual_hosts: [
-          { name: slug(host), domains: [host, `${host}:443`], routes: [{ match: { prefix: "/" }, route: { cluster: `upstream-${slug(host)}`, timeout: "300s" } }] },
+          { name: slug(host), domains: [host, `${host}:443`], routes: [{ match: { prefix: "/" }, ...allow("listed", { cluster: `upstream-${slug(host)}`, timeout: "300s" }) }] },
           { name: "fronted", domains: ["*"], routes: [{ match: { prefix: "" }, ...refuse("host-mismatch") }] },
         ],
-      }, [], innerLogFields(cls.name)),
+      }, [], innerLogFields(cls.name, host)),
     ],
   }));
   return {
     name: `terminate-${cls.name}`,
     internal_listener: {},
+    access_log: accessLog(tcpLogFields("terminate-tcp", cls.name)),
     listener_filters: [{
       name: "envoy.filters.listener.tls_inspector",
       typed_config: { "@type": "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector" },
@@ -357,21 +458,32 @@ function upstreamCluster(host, model) {
   };
 }
 
-const internalCluster = cls => ({
-  name: `terminate-${cls.name}`,
+// One internal cluster per (class, listed host). Its single endpoint is the
+// class's internal listener and carries the CONNECT target as endpoint (host)
+// metadata. internal_upstream passes host-kind metadata into the internal
+// connection's dynamic metadata, where the inner RBAC filter requires it to
+// equal the SNI. (Route-kind metadata, the merged design, most likely isn't
+// accepted by internal_upstream, and one endpoint per class couldn't carry a
+// per-host value anyway. Rollout step 0 confirms this with envoy --mode
+// validate and a live tunnel.)
+const internalCluster = (cls, host) => ({
+  name: internalClusterName(cls.name, host),
   type: "STATIC",
   connect_timeout: "1s",
   load_assignment: {
-    cluster_name: `terminate-${cls.name}`,
-    endpoints: [{ lb_endpoints: [{ endpoint: { address: { envoy_internal_address: { server_listener_name: `terminate-${cls.name}` } } } }] }],
+    cluster_name: internalClusterName(cls.name, host),
+    endpoints: [{
+      lb_endpoints: [{
+        endpoint: { address: { envoy_internal_address: { server_listener_name: `terminate-${cls.name}` } } },
+        metadata: { filter_metadata: { [META]: { target: host } } },
+      }],
+    }],
   },
   transport_socket: {
     name: "envoy.transport_sockets.internal_upstream",
     typed_config: {
       "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
-      // The route's metadata (the CONNECT target) crosses to the internal
-      // listener, where the RBAC filter checks it against the SNI.
-      passthrough_metadata: [{ kind: { route: {} }, name: META }],
+      passthrough_metadata: [{ kind: { host: {} }, name: META }],
       transport_socket: {
         name: "envoy.transport_sockets.raw_buffer",
         typed_config: { "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer" },
@@ -404,7 +516,26 @@ const healthListener = model => ({
   }],
 });
 
+export const sha256 = text => createHash("sha256").update(text).digest("hex");
+
+// config_sha256: over the canonical bootstrap with that one field left out.
+export function configDigest(envoy) {
+  const copy = JSON.parse(JSON.stringify(envoy));
+  delete copy.node?.metadata?.[META]?.config_sha256;
+  return sha256(canonical(copy));
+}
+
 export function envoyConfig(model) {
+  const config = bootstrap(model);
+  const { listeners, clusters } = config.static_resources;
+  // Static bootstrap only (no xDS): the node metadata names what was loaded (A25).
+  const node = { id: "egress-proxy", cluster: "egress-proxy", metadata: { [META]: { resources_sha256: resourcesDigest(listeners, clusters, sha256) } } };
+  const envoy = { node, ...config };
+  envoy.node.metadata[META].config_sha256 = configDigest(envoy);
+  return envoy;
+}
+
+function bootstrap(model) {
   const classes = Object.values(model.classes);
   const terminating = classes.filter(c => c.hosts.length);
   return {
@@ -416,7 +547,7 @@ export function envoyConfig(model) {
     static_resources: {
       listeners: [outerListener(model), healthListener(model), ...terminating.map(innerListener)],
       clusters: [
-        ...terminating.map(internalCluster),
+        ...terminating.flatMap(cls => cls.hosts.map(host => internalCluster(cls, host))),
         ...terminatedHosts(model).map(h => upstreamCluster(h, model)),
         ...(classes.some(c => c.open) ? [openForwardCluster(model)] : []),
       ],
@@ -427,14 +558,51 @@ export function envoyConfig(model) {
   };
 }
 
+// What each refused range is called in the kernel log (A14). A LOG prefix is
+// at most 29 characters, and "ISOLATE01-REJECT " takes 17, so a rule's name is
+// at most 11: the AT-11 collector maps it back with rejectRules(model).
+export const REJECT_PREFIX = "ISOLATE01-REJECT ";
+const BLOCKED_NAMES = {
+  "0.0.0.0/8": "zero",
+  "10.0.0.0/8": "private",
+  "100.64.0.0/10": "cgnat",
+  "127.0.0.0/8": "loopback",
+  "169.254.0.0/16": "metadata",
+  "172.16.0.0/12": "private",
+  "192.168.0.0/16": "private",
+  "224.0.0.0/4": "multicast",
+  "240.0.0.0/4": "reserved",
+  "199.36.153.4/30": "goog-restr",
+  "199.36.153.8/30": "goog-priv",
+};
+
+// Every refused range with its log name, most specific first: the load
+// balancer, the compiler subnets and the proxy subnet sit inside 10/8, and
+// the first matching REJECT is the one that logs.
+export function rejectRules(model) {
+  const rules = [
+    { cidr: `${model.loadBalancerAddress}/32`, name: "lb" },
+    ...Object.values(model.classes).map(c => ({ cidr: c.cidr, name: `c-${c.name.replace(/^compilers-/, "")}` })),
+    { cidr: model.proxySubnet.cidr, name: "proxy-net" },
+    ...BLOCKED.map(cidr => ({ cidr, name: BLOCKED_NAMES[cidr] })),
+  ];
+  for (const r of rules) {
+    if (!r.name || r.name.length > 11) throw new Error(`the kernel log name for ${r.cidr} (${r.name}) must be 1-11 characters: shorten the class name`);
+  }
+  return rules;
+}
+
 // The ENVOY_OUT chain, in order: return traffic, then refusals of new
-// connections to internal addresses, then the new connections allowed, then
-// everything else dropped. Each rule is iptables arguments after `-A ENVOY_OUT`.
+// connections to internal addresses (each logged first, rate-limited, under
+// its name), then the new connections allowed, then everything else dropped.
+// Each rule is iptables arguments after `-A ENVOY_OUT`.
 export function envoyOutRules(model) {
-  const blocked = [...BLOCKED, ...Object.values(model.classes).map(c => c.cidr), model.proxySubnet.cidr, `${model.loadBalancerAddress}/32`];
   return [
     "-m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
-    ...blocked.map(c => `-m conntrack --ctstate NEW -d ${c} -j REJECT`),
+    ...rejectRules(model).flatMap(({ cidr, name }) => [
+      `-m conntrack --ctstate NEW -d ${cidr} -m limit --limit 20/second --limit-burst 100 -j LOG --log-prefix "${REJECT_PREFIX}${name} " --log-level 4`,
+      `-m conntrack --ctstate NEW -d ${cidr} -j REJECT`,
+    ]),
     "-m conntrack --ctstate NEW -p tcp -m multiport --dports 80,443 -j ACCEPT",
     ...model.proxy.resolvers.flatMap(r => [
       `-m conntrack --ctstate NEW -p udp -d ${r}/32 --dport 53 -j ACCEPT`,
@@ -450,6 +618,8 @@ export function inputRules(model) {
     "-m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
     ...Object.values(model.classes).map(c => `-p tcp -s ${c.cidr} --dport ${model.proxy.listenPort} -j ACCEPT`),
     ...model.proxy.healthCheckRanges.map(r => `-p tcp -s ${r} --dport ${model.proxy.healthPort} -j ACCEPT`),
+    // Its own final drop, not COS's default policy.
+    "-j DROP",
   ];
 }
 
@@ -477,14 +647,21 @@ function firewallScript(model) {
   ].join("\n");
 }
 
+// Awk programs over `iptables -S ENVOY_OUT` (exported for the tests).
+// ORDER_AWK prints the run of rule kinds: E(stablished), R(eject, with its
+// LOG), A(ccept), D(rop). PAIRS_AWK fails unless every REJECT is immediately
+// preceded by a LOG for the same destination, and every LOG by its REJECT.
+export const ORDER_AWK = String.raw`{ k = /ESTABLISHED/ ? "E" : / -j (REJECT|LOG)/ ? "R" : / -j ACCEPT/ ? "A" : / -j DROP/ ? "D" : "?"; if (k != last) printf "%s", k; last = k }`;
+export const PAIRS_AWK = String.raw`{ d = ""; for (i = 1; i < NF; i++) if ($i == "-d") d = $(i + 1) } / -j REJECT/ { nrej++; if (prev != "LOG " d) bad = 1 } / -j LOG / { nlog++ } { prev = (/ -j LOG /) ? "LOG " d : "" } END { exit (bad || nlog != nrej) }`;
+
 // Refuses to let Envoy start unless ENVOY_OUT holds every generated rule and
-// nothing else, in the generated order (return traffic, rejects, accepts,
-// drop), and OUTPUT sends Envoy's UID to it first. `iptables -S` rewrites rule
-// text (match order, implicit -m tcp), so rules are checked with -C and the
-// order by kind, not by comparing strings.
+// nothing else, in the generated order (return traffic, logged rejects,
+// accepts, drop), and OUTPUT sends Envoy's UID to it first. `iptables -S`
+// rewrites rule text (match order, implicit -m tcp), so rules are checked
+// with -C and the order by kind, not by comparing strings.
 function firewallCheckScript(model) {
   const rules = envoyOutRules(model);
-  const order = "awk '{ k = /ESTABLISHED/ ? \"E\" : / -j REJECT/ ? \"R\" : / -j ACCEPT/ ? \"A\" : / -j DROP/ ? \"D\" : \"?\"; if (k != last) printf \"%s\", k; last = k }'";
+  const order = `awk ${shellQuote(ORDER_AWK)}`;
   return [
     "#!/bin/bash",
     "set -euo pipefail",
@@ -493,8 +670,12 @@ function firewallCheckScript(model) {
     "actual=$(iptables -w -S ENVOY_OUT | tail -n +2)",
     `[ "$(printf '%s\\n' "$actual" | wc -l)" -eq ${rules.length} ] || fail "ENVOY_OUT has rules that were not generated"`,
     `[ "$(printf '%s\\n' "$actual" | ${order})" = "ERAD" ] || fail "ENVOY_OUT is out of order"`,
+    `printf '%s\\n' "$actual" | awk ${shellQuote(PAIRS_AWK)} || fail "a REJECT in ENVOY_OUT is not logged just before it"`,
     `[ "$(iptables -w -S OUTPUT | sed -n 2p)" = "-A OUTPUT -m owner --uid-owner ${model.proxy.uid} -j ENVOY_OUT" ] || fail "OUTPUT does not send Envoy's UID to ENVOY_OUT first"`,
     `ip6tables -w -C OUTPUT -m owner --uid-owner ${model.proxy.uid} -j DROP || fail "ip6tables does not drop Envoy's UID"`,
+    ...inputRules(model).map(r => `iptables -w -C EGRESS_IN ${r} || fail ${shellQuote(`EGRESS_IN lacks: ${r}`)}`),
+    "[ \"$(iptables -w -S EGRESS_IN | tail -n 1)\" = \"-A EGRESS_IN -j DROP\" ] || fail \"EGRESS_IN does not end in its own DROP\"",
+    "[ \"$(iptables -w -S INPUT | sed -n 2p)\" = \"-A INPUT -j EGRESS_IN\" ] || fail \"INPUT does not send everything to EGRESS_IN first\"",
     "",
   ].join("\n");
 }
@@ -527,9 +708,106 @@ function certFetchScript(model) {
   ].join("\n");
 }
 
+// The VMs' own lookups (A11). A Cloud DNS response policy binds to the whole
+// VPC, proxy VMs included, so once the compiler lockdown works the metadata
+// resolver answers NXDOMAIN to the image pull, the certificate fetch and the
+// logging agent too. Host DNS therefore goes straight to the fixed public
+// resolvers (queries sent to an outside resolver bypass the VPC's response
+// policy; the proxy account's firewall already allows port 53 to them), with
+// no fallback to the metadata resolver, and the metadata name pinned in
+// /etc/hosts. Runs first, before anything on the VM looks up a name.
+function resolverScript(model) {
+  const servers = model.proxy.resolvers;
+  return [
+    "#!/bin/bash",
+    "set -euo pipefail",
+    "# Every glibc and Go client (docker, curl, the logging agent): a static resolv.conf.",
+    "rm -f /etc/resolv.conf",
+    `printf '%s\\n' ${servers.map(r => shellQuote(`nameserver ${r}`)).join(" ")} 'options timeout:2 attempts:2' > /etc/resolv.conf`,
+    "chmod 444 /etc/resolv.conf",
+    "# Anything asking systemd-resolved gets the same servers, for every domain, and no fallback.",
+    "mkdir -p /etc/systemd/resolved.conf.d",
+    `printf '%s\\n' '[Resolve]' ${shellQuote(`DNS=${servers.join(" ")}`)} 'FallbackDNS=' 'Domains=~.' > /etc/systemd/resolved.conf.d/isolate01.conf`,
+    "if command -v resolvectl >/dev/null; then",
+    "  systemctl restart systemd-resolved || true",
+    "  # The DHCP-supplied metadata resolver is never a default route.",
+    "  for link in $(resolvectl status --no-pager 2>/dev/null | sed -n 's/^Link [0-9]* (\\(.*\\))$/\\1/p'); do",
+    "    resolvectl default-route \"$link\" no || true",
+    "    resolvectl dns \"$link\" '' || true",
+    "  done",
+    "fi",
+    "grep -qE '^169\\.254\\.169\\.254[[:space:]]+metadata\\.google\\.internal' /etc/hosts || echo '169.254.169.254 metadata.google.internal metadata' >> /etc/hosts",
+    "",
+  ].join("\n");
+}
+
+// Refuses to let the certificate fetch, Envoy or the report start unless host
+// DNS is the fixed resolvers only, and metadata is pinned.
+function resolverCheckScript(model) {
+  const expected = model.proxy.resolvers.join(" ");
+  return [
+    "#!/bin/bash",
+    "set -euo pipefail",
+    "fail() { echo \"isolate01: $1; refusing to start\" >&2; exit 1; }",
+    "[ ! -L /etc/resolv.conf ] || fail '/etc/resolv.conf is a symlink, not the static file'",
+    `[ "$(sed -n 's/^nameserver[[:space:]]*//p' /etc/resolv.conf | tr '\\n' ' ' | sed 's/ $//')" = ${shellQuote(expected)} ] || fail 'host DNS is not exactly the fixed resolvers'`,
+    "grep -qE '^169\\.254\\.169\\.254[[:space:]]+metadata\\.google\\.internal' /etc/hosts || fail 'metadata.google.internal is not pinned in /etc/hosts'",
+    "",
+  ].join("\n");
+}
+
+// The on-VM config report (A25), run by envoy-config-report.service in the
+// pinned reportImage (Node) under its own UID, never Envoy's: it reads the
+// running Envoy's admin interface and the instance's metadata, and logs one
+// JSON line. Its digest functions are digest.js's own source.
+/* eslint-disable no-template-curly-in-string -- the report's own template literals, written as strings. */
+export function configReportScript(model) {
+  return [
+    "// ISOLATE-01 A25: what this VM's Envoy is running (generated by deploy/egress-proxy/generate.js).",
+    "import { createHash } from \"node:crypto\";",
+    `const ADMIN = process.env.ISOLATE01_ADMIN ?? "http://127.0.0.1:${model.proxy.adminPort}";`,
+    "const METADATA = process.env.ISOLATE01_METADATA ?? \"http://169.254.169.254/computeMetadata/v1/instance\";",
+    "const BOOTSTRAP = \"type.googleapis.com/envoy.admin.v3.BootstrapConfigDump\";",
+    "const sha256 = text => createHash(\"sha256\").update(text).digest(\"hex\");",
+    canonical.toString(),
+    normaliseResource.toString(),
+    resourcesDigest.toString(),
+    String.raw`async function get(url, headers = {}) {
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error(${"`${url} answered ${res.status}`"});
+  return res;
+}
+const metadata = path => get(${"`${METADATA}/${path}`"}, { "Metadata-Flavor": "Google" }).then(r => r.text());
+const entry = (dump, type) => (dump.configs ?? []).find(c => c["@type"] === type);
+const line = { isolate01: "config", instance: "-", config_sha256: "-", resources_sha256: "-", match: false };
+try {
+  line.instance = await metadata("name").catch(() => "-");
+  line.expected_config_sha256 = await metadata("attributes/isolate01-config-sha256").catch(() => "-");
+  // mask, not resource=: resource takes only repeated fields, and bootstrap is singular.
+  const boot = entry(await (await get(${"`${ADMIN}/config_dump?mask=bootstrap.node.metadata`"})).json(), BOOTSTRAP);
+  const own = boot?.bootstrap?.node?.metadata?.isolate01 ?? {};
+  if (!boot) line.error = "no BootstrapConfigDump in the config dump";
+  else if (!own.config_sha256) line.error = "the running bootstrap carries no config_sha256";
+  line.config_sha256 = own.config_sha256 ?? "-";
+  line.expected_resources_sha256 = own.resources_sha256 ?? "-";
+  const full = await (await get(${"`${ADMIN}/config_dump`"})).json();
+  const listeners = (entry(full, "type.googleapis.com/envoy.admin.v3.ListenersConfigDump")?.static_listeners ?? []).map(l => l.listener);
+  const clusters = (entry(full, "type.googleapis.com/envoy.admin.v3.ClustersConfigDump")?.static_clusters ?? []).map(c => c.cluster);
+  line.resources_sha256 = resourcesDigest(listeners, clusters, sha256);
+  line.match = Boolean(own.config_sha256) && own.config_sha256 === line.expected_config_sha256 && line.resources_sha256 === own.resources_sha256;
+} catch (e) {
+  line.error = String(e?.message ?? e);
+}
+console.log(JSON.stringify(line));`,
+    "",
+  ].join("\n");
+}
+/* eslint-enable no-template-curly-in-string */
+
 function requirePinned(model) {
-  const { envoyImage, cosImage } = model.proxy;
+  const { envoyImage, cosImage, reportImage } = model.proxy;
   if (!/^[a-z0-9./-]+@sha256:[0-9a-f]{64}$/.test(envoyImage ?? "")) throw new Error("classes.json: proxy.envoyImage must be pinned by digest (rollout step 0 pins it)");
+  if (!/^[a-z0-9./-]+@sha256:[0-9a-f]{64}$/.test(reportImage ?? "")) throw new Error("classes.json: proxy.reportImage (Node, for the config report) must be pinned by digest (rollout step 0 pins it)");
   if (!/^cos-[a-z0-9-]+$/.test(cosImage ?? "") || /^cos-(stable|beta|dev)$/.test(cosImage)) throw new Error("classes.json: proxy.cosImage must name one COS image, not a family");
 }
 
@@ -541,6 +819,13 @@ export function cloudInit(model, envoy) {
     { path: "/etc/egress-proxy/firewall.sh", permissions: "0500", content: firewallScript(model) },
     { path: "/etc/egress-proxy/firewall-check.sh", permissions: "0500", content: firewallCheckScript(model) },
     { path: "/etc/egress-proxy/fetch-certs.sh", permissions: "0500", content: certFetchScript(model) },
+    { path: "/etc/egress-proxy/resolver.sh", permissions: "0500", content: resolverScript(model) },
+    { path: "/etc/egress-proxy/resolver-check.sh", permissions: "0500", content: resolverCheckScript(model) },
+    {
+      path: "/etc/systemd/system/egress-resolver.service",
+      permissions: "0444",
+      content: unit({ Description: "ISOLATE-01 host DNS: the fixed resolvers only", Before: "egress-certs.service egress-envoy.service" }, { Type: "oneshot", RemainAfterExit: "yes", ExecStart: "/bin/bash /etc/egress-proxy/resolver.sh" }),
+    },
     {
       path: "/etc/systemd/system/egress-firewall.service",
       permissions: "0444",
@@ -549,15 +834,18 @@ export function cloudInit(model, envoy) {
     {
       path: "/etc/systemd/system/egress-certs.service",
       permissions: "0444",
-      content: unit({ Description: "ISOLATE-01 certificate fetch", After: "network-online.target", Wants: "network-online.target", Before: "egress-envoy.service" }, { Type: "oneshot", RemainAfterExit: "yes", ExecStart: "/bin/bash /etc/egress-proxy/fetch-certs.sh" }),
+      content: unit(
+        { Description: "ISOLATE-01 certificate fetch", Requires: "egress-resolver.service", After: "network-online.target egress-resolver.service", Wants: "network-online.target", Before: "egress-envoy.service" },
+        { Type: "oneshot", RemainAfterExit: "yes", ExecStartPre: "/bin/bash /etc/egress-proxy/resolver-check.sh", ExecStart: "/bin/bash /etc/egress-proxy/fetch-certs.sh" },
+      ),
     },
     {
       path: "/etc/systemd/system/egress-envoy.service",
       permissions: "0444",
       content: unit(
-        { Description: "ISOLATE-01 egress proxy (Envoy)", Requires: "docker.service egress-firewall.service egress-certs.service", After: "docker.service egress-firewall.service egress-certs.service" },
+        { Description: "ISOLATE-01 egress proxy (Envoy)", Requires: "docker.service egress-resolver.service egress-firewall.service egress-certs.service", After: "docker.service egress-resolver.service egress-firewall.service egress-certs.service" },
         {
-          ExecStartPre: ["/bin/bash /etc/egress-proxy/firewall-check.sh", "-/usr/bin/docker rm -f envoy"],
+          ExecStartPre: ["/bin/bash /etc/egress-proxy/resolver-check.sh", "/bin/bash /etc/egress-proxy/firewall-check.sh", "-/usr/bin/docker rm -f envoy"],
           // Host networking, so Envoy's packets take the host OUTPUT chain
           // where ENVOY_OUT applies by UID. Never a bridged container.
           ExecStart: [
@@ -576,14 +864,46 @@ export function cloudInit(model, envoy) {
         { WantedBy: "multi-user.target" },
       ),
     },
+    { path: "/etc/egress-proxy/config-report.mjs", permissions: "0444", content: configReportScript(model) },
+    {
+      path: "/etc/systemd/system/envoy-config-report.service",
+      permissions: "0444",
+      content: unit(
+        { Description: "ISOLATE-01 report what Envoy is running (A25)", After: "egress-envoy.service", Requires: "egress-resolver.service" },
+        {
+          Type: "oneshot",
+          // Wait for Envoy to be healthy, but report either way: a missing or
+          // failed report is itself what verify-rollout looks for.
+          ExecStartPre: `-/bin/bash -c 'for i in $(seq 1 60); do curl -sf http://127.0.0.1:${model.proxy.healthPort}/ready >/dev/null && exit 0; sleep 2; done; exit 1'`,
+          // Host network to reach the admin port on loopback, as its own
+          // unprivileged UID (not Envoy's, so ENVOY_OUT doesn't apply and the
+          // metadata server answers).
+          ExecStart: [
+            "/usr/bin/docker run --rm --name envoy-config-report --network host",
+            `--user ${model.proxy.reportUid}:${model.proxy.reportUid} --cap-drop ALL --security-opt no-new-privileges --read-only`,
+            "-v /etc/egress-proxy/config-report.mjs:/report/config-report.mjs:ro",
+            model.proxy.reportImage,
+            "node /report/config-report.mjs",
+          ].join(" "),
+        },
+      ),
+    },
+    {
+      path: "/etc/systemd/system/envoy-config-report.timer",
+      permissions: "0444",
+      content: ["[Unit]", "Description=ISOLATE-01 config report, after boot and every 10 minutes", "", "[Timer]", "OnBootSec=3min", "OnUnitActiveSec=10min", "Unit=envoy-config-report.service", "", "[Install]", "WantedBy=timers.target", ""].join("\n"),
+    },
   ];
   const config = {
     write_files: files,
     runcmd: [
       ["systemctl", "daemon-reload"],
+      // Host DNS first: nothing below may look up a name before it's set.
+      ["systemctl", "start", "egress-resolver.service"],
       ["systemctl", "start", "egress-firewall.service"],
       ["systemctl", "start", "egress-certs.service"],
       ["systemctl", "enable", "--now", "egress-envoy.service"],
+      ["systemctl", "enable", "--now", "envoy-config-report.timer"],
     ],
   };
   // JSON is YAML; cloud-init needs only the header line.
@@ -596,6 +916,84 @@ function unit(unitSection, service, install) {
   return lines.join("\n") + "\n";
 }
 const section = obj => Object.entries(obj).flatMap(([k, v]) => (Array.isArray(v) ? v : [v]).map(x => `${k}=${x}`));
+
+// Cloud Monitoring alert policies (A9), written to out/alerts/ and created by
+// infra.js's printed commands. Log-based metrics: egress-proxy-access (every
+// proxy line), egress-proxy-refused (decision refuse), egress-proxy-unhealthy
+// (health-check log transitions to UNHEALTHY).
+export function alertPolicies(model) {
+  const alerts = model.proxy.alerts ?? {};
+  const metric = name => `metric.type="logging.googleapis.com/user/${name}" AND resource.type="gce_instance"`;
+  const channels = alerts.notificationChannels ?? [];
+  return {
+    "egress-proxy-access-absent": {
+      displayName: "ISOLATE-01: egress proxy access logs stopped on an instance",
+      documentation: { content: "A proxy VM's access-log lines haven't arrived for 10 minutes. A broken logging path hides refusals: check the VM's logging agent (deploy/egress-proxy/README.md).", mimeType: "text/markdown" },
+      combiner: "OR",
+      conditions: [{
+        displayName: "egress-proxy-access absent for 10 minutes, per instance",
+        conditionAbsent: {
+          filter: metric("egress-proxy-access"),
+          duration: "600s",
+          aggregations: [{ alignmentPeriod: "300s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM", groupByFields: ["resource.label.instance_id"] }],
+          trigger: { count: 1 },
+        },
+      }],
+      notificationChannels: channels,
+    },
+    "egress-proxy-refused-spike": {
+      displayName: "ISOLATE-01: egress proxy refusals above baseline",
+      documentation: { content: "More refusals than the reviewed baseline: a compiler reaching for something unlisted, or a broken allowlist. Run refusals.js for the class.", mimeType: "text/markdown" },
+      combiner: "OR",
+      conditions: [{
+        displayName: `more than ${alerts.refusedPerMinute ?? 60} refusals a minute`,
+        conditionThreshold: {
+          filter: metric("egress-proxy-refused"),
+          comparison: "COMPARISON_GT",
+          thresholdValue: alerts.refusedPerMinute ?? 60,
+          duration: "300s",
+          aggregations: [{ alignmentPeriod: "60s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }],
+          trigger: { count: 1 },
+        },
+      }],
+      notificationChannels: channels,
+    },
+    "egress-proxy-config-mismatch": {
+      displayName: "ISOLATE-01: a proxy VM is running another config than its template's",
+      documentation: { content: "envoy-config-report logged match: false: the running Envoy's digest isn't its template's, or its resources don't hash to what the generator wrote. Run verify-rollout.js.", mimeType: "text/markdown" },
+      combiner: "OR",
+      conditions: [{
+        displayName: "any match: false report",
+        conditionThreshold: {
+          filter: metric("egress-proxy-config-mismatch"),
+          comparison: "COMPARISON_GT",
+          thresholdValue: 0,
+          duration: "0s",
+          aggregations: [{ alignmentPeriod: "600s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM", groupByFields: ["resource.label.instance_id"] }],
+          trigger: { count: 1 },
+        },
+      }],
+      notificationChannels: channels,
+    },
+    "egress-proxy-unhealthy": {
+      displayName: "ISOLATE-01: an egress proxy VM failed its health check",
+      documentation: { content: "The load balancer's health check marked a proxy VM unhealthy. Autohealing replaces it; with both down, no protected compile can run.", mimeType: "text/markdown" },
+      combiner: "OR",
+      conditions: [{
+        displayName: "any UNHEALTHY transition",
+        conditionThreshold: {
+          filter: metric("egress-proxy-unhealthy"),
+          comparison: "COMPARISON_GT",
+          thresholdValue: 0,
+          duration: "0s",
+          aggregations: [{ alignmentPeriod: "60s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }],
+          trigger: { count: 1 },
+        },
+      }],
+      notificationChannels: channels,
+    },
+  };
+}
 
 // Every extension name used in a config, for the stable-only check.
 export function extensionsUsed(config) {
@@ -630,11 +1028,17 @@ async function main() {
   const opts = parseArgs(process.argv.slice(2));
   const model = await load(opts);
   const envoy = envoyConfig(model);
+  console.log(`config_sha256 ${envoy.node.metadata[META].config_sha256} (instance template metadata isolate01-config-sha256)`);
   const bad = [...extensionsUsed(envoy)].filter(n => !EXTENSIONS.has(n));
   if (bad.length) throw new Error(`unreviewed Envoy extensions: ${bad.join(", ")}`);
   await mkdir(opts.out, { recursive: true });
   await writeFile(path.join(opts.out, "envoy.json"), JSON.stringify(envoy, null, 2) + "\n");
   console.log(`wrote ${path.join(opts.out, "envoy.json")}`);
+  await mkdir(path.join(opts.out, "alerts"), { recursive: true });
+  for (const [name, policy] of Object.entries(alertPolicies(model))) {
+    await writeFile(path.join(opts.out, "alerts", `${name}.json`), JSON.stringify(policy, null, 2) + "\n");
+  }
+  console.log(`wrote ${path.join(opts.out, "alerts")}/`);
   try {
     await writeFile(path.join(opts.out, "cloud-init.yaml"), cloudInit(model, envoy));
     console.log(`wrote ${path.join(opts.out, "cloud-init.yaml")}`);
