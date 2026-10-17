@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { requireValue } from "./config.js";
+import { hash, requireValue } from "./config.js";
 import { approvalRecord, reachableProblems, retainedTags } from "./revisions.js";
 
 export function traffic(service) {
@@ -17,6 +17,14 @@ export function traffic(service) {
   return Object.fromEntries(Object.entries(totals).sort());
 }
 const fingerprint = service => JSON.stringify([service.metadata?.generation, service.spec, traffic(service)]);
+
+// JSON with object keys sorted at every level, so equal values hash equally.
+export const canonicalJson = value => JSON.stringify(value, (key, v) =>
+  v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : v);
+// The identity of a service's resolved `network` configuration (ISOLATE-01):
+// a staged candidate records it, and promotion's evidence must name it, so an
+// inventory review approves exactly the allow list the candidate ran with.
+export const networkHash = network => (network ? hash(canonicalJson(network)) : null);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const pairs = values => Object.entries(values).map(([k, v]) => `${k}=${v}`).join(",");
 const envFlag = values => {
@@ -220,58 +228,160 @@ export async function release(context, source, deps) {
     log("Checking the candidate revision…");
     await (deps.smoke || smokeCheck)(config, candidate, id, deps);
     if (config.verify) await verifyCandidate(config, candidate, id, source, receipt, { ...deps, persist });
-    // A candidate that inherited a forbidden variable from the service's
-    // template (one not listed in removeEnv) is never promoted.
-    const forbidden = await forbiddenEnvProblems(context, [receipt.revision], { cloud });
-    requireValue(forbidden.length === 0, `Candidate ${describeForbidden(forbidden)}; add it to removeEnv. Not promoted.`);
-    // Cross-service requirements, both ways: every reachable revision of each
-    // service this one requires meets the milestone, and the candidate meets
-    // every milestone of this service that another requires.
-    if (context.requires?.length || context.requiredBy?.length) {
-      requireValue(deps.git, "Checking cross-service requirements needs the local Git history");
-      const unmet = await requirementProblems(context, deps);
-      requireValue(unmet.length === 0, `${describeRequirements(unmet)}. Not promoted.`);
-      const breaks = await requiredByProblems(context, [receipt.revision], deps);
-      requireValue(breaks.length === 0, `Candidate ${describeRequiredBy(breaks)}. Not promoted.`);
-    }
+    await candidateChecks(context, receipt.revision, deps);
     const beforePromotion = await cloud(["run", "services", "describe", config.service]);
     requireValue(fingerprint(beforePromotion) === fingerprint(candidate), "Service changed during verification; refusing promotion");
-    // A pinnable revision is approved before it serves, so admission never sees
-    // a serving revision without a record. If approval fails, nothing is
-    // promoted.
-    if (config.pinnable) {
-      requireValue(deps.revisions, "A pinnable service needs the revisions store");
-      const record = await deps.revisions.approve(approvalRecord(config, receipt, beforePromotion));
-      receipt.approval = { ...record, approvedAt: record.approvedAt.toISOString() };
+    if (deps.stage) {
+      // Staged: the candidate keeps its tag and no traffic until `promote`
+      // (ISOLATE-01 inventory). What promotion must find unchanged is recorded.
+      receipt.status = "staged";
+      receipt.stagedAt = new Date().toISOString();
+      receipt.stagedFingerprint = fingerprint(beforePromotion);
+      receipt.networkHash = networkHash(config.network);
+      receipt.url = candidateUrl(beforePromotion, id);
       await persist();
+      return receipt;
     }
-    receipt.status = "promoting";
-    await persist();
-    log(`Promoting ${receipt.revision}…`);
-    await cloud(["run", "services", "update-traffic", config.service, `--to-revisions=${receipt.revision}=100`]);
-    const final = await cloud(["run", "services", "describe", config.service]);
-    requireValue(same(traffic(final), { [receipt.revision]: 100 }), "Promotion could not be verified; inspect service traffic before retrying");
-    receipt.status = "released";
-    receipt.url = final.status.url;
-    await persist();
-    // Released either way; a failure here is reported, not undone.
-    if (config.retireTags) {
-      try {
-        receipt.retiredTags = await retireTags(context, { cloud, log, keep: [receipt.id], revisions: deps.revisions });
-        // When the removal was verified: no later than the old tags stopped
-        // answering, so a wait measured from it (the W4 cutover's T) is safe.
-        if (receipt.retiredTags.length) receipt.tagsRetiredAt = new Date().toISOString();
-      } catch (error) {
-        receipt.tagRetirementError = error.message;
-        log(`WARNING: released, but stale tags remain (${error.message}). Run: npm run deploy -- retire-tags ${config.service}`);
-      }
-      await persist();
-    }
+    await promoteCandidate(context, receipt, beforePromotion, { ...deps, persist });
     return receipt;
   } catch (error) {
     receipt.failedAt = receipt.status;
     receipt.status = "failed";
     receipt.error = error.message;
+    await persist();
+    throw error;
+  }
+}
+
+const candidateUrl = (service, id) => (service.status?.traffic || []).find(entry => entry.tag === id)?.url ?? null;
+
+// What a candidate must pass before any traffic reaches it, at release and
+// again at `promote`: the network controls, no forbidden variable, and the
+// cross-service requirements both ways.
+async function candidateChecks(context, revision, deps) {
+  const { cloud } = deps;
+  // ISOLATE-01: the candidate itself runs with the network's controls.
+  const uncontrolled = await networkProblems(context, [revision], { cloud });
+  requireValue(uncontrolled.length === 0, `Candidate ${describeNetwork(uncontrolled)} doesn't run with the network controls. Not promoted.`);
+  // A candidate that inherited a forbidden variable from the service's
+  // template (one not listed in removeEnv) is never promoted.
+  const forbidden = await forbiddenEnvProblems(context, [revision], { cloud });
+  requireValue(forbidden.length === 0, `Candidate ${describeForbidden(forbidden)}; add it to removeEnv. Not promoted.`);
+  // Cross-service requirements, both ways: every reachable revision of each
+  // service this one requires meets the milestone, and the candidate meets
+  // every milestone of this service that another requires.
+  if (context.requires?.length || context.requiredBy?.length) {
+    requireValue(deps.git, "Checking cross-service requirements needs the local Git history");
+    const unmet = await requirementProblems(context, deps);
+    requireValue(unmet.length === 0, `${describeRequirements(unmet)}. Not promoted.`);
+    const breaks = await requiredByProblems(context, [revision], deps);
+    requireValue(breaks.length === 0, `Candidate ${describeRequiredBy(breaks)}. Not promoted.`);
+  }
+}
+
+// Moves all traffic to a checked candidate (`service` is the describe the
+// checks were made against): approval first for a pinnable service, then the
+// traffic update, its verification, and tag retirement.
+async function promoteCandidate(context, receipt, service, deps) {
+  const { config } = context;
+  const { cloud, log, persist } = deps;
+  // A pinnable revision is approved before it serves, so admission never sees
+  // a serving revision without a record. If approval fails, nothing is
+  // promoted.
+  if (config.pinnable) {
+    requireValue(deps.revisions, "A pinnable service needs the revisions store");
+    const record = await deps.revisions.approve(approvalRecord(config, receipt, service));
+    receipt.approval = { ...record, approvedAt: record.approvedAt.toISOString() };
+    await persist();
+  }
+  receipt.status = "promoting";
+  await persist();
+  log(`Promoting ${receipt.revision}…`);
+  await cloud(["run", "services", "update-traffic", config.service, `--to-revisions=${receipt.revision}=100`]);
+  const final = await cloud(["run", "services", "describe", config.service]);
+  requireValue(same(traffic(final), { [receipt.revision]: 100 }), "Promotion could not be verified; inspect service traffic before retrying");
+  receipt.status = "released";
+  receipt.url = final.status.url;
+  await persist();
+  // Released either way; a failure here is reported, not undone.
+  if (config.retireTags) {
+    try {
+      receipt.retiredTags = await retireTags(context, { cloud, log, keep: [receipt.id], revisions: deps.revisions });
+      // When the removal was verified: no later than the old tags stopped
+      // answering, so a wait measured from it (the W4 cutover's T) is safe.
+      if (receipt.retiredTags.length) receipt.tagsRetiredAt = new Date().toISOString();
+    } catch (error) {
+      receipt.tagRetirementError = error.message;
+      log(`WARNING: released, but stale tags remain (${error.message}). Run: npm run deploy -- retire-tags ${config.service}`);
+    }
+    await persist();
+  }
+}
+
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+const utc = value => (typeof value === "string" && ISO_TIME.test(value) ? Date.parse(value) : NaN);
+const text = value => typeof value === "string" && value.trim().length > 0;
+
+// The inventory evidence a staged candidate's promotion needs (ISOLATE-01,
+// step 3): who reviewed it, the corpus run against the candidate's tag, and
+// every refused destination with what was decided about it. Returns the
+// problems; none means it may promote.
+export function evidenceProblems(evidence, receipt, config) {
+  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return ["evidence must be a JSON object"];
+  const problems = [];
+  if (evidence.version !== 1) problems.push("version must be 1");
+  if (evidence.service !== receipt.service) problems.push(`service must be ${receipt.service}`);
+  if (evidence.release !== receipt.id) problems.push(`release must be ${receipt.id}`);
+  if (evidence.revision !== receipt.revision) problems.push(`revision must be ${receipt.revision}`);
+  if (evidence.networkHash !== receipt.networkHash) problems.push(`networkHash must be the staged candidate's (${receipt.networkHash})`);
+  if (!text(evidence.reviewer)) problems.push("reviewer is required");
+  const corpus = evidence.corpus ?? {};
+  if (!(Number.isInteger(corpus.tasks) && corpus.tasks > 0)) problems.push("corpus.tasks must be a positive integer");
+  if (corpus.failures !== 0) problems.push("corpus.failures must be 0");
+  const ran = utc(corpus.ranAt);
+  if (!(ran >= Date.parse(receipt.stagedAt))) problems.push("corpus.ranAt must be a UTC time after the candidate was staged");
+  if (!(utc(evidence.reviewedAt) >= ran)) problems.push("reviewedAt must be a UTC time after the corpus run");
+  if (!Array.isArray(evidence.refusals)) problems.push("refusals must be a list (empty if there were none)");
+  const allow = config.network?.allow ?? [];
+  for (const [i, r] of (Array.isArray(evidence.refusals) ? evidence.refusals : []).entries()) {
+    const at = `refusals[${i}]`;
+    if (!text(r?.destination)) problems.push(`${at}.destination is required`);
+    if (!["added", "not-needed"].includes(r?.decision)) problems.push(`${at}.decision must be added or not-needed`);
+    if (!text(r?.note)) problems.push(`${at}.note must explain the decision`);
+    const host = typeof r?.destination === "string" ? r.destination.replace(/:\d+$/, "") : "";
+    if (r?.decision === "added" && !allow.includes(host)) problems.push(`${at}: ${host} is marked added but isn't in network.allow`);
+  }
+  return problems;
+}
+
+// Promotes a staged candidate (`deploy --stage`) once its evidence is
+// reviewed. The candidate checks run again, and anything that changed the
+// service since it was staged (another release, a tag retired, traffic moved)
+// refuses. A refusal leaves the receipt staged; a failure while promoting is
+// recorded in the receipt, as for a release.
+/** @param {{ cloud: any, log: any, save: any, git?: any, revisions?: any }} deps */
+export async function promote(context, receipt, evidence, deps) {
+  const { config, environment } = context;
+  const { cloud, save } = deps;
+  requireValue(receipt.version === 1 && receipt.project === config.project && receipt.region === config.region && receipt.service === config.service && receipt.environment === environment, "Release receipt does not match the deployment target");
+  requireValue(receipt.status === "staged", `Release ${receipt.id} is ${receipt.status}, not staged; only a staged candidate can be promoted`);
+  requireValue(receipt.networkHash === networkHash(config.network), "deploy.json's network configuration changed since this candidate was staged; stage a new candidate");
+  const problems = evidenceProblems(evidence, receipt, config);
+  requireValue(problems.length === 0, `Evidence refused: ${problems.join("; ")}`);
+  const current = await cloud(["run", "services", "describe", config.service]);
+  requireValue(fingerprint(current) === receipt.stagedFingerprint, "Service changed since the candidate was staged; refusing promotion");
+  await candidateChecks(context, receipt.revision, deps);
+  const beforePromotion = await cloud(["run", "services", "describe", config.service]);
+  requireValue(fingerprint(beforePromotion) === receipt.stagedFingerprint, "Service changed during verification; refusing promotion");
+  const promoted = { ...receipt, promotedWith: { reviewer: evidence.reviewer, reviewedAt: evidence.reviewedAt, evidenceHash: hash(canonicalJson(evidence)) } };
+  const persist = async () => save(promoted);
+  try {
+    await promoteCandidate(context, promoted, beforePromotion, { ...deps, persist });
+    return promoted;
+  } catch (error) {
+    promoted.failedAt = promoted.status;
+    promoted.status = "failed";
+    promoted.error = error.message;
     await persist();
     throw error;
   }
@@ -347,8 +457,9 @@ export async function belowBaseline(context, names, { cloud, git }, which = "cur
 
 // ISOLATE-01 (W5 stage 4): what every revision of a networked compiler runs
 // with. The proxy is its only route out; NO_PROXY exempts only the metadata
-// server, which the runtime uses for its own identity and tokens; the
-// inspection CA is mounted from Secret Manager and trusted by Node.
+// server, which the runtime uses for its own identity and tokens; the proxy's
+// private CA (public certificate only) is mounted from Secret Manager and
+// trusted by Node.
 export const METADATA_ONLY = "169.254.169.254,metadata.google.internal";
 export const NETWORK_ENV = Object.freeze(["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS"]);
 export function networkEnv(network) {

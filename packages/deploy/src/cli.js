@@ -1,22 +1,26 @@
 #!/usr/bin/env node
-import { mkdir, open, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs, loadConfig, requireValue } from "./config.js";
 import { createGit } from "./git.js";
 import { snapshot } from "./snapshot.js";
 import { run, streamOutput } from "./process.js";
-import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck, approveReleased } from "./release.js";
+import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck, approveReleased, promote, evidenceProblems } from "./release.js";
 import { createFirestoreRest, createRevisionClient, retainedTags } from "./revisions.js";
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
-    console.log(`gc-deploy [deploy|rollback|retire-tags|release-check|approve] [service] [--env production] [--config deploy.json]
+    console.log(`gc-deploy [deploy|rollback|retire-tags|release-check|approve|promote] [service] [--env production] [--config deploy.json]
   --plan                 Preview locally; no cloud calls or mutations (retire-tags --plan
                          reads the service to list its stale tags, and changes nothing)
   --allow-dirty          Deploy uncommitted workspace contents with a snapshot hash
+  --stage                For a release: deploy and check the candidate, then stop with it
+                         tagged and no traffic (receipt status staged) until promote
   --release <id>         For rollback: restore the traffic preceding this release; for
-                         approve: record this released revision of a pinnable service
+                         approve: record this released revision of a pinnable service; for
+                         promote: the staged release to promote
+  --evidence <file>      For promote: the reviewed inventory evidence (README, "Staging")
   --below-baseline       For rollback: allow a target below the service's milestone baseline
                          (only with protected execution switched off)
   --json                 For release-check: print the result as JSON
@@ -107,6 +111,12 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     console.log(JSON.stringify({ action: "approve", target: `${config.project}/${config.region}/${config.service}`, release: receipt.id, revision: receipt.revision, pinnable: config.pinnable ?? null }, null, 2));
     return;
   }
+  if (options.command === "promote" && options.plan) {
+    const receipt = await readReceipt(root, options.release);
+    const evidence = JSON.parse(await readFile(path.resolve(options.evidence), "utf8"));
+    console.log(JSON.stringify({ action: "promote", target: `${config.project}/${config.region}/${config.service}`, release: receipt.id, revision: receipt.revision, status: receipt.status, networkHash: receipt.networkHash ?? null, evidenceProblems: evidenceProblems(evidence, receipt, config) }, null, 2));
+    return;
+  }
   if (options.command === "rollback" && options.plan) {
     const receipt = await readReceipt(root, options.release);
     console.log(JSON.stringify({ action: "rollback", target: `${config.project}/${config.region}/${config.service}`, release: receipt.id, restoreTraffic: receipt.previousTraffic }, null, 2));
@@ -137,6 +147,13 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       console.log(`Approved ${receipt.revision} (${receipt.approval.tagUrl}).`);
       return;
     }
+    if (options.command === "promote") {
+      const evidence = JSON.parse(await readFile(path.resolve(options.evidence), "utf8"));
+      const receipt = await promote(context, await readReceipt(root, options.release), evidence, { cloud, log: console.log, save, git, revisions });
+      console.log(`Released ${receipt.revision}: ${receipt.url}\nReceipt: ${path.join(receiptDir, `${receipt.id}.json`)}\nRollback: npm run rollback -- ${context.service} --env ${context.environment} --release ${receipt.id}`);
+      if (receipt.tagRetirementError) process.exitCode = 1;
+      return;
+    }
     if (options.command === "rollback") {
       const receipt = await readReceipt(root, options.release);
       await save(await rollback(context, receipt, { cloud, log: console.log, git, switchState, allowBelowBaseline: Boolean(options["below-baseline"]) }));
@@ -158,7 +175,11 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       requiredVariables: context.unresolved
     }, null, 2));
     if (options.plan) return;
-    const receipt = await release(context, source, { cloud, streamLog, log: console.log, save, temp: source.dir, revisions, git });
+    const receipt = await release(context, source, { cloud, streamLog, log: console.log, save, temp: source.dir, revisions, git, stage: Boolean(options.stage) });
+    if (receipt.status === "staged") {
+      console.log(`Staged ${receipt.revision} with no traffic: ${receipt.url}\nNetwork hash: ${receipt.networkHash ?? "(no network)"}\nReceipt: ${path.join(receiptDir, `${receipt.id}.json`)}\nPromote: npm run deploy -- promote ${context.service} --env ${context.environment} --release ${receipt.id} --evidence <file>`);
+      return;
+    }
     console.log(`Released ${receipt.revision}: ${receipt.url}\nReceipt: ${path.join(receiptDir, `${receipt.id}.json`)}\nRollback: npm run rollback -- ${context.service} --env ${context.environment} --release ${receipt.id}`);
     // Released, but not ready for protected execution: make that a failed run.
     if (receipt.tagRetirementError) process.exitCode = 1;

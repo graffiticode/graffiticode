@@ -13,6 +13,8 @@ npm run deploy -- api --env production
 npm run deploy -- api --allow-dirty
 npm run rollback -- api --release <release-id>
 npm run rollback -- api --release <release-id> --plan
+npm run deploy -- l0176 --stage
+npm run deploy -- promote l0176 --release <release-id> --evidence <file>
 npm run test:deploy
 ```
 
@@ -37,7 +39,7 @@ Each service declares:
 - `retireTags`: `true` makes each release, after promotion, remove the tags of revisions that serve no traffic (keeping its own), so an old revision of a protected service is not callable through its tag URL. Traffic is verified unchanged. The receipt records the tags in `retiredTags` and, when there were any, `tagsRetiredAt`: when their removal was verified, no earlier than they stopped answering. A failure leaves the release released, records `tagRetirementError` in the receipt and prints a warning. Rollback targets revision names, so it is unaffected. `npm run deploy -- retire-tags <service>` does the same on demand and prints the verified time; `--plan` lists the stale tags (a read-only describe). Like every command it takes the local lock but not a cloud one, so do not run it while someone else's candidate is being verified.
 - `baselines`: `[{ "milestone": "W0", "commit": "<40-hex>" }, …]`, oldest first: the commit of each security milestone's release. A revision meets a milestone only if it was built cleanly (`gc-dirty=false`) from that commit or a descendant (`commit-sha`, both labels every release sets); its name or age never counts, so old code redeployed under a new release id does not. Ancestry comes from the local Git history (fetch first).
 - `contractMinimum`: `{ "env": "POLICY_MIN_CONTRACT_VERSION", "floor"?: 2 }` (policy and broker). `release-check` reads that variable from every reachable revision's own environment, serving or tagged, since a configuration release of the same commit meets every baseline. An invalid or unreadable value (including one from a secret) always fails. With `floor`, an unset or lower value fails too, `env` must keep the floor, and a rollback to a revision below it needs `--below-baseline` with protected execution off.
-- `network` (compilers, ISOLATE-01): `{ "network", "subnet", "tags": [..], "proxy": "http://host:port", "ca": { "secret": "name:version", "path": "/dir/ca.pem" }, "allow": [hostnames] }`. Each release deploys on that network and subnet with `--vpc-egress=all-traffic`, sets `HTTPS_PROXY`/`HTTP_PROXY` to the proxy, `NO_PROXY` to the metadata server only (`169.254.169.254,metadata.google.internal`), mounts the proxy's inspection CA from the pinned secret version at `path`, and sets `NODE_EXTRA_CA_CERTS` to it. `env` may not set those variables itself. `allow` is the reviewed host list the proxy enforces; the CLI keeps it with the service for review but doesn't configure the proxy. `release-check` reads every reachable revision, serving or tagged, and fails on any without the network interface, all-traffic egress, the exact proxy variables, or the CA mount. `rollback` refuses such a target before moving traffic, with no override (not even `--below-baseline`): roll forward, or back to a controlled revision.
+- `network` (compilers, ISOLATE-01): `{ "network", "subnet", "tags": [..], "proxy": "http://host:port", "ca": { "secret": "name:version", "path": "/dir/ca.pem" }, "allow": [hostnames] }`. Each release deploys on that network and subnet with `--vpc-egress=all-traffic`, sets `HTTPS_PROXY`/`HTTP_PROXY` to the proxy, `NO_PROXY` to the metadata server only (`169.254.169.254,metadata.google.internal`), mounts the egress proxy's private CA certificate (the public certificate only; the proxy terminates TLS for each allowed host with a certificate it issues) from the pinned secret version at `path`, and sets `NODE_EXTRA_CA_CERTS` to it. `env` may not set those variables itself. `allow` is the reviewed host list the proxy enforces; the CLI keeps it with the service for review, and `deploy/egress-proxy` generates the proxy's config from it (the CLI doesn't configure the proxy). `release-check` reads every reachable revision, serving or tagged, and fails on any without the network interface, all-traffic egress, the exact proxy variables, or the CA mount. `rollback` refuses such a target before moving traffic, with no override (not even `--below-baseline`): roll forward, or back to a controlled revision.
 - `enforcesSwitch`: `true` for services that enforce the protected-execution switch themselves (policy, broker). They are never rolled back below their first milestone, whose code introduced the switch, since older code would ignore it.
 - `protectedExecution`: `{ "policyUrl", "brokerUrl" }` (in `environments.production`), where `rollback --below-baseline` reads `/v1/protected-execution` with the operator's identity.
 - Rollback below the current milestone needs `--below-baseline`, and then also needs both Policy and Broker to report protected execution off; the receipt records `rolledBackBelowBaseline`.
@@ -93,6 +95,42 @@ A release checks service identity/access and secret-version availability, submit
 Receipts are saved atomically under `.gc-deploy/releases/<release-id>.json`, with owner-only file permissions. They include source/config hashes, Git commit, file manifest, build ID/source location, image digest, resolved managed configuration/secret versions, previous traffic, revision and status. The uploaded source is retained according to the source bucket policy; local temporary snapshots are removed. Back up receipts if rollback must work from another machine. They contain non-secret configuration, not secret payloads.
 
 Build/test/smoke failures do not promote traffic. A failed candidate remains tagged for inspection. If submission, deployment, or promotion is interrupted, remote work may continue: inspect the receipt, build status, and service before retrying. In particular, a lost promotion response may mean traffic already moved. The receipt records `failedAt: promoting` in that case; rollback can recover if this revision owns all traffic.
+
+### Staging: `--stage` and `promote`
+
+`npm run deploy -- <service> --stage` runs a release up to and including its candidate checks (build, deploy with no traffic, smoke, `verify`, the candidate's network controls, `forbiddenEnv`, and `requires` both ways), then stops. The candidate keeps its tag and no traffic; the receipt's status is `staged`, its `url` is the candidate's tag URL, and it records `stagedAt`, the service's fingerprint (`stagedFingerprint`) and `networkHash`: the sha256 of the canonical JSON (keys sorted at every level) of the service's resolved `network` setting, or `null` without one. This is ISOLATE-01's inventory step: the corpus runs against the tag, and the proxy's refusals are reviewed before anything serves.
+
+`npm run deploy -- promote <service> --release <id> --evidence <file>` promotes it. It refuses, leaving the receipt staged and traffic untouched, unless:
+
+- the receipt is for this target and `staged` (a released, failed or rolled-back one is refused);
+- `deploy.json`'s `network` still hashes to the receipt's `networkHash` (a changed allow list means a new candidate);
+- the evidence is valid (below);
+- the service is unchanged since staging: same generation, template and traffic. Another release, a moved percentage or a retired tag all refuse.
+
+It then re-runs the candidate checks, re-reads the service, and promotes through the release's own path: approval first for a pinnable service, `update-traffic` to exactly that revision, verification, and tag retirement. The receipt gains `promotedWith: { reviewer, reviewedAt, evidenceHash }`. A failure after promotion starts is recorded as for a release (`failedAt: promoting`). `--plan` with `promote` reads the receipt and evidence and prints the evidence problems, without cloud calls.
+
+The evidence file:
+
+```json
+{
+  "version": 1,
+  "service": "l0176",
+  "release": "<release id>",
+  "revision": "l0176-<release id>",
+  "networkHash": "<the staged receipt's networkHash>",
+  "reviewer": "<who reviewed it>",
+  "reviewedAt": "2026-10-20T18:00:00Z",
+  "corpus": { "ranAt": "2026-10-20T17:30:00Z", "tasks": 120, "failures": 0 },
+  "refusals": [
+    { "destination": "www.googleapis.com:443", "decision": "added", "note": "PREFLIGHT_GATEWAYS key fetch" },
+    { "destination": "example.com:443", "decision": "not-needed", "note": "a test item's link; not fetched in production" }
+  ]
+}
+```
+
+`service`, `release`, `revision` and `networkHash` must match the receipt. `reviewer` is required. The corpus run must have at least one task, no failures, and a UTC `ranAt` no earlier than `stagedAt`; `reviewedAt` is a UTC time no earlier than the run. `refusals` lists every destination the proxy refused for the candidate (empty if none). Each has a `decision`, `added` or `not-needed`, and a `note` explaining it. An `added` host must be in `network.allow`, so it went into the staged candidate's `networkHash`. Adding a host therefore means a new candidate, after the proxy has been updated (`deploy/egress-proxy`).
+
+While a candidate is staged, its tag reaches it like any candidate's, and `release-check` counts it as reachable. For a service with `retireTags` it is a stale tag, and for a pinnable one an unapproved revision, until promotion. A later release's tag retirement removes it, after which `promote` refuses.
 
 `rollback --release ID` restores the traffic distribution *preceding* that release, without rebuilding. It refuses if another release now owns traffic. It does not revert database changes, IAM, service-level settings, or secret contents, and it requires the old revisions and secret versions to remain available. Unmanaged secrets still using `latest` do not acquire reproducible rollback behavior automatically.
 
