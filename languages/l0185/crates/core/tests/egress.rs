@@ -8,7 +8,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use graffiticode_l0000::egress::EgressEnv;
+use graffiticode_l0000::egress::{EgressEnv, EgressError};
 use graffiticode_l0185::fetch::{GuardOptions, GuardedFetcher};
 use graffiticode_l0185::source::{FetchResult, Fetcher};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -138,7 +138,7 @@ fn fetcher(setup: &Setup, tweak: impl FnOnce(&mut GuardOptions)) -> GuardedFetch
         ..GuardOptions::default()
     };
     tweak(&mut opts);
-    GuardedFetcher::new(opts)
+    GuardedFetcher::new(opts).unwrap()
 }
 
 fn blocked(url: &str) -> String {
@@ -199,4 +199,28 @@ async fn the_url_is_checked_before_the_proxy_sees_anything() {
         assert_eq!(f.fetch(url).await.unwrap_err(), blocked(url));
     }
     assert!(setup.seen.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_bad_proxy_config_is_an_error_not_a_panic() {
+    let with = |proxy: &'static str, ca: Option<&'static str>| GuardOptions {
+        egress: EgressEnv::from_lookup(move |name| match name {
+            "HTTPS_PROXY" => Some(proxy.to_owned()),
+            "NODE_EXTRA_CA_CERTS" => ca.map(str::to_owned),
+            _ => None,
+        }),
+        ..GuardOptions::default()
+    };
+    // No CA for the proxy.
+    assert!(matches!(GuardedFetcher::new(with("http://10.8.0.2:3128", None)), Err(EgressError::NoCa(_))));
+    // A CA file that isn't there.
+    assert!(matches!(
+        GuardedFetcher::new(with("http://10.8.0.2:3128", Some("/nonexistent/isolate01-ca.pem"))),
+        Err(EgressError::CaFile(..))
+    ));
+    // Not a proxy URL.
+    assert!(matches!(
+        GuardedFetcher::new(with("::not a url::", Some("/nonexistent/ca.pem"))),
+        Err(EgressError::Proxy(..))
+    ));
 }

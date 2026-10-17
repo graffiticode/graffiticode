@@ -8,6 +8,7 @@
 //! fixed clip instead.
 
 mod browser;
+pub mod egress;
 pub mod pixels;
 pub mod storage;
 

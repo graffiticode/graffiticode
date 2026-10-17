@@ -18,6 +18,7 @@
     "assemble": "shx rm -rf packages/api/static && shx mkdir -p packages/api/static && shx cp -r packages/core/dist/static/. packages/api/static/ && shx cp -r packages/view/dist-embed/. packages/api/static/",
     "dev": "npm run -w packages/api dev",
     "start": "npm run -w packages/api start",
+    "test": "vitest run",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

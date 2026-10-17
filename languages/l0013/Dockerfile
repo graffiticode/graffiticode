@@ -7,6 +7,7 @@ WORKDIR /usr/src/app
 RUN apk add --no-cache \
     chromium \
     nss \
+    nss-tools \
     freetype \
     harfbuzz \
     ca-certificates \
