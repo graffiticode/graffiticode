@@ -65,9 +65,39 @@ test("no class's internal listener or routes hold another class's hosts", async 
     const outer = listeners.find(l => l.name === "egress").filter_chains.find(c => c.name === cls.name);
     const vhosts = outer.filters[0].typed_config.route_config.virtual_hosts;
     const tunnels = vhosts.flatMap(v => v.routes).filter(r => r.route?.cluster?.startsWith("terminate-"));
-    assert.ok(tunnels.every(r => r.route.cluster === `terminate-${cls.name}`), `${cls.name} tunnels only to its own listener`);
-    assert.deepEqual(tunnels.map(r => r.metadata.filter_metadata.isolate01.target).sort(), cls.hosts);
+    const clusters = tunnels.map(r => envoy.static_resources.clusters.find(c => c.name === r.route.cluster));
+    assert.ok(clusters.every(c => c.load_assignment.endpoints[0].lb_endpoints.every(e => e.endpoint.address.envoy_internal_address.server_listener_name === `terminate-${cls.name}`)),
+      `${cls.name} tunnels only to its own listener`);
+    assert.deepEqual(clusters.map(c => c.load_assignment.endpoints[0].lb_endpoints[0].metadata.filter_metadata.isolate01.target).sort(), cls.hosts);
   }
+});
+
+test("each listed host's CONNECT reaches its own internal endpoint, carrying that host as host metadata (A2)", async () => {
+  const model = await fixture();
+  const envoy = envoyConfig(model);
+  const { listeners, clusters } = envoy.static_resources;
+  for (const cls of Object.values(model.classes)) {
+    const hcm = listeners.find(l => l.name === "egress").filter_chains.find(c => c.name === cls.name).filters[0].typed_config;
+    const inner = listeners.find(l => l.name === `terminate-${cls.name}`);
+    for (const host of cls.hosts) {
+      const { cluster } = outcome(routeRequest(hcm, { method: "CONNECT", authority: `${host}:443` }));
+      assert.equal(cluster, `terminate-${cls.name}-${host.replace(/\./g, "-")}`);
+      const c = clusters.find(x => x.name === cluster);
+      const [lb] = c.load_assignment.endpoints[0].lb_endpoints;
+      assert.equal(c.load_assignment.endpoints[0].lb_endpoints.length, 1, "one endpoint: one target");
+      assert.equal(lb.endpoint.address.envoy_internal_address.server_listener_name, inner.name);
+      assert.deepEqual(lb.metadata, { filter_metadata: { isolate01: { target: host } } });
+      assert.deepEqual(c.transport_socket.typed_config.passthrough_metadata, [{ kind: { host: {} }, name: "isolate01" }]);
+      // The inner chain for that SNI requires exactly that metadata.
+      const chain = inner.filter_chains.find(fc => fc.filter_chain_match.server_names.includes(host));
+      const [principal] = chain.filters[0].typed_config.rules.policies["connect-target-is-sni"].principals;
+      assert.deepEqual(principal.metadata, { filter: "isolate01", path: [{ key: "target" }], value: { string_match: { exact: host } } });
+    }
+  }
+  // No route kind anywhere, and no route metadata left over.
+  const text = JSON.stringify(envoy);
+  assert.doesNotMatch(text, /"route":\{\}/);
+  assert.ok(!listeners.find(l => l.name === "egress").filter_chains.some(fc => JSON.stringify(fc).includes("filter_metadata")));
 });
 
 test("each terminating chain requires the CONNECT target to equal its SNI, and its Host to match", async () => {
@@ -86,7 +116,7 @@ test("each terminating chain requires the CONNECT target to equal its SNI, and i
   }
   const clusters = envoy.static_resources.clusters.filter(c => c.name.startsWith("terminate-"));
   for (const c of clusters) {
-    assert.deepEqual(c.transport_socket.typed_config.passthrough_metadata, [{ kind: { route: {} }, name: "isolate01" }]);
+    assert.deepEqual(c.transport_socket.typed_config.passthrough_metadata, [{ kind: { host: {} }, name: "isolate01" }]);
   }
 });
 
@@ -111,7 +141,7 @@ test("only the open class forwards unlisted names, refusing denied names, IP lit
   for (const literal of ["93.184.216.34:443", "10.0.0.1", "[2001:db8::1]:443", "[::ffff:169.254.169.254]:80"]) assert.ok(fullMatch(regex, literal), literal);
   assert.ok(!fullMatch(regex, "example.com:443"));
   // The listed Graffiticode host is still terminated, not forwarded, for L0185.
-  assert.equal(open[0].routes[0].route.cluster, "terminate-compilers-l0185");
+  assert.equal(open[0].routes[0].route.cluster, "terminate-compilers-l0185-api-graffiticode-org");
   const dfp = envoy.static_resources.clusters.find(c => c.name === "open-forward").cluster_type.typed_config.dns_cache_config;
   assert.equal(dfp.dns_lookup_family, "V4_ONLY");
 });
@@ -229,7 +259,7 @@ test("the open class forwards an ordinary public host, and refuses what D2 refus
   for (const name of ["learnosity.com:443", "eu.learnosity.com:443", "items.learnosity.net:443", "api-sja7fatcta-uc.a.run.app:443", "metadata.google.internal:443", "storage.googleapis.com:443"]) {
     assert.deepEqual(connect(name), { refused: "name" }, name);
   }
-  assert.deepEqual(connect("api.graffiticode.org:443"), { cluster: "terminate-compilers-l0185" });
+  assert.deepEqual(connect("api.graffiticode.org:443"), { cluster: "terminate-compilers-l0185-api-graffiticode-org" });
   // Plain http in absolute form: the Host is the authority, without a port.
   assert.deepEqual(outcome(routeRequest(open, { method: "GET", authority: "example.com", path: "/x" })), { cluster: "open-forward" });
   assert.deepEqual(outcome(routeRequest(open, { method: "GET", authority: "eu.learnosity.com", path: "/" })), { refused: "name" });

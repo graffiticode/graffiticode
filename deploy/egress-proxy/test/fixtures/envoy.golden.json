@@ -75,20 +75,13 @@
                               "connect_matcher": {}
                             },
                             "route": {
-                              "cluster": "terminate-compilers-default",
+                              "cluster": "terminate-compilers-default-broker-sja7fatcta-uc-a-run-app",
                               "upgrade_configs": [
                                 {
                                   "upgrade_type": "CONNECT",
                                   "connect_config": {}
                                 }
                               ]
-                            },
-                            "metadata": {
-                              "filter_metadata": {
-                                "isolate01": {
-                                  "target": "broker-sja7fatcta-uc.a.run.app"
-                                }
-                              }
                             }
                           }
                         ]
@@ -104,20 +97,13 @@
                               "connect_matcher": {}
                             },
                             "route": {
-                              "cluster": "terminate-compilers-default",
+                              "cluster": "terminate-compilers-default-policy-sja7fatcta-uc-a-run-app",
                               "upgrade_configs": [
                                 {
                                   "upgrade_type": "CONNECT",
                                   "connect_config": {}
                                 }
                               ]
-                            },
-                            "metadata": {
-                              "filter_metadata": {
-                                "isolate01": {
-                                  "target": "policy-sja7fatcta-uc.a.run.app"
-                                }
-                              }
                             }
                           }
                         ]
@@ -315,20 +301,13 @@
                               "connect_matcher": {}
                             },
                             "route": {
-                              "cluster": "terminate-compilers-l0013",
+                              "cluster": "terminate-compilers-l0013-storage-googleapis-com",
                               "upgrade_configs": [
                                 {
                                   "upgrade_type": "CONNECT",
                                   "connect_config": {}
                                 }
                               ]
-                            },
-                            "metadata": {
-                              "filter_metadata": {
-                                "isolate01": {
-                                  "target": "storage.googleapis.com"
-                                }
-                              }
                             }
                           }
                         ]
@@ -526,20 +505,13 @@
                               "connect_matcher": {}
                             },
                             "route": {
-                              "cluster": "terminate-compilers-l0185",
+                              "cluster": "terminate-compilers-l0185-api-graffiticode-org",
                               "upgrade_configs": [
                                 {
                                   "upgrade_type": "CONNECT",
                                   "connect_config": {}
                                 }
                               ]
-                            },
-                            "metadata": {
-                              "filter_metadata": {
-                                "isolate01": {
-                                  "target": "api.graffiticode.org"
-                                }
-                              }
                             }
                           }
                         ]
@@ -1715,11 +1687,11 @@
     ],
     "clusters": [
       {
-        "name": "terminate-compilers-default",
+        "name": "terminate-compilers-default-broker-sja7fatcta-uc-a-run-app",
         "type": "STATIC",
         "connect_timeout": "1s",
         "load_assignment": {
-          "cluster_name": "terminate-compilers-default",
+          "cluster_name": "terminate-compilers-default-broker-sja7fatcta-uc-a-run-app",
           "endpoints": [
             {
               "lb_endpoints": [
@@ -1730,6 +1702,13 @@
                         "server_listener_name": "terminate-compilers-default"
                       }
                     }
+                  },
+                  "metadata": {
+                    "filter_metadata": {
+                      "isolate01": {
+                        "target": "broker-sja7fatcta-uc.a.run.app"
+                      }
+                    }
                   }
                 }
               ]
@@ -1743,7 +1722,7 @@
             "passthrough_metadata": [
               {
                 "kind": {
-                  "route": {}
+                  "host": {}
                 },
                 "name": "isolate01"
               }
@@ -1758,11 +1737,61 @@
         }
       },
       {
-        "name": "terminate-compilers-l0013",
+        "name": "terminate-compilers-default-policy-sja7fatcta-uc-a-run-app",
         "type": "STATIC",
         "connect_timeout": "1s",
         "load_assignment": {
-          "cluster_name": "terminate-compilers-l0013",
+          "cluster_name": "terminate-compilers-default-policy-sja7fatcta-uc-a-run-app",
+          "endpoints": [
+            {
+              "lb_endpoints": [
+                {
+                  "endpoint": {
+                    "address": {
+                      "envoy_internal_address": {
+                        "server_listener_name": "terminate-compilers-default"
+                      }
+                    }
+                  },
+                  "metadata": {
+                    "filter_metadata": {
+                      "isolate01": {
+                        "target": "policy-sja7fatcta-uc.a.run.app"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "transport_socket": {
+          "name": "envoy.transport_sockets.internal_upstream",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
+            "passthrough_metadata": [
+              {
+                "kind": {
+                  "host": {}
+                },
+                "name": "isolate01"
+              }
+            ],
+            "transport_socket": {
+              "name": "envoy.transport_sockets.raw_buffer",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "terminate-compilers-l0013-storage-googleapis-com",
+        "type": "STATIC",
+        "connect_timeout": "1s",
+        "load_assignment": {
+          "cluster_name": "terminate-compilers-l0013-storage-googleapis-com",
           "endpoints": [
             {
               "lb_endpoints": [
@@ -1773,47 +1802,11 @@
                         "server_listener_name": "terminate-compilers-l0013"
                       }
                     }
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "transport_socket": {
-          "name": "envoy.transport_sockets.internal_upstream",
-          "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
-            "passthrough_metadata": [
-              {
-                "kind": {
-                  "route": {}
-                },
-                "name": "isolate01"
-              }
-            ],
-            "transport_socket": {
-              "name": "envoy.transport_sockets.raw_buffer",
-              "typed_config": {
-                "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
-              }
-            }
-          }
-        }
-      },
-      {
-        "name": "terminate-compilers-l0185",
-        "type": "STATIC",
-        "connect_timeout": "1s",
-        "load_assignment": {
-          "cluster_name": "terminate-compilers-l0185",
-          "endpoints": [
-            {
-              "lb_endpoints": [
-                {
-                  "endpoint": {
-                    "address": {
-                      "envoy_internal_address": {
-                        "server_listener_name": "terminate-compilers-l0185"
+                  },
+                  "metadata": {
+                    "filter_metadata": {
+                      "isolate01": {
+                        "target": "storage.googleapis.com"
                       }
                     }
                   }
@@ -1829,7 +1822,57 @@
             "passthrough_metadata": [
               {
                 "kind": {
-                  "route": {}
+                  "host": {}
+                },
+                "name": "isolate01"
+              }
+            ],
+            "transport_socket": {
+              "name": "envoy.transport_sockets.raw_buffer",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "terminate-compilers-l0185-api-graffiticode-org",
+        "type": "STATIC",
+        "connect_timeout": "1s",
+        "load_assignment": {
+          "cluster_name": "terminate-compilers-l0185-api-graffiticode-org",
+          "endpoints": [
+            {
+              "lb_endpoints": [
+                {
+                  "endpoint": {
+                    "address": {
+                      "envoy_internal_address": {
+                        "server_listener_name": "terminate-compilers-l0185"
+                      }
+                    }
+                  },
+                  "metadata": {
+                    "filter_metadata": {
+                      "isolate01": {
+                        "target": "api.graffiticode.org"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "transport_socket": {
+          "name": "envoy.transport_sockets.internal_upstream",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
+            "passthrough_metadata": [
+              {
+                "kind": {
+                  "host": {}
                 },
                 "name": "isolate01"
               }

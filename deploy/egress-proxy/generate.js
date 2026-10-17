@@ -198,11 +198,12 @@ const hcm = (statPrefix, routeConfig, httpFilters, logFields) => ({
 });
 
 // A CONNECT to a listed host: terminate the CONNECT and hand its bytes to
-// this class's internal listener, carrying the target as route metadata.
+// this class's internal listener through the host's own internal cluster,
+// whose one endpoint carries the target as host metadata (A2).
+export const internalClusterName = (className, host) => `terminate-${className}-${slug(host)}`;
 const tunnelRoute = (host, className) => ({
   match: { connect_matcher: {} },
-  route: { cluster: `terminate-${className}`, upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] },
-  metadata: { filter_metadata: { [META]: { target: host } } },
+  route: { cluster: internalClusterName(className, host), upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] },
 });
 
 function outerRouteConfig(cls, model) {
@@ -376,21 +377,32 @@ function upstreamCluster(host, model) {
   };
 }
 
-const internalCluster = cls => ({
-  name: `terminate-${cls.name}`,
+// One internal cluster per (class, listed host). Its single endpoint is the
+// class's internal listener and carries the CONNECT target as endpoint (host)
+// metadata. internal_upstream passes host-kind metadata into the internal
+// connection's dynamic metadata, where the inner RBAC filter requires it to
+// equal the SNI. (Route-kind metadata, the merged design, most likely isn't
+// accepted by internal_upstream, and one endpoint per class couldn't carry a
+// per-host value anyway. Rollout step 0 confirms this with envoy --mode
+// validate and a live tunnel.)
+const internalCluster = (cls, host) => ({
+  name: internalClusterName(cls.name, host),
   type: "STATIC",
   connect_timeout: "1s",
   load_assignment: {
-    cluster_name: `terminate-${cls.name}`,
-    endpoints: [{ lb_endpoints: [{ endpoint: { address: { envoy_internal_address: { server_listener_name: `terminate-${cls.name}` } } } }] }],
+    cluster_name: internalClusterName(cls.name, host),
+    endpoints: [{
+      lb_endpoints: [{
+        endpoint: { address: { envoy_internal_address: { server_listener_name: `terminate-${cls.name}` } } },
+        metadata: { filter_metadata: { [META]: { target: host } } },
+      }],
+    }],
   },
   transport_socket: {
     name: "envoy.transport_sockets.internal_upstream",
     typed_config: {
       "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
-      // The route's metadata (the CONNECT target) crosses to the internal
-      // listener, where the RBAC filter checks it against the SNI.
-      passthrough_metadata: [{ kind: { route: {} }, name: META }],
+      passthrough_metadata: [{ kind: { host: {} }, name: META }],
       transport_socket: {
         name: "envoy.transport_sockets.raw_buffer",
         typed_config: { "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer" },
@@ -435,7 +447,7 @@ export function envoyConfig(model) {
     static_resources: {
       listeners: [outerListener(model), healthListener(model), ...terminating.map(innerListener)],
       clusters: [
-        ...terminating.map(internalCluster),
+        ...terminating.flatMap(cls => cls.hosts.map(host => internalCluster(cls, host))),
         ...terminatedHosts(model).map(h => upstreamCluster(h, model)),
         ...(classes.some(c => c.open) ? [openForwardCluster(model)] : []),
       ],
