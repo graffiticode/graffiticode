@@ -39,20 +39,23 @@ export const SETTINGS = Object.freeze([
 
 export function parseArgs(args) {
   const options = { command: "deploy", env: "production", config: "deploy.json" };
-  if (["deploy", "rollback", "retire-tags", "release-check", "approve"].includes(args[0])) options.command = args.shift();
+  if (["deploy", "rollback", "retire-tags", "release-check", "approve", "promote"].includes(args[0])) options.command = args.shift();
   while (args.length) {
     const arg = args.shift();
-    if (["--plan", "--allow-dirty", "--help", "--below-baseline", "--json"].includes(arg)) options[arg.slice(2)] = true;
-    else if (["--env", "--config", "--release"].includes(arg)) {
+    if (["--plan", "--allow-dirty", "--help", "--below-baseline", "--json", "--stage"].includes(arg)) options[arg.slice(2)] = true;
+    else if (["--env", "--config", "--release", "--evidence"].includes(arg)) {
       const value = args.shift();
       requireValue(value && !value.startsWith("--"), `${arg} requires a value`);
       options[arg.slice(2)] = value;
     } else if (!arg.startsWith("-") && !options.service) options.service = arg;
     else throw new Error(`Unknown argument: ${arg}`);
   }
-  if (["rollback", "approve"].includes(options.command) && !options.help) {
+  if (["rollback", "approve", "promote"].includes(options.command) && !options.help) {
     requireValue(options.release && /^[a-z0-9-]+$/.test(options.release), `${options.command} requires --release <release-id>`);
   }
+  if (options.command === "promote" && !options.help) requireValue(options.evidence, "promote requires --evidence <file>");
+  requireValue(!options.stage || options.command === "deploy", "--stage applies only to a release (deploy)");
+  requireValue(!options.evidence || options.command === "promote", "--evidence applies only to promote");
   return options;
 }
 

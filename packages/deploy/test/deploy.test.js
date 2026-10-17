@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig, SETTINGS } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run, streamOutput } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV, forbiddenEnvProblems } from "../src/release.js";
+import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV, forbiddenEnvProblems, promote, networkHash } from "../src/release.js";
 import { createRevisionClient, decodeFields, encodeFields, reachableProblems, retainedTags } from "../src/revisions.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
@@ -1255,4 +1255,173 @@ test("requires is validated against deploy.json, and resolved both ways", async 
   await assert.rejects(load("broker", ok, { region: "europe-west1" }), /in another project or region/);
   // A broken requirement elsewhere fails the required service's own load too.
   await assert.rejects(load("policy", { requires: [{ service: "policy", milestone: "W9" }] }), /not in its baselines/);
+});
+
+// Stage and promote (ISOLATE-01 fix A21): an inventory candidate waits, with
+// no traffic, for its reviewed evidence.
+const stagedEvidence = (receipt, over = {}) => ({
+  version: 1,
+  service: receipt.service,
+  release: receipt.id,
+  revision: receipt.revision,
+  networkHash: receipt.networkHash,
+  reviewer: "jeff@example.com",
+  reviewedAt: new Date(Date.parse(receipt.stagedAt) + 2000).toISOString(),
+  corpus: { ranAt: new Date(Date.parse(receipt.stagedAt) + 1000).toISOString(), tasks: 40, failures: 0 },
+  refusals: [{ destination: "storage.googleapis.com:443", decision: "not-needed", note: "a test fixture's thumbnail upload; off in this service" }],
+  ...over,
+});
+const updateTraffic = calls => calls.filter(c => c.includes("update-traffic"));
+const toRevisions = calls => updateTraffic(calls).filter(c => c.some(a => String(a).startsWith("--to-revisions=")));
+
+test("--stage and promote parse; promote needs --release and --evidence", () => {
+  assert.deepEqual(parseArgs(["api", "--stage"]), { command: "deploy", env: "production", config: "deploy.json", service: "api", stage: true });
+  assert.deepEqual(parseArgs(["promote", "api", "--release", "r1-abc", "--evidence", "e.json"]),
+    { command: "promote", env: "production", config: "deploy.json", service: "api", release: "r1-abc", evidence: "e.json" });
+  assert.throws(() => parseArgs(["promote", "api", "--evidence", "e.json"]), /requires --release/);
+  assert.throws(() => parseArgs(["promote", "api", "--release", "r1-abc"]), /requires --evidence/);
+  assert.throws(() => parseArgs(["rollback", "api", "--release", "r1-abc", "--stage"]), /--stage applies only/);
+  assert.throws(() => parseArgs(["api", "--evidence", "e.json"]), /--evidence applies only/);
+});
+
+test("a staged release checks its candidate, then stops: no traffic update, traffic unchanged", async t => {
+  const h = await harness(t);
+  const receipt = await release(networked, source, { ...h.deps, stage: true });
+  assert.equal(receipt.status, "staged");
+  assert.equal(h.getReceipt().status, "staged");
+  assert.equal(updateTraffic(h.calls).length, 0);
+  const service = await h.deps.cloud(["run", "services", "describe", "api"]);
+  assert.deepEqual(traffic(service), { "api-old": 100 });
+  assert.ok(service.status.traffic.some(e => e.tag === receipt.id && e.revisionName === receipt.revision));
+  assert.equal(receipt.url, `https://${receipt.id}---api-example.run.app`);
+  assert.equal(receipt.networkHash, networkHash(NETWORK));
+  assert.ok(receipt.stagedFingerprint && receipt.stagedAt);
+});
+
+test("networkHash is canonical: key order doesn't change it, any setting does", () => {
+  const reordered = { allow: NETWORK.allow, ca: { path: NETWORK.ca.path, secret: NETWORK.ca.secret }, proxy: NETWORK.proxy, tags: NETWORK.tags, subnet: NETWORK.subnet, network: NETWORK.network };
+  assert.equal(networkHash(reordered), networkHash(NETWORK));
+  assert.notEqual(networkHash({ ...NETWORK, allow: [...NETWORK.allow, "storage.googleapis.com"] }), networkHash(NETWORK));
+  assert.match(networkHash(NETWORK), /^[0-9a-f]{64}$/);
+  assert.equal(networkHash(undefined), null);
+});
+
+test("promote with valid evidence moves traffic to exactly the staged revision", async t => {
+  const h = await harness(t);
+  const staged = await release(networked, source, { ...h.deps, stage: true });
+  const receipt = await promote(networked, staged, stagedEvidence(staged), h.deps);
+  assert.equal(receipt.status, "released");
+  assert.equal(h.getReceipt().status, "released");
+  assert.deepEqual(toRevisions(h.calls).map(c => c.find(a => a.startsWith("--to-revisions="))), [`--to-revisions=${staged.revision}=100`]);
+  const service = await h.deps.cloud(["run", "services", "describe", "api"]);
+  assert.deepEqual(traffic(service), { [staged.revision]: 100 });
+  assert.equal(receipt.promotedWith.reviewer, "jeff@example.com");
+  assert.match(receipt.promotedWith.evidenceHash, /^[0-9a-f]{64}$/);
+  // A promoted release's receipt guards rollback like any other: api-old has
+  // no network controls, so it isn't a target.
+  await assert.rejects(rollback(networked, receipt, h.deps), /doesn't run with this service's network controls/);
+});
+
+test("promote refuses missing or mismatched evidence, and leaves the candidate staged with no traffic", async t => {
+  const h = await harness(t);
+  const staged = await release(networked, source, { ...h.deps, stage: true });
+  const later = ms => new Date(Date.parse(staged.stagedAt) + ms).toISOString();
+  /** @type {Array<[string, any, RegExp]>} */
+  const cases = [
+    ["no evidence", null, /must be a JSON object/],
+    ["another revision", stagedEvidence(staged, { revision: "api-r0-other" }), /revision must be/],
+    ["another release", stagedEvidence(staged, { release: "r0-other" }), /release must be/],
+    ["a mismatched network hash", stagedEvidence(staged, { networkHash: "0".repeat(64) }), /networkHash must be/],
+    ["no reviewer", stagedEvidence(staged, { reviewer: " " }), /reviewer is required/],
+    ["no corpus run", stagedEvidence(staged, { corpus: undefined }), /corpus.tasks/],
+    ["corpus failures", stagedEvidence(staged, { corpus: { ranAt: later(1000), tasks: 40, failures: 2 } }), /corpus.failures must be 0/],
+    ["a corpus run before staging", stagedEvidence(staged, { corpus: { ranAt: later(-60000), tasks: 40, failures: 0 } }), /after the candidate was staged/],
+    ["a review before the run", stagedEvidence(staged, { reviewedAt: later(500) }), /after the corpus run/],
+    ["an unexplained refusal", stagedEvidence(staged, { refusals: [{ destination: "example.com:443", decision: "not-needed" }] }), /note must explain/],
+    ["an undecided refusal", stagedEvidence(staged, { refusals: [{ destination: "example.com:443", note: "?" }] }), /decision must be/],
+    ["an added host missing from allow", stagedEvidence(staged, { refusals: [{ destination: "example.com:443", decision: "added", note: "needed" }] }), /isn't in network.allow/],
+  ];
+  for (const [label, evidence, message] of cases) {
+    await assert.rejects(promote(networked, staged, evidence, h.deps), message, label);
+  }
+  assert.equal(updateTraffic(h.calls).length, 0);
+  assert.equal(h.getReceipt().status, "staged");
+  // An added host that is in the allow list is accepted.
+  const added = stagedEvidence(staged, { refusals: [{ destination: "policy-example.a.run.app:443", decision: "added", note: "Policy, for protected compiles" }] });
+  assert.equal((await promote(networked, staged, added, h.deps)).status, "released");
+});
+
+test("promote refuses a receipt that isn't staged, or another target's", async t => {
+  const h = await harness(t);
+  const released = await release(networked, source, h.deps);
+  await assert.rejects(promote(networked, released, stagedEvidence({ ...released, stagedAt: released.createdAt }), h.deps), /is released, not staged/);
+  const h2 = await harness(t);
+  const staged = await release(networked, source, { ...h2.deps, stage: true });
+  await assert.rejects(promote({ ...networked, environment: "staging" }, staged, stagedEvidence(staged), h2.deps), /does not match the deployment target/);
+  assert.equal(toRevisions(h2.calls).length, 0);
+});
+
+test("promote refuses once the service changed since staging, or deploy.json's network did", async t => {
+  const h = await harness(t);
+  const staged = await release(networked, source, { ...h.deps, stage: true });
+  // Another release (staged too, so it serves nothing) changes the service.
+  await release(networked, source, { ...h.deps, stage: true });
+  await assert.rejects(promote(networked, staged, stagedEvidence(staged), h.deps), /changed since the candidate was staged/);
+  assert.equal(toRevisions(h.calls).length, 0);
+  const h2 = await harness(t);
+  const staged2 = await release(networked, source, { ...h2.deps, stage: true });
+  const widened = { ...networked, config: { ...networked.config, network: { ...NETWORK, allow: [...NETWORK.allow, "storage.googleapis.com"] } } };
+  await assert.rejects(promote(widened, staged2, stagedEvidence(staged2), h2.deps), /network configuration changed since this candidate was staged/);
+  assert.equal(toRevisions(h2.calls).length, 0);
+});
+
+test("promote re-runs the candidate checks: a candidate now carrying a forbidden variable isn't promoted", async t => {
+  const h = await harness(t);
+  const staged = await release(networked, source, { ...h.deps, stage: true });
+  const forbidding = { ...networked, config: { ...networked.config, forbiddenEnv: ["AUTH_URL"] } };
+  await assert.rejects(promote(forbidding, staged, stagedEvidence(staged), h.deps), /carries forbidden AUTH_URL/);
+  assert.equal(toRevisions(h.calls).length, 0);
+});
+
+test("a candidate without the network controls is never promoted or staged", async t => {
+  const h = await harness(t);
+  // The revision as Cloud Run reports it, missing its egress setting.
+  const cloud = async args => {
+    const result = await h.deps.cloud(args);
+    if (args[1] === "revisions" && args[2] === "describe") delete result.metadata?.annotations?.["run.googleapis.com/vpc-access-egress"];
+    return result;
+  };
+  for (const stage of [false, true]) {
+    await assert.rejects(release(networked, source, { ...h.deps, cloud, stage }), /doesn't run with the network controls/);
+  }
+  assert.equal(updateTraffic(h.calls).length, 0);
+});
+
+test("a pinnable staged candidate is approved only at promote, before it serves", async t => {
+  const h = await harness(t);
+  const revisions = memoryRevisions(h.calls);
+  const pinnableNetworked = { ...pinnable, config: { ...pinnable.config, network: NETWORK } };
+  const staged = await release(pinnableNetworked, source, { ...h.deps, revisions, stage: true });
+  assert.equal(revisions.records.size, 0);
+  assert.ok(!h.calls.some(c => c[0] === "approve"));
+  const receipt = await promote(pinnableNetworked, staged, stagedEvidence(staged), { ...h.deps, revisions });
+  const approvedAt = h.calls.findIndex(c => c[0] === "approve");
+  const promotedAt = h.calls.findIndex(c => c.some(a => String(a).startsWith("--to-revisions=")));
+  assert.ok(approvedAt >= 0 && approvedAt < promotedAt, "approved before promotion");
+  assert.equal(receipt.approval.revision, staged.revision);
+  assert.equal(revisions.records.get(staged.revision).tag, staged.id);
+  // Its own tag is kept by the release's tag retirement.
+  assert.deepEqual(receipt.retiredTags, []);
+});
+
+test("a promotion that fails after starting is recorded in the receipt", async t => {
+  const h = await harness(t);
+  const staged = await release(networked, source, { ...h.deps, stage: true });
+  const cloud = async args => {
+    if (args.some(a => String(a).startsWith("--to-revisions="))) throw new Error("promotion response lost");
+    return h.deps.cloud(args);
+  };
+  await assert.rejects(promote(networked, staged, stagedEvidence(staged), { ...h.deps, cloud }), /response lost/);
+  assert.equal(h.getReceipt().status, "failed");
+  assert.equal(h.getReceipt().failedAt, "promoting");
 });
