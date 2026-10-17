@@ -641,6 +641,54 @@ function certFetchScript(model) {
   ].join("\n");
 }
 
+// The VMs' own lookups (A11). A Cloud DNS response policy binds to the whole
+// VPC, proxy VMs included, so once the compiler lockdown works the metadata
+// resolver answers NXDOMAIN to the image pull, the certificate fetch and the
+// logging agent too. Host DNS therefore goes straight to the fixed public
+// resolvers (queries sent to an outside resolver bypass the VPC's response
+// policy; the proxy account's firewall already allows port 53 to them), with
+// no fallback to the metadata resolver, and the metadata name pinned in
+// /etc/hosts. Runs first, before anything on the VM looks up a name.
+function resolverScript(model) {
+  const servers = model.proxy.resolvers;
+  return [
+    "#!/bin/bash",
+    "set -euo pipefail",
+    "# Every glibc and Go client (docker, curl, the logging agent): a static resolv.conf.",
+    "rm -f /etc/resolv.conf",
+    `printf '%s\\n' ${servers.map(r => shellQuote(`nameserver ${r}`)).join(" ")} 'options timeout:2 attempts:2' > /etc/resolv.conf`,
+    "chmod 444 /etc/resolv.conf",
+    "# Anything asking systemd-resolved gets the same servers, for every domain, and no fallback.",
+    "mkdir -p /etc/systemd/resolved.conf.d",
+    `printf '%s\\n' '[Resolve]' ${shellQuote(`DNS=${servers.join(" ")}`)} 'FallbackDNS=' 'Domains=~.' > /etc/systemd/resolved.conf.d/isolate01.conf`,
+    "if command -v resolvectl >/dev/null; then",
+    "  systemctl restart systemd-resolved || true",
+    "  # The DHCP-supplied metadata resolver is never a default route.",
+    "  for link in $(resolvectl status --no-pager 2>/dev/null | sed -n 's/^Link [0-9]* (\\(.*\\))$/\\1/p'); do",
+    "    resolvectl default-route \"$link\" no || true",
+    "    resolvectl dns \"$link\" '' || true",
+    "  done",
+    "fi",
+    "grep -qE '^169\\.254\\.169\\.254[[:space:]]+metadata\\.google\\.internal' /etc/hosts || echo '169.254.169.254 metadata.google.internal metadata' >> /etc/hosts",
+    "",
+  ].join("\n");
+}
+
+// Refuses to let the certificate fetch, Envoy or the report start unless host
+// DNS is the fixed resolvers only, and metadata is pinned.
+function resolverCheckScript(model) {
+  const expected = model.proxy.resolvers.join(" ");
+  return [
+    "#!/bin/bash",
+    "set -euo pipefail",
+    "fail() { echo \"isolate01: $1; refusing to start\" >&2; exit 1; }",
+    "[ ! -L /etc/resolv.conf ] || fail '/etc/resolv.conf is a symlink, not the static file'",
+    `[ "$(sed -n 's/^nameserver[[:space:]]*//p' /etc/resolv.conf | tr '\\n' ' ' | sed 's/ $//')" = ${shellQuote(expected)} ] || fail 'host DNS is not exactly the fixed resolvers'`,
+    "grep -qE '^169\\.254\\.169\\.254[[:space:]]+metadata\\.google\\.internal' /etc/hosts || fail 'metadata.google.internal is not pinned in /etc/hosts'",
+    "",
+  ].join("\n");
+}
+
 function requirePinned(model) {
   const { envoyImage, cosImage } = model.proxy;
   if (!/^[a-z0-9./-]+@sha256:[0-9a-f]{64}$/.test(envoyImage ?? "")) throw new Error("classes.json: proxy.envoyImage must be pinned by digest (rollout step 0 pins it)");
@@ -655,6 +703,13 @@ export function cloudInit(model, envoy) {
     { path: "/etc/egress-proxy/firewall.sh", permissions: "0500", content: firewallScript(model) },
     { path: "/etc/egress-proxy/firewall-check.sh", permissions: "0500", content: firewallCheckScript(model) },
     { path: "/etc/egress-proxy/fetch-certs.sh", permissions: "0500", content: certFetchScript(model) },
+    { path: "/etc/egress-proxy/resolver.sh", permissions: "0500", content: resolverScript(model) },
+    { path: "/etc/egress-proxy/resolver-check.sh", permissions: "0500", content: resolverCheckScript(model) },
+    {
+      path: "/etc/systemd/system/egress-resolver.service",
+      permissions: "0444",
+      content: unit({ Description: "ISOLATE-01 host DNS: the fixed resolvers only", Before: "egress-certs.service egress-envoy.service" }, { Type: "oneshot", RemainAfterExit: "yes", ExecStart: "/bin/bash /etc/egress-proxy/resolver.sh" }),
+    },
     {
       path: "/etc/systemd/system/egress-firewall.service",
       permissions: "0444",
@@ -663,15 +718,18 @@ export function cloudInit(model, envoy) {
     {
       path: "/etc/systemd/system/egress-certs.service",
       permissions: "0444",
-      content: unit({ Description: "ISOLATE-01 certificate fetch", After: "network-online.target", Wants: "network-online.target", Before: "egress-envoy.service" }, { Type: "oneshot", RemainAfterExit: "yes", ExecStart: "/bin/bash /etc/egress-proxy/fetch-certs.sh" }),
+      content: unit(
+        { Description: "ISOLATE-01 certificate fetch", Requires: "egress-resolver.service", After: "network-online.target egress-resolver.service", Wants: "network-online.target", Before: "egress-envoy.service" },
+        { Type: "oneshot", RemainAfterExit: "yes", ExecStartPre: "/bin/bash /etc/egress-proxy/resolver-check.sh", ExecStart: "/bin/bash /etc/egress-proxy/fetch-certs.sh" },
+      ),
     },
     {
       path: "/etc/systemd/system/egress-envoy.service",
       permissions: "0444",
       content: unit(
-        { Description: "ISOLATE-01 egress proxy (Envoy)", Requires: "docker.service egress-firewall.service egress-certs.service", After: "docker.service egress-firewall.service egress-certs.service" },
+        { Description: "ISOLATE-01 egress proxy (Envoy)", Requires: "docker.service egress-resolver.service egress-firewall.service egress-certs.service", After: "docker.service egress-resolver.service egress-firewall.service egress-certs.service" },
         {
-          ExecStartPre: ["/bin/bash /etc/egress-proxy/firewall-check.sh", "-/usr/bin/docker rm -f envoy"],
+          ExecStartPre: ["/bin/bash /etc/egress-proxy/resolver-check.sh", "/bin/bash /etc/egress-proxy/firewall-check.sh", "-/usr/bin/docker rm -f envoy"],
           // Host networking, so Envoy's packets take the host OUTPUT chain
           // where ENVOY_OUT applies by UID. Never a bridged container.
           ExecStart: [
@@ -695,6 +753,8 @@ export function cloudInit(model, envoy) {
     write_files: files,
     runcmd: [
       ["systemctl", "daemon-reload"],
+      // Host DNS first: nothing below may look up a name before it's set.
+      ["systemctl", "start", "egress-resolver.service"],
       ["systemctl", "start", "egress-firewall.service"],
       ["systemctl", "start", "egress-certs.service"],
       ["systemctl", "enable", "--now", "egress-envoy.service"],

@@ -22,6 +22,21 @@
       "content": "#!/bin/bash\nset -euo pipefail\numask 077\ndir=/run/egress-proxy/certs\nmkdir -p \"$dir\"\ntoken=$(curl -sf -H 'Metadata-Flavor: Google' http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token | sed -n 's/.*\"access_token\": *\"\\([^\"]*\\)\".*/\\1/p')\n[ -n \"$token\" ] || { echo 'isolate01: no token for the certificate fetch' >&2; exit 1; }\nfetch() {\n  curl -sf -H \"Authorization: Bearer $token\" \"https://secretmanager.googleapis.com/v1/projects/graffiticode/secrets/$1/versions/latest:access\" \\\n    | tr -d '\\n ' | sed -n 's/.*\"data\":\"\\([^\"]*\\)\".*/\\1/p' | base64 -d\n}\nfor host in api-graffiticode-org broker-sja7fatcta-uc-a-run-app policy-sja7fatcta-uc-a-run-app storage-googleapis-com; do\n  pem=$(fetch \"egress-proxy-cert-$host\")\n  printf '%s\\n' \"$pem\" | sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' > \"$dir/$host.crt\"\n  printf '%s\\n' \"$pem\" | sed -n '/BEGIN [A-Z ]*PRIVATE KEY/,/END [A-Z ]*PRIVATE KEY/p' > \"$dir/$host.key\"\n  [ -s \"$dir/$host.crt\" ] && [ -s \"$dir/$host.key\" ] || { echo \"isolate01: certificate for $host is incomplete\" >&2; exit 1; }\ndone\nchown -R 10101:10101 \"$dir\"\nchmod 500 \"$dir\"; chmod 400 \"$dir\"/*\n"
     },
     {
+      "path": "/etc/egress-proxy/resolver.sh",
+      "permissions": "0500",
+      "content": "#!/bin/bash\nset -euo pipefail\n# Every glibc and Go client (docker, curl, the logging agent): a static resolv.conf.\nrm -f /etc/resolv.conf\nprintf '%s\\n' 'nameserver 8.8.8.8' 'nameserver 8.8.4.4' 'options timeout:2 attempts:2' > /etc/resolv.conf\nchmod 444 /etc/resolv.conf\n# Anything asking systemd-resolved gets the same servers, for every domain, and no fallback.\nmkdir -p /etc/systemd/resolved.conf.d\nprintf '%s\\n' '[Resolve]' 'DNS=8.8.8.8 8.8.4.4' 'FallbackDNS=' 'Domains=~.' > /etc/systemd/resolved.conf.d/isolate01.conf\nif command -v resolvectl >/dev/null; then\n  systemctl restart systemd-resolved || true\n  # The DHCP-supplied metadata resolver is never a default route.\n  for link in $(resolvectl status --no-pager 2>/dev/null | sed -n 's/^Link [0-9]* (\\(.*\\))$/\\1/p'); do\n    resolvectl default-route \"$link\" no || true\n    resolvectl dns \"$link\" '' || true\n  done\nfi\ngrep -qE '^169\\.254\\.169\\.254[[:space:]]+metadata\\.google\\.internal' /etc/hosts || echo '169.254.169.254 metadata.google.internal metadata' >> /etc/hosts\n"
+    },
+    {
+      "path": "/etc/egress-proxy/resolver-check.sh",
+      "permissions": "0500",
+      "content": "#!/bin/bash\nset -euo pipefail\nfail() { echo \"isolate01: $1; refusing to start\" >&2; exit 1; }\n[ ! -L /etc/resolv.conf ] || fail '/etc/resolv.conf is a symlink, not the static file'\n[ \"$(sed -n 's/^nameserver[[:space:]]*//p' /etc/resolv.conf | tr '\\n' ' ' | sed 's/ $//')\" = '8.8.8.8 8.8.4.4' ] || fail 'host DNS is not exactly the fixed resolvers'\ngrep -qE '^169\\.254\\.169\\.254[[:space:]]+metadata\\.google\\.internal' /etc/hosts || fail 'metadata.google.internal is not pinned in /etc/hosts'\n"
+    },
+    {
+      "path": "/etc/systemd/system/egress-resolver.service",
+      "permissions": "0444",
+      "content": "[Unit]\nDescription=ISOLATE-01 host DNS: the fixed resolvers only\nBefore=egress-certs.service egress-envoy.service\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/bin/bash /etc/egress-proxy/resolver.sh\n"
+    },
+    {
       "path": "/etc/systemd/system/egress-firewall.service",
       "permissions": "0444",
       "content": "[Unit]\nDescription=ISOLATE-01 egress firewall\nBefore=egress-envoy.service\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/bin/bash /etc/egress-proxy/firewall.sh\n"
@@ -29,18 +44,23 @@
     {
       "path": "/etc/systemd/system/egress-certs.service",
       "permissions": "0444",
-      "content": "[Unit]\nDescription=ISOLATE-01 certificate fetch\nAfter=network-online.target\nWants=network-online.target\nBefore=egress-envoy.service\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/bin/bash /etc/egress-proxy/fetch-certs.sh\n"
+      "content": "[Unit]\nDescription=ISOLATE-01 certificate fetch\nRequires=egress-resolver.service\nAfter=network-online.target egress-resolver.service\nWants=network-online.target\nBefore=egress-envoy.service\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStartPre=/bin/bash /etc/egress-proxy/resolver-check.sh\nExecStart=/bin/bash /etc/egress-proxy/fetch-certs.sh\n"
     },
     {
       "path": "/etc/systemd/system/egress-envoy.service",
       "permissions": "0444",
-      "content": "[Unit]\nDescription=ISOLATE-01 egress proxy (Envoy)\nRequires=docker.service egress-firewall.service egress-certs.service\nAfter=docker.service egress-firewall.service egress-certs.service\n\n[Service]\nExecStartPre=/bin/bash /etc/egress-proxy/firewall-check.sh\nExecStartPre=-/usr/bin/docker rm -f envoy\nExecStart=/usr/bin/docker run --rm --name envoy --network host --user 10101:10101 --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp -v /etc/egress-proxy/envoy.json:/etc/envoy/envoy.json:ro -v /run/egress-proxy/certs:/run/egress-proxy/certs:ro --entrypoint /usr/local/bin/envoy envoyproxy/envoy@sha256:0000000000000000000000000000000000000000000000000000000000000000 -c /etc/envoy/envoy.json --log-format-escaped\nExecStop=/usr/bin/docker stop envoy\nRestart=always\nRestartSec=2\n\n[Install]\nWantedBy=multi-user.target\n"
+      "content": "[Unit]\nDescription=ISOLATE-01 egress proxy (Envoy)\nRequires=docker.service egress-resolver.service egress-firewall.service egress-certs.service\nAfter=docker.service egress-resolver.service egress-firewall.service egress-certs.service\n\n[Service]\nExecStartPre=/bin/bash /etc/egress-proxy/resolver-check.sh\nExecStartPre=/bin/bash /etc/egress-proxy/firewall-check.sh\nExecStartPre=-/usr/bin/docker rm -f envoy\nExecStart=/usr/bin/docker run --rm --name envoy --network host --user 10101:10101 --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp -v /etc/egress-proxy/envoy.json:/etc/envoy/envoy.json:ro -v /run/egress-proxy/certs:/run/egress-proxy/certs:ro --entrypoint /usr/local/bin/envoy envoyproxy/envoy@sha256:0000000000000000000000000000000000000000000000000000000000000000 -c /etc/envoy/envoy.json --log-format-escaped\nExecStop=/usr/bin/docker stop envoy\nRestart=always\nRestartSec=2\n\n[Install]\nWantedBy=multi-user.target\n"
     }
   ],
   "runcmd": [
     [
       "systemctl",
       "daemon-reload"
+    ],
+    [
+      "systemctl",
+      "start",
+      "egress-resolver.service"
     ],
     [
       "systemctl",

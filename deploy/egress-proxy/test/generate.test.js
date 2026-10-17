@@ -381,3 +381,32 @@ test("refusals before HTTP are logged at the connection level (A5)", async () =>
     assert.equal(fields.isolate01, l.internal_listener ? "terminate-tcp" : "egress-tcp");
   }
 });
+
+const cloudConfig = model => JSON.parse(cloudInit(model, envoyConfig(model)).slice("#cloud-config\n".length));
+
+test("the proxy VMs' own DNS is the fixed resolvers, set before anything looks up a name (A11)", async () => {
+  const model = await fixture();
+  const config = cloudConfig(model);
+  const file = p => config.write_files.find(f => f.path === p)?.content;
+  const resolver = file("/etc/egress-proxy/resolver.sh");
+  assert.match(resolver, /rm -f \/etc\/resolv\.conf/);
+  assert.match(resolver, /printf '%s\\n' 'nameserver 8\.8\.8\.8' 'nameserver 8\.8\.4\.4' 'options timeout:2 attempts:2' > \/etc\/resolv\.conf/);
+  assert.match(resolver, /'DNS=8\.8\.8\.8 8\.8\.4\.4' 'FallbackDNS=' 'Domains=~\.'/, "no fallback to the metadata resolver");
+  assert.match(resolver, /169\.254\.169\.254 metadata\.google\.internal/, "metadata pinned in /etc/hosts");
+  assert.doesNotMatch(resolver, /nameserver 169\.254/);
+  const check = file("/etc/egress-proxy/resolver-check.sh");
+  assert.match(check, /= '8\.8\.8\.8 8\.8\.4\.4' \] \|\| fail/);
+  // First in runcmd, and required (with its check) by everything that fetches.
+  assert.deepEqual(config.runcmd[1], ["systemctl", "start", "egress-resolver.service"]);
+  assert.equal(config.runcmd[0][1], "daemon-reload");
+  for (const u of ["egress-certs.service", "egress-envoy.service"]) {
+    const text = file(`/etc/systemd/system/${u}`);
+    assert.match(text, /Requires=.*egress-resolver\.service/, u);
+    assert.match(text, /After=.*egress-resolver\.service/, u);
+    assert.match(text, /ExecStartPre=\/bin\/bash \/etc\/egress-proxy\/resolver-check\.sh/, u);
+  }
+  // Envoy's own resolution is separate: the same fixed resolvers, through c-ares.
+  const envoy = envoyConfig(model);
+  const dfp = envoy.static_resources.clusters.find(c => c.name === "open-forward").cluster_type.typed_config.dns_cache_config;
+  assert.deepEqual(dfp.typed_dns_resolver_config.typed_config.resolvers.map(r => r.socket_address.address), model.proxy.resolvers);
+});
