@@ -119,40 +119,104 @@ const accessLog = (fields) => [{
   },
 }];
 
+// The access-log contract (AT-11's collector reads these exact fields).
+// Every HTTP line, outer and inner: what was asked, what Envoy decided and
+// why, where it went, and the probe id AT-11 sends in x-isolate01-probe.
+// `decision` and `reason` come from response headers every route sets
+// (allowed routes too), since a log line can't compute them.
+export const LOG_FIELDS = ["isolate01", "class", "downstream", "method", "target", "sni", "host", "upstream", "upstream_host", "code", "flags", "details", "decision", "reason", "probe", "start"];
+const decisionFields = {
+  decision: "%RESP(X-ISOLATE01-DECISION)%",
+  reason: "%RESP(X-ISOLATE01-REASON)%",
+  probe: "%REQ(X-ISOLATE01-PROBE)%",
+};
+
 const outerLogFields = className => ({
   isolate01: "egress",
   class: className,
   downstream: "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
   method: "%REQ(:METHOD)%",
   target: "%REQ(:AUTHORITY)%",
+  sni: "%REQUESTED_SERVER_NAME%",
+  host: "%REQ(:AUTHORITY)%",
   upstream: "%UPSTREAM_REMOTE_ADDRESS%",
+  upstream_host: "%UPSTREAM_HOST%",
   upstream_cluster: "%UPSTREAM_CLUSTER%",
   code: "%RESPONSE_CODE%",
   flags: "%RESPONSE_FLAGS%",
   details: "%RESPONSE_CODE_DETAILS%",
+  ...decisionFields,
   refused: "%RESP(X-ISOLATE01-REFUSED)%",
   bytes_in: "%BYTES_RECEIVED%",
   bytes_out: "%BYTES_SENT%",
   start: "%START_TIME%",
 });
 
-const innerLogFields = className => ({
+// Inner: one HCM per (class, host) chain, so `target` is that chain's host,
+// which RBAC has already required the CONNECT target to equal.
+// `target_metadata` is the passed-through value itself, where Envoy exposes
+// the connection's dynamic metadata to an HTTP log (step 0 checks it; "-" if not).
+const innerLogFields = (className, host) => ({
   isolate01: "terminate",
   class: className,
+  downstream: "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+  method: "%REQ(:METHOD)%",
+  target: host,
+  target_metadata: "%DYNAMIC_METADATA(isolate01:target)%",
   sni: "%REQUESTED_SERVER_NAME%",
   host: "%REQ(:AUTHORITY)%",
-  method: "%REQ(:METHOD)%",
   path: "%REQ(:PATH)%",
   upstream: "%UPSTREAM_REMOTE_ADDRESS%",
+  upstream_host: "%UPSTREAM_HOST%",
   code: "%RESPONSE_CODE%",
   flags: "%RESPONSE_FLAGS%",
   details: "%RESPONSE_CODE_DETAILS%",
+  ...decisionFields,
+  refused: "%RESP(X-ISOLATE01-REFUSED)%",
   start: "%START_TIME%",
 });
 
+// Connection-level lines, for what closes before HTTP runs: an inner
+// listener's unknown SNI (flags NR) and RBAC refusal (termination details
+// name rbac), and an outer connection from outside every class subnet (NR).
+// No decision field: refusals.js's tcpDecision derives it.
+export const TCP_LOG_FIELDS = ["isolate01", "class", "sni", "target", "termination", "flags", "filter_chain", "probe", "start"];
+const tcpLogFields = (kind, className) => ({
+  isolate01: kind,
+  class: className,
+  downstream: "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+  sni: "%REQUESTED_SERVER_NAME%",
+  target: "%DYNAMIC_METADATA(isolate01:target)%",
+  termination: "%CONNECTION_TERMINATION_DETAILS%",
+  flags: "%RESPONSE_FLAGS%",
+  filter_chain: "%FILTER_CHAIN_NAME%",
+  duration: "%DURATION%",
+  bytes_in: "%BYTES_RECEIVED%",
+  bytes_out: "%BYTES_SENT%",
+  probe: "-",
+  start: "%START_TIME%",
+});
+
+const OVERWRITE = "OVERWRITE_IF_EXISTS_OR_ADD";
+const decisionHeaders = (decision, reason) => [
+  { header: { key: "x-isolate01-decision", value: decision }, append_action: OVERWRITE },
+  { header: { key: "x-isolate01-reason", value: reason }, append_action: OVERWRITE },
+];
+
 const refuse = (reason) => ({
   direct_response: { status: 403, body: { inline_string: `isolate01: refused (${reason})\n` } },
-  response_headers_to_add: [{ header: { key: "x-isolate01-refused", value: reason } }],
+  response_headers_to_add: [
+    { header: { key: "x-isolate01-refused", value: reason }, append_action: OVERWRITE },
+    ...decisionHeaders("refuse", reason),
+  ],
+});
+
+// An allowed route: its decision headers, and never an upstream's own
+// x-isolate01-* headers, so an upstream can't forge a refusal or a decision.
+const allow = (reason, route) => ({
+  route,
+  response_headers_to_add: decisionHeaders("allow", reason),
+  response_headers_to_remove: ["x-isolate01-refused"],
 });
 
 // IPv4 and bracketed IPv6 literals, with or without a port. Envoy's
@@ -203,7 +267,7 @@ const hcm = (statPrefix, routeConfig, httpFilters, logFields) => ({
 export const internalClusterName = (className, host) => `terminate-${className}-${slug(host)}`;
 const tunnelRoute = (host, className) => ({
   match: { connect_matcher: {} },
-  route: { cluster: internalClusterName(className, host), upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] },
+  ...allow("listed", { cluster: internalClusterName(className, host), upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] }),
 });
 
 function outerRouteConfig(cls, model) {
@@ -226,10 +290,10 @@ function outerRouteConfig(cls, model) {
         ...trailingDotRoutes(),
         { match: { connect_matcher: {}, headers: ipLiteral }, ...refuse("ip-literal") },
         { match: { prefix: "/", headers: ipLiteral }, ...refuse("ip-literal") },
-        { match: { connect_matcher: {}, headers: port443 }, route: { cluster: "open-forward", upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] } },
+        { match: { connect_matcher: {}, headers: port443 }, ...allow("open", { cluster: "open-forward", upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] }) },
         { match: { connect_matcher: {} }, ...refuse("port") },
         // Plain http, absolute form: forwarded the same way, same checks.
-        { match: { prefix: "/" }, route: { cluster: "open-forward", timeout: "30s" } },
+        { match: { prefix: "/" }, ...allow("open", { cluster: "open-forward", timeout: "30s" }) },
       ],
     });
   } else {
@@ -266,6 +330,7 @@ function outerListener(model) {
   // No default filter chain: a connection from outside every class subnet is closed.
   return {
     name: "egress",
+    access_log: accessLog(tcpLogFields("egress-tcp", "-")),
     address: { socket_address: { address: "0.0.0.0", port_value: model.proxy.listenPort } },
     filter_chains,
   };
@@ -324,15 +389,16 @@ function innerListener(cls) {
       hcm(`terminate_${slug(host).replace(/-/g, "_")}`, {
         name: `terminate-${cls.name}-${slug(host)}`,
         virtual_hosts: [
-          { name: slug(host), domains: [host, `${host}:443`], routes: [{ match: { prefix: "/" }, route: { cluster: `upstream-${slug(host)}`, timeout: "300s" } }] },
+          { name: slug(host), domains: [host, `${host}:443`], routes: [{ match: { prefix: "/" }, ...allow("listed", { cluster: `upstream-${slug(host)}`, timeout: "300s" }) }] },
           { name: "fronted", domains: ["*"], routes: [{ match: { prefix: "" }, ...refuse("host-mismatch") }] },
         ],
-      }, [], innerLogFields(cls.name)),
+      }, [], innerLogFields(cls.name, host)),
     ],
   }));
   return {
     name: `terminate-${cls.name}`,
     internal_listener: {},
+    access_log: accessLog(tcpLogFields("terminate-tcp", cls.name)),
     listener_filters: [{
       name: "envoy.filters.listener.tls_inspector",
       typed_config: { "@type": "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector" },

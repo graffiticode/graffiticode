@@ -19,6 +19,31 @@
     "listeners": [
       {
         "name": "egress",
+        "access_log": [
+          {
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+              "log_format": {
+                "json_format": {
+                  "isolate01": "egress-tcp",
+                  "class": "-",
+                  "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                  "sni": "%REQUESTED_SERVER_NAME%",
+                  "target": "%DYNAMIC_METADATA(isolate01:target)%",
+                  "termination": "%CONNECTION_TERMINATION_DETAILS%",
+                  "flags": "%RESPONSE_FLAGS%",
+                  "filter_chain": "%FILTER_CHAIN_NAME%",
+                  "duration": "%DURATION%",
+                  "bytes_in": "%BYTES_RECEIVED%",
+                  "bytes_out": "%BYTES_SENT%",
+                  "probe": "-",
+                  "start": "%START_TIME%"
+                }
+              }
+            }
+          }
+        ],
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
@@ -82,7 +107,26 @@
                                   "connect_config": {}
                                 }
                               ]
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -104,7 +148,26 @@
                                   "connect_config": {}
                                 }
                               ]
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -139,7 +202,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "trailing-dot"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -168,7 +246,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "trailing-dot"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -187,7 +280,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "unlisted"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "unlisted"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -206,7 +314,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "unlisted"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "unlisted"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -234,11 +357,17 @@
                             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
                             "method": "%REQ(:METHOD)%",
                             "target": "%REQ(:AUTHORITY)%",
+                            "sni": "%REQUESTED_SERVER_NAME%",
+                            "host": "%REQ(:AUTHORITY)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "upstream_cluster": "%UPSTREAM_CLUSTER%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
                             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "bytes_in": "%BYTES_RECEIVED%",
                             "bytes_out": "%BYTES_SENT%",
@@ -308,7 +437,26 @@
                                   "connect_config": {}
                                 }
                               ]
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -343,7 +491,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "trailing-dot"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -372,7 +535,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "trailing-dot"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -391,7 +569,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "unlisted"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "unlisted"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -410,7 +603,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "unlisted"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "unlisted"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -438,11 +646,17 @@
                             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
                             "method": "%REQ(:METHOD)%",
                             "target": "%REQ(:AUTHORITY)%",
+                            "sni": "%REQUESTED_SERVER_NAME%",
+                            "host": "%REQ(:AUTHORITY)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "upstream_cluster": "%UPSTREAM_CLUSTER%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
                             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "bytes_in": "%BYTES_RECEIVED%",
                             "bytes_out": "%BYTES_SENT%",
@@ -512,7 +726,26 @@
                                   "connect_config": {}
                                 }
                               ]
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -566,7 +799,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "name"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "name"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -585,7 +833,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "name"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "name"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -622,7 +885,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "trailing-dot"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -651,7 +929,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "trailing-dot"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "trailing-dot"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -680,7 +973,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "ip-literal"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "ip-literal"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -709,7 +1017,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "ip-literal"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "ip-literal"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -733,7 +1056,26 @@
                                   "connect_config": {}
                                 }
                               ]
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "open"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           },
                           {
                             "match": {
@@ -750,7 +1092,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "port"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "port"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           },
@@ -761,7 +1118,26 @@
                             "route": {
                               "cluster": "open-forward",
                               "timeout": "30s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "open"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       }
@@ -822,11 +1198,17 @@
                             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
                             "method": "%REQ(:METHOD)%",
                             "target": "%REQ(:AUTHORITY)%",
+                            "sni": "%REQUESTED_SERVER_NAME%",
+                            "host": "%REQ(:AUTHORITY)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "upstream_cluster": "%UPSTREAM_CLUSTER%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
                             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "bytes_in": "%BYTES_RECEIVED%",
                             "bytes_out": "%BYTES_SENT%",
@@ -933,6 +1315,31 @@
       {
         "name": "terminate-compilers-default",
         "internal_listener": {},
+        "access_log": [
+          {
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+              "log_format": {
+                "json_format": {
+                  "isolate01": "terminate-tcp",
+                  "class": "compilers-default",
+                  "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                  "sni": "%REQUESTED_SERVER_NAME%",
+                  "target": "%DYNAMIC_METADATA(isolate01:target)%",
+                  "termination": "%CONNECTION_TERMINATION_DETAILS%",
+                  "flags": "%RESPONSE_FLAGS%",
+                  "filter_chain": "%FILTER_CHAIN_NAME%",
+                  "duration": "%DURATION%",
+                  "bytes_in": "%BYTES_RECEIVED%",
+                  "bytes_out": "%BYTES_SENT%",
+                  "probe": "-",
+                  "start": "%START_TIME%"
+                }
+              }
+            }
+          }
+        ],
         "listener_filters": [
           {
             "name": "envoy.filters.listener.tls_inspector",
@@ -1052,7 +1459,26 @@
                             "route": {
                               "cluster": "upstream-broker-sja7fatcta-uc-a-run-app",
                               "timeout": "300s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -1077,7 +1503,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "host-mismatch"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "host-mismatch"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -1102,14 +1543,22 @@
                           "json_format": {
                             "isolate01": "terminate",
                             "class": "compilers-default",
+                            "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                            "method": "%REQ(:METHOD)%",
+                            "target": "broker-sja7fatcta-uc.a.run.app",
+                            "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "method": "%REQ(:METHOD)%",
                             "path": "%REQ(:PATH)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
+                            "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "start": "%START_TIME%"
                           }
                         }
@@ -1230,7 +1679,26 @@
                             "route": {
                               "cluster": "upstream-policy-sja7fatcta-uc-a-run-app",
                               "timeout": "300s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -1255,7 +1723,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "host-mismatch"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "host-mismatch"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -1280,14 +1763,22 @@
                           "json_format": {
                             "isolate01": "terminate",
                             "class": "compilers-default",
+                            "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                            "method": "%REQ(:METHOD)%",
+                            "target": "policy-sja7fatcta-uc.a.run.app",
+                            "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "method": "%REQ(:METHOD)%",
                             "path": "%REQ(:PATH)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
+                            "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "start": "%START_TIME%"
                           }
                         }
@@ -1303,6 +1794,31 @@
       {
         "name": "terminate-compilers-l0013",
         "internal_listener": {},
+        "access_log": [
+          {
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+              "log_format": {
+                "json_format": {
+                  "isolate01": "terminate-tcp",
+                  "class": "compilers-l0013",
+                  "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                  "sni": "%REQUESTED_SERVER_NAME%",
+                  "target": "%DYNAMIC_METADATA(isolate01:target)%",
+                  "termination": "%CONNECTION_TERMINATION_DETAILS%",
+                  "flags": "%RESPONSE_FLAGS%",
+                  "filter_chain": "%FILTER_CHAIN_NAME%",
+                  "duration": "%DURATION%",
+                  "bytes_in": "%BYTES_RECEIVED%",
+                  "bytes_out": "%BYTES_SENT%",
+                  "probe": "-",
+                  "start": "%START_TIME%"
+                }
+              }
+            }
+          }
+        ],
         "listener_filters": [
           {
             "name": "envoy.filters.listener.tls_inspector",
@@ -1422,7 +1938,26 @@
                             "route": {
                               "cluster": "upstream-storage-googleapis-com",
                               "timeout": "300s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -1447,7 +1982,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "host-mismatch"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "host-mismatch"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -1472,14 +2022,22 @@
                           "json_format": {
                             "isolate01": "terminate",
                             "class": "compilers-l0013",
+                            "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                            "method": "%REQ(:METHOD)%",
+                            "target": "storage.googleapis.com",
+                            "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "method": "%REQ(:METHOD)%",
                             "path": "%REQ(:PATH)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
+                            "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "start": "%START_TIME%"
                           }
                         }
@@ -1495,6 +2053,31 @@
       {
         "name": "terminate-compilers-l0185",
         "internal_listener": {},
+        "access_log": [
+          {
+            "name": "envoy.access_loggers.stdout",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+              "log_format": {
+                "json_format": {
+                  "isolate01": "terminate-tcp",
+                  "class": "compilers-l0185",
+                  "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                  "sni": "%REQUESTED_SERVER_NAME%",
+                  "target": "%DYNAMIC_METADATA(isolate01:target)%",
+                  "termination": "%CONNECTION_TERMINATION_DETAILS%",
+                  "flags": "%RESPONSE_FLAGS%",
+                  "filter_chain": "%FILTER_CHAIN_NAME%",
+                  "duration": "%DURATION%",
+                  "bytes_in": "%BYTES_RECEIVED%",
+                  "bytes_out": "%BYTES_SENT%",
+                  "probe": "-",
+                  "start": "%START_TIME%"
+                }
+              }
+            }
+          }
+        ],
         "listener_filters": [
           {
             "name": "envoy.filters.listener.tls_inspector",
@@ -1614,7 +2197,26 @@
                             "route": {
                               "cluster": "upstream-api-graffiticode-org",
                               "timeout": "300s"
-                            }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "allow"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "listed"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              }
+                            ],
+                            "response_headers_to_remove": [
+                              "x-isolate01-refused"
+                            ]
                           }
                         ]
                       },
@@ -1639,7 +2241,22 @@
                                 "header": {
                                   "key": "x-isolate01-refused",
                                   "value": "host-mismatch"
-                                }
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-decision",
+                                  "value": "refuse"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+                              },
+                              {
+                                "header": {
+                                  "key": "x-isolate01-reason",
+                                  "value": "host-mismatch"
+                                },
+                                "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
                               }
                             ]
                           }
@@ -1664,14 +2281,22 @@
                           "json_format": {
                             "isolate01": "terminate",
                             "class": "compilers-l0185",
+                            "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+                            "method": "%REQ(:METHOD)%",
+                            "target": "api.graffiticode.org",
+                            "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "method": "%REQ(:METHOD)%",
                             "path": "%REQ(:PATH)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+                            "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
                             "flags": "%RESPONSE_FLAGS%",
                             "details": "%RESPONSE_CODE_DETAILS%",
+                            "decision": "%RESP(X-ISOLATE01-DECISION)%",
+                            "reason": "%RESP(X-ISOLATE01-REASON)%",
+                            "probe": "%REQ(X-ISOLATE01-PROBE)%",
+                            "refused": "%RESP(X-ISOLATE01-REFUSED)%",
                             "start": "%START_TIME%"
                           }
                         }

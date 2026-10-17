@@ -5,7 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fullMatch, outcome, routeRequest } from "./route-sim.js";
 import {
-  BLOCKED, EXTENSIONS, IP_LITERAL, TRAILING_DOT, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, load, terminatedHosts,
+  BLOCKED, EXTENSIONS, IP_LITERAL, LOG_FIELDS, TCP_LOG_FIELDS, TRAILING_DOT, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, load, terminatedHosts,
 } from "../generate.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
@@ -316,4 +316,55 @@ test("a trailing dot never steps around a refusal (A1)", async () => {
   assert.deepEqual(outcome(routeRequest(open, { method: "CONNECT", authority: "example.com.:443" })), { cluster: "open-forward" });
   assert.deepEqual(outcome(routeRequest(open, { method: "CONNECT", authority: "learnosity.com.:443" })), { refused: "name" });
   assert.ok(fullMatch(TRAILING_DOT, "a.b.:443") && fullMatch(TRAILING_DOT, "a.b.") && !fullMatch(TRAILING_DOT, "a.b:443") && !fullMatch(TRAILING_DOT, "[::1]:443"));
+});
+
+test("every access log carries the contract's fields, and every route says its decision (A5)", async () => {
+  const envoy = envoyConfig(await fixture());
+  const { listeners } = envoy.static_resources;
+  const fieldsOf = logs => logs[0].typed_config.log_format.json_format;
+  const hcms = listeners.filter(l => l.name !== "health").flatMap(l => l.filter_chains.flatMap(fc => fc.filters))
+    .filter(f => f.name === "envoy.filters.network.http_connection_manager").map(f => f.typed_config);
+  assert.ok(hcms.length >= 5);
+  for (const h of hcms) {
+    const fields = fieldsOf(h.access_log);
+    for (const k of LOG_FIELDS) assert.ok(k in fields, `${h.stat_prefix} logs ${k}`);
+    assert.equal(fields.probe, "%REQ(X-ISOLATE01-PROBE)%");
+    assert.equal(fields.decision, "%RESP(X-ISOLATE01-DECISION)%");
+    assert.equal(fields.reason, "%RESP(X-ISOLATE01-REASON)%");
+    for (const route of h.route_config.virtual_hosts.flatMap(v => v.routes)) {
+      const added = Object.fromEntries((route.response_headers_to_add ?? []).map(x => [x.header.key, x.header.value]));
+      assert.ok(["allow", "refuse"].includes(added["x-isolate01-decision"]), `${h.stat_prefix}: every route sets a decision`);
+      assert.ok(added["x-isolate01-reason"], `${h.stat_prefix}: every route sets a reason`);
+      if (route.direct_response) {
+        assert.equal(added["x-isolate01-decision"], "refuse");
+        assert.equal(added["x-isolate01-refused"], added["x-isolate01-reason"]);
+      } else {
+        assert.equal(added["x-isolate01-decision"], "allow");
+        assert.ok(["listed", "open"].includes(added["x-isolate01-reason"]));
+        assert.deepEqual(route.response_headers_to_remove, ["x-isolate01-refused"], "an upstream can't forge a refusal");
+      }
+      for (const x of route.response_headers_to_add ?? []) assert.equal(x.append_action, "OVERWRITE_IF_EXISTS_OR_ADD");
+    }
+  }
+  // Inner lines name the chain's host as the target.
+  for (const l of listeners.filter(x => x.internal_listener)) {
+    for (const fc of l.filter_chains) {
+      const [host] = fc.filter_chain_match.server_names;
+      assert.equal(fieldsOf(fc.filters[1].typed_config.access_log).target, host);
+    }
+  }
+});
+
+test("refusals before HTTP are logged at the connection level (A5)", async () => {
+  const envoy = envoyConfig(await fixture());
+  const { listeners } = envoy.static_resources;
+  const inner = listeners.filter(l => l.internal_listener);
+  assert.ok(inner.length > 0);
+  for (const l of [...inner, listeners.find(x => x.name === "egress")]) {
+    const fields = l.access_log[0].typed_config.log_format.json_format;
+    for (const k of TCP_LOG_FIELDS) assert.ok(k in fields, `${l.name} logs ${k}`);
+    assert.equal(fields.termination, "%CONNECTION_TERMINATION_DETAILS%");
+    assert.equal(fields.target, "%DYNAMIC_METADATA(isolate01:target)%");
+    assert.equal(fields.isolate01, l.internal_listener ? "terminate-tcp" : "egress-tcp");
+  }
 });
