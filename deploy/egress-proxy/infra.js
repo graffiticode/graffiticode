@@ -4,16 +4,32 @@
 // ("The proxy", rollout steps 0 and 1). Runbook: README.md.
 //
 //   node deploy/egress-proxy/infra.js --plan [--deploy deploy.json] [--classes classes.json]
+//   node deploy/egress-proxy/infra.js --apply --steps 1,2 --classes step0/classes.json --deploy step0/deploy.json [--workdir dir]
 //
-// Deployment is deferred (Jeff, 2026-10-14): this prints the commands for
-// review and never runs them. Without --plan it refuses.
+// Production deployment is deferred (Jeff, 2026-10-14): for production this
+// prints the commands for review and never runs them. --apply runs them only
+// against a scratch project (SCRATCH_PROJECTS), for rollout step 0: every
+// command must name that project, no placeholder may remain, and nothing is
+// ever run against graffiticode.
 
+import { spawnSync } from "node:child_process";
 import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig } from "./generate.js";
 
 export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
 
+// The only projects --apply will touch: rollout step 0's prototype.
+export const SCRATCH_PROJECTS = new Set(["graffiticode-isolate01"]);
+
 const q = s => (/^[A-Za-z0-9_./:=@,+-]+$/.test(s) ? s : `'${String(s).replace(/'/g, "'\\''")}'`);
-const cmd = (...args) => args.flat().filter(a => a !== null && a !== undefined && a !== false).map(String).map(q).join(" ");
+// A command prints as a quoted shell line and keeps its argv, so --apply runs
+// exactly what --plan shows, without a shell.
+class Cmd extends String {
+  constructor(argv) {
+    super(argv.map(q).join(" "));
+    this.argv = argv;
+  }
+}
+const cmd = (...args) => new Cmd(args.flat().filter(a => a !== null && a !== undefined && a !== false).map(String));
 
 export function commands(model) {
   const { project, region, network } = model;
@@ -28,6 +44,9 @@ export function commands(model) {
     throw new Error(`classes.json: proxy.zones must pin two zones in ${region}`);
   }
   const accounts = compilerAccounts(model);
+  // The template is named by the config it carries: a new config is a new
+  // template (a rolling replace), and the same config is the same name.
+  const templateVersion = envoyConfig(model).node.metadata.isolate01.config_sha256.slice(0, 12);
   const steps = [];
   const step = (title, ...lines) => steps.push({ title, lines });
 
@@ -98,13 +117,13 @@ export function commands(model) {
     ]));
 
   step("Instance template (pinned COS image, cloud-init from generate.js) and the managed instance group",
-    cmd("gcloud", "compute", "instance-templates", "create", "egress-proxy-<template-version>", p, `--machine-type=${model.proxy.machineType}`,
+    cmd("gcloud", "compute", "instance-templates", "create", `egress-proxy-${templateVersion}`, p, `--machine-type=${model.proxy.machineType}`,
       `--image=${model.proxy.cosImage ?? "<cos-image, pinned in step 0>"}`, "--image-project=cos-cloud", `--network=${network}`, `--subnet=${model.proxySubnet.name}`,
       `--region=${region}`, "--no-address", `--service-account=${sa}`, "--scopes=cloud-platform", "--shielded-secure-boot",
       `--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=${envoyConfig(model).node.metadata.isolate01.config_sha256}`,
       "--metadata-from-file=user-data=out/cloud-init.yaml"),
     cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready", "--enable-logging"),
-    cmd("gcloud", "compute", "instance-groups", "managed", "create", "egress-proxy", p, r, "--template=egress-proxy-<template-version>", "--size=2",
+    cmd("gcloud", "compute", "instance-groups", "managed", "create", "egress-proxy", p, r, `--template=egress-proxy-${templateVersion}`, "--size=2",
       `--zones=${zones.join(",")}`, "--health-check=egress-proxy-ready", "--initial-delay=120", "--target-distribution-shape=EVEN"));
 
   step("Internal passthrough Network Load Balancer (keeps the compiler's source address)",
@@ -126,7 +145,7 @@ export function commands(model) {
   // A regional group's fixed surge must be 0 or at least its number of zones
   // (A7): two pinned zones, so a surge of two, and never an unavailable VM.
   step("Rolling update (patching: a new template, new VMs up before old ones go)",
-    cmd("gcloud", "compute", "instance-groups", "managed", "rolling-action", "start-update", "egress-proxy", p, r, "--version=template=egress-proxy-<new-template-version>",
+    cmd("gcloud", "compute", "instance-groups", "managed", "rolling-action", "start-update", "egress-proxy", p, r, `--version=template=egress-proxy-${templateVersion}`,
       `--max-surge=${zones.length}`, "--max-unavailable=0", "--type=proactive"));
 
   return steps;
@@ -136,21 +155,82 @@ export function render(steps) {
   return steps.map(s => [`# ${s.title}`, ...s.lines].join("\n")).join("\n\n") + "\n";
 }
 
+const USAGE = "usage: infra.js --plan [--deploy deploy.json] [--classes classes.json] | --apply --steps n[,n..] --deploy f --classes f [--workdir dir]";
+
 export function parseArgs(argv) {
-  const opts = { plan: false, deploy: undefined, classes: undefined };
+  const opts = { plan: false, apply: false, steps: undefined, deploy: undefined, classes: undefined, workdir: undefined };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--plan") opts.plan = true;
-    else if (["--deploy", "--classes"].includes(argv[i]) && argv[i + 1]) opts[argv[i].slice(2)] = argv[++i];
-    else throw new Error("usage: infra.js --plan [--deploy deploy.json] [--classes classes.json]");
+    else if (argv[i] === "--apply") opts.apply = true;
+    else if (["--deploy", "--classes", "--steps", "--workdir"].includes(argv[i]) && argv[i + 1]) opts[argv[i].slice(2)] = argv[++i];
+    else throw new Error(USAGE);
   }
+  if (opts.plan && opts.apply) throw new Error(USAGE);
   return opts;
+}
+
+// What --apply would run for the chosen steps (1-based, in --plan's order),
+// or why it refuses. It refuses:
+// - a project outside SCRATCH_PROJECTS;
+// - a command that names any other project, or none;
+// - a placeholder left in a command (an unpinned image);
+// - a commented-out command in a chosen step: an open choice that step 0
+//   must settle in this file first.
+export function applyPlan(model, steps, chosen) {
+  if (!SCRATCH_PROJECTS.has(model.project)) {
+    throw new Error(`--apply runs only against ${[...SCRATCH_PROJECTS].join(", ")}, not ${model.project}. ${DEFERRED}`);
+  }
+  const runs = [];
+  for (const n of chosen) {
+    if (!Number.isInteger(n) || n < 1 || n > steps.length) throw new Error(`--steps: no step ${n} (1-${steps.length})`);
+    const s = steps[n - 1];
+    for (const line of s.lines) {
+      if (!(line instanceof Cmd)) {
+        if (/^#\s+gcloud\s/.test(String(line))) throw new Error(`step ${n} (${s.title}) has an open choice, not yet settled: ${line}`);
+        continue;
+      }
+      const text = String(line);
+      if (/<[^>]+>/.test(text)) throw new Error(`step ${n}: a placeholder remains (pin it first): ${text}`);
+      const named = [
+        ...line.argv.flatMap(a => a.startsWith("--project=") ? [a.slice("--project=".length)] : []),
+        ...(line.argv[1] === "projects" && line.argv[2] === "add-iam-policy-binding" ? [line.argv[3]] : []),
+      ];
+      if (!named.length) throw new Error(`step ${n}: a command names no project: ${text}`);
+      const other = named.find(p => p !== model.project);
+      if (other) throw new Error(`step ${n}: a command names ${other}, not ${model.project}: ${text}`);
+      runs.push({ step: n, title: s.title, argv: line.argv, text });
+    }
+  }
+  return runs;
+}
+
+// Runs each command in order. A create that finds its resource already there
+// is recorded as "exists", so a phase can be re-run; any other failure stops.
+export function apply(runs, { workdir = process.cwd(), spawn = spawnSync, log = console.log } = {}) {
+  const results = [];
+  for (const r of runs) {
+    log(`[step ${r.step}] ${r.text}`);
+    const res = spawn(r.argv[0], r.argv.slice(1), { cwd: workdir, encoding: "utf8" });
+    const stderr = res.stderr ?? "";
+    if (res.status === 0) results.push({ ...r, outcome: "ran" });
+    else if (/already exists|ALREADY_EXISTS/i.test(stderr)) results.push({ ...r, outcome: "exists" });
+    else {
+      results.push({ ...r, outcome: "failed", stderr });
+      log(stderr.trim());
+      throw Object.assign(new Error(`step ${r.step} failed: ${r.text}`), { results });
+    }
+    log(`  -> ${results.at(-1).outcome}`);
+  }
+  return results;
 }
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  if (!opts.plan) throw new Error(DEFERRED);
+  if (!opts.plan && !opts.apply) throw new Error(DEFERRED);
   const model = await load(opts);
-  process.stdout.write(render(commands(model)));
+  if (opts.plan) return process.stdout.write(render(commands(model)));
+  if (!opts.steps || !opts.deploy || !opts.classes) throw new Error(USAGE);
+  apply(applyPlan(model, commands(model), opts.steps.split(",").map(Number)), { workdir: opts.workdir });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
