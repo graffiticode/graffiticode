@@ -46,6 +46,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -127,6 +128,64 @@
                           "*"
                         ],
                         "routes": [
+                          {
+                            "match": {
+                              "connect_matcher": {},
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "match": {
+                              "prefix": "",
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                }
+                              }
+                            ]
+                          },
                           {
                             "match": {
                               "connect_matcher": {}
@@ -227,6 +286,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -279,6 +339,64 @@
                           "*"
                         ],
                         "routes": [
+                          {
+                            "match": {
+                              "connect_matcher": {},
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "match": {
+                              "prefix": "",
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                }
+                              }
+                            ]
+                          },
                           {
                             "match": {
                               "connect_matcher": {}
@@ -379,6 +497,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -506,6 +625,64 @@
                           "*"
                         ],
                         "routes": [
+                          {
+                            "match": {
+                              "connect_matcher": {},
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                }
+                              }
+                            ]
+                          },
+                          {
+                            "match": {
+                              "prefix": "",
+                              "headers": [
+                                {
+                                  "name": ":authority",
+                                  "string_match": {
+                                    "safe_regex": {
+                                      "regex": "^[^\\[]*\\.(:[0-9]+)?$"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "direct_response": {
+                              "status": 403,
+                              "body": {
+                                "inline_string": "isolate01: refused (trailing-dot)\n"
+                              }
+                            },
+                            "response_headers_to_add": [
+                              {
+                                "header": {
+                                  "key": "x-isolate01-refused",
+                                  "value": "trailing-dot"
+                                }
+                              }
+                            ]
+                          },
                           {
                             "match": {
                               "connect_matcher": {},
@@ -713,6 +890,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -870,6 +1048,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -1047,6 +1226,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -1238,6 +1418,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",
@@ -1429,6 +1610,7 @@
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
                   "skip_xff_append": true,
+                  "strip_trailing_host_dot": true,
                   "normalize_path": true,
                   "merge_slashes": true,
                   "path_with_escaped_slashes_action": "REJECT_REQUEST",

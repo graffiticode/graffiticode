@@ -160,6 +160,14 @@ const refuse = (reason) => ({
 // regex here is written anchored on both ends to say so.
 export const IP_LITERAL = String.raw`^(\[[0-9A-Fa-f:.]+\]|[0-9]{1,3}(\.[0-9]{1,3}){3})(:[0-9]+)?$`;
 
+// An authority still ending in a dot after strip_trailing_host_dot (two dots,
+// or a form Envoy doesn't strip): refused outright, never routed.
+export const TRAILING_DOT = String.raw`^[^\[]*\.(:[0-9]+)?$`;
+const trailingDotRoutes = () => {
+  const headers = [{ name: ":authority", string_match: { safe_regex: { regex: TRAILING_DOT } } }];
+  return [{ match: { connect_matcher: {}, headers }, ...refuse("trailing-dot") }, { match: { prefix: "", headers }, ...refuse("trailing-dot") }];
+};
+
 const hcm = (statPrefix, routeConfig, httpFilters, logFields) => ({
   name: "envoy.filters.network.http_connection_manager",
   typed_config: {
@@ -171,6 +179,9 @@ const hcm = (statPrefix, routeConfig, httpFilters, logFields) => ({
     use_remote_address: true,
     xff_num_trusted_hops: 0,
     skip_xff_append: true,
+    // "learnosity.com." is learnosity.com: strip the dot before any routing,
+    // so a trailing dot can't step around an exact or wildcard domain.
+    strip_trailing_host_dot: true,
     normalize_path: true,
     merge_slashes: true,
     path_with_escaped_slashes_action: "REJECT_REQUEST",
@@ -211,6 +222,7 @@ function outerRouteConfig(cls, model) {
       name: "open",
       domains: ["*"],
       routes: [
+        ...trailingDotRoutes(),
         { match: { connect_matcher: {}, headers: ipLiteral }, ...refuse("ip-literal") },
         { match: { prefix: "/", headers: ipLiteral }, ...refuse("ip-literal") },
         { match: { connect_matcher: {}, headers: port443 }, route: { cluster: "open-forward", upgrade_configs: [{ upgrade_type: "CONNECT", connect_config: {} }] } },
@@ -220,7 +232,7 @@ function outerRouteConfig(cls, model) {
       ],
     });
   } else {
-    virtual_hosts.push({ name: "unlisted", domains: ["*"], routes: [{ match: { connect_matcher: {} }, ...refuse("unlisted") }, { match: { prefix: "" }, ...refuse("unlisted") }] });
+    virtual_hosts.push({ name: "unlisted", domains: ["*"], routes: [...trailingDotRoutes(), { match: { connect_matcher: {} }, ...refuse("unlisted") }, { match: { prefix: "" }, ...refuse("unlisted") }] });
   }
   return { name: `egress-${cls.name}`, virtual_hosts };
 }

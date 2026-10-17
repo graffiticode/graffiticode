@@ -5,7 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fullMatch, outcome, routeRequest } from "./route-sim.js";
 import {
-  BLOCKED, EXTENSIONS, IP_LITERAL, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, load, terminatedHosts,
+  BLOCKED, EXTENSIONS, IP_LITERAL, TRAILING_DOT, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, load, terminatedHosts,
 } from "../generate.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
@@ -104,13 +104,12 @@ test("only the open class forwards unlisted names, refusing denied names, IP lit
     assert.ok(denied.domains.includes(d), d);
   }
   const catchAll = open.find(v => v.name === "open");
-  assert.equal(catchAll.routes[0].direct_response.status, 403);
-  assert.equal(catchAll.routes[1].direct_response.status, 403);
-  const regex = catchAll.routes[0].match.headers[0].string_match.safe_regex.regex;
+  const ipRoutes = catchAll.routes.filter(r => r.response_headers_to_add?.[0]?.header.value === "ip-literal");
+  assert.equal(ipRoutes.length, 2);
+  assert.ok(ipRoutes.every(r => r.direct_response.status === 403));
+  const regex = ipRoutes[0].match.headers[0].string_match.safe_regex.regex;
   for (const literal of ["93.184.216.34:443", "10.0.0.1", "[2001:db8::1]:443", "[::ffff:169.254.169.254]:80"]) assert.ok(fullMatch(regex, literal), literal);
   assert.ok(!fullMatch(regex, "example.com:443"));
-  assert.equal(catchAll.routes[2].route.cluster, "open-forward");
-  assert.equal(catchAll.routes[3].direct_response.status, 403, "CONNECT to another port");
   // The listed Graffiticode host is still terminated, not forwarded, for L0185.
   assert.equal(open[0].routes[0].route.cluster, "terminate-compilers-l0185");
   const dfp = envoy.static_resources.clusters.find(c => c.name === "open-forward").cluster_type.typed_config.dns_cache_config;
@@ -257,5 +256,34 @@ test("every safe_regex is written for Envoy's full-match semantics", async () =>
   walk(envoyConfig(await fixture()));
   assert.ok(regexes.length > 0);
   for (const r of regexes) assert.ok(r.startsWith("^") && r.endsWith("$"), `${r} must be anchored: Envoy matches the whole value`);
-  assert.deepEqual([...new Set(regexes)], [IP_LITERAL]);
+  assert.deepEqual([...new Set(regexes)].sort(), [IP_LITERAL, TRAILING_DOT].sort());
+});
+
+test("a trailing dot never steps around a refusal (A1)", async () => {
+  const envoy = envoyConfig(await fixture());
+  for (const chain of envoy.static_resources.listeners.flatMap(l => l.filter_chains)) {
+    for (const f of chain.filters.filter(x => x.name === "envoy.filters.network.http_connection_manager")) {
+      assert.equal(f.typed_config.strip_trailing_host_dot, true, `${chain.name ?? "chain"} strips the trailing dot`);
+    }
+  }
+  const open = outerHcm(envoy, "compilers-l0185");
+  const strict = outerHcm(envoy, "compilers-default");
+  // With Envoy stripping the dot as documented, and, in case it doesn't for a
+  // CONNECT authority, without: either way the name is refused.
+  for (const strip of [true, false]) {
+    const o = { ...open, strip_trailing_host_dot: strip };
+    const connect = authority => outcome(routeRequest(o, { method: "CONNECT", authority }));
+    for (const a of ["learnosity.com.:443", "eu.learnosity.com.:443", "api-sja7fatcta-uc.a.run.app.:443", "metadata.google.internal.:443"]) {
+      const got = connect(a);
+      assert.ok(got.refused === "name" || got.refused === "trailing-dot", `${a} (strip ${strip}): ${JSON.stringify(got)}`);
+    }
+    assert.deepEqual(connect("learnosity.com..:443"), { refused: "trailing-dot" });
+    assert.ok(outcome(routeRequest(o, { method: "GET", authority: "eu.learnosity.com.", path: "/" })).refused);
+    const s = { ...strict, strip_trailing_host_dot: strip };
+    assert.ok(outcome(routeRequest(s, { method: "CONNECT", authority: "example.com.:443" })).refused);
+  }
+  // Stripped, an ordinary name still forwards, and a refused one is refused by name.
+  assert.deepEqual(outcome(routeRequest(open, { method: "CONNECT", authority: "example.com.:443" })), { cluster: "open-forward" });
+  assert.deepEqual(outcome(routeRequest(open, { method: "CONNECT", authority: "learnosity.com.:443" })), { refused: "name" });
+  assert.ok(fullMatch(TRAILING_DOT, "a.b.:443") && fullMatch(TRAILING_DOT, "a.b.") && !fullMatch(TRAILING_DOT, "a.b:443") && !fullMatch(TRAILING_DOT, "[::1]:443"));
 });
