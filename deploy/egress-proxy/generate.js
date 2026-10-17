@@ -536,14 +536,44 @@ export function envoyConfig(model) {
   };
 }
 
+// What each refused range is called in the kernel log (A14). A LOG prefix is
+// at most 29 characters, and "ISOLATE01-REJECT " takes 17, so a rule's name is
+// at most 11: the AT-11 collector maps it back with REJECT_RULES.
+export const REJECT_PREFIX = "ISOLATE01-REJECT ";
+const BLOCKED_NAMES = {
+  "0.0.0.0/8": "zero", "10.0.0.0/8": "private", "100.64.0.0/10": "cgnat", "127.0.0.0/8": "loopback",
+  "169.254.0.0/16": "metadata", "172.16.0.0/12": "private", "192.168.0.0/16": "private",
+  "224.0.0.0/4": "multicast", "240.0.0.0/4": "reserved",
+  "199.36.153.4/30": "goog-restr", "199.36.153.8/30": "goog-priv",
+};
+
+// Every refused range with its log name, most specific first: the load
+// balancer, the compiler subnets and the proxy subnet sit inside 10/8, and
+// the first matching REJECT is the one that logs.
+export function rejectRules(model) {
+  const rules = [
+    { cidr: `${model.loadBalancerAddress}/32`, name: "lb" },
+    ...Object.values(model.classes).map(c => ({ cidr: c.cidr, name: `c-${c.name.replace(/^compilers-/, "")}` })),
+    { cidr: model.proxySubnet.cidr, name: "proxy-net" },
+    ...BLOCKED.map(cidr => ({ cidr, name: BLOCKED_NAMES[cidr] })),
+  ];
+  for (const r of rules) {
+    if (!r.name || r.name.length > 11) throw new Error(`the kernel log name for ${r.cidr} (${r.name}) must be 1-11 characters: shorten the class name`);
+  }
+  return rules;
+}
+
 // The ENVOY_OUT chain, in order: return traffic, then refusals of new
-// connections to internal addresses, then the new connections allowed, then
-// everything else dropped. Each rule is iptables arguments after `-A ENVOY_OUT`.
+// connections to internal addresses (each logged first, rate-limited, under
+// its name), then the new connections allowed, then everything else dropped.
+// Each rule is iptables arguments after `-A ENVOY_OUT`.
 export function envoyOutRules(model) {
-  const blocked = [...BLOCKED, ...Object.values(model.classes).map(c => c.cidr), model.proxySubnet.cidr, `${model.loadBalancerAddress}/32`];
   return [
     "-m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
-    ...blocked.map(c => `-m conntrack --ctstate NEW -d ${c} -j REJECT`),
+    ...rejectRules(model).flatMap(({ cidr, name }) => [
+      `-m conntrack --ctstate NEW -d ${cidr} -m limit --limit 20/second --limit-burst 100 -j LOG --log-prefix "${REJECT_PREFIX}${name} " --log-level 4`,
+      `-m conntrack --ctstate NEW -d ${cidr} -j REJECT`,
+    ]),
     "-m conntrack --ctstate NEW -p tcp -m multiport --dports 80,443 -j ACCEPT",
     ...model.proxy.resolvers.flatMap(r => [
       `-m conntrack --ctstate NEW -p udp -d ${r}/32 --dport 53 -j ACCEPT`,
@@ -588,14 +618,21 @@ function firewallScript(model) {
   ].join("\n");
 }
 
+// Awk programs over `iptables -S ENVOY_OUT` (exported for the tests).
+// ORDER_AWK prints the run of rule kinds: E(stablished), R(eject, with its
+// LOG), A(ccept), D(rop). PAIRS_AWK fails unless every REJECT is immediately
+// preceded by a LOG for the same destination, and every LOG by its REJECT.
+export const ORDER_AWK = String.raw`{ k = /ESTABLISHED/ ? "E" : / -j (REJECT|LOG)/ ? "R" : / -j ACCEPT/ ? "A" : / -j DROP/ ? "D" : "?"; if (k != last) printf "%s", k; last = k }`;
+export const PAIRS_AWK = String.raw`{ d = ""; for (i = 1; i < NF; i++) if ($i == "-d") d = $(i + 1) } / -j REJECT/ { nrej++; if (prev != "LOG " d) bad = 1 } / -j LOG / { nlog++ } { prev = (/ -j LOG /) ? "LOG " d : "" } END { exit (bad || nlog != nrej) }`;
+
 // Refuses to let Envoy start unless ENVOY_OUT holds every generated rule and
-// nothing else, in the generated order (return traffic, rejects, accepts,
-// drop), and OUTPUT sends Envoy's UID to it first. `iptables -S` rewrites rule
-// text (match order, implicit -m tcp), so rules are checked with -C and the
-// order by kind, not by comparing strings.
+// nothing else, in the generated order (return traffic, logged rejects,
+// accepts, drop), and OUTPUT sends Envoy's UID to it first. `iptables -S`
+// rewrites rule text (match order, implicit -m tcp), so rules are checked
+// with -C and the order by kind, not by comparing strings.
 function firewallCheckScript(model) {
   const rules = envoyOutRules(model);
-  const order = "awk '{ k = /ESTABLISHED/ ? \"E\" : / -j REJECT/ ? \"R\" : / -j ACCEPT/ ? \"A\" : / -j DROP/ ? \"D\" : \"?\"; if (k != last) printf \"%s\", k; last = k }'";
+  const order = `awk ${shellQuote(ORDER_AWK)}`;
   return [
     "#!/bin/bash",
     "set -euo pipefail",
@@ -604,6 +641,7 @@ function firewallCheckScript(model) {
     "actual=$(iptables -w -S ENVOY_OUT | tail -n +2)",
     `[ "$(printf '%s\\n' "$actual" | wc -l)" -eq ${rules.length} ] || fail "ENVOY_OUT has rules that were not generated"`,
     `[ "$(printf '%s\\n' "$actual" | ${order})" = "ERAD" ] || fail "ENVOY_OUT is out of order"`,
+    `printf '%s\\n' "$actual" | awk ${shellQuote(PAIRS_AWK)} || fail "a REJECT in ENVOY_OUT is not logged just before it"`,
     `[ "$(iptables -w -S OUTPUT | sed -n 2p)" = "-A OUTPUT -m owner --uid-owner ${model.proxy.uid} -j ENVOY_OUT" ] || fail "OUTPUT does not send Envoy's UID to ENVOY_OUT first"`,
     `ip6tables -w -C OUTPUT -m owner --uid-owner ${model.proxy.uid} -j DROP || fail "ip6tables does not drop Envoy's UID"`,
     ...inputRules(model).map(r => `iptables -w -C EGRESS_IN ${r} || fail ${shellQuote(`EGRESS_IN lacks: ${r}`)}`),

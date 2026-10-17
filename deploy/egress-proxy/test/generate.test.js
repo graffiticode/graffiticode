@@ -5,8 +5,10 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fullMatch, outcome, routeRequest } from "./route-sim.js";
 import {
-  BLOCKED, EXTENSIONS, IP_LITERAL, LOG_FIELDS, TCP_LOG_FIELDS, TRAILING_DOT, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, inputRules, load, terminatedHosts,
+  BLOCKED, EXTENSIONS, IP_LITERAL, LOG_FIELDS, ORDER_AWK, PAIRS_AWK, REJECT_PREFIX, TCP_LOG_FIELDS, TRAILING_DOT,
+  buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, inputRules, load, rejectRules, terminatedHosts,
 } from "../generate.js";
+import { spawnSync } from "node:child_process";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const FIXTURES = path.join(HERE, "fixtures");
@@ -175,7 +177,7 @@ test("ENVOY_OUT accepts return traffic first, then rejects new internal connecti
   const rules = envoyOutRules(model);
   assert.equal(rules[0], "-m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT");
   assert.equal(rules.at(-1), "-j DROP");
-  const kinds = rules.map(r => r === rules[0] ? "established" : / -j REJECT$/.test(r) ? "reject" : / -j ACCEPT$/.test(r) ? "accept" : "drop");
+  const kinds = rules.map(r => r === rules[0] ? "established" : / -j (REJECT$|LOG )/.test(r) ? "reject" : / -j ACCEPT$/.test(r) ? "accept" : "drop");
   const order = kinds.filter((k, i) => k !== kinds[i - 1]);
   assert.deepEqual(order, ["established", "reject", "accept", "drop"]);
   const rejected = rules.filter(r => r.endsWith("-j REJECT")).map(r => r.match(/-d (\S+)/)[1]);
@@ -409,4 +411,52 @@ test("the proxy VMs' own DNS is the fixed resolvers, set before anything looks u
   const envoy = envoyConfig(model);
   const dfp = envoy.static_resources.clusters.find(c => c.name === "open-forward").cluster_type.typed_config.dns_cache_config;
   assert.deepEqual(dfp.typed_dns_resolver_config.typed_config.resolvers.map(r => r.socket_address.address), model.proxy.resolvers);
+});
+
+test("every REJECT in ENVOY_OUT is logged just before it, under its rule's name (A14)", async () => {
+  const model = await fixture();
+  const rules = envoyOutRules(model);
+  const named = rejectRules(model);
+  const rejects = rules.map((r, i) => [r, i]).filter(([r]) => r.endsWith("-j REJECT"));
+  assert.equal(rejects.length, named.length);
+  for (const [r, i] of rejects) {
+    const cidr = r.match(/-d (\S+)/)[1];
+    const log = rules[i - 1];
+    const { name } = named.find(n => n.cidr === cidr);
+    assert.equal(log, `-m conntrack --ctstate NEW -d ${cidr} -m limit --limit 20/second --limit-burst 100 -j LOG --log-prefix "${REJECT_PREFIX}${name} " --log-level 4`);
+    assert.ok(`${REJECT_PREFIX}${name} `.length <= 29, "iptables limits a LOG prefix to 29 characters");
+  }
+  // The specific ranges come before 10/8, so their own name is what logs.
+  const order = named.map(n => n.name);
+  for (const n of ["lb", "c-default", "c-l0013", "c-l0185", "proxy-net"]) assert.ok(order.indexOf(n) < order.indexOf("private"), n);
+  assert.deepEqual(named.find(n => n.cidr === "169.254.0.0/16").name, "metadata");
+  assert.deepEqual(named.find(n => n.cidr === "199.36.153.8/30").name, "goog-priv");
+  assert.deepEqual(named.find(n => n.cidr === "199.36.153.4/30").name, "goog-restr");
+  assert.throws(() => rejectRules({ ...model, classes: { "compilers-averyverylongname": { name: "compilers-averyverylongname", cidr: "10.9.0.0/24" } } }), /1-11 characters/);
+});
+
+// What `iptables -S ENVOY_OUT` would print for the generated rules (it moves
+// -d first; the awk programs read it from anywhere).
+const listed = rules => rules.map(r => {
+  const d = r.match(/ -d (\S+)/);
+  return `-A ENVOY_OUT ${d ? `-d ${d[1]} ${r.replace(d[0], "")}` : r}`.replace(/ +/g, " ");
+});
+const awk = (program, lines) => spawnSync("awk", [program], { input: lines.join("\n") + "\n", encoding: "utf8" });
+
+test("the firewall self-check's awk accepts the generated chain and refuses a REJECT without its LOG (A14)", async () => {
+  const model = await fixture();
+  const lines = listed(envoyOutRules(model));
+  assert.equal(awk(ORDER_AWK, lines).stdout, "ERAD");
+  assert.equal(awk(PAIRS_AWK, lines).status, 0);
+  const firstLog = lines.findIndex(l => l.includes(" -j LOG "));
+  const unlogged = lines.filter((_, i) => i !== firstLog);
+  assert.notEqual(awk(PAIRS_AWK, unlogged).status, 0, "a REJECT with no LOG before it");
+  const swapped = [...lines];
+  [swapped[firstLog], swapped[firstLog + 1]] = [swapped[firstLog + 1], swapped[firstLog]];
+  assert.notEqual(awk(PAIRS_AWK, swapped).status, 0, "a LOG after its REJECT");
+  const mismatched = lines.map((l, i) => (i === firstLog ? l.replace(/-d \S+/, "-d 192.0.2.0/24") : l));
+  assert.notEqual(awk(PAIRS_AWK, mismatched).status, 0, "a LOG for another destination");
+  const config = JSON.parse(cloudInit(model, envoyConfig(model)).slice("#cloud-config\n".length));
+  const check = config.write_files.find(f => f.path === "/etc/egress-proxy/firewall-check.sh").content;
+  assert.ok(check.includes("a REJECT in ENVOY_OUT is not logged just before it"));
 });
