@@ -45,10 +45,10 @@ export function refusalFilter({ cls, since }) {
   if (!CLASS.test(cls ?? "")) throw new Error("--class must be a compiler class, compilers-<name>");
   if (!ISO.test(since ?? "")) throw new Error("--since must be an ISO 8601 time, e.g. 2026-10-20T00:00:00Z");
   return [
-    'resource.type="gce_instance"',
-    'jsonPayload.isolate01=("egress" OR "terminate" OR "terminate-tcp")',
+    "resource.type=\"gce_instance\"",
+    "jsonPayload.isolate01=(\"egress\" OR \"terminate\" OR \"terminate-tcp\")",
     `jsonPayload.class="${cls}"`,
-    '(jsonPayload.decision="refuse" OR jsonPayload.isolate01="terminate-tcp")',
+    "(jsonPayload.decision=\"refuse\" OR jsonPayload.isolate01=\"terminate-tcp\")",
     `timestamp>="${since}"`,
   ].join(" AND ");
 }

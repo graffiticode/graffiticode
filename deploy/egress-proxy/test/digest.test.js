@@ -18,7 +18,8 @@ const clone = x => JSON.parse(JSON.stringify(x));
 const own = envoy => envoy.node.metadata.isolate01;
 
 // Reverse every object's keys, all the way down.
-const reorder = v => Array.isArray(v) ? v.map(reorder)
+const reorder = v => Array.isArray(v)
+  ? v.map(reorder)
   : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).reverse().map(([k, x]) => [k, reorder(x)])) : v;
 
 // What Envoy's /config_dump would render for a resource: an Any with @type,
@@ -165,8 +166,13 @@ test("the report logs match: true only for the expected config, read from the ru
   const digest = own(envoy).config_sha256;
   const good = await runReport(model, { bootstrapDump: maskedDump(envoy), fullDump: configDump(envoy), templateDigest: digest });
   assert.deepEqual({ ...good.line }, {
-    isolate01: "config", instance: "egress-proxy-abcd", config_sha256: digest, resources_sha256: own(envoy).resources_sha256,
-    match: true, expected_config_sha256: digest, expected_resources_sha256: own(envoy).resources_sha256,
+    isolate01: "config",
+    instance: "egress-proxy-abcd",
+    config_sha256: digest,
+    resources_sha256: own(envoy).resources_sha256,
+    match: true,
+    expected_config_sha256: digest,
+    expected_resources_sha256: own(envoy).resources_sha256,
   });
   assert.ok(good.seen.includes("/config_dump?mask=bootstrap.node.metadata"));
   assert.ok(!good.seen.some(u => u.includes("resource=")));
@@ -205,8 +211,12 @@ test("verify-rollout passes only with every VM reporting the expected digest (A2
   const ok = verifyRollout({ expect: NEW, size: 2, instances, entries: [report("egress-proxy-a", "2026-10-20T10:05:00Z", NEW), report("egress-proxy-b", "2026-10-20T10:06:00Z", NEW)] });
   assert.equal(ok.ok, true, ok.problems.join("; "));
 
-  const oldVm = verifyRollout({ expect: NEW, size: 2, instances: [instance("egress-proxy-a", NEW), instance("egress-proxy-b", OLD)],
-    entries: [report("egress-proxy-a", "2026-10-20T10:05:00Z", NEW), report("egress-proxy-b", "2026-10-20T10:06:00Z", OLD)] });
+  const oldVm = verifyRollout({
+    expect: NEW,
+    size: 2,
+    instances: [instance("egress-proxy-a", NEW), instance("egress-proxy-b", OLD)],
+    entries: [report("egress-proxy-a", "2026-10-20T10:05:00Z", NEW), report("egress-proxy-b", "2026-10-20T10:06:00Z", OLD)]
+  });
   assert.equal(oldVm.ok, false);
   assert.ok(oldVm.problems.some(p => p.startsWith("egress-proxy-b: still running")), oldVm.problems.join("; "));
 

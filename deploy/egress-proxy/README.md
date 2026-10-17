@@ -15,59 +15,100 @@ and refuses to run them, and no `deploy.json` service has a `network` block yet.
 
 | File | What it is |
 | --- | --- |
-| `classes.json` | The compiler classes (a subnet each), the L0185 open class's refused names, and the proxy's fixed settings. `envoyImage` and `cosImage` are `null` until step 0 pins them |
-| `generate.js` | `deploy.json` + `classes.json` → `out/envoy.json` and `out/cloud-init.yaml` |
-| `infra.js --plan` | The gcloud commands for the VPC, firewall, DNS, NAT, identity, secrets, template, group, load balancer, alerts and rolling update |
+| `classes.json` | The compiler classes (a subnet each), the L0185 open class's refused names, and the proxy's fixed settings. `envoyImage`, `reportImage` and `cosImage` are `null` until step 0 pins them |
+| `generate.js` | `deploy.json` + `classes.json` → `out/envoy.json`, `out/cloud-init.yaml` and `out/alerts/*.json`, and prints the config digest |
+| `digest.js` | The config digest's canonical form and normalisation, shared by the generator and the VM's config report |
+| `infra.js --plan` | The gcloud commands for the VPC, firewall policy and rules, DNS, NAT, identity, secrets, template, group, load balancer, alerts and rolling update |
+| `refusals.js` | The inventory's query: what a class was refused since a time, and the refused destinations from the saved log lines |
+| `verify-rollout.js` | After a rolling update: is every VM running the expected config digest? |
 | `issue-certs.sh` | The private CA (once, offline) and one certificate per terminated host |
-| `test/` | Golden files and structural tests (`npm run test:egress-proxy`) |
+| `test/` | Golden files, structural and behavioural tests, a model of Envoy's routing (`route-sim.js`) (`npm run test:egress-proxy`) |
 
 ## How a request is handled
 
 1. A compiler sends `CONNECT host:443` to `http://<LB IP>:3128`. The class is the filter
    chain matching the connection's **direct source address**. There's no PROXY protocol, and
    `X-Forwarded-For` isn't trusted. A source outside every class subnet has no chain, so it's
-   closed.
-2. **Listed host:** the CONNECT is terminated and its bytes go to that class's own internal
-   listener, `terminate-<class>`, carrying the target as route metadata (`isolate01.target`).
-   There:
-   - the SNI picks the host's filter chain (an unknown SNI is closed);
-   - RBAC requires `isolate01.target` to equal that SNI;
+   closed (logged as `egress-tcp`, flags `NR`).
+2. A trailing dot is stripped before routing (`strip_trailing_host_dot`), and an authority
+   still ending in a dot gets 403 `trailing-dot`.
+3. **Listed host:** the CONNECT is terminated and its bytes go to that host's own internal
+   cluster, `terminate-<class>-<host>`. Its single endpoint is the class's internal listener,
+   `terminate-<class>`, and carries the target as endpoint metadata (`isolate01.target`),
+   passed into the internal connection with `passthrough_metadata` of kind `host`. There:
+   - the SNI picks the host's filter chain (an unknown SNI is closed, logged `terminate-tcp`);
+   - RBAC requires `isolate01.target` to equal that SNI (a refusal is logged `terminate-tcp`,
+     termination details naming rbac);
    - the HTTP route accepts only that host as `Host` / `:authority`, and anything else gets a
      403 `host-mismatch`.
 
    Envoy then opens its own TLS to the host, verifying the public certificate for that name.
-3. **Unlisted host:**
+4. **Unlisted host:**
    - Strict classes: 403 `unlisted`.
    - L0185's open class: names under `open.denySuffixes` get 403 `name`, IP literals 403
-     `ip-literal`, and CONNECTs to any port but 443 get 403 `port`. Everything else goes
-     through the dynamic forward proxy (IPv4 only, through the fixed resolvers), and so does
-     plain `http` in absolute form.
-4. Whatever a name resolved to, **the network decides where a new connection may go**:
+     `ip-literal`, and CONNECTs to any port but 443 (matched by suffix: Envoy's regexes are
+     full-match) get 403 `port`. Everything else goes through the dynamic forward proxy (IPv4
+     only, through the fixed resolvers), and so does plain `http` in absolute form. The open
+     class can never *list* a refused name: an exact listed route would win over the
+     wildcard refusal, so the generator rejects it.
+5. Whatever a name resolved to, **the network decides where a new connection may go**:
    - the `ENVOY_OUT` iptables chain, for Envoy's UID 10101;
    - the VPC firewall, for the proxy's service account.
 
    Private, loopback, link-local (metadata), CGNAT, multicast, reserved, Google private-access,
-   compiler and load-balancer addresses are refused.
+   compiler and load-balancer addresses are refused. Each `ENVOY_OUT` REJECT is logged just
+   before it (rate-limited) as `ISOLATE01-REJECT <name> ... DST=<address> DPT=<port>` in the
+   kernel log, and the proxy's deny-internal VPC rule is logged too: AT-11's evidence that a
+   control, not a dead destination, refused a connection. The names (`rejectRules` in
+   `generate.js`, at most 11 characters: a LOG prefix is at most 29):
 
-Every 403 carries `x-isolate01-refused: <reason>`, and every request logs one JSON line (stdout,
-shipped by COS's logging agent). The line has `isolate01` (`egress` or `terminate`), `class`,
-`downstream`, `target`, `sni`, `host`, `upstream` (the resolved address), `code`, `flags`,
-`details` and `refused`.
+   | Name | Range |
+   | --- | --- |
+   | `lb` | the load balancer |
+   | `c-<class>` | a compiler subnet (`compilers-` dropped) |
+   | `proxy-net` | the proxy subnet |
+   | `metadata` | `169.254.0.0/16` |
+   | `private` | `10/8`, `172.16/12`, `192.168/16` |
+   | `cgnat`, `zero`, `loopback`, `multicast`, `reserved` | `100.64/10`, `0/8`, `127/8`, `224/4`, `240/4` |
+   | `goog-priv`, `goog-restr` | `199.36.153.8/30`, `199.36.153.4/30` |
+
+**Logs** (JSON on stdout, shipped by COS's logging agent). Every HTTP line, outer (`egress`) and
+inner (`terminate`), has `class`, `downstream`, `method`, `target`, `sni`, `host`, `upstream`
+(the resolved address), `upstream_host`, `code`, `flags`, `details`, `decision` (`allow` or
+`refuse`), `reason` (the refusal, or `listed` / `open`), `probe` (AT-11's `x-isolate01-probe`
+header) and `start`. Every route sets `x-isolate01-decision` and `x-isolate01-reason`, every 403
+also `x-isolate01-refused: <reason>`, and allowed routes remove any upstream
+`x-isolate01-refused`, so an upstream can't forge a refusal. Connection-level lines
+(`egress-tcp`, `terminate-tcp`) record what closes before HTTP runs: `sni`, the passed-through
+`target`, `flags`, `termination` and `filter_chain`. `refusals.js` reads them all.
 
 ## The VM
 
 - **Units:**
-  - `egress-firewall.service` installs `ENVOY_OUT`, `EGRESS_IN` and the `ip6tables` drop.
+  - `egress-resolver.service` runs first: host DNS (docker's image pull, the certificate
+    fetch, the logging agent) goes to the fixed resolvers only, through a static
+    `/etc/resolv.conf` and systemd-resolved with no fallback, and `metadata.google.internal`
+    is pinned in `/etc/hosts`. The compilers' DNS response policy binds to the whole VPC, so
+    the metadata resolver would answer NXDOMAIN here too; queries sent straight to the fixed
+    resolvers bypass it. `resolver-check.sh` gates the certificate fetch and Envoy.
+  - `egress-firewall.service` installs `ENVOY_OUT`, `EGRESS_IN` (ending in its own DROP) and
+    the `ip6tables` drop.
   - `egress-certs.service` (root) fetches each `egress-proxy-cert-<host>` into tmpfs
     `/run/egress-proxy/certs`, owned by 10101.
-  - `egress-envoy.service` runs `firewall-check.sh` first, and won't start Envoy unless the
-    chain holds every generated rule, nothing else, in order (return traffic, then rejects,
-    then accepts, then drop), with Envoy's UID sent to it first in `OUTPUT`.
+  - `egress-envoy.service` runs `resolver-check.sh` and `firewall-check.sh` first, and won't
+    start Envoy unless the chain holds every generated rule, nothing else, in order (return
+    traffic, then logged rejects, then accepts, then drop), each REJECT just after its LOG,
+    with Envoy's UID sent to it first in `OUTPUT`, and `EGRESS_IN` whole.
+  - `envoy-config-report.timer` runs `envoy-config-report.service` 3 minutes after boot and
+    every 10 minutes: see "Config digest".
 - Envoy runs `--network host --user 10101:10101 --cap-drop ALL --read-only`. Host networking
   is what makes the UID rules apply. **Never run a bridged container on these VMs**: its
-  traffic would take Docker's forwarding chains and miss `ENVOY_OUT`.
+  traffic would take Docker's forwarding chains and miss `ENVOY_OUT`. The config report also
+  runs on the host network, as UID 10102.
 - `ENVOY_OUT` accepts `ESTABLISHED,RELATED` first, which carries the replies to compilers and
   health checks. Only then does it filter `NEW` connections.
+- `INPUT` takes TCP 3128 from the compiler subnets and 3129 (the health check) from the
+  health-check ranges, loopback and return traffic, and drops the rest itself.
 - The admin interface is on `127.0.0.1:9901` only. Check it from the VM:
   `curl -s localhost:9901/stats | grep isolate01`.
 - The service account `egress-proxy` has only these roles:
@@ -76,20 +117,67 @@ shipped by COS's logging agent). The line has `isolate01` (`egress` or `terminat
 
   Envoy's UID can't reach metadata, so it can't use any of them.
 
+## The compiler firewall
+
+Compilers are held by a **global network firewall policy**, `compilers-egress`, whose egress rules
+match the compiler subnets **by source range** (classic VPC egress rules can only target tags or
+service accounts, and a tag is something a deployment could leave out): allow TCP 3128 to the
+load balancer; deny DNS and DoT anywhere; deny everything else. Both denies are logged. The
+metadata server is reached directly and can't be blocked; the DNS response policy is its control.
+
+## Config digest
+
+Envoy has no config digest of its own, so `generate.js` writes two into the bootstrap's
+`node.metadata.isolate01`: `resources_sha256`, over the static listeners and clusters
+normalised as Envoy's config dump renders them (`digest.js`), and `config_sha256`, over the
+whole bootstrap with itself left out. The instance template carries `config_sha256` as
+`isolate01-config-sha256`. `generate.js` prints it.
+
+On each VM, `envoy-config-report.service` runs `config-report.mjs` in the pinned Node image. It
+reads the running Envoy's `/config_dump?mask=bootstrap.node.metadata` (not `resource=`, which
+takes only repeated fields), takes the digest from the `BootstrapConfigDump` entry, recomputes
+`resources_sha256` from the full `/config_dump` with `digest.js`'s own code, and logs
+`{isolate01: "config", instance, config_sha256, resources_sha256, match}`. `match` is true
+only if the running digest is the template's and the resources hash to what the generator
+wrote. An alert fires on any `match: false`.
+
 ## Operations
 
-**Change a compiler's hosts:**
-1. Edit its `network.allow` in `deploy.json` (reviewed with the service).
-2. Run `node deploy/egress-proxy/generate.js` and review the `out/` diff.
-3. If there's a new host, issue its certificate and add the secret (below).
-4. Build a new instance template and run a rolling update.
-5. Record the list in `docs/capability-policy-iam-review.md`.
+**Change a compiler's hosts** (the inventory loop, rollout step 3, and any later change). The
+Envoy config is static, so re-releasing a compiler with a new `network.allow` changes nothing on
+the proxy: the proxy is updated, and verified, **before** the compiler's candidate is retried.
+1. Edit its `network.allow` in `deploy.json` (reviewed with the service). For L0185, never a
+   name its class refuses: `generate.js` rejects it.
+2. Run `node deploy/egress-proxy/generate.js` and review the `out/` diff (the tests must be
+   green). Note the printed `config_sha256`.
+3. For each new host (every listed host is terminated, so each needs one): issue its
+   certificate and add its `egress-proxy-cert-<host>` secret, readable by `egress-proxy` only
+   (see "Certificates").
+4. Build a new instance template from `out/cloud-init.yaml`, carrying the new
+   `isolate01-config-sha256` (`infra.js --plan` prints the command), and run a rolling update.
+   Keep the old template.
+5. Verify:
+   - `envoy --mode validate -c out/envoy.json` on the pinned Envoy image;
+   - `node deploy/egress-proxy/verify-rollout.js --expect <config_sha256>`: run the commands it
+     prints, then judge with `--instances` and `--logs`. It fails if any VM still reports the
+     previous digest, has no report since it was created, or reports `match: false`;
+   - a probe job for the class reaches the new host through the load balancer, and an unlisted
+     host is still refused.
+6. Only then re-stage the compiler's candidate.
+7. Record the list in `docs/capability-policy-iam-review.md`.
+
+**Inventory.** `node deploy/egress-proxy/refusals.js --class <class> --since <time>` prints the
+log query for what a class was refused; run it, then `--parse` the saved file for each refused
+destination with its reason and count. Review each: list it (the loop above) or record it as not
+needed.
 
 **Rolling update** (config, Envoy digest or COS image):
 1. Create `egress-proxy-<version>` from the new `out/cloud-init.yaml`.
 2. Run
-   `gcloud compute instance-groups managed rolling-action start-update egress-proxy --version=template=egress-proxy-<version> --max-surge=1 --max-unavailable=0`.
-3. Watch the health check and the refusal metric.
+   `gcloud compute instance-groups managed rolling-action start-update egress-proxy --version=template=egress-proxy-<version> --max-surge=2 --max-unavailable=0`.
+   A regional group's fixed surge must be 0 or at least its number of zones, and the group
+   pins two (`classes.json` `proxy.zones`).
+3. Watch the health check and the refusal metric, then run `verify-rollout.js`.
 
 **Rollback:** the same command with the previous template, which is always kept.
 
@@ -97,13 +185,13 @@ shipped by COS's logging agent). The line has `isolate01` (`egress` or `terminat
 updates don't reboot anyway, so the fleet is only ever replaced:
 1. Monthly, and on any COS or Envoy advisory, pick the newest image on the chosen COS LTS
    milestone (`gcloud compute images list --project cos-cloud --filter="family~cos-<milestone>-lts"`)
-   and the new Envoy digest.
-2. Set both in `classes.json`, then regenerate, build a template and run a rolling update.
+   and the new Envoy and Node (report) digests.
+2. Set them in `classes.json`, then regenerate, build a template and run a rolling update.
 3. Record the date and versions here:
 
-| Date | COS image | Envoy digest | By |
-| --- | --- | --- | --- |
-| — | — | — | (not deployed) |
+| Date | COS image | Envoy digest | Node digest | By |
+| --- | --- | --- | --- | --- |
+| — | — | — | — | (not deployed) |
 
 ## Certificates
 
@@ -132,7 +220,22 @@ leaves that machine.
 ## Before production (rollout step 0)
 
 The prototype in a scratch project must show each check in the plan's step 0. It's also where
-these get settled:
+these get settled, each an assumption the offline tests can't prove:
 - `envoy --mode validate -c out/envoy.json` on the pinned digest;
-- the DNS lockdown's form (`infra.js` marks it OPEN);
-- that route metadata passes through `internal_upstream` to the inner RBAC filter.
+- that host-kind `passthrough_metadata` reaches the inner listener's connection dynamic
+  metadata, where the RBAC `metadata` principal reads it (a listed tunnel succeeds, and one
+  without the metadata is refused), and whether `%DYNAMIC_METADATA(isolate01:target)%` shows it
+  in the inner HTTP log (`target_metadata`) as well as the connection-level one;
+- that `strip_trailing_host_dot` applies to a CONNECT authority with a port (the `trailing-dot`
+  refusal holds either way);
+- that route `response_headers_to_add` reach the logged CONNECT 200 and local replies, so
+  `decision` and `reason` are never `-` (`refusals.js` falls back to the 403 and its refusal
+  header);
+- that listener-level access logs fire for RBAC and no-filter-chain closes, with
+  `%CONNECTION_TERMINATION_DETAILS%` naming rbac;
+- that the config report's recomputed `resources_sha256` matches the generator's on the
+  pinned Envoy (proto JSON's rendering of the dump);
+- that Cloud Run's Direct VPC egress traffic matches the firewall policy's source ranges;
+- that the proxy VMs' host DNS works with the lockdown active (a cold boot pulls, fetches,
+  starts and ships logs), and that kernel `ISOLATE01-REJECT` lines reach Cloud Logging;
+- the DNS lockdown's form (`infra.js` marks it OPEN).
