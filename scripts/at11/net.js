@@ -591,10 +591,14 @@ export function judgeDnsRow(row, log, control) {
   if (!control?.label || !control.sentAt) return { state: "void", why: "no outside control query was sent" };
   if (!log || typeof log.text !== "string" || !log.text.trim()) return { state: "void", why: "the authoritative log is empty" };
   if (!log.fetchedAt || log.fetchedAt <= control.sentAt) return { state: "void", why: "the log was fetched before the control query was sent" };
-  if (!log.text.includes(control.label)) return { state: "void", why: "the control label isn't in the log, so it proves nothing" };
+  // Resolvers randomise the case of names they send on (Google's does, 0x20
+  // encoding: `PRObe-4A7E…`), so the log is matched without case.
+  const text = log.text.toLowerCase();
+  const logged = label => text.includes(String(label).toLowerCase());
+  if (!logged(control.label)) return { state: "void", why: "the control label isn't in the log, so it proves nothing" };
   const first = row.results.map(r => r.logCheck.queriedAt).sort()[0];
   if (!log.from || !log.to || log.from > first || log.to < control.sentAt) return { state: "void", why: "the log doesn't cover the run's window" };
-  const leaked = row.results.filter(r => log.text.includes(r.logCheck.label)).map(r => r.target);
+  const leaked = row.results.filter(r => logged(r.logCheck.label)).map(r => r.target);
   return leaked.length ? { state: "failed", why: `queries reached the authoritative server: ${leaked.join(", ")}`, leaked } : { state: "passed", leaked: [] };
 }
 
