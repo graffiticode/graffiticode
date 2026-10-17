@@ -3,8 +3,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fullMatch, outcome, routeRequest } from "./route-sim.js";
 import {
-  BLOCKED, EXTENSIONS, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, load, terminatedHosts,
+  BLOCKED, EXTENSIONS, IP_LITERAL, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, load, terminatedHosts,
 } from "../generate.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
@@ -105,9 +106,9 @@ test("only the open class forwards unlisted names, refusing denied names, IP lit
   const catchAll = open.find(v => v.name === "open");
   assert.equal(catchAll.routes[0].direct_response.status, 403);
   assert.equal(catchAll.routes[1].direct_response.status, 403);
-  const regex = new RegExp(catchAll.routes[0].match.headers[0].string_match.safe_regex.regex);
-  for (const literal of ["93.184.216.34:443", "10.0.0.1", "[2001:db8::1]:443", "[::ffff:169.254.169.254]:80"]) assert.ok(regex.test(literal), literal);
-  assert.ok(!regex.test("example.com:443"));
+  const regex = catchAll.routes[0].match.headers[0].string_match.safe_regex.regex;
+  for (const literal of ["93.184.216.34:443", "10.0.0.1", "[2001:db8::1]:443", "[::ffff:169.254.169.254]:80"]) assert.ok(fullMatch(regex, literal), literal);
+  assert.ok(!fullMatch(regex, "example.com:443"));
   assert.equal(catchAll.routes[2].route.cluster, "open-forward");
   assert.equal(catchAll.routes[3].direct_response.status, 403, "CONNECT to another port");
   // The listed Graffiticode host is still terminated, not forwarded, for L0185.
@@ -211,4 +212,50 @@ test("the open class can never list a name it refuses, run.app included (D2)", a
 test("the repository's own deploy.json and classes.json load", async () => {
   const model = await load();
   assert.ok(model.classes["compilers-default"]);
+});
+
+const outerHcm = (envoy, className) => envoy.static_resources.listeners.find(l => l.name === "egress")
+  .filter_chains.find(c => c.name === className).filters[0].typed_config;
+
+test("the open class forwards an ordinary public host, and refuses what D2 refuses (A10)", async () => {
+  const envoy = envoyConfig(await fixture());
+  const open = outerHcm(envoy, "compilers-l0185");
+  const connect = authority => outcome(routeRequest(open, { method: "CONNECT", authority }));
+  assert.deepEqual(connect("example.com:443"), { cluster: "open-forward" });
+  assert.deepEqual(connect("www.wikipedia.org:443"), { cluster: "open-forward" });
+  assert.deepEqual(connect("example.com:8443"), { refused: "port" });
+  assert.deepEqual(connect("example.com:80"), { refused: "port" });
+  assert.deepEqual(connect("93.184.216.34:443"), { refused: "ip-literal" });
+  assert.deepEqual(connect("[2001:db8::1]:443"), { refused: "ip-literal" });
+  for (const name of ["learnosity.com:443", "eu.learnosity.com:443", "items.learnosity.net:443", "api-sja7fatcta-uc.a.run.app:443", "metadata.google.internal:443", "storage.googleapis.com:443"]) {
+    assert.deepEqual(connect(name), { refused: "name" }, name);
+  }
+  assert.deepEqual(connect("api.graffiticode.org:443"), { cluster: "terminate-compilers-l0185" });
+  // Plain http in absolute form: the Host is the authority, without a port.
+  assert.deepEqual(outcome(routeRequest(open, { method: "GET", authority: "example.com", path: "/x" })), { cluster: "open-forward" });
+  assert.deepEqual(outcome(routeRequest(open, { method: "GET", authority: "eu.learnosity.com", path: "/" })), { refused: "name" });
+});
+
+test("strict classes tunnel only their listed hosts", async () => {
+  const envoy = envoyConfig(await fixture());
+  const strict = outerHcm(envoy, "compilers-default");
+  const connect = authority => outcome(routeRequest(strict, { method: "CONNECT", authority }));
+  assert.ok(connect("policy-sja7fatcta-uc.a.run.app:443").cluster?.startsWith("terminate-compilers-default"));
+  for (const a of ["example.com:443", "storage.googleapis.com:443", "api.graffiticode.org:443", "policy-sja7fatcta-uc.a.run.app:8443"]) {
+    assert.deepEqual(connect(a), { refused: "unlisted" }, a);
+  }
+});
+
+test("every safe_regex is written for Envoy's full-match semantics", async () => {
+  const regexes = [];
+  const walk = n => {
+    if (Array.isArray(n)) return n.forEach(walk);
+    if (!n || typeof n !== "object") return;
+    if (n.safe_regex) regexes.push(n.safe_regex.regex);
+    Object.values(n).forEach(walk);
+  };
+  walk(envoyConfig(await fixture()));
+  assert.ok(regexes.length > 0);
+  for (const r of regexes) assert.ok(r.startsWith("^") && r.endsWith("$"), `${r} must be anchored: Envoy matches the whole value`);
+  assert.deepEqual([...new Set(regexes)], [IP_LITERAL]);
 });

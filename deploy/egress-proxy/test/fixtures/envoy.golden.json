@@ -571,9 +571,7 @@
                                 {
                                   "name": ":authority",
                                   "string_match": {
-                                    "safe_regex": {
-                                      "regex": ":443$"
-                                    }
+                                    "suffix": ":443"
                                   }
                                 }
                               ]

@@ -155,8 +155,10 @@ const refuse = (reason) => ({
   response_headers_to_add: [{ header: { key: "x-isolate01-refused", value: reason } }],
 });
 
-// IPv4 and bracketed IPv6 literals, with or without a port.
-const IP_LITERAL = String.raw`^(\[[0-9A-Fa-f:.]+\]|[0-9]{1,3}(\.[0-9]{1,3}){3})(:[0-9]+)?$`;
+// IPv4 and bracketed IPv6 literals, with or without a port. Envoy's
+// safe_regex is a full match (RE2), so this matches the whole authority; every
+// regex here is written anchored on both ends to say so.
+export const IP_LITERAL = String.raw`^(\[[0-9A-Fa-f:.]+\]|[0-9]{1,3}(\.[0-9]{1,3}){3})(:[0-9]+)?$`;
 
 const hcm = (statPrefix, routeConfig, httpFilters, logFields) => ({
   name: "envoy.filters.network.http_connection_manager",
@@ -202,7 +204,9 @@ function outerRouteConfig(cls, model) {
     const deny = model.denySuffixes.flatMap(s => [s, `*.${s}`]).flatMap(d => [d, `${d}:443`, `${d}:80`]);
     virtual_hosts.push({ name: "open-refused-names", domains: deny, routes: [{ match: { prefix: "" }, ...refuse("name") }, { match: { connect_matcher: {} }, ...refuse("name") }] });
     const ipLiteral = [{ name: ":authority", string_match: { safe_regex: { regex: IP_LITERAL } } }];
-    const port443 = [{ name: ":authority", string_match: { safe_regex: { regex: ":443$" } } }];
+    // A suffix, not a regex: Envoy's safe_regex must match the whole value,
+    // so ":443$" would never match "example.com:443".
+    const port443 = [{ name: ":authority", string_match: { suffix: ":443" } }];
     virtual_hosts.push({
       name: "open",
       domains: ["*"],
