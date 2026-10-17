@@ -42,7 +42,9 @@ impl Session {
         let egress = chrome_egress(|name| std::env::var(name).ok())?;
         let mut config = BrowserConfig::builder()
             .no_sandbox()
-            .args(["--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--hide-scrollbars"])
+            // Switch names without `--`: chromiumoxide adds it (a `--` here became `----x`, which
+            // Chrome ignores).
+            .args(["disable-setuid-sandbox", "disable-dev-shm-usage", "disable-gpu", "hide-scrollbars"])
             .args(egress.switches.iter().map(|(name, value)| (name.as_str(), value.as_str())))
             .user_data_dir(profile.path())
             // The window is sized per snap, through device metrics.
