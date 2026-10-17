@@ -69,7 +69,7 @@ export function buildModel(deployConfig, classes) {
   for (const [name, c] of Object.entries(classes.classes ?? {})) {
     if (!/^compilers-[a-z0-9-]+$/.test(name)) throw new Error(`classes.json: class ${name} must be named compilers-<name>`);
     if (!cidr.test(c.cidr ?? "")) throw new Error(`classes.json: class ${name} needs an IPv4 cidr`);
-    model.classes[name] = { name, cidr: c.cidr, open: c.open === true, hosts: new Set(), services: [] };
+    model.classes[name] = { name, cidr: c.cidr, open: c.open === true, hosts: new Set(), services: [], accounts: [] };
   }
   for (const [service, config] of Object.entries(deployConfig.services ?? {})) {
     const n = config.network;
@@ -81,6 +81,11 @@ export function buildModel(deployConfig, classes) {
       throw new Error(`deploy.json: ${service}'s network.proxy must be http://${model.loadBalancerAddress}:${model.proxy.listenPort}`);
     }
     cls.services.push(service);
+    // The runtime identity reads the CA bundle (infra.js binds it).
+    if (!/^[a-z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com$/.test(config.runtimeServiceAccount ?? "")) {
+      throw new Error(`deploy.json: ${service} has a network block but no runtimeServiceAccount`);
+    }
+    cls.accounts.push(config.runtimeServiceAccount);
     for (const host of n.allow) {
       // An exact listed route would win over the open class's wildcard
       // refusals, so a refused name can never be listed for it (D2: no
@@ -91,11 +96,18 @@ export function buildModel(deployConfig, classes) {
       cls.hosts.add(host);
     }
   }
-  for (const cls of Object.values(model.classes)) cls.hosts = [...cls.hosts].sort();
+  for (const cls of Object.values(model.classes)) {
+    cls.hosts = [...cls.hosts].sort();
+    cls.accounts = [...new Set(cls.accounts)].sort();
+  }
   return model;
 }
 
 const denied = (host, suffixes) => suffixes.some(s => host === s || host.endsWith(`.${s}`));
+
+// Every compiler runtime account behind the proxy: each reads the CA bundle.
+export const compilerAccounts = model =>
+  [...new Set(Object.values(model.classes).flatMap(c => c.accounts))].sort();
 
 // Every host terminated anywhere, each with its own certificate.
 export const terminatedHosts = model =>
@@ -547,6 +559,8 @@ export function inputRules(model) {
     "-m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
     ...Object.values(model.classes).map(c => `-p tcp -s ${c.cidr} --dport ${model.proxy.listenPort} -j ACCEPT`),
     ...model.proxy.healthCheckRanges.map(r => `-p tcp -s ${r} --dport ${model.proxy.healthPort} -j ACCEPT`),
+    // Its own final drop, not COS's default policy.
+    "-j DROP",
   ];
 }
 
@@ -592,6 +606,9 @@ function firewallCheckScript(model) {
     `[ "$(printf '%s\\n' "$actual" | ${order})" = "ERAD" ] || fail "ENVOY_OUT is out of order"`,
     `[ "$(iptables -w -S OUTPUT | sed -n 2p)" = "-A OUTPUT -m owner --uid-owner ${model.proxy.uid} -j ENVOY_OUT" ] || fail "OUTPUT does not send Envoy's UID to ENVOY_OUT first"`,
     `ip6tables -w -C OUTPUT -m owner --uid-owner ${model.proxy.uid} -j DROP || fail "ip6tables does not drop Envoy's UID"`,
+    ...inputRules(model).map(r => `iptables -w -C EGRESS_IN ${r} || fail ${shellQuote(`EGRESS_IN lacks: ${r}`)}`),
+    `[ "$(iptables -w -S EGRESS_IN | tail -n 1)" = "-A EGRESS_IN -j DROP" ] || fail "EGRESS_IN does not end in its own DROP"`,
+    `[ "$(iptables -w -S INPUT | sed -n 2p)" = "-A INPUT -j EGRESS_IN" ] || fail "INPUT does not send everything to EGRESS_IN first"`,
     "",
   ].join("\n");
 }
@@ -694,6 +711,67 @@ function unit(unitSection, service, install) {
 }
 const section = obj => Object.entries(obj).flatMap(([k, v]) => (Array.isArray(v) ? v : [v]).map(x => `${k}=${x}`));
 
+// Cloud Monitoring alert policies (A9), written to out/alerts/ and created by
+// infra.js's printed commands. Log-based metrics: egress-proxy-access (every
+// proxy line), egress-proxy-refused (decision refuse), egress-proxy-unhealthy
+// (health-check log transitions to UNHEALTHY).
+export function alertPolicies(model) {
+  const alerts = model.proxy.alerts ?? {};
+  const metric = name => `metric.type="logging.googleapis.com/user/${name}" AND resource.type="gce_instance"`;
+  const channels = alerts.notificationChannels ?? [];
+  return {
+    "egress-proxy-access-absent": {
+      displayName: "ISOLATE-01: egress proxy access logs stopped on an instance",
+      documentation: { content: "A proxy VM's access-log lines haven't arrived for 10 minutes. A broken logging path hides refusals: check the VM's logging agent (deploy/egress-proxy/README.md).", mimeType: "text/markdown" },
+      combiner: "OR",
+      conditions: [{
+        displayName: "egress-proxy-access absent for 10 minutes, per instance",
+        conditionAbsent: {
+          filter: metric("egress-proxy-access"),
+          duration: "600s",
+          aggregations: [{ alignmentPeriod: "300s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM", groupByFields: ["resource.label.instance_id"] }],
+          trigger: { count: 1 },
+        },
+      }],
+      notificationChannels: channels,
+    },
+    "egress-proxy-refused-spike": {
+      displayName: "ISOLATE-01: egress proxy refusals above baseline",
+      documentation: { content: "More refusals than the reviewed baseline: a compiler reaching for something unlisted, or a broken allowlist. Run refusals.js for the class.", mimeType: "text/markdown" },
+      combiner: "OR",
+      conditions: [{
+        displayName: `more than ${alerts.refusedPerMinute ?? 60} refusals a minute`,
+        conditionThreshold: {
+          filter: metric("egress-proxy-refused"),
+          comparison: "COMPARISON_GT",
+          thresholdValue: alerts.refusedPerMinute ?? 60,
+          duration: "300s",
+          aggregations: [{ alignmentPeriod: "60s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }],
+          trigger: { count: 1 },
+        },
+      }],
+      notificationChannels: channels,
+    },
+    "egress-proxy-unhealthy": {
+      displayName: "ISOLATE-01: an egress proxy VM failed its health check",
+      documentation: { content: "The load balancer's health check marked a proxy VM unhealthy. Autohealing replaces it; with both down, no protected compile can run.", mimeType: "text/markdown" },
+      combiner: "OR",
+      conditions: [{
+        displayName: "any UNHEALTHY transition",
+        conditionThreshold: {
+          filter: metric("egress-proxy-unhealthy"),
+          comparison: "COMPARISON_GT",
+          thresholdValue: 0,
+          duration: "0s",
+          aggregations: [{ alignmentPeriod: "60s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }],
+          trigger: { count: 1 },
+        },
+      }],
+      notificationChannels: channels,
+    },
+  };
+}
+
 // Every extension name used in a config, for the stable-only check.
 export function extensionsUsed(config) {
   const names = new Set();
@@ -732,6 +810,11 @@ async function main() {
   await mkdir(opts.out, { recursive: true });
   await writeFile(path.join(opts.out, "envoy.json"), JSON.stringify(envoy, null, 2) + "\n");
   console.log(`wrote ${path.join(opts.out, "envoy.json")}`);
+  await mkdir(path.join(opts.out, "alerts"), { recursive: true });
+  for (const [name, policy] of Object.entries(alertPolicies(model))) {
+    await writeFile(path.join(opts.out, "alerts", `${name}.json`), JSON.stringify(policy, null, 2) + "\n");
+  }
+  console.log(`wrote ${path.join(opts.out, "alerts")}/`);
   try {
     await writeFile(path.join(opts.out, "cloud-init.yaml"), cloudInit(model, envoy));
     console.log(`wrote ${path.join(opts.out, "cloud-init.yaml")}`);

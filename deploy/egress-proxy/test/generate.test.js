@@ -5,7 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fullMatch, outcome, routeRequest } from "./route-sim.js";
 import {
-  BLOCKED, EXTENSIONS, IP_LITERAL, LOG_FIELDS, TCP_LOG_FIELDS, TRAILING_DOT, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, load, terminatedHosts,
+  BLOCKED, EXTENSIONS, IP_LITERAL, LOG_FIELDS, TCP_LOG_FIELDS, TRAILING_DOT, buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, inputRules, load, terminatedHosts,
 } from "../generate.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
@@ -184,6 +184,19 @@ test("ENVOY_OUT accepts return traffic first, then rejects new internal connecti
   assert.ok(rules.includes("-m conntrack --ctstate NEW -p udp -d 8.8.8.8/32 --dport 53 -j ACCEPT"));
 });
 
+test("INPUT takes only compilers on 3128 and health checks on 3129, then its own DROP (A9)", async () => {
+  const model = await fixture();
+  const rules = inputRules(model);
+  assert.equal(rules.at(-1), "-j DROP");
+  assert.ok(rules.includes("-p tcp -s 35.191.0.0/16 --dport 3129 -j ACCEPT"));
+  assert.ok(rules.includes("-p tcp -s 10.8.16.0/22 --dport 3128 -j ACCEPT"));
+  assert.ok(!rules.some(r => r.includes("--dport 9901")), "the admin port is never reachable but on lo");
+  const config = JSON.parse(cloudInit(model, envoyConfig(model)).slice("#cloud-config\n".length));
+  const check = config.write_files.find(f => f.path === "/etc/egress-proxy/firewall-check.sh").content;
+  assert.match(check, /EGRESS_IN does not end in its own DROP/);
+  for (const r of rules) assert.ok(check.includes(`iptables -w -C EGRESS_IN ${r}`), r);
+});
+
 test("cloud-init runs Envoy on the host network as its own UID, behind the firewall self-check", async () => {
   const model = await fixture();
   const text = cloudInit(model, envoyConfig(model));
@@ -219,22 +232,22 @@ test("cloud-init refuses unpinned images", async () => {
 test("deploy.json entries must name a known class, the compiler network and the proxy's address", async () => {
   const classes = await json("classes.json");
   const net = { network: "compilers", subnet: "compilers-default", tags: ["c"], proxy: "http://10.8.0.2:3128", ca: {}, allow: [] };
-  assert.throws(() => buildModel({ services: { a: { network: { ...net, subnet: "nope" } } } }, classes), /not a class/);
-  assert.throws(() => buildModel({ services: { a: { network: { ...net, network: "default" } } } }, classes), /must be compilers/);
-  assert.throws(() => buildModel({ services: { a: { network: { ...net, proxy: "http://10.8.0.3:3128" } } } }, classes), /network.proxy/);
-  assert.throws(() => buildModel({ services: { a: { network: { ...net, subnet: "compilers-l0185", allow: ["eu.learnosity.com"] } } } }, classes), /open class refuses/);
+  assert.throws(() => buildModel({ services: { a: { runtimeServiceAccount: "a-run@graffiticode.iam.gserviceaccount.com", network: { ...net, subnet: "nope" } } } }, classes), /not a class/);
+  assert.throws(() => buildModel({ services: { a: { runtimeServiceAccount: "a-run@graffiticode.iam.gserviceaccount.com", network: { ...net, network: "default" } } } }, classes), /must be compilers/);
+  assert.throws(() => buildModel({ services: { a: { runtimeServiceAccount: "a-run@graffiticode.iam.gserviceaccount.com", network: { ...net, proxy: "http://10.8.0.3:3128" } } } }, classes), /network.proxy/);
+  assert.throws(() => buildModel({ services: { a: { runtimeServiceAccount: "a-run@graffiticode.iam.gserviceaccount.com", network: { ...net, subnet: "compilers-l0185", allow: ["eu.learnosity.com"] } } } }, classes), /open class refuses/);
 });
 
 test("the open class can never list a name it refuses, run.app included (D2)", async () => {
   const classes = await json("classes.json");
   const net = { network: "compilers", subnet: "compilers-l0185", tags: ["c"], proxy: "http://10.8.0.2:3128", ca: {}, allow: [] };
   for (const host of ["api-sja7fatcta-uc.a.run.app", "run.app", "storage.googleapis.com", "metadata.google.internal", "learnosity.net"]) {
-    assert.throws(() => buildModel({ services: { a: { network: { ...net, allow: [host] } } } }, classes), /open class refuses/, host);
+    assert.throws(() => buildModel({ services: { a: { runtimeServiceAccount: "a-run@graffiticode.iam.gserviceaccount.com", network: { ...net, allow: [host] } } } }, classes), /open class refuses/, host);
   }
   // A strict class may still list a run.app host: it has no open route to override.
-  const strict = buildModel({ services: { a: { network: { ...net, subnet: "compilers-default", allow: ["policy-sja7fatcta-uc.a.run.app"] } } } }, classes);
+  const strict = buildModel({ services: { a: { runtimeServiceAccount: "a-run@graffiticode.iam.gserviceaccount.com", network: { ...net, subnet: "compilers-default", allow: ["policy-sja7fatcta-uc.a.run.app"] } } } }, classes);
   assert.deepEqual(strict.classes["compilers-default"].hosts, ["policy-sja7fatcta-uc.a.run.app"]);
-  const open = buildModel({ services: { a: { network: { ...net, allow: ["api.graffiticode.org"] } } } }, classes);
+  const open = buildModel({ services: { a: { runtimeServiceAccount: "a-run@graffiticode.iam.gserviceaccount.com", network: { ...net, allow: ["api.graffiticode.org"] } } } }, classes);
   assert.deepEqual(open.classes["compilers-l0185"].hosts, ["api.graffiticode.org"]);
 });
 

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { commands, render, parseArgs, DEFERRED } from "../infra.js";
-import { load } from "../generate.js";
+import { readFile } from "node:fs/promises";
+import { alertPolicies, buildModel, load } from "../generate.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const FIXTURES = path.join(HERE, "fixtures");
@@ -29,11 +30,39 @@ test("the proxy's identity gets log and metric writing and certificate secrets o
   assert.ok(secretBindings.every(s => s.startsWith("egress-proxy-cert-")), "the proxy reads certificate secrets, not the CA bundle");
 });
 
-test("compilers are given the CA bundle and never a certificate key", async () => {
-  const text = render(commands(await fixture(), { compilerAccounts: ["l0000-run@graffiticode.iam.gserviceaccount.com"] }));
-  const lines = text.split("\n").filter(l => l.includes("l0000-run@"));
-  assert.equal(lines.length, 1);
-  assert.match(lines[0], /add-iam-policy-binding egress-proxy-ca-bundle /);
+test("every compiler behind the proxy is given the CA bundle, and never a certificate key (A9)", async () => {
+  const text = render(commands(await fixture()));
+  const bound = [...text.matchAll(/secrets add-iam-policy-binding egress-proxy-ca-bundle .*--member=serviceAccount:(\S+) /g)].map(m => m[1]);
+  assert.deepEqual(bound, ["l0000-run@graffiticode.iam.gserviceaccount.com", "l0013-run@graffiticode.iam.gserviceaccount.com", "l0176-run@graffiticode.iam.gserviceaccount.com", "l0185-run@graffiticode.iam.gserviceaccount.com"]);
+  assert.ok(!text.includes("api-run@"), "a service without a network block isn't a compiler here");
+  for (const account of bound) {
+    const lines = text.split("\n").filter(l => l.includes(account));
+    assert.equal(lines.length, 1, account);
+    assert.match(lines[0], /add-iam-policy-binding egress-proxy-ca-bundle /);
+  }
+  assert.doesNotMatch(text, /each compiler account|<lNNNN-run/);
+});
+
+test("a network block without a runtime account is refused", async () => {
+  const classes = JSON.parse(await readFile(path.join(FIXTURES, "classes.json"), "utf8"));
+  const net = { network: "compilers", subnet: "compilers-default", tags: [], proxy: "http://10.8.0.2:3128", ca: {}, allow: [] };
+  assert.throws(() => buildModel({ services: { a: { network: net } } }, classes), /runtimeServiceAccount/);
+});
+
+test("the alert policies are real: access logs absent per instance, refusal spikes, unhealthy VMs (A9)", async () => {
+  const model = await fixture();
+  const policies = alertPolicies(model);
+  const absent = policies["egress-proxy-access-absent"].conditions[0].conditionAbsent;
+  assert.equal(absent.duration, "600s");
+  assert.match(absent.filter, /logging\.googleapis\.com\/user\/egress-proxy-access/);
+  assert.deepEqual(absent.aggregations[0].groupByFields, ["resource.label.instance_id"]);
+  assert.match(policies["egress-proxy-refused-spike"].conditions[0].conditionThreshold.filter, /egress-proxy-refused/);
+  assert.match(policies["egress-proxy-unhealthy"].conditions[0].conditionThreshold.filter, /egress-proxy-unhealthy/);
+  const text = render(commands(model));
+  for (const name of Object.keys(policies)) assert.ok(text.includes(`monitoring policies create --project=graffiticode --policy-from-file=out/alerts/${name}.json`), name);
+  assert.doesNotMatch(text, /# alert policies, written in step 1/);
+  assert.match(text, /logging metrics create egress-proxy-refused .*jsonPayload\.decision=/);
+  assert.match(text, /health-checks create http egress-proxy-ready .*--enable-logging/);
 });
 
 test("the load balancer is internal passthrough TCP, and patching rolls one VM at a time", async () => {

@@ -8,14 +8,14 @@
 // Deployment is deferred (Jeff, 2026-10-14): this prints the commands for
 // review and never runs them. Without --plan it refuses.
 
-import { load, terminatedHosts, slug, BLOCKED } from "./generate.js";
+import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies } from "./generate.js";
 
 export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
 
 const q = s => (/^[A-Za-z0-9_./:=@,+-]+$/.test(s) ? s : `'${String(s).replace(/'/g, "'\\''")}'`);
 const cmd = (...args) => args.flat().filter(a => a !== null && a !== undefined && a !== false).map(String).map(q).join(" ");
 
-export function commands(model, { compilerAccounts = [] } = {}) {
+export function commands(model) {
   const { project, region, network } = model;
   const p = `--project=${project}`;
   const r = `--region=${region}`;
@@ -27,6 +27,7 @@ export function commands(model, { compilerAccounts = [] } = {}) {
   if (zones.length !== 2 || zones.some(z => !z.startsWith(`${region}-`))) {
     throw new Error(`classes.json: proxy.zones must pin two zones in ${region}`);
   }
+  const accounts = compilerAccounts(model);
   const steps = [];
   const step = (title, ...lines) => steps.push({ title, lines });
 
@@ -87,8 +88,9 @@ export function commands(model, { compilerAccounts = [] } = {}) {
   step("Secrets: the public CA bundle (compilers) and one certificate key per host (the proxy only)",
     cmd("gcloud", "secrets", "create", "egress-proxy-ca-bundle", p, "--replication-policy=automatic"),
     cmd("gcloud", "secrets", "versions", "add", "egress-proxy-ca-bundle", p, "--data-file=ca.crt"),
-    ...compilerAccounts.map(a => cmd("gcloud", "secrets", "add-iam-policy-binding", "egress-proxy-ca-bundle", p, `--member=serviceAccount:${a}`, "--role=roles/secretmanager.secretAccessor")),
-    ...(compilerAccounts.length ? [] : ["# each compiler account: gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --member=serviceAccount:<lNNNN-run@...> --role=roles/secretmanager.secretAccessor"]),
+    // Every runtime account of a service with a network block (deploy.json).
+    ...accounts.map(a => cmd("gcloud", "secrets", "add-iam-policy-binding", "egress-proxy-ca-bundle", p, `--member=serviceAccount:${a}`, "--role=roles/secretmanager.secretAccessor")),
+    ...(accounts.length ? [] : ["# no deploy.json service has a network block yet: no compiler account reads the CA bundle"]),
     ...hosts.flatMap(h => [
       cmd("gcloud", "secrets", "create", `egress-proxy-cert-${slug(h)}`, p, "--replication-policy=automatic"),
       cmd("gcloud", "secrets", "versions", "add", `egress-proxy-cert-${slug(h)}`, p, `--data-file=certs/${slug(h)}.pem`),
@@ -101,7 +103,7 @@ export function commands(model, { compilerAccounts = [] } = {}) {
       `--region=${region}`, "--no-address", `--service-account=${sa}`, "--scopes=cloud-platform", "--shielded-secure-boot",
       "--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled",
       "--metadata-from-file=user-data=out/cloud-init.yaml"),
-    cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready"),
+    cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready", "--enable-logging"),
     cmd("gcloud", "compute", "instance-groups", "managed", "create", "egress-proxy", p, r, "--template=egress-proxy-<template-version>", "--size=2",
       `--zones=${zones.join(",")}`, "--health-check=egress-proxy-ready", "--initial-delay=120", "--target-distribution-shape=EVEN"));
 
@@ -113,8 +115,11 @@ export function commands(model, { compilerAccounts = [] } = {}) {
 
   step("Alerts: a failing health check, a spike in refusals, and access logs stopping",
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-access", p, "--description=ISOLATE-01 proxy access log lines", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\")"),
-    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-refused", p, "--description=ISOLATE-01 proxy refusals", "--log-filter=jsonPayload.isolate01=\"egress\" AND jsonPayload.code=\"403\""),
-    "# alert policies, written in step 1: egress-proxy-access absent for 10 minutes on any instance; egress-proxy-refused above its baseline rate; the group's health check failing");
+    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-refused", p, "--description=ISOLATE-01 proxy refusals", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\") AND jsonPayload.decision=\"refuse\""),
+    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-unhealthy", p, "--description=ISOLATE-01 proxy VMs marked unhealthy",
+      "--log-filter=resource.type=\"gce_instance_group\" AND jsonPayload.healthCheckProbeResult.healthState=\"UNHEALTHY\""),
+    ...Object.keys(alertPolicies(model)).map(name => cmd("gcloud", "alpha", "monitoring", "policies", "create", p, `--policy-from-file=out/alerts/${name}.json`)),
+    ...((model.proxy.alerts?.notificationChannels ?? []).length ? [] : ["# classes.json proxy.alerts.notificationChannels is empty: set it before step 1, or the policies alert no one"]));
 
   // A regional group's fixed surge must be 0 or at least its number of zones
   // (A7): two pinned zones, so a surge of two, and never an unavailable VM.
