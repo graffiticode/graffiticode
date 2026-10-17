@@ -30,9 +30,9 @@ test("classes get exactly their own services' hosts", async () => {
   const model = await fixture();
   assert.deepEqual(model.classes["compilers-default"].hosts, ["broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app"]);
   assert.deepEqual(model.classes["compilers-l0013"].hosts, ["storage.googleapis.com"]);
-  assert.deepEqual(model.classes["compilers-l0185"].hosts, ["api-sja7fatcta-uc.a.run.app"]);
+  assert.deepEqual(model.classes["compilers-l0185"].hosts, ["api.graffiticode.org"]);
   assert.equal(model.classes["compilers-l0185"].open, true);
-  assert.deepEqual(terminatedHosts(model), ["api-sja7fatcta-uc.a.run.app", "broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app", "storage.googleapis.com"]);
+  assert.deepEqual(terminatedHosts(model), ["api.graffiticode.org", "broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app", "storage.googleapis.com"]);
 });
 
 test("the class comes only from the connection's direct source, with no default chain", async () => {
@@ -193,6 +193,19 @@ test("deploy.json entries must name a known class, the compiler network and the 
   assert.throws(() => buildModel({ services: { a: { network: { ...net, network: "default" } } } }, classes), /must be compilers/);
   assert.throws(() => buildModel({ services: { a: { network: { ...net, proxy: "http://10.8.0.3:3128" } } } }, classes), /network.proxy/);
   assert.throws(() => buildModel({ services: { a: { network: { ...net, subnet: "compilers-l0185", allow: ["eu.learnosity.com"] } } } }, classes), /open class refuses/);
+});
+
+test("the open class can never list a name it refuses, run.app included (D2)", async () => {
+  const classes = await json("classes.json");
+  const net = { network: "compilers", subnet: "compilers-l0185", tags: ["c"], proxy: "http://10.8.0.2:3128", ca: {}, allow: [] };
+  for (const host of ["api-sja7fatcta-uc.a.run.app", "run.app", "storage.googleapis.com", "metadata.google.internal", "learnosity.net"]) {
+    assert.throws(() => buildModel({ services: { a: { network: { ...net, allow: [host] } } } }, classes), /open class refuses/, host);
+  }
+  // A strict class may still list a run.app host: it has no open route to override.
+  const strict = buildModel({ services: { a: { network: { ...net, subnet: "compilers-default", allow: ["policy-sja7fatcta-uc.a.run.app"] } } } }, classes);
+  assert.deepEqual(strict.classes["compilers-default"].hosts, ["policy-sja7fatcta-uc.a.run.app"]);
+  const open = buildModel({ services: { a: { network: { ...net, allow: ["api.graffiticode.org"] } } } }, classes);
+  assert.deepEqual(open.classes["compilers-l0185"].hosts, ["api.graffiticode.org"]);
 });
 
 test("the repository's own deploy.json and classes.json load", async () => {

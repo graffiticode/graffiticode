@@ -397,9 +397,9 @@
                     "name": "egress-compilers-l0185",
                     "virtual_hosts": [
                       {
-                        "name": "listed-api-sja7fatcta-uc-a-run-app",
+                        "name": "listed-api-graffiticode-org",
                         "domains": [
-                          "api-sja7fatcta-uc.a.run.app:443"
+                          "api.graffiticode.org:443"
                         ],
                         "routes": [
                           {
@@ -418,7 +418,7 @@
                             "metadata": {
                               "filter_metadata": {
                                 "isolate01": {
-                                  "target": "api-sja7fatcta-uc.a.run.app"
+                                  "target": "api.graffiticode.org"
                                 }
                               }
                             }
@@ -1354,10 +1354,10 @@
         ],
         "filter_chains": [
           {
-            "name": "compilers-l0185-api-sja7fatcta-uc-a-run-app",
+            "name": "compilers-l0185-api-graffiticode-org",
             "filter_chain_match": {
               "server_names": [
-                "api-sja7fatcta-uc.a.run.app"
+                "api.graffiticode.org"
               ]
             },
             "transport_socket": {
@@ -1375,10 +1375,10 @@
                   "tls_certificates": [
                     {
                       "certificate_chain": {
-                        "filename": "/run/egress-proxy/certs/api-sja7fatcta-uc-a-run-app.crt"
+                        "filename": "/run/egress-proxy/certs/api-graffiticode-org.crt"
                       },
                       "private_key": {
-                        "filename": "/run/egress-proxy/certs/api-sja7fatcta-uc-a-run-app.key"
+                        "filename": "/run/egress-proxy/certs/api-graffiticode-org.key"
                       }
                     }
                   ]
@@ -1390,7 +1390,7 @@
                 "name": "envoy.filters.network.rbac",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
-                  "stat_prefix": "target_api_sja7fatcta_uc_a_run_app",
+                  "stat_prefix": "target_api_graffiticode_org",
                   "rules": {
                     "action": "ALLOW",
                     "policies": {
@@ -1411,7 +1411,7 @@
                               ],
                               "value": {
                                 "string_match": {
-                                  "exact": "api-sja7fatcta-uc.a.run.app"
+                                  "exact": "api.graffiticode.org"
                                 }
                               }
                             }
@@ -1426,7 +1426,7 @@
                 "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
-                  "stat_prefix": "terminate_api_sja7fatcta_uc_a_run_app",
+                  "stat_prefix": "terminate_api_graffiticode_org",
                   "codec_type": "AUTO",
                   "use_remote_address": true,
                   "xff_num_trusted_hops": 0,
@@ -1446,13 +1446,13 @@
                     }
                   ],
                   "route_config": {
-                    "name": "terminate-compilers-l0185-api-sja7fatcta-uc-a-run-app",
+                    "name": "terminate-compilers-l0185-api-graffiticode-org",
                     "virtual_hosts": [
                       {
-                        "name": "api-sja7fatcta-uc-a-run-app",
+                        "name": "api-graffiticode-org",
                         "domains": [
-                          "api-sja7fatcta-uc.a.run.app",
-                          "api-sja7fatcta-uc.a.run.app:443"
+                          "api.graffiticode.org",
+                          "api.graffiticode.org:443"
                         ],
                         "routes": [
                           {
@@ -1460,7 +1460,7 @@
                               "prefix": "/"
                             },
                             "route": {
-                              "cluster": "upstream-api-sja7fatcta-uc-a-run-app",
+                              "cluster": "upstream-api-graffiticode-org",
                               "timeout": "300s"
                             }
                           }
@@ -1664,7 +1664,7 @@
         }
       },
       {
-        "name": "upstream-api-sja7fatcta-uc-a-run-app",
+        "name": "upstream-api-graffiticode-org",
         "type": "LOGICAL_DNS",
         "dns_lookup_family": "V4_ONLY",
         "typed_dns_resolver_config": {
@@ -1693,7 +1693,7 @@
         },
         "connect_timeout": "5s",
         "load_assignment": {
-          "cluster_name": "upstream-api-sja7fatcta-uc-a-run-app",
+          "cluster_name": "upstream-api-graffiticode-org",
           "endpoints": [
             {
               "lb_endpoints": [
@@ -1701,7 +1701,7 @@
                   "endpoint": {
                     "address": {
                       "socket_address": {
-                        "address": "api-sja7fatcta-uc.a.run.app",
+                        "address": "api.graffiticode.org",
                         "port_value": 443
                       }
                     }
@@ -1715,7 +1715,7 @@
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
             "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
-            "sni": "api-sja7fatcta-uc.a.run.app",
+            "sni": "api.graffiticode.org",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2",
@@ -1729,7 +1729,7 @@
                   {
                     "san_type": "DNS",
                     "matcher": {
-                      "exact": "api-sja7fatcta-uc.a.run.app"
+                      "exact": "api.graffiticode.org"
                     }
                   }
                 ]

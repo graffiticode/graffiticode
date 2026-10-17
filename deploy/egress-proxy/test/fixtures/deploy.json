@@ -4,7 +4,7 @@
     "l0000": { "network": { "network": "compilers", "subnet": "compilers-default", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["policy-sja7fatcta-uc.a.run.app"] } },
     "l0176": { "network": { "network": "compilers", "subnet": "compilers-default", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["policy-sja7fatcta-uc.a.run.app", "broker-sja7fatcta-uc.a.run.app"] } },
     "l0013": { "network": { "network": "compilers", "subnet": "compilers-l0013", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["storage.googleapis.com"] } },
-    "l0185": { "network": { "network": "compilers", "subnet": "compilers-l0185", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["api-sja7fatcta-uc.a.run.app"] } },
+    "l0185": { "network": { "network": "compilers", "subnet": "compilers-l0185", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["api.graffiticode.org"] } },
     "api": {}
   }
 }

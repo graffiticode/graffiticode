@@ -82,8 +82,11 @@ export function buildModel(deployConfig, classes) {
     }
     cls.services.push(service);
     for (const host of n.allow) {
-      if (cls.open && denied(host, model.denySuffixes) && !host.endsWith(".run.app")) {
-        throw new Error(`deploy.json: ${service} lists ${host}, which the open class refuses`);
+      // An exact listed route would win over the open class's wildcard
+      // refusals, so a refused name can never be listed for it (D2: no
+      // run.app at all; L0185 reaches Graffiticode by *.graffiticode.org).
+      if (cls.open && denied(host, model.denySuffixes)) {
+        throw new Error(`deploy.json: ${service} lists ${host}, which the open class refuses (${model.denySuffixes.find(s => host === s || host.endsWith(`.${s}`))})`);
       }
       cls.hosts.add(host);
     }
