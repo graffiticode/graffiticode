@@ -6,6 +6,7 @@
 // firebase-admin) are imported lazily here so that merely importing the compiler (e.g.
 // build-static) does not pull them in.
 import { createHash } from "node:crypto";
+import { prepareChromeEgress } from "./chrome-egress.js";
 
 const API_URL = process.env.GRAFFITICODE_API_URL || "https://api.graffiticode.org";
 // The app's item form route (`/form/{itemId}`) resolves an item id to its task + language and
@@ -378,11 +379,20 @@ export async function snap(args: SnapArgs): Promise<SnapResult> {
   const puppeteer: any = (await import("puppeteer")).default;
   const sharp: any = (await import("sharp")).default;
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-  });
+  // ISOLATE-01: with HTTPS_PROXY set, Chrome goes through the proxy and trusts its CA.
+  const egress = prepareChromeEgress();
+  let browser: any;
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", ...egress.args],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      ...(egress.env ? { env: egress.env } : {}),
+    });
+  } catch (err) {
+    egress.cleanup();
+    throw err;
+  }
   const tLaunch = Date.now();
   try {
     const page = await browser.newPage();
@@ -481,5 +491,6 @@ export async function snap(args: SnapArgs): Promise<SnapResult> {
     return { url: `${publicUrl}?v=${version}`, item: itemId };
   } finally {
     await browser.close();
+    egress.cleanup();
   }
 }

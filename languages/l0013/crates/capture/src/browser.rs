@@ -14,6 +14,7 @@ use futures_util::StreamExt;
 use tokio::task::JoinHandle;
 
 use crate::CameraError;
+use crate::egress::{build_nss_db, chrome_egress};
 
 /// A rectangle in the page's own (CSS) pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -30,24 +31,38 @@ pub struct Session {
     page: Page,
     // Each browser gets its own profile, so concurrent snaps never share one.
     _profile: tempfile::TempDir,
+    // Behind the egress proxy: the HOME whose NSS database trusts the proxy's CA.
+    _home: Option<tempfile::TempDir>,
 }
 
 impl Session {
     pub async fn launch(chrome: Option<&Path>) -> Result<Self, CameraError> {
         let profile = tempfile::Builder::new().prefix("l0013-chrome-").tempdir()?;
+        // ISOLATE-01: with HTTPS_PROXY set, Chrome goes through the proxy and trusts its CA.
+        let egress = chrome_egress(|name| std::env::var(name).ok())?;
         let mut config = BrowserConfig::builder()
             .no_sandbox()
             .args(["--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--hide-scrollbars"])
+            .args(egress.switches.iter().map(|(name, value)| (name.as_str(), value.as_str())))
             .user_data_dir(profile.path())
             // The window is sized per snap, through device metrics.
             .viewport(None);
+        let home = match egress.ca {
+            Some(ca) => {
+                let home = tempfile::Builder::new().prefix("l0013-chrome-home-").tempdir()?;
+                build_nss_db(home.path(), &ca)?;
+                config = config.env("HOME", home.path().display().to_string());
+                Some(home)
+            }
+            None => None,
+        };
         if let Some(chrome) = chrome {
             config = config.chrome_executable(chrome);
         }
         let (browser, mut handler) = Browser::launch(config.build()?).await?;
         let events = tokio::spawn(async move { while handler.next().await.is_some() {} });
         let page = browser.new_page("about:blank").await?;
-        Ok(Self { browser, events, page, _profile: profile })
+        Ok(Self { browser, events, page, _profile: profile, _home: home })
     }
 
     /// Sizes the window the page lays out into. Changing only the scale re-renders the same

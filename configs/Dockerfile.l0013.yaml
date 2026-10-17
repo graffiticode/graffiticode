@@ -4,8 +4,9 @@ FROM node:22-alpine
 
 WORKDIR /usr/src/app
 
-# Chromium for snap (Puppeteer renders the item's form view).
-RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+# Chromium for snap (Puppeteer renders the item's form view). nss-tools (certutil) builds the
+# NSS database Chrome trusts the ISOLATE-01 egress proxy's CA from (packages/core/src/chrome-egress.ts).
+RUN apk add --no-cache chromium nss nss-tools freetype harfbuzz ca-certificates ttf-freefont
 ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
