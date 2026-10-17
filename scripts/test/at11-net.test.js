@@ -337,6 +337,9 @@ test("the DNS row is decided from a log that recorded the collector's control (A
   const log = { text: "query: at11-ctl-bbb.exfil.example IN A\n", from: "2026-10-17T09:59:00.000Z", to: "2026-10-17T10:06:00.000Z", fetchedAt: "2026-10-17T10:07:00.000Z" };
   assert.deepEqual(judgeDnsRow(row, log, control), { state: "passed", leaked: [] });
   assert.equal(judgeDnsRow(row, { ...log, text: log.text + "query: at11-aaa.exfil.example IN A\n" }, control).state, "failed");
+  // Resolvers randomise case (0x20): seen live in step 0 as `PRObe-4A7E549ec460.at11.graffiTicODe.orG.`.
+  assert.equal(judgeDnsRow(row, { ...log, text: log.text + "query: AT11-aAa.EXFIL.example IN A\n" }, control).state, "failed", "a mixed-case leak is still a leak");
+  assert.equal(judgeDnsRow(row, { ...log, text: "query: AT11-CTL-bBb.exfil.example IN A\n" }, control).state, "passed", "a mixed-case control still counts");
   assert.equal(judgeDnsRow(row, { ...log, text: "" }, control).state, "void", "an empty log proves nothing");
   assert.equal(judgeDnsRow(row, { ...log, text: "query: other.exfil.example\n" }, control).state, "void", "no control label");
   assert.equal(judgeDnsRow(row, { ...log, fetchedAt: "2026-10-17T10:04:00.000Z" }, control).state, "void", "a log fetched before the control");

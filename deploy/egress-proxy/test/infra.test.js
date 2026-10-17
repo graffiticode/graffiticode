@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { commands, render, parseArgs, DEFERRED } from "../infra.js";
+import { commands, render, parseArgs, DEFERRED, applyPlan, apply } from "../infra.js";
 import { readFile } from "node:fs/promises";
 import { alertPolicies, buildModel, load } from "../generate.js";
 
@@ -98,4 +98,67 @@ test("the group pins exactly two zones in its region, and surges by that many (A
   for (const zones of [undefined, ["us-central1-a"], ["us-central1-a", "us-east1-b"], ["us-central1-a", "us-central1-b", "us-central1-c"]]) {
     assert.throws(() => commands({ ...model, proxy: { ...model.proxy, zones } }), /two zones/);
   }
+});
+
+// --apply: rollout step 0 only, in the scratch project.
+const step0 = () => load({ deploy: path.join(HERE, "../step0/deploy.json"), classes: path.join(HERE, "../step0/classes.json") });
+
+test("--apply refuses any project but the scratch one, production included", async () => {
+  const model = await fixture();
+  assert.equal(model.project, "graffiticode");
+  assert.throws(() => applyPlan(model, commands(model), [1]), /runs only against graffiticode-isolate01, not graffiticode/);
+  assert.throws(() => execFileSync(process.execPath, [path.join(HERE, "../infra.js"), "--apply", "--steps", "1",
+    "--deploy", path.join(FIXTURES, "deploy.json"), "--classes", path.join(FIXTURES, "classes.json")], { stdio: "pipe" }),
+  e => e.stderr.toString().includes("not graffiticode"));
+  assert.throws(() => parseArgs(["--plan", "--apply"]));
+});
+
+test("--apply's commands are exactly --plan's, each naming the scratch project", async () => {
+  const model = await step0();
+  const steps = commands(model);
+  const runs = applyPlan(model, steps, [1, 2, 3]);
+  assert.ok(runs.length > 10);
+  const printed = render(steps);
+  for (const r of runs) {
+    assert.ok(printed.includes(r.text), r.text);
+    assert.ok(r.argv.some(a => a === "--project=graffiticode-isolate01") || r.argv[3] === "graffiticode-isolate01", r.text);
+    assert.ok(!r.argv.some(a => a === "--project=graffiticode"), r.text);
+  }
+});
+
+test("--apply refuses a command that names another project", async () => {
+  const model = await step0();
+  const steps = commands(model);
+  const bad = structuredClone(steps.map(s => ({ ...s, lines: [] })));
+  bad[0].lines = steps[0].lines.map(l => l);
+  bad[0].lines[0].argv[bad[0].lines[0].argv.indexOf("--project=graffiticode-isolate01")] = "--project=graffiticode";
+  assert.throws(() => applyPlan(model, bad, [1]), /names graffiticode, not graffiticode-isolate01/);
+});
+
+test("--apply refuses unpinned placeholders and open choices", async () => {
+  const model = await step0();
+  const steps = commands(model);
+  const dns = steps.findIndex(s => s.title.startsWith("DNS:")) + 1;
+  assert.throws(() => applyPlan(model, steps, [dns]), /open choice/);
+  const template = steps.findIndex(s => s.title.startsWith("Instance template")) + 1;
+  assert.throws(() => applyPlan(model, steps, [template]), /placeholder remains/, "the COS image isn't pinned yet");
+  assert.throws(() => applyPlan(model, steps, [0]), /no step 0/);
+});
+
+test("apply runs in order, records a resource that already exists, and stops on a failure", async () => {
+  const model = await step0();
+  const runs = applyPlan(model, commands(model), [1]);
+  const calls = [];
+  const spawn = (bin, args) => {
+    calls.push([bin, ...args]);
+    if (calls.length === 2) return { status: 1, stderr: "ERROR: ... already exists" };
+    if (calls.length === 3) return { status: 1, stderr: "ERROR: permission denied" };
+    return { status: 0, stderr: "" };
+  };
+  assert.throws(() => apply(runs, { spawn, log: () => {} }), e => {
+    assert.deepEqual(e.results.map(r => r.outcome), ["ran", "exists", "failed"]);
+    return true;
+  });
+  assert.equal(calls.length, 3, "nothing after the failure runs");
+  assert.deepEqual(calls[0], runs[0].argv, "runs the argv itself, no shell");
 });

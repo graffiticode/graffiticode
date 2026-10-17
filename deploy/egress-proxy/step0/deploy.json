@@ -1,0 +1,9 @@
+{
+  "$comment": "ISOLATE-01 rollout step 0: the three probe services, one per class kind, each with its own runtime account. Not a deploy CLI config: only deploy/egress-proxy reads it (--deploy).",
+  "version": 1,
+  "services": {
+    "probe-default": { "runtimeServiceAccount": "probe-default@graffiticode-isolate01.iam.gserviceaccount.com", "network": { "network": "compilers", "subnet": "compilers-default", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["api.graffiticode.org", "auth.graffiticode.org"] } },
+    "probe-ext": { "runtimeServiceAccount": "probe-ext@graffiticode-isolate01.iam.gserviceaccount.com", "network": { "network": "compilers", "subnet": "compilers-ext", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["api.graffiticode.org", "www.googleapis.com"] } },
+    "probe-l0185": { "runtimeServiceAccount": "probe-l0185@graffiticode-isolate01.iam.gserviceaccount.com", "network": { "network": "compilers", "subnet": "compilers-l0185", "tags": ["compiler"], "proxy": "http://10.8.0.2:3128", "ca": { "secret": "egress-proxy-ca-bundle:1", "path": "/etc/egress-ca/ca.pem" }, "allow": ["api.graffiticode.org"] } }
+  }
+}

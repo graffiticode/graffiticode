@@ -219,6 +219,36 @@ leaves that machine.
 
 ## Before production (rollout step 0)
 
+**Running step 0.** The prototype lives in the scratch project `graffiticode-isolate01`, created
+2026-10-17. Its config is `step0/`:
+- `step0/classes.json`: the production classes plus `compilers-ext`, a class with a reviewed
+  external host, so all three kinds are proved;
+- `step0/deploy.json`: three probe services (`probe-default`, `probe-ext`, `probe-l0185`), each
+  with its own runtime account.
+
+`infra.js --apply` runs the same commands `--plan` prints, one step at a time, and only there:
+
+```
+node deploy/egress-proxy/infra.js --plan  --classes deploy/egress-proxy/step0/classes.json --deploy deploy/egress-proxy/step0/deploy.json
+node deploy/egress-proxy/infra.js --apply --steps 1,2,3 --classes deploy/egress-proxy/step0/classes.json --deploy deploy/egress-proxy/step0/deploy.json
+```
+
+It refuses:
+- any project outside `SCRATCH_PROJECTS`, production included;
+- any command that names another project;
+- a placeholder still in a command, such as an unpinned image;
+- a step with an open, commented-out choice (the DNS lockdown's form), until it's settled in
+  `infra.js`.
+
+It runs each argv without a shell. A resource that already exists is recorded and skipped,
+and any other failure stops the run. Instance templates are named by their config's digest, so
+a new config always means a new template.
+
+The DNS-exfiltration check's authoritative server is the public Cloud DNS zone
+`at11.graffiticode.org`. It's in the scratch project, with query logging, delegated from
+Cloudflare by four NS records. Resolvers randomise the case of names they pass on, so the log
+is matched without case.
+
 The prototype in a scratch project must show each check in the plan's step 0. It's also where
 these get settled, each an assumption the offline tests can't prove:
 - `envoy --mode validate -c out/envoy.json` on the pinned digest;
