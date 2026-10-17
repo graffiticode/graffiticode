@@ -116,12 +116,17 @@ const fetchWith = grant => async (url, init) => {
     const past = { get: [404, "NOT_FOUND"], list: [200], update: [404, "NOT_FOUND"], create: [409, "ALREADY_EXISTS"], delete: [400, "FAILED_PRECONDITION"] }[kind];
     return new Response(JSON.stringify(past[1] ? { error: { code: past[0], status: past[1], message: past[1] } } : { collectionIds: [] }), { status: past[0] });
   }
-  const permission = url.includes("secretmanager") ? "secretmanager.versions.access"
-    : url.includes(":asymmetricSign") ? "cloudkms.cryptoKeyVersions.useToSign"
-    : url.includes(":generateAccessToken") ? "iam.serviceAccounts.getAccessToken"
-    : url.includes(":generateIdToken") ? "iam.serviceAccounts.getOpenIdToken"
-    : url.includes(":signJwt") ? "iam.serviceAccounts.signJwt"
-    : "iam.serviceAccounts.signBlob";
+  const permission = url.includes("secretmanager")
+    ? "secretmanager.versions.access"
+    : url.includes(":asymmetricSign")
+      ? "cloudkms.cryptoKeyVersions.useToSign"
+      : url.includes(":generateAccessToken")
+        ? "iam.serviceAccounts.getAccessToken"
+        : url.includes(":generateIdToken")
+          ? "iam.serviceAccounts.getOpenIdToken"
+          : url.includes(":signJwt")
+            ? "iam.serviceAccounts.signJwt"
+            : "iam.serviceAccounts.signBlob";
   return new Response(JSON.stringify(denied(permission).body), { status: 403 });
 };
 

@@ -18,7 +18,12 @@ const config = {
 };
 
 const netEvidence = (execution, nonce = NONCE) => ({
-  probe: "net", nonce, execution, kind: "default", verdict: "pending", passed: false,
+  probe: "net",
+  nonce,
+  execution,
+  kind: "default",
+  verdict: "pending",
+  passed: false,
   rows: [
     { id: "listed", expected: "succeeds", state: "passed", results: [{ target: "auth.graffiticode.org", observation: { probe: `${nonce}-1-aa` }, result: { outcome: "succeeds", status: 200 } }] },
     { id: "unlisted", expected: "refused:proxy/unlisted", state: "passed", results: [{ target: "example.com", observation: { probe: `${nonce}-2-bb`, stage: "connect", status: 403 }, result: { outcome: "refused:proxy", reason: "unlisted" } }] },

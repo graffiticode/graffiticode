@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable camelcase -- Learnosity's security fields are snake_case */
 // AT-11, the legacy-key check (ISOLATE-01; plan: ~/.claude/plans/isolate-01-compiler-egress.md,
 // "AT-11" and rollout step 6). The shared Learnosity consumer that L0158 and L0176 once held
 // was retired at the provider on 2026-10-15. This is the evidence for "legacy provider

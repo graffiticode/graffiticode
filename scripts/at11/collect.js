@@ -87,7 +87,7 @@ export function judgeCompiler({ net, iam, control, digests, logs, dnsLog, dnsCon
 // The whole run. Every cloud and log call goes through `deps`, so tests drive it with
 // recorded output.
 export async function collect(config, deps) {
-  const { runJob, describeExecution, readLogs, resolveOutside, readDnsLog, now = () => new Date().toISOString(), sleep = ms => new Promise(r => setTimeout(r, ms)), nonce = randomBytes(8).toString("hex") } = deps;
+  const { runJob, describeExecution, readLogs, resolveOutside, readDnsLog, now = () => new Date().toISOString(), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), nonce = randomBytes(8).toString("hex") } = deps;
   const attempts = config.retries?.attempts ?? 6;
   const waitMs = config.retries?.waitMs ?? 30000;
   const startedAt = now();
@@ -199,7 +199,7 @@ export function gcloudDeps(config) {
         const e = await gcloud(["run", "jobs", "executions", "describe", execution, p, r]);
         const done = (e?.status?.conditions ?? []).find(c => c.type === "Completed");
         if (done && done.status !== "Unknown") return { completed: true, digest: e.spec?.template?.spec?.containers?.[0]?.image?.split("@")[1] ?? null };
-        await new Promise(res => setTimeout(res, 10000));
+        await new Promise(resolve => setTimeout(resolve, 10000));
       }
       return { completed: false };
     },

@@ -1,3 +1,4 @@
+/* eslint-disable camelcase -- the proxy's access-log and the firewall log's fields are snake_case */
 import test from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
@@ -12,13 +13,19 @@ import {
 } from "../at11/net.js";
 
 const expectedResult = e =>
-  e === "succeeds" ? { outcome: "succeeds", status: 200 }
-    : e === "nxdomain" ? { outcome: "nxdomain" }
-    : e.startsWith("status:") ? { outcome: "succeeds", status: Number(e.slice(7)) }
-    : e === "refused" ? { outcome: "refused:firewall" }
-    : e === "refused:network" ? { outcome: "refused:network" }
-    : e.includes("/") ? { outcome: e.split("/")[0], reason: e.split("/")[1] }
-    : { outcome: e };
+  e === "succeeds"
+    ? { outcome: "succeeds", status: 200 }
+    : e === "nxdomain"
+      ? { outcome: "nxdomain" }
+      : e.startsWith("status:")
+        ? { outcome: "succeeds", status: Number(e.slice(7)) }
+        : e === "refused"
+          ? { outcome: "refused:firewall" }
+          : e === "refused:network"
+            ? { outcome: "refused:network" }
+            : e.includes("/")
+              ? { outcome: e.split("/")[0], reason: e.split("/")[1] }
+              : { outcome: e };
 const fakeChecks = (kind, overrides = {}) => Object.fromEntries(MATRIX.map(r => [r.id, async () =>
   overrides[r.id] !== undefined ? overrides[r.id] : [{ target: "t", observation: {}, result: r[kind] === "residual" ? { outcome: "succeeds", status: 200 } : expectedResult(r[kind]), logCheck: { label: "x", queriedAt: "2026-10-17T00:00:00.000Z" } }]]));
 
