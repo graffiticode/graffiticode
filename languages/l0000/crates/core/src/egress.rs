@@ -10,7 +10,8 @@
 //! exclusions of its own and doesn't read `NO_PROXY`, so the metadata exclusion is set here.
 //!
 //! [`metadata_client`] is the one client that never uses a proxy: it resolves only
-//! `metadata.google.internal` and follows no redirects. [`crate::policy_client::MetadataIdTokens`]
+//! `metadata.google.internal`, follows no redirects, and refuses any URL that isn't plain `http`
+//! to that name (an IP literal never reaches a resolver, so the name is checked per request). [`crate::policy_client::MetadataIdTokens`]
 //! is built from it, so a misconfigured proxy can't swallow the server's identity.
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -39,6 +40,8 @@ pub enum EgressError {
     CaPem(PathBuf, String),
     #[error("egress: {0}")]
     Build(#[from] reqwest::Error),
+    #[error("egress: the metadata client sends only http://{METADATA_NAME}/..., not {0}")]
+    NotMetadataUrl(String),
 }
 
 /// What the environment says about egress.
@@ -92,21 +95,41 @@ pub fn client_builder_with(env: &EgressEnv) -> Result<ClientBuilder, EgressError
     Ok(builder.proxy(proxy).tls_certs_merge(roots))
 }
 
-/// The client for the metadata server: no proxy, no redirects, and a resolver that knows only
-/// `metadata.google.internal`.
-pub fn metadata_client() -> Result<reqwest::Client, EgressError> {
+/// The client for the metadata server: no proxy, no redirects, a resolver that knows only
+/// `metadata.google.internal`, and requests only to `http://metadata.google.internal/...`.
+pub fn metadata_client() -> Result<MetadataClient, EgressError> {
     metadata_client_at(SocketAddr::new(METADATA_ADDRESS, 80))
 }
 
 /// [`metadata_client`], with the metadata name resolving to `address` (for tests).
-pub fn metadata_client_at(address: SocketAddr) -> Result<reqwest::Client, EgressError> {
-    Ok(reqwest::Client::builder()
-        .no_proxy()
-        .redirect(reqwest::redirect::Policy::none())
-        .connect_timeout(Duration::from_secs(2))
-        .timeout(Duration::from_secs(10))
-        .dns_resolver(Arc::new(MetadataOnly(address)))
-        .build()?)
+pub fn metadata_client_at(address: SocketAddr) -> Result<MetadataClient, EgressError> {
+    Ok(MetadataClient(
+        reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(Duration::from_secs(2))
+            .timeout(Duration::from_secs(10))
+            .dns_resolver(Arc::new(MetadataOnly(address)))
+            .build()?,
+    ))
+}
+
+/// A direct client that can only ask the metadata server. The resolver can't stop an IP
+/// literal (`http://10.0.0.1/`) or another scheme, so every request's URL is checked first.
+#[derive(Clone, Debug)]
+pub struct MetadataClient(reqwest::Client);
+
+impl MetadataClient {
+    /// A GET to `url`, which must be `http://metadata.google.internal[:port]/...`.
+    pub fn get(&self, url: &str) -> Result<reqwest::RequestBuilder, EgressError> {
+        let parsed = reqwest::Url::parse(url).map_err(|_| EgressError::NotMetadataUrl(url.to_owned()))?;
+        // An IP literal's host is the address itself, so it never equals the name.
+        let named = parsed.host_str().is_some_and(|host| host.eq_ignore_ascii_case(METADATA_NAME));
+        if parsed.scheme() != "http" || !named || !parsed.username().is_empty() || parsed.password().is_some() {
+            return Err(EgressError::NotMetadataUrl(url.to_owned()));
+        }
+        Ok(self.0.get(parsed))
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -269,8 +269,32 @@ async fn identity_tokens_come_from_the_metadata_server_directly() {
 async fn the_metadata_client_resolves_nothing_else() {
     let (origin, hits) = origin().await;
     let client = metadata_client_at(origin).unwrap();
-    assert!(client.get(format!("http://{LISTED}:{}/", origin.port())).send().await.is_err());
+    // Another name: refused before anything is sent.
+    assert!(matches!(client.get(&format!("http://{LISTED}:{}/", origin.port())), Err(EgressError::NotMetadataUrl(_))));
     assert!(hits.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn the_metadata_client_refuses_ip_literals_and_other_schemes() {
+    let (origin, hits) = origin().await;
+    let client = metadata_client_at(origin).unwrap();
+    // An IP literal would never reach the resolver, so it must be refused per request: here it
+    // names the reachable origin itself.
+    for url in [
+        format!("http://127.0.0.1:{}/", origin.port()),
+        format!("http://[::1]:{}/", origin.port()),
+        "http://169.254.169.254/computeMetadata/v1/".to_owned(),
+        format!("https://metadata.google.internal:{}/", origin.port()),
+        "ftp://metadata.google.internal/".to_owned(),
+        "http://user:pw@metadata.google.internal/".to_owned(),
+        "not a url".to_owned(),
+    ] {
+        assert!(matches!(client.get(&url), Err(EgressError::NotMetadataUrl(_))), "{url}");
+    }
+    assert!(hits.lock().unwrap().is_empty());
+    // The metadata name itself is allowed (and resolves to the origin here).
+    let response = client.get(&format!("http://METADATA.google.internal:{}/listed", origin.port())).unwrap();
+    assert_eq!(response.send().await.unwrap().status(), 200);
 }
 
 #[tokio::test]
