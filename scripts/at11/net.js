@@ -4,13 +4,16 @@
 // its `network` config. It makes each check in the acceptance matrix and decides, for each,
 // which control answered, never just "the request failed".
 //
-//   node scripts/at11/net.js --class compilers-default --config at11.json [--out dir]
+//   node scripts/at11/net.js --class compilers-default --subject l0176-run --config at11.json [--out dir]
 //
 // The config names the targets (see CONFIG below). A check whose target isn't configured is
 // reported "not run", and a run with any check not run, or any unexpected outcome, fails.
-// Nothing here is run until rollout step 4 (deployment deferred).
+// Some rows need evidence the job can't read: the proxy's access logs, the kernel's and the
+// VPC firewall's rule hits, and the authoritative DNS log. Those rows are reported pending,
+// the job's verdict is then "pending", and only the operator's collector (collect.js)
+// decides them. Nothing here is run until rollout step 4 (deployment deferred).
 
-import net from "node:net";
+import net, { isIP } from "node:net";
 import tls from "node:tls";
 import http2 from "node:http2";
 import dgram from "node:dgram";
@@ -19,40 +22,59 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { writeEvidence, parseArgs } from "./lib.js";
 
-// What a check can observe, as decided by `classify`:
-//   succeeds        the destination answered (any status not from the proxy)
-//   refused:proxy   the proxy refused it (403 with x-isolate01-refused); `reason` says why
-//   refused:network the proxy couldn't open it (a CONNECT answered 5xx: the address rules)
-//   refused:firewall nothing answered a direct connection
-//   nxdomain        the name didn't resolve
-//   status:<n>      an HTTP status from the destination, for checks that expect one
-export const OUTCOMES = ["succeeds", "refused:proxy", "refused:network", "refused:firewall", "nxdomain"];
+// What a check can observe, as decided by `classify` (and, for Broker and auth, by their own
+// deciders):
+//   succeeds              the destination answered (any status not from the proxy)
+//   refused:proxy         the proxy refused it (403 with x-isolate01-refused); `reason` says why
+//   pending:network       the proxy couldn't open the upstream (a CONNECT answered 5xx). That
+//                         alone proves nothing, since a destination that's down looks the same.
+//                         It becomes refused:network only with the collector's evidence
+//                         (`attributeNetwork`): the blocked address and the rule that fired
+//   refused:network       (collector only) the address rules refused the actual destination
+//   refused:firewall      nothing answered a direct connection
+//   refused:cloudrun-iam  Cloud Run's own 403 page: the caller isn't an invoker
+//   refused:broker        Broker's own JSON refusal; `reason` from its message
+//   refused:auth          auth's own JSON refusal; `reason` from its message
+//   nxdomain              the name doesn't exist (ENOTFOUND only: NODATA, SERVFAIL and the
+//                         rest are errors)
+//   error                 anything else, never a pass
+export const OUTCOMES = ["succeeds", "refused:proxy", "pending:network", "refused:network", "refused:firewall", "refused:cloudrun-iam", "refused:broker", "refused:auth", "nxdomain", "error"];
+
+// The proxy's refusal reasons: the x-isolate01-refused header, and `reason` on its log lines.
+export const PROXY_REASONS = ["unlisted", "name", "ip-literal", "port", "host-mismatch", "trailing-dot"];
 
 // The acceptance matrix, one row per check: its expected outcome per class kind. `default` is
 // compilers-default; `lang` a compilers-<lang> class with reviewed external hosts; `open` is
 // L0185 (D2). "residual" rows are accepted residuals: run and recorded, never pass/fail. "n/a"
-// is not run for that kind.
+// is not run for that kind. Rows with `broker` apply by the compiler's relationship to Broker
+// (config.broker.relationship), not by its class: exactly one of them applies, the others are
+// n/a.
 export const MATRIX = [
   { id: "direct", title: "a direct connection, bypassing the proxy", default: "refused:firewall", lang: "refused:firewall", open: "refused:firewall" },
   { id: "listed", title: "a listed Graffiticode host, through the proxy", default: "succeeds", lang: "succeeds", open: "succeeds" },
   { id: "external", title: "a listed external host", default: "n/a", lang: "succeeds", open: "n/a" },
   { id: "unlisted", title: "an unlisted public host", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "succeeds" },
   { id: "learnosity", title: "Learnosity by host and alternate hosts", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:proxy/name" },
+  { id: "trailing-dot", title: "Learnosity and run.app names with a trailing dot", default: "refused:proxy", lang: "refused:proxy", open: "refused:proxy" },
   { id: "ip-literal", title: "Learnosity (or any host) by IPv4 and IPv6 literal", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:proxy/ip-literal" },
   { id: "redirect", title: "a redirect chain ending at Learnosity or a private address", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused" },
   { id: "rebinding", title: "names resolving to metadata, 10.x, 127.0.0.1 or the load balancer, and a name whose answer changes", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:network" },
-  { id: "run-app", title: "another project's run.app service by its URL", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:proxy/name" },
+  { id: "canary", title: "a public canary name we run, through the proxy (the control for refused:network)", default: "n/a", lang: "n/a", open: "succeeds" },
+  { id: "run-app", title: "a run.app service by its URL (another project's; for L0185, Graffiticode's too)", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:proxy/name" },
   { id: "frontend-ip", title: "a front-end IP with another Host", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:proxy/ip-literal" },
   { id: "fronted", title: "a listed SNI with another Host or :authority, HTTP/1.1 and HTTP/2", default: "refused:proxy/host-mismatch", lang: "refused:proxy/host-mismatch", open: "refused:proxy/host-mismatch" },
   { id: "fronted-open", title: "fronting through an unlisted host", default: "n/a", lang: "n/a", open: "residual" },
   { id: "relay", title: "a relay in another project", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "residual" },
   { id: "dns-exfil", title: "DNS exfiltration through a domain we run (the server's log is checked)", default: "nxdomain", lang: "nxdomain", open: "nxdomain" },
   { id: "dns-direct", title: "DNS to a public resolver directly (UDP and TCP 53, DoT 853)", default: "refused:firewall", lang: "refused:firewall", open: "refused:firewall" },
-  { id: "broker-unlisted", title: "Broker's execute, Broker not in the class's list", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:proxy/name" },
-  { id: "broker-no-invoker", title: "Broker's execute, listed, without run.invoker", default: "status:403", lang: "status:403", open: "n/a" },
-  { id: "broker-no-token", title: "Broker's execute with no execution token, by an authorized caller (L0176)", default: "status:401", lang: "n/a", open: "n/a" },
+  { id: "broker-unlisted", title: "Broker's execute, Broker not in the compiler's list", broker: "unlisted", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:proxy/name" },
+  { id: "broker-no-invoker", title: "Broker's execute, listed, without run.invoker", broker: "no-invoker", default: "refused:cloudrun-iam", lang: "refused:cloudrun-iam", open: "n/a" },
+  { id: "broker-no-token", title: "Broker's execute with no execution token, by a listed invoker (L0176)", broker: "invoker", default: "refused:broker/missing-execution-token", lang: "refused:broker/missing-execution-token", open: "n/a" },
+  { id: "act-as", title: "auth's /internal/act-as with the compiler's own ID token", default: "refused:auth/unknown-caller", lang: "refused:auth/unknown-caller", open: "refused:auth/unknown-caller" },
   { id: "admin", title: "the proxy's admin interface", default: "refused", lang: "refused", open: "refused" },
 ];
+
+export const BROKER_RELATIONSHIPS = ["unlisted", "no-invoker", "invoker"];
 
 // The config, per run. Every target is optional; a check without one is "not run".
 //   proxy:        "http://10.8.0.2:3128"
@@ -61,10 +83,12 @@ export const MATRIX = [
 //   external:     ["storage.googleapis.com"]          (lang) its reviewed external hosts
 //   unlisted:     ["example.com"]
 //   learnosity:   ["items.learnosity.com", "data.learnosity.com", "eu.learnosity.com"]
+//   trailingDot:  ["learnosity.com.", "items.learnosity.com.", "hello-xyz-uc.a.run.app."]
 //   ipLiterals:   ["54.230.0.1", "[2600:9000::1]"]
 //   redirect:     "https://<host we run>/to-learnosity"   (followed by hand; each hop rechecked)
 //   rebinding:    ["meta.rebind.<domain we run>", "ten.rebind...", "lo.rebind...", "lb.rebind...", "flip.rebind..."]
-//   runApp:       ["hello-xyz-uc.a.run.app"]          another project's service
+//   canary:       "canary.<domain we run>"            (open) a public name, reachable through the proxy
+//   runApp:       ["hello-xyz-uc.a.run.app"]          another project's service (and, for L0185, ours)
 //   frontendIp:   "142.250.0.1"
 //   fronting:     { sni: "<listed host>", host: "<another project's run.app host>" }
 //   frontingOpen: { connect: "<unlisted fronted host>", host: "<another host>" }
@@ -72,24 +96,64 @@ export const MATRIX = [
 //   dnsExfil:     "<domain we run, its authoritative log kept>"
 //   resolver:     "8.8.8.8"
 //   publicIp:     "1.1.1.1"
-//   broker:       { url, listed: bool, invoker: bool, idToken?: true }
+//   broker:       { url, relationship: "unlisted" | "no-invoker" | "invoker", op?, payload? }
+//   actAs:        { url: "https://auth.graffiticode.org", audience? }
 //   admin:        { address: "10.8.0.2", port: 9901 }
 //   timeoutMs:    5000
+//   nonce:        set from AT11_NONCE by the collector; every probe id carries it
 
 const DEFAULT_TIMEOUT = 5000;
 
 // Decides what a single observation means.
+//
+// Only a direct connection's failure is the firewall's. A failure talking to the proxy (it's
+// down, it reset, it timed out) is an error: a proxy that isn't there must never pass a row
+// that expects a refusal. A CONNECT 5xx is only pending until the collector shows which
+// address and rule refused it.
 export function classify(observation) {
   if (observation.error === "nxdomain") return { outcome: "nxdomain" };
-  if (observation.error === "timeout" || observation.error === "refused" || observation.error === "unreachable") {
-    return { outcome: observation.via === "proxy" ? "refused:network" : "refused:firewall" };
-  }
+  if (observation.via === "direct" && ["timeout", "refused", "unreachable"].includes(observation.error)) return { outcome: "refused:firewall" };
   if (observation.error) return { outcome: "error", detail: observation.error };
   const reason = observation.headers?.["x-isolate01-refused"];
-  if (observation.status === 403 && reason) return { outcome: "refused:proxy", reason };
-  if (observation.stage === "connect" && observation.status >= 500) return { outcome: "refused:network", status: observation.status };
+  if (observation.status === 403 && reason) {
+    return PROXY_REASONS.includes(reason) ? { outcome: "refused:proxy", reason } : { outcome: "error", detail: `unknown refusal reason ${reason}` };
+  }
+  if (observation.stage === "connect" && observation.status >= 500) return { outcome: "pending:network", status: observation.status, probe: observation.probe };
   if (observation.stage === "connect" && observation.status !== 200) return { outcome: "error", detail: `CONNECT answered ${observation.status} without a refusal reason` };
   return { outcome: "succeeds", status: observation.status };
+}
+
+const jsonBody = observation => {
+  try { return JSON.parse(observation.body ?? ""); } catch { return null; }
+};
+const reasonOf = message => String(message ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+// The JSON error body of @graffiticode/common/http: { status: "error", error: { code, message } }.
+const serviceError = observation => {
+  const body = jsonBody(observation);
+  return body?.status === "error" && typeof body.error?.message === "string" ? body.error : null;
+};
+
+// Broker's answers. Its refusals are JSON; Cloud Run's IAM refusal is its own HTML page, never
+// Broker's JSON. A 401 for a rejected caller (missing or invalid X-Caller-Identity) is a
+// different refusal from a missing execution token, so the reason is always kept.
+export function classifyBroker(observation) {
+  const base = classify(observation);
+  if (base.outcome !== "succeeds") return base;
+  const error = serviceError(observation);
+  if (observation.status === 403 && !error && /text\/html/i.test(observation.headers?.["content-type"] ?? "")) {
+    return { outcome: "refused:cloudrun-iam", status: 403 };
+  }
+  if (error && [401, 403].includes(observation.status)) return { outcome: "refused:broker", status: observation.status, reason: reasonOf(error.message) };
+  return { outcome: "error", status: observation.status, detail: `Broker answered ${observation.status} without a recognised refusal` };
+}
+
+// auth's answers to /internal/act-as: a caller outside ACT_AS_CALLERS gets 403 "unknown caller".
+export function classifyAuth(observation) {
+  const base = classify(observation);
+  if (base.outcome !== "succeeds") return base;
+  const error = serviceError(observation);
+  if (error && [401, 403].includes(observation.status)) return { outcome: "refused:auth", status: observation.status, reason: reasonOf(error.message) };
+  return { outcome: "error", status: observation.status, detail: `auth answered ${observation.status} without a recognised refusal` };
 }
 
 // Whether an observed outcome meets a matrix expectation.
@@ -101,81 +165,139 @@ export function meets(expected, got) {
   return got.outcome === outcome && (!reason || got.reason === reason);
 }
 
+// Only ENOTFOUND is a genuine NXDOMAIN. NODATA (the name exists), SERVFAIL (a broken resolver
+// or lockdown), REFUSED and timeouts are other answers, and never pass the exfiltration row.
+const DNS_ERRORS = { ENODATA: "nodata", ESERVFAIL: "servfail", EREFUSED: "dns-refused", ECONNREFUSED: "dns-unreachable", ETIMEOUT: "dns-timeout", EBADRESP: "dns-badresp" };
+export const dnsErrorKind = e => {
+  const code = e?.code ?? "";
+  if (code === "ENOTFOUND") return "nxdomain";
+  return DNS_ERRORS[code] ?? `dns-${String(code || e?.message || e).toLowerCase()}`;
+};
+
 const errorKind = e => {
   const code = e?.code ?? "";
-  if (code === "ENOTFOUND" || code === "ENODATA" || code === "ESERVFAIL") return "nxdomain";
   if (code === "ETIMEDOUT" || e?.name === "TimeoutError" || /timeout/i.test(String(e?.message))) return "timeout";
   if (code === "ECONNREFUSED" || code === "ECONNRESET") return "refused";
   if (code === "EHOSTUNREACH" || code === "ENETUNREACH") return "unreachable";
   return String(e?.message ?? e);
 };
 
+const parseHead = text => {
+  const [statusLine, ...lines] = text.split("\r\n");
+  return {
+    status: Number(statusLine.split(" ")[1]),
+    headers: Object.fromEntries(lines.map(l => [l.slice(0, l.indexOf(":")).trim().toLowerCase(), l.slice(l.indexOf(":") + 1).trim()])),
+  };
+};
+
 // A raw CONNECT through the proxy: the proxy's status and headers, and the open socket on 200.
-export function connectTunnel(proxyUrl, authority, timeoutMs = DEFAULT_TIMEOUT) {
+// `probe` goes on the CONNECT as x-isolate01-probe, so the proxy's log line carries it.
+export function connectTunnel(proxyUrl, authority, timeoutMs = DEFAULT_TIMEOUT, probe = null) {
   const { hostname, port } = new URL(proxyUrl);
   return new Promise((resolve) => {
     const socket = net.connect(Number(port), hostname);
-    const timer = setTimeout(() => { socket.destroy(); resolve({ via: "proxy", error: "timeout" }); }, timeoutMs);
+    const timer = setTimeout(() => { socket.destroy(); resolve({ via: "proxy", probe, error: "timeout" }); }, timeoutMs);
     let buffer = Buffer.alloc(0);
-    socket.once("error", e => { clearTimeout(timer); resolve({ via: "proxy", error: errorKind(e) }); });
-    socket.on("connect", () => socket.write(`CONNECT ${authority} HTTP/1.1\r\nHost: ${authority}\r\n\r\n`));
+    socket.once("error", e => { clearTimeout(timer); resolve({ via: "proxy", probe, error: errorKind(e) }); });
+    socket.on("connect", () => socket.write(`CONNECT ${authority} HTTP/1.1\r\nHost: ${authority}\r\n${probe ? `x-isolate01-probe: ${probe}\r\n` : ""}\r\n`));
     const onData = chunk => {
       buffer = Buffer.concat([buffer, chunk]);
       const end = buffer.indexOf("\r\n\r\n");
       if (end === -1) return;
       socket.off("data", onData);
       clearTimeout(timer);
-      const [statusLine, ...lines] = buffer.slice(0, end).toString().split("\r\n");
-      const status = Number(statusLine.split(" ")[1]);
-      const headers = Object.fromEntries(lines.map(l => [l.slice(0, l.indexOf(":")).trim().toLowerCase(), l.slice(l.indexOf(":") + 1).trim()]));
+      const { status, headers } = parseHead(buffer.subarray(0, end).toString());
       if (status !== 200) socket.destroy();
-      resolve({ via: "proxy", stage: "connect", status, headers, socket: status === 200 ? socket : null });
+      resolve({ via: "proxy", stage: "connect", status, headers, probe, socket: status === 200 ? socket : null });
     };
     socket.on("data", onData);
   });
 }
 
 // One HTTPS request inside a tunnel: TLS with `sni`, then a request with `host` (HTTP/1.1) or
-// `:authority` (HTTP/2). Trusts the proxy CA from NODE_EXTRA_CA_CERTS like the compilers do.
-export function requestInTunnel(socket, { sni, host, path = "/", method = "GET", headers = {}, h2 = false, timeoutMs = DEFAULT_TIMEOUT }) {
+// `:authority` (HTTP/2). Trusts the proxy CA from NODE_EXTRA_CA_CERTS like the compilers do
+// (or `ca`, in tests). With `body` it's sent, JSON-encoded unless a string, with its length.
+// The response body is read, up to MAX_BODY bytes: Broker's and auth's refusals are told apart
+// by it.
+const MAX_BODY = 64 * 1024;
+export function requestInTunnel(socket, { sni, host, path = "/", method = "GET", headers = {}, body, h2 = false, probe = null, ca, timeoutMs = DEFAULT_TIMEOUT }) {
+  const payload = body === undefined ? null : Buffer.from(typeof body === "string" ? body : JSON.stringify(body));
+  const sent = {
+    ...(payload && typeof body !== "string" ? { "content-type": "application/json" } : {}),
+    ...headers,
+    ...(probe ? { "x-isolate01-probe": probe } : {}),
+  };
   return new Promise((resolve) => {
-    const timer = setTimeout(() => { socket.destroy(); resolve({ via: "proxy", stage: "request", error: "timeout" }); }, timeoutMs);
-    const done = result => { clearTimeout(timer); resolve({ via: "proxy", stage: "request", ...result }); };
-    const secure = tls.connect({ socket, servername: sni, ALPNProtocols: h2 ? ["h2"] : ["http/1.1"] });
+    const timer = setTimeout(() => { socket.destroy(); resolve({ via: "proxy", stage: "request", probe, error: "timeout" }); }, timeoutMs);
+    let settled = false;
+    const done = result => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ via: "proxy", stage: "request", probe, ...result });
+    };
+    const secure = tls.connect({ socket, servername: sni, ALPNProtocols: h2 ? ["h2"] : ["http/1.1"], ...(ca ? { ca } : {}) });
     secure.once("error", e => done({ error: errorKind(e) }));
     secure.once("secureConnect", () => {
       if (h2) {
         const session = http2.connect(`https://${sni}`, { createConnection: () => secure });
         session.once("error", e => done({ error: errorKind(e) }));
-        const req = session.request({ ":method": method, ":path": path, ":authority": host, ...headers });
+        const req = session.request({ ":method": method, ":path": path, ":authority": host, ...sent });
         req.once("response", h => {
-          req.resume();
-          req.once("end", () => session.close());
-          done({ status: Number(h[":status"]), headers: Object.fromEntries(Object.entries(h).filter(([k]) => !k.startsWith(":"))) });
+          const chunks = [];
+          let size = 0;
+          req.on("data", c => { if (size < MAX_BODY) chunks.push(c); size += c.length; });
+          req.once("end", () => {
+            session.close();
+            done({ status: Number(h[":status"]), headers: Object.fromEntries(Object.entries(h).filter(([k]) => !k.startsWith(":"))), body: Buffer.concat(chunks).subarray(0, MAX_BODY).toString() });
+          });
         });
-        req.end();
+        req.end(payload ?? undefined);
         return;
       }
-      secure.write(`${method} ${path} HTTP/1.1\r\nHost: ${host}\r\nConnection: close\r\n${Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join("")}\r\n`);
+      const lines = { ...sent, ...(payload ? { "content-length": String(payload.length) } : {}) };
+      secure.write(`${method} ${path} HTTP/1.1\r\nHost: ${host}\r\nConnection: close\r\n${Object.entries(lines).map(([k, v]) => `${k}: ${v}\r\n`).join("")}\r\n`);
+      if (payload) secure.write(payload);
       let buffer = Buffer.alloc(0);
+      let head = null;
+      const finish = () => {
+        if (!head) return done({ error: "no response" });
+        const rest = buffer.subarray(head.end + 4);
+        const length = Number(head.headers["content-length"]);
+        done({ status: head.status, headers: head.headers, body: (Number.isFinite(length) ? rest.subarray(0, length) : rest).subarray(0, MAX_BODY).toString() });
+      };
       secure.on("data", chunk => {
         buffer = Buffer.concat([buffer, chunk]);
-        const end = buffer.indexOf("\r\n\r\n");
-        if (end === -1) return;
-        const [statusLine, ...lines] = buffer.slice(0, end).toString().split("\r\n");
-        secure.destroy();
-        done({ status: Number(statusLine.split(" ")[1]), headers: Object.fromEntries(lines.map(l => [l.slice(0, l.indexOf(":")).trim().toLowerCase(), l.slice(l.indexOf(":") + 1).trim()])) });
+        if (!head) {
+          const end = buffer.indexOf("\r\n\r\n");
+          if (end === -1) return;
+          head = { end, ...parseHead(buffer.subarray(0, end).toString()) };
+        }
+        const length = Number(head.headers["content-length"]);
+        const have = buffer.length - head.end - 4;
+        if ((Number.isFinite(length) && have >= length) || have >= MAX_BODY) {
+          finish();
+          secure.destroy();
+        }
       });
+      secure.once("end", finish);
+      secure.once("close", finish);
     });
   });
 }
 
+// A probe id per request: the collector matches it to the proxy's access-log lines.
+let probeCount = 0;
+export const probeId = config => `${config.nonce ?? "run"}-${++probeCount}-${randomBytes(3).toString("hex")}`;
+
 // CONNECT, and for a 200 an HTTPS request with the same name: the whole path a compiler takes.
-async function through(config, authority, { sni, host, path, h2, headers } = {}) {
+// `method`, `headers` and `body` reach the inner request, and both carry one probe id.
+export async function through(config, authority, { sni, host, path, h2, headers, method, body, ca } = {}) {
   const name = authority.replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
-  const tunnel = await connectTunnel(config.proxy, authority, config.timeoutMs);
+  const probe = probeId(config);
+  const tunnel = await connectTunnel(config.proxy, authority, config.timeoutMs, probe);
   if (!tunnel.socket) return tunnel;
-  return requestInTunnel(tunnel.socket, { sni: sni ?? name, host: host ?? name, path, h2, headers, timeoutMs: config.timeoutMs });
+  return requestInTunnel(tunnel.socket, { sni: sni ?? name, host: host ?? name, path, h2, headers, method, body, probe, ca: ca ?? config.ca, timeoutMs: config.timeoutMs });
 }
 
 function directConnect(address, port, timeoutMs = DEFAULT_TIMEOUT) {
@@ -202,26 +324,31 @@ function directUdpDns(resolver, timeoutMs = DEFAULT_TIMEOUT) {
 const asDirect = o => (o.connected ? { outcome: "succeeds", status: 0 } : classify(o));
 
 // The checks. Each returns a list of { target, observation, result } (several targets per row).
+// `deps` lets tests replace the metadata server's ID tokens and the resolver.
 export const CHECKS = {
   direct: async c => c.publicIp ? [await one(`${c.publicIp}:443`, directConnect(c.publicIp, 443, c.timeoutMs), asDirect)] : null,
   listed: async c => c.listed?.length ? Promise.all(c.listed.map(h => one(h, through(c, `${h}:443`)))) : null,
   external: async c => c.external?.length ? Promise.all(c.external.map(h => one(h, through(c, `${h}:443`)))) : null,
   unlisted: async c => c.unlisted?.length ? Promise.all(c.unlisted.map(h => one(h, through(c, `${h}:443`)))) : null,
   learnosity: async c => c.learnosity?.length ? Promise.all(c.learnosity.map(h => one(h, through(c, `${h}:443`)))) : null,
+  "trailing-dot": async c => c.trailingDot?.length ? Promise.all(c.trailingDot.map(h => one(h, through(c, `${h}:443`)))) : null,
   "ip-literal": async c => c.ipLiterals?.length ? Promise.all(c.ipLiterals.map(ip => one(ip, through(c, `${ip}:443`)))) : null,
   redirect: async c => c.redirect ? [await followRedirects(c, c.redirect)] : null,
   rebinding: async c => c.rebinding?.length ? Promise.all(c.rebinding.map(h => one(h, through(c, `${h}:443`)))) : null,
+  canary: async c => c.canary ? [await one(c.canary, through(c, `${c.canary}:443`))] : null,
   "run-app": async c => c.runApp?.length ? Promise.all(c.runApp.map(h => one(h, through(c, `${h}:443`)))) : null,
   "frontend-ip": async c => c.frontendIp ? [await one(c.frontendIp, through(c, `${c.frontendIp}:443`, { sni: c.fronting?.sni ?? "www.google.com", host: c.fronting?.host ?? "www.google.com" }))] : null,
   fronted: async c => c.fronting ? Promise.all([false, true].map(h2 => one(`${c.fronting.sni} as ${c.fronting.host}${h2 ? " (h2)" : ""}`, through(c, `${c.fronting.sni}:443`, { sni: c.fronting.sni, host: c.fronting.host, h2 })))) : null,
   "fronted-open": async c => c.frontingOpen ? [await one(`${c.frontingOpen.connect} as ${c.frontingOpen.host}`, through(c, `${c.frontingOpen.connect}:443`, { host: c.frontingOpen.host }))] : null,
   relay: async c => c.relay ? [await one(c.relay, through(c, `${new URL(c.relay).hostname}:443`, { path: new URL(c.relay).pathname }))] : null,
-  "dns-exfil": async c => {
+  "dns-exfil": async (c, { resolve4 = dns.resolve4 } = {}) => {
     if (!c.dnsExfil) return null;
     const label = `at11-${randomBytes(8).toString("hex")}`;
     const name = `${label}.${c.dnsExfil}`;
-    const observation = await dns.resolve4(name).then(() => ({ status: 0 }), e => ({ error: errorKind(e) }));
-    return [{ target: name, observation, result: classify(observation), logCheck: { name, label } }];
+    const queriedAt = new Date().toISOString();
+    const observation = await resolve4(name).then(() => ({ via: "dns", status: 0 }), e => ({ via: "dns", error: dnsErrorKind(e), code: e?.code }));
+    const result = observation.error === "nxdomain" ? { outcome: "nxdomain" } : observation.error ? { outcome: "error", detail: observation.error } : { outcome: "succeeds", status: 0 };
+    return [{ target: name, observation, result, logCheck: { name, label, queriedAt } }];
   },
   "dns-direct": async c => c.resolver
     ? [
@@ -230,9 +357,10 @@ export const CHECKS = {
         await one(`${c.resolver} tcp/853`, directConnect(c.resolver, 853, c.timeoutMs), asDirect),
       ]
     : null,
-  "broker-unlisted": async c => c.broker && !c.broker.listed ? [await one(c.broker.url, through(c, `${new URL(c.broker.url).hostname}:443`, { path: "/v1/execute", method: "POST" }))] : null,
-  "broker-no-invoker": async c => c.broker?.listed && !c.broker.invoker ? [await brokerExecute(c)] : null,
-  "broker-no-token": async c => c.broker?.listed && c.broker.invoker ? [await brokerExecute(c)] : null,
+  "broker-unlisted": async (c, deps) => c.broker?.relationship === "unlisted" ? [await brokerExecute(c, deps)] : null,
+  "broker-no-invoker": async (c, deps) => c.broker?.relationship === "no-invoker" ? [await brokerExecute(c, deps)] : null,
+  "broker-no-token": async (c, deps) => c.broker?.relationship === "invoker" ? [await brokerExecute(c, deps)] : null,
+  "act-as": async (c, deps) => c.actAs ? [await actAs(c, deps)] : null,
   admin: async c => c.admin
     ? [
         await one(`${c.admin.address}:${c.admin.port} direct`, directConnect(c.admin.address, c.admin.port, c.timeoutMs), asDirect),
@@ -248,14 +376,43 @@ async function one(target, pending, decide = classify) {
   return { target, observation: recorded, result: decide(observation) };
 }
 
-// Broker's execute with the compiler's own ID token (for Cloud Run) and no execution token.
-async function brokerExecute(c) {
-  const host = new URL(c.broker.url).hostname;
-  const token = await metadataIdToken(c.broker.url).catch(() => null);
-  return one(`${c.broker.url}/v1/execute`, through(c, `${host}:443`, {
+// Broker's execute as a compiler makes it, minus the execution token: POST /v1/execute with
+// { op, payload }, the compiler's ID token as Cloud Run's invoker token
+// (X-Serverless-Authorization) and as the caller (X-Caller-Identity), and no Authorization,
+// which is where the execution token would go.
+export function brokerRequest(c, idToken) {
+  const url = new URL(c.broker.url);
+  return {
+    authority: `${url.hostname}:${url.port || 443}`,
     path: "/v1/execute",
-    headers: token ? { authorization: `Bearer ${token}` } : {},
-  }));
+    method: "POST",
+    headers: { "x-serverless-authorization": `Bearer ${idToken}`, "x-caller-identity": idToken },
+    body: { op: c.broker.op ?? "at11.probe", payload: c.broker.payload ?? {} },
+  };
+}
+
+const noToken = (target, e) => ({ target, observation: { error: `no ID token: ${e.message}` }, result: { outcome: "error", detail: `no ID token: ${e.message}` } });
+
+async function brokerExecute(c, { idToken = metadataIdToken } = {}) {
+  const target = `${c.broker.url}/v1/execute`;
+  let token;
+  try { token = await idToken(c.broker.url); } catch (e) { return noToken(target, e); }
+  const { authority, ...request } = brokerRequest(c, token);
+  return one(target, through(c, authority, request), classifyBroker);
+}
+
+// auth's act-as as a compromised compiler would try it: its own ID token as the caller.
+async function actAs(c, { idToken = metadataIdToken } = {}) {
+  const url = new URL(c.actAs.url);
+  const target = `${c.actAs.url}/internal/act-as`;
+  let token;
+  try { token = await idToken(c.actAs.audience ?? c.actAs.url); } catch (e) { return noToken(target, e); }
+  return one(target, through(c, `${url.hostname}:${url.port || 443}`, {
+    path: "/internal/act-as",
+    method: "POST",
+    headers: { "x-caller-identity": token },
+    body: { purpose: "generation", uid: "at11", subject: "at11", grant: "at11" },
+  }), classifyAuth);
 }
 
 async function metadataIdToken(audience) {
@@ -282,56 +439,162 @@ async function followRedirects(c, start, max = 5) {
   return { target: start, observation: { hops }, result: { outcome: "error", detail: "too many redirects" } };
 }
 
-// Runs every row for this class kind. A row is passed, failed, residual, not run, or n/a.
-export async function runNet(config, checks = CHECKS) {
+// The state of one row from its results:
+//   passed / failed    decided here
+//   pending-log        dns-exfil: every lookup was a genuine NXDOMAIN, and only the
+//                      authoritative log (the collector) can show no query got out
+//   pending-evidence   a refused:network expectation whose results are pending:network: the
+//                      collector decides each from the logs (`attributeNetwork`)
+export function rowState(row, expected, results) {
+  if (expected === "residual") return "residual";
+  if (row.id === "dns-exfil") return results.every(r => r.result.outcome === "nxdomain") ? "pending-log" : "failed";
+  if (expected === "refused:network") {
+    if (!results.every(r => ["pending:network", "refused:network"].includes(r.result.outcome))) return "failed";
+    return results.some(r => r.result.outcome === "pending:network") ? "pending-evidence" : "passed";
+  }
+  return results.every(r => meets(expected, r.result)) ? "passed" : "failed";
+}
+
+// A set of rows passes only when every applicable row passed (or is a residual). It's pending
+// when the only rows left are waiting on the collector.
+export function verdictOf(rows) {
+  if (rows.some(r => !["passed", "residual", "n/a", "pending-log", "pending-evidence"].includes(r.state))) return "failed";
+  if (rows.some(r => r.state === "pending-log" || r.state === "pending-evidence")) return "pending";
+  return "passed";
+}
+
+// Runs every row for this class kind. A row is passed, failed, residual, not run, n/a, or
+// pending on the collector.
+export async function runNet(config, checks = CHECKS, deps = {}) {
   const kind = config.kind;
   if (!["default", "lang", "open"].includes(kind)) throw new Error("config.kind must be default, lang or open");
+  if (config.broker && !BROKER_RELATIONSHIPS.includes(config.broker.relationship)) {
+    throw new Error(`config.broker.relationship must be one of ${BROKER_RELATIONSHIPS.join(", ")}`);
+  }
+  if (kind === "open" && config.broker && config.broker.relationship !== "unlisted") {
+    throw new Error("L0185's open class refuses every run.app name, so Broker can't be listed for it");
+  }
   const rows = [];
   for (const row of MATRIX) {
-    const expected = row[kind];
+    const expected = row.broker && config.broker && config.broker.relationship !== row.broker ? "n/a" : row[kind];
     if (expected === "n/a") {
       rows.push({ id: row.id, title: row.title, expected, state: "n/a" });
       continue;
     }
-    const results = await checks[row.id](config);
+    const results = await checks[row.id](config, deps);
     if (!results) {
       rows.push({ id: row.id, title: row.title, expected, state: "not run" });
       continue;
     }
-    const state = expected === "residual" ? "residual" : results.every(r => meets(expected, r.result)) ? "passed" : "failed";
-    rows.push({ id: row.id, title: row.title, expected, state, results });
+    rows.push({ id: row.id, title: row.title, expected, state: rowState(row, expected, results), results });
   }
-  const passed = rows.every(r => ["passed", "residual", "n/a"].includes(r.state));
-  return { probe: "net", kind, passed, rows };
+  const verdict = verdictOf(rows);
+  return { probe: "net", kind, verdict, passed: verdict === "passed", rows };
 }
 
-// The DNS exfiltration row passes only once the authoritative server's log shows no query for
-// any of its names (evidence step: `node scripts/at11/net.js --dns-log <log> <evidence.json>`).
-export function checkDnsLog(evidence, logText) {
-  const row = evidence.rows.find(r => r.id === "dns-exfil");
-  if (!row?.results) return { checked: false };
-  const leaked = row.results.filter(r => logText.includes(r.logCheck.label)).map(r => r.target);
-  return { checked: true, leaked, passed: leaked.length === 0 };
+// --- the evidence the collector brings: the proxy's logs, the rule hits, the DNS log ---
+
+// Where the network refuses a new connection from the proxy (ENVOY_OUT and the VPC firewall),
+// besides the compiler subnets, the proxy subnet and the load balancer.
+export const BLOCKED_RANGES = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "0.0.0.0/8", "127.0.0.0/8", "169.254.0.0/16", "224.0.0.0/4", "240.0.0.0/4", "199.36.153.8/30", "199.36.153.4/30"];
+
+const ipv4 = a => a.split(".").reduce((n, o) => n * 256 + Number(o), 0);
+export function inCidr(address, cidr) {
+  const [base, bits] = cidr.split("/");
+  if (isIP(address) !== 4 || isIP(base) !== 4) return false;
+  const size = 2 ** (32 - Number(bits ?? 32));
+  return Math.floor(ipv4(address) / size) === Math.floor(ipv4(base) / size);
+}
+
+export function blockedRanges(blocked = {}) {
+  return [
+    ...BLOCKED_RANGES,
+    ...(blocked.compilerSubnets ?? []),
+    ...(blocked.proxySubnet ? [blocked.proxySubnet] : []),
+    ...(blocked.loadBalancer ? [`${blocked.loadBalancer}/32`] : []),
+  ];
+}
+
+// The address on an access-log line's upstream field ("10.0.0.5:443" or "10.0.0.5").
+const addressOf = s => String(s ?? "").replace(/:\d+$/, "");
+const dstPattern = a => new RegExp(`\\bDST=${a.replace(/\./g, "\\.")}(\\s|$)`);
+
+// Decides one pending:network result from the evidence. It's refused:network only when all of
+// these hold:
+//   - the proxy's access line for this probe names the upstream address it tried, and every
+//     such address is inside a blocked range;
+//   - the rule that refused it fired: an ENVOY_OUT `ISOLATE01-REJECT` kernel line, or a VPC
+//     firewall-log hit, for that destination address;
+//   - a reachable canary succeeded through the same proxy in the same run.
+// An unreachable public destination gives the same CONNECT failure but no rule hit and an
+// address outside the blocked ranges, so it never passes.
+export function attributeNetwork(result, { accessLines = [], kernelLines = [], firewallHits = [], canaryPassed = false, blocked } = {}) {
+  if (result.outcome !== "pending:network") return result;
+  if (!canaryPassed) return { outcome: "error", detail: "no reachable canary in this run, so a connect failure proves nothing" };
+  const lines = accessLines.filter(l => l.probe === result.probe && l.isolate01 === "egress");
+  if (!lines.length) return { outcome: "error", detail: `no proxy access line for probe ${result.probe}` };
+  const addresses = [...new Set(lines.map(l => addressOf(l.upstream_host || l.upstream)).filter(a => a && a !== "-"))];
+  if (!addresses.length) return { outcome: "error", detail: "the access line names no upstream address" };
+  const ranges = blockedRanges(blocked);
+  const unblocked = addresses.filter(a => !ranges.some(r => inCidr(a, r)));
+  if (unblocked.length) return { outcome: "error", detail: `upstream ${unblocked.join(", ")} isn't in a blocked range, so the failure isn't the address rules'` };
+  const missing = addresses.filter(a =>
+    !kernelLines.some(k => /ISOLATE01-REJECT \S+/.test(k) && dstPattern(a).test(k)) &&
+    !firewallHits.some(f => (f.connection?.dest_ip ?? f.dest_ip) === a));
+  if (missing.length) return { outcome: "error", detail: `no ISOLATE01-REJECT or firewall-log hit for ${missing.join(", ")}` };
+  return { outcome: "refused:network", addresses, probe: result.probe };
+}
+
+// Applies attributeNetwork to every pending row of a net result, and re-derives the verdict.
+export function settleNetwork(netResult, evidence = {}) {
+  const canaryPassed = netResult.rows.find(r => r.id === "canary")?.state === "passed";
+  const rows = netResult.rows.map(row => {
+    if (row.state !== "pending-evidence") return row;
+    const results = row.results.map(r => ({ ...r, result: attributeNetwork(r.result, { ...evidence, canaryPassed }) }));
+    return { ...row, results, state: rowState(row, row.expected, results) };
+  });
+  return { ...netResult, rows };
+}
+
+// Decides the DNS exfiltration row from the authoritative server's log. It passes only when:
+//   - every compiler lookup was a genuine NXDOMAIN;
+//   - the collector's own control label, resolved from outside the compiler VPC and sent
+//     before the log was fetched, is in the log, so the log would have recorded a leak;
+//   - the log covers the window from the compiler's first query to the control;
+//   - none of the compiler's labels is in it.
+// Without the control the row is void: an empty or broken log proves nothing.
+export function judgeDnsRow(row, log, control) {
+  if (!row?.results?.length) return { state: "not run", why: "no dns-exfil results" };
+  if (!row.results.every(r => r.result.outcome === "nxdomain")) return { state: "failed", why: "a lookup wasn't a genuine NXDOMAIN" };
+  if (!control?.label || !control.sentAt) return { state: "void", why: "no outside control query was sent" };
+  if (!log || typeof log.text !== "string" || !log.text.trim()) return { state: "void", why: "the authoritative log is empty" };
+  if (!log.fetchedAt || log.fetchedAt <= control.sentAt) return { state: "void", why: "the log was fetched before the control query was sent" };
+  if (!log.text.includes(control.label)) return { state: "void", why: "the control label isn't in the log, so it proves nothing" };
+  const first = row.results.map(r => r.logCheck.queriedAt).sort()[0];
+  if (!log.from || !log.to || log.from > first || log.to < control.sentAt) return { state: "void", why: "the log doesn't cover the run's window" };
+  const leaked = row.results.filter(r => log.text.includes(r.logCheck.label)).map(r => r.target);
+  return leaked.length ? { state: "failed", why: `queries reached the authoritative server: ${leaked.join(", ")}`, leaked } : { state: "passed", leaked: [] };
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2), ["--class", "--config", "--out", "--dns-log"]);
-  if (args["--dns-log"]) {
-    const [evidenceFile] = args._;
-    const evidence = JSON.parse(await readFile(evidenceFile, "utf8"));
-    const result = checkDnsLog(evidence, await readFile(args["--dns-log"], "utf8"));
-    console.log(JSON.stringify(result, null, 2));
-    process.exit(result.passed ? 0 : 1);
-  }
-  if (!args["--class"] || !args["--config"]) throw new Error("usage: net.js --class <class> --config <at11.json> [--out dir] | --dns-log <log> <evidence.json>");
-  const config = JSON.parse(await readFile(args["--config"], "utf8"));
-  const result = { class: args["--class"], at: new Date().toISOString(), ...(await runNet(config)) };
+  const args = parseArgs(process.argv.slice(2), ["--class", "--subject", "--config", "--out"]);
+  if (!args["--class"] || !args["--config"]) throw new Error("usage: net.js --class <class> [--subject <account>] --config <at11.json> [--out dir]");
+  const config = { ...JSON.parse(await readFile(args["--config"], "utf8")), nonce: process.env.AT11_NONCE ?? null };
+  const result = {
+    probe: "net",
+    class: args["--class"],
+    subject: args["--subject"] ?? null,
+    nonce: config.nonce,
+    execution: process.env.CLOUD_RUN_EXECUTION ?? null,
+    at: new Date().toISOString(),
+    ...(await runNet(config)),
+  };
   const file = await writeEvidence(args["--out"], args["--class"], "net", result);
   // A job's filesystem doesn't outlive it: the evidence also goes to the log, one line.
   console.log(`AT11-EVIDENCE ${JSON.stringify(result)}`);
-  for (const r of result.rows) console.log(`${r.state.padEnd(8)} ${r.id}: ${r.title} (expected ${r.expected})`);
-  console.log(`${result.passed ? "PASSED" : "FAILED"}; evidence: ${file}`);
-  process.exit(result.passed ? 0 : 1);
+  for (const r of result.rows) console.log(`${r.state.padEnd(16)} ${r.id}: ${r.title} (expected ${r.expected})`);
+  console.log(`${result.verdict.toUpperCase()} (only the collector's verdict counts); evidence: ${file}`);
+  process.exit(result.verdict === "failed" ? 1 : 0);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
