@@ -23,6 +23,8 @@
     "machineType": "e2-small",
     "zones": ["us-central1-a", "us-central1-b"],
     "envoyImage": null,
+    "reportImage": null,
+    "reportUid": 10102,
     "cosImage": null,
     "serviceAccount": "egress-proxy@graffiticode.iam.gserviceaccount.com"
   }

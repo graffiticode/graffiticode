@@ -8,7 +8,7 @@
 // Deployment is deferred (Jeff, 2026-10-14): this prints the commands for
 // review and never runs them. Without --plan it refuses.
 
-import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies } from "./generate.js";
+import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig } from "./generate.js";
 
 export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
 
@@ -101,7 +101,7 @@ export function commands(model) {
     cmd("gcloud", "compute", "instance-templates", "create", "egress-proxy-<template-version>", p, `--machine-type=${model.proxy.machineType}`,
       `--image=${model.proxy.cosImage ?? "<cos-image, pinned in step 0>"}`, "--image-project=cos-cloud", `--network=${network}`, `--subnet=${model.proxySubnet.name}`,
       `--region=${region}`, "--no-address", `--service-account=${sa}`, "--scopes=cloud-platform", "--shielded-secure-boot",
-      "--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled",
+      `--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=${envoyConfig(model).node.metadata.isolate01.config_sha256}`,
       "--metadata-from-file=user-data=out/cloud-init.yaml"),
     cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready", "--enable-logging"),
     cmd("gcloud", "compute", "instance-groups", "managed", "create", "egress-proxy", p, r, "--template=egress-proxy-<template-version>", "--size=2",
@@ -116,6 +116,8 @@ export function commands(model) {
   step("Alerts: a failing health check, a spike in refusals, and access logs stopping",
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-access", p, "--description=ISOLATE-01 proxy access log lines", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\")"),
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-refused", p, "--description=ISOLATE-01 proxy refusals", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\") AND jsonPayload.decision=\"refuse\""),
+    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-config-mismatch", p, "--description=ISOLATE-01 a proxy VM running another config than its template's",
+      "--log-filter=jsonPayload.isolate01=\"config\" AND jsonPayload.match=false"),
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-unhealthy", p, "--description=ISOLATE-01 proxy VMs marked unhealthy",
       "--log-filter=resource.type=\"gce_instance_group\" AND jsonPayload.healthCheckProbeResult.healthState=\"UNHEALTHY\""),
     ...Object.keys(alertPolicies(model)).map(name => cmd("gcloud", "alpha", "monitoring", "policies", "create", p, `--policy-from-file=out/alerts/${name}.json`)),

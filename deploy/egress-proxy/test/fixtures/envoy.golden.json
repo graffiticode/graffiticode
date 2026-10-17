@@ -1,4 +1,14 @@
 {
+  "node": {
+    "id": "egress-proxy",
+    "cluster": "egress-proxy",
+    "metadata": {
+      "isolate01": {
+        "resources_sha256": "2b9a65f31149fc0396f9308f92e9a5dea5b000f6dfff56e74c98bebf42337e7b",
+        "config_sha256": "2bf9313228cdc01363ca1f0c6703b47d9e8f0083d47e90f7272b0f78ba267a5f"
+      }
+    }
+  },
   "admin": {
     "address": {
       "socket_address": {
