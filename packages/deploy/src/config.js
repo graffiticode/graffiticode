@@ -4,10 +4,11 @@ import { createHash } from "node:crypto";
 
 // ISOLATE-01 (W5 stage 4): a compiler's egress. Every revision runs on the
 // compiler network with all traffic through its VPC, reaches the outside only
-// through the host-policy proxy (HTTPS_PROXY/HTTP_PROXY; NO_PROXY is the
-// metadata server only), and trusts the proxy's inspection CA. `allow` is the
-// reviewed host list the proxy enforces, kept here so it's reviewed with the
-// service; the CLI records it but the proxy's policy is what enforces it.
+// through the egress proxy (HTTPS_PROXY/HTTP_PROXY; NO_PROXY is the metadata
+// server only), and trusts the private CA whose certificates the proxy
+// presents for the hosts it terminates TLS for. `allow` is the reviewed host
+// list the proxy enforces, kept here so it's reviewed with the service; the
+// CLI records it, and deploy/egress-proxy generates the proxy's config from it.
 const HOSTNAME = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
 const validNetwork = n => object(n) &&
   typeof n.network === "string" && /^[a-z][a-z0-9-]{0,62}$/.test(n.network) &&

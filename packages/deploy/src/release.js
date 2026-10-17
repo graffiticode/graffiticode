@@ -347,8 +347,9 @@ export async function belowBaseline(context, names, { cloud, git }, which = "cur
 
 // ISOLATE-01 (W5 stage 4): what every revision of a networked compiler runs
 // with. The proxy is its only route out; NO_PROXY exempts only the metadata
-// server, which the runtime uses for its own identity and tokens; the
-// inspection CA is mounted from Secret Manager and trusted by Node.
+// server, which the runtime uses for its own identity and tokens; the proxy's
+// private CA (public certificate only) is mounted from Secret Manager and
+// trusted by Node.
 export const METADATA_ONLY = "169.254.169.254,metadata.google.internal";
 export const NETWORK_ENV = Object.freeze(["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS"]);
 export function networkEnv(network) {
