@@ -84,26 +84,19 @@ pub struct L0185 {
     fetcher: Option<Arc<dyn Fetcher>>,
 }
 
-impl Default for L0185 {
-    /// The language server's L0185: `fetch` goes through the guarded HTTPS fetcher.
-    fn default() -> Self {
-        #[cfg(feature = "http")]
-        {
-            // Through the egress proxy when the environment names one (ISOLATE-01).
-            let opts = fetch::GuardOptions {
-                egress: graffiticode_l0000::egress::EgressEnv::from_env(),
-                ..fetch::GuardOptions::default()
-            };
-            Self { fetcher: Some(Arc::new(fetch::GuardedFetcher::new(opts))) }
-        }
-        #[cfg(not(feature = "http"))]
-        {
-            Self { fetcher: None }
-        }
-    }
-}
-
 impl L0185 {
+    /// The language server's L0185: `fetch` goes through the guarded HTTPS fetcher, and through
+    /// the egress proxy when the environment names one (ISOLATE-01). A proxy that isn't a URL, or
+    /// one without a readable CA, is an error, so the server refuses to start.
+    #[cfg(feature = "http")]
+    pub fn from_env() -> Result<Self, graffiticode_l0000::egress::EgressError> {
+        let opts = fetch::GuardOptions {
+            egress: graffiticode_l0000::egress::EgressEnv::from_env(),
+            ..fetch::GuardOptions::default()
+        };
+        Ok(Self { fetcher: Some(Arc::new(fetch::GuardedFetcher::new(opts)?)) })
+    }
+
     /// L0185 fetching through `fetcher` (tests use a fixture one).
     pub fn with_fetcher(fetcher: impl Fetcher + 'static) -> Self {
         Self { fetcher: Some(Arc::new(fetcher)) }

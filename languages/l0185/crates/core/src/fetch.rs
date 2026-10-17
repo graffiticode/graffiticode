@@ -32,7 +32,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use graffiticode_l0000::egress::{EgressEnv, client_builder_with};
+use graffiticode_l0000::egress::{EgressEnv, EgressError, client_builder_with};
 use indexmap::IndexMap;
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
 use tokio::sync::OnceCell;
@@ -273,21 +273,20 @@ pub struct GuardedFetcher {
 }
 
 impl GuardedFetcher {
-    pub fn new(opts: GuardOptions) -> Self {
+    /// A fetcher from `opts`. A proxy that isn't a URL, or one without a readable CA, is an
+    /// error for the caller to report: the server refuses to start, rather than panicking.
+    pub fn new(opts: GuardOptions) -> Result<Self, EgressError> {
         let builder = if opts.egress.proxy.is_some() {
             // Through the egress proxy, which resolves the name and checks the address.
-            client_builder_with(&opts.egress).unwrap_or_else(|err| panic!("{err}"))
+            client_builder_with(&opts.egress)?
         } else {
             reqwest::Client::builder()
                 .no_proxy()
                 .dns_resolver(Arc::new(GuardedResolver { allowed: opts.is_allowed_address }))
         };
-        let client = builder
-            .redirect(reqwest::redirect::Policy::none())
-            .connect_timeout(opts.connect_timeout)
-            .build()
-            .expect("the HTTP client builds");
-        Self { client, opts, cache: Mutex::new(IndexMap::new()) }
+        let client =
+            builder.redirect(reqwest::redirect::Policy::none()).connect_timeout(opts.connect_timeout).build()?;
+        Ok(Self { client, opts, cache: Mutex::new(IndexMap::new()) })
     }
 
     async fn once(&self, raw: &str) -> Result<FetchResult, String> {
@@ -499,7 +498,7 @@ mod tests {
         ])
         .await
         .replace("localhost", "127.0.0.1");
-        let fetcher = GuardedFetcher::new(test_options());
+        let fetcher = GuardedFetcher::new(test_options()).unwrap();
         let got = fetcher.fetch(&format!("{base}/start")).await.unwrap();
         assert_eq!(got, FetchResult { text: "[1]".into(), content_type: "application/json".into() });
         // Cached: the server is gone, the answer is not.
