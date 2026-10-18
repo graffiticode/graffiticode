@@ -338,12 +338,14 @@ session every day, so a dry run that finds none in the window fails.
 **After every apply**, check delivery in two runs; neither prompts, so both work from
 `!` in Claude Code. `--verify-alert` writes one test record per alert to its own log,
 `security_audit_test`. The alert conditions match those records; the metrics never do. It
-keeps their nonces in `.gc-deploy/monitoring/pending.json`. Each email ends
-`Nonce: <nonce>`. Once they arrive (usually within 5 minutes), run `--confirm` with the
-nonce from each email, in any order. An alert whose email didn't arrive is left out and
-recorded as not confirmed, as is one whose incident fired without its email arriving. The
-result is appended to `.gc-deploy/monitoring/alert-verification.json`. `--verify-alert`
-covers the log-match alerts only.
+keeps their nonces in `.gc-deploy/monitoring/pending.json`. Each record's nonce is its log
+entry's extracted label `nonce`. Notification emails don't show the policy documentation,
+so look for it with the alert's labels. Once the emails arrive (usually within 5 minutes),
+run `--confirm` with the nonce from each, in any order. Only the nonces given are settled
+(recorded delivered); the rest stay pending for a later `--confirm`. Add `--settle` to record
+the rest as not confirmed: an alert whose email never arrived, or whose incident fired
+without one. The result is appended to `.gc-deploy/monitoring/alert-verification.json`.
+`--verify-alert` covers the log-match alerts only.
 
 **The threshold alert** is checked separately, because a test record on a log-match alert never
 exercises metric ingestion or a threshold's evaluation. `--verify-threshold` uses a scratch
@@ -366,8 +368,9 @@ Without `--apply` it prints the scratch metric, the policy and a nonce, and writ
    a point split by a window edge can be counted twice, and a reading may run one or two
    above the records written. That's noise at the real alert's 600.
 
-The email from the scratch policy must contain `Nonce: <nonce>` and be dated after the
-crossing: that shows the metric was ingested, the condition evaluated and the notification
+The email from the scratch policy must show the condition `Security audit: monitoring test
+(threshold), nonce <nonce>` (its "Condition" line; the nonce is also in the documentation,
+which emails don't show) and be dated after the crossing: that shows the metric was ingested, the condition evaluated and the notification
 delivered. An email with the nonce dated before the crossing means the condition opened at the
 threshold; don't confirm it. The nonce is added to `pending.json`, so `--confirm <nonce>`
 records the result like the others. Afterwards, `--verify-threshold --cleanup --apply` removes

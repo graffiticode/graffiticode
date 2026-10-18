@@ -9,7 +9,7 @@
 //   node scripts/monitoring.js [--email <operator address>]            dry run (default)
 //   node scripts/monitoring.js --apply --email <operator address> --canary-connection <id>
 //   node scripts/monitoring.js --verify-alert --email <operator address> --canary-connection <id>
-//   node scripts/monitoring.js --confirm <nonce> [<nonce> ...]
+//   node scripts/monitoring.js --confirm <nonce> [<nonce> ...] [--settle]
 //   node scripts/monitoring.js --verify-threshold --email <operator address> [--threshold N] [--apply]
 //   node scripts/monitoring.js --verify-threshold --cleanup [--apply]
 //
@@ -46,13 +46,13 @@ import { execFileSync } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CAP, SCRATCH_POLICY, SCRATCH_THRESHOLD, apply, checkFilters, cleanupThreshold, confirmDelivery, plan, verifyThreshold, writeTestRecords } from "./lib/monitoring.js";
+import { CAP, SCRATCH_POLICY, SCRATCH_THRESHOLD, scratchConditionName, apply, checkFilters, cleanupThreshold, confirmDelivery, plan, verifyThreshold, writeTestRecords } from "./lib/monitoring.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DAY = 24 * 3600 * 1000;
 
 export const parse = argv => {
-  const opts = { project: "graffiticode", email: null, days: 7, apply: false, verifyAlert: false, verifyThreshold: false, cleanup: false, threshold: SCRATCH_THRESHOLD, confirm: null, canaryConnections: [] };
+  const opts = { project: "graffiticode", email: null, days: 7, apply: false, verifyAlert: false, verifyThreshold: false, cleanup: false, settle: false, threshold: SCRATCH_THRESHOLD, confirm: null, canaryConnections: [] };
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (key === "--confirm") {
@@ -64,6 +64,7 @@ export const parse = argv => {
     if (key === "--verify-alert") { opts.verifyAlert = true; continue; }
     if (key === "--verify-threshold") { opts.verifyThreshold = true; continue; }
     if (key === "--cleanup") { opts.cleanup = true; continue; }
+    if (key === "--settle") { opts.settle = true; continue; }
     const value = argv[++i];
     if (!["--project", "--email", "--days", "--canary-connection", "--threshold"].includes(key) || value === undefined) throw new Error(`unknown or incomplete option ${key}`);
     if (key === "--threshold") opts.threshold = Number(value);
@@ -79,6 +80,7 @@ export const parse = argv => {
   if ([opts.verifyAlert, opts.verifyThreshold, opts.confirm !== null].filter(Boolean).length > 1) throw new Error("--verify-alert, --verify-threshold and --confirm are separate runs");
   if (opts.apply && (opts.verifyAlert || opts.confirm !== null)) throw new Error("--apply, --verify-alert and --confirm are separate runs");
   if (opts.cleanup && !opts.verifyThreshold) throw new Error("--cleanup goes with --verify-threshold");
+  if (opts.settle && opts.confirm === null) throw new Error("--settle goes with --confirm");
   if (!(Number.isInteger(opts.threshold) && opts.threshold > 0 && opts.threshold <= 100)) throw new Error("--threshold must be an integer from 1 to 100");
   if (opts.verifyThreshold && !opts.cleanup && !opts.email) throw new Error("--email is required with --verify-threshold");
   if ((opts.apply || opts.verifyAlert) && !opts.verifyThreshold && !opts.email) throw new Error("--email is required with --apply and --verify-alert");
@@ -125,13 +127,16 @@ const main = async () => {
   if (opts.confirm !== null) {
     const written = await readFile(PENDING, "utf8").then(JSON.parse, () => null);
     if (!written) throw new Error("no test records are pending; run --verify-alert first");
-    const { results, unknown } = confirmDelivery(written, opts.confirm);
-    await record(results);
-    await rm(PENDING, { force: true });
+    const { results, remaining, unknown } = confirmDelivery(written, opts.confirm, { settle: opts.settle });
+    if (results.length) await record(results);
+    if (remaining.length) await writeFile(PENDING, `${JSON.stringify(remaining, null, 2)}\n`, { mode: 0o600 });
+    else await rm(PENDING, { force: true });
     for (const r of results) log(`  ${r.delivered ? "DELIVERED" : "NOT CONFIRMED"} ${r.alert}`);
+    for (const r of remaining) log(`  still pending: ${r.alert} (written ${r.writtenAt})`);
     if (unknown.length) log(`  matched no alert: ${unknown.join(", ")}`);
-    log(`Recorded in ${VERIFIED}`);
-    if (!results.every(r => r.delivered)) process.exitCode = 1;
+    if (results.length) log(`Recorded in ${VERIFIED}`);
+    if (remaining.length) log("Confirm them when their emails arrive, or add --settle to record them not confirmed.");
+    if (unknown.length || !results.every(r => r.delivered)) process.exitCode = 1;
     return;
   }
 
@@ -158,8 +163,8 @@ const main = async () => {
     const earlier = await readFile(PENDING, "utf8").then(JSON.parse, () => []);
     await mkdir(MONITORING_DIR, { recursive: true });
     await writeFile(PENDING, `${JSON.stringify([...earlier, { alert: SCRATCH_POLICY, nonce: run.nonce, writtenAt: run.crossedAt }], null, 2)}\n`, { mode: 0o600 });
-    log(`\nThe threshold was crossed at ${run.crossedAt}. Look for an email to ${email} from "${SCRATCH_POLICY}" containing:`);
-    log(`  Nonce: ${run.nonce}`);
+    log(`\nThe threshold was crossed at ${run.crossedAt}. Look for an email to ${email} whose Condition line reads:`);
+    log(`  ${scratchConditionName(run.nonce)}`);
     log(`It should arrive within about 5 minutes, dated after ${run.crossedAt}. One dated before it means the condition opened at the threshold: don't confirm it.`);
     log(`When it arrives: node scripts/monitoring.js --confirm ${run.nonce}`);
     log("Then remove the scratch metric and policy: node scripts/monitoring.js --verify-threshold --cleanup --apply");
@@ -170,7 +175,7 @@ const main = async () => {
     const written = await writeTestRecords({ api, project, email, canaryConnections: opts.canaryConnections, log });
     await mkdir(MONITORING_DIR, { recursive: true });
     await writeFile(PENDING, `${JSON.stringify(written, null, 2)}\n`, { mode: 0o600 });
-    log(`Each alert's email should reach ${email} within about 5 minutes, ending "Nonce: <nonce>".`);
+    log(`Each alert's email should reach ${email} within about 5 minutes. Its nonce is the log entry's extracted label "nonce" (shown with the alert's labels, or at the end of its text).`);
     log("When they arrive: node scripts/monitoring.js --confirm <nonce> <nonce>");
     log("(An alert whose email doesn't arrive: leave its nonce out; it is recorded as not confirmed.)");
     return;

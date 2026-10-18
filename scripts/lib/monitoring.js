@@ -300,7 +300,7 @@ export const desiredThresholdPolicy = (spec, channel, { nonce } = {}) => ({
   enabled: true,
   notificationChannels: [channel],
   documentation: { mimeType: "text/markdown", content: thresholdDocumentation(spec, { nonce }) },
-  conditions: [thresholdCondition({ ...spec.threshold, displayName: spec.displayName })],
+  conditions: [thresholdCondition({ ...spec.threshold, displayName: spec.conditionName ?? spec.displayName })],
   alertStrategy: { autoClose: "1800s" },
 });
 
@@ -484,13 +484,18 @@ export const writeTestRecords = async ({ api, project, email, canaryConnections 
   return written;
 };
 
-// One result per alert written: delivered when its nonce is among those typed
-// (in any order). A nonce that matches no alert is reported, not ignored.
-export const confirmDelivery = (written, typed, now = () => new Date()) => {
+// Settles only the alerts whose nonce is typed (in any order): each is
+// recorded delivered, and the rest stay pending for a later --confirm. With
+// `settle`, the rest are recorded not confirmed instead (their emails never
+// came). A nonce that matches no alert is reported, not ignored.
+export const confirmDelivery = (written, typed, { now = () => new Date(), settle = false } = {}) => {
   const given = typed.map(t => String(t).trim().toLowerCase()).filter(Boolean);
-  const results = written.map(w => ({ alert: w.alert, writtenAt: w.writtenAt, confirmedAt: now().toISOString(), delivered: given.includes(w.nonce) }));
+  const at = now().toISOString();
+  const result = w => ({ alert: w.alert, writtenAt: w.writtenAt, confirmedAt: at, delivered: given.includes(w.nonce) });
+  const results = written.filter(w => settle || given.includes(w.nonce)).map(result);
+  const remaining = settle ? [] : written.filter(w => !given.includes(w.nonce));
   const unknown = given.filter(g => !written.some(w => w.nonce === g));
-  return { results, unknown };
+  return { results, remaining, unknown };
 };
 
 // Threshold verification (plan system-preview-rate-limit, step 5). The
@@ -519,6 +524,8 @@ export const confirmDelivery = (written, typed, now = () => new Date()) => {
 export const SCRATCH_METRIC_PREFIX = "security_audit/monitoring_test_threshold_";
 export const SCRATCH_POLICY = "Security audit: monitoring test (threshold)";
 export const SCRATCH_THRESHOLD = 5;
+// The scratch condition's name, as the email's "Condition" line shows it.
+export const scratchConditionName = nonce => `${SCRATCH_POLICY}, nonce ${nonce}`;
 
 export const thresholdScratch = ({ project, channel, nonce, runId, threshold = SCRATCH_THRESHOLD }) => {
   const name = `${SCRATCH_METRIC_PREFIX}${runId}`;
@@ -531,6 +538,9 @@ export const thresholdScratch = ({ project, channel, nonce, runId, threshold = S
   };
   const spec = {
     displayName: SCRATCH_POLICY,
+    // The notification email shows the condition's name, not the policy's
+    // documentation, so the nonce goes there too (scratchConditionName).
+    conditionName: scratchConditionName(nonce),
     threshold: { metric: name, resourceType: "global", value: threshold, period: "3600s", comparison: "COMPARISON_GT" },
     content: `Scratch policy for scripts/monitoring.js --verify-threshold (test records only, not an incident). It opens past ${threshold} test records in an hour, as the system-signings alert opens past 600. Remove it with --verify-threshold --cleanup --apply.`,
   };
@@ -579,7 +589,7 @@ export const verifyThreshold = async ({
   const existing = await findPolicy(api, project, SCRATCH_POLICY);
   const steps = [
     `create metric ${scratch.metric.name}`,
-    `${existing ? "update" : "create"} policy ${SCRATCH_POLICY} (threshold ${threshold}, documentation ending "Nonce: ${nonce}")`,
+    `${existing ? "update" : "create"} policy ${SCRATCH_POLICY} (threshold ${threshold}; condition "${scratchConditionName(nonce)}", the name the email shows)`,
     `write ${scratch.under} test records (under the threshold ${threshold}; must not open), wait until the metric shows them, hold ${Math.round(holdMs / 1000)} s with it at or below ${threshold}`,
     `write ${scratch.over - scratch.under} more (${scratch.over} in all, past it), wait until the metric shows more than ${threshold}`,
   ];

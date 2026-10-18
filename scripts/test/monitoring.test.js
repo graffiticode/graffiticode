@@ -314,10 +314,17 @@ test("delivery is confirmed per alert by the nonce from its email, in any order"
   const both = confirmDelivery(written, [" CC33DD44 ", "aa11bb22"]);
   assert.deepEqual(both.results.map(r => [r.alert, r.delivered]), [["outage", true], ["uncertain", true]]);
   assert.deepEqual(both.unknown, []);
+  assert.deepEqual(both.remaining, []);
+  // Only the typed nonces settle; the rest stay pending for a later --confirm.
   const one = confirmDelivery(written, ["aa11bb22", "deadbeef"]);
-  assert.deepEqual(one.results.map(r => [r.alert, r.delivered]), [["outage", true], ["uncertain", false]]);
+  assert.deepEqual(one.results.map(r => [r.alert, r.delivered]), [["outage", true]]);
+  assert.deepEqual(one.remaining.map(r => r.alert), ["uncertain"]);
   assert.deepEqual(one.unknown, ["deadbeef"]);
-  assert.ok(confirmDelivery(written, []).results.every(r => !r.delivered));
+  assert.deepEqual(confirmDelivery(written, []).results, []);
+  // --settle records the rest as not confirmed.
+  const settled = confirmDelivery(written, ["aa11bb22"], { settle: true });
+  assert.deepEqual(settled.results.map(r => [r.alert, r.delivered]), [["outage", true], ["uncertain", false]]);
+  assert.deepEqual(settled.remaining, []);
 });
 
 test("alert verification refuses until monitoring is applied as specified", async () => {
@@ -330,9 +337,11 @@ test("alert verification refuses until monitoring is applied as specified", asyn
 });
 
 test("options: dry run by default; apply and verify need an operator address", () => {
-  assert.deepEqual(parse([]), { project: P, email: null, days: 7, apply: false, verifyAlert: false, verifyThreshold: false, cleanup: false, threshold: 5, confirm: null, canaryConnections: [] });
+  assert.deepEqual(parse([]), { project: P, email: null, days: 7, apply: false, verifyAlert: false, verifyThreshold: false, cleanup: false, settle: false, threshold: 5, confirm: null, canaryConnections: [] });
   assert.deepEqual(parse(["--confirm", "aa11bb22", "cc33dd44"]).confirm, ["aa11bb22", "cc33dd44"]);
   assert.deepEqual(parse(["--confirm"]).confirm, []);
+  assert.equal(parse(["--confirm", "aa11bb22", "--settle"]).settle, true);
+  assert.throws(() => parse(["--settle"]), /--settle goes with --confirm/);
   assert.throws(() => parse(["--verify-alert", "--email", "a@b.c", "--confirm", "x"]), /separate runs/);
   assert.equal(parse(["--apply", "--email", "ops@example.com", "--canary-connection", "conn-canary"]).apply, true);
   assert.deepEqual(parse(["--apply", "--email", "a@b.c", "--canary-connection", "conn-a", "--canary-connection", "conn-b"]).canaryConnections, ["conn-a", "conn-b"]);
@@ -540,12 +549,14 @@ test("verify-threshold's dry run makes the scratch metric, policy and nonce, and
   assert.equal(t.duration, real.duration);
   assert.equal(t.thresholdValue, 5);
   assert.equal(t.filter, `metric.type="logging.googleapis.com/user/${SCRATCH_METRIC_PREFIX}run00001" AND resource.type="global"`);
-  // The nonce, literally, in the documentation; no log labels.
+  // The nonce, literally, in the documentation; no log labels. And in the
+  // condition's name, which the notification email shows.
   assert.match(policy.documentation.content, /\n\nNonce: c0ffee01$/);
+  assert.equal(policy.conditions[0].displayName, `${SCRATCH_POLICY}, nonce c0ffee01`);
   assert.doesNotMatch(policy.documentation.content, /\$\{log\./);
   assert.deepEqual(policy.alertStrategy, { autoClose: "1800s" });
   assert.equal(run.steps.length, 4);
-  assert.match(run.steps[1], /Nonce: c0ffee01/);
+  assert.match(run.steps[1], /nonce c0ffee01/);
 });
 
 test("verify-threshold's records match the scratch metric and no alert or real metric", () => {
