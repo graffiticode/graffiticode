@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BOOTSTRAP, HELPER, bootstrapState, chromeFindings, importedClientNames, nodeFindings, rustFindings, withoutTestModules } from "../check-egress-clients.js";
+import { BOOTSTRAP, HELPER, bootstrapState, chromeFindings, importedClientNames, nodeFindings, rustFindings, withoutTestModules, PENDING } from "../check-egress-clients.js";
 
 test("a reqwest client built outside the egress helper is flagged; the helper, tests and reviewed exceptions aren't", () => {
   const files = [
@@ -72,11 +72,14 @@ test("the bootstrap must be the first statement", () => {
   assert.equal(bootstrapState("import { a } from \"b\";\n"), "missing");
 });
 
-test("a missing bootstrap fails for a required language and is pending for the rest", () => {
+test("since the l0000 publish, a missing bootstrap fails everywhere but a reviewed PENDING entry", () => {
+  const worker = "languages/l0014/tools/translatex-worker.mjs";
+  assert.ok(PENDING[worker], "the L0014 worker is the one reviewed exception");
   const out = nodeFindings([
-    { lang: "l0000", file: "a", source: "import x from \"y\";" },
-    { lang: "l0184", file: "b", source: "import x from \"y\";" },
-    { lang: "l0184", file: "c", source: BOOTSTRAP },
+    { lang: "l0000", file: "languages/l0000/packages/api/src/main.ts", source: "import x from \"y\";" },
+    { lang: "l0184", file: "languages/l0184/packages/api/src/main.ts", source: "import x from \"y\";" },
+    { lang: "l0014", file: worker, source: "import x from \"y\";" },
+    { lang: "l0184", file: "languages/l0184/packages/api/src/main.ts", source: BOOTSTRAP },
   ]);
-  assert.deepEqual(out.map(o => o.state), ["fail", "pending", "ok"]);
+  assert.deepEqual(out.map(o => o.state), ["fail", "fail", "pending", "ok"]);
 });

@@ -15,10 +15,10 @@
 //   The rule is per file: a launch in a file that never calls the helper fails.
 //
 //   Node: every language server's src/main.ts (and L0014's TransLaTeX worker)
-//   imports "@graffiticode/l0000/egress" before anything else. Until
-//   @graffiticode/l0000 0.11 is published (rollout step 2), a language that
-//   can't install it yet is reported as pending, not failed; REQUIRED lists
-//   the ones that must pass now. After the publish, every entry is required.
+//   imports "@graffiticode/l0000/egress" before anything else. Since
+//   @graffiticode/l0000 0.11.0 was published (2026-10-18, rollout step 2) every
+//   entry is required: a missing bootstrap fails. PENDING lists the reviewed
+//   exceptions that are still waiting, with why.
 //
 //   node scripts/check-egress-clients.js [--json]
 
@@ -36,9 +36,12 @@ export const RUST_EXCEPTIONS = {
     "L0185's guarded fetcher (D2): direct mode keeps its own resolver; proxy mode builds from egress::client_builder_with",
 };
 
-// Languages whose bootstrap must already pass: they build against this
-// repository's l0000 (or are l0000), so they don't wait on the publish.
-export const REQUIRED = new Set(["l0000"]);
+// Reviewed entry points allowed to lack the bootstrap for now, and why. Every
+// other one fails without it.
+export const PENDING = {
+  "languages/l0014/tools/translatex-worker.mjs":
+    "installed from L0014's core dependencies, which keep @graffiticode/l0000 ^0.8.0 until L0014's core upgrade; the worker makes no outbound calls (stdin/stdout only)",
+};
 
 export const BOOTSTRAP = "import \"@graffiticode/l0000/egress\";";
 
@@ -168,7 +171,7 @@ export function bootstrapState(source) {
 export function nodeFindings(entries) {
   return entries.map(({ lang, file, source }) => {
     const state = bootstrapState(source);
-    return { lang, file, state: state === "ok" ? "ok" : REQUIRED.has(lang) ? "fail" : "pending" };
+    return { lang, file, state: state === "ok" ? "ok" : PENDING[file] ? "pending" : "fail" };
   });
 }
 
@@ -208,7 +211,7 @@ async function main() {
     for (const b of bootstraps) if (b.state !== "ok") console.log(`${b.state === "fail" ? "FAIL" : "pending"} ${b.file} does not import "@graffiticode/l0000/egress" first`);
     const ok = bootstraps.filter(b => b.state === "ok").length;
     const pending = bootstraps.filter(b => b.state === "pending").length;
-    console.log(`egress: ${clients.length} stray Rust clients; ${browsers.length} browser launches without the proxy; Node bootstrap ${ok} ok, ${pending} pending the l0000 publish, ${bootstraps.filter(b => b.state === "fail").length} failing`);
+    console.log(`egress: ${clients.length} stray Rust clients; ${browsers.length} browser launches without the proxy; Node bootstrap ${ok} ok, ${pending} pending (reviewed: PENDING), ${bootstraps.filter(b => b.state === "fail").length} failing`);
   }
   if (clients.length || browsers.length || bootstraps.some(b => b.state === "fail")) process.exit(1);
 }
