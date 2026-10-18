@@ -32,7 +32,12 @@
 // activities for the item bank, and an Author integration is signed by the
 // customer's own application (L0177 only plans one). Signing Author sessions
 // again would be a new protected function, reviewed from scratch.
-export const REGISTRY_VERSION = 7;
+// v8: `learnosity.write-items` only creates records (AT-10 B1). Broker writes
+// every question and item under a reference derived from the operation id,
+// never the one a program sent, and an item may link only to questions the
+// same save writes. A save never changes a record already in the bank;
+// re-saving a program makes new records.
+export const REGISTRY_VERSION = 8;
 
 // What a step of an operation does:
 //   dispatch  one provider request
@@ -70,7 +75,8 @@ export const OPERATIONS = Object.freeze({
   "learnosity.sign-questions-preview": Object.freeze({ backend: "learnosity", kind: "sign", steps: SIGN_STEPS }),
   // Data API item-bank write: two sequential provider writes (questions, then
   // the items that reference them), each recorded as it completes, and a
-  // receipt replay for a retry of the same operation.
+  // receipt replay for a retry of the same operation. From v8 it only
+  // creates: every reference is derived from the operation id (see above).
   "learnosity.write-items": Object.freeze({
     backend: "learnosity",
     kind: "write",

@@ -131,9 +131,13 @@ through the Questions API with inline question data — item grouping is not
 visible in the preview.
 
 Item references are `graffiticode-{lrn-id}-{n}`, numbered from zero, and the
-question references beneath them carry the same ordinal. **Changing the number
-or order of items changes the references**, so an item whose position moves is
-written to the bank as a new item rather than updated in place.
+question references beneath them carry the same ordinal. Those are the
+references a program *sends*. **Every save writes new records**: the broker
+stores each item and question under `gc-{save}-{reference}`, where `{save}` is
+derived from that one save, so saving a program again makes new draft items and
+questions rather than updating earlier ones. A save never changes or
+unpublishes a record already in the bank, including one a published item uses.
+The save's result lists the references it wrote.
 
 By default `items` emits a preview: the items and their questions render
 inline through Questions API without being written to the Learnosity

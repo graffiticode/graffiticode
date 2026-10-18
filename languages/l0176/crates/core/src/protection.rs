@@ -24,7 +24,7 @@ use crate::plain::Object;
 
 /// The registry version these declarations were written for. A plan pins it, and policy
 /// refuses a stage that reports another.
-pub const REGISTRY_VERSION: u32 = 7;
+pub const REGISTRY_VERSION: u32 = 8;
 
 pub const SIGN: &str = "init";
 pub const SAVE: &str = "save-to-itembank";

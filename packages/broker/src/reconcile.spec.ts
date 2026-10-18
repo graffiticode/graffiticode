@@ -9,7 +9,9 @@ import {
   RECONCILE_GRACE_MS,
   MARK_KEY,
   writeEvidence,
+  REFERENCE_PREFIX,
 } from "./index.js";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 
 const OWNER = "0xowner";
 const CONN = "conn-1";
@@ -40,7 +42,7 @@ let secrets;
 let build;
 
 const claim = async (opid = OP, { evidence = writeEvidence(PAYLOAD), connectionId = CONN, ownerUid = OWNER } = {}) => {
-  await receipts.claim(opid, { principal: OWNER, ownerUid, connectionId, lang: "0176", fn: "save-to-itembank", op: "learnosity.write-items", registryVersion: 7, argsDigest: "a" }, { ...(evidence ? { evidence } : {}) });
+  await receipts.claim(opid, { principal: OWNER, ownerUid, connectionId, lang: "0176", fn: "save-to-itembank", op: "learnosity.write-items", registryVersion: REGISTRY_VERSION, argsDigest: "a" }, { ...(evidence ? { evidence } : {}) });
 };
 
 beforeEach(() => {
@@ -191,6 +193,7 @@ describe("reconciliation (WRITE-02)", () => {
 // provider that stores what it's sent, and reconciliation reads it back.
 describe("reconciliation end to end (WRITE-02)", () => {
   const setup = async () => {
+    const loseItems = { on: false };
     const { generateKeyPair, exportJWK } = await import("jose");
     const P = await import("@graffiticode/policy");
     const B = await import("./index.js");
@@ -204,6 +207,8 @@ describe("reconciliation end to end (WRITE-02)", () => {
     const dataApi = async ({ route, request }) => {
       const rows = route === "/itembank/questions" ? request.body.questions : request.body.items;
       if (request.action === "set") for (const r of rows) store[route].set(r.reference, structuredClone(r));
+      // The write lands, but its response is lost on the way back.
+      if (request.action === "set" && route === "/itembank/items" && loseItems.on) throw new Error("request timed out");
       if (request.action === "get") return { meta: { status: true }, data: request.body.references.filter(ref => store[route].has(ref)).map(ref => structuredClone(store[route].get(ref))) };
       return { meta: { status: true }, data: [] };
     };
@@ -231,7 +236,7 @@ describe("reconciliation end to end (WRITE-02)", () => {
       const { executionToken } = await policy.mint({ caller: L0176, sessionToken, fn: "save-to-itembank", op: "learnosity.write-items", occurrenceId: "n1.0", argsDigest: B.argsDigest(PAYLOAD) });
       return broker.execute({ caller: L0176, token: executionToken, op: "learnosity.write-items", payload: PAYLOAD });
     };
-    return { policy, store, saveWith, later: () => { clock = Date.now() + limits.executionMs + RECONCILE_GRACE_MS + 1000; } };
+    return { policy, store, saveWith, loseItems, later: () => { clock = Date.now() + limits.executionMs + RECONCILE_GRACE_MS + 1000; } };
   };
 
   it("finds the operation's marks on what it wrote, and resolves it applied", async () => {
@@ -245,12 +250,28 @@ describe("reconciliation end to end (WRITE-02)", () => {
 
   it("stays unresolved when a later write replaced the mark, and says the content no longer matches", async () => {
     const { policy, store, saveWith, later } = await setup();
-    await saveWith("save:1");
-    // Someone else's later write of the same item, without this operation's mark.
-    store["/itembank/items"].set("item-0", { ...PAYLOAD.itemRecords[0], status: "unpublished", metadata: { [MARK_KEY]: "inv-other/s0/n1.0" }, definition: { widgets: [] } });
+    const { result } = await saveWith("save:1");
+    // Someone else's later write of the item this save made, without its mark.
+    const [itemRef] = result.references;
+    const [questionRef] = result.questionReferences;
+    store["/itembank/items"].set(itemRef, { ...store["/itembank/items"].get(itemRef), metadata: { [MARK_KEY]: "inv-other/s0/n1.0" }, definition: { widgets: [] } });
     later();
     const out = (await policy.reconcile({ caller: { role: "console" }, user: { uid: OWNER }, connectionId: CONN, idempotencyKey: "save:1" })).operations[0];
     expect(out.verdict).toBe("unresolved");
-    expect(out.records.map(r => [r.reference, r.landed, r.matches])).toEqual([["q-0", true, true], ["item-0", false, false]]);
+    expect(out.records.map(r => [r.reference, r.landed, r.matches])).toEqual([[questionRef, true, true], [itemRef, false, false]]);
+  });
+
+  // B1: the evidence names the records as written, so reconciliation reads
+  // the mapped references, never the ones the program sent.
+  it("resolves a lost response after dispatch as applied, on the mapped records", async () => {
+    const { policy, store, saveWith, loseItems, later } = await setup();
+    loseItems.on = true;
+    expect(await saveWith("save:1")).toMatchObject({ status: "uncertain", reason: "provider-response-lost" });
+    expect([...store["/itembank/questions"].keys(), ...store["/itembank/items"].keys()].some(r => ["q-0", "item-0"].includes(r))).toBe(false);
+    later();
+    const out = (await policy.reconcile({ caller: { role: "console" }, user: { uid: OWNER }, connectionId: CONN, idempotencyKey: "save:1" })).operations[0];
+    expect(out).toMatchObject({ verdict: "applied", final: true });
+    expect(out.records.map(r => r.reference)).toEqual([...store["/itembank/questions"].keys(), ...store["/itembank/items"].keys()]);
+    expect(out.records.every(r => r.reference.startsWith(REFERENCE_PREFIX) && r.landed && r.matches)).toBe(true);
   });
 });

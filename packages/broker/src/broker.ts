@@ -16,6 +16,10 @@
 //      principal, connection, function or args is refused. Only a definite
 //      provider rejection records failed/partial; any other provider error
 //      records uncertain, since the write may have been applied.
+//   5a. A write's records are written under references derived from its
+//      operation id (B1, registry v8; operations.js providerReferences), so a
+//      save only ever creates records. The mapping is applied once, before the claim; the evidence, the
+//      provider requests and the returned references all use it.
 //   6. Each completed provider step is persisted before the next provider
 //      request starts (spec WRITE-01). If it cannot be, the operation stops
 //      there and records uncertain (best effort); a retry finds the claim and
@@ -157,6 +161,11 @@ export const createBroker = ({
   if (!activity || typeof activity.begin !== "function") throw new Error("createBroker needs an activity store");
   if (!slots || typeof slots.claim !== "function") throw new Error("createBroker needs a session slot store");
   if (!(Number.isInteger(systemSessionMaxSignings) && systemSessionMaxSignings > 0)) throw new Error("createBroker needs a positive integer systemSessionMaxSignings");
+  // B1 (registry v8): a write only creates records, under references its own
+  // operation id derives; a write operation without the mapping isn't built.
+  for (const [name, definition] of Object.entries(operations ?? {}) as [string, any][]) {
+    if (definition?.kind === "write" && typeof definition.references !== "function") throw new Error(`createBroker: write operation ${name} needs a references mapping`);
+  }
   // Wait for one decision, at most `waitMs`. The timer aborts pending work;
   // it doesn't decide lateness, since a busy event loop can run it after a
   // decision that already took too long. The cutoff does: a decision that
@@ -379,7 +388,13 @@ export const createBroker = ({
     // plans whose writes still need it.
     // The claim also records the write's evidence (WRITE-02, W5 stage 3): its
     // records, their references and digests, and where Broker puts its mark.
-    const evidence = operation.evidence?.(payload);
+    // B1: the records as they will be written, mapped once from the payload
+    // and the operation id, before the claim. The evidence, the provider
+    // requests and the returned references all come from this one value; the
+    // binding keeps the args digest of the payload as sent, so a retry binds,
+    // and maps, exactly as before.
+    const written = operation.references(payload, claims.opid);
+    const evidence = operation.evidence?.(written);
     const claimed = await receipts.claim(claims.opid, binding, { ...(claims.pld ? { pld: claims.pld } : {}), ...(evidence ? { evidence } : {}) });
     if (!claimed.created) {
       const recorded = claimed.claim.binding;
@@ -421,7 +436,7 @@ export const createBroker = ({
     let reason;
     let stopped;
     try {
-      result = await operation.run(payload, credential, { onStep, providerCall, operationId: claims.opid });
+      result = await operation.run(written, credential, { onStep, providerCall, operationId: claims.opid });
       status = "succeeded";
     } catch (e) {
       if (e instanceof StepNotPersisted) {

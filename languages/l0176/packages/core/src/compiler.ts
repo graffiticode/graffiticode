@@ -556,7 +556,7 @@ for (const [name, meta] of Object.entries(memberFields)) {
 // The registry version L0176's protected declarations (protection.ts) were
 // written for: graffiticode's packages/common protected-registry. A plan pins
 // it (capability plan W4); policy refuses a stage reporting another.
-export const REGISTRY_VERSION = 7;
+export const REGISTRY_VERSION = 8;
 
 // The compiler that knows L0176's protected functions: the brokered path's,
 // and preflight's (capability plan W4), which needs no policy client. Its

@@ -34,7 +34,7 @@ describe("L0176 preflight", () => {
       stage: "s1", lang: "0176", registryVersion: REGISTRY_VERSION, revision: ENV.K_REVISION, imageDigest: ENV.GC_IMAGE_DIGEST,
       requiredFunctions: ["init", "save-to-itembank"], sourceDigest: digestOf(code),
     });
-    expect(REGISTRY_VERSION).toBe(7);
+    expect(REGISTRY_VERSION).toBe(8);
   });
 
   test("pins the lowered program for the legacy save member form, and still finds its save", async () => {

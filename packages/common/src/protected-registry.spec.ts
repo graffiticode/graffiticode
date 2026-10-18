@@ -104,7 +104,7 @@ describe("protected-registry", () => {
   // v7 (AUTHOR-01, closed by removal): Graffiticode signs no Author sessions.
   describe("no Author signing", () => {
     it("registers no Author function or operation, in any language", () => {
-      expect(REGISTRY_VERSION).toBe(7);
+      expect(REGISTRY_VERSION).toBeGreaterThanOrEqual(7);
       expect(Object.keys(PROTECTED_FUNCTIONS["0176"]).sort()).toEqual(["init", "save-to-itembank"]);
       expect(Object.keys(OPERATIONS)).not.toContain("learnosity.sign-author");
       for (const fns of Object.values(PROTECTED_FUNCTIONS)) {

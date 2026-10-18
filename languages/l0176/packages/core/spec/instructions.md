@@ -771,7 +771,9 @@ questions to the Learnosity item bank: `save-to-itembank items [...] {}`
 (or `save-to-itembank questions [...] {}`). `save-to-itembank` takes the
 activity as its one argument; it is not a member of the items list. Saved items always land
 as `status: "unpublished"` (draft); publishing is done from the Learnosity
-Author Site UI, not from the DSL.
+Author Site UI, not from the DSL. Every save writes new records under
+references of its own (`gc-{save}-…`): saving again makes new drafts and never
+changes an earlier save or a published item.
 
 The write happens only when the item is compiled through a connection the
 caller selected. Otherwise the save is checked but not run, reported as

@@ -28,6 +28,10 @@ import {
   localAuthorizer,
   MARK_KEY,
   writeEvidence,
+  providerReferences,
+  referenceTag,
+  REFERENCE_PREFIX,
+  MAX_SENT_REFERENCE_LENGTH,
   AuthorizationUnavailable,
   createMemorySessionSlotStore,
   DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS,
@@ -475,13 +479,17 @@ describe("write evidence and the operation mark", () => {
     await write();
     const [opid] = [...new Set(records.filter(r => r.event === "execute" && r.opid).map(r => r.opid))];
     const { evidence } = await claimOf(opid);
-    expect(evidence).toEqual(writeEvidence(PAYLOAD));
+    // The evidence is of the records as written: under the operation's own
+    // references (B1), with the program's content.
+    const written = providerReferences(PAYLOAD, opid);
+    const tag = `${REFERENCE_PREFIX}${referenceTag(opid as string)}-`;
+    expect(evidence).toEqual(writeEvidence(written));
     expect(evidence).toMatchObject({
       format: 1,
       mark: { questions: `data.metadata.${MARK_KEY}`, items: `metadata.${MARK_KEY}` },
       records: [
-        { step: "questions", kind: "question", reference: "q-0", digest: argsDigest({ type: "mcq", data: PAYLOAD.questionRecords[0].data }) },
-        { step: "items", kind: "item", reference: "graffiticode-t-0", digest: argsDigest({ definition: PAYLOAD.itemRecords[0].definition, status: "unpublished" }) },
+        { step: "questions", kind: "question", reference: `${tag}q-0`, digest: argsDigest({ type: "mcq", data: PAYLOAD.questionRecords[0].data }) },
+        { step: "items", kind: "item", reference: `${tag}graffiticode-t-0`, digest: argsDigest({ definition: { widgets: [{ reference: `${tag}q-0` }] }, status: "unpublished" }) },
       ],
     });
   });
@@ -508,6 +516,133 @@ describe("write evidence and the operation mark", () => {
   it("leaves a preview's signing untouched", async () => {
     await broker.execute({ caller: L0176, token: await previewToken(), op: "learnosity.sign-questions-preview", payload: PREVIEW });
     expect(JSON.stringify(sent)).not.toContain(MARK_KEY);
+  });
+});
+
+// B1 (AT-10, registry v8): a save only ever creates records. Broker writes
+// each record under a reference derived from the operation id, so a save never
+// changes a record already in the bank.
+describe("fresh references per save (B1)", () => {
+  const LINKED = {
+    questionRecords: [
+      { type: "mcq", reference: "q-0", data: { type: "mcq", stimulus: "Q0" } },
+      { type: "mcq", reference: "q-1", data: { type: "mcq", stimulus: "Q1" } },
+    ],
+    itemRecords: [{
+      reference: "item-0",
+      definition: { widgets: [{ reference: "q-0" }, { reference: "q-1" }] },
+      questions: [{ reference: "q-0" }, { reference: "q-1" }],
+      status: "unpublished",
+    }],
+  };
+  const save = async ({ payload = LINKED, idempotencyKey = "job-1" }: { payload?: any, idempotencyKey?: string } = {}) =>
+    broker.execute({ caller: L0176, token: await saveToken({ payload, idempotencyKey }), op: "learnosity.write-items", payload });
+  const opidOf = () => records.filter(r => r.event === "execute" && r.opid).map(r => r.opid).at(-1);
+  const sentRefs = () => {
+    const [questions, items] = sent;
+    const item = items.body.items[0];
+    return {
+      questions: questions.body.questions.map(q => q.reference),
+      item: item.reference,
+      widgets: item.definition.widgets.map(w => w.reference),
+      links: item.questions.map(w => w.reference),
+    };
+  };
+
+  it("maps once: the records, the item's links, the evidence and the returned references all agree", async () => {
+    const out = await save();
+    expect(out.status).toBe("succeeded");
+    const opid = opidOf();
+    const tag = `${REFERENCE_PREFIX}${referenceTag(opid)}-`;
+    const refs = sentRefs();
+    expect(refs).toEqual({
+      questions: [`${tag}q-0`, `${tag}q-1`],
+      item: `${tag}item-0`,
+      widgets: [`${tag}q-0`, `${tag}q-1`],
+      links: [`${tag}q-0`, `${tag}q-1`],
+    });
+    const { evidence } = (await receipts.claim(opid, {})).claim;
+    expect(evidence.records.map(r => r.reference)).toEqual([...refs.questions, refs.item]);
+    expect(out.result).toEqual({ saved: true, references: [refs.item], questionReferences: refs.questions });
+    // Nothing is written under a reference the program sent.
+    const all = sent.flatMap(({ body }) => [...(body.questions ?? []), ...(body.items ?? [])]).map(r => r.reference);
+    expect(all.filter(r => ["q-0", "q-1", "item-0"].includes(r))).toEqual([]);
+    // The content is the program's: only references (and the mark) change.
+    expect(sent[0].body.questions[0].data).toEqual({ ...LINKED.questionRecords[0].data, metadata: { [MARK_KEY]: opid } });
+  });
+
+  it("reproduces the same references for a retry of the same operation, which replays its receipt", async () => {
+    const first = await save();
+    const retry = await save();
+    expect(retry).toMatchObject({ status: "succeeded", replayed: true });
+    expect(retry.result).toEqual(first.result);
+    expect(routes).toHaveLength(2);
+  });
+
+  it("writes new references for a new invocation of the same program", async () => {
+    const first = await save({ idempotencyKey: "job-1" });
+    const second = await save({ idempotencyKey: "job-2" });
+    expect(second.replayed).toBeUndefined();
+    expect(second.result.references[0]).not.toBe(first.result.references[0]);
+    const firstQuestions = new Set(first.result.questionReferences);
+    expect(second.result.questionReferences.some(r => firstQuestions.has(r))).toBe(false);
+  });
+
+  it("is deterministic in the operation id and the payload alone", () => {
+    expect(providerReferences(LINKED, "inv-1/s0/n1.0")).toEqual(providerReferences(structuredClone(LINKED), "inv-1/s0/n1.0"));
+    expect(providerReferences(LINKED, "inv-1/s0/n1.0")).not.toEqual(providerReferences(LINKED, "inv-2/s0/n1.0"));
+    // The payload itself is left as it was: its args digest still binds.
+    const before = structuredClone(LINKED);
+    providerReferences(LINKED, "inv-1/s0/n1.0");
+    expect(LINKED).toEqual(before);
+  });
+
+  it("refuses an item linking to a question the save doesn't write", async () => {
+    for (const where of ["widgets", "questions"]) {
+      const payload = structuredClone(LINKED);
+      if (where === "widgets") payload.itemRecords[0].definition.widgets.push({ reference: "someone-elses-question" });
+      else payload.itemRecords[0].questions.push({ reference: "someone-elses-question" });
+      const e = await save({ payload }).catch(err => err);
+      expect(e).toBeInstanceOf(BrokerRefused);
+      expect(e.reason).toBe("payload-rejected");
+    }
+    expect(routes).toEqual([]);
+  });
+
+  it("refuses a link with fields other than its reference, and a reference too long to map", async () => {
+    const extra = structuredClone(LINKED);
+    extra.itemRecords[0].definition.widgets[0] = { reference: "q-0", widget_type: "response" } as any;
+    const long = structuredClone(LINKED);
+    long.questionRecords[0].reference = "q".repeat(MAX_SENT_REFERENCE_LENGTH + 1);
+    for (const payload of [extra, long]) {
+      const e = await save({ payload }).catch(err => err);
+      expect(e?.reason).toBe("payload-rejected");
+    }
+    expect(MAX_SENT_REFERENCE_LENGTH + REFERENCE_PREFIX.length + 17).toBe(250);
+    expect(routes).toEqual([]);
+  });
+
+  it("keeps a question-only save to fresh references too", async () => {
+    const payload = { questionRecords: LINKED.questionRecords, itemRecords: [] };
+    const out = await save({ payload });
+    const tag = `${REFERENCE_PREFIX}${referenceTag(opidOf())}-`;
+    expect(sent[0].body.questions.map(q => q.reference)).toEqual([`${tag}q-0`, `${tag}q-1`]);
+    expect(out.result.references).toEqual([`${tag}q-0`, `${tag}q-1`]);
+  });
+
+  it("writes nothing from a payload that reached the operation unmapped", async () => {
+    const ops = buildOps();
+    const calls = [];
+    const providerCall = async step => { calls.push(step); return 1000; };
+    await expect(ops["learnosity.write-items"].run(LINKED, { key: "k", secret: SECRET }, { onStep: async () => {}, providerCall, operationId: "inv-1/s0/n1.0" }))
+      .rejects.toThrow("must carry its operation's references");
+    expect(calls).toEqual([]);
+  });
+
+  it("won't build without a write operation's mapping", () => {
+    const ops = buildOps();
+    const { references: _r, ...unmapped } = ops["learnosity.write-items"];
+    expect(() => createBroker({ ...brokerDeps, operations: { ...ops, "learnosity.write-items": unmapped } })).toThrow("needs a references mapping");
   });
 });
 
