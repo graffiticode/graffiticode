@@ -87,6 +87,8 @@ run("system preview sessions' signature slots in Firestore", () => {
     jwks,
     operations: buildOperations({ sdk: { init: (service, consumer, secret, body) => { signatures++; return { service, body }; } }, domain: "d", dataApi: async () => ({}) }),
     secrets,
+    // As in production (AT-10 rev 9): the system connection is the preview consumer.
+    previewConnections: { learnosity: connectionId },
     once: createFirestoreOnceStore(db),
     receipts: createFirestoreReceiptStore(db),
     activity: createFirestoreActivityStore(db),
