@@ -1,32 +1,64 @@
 {
-  "$comment": "ISOLATE-01 egress proxy (plan: ~/.claude/plans/isolate-01-compiler-egress.md). The compiler classes and the proxy's fixed settings. A class is a subnet: deploy.json's network.subnet names one, and the union of that class's services' network.allow lists is what it may reach. Images are null until rollout step 0 pins them; nothing that needs them is generated until then.",
+  "$comment": "ISOLATE-01 egress proxy, production (plan: ~/.claude/plans/isolate-01-compiler-egress.md, rollout step 1). The compiler classes and the proxy's fixed settings. A class is a subnet: a service's network.subnet names one, and the union of that class's services' network.allow lists is what it may reach. Until rollout step 3 the services' network blocks live in production/network.json, not deploy.json: a deploy.json block would put a compiler on the proxy at its next routine release. Classes: default (Graffiticode hosts only, most languages and the *r services), one per language with reviewed external hosts (l0000, l0176: www.googleapis.com for PREFLIGHT_GATEWAYS; l0013: storage.googleapis.com), and l0185 (open, D2). Images are step 0's pins (proved in graffiticode-isolate01, 2026-10-18).",
   "project": "graffiticode",
   "region": "us-central1",
   "network": "compilers",
-  "proxySubnet": { "name": "egress-proxy", "cidr": "10.8.0.0/27" },
+  "proxySubnet": {
+    "name": "egress-proxy",
+    "cidr": "10.8.0.0/27"
+  },
   "loadBalancerAddress": "10.8.0.2",
   "classes": {
-    "compilers-default": { "cidr": "10.8.16.0/22" },
-    "compilers-l0185": { "cidr": "10.8.20.0/22", "open": true }
+    "compilers-default": {
+      "cidr": "10.8.16.0/22"
+    },
+    "compilers-l0185": {
+      "cidr": "10.8.20.0/22",
+      "open": true
+    },
+    "compilers-l0000": {
+      "cidr": "10.8.24.0/22"
+    },
+    "compilers-l0176": {
+      "cidr": "10.8.28.0/22"
+    },
+    "compilers-l0013": {
+      "cidr": "10.8.32.0/22"
+    }
   },
   "open": {
     "$comment": "D2: what L0185's open class may never name, refused by CONNECT authority (and Host, for plain http). Addresses are enforced by the network, not here.",
-    "denySuffixes": ["learnosity.com", "learnosity.net", "run.app", "internal", "googleapis.com"]
+    "denySuffixes": [
+      "learnosity.com",
+      "learnosity.net",
+      "run.app",
+      "internal",
+      "googleapis.com"
+    ]
   },
   "proxy": {
     "listenPort": 3128,
     "healthPort": 3129,
     "adminPort": 9901,
     "uid": 10101,
-    "resolvers": ["8.8.8.8", "8.8.4.4"],
-    "healthCheckRanges": ["35.191.0.0/16", "130.211.0.0/22"],
+    "resolvers": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "healthCheckRanges": [
+      "35.191.0.0/16",
+      "130.211.0.0/22"
+    ],
     "machineType": "e2-small",
-    "zones": ["us-central1-a", "us-central1-b"],
+    "zones": [
+      "us-central1-a",
+      "us-central1-b"
+    ],
     "heartbeatPerVmPer5Min": 360,
-    "envoyImage": null,
-    "reportImage": null,
+    "envoyImage": "envoyproxy/envoy@sha256:74bd4eb5629708d3fadca1a5e6b85d208f338d7bb54e06b69565905c5294cc01",
+    "reportImage": "node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402",
     "reportUid": 10102,
-    "cosImage": null,
+    "cosImage": "cos-129-19506-549-7",
     "serviceAccount": "egress-proxy@graffiticode.iam.gserviceaccount.com"
   }
 }

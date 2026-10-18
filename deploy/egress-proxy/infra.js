@@ -83,7 +83,7 @@ export function commands(model) {
     cmd("gcloud", "compute", "network-firewall-policies", "rules", "create", "1000", ...fp, "--direction=EGRESS", "--action=deny",
       "--layer4-configs=all", compilerRanges, "--dest-ip-ranges=0.0.0.0/0", "--enable-logging", "--description=nothing else"),
     cmd("gcloud", "compute", "network-firewall-policies", "associations", "create", ...fp, `--network=${network}`, "--name=compilers-egress"),
-    "# Rollout step 0 confirms Direct VPC egress traffic from Cloud Run matches these source ranges.");
+    "# Step 0 (2026-10-18) confirmed Cloud Run Direct VPC egress traffic matches these source ranges.");
 
   step("Firewall: the proxy VMs (stateful: replies to compilers and health checks are return traffic)",
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-allow-compilers", p, `--network=${network}`, "--direction=INGRESS", "--action=ALLOW",
@@ -153,7 +153,7 @@ export function commands(model) {
     cmd("gcloud", "compute", "forwarding-rules", "create", "egress-proxy", p, r, "--load-balancing-scheme=INTERNAL", `--network=${network}`, `--subnet=${model.proxySubnet.name}`,
       "--address=egress-proxy-lb", "--ip-protocol=TCP", `--ports=${model.proxy.listenPort}`, "--backend-service=egress-proxy", `--backend-service-region=${region}`));
 
-  step("Alerts: a failing health check, a spike in refusals, and access logs stopping",
+  step("Alerts: a failing health check, a spike in refusals, the logging heartbeat, and a config mismatch",
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-access", p, "--description=ISOLATE-01 proxy access log lines", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\")"),
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-heartbeat", p, "--description=ISOLATE-01 proxy health-check log lines (the logging path's heartbeat)", "--log-filter=jsonPayload.isolate01=\"health\""),
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-refused", p, "--description=ISOLATE-01 proxy refusals", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\") AND jsonPayload.decision=\"refuse\""),

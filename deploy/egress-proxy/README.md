@@ -217,6 +217,57 @@ leaves that machine.
   3. Switch the host certificates.
   4. Then drop the old CA from the bundle.
 
+## Rollout step 1: production infrastructure
+
+Step 0 passed on 2026-10-18 (see the next section), so step 1 builds the same stack in
+`graffiticode`. Jeff runs the commands. `infra.js --apply` refuses production, so step 1 is
+`--plan`'s output, run by hand.
+
+**Inputs:**
+- `classes.json` holds the production classes:
+  - `compilers-default`;
+  - `compilers-l0185` (open, D2);
+  - one class per language with reviewed external hosts: `compilers-l0000` and
+    `compilers-l0176` (`www.googleapis.com`), and `compilers-l0013`
+    (`storage.googleapis.com`).
+
+  Its images are step 0's pins.
+- `production/network.json` holds the planned `network` blocks of the first wave, L0176 and
+  L0000. **They stay out of `deploy.json` until rollout step 3.** A `deploy.json` block puts
+  that service on the proxy at its next release, routine ones included. A test
+  (`production.test.js`) refuses any `deploy.json` block that `production/network.json`
+  doesn't hold, identically.
+
+**Before running anything:**
+1. Create a **fresh** production CA on an offline machine:
+   `issue-certs.sh ca <offline-dir>`. Don't reuse `~/isolate01-ca`, which belongs to the
+   scratch prototype.
+2. Issue one certificate per terminated host, into the working directory:
+   `issue-certs.sh issue <offline-dir> <workdir>/certs <host>...`. The hosts are the ones
+   `generate.js` lists. For the first wave they are `api.graffiticode.org`,
+   `auth.graffiticode.org`, `broker-sja7fatcta-uc.a.run.app`,
+   `policy-sja7fatcta-uc.a.run.app` and `www.googleapis.com`.
+3. Copy the CA's public `ca.crt` into `<workdir>`.
+4. Generate into `<workdir>/out`:
+   `node deploy/egress-proxy/generate.js --deploy deploy/egress-proxy/production/network.json --out <workdir>/out`.
+   Don't pipe it into `head`: a closed pipe killed it before it wrote cloud-init in step 0.
+5. Validate on the pinned Envoy, as in step 0 (`validate/cloudbuild.yaml`). That needs no
+   production access.
+6. Pick a notification channel and set `proxy.alerts.notificationChannels` in
+   `classes.json`, or the alert policies alert no one.
+
+**Then** print the commands with
+`node deploy/egress-proxy/infra.js --plan --deploy deploy/egress-proxy/production/network.json`,
+and run them from `<workdir>`, step by step, in their order. Two steps aren't idempotent:
+`secrets versions add` and `monitoring policies create`. Run each of those once. Step 1
+changes no compiler: none uses the proxy until its step 3 candidate.
+
+**Done when:**
+- `verify-rollout.js --expect <config_sha256>` passes on both VMs;
+- the heartbeat, refusal, unhealthy and config-mismatch policies exist;
+- the CA bundle is readable by `l0000-run` and `l0176-run`, and each
+  `egress-proxy-cert-*` by `egress-proxy` alone.
+
 ## Before production (rollout step 0)
 
 **Running step 0.** The prototype lives in the scratch project `graffiticode-isolate01`, created
