@@ -389,11 +389,17 @@ function innerListener(cls) {
             policies: {
               "connect-target-is-sni": {
                 permissions: [{ any: true }],
+                // sourced_metadata, not the deprecated Principal.metadata (Envoy
+                // 1.39 warns it will be removed); DYNAMIC is the connection's
+                // dynamic metadata, where internal_upstream puts the target.
                 principals: [{
-                  metadata: {
-                    filter: META,
-                    path: [{ key: "target" }],
-                    value: { string_match: { exact: host } },
+                  sourced_metadata: {
+                    metadata_matcher: {
+                      filter: META,
+                      path: [{ key: "target" }],
+                      value: { string_match: { exact: host } },
+                    },
+                    metadata_source: "DYNAMIC",
                   },
                 }],
               },

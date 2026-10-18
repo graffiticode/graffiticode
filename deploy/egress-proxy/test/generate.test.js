@@ -93,7 +93,8 @@ test("each listed host's CONNECT reaches its own internal endpoint, carrying tha
       // The inner chain for that SNI requires exactly that metadata.
       const chain = inner.filter_chains.find(fc => fc.filter_chain_match.server_names.includes(host));
       const [principal] = chain.filters[0].typed_config.rules.policies["connect-target-is-sni"].principals;
-      assert.deepEqual(principal.metadata, { filter: "isolate01", path: [{ key: "target" }], value: { string_match: { exact: host } } });
+      assert.deepEqual(principal.sourced_metadata, { metadata_matcher: { filter: "isolate01", path: [{ key: "target" }], value: { string_match: { exact: host } } }, metadata_source: "DYNAMIC" });
+      assert.equal(principal.metadata, undefined, "not the deprecated Principal.metadata");
     }
   }
   // No route kind anywhere, and no route metadata left over.
@@ -111,7 +112,7 @@ test("each terminating chain requires the CONNECT target to equal its SNI, and i
     assert.equal(rbac.name, "envoy.filters.network.rbac");
     assert.equal(rbac.typed_config.rules.action, "ALLOW");
     const [principal] = rbac.typed_config.rules.policies["connect-target-is-sni"].principals;
-    assert.deepEqual(principal.metadata.value, { string_match: { exact: host } });
+    assert.deepEqual(principal.sourced_metadata.metadata_matcher.value, { string_match: { exact: host } });
     const vhosts = http.typed_config.route_config.virtual_hosts;
     assert.deepEqual(vhosts[0].domains, [host, `${host}:443`]);
     assert.equal(vhosts[1].routes[0].direct_response.status, 403, "any other Host is refused");
