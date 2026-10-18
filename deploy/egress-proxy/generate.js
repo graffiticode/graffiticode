@@ -13,7 +13,7 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { gzipSync } from "node:zlib";
+import { gzipSync, gunzipSync } from "node:zlib";
 import path from "node:path";
 import { canonical, normaliseResource, resourcesDigest } from "./digest.js";
 
@@ -524,6 +524,23 @@ const healthListener = model => ({
 });
 
 export const sha256 = text => createHash("sha256").update(text).digest("hex");
+
+// The user-data as it means, not as it's encoded: each gz+b64 file's content decoded. gzip's
+// bytes differ between zlib versions (CI's Node and a laptop's made different ones), so a
+// template is named by this, never by the compressed bytes. Same input, same name, on any
+// machine.
+export function logicalUserData(text) {
+  const head = text.slice(0, text.indexOf("{"));
+  const body = JSON.parse(text.slice(text.indexOf("{")));
+  for (const f of body.write_files ?? []) {
+    if (f.encoding === "gz+b64") {
+      f.content = gunzipSync(Buffer.from(f.content, "base64")).toString("utf8");
+      delete f.encoding;
+    }
+  }
+  return head + JSON.stringify(body, null, 2) + "\n";
+}
+export const userDataDigest = text => sha256(logicalUserData(text));
 
 // config_sha256: over the canonical bootstrap with that one field left out.
 export function configDigest(envoy) {

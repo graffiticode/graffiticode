@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
-import { load, envoyConfig, cloudInit, sha256 } from "../generate.js";
+import { load, envoyConfig, cloudInit, userDataDigest } from "../generate.js";
 import { commands, render } from "../infra.js";
 import { checklist } from "../checklist.js";
 
@@ -26,7 +26,7 @@ test("the checklist holds steps 1–10's commands exactly, each step with a chec
 
 test("before step 8 it has the operator check the cloud-init's digest against the template's name", async () => {
   const model = await production();
-  const name = sha256(cloudInit(model, envoyConfig(model))).slice(0, 12);
+  const name = userDataDigest(cloudInit(model, envoyConfig(model))).slice(0, 12);
   assert.ok(render(commands(model)).includes(`instance-templates create egress-proxy-${name} `));
   assert.ok(checklist(model).includes(`it starts with \`${name}\``));
 });
@@ -34,4 +34,18 @@ test("before step 8 it has the operator check the cloud-init's digest against th
 test("the committed checklist is the generated one", async () => {
   const committed = await readFile(path.join(HERE, "../production/step1-checklist.md"), "utf8");
   assert.equal(committed, checklist(await production()), "regenerate: node deploy/egress-proxy/checklist.js > deploy/egress-proxy/production/step1-checklist.md");
+});
+
+test("the template's name doesn't depend on how gzip encoded the user-data", async () => {
+  // CI's zlib and a laptop's compress differently; the logical digest decodes first.
+  const { gzipSync } = await import("node:zlib");
+  const model = await production();
+  const text = cloudInit(model, envoyConfig(model));
+  const body = JSON.parse(text.slice(text.indexOf("{")));
+  const file = body.write_files.find(f => f.encoding === "gz+b64");
+  const plain = (await import("node:zlib")).gunzipSync(Buffer.from(file.content, "base64"));
+  file.content = gzipSync(plain, { level: 1 }).toString("base64");
+  const reencoded = text.slice(0, text.indexOf("{")) + JSON.stringify(body, null, 2) + "\n";
+  assert.notEqual(reencoded, text, "different gzip bytes");
+  assert.equal(userDataDigest(reencoded), userDataDigest(text), "the same template name");
 });

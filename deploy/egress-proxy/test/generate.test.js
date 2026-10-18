@@ -7,6 +7,7 @@ import { fullMatch, outcome, routeRequest } from "./route-sim.js";
 import {
   BLOCKED, EXTENSIONS, IP_LITERAL, LOG_FIELDS, ORDER_AWK, PAIRS_AWK, REJECT_PREFIX, TCP_LOG_FIELDS, TRAILING_DOT,
   buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, inputRules, load, rejectRules, terminatedHosts,
+  logicalUserData,
 } from "../generate.js";
 import { spawnSync } from "node:child_process";
 
@@ -26,7 +27,8 @@ test("the three-class fixture generates the golden Envoy config and cloud-init",
   const model = await fixture();
   const envoy = envoyConfig(model);
   await golden("envoy.golden.json", JSON.stringify(envoy, null, 2) + "\n");
-  await golden("cloud-init.golden.yaml", cloudInit(model, envoy));
+  // Golden in its logical form: gzip's bytes differ between zlib versions (CI and a laptop).
+  await golden("cloud-init.golden.yaml", logicalUserData(cloudInit(model, envoy)));
 });
 
 test("classes get exactly their own services' hosts", async () => {
