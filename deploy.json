@@ -288,6 +288,7 @@
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1",
         "BROKER_SECRET_KEY": "BROKER_SECRET_KEY:1"
       },
+      "minInstances": 1,
       "retireTags": true,
       "enforcesSwitch": true,
       "contractMinimum": { "env": "BROKER_MIN_CONTRACT_VERSION", "floor": 2 },
@@ -440,6 +441,7 @@
           "commit": "bd4bbc23670540f9f5126379e23db0405bad9d1c"
         }
       ],
+      "minInstances": 1,
       "maxInstances": 20
     },
     "l0000": {
