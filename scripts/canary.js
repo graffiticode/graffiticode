@@ -45,6 +45,7 @@ import { parser } from "@graffiticode/parser";
 import { VERIFY_UID } from "../verify/auth.js";
 import { run } from "../packages/deploy/src/process.js";
 import { runCanary } from "./lib/canary.js";
+import { createDraftArchiver } from "./lib/canary-archive.js";
 
 const args = process.argv.slice(2);
 const flag = name => {
@@ -151,6 +152,13 @@ const parse = async src => {
 };
 
 console.log(`canary ${uid} on ${connectionId} via ${config.apiUrl}`);
-const { ok, results } = await runCanary({ http, idToken, accessToken, parse, config, servingRevision, retryState, log: line => console.log(`  ${line}`) });
+// Cleanup of the drafts this run saves, when the development organisation's
+// Data API key is in the environment (scripts/lib/canary-archive.js).
+let archiveDrafts = null;
+if (process.env.LRN_SANDBOX_KEY && process.env.LRN_SANDBOX_SECRET) {
+  const { default: LearnositySDK } = await import("learnosity-sdk-nodejs");
+  archiveDrafts = createDraftArchiver({ sdk: new LearnositySDK(), key: process.env.LRN_SANDBOX_KEY, secret: process.env.LRN_SANDBOX_SECRET, domain: process.env.LRN_SANDBOX_DOMAIN || "l0176.graffiticode.org" });
+}
+const { ok, results } = await runCanary({ http, archiveDrafts, idToken, accessToken, parse, config, servingRevision, retryState, log: line => console.log(`  ${line}`) });
 console.log(ok ? `canary passed (${results.length} checks)` : `canary FAILED (${results.filter(r => !r.ok).length} of ${results.length} checks)`);
 process.exit(ok ? 0 : 1);

@@ -110,6 +110,21 @@ export const hasSignedRequest = value => {
 const saveEffects = res => (Array.isArray(res.json?.data?.effects) ? res.json.data.effects : []).filter(e => e?.fn === "save-to-itembank");
 const describeEffects = effects => effects.length ? effects.map(e => `${e.status}${e.replayed ? " replayed" : ""} steps=${JSON.stringify(e.steps)}`).join("; ") : "no save effect in the response";
 
+// The item references a save wrote (Broker's result: { saved, references }).
+// From registry v8 each save writes new records, so the canary collects them
+// to archive at the end of a run.
+export const savedItemReferences = value => {
+  const out = new Set();
+  const walk = v => {
+    if (Array.isArray(v)) return v.forEach(walk);
+    if (!v || typeof v !== "object") return;
+    if (v.saved === true && Array.isArray(v.references)) v.references.filter(r => typeof r === "string").forEach(r => out.add(r));
+    Object.values(v).forEach(walk);
+  };
+  walk(value);
+  return [...out];
+};
+
 const hasSavedItem = value => {
   if (Array.isArray(value)) return value.some(hasSavedItem);
   if (value && typeof value === "object") return value.saved === true || Object.values(value).some(hasSavedItem);
@@ -122,12 +137,21 @@ const hasSavedItem = value => {
 // parse(src) -> the program's AST (L0176)
 // servingRevision(lang) -> the revision serving that language now (W4)
 // retryState { load, save, clear } -> the retry across a deploy's record (W4)
-export const runCanary = async ({ http, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {}, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now }) => {
+// archiveDrafts(itemReferences) -> { archived, failed, reason? }, optional:
+//   retires the drafts this run saved (cleanup, never a check)
+export const runCanary = async ({ http: send, archiveDrafts = null, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {}, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now }) => {
   const {
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
     chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false
   } = config;
   const results = [];
+  // Every response passes through here, so the run knows each draft it saved.
+  const saved = new Set();
+  const http = async request => {
+    const res = await send(request);
+    for (const r of savedItemReferences(res?.json)) saved.add(r);
+    return res;
+  };
   const record = (name, ok, detail) => {
     results.push({ name, ok, detail });
     log(`${ok ? "PASS" : "FAIL"} ${name}: ${detail}`);
@@ -504,5 +528,17 @@ export const runCanary = async ({ http, idToken, accessToken, parse, config, ser
     });
   }
 
-  return { ok: results.length > 0 && results.every(r => r.ok), results };
+  // Cleanup, not a check: the drafts this run saved.
+  let cleanup = { saved: saved.size, archived: 0, failed: 0, skipped: null };
+  if (saved.size && archiveDrafts) {
+    try {
+      cleanup = { ...cleanup, ...(await archiveDrafts([...saved])) };
+    } catch (e) {
+      cleanup = { ...cleanup, failed: saved.size, reason: String(e?.message ?? e).slice(0, 200) };
+    }
+  } else if (saved.size) {
+    cleanup.skipped = "no Data API credential (LRN_SANDBOX_KEY, LRN_SANDBOX_SECRET)";
+  }
+  log(`drafts saved this run: ${cleanup.saved}; archived ${cleanup.archived}, not archived ${cleanup.failed}${cleanup.skipped ? ` (skipped: ${cleanup.skipped})` : ""}${cleanup.reason ? ` (${cleanup.reason})` : ""}${cleanup.failed || cleanup.skipped ? `: ${[...saved].join(" ")}` : ""}`);
+  return { ok: results.length > 0 && results.every(r => r.ok), results, cleanup };
 };

@@ -13,7 +13,8 @@ import {
 import {
   createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused, localAuthorizer
 } from "@graffiticode/broker";
-import { runCanary, hasSignedRequest } from "../lib/canary.js";
+import { runCanary, hasSignedRequest, savedItemReferences } from "../lib/canary.js";
+import { createDraftArchiver } from "../lib/canary-archive.js";
 
 const CANARY = "0xcanary";
 const CONN = "conn-canary";
@@ -239,7 +240,8 @@ const memoryRetryState = () => {
   const state = { value: null };
   return { state, load: async () => state.value, save: async v => { state.value = v; }, clear: async () => { state.value = null; } };
 };
-const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang] } = {}) => runCanary({
+const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang], archiveDrafts = null } = {}) => runCanary({
+  archiveDrafts,
   // A clock the canary's waits advance, so nothing really sleeps.
   now: () => w.clock.now,
   sleep: async ms => { w.clock.slept.push(ms); w.clock.now += ms; },
@@ -477,4 +479,37 @@ test("reconcile is opt-in: without it, Policy is never asked", async () => {
   const { ok } = await run(w, { chainAdmission: true });
   assert.equal(ok, true);
   assert.deepEqual(w.reconcileAsks, []);
+});
+
+// Registry v8: every save writes new drafts, so a run archives what it saved.
+test("collects the item references each save returned", () => {
+  assert.deepEqual(savedItemReferences({ data: { itemBank: { saved: true, references: ["gc-a-i0"], questionReferences: ["gc-a-q0"] }, effects: [] } }), ["gc-a-i0"]);
+  assert.deepEqual(savedItemReferences([{ saved: true, references: ["x"] }, { result: { saved: true, references: ["x", "y"] } }, { saved: false, references: ["z"] }]), ["x", "y"]);
+});
+
+test("archives the drafts it saved when given an archiver, and only reports them without one", async () => {
+  const w = await world();
+  const asked = [];
+  const out = await run(w, {}, { archiveDrafts: async refs => { asked.push(...refs); return { archived: refs.length, failed: 0 }; } });
+  assert.equal(out.ok, true);
+  assert.ok(asked.length > 0 && out.cleanup.saved === asked.length && out.cleanup.archived === asked.length);
+  const bare = await run(await world());
+  assert.equal(bare.ok, true);
+  assert.match(bare.cleanup.skipped, /LRN_SANDBOX_KEY/);
+});
+
+test("the archiver reads each item back and writes it again as archived", async () => {
+  const calls = [];
+  const sdk = { init: (service, security, secret, body, action) => ({ security: JSON.stringify(security), request: JSON.stringify(body), action }) };
+  const fetch = async (url, { body }) => {
+    const action = body.get("action");
+    const request = JSON.parse(body.get("request"));
+    calls.push({ action, request });
+    const data = action === "get" ? request.references.filter(r => r !== "gone").map(reference => ({ reference, status: "unpublished", definition: {} })) : [];
+    return { ok: true, status: 200, json: async () => ({ meta: { status: true }, data }) };
+  };
+  const archive = createDraftArchiver({ sdk, key: "k", secret: "s", domain: "d", fetch });
+  assert.deepEqual(await archive(["a", "gone"]), { archived: 1, failed: 1, reason: "1 not found" });
+  assert.deepEqual(calls.map(c => c.action), ["get", "set"]);
+  assert.deepEqual(calls[1].request.items, [{ reference: "a", status: "archived", definition: {} }]);
 });
