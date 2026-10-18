@@ -139,7 +139,10 @@ test("--apply refuses unpinned placeholders and open choices", async () => {
   const model = await step0();
   const steps = commands(model);
   const dns = steps.findIndex(s => s.title.startsWith("DNS:")) + 1;
-  assert.throws(() => applyPlan(model, steps, [dns]), /open choice/);
+  // Settled in step 0: the DNS step is a root private zone now, and applies.
+  assert.ok(applyPlan(model, steps, [dns]).some(r => r.text.includes("managed-zones create compilers-root") && r.text.includes("--dns-name=.")));
+  const open = steps.map((s, i) => i === dns - 1 ? { ...s, lines: [...s.lines, "#   gcloud dns something-undecided --project=graffiticode-isolate01"] } : s);
+  assert.throws(() => applyPlan(model, open, [dns]), /open choice/);
   const template = steps.findIndex(s => s.title.startsWith("Instance template")) + 1;
   const unpinned = { ...model, proxy: { ...model.proxy, cosImage: null } };
   assert.throws(() => applyPlan(unpinned, commands(unpinned), [template]), /placeholder remains/, "an unpinned COS image");

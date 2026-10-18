@@ -103,12 +103,17 @@ export function commands(model) {
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-deny-rest", p, `--network=${network}`, "--direction=EGRESS", "--action=DENY", "--rules=all",
       "--destination-ranges=0.0.0.0/0", `--target-service-accounts=${sa}`, "--priority=65000"));
 
+  // Settled in step 0 (2026-10-18), form (a): a private zone for the root, bound to the
+  // compiler network, holding only the metadata server's name. Lookups from Cloud Run's Direct
+  // VPC egress got a genuine NXDOMAIN; their labels never reached the authoritative server,
+  // whose log recorded the outside control sent afterwards; ID tokens still came from
+  // metadata.google.internal. The proxy VMs resolve through their own fixed resolvers
+  // (egress-resolver), so it doesn't touch them: they cold-booted healthy under it.
+  // Response-policy rules can only answer or bypass, so they can't refuse.
   step("DNS: compilers resolve nothing but the metadata server",
-    cmd("gcloud", "dns", "response-policies", "create", "compilers-dns-lockdown", p, `--networks=${network}`, "--description=ISOLATE-01: compilers resolve no public name"),
-    cmd("gcloud", "dns", "response-policies", "rules", "create", "metadata", p, "--response-policy=compilers-dns-lockdown", "--dns-name=metadata.google.internal.", "--behavior=bypassResponsePolicy"),
-    "# OPEN until rollout step 0 confirms which form makes every other name NXDOMAIN without the query leaving Google:",
-    `#   gcloud dns response-policies rules create refuse-all ${p} --response-policy=compilers-dns-lockdown --dns-name='*.' --local-data=...`,
-    `#   gcloud dns managed-zones create compilers-root ${p} --dns-name=. --visibility=private --networks=${network} --description='ISOLATE-01: empty root'`);
+    cmd("gcloud", "dns", "managed-zones", "create", "compilers-root", p, "--dns-name=.", "--visibility=private", `--networks=${network}`,
+      "--description=ISOLATE-01: an empty root for the compiler VPC"),
+    cmd("gcloud", "dns", "record-sets", "create", "metadata.google.internal.", p, "--zone=compilers-root", "--type=A", "--ttl=300", "--rrdatas=169.254.169.254"));
 
   step("Cloud NAT for the proxy subnet only",
     cmd("gcloud", "compute", "routers", "create", "egress-proxy-router", p, r, `--network=${network}`),

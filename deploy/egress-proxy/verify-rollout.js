@@ -50,7 +50,7 @@ export function verifyRollout({ expect, instances, entries, size }) {
 export function commands({ expect, project = "graffiticode", region = "us-central1" }) {
   return [
     "# 1. the group's instances, described (instances.json):",
-    `gcloud compute instance-groups managed list-instances egress-proxy --project=${project} --region=${region} --format='value(instance.basename(),instance.scope().segment(1))' \\`,
+    `gcloud compute instance-groups managed list-instances egress-proxy --project=${project} --region=${region} --format='value(instance.basename(),instance.scope(zones).segment(0))' \\`,
     `  | while read -r name zone; do gcloud compute instances describe "$name" --zone="$zone" --project=${project} --format=json; done | jq -s . > instances.json`,
     "# 2. the reports of the last hour (entries.json):",
     `gcloud logging read 'resource.type="gce_instance" AND jsonPayload.isolate01="config"' --project=${project} --freshness=1h --format=json > entries.json`,
