@@ -190,3 +190,20 @@ test("a compiler run is void without a passing control of the same nonce and ima
   assert.equal(combine(compiler, control, { digests: { ...digests, "at11-iam-control-def": "sha256:2" } }).void, true);
   assert.match(combine({ ...compiler, rows: [...compiler.rows, { id: "kms sign projects/k", kind: "kms sign", passed: true }] }, control, { digests }).why, /no control for: kms sign/);
 });
+
+test("stand-ins replace PRIVILEGED only in the scratch project (step 0)", () => {
+  const scratch = {
+    project: "graffiticode-isolate01",
+    standIns: true,
+    secrets: ["projects/graffiticode-isolate01/secrets/egress-proxy-cert-api-graffiticode-org"],
+    databases: ["projects/graffiticode-isolate01/databases/at11-priv-a", "projects/graffiticode-isolate01/databases/at11-priv-b"],
+    kmsKeys: ["projects/graffiticode-isolate01/locations/us-central1/keyRings/at11/cryptoKeys/priv-signing/cryptoKeyVersions/1"],
+    impersonate: ["egress-proxy@graffiticode-isolate01.iam.gserviceaccount.com"],
+    service: "projects/graffiticode-isolate01/locations/us-central1/services/at11-own-default",
+  };
+  assert.deepEqual(coverageProblems(scratch), []);
+  assert.match(coverageProblems({ ...scratch, project: "graffiticode" })[0], /only in graffiticode-isolate01, not graffiticode/, "production can't use stand-ins");
+  assert.ok(coverageProblems({ ...scratch, databases: scratch.databases.slice(0, 1) }).some(p => /2 stand-in databases/.test(p)));
+  assert.ok(coverageProblems({ ...scratch, impersonate: ["api-run@graffiticode.iam.gserviceaccount.com"] }).some(p => /impersonate outside/.test(p)), "a stand-in must be a scratch resource");
+  assert.ok(coverageProblems({ ...scratch, standIns: false }).length > 5, "without standIns, PRIVILEGED applies");
+});

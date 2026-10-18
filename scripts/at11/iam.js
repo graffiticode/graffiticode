@@ -128,8 +128,28 @@ export function checksFor(r) {
   return list;
 }
 
-// What a compiler config is missing of PRIVILEGED.
+// Rollout step 0's prototype project. Only there may a config name stand-ins instead of
+// PRIVILEGED (standIns: true): the scratch project holds no production resource, so its
+// privileged resources are stand-ins of each kind.
+export const SCRATCH_PROJECTS = new Set(["graffiticode-isolate01"]);
+
+// What a compiler config is missing of PRIVILEGED (or, in a scratch project with standIns,
+// of each kind: secrets, two databases, a KMS key, an account, its own service, the project).
 export function coverageProblems(config) {
+  if (config.standIns) {
+    if (!SCRATCH_PROJECTS.has(config.project)) return [`stand-ins are allowed only in ${[...SCRATCH_PROJECTS].join(", ")}, not ${config.project}`];
+    const problems = [];
+    const inProject = list => (list ?? []).every(n => n.startsWith(`projects/${config.project}/`) || n.endsWith(`@${config.project}.iam.gserviceaccount.com`));
+    if (!(config.secrets ?? []).length) problems.push("a stand-in secret");
+    if ((config.databases ?? []).length < PRIVILEGED.minDatabases) problems.push(`at least ${PRIVILEGED.minDatabases} stand-in databases`);
+    if ((config.kmsKeys ?? []).length < PRIVILEGED.minKmsKeys) problems.push("a stand-in KMS key");
+    if (!(config.impersonate ?? []).length) problems.push("a stand-in account");
+    if (!config.service) problems.push("its own service");
+    for (const [kind, list] of [["secrets", config.secrets], ["databases", config.databases], ["kmsKeys", config.kmsKeys], ["impersonate", config.impersonate], ["service", [config.service].filter(Boolean)]]) {
+      if (!inProject(list)) problems.push(`${kind} outside ${config.project}`);
+    }
+    return problems;
+  }
   const problems = [];
   const secrets = new Set(config.secrets ?? []);
   const accounts = new Set(config.impersonate ?? []);

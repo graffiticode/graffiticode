@@ -572,18 +572,27 @@ export function attributeNetwork(result, { accessLines = [], kernelLines = [], f
 }
 
 // A flip attempt that reached its public answer counts only if the proxy's own access line
-// shows an upstream address outside every blocked range. Landing on a blocked address is
-// the failure this row exists to catch.
-export function confirmLanding(result, { accessLines = [], blocked } = {}) {
+// shows the peer it connected to (`upstream`, UPSTREAM_REMOTE_ADDRESS) is outside every blocked
+// range. A blocked address it attempted first (`upstream_host`, the forward proxy's chosen
+// host) must have the rule hit that refused it. Found in step 0: Envoy tried 169.254.169.254
+// first, ENVOY_OUT refused it (ISOLATE01-REJECT metadata), and it fell back to 1.1.1.1; the
+// line names the metadata server as upstream_host and 1.1.1.1 as upstream.
+export function confirmLanding(result, { accessLines = [], kernelLines = [], firewallHits = [], blocked } = {}) {
   if (result.outcome !== "landed:public") return result;
   if (!result.probe) return { outcome: "error", detail: "a landing without a probe id can't be matched to its log line" };
   const lines = accessLines.filter(l => l.probe === result.probe && l.isolate01 === "egress");
-  const addresses = [...new Set(lines.map(l => addressOf(l.upstream_host || l.upstream)).filter(a => a && a !== "-"))];
-  if (!addresses.length) return { outcome: "error", detail: `no upstream address logged for probe ${result.probe}` };
   const ranges = blockedRanges(blocked);
-  const inBlocked = addresses.filter(a => ranges.some(r => inCidr(a, r)));
-  if (inBlocked.length) return { outcome: "error", detail: `a flip attempt reached ${inBlocked.join(", ")}, a blocked address` };
-  return { outcome: "landed:public-confirmed", addresses, probe: result.probe };
+  const isBlocked = a => ranges.some(r => inCidr(a, r));
+  const peers = [...new Set(lines.map(l => addressOf(l.upstream)).filter(a => a && a !== "-"))];
+  if (!peers.length) return { outcome: "error", detail: `no connected peer logged for probe ${result.probe}` };
+  const reached = peers.filter(isBlocked);
+  if (reached.length) return { outcome: "error", detail: `a flip attempt connected to ${reached.join(", ")}, a blocked address` };
+  const attempted = [...new Set(lines.map(l => addressOf(l.upstream_host)).filter(a => a && a !== "-" && isBlocked(a)))];
+  const unproven = attempted.filter(a =>
+    !kernelLines.some(k => /ISOLATE01-REJECT \S+/.test(k) && dstPattern(a).test(k)) &&
+    !firewallHits.some(f => (f.connection?.dest_ip ?? f.dest_ip) === a));
+  if (unproven.length) return { outcome: "error", detail: `attempted ${unproven.join(", ")} with no rule hit refusing it` };
+  return { outcome: "landed:public-confirmed", addresses: peers, refusedFirst: attempted, probe: result.probe };
 }
 
 // A proxy refusal counts only if the proxy's own access line for that probe says it refused,

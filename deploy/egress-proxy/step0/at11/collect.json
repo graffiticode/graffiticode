@@ -1,0 +1,15 @@
+{
+  "$comment": "ISOLATE-01 step 0: the AT-11 collector's config (scripts/at11/collect.js), run by the operator against graffiticode-isolate01.",
+  "project": "graffiticode-isolate01",
+  "region": "us-central1",
+  "control": "at11-iam-control",
+  "compilers": [
+    { "subject": "probe-default", "net": "at11-net-probe-default", "iam": "at11-iam-probe-default" },
+    { "subject": "probe-ext", "net": "at11-net-probe-ext", "iam": "at11-iam-probe-ext" },
+    { "subject": "probe-l0185", "net": "at11-net-probe-l0185", "iam": "at11-iam-probe-l0185" }
+  ],
+  "dnsExfil": "at11.graffiticode.org",
+  "dnsLog": { "filter": "resource.type=\"dns_query\" AND jsonPayload.queryName:\"at11.graffiticode.org\"" },
+  "blocked": { "compilerSubnets": ["10.8.16.0/22", "10.8.24.0/22", "10.8.20.0/22"], "proxySubnet": "10.8.0.0/27", "loadBalancer": "10.8.0.2" },
+  "retries": { "attempts": 8, "waitMs": 30000 }
+}

@@ -40,6 +40,9 @@ import { combine } from "./iam.js";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const EVIDENCE = "AT11-EVIDENCE ";
 
+// A kernel log entry's text: COS's journal entries carry it as jsonPayload.MESSAGE.
+export const kernelText = e => e.jsonPayload?.MESSAGE ?? e.textPayload ?? "";
+
 // The jobs a run starts: the control, then each compiler's net and IAM jobs.
 export function jobsOf(config) {
   if (!config.control) throw new Error("collect.json needs the control's job");
@@ -139,7 +142,7 @@ export async function collect(config, deps) {
     const to = now();
     logs = {
       accessLines: await readLogs({ kind: "access", probes, from: startedAt, to }),
-      kernelLines: (await readLogs({ kind: "kernel", from: startedAt, to })).map(e => e.textPayload ?? ""),
+      kernelLines: (await readLogs({ kind: "kernel", from: startedAt, to })).map(kernelText),
       firewallHits: (await readLogs({ kind: "firewall", from: startedAt, to })).map(e => e.jsonPayload ?? e),
     };
     dnsLog = dnsControl ? await readDnsLog({ from, to }) : null;
@@ -211,7 +214,9 @@ export function gcloudDeps(config) {
         const wanted = new Set(probes);
         return lines.filter(l => wanted.has(l.probe));
       }
-      if (kind === "kernel") return read(`textPayload:"ISOLATE01-REJECT" AND ${window(from, to)}`);
+      // COS ships kernel lines from the journal as jsonPayload.MESSAGE (cos_journal_warning),
+      // not textPayload (step 0).
+      if (kind === "kernel") return read(`(jsonPayload.MESSAGE:"ISOLATE01-REJECT" OR textPayload:"ISOLATE01-REJECT") AND ${window(from, to)}`);
       if (kind === "firewall") return read(`logName:"compute.googleapis.com%2Ffirewall" AND jsonPayload.disposition="DENIED" AND ${window(from, to)}`);
       throw new Error(`unknown log kind ${kind}`);
     },

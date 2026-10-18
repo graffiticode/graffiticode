@@ -357,11 +357,18 @@ test("a flip name: landing on its public answer is allowed only when the log pro
   assert.equal(landed.outcome, "landed:public");
   assert.equal(classifyFlip({ via: "proxy", stage: "connect", status: 503, probe: "f2" }).outcome, "pending:network");
   const lines = [
-    { isolate01: "egress", probe: "f1", upstream_host: "1.1.1.1:443" },
-    { isolate01: "egress", probe: "f3", upstream_host: "169.254.169.254:443" },
+    { isolate01: "egress", probe: "f1", upstream: "1.1.1.1:443", upstream_host: "1.1.1.1:443" },
+    { isolate01: "egress", probe: "f3", upstream: "169.254.169.254:443", upstream_host: "169.254.169.254:443" },
+    // As step 0 logged it: tried the metadata server first (refused by ENVOY_OUT), then 1.1.1.1.
+    { isolate01: "egress", probe: "f4", upstream: "1.1.1.1:443", upstream_host: "169.254.169.254:443" },
   ];
+  const kernel = ["ISOLATE01-REJECT metadata IN= OUT=eth0 SRC=10.8.0.11 DST=169.254.169.254 LEN=60 PROTO=TCP SPT=1 DPT=443"];
   assert.equal(confirmLanding(landed, { accessLines: lines, blocked }).outcome, "landed:public-confirmed");
-  assert.match(confirmLanding({ outcome: "landed:public", probe: "f3" }, { accessLines: lines, blocked }).detail, /reached 169\.254\.169\.254, a blocked address/);
+  assert.match(confirmLanding({ outcome: "landed:public", probe: "f3" }, { accessLines: lines, blocked }).detail, /connected to 169\.254\.169\.254, a blocked address/);
+  const fellBack = confirmLanding({ outcome: "landed:public", probe: "f4" }, { accessLines: lines, kernelLines: kernel, blocked });
+  assert.equal(fellBack.outcome, "landed:public-confirmed");
+  assert.deepEqual(fellBack.refusedFirst, ["169.254.169.254"]);
+  assert.match(confirmLanding({ outcome: "landed:public", probe: "f4" }, { accessLines: lines, kernelLines: [], blocked }).detail, /attempted 169\.254\.169\.254 with no rule hit/);
   assert.equal(confirmLanding({ outcome: "landed:public", probe: "f9" }, { accessLines: lines, blocked }).outcome, "error", "no log line");
   const row = { id: "rebinding" };
   const flip = (outcome) => ({ flip: true, result: { outcome } });
