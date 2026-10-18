@@ -5,6 +5,7 @@ import http from "node:http";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
+import { gunzipSync } from "node:zlib";
 import path from "node:path";
 import { canonical, normaliseResource, resourcesDigest } from "../digest.js";
 import { buildModel, cloudInit, configDigest, configReportScript, envoyConfig, load, sha256 } from "../generate.js";
@@ -112,8 +113,13 @@ test("the template and the bootstrap carry the same config digest", async () => 
   const text = render(commands(model));
   assert.ok(text.includes(`isolate01-config-sha256=${own(envoy).config_sha256}`));
   const config = JSON.parse(cloudInit(model, envoy).slice("#cloud-config\n".length));
-  const loaded = JSON.parse(config.write_files.find(f => f.path === "/etc/egress-proxy/envoy.json").content);
+  // Written gzipped (gz+b64): cloud-init decodes it to exactly the generated config.
+  const file = config.write_files.find(f => f.path === "/etc/egress-proxy/envoy.json");
+  assert.equal(file.encoding, "gz+b64");
+  const loaded = JSON.parse(gunzipSync(Buffer.from(file.content, "base64")).toString("utf8"));
+  assert.deepEqual(loaded, envoy);
   assert.equal(own(loaded).config_sha256, own(envoy).config_sha256);
+  assert.equal(config.write_files.find(f => f.path === "/etc/egress-proxy/config-sha256").content, `${own(envoy).config_sha256}\n`, "the digest in plain beside it");
   const unit = config.write_files.find(f => f.path === "/etc/systemd/system/envoy-config-report.service").content;
   assert.match(unit, /--user 10102:10102 /, "the report never runs as Envoy's UID");
   assert.match(unit, /node@sha256:1{64} node \/report\/config-report\.mjs/);

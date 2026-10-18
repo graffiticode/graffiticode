@@ -15,7 +15,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig, cloudInit, sha256 } from "./generate.js";
+import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig, cloudInit, userDataDigest } from "./generate.js";
 
 export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
 
@@ -53,7 +53,7 @@ export function commands(model) {
   // and rolled out nothing. Unpinned images leave a placeholder, which --apply refuses.
   const envoy = envoyConfig(model);
   let templateVersion;
-  try { templateVersion = sha256(cloudInit(model, envoy)).slice(0, 12); } catch { templateVersion = "<user-data digest: pin the images>"; }
+  try { templateVersion = userDataDigest(cloudInit(model, envoy)).slice(0, 12); } catch { templateVersion = "<user-data digest: pin the images>"; }
   const steps = [];
   const step = (title, ...lines) => steps.push({ title, lines });
 
@@ -249,7 +249,9 @@ export function inputProblems(runs, { workdir = process.cwd(), read = f => readF
         if (digest && !text.includes(digest)) problems.push(`step ${r.step}: ${file} doesn't carry config ${digest.slice(0, 12)}, the template's own`);
         // The template is named by its user-data's digest: a stale or different file is refused.
         const named = r.argv.map(a => /^egress-proxy-([0-9a-f]{12})$/.exec(a)?.[1]).find(Boolean);
-        if (named && !sha256(text).startsWith(named)) problems.push(`step ${r.step}: ${file} isn't the user-data template egress-proxy-${named} is named for (regenerate it)`);
+        let logical;
+        try { logical = userDataDigest(text); } catch { problems.push(`step ${r.step}: ${file} isn't readable user-data`); continue; }
+        if (named && !logical.startsWith(named)) problems.push(`step ${r.step}: ${file} isn't the user-data template egress-proxy-${named} is named for (regenerate it)`);
       }
     }
   }

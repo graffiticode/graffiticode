@@ -13,6 +13,7 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { gzipSync, gunzipSync } from "node:zlib";
 import path from "node:path";
 import { canonical, normaliseResource, resourcesDigest } from "./digest.js";
 
@@ -524,6 +525,23 @@ const healthListener = model => ({
 
 export const sha256 = text => createHash("sha256").update(text).digest("hex");
 
+// The user-data as it means, not as it's encoded: each gz+b64 file's content decoded. gzip's
+// bytes differ between zlib versions (CI's Node and a laptop's made different ones), so a
+// template is named by this, never by the compressed bytes. Same input, same name, on any
+// machine.
+export function logicalUserData(text) {
+  const head = text.slice(0, text.indexOf("{"));
+  const body = JSON.parse(text.slice(text.indexOf("{")));
+  for (const f of body.write_files ?? []) {
+    if (f.encoding === "gz+b64") {
+      f.content = gunzipSync(Buffer.from(f.content, "base64")).toString("utf8");
+      delete f.encoding;
+    }
+  }
+  return head + JSON.stringify(body, null, 2) + "\n";
+}
+export const userDataDigest = text => sha256(logicalUserData(text));
+
 // config_sha256: over the canonical bootstrap with that one field left out.
 export function configDigest(envoy) {
   const copy = JSON.parse(JSON.stringify(envoy));
@@ -821,7 +839,11 @@ export function cloudInit(model, envoy) {
   requirePinned(model);
   const uid = model.proxy.uid;
   const files = [
-    { path: "/etc/egress-proxy/envoy.json", permissions: "0444", content: JSON.stringify(envoy, null, 2) + "\n" },
+    // Gzipped: a metadata value is capped at 256 KB, and production's plain config (5 classes)
+    // already made the user-data 253 KB in step 1's preparation. cloud-init decodes gz+b64.
+    // The digest also goes in plain beside it, for the checks that read the user-data.
+    { path: "/etc/egress-proxy/envoy.json", permissions: "0444", encoding: "gz+b64", content: gzipSync(Buffer.from(JSON.stringify(envoy, null, 2) + "\n")).toString("base64") },
+    { path: "/etc/egress-proxy/config-sha256", permissions: "0444", content: `${envoy.node.metadata[META].config_sha256}\n` },
     { path: "/etc/egress-proxy/firewall.sh", permissions: "0500", content: firewallScript(model) },
     { path: "/etc/egress-proxy/firewall-check.sh", permissions: "0500", content: firewallCheckScript(model) },
     { path: "/etc/egress-proxy/fetch-certs.sh", permissions: "0500", content: certFetchScript(model) },

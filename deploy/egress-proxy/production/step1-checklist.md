@@ -211,17 +211,18 @@ Expected config digest: `8ce5adcc748ea94d12fb19b0e588a4a32f29eeb843ac0e2e1157981
 
 ## 8. Instance template (pinned COS image, cloud-init from generate.js) and the managed instance group
 
-- [ ] Before running: the template is named by its user-data's digest, so the file must be the one it names
-  (`--apply` checks this; by hand here). Step 0 caught a 0-byte cloud-init this way:
+- [ ] Before running: the template is named by its user-data's logical digest, so the file must be the one it
+  names (`--apply` checks this; by hand here). Step 0 caught a 0-byte cloud-init this way:
   ```bash
-  shasum -a 256 out/cloud-init.yaml
+  node deploy/egress-proxy/user-data-digest.js out/cloud-init.yaml
   ```
-  Expect: it starts with `d65926c0c0a3`, and the file is about 180 KB.
+  Expect: it starts with `d0390a20ab6d`, and the file is about 40 KB (the Envoy config inside is gzipped). Not
+  `shasum`: gzip's bytes differ between machines, so the template is named by the decoded content.
 - [ ] Run:
   ```bash
-  gcloud compute instance-templates create egress-proxy-d65926c0c0a3 --project=graffiticode --machine-type=e2-small --image=cos-129-19506-549-7 --image-project=cos-cloud --network=compilers --subnet=egress-proxy --region=us-central1 --no-address --service-account=egress-proxy@graffiticode.iam.gserviceaccount.com --scopes=cloud-platform --shielded-secure-boot --metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=8ce5adcc748ea94d12fb19b0e588a4a32f29eeb843ac0e2e1157981e000362c6 --metadata-from-file=user-data=out/cloud-init.yaml
+  gcloud compute instance-templates create egress-proxy-d0390a20ab6d --project=graffiticode --machine-type=e2-small --image=cos-129-19506-549-7 --image-project=cos-cloud --network=compilers --subnet=egress-proxy --region=us-central1 --no-address --service-account=egress-proxy@graffiticode.iam.gserviceaccount.com --scopes=cloud-platform --shielded-secure-boot --metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=8ce5adcc748ea94d12fb19b0e588a4a32f29eeb843ac0e2e1157981e000362c6 --metadata-from-file=user-data=out/cloud-init.yaml
   gcloud compute health-checks create http egress-proxy-ready --project=graffiticode --region=us-central1 --port=3129 --request-path=/ready --enable-logging
-  gcloud compute instance-groups managed create egress-proxy --project=graffiticode --region=us-central1 --template=egress-proxy-d65926c0c0a3 --size=2 --zones=us-central1-a,us-central1-b --health-check=projects/graffiticode/regions/us-central1/healthChecks/egress-proxy-ready --initial-delay=120 --target-distribution-shape=EVEN
+  gcloud compute instance-groups managed create egress-proxy --project=graffiticode --region=us-central1 --template=egress-proxy-d0390a20ab6d --size=2 --zones=us-central1-a,us-central1-b --health-check=projects/graffiticode/regions/us-central1/healthChecks/egress-proxy-ready --initial-delay=120 --target-distribution-shape=EVEN
   ```
 - [ ] Check:
   ```bash
