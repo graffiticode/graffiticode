@@ -155,12 +155,13 @@ export function commands(model) {
 
   step("Alerts: a failing health check, a spike in refusals, and access logs stopping",
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-access", p, "--description=ISOLATE-01 proxy access log lines", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\")"),
+    cmd("gcloud", "logging", "metrics", "create", "egress-proxy-heartbeat", p, "--description=ISOLATE-01 proxy health-check log lines (the logging path's heartbeat)", "--log-filter=jsonPayload.isolate01=\"health\""),
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-refused", p, "--description=ISOLATE-01 proxy refusals", "--log-filter=jsonPayload.isolate01=(\"egress\" OR \"terminate\") AND jsonPayload.decision=\"refuse\""),
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-config-mismatch", p, "--description=ISOLATE-01 a proxy VM running another config than its template's",
       "--log-filter=jsonPayload.isolate01=\"config\" AND jsonPayload.match=false"),
     cmd("gcloud", "logging", "metrics", "create", "egress-proxy-unhealthy", p, "--description=ISOLATE-01 proxy VMs marked unhealthy",
       "--log-filter=resource.type=\"gce_instance_group\" AND jsonPayload.healthCheckProbeResult.healthState=\"UNHEALTHY\""),
-    ...Object.keys(alertPolicies(model)).map(name => cmd("gcloud", "alpha", "monitoring", "policies", "create", p, `--policy-from-file=out/alerts/${name}.json`)),
+    ...Object.keys(alertPolicies(model)).map(name => cmd("gcloud", "monitoring", "policies", "create", p, `--policy-from-file=out/alerts/${name}.json`)),
     ...((model.proxy.alerts?.notificationChannels ?? []).length ? [] : ["# classes.json proxy.alerts.notificationChannels is empty: set it before step 1, or the policies alert no one"]));
 
   // A regional group's fixed surge must be 0 or at least its number of zones

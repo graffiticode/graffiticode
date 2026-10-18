@@ -49,13 +49,18 @@ test("a network block without a runtime account is refused", async () => {
   assert.throws(() => buildModel({ services: { a: { network: net } } }, classes), /runtimeServiceAccount/);
 });
 
-test("the alert policies are real: access logs absent per instance, refusal spikes, unhealthy VMs (A9)", async () => {
+test("the alert policies are real: the logging heartbeat, refusal spikes, unhealthy VMs (A9)", async () => {
   const model = await fixture();
   const policies = alertPolicies(model);
-  const absent = policies["egress-proxy-access-absent"].conditions[0].conditionAbsent;
-  assert.equal(absent.duration, "600s");
-  assert.match(absent.filter, /logging\.googleapis\.com\/user\/egress-proxy-access/);
-  assert.deepEqual(absent.aggregations[0].groupByFields, ["resource.label.instance_id"]);
+  assert.equal(policies["egress-proxy-access-absent"], undefined, "no absence alert on traffic: quiet hours aren't a broken path");
+  const low = policies["egress-proxy-heartbeat-low"].conditions[0].conditionThreshold;
+  assert.equal(low.duration, "600s");
+  assert.match(low.filter, /logging\.googleapis\.com\/user\/egress-proxy-heartbeat/);
+  assert.equal(low.comparison, "COMPARISON_LT");
+  assert.equal(low.thresholdValue, 540, "75% of 2 VMs x 360 health lines per 5 minutes (step 0)");
+  assert.equal(low.evaluationMissingData, "EVALUATION_MISSING_DATA_ACTIVE", "no data at all fires");
+  assert.equal(low.aggregations[0].groupByFields, undefined, "the fleet total: a replaced VM's series doesn't fire it");
+  assert.ok(render(commands(model)).includes("metrics create egress-proxy-heartbeat"));
   assert.match(policies["egress-proxy-refused-spike"].conditions[0].conditionThreshold.filter, /egress-proxy-refused/);
   assert.match(policies["egress-proxy-unhealthy"].conditions[0].conditionThreshold.filter, /egress-proxy-unhealthy/);
   const text = render(commands(model));
@@ -225,4 +230,11 @@ test("the config report keeps its container until the next run, so its log line 
   const text = cloudInit(await step0(), envoyConfig(await step0()));
   assert.ok(!text.includes("docker run --rm --name envoy-config-report"), "no --rm");
   assert.ok(text.includes("docker rm -f envoy-config-report"), "the previous run's container is removed first");
+});
+
+test("the unhealthy alert's metric is on the global resource (health-check logs are the group's)", async () => {
+  // Step 0: the log-based metric from gce_instance_group entries is written against "global";
+  // Monitoring refused both gce_instance and gce_instance_group filters.
+  const f = alertPolicies(await fixture())["egress-proxy-unhealthy"].conditions[0].conditionThreshold.filter;
+  assert.match(f, /resource\.type="global"/);
 });
