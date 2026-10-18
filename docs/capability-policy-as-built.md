@@ -271,13 +271,31 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   Learnosity signature is accepted for 7 days by default. Shipped ahead of the AT-10 work as an
   interim narrowing of issued authority. Under REG-01 it's recorded here and folded into the
   registry v8 contract, which AT-10's containment completes.
-- **Partial / provider unverified — PROVIDER-01, L0176-01.** Broker has constrained preview,
-  draft save, and Author operations. Saves make sequential provider requests. Preview/Author
-  operations sign locally and return authority for browser SDK use. The repository does not
-  establish the revised finite request/session lifetime and revocation acceptance criteria
-  against the live provider. Evidence: [operations](../packages/broker/src/operations.ts),
-  [provider client](../packages/broker/src/learnosity.ts), and
-  [browser initialization](../languages/l0176/packages/view/src/components/form/Form.tsx).
+- **Released 2026-10-18 (registry v8) — PROVIDER-01, L0176-01, AT-10.** Broker builds every
+  provider request from a constrained payload. The provider's own limits are measured in the
+  development organisation, and are recorded in the AT-10 table in
+  [capability-policy-acceptance.md](capability-policy-acceptance.md).
+  - **Saves only create** (B1). Every question and item is written under
+    `gc-<16 hex of sha256(operation id)>-<reference sent>`. The mapping is applied once, before
+    the receipt claim, and used for the records, the item links, the evidence and the returned
+    references. An item may link only to questions the same save writes. A save never changes or
+    unpublishes a record already in the bank.
+  - **Questions previews sign only with the preview consumer** (A3), Broker's
+    `BROKER_PREVIEW_CONNECTIONS`, for every provenance; without it they're refused. The Questions
+    API signs only the security packet, so a holder can change the request. The preview consumer
+    is the system connection: Graffiticode's own, used only for previews (dated operator
+    attestation, expires 2027-01-16).
+  - **Items previews** keep the owner's connection: their signature covers the request.
+  - **Broker pins**, on both APIs: `type` `local_practice` (others refused), a fresh `session_id`,
+    a random `user_id`, and a 10-minute `expires`.
+  - **Recorded residual:** every Learnosity key Graffiticode uses is in one development
+    organisation with one item bank. A misused preview signature can start general Questions
+    sessions for 10 minutes, any number of times. Each can store sessions and responses for up to
+    7 days, in that organisation's session store, which holds no learner data. It can't reach the
+    bank: other services refuse the signature, and Questions sessions make no item-bank call.
+  - Evidence: [operations](../packages/broker/src/operations.ts), [broker](../packages/broker/src/broker.ts),
+    [provider client](../packages/broker/src/learnosity.ts), and
+    [browser initialization](../languages/l0176/packages/view/src/components/form/Form.tsx).
 - **Closed by removal, released 2026-10-13 — AUTHOR-01.** Registry v7 removes `author`
   and `learnosity.sign-author`, and with them the enablement gate: Policy and Broker have no
   Author function or operation, and `POLICY_ENABLED_GATED_FUNCTIONS` /
@@ -821,6 +839,45 @@ From main `d52cf66` (#79 code, #80 unblock), in one paused window
 Every artifact and publication stored under v6 is now incompatible until its owner recompiles
 (and republishes); runs started before the window can't resume.
 
+### Registry v8 release (AT-10: fresh save references, the preview consumer), 2026-10-18
+
+From main `1a8d828f` (#122), in one paused window (the runbook's "The registry v8 release"):
+
+1. **Before:**
+   - `release-check` passed for policy, broker, api and l0176;
+   - the canary's OpenIdTokenCreator grants were in force on `api-run`, `l0176-run` and
+     `console-run` (until 2026-10-19T06:00Z);
+   - #122 passed CI, including the emulator suite.
+2. **Disabled** at 20:31:00 UTC and drained (no active writes). #122 was merged inside the window.
+3. **Released**, each with `GC_VERIFY_PROTECTED_EXECUTION=off`:
+
+   | Service | Revision | Old tag retired |
+   | --- | --- | --- |
+   | Policy | `policy-rmveadjgp-1b3667` | `rmve53hbk-90d67a` |
+   | Broker | `broker-rmveamaj2-3dcac6` | `rmve5dscz-a390e4` |
+   | L0176 | `l0176-rmveaui2m-804996` | none |
+   | api | `api-rmveay51w-3d3c0e` | `rmvb5y46h-9c7060` |
+
+4. **Retired the v7 L0176 revision** `l0176-rmvb9akkt-5b79e9` (`--confirm-unrecoverable`). Its
+   report named 23 plans, all with 0 uncertain and 0 unfinished receipts; a v8 Policy refuses to
+   resume them anyway. The script marked the record retired, then didn't exit, so its tag was
+   removed by hand (`gcloud run services update-traffic --remove-tags`).
+5. **v8 baselines** at `1a8d828f` for the four services (#126, `31b651d5`); `release-check` ok.
+6. **Canary while paused** (`--chain-admission --after-cutover`): 23 of 23.
+7. **Provider matrix while paused** (AT-10, below):
+   - Broker-signed `separation`: a Questions signature, now from the preview consumer, was
+     refused by every other service;
+   - draft-only saves left published content unchanged;
+   - `integrity` behaved as on v7;
+   - `caches` found `POST /compile` without `no-store`. That predates v8; fixed in #130 and
+     released as `api-rmveeouvf-0c12ae`.
+8. **Enabled** at 21:37:06 UTC, after `enable`'s `release-check` gate passed. Total time paused:
+   66 minutes.
+
+Broker and Policy run one minimum instance each (#124, released before the window). A cold
+start of both had made a Broker authorization miss its 5-second limit. The console's Recompile
+wording followed (graffiticode-app #30, `console-rmvedpi6m-7310f4`).
+
 ## 5. Validation evidence and remaining acceptance work
 
 During the 2026-10-02 comparison, local tests passed: Policy 137, Broker 43 (excluding its
@@ -841,7 +898,7 @@ Gateway recovery/publication tests cited above were inspected, not rerun for thi
 Firestore integration, production IAM/egress, learner-answer routing, and live provider
 session behavior were not validated by those test runs.
 
-**Acceptance run, 2026-10-14 (W5 stage 5):** [capability-policy-acceptance.md](capability-policy-acceptance.md) maps each AT clause to its tests and the live evidence. Updated the same day once its gaps were closed: every AT passes except AT-07 (pending the restore test), AT-10 (open: provider-side) and AT-11 (deferred with ISOLATE-01). The backlog below is the pre-W4 view, kept for history.
+**Acceptance run, 2026-10-14 (W5 stage 5):** [capability-policy-acceptance.md](capability-policy-acceptance.md) maps each AT clause to its tests and the live evidence. Updated the same day once its gaps were closed: every AT passes except AT-07 (pending the restore test), AT-10 (open: provider-side) and AT-11 (deferred with ISOLATE-01). Since then AT-07 passed (restore test, 2026-10-16) and AT-10 passed with recorded residuals (registry v8, 2026-10-18), leaving AT-11. The backlog below is the pre-W4 view, kept for history.
 
 The spec's AT-01 through AT-12 are the release acceptance backlog. In particular:
 

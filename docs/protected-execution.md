@@ -673,3 +673,44 @@ A run started before the window can't resume after it, because its session and p
 carry v6. Retrying with the same idempotency key is refused, and a new run starts with a
 new key. Rolling any of the four back below v7 needs `--below-baseline` with the switch
 off. Roll forward instead.
+
+## The registry v8 release (AT-10)
+
+Registry v8 changes two operations (AT-10). Run as on 2026-10-18 (as-built, "Registry v8
+release"):
+- `learnosity.write-items` only creates records: every reference is derived from the operation
+  id;
+- `learnosity.sign-questions-preview` signs only with the preview consumer
+  (`BROKER_PREVIEW_CONNECTIONS`, the system connection);
+- both preview operations pin `type` and `session_id`.
+
+Policy, Broker, L0176 and api move together, in one paused window, exactly as for v7:
+1. disable and drain;
+2. merge;
+3. release Policy, Broker, L0176 and api with `GC_VERIFY_PROTECTED_EXECUTION=off`;
+4. retire the old L0176 revisions;
+5. record the baselines;
+6. run the canary while paused;
+7. enable.
+
+Differences from v7:
+
+- **Run the provider matrix while paused, after the canary.** The AT-10 harness
+  (`scripts/at10-provider.js`) runs `separation`, `drafts`, `integrity`, `scope` and `caches`
+  with Broker's signer:
+  - `separation` must show the packet signed by the preview consumer, refused by the Data,
+    Items and Author APIs;
+  - `drafts` must leave published content unchanged.
+
+  Run with `--chromium` pointing at an installed Chrome if Playwright's browser isn't installed.
+- **`revisions.js retire` can mark a revision retired and then not exit,** leaving its tag in
+  place. Check `gcloud run services describe l0176 --format='value(status.traffic)'`. If the tag
+  is still there, remove it with
+  `gcloud run services update-traffic l0176 --remove-tags=<tag> --project=graffiticode --region=us-central1`.
+- **Every Learnosity key, the canary's included, is in one development organisation and one
+  item bank.** The harness's and the canary's writes land there:
+  - the canary archives the drafts it saves when `LRN_SANDBOX_KEY`/`LRN_SANDBOX_SECRET` are set;
+  - harness fixtures are archived by its own cleanup;
+  - questions, which have no status, are left.
+- **The preview consumer's attestation** (`.gc-deploy/provider/preview-consumer-attestation.json`,
+  local) records that the consumer is previews-only. It expires 2027-01-16; renew it before then.

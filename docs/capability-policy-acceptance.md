@@ -60,7 +60,7 @@ Jeff accepts the production evidence. The agent did the mapping and the checks.
 | AT-07 | RUN-01, WRITE-01/02, RETAIN-01 | **Pass** | None (the restore test passed 2026-10-16) |
 | AT-08 | RECOVER-01, ARTIFACT-01 | **Pass** | None |
 | AT-09 | PREVIEW-01, READ-01, PUB-01 | **Pass** | Learner answers aren't a gateway path (the Learnosity client handles them), so only views are tested |
-| AT-10 | PROVIDER-01, L0176-01 | **Open** | No provider-side evidence for lifetimes, replay, revocation or preview scope |
+| AT-10 | PROVIDER-01, L0176-01 | **Pass, with recorded residuals** (2026-10-18, registry v8) | Provider rotation documented, not measured; established-session lifetime documented, not measurable from the client; general Questions sessions possible under the previews-only consumer for 10 minutes (PROVIDER-01 revision) |
 | AT-11 | SECRET-01, ISOLATE-01 | **Deferred** | The ISOLATE-01 plan (self-hosted egress proxy) is deferred. Its "legacy provider credentials no longer work" clause is met as of 2026-10-15: no compiler can read a provider secret, the shared Learnosity secret is disabled, and the credential it held was retired at its provider |
 | AT-12 | AUDIT-01, RELEASE-01 | **Pass** | None |
 
@@ -185,18 +185,28 @@ Test names are quoted from the specs.
 | Missing artifacts don't rebuild | Covered | read.spec |
 | Recipients can't publish; unpublishing blocks issuance | Covered | delegation.spec; pol/live.spec; policy.spec; publication.spec |
 
-### AT-10: against the provider: Open
+### AT-10: against the provider: Pass, with recorded residuals
+
+Measured in the development Learnosity organisation with the AT-10 harness
+(`scripts/at10-provider.js`; evidence in `.gc-deploy/provider/`, facts only). The raw signer
+established the provider's behaviour; Broker-signed runs against the deployed v8 services show
+that Broker's implementation holds. Every Learnosity key Graffiticode uses is in that one
+organisation and item bank, which holds no learner data.
 
 | Clause | Status | Evidence |
 | --- | --- | --- |
-| Draft-only saves | Partial | broker.spec "never publishes" (status `unpublished` enforced); l176/itembank.test. The canary writes to the sandbox but doesn't read the stored status back |
-| Preview scope | Unit only | broker.spec "signs a constrained preview…", "rejects a payload carrying identity or config fields" |
-| Request/session lifetimes | **Gap** | Preview signing (`brk/operations.ts`) sets no `expires` on the security packet, so the lifetime is whatever Learnosity applies to the timestamp. Not verified |
-| Provider replay | **Gap** | Only Graffiticode's own token and receipt replay is tested |
-| Revocation limits | **Gap** | Not tested: what a signed request still allows after a grant is revoked |
+| Draft-only saves | Covered | Registry v8 (B1): Broker writes every record under references derived from the operation id. Draft cases on v8, Broker-signed, 2026-10-18 21:23Z: writing a question a published item uses leaves it unchanged (c), and so does a save whose item write fails (d). A save, publish and second save leaves the item published, its question unchanged (e), and so does reusing a published item's reference (f). On v7 each of these changed or unpublished published content. Also broker.spec "fresh references per save (B1)" and reconcile.spec "resolves a lost response after dispatch as applied, on the mapped records" |
+| Preview scope | Covered, with residual | The Questions API signs only the security packet, so `type`, `state`, `questions` and `session_id` can be changed; `user_id` and a foreign origin are refused (`integrity`, `scope`). Registry v8 (A3) signs Questions previews only with the previews-only preview consumer. Its signatures are refused by the Data, Items and Author APIs (`separation`, raw 17:59Z and Broker-signed on v8 21:22Z), and its sessions make no item-bank call (`scope`, raw 20:13Z and Broker-signed on v8 21:40Z). Items previews: the signature covers the request, and every tamper was refused. Residual, accepted by the PROVIDER-01 revision: a holder can run general Questions sessions storing sessions and responses for the lifetimes below |
+| Request lifetime | Covered | Broker sets `expires` at 10 minutes (`BROKER_PREVIEW_EXPIRES_MINUTES`). On v8, Broker-signed, 2026-10-18: initialised at 5 minutes, accepted (22:57Z run). At 11 minutes, refused 10003 "Failed authentication", 1 minute past `expires`, with a control signed at that moment accepted (23:09Z run) |
+| Established-session lifetime | Documented, not measurable | Questions sessions make no server call the client can probe (`session`, Broker-signed on v8 23:09Z: `probe-unconfirmed` before and after `expires`). Recorded as Learnosity's documented 168 hours |
+| Provider replay | Covered | No single-use: one signed request initialises in the same browser twice, in two contexts, and after first use, each beside an accepted control (`replay`, Broker-signed on v8 2026-10-18 23:20Z) |
+| Revocation | Graffiticode measured; provider documented | Graffiticode's revocation stops the next mint and the next step (canary revocation probe, 23/23 in the v8 window). Provider rotation is documented, not measured (operator decision, 2026-10-18). Its blast radius: a leaked preview signature reaches only the previews-only consumer. Consumer secrets are sealed in Broker, and no compiler can read one (IAM review) |
+| Caches and artifacts | Covered | `caches`, 2026-10-18 22:56Z: every route that can carry a signed request answers `Cache-Control: no-store` (`POST /compile` since #130, `api-rmveeouvf-0c12ae`) |
 
-The 2026-10-14 sandbox spike established only that the `gc_operation` mark persists and that
-there is no job lookup. PROVIDER-01 stays provider-unverified.
+Left in place: the window's `gc-…` draft records in the development item bank (operator
+decision). Follow-up work, not a condition for closing: `canary.js --provider`, the per-release
+check of the preview consumer key, Broker's `expires`, the cache headers and the attestation's
+expiry.
 
 ### AT-12: audit and mixed versions: Pass
 
@@ -211,13 +221,8 @@ there is no job lookup. PROVIDER-01 stays provider-unverified.
 
 ## Gaps, most important first
 
-1. **AT-10, provider behavior:**
-   - preview signature lifetime, which today has no `expires`;
-   - provider-side replay;
-   - what a signed request allows after revocation;
-   - preview scope against the sandbox.
-
-   This needs sandbox tests, and possibly an `expires` on preview signing.
+1. ~~**AT-10, provider behavior**~~: passed with recorded residuals, 2026-10-18 (registry v8;
+   see AT-10 above).
 2. ~~**AT-02, account enumeration**~~: fixed 2026-10-14 (graffiticode-app #10).
 3. ~~**AT-02, verified-email claim**~~: tested (graffiticode-app #10).
 4. ~~**AT-07 / RETAIN-01, restore test**~~: passed 2026-10-16.
@@ -232,8 +237,8 @@ there is no job lookup. PROVIDER-01 stays provider-unverified.
 12. ~~**Single sub-cases**~~ (AT-05 signature expiry, AT-01 Broker invoker mismatch, AT-08
     cross-account recovery): tested.
 
-No test written for these gaps found a bug. What remains is AT-10 (provider-side) and AT-11
-(deferred).
+No test written for these gaps found a bug. AT-10 passed on 2026-10-18 with recorded
+residuals (registry v8). What remains is AT-11 (deferred with ISOLATE-01).
 
 Live coverage doesn't reach AT-01, AT-06, AT-08 or AT-09's save prohibition. These rest on
 CI tests.

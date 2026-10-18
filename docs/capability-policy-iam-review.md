@@ -27,12 +27,12 @@ account holds any project role.
 |---|---|
 | 1 SAs | One per service: `api-run`, `auth-run`, `policy-run`, `broker-run`, and `lNNNN-run` for all 41 compilers. Plus `deploy-build` and `deploy-smoke` for the deploy CLI |
 | 2 Deployers | `deploy-build` builds (the deploy CLI's builds run as it); Artifact Registry repo `services` exists. The compiler repos still deploy through the legacy Cloud Build SA |
-| 3 Roles | Compiler SAs hold no project roles (they need none) and **no compiler can read a provider secret** (2026-10-15): `learnosity-secret` has no readers and its only version is disabled, and `GRAFFITICODE_SECRET_KEY` is deleted. `l0013-run` has `storage.objectAdmin` on `gs://graffiticode.appspot.com` |
+| 3 Roles | Compiler SAs hold no project roles (they need none) and **no compiler can read a provider secret** (2026-10-15): `learnosity-secret` had no readers and its only version disabled, and was **deleted 2026-10-18**; `GRAFFITICODE_SECRET_KEY` is deleted. `l0013-run` has `storage.objectAdmin` on `gs://graffiticode.appspot.com` |
 | 4 Databases | `policy`, `broker`, `(default)`: each limited to its own SA(s); delete protection on for all three |
 | 5 Key and secrets | Unchanged from §1.0b |
 | 6 Move services | **Every Cloud Run service runs as its own SA.** The last 27 compilers moved 2026-09-30 with `services update --service-account`, each checked by compiling its published `template.gc` against a same-day baseline (no regressions, none reverted) |
 | 7 Invokers | Unchanged from §1.0b |
-| 8 Shared secrets | Compute SA's access to `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` removed. 2026-10-15: `l0176-run`'s and then `l0158-run`'s access to `learnosity-secret` removed, and its version 1 disabled (to be deleted); `GRAFFITICODE_SECRET_KEY` deleted. L0158 holds no credential: its previews are signed by L0176 through Broker. The credential that secret held was already retired at its provider |
+| 8 Shared secrets | Compute SA's access to `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` removed. 2026-10-15: `l0176-run`'s and then `l0158-run`'s access to `learnosity-secret` removed, and its version 1 disabled, and the secret deleted 2026-10-18; `GRAFFITICODE_SECRET_KEY` deleted. L0158 holds no credential: its previews are signed by L0176 through Broker. The credential that secret held was already retired at its provider |
 | 9 Strip Editor | `roles/editor` removed from the compute SA and `graffiticode@appspot`; neither holds any project role. The compute SA's `tokenCreator` on itself is removed too. The only Editor holders left are Google-managed service agents (`cloudservices`, `containerregistry`) |
 
 **Interim controls removed.** Deny policies `deny-compute-deploy` and `deny-compute-firestore`
