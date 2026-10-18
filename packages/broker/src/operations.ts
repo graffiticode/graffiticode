@@ -34,7 +34,7 @@ const onlyKeys = (obj, allowed, where) => {
 const PREVIEW_KEYS = ["id", "name", "questions", "session_id", "dynamic_content_data", "type"];
 
 // BROKER_PREVIEW_CONNECTIONS: JSON, backend -> the connection id of its
-// dedicated preview consumer (AT-10 A3). Absent or empty means none, and
+// preview consumer (AT-10 A3). Absent or empty means none, and
 // Questions previews are refused; anything malformed stops the service.
 export const parsePreviewConnections = (raw: string | undefined): Record<string, string> => {
   if (raw === undefined || raw.trim() === "") return {};
@@ -256,15 +256,16 @@ export const buildOperations = ({ sdk, domain, dataApi, previewExpiresMinutes = 
   const previewConsumer = key => ({ ...consumer(key), expires: learnosityTime(new Date(now().getTime() + previewExpiresMinutes * 60_000)) });
   // The request as signed: the payload's content, with Broker's type and a
   // session of its own. The Items API signs these; the Questions API doesn't,
-  // which is why its previews sign only with the dedicated preview consumer
+  // which is why its previews sign only with the preview consumer
   // (broker.js, `signsWith: "preview-consumer"`).
   const pinnedPreview = payload => ({ ...payload, type: PREVIEW_TYPE, session_id: randomUUID() });
   return {
     // The Questions API's signature covers the security packet, not the
     // request, so whoever holds it can change the request. Broker signs it
-    // only with the dedicated preview consumer, never a connection's own (AT-10
-    // A3, registry v8): a consumer whose item bank is its own and empty, and
-    // which holds no reporting or learner data.
+    // only with the preview consumer, never a connection's own (AT-10 A3,
+    // registry v8): Graffiticode's own, used for nothing but previews. Its
+    // signature is refused by every other service, and its sessions make no
+    // item-bank call (both measured).
     "learnosity.sign-questions-preview": {
       kind: "sign",
       signsWith: "preview-consumer",

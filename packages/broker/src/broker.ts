@@ -35,7 +35,7 @@
 //      `partial` after one, with the reason recorded. A token that can't
 //      outlast the deadline is refused on arrival (`token-expiring`), before
 //      it is spent, so the caller can retry with a fresh one.
-//   7a. A Questions preview is signed with the dedicated preview consumer
+//   7a. A Questions preview is signed with the preview consumer
 //      (previewConnections), never the token's connection: its signature
 //      doesn't cover the request (AT-10 A3, registry v8). An Items preview, a
 //      write and a reconciliation use the token's connection.
@@ -150,7 +150,7 @@ export const createBroker = ({
   // main.js passes the Firestore store; the in-memory default still enforces
   // the allowance, per instance, for embedders and tests that don't.
   slots = createMemorySessionSlotStore() as SessionSlotStore, systemSessionMaxSignings = DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS,
-  // backend -> the connection id of its dedicated preview consumer (AT-10 A3,
+  // backend -> the connection id of its preview consumer (AT-10 A3,
   // registry v8; BROKER_PREVIEW_CONNECTIONS). An operation that `signsWith`
   // "preview-consumer" signs only with it; with none for its backend, it's
   // refused.
@@ -358,7 +358,7 @@ export const createBroker = ({
 
     let credential;
     if (operation.signsWith === "preview-consumer") {
-      // Signed with the dedicated preview consumer, whatever connection the
+      // Signed with the preview consumer, whatever connection the
       // token names (AT-10 A3, registry v8). It adds no authority: a system
       // session signs the same preview with no connection at all. The token's
       // connection still authorized it (Policy's grant, the live check).

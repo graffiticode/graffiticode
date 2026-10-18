@@ -46,7 +46,7 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ...cat("unavailable", [
     "maintenance", "authorization-unavailable", "deadline-exceeded", "unavailable",
     "no-system-connection", "no-system-preview-functions",
-    // Broker has no dedicated preview consumer for the backend (AT-10 A3,
+    // Broker has no preview consumer for the backend (AT-10 A3,
     // registry v8), so it signs no Questions preview.
     "preview-consumer-unconfigured",
   ]),

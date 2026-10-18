@@ -116,7 +116,7 @@ beforeEach(async () => {
   onProviderCall = null;
   secrets = createMemorySecretStore({
     "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "consumer-key", secret: SECRET },
-    // The dedicated preview consumer every Questions preview signs with.
+    // The preview consumer every Questions preview signs with.
     "conn-preview": { ownerUid: "0xgraffiticode", backend: "learnosity", key: "preview-key", secret: SECRET },
   });
   brokerDeps = {
@@ -528,8 +528,8 @@ describe("write evidence and the operation mark", () => {
 
 // AT-10 A3 (registry v8): the Questions API doesn't sign the request, so a
 // holder of a Questions preview signature can run a general session. Broker
-// signs those only with the dedicated preview consumer, and pins what it can.
-describe("the dedicated preview consumer and pinned preview fields (A3)", () => {
+// signs those only with the preview consumer, and pins what it can.
+describe("the preview consumer and pinned preview fields (A3)", () => {
   const QUESTIONS = "learnosity.sign-questions-preview";
   const ITEMS = "learnosity.sign-items-preview";
   const sign = async (op, { payload = PREVIEW as Record<string, unknown>, b = broker } = {}) =>
