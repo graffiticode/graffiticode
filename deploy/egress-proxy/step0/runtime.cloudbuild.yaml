@@ -1,0 +1,8 @@
+# Builds the step 0 runtime image (Dockerfile.runtime) into the scratch project's registry.
+steps:
+- name: gcr.io/cloud-builders/docker
+  args: ["build", "-f", "Dockerfile.runtime", "-t", "us-central1-docker.pkg.dev/graffiticode-isolate01/at11/runtime:step0", "."]
+images: ["us-central1-docker.pkg.dev/graffiticode-isolate01/at11/runtime:step0"]
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8

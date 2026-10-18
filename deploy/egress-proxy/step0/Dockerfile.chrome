@@ -1,0 +1,8 @@
+# ISOLATE-01 step 0: L0013's Chrome stack (its Dockerfile's base and packages) with its egress
+# helper, to show a capture through the proxy trusting the CA.
+FROM node:22-alpine
+RUN apk add --no-cache chromium nss nss-tools freetype harfbuzz ca-certificates ttf-freefont
+WORKDIR /rt
+COPY chrome-egress.ts chrome.mjs ./
+USER node
+ENTRYPOINT ["node", "--experimental-strip-types", "/rt/chrome.mjs"]

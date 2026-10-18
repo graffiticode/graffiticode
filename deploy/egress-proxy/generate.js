@@ -930,21 +930,32 @@ const section = obj => Object.entries(obj).flatMap(([k, v]) => (Array.isArray(v)
 // infra.js's printed commands. Log-based metrics: egress-proxy-access (every
 // proxy line), egress-proxy-refused (decision refuse), egress-proxy-unhealthy
 // (health-check log transitions to UNHEALTHY).
+// The heartbeat alert's floor: 75% of the fleet's expected health-check lines per 5 minutes.
+export const heartbeatThreshold = model => Math.floor(0.75 * (model.proxy.size ?? 2) * (model.proxy.heartbeatPerVmPer5Min ?? 360));
+
 export function alertPolicies(model) {
   const alerts = model.proxy.alerts ?? {};
   const metric = name => `metric.type="logging.googleapis.com/user/${name}" AND resource.type="gce_instance"`;
   const channels = alerts.notificationChannels ?? [];
   return {
-    "egress-proxy-access-absent": {
-      displayName: "ISOLATE-01: egress proxy access logs stopped on an instance",
-      documentation: { content: "A proxy VM's access-log lines haven't arrived for 10 minutes. A broken logging path hides refusals: check the VM's logging agent (deploy/egress-proxy/README.md).", mimeType: "text/markdown" },
+    // The logging path's heartbeat. Every VM logs each load-balancer health check, whatever
+    // the traffic: step 0 measured ~360 lines per VM per 5 minutes. The fleet's total under 75%
+    // of size x that rate, or no data at all, means a VM's logs aren't arriving. Compiler
+    // traffic can't stand in for it (quiet hours would look like a broken path), and a
+    // per-instance absence would fire for every VM a rolling replace removes (found in step 0).
+    "egress-proxy-heartbeat-low": {
+      displayName: "ISOLATE-01: egress proxy logs stopped arriving from a VM",
+      documentation: { content: `The proxy fleet's health-check log lines fell below ${heartbeatThreshold(model)} per 5 minutes (75% of ${model.proxy.size ?? 2} VMs x ${model.proxy.heartbeatPerVmPer5Min ?? 360}). A broken logging path hides refusals: check each VM's logging agent (deploy/egress-proxy/README.md).`, mimeType: "text/markdown" },
       combiner: "OR",
       conditions: [{
-        displayName: "egress-proxy-access absent for 10 minutes, per instance",
-        conditionAbsent: {
-          filter: metric("egress-proxy-access"),
+        displayName: `fleet heartbeat under ${heartbeatThreshold(model)} per 5 minutes, for 10 minutes`,
+        conditionThreshold: {
+          filter: metric("egress-proxy-heartbeat"),
+          comparison: "COMPARISON_LT",
+          thresholdValue: heartbeatThreshold(model),
           duration: "600s",
-          aggregations: [{ alignmentPeriod: "300s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM", groupByFields: ["resource.label.instance_id"] }],
+          evaluationMissingData: "EVALUATION_MISSING_DATA_ACTIVE",
+          aggregations: [{ alignmentPeriod: "300s", perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }],
           trigger: { count: 1 },
         },
       }],
@@ -991,7 +1002,10 @@ export function alertPolicies(model) {
       conditions: [{
         displayName: "any UNHEALTHY transition",
         conditionThreshold: {
-          filter: metric("egress-proxy-unhealthy"),
+          // Health-check logs are the instance group's (gce_instance_group), which Monitoring has
+          // no resource type for, so the log-based metric is written against "global". Step 0:
+          // Monitoring refused both gce_instance and gce_instance_group filters.
+          filter: "metric.type=\"logging.googleapis.com/user/egress-proxy-unhealthy\" AND resource.type=\"global\"",
           comparison: "COMPARISON_GT",
           thresholdValue: 0,
           duration: "0s",

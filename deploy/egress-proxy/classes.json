@@ -22,6 +22,7 @@
     "healthCheckRanges": ["35.191.0.0/16", "130.211.0.0/22"],
     "machineType": "e2-small",
     "zones": ["us-central1-a", "us-central1-b"],
+    "heartbeatPerVmPer5Min": 360,
     "envoyImage": null,
     "reportImage": null,
     "reportUid": 10102,
