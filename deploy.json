@@ -128,6 +128,10 @@
         {
           "milestone": "v7",
           "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
+        },
+        {
+          "milestone": "v8",
+          "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
         }
       ],
       "secrets": {
@@ -313,6 +317,10 @@
         {
           "milestone": "v7",
           "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
+        },
+        {
+          "milestone": "v8",
+          "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
         }
       ],
       "requires": [
@@ -440,6 +448,10 @@
         {
           "milestone": "sexp",
           "commit": "bd4bbc23670540f9f5126379e23db0405bad9d1c"
+        },
+        {
+          "milestone": "v8",
+          "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
         }
       ],
       "minInstances": 1,
@@ -901,6 +913,10 @@
         {
           "milestone": "gateway-only",
           "commit": "dd5b903142c56eb215b5538c2219fa2e37655e66"
+        },
+        {
+          "milestone": "v8",
+          "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
         }
       ],
       "env": {
