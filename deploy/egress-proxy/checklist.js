@@ -99,7 +99,10 @@ export function checklist(model) {
     "- [ ] **Who could start a VM as the proxy?** Anyone with `iam.serviceAccounts.actAs` on `egress-proxy`, at project",
     "  level through Editor or Owner, can run a VM as it and read every certificate key. In step 0 the default Compute",
     "  Engine account held Editor (removed there). List them, and decide what to remove or accept *before* step 7",
-    "  stores the keys:",
+    "  stores the keys. Checked 2026-10-18: Editor is held only by the Google APIs service agent",
+    "  (`<number>@cloudservices.gserviceaccount.com`, which instance groups need), and the default Compute Engine",
+    "  account holds none. Owners admin@ and jeff@artcompiler.com and kevin.m.dyer@gmail.com are accepted (Jeff).",
+    "  Re-run it, and stop if anything else appears:",
     "  ```",
     `  gcloud projects get-iam-policy ${model.project} --flatten=bindings --filter="bindings.role:(roles/editor OR roles/owner OR roles/iam.serviceAccountUser OR roles/iam.serviceAccountTokenCreator)" --format="table(bindings.role,bindings.members)"`,
     "  ```",
@@ -113,18 +116,27 @@ export function checklist(model) {
     "  ```", "");
 
   add("## Preparation (local, offline)", "",
-    "- [ ] Create a **fresh** CA on an offline machine (not step 0's `~/isolate01-ca`):",
-    "  `deploy/egress-proxy/issue-certs.sh ca <offline-ca-dir>`",
+    "- [ ] The production CA: created 2026-10-18 in `~/graffiticode-egress-ca` (`ca.key` owner-only), distinct from",
+    "  step 0's `~/isolate01-ca`. SHA-256 fingerprint",
+    "  `BF:5F:CB:8D:7D:D1:3D:69:33:2C:60:0F:BE:3A:44:40:F8:AF:04:BE:6E:6D:9E:AF:B4:A7:D5:64:1D:F3:EC:5F`. Back the",
+    "  key up offline, outside any synced folder. Check it's that CA:",
+    "  `openssl x509 -in ~/graffiticode-egress-ca/ca.crt -noout -fingerprint -sha256`",
     `- [ ] Issue the ${hosts.length} host certificates into \`<workdir>/certs\`:`,
-    `  \`deploy/egress-proxy/issue-certs.sh issue <offline-ca-dir> <workdir>/certs ${hosts.join(" ")}\``,
-    "- [ ] Copy the CA's public certificate: `cp <offline-ca-dir>/ca.crt <workdir>/ca.crt`",
+    `  \`deploy/egress-proxy/issue-certs.sh issue ~/graffiticode-egress-ca <workdir>/certs ${hosts.join(" ")}\``,
+    "- [ ] Copy the CA's public certificate: `cp ~/graffiticode-egress-ca/ca.crt <workdir>/ca.crt`",
     "- [ ] Generate (to a file, not through a pipe):",
     "  `node deploy/egress-proxy/generate.js --deploy deploy/egress-proxy/production/network.json --out <workdir>/out > <workdir>/generate.log`",
     `  and check its first line says \`config_sha256 ${digest}\`, and \`<workdir>/out/cloud-init.yaml\` is non-empty.`,
     "- [ ] Validate on the pinned Envoy (`deploy/egress-proxy/validate/cloudbuild.yaml`, run in the scratch project as in",
     "  step 0): `configuration 'envoy.json' OK`, no deprecation warning.",
-    "- [ ] Choose the alert channel, set `proxy.alerts.notificationChannels` in `deploy/egress-proxy/classes.json`, and",
-    "  regenerate. Without it the policies alert no one.", "");
+    "- [ ] Create the alert channel: email to jeff@artcompiler.com (decided 2026-10-18; channels exist only in",
+    "  `gcloud beta`, which may ask to install the component once):",
+    "  ```bash",
+    `  gcloud beta monitoring channels create ${p} --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels=email_address=jeff@artcompiler.com --format="value(name)"`,
+    "  ```",
+    "  Put the printed `projects/.../notificationChannels/<id>` in `proxy.alerts.notificationChannels` in",
+    "  `deploy/egress-proxy/classes.json`, and regenerate. Only the alert files change: the template and its digest don't.",
+    "  Without it the policies alert no one.", "");
 
   steps.slice(0, 10).forEach((s, i) => {
     const n = i + 1;
