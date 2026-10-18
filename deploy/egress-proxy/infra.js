@@ -58,6 +58,10 @@ export function commands(model) {
   const step = (title, ...lines) => steps.push({ title, lines });
 
   step("Compiler VPC and subnets (IPv4 only)",
+    // Idempotent. Found in step 1: Cloud DNS wasn't enabled in graffiticode (the scratch
+    // project had every API enabled by hand), so step 4 failed until it was.
+    cmd("gcloud", "services", "enable", "compute.googleapis.com", "dns.googleapis.com", "secretmanager.googleapis.com", "iam.googleapis.com",
+      "logging.googleapis.com", "monitoring.googleapis.com", p),
     cmd("gcloud", "compute", "networks", "create", network, p, "--subnet-mode=custom"),
     cmd("gcloud", "compute", "networks", "subnets", "create", model.proxySubnet.name, p, r, `--network=${network}`, `--range=${model.proxySubnet.cidr}`, "--stack-type=IPV4_ONLY"),
     ...classes.map(c => cmd("gcloud", "compute", "networks", "subnets", "create", c.name, p, r, `--network=${network}`, `--range=${c.cidr}`, "--stack-type=IPV4_ONLY")),

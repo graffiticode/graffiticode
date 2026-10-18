@@ -56,6 +56,7 @@ Expected config digest: `8ce5adcc748ea94d12fb19b0e588a4a32f29eeb843ac0e2e1157981
 
 - [ ] Run:
   ```bash
+  gcloud services enable compute.googleapis.com dns.googleapis.com secretmanager.googleapis.com iam.googleapis.com logging.googleapis.com monitoring.googleapis.com --project=graffiticode
   gcloud compute networks create compilers --project=graffiticode --subnet-mode=custom
   gcloud compute networks subnets create egress-proxy --project=graffiticode --region=us-central1 --network=compilers --range=10.8.0.0/27 --stack-type=IPV4_ONLY
   gcloud compute networks subnets create compilers-default --project=graffiticode --region=us-central1 --network=compilers --range=10.8.16.0/22 --stack-type=IPV4_ONLY
@@ -253,8 +254,6 @@ Expected config digest: `8ce5adcc748ea94d12fb19b0e588a4a32f29eeb843ac0e2e1157981
   Expect: HEALTHY;HEALTHY (allow a few minutes after boot)
 
 ## 10. Alerts: a failing health check, a spike in refusals, the logging heartbeat, and a config mismatch
-
-> classes.json proxy.alerts.notificationChannels is empty: set it before step 1, or the policies alert no one
 
 - [ ] Run:
   ```bash

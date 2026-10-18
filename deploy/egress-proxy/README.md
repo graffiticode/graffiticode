@@ -262,6 +262,12 @@ and run them from `<workdir>`, step by step, in their order. Two steps aren't id
 `secrets versions add` and `monitoring policies create`. Run each of those once. Step 1
 changes no compiler: none uses the proxy until its step 3 candidate.
 
+**Expect one transient heartbeat alert.** The heartbeat metric counts only from its creation in
+step 10, so its first 5-minute window is partial. The fleet heartbeat alert can open on it and
+close by itself within about 15 minutes. In step 1 it was open from 23:15 to 23:19 UTC, with a
+first window of 22 lines; every window after was about 700. Later rollouts don't cause it:
+the alert watches the fleet's total, and a surge only adds lines.
+
 **Done when:**
 - `verify-rollout.js --expect <config_sha256>` passes on both VMs;
 - the heartbeat, refusal, unhealthy and config-mismatch policies exist;
