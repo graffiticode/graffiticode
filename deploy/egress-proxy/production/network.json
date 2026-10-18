@@ -1,0 +1,49 @@
+{
+  "$comment": "ISOLATE-01 rollout step 1: the planned network blocks for the first wave (L0176, L0000), from the host inventory (plan: \"Host inventory\"). deploy/egress-proxy reads this file (--deploy) to build step 1's proxy; deploy.json gets each block only in rollout step 3, through deploy --stage. Each later compiler is added here first, then moves to deploy.json the same way.",
+  "version": 1,
+  "services": {
+    "l0176": {
+      "runtimeServiceAccount": "l0176-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0176",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org",
+          "broker-sja7fatcta-uc.a.run.app",
+          "policy-sja7fatcta-uc.a.run.app",
+          "www.googleapis.com"
+        ]
+      }
+    },
+    "l0000": {
+      "runtimeServiceAccount": "l0000-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0000",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org",
+          "policy-sja7fatcta-uc.a.run.app",
+          "www.googleapis.com"
+        ]
+      }
+    }
+  }
+}
