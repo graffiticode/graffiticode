@@ -216,12 +216,12 @@ Expected config digest: `8ce5adcc748ea94d12fb19b0e588a4a32f29eeb843ac0e2e1157981
   ```bash
   shasum -a 256 out/cloud-init.yaml
   ```
-  Expect: it starts with `d65926c0c0a3`, and the file is about 180 KB.
+  Expect: it starts with `0c47bc71e3cd`, and the file is about 40 KB (the Envoy config inside is gzipped).
 - [ ] Run:
   ```bash
-  gcloud compute instance-templates create egress-proxy-d65926c0c0a3 --project=graffiticode --machine-type=e2-small --image=cos-129-19506-549-7 --image-project=cos-cloud --network=compilers --subnet=egress-proxy --region=us-central1 --no-address --service-account=egress-proxy@graffiticode.iam.gserviceaccount.com --scopes=cloud-platform --shielded-secure-boot --metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=8ce5adcc748ea94d12fb19b0e588a4a32f29eeb843ac0e2e1157981e000362c6 --metadata-from-file=user-data=out/cloud-init.yaml
+  gcloud compute instance-templates create egress-proxy-0c47bc71e3cd --project=graffiticode --machine-type=e2-small --image=cos-129-19506-549-7 --image-project=cos-cloud --network=compilers --subnet=egress-proxy --region=us-central1 --no-address --service-account=egress-proxy@graffiticode.iam.gserviceaccount.com --scopes=cloud-platform --shielded-secure-boot --metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=8ce5adcc748ea94d12fb19b0e588a4a32f29eeb843ac0e2e1157981e000362c6 --metadata-from-file=user-data=out/cloud-init.yaml
   gcloud compute health-checks create http egress-proxy-ready --project=graffiticode --region=us-central1 --port=3129 --request-path=/ready --enable-logging
-  gcloud compute instance-groups managed create egress-proxy --project=graffiticode --region=us-central1 --template=egress-proxy-d65926c0c0a3 --size=2 --zones=us-central1-a,us-central1-b --health-check=projects/graffiticode/regions/us-central1/healthChecks/egress-proxy-ready --initial-delay=120 --target-distribution-shape=EVEN
+  gcloud compute instance-groups managed create egress-proxy --project=graffiticode --region=us-central1 --template=egress-proxy-0c47bc71e3cd --size=2 --zones=us-central1-a,us-central1-b --health-check=projects/graffiticode/regions/us-central1/healthChecks/egress-proxy-ready --initial-delay=120 --target-distribution-shape=EVEN
   ```
 - [ ] Check:
   ```bash

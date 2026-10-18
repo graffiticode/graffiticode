@@ -150,7 +150,7 @@ export function checklist(model) {
       const name = cmds.map(String).join(" ").match(/instance-templates create egress-proxy-([0-9a-f]{12}) /)?.[1];
       add("- [ ] Before running: the template is named by its user-data's digest, so the file must be the one it names",
         "  (`--apply` checks this; by hand here). Step 0 caught a 0-byte cloud-init this way:", "  ```bash",
-        "  shasum -a 256 out/cloud-init.yaml", "  ```", `  Expect: it starts with \`${name}\`, and the file is about 180 KB.`);
+        "  shasum -a 256 out/cloud-init.yaml", "  ```", `  Expect: it starts with \`${name}\`, and the file is about 40 KB (the Envoy config inside is gzipped).`);
     }
     add("- [ ] Run:", "  ```bash", ...cmds.map(c => `  ${c}`), "  ```");
     if (n === 7 || n === 10) add("  Run it once: `secrets versions add` and `monitoring policies create` aren't idempotent.");

@@ -13,6 +13,7 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import path from "node:path";
 import { canonical, normaliseResource, resourcesDigest } from "./digest.js";
 
@@ -821,7 +822,11 @@ export function cloudInit(model, envoy) {
   requirePinned(model);
   const uid = model.proxy.uid;
   const files = [
-    { path: "/etc/egress-proxy/envoy.json", permissions: "0444", content: JSON.stringify(envoy, null, 2) + "\n" },
+    // Gzipped: a metadata value is capped at 256 KB, and production's plain config (5 classes)
+    // already made the user-data 253 KB in step 1's preparation. cloud-init decodes gz+b64.
+    // The digest also goes in plain beside it, for the checks that read the user-data.
+    { path: "/etc/egress-proxy/envoy.json", permissions: "0444", encoding: "gz+b64", content: gzipSync(Buffer.from(JSON.stringify(envoy, null, 2) + "\n")).toString("base64") },
+    { path: "/etc/egress-proxy/config-sha256", permissions: "0444", content: `${envoy.node.metadata[META].config_sha256}\n` },
     { path: "/etc/egress-proxy/firewall.sh", permissions: "0500", content: firewallScript(model) },
     { path: "/etc/egress-proxy/firewall-check.sh", permissions: "0500", content: firewallCheckScript(model) },
     { path: "/etc/egress-proxy/fetch-certs.sh", permissions: "0500", content: certFetchScript(model) },

@@ -56,3 +56,10 @@ test("deploy.json puts no compiler on the proxy unless production/network.json b
     assert.deepEqual(service.network, planned[name].network, `${name}'s network block differs from its planned one`);
   }
 });
+
+test("production's user-data fits a metadata value with room to grow (256 KB cap)", async () => {
+  // Step 1's preparation found the plain config made it 253 KB; gzipped, it's a fraction.
+  const model = await production();
+  const bytes = Buffer.byteLength(cloudInit(model, envoyConfig(model)));
+  assert.ok(bytes < 96 * 1024, `user-data is ${bytes} bytes`);
+});
