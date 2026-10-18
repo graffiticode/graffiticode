@@ -99,6 +99,23 @@ export async function smokeCheck(config, service, id, { cloud, fetch: request = 
     const body = await response.text();
     if (check.bodyIncludes) requireValue(body.includes(check.bodyIncludes), `Smoke check ${check.path}: response did not match`);
   }
+  if (config.network) await egressCheck(config, base, headers, request);
+}
+
+// ISOLATE-01: a service on the compiler network must route its outbound HTTP through the
+// proxy. Its `/egress` (the egress bootstrap's own report, @graffiticode/l0000/egress or
+// l0000r's) must say the bootstrap is installed, with this service's proxy. Without it the
+// candidate's requests would try a direct route the firewall drops.
+export async function egressCheck(config, base, headers, request = fetch) {
+  const url = new URL("/egress", base);
+  const response = await request(url, { headers, redirect: "error", signal: AbortSignal.timeout(30000) });
+  requireValue(response.status === 200, `Egress check: /egress answered ${response.status}; the candidate doesn't report its egress bootstrap (import @graffiticode/l0000/egress first)`);
+  /** @type {any} */
+  let report;
+  try { report = await response.json(); } catch { requireValue(false, "Egress check: /egress isn't JSON"); }
+  requireValue(report?.installed === true, "Egress check: the candidate's egress bootstrap isn't installed, so its outbound HTTP wouldn't go through the proxy");
+  const proxy = report.httpsProxy ?? report.httpProxy;
+  requireValue(proxy === config.network.proxy, `Egress check: the candidate uses proxy ${proxy}, not ${config.network.proxy}`);
 }
 
 // Runs the service's verify module against the candidate, before promotion.
