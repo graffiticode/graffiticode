@@ -34,6 +34,8 @@ describe("routes/compile", () => {
         createSuccessResponse({ data: DATA1 })
       )
     );
+    // Its data may carry a signed request: never stored (AT-10 caches).
+    expect(res.headers["cache-control"]).toBe("no-store");
   });
 
   it("should compile item", async () => {

@@ -9,7 +9,8 @@ import {
   parseAuthTokenFromRequest,
   parseConnectionId,
   parseIdempotencyKey,
-  optionsHandler
+  optionsHandler,
+  setNoStoreCacheHeaders
 } from "./utils.js";
 import { isNonNullObject } from "../util.js";
 import { InvalidArgumentError } from "../errors/http.js";
@@ -101,6 +102,10 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLi
     }
     const [id] = ids;
     res.set("Access-Control-Allow-Origin", "*");
+    // A compile's data can carry a signed provider request (an L0176
+    // preview), which must never be stored by a browser or a CDN (PROVIDER-01,
+    // AT-10 caches).
+    setNoStoreCacheHeaders(res);
 
     // Check if getData returned an error (e.g., usage limit reached)
     // @ts-expect-error TS-MIGRATE: data is one item or an array; guarded by optional chaining
