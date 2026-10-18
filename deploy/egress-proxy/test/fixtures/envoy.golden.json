@@ -4,8 +4,8 @@
     "cluster": "egress-proxy",
     "metadata": {
       "isolate01": {
-        "resources_sha256": "6ebd491e709726e3e0fc541afc80d629d8ada955111491cdacc77e1edb3f825a",
-        "config_sha256": "e9a8c88e2045d88a11f8f63f3015c337cfd55ef3fe4ba230c5a74e38756ee126"
+        "resources_sha256": "afa1f3edd8ba632429714a571aff4faa02a924d1f8c3ab7adb5e5459d577dd2d",
+        "config_sha256": "dc5cb57028259c6cc2f4faa22125597dc359d0f998f771200742a453a0ee5242"
       }
     }
   },

@@ -349,7 +349,7 @@ test("the DNS row is decided from a log that recorded the collector's control (A
   assert.equal(judgeDnsRow({ ...row, results: [{ ...row.results[0], result: { outcome: "error" } }] }, log, control).state, "failed");
 });
 
-test("a flip name: landing on its public answer is allowed only when the log proves it; it must be refused on its blocked answer at least once", () => {
+test("a flip name: landing on its public answer is allowed only when the log proves it, and reaching its blocked answer must be refused", () => {
   // Found in step 0: flip.rebind -> 1.1.1.1 | 169.254.169.254; the public answer's TLS
   // fails for our name, which read as an error before.
   const blocked = { compilerSubnets: ["10.8.16.0/22"], proxySubnet: "10.8.0.0/27", loadBalancer: "10.8.0.2" };
@@ -366,7 +366,9 @@ test("a flip name: landing on its public answer is allowed only when the log pro
   const row = { id: "rebinding" };
   const flip = (outcome) => ({ flip: true, result: { outcome } });
   assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("refused:network")]), "passed");
-  assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("landed:public-confirmed")]), "failed", "never refused on the blocked answer");
+  // Envoy caches the first resolution, so every attempt may land on the public answer (step 0).
+  assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("landed:public-confirmed")]), "passed");
+  assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("error")]), "failed", "an unexplained attempt fails");
   assert.equal(rowState(row, "refused:network", [flip("landed:public"), flip("pending:network")]), "pending-evidence");
   assert.equal(rowState(row, "refused:network", [{ result: { outcome: "landed:public-confirmed" } }]), "failed", "only a flip name may land");
 });

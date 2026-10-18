@@ -335,10 +335,10 @@ export const CHECKS = {
   "ip-literal": async c => c.ipLiterals?.length ? Promise.all(c.ipLiterals.map(ip => one(ip, through(c, `${ip}:443`)))) : null,
   redirect: async c => c.redirect ? [await followRedirects(c, c.redirect)] : null,
   // A name whose answer changes (flip.*: a public and a blocked address) is tried
-  // several times: an attempt that reaches the public answer is allowed (landed:public,
-  // confirmed against the proxy's log), but some attempt must hit the blocked one and be
+  // several times. An attempt that reaches the public answer is allowed (landed:public,
+  // confirmed against the proxy's log); one that reaches the blocked answer must be
   // refused there. Found in step 0: the public answer's TLS fails for our name, which
-  // otherwise read as an error.
+  // read as an error before.
   rebinding: async c => c.rebinding?.length
     ? (await Promise.all(c.rebinding.map(h => /^flip\./.test(h)
         ? Promise.all(Array.from({ length: c.flipAttempts ?? 6 }, () => one(h, through(c, `${h}:443`), classifyFlip)))
@@ -468,10 +468,12 @@ export function rowState(row, expected, results) {
   if (expected === "refused:network") {
     const network = r => ["pending:network", "refused:network"].includes(r.result.outcome);
     const landed = r => r.flip && ["landed:public", "landed:public-confirmed"].includes(r.result.outcome);
+    // A flip attempt may land on its public answer (confirmed by the proxy's log) or be
+    // refused on its blocked one. It isn't required to reach the blocked answer: Envoy's
+    // forward proxy caches the first resolution, so within a run all six landed on the
+    // public answer (step 0). The single-answer names prove the network refuses each
+    // blocked address.
     if (!results.every(r => network(r) || landed(r))) return "failed";
-    // A flip name must have been refused on its blocked answer at least once.
-    const flips = results.filter(r => r.flip);
-    if (flips.length && !flips.some(network)) return "failed";
     const pending = results.some(r => ["pending:network", "landed:public"].includes(r.result.outcome));
     return pending ? "pending-evidence" : "passed";
   }

@@ -1,0 +1,1071 @@
+{
+ "$comment": "ISOLATE-01 step 0: one terminating listener and one cluster, from step 0 config as generated and as Envoy 1.39.4 rendered it in a real /config_dump (2026-10-18). The dump redacts private keys and omits default enums.",
+ "generated": {
+  "listener": {
+   "name": "terminate-compilers-default",
+   "internal_listener": {},
+   "access_log": [
+    {
+     "name": "envoy.access_loggers.stdout",
+     "typed_config": {
+      "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+      "log_format": {
+       "json_format": {
+        "isolate01": "terminate-tcp",
+        "class": "compilers-default",
+        "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+        "sni": "%REQUESTED_SERVER_NAME%",
+        "target": "%DYNAMIC_METADATA(isolate01:target)%",
+        "termination": "%CONNECTION_TERMINATION_DETAILS%",
+        "flags": "%RESPONSE_FLAGS%",
+        "filter_chain": "%FILTER_CHAIN_NAME%",
+        "duration": "%DURATION%",
+        "bytes_in": "%BYTES_RECEIVED%",
+        "bytes_out": "%BYTES_SENT%",
+        "probe": "-",
+        "start": "%START_TIME%"
+       }
+      }
+     }
+    }
+   ],
+   "listener_filters": [
+    {
+     "name": "envoy.filters.listener.tls_inspector",
+     "typed_config": {
+      "@type": "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector"
+     }
+    }
+   ],
+   "filter_chains": [
+    {
+     "name": "compilers-default-api-graffiticode-org",
+     "filter_chain_match": {
+      "server_names": [
+       "api.graffiticode.org"
+      ]
+     },
+     "transport_socket": {
+      "name": "envoy.transport_sockets.tls",
+      "typed_config": {
+       "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+       "common_tls_context": {
+        "tls_params": {
+         "tls_minimum_protocol_version": "TLSv1_2"
+        },
+        "alpn_protocols": [
+         "h2",
+         "http/1.1"
+        ],
+        "tls_certificates": [
+         {
+          "certificate_chain": {
+           "filename": "/run/egress-proxy/certs/api-graffiticode-org.crt"
+          },
+          "private_key": {
+           "filename": "/run/egress-proxy/certs/api-graffiticode-org.key"
+          }
+         }
+        ]
+       }
+      }
+     },
+     "filters": [
+      {
+       "name": "envoy.filters.network.rbac",
+       "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
+        "stat_prefix": "target_api_graffiticode_org",
+        "rules": {
+         "action": "ALLOW",
+         "policies": {
+          "connect-target-is-sni": {
+           "permissions": [
+            {
+             "any": true
+            }
+           ],
+           "principals": [
+            {
+             "sourced_metadata": {
+              "metadata_matcher": {
+               "filter": "isolate01",
+               "path": [
+                {
+                 "key": "target"
+                }
+               ],
+               "value": {
+                "string_match": {
+                 "exact": "api.graffiticode.org"
+                }
+               }
+              },
+              "metadata_source": "DYNAMIC"
+             }
+            }
+           ]
+          }
+         }
+        }
+       }
+      },
+      {
+       "name": "envoy.filters.network.http_connection_manager",
+       "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+        "stat_prefix": "terminate_api_graffiticode_org",
+        "codec_type": "AUTO",
+        "use_remote_address": true,
+        "xff_num_trusted_hops": 0,
+        "skip_xff_append": true,
+        "strip_trailing_host_dot": true,
+        "normalize_path": true,
+        "merge_slashes": true,
+        "path_with_escaped_slashes_action": "REJECT_REQUEST",
+        "http_protocol_options": {
+         "allow_absolute_url": true
+        },
+        "http2_protocol_options": {
+         "allow_connect": true
+        },
+        "upgrade_configs": [
+         {
+          "upgrade_type": "CONNECT"
+         }
+        ],
+        "route_config": {
+         "name": "terminate-compilers-default-api-graffiticode-org",
+         "virtual_hosts": [
+          {
+           "name": "api-graffiticode-org",
+           "domains": [
+            "api.graffiticode.org",
+            "api.graffiticode.org:443"
+           ],
+           "routes": [
+            {
+             "match": {
+              "prefix": "/"
+             },
+             "route": {
+              "cluster": "upstream-api-graffiticode-org",
+              "timeout": "300s"
+             },
+             "response_headers_to_add": [
+              {
+               "header": {
+                "key": "x-isolate01-decision",
+                "value": "allow"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-reason",
+                "value": "listed"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              }
+             ],
+             "response_headers_to_remove": [
+              "x-isolate01-refused"
+             ]
+            }
+           ]
+          },
+          {
+           "name": "fronted",
+           "domains": [
+            "*"
+           ],
+           "routes": [
+            {
+             "match": {
+              "prefix": ""
+             },
+             "direct_response": {
+              "status": 403,
+              "body": {
+               "inline_string": "isolate01: refused (host-mismatch)\n"
+              }
+             },
+             "response_headers_to_add": [
+              {
+               "header": {
+                "key": "x-isolate01-refused",
+                "value": "host-mismatch"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-decision",
+                "value": "refuse"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-reason",
+                "value": "host-mismatch"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        "http_filters": [
+         {
+          "name": "envoy.filters.http.router",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+          }
+         }
+        ],
+        "access_log": [
+         {
+          "name": "envoy.access_loggers.stdout",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+           "log_format": {
+            "json_format": {
+             "isolate01": "terminate",
+             "class": "compilers-default",
+             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+             "method": "%REQ(:METHOD)%",
+             "target": "api.graffiticode.org",
+             "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
+             "sni": "%REQUESTED_SERVER_NAME%",
+             "host": "%REQ(:AUTHORITY)%",
+             "path": "%REQ(:PATH)%",
+             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+             "upstream_host": "%UPSTREAM_HOST%",
+             "code": "%RESPONSE_CODE%",
+             "flags": "%RESPONSE_FLAGS%",
+             "details": "%RESPONSE_CODE_DETAILS%",
+             "decision": "%RESP(X-ISOLATE01-DECISION)%",
+             "reason": "%RESP(X-ISOLATE01-REASON)%",
+             "probe": "%REQ(X-ISOLATE01-PROBE)%",
+             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
+             "start": "%START_TIME%"
+            }
+           }
+          }
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "name": "compilers-default-auth-graffiticode-org",
+     "filter_chain_match": {
+      "server_names": [
+       "auth.graffiticode.org"
+      ]
+     },
+     "transport_socket": {
+      "name": "envoy.transport_sockets.tls",
+      "typed_config": {
+       "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+       "common_tls_context": {
+        "tls_params": {
+         "tls_minimum_protocol_version": "TLSv1_2"
+        },
+        "alpn_protocols": [
+         "h2",
+         "http/1.1"
+        ],
+        "tls_certificates": [
+         {
+          "certificate_chain": {
+           "filename": "/run/egress-proxy/certs/auth-graffiticode-org.crt"
+          },
+          "private_key": {
+           "filename": "/run/egress-proxy/certs/auth-graffiticode-org.key"
+          }
+         }
+        ]
+       }
+      }
+     },
+     "filters": [
+      {
+       "name": "envoy.filters.network.rbac",
+       "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
+        "stat_prefix": "target_auth_graffiticode_org",
+        "rules": {
+         "action": "ALLOW",
+         "policies": {
+          "connect-target-is-sni": {
+           "permissions": [
+            {
+             "any": true
+            }
+           ],
+           "principals": [
+            {
+             "sourced_metadata": {
+              "metadata_matcher": {
+               "filter": "isolate01",
+               "path": [
+                {
+                 "key": "target"
+                }
+               ],
+               "value": {
+                "string_match": {
+                 "exact": "auth.graffiticode.org"
+                }
+               }
+              },
+              "metadata_source": "DYNAMIC"
+             }
+            }
+           ]
+          }
+         }
+        }
+       }
+      },
+      {
+       "name": "envoy.filters.network.http_connection_manager",
+       "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+        "stat_prefix": "terminate_auth_graffiticode_org",
+        "codec_type": "AUTO",
+        "use_remote_address": true,
+        "xff_num_trusted_hops": 0,
+        "skip_xff_append": true,
+        "strip_trailing_host_dot": true,
+        "normalize_path": true,
+        "merge_slashes": true,
+        "path_with_escaped_slashes_action": "REJECT_REQUEST",
+        "http_protocol_options": {
+         "allow_absolute_url": true
+        },
+        "http2_protocol_options": {
+         "allow_connect": true
+        },
+        "upgrade_configs": [
+         {
+          "upgrade_type": "CONNECT"
+         }
+        ],
+        "route_config": {
+         "name": "terminate-compilers-default-auth-graffiticode-org",
+         "virtual_hosts": [
+          {
+           "name": "auth-graffiticode-org",
+           "domains": [
+            "auth.graffiticode.org",
+            "auth.graffiticode.org:443"
+           ],
+           "routes": [
+            {
+             "match": {
+              "prefix": "/"
+             },
+             "route": {
+              "cluster": "upstream-auth-graffiticode-org",
+              "timeout": "300s"
+             },
+             "response_headers_to_add": [
+              {
+               "header": {
+                "key": "x-isolate01-decision",
+                "value": "allow"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-reason",
+                "value": "listed"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              }
+             ],
+             "response_headers_to_remove": [
+              "x-isolate01-refused"
+             ]
+            }
+           ]
+          },
+          {
+           "name": "fronted",
+           "domains": [
+            "*"
+           ],
+           "routes": [
+            {
+             "match": {
+              "prefix": ""
+             },
+             "direct_response": {
+              "status": 403,
+              "body": {
+               "inline_string": "isolate01: refused (host-mismatch)\n"
+              }
+             },
+             "response_headers_to_add": [
+              {
+               "header": {
+                "key": "x-isolate01-refused",
+                "value": "host-mismatch"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-decision",
+                "value": "refuse"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-reason",
+                "value": "host-mismatch"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        "http_filters": [
+         {
+          "name": "envoy.filters.http.router",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+          }
+         }
+        ],
+        "access_log": [
+         {
+          "name": "envoy.access_loggers.stdout",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+           "log_format": {
+            "json_format": {
+             "isolate01": "terminate",
+             "class": "compilers-default",
+             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+             "method": "%REQ(:METHOD)%",
+             "target": "auth.graffiticode.org",
+             "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
+             "sni": "%REQUESTED_SERVER_NAME%",
+             "host": "%REQ(:AUTHORITY)%",
+             "path": "%REQ(:PATH)%",
+             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+             "upstream_host": "%UPSTREAM_HOST%",
+             "code": "%RESPONSE_CODE%",
+             "flags": "%RESPONSE_FLAGS%",
+             "details": "%RESPONSE_CODE_DETAILS%",
+             "decision": "%RESP(X-ISOLATE01-DECISION)%",
+             "reason": "%RESP(X-ISOLATE01-REASON)%",
+             "probe": "%REQ(X-ISOLATE01-PROBE)%",
+             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
+             "start": "%START_TIME%"
+            }
+           }
+          }
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  "cluster": {
+   "name": "terminate-compilers-default-api-graffiticode-org",
+   "type": "STATIC",
+   "connect_timeout": "1s",
+   "load_assignment": {
+    "cluster_name": "terminate-compilers-default-api-graffiticode-org",
+    "endpoints": [
+     {
+      "lb_endpoints": [
+       {
+        "endpoint": {
+         "address": {
+          "envoy_internal_address": {
+           "server_listener_name": "terminate-compilers-default"
+          }
+         }
+        },
+        "metadata": {
+         "filter_metadata": {
+          "isolate01": {
+           "target": "api.graffiticode.org"
+          }
+         }
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "transport_socket": {
+    "name": "envoy.transport_sockets.internal_upstream",
+    "typed_config": {
+     "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
+     "passthrough_metadata": [
+      {
+       "kind": {
+        "host": {}
+       },
+       "name": "isolate01"
+      }
+     ],
+     "transport_socket": {
+      "name": "envoy.transport_sockets.raw_buffer",
+      "typed_config": {
+       "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+      }
+     }
+    }
+   }
+  }
+ },
+ "dumped": {
+  "listener": {
+   "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+   "name": "terminate-compilers-default",
+   "filter_chains": [
+    {
+     "filter_chain_match": {
+      "server_names": [
+       "api.graffiticode.org"
+      ]
+     },
+     "filters": [
+      {
+       "name": "envoy.filters.network.rbac",
+       "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
+        "rules": {
+         "policies": {
+          "connect-target-is-sni": {
+           "permissions": [
+            {
+             "any": true
+            }
+           ],
+           "principals": [
+            {
+             "sourced_metadata": {
+              "metadata_matcher": {
+               "filter": "isolate01",
+               "path": [
+                {
+                 "key": "target"
+                }
+               ],
+               "value": {
+                "string_match": {
+                 "exact": "api.graffiticode.org"
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         }
+        },
+        "stat_prefix": "target_api_graffiticode_org"
+       }
+      },
+      {
+       "name": "envoy.filters.network.http_connection_manager",
+       "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+        "stat_prefix": "terminate_api_graffiticode_org",
+        "route_config": {
+         "name": "terminate-compilers-default-api-graffiticode-org",
+         "virtual_hosts": [
+          {
+           "name": "api-graffiticode-org",
+           "domains": [
+            "api.graffiticode.org",
+            "api.graffiticode.org:443"
+           ],
+           "routes": [
+            {
+             "match": {
+              "prefix": "/"
+             },
+             "route": {
+              "cluster": "upstream-api-graffiticode-org",
+              "timeout": "300s"
+             },
+             "response_headers_to_add": [
+              {
+               "header": {
+                "key": "x-isolate01-decision",
+                "value": "allow"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-reason",
+                "value": "listed"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              }
+             ],
+             "response_headers_to_remove": [
+              "x-isolate01-refused"
+             ]
+            }
+           ]
+          },
+          {
+           "name": "fronted",
+           "domains": [
+            "*"
+           ],
+           "routes": [
+            {
+             "match": {
+              "prefix": ""
+             },
+             "direct_response": {
+              "status": 403,
+              "body": {
+               "inline_string": "isolate01: refused (host-mismatch)\n"
+              }
+             },
+             "response_headers_to_add": [
+              {
+               "header": {
+                "key": "x-isolate01-refused",
+                "value": "host-mismatch"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-decision",
+                "value": "refuse"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-reason",
+                "value": "host-mismatch"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        "http_filters": [
+         {
+          "name": "envoy.filters.http.router",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+          }
+         }
+        ],
+        "http_protocol_options": {
+         "allow_absolute_url": true
+        },
+        "http2_protocol_options": {
+         "allow_connect": true
+        },
+        "access_log": [
+         {
+          "name": "envoy.access_loggers.stdout",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+           "log_format": {
+            "json_format": {
+             "isolate01": "terminate",
+             "class": "compilers-default",
+             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+             "method": "%REQ(:METHOD)%",
+             "target": "api.graffiticode.org",
+             "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
+             "sni": "%REQUESTED_SERVER_NAME%",
+             "host": "%REQ(:AUTHORITY)%",
+             "path": "%REQ(:PATH)%",
+             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+             "upstream_host": "%UPSTREAM_HOST%",
+             "code": "%RESPONSE_CODE%",
+             "flags": "%RESPONSE_FLAGS%",
+             "details": "%RESPONSE_CODE_DETAILS%",
+             "decision": "%RESP(X-ISOLATE01-DECISION)%",
+             "reason": "%RESP(X-ISOLATE01-REASON)%",
+             "probe": "%REQ(X-ISOLATE01-PROBE)%",
+             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
+             "start": "%START_TIME%"
+            }
+           }
+          }
+         }
+        ],
+        "use_remote_address": true,
+        "skip_xff_append": true,
+        "upgrade_configs": [
+         {
+          "upgrade_type": "CONNECT"
+         }
+        ],
+        "normalize_path": true,
+        "merge_slashes": true,
+        "path_with_escaped_slashes_action": "REJECT_REQUEST",
+        "strip_trailing_host_dot": true
+       }
+      }
+     ],
+     "transport_socket": {
+      "name": "envoy.transport_sockets.tls",
+      "typed_config": {
+       "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+       "common_tls_context": {
+        "tls_params": {
+         "tls_minimum_protocol_version": "TLSv1_2"
+        },
+        "tls_certificates": [
+         {
+          "certificate_chain": {
+           "filename": "/run/egress-proxy/certs/api-graffiticode-org.crt"
+          },
+          "private_key": {
+           "filename": "[redacted]"
+          }
+         }
+        ],
+        "alpn_protocols": [
+         "h2",
+         "http/1.1"
+        ]
+       }
+      }
+     },
+     "name": "compilers-default-api-graffiticode-org"
+    },
+    {
+     "filter_chain_match": {
+      "server_names": [
+       "auth.graffiticode.org"
+      ]
+     },
+     "filters": [
+      {
+       "name": "envoy.filters.network.rbac",
+       "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
+        "rules": {
+         "policies": {
+          "connect-target-is-sni": {
+           "permissions": [
+            {
+             "any": true
+            }
+           ],
+           "principals": [
+            {
+             "sourced_metadata": {
+              "metadata_matcher": {
+               "filter": "isolate01",
+               "path": [
+                {
+                 "key": "target"
+                }
+               ],
+               "value": {
+                "string_match": {
+                 "exact": "auth.graffiticode.org"
+                }
+               }
+              }
+             }
+            }
+           ]
+          }
+         }
+        },
+        "stat_prefix": "target_auth_graffiticode_org"
+       }
+      },
+      {
+       "name": "envoy.filters.network.http_connection_manager",
+       "typed_config": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+        "stat_prefix": "terminate_auth_graffiticode_org",
+        "route_config": {
+         "name": "terminate-compilers-default-auth-graffiticode-org",
+         "virtual_hosts": [
+          {
+           "name": "auth-graffiticode-org",
+           "domains": [
+            "auth.graffiticode.org",
+            "auth.graffiticode.org:443"
+           ],
+           "routes": [
+            {
+             "match": {
+              "prefix": "/"
+             },
+             "route": {
+              "cluster": "upstream-auth-graffiticode-org",
+              "timeout": "300s"
+             },
+             "response_headers_to_add": [
+              {
+               "header": {
+                "key": "x-isolate01-decision",
+                "value": "allow"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-reason",
+                "value": "listed"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              }
+             ],
+             "response_headers_to_remove": [
+              "x-isolate01-refused"
+             ]
+            }
+           ]
+          },
+          {
+           "name": "fronted",
+           "domains": [
+            "*"
+           ],
+           "routes": [
+            {
+             "match": {
+              "prefix": ""
+             },
+             "direct_response": {
+              "status": 403,
+              "body": {
+               "inline_string": "isolate01: refused (host-mismatch)\n"
+              }
+             },
+             "response_headers_to_add": [
+              {
+               "header": {
+                "key": "x-isolate01-refused",
+                "value": "host-mismatch"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-decision",
+                "value": "refuse"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              },
+              {
+               "header": {
+                "key": "x-isolate01-reason",
+                "value": "host-mismatch"
+               },
+               "append_action": "OVERWRITE_IF_EXISTS_OR_ADD"
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        },
+        "http_filters": [
+         {
+          "name": "envoy.filters.http.router",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+          }
+         }
+        ],
+        "http_protocol_options": {
+         "allow_absolute_url": true
+        },
+        "http2_protocol_options": {
+         "allow_connect": true
+        },
+        "access_log": [
+         {
+          "name": "envoy.access_loggers.stdout",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+           "log_format": {
+            "json_format": {
+             "isolate01": "terminate",
+             "class": "compilers-default",
+             "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+             "method": "%REQ(:METHOD)%",
+             "target": "auth.graffiticode.org",
+             "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
+             "sni": "%REQUESTED_SERVER_NAME%",
+             "host": "%REQ(:AUTHORITY)%",
+             "path": "%REQ(:PATH)%",
+             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
+             "upstream_host": "%UPSTREAM_HOST%",
+             "code": "%RESPONSE_CODE%",
+             "flags": "%RESPONSE_FLAGS%",
+             "details": "%RESPONSE_CODE_DETAILS%",
+             "decision": "%RESP(X-ISOLATE01-DECISION)%",
+             "reason": "%RESP(X-ISOLATE01-REASON)%",
+             "probe": "%REQ(X-ISOLATE01-PROBE)%",
+             "refused": "%RESP(X-ISOLATE01-REFUSED)%",
+             "start": "%START_TIME%"
+            }
+           }
+          }
+         }
+        ],
+        "use_remote_address": true,
+        "skip_xff_append": true,
+        "upgrade_configs": [
+         {
+          "upgrade_type": "CONNECT"
+         }
+        ],
+        "normalize_path": true,
+        "merge_slashes": true,
+        "path_with_escaped_slashes_action": "REJECT_REQUEST",
+        "strip_trailing_host_dot": true
+       }
+      }
+     ],
+     "transport_socket": {
+      "name": "envoy.transport_sockets.tls",
+      "typed_config": {
+       "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+       "common_tls_context": {
+        "tls_params": {
+         "tls_minimum_protocol_version": "TLSv1_2"
+        },
+        "tls_certificates": [
+         {
+          "certificate_chain": {
+           "filename": "/run/egress-proxy/certs/auth-graffiticode-org.crt"
+          },
+          "private_key": {
+           "filename": "[redacted]"
+          }
+         }
+        ],
+        "alpn_protocols": [
+         "h2",
+         "http/1.1"
+        ]
+       }
+      }
+     },
+     "name": "compilers-default-auth-graffiticode-org"
+    }
+   ],
+   "listener_filters": [
+    {
+     "name": "envoy.filters.listener.tls_inspector",
+     "typed_config": {
+      "@type": "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector"
+     }
+    }
+   ],
+   "access_log": [
+    {
+     "name": "envoy.access_loggers.stdout",
+     "typed_config": {
+      "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+      "log_format": {
+       "json_format": {
+        "isolate01": "terminate-tcp",
+        "class": "compilers-default",
+        "downstream": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS%",
+        "sni": "%REQUESTED_SERVER_NAME%",
+        "target": "%DYNAMIC_METADATA(isolate01:target)%",
+        "termination": "%CONNECTION_TERMINATION_DETAILS%",
+        "flags": "%RESPONSE_FLAGS%",
+        "filter_chain": "%FILTER_CHAIN_NAME%",
+        "duration": "%DURATION%",
+        "bytes_in": "%BYTES_RECEIVED%",
+        "bytes_out": "%BYTES_SENT%",
+        "probe": "-",
+        "start": "%START_TIME%"
+       }
+      }
+     }
+    }
+   ],
+   "internal_listener": {}
+  },
+  "cluster": {
+   "@type": "type.googleapis.com/envoy.config.cluster.v3.Cluster",
+   "name": "terminate-compilers-default-api-graffiticode-org",
+   "type": "STATIC",
+   "connect_timeout": "1s",
+   "transport_socket": {
+    "name": "envoy.transport_sockets.internal_upstream",
+    "typed_config": {
+     "@type": "type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport",
+     "passthrough_metadata": [
+      {
+       "kind": {
+        "host": {}
+       },
+       "name": "isolate01"
+      }
+     ],
+     "transport_socket": {
+      "name": "envoy.transport_sockets.raw_buffer",
+      "typed_config": {
+       "@type": "type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer"
+      }
+     }
+    }
+   },
+   "load_assignment": {
+    "cluster_name": "terminate-compilers-default-api-graffiticode-org",
+    "endpoints": [
+     {
+      "lb_endpoints": [
+       {
+        "endpoint": {
+         "address": {
+          "envoy_internal_address": {
+           "server_listener_name": "terminate-compilers-default"
+          }
+         }
+        },
+        "metadata": {
+         "filter_metadata": {
+          "isolate01": {
+           "target": "api.graffiticode.org"
+          }
+         }
+        }
+       }
+      ]
+     }
+    ]
+   }
+  }
+ }
+}
