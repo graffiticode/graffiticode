@@ -35,6 +35,10 @@
 //      `partial` after one, with the reason recorded. A token that can't
 //      outlast the deadline is refused on arrival (`token-expiring`), before
 //      it is spent, so the caller can retry with a fresh one.
+//   7a. A Questions preview is signed with the dedicated preview consumer
+//      (previewConnections), never the token's connection: its signature
+//      doesn't cover the request (AT-10 A3, registry v8). An Items preview, a
+//      write and a reconciliation use the token's connection.
 //   8. A `sign` under a system preview session (provenance `system`) first
 //      claims one of the session's SYSTEM_SESSION_MAX_SIGNINGS slots
 //      (session-slots.js); with all taken it is refused `session-exhausted`
@@ -146,6 +150,11 @@ export const createBroker = ({
   // main.js passes the Firestore store; the in-memory default still enforces
   // the allowance, per instance, for embedders and tests that don't.
   slots = createMemorySessionSlotStore() as SessionSlotStore, systemSessionMaxSignings = DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS,
+  // backend -> the connection id of its dedicated preview consumer (AT-10 A3,
+  // registry v8; BROKER_PREVIEW_CONNECTIONS). An operation that `signsWith`
+  // "preview-consumer" signs only with it; with none for its backend, it's
+  // refused.
+  previewConnections = {} as Record<string, string>,
 }) => {
   // No default: a broker built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
@@ -165,6 +174,13 @@ export const createBroker = ({
   // operation id derives; a write operation without the mapping isn't built.
   for (const [name, definition] of Object.entries(operations ?? {}) as [string, any][]) {
     if (definition?.kind === "write" && typeof definition.references !== "function") throw new Error(`createBroker: write operation ${name} needs a references mapping`);
+    // Which credential a signature uses is the operation's to say, never a
+    // default: a Questions preview signed with an owner's consumer would hand
+    // out a general session on it.
+    if (definition?.kind === "sign" && !["connection", "preview-consumer"].includes(definition.signsWith)) throw new Error(`createBroker: sign operation ${name} needs signsWith`);
+  }
+  if (!previewConnections || typeof previewConnections !== "object" || Object.values(previewConnections).some(id => typeof id !== "string" || !id)) {
+    throw new Error("createBroker: previewConnections maps a backend to a connection id");
   }
   // Wait for one decision, at most `waitMs`. The timer aborts pending work;
   // it doesn't decide lateness, since a busy event loop can run it after a
@@ -340,12 +356,25 @@ export const createBroker = ({
     if (digest !== claims.argd) return refuse("args-mismatch");
     if (!(await once.claim(claims.jti, claims.exp))) return refuse("token-replayed", 409);
 
-    const credential = await secrets.get(claims.conn);
-    if (!credential) return refuse("no-credential");
-    // A connection id alone is not enough: the credential must belong to the
-    // owner and backend the token was minted for.
-    if (credential.ownerUid !== claims.own || credential.backend !== claims.backend) {
-      return refuse("credential-binding-mismatch");
+    let credential;
+    if (operation.signsWith === "preview-consumer") {
+      // Signed with the dedicated preview consumer, whatever connection the
+      // token names (AT-10 A3, registry v8). It adds no authority: a system
+      // session signs the same preview with no connection at all. The token's
+      // connection still authorized it (Policy's grant, the live check).
+      const previewConnection = Object.prototype.hasOwnProperty.call(previewConnections, claims.backend) ? previewConnections[claims.backend] : null;
+      if (!previewConnection) return refuse("preview-consumer-unconfigured", 503);
+      credential = await secrets.get(previewConnection);
+      if (!credential) return refuse("no-credential");
+      if (credential.backend !== claims.backend) return refuse("credential-binding-mismatch");
+    } else {
+      credential = await secrets.get(claims.conn);
+      if (!credential) return refuse("no-credential");
+      // A connection id alone is not enough: the credential must belong to the
+      // owner and backend the token was minted for.
+      if (credential.ownerUid !== claims.own || credential.backend !== claims.backend) {
+        return refuse("credential-binding-mismatch");
+      }
     }
 
     if (operation.kind !== "write") {

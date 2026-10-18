@@ -96,6 +96,7 @@ beforeEach(async () => {
       audit,
       operations: buildOperations({ sdk: { init: (service) => ({ service }) }, domain: "d", dataApi: async () => ({}) }),
       secrets,
+      previewConnections: { learnosity: "conn-1" },
       once: createMemoryOnceStore(),
       receipts: createMemoryReceiptStore(),
       activity: createMemoryActivityStore(),
@@ -111,6 +112,8 @@ beforeEach(async () => {
     audit,
     operations: buildOperations({ sdk: { init: (service) => ({ service }) }, domain: "d", dataApi: async () => ({}) }),
     secrets: (secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "k", secret: "s" } })),
+    // Questions previews sign with the preview consumer; here, the same one.
+    previewConnections: { learnosity: "conn-1" },
     once: createMemoryOnceStore(),
     receipts: createMemoryReceiptStore(),
     activity: createMemoryActivityStore(),

@@ -32,6 +32,8 @@ import {
   referenceTag,
   REFERENCE_PREFIX,
   MAX_SENT_REFERENCE_LENGTH,
+  parsePreviewConnections,
+  PREVIEW_TYPE,
   AuthorizationUnavailable,
   createMemorySessionSlotStore,
   DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS,
@@ -112,12 +114,17 @@ beforeEach(async () => {
   activity = createMemoryActivityStore();
   providerCalls = [];
   onProviderCall = null;
-  secrets = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "consumer-key", secret: SECRET } });
+  secrets = createMemorySecretStore({
+    "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "consumer-key", secret: SECRET },
+    // The dedicated preview consumer every Questions preview signs with.
+    "conn-preview": { ownerUid: "0xgraffiticode", backend: "learnosity", key: "preview-key", secret: SECRET },
+  });
   brokerDeps = {
     protectedSwitch: PROTECTED_ON,
     jwks,
     operations: (buildOps = () => buildOperations({ sdk, domain: "l0176.graffiticode.org", dataApi }))(),
     secrets,
+    previewConnections: { learnosity: "conn-preview" },
     once: createMemoryOnceStore(),
     receipts,
     activity,
@@ -206,19 +213,19 @@ describe("system preview sessions", () => {
   // Broker asks the Policy that knows the system connection.
   const sysBroker = (p = sysPolicy) => createBroker({ ...brokerDeps, authorize: localAuthorizer(p) });
 
-  it("signs Questions and Items previews with the system connection's credential", async () => {
-    for (const op of ["learnosity.sign-questions-preview", "learnosity.sign-items-preview"]) {
+  it("signs Items previews with the system connection's credential, and Questions previews with the preview consumer", async () => {
+    for (const [op, key] of [["learnosity.sign-questions-preview", "preview-key"], ["learnosity.sign-items-preview", "system-key"]]) {
       const token = await sysToken({ op, payload: PREVIEW });
       const { status, result } = await sysBroker().execute({ caller: L0176, token, op, payload: PREVIEW });
       expect(status).toBe("succeeded");
       expect(result.request.signedWithSecret).toBe(true);
-      expect(result.request.consumer.consumer_key).toBe("system-key");
+      expect(result.request.consumer.consumer_key).toBe(key);
     }
   });
 
   it("is refused if the stored credential belongs to another owner", async () => {
-    const token = await sysToken({ op: "learnosity.sign-questions-preview", payload: PREVIEW, p: misbound });
-    await refused(sysBroker(misbound).execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "credential-binding-mismatch");
+    const token = await sysToken({ op: "learnosity.sign-items-preview", payload: PREVIEW, p: misbound });
+    await refused(sysBroker(misbound).execute({ caller: L0176, token, op: "learnosity.sign-items-preview", payload: PREVIEW }), "credential-binding-mismatch");
   });
 
   // The system-preview rate limits plan, design point 3: a system session
@@ -436,13 +443,13 @@ describe("preview signing", () => {
   });
 
   it("refuses a credential not bound to the token's owner and backend", async () => {
-    const token = await previewToken();
+    const token = await mint(await session(), { fn: "init", op: "learnosity.sign-items-preview", payload: PREVIEW });
     await secrets.delete("conn-1");
     await expect(secrets.create("conn-1", { ownerUid: "0xsomeoneelse", backend: "learnosity", key: "k", secret: "s" }))
       .rejects.toThrow(/already used/);
     const rebound = createMemorySecretStore({ "conn-1": { ownerUid: "0xsomeoneelse", backend: "learnosity", key: "k", secret: "s" } });
     const other = createBroker({ ...brokerDeps, secrets: rebound });
-    await refused(other.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "credential-binding-mismatch");
+    await refused(other.execute({ caller: L0176, token, op: "learnosity.sign-items-preview", payload: PREVIEW }), "credential-binding-mismatch");
   });
 
   it("refuses a validly signed token minted for another registry version", async () => {
@@ -516,6 +523,75 @@ describe("write evidence and the operation mark", () => {
   it("leaves a preview's signing untouched", async () => {
     await broker.execute({ caller: L0176, token: await previewToken(), op: "learnosity.sign-questions-preview", payload: PREVIEW });
     expect(JSON.stringify(sent)).not.toContain(MARK_KEY);
+  });
+});
+
+// AT-10 A3 (registry v8): the Questions API doesn't sign the request, so a
+// holder of a Questions preview signature can run a general session. Broker
+// signs those only with the dedicated preview consumer, and pins what it can.
+describe("the dedicated preview consumer and pinned preview fields (A3)", () => {
+  const QUESTIONS = "learnosity.sign-questions-preview";
+  const ITEMS = "learnosity.sign-items-preview";
+  const sign = async (op, { payload = PREVIEW as Record<string, unknown>, b = broker } = {}) =>
+    b.execute({ caller: L0176, token: await mint(await session(), { fn: "init", op, payload }), op, payload });
+
+  it("signs a Questions preview through a user connection with the preview consumer, never the connection's", async () => {
+    const { result } = await sign(QUESTIONS);
+    expect(result.request.consumer.consumer_key).toBe("preview-key");
+  });
+
+  it("signs an Items preview with the token's connection", async () => {
+    const { result } = await sign(ITEMS);
+    expect(result.request.consumer.consumer_key).toBe("consumer-key");
+  });
+
+  it("refuses a Questions preview when no preview consumer is configured, and still signs Items", async () => {
+    const unconfigured = createBroker({ ...brokerDeps, previewConnections: {} });
+    await refused(sign(QUESTIONS, { b: unconfigured }), "preview-consumer-unconfigured");
+    expect(records.filter(r => r.reason === "preview-consumer-unconfigured").map(r => r.outcome)).toEqual(["denied"]);
+    expect((await sign(ITEMS, { b: unconfigured })).status).toBe("succeeded");
+  });
+
+  it("refuses a preview consumer stored for another backend", async () => {
+    const wrong = createMemorySecretStore({ "conn-1": { ownerUid: OWNER, backend: "learnosity", key: "consumer-key", secret: SECRET }, "conn-preview": { ownerUid: "0xgraffiticode", backend: "other", key: "k", secret: "s" } });
+    await refused(sign(QUESTIONS, { b: createBroker({ ...brokerDeps, secrets: wrong }) }), "credential-binding-mismatch");
+  });
+
+  it("pins type local_practice and a fresh session on both APIs, whatever the payload says", async () => {
+    for (const op of [QUESTIONS, ITEMS]) {
+      const sessions = new Set();
+      for (const payload of [PREVIEW, { ...PREVIEW, type: PREVIEW_TYPE }, { ...PREVIEW, session_id: "chosen-by-caller" }]) {
+        const { result } = await sign(op, { payload });
+        expect(result.request.body.type).toBe(PREVIEW_TYPE);
+        expect(result.request.body.session_id).not.toBe("chosen-by-caller");
+        sessions.add(result.request.body.session_id);
+        // The content is the payload's.
+        expect(result.request.body.questions).toEqual(PREVIEW.questions);
+      }
+      expect(sessions.size).toBe(3);
+    }
+  });
+
+  it("refuses a payload asking for any other activity type", async () => {
+    for (const type of ["submit_practice", "feedback", ""]) {
+      await refused(sign(QUESTIONS, { payload: { ...PREVIEW, type } }), "payload-rejected");
+    }
+  });
+
+  it("won't build a signing operation that doesn't say which credential it signs with, or with a malformed map", () => {
+    const ops = buildOps();
+    const { signsWith: _s, ...unsaid } = ops[QUESTIONS];
+    expect(() => createBroker({ ...brokerDeps, operations: { ...ops, [QUESTIONS]: unsaid } })).toThrow("needs signsWith");
+    expect(() => createBroker({ ...brokerDeps, previewConnections: { learnosity: "" } })).toThrow("previewConnections");
+  });
+
+  it("reads BROKER_PREVIEW_CONNECTIONS strictly", () => {
+    expect(parsePreviewConnections(undefined)).toEqual({});
+    expect(parsePreviewConnections(" ")).toEqual({});
+    expect(parsePreviewConnections("{\"learnosity\":\"conn-x\"}")).toEqual({ learnosity: "conn-x" });
+    for (const bad of ["{", "[]", "{\"other\":\"c\"}", "{\"learnosity\":\"\"}", "{\"learnosity\":1}"]) {
+      expect(() => parsePreviewConnections(bad)).toThrow(/BROKER_PREVIEW_CONNECTIONS/);
+    }
   });
 });
 

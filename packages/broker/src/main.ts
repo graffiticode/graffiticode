@@ -14,6 +14,9 @@
 //                           caller role in Policy's POLICY_CALLERS)
 //   BROKER_PROVIDER_CALL_TIMEOUT_MS, BROKER_EXECUTION_DEADLINE_MS, BROKER_AUTHORIZE_TIMEOUT_MS
 //                           optional time limits (see limits.js; defaults 10 s, 30 s, 5 s)
+//   BROKER_PREVIEW_CONNECTIONS  JSON backend -> connection id of the dedicated preview
+//                           consumer that signs every Questions preview (AT-10 A3).
+//                           Absent: Questions previews are refused.
 //   SYSTEM_SESSION_MAX_SIGNINGS  optional; signatures one system preview session may
 //                           make (session-slots.js; default 4, at most 100)
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables execution. Otherwise
@@ -54,6 +57,7 @@ import {
   createFirestoreActivityStore,
   createFirestoreSessionSlotStore,
   parseSystemSessionMaxSignings,
+  parsePreviewConnections,
   createReconciler,
   parseLimits,
   buildPolicyAuthorizer
@@ -96,6 +100,7 @@ const broker = createBroker({
   activity: createFirestoreActivityStore(db),
   slots: createFirestoreSessionSlotStore(db),
   systemSessionMaxSignings,
+  previewConnections: parsePreviewConnections(env.BROKER_PREVIEW_CONNECTIONS),
   limits,
   // Contract v2 (W4): 1 until the cutover raises it.
   minContractVersion: parseMinContractVersion(env.BROKER_MIN_CONTRACT_VERSION, "BROKER_MIN_CONTRACT_VERSION"),

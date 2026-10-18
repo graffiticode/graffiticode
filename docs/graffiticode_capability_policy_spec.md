@@ -262,6 +262,21 @@ does not give a provider request a 60-second lifetime or make it single-use. Gra
 revocation stops new issuance after a denying live check; existing authority follows the
 provider's documented rules. Such authority cannot enter reusable artifacts or shared caches.
 
+Where a provider can't sign the request, only its security fields, the issued authority is
+a general session on the signing consumer, and payload constraints can't narrow it. Such a
+signature MAY be issued only under a **dedicated preview consumer**: Graffiticode-owned, with
+no item bank, reporting or learner data, and never an owner's consumer. Its recorded limits
+are then:
+- permitted actions: any session on that consumer;
+- acceptance: the signature's own expiry;
+- established session: the provider's documented lifetime;
+- replay: unlimited within acceptance;
+- revocation: rotating that consumer's key.
+
+The consumer's configuration is release-verified by a dated operator attestation, which
+expires (registry v8, AT-10). Fields the request does carry are still pinned: activity type,
+session, user and expiry.
+
 **L0176-01 — Function boundaries.** `init` signs constrained Questions/Items previews and
 is implicit for rendering, delegable, and view-safe. `save-to-itembank` writes question/item
 records as drafts; it is delegable but not view-safe. Legacy literal save syntax is normalized
@@ -436,7 +451,9 @@ different boundaries; mocks do not replace provider validation.
   content; repeated views/answers never repeat saves. Missing artifacts do not rebuild.
   Recipients cannot publish; unpublishing blocks issuance.
 - **AT-10 (PROVIDER-01, L0176-01):** Against the provider, verify draft-only saves,
-  preview scope, request/session lifetimes, replay, and revocation limits. (Its Author
+  preview scope, request/session lifetimes, replay, and revocation limits. A save never
+  changes a record already in the bank (each writes fresh references); a preview whose
+  request isn't signed is issued only under the dedicated preview consumer. (Its Author
   questions closed with AUTHOR-01's removal, registry v7.)
 - **AT-11 (SECRET-01, ISOLATE-01):** As deployed compiler identities, attempt direct provider
   access, alternate paths/proxies, secret/key/database access, impersonation, and deployment

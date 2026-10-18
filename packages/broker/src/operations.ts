@@ -28,11 +28,39 @@ const onlyKeys = (obj, allowed, where) => {
 };
 
 // What an inline Questions API / Items API preview may carry: the rendered
-// questions and their dynamic data. No user, domain, security or mode fields.
+// questions and their dynamic data. No user, domain or security fields; `type`
+// and `session_id` are accepted for compatibility but Broker sets both (see
+// pinnedPreview).
 const PREVIEW_KEYS = ["id", "name", "questions", "session_id", "dynamic_content_data", "type"];
+
+// BROKER_PREVIEW_CONNECTIONS: JSON, backend -> the connection id of its
+// dedicated preview consumer (AT-10 A3). Absent or empty means none, and
+// Questions previews are refused; anything malformed stops the service.
+export const parsePreviewConnections = (raw: string | undefined): Record<string, string> => {
+  if (raw === undefined || raw.trim() === "") return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("BROKER_PREVIEW_CONNECTIONS must be JSON");
+  }
+  if (!isPlainObject(parsed)) throw new Error("BROKER_PREVIEW_CONNECTIONS must be an object");
+  for (const [backend, id] of Object.entries(parsed)) {
+    if (backend !== "learnosity") throw new Error(`BROKER_PREVIEW_CONNECTIONS: ${backend} is not a known backend`);
+    if (typeof id !== "string" || !id) throw new Error(`BROKER_PREVIEW_CONNECTIONS: ${backend} needs a connection id`);
+  }
+  return parsed;
+};
+
+// A preview never stores anything (AT-10, registry v8): Broker pins the
+// activity type, and gives every signing its own session.
+export const PREVIEW_TYPE = "local_practice";
 
 const validatePreview = payload => {
   onlyKeys(payload, PREVIEW_KEYS, "preview");
+  if (payload.type !== undefined && payload.type !== PREVIEW_TYPE) {
+    throw new PayloadRejected(`preview.type must be "${PREVIEW_TYPE}" or absent`);
+  }
   if (!Array.isArray(payload.questions)) throw new PayloadRejected("preview.questions must be a list");
   payload.questions.forEach((q, i) => {
     if (!isPlainObject(q) || typeof q.type !== "string" || !isRef(q.response_id)) {
@@ -226,16 +254,30 @@ export const buildOperations = ({ sdk, domain, dataApi, previewExpiresMinutes = 
   const consumer = key => ({ consumer_key: key, domain, user_id: randomUUID() });
   // Previews only: Data API requests keep their own timestamp check.
   const previewConsumer = key => ({ ...consumer(key), expires: learnosityTime(new Date(now().getTime() + previewExpiresMinutes * 60_000)) });
+  // The request as signed: the payload's content, with Broker's type and a
+  // session of its own. The Items API signs these; the Questions API doesn't,
+  // which is why its previews sign only with the dedicated preview consumer
+  // (broker.js, `signsWith: "preview-consumer"`).
+  const pinnedPreview = payload => ({ ...payload, type: PREVIEW_TYPE, session_id: randomUUID() });
   return {
+    // The Questions API's signature covers the security packet, not the
+    // request, so whoever holds it can change the request. Broker signs it
+    // only with the dedicated preview consumer, never a connection's own (AT-10
+    // A3, registry v8): that consumer holds no item bank, reporting or learner
+    // data.
     "learnosity.sign-questions-preview": {
       kind: "sign",
+      signsWith: "preview-consumer",
       validate: validatePreview,
-      run: async (payload, { key, secret }) => ({ request: sdk.init("questions", previewConsumer(key), secret, payload) }),
+      run: async (payload, { key, secret }) => ({ request: sdk.init("questions", previewConsumer(key), secret, pinnedPreview(payload)) }),
     },
+    // The Items API signs the request, so the pinned fields hold; it renders
+    // the owner's published items, so it signs with the connection's consumer.
     "learnosity.sign-items-preview": {
       kind: "sign",
+      signsWith: "connection",
       validate: validatePreview,
-      run: async (payload, { key, secret }) => ({ request: sdk.init("items", previewConsumer(key), secret, payload) }),
+      run: async (payload, { key, secret }) => ({ request: sdk.init("items", previewConsumer(key), secret, pinnedPreview(payload)) }),
     },
     "learnosity.write-items": {
       kind: "write",
