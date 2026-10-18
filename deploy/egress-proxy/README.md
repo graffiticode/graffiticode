@@ -244,6 +244,13 @@ It runs each argv without a shell. A resource that already exists is recorded an
 and any other failure stops the run. Instance templates are named by their config's digest, so
 a new config always means a new template.
 
+**Validating a config.** `validate/cloudbuild.yaml` runs `envoy --mode validate` on the pinned
+Envoy in Cloud Build, with throwaway certificates at every path the config names (see its
+header). It fails on an invalid config, and on any Envoy deprecation warning. Step 0's config
+passed on `envoyproxy/envoy:v1.39.4` on 2026-10-18 (9 clusters, 5 listeners). That includes
+host-kind `passthrough_metadata`, and the inner RBAC filter's `sourced_metadata` principal,
+which replaced the deprecated `Principal.metadata`.
+
 The DNS-exfiltration check's authoritative server is the public Cloud DNS zone
 `at11.graffiticode.org`. It's in the scratch project, with query logging, delegated from
 Cloudflare by four NS records. Resolvers randomise the case of names they pass on, so the log

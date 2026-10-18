@@ -1,0 +1,39 @@
+# ISOLATE-01: `envoy --mode validate` on the pinned Envoy, in Cloud Build (rollout step 0, and
+# before every template change in step 3's update loop). Run from a directory holding the
+# generated envoy.json:
+#   node deploy/egress-proxy/generate.js --classes <classes.json> --deploy <deploy.json> --out <dir>
+#   cp deploy/egress-proxy/validate/cloudbuild.yaml <dir>/ && cd <dir>
+#   gcloud builds submit --project=<scratch project> --region=us-central1 --config=cloudbuild.yaml \
+#     --substitutions=_ENVOY_IMAGE=<proxy.envoyImage> .
+# Throwaway self-signed certificates stand in at every path the config names under
+# /run/egress-proxy/certs, so validation never needs a real key. The build fails on any
+# Envoy deprecation warning, as well as on an invalid config.
+steps:
+- id: throwaway-certs
+  name: alpine:3.20
+  entrypoint: sh
+  args:
+  - -c
+  - |
+    apk add -q openssl
+    mkdir -p certs
+    for f in $$(grep -o '/run/egress-proxy/certs/[a-z0-9.-]*\.crt' envoy.json | sort -u); do
+      h=$$(basename "$$f" .crt)
+      openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=$$h" -keyout "certs/$$h.key" -out "certs/$$h.crt" 2>/dev/null
+    done
+    ls certs
+- id: envoy-validate
+  name: ${_ENVOY_IMAGE}
+  entrypoint: sh
+  args:
+  - -c
+  - |
+    envoy --version
+    mkdir -p /run/egress-proxy/certs && cp certs/* /run/egress-proxy/certs/
+    envoy --mode validate -c envoy.json --log-level info 2>&1 | tee validate.log
+    grep -q "configuration 'envoy.json' OK" validate.log || exit 1
+    if grep -q "Deprecated field" validate.log; then echo "deprecated fields in use"; exit 1; fi
+substitutions:
+  _ENVOY_IMAGE: ""
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -4,8 +4,8 @@
     "cluster": "egress-proxy",
     "metadata": {
       "isolate01": {
-        "resources_sha256": "2b9a65f31149fc0396f9308f92e9a5dea5b000f6dfff56e74c98bebf42337e7b",
-        "config_sha256": "2bf9313228cdc01363ca1f0c6703b47d9e8f0083d47e90f7272b0f78ba267a5f"
+        "resources_sha256": "6ebd491e709726e3e0fc541afc80d629d8ada955111491cdacc77e1edb3f825a",
+        "config_sha256": "e9a8c88e2045d88a11f8f63f3015c337cfd55ef3fe4ba230c5a74e38756ee126"
       }
     }
   },
@@ -1408,18 +1408,21 @@
                         ],
                         "principals": [
                           {
-                            "metadata": {
-                              "filter": "isolate01",
-                              "path": [
-                                {
-                                  "key": "target"
+                            "sourced_metadata": {
+                              "metadata_matcher": {
+                                "filter": "isolate01",
+                                "path": [
+                                  {
+                                    "key": "target"
+                                  }
+                                ],
+                                "value": {
+                                  "string_match": {
+                                    "exact": "broker-sja7fatcta-uc.a.run.app"
+                                  }
                                 }
-                              ],
-                              "value": {
-                                "string_match": {
-                                  "exact": "broker-sja7fatcta-uc.a.run.app"
-                                }
-                              }
+                              },
+                              "metadata_source": "DYNAMIC"
                             }
                           }
                         ]
@@ -1628,18 +1631,21 @@
                         ],
                         "principals": [
                           {
-                            "metadata": {
-                              "filter": "isolate01",
-                              "path": [
-                                {
-                                  "key": "target"
+                            "sourced_metadata": {
+                              "metadata_matcher": {
+                                "filter": "isolate01",
+                                "path": [
+                                  {
+                                    "key": "target"
+                                  }
+                                ],
+                                "value": {
+                                  "string_match": {
+                                    "exact": "policy-sja7fatcta-uc.a.run.app"
+                                  }
                                 }
-                              ],
-                              "value": {
-                                "string_match": {
-                                  "exact": "policy-sja7fatcta-uc.a.run.app"
-                                }
-                              }
+                              },
+                              "metadata_source": "DYNAMIC"
                             }
                           }
                         ]
@@ -1887,18 +1893,21 @@
                         ],
                         "principals": [
                           {
-                            "metadata": {
-                              "filter": "isolate01",
-                              "path": [
-                                {
-                                  "key": "target"
+                            "sourced_metadata": {
+                              "metadata_matcher": {
+                                "filter": "isolate01",
+                                "path": [
+                                  {
+                                    "key": "target"
+                                  }
+                                ],
+                                "value": {
+                                  "string_match": {
+                                    "exact": "storage.googleapis.com"
+                                  }
                                 }
-                              ],
-                              "value": {
-                                "string_match": {
-                                  "exact": "storage.googleapis.com"
-                                }
-                              }
+                              },
+                              "metadata_source": "DYNAMIC"
                             }
                           }
                         ]
@@ -2146,18 +2155,21 @@
                         ],
                         "principals": [
                           {
-                            "metadata": {
-                              "filter": "isolate01",
-                              "path": [
-                                {
-                                  "key": "target"
+                            "sourced_metadata": {
+                              "metadata_matcher": {
+                                "filter": "isolate01",
+                                "path": [
+                                  {
+                                    "key": "target"
+                                  }
+                                ],
+                                "value": {
+                                  "string_match": {
+                                    "exact": "api.graffiticode.org"
+                                  }
                                 }
-                              ],
-                              "value": {
-                                "string_match": {
-                                  "exact": "api.graffiticode.org"
-                                }
-                              }
+                              },
+                              "metadata_source": "DYNAMIC"
                             }
                           }
                         ]

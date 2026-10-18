@@ -1,5 +1,5 @@
 {
-  "$comment": "ISOLATE-01 rollout step 0: the prototype in the scratch project graffiticode-isolate01 (plan: ~/.claude/plans/isolate-01-compiler-egress.md, step 0). The production classes plus a reviewed-external-host class, so all three kinds are proved. Images are pinned in step 0's image phase. infra.js --apply runs only against this project.",
+  "$comment": "ISOLATE-01 rollout step 0: the prototype in the scratch project graffiticode-isolate01 (plan: ~/.claude/plans/isolate-01-compiler-egress.md, step 0). The production classes plus a reviewed-external-host class, so all three kinds are proved. Images pinned 2026-10-18: envoyproxy/envoy:v1.39.4 and node:22-alpine by index digest, COS cos-129-19506-549-7 (family cos-129-lts). infra.js --apply runs only against this project.",
   "project": "graffiticode-isolate01",
   "region": "us-central1",
   "network": "compilers",
@@ -22,10 +22,10 @@
     "healthCheckRanges": ["35.191.0.0/16", "130.211.0.0/22"],
     "machineType": "e2-small",
     "zones": ["us-central1-a", "us-central1-b"],
-    "envoyImage": null,
-    "reportImage": null,
+    "envoyImage": "envoyproxy/envoy@sha256:74bd4eb5629708d3fadca1a5e6b85d208f338d7bb54e06b69565905c5294cc01",
+    "reportImage": "node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402",
     "reportUid": 10102,
-    "cosImage": null,
+    "cosImage": "cos-129-19506-549-7",
     "serviceAccount": "egress-proxy@graffiticode-isolate01.iam.gserviceaccount.com"
   }
 }

@@ -141,7 +141,8 @@ test("--apply refuses unpinned placeholders and open choices", async () => {
   const dns = steps.findIndex(s => s.title.startsWith("DNS:")) + 1;
   assert.throws(() => applyPlan(model, steps, [dns]), /open choice/);
   const template = steps.findIndex(s => s.title.startsWith("Instance template")) + 1;
-  assert.throws(() => applyPlan(model, steps, [template]), /placeholder remains/, "the COS image isn't pinned yet");
+  const unpinned = { ...model, proxy: { ...model.proxy, cosImage: null } };
+  assert.throws(() => applyPlan(unpinned, commands(unpinned), [template]), /placeholder remains/, "an unpinned COS image");
   assert.throws(() => applyPlan(model, steps, [0]), /no step 0/);
 });
 
