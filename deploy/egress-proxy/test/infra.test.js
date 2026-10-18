@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { commands, render, parseArgs, DEFERRED, applyPlan, apply } from "../infra.js";
+import { commands, render, parseArgs, DEFERRED, applyPlan, apply, inputProblems } from "../infra.js";
 import { readFile } from "node:fs/promises";
-import { alertPolicies, buildModel, load } from "../generate.js";
+import { alertPolicies, buildModel, load, cloudInit, envoyConfig } from "../generate.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const FIXTURES = path.join(HERE, "fixtures");
@@ -139,7 +139,10 @@ test("--apply refuses unpinned placeholders and open choices", async () => {
   const model = await step0();
   const steps = commands(model);
   const dns = steps.findIndex(s => s.title.startsWith("DNS:")) + 1;
-  assert.throws(() => applyPlan(model, steps, [dns]), /open choice/);
+  // Settled in step 0: the DNS step is a root private zone now, and applies.
+  assert.ok(applyPlan(model, steps, [dns]).some(r => r.text.includes("managed-zones create compilers-root") && r.text.includes("--dns-name=.")));
+  const open = steps.map((s, i) => i === dns - 1 ? { ...s, lines: [...s.lines, "#   gcloud dns something-undecided --project=graffiticode-isolate01"] } : s);
+  assert.throws(() => applyPlan(model, open, [dns]), /open choice/);
   const template = steps.findIndex(s => s.title.startsWith("Instance template")) + 1;
   const unpinned = { ...model, proxy: { ...model.proxy, cosImage: null } };
   assert.throws(() => applyPlan(unpinned, commands(unpinned), [template]), /placeholder remains/, "an unpinned COS image");
@@ -156,7 +159,7 @@ test("apply runs in order, records a resource that already exists, and stops on 
     if (calls.length === 3) return { status: 1, stderr: "ERROR: permission denied" };
     return { status: 0, stderr: "" };
   };
-  assert.throws(() => apply(runs, { spawn, log: () => {} }), e => {
+  assert.throws(() => apply(runs, { spawn, log: () => {}, checkInputs: () => [] }), e => {
     assert.deepEqual(e.results.map(r => r.outcome), ["ran", "exists", "failed"]);
     return true;
   });
@@ -174,4 +177,52 @@ test("the load balancer's address is reserved in step 1, before any VM, and the 
   assert.ok(template > 0, "VMs come later");
   const rule = render(steps).split("\n").find(l => l.includes("forwarding-rules create egress-proxy"));
   assert.match(rule, /--address=egress-proxy-lb /);
+});
+
+test("the instance group's autohealing names the regional health check by path", async () => {
+  // A bare name resolves to a global health check, and the group's create
+  // fails (found in step 0: ".../global/healthChecks/egress-proxy-ready does not exist").
+  const text = render(commands(await step0()));
+  assert.match(text, /instance-groups managed create egress-proxy .*--health-check=projects\/graffiticode-isolate01\/regions\/us-central1\/healthChecks\/egress-proxy-ready /);
+  assert.match(text, /health-checks create http egress-proxy-ready .*--region=us-central1/);
+});
+
+test("apply refuses a missing or empty input file, and user-data without the template's config digest", async () => {
+  const model = await step0();
+  const steps = commands(model);
+  const template = steps.findIndex(s => s.title.startsWith("Instance template")) + 1;
+  const runs = applyPlan(model, steps, [template]);
+  const digest = runs[0].argv.join(" ").match(/isolate01-config-sha256=([0-9a-f]{64})/)[1];
+  const files = { "out/cloud-init.yaml": cloudInit(model, envoyConfig(model)) };
+  assert.ok(files["out/cloud-init.yaml"].includes(digest));
+  const fake = over => ({
+    workdir: "/w",
+    size: f => { const k = path.relative("/w", f); if (!(k in over)) throw new Error("ENOENT"); return over[k].length; },
+    read: f => over[path.relative("/w", f)],
+  });
+  assert.deepEqual(inputProblems(runs, fake(files)), []);
+  assert.match(inputProblems(runs, fake({}))[0], /out\/cloud-init.yaml doesn't exist/);
+  assert.match(inputProblems(runs, fake({ "out/cloud-init.yaml": "" }))[0], /is empty/, "the 0-byte cloud-init found in step 0");
+  assert.match(inputProblems(runs, fake({ "out/cloud-init.yaml": "#cloud-config\n" }))[0], /doesn't carry config/);
+  // A stale user-data that still carries the Envoy digest but not this template's whole content.
+  const stale = files["out/cloud-init.yaml"].replace("envoy-config-report", "envoy-config-reportx");
+  assert.match(inputProblems(runs, fake({ "out/cloud-init.yaml": stale })).join("\n"), /isn't the user-data template egress-proxy-[0-9a-f]{12} is named for/);
+  assert.throws(() => apply(runs, { spawn: () => { throw new Error("must not run"); }, log: () => {}, checkInputs: () => ["x is empty"] }), /refusing to apply/);
+});
+
+test("the template is named by its whole user-data: a host-unit change alone is a new template", async () => {
+  // Found in step 0: named by the Envoy config alone, a change to a host unit kept the
+  // old name, was skipped as existing, and rolled out nothing.
+  const model = await step0();
+  const name = m => render(commands(m)).match(/instance-templates create (egress-proxy-[0-9a-f]{12}) /)[1];
+  const changed = { ...model, proxy: { ...model.proxy, reportUid: model.proxy.reportUid + 1 } };
+  assert.equal(envoyConfig(changed).node.metadata.isolate01.config_sha256, envoyConfig(model).node.metadata.isolate01.config_sha256, "same Envoy config");
+  assert.notEqual(name(changed), name(model), "different user-data, different template");
+  assert.equal(name(model), name(await step0()), "same user-data, same name");
+});
+
+test("the config report keeps its container until the next run, so its log line ships", async () => {
+  const text = cloudInit(await step0(), envoyConfig(await step0()));
+  assert.ok(!text.includes("docker run --rm --name envoy-config-report"), "no --rm");
+  assert.ok(text.includes("docker rm -f envoy-config-report"), "the previous run's container is removed first");
 });

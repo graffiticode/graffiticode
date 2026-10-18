@@ -13,7 +13,9 @@
 // ever run against graffiticode.
 
 import { spawnSync } from "node:child_process";
-import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig } from "./generate.js";
+import { readFileSync, statSync } from "node:fs";
+import path from "node:path";
+import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig, cloudInit, sha256 } from "./generate.js";
 
 export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
 
@@ -44,9 +46,14 @@ export function commands(model) {
     throw new Error(`classes.json: proxy.zones must pin two zones in ${region}`);
   }
   const accounts = compilerAccounts(model);
-  // The template is named by the config it carries: a new config is a new
-  // template (a rolling replace), and the same config is the same name.
-  const templateVersion = envoyConfig(model).node.metadata.isolate01.config_sha256.slice(0, 12);
+  // The template is named by everything it carries, its whole user-data (Envoy's
+  // config and the host units): any change is a new template and a rolling replace,
+  // and the same user-data is the same name. Found in step 0: named by the Envoy
+  // config alone, a host-unit change kept the old name, was skipped as existing,
+  // and rolled out nothing. Unpinned images leave a placeholder, which --apply refuses.
+  const envoy = envoyConfig(model);
+  let templateVersion;
+  try { templateVersion = sha256(cloudInit(model, envoy)).slice(0, 12); } catch { templateVersion = "<user-data digest: pin the images>"; }
   const steps = [];
   const step = (title, ...lines) => steps.push({ title, lines });
 
@@ -96,12 +103,17 @@ export function commands(model) {
     cmd("gcloud", "compute", "firewall-rules", "create", "egress-proxy-deny-rest", p, `--network=${network}`, "--direction=EGRESS", "--action=DENY", "--rules=all",
       "--destination-ranges=0.0.0.0/0", `--target-service-accounts=${sa}`, "--priority=65000"));
 
+  // Settled in step 0 (2026-10-18), form (a): a private zone for the root, bound to the
+  // compiler network, holding only the metadata server's name. Lookups from Cloud Run's Direct
+  // VPC egress got a genuine NXDOMAIN; their labels never reached the authoritative server,
+  // whose log recorded the outside control sent afterwards; ID tokens still came from
+  // metadata.google.internal. The proxy VMs resolve through their own fixed resolvers
+  // (egress-resolver), so it doesn't touch them: they cold-booted healthy under it.
+  // Response-policy rules can only answer or bypass, so they can't refuse.
   step("DNS: compilers resolve nothing but the metadata server",
-    cmd("gcloud", "dns", "response-policies", "create", "compilers-dns-lockdown", p, `--networks=${network}`, "--description=ISOLATE-01: compilers resolve no public name"),
-    cmd("gcloud", "dns", "response-policies", "rules", "create", "metadata", p, "--response-policy=compilers-dns-lockdown", "--dns-name=metadata.google.internal.", "--behavior=bypassResponsePolicy"),
-    "# OPEN until rollout step 0 confirms which form makes every other name NXDOMAIN without the query leaving Google:",
-    `#   gcloud dns response-policies rules create refuse-all ${p} --response-policy=compilers-dns-lockdown --dns-name='*.' --local-data=...`,
-    `#   gcloud dns managed-zones create compilers-root ${p} --dns-name=. --visibility=private --networks=${network} --description='ISOLATE-01: empty root'`);
+    cmd("gcloud", "dns", "managed-zones", "create", "compilers-root", p, "--dns-name=.", "--visibility=private", `--networks=${network}`,
+      "--description=ISOLATE-01: an empty root for the compiler VPC"),
+    cmd("gcloud", "dns", "record-sets", "create", "metadata.google.internal.", p, "--zone=compilers-root", "--type=A", "--ttl=300", "--rrdatas=169.254.169.254"));
 
   step("Cloud NAT for the proxy subnet only",
     cmd("gcloud", "compute", "routers", "create", "egress-proxy-router", p, r, `--network=${network}`),
@@ -129,11 +141,11 @@ export function commands(model) {
     cmd("gcloud", "compute", "instance-templates", "create", `egress-proxy-${templateVersion}`, p, `--machine-type=${model.proxy.machineType}`,
       `--image=${model.proxy.cosImage ?? "<cos-image, pinned in step 0>"}`, "--image-project=cos-cloud", `--network=${network}`, `--subnet=${model.proxySubnet.name}`,
       `--region=${region}`, "--no-address", `--service-account=${sa}`, "--scopes=cloud-platform", "--shielded-secure-boot",
-      `--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=${envoyConfig(model).node.metadata.isolate01.config_sha256}`,
+      `--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=${envoy.node.metadata.isolate01.config_sha256}`,
       "--metadata-from-file=user-data=out/cloud-init.yaml"),
     cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready", "--enable-logging"),
     cmd("gcloud", "compute", "instance-groups", "managed", "create", "egress-proxy", p, r, `--template=egress-proxy-${templateVersion}`, "--size=2",
-      `--zones=${zones.join(",")}`, "--health-check=egress-proxy-ready", "--initial-delay=120", "--target-distribution-shape=EVEN"));
+      `--zones=${zones.join(",")}`, `--health-check=projects/${project}/regions/${region}/healthChecks/egress-proxy-ready`, "--initial-delay=120", "--target-distribution-shape=EVEN"));
 
   step("Internal passthrough Network Load Balancer (keeps the compiler's source address)",
     cmd("gcloud", "compute", "backend-services", "create", "egress-proxy", p, r, "--load-balancing-scheme=INTERNAL", "--protocol=TCP", "--health-checks=egress-proxy-ready", "--health-checks-region=" + region),
@@ -213,9 +225,41 @@ export function applyPlan(model, steps, chosen) {
   return runs;
 }
 
+// The files a command reads (--data-file, --metadata-from-file, --policy-from-file), relative
+// to the workdir. Each must exist and be non-empty. A template's user-data must also carry
+// the config digest its metadata names. Found in step 0: a cloud-init cut short to 0 bytes
+// made a template whose VMs never started the proxy, under the config's own name.
+export function inputProblems(runs, { workdir = process.cwd(), read = f => readFileSync(f, "utf8"), size = f => statSync(f).size } = {}) {
+  const problems = [];
+  for (const r of runs) {
+    const files = r.argv.flatMap(a => {
+      const m = /^--(data-file|policy-from-file|metadata-from-file)=(.+)$/.exec(a);
+      if (!m) return [];
+      return m[1] === "metadata-from-file" ? m[2].split(",").map(kv => ({ key: kv.slice(0, kv.indexOf("=")), file: kv.slice(kv.indexOf("=") + 1) })) : [{ key: m[1], file: m[2] }];
+    });
+    const digest = r.argv.join(" ").match(/isolate01-config-sha256=([0-9a-f]{64})/)?.[1];
+    for (const { key, file } of files) {
+      const full = path.resolve(workdir, file);
+      let bytes;
+      try { bytes = size(full); } catch { problems.push(`step ${r.step}: ${file} doesn't exist (in ${workdir})`); continue; }
+      if (!bytes) { problems.push(`step ${r.step}: ${file} is empty`); continue; }
+      if (key === "user-data") {
+        const text = read(full);
+        if (digest && !text.includes(digest)) problems.push(`step ${r.step}: ${file} doesn't carry config ${digest.slice(0, 12)}, the template's own`);
+        // The template is named by its user-data's digest: a stale or different file is refused.
+        const named = r.argv.map(a => /^egress-proxy-([0-9a-f]{12})$/.exec(a)?.[1]).find(Boolean);
+        if (named && !sha256(text).startsWith(named)) problems.push(`step ${r.step}: ${file} isn't the user-data template egress-proxy-${named} is named for (regenerate it)`);
+      }
+    }
+  }
+  return problems;
+}
+
 // Runs each command in order. A create that finds its resource already there
 // is recorded as "exists", so a phase can be re-run; any other failure stops.
-export function apply(runs, { workdir = process.cwd(), spawn = spawnSync, log = console.log } = {}) {
+export function apply(runs, { workdir = process.cwd(), spawn = spawnSync, log = console.log, checkInputs = inputProblems } = {}) {
+  const problems = checkInputs(runs, { workdir });
+  if (problems.length) throw new Error(`refusing to apply:\n  ${problems.join("\n  ")}`);
   const results = [];
   for (const r of runs) {
     log(`[step ${r.step}] ${r.text}`);

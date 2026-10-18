@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   MATRIX, CHECKS, classify, classifyBroker, classifyAuth, meets, runNet, connectTunnel, through, brokerRequest,
-  dnsErrorKind, rowState, attributeNetwork, settleNetwork, judgeDnsRow, inCidr, PROXY_REASONS,
+  dnsErrorKind, rowState, attributeNetwork, settleNetwork, judgeDnsRow, inCidr, PROXY_REASONS, classifyFlip, confirmLanding,
 } from "../at11/net.js";
 
 const expectedResult = e =>
@@ -347,4 +347,35 @@ test("the DNS row is decided from a log that recorded the collector's control (A
   assert.equal(judgeDnsRow(row, { ...log, to: "2026-10-17T10:04:00.000Z" }, control).state, "void", "the window ends before the control");
   assert.equal(judgeDnsRow(row, log, null).state, "void");
   assert.equal(judgeDnsRow({ ...row, results: [{ ...row.results[0], result: { outcome: "error" } }] }, log, control).state, "failed");
+});
+
+test("a flip name: landing on its public answer is allowed only when the log proves it, and reaching its blocked answer must be refused", () => {
+  // Found in step 0: flip.rebind -> 1.1.1.1 | 169.254.169.254; the public answer's TLS
+  // fails for our name, which read as an error before.
+  const blocked = { compilerSubnets: ["10.8.16.0/22"], proxySubnet: "10.8.0.0/27", loadBalancer: "10.8.0.2" };
+  const landed = classifyFlip({ via: "proxy", stage: "request", error: "Hostname/IP does not match certificate's altnames", probe: "f1" });
+  assert.equal(landed.outcome, "landed:public");
+  assert.equal(classifyFlip({ via: "proxy", stage: "connect", status: 503, probe: "f2" }).outcome, "pending:network");
+  const lines = [
+    { isolate01: "egress", probe: "f1", upstream: "1.1.1.1:443", upstream_host: "1.1.1.1:443" },
+    { isolate01: "egress", probe: "f3", upstream: "169.254.169.254:443", upstream_host: "169.254.169.254:443" },
+    // As step 0 logged it: tried the metadata server first (refused by ENVOY_OUT), then 1.1.1.1.
+    { isolate01: "egress", probe: "f4", upstream: "1.1.1.1:443", upstream_host: "169.254.169.254:443" },
+  ];
+  const kernel = ["ISOLATE01-REJECT metadata IN= OUT=eth0 SRC=10.8.0.11 DST=169.254.169.254 LEN=60 PROTO=TCP SPT=1 DPT=443"];
+  assert.equal(confirmLanding(landed, { accessLines: lines, blocked }).outcome, "landed:public-confirmed");
+  assert.match(confirmLanding({ outcome: "landed:public", probe: "f3" }, { accessLines: lines, blocked }).detail, /connected to 169\.254\.169\.254, a blocked address/);
+  const fellBack = confirmLanding({ outcome: "landed:public", probe: "f4" }, { accessLines: lines, kernelLines: kernel, blocked });
+  assert.equal(fellBack.outcome, "landed:public-confirmed");
+  assert.deepEqual(fellBack.refusedFirst, ["169.254.169.254"]);
+  assert.match(confirmLanding({ outcome: "landed:public", probe: "f4" }, { accessLines: lines, kernelLines: [], blocked }).detail, /attempted 169\.254\.169\.254 with no rule hit/);
+  assert.equal(confirmLanding({ outcome: "landed:public", probe: "f9" }, { accessLines: lines, blocked }).outcome, "error", "no log line");
+  const row = { id: "rebinding" };
+  const flip = (outcome) => ({ flip: true, result: { outcome } });
+  assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("refused:network")]), "passed");
+  // Envoy caches the first resolution, so every attempt may land on the public answer (step 0).
+  assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("landed:public-confirmed")]), "passed");
+  assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("error")]), "failed", "an unexplained attempt fails");
+  assert.equal(rowState(row, "refused:network", [flip("landed:public"), flip("pending:network")]), "pending-evidence");
+  assert.equal(rowState(row, "refused:network", [{ result: { outcome: "landed:public-confirmed" } }]), "failed", "only a flip name may land");
 });

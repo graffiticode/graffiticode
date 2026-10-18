@@ -237,3 +237,13 @@ test("verify-rollout passes only with every VM reporting the expected digest (A2
   assert.equal(verifyRollout({ expect: NEW, size: 2, instances: [instances[0]], entries: [report("egress-proxy-a", "2026-10-20T10:05:00Z", NEW)] }).ok, false, "a missing VM");
   assert.throws(() => verifyRollout({ expect: "nope", instances, entries: [] }), /--expect/);
 });
+
+test("a real Envoy 1.39.4 /config_dump normalises to the generated resources (step 0)", async () => {
+  // Recorded in step 0: the dump redacts private_key and omits metadata_source DYNAMIC
+  // (a default enum). Before those were normalised, resources_sha256 never matched.
+  const fx = JSON.parse(await readFile(new URL("./fixtures/config-dump-1.39.4.json", import.meta.url), "utf8"));
+  for (const kind of ["listener", "cluster"]) {
+    assert.equal(canonical(normaliseResource(fx.dumped[kind])), canonical(normaliseResource(fx.generated[kind])), kind);
+  }
+  assert.ok(JSON.stringify(fx.dumped.listener).includes("[redacted]"), "the fixture is a real, redacted dump");
+});

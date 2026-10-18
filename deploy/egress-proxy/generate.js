@@ -880,12 +880,15 @@ export function cloudInit(model, envoy) {
           Type: "oneshot",
           // Wait for Envoy to be healthy, but report either way: a missing or
           // failed report is itself what verify-rollout looks for.
-          ExecStartPre: `-/bin/bash -c 'for i in $(seq 1 60); do curl -sf http://127.0.0.1:${model.proxy.healthPort}/ready >/dev/null && exit 0; sleep 2; done; exit 1'`,
+          // The previous run's container is removed here, not with --rm: its log
+          // file has to outlive the container long enough for COS's logging agent
+          // to ship the report line (found in step 0: with --rm, no line arrived).
+          ExecStartPre: `-/bin/bash -c '/usr/bin/docker rm -f envoy-config-report >/dev/null 2>&1; for i in $(seq 1 60); do curl -sf http://127.0.0.1:${model.proxy.healthPort}/ready >/dev/null && exit 0; sleep 2; done; exit 1'`,
           // Host network to reach the admin port on loopback, as its own
           // unprivileged UID (not Envoy's, so ENVOY_OUT doesn't apply and the
           // metadata server answers).
           ExecStart: [
-            "/usr/bin/docker run --rm --name envoy-config-report --network host",
+            "/usr/bin/docker run --name envoy-config-report --network host",
             `--user ${model.proxy.reportUid}:${model.proxy.reportUid} --cap-drop ALL --security-opt no-new-privileges --read-only`,
             "-v /etc/egress-proxy/config-report.mjs:/report/config-report.mjs:ro",
             model.proxy.reportImage,

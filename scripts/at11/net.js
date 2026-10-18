@@ -334,7 +334,17 @@ export const CHECKS = {
   "trailing-dot": async c => c.trailingDot?.length ? Promise.all(c.trailingDot.map(h => one(h, through(c, `${h}:443`)))) : null,
   "ip-literal": async c => c.ipLiterals?.length ? Promise.all(c.ipLiterals.map(ip => one(ip, through(c, `${ip}:443`)))) : null,
   redirect: async c => c.redirect ? [await followRedirects(c, c.redirect)] : null,
-  rebinding: async c => c.rebinding?.length ? Promise.all(c.rebinding.map(h => one(h, through(c, `${h}:443`)))) : null,
+  // A name whose answer changes (flip.*: a public and a blocked address) is tried
+  // several times. An attempt that reaches the public answer is allowed (landed:public,
+  // confirmed against the proxy's log); one that reaches the blocked answer must be
+  // refused there. Found in step 0: the public answer's TLS fails for our name, which
+  // read as an error before.
+  rebinding: async c => c.rebinding?.length
+    ? (await Promise.all(c.rebinding.map(h => /^flip\./.test(h)
+        ? Promise.all(Array.from({ length: c.flipAttempts ?? 6 }, () => one(h, through(c, `${h}:443`), classifyFlip)))
+          .then(rs => rs.map(r => ({ ...r, flip: true })))
+        : one(h, through(c, `${h}:443`)).then(r => [r])))).flat()
+    : null,
   canary: async c => c.canary ? [await one(c.canary, through(c, `${c.canary}:443`))] : null,
   "run-app": async c => c.runApp?.length ? Promise.all(c.runApp.map(h => one(h, through(c, `${h}:443`)))) : null,
   "frontend-ip": async c => c.frontendIp ? [await one(c.frontendIp, through(c, `${c.frontendIp}:443`, { sni: c.fronting?.sni ?? "www.google.com", host: c.fronting?.host ?? "www.google.com" }))] : null,
@@ -368,6 +378,13 @@ export const CHECKS = {
       ]
     : null,
 };
+
+// For a flip attempt, a tunnel that opened (the CONNECT succeeded) and then failed TLS reached
+// a public answer that doesn't serve our name. That's allowed, pending the proxy's log.
+export function classifyFlip(observation) {
+  if (observation.stage === "request" && observation.error) return { outcome: "landed:public", probe: observation.probe, detail: observation.error };
+  return classify(observation);
+}
 
 async function one(target, pending, decide = classify) {
   const observation = await pending;
@@ -449,8 +466,16 @@ export function rowState(row, expected, results) {
   if (expected === "residual") return "residual";
   if (row.id === "dns-exfil") return results.every(r => r.result.outcome === "nxdomain") ? "pending-log" : "failed";
   if (expected === "refused:network") {
-    if (!results.every(r => ["pending:network", "refused:network"].includes(r.result.outcome))) return "failed";
-    return results.some(r => r.result.outcome === "pending:network") ? "pending-evidence" : "passed";
+    const network = r => ["pending:network", "refused:network"].includes(r.result.outcome);
+    const landed = r => r.flip && ["landed:public", "landed:public-confirmed"].includes(r.result.outcome);
+    // A flip attempt may land on its public answer (confirmed by the proxy's log) or be
+    // refused on its blocked one. It isn't required to reach the blocked answer: Envoy's
+    // forward proxy caches the first resolution, so within a run all six landed on the
+    // public answer (step 0). The single-answer names prove the network refuses each
+    // blocked address.
+    if (!results.every(r => network(r) || landed(r))) return "failed";
+    const pending = results.some(r => ["pending:network", "landed:public"].includes(r.result.outcome));
+    return pending ? "pending-evidence" : "passed";
   }
   return results.every(r => meets(expected, r.result)) ? "passed" : "failed";
 }
@@ -546,6 +571,30 @@ export function attributeNetwork(result, { accessLines = [], kernelLines = [], f
   return { outcome: "refused:network", addresses, probe: result.probe };
 }
 
+// A flip attempt that reached its public answer counts only if the proxy's own access line
+// shows the peer it connected to (`upstream`, UPSTREAM_REMOTE_ADDRESS) is outside every blocked
+// range. A blocked address it attempted first (`upstream_host`, the forward proxy's chosen
+// host) must have the rule hit that refused it. Found in step 0: Envoy tried 169.254.169.254
+// first, ENVOY_OUT refused it (ISOLATE01-REJECT metadata), and it fell back to 1.1.1.1; the
+// line names the metadata server as upstream_host and 1.1.1.1 as upstream.
+export function confirmLanding(result, { accessLines = [], kernelLines = [], firewallHits = [], blocked } = {}) {
+  if (result.outcome !== "landed:public") return result;
+  if (!result.probe) return { outcome: "error", detail: "a landing without a probe id can't be matched to its log line" };
+  const lines = accessLines.filter(l => l.probe === result.probe && l.isolate01 === "egress");
+  const ranges = blockedRanges(blocked);
+  const isBlocked = a => ranges.some(r => inCidr(a, r));
+  const peers = [...new Set(lines.map(l => addressOf(l.upstream)).filter(a => a && a !== "-"))];
+  if (!peers.length) return { outcome: "error", detail: `no connected peer logged for probe ${result.probe}` };
+  const reached = peers.filter(isBlocked);
+  if (reached.length) return { outcome: "error", detail: `a flip attempt connected to ${reached.join(", ")}, a blocked address` };
+  const attempted = [...new Set(lines.map(l => addressOf(l.upstream_host)).filter(a => a && a !== "-" && isBlocked(a)))];
+  const unproven = attempted.filter(a =>
+    !kernelLines.some(k => /ISOLATE01-REJECT \S+/.test(k) && dstPattern(a).test(k)) &&
+    !firewallHits.some(f => (f.connection?.dest_ip ?? f.dest_ip) === a));
+  if (unproven.length) return { outcome: "error", detail: `attempted ${unproven.join(", ")} with no rule hit refusing it` };
+  return { outcome: "landed:public-confirmed", addresses: peers, refusedFirst: attempted, probe: result.probe };
+}
+
 // A proxy refusal counts only if the proxy's own access line for that probe says it refused,
 // for the same reason. A 403 with the header but no such line (or another reason) is an error.
 export function confirmRefusal(result, probe, accessLines = []) {
@@ -571,6 +620,7 @@ export function settleNetwork(netResult, evidence = {}) {
       const probe = r.observation?.probe ?? r.observation?.hops?.at(-1)?.observation?.probe;
       if (result.outcome === "refused:proxy") result = confirmRefusal(result, probe, evidence.accessLines);
       if (result.outcome === "pending:network") result = attributeNetwork(result, { ...evidence, canaryPassed });
+      if (result.outcome === "landed:public") result = confirmLanding(result, evidence);
       return result === r.result ? r : { ...r, result };
     });
     return { ...row, results, state: rowState(row, row.expected, results) };

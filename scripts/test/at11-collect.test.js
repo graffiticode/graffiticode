@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { collect, evidenceFrom, jobsOf, writeRun } from "../at11/collect.js";
+import { collect, evidenceFrom, jobsOf, writeRun, kernelText } from "../at11/collect.js";
 import { VERSION } from "../at11/iam.js";
 
 const NONCE = "00aa11bb22cc33dd";
@@ -178,4 +178,10 @@ test("the run's evidence is written under its nonce", async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("kernel lines are read from COS's journal entries (jsonPayload.MESSAGE), as step 0 found them", () => {
+  const entry = { logName: "projects/p/logs/cos_journal_warning", jsonPayload: { MESSAGE: "ISOLATE01-REJECT metadata IN= OUT=eth0 SRC=10.8.0.4 DST=169.254.169.254 LEN=60 PROTO=TCP SPT=52256 DPT=443" } };
+  assert.match(kernelText(entry), /DST=169\.254\.169\.254/);
+  assert.equal(kernelText({ textPayload: "ISOLATE01-REJECT lb DST=10.8.0.2" }), "ISOLATE01-REJECT lb DST=10.8.0.2");
 });

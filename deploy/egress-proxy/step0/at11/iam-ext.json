@@ -1,0 +1,41 @@
+{
+  "$comment": "ISOLATE-01 step 0: AT-11 IAM probe config for probe-ext (scripts/at11/iam.js). Scratch stand-ins (standIns), each a privileged resource probe-ext must be denied; canary is at11-control's.",
+  "project": "graffiticode-isolate01",
+  "standIns": true,
+  "secrets": [
+    "projects/graffiticode-isolate01/secrets/egress-proxy-cert-api-graffiticode-org",
+    "projects/graffiticode-isolate01/secrets/egress-proxy-cert-auth-graffiticode-org",
+    "projects/graffiticode-isolate01/secrets/egress-proxy-cert-www-googleapis-com",
+    "projects/graffiticode-isolate01/secrets/at11-standin-secret"
+  ],
+  "databases": [
+    "projects/graffiticode-isolate01/databases/at11-priv-a",
+    "projects/graffiticode-isolate01/databases/at11-priv-b"
+  ],
+  "kmsKeys": [
+    "projects/graffiticode-isolate01/locations/us-central1/keyRings/at11/cryptoKeys/priv-signing/cryptoKeyVersions/1"
+  ],
+  "impersonate": [
+    "egress-proxy@graffiticode-isolate01.iam.gserviceaccount.com",
+    "isolate01-build@graffiticode-isolate01.iam.gserviceaccount.com",
+    "at11-priv-target@graffiticode-isolate01.iam.gserviceaccount.com"
+  ],
+  "service": "projects/graffiticode-isolate01/locations/us-central1/services/at11-own-ext",
+  "ownAudience": "urn:graffiticode:at11",
+  "canary": {
+    "secrets": [
+      "projects/graffiticode-isolate01/secrets/at11-canary-secret"
+    ],
+    "databases": [
+      "projects/graffiticode-isolate01/databases/at11-canary"
+    ],
+    "kmsKeys": [
+      "projects/graffiticode-isolate01/locations/us-central1/keyRings/at11/cryptoKeys/canary-signing/cryptoKeyVersions/1"
+    ],
+    "impersonate": [
+      "at11-canary-target@graffiticode-isolate01.iam.gserviceaccount.com"
+    ],
+    "service": "projects/graffiticode-isolate01/locations/us-central1/services/at11-canary-svc",
+    "project": "graffiticode-isolate01-ctl"
+  }
+}
