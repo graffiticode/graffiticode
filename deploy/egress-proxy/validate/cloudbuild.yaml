@@ -4,7 +4,11 @@
 #   node deploy/egress-proxy/generate.js --classes <classes.json> --deploy <deploy.json> --out <dir>
 #   cp deploy/egress-proxy/validate/cloudbuild.yaml <dir>/ && cd <dir>
 #   gcloud builds submit --project=<scratch project> --region=us-central1 --config=cloudbuild.yaml \
+#     --service-account=projects/<scratch project>/serviceAccounts/isolate01-build@<scratch project>.iam.gserviceaccount.com \
 #     --substitutions=_ENVOY_IMAGE=<proxy.envoyImage> .
+# The build runs as its own account (logging.logWriter, storage.objectViewer), never the default
+# Compute Engine account. In step 0 that account's Editor role was removed, since its
+# iam.serviceAccounts.actAs could start a VM as egress-proxy.
 # Throwaway self-signed certificates stand in at every path the config names under
 # /run/egress-proxy/certs, so validation never needs a real key. The build fails on any
 # Envoy deprecation warning, as well as on an invalid config.

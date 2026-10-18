@@ -175,3 +175,11 @@ test("the load balancer's address is reserved in step 1, before any VM, and the 
   const rule = render(steps).split("\n").find(l => l.includes("forwarding-rules create egress-proxy"));
   assert.match(rule, /--address=egress-proxy-lb /);
 });
+
+test("the instance group's autohealing names the regional health check by path", async () => {
+  // A bare name resolves to a global health check, and the group's create
+  // fails (found in step 0: ".../global/healthChecks/egress-proxy-ready does not exist").
+  const text = render(commands(await step0()));
+  assert.match(text, /instance-groups managed create egress-proxy .*--health-check=projects\/graffiticode-isolate01\/regions\/us-central1\/healthChecks\/egress-proxy-ready /);
+  assert.match(text, /health-checks create http egress-proxy-ready .*--region=us-central1/);
+});

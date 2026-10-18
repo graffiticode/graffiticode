@@ -133,7 +133,7 @@ export function commands(model) {
       "--metadata-from-file=user-data=out/cloud-init.yaml"),
     cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready", "--enable-logging"),
     cmd("gcloud", "compute", "instance-groups", "managed", "create", "egress-proxy", p, r, `--template=egress-proxy-${templateVersion}`, "--size=2",
-      `--zones=${zones.join(",")}`, "--health-check=egress-proxy-ready", "--initial-delay=120", "--target-distribution-shape=EVEN"));
+      `--zones=${zones.join(",")}`, `--health-check=projects/${project}/regions/${region}/healthChecks/egress-proxy-ready`, "--initial-delay=120", "--target-distribution-shape=EVEN"));
 
   step("Internal passthrough Network Load Balancer (keeps the compiler's source address)",
     cmd("gcloud", "compute", "backend-services", "create", "egress-proxy", p, r, "--load-balancing-scheme=INTERNAL", "--protocol=TCP", "--health-checks=egress-proxy-ready", "--health-checks-region=" + region),
