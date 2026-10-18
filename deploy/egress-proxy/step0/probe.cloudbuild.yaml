@@ -1,0 +1,7 @@
+# Builds and pushes the step 0 probe image to the scratch project's Artifact Registry.
+steps:
+- name: gcr.io/cloud-builders/docker
+  args: ["build", "-f", "deploy/egress-proxy/step0/Dockerfile.probe", "-t", "us-central1-docker.pkg.dev/graffiticode-isolate01/at11/probe:step0", "."]
+images: ["us-central1-docker.pkg.dev/graffiticode-isolate01/at11/probe:step0"]
+options:
+  logging: CLOUD_LOGGING_ONLY

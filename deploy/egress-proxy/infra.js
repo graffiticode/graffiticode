@@ -13,6 +13,8 @@
 // ever run against graffiticode.
 
 import { spawnSync } from "node:child_process";
+import { readFileSync, statSync } from "node:fs";
+import path from "node:path";
 import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig } from "./generate.js";
 
 export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
@@ -213,9 +215,35 @@ export function applyPlan(model, steps, chosen) {
   return runs;
 }
 
+// The files a command reads (--data-file, --metadata-from-file, --policy-from-file), relative
+// to the workdir. Each must exist and be non-empty. A template's user-data must also carry
+// the config digest its metadata names. Found in step 0: a cloud-init cut short to 0 bytes
+// made a template whose VMs never started the proxy, under the config's own name.
+export function inputProblems(runs, { workdir = process.cwd(), read = f => readFileSync(f, "utf8"), size = f => statSync(f).size } = {}) {
+  const problems = [];
+  for (const r of runs) {
+    const files = r.argv.flatMap(a => {
+      const m = /^--(data-file|policy-from-file|metadata-from-file)=(.+)$/.exec(a);
+      if (!m) return [];
+      return m[1] === "metadata-from-file" ? m[2].split(",").map(kv => ({ key: kv.slice(0, kv.indexOf("=")), file: kv.slice(kv.indexOf("=") + 1) })) : [{ key: m[1], file: m[2] }];
+    });
+    const digest = r.argv.join(" ").match(/isolate01-config-sha256=([0-9a-f]{64})/)?.[1];
+    for (const { key, file } of files) {
+      const full = path.resolve(workdir, file);
+      let bytes;
+      try { bytes = size(full); } catch { problems.push(`step ${r.step}: ${file} doesn't exist (in ${workdir})`); continue; }
+      if (!bytes) { problems.push(`step ${r.step}: ${file} is empty`); continue; }
+      if (key === "user-data" && digest && !read(full).includes(digest)) problems.push(`step ${r.step}: ${file} doesn't carry config ${digest.slice(0, 12)}, the template's own`);
+    }
+  }
+  return problems;
+}
+
 // Runs each command in order. A create that finds its resource already there
 // is recorded as "exists", so a phase can be re-run; any other failure stops.
-export function apply(runs, { workdir = process.cwd(), spawn = spawnSync, log = console.log } = {}) {
+export function apply(runs, { workdir = process.cwd(), spawn = spawnSync, log = console.log, checkInputs = inputProblems } = {}) {
+  const problems = checkInputs(runs, { workdir });
+  if (problems.length) throw new Error(`refusing to apply:\n  ${problems.join("\n  ")}`);
   const results = [];
   for (const r of runs) {
     log(`[step ${r.step}] ${r.text}`);

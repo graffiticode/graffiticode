@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { commands, render, parseArgs, DEFERRED, applyPlan, apply } from "../infra.js";
+import { commands, render, parseArgs, DEFERRED, applyPlan, apply, inputProblems } from "../infra.js";
 import { readFile } from "node:fs/promises";
 import { alertPolicies, buildModel, load } from "../generate.js";
 
@@ -156,7 +156,7 @@ test("apply runs in order, records a resource that already exists, and stops on 
     if (calls.length === 3) return { status: 1, stderr: "ERROR: permission denied" };
     return { status: 0, stderr: "" };
   };
-  assert.throws(() => apply(runs, { spawn, log: () => {} }), e => {
+  assert.throws(() => apply(runs, { spawn, log: () => {}, checkInputs: () => [] }), e => {
     assert.deepEqual(e.results.map(r => r.outcome), ["ran", "exists", "failed"]);
     return true;
   });
@@ -182,4 +182,23 @@ test("the instance group's autohealing names the regional health check by path",
   const text = render(commands(await step0()));
   assert.match(text, /instance-groups managed create egress-proxy .*--health-check=projects\/graffiticode-isolate01\/regions\/us-central1\/healthChecks\/egress-proxy-ready /);
   assert.match(text, /health-checks create http egress-proxy-ready .*--region=us-central1/);
+});
+
+test("apply refuses a missing or empty input file, and user-data without the template's config digest", async () => {
+  const model = await step0();
+  const steps = commands(model);
+  const template = steps.findIndex(s => s.title.startsWith("Instance template")) + 1;
+  const runs = applyPlan(model, steps, [template]);
+  const digest = runs[0].argv.join(" ").match(/isolate01-config-sha256=([0-9a-f]{64})/)[1];
+  const files = { "out/cloud-init.yaml": `#cloud-config\n# ${digest}\n` };
+  const fake = over => ({
+    workdir: "/w",
+    size: f => { const k = path.relative("/w", f); if (!(k in over)) throw new Error("ENOENT"); return over[k].length; },
+    read: f => over[path.relative("/w", f)],
+  });
+  assert.deepEqual(inputProblems(runs, fake(files)), []);
+  assert.match(inputProblems(runs, fake({}))[0], /out\/cloud-init.yaml doesn't exist/);
+  assert.match(inputProblems(runs, fake({ "out/cloud-init.yaml": "" }))[0], /is empty/, "the 0-byte cloud-init found in step 0");
+  assert.match(inputProblems(runs, fake({ "out/cloud-init.yaml": "#cloud-config\n" }))[0], /doesn't carry config/);
+  assert.throws(() => apply(runs, { spawn: () => { throw new Error("must not run"); }, log: () => {}, checkInputs: () => ["x is empty"] }), /refusing to apply/);
 });
