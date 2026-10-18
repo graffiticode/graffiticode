@@ -68,7 +68,7 @@ test("the alert policies are real: access logs absent per instance, refusal spik
 test("the load balancer is internal passthrough TCP, and patching rolls one VM at a time", async () => {
   const text = render(commands(await fixture()));
   assert.match(text, /backend-services create egress-proxy .*--load-balancing-scheme=INTERNAL --protocol=TCP/);
-  assert.match(text, /forwarding-rules create egress-proxy .*--address=10\.8\.0\.2 .*--ports=3128/);
+  assert.match(text, /forwarding-rules create egress-proxy .*--address=egress-proxy-lb .*--ports=3128/);
   assert.match(text, /rolling-action start-update .*--max-surge=2 --max-unavailable=0/);
   assert.match(text, /instance-groups managed create egress-proxy .*--zones=us-central1-a,us-central1-b /);
   assert.match(text, /cos-update-strategy=update_disabled/);
@@ -161,4 +161,16 @@ test("apply runs in order, records a resource that already exists, and stops on 
   });
   assert.equal(calls.length, 3, "nothing after the failure runs");
   assert.deepEqual(calls[0], runs[0].argv, "runs the argv itself, no shell");
+});
+
+test("the load balancer's address is reserved in step 1, before any VM, and the forwarding rule uses it", async () => {
+  const model = await step0();
+  const steps = commands(model);
+  const reserve = steps[0].lines.map(String).find(l => l.includes("addresses create egress-proxy-lb"));
+  assert.ok(reserve, "reserved with the subnets");
+  assert.match(reserve, /--subnet=egress-proxy --addresses=10\.8\.0\.2/);
+  const template = steps.findIndex(s => s.title.startsWith("Instance template"));
+  assert.ok(template > 0, "VMs come later");
+  const rule = render(steps).split("\n").find(l => l.includes("forwarding-rules create egress-proxy"));
+  assert.match(rule, /--address=egress-proxy-lb /);
 });
