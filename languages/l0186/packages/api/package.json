@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@graffiticode/l0000": "^0.11.0",
     "@graffiticode/l0186": "*",
     "cors": "^2.8.5",
     "errorhandler": "^1.5.1",
