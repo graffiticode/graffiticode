@@ -271,8 +271,7 @@
         "LEARNOSITY_DOMAIN": "l0176.graffiticode.org",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
         "BROKER_MIN_CONTRACT_VERSION": "2",
-        "SYSTEM_SESSION_MAX_SIGNINGS": "4",
-        "BROKER_PREVIEW_CONNECTIONS": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}"
+        "SYSTEM_SESSION_MAX_SIGNINGS": "4"
       },
       "smoke": [
         {

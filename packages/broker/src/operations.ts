@@ -263,8 +263,8 @@ export const buildOperations = ({ sdk, domain, dataApi, previewExpiresMinutes = 
     // The Questions API's signature covers the security packet, not the
     // request, so whoever holds it can change the request. Broker signs it
     // only with the dedicated preview consumer, never a connection's own (AT-10
-    // A3, registry v8): that consumer holds no item bank, reporting or learner
-    // data.
+    // A3, registry v8): a consumer whose item bank is its own and empty, and
+    // which holds no reporting or learner data.
     "learnosity.sign-questions-preview": {
       kind: "sign",
       signsWith: "preview-consumer",

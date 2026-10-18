@@ -264,8 +264,11 @@ provider's documented rules. Such authority cannot enter reusable artifacts or s
 
 Where a provider can't sign the request, only its security fields, the issued authority is
 a general session on the signing consumer, and payload constraints can't narrow it. Such a
-signature MAY be issued only under a **dedicated preview consumer**: Graffiticode-owned, with
-no item bank, reporting or learner data, and never an owner's consumer. Its recorded limits
+signature MAY be issued only under a **dedicated preview consumer**: Graffiticode-owned, never
+an owner's consumer or one that signs anything else, and with no reporting or learner data.
+Every provider consumer can write to its item bank, so this one's bank MUST be its own: empty,
+and shared with no owner and no other Graffiticode consumer. A signature from it MUST NOT be
+usable with any other provider service (verified in AT-10). Its recorded limits
 are then:
 - permitted actions: any session on that consumer;
 - acceptance: the signature's own expiry;
@@ -273,8 +276,8 @@ are then:
 - replay: unlimited within acceptance;
 - revocation: rotating that consumer's key.
 
-The consumer's configuration is release-verified by a dated operator attestation, which
-expires (registry v8, AT-10). Fields the request does carry are still pinned: activity type,
+The consumer's configuration, its bank included, is release-verified by a dated operator
+attestation, which expires (registry v8, AT-10). Fields the request does carry are still pinned: activity type,
 session, user and expiry.
 
 **L0176-01 — Function boundaries.** `init` signs constrained Questions/Items previews and
@@ -453,7 +456,8 @@ different boundaries; mocks do not replace provider validation.
 - **AT-10 (PROVIDER-01, L0176-01):** Against the provider, verify draft-only saves,
   preview scope, request/session lifetimes, replay, and revocation limits. A save never
   changes a record already in the bank (each writes fresh references); a preview whose
-  request isn't signed is issued only under the dedicated preview consumer. (Its Author
+  request isn't signed is issued only under the dedicated preview consumer, whose item bank
+is its own, and its signature is refused by every other provider service. (Its Author
   questions closed with AUTHOR-01's removal, registry v7.)
 - **AT-11 (SECRET-01, ISOLATE-01):** As deployed compiler identities, attempt direct provider
   access, alternate paths/proxies, secret/key/database access, impersonation, and deployment
