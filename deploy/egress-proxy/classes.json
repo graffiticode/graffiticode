@@ -59,6 +59,11 @@
     "reportImage": "node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402",
     "reportUid": 10102,
     "cosImage": "cos-129-19506-549-7",
-    "serviceAccount": "egress-proxy@graffiticode.iam.gserviceaccount.com"
+    "serviceAccount": "egress-proxy@graffiticode.iam.gserviceaccount.com",
+    "alerts": {
+      "notificationChannels": [
+        "projects/graffiticode/notificationChannels/17812349539207940474"
+      ]
+    }
   }
 }
