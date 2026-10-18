@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: MIT
+// ISOLATE-01: first, so every outbound request goes through the egress proxy when
+// HTTPS_PROXY is set (on the compiler network); without it, nothing changes.
+import "@graffiticode/l0000/egress";
 import { createApp } from "./app.js";
 
 const port = process.env.PORT || "50183";

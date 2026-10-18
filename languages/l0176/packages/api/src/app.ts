@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import { egressStatus } from "@graffiticode/l0000/egress";
 import cors from "cors";
 import morgan from "morgan";
 import methodOverride from "method-override";
@@ -114,6 +115,12 @@ export const createApp = ({
   // Authentication: attaches req.auth (does not reject anonymous requests).
   const validateToken = buildValidateToken({ authUrl });
   app.use(routes.auth({ validateToken }));
+
+  // ISOLATE-01: whether the egress proxy bootstrap is installed, and with which proxy. The
+  // deploy CLI's candidate check reads it for a service with a network block.
+  app.get("/egress", (_req: Request, res: Response) => {
+    res.json(egressStatus() ?? { installed: false, httpsProxy: null, httpProxy: null, noProxy: null });
+  });
 
   // Routes
   app.use("/", routes.root());

@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@graffiticode/l0000": "^0.11.0",
     "@graffiticode/l0183": "*",
     "cors": "^2.8.5",
     "errorhandler": "^1.5.1",
