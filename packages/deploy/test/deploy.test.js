@@ -1425,3 +1425,22 @@ test("a promotion that fails after starting is recorded in the receipt", async t
   assert.equal(h.getReceipt().status, "failed");
   assert.equal(h.getReceipt().failedAt, "promoting");
 });
+
+test("a networked candidate must report its egress bootstrap installed, with its proxy (ISOLATE-01)", async () => {
+  const service = oldService();
+  /** @type {any[]} */ (service.status.traffic).push({ tag: "release", revisionName: "api-release", url: "https://release---api-example.run.app" });
+  const network = { network: "compilers", subnet: "compilers-l0176", tags: ["compiler"], proxy: "http://10.8.0.2:3128", ca: { secret: "egress-proxy-ca-bundle:1", path: "/etc/egress-ca/ca.pem" }, allow: ["api.graffiticode.org"] };
+  const answering = report => async url => new URL(url).pathname === "/egress"
+    ? new Response(JSON.stringify(report), { status: 200, headers: { "content-type": "application/json" } })
+    : new Response("OK");
+  /** @param {any} fetch @param {any} [cfg] */
+  const run = (fetch, cfg = { ...config, network }) => smokeCheck(cfg, service, "release", { cloud: async () => "", fetch });
+  await run(answering({ installed: true, httpsProxy: "http://10.8.0.2:3128", httpProxy: null, noProxy: "metadata.google.internal,169.254.169.254" }));
+  await assert.rejects(run(answering({ installed: false, httpsProxy: null })), /egress bootstrap isn't installed/);
+  await assert.rejects(run(answering({ installed: true, httpsProxy: "http://10.9.9.9:3128" })), /uses proxy http:\/\/10\.9\.9\.9:3128, not http:\/\/10\.8\.0\.2:3128/);
+  await assert.rejects(run(async url => new URL(url).pathname === "/egress" ? new Response("nope", { status: 404 }) : new Response("OK")), /\/egress answered 404/);
+  // A service without network is never asked.
+  const asked = [];
+  await run(async url => { asked.push(new URL(url).pathname); return new Response("OK"); }, config);
+  assert.ok(!asked.includes("/egress"));
+});

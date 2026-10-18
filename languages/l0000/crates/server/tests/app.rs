@@ -521,3 +521,26 @@ async fn a_large_number_is_written_as_javascript_writes_it() {
     let reply = compile(&server().app, json!({ "code": code, "data": {} })).await;
     assert_eq!(reply.text(), r#"{"data":12345678901234567000,"errors":[]}"#);
 }
+
+#[tokio::test]
+async fn egress_reports_whether_the_proxy_is_in_use() {
+    // The route reads the process environment; the test runs without a proxy.
+    let server = server();
+    let reply = get(&server.app, "/egress").await;
+    assert_eq!(reply.status, StatusCode::OK);
+    assert_eq!(
+        reply.json()["installed"],
+        json!(std::env::var("HTTPS_PROXY").is_ok() || std::env::var("HTTP_PROXY").is_ok())
+    );
+    // The report itself, for an environment with the proxy (the deploy CLI's candidate check
+    // compares httpsProxy with the service's network.proxy).
+    let env = l0000r_server::egress::EgressEnv::from_lookup(|name| {
+        (name == "HTTPS_PROXY").then(|| "http://10.8.0.2:3128".to_string())
+    });
+    assert_eq!(
+        l0000r_server::egress_report(&env),
+        json!({ "installed": true, "httpsProxy": "http://10.8.0.2:3128", "httpProxy": null, "noProxy": "metadata.google.internal,169.254.169.254" })
+    );
+    let none = l0000r_server::egress::EgressEnv::from_lookup(|_| None);
+    assert_eq!(l0000r_server::egress_report(&none)["installed"], json!(false));
+}

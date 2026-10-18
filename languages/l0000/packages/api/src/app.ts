@@ -11,6 +11,7 @@ import errorHandler from "errorhandler";
 import { buildValidateToken } from "./auth.js";
 import { compile, compiler } from "./compile.js";
 import { createGatewayVerifier, createPreflightHandler } from "@graffiticode/l0000";
+import { egressStatus } from "@graffiticode/l0000/egress";
 import * as routes from "./routes/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -91,6 +92,13 @@ export const createApp = ({ authUrl, preflightGateways = [], verifyCaller }: { a
   // Authentication: attaches req.auth (does not reject anonymous requests).
   const validateToken = buildValidateToken({ authUrl });
   app.use(routes.auth({ validateToken }));
+
+  // ISOLATE-01: whether the egress proxy bootstrap is installed, and with which proxy. The
+  // deploy CLI's candidate check reads it for a service with a network block, and refuses
+  // a candidate whose outbound HTTP wouldn't go through the proxy.
+  app.get("/egress", (_req: Request, res: Response) => {
+    res.json(egressStatus() ?? { installed: false, httpsProxy: null, httpProxy: null, noProxy: null });
+  });
 
   // Routes
   app.use("/", routes.root());

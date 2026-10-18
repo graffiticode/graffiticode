@@ -68,6 +68,7 @@ pub fn app(state: AppState, static_dir: impl Into<PathBuf>) -> Router {
         .route("/preflight", post(preflight))
         .route_service("/form", ServeFile::new(static_dir.join("index.html")))
         .route("/lexicon.json", get(lexicon))
+        .route("/egress", get(egress_status))
         // The deployed console still asks for lexicon.js; it reads the body from the first `{`
         // and parses it as JSON, so the same document serves both.
         .route("/lexicon.js", get(lexicon))
@@ -100,6 +101,25 @@ fn https_location(headers: &HeaderMap, uri: &Uri) -> Option<String> {
     let host = header(HOST)?;
     (proto != "https" && !host.starts_with("localhost"))
         .then(|| format!("https://{host}{}", uri.path_and_query().map_or("/", |path| path.as_str())))
+}
+
+/// ISOLATE-01: whether outbound HTTP goes through the egress proxy, in the shape the Node
+/// helper's `/egress` reports. Every client is built by `egress::client_builder()` (CI's
+/// check-egress-clients refuses any other), so a proxy in the environment means it's used.
+/// The deploy CLI's candidate check reads it for a service with a network block.
+async fn egress_status() -> Json<Value> {
+    Json(egress_report(&egress::EgressEnv::from_env()))
+}
+
+/// What `/egress` reports for an environment.
+pub fn egress_report(env: &egress::EgressEnv) -> Value {
+    let by = |var: &str| env.proxy.as_ref().filter(|(_, from)| *from == var).map(|(url, _)| url.clone());
+    json!({
+        "installed": env.proxy.is_some(),
+        "httpsProxy": by("HTTPS_PROXY"),
+        "httpProxy": by("HTTP_PROXY"),
+        "noProxy": env.proxy.as_ref().map(|_| egress::METADATA_HOSTS),
+    })
 }
 
 async fn lexicon(State(state): State<AppState>) -> impl IntoResponse {
