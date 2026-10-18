@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { commands, render, parseArgs, DEFERRED, applyPlan, apply, inputProblems } from "../infra.js";
 import { readFile } from "node:fs/promises";
-import { alertPolicies, buildModel, load } from "../generate.js";
+import { alertPolicies, buildModel, load, cloudInit, envoyConfig } from "../generate.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const FIXTURES = path.join(HERE, "fixtures");
@@ -190,7 +190,8 @@ test("apply refuses a missing or empty input file, and user-data without the tem
   const template = steps.findIndex(s => s.title.startsWith("Instance template")) + 1;
   const runs = applyPlan(model, steps, [template]);
   const digest = runs[0].argv.join(" ").match(/isolate01-config-sha256=([0-9a-f]{64})/)[1];
-  const files = { "out/cloud-init.yaml": `#cloud-config\n# ${digest}\n` };
+  const files = { "out/cloud-init.yaml": cloudInit(model, envoyConfig(model)) };
+  assert.ok(files["out/cloud-init.yaml"].includes(digest));
   const fake = over => ({
     workdir: "/w",
     size: f => { const k = path.relative("/w", f); if (!(k in over)) throw new Error("ENOENT"); return over[k].length; },
@@ -200,5 +201,25 @@ test("apply refuses a missing or empty input file, and user-data without the tem
   assert.match(inputProblems(runs, fake({}))[0], /out\/cloud-init.yaml doesn't exist/);
   assert.match(inputProblems(runs, fake({ "out/cloud-init.yaml": "" }))[0], /is empty/, "the 0-byte cloud-init found in step 0");
   assert.match(inputProblems(runs, fake({ "out/cloud-init.yaml": "#cloud-config\n" }))[0], /doesn't carry config/);
+  // A stale user-data that still carries the Envoy digest but not this template's whole content.
+  const stale = files["out/cloud-init.yaml"].replace("envoy-config-report", "envoy-config-reportx");
+  assert.match(inputProblems(runs, fake({ "out/cloud-init.yaml": stale })).join("\n"), /isn't the user-data template egress-proxy-[0-9a-f]{12} is named for/);
   assert.throws(() => apply(runs, { spawn: () => { throw new Error("must not run"); }, log: () => {}, checkInputs: () => ["x is empty"] }), /refusing to apply/);
+});
+
+test("the template is named by its whole user-data: a host-unit change alone is a new template", async () => {
+  // Found in step 0: named by the Envoy config alone, a change to a host unit kept the
+  // old name, was skipped as existing, and rolled out nothing.
+  const model = await step0();
+  const name = m => render(commands(m)).match(/instance-templates create (egress-proxy-[0-9a-f]{12}) /)[1];
+  const changed = { ...model, proxy: { ...model.proxy, reportUid: model.proxy.reportUid + 1 } };
+  assert.equal(envoyConfig(changed).node.metadata.isolate01.config_sha256, envoyConfig(model).node.metadata.isolate01.config_sha256, "same Envoy config");
+  assert.notEqual(name(changed), name(model), "different user-data, different template");
+  assert.equal(name(model), name(await step0()), "same user-data, same name");
+});
+
+test("the config report keeps its container until the next run, so its log line ships", async () => {
+  const text = cloudInit(await step0(), envoyConfig(await step0()));
+  assert.ok(!text.includes("docker run --rm --name envoy-config-report"), "no --rm");
+  assert.ok(text.includes("docker rm -f envoy-config-report"), "the previous run's container is removed first");
 });

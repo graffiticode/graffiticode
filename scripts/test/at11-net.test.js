@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   MATRIX, CHECKS, classify, classifyBroker, classifyAuth, meets, runNet, connectTunnel, through, brokerRequest,
-  dnsErrorKind, rowState, attributeNetwork, settleNetwork, judgeDnsRow, inCidr, PROXY_REASONS,
+  dnsErrorKind, rowState, attributeNetwork, settleNetwork, judgeDnsRow, inCidr, PROXY_REASONS, classifyFlip, confirmLanding,
 } from "../at11/net.js";
 
 const expectedResult = e =>
@@ -347,4 +347,26 @@ test("the DNS row is decided from a log that recorded the collector's control (A
   assert.equal(judgeDnsRow(row, { ...log, to: "2026-10-17T10:04:00.000Z" }, control).state, "void", "the window ends before the control");
   assert.equal(judgeDnsRow(row, log, null).state, "void");
   assert.equal(judgeDnsRow({ ...row, results: [{ ...row.results[0], result: { outcome: "error" } }] }, log, control).state, "failed");
+});
+
+test("a flip name: landing on its public answer is allowed only when the log proves it; it must be refused on its blocked answer at least once", () => {
+  // Found in step 0: flip.rebind -> 1.1.1.1 | 169.254.169.254; the public answer's TLS
+  // fails for our name, which read as an error before.
+  const blocked = { compilerSubnets: ["10.8.16.0/22"], proxySubnet: "10.8.0.0/27", loadBalancer: "10.8.0.2" };
+  const landed = classifyFlip({ via: "proxy", stage: "request", error: "Hostname/IP does not match certificate's altnames", probe: "f1" });
+  assert.equal(landed.outcome, "landed:public");
+  assert.equal(classifyFlip({ via: "proxy", stage: "connect", status: 503, probe: "f2" }).outcome, "pending:network");
+  const lines = [
+    { isolate01: "egress", probe: "f1", upstream_host: "1.1.1.1:443" },
+    { isolate01: "egress", probe: "f3", upstream_host: "169.254.169.254:443" },
+  ];
+  assert.equal(confirmLanding(landed, { accessLines: lines, blocked }).outcome, "landed:public-confirmed");
+  assert.match(confirmLanding({ outcome: "landed:public", probe: "f3" }, { accessLines: lines, blocked }).detail, /reached 169\.254\.169\.254, a blocked address/);
+  assert.equal(confirmLanding({ outcome: "landed:public", probe: "f9" }, { accessLines: lines, blocked }).outcome, "error", "no log line");
+  const row = { id: "rebinding" };
+  const flip = (outcome) => ({ flip: true, result: { outcome } });
+  assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("refused:network")]), "passed");
+  assert.equal(rowState(row, "refused:network", [flip("landed:public-confirmed"), flip("landed:public-confirmed")]), "failed", "never refused on the blocked answer");
+  assert.equal(rowState(row, "refused:network", [flip("landed:public"), flip("pending:network")]), "pending-evidence");
+  assert.equal(rowState(row, "refused:network", [{ result: { outcome: "landed:public-confirmed" } }]), "failed", "only a flip name may land");
 });

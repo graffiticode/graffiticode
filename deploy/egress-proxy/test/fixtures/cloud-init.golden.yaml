@@ -59,7 +59,7 @@
     {
       "path": "/etc/systemd/system/envoy-config-report.service",
       "permissions": "0444",
-      "content": "[Unit]\nDescription=ISOLATE-01 report what Envoy is running (A25)\nAfter=egress-envoy.service\nRequires=egress-resolver.service\n\n[Service]\nType=oneshot\nExecStartPre=-/bin/bash -c 'for i in $(seq 1 60); do curl -sf http://127.0.0.1:3129/ready >/dev/null && exit 0; sleep 2; done; exit 1'\nExecStart=/usr/bin/docker run --rm --name envoy-config-report --network host --user 10102:10102 --cap-drop ALL --security-opt no-new-privileges --read-only -v /etc/egress-proxy/config-report.mjs:/report/config-report.mjs:ro node@sha256:1111111111111111111111111111111111111111111111111111111111111111 node /report/config-report.mjs\n"
+      "content": "[Unit]\nDescription=ISOLATE-01 report what Envoy is running (A25)\nAfter=egress-envoy.service\nRequires=egress-resolver.service\n\n[Service]\nType=oneshot\nExecStartPre=-/bin/bash -c '/usr/bin/docker rm -f envoy-config-report >/dev/null 2>&1; for i in $(seq 1 60); do curl -sf http://127.0.0.1:3129/ready >/dev/null && exit 0; sleep 2; done; exit 1'\nExecStart=/usr/bin/docker run --name envoy-config-report --network host --user 10102:10102 --cap-drop ALL --security-opt no-new-privileges --read-only -v /etc/egress-proxy/config-report.mjs:/report/config-report.mjs:ro node@sha256:1111111111111111111111111111111111111111111111111111111111111111 node /report/config-report.mjs\n"
     },
     {
       "path": "/etc/systemd/system/envoy-config-report.timer",

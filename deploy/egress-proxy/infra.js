@@ -15,7 +15,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig } from "./generate.js";
+import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig, cloudInit, sha256 } from "./generate.js";
 
 export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
 
@@ -46,9 +46,14 @@ export function commands(model) {
     throw new Error(`classes.json: proxy.zones must pin two zones in ${region}`);
   }
   const accounts = compilerAccounts(model);
-  // The template is named by the config it carries: a new config is a new
-  // template (a rolling replace), and the same config is the same name.
-  const templateVersion = envoyConfig(model).node.metadata.isolate01.config_sha256.slice(0, 12);
+  // The template is named by everything it carries, its whole user-data (Envoy's
+  // config and the host units): any change is a new template and a rolling replace,
+  // and the same user-data is the same name. Found in step 0: named by the Envoy
+  // config alone, a host-unit change kept the old name, was skipped as existing,
+  // and rolled out nothing. Unpinned images leave a placeholder, which --apply refuses.
+  const envoy = envoyConfig(model);
+  let templateVersion;
+  try { templateVersion = sha256(cloudInit(model, envoy)).slice(0, 12); } catch { templateVersion = "<user-data digest: pin the images>"; }
   const steps = [];
   const step = (title, ...lines) => steps.push({ title, lines });
 
@@ -131,7 +136,7 @@ export function commands(model) {
     cmd("gcloud", "compute", "instance-templates", "create", `egress-proxy-${templateVersion}`, p, `--machine-type=${model.proxy.machineType}`,
       `--image=${model.proxy.cosImage ?? "<cos-image, pinned in step 0>"}`, "--image-project=cos-cloud", `--network=${network}`, `--subnet=${model.proxySubnet.name}`,
       `--region=${region}`, "--no-address", `--service-account=${sa}`, "--scopes=cloud-platform", "--shielded-secure-boot",
-      `--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=${envoyConfig(model).node.metadata.isolate01.config_sha256}`,
+      `--metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=${envoy.node.metadata.isolate01.config_sha256}`,
       "--metadata-from-file=user-data=out/cloud-init.yaml"),
     cmd("gcloud", "compute", "health-checks", "create", "http", "egress-proxy-ready", p, r, `--port=${model.proxy.healthPort}`, "--request-path=/ready", "--enable-logging"),
     cmd("gcloud", "compute", "instance-groups", "managed", "create", "egress-proxy", p, r, `--template=egress-proxy-${templateVersion}`, "--size=2",
@@ -233,7 +238,13 @@ export function inputProblems(runs, { workdir = process.cwd(), read = f => readF
       let bytes;
       try { bytes = size(full); } catch { problems.push(`step ${r.step}: ${file} doesn't exist (in ${workdir})`); continue; }
       if (!bytes) { problems.push(`step ${r.step}: ${file} is empty`); continue; }
-      if (key === "user-data" && digest && !read(full).includes(digest)) problems.push(`step ${r.step}: ${file} doesn't carry config ${digest.slice(0, 12)}, the template's own`);
+      if (key === "user-data") {
+        const text = read(full);
+        if (digest && !text.includes(digest)) problems.push(`step ${r.step}: ${file} doesn't carry config ${digest.slice(0, 12)}, the template's own`);
+        // The template is named by its user-data's digest: a stale or different file is refused.
+        const named = r.argv.map(a => /^egress-proxy-([0-9a-f]{12})$/.exec(a)?.[1]).find(Boolean);
+        if (named && !sha256(text).startsWith(named)) problems.push(`step ${r.step}: ${file} isn't the user-data template egress-proxy-${named} is named for (regenerate it)`);
+      }
     }
   }
   return problems;

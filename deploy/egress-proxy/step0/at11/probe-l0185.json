@@ -43,7 +43,8 @@
     "relationship": "unlisted"
   },
   "actAs": {
-    "url": "https://auth.graffiticode.org"
+    "url": "https://auth.graffiticode.org",
+    "audience": "urn:graffiticode:auth"
   },
   "admin": {
     "address": "10.8.0.3",
