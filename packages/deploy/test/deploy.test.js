@@ -1451,3 +1451,21 @@ test("NODE_USE_ENV_PROXY is CLI-managed for a networked service (ISOLATE-01 step
   assert.ok(NETWORK_ENV.includes("NODE_USE_ENV_PROXY"));
   assert.equal(networkEnv(NETWORK).NODE_USE_ENV_PROXY, "1");
 });
+
+test("a second CA volume left over from the template doesn't hide a correct mount (ISOLATE-01 step 3)", async t => {
+  // L0000's re-stage: Cloud Run built the new revision from a template that already had the CA
+  // volume, so it carries the old volume (unmounted) first and the new one (mounted) second.
+  const h = await harness(t);
+  const receipt = await release(networked, source, h.deps);
+  const good = h.revisions.get(receipt.revision);
+  const twice = structuredClone(good);
+  const old = { ...structuredClone(twice.spec.volumes[0]), name: "egress-proxy-ca-bundle-old" };
+  twice.spec.volumes = [old, ...twice.spec.volumes];
+  h.revisions.set("api-twice", twice);
+  // And one where only the leftover volume is mounted elsewhere: still a missing CA.
+  const wrong = structuredClone(twice);
+  wrong.spec.containers[0].volumeMounts = [{ name: "egress-proxy-ca-bundle-old", mountPath: "/elsewhere" }];
+  h.revisions.set("api-wrong", wrong);
+  const found = await networkProblems(networked, ["api-twice", "api-wrong"], h.deps);
+  assert.deepEqual(Object.fromEntries(found.map(p => [p.revision, p.problems])), { "api-wrong": ["ca"] });
+});
