@@ -463,6 +463,24 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0000-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0000",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org",
+          "policy-sja7fatcta-uc.a.run.app",
+          "www.googleapis.com"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
