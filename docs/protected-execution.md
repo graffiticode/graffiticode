@@ -714,3 +714,91 @@ Differences from v7:
   - questions, which have no status, are left.
 - **The preview consumer's attestation** (`.gc-deploy/provider/preview-consumer-attestation.json`,
   local) records that the consumer is previews-only. It expires 2027-01-16; renew it before then.
+
+## AT-10 provider harness
+
+`scripts/at10-provider.js` (logic in `scripts/lib/at10-provider.js`) measures what Learnosity
+itself enforces on what Graffiticode signs and saves, for AT-10 (PROVIDER-01, L0176-01): preview
+scope, request integrity, acceptance and established-session lifetime, replay, revocation by
+secret rotation, draft-only saves, caching of signed requests, and the unsigned Question Editor
+preview (option A4). It runs against the **sandbox** consumer only.
+
+```bash
+node scripts/at10-provider.js <case...> [--signer broker|raw] [--api questions|items]    # dry run
+node scripts/at10-provider.js <case...> --run [options]                                  # execute
+node scripts/at10-provider.js --cleanup --run          # remove fixtures a crashed run left behind
+node scripts/at10-provider.js --scan-documents --run   # read-only Firestore scan (operator credentials)
+```
+
+Cases: `scope`, `integrity`, `acceptance`, `session`, `replay`, `rotation`, `drafts`, `caches`,
+`qe-preview`, or `all`. **Without `--run` it prints the planned steps and touches nothing**: no
+gcloud, no signing, no browser, no network. Options: `--api-version` (default `v2026.2.LTS`, a
+pinned LTS), `--data-api-version` (default Broker's `v2025.2.LTS`), `--ages` (default
+`1m,5m,15m,30m,60m,6h,24h`), `--expires` (raw signer only), `--types`, `--states`,
+`--intervals`, `--probe research|save|submit`, `--replay-gap`, `--rotation-intervals`,
+`--qe-activity <file.json>`, `--out <file>`, `--resume <file>`, `--chromium <path>`, `--headed`.
+
+**Signers.**
+- `broker` (default) signs `learnosity.sign-questions-preview` / `sign-items-preview` through
+  Policy and Broker exactly as the canary's direct path does: the canary account (its API key from
+  `canary-api-key`) and the canary sandbox connection, the gateway's invocation, L0176's
+  preflight, admission, snapshot, mint and execute. It needs the canary's OpenIdTokenCreator
+  grants on `api-run@` and `l0176-run@`. `--system` uses a system preview session instead
+  (production system consumer; `scope`, `integrity`, `replay` only, with `local_practice`).
+- `raw` signs locally with `learnosity-sdk-nodejs`. It is needed for `--expires` before v8,
+  for `rotation` with the raw secret, and always for the `drafts` fixtures and read-backs.
+
+**The sandbox credential** comes from the environment only. Keep it in `~/.lrn-sandbox.env`
+(mode 600), never in the repository:
+
+```bash
+# ~/.lrn-sandbox.env
+LRN_SANDBOX_KEY=...
+LRN_SANDBOX_KEY_SUFFIX=<the key's last 4 characters>
+LRN_SANDBOX_SECRET=...
+LRN_SANDBOX_DOMAIN=l0176.graffiticode.org
+```
+
+```bash
+set -a; . ~/.lrn-sandbox.env; set +a
+```
+
+The harness refuses, before anything is sent and in a dry run too, any `LRN_SANDBOX_KEY` that
+doesn't end in `LRN_SANDBOX_KEY_SUFFIX`. Every Learnosity key Graffiticode uses is in one
+development organisation and item bank, so the guard pins a key, not isolation. The Broker
+signer runs as the canary account: `--uid <uid>` or `CANARY_UID`. It never prints the key or the secret (the evidence carries a fingerprint:
+the last four characters and a short hash), and redacts both, and any signature, from errors.
+
+**The browser** is `playwright-core` (a root devDependency) driving Chromium:
+`npx playwright-core install chromium` once, or `--chromium <path>` / `AT10_CHROMIUM` for an
+installed Chrome. Pages are served at `https://l0176.graffiticode.org/__at10/<case>` by request
+interception, so Learnosity's domain check is real; they load Learnosity's real API scripts.
+The signed request is handed to the page with `page.evaluate` and to nothing else.
+
+**Evidence** is facts only, in `.gc-deploy/provider/at10-<timestamp>.json`: init success and
+failure, Learnosity error codes and messages, the resolved API build (the pinned LTS name, the
+Data API's `meta.versions`, and what the loaded JS reports, which may be null), and a network log
+of `*.learnosity.com` requests (method, host, path, status, request size and whether it mentions a
+signature; never bodies or query strings). Every write is scanned first: a signed request, a
+signature, the key or the secret in it stops the run. The file is rewritten after every step, so
+`acceptance` (about a day) and `session` can be followed while they run. Run them unattended with
+`caffeinate -i`, e.g. `caffeinate -i node scripts/at10-provider.js acceptance --run`. If one stops,
+`--resume <file>` keeps the finished steps and re-signs the pending ones as a new batch, measured
+from its own signing time (signed requests are never written to disk).
+
+**What touches the sandbox beyond signing:**
+- `rotation` asks the operator to **rotate the sandbox consumer's secret** in the Learnosity
+  console and confirm on stdin. Afterwards, put the new secret in `~/.lrn-sandbox.env` and rotate
+  the canary connection's credential, or the canary stops signing.
+- `drafts` **creates, publishes and removes** fixture questions, items and an activity
+  (`at10-<run>-*`), and writes drafts through Broker for cases (a) to (f). Every record is entered
+  in `.gc-deploy/provider/at10-fixtures.json` before it is created, and removed at the end
+  (deleted, or archived where the Data API won't delete); `--cleanup --run` removes leftovers.
+- `scope`'s `store-submit_practice` step stores one response in the sandbox, then reads it back.
+
+The established-session probe (`--probe research`) is a placeholder until step 1 names the
+provider call a contained session can still make; until then it records `probe-not-named`, and the
+network log is the only evidence, whose silence is never read as expiry. `caches` checks
+`Cache-Control` on `GET /data` (system and connection), `POST /compile` and `POST /preview/sign`;
+`--scan-documents` scans `compiles`, `artifacts`, `artifact-heads` and Policy's `publications` for
+signature fields and prints counts and paths only.

@@ -41,11 +41,10 @@
 
 import { readFile, writeFile, rm, mkdir } from "node:fs/promises";
 import path from "node:path";
-import { parser } from "@graffiticode/parser";
 import { VERIFY_UID } from "../verify/auth.js";
-import { run } from "../packages/deploy/src/process.js";
 import { runCanary } from "./lib/canary.js";
 import { createDraftArchiver } from "./lib/canary-archive.js";
+import { createCanaryEnv, loadDeployServices, http } from "./lib/canary-env.js";
 
 const args = process.argv.slice(2);
 const flag = name => {
@@ -65,17 +64,10 @@ if (uid === VERIFY_UID) {
   process.exit(2);
 }
 
-const gcloud = async gcloudArgs => String(await run("gcloud", [...gcloudArgs, `--project=${project}`, "--quiet"])).trim();
-const deploy = JSON.parse(await readFile(new URL("../deploy.json", import.meta.url), "utf8")).services;
-const serviceUrl = name => gcloud(["run", "services", "describe", name, `--region=${region}`, "--format=value(status.url)"]);
-
-const http = async ({ method, url, headers = {}, body }) => {
-  const res = await fetch(url, { method, headers: { ...headers, ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, body: body === undefined ? undefined : JSON.stringify(body) });
-  const text = await res.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch { /* not JSON */ }
-  return { status: res.status, json };
-};
+const deploy = await loadDeployServices();
+const authUrl = deploy.l0176.env.AUTH_URL;
+// `parse` reads L0176's lexicon from the api URL, once it's known.
+const { gcloud, serviceUrl, accessToken, idToken, parse } = createCanaryEnv({ uid, project, region, authUrl, apiUrl: () => config.apiUrl });
 
 const config = {
   apiUrl: flag("--api-url") ?? await serviceUrl("api"),
@@ -112,45 +104,6 @@ const retryState = retryFile
       clear: async () => rm(retryFile, { force: true }),
     }
   : null;
-const authUrl = deploy.l0176.env.AUTH_URL;
-
-const accessToken = async () => {
-  const key = await gcloud(["secrets", "versions", "access", "latest", "--secret=canary-api-key"]);
-  const res = await http({ method: "POST", url: `${authUrl}/authenticate/api-key`, body: { token: key } });
-  const token = res.json?.data?.accessToken;
-  if (!token) throw new Error(`canary api key exchange failed: ${res.status}`);
-  const verified = await http({ method: "POST", url: `${authUrl}/oauth/verify`, body: { idToken: token } });
-  if (verified.json?.data?.uid !== uid) throw new Error(`the canary api key belongs to ${verified.json?.data?.uid ?? "nobody"}, not --uid ${uid}`);
-  return token;
-};
-
-// Minted with the IAM Credentials API under the operator's own credentials,
-// which needs only iam.serviceAccounts.getOpenIdToken (OpenIdTokenCreator).
-// `gcloud auth print-identity-token --impersonate-service-account` first
-// generates an access token for the account, which that role does not allow.
-let operatorToken;
-const idToken = async (account, audience) => {
-  operatorToken ??= await gcloud(["auth", "print-access-token"]);
-  const res = await http({
-    method: "POST",
-    url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${account}:generateIdToken`,
-    headers: { Authorization: `Bearer ${operatorToken}` },
-    body: { audience, includeEmail: true }
-  });
-  if (!res.json?.token) throw new Error(`minting an ID token for ${account} failed: ${res.status} ${res.json?.error?.message ?? ""}`);
-  return res.json.token;
-};
-
-let lexicon;
-const parse = async src => {
-  if (!lexicon) {
-    const res = await fetch(`${config.apiUrl}/L0176/lexicon.json`);
-    const text = await res.text();
-    lexicon = JSON.parse(text.substring(text.indexOf("{")));
-  }
-  return parser.parse(176, src, lexicon);
-};
-
 console.log(`canary ${uid} on ${connectionId} via ${config.apiUrl}`);
 // Cleanup of the drafts this run saves, when the development organisation's
 // Data API key is in the environment (scripts/lib/canary-archive.js).
