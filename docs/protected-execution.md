@@ -806,9 +806,10 @@ from its own signing time (signed requests are never written to disk).
   (deleted, or archived where the Data API won't delete); `--cleanup --run` removes leftovers.
 - `scope`'s `store-submit_practice` step stores one response in the sandbox, then reads it back.
 
-The established-session probe (`--probe research`) is a placeholder until step 1 names the
-provider call a contained session can still make; until then it records `probe-not-named`, and the
-network log is the only evidence, whose silence is never read as expiry. `caches` checks
+The established-session probe (`--probe isvalid`, the default; or `save`, `submit`) runs before
+and after `expires`. A Questions session's `isValid` makes no server call, so the result is
+`probe-unconfirmed`: on 2026-10-18 the established-session lifetime couldn't be measured from the
+client, and is recorded as documented (AT-10). Silence in the network log is never read as expiry. `caches` checks
 `Cache-Control` on `GET /data` (system and connection), `POST /compile` and `POST /preview/sign`;
 `--scan-documents` scans `compiles`, `artifacts`, `artifact-heads` and Policy's `publications` for
 signature fields and prints counts and paths only.
