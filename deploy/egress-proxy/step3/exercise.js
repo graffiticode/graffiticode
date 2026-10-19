@@ -51,6 +51,8 @@ async function http(method, path, { headers = {}, body } = {}) {
   return { status: res.status, json, text };
 }
 
+const parseOr = text => { try { return JSON.parse(text); } catch { return undefined; } };
+
 // 1. Health and the bootstrap.
 for (const p of ["/", "/lexicon.js"]) {
   const r = await http("GET", p);
@@ -76,7 +78,9 @@ for (const [i, c] of cases.entries()) {
   if (r.status !== 200) { failed++; if (failures.length < 5) failures.push({ case: i, status: r.status, body: r.text.slice(0, 200) }); continue; }
   answered++;
   const got = r.json?.data !== undefined ? r.json.data : r.json;
-  if (c.expect && "data" in c.expect && JSON.stringify(got) === JSON.stringify(c.expect.data)) matched++;
+  // A case's expected result is `expect.data` (L0000's corpus) or `expect.text`, its JSON text (L0176's).
+  const expected = c.expect && ("data" in c.expect ? c.expect.data : typeof c.expect.text === "string" ? parseOr(c.expect.text) : undefined);
+  if (expected !== undefined && JSON.stringify(got) === JSON.stringify(expected)) matched++;
 }
 record("POST /compile corpus", failed === 0, { cases: cases.length, answered, matchedExpected: matched, failed, failures });
 

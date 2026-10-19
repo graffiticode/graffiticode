@@ -124,11 +124,12 @@ test("Broker's refusals are told apart: missing token, rejected caller, Cloud Ru
   assert.equal(classifyBroker({ via: "proxy", stage: "request", status: 200, headers: {}, body: "{}" }).outcome, "error");
   assert.equal(classifyBroker({ via: "proxy", stage: "connect", status: 403, headers: { "x-isolate01-refused": "unlisted" } }).outcome, "refused:proxy");
   // The request carries both identity headers and no Authorization.
-  const request = brokerRequest({ broker: { url: "https://broker.example" } }, "id-token");
+  const request = brokerRequest({ broker: { url: "https://broker.example" } }, "id-token", "caller-token");
   assert.equal(request.method, "POST");
   assert.equal(request.path, "/v1/execute");
   assert.deepEqual(Object.keys(request.headers).sort(), ["x-caller-identity", "x-serverless-authorization"]);
   assert.equal(request.headers["x-serverless-authorization"], "Bearer id-token");
+  assert.equal(request.headers["x-caller-identity"], "caller-token");
   assert.ok(!("authorization" in request.headers));
 });
 
@@ -182,12 +183,12 @@ test("the Broker request reaches a real Broker app as a POST with both identity 
     identifyCaller: async req => {
       const token = req.get("X-Caller-Identity");
       if (!token) throw new UnauthenticatedError("missing X-Caller-Identity");
-      if (token !== "id-l0176") throw new UnauthorizedError("unknown caller");
+      if (token !== "caller-l0176") throw new UnauthorizedError("unknown caller");
       return { email: "l0176-run@graffiticode.iam.gserviceaccount.com" };
     },
   });
   const seen = [];
-  const invokers = new Set(["id-l0176"]);
+  const invokers = new Set(["id-l0176 for https://broker.test"]);
   // Cloud Run in front of it: an invoker token in X-Serverless-Authorization, or its own HTML 403.
   const origin = https.createServer(tls, (req, res) => {
     seen.push({ method: req.method, url: req.url, headers: { ...req.headers } });
@@ -204,20 +205,20 @@ test("the Broker request reaches a real Broker app as a POST with both identity 
   const config = { proxy: `http://127.0.0.1:${proxy.address().port}`, ca: tls.cert, timeoutMs: 5000, nonce: "n1" };
   try {
     // The listed-invoker row: the request is made exactly as a compiler makes it.
-    const [result] = await CHECKS["broker-no-token"]({ ...config, broker: { url: "https://broker.test", relationship: "invoker" } }, { idToken: async () => "id-l0176" });
+    const [result] = await CHECKS["broker-no-token"]({ ...config, broker: { url: "https://broker.test", relationship: "invoker" } }, { idToken: async audience => (audience === "urn:graffiticode:broker" ? "caller-l0176" : `id-l0176 for ${audience}`) });
     assert.deepEqual(result.result, { outcome: "refused:broker", status: 401, reason: "missing-execution-token" }, JSON.stringify(result.observation));
     const sent = seen.at(-1);
     assert.equal(sent.method, "POST");
     assert.equal(sent.url, "/v1/execute");
-    assert.equal(sent.headers["x-serverless-authorization"], "Bearer id-l0176");
-    assert.equal(sent.headers["x-caller-identity"], "id-l0176");
+    assert.equal(sent.headers["x-serverless-authorization"], "Bearer id-l0176 for https://broker.test", "Cloud Run's token is for the service URL");
+    assert.equal(sent.headers["x-caller-identity"], "caller-l0176", "Broker's caller token is for its URN");
     assert.equal(sent.headers.authorization, undefined, "no Authorization: that's where the execution token goes");
     assert.ok(sent.headers["x-isolate01-probe"].startsWith("n1-"), "the inner request carries the probe id");
     assert.match(heads.at(-1), /^CONNECT broker\.test:443 HTTP\/1\.1\r\n/);
     assert.match(heads.at(-1), new RegExp(`x-isolate01-probe: ${sent.headers["x-isolate01-probe"]}\\r\\n`), "the CONNECT carries the same probe id");
 
     // Without X-Caller-Identity, Broker rejects the caller: a 401 the row doesn't accept.
-    const request = brokerRequest({ broker: { url: "https://broker.test" } }, "id-l0176");
+    const request = brokerRequest({ broker: { url: "https://broker.test" } }, "id-l0176 for https://broker.test", "caller-l0176");
     delete request.headers["x-caller-identity"];
     const { authority, ...rest } = request;
     const observation = await through(config, authority, rest);
@@ -227,7 +228,7 @@ test("the Broker request reaches a real Broker app as a POST with both identity 
     assert.ok(!meets(MATRIX.find(r => r.id === "broker-no-token").default, noCaller));
 
     // The listed-without-invoker row: Cloud Run's own refusal, before Broker.
-    const [noInvoker] = await CHECKS["broker-no-invoker"]({ ...config, broker: { url: "https://broker.test", relationship: "no-invoker" } }, { idToken: async () => "id-l0003" });
+    const [noInvoker] = await CHECKS["broker-no-invoker"]({ ...config, broker: { url: "https://broker.test", relationship: "no-invoker" } }, { idToken: async audience => `id-l0003 for ${audience}` });
     assert.deepEqual(noInvoker.result, { outcome: "refused:cloudrun-iam", status: 403 });
     assert.ok(meets(MATRIX.find(r => r.id === "broker-no-invoker").default, noInvoker.result));
   } finally {

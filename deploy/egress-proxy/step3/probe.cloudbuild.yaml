@@ -1,0 +1,8 @@
+# Builds and pushes the step 3 probe image to production's Artifact Registry.
+steps:
+- name: gcr.io/cloud-builders/docker
+  args: ["build", "-f", "deploy/egress-proxy/step3/Dockerfile.probe", "-t", "us-central1-docker.pkg.dev/graffiticode/services/at11-probe:step3", "."]
+images: ["us-central1-docker.pkg.dev/graffiticode/services/at11-probe:step3"]
+serviceAccount: projects/graffiticode/serviceAccounts/deploy-build@graffiticode.iam.gserviceaccount.com
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -1,0 +1,63 @@
+{
+  "$comment": "ISOLATE-01 step 3: AT-11 network probe config for L0176 in production (scripts/at11/net.js), as l0176-run on compilers-l0176. Policy and Broker are on L0176's list, so the run.app, trailing-dot and fronting targets are another project's (graffiticode-isolate01). A listed host with a trailing dot (policy-....run.app.) isn't a target: the outer listener strips the dot and allows the CONNECT, and the inner listener has no filter chain for the dotted SNI (NR), a TLS-level refusal recorded in the step 3 evidence.",
+  "proxy": "http://10.8.0.2:3128",
+  "unlisted": [
+    "example.com"
+  ],
+  "learnosity": [
+    "items.learnosity.com",
+    "data.learnosity.com",
+    "learnosity.com"
+  ],
+  "trailingDot": [
+    "learnosity.com.",
+    "items.learnosity.com.",
+    "at11-own-default-o3flcplpsa-uc.a.run.app."
+  ],
+  "ipLiterals": [
+    "54.230.0.1",
+    "[2600:9000::1]"
+  ],
+  "redirect": "https://httpbin.org/redirect-to?url=https%3A%2F%2Fitems.learnosity.com%2F",
+  "rebinding": [
+    "meta.rebind.at11.graffiticode.org",
+    "ten.rebind.at11.graffiticode.org",
+    "lo.rebind.at11.graffiticode.org",
+    "lb.rebind.at11.graffiticode.org",
+    "flip.rebind.at11.graffiticode.org"
+  ],
+  "runApp": [
+    "at11-own-default-o3flcplpsa-uc.a.run.app"
+  ],
+  "frontendIp": "142.250.0.1",
+  "fronting": {
+    "sni": "api.graffiticode.org",
+    "host": "at11-own-default-o3flcplpsa-uc.a.run.app"
+  },
+  "relay": "https://httpbin.org/anything",
+  "dnsExfil": "at11.graffiticode.org",
+  "resolver": "8.8.8.8",
+  "publicIp": "1.1.1.1",
+  "broker": {
+    "url": "https://broker-sja7fatcta-uc.a.run.app",
+    "relationship": "invoker"
+  },
+  "actAs": {
+    "url": "https://auth.graffiticode.org",
+    "audience": "urn:graffiticode:auth"
+  },
+  "admin": {
+    "address": "10.8.0.3",
+    "port": 9901
+  },
+  "timeoutMs": 8000,
+  "kind": "lang",
+  "listed": [
+    "api.graffiticode.org",
+    "auth.graffiticode.org",
+    "policy-sja7fatcta-uc.a.run.app"
+  ],
+  "external": [
+    "www.googleapis.com"
+  ]
+}

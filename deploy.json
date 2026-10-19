@@ -896,6 +896,25 @@
       "port": 50176,
       "access": "public",
       "runtimeServiceAccount": "l0176-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0176",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org",
+          "broker-sja7fatcta-uc.a.run.app",
+          "policy-sja7fatcta-uc.a.run.app",
+          "www.googleapis.com"
+        ]
+      },
       "include": [
         "languages/l0176",
         "configs/Dockerfile.l0176.yaml"
