@@ -53,7 +53,8 @@ describe("spec programs", () => {
         await expect(compile(src), `${f}:\n${src}`).resolves.toBeTruthy();
       }
     }
-  });
+    // Every spec program, one after another: over vitest's 5 s default in Cloud Build.
+  }, 30000);
 
   test("the starter template compiles to a chart with data", async () => {
     const out = await compile(readFileSync("spec/template.gc", "utf-8"));
