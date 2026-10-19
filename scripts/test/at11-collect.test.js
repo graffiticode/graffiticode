@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { collect, evidenceFrom, jobsOf, writeRun, kernelText } from "../at11/collect.js";
+import { collect, evidenceFrom, jobsOf, writeRun, kernelText, compilerInventory, inventoryProblems, compilerJobs } from "../at11/collect.js";
 import { VERSION } from "../at11/iam.js";
 
 const NONCE = "00aa11bb22cc33dd";
@@ -52,6 +52,8 @@ function fakeDeps(overrides = {}) {
   let dnsCall = 0;
   const deps = {
     nonce: NONCE,
+    // The one compiler this config probes is the whole inventory, unless a test says otherwise.
+    inventory: async () => overrides.inventory ?? [{ account: "l0176-run@graffiticode.iam.gserviceaccount.com", sources: ["deploy.json", "iam"] }],
     now,
     sleep: async () => {},
     runJob: async (job, env) => { calls.push(`run ${job} ${env.AT11_NONCE}`); return overrides.runJob ? overrides.runJob(job) : { execution: executions[job] }; },
@@ -184,4 +186,35 @@ test("kernel lines are read from COS's journal entries (jsonPayload.MESSAGE), as
   const entry = { logName: "projects/p/logs/cos_journal_warning", jsonPayload: { MESSAGE: "ISOLATE01-REJECT metadata IN= OUT=eth0 SRC=10.8.0.4 DST=169.254.169.254 LEN=60 PROTO=TCP SPT=52256 DPT=443" } };
   assert.match(kernelText(entry), /DST=169\.254\.169\.254/);
   assert.equal(kernelText({ textPayload: "ISOLATE01-REJECT lb DST=10.8.0.2" }), "ISOLATE01-REJECT lb DST=10.8.0.2");
+});
+
+// Step 7: every compiler account, not only deploy.json's.
+test("the inventory is deploy.json's languages and every compiler account in the project", () => {
+  const inventory = compilerInventory({
+    deployServices: { api: { runtimeServiceAccount: "api-run@graffiticode.iam.gserviceaccount.com" }, l0176: { runtimeServiceAccount: "l0176-run@graffiticode.iam.gserviceaccount.com" }, l0176r: {} },
+    serviceAccounts: ["l0176-run@graffiticode.iam.gserviceaccount.com", "l0158-run@graffiticode.iam.gserviceaccount.com", "policy-run@graffiticode.iam.gserviceaccount.com", "l0002-run@graffiticode.iam.gserviceaccount.com", "l0176-run@other.iam.gserviceaccount.com"],
+  });
+  assert.deepEqual(inventory.map(i => [i.account.split("@")[0], i.sources.join("+")]), [
+    ["l0002-run", "iam"], ["l0158-run", "iam"], ["l0176-run", "deploy.json+iam"], ["l0176r-run", "deploy.json"],
+  ]);
+  assert.deepEqual(compilerJobs(inventory.slice(0, 1)), [{ subject: "l0002-run", net: "at11-net-l0002", iam: "at11-iam-l0002" }]);
+});
+
+test("a run must probe or exclude, with a reason, every compiler account, and nothing else", () => {
+  const inventory = [{ account: "l0002-run@graffiticode.iam.gserviceaccount.com" }, { account: "l0176-run@graffiticode.iam.gserviceaccount.com" }];
+  const probes176 = { compilers: [{ subject: "l0176-run" }] };
+  assert.deepEqual(inventoryProblems(probes176, inventory), ["l0002-run@graffiticode.iam.gserviceaccount.com is neither probed nor excluded"]);
+  assert.deepEqual(inventoryProblems({ ...probes176, excluded: [{ subject: "l0002-run", reason: "no service deployed (2026-10-19)" }] }, inventory), []);
+  assert.match(inventoryProblems({ ...probes176, excluded: [{ subject: "l0002-run", reason: " " }] }, inventory).join(), /without a reason/);
+  assert.match(inventoryProblems({ compilers: [{ subject: "l0176-run" }, { subject: "l0002-run" }], excluded: [{ subject: "l0002-run", reason: "x" }] }, inventory).join(), /both probed and excluded/);
+  assert.match(inventoryProblems({ compilers: [...probes176.compilers, { subject: "l0002-run" }, { subject: "api-run" }] }, inventory).join(), /api-run.* isn't a compiler account/);
+});
+
+test("a run that leaves a compiler account out is void before any job starts", async () => {
+  const { deps, calls } = fakeDeps({ inventory: [{ account: "l0176-run@graffiticode.iam.gserviceaccount.com" }, { account: "l0158-run@graffiticode.iam.gserviceaccount.com" }] });
+  const result = await collect(config, deps);
+  assert.equal(result.void, true);
+  assert.match(result.why, /l0158-run.*neither probed nor excluded/);
+  assert.deepEqual(calls, []);
+  await assert.rejects(collect(config, { ...deps, inventory: undefined }), /compiler inventory/);
 });

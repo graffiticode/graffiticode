@@ -21,6 +21,9 @@
 //   region:   "us-central1"
 //   control:  "at11-iam-control"                          the control's IAM job
 //   compilers: [{ subject: "l0176-run", net: "at11-net-l0176", iam: "at11-iam-l0176" }, ...]
+//             every compiler account (compilerInventory: deploy.json's languages and every
+//             lNNNN-run / lNNNNr-run account in the project) must be here or in `excluded`
+//   excluded: [{ subject: "l0001-run", reason: "..." }, ...]   each with a stated reason
 //   dnsExfil: "<domain we run>"                           the same domain the net jobs use
 //   dnsLog:   { filter: "<Cloud Logging filter for the domain's query log>" }
 //   blocked:  { compilerSubnets: [...], proxySubnet: "...", loadBalancer: "..." }
@@ -42,6 +45,53 @@ const EVIDENCE = "AT11-EVIDENCE ";
 
 // A kernel log entry's text: COS's journal entries carry it as jsonPayload.MESSAGE.
 export const kernelText = e => e.jsonPayload?.MESSAGE ?? e.textPayload ?? "";
+
+// Every compiler account (step 7). deploy.json covers only the languages released by the deploy
+// CLI; others deploy from their own repositories, each with its own lNNNN-run account. So the
+// inventory is the union of deploy.json's language services and every lNNNN-run / lNNNNr-run
+// account in the project.
+export const COMPILER_ACCOUNT = /^l\d{4}r?-run@graffiticode\.iam\.gserviceaccount\.com$/;
+export function compilerInventory({ deployServices = {}, serviceAccounts = [] }) {
+  const accounts = new Map();
+  for (const [name, entry] of Object.entries(deployServices)) {
+    if (!/^l\d{4}r?$/.test(name)) continue;
+    const account = entry.runtimeServiceAccount ?? `${name}-run@graffiticode.iam.gserviceaccount.com`;
+    accounts.set(account, { account, sources: ["deploy.json"] });
+  }
+  for (const account of serviceAccounts) {
+    if (!COMPILER_ACCOUNT.test(account)) continue;
+    const known = accounts.get(account);
+    if (known) known.sources.push("iam");
+    else accounts.set(account, { account, sources: ["iam"] });
+  }
+  return [...accounts.values()].sort((a, b) => a.account.localeCompare(b.account));
+}
+
+const fullAccount = subject => (String(subject).includes("@") ? String(subject) : `${subject}@graffiticode.iam.gserviceaccount.com`);
+
+// What a run's config leaves out of the inventory: every compiler account must be probed or
+// excluded with a stated reason, and nothing may be probed or excluded that isn't a compiler.
+export function inventoryProblems(config, inventory) {
+  const probed = new Set((config.compilers ?? []).map(c => fullAccount(c.subject)));
+  const excluded = new Map((config.excluded ?? []).map(e => [fullAccount(e.subject), e.reason]));
+  const known = new Set(inventory.map(i => i.account));
+  const problems = [];
+  for (const { account } of inventory) {
+    if (!probed.has(account) && !excluded.has(account)) problems.push(`${account} is neither probed nor excluded`);
+  }
+  for (const [account, reason] of excluded) {
+    if (!(typeof reason === "string" && reason.trim())) problems.push(`${account} is excluded without a reason`);
+    if (probed.has(account)) problems.push(`${account} is both probed and excluded`);
+  }
+  for (const account of [...probed, ...excluded.keys()]) if (!known.has(account)) problems.push(`${account} isn't a compiler account`);
+  return problems;
+}
+
+// The collect.json compilers entries for an inventory: one net job and one IAM job each.
+export const compilerJobs = inventory => inventory.map(({ account }) => {
+  const lang = account.split("@")[0].replace(/-run$/, "");
+  return { subject: `${lang}-run`, net: `at11-net-${lang}`, iam: `at11-iam-${lang}` };
+});
 
 // The jobs a run starts: the control, then each compiler's net and IAM jobs.
 export function jobsOf(config) {
@@ -90,10 +140,16 @@ export function judgeCompiler({ net, iam, control, digests, logs, dnsLog, dnsCon
 // The whole run. Every cloud and log call goes through `deps`, so tests drive it with
 // recorded output.
 export async function collect(config, deps) {
-  const { runJob, describeExecution, readLogs, resolveOutside, readDnsLog, now = () => new Date().toISOString(), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), nonce = randomBytes(8).toString("hex") } = deps;
+  const { runJob, describeExecution, readLogs, resolveOutside, readDnsLog, inventory, now = () => new Date().toISOString(), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), nonce = randomBytes(8).toString("hex") } = deps;
   const attempts = config.retries?.attempts ?? 6;
   const waitMs = config.retries?.waitMs ?? 30000;
   const startedAt = now();
+
+  // 0. Every compiler account, before any job starts.
+  if (typeof inventory !== "function") throw new Error("the collector needs the compiler inventory");
+  const accounts = await inventory();
+  const gaps = inventoryProblems(config, accounts);
+  if (gaps.length) return { nonce, passed: false, void: true, why: `the run doesn't cover every compiler account: ${gaps.join("; ")}`, inventory: accounts.length };
 
   // 1–2. Start every job with the nonce; wait; one digest for all.
   const jobs = jobsOf(config);
@@ -167,6 +223,8 @@ export async function collect(config, deps) {
     dnsControl,
     passed: subjects.every(s => s.passed),
     void: subjects.some(s => s.void),
+    inventory: accounts.length,
+    excluded: config.excluded ?? [],
     subjects,
     jobs: jobs.map(({ evidence, ...j }) => j),
   };
@@ -193,6 +251,11 @@ export function gcloudDeps(config) {
   const read = async (filter) => (await gcloud(["logging", "read", filter, p, "--limit=10000", "--order=asc"])) ?? [];
   const window = (from, to) => `timestamp>="${from}" AND timestamp<="${to}"`;
   return {
+    // Read-only: deploy.json and the project's service accounts.
+    inventory: async () => compilerInventory({
+      deployServices: JSON.parse(await readFile(path.join(ROOT, "deploy.json"), "utf8")).services,
+      serviceAccounts: ((await gcloud(["iam", "service-accounts", "list", p])) ?? []).map(a => a.email),
+    }),
     runJob: async (job, env) => {
       const op = await gcloud(["run", "jobs", "execute", job, p, r, "--async", `--update-env-vars=${Object.entries(env).map(([k, v]) => `${k}=${v}`).join(",")}`]);
       return { execution: op?.metadata?.name?.split("/").pop() ?? op?.name?.split("/").pop() ?? null };

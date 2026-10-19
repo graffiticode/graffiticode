@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checksFor, judgeDenied, judgeAllowed, runIam, combine, coverageProblems, VERSION, PRIVILEGED, IMPERSONATION_PERMISSIONS, FIRESTORE_PERMISSIONS } from "../at11/iam.js";
+import { checksFor, judgeDenied, judgeAllowed, runIam, combine, coverageProblems, subjectProblems, accountOf, VERSION, PRIVILEGED, IMPERSONATION_PERMISSIONS, FIRESTORE_PERMISSIONS } from "../at11/iam.js";
 
 const iamConfig = {
   project: "graffiticode",
@@ -206,4 +206,38 @@ test("stand-ins replace PRIVILEGED only in the scratch project (step 0)", () => 
   assert.ok(coverageProblems({ ...scratch, databases: scratch.databases.slice(0, 1) }).some(p => /2 stand-in databases/.test(p)));
   assert.ok(coverageProblems({ ...scratch, impersonate: ["api-run@graffiticode.iam.gserviceaccount.com"] }).some(p => /impersonate outside/.test(p)), "a stand-in must be a scratch resource");
   assert.ok(coverageProblems({ ...scratch, standIns: false }).length > 5, "without standIns, PRIVILEGED applies");
+});
+
+// Step 7: each compiler run is the identity it names, with its own positive control.
+test("a compiler config must carry its own positive control", () => {
+  const { ownAudience: _a, ...without } = iamConfig;
+  assert.ok(coverageProblems(without).some(p => /positive control/.test(p)));
+  assert.ok(!coverageProblems(iamConfig).some(p => /positive control/.test(p)));
+});
+
+test("a compiler run fails unless it ran as its subject, against its own service", async () => {
+  const service = iamConfig.service;
+  const lang = service.split("/services/")[1];
+  const subject = `${lang}-run`;
+  assert.equal(accountOf(subject), `${lang}-run@graffiticode.iam.gserviceaccount.com`);
+  assert.deepEqual(subjectProblems(subject, accountOf(subject), iamConfig), []);
+  assert.match(subjectProblems(subject, "l0000-run@graffiticode.iam.gserviceaccount.com", iamConfig).join(), /ran as l0000-run/);
+  assert.match(subjectProblems("l0158-run", "l0158-run@graffiticode.iam.gserviceaccount.com", iamConfig).join(), /isn't l0158's/);
+  const ok = await runIam(iamConfig, "compiler", { token: "t", doFetch: fetchWith(null), idToken: async () => "a.b.c", subject, identity: accountOf(subject) });
+  assert.equal(ok.passed, true);
+  const impostor = await runIam(iamConfig, "compiler", { token: "t", doFetch: fetchWith(null), idToken: async () => "a.b.c", subject, identity: "at11-control@graffiticode.iam.gserviceaccount.com" });
+  assert.equal(impostor.passed, false);
+  assert.match(impostor.rows.find(r => r.id === "subject").why, /ran as at11-control/);
+});
+
+test("no 400 counts as a success, for the compiler or the control, except the one each check names", () => {
+  for (const check of checksFor({ ...iamConfig.canary ?? iamConfig })) {
+    if (check.test) continue;
+    for (const rpc of [undefined, "INVALID_ARGUMENT", "FAILED_PRECONDITION", "OUT_OF_RANGE"]) {
+      const response = { status: 400, body: rpc ? { error: { status: rpc } } : {} };
+      const named = (check.allowed ?? []).some(a => a.status === 400 && a.rpc === rpc);
+      assert.equal(judgeDenied(check, response).passed, false, `${check.id} ${rpc}: a 400 passed as a denial`);
+      assert.equal(judgeAllowed(check, response).passed, named, `${check.id} ${rpc}: a 400 passed the control`);
+    }
+  }
 });
