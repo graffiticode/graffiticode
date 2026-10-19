@@ -516,9 +516,13 @@ export async function networkProblems(context, names, { cloud }) {
     const container = revision.spec?.containers?.[0];
     const env = Object.fromEntries((container?.env ?? []).filter(e => typeof e?.value === "string").map(e => [e.name, e.value]));
     for (const [k, v] of Object.entries(want)) if (env[k] !== v) why.push(k);
-    const volume = (revision.spec?.volumes ?? []).find(v => v.secret?.secretName === secretName &&
+    // Any volume carrying the CA, mounted at the CA's directory. A revision built from a
+    // template that already had the mount (a second release, or a re-stage) carries the old
+    // volume too, unmounted, beside the new one: found in step 3's re-stage of L0000, where
+    // taking the first matching volume refused a correctly mounted candidate.
+    const volumes = (revision.spec?.volumes ?? []).filter(v => v.secret?.secretName === secretName &&
       (v.secret.items ?? []).some(i => i.path === caFile && i.key === secretVersion));
-    const mounted = volume && (container?.volumeMounts ?? []).some(m => m.name === volume.name && m.mountPath === caDir);
+    const mounted = volumes.some(volume => (container?.volumeMounts ?? []).some(m => m.name === volume.name && m.mountPath === caDir));
     if (!mounted) why.push("ca");
     if (why.length) problems.push({ revision: name, problems: why });
   }
