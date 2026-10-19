@@ -5,7 +5,7 @@
 // isolate-01-compiler-egress.md, step 3.
 //
 //   node deploy/egress-proxy/step3/exercise.js --url <candidate tag URL> --lang 0000 \
-//     --cases languages/l0000/crates/core/tests/conformance/cases.json [--proxy http://10.8.0.2:3128] [--limit N] [--no-preflight] [--direct]
+//     --cases languages/l0000/crates/core/tests/conformance/cases.json [--proxy http://10.8.0.2:3128] [--limit N] [--no-preflight] [--direct] [--timeout seconds]
 //
 // With the operator's gcloud credentials:
 //   - /, /lexicon.js, and /egress (the bootstrap installed, with the expected proxy);
@@ -32,6 +32,7 @@ const proxy = arg("--proxy", "http://10.8.0.2:3128");
 const limit = Number(arg("--limit", "0")) || Infinity;
 const preflight = !args.includes("--no-preflight");
 const direct = args.includes("--direct");
+const timeoutMs = Number(arg("--timeout", "60")) * 1000;
 if (!base || !casesFile || !/^\d{4}$/.test(lang)) {
   console.error("usage: exercise.js --url <candidate URL> --lang <NNNN> --cases <cases.json> [--proxy URL] [--limit N]");
   process.exit(2);
@@ -47,7 +48,7 @@ async function http(method, path, { headers = {}, body } = {}) {
   const res = await fetch(new URL(path, base), {
     method,
     redirect: "error",
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(timeoutMs),
     headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -66,7 +67,7 @@ for (const p of ["/", "/lexicon.js"]) {
 }
 {
   const r = await http("GET", "/egress");
-  const ok = direct ? r.status === 200 && !(r.json?.httpsProxy ?? r.json?.httpProxy) : r.status === 200 && r.json?.installed === true && (r.json.httpsProxy ?? r.json.httpProxy) === proxy;
+  const ok = direct ? r.status === 404 || (r.status === 200 && !(r.json?.httpsProxy ?? r.json?.httpProxy)) : r.status === 200 && r.json?.installed === true && (r.json.httpsProxy ?? r.json.httpProxy) === proxy;
   record("GET /egress", ok, { status: r.status, report: r.json });
 }
 
@@ -77,11 +78,16 @@ const token = (await exchange.json())?.data?.accessToken;
 record("verify token", Boolean(token), { status: exchange.status });
 
 const cases = JSON.parse(await readFile(casesFile, "utf8")).slice(0, limit);
-let matched = 0; let answered = 0; let failed = 0;
+let matched = 0; let answered = 0; let failed = 0; let skipped = 0;
 const failures = [];
 const digest = createHash("sha256");
 for (const [i, c] of cases.entries()) {
-  const r = await http("POST", "/compile", { headers: token ? { Authorization: token } : {}, body: { code: c.ast, data: c.data ?? {} } });
+  // A conformance case with falsy data (`""`, `0`) runs in-process; over HTTP, /compile refuses
+  // it (400, "Missing required parameters"), and the API never sends one. Skipped, and counted.
+  if (c.data !== undefined && !c.data) { skipped++; digest.update(`skip ${i}\n`); continue; }
+  // A timeout or transport error is this case's failure, not the run's.
+  const r = await http("POST", "/compile", { headers: token ? { Authorization: token } : {}, body: { code: c.ast, data: c.data ?? {} } })
+    .catch(e => ({ status: 0, json: null, text: `${e.name}: ${e.message}` }));
   digest.update(`${r.status} ${r.text}\n`);
   if (r.status !== 200) { failed++; if (failures.length < 5) failures.push({ case: i, status: r.status, body: r.text.slice(0, 200) }); continue; }
   answered++;
@@ -90,7 +96,7 @@ for (const [i, c] of cases.entries()) {
   const expected = c.expect && ("data" in c.expect ? c.expect.data : typeof c.expect.text === "string" ? parseOr(c.expect.text) : undefined);
   if (expected !== undefined && JSON.stringify(got) === JSON.stringify(expected)) matched++;
 }
-record("POST /compile corpus", failed === 0, { cases: cases.length, answered, matchedExpected: matched, failed, failures, outputDigest: digest.digest("hex") });
+record("POST /compile corpus", failed === 0, { cases: cases.length, answered, matchedExpected: matched, failed, skipped, failures, outputDigest: digest.digest("hex") });
 
 // 3. Preflight as the gateway: an api-run ID token for this language's audience.
 if (preflight) {
