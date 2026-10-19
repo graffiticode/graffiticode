@@ -617,6 +617,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0000r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -653,6 +669,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0003r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -690,6 +722,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0010r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -764,6 +812,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0014r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -801,6 +865,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0174r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -838,6 +918,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0175r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -875,6 +971,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0176r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1270,6 +1382,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0177r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1366,6 +1494,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0178r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1462,6 +1606,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0179r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1558,6 +1718,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0180r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1654,6 +1830,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0181r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1750,6 +1942,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0182r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1855,6 +2063,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0183r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1960,6 +2184,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0184r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -2154,6 +2394,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0186r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
