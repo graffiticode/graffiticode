@@ -1,0 +1,34 @@
+{
+  "$comment": "ISOLATE-01 rollout step 7: the AT-11 IAM probe config shared by every compiler job (scripts/at11/iam.js); {lang} in service comes from --subject. canary is the control (at11-control) resources, provisioned by the operator at step 7: until then the control run fails, so every compiler run is void.",
+  "project": "graffiticode",
+  "secrets": [
+    "projects/graffiticode/secrets/broker-callers",
+    "projects/graffiticode/secrets/BROKER_SECRET_KEY",
+    "projects/graffiticode/secrets/policy-callers",
+    "projects/graffiticode/secrets/audit-pseudonym-secret",
+    "projects/graffiticode/secrets/act-as-callers",
+    "projects/graffiticode/secrets/act-as-grant-secret",
+    "projects/graffiticode/secrets/auth-internal-api-key",
+    "projects/graffiticode/secrets/edge-auth-secret",
+    "projects/graffiticode-app/secrets/ACT_AS_GRANT_SECRET"
+  ],
+  "databases": [
+    "projects/graffiticode/databases/broker",
+    "projects/graffiticode/databases/policy"
+  ],
+  "kmsKeys": [
+    "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1"
+  ],
+  "impersonate": [
+    "policy-run@graffiticode.iam.gserviceaccount.com",
+    "broker-run@graffiticode.iam.gserviceaccount.com",
+    "api-run@graffiticode.iam.gserviceaccount.com",
+    "auth-run@graffiticode.iam.gserviceaccount.com",
+    "console-run@graffiticode-app.iam.gserviceaccount.com",
+    "mcp-run@graffiticode-app.iam.gserviceaccount.com",
+    "openapi-run@graffiticode-app.iam.gserviceaccount.com"
+  ],
+  "service": "projects/graffiticode/locations/us-central1/services/{lang}",
+  "ownAudience": "urn:graffiticode:at11",
+  "canary": null
+}

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checksFor, judgeDenied, judgeAllowed, runIam, combine, coverageProblems, subjectProblems, accountOf, VERSION, PRIVILEGED, IMPERSONATION_PERMISSIONS, FIRESTORE_PERMISSIONS } from "../at11/iam.js";
+import { checksFor, judgeDenied, judgeAllowed, runIam, combine, coverageProblems, subjectProblems, accountOf, resolveForSubject, VERSION, PRIVILEGED, IMPERSONATION_PERMISSIONS, FIRESTORE_PERMISSIONS } from "../at11/iam.js";
 
 const iamConfig = {
   project: "graffiticode",
@@ -240,4 +240,24 @@ test("no 400 counts as a success, for the compiler or the control, except the on
       assert.equal(judgeAllowed(check, response).passed, named, `${check.id} ${rpc}: a 400 passed the control`);
     }
   }
+});
+
+test("one IAM config serves every compiler: {lang} in its service comes from the subject", () => {
+  const shared = { ...iamConfig, service: "projects/graffiticode/locations/us-central1/services/{lang}" };
+  assert.equal(resolveForSubject(shared, "l0002-run").service, "projects/graffiticode/locations/us-central1/services/l0002");
+  assert.equal(resolveForSubject(shared, "l0176r-run@graffiticode.iam.gserviceaccount.com").service, "projects/graffiticode/locations/us-central1/services/l0176r");
+  assert.deepEqual(subjectProblems("l0002-run", accountOf("l0002-run"), resolveForSubject(shared, "l0002-run")), []);
+  assert.equal(resolveForSubject(iamConfig, "l0002-run"), iamConfig, "a config without {lang} is unchanged");
+  assert.equal(resolveForSubject(shared, null), shared, "the control's config is unchanged");
+});
+
+test("the committed step 7 IAM config covers every privileged resource for any compiler, and voids runs until the control is provisioned", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const shared = JSON.parse(await readFile(new URL("../../deploy/egress-proxy/step7/at11/iam.json", import.meta.url), "utf8"));
+  for (const subject of ["l0002-run", "l0176-run", "l0176r-run"]) {
+    const config = resolveForSubject(shared, subject);
+    assert.deepEqual(coverageProblems(config), [], subject);
+    assert.deepEqual(subjectProblems(subject, accountOf(subject), config), [], subject);
+  }
+  await assert.rejects(runIam(shared, "control", { token: "t", doFetch: async () => new Response("{}") }), /no canary resources/);
 });

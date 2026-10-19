@@ -168,6 +168,14 @@ export function coverageProblems(config) {
 // The account a subject names: "l0176-run" or a full email.
 export const accountOf = subject => (String(subject).includes("@") ? String(subject) : `${subject}@graffiticode.iam.gserviceaccount.com`);
 
+// One IAM config serves every compiler: its own service may be written with {lang}, filled in
+// from the subject (l0176-run -> .../services/l0176).
+export function resolveForSubject(config, subject) {
+  if (!subject || typeof config.service !== "string" || !config.service.includes("{lang}")) return config;
+  const lang = accountOf(subject).split("@")[0].replace(/-run$/, "");
+  return { ...config, service: config.service.replaceAll("{lang}", lang) };
+}
+
 // A compiler run must be the identity it claims, checking its own service (step 7): the job ran
 // as the subject's account, and the config's service is that compiler's (l0176-run, .../services/l0176).
 export function subjectProblems(subject, identity, config) {
@@ -300,7 +308,7 @@ async function main() {
   if (!["compiler", "control"].includes(role) || !args["--subject"] || !args["--config"]) {
     throw new Error("usage: iam.js --role compiler|control --subject <account> --config <iam.json> [--out dir]");
   }
-  const config = JSON.parse(await readFile(args["--config"], "utf8"));
+  const config = resolveForSubject(JSON.parse(await readFile(args["--config"], "utf8")), role === "compiler" ? args["--subject"] : null);
   const token = JSON.parse(await metadata("instance/service-accounts/default/token")).access_token;
   const email = await metadata("instance/service-accounts/default/email");
   const result = {
