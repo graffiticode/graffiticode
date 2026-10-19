@@ -5,7 +5,7 @@
 // isolate-01-compiler-egress.md, step 3.
 //
 //   node deploy/egress-proxy/step3/exercise.js --url <candidate tag URL> --lang 0000 \
-//     --cases languages/l0000/crates/core/tests/conformance/cases.json [--proxy http://10.8.0.2:3128] [--limit N]
+//     --cases languages/l0000/crates/core/tests/conformance/cases.json [--proxy http://10.8.0.2:3128] [--limit N] [--no-preflight] [--direct]
 //
 // With the operator's gcloud credentials:
 //   - /, /lexicon.js, and /egress (the bootstrap installed, with the expected proxy);
@@ -14,10 +14,14 @@
 //     api.graffiticode.org;
 //   - /preflight as the gateway (an api-run ID token for urn:graffiticode:<lang>, minted with
 //     the IAM Credentials API): Google's certs from www.googleapis.com, and Policy.
+// --no-preflight skips the gateway step, for a language with no PREFLIGHT_GATEWAYS. --direct
+// expects /egress to report no proxy (an unproxied baseline). `outputDigest` hashes every
+// compile's status and body in order, so a candidate and its baseline can be compared exactly.
 // Prints one JSON summary, with the run's window for `refusals.js --since`.
 
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 
 const args = process.argv.slice(2);
 const arg = (name, fallback) => { const i = args.indexOf(name); return i === -1 ? fallback : args[i + 1]; };
@@ -26,6 +30,8 @@ const lang = String(arg("--lang", "")).replace(/^L/i, "").padStart(4, "0");
 const casesFile = arg("--cases");
 const proxy = arg("--proxy", "http://10.8.0.2:3128");
 const limit = Number(arg("--limit", "0")) || Infinity;
+const preflight = !args.includes("--no-preflight");
+const direct = args.includes("--direct");
 if (!base || !casesFile || !/^\d{4}$/.test(lang)) {
   console.error("usage: exercise.js --url <candidate URL> --lang <NNNN> --cases <cases.json> [--proxy URL] [--limit N]");
   process.exit(2);
@@ -60,7 +66,7 @@ for (const p of ["/", "/lexicon.js"]) {
 }
 {
   const r = await http("GET", "/egress");
-  const ok = r.status === 200 && r.json?.installed === true && (r.json.httpsProxy ?? r.json.httpProxy) === proxy;
+  const ok = direct ? r.status === 200 && !(r.json?.httpsProxy ?? r.json?.httpProxy) : r.status === 200 && r.json?.installed === true && (r.json.httpsProxy ?? r.json.httpProxy) === proxy;
   record("GET /egress", ok, { status: r.status, report: r.json });
 }
 
@@ -73,8 +79,10 @@ record("verify token", Boolean(token), { status: exchange.status });
 const cases = JSON.parse(await readFile(casesFile, "utf8")).slice(0, limit);
 let matched = 0; let answered = 0; let failed = 0;
 const failures = [];
+const digest = createHash("sha256");
 for (const [i, c] of cases.entries()) {
   const r = await http("POST", "/compile", { headers: token ? { Authorization: token } : {}, body: { code: c.ast, data: c.data ?? {} } });
+  digest.update(`${r.status} ${r.text}\n`);
   if (r.status !== 200) { failed++; if (failures.length < 5) failures.push({ case: i, status: r.status, body: r.text.slice(0, 200) }); continue; }
   answered++;
   const got = r.json?.data !== undefined ? r.json.data : r.json;
@@ -82,20 +90,22 @@ for (const [i, c] of cases.entries()) {
   const expected = c.expect && ("data" in c.expect ? c.expect.data : typeof c.expect.text === "string" ? parseOr(c.expect.text) : undefined);
   if (expected !== undefined && JSON.stringify(got) === JSON.stringify(expected)) matched++;
 }
-record("POST /compile corpus", failed === 0, { cases: cases.length, answered, matchedExpected: matched, failed, failures });
+record("POST /compile corpus", failed === 0, { cases: cases.length, answered, matchedExpected: matched, failed, failures, outputDigest: digest.digest("hex") });
 
 // 3. Preflight as the gateway: an api-run ID token for this language's audience.
-const operator = gcloud("auth", "print-access-token");
-const mint = await fetch("https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/api-run@graffiticode.iam.gserviceaccount.com:generateIdToken", {
-  method: "POST",
-  headers: { Authorization: `Bearer ${operator}`, "content-type": "application/json" },
-  body: JSON.stringify({ audience: `urn:graffiticode:${lang}`, includeEmail: true }),
-});
-const gatewayToken = (await mint.json())?.token;
-record("gateway token", Boolean(gatewayToken), { status: mint.status });
-if (gatewayToken) {
-  const r = await http("POST", "/preflight", { headers: { "X-Caller-Identity": gatewayToken }, body: { stage: "s1", lang, code: cases[0].ast } });
-  record("POST /preflight (gateway)", r.status === 200 && r.json?.status === "success", { status: r.status, body: r.text.slice(0, 300) });
+if (preflight) {
+  const operator = gcloud("auth", "print-access-token");
+  const mint = await fetch("https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/api-run@graffiticode.iam.gserviceaccount.com:generateIdToken", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${operator}`, "content-type": "application/json" },
+    body: JSON.stringify({ audience: `urn:graffiticode:${lang}`, includeEmail: true }),
+  });
+  const gatewayToken = (await mint.json())?.token;
+  record("gateway token", Boolean(gatewayToken), { status: mint.status });
+  if (gatewayToken) {
+    const r = await http("POST", "/preflight", { headers: { "X-Caller-Identity": gatewayToken }, body: { stage: "s1", lang, code: cases[0].ast } });
+    record("POST /preflight (gateway)", r.status === 200 && r.json?.status === "success", { status: r.status, body: r.text.slice(0, 300) });
+  }
 }
 
 result.endedAt = new Date().toISOString();
