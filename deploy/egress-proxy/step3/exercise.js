@@ -73,9 +73,14 @@ for (const p of ["/", "/lexicon.js"]) {
 
 // 2. The verify account's token (auth.graffiticode.org), then the corpus.
 const key = gcloud("secrets", "versions", "access", "latest", "--secret=verify-api-key", "--project=graffiticode");
-const exchange = await fetch(`${authUrl}/authenticate/api-key`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: key }) });
-const token = (await exchange.json())?.data?.accessToken;
-record("verify token", Boolean(token), { status: exchange.status });
+// The access token lasts about 5 minutes, so a long corpus exchanges a fresh one every 3.
+const exchangeToken = async () => {
+  const res = await fetch(`${authUrl}/authenticate/api-key`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: key }) });
+  return { status: res.status, token: (await res.json())?.data?.accessToken };
+};
+let { status: exchangeStatus, token } = await exchangeToken();
+let mintedAt = Date.now();
+record("verify token", Boolean(token), { status: exchangeStatus });
 
 const cases = JSON.parse(await readFile(casesFile, "utf8")).slice(0, limit);
 let matched = 0; let answered = 0; let failed = 0; let skipped = 0;
@@ -85,6 +90,7 @@ for (const [i, c] of cases.entries()) {
   // A conformance case with falsy data (`""`, `0`) runs in-process; over HTTP, /compile refuses
   // it (400, "Missing required parameters"), and the API never sends one. Skipped, and counted.
   if (c.data !== undefined && !c.data) { skipped++; digest.update(`skip ${i}\n`); continue; }
+  if (Date.now() - mintedAt > 180000) { ({ token } = await exchangeToken()); mintedAt = Date.now(); }
   // A timeout or transport error is this case's failure, not the run's.
   const r = await http("POST", "/compile", { headers: token ? { Authorization: token } : {}, body: { code: c.ast, data: c.data ?? {} } })
     .catch(e => ({ status: 0, json: null, text: `${e.name}: ${e.message}` }));
