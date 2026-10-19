@@ -934,7 +934,7 @@ test("a networked release deploys on the compiler network, through the proxy, tr
   const deploy = h.calls.find(c => c[1] === "deploy");
   for (const flag of ["--network=compilers", "--subnet=compilers-us-central1", "--vpc-egress=all-traffic", "--network-tags=compiler"]) assert.ok(deploy.includes(flag), flag);
   assert.ok(deploy.find(a => a.startsWith("--update-secrets=")).includes("/etc/gc-proxy/ca.pem=proxy-inspection-ca:1"));
-  assert.deepEqual(networkEnv(NETWORK), { HTTPS_PROXY: NETWORK.proxy, HTTP_PROXY: NETWORK.proxy, NO_PROXY: METADATA_ONLY, NODE_EXTRA_CA_CERTS: "/etc/gc-proxy/ca.pem" });
+  assert.deepEqual(networkEnv(NETWORK), { HTTPS_PROXY: NETWORK.proxy, HTTP_PROXY: NETWORK.proxy, NO_PROXY: METADATA_ONLY, NODE_EXTRA_CA_CERTS: "/etc/gc-proxy/ca.pem", NODE_USE_ENV_PROXY: "1" });
   assert.deepEqual(await networkProblems(networked, [receipt.revision], h.deps), []);
   // The secret check covers the CA too.
   assert.ok(h.calls.some(c => c[0] === "secrets" && c.includes("--secret=proxy-inspection-ca")));
@@ -1443,4 +1443,11 @@ test("a networked candidate must report its egress bootstrap installed, with its
   const asked = [];
   await run(async url => { asked.push(new URL(url).pathname); return new Response("OK"); }, config);
   assert.ok(!asked.includes("/egress"));
+});
+
+test("NODE_USE_ENV_PROXY is CLI-managed for a networked service (ISOLATE-01 step 3)", async () => {
+  // L0000's staged candidate couldn't fetch Google's certs for /preflight: jose uses node:https,
+  // which ignores the egress bootstrap's global dispatcher. NODE_USE_ENV_PROXY=1 routes it too.
+  assert.ok(NETWORK_ENV.includes("NODE_USE_ENV_PROXY"));
+  assert.equal(networkEnv(NETWORK).NODE_USE_ENV_PROXY, "1");
 });

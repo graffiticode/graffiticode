@@ -137,7 +137,7 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
     "network must be { network, subnet, tags: [..], proxy: \"http(s)://host:port\", ca: { secret: \"name:version\", path: \"/abs/file\" }, allow: [hostnames] }");
   if (config.network) {
     // The CLI sets these from `network`; a service may not set its own.
-    for (const name of ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "https_proxy", "http_proxy", "no_proxy"]) {
+    for (const name of ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "NODE_USE_ENV_PROXY", "https_proxy", "http_proxy", "no_proxy"]) {
       requireValue(!Object.prototype.hasOwnProperty.call(config.env || {}, name), `${name} comes from network; remove it from env`);
     }
   }
@@ -156,7 +156,7 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   `${key} must be a non-empty array of distinct environment variable names`);
   envNames(config.removeEnv, "removeEnv");
   envNames(config.forbiddenEnv, "forbiddenEnv");
-  const managed = ["GC_RELEASE", "GC_IMAGE_DIGEST", ...(config.network ? ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS"] : [])];
+  const managed = ["GC_RELEASE", "GC_IMAGE_DIGEST", ...(config.network ? ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "NODE_USE_ENV_PROXY"] : [])];
   for (const name of config.removeEnv || []) {
     requireValue(!Object.prototype.hasOwnProperty.call(config.env || {}, name), `${name} cannot be both set in env and listed in removeEnv`);
     requireValue(!managed.includes(name), `${name} is set by the deploy CLI; it can't be in removeEnv`);

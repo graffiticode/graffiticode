@@ -476,12 +476,17 @@ export async function belowBaseline(context, names, { cloud, git }, which = "cur
 // with. The proxy is its only route out; NO_PROXY exempts only the metadata
 // server, which the runtime uses for its own identity and tokens; the proxy's
 // private CA (public certificate only) is mounted from Secret Manager and
-// trusted by Node.
+// trusted by Node. NODE_USE_ENV_PROXY=1 makes Node's own http/https (Node
+// 22.21+) honour HTTPS_PROXY and NO_PROXY too: the egress bootstrap's global
+// dispatcher covers only fetch, and libraries on node:https (jose's JWKS
+// fetch, Google's clients) would otherwise go direct and be dropped. Found in
+// step 3: L0000's staged candidate couldn't fetch Google's certs for
+// /preflight, and the proxy never saw the request.
 export const METADATA_ONLY = "169.254.169.254,metadata.google.internal";
-export const NETWORK_ENV = Object.freeze(["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS"]);
+export const NETWORK_ENV = Object.freeze(["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "NODE_USE_ENV_PROXY"]);
 export function networkEnv(network) {
   if (!network) return {};
-  return { HTTPS_PROXY: network.proxy, HTTP_PROXY: network.proxy, NO_PROXY: METADATA_ONLY, NODE_EXTRA_CA_CERTS: network.ca.path };
+  return { HTTPS_PROXY: network.proxy, HTTP_PROXY: network.proxy, NO_PROXY: METADATA_ONLY, NODE_EXTRA_CA_CERTS: network.ca.path, NODE_USE_ENV_PROXY: "1" };
 }
 
 // The revisions among `names` that don't run with the network's settings, and
