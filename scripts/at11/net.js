@@ -96,7 +96,7 @@ export const BROKER_RELATIONSHIPS = ["unlisted", "no-invoker", "invoker"];
 //   dnsExfil:     "<domain we run, its authoritative log kept>"
 //   resolver:     "8.8.8.8"
 //   publicIp:     "1.1.1.1"
-//   broker:       { url, relationship: "unlisted" | "no-invoker" | "invoker", op?, payload? }
+//   broker:       { url, relationship: "unlisted" | "no-invoker" | "invoker", audience?, op?, payload? }
 //   actAs:        { url: "https://auth.graffiticode.org", audience? }
 //   admin:        { address: "10.8.0.2", port: 9901 }
 //   timeoutMs:    5000
@@ -397,13 +397,18 @@ async function one(target, pending, decide = classify) {
 // { op, payload }, the compiler's ID token as Cloud Run's invoker token
 // (X-Serverless-Authorization) and as the caller (X-Caller-Identity), and no Authorization,
 // which is where the execution token would go.
-export function brokerRequest(c, idToken) {
+// Two ID tokens, as a compiler sends them (languages/l0000/packages/core/src/protected-client.ts):
+// Cloud Run's invoker token for the service URL, and the caller token Broker verifies itself,
+// for its URN.
+export const BROKER_AUDIENCE = "urn:graffiticode:broker";
+
+export function brokerRequest(c, invokerToken, callerToken) {
   const url = new URL(c.broker.url);
   return {
     authority: `${url.hostname}:${url.port || 443}`,
     path: "/v1/execute",
     method: "POST",
-    headers: { "x-serverless-authorization": `Bearer ${idToken}`, "x-caller-identity": idToken },
+    headers: { "x-serverless-authorization": `Bearer ${invokerToken}`, "x-caller-identity": callerToken },
     body: { op: c.broker.op ?? "at11.probe", payload: c.broker.payload ?? {} },
   };
 }
@@ -412,9 +417,9 @@ const noToken = (target, e) => ({ target, observation: { error: `no ID token: ${
 
 async function brokerExecute(c, { idToken = metadataIdToken } = {}) {
   const target = `${c.broker.url}/v1/execute`;
-  let token;
-  try { token = await idToken(c.broker.url); } catch (e) { return noToken(target, e); }
-  const { authority, ...request } = brokerRequest(c, token);
+  let invoker; let caller;
+  try { [invoker, caller] = await Promise.all([idToken(c.broker.url), idToken(c.broker.audience ?? BROKER_AUDIENCE)]); } catch (e) { return noToken(target, e); }
+  const { authority, ...request } = brokerRequest(c, invoker, caller);
   return one(target, through(c, authority, request), classifyBroker);
 }
 
