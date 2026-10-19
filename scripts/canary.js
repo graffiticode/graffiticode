@@ -36,6 +36,12 @@
 //                           write's deadline plus the grace period
 //   --after-cutover         Policy runs MIN_CONTRACT_VERSION=2: v1-shaped
 //                           sessions must be refused
+//   --provider              AT-10 release-verify, on the gateway preview: signed by
+//                           the attested preview consumer, Broker's expires,
+//                           pinned type and session, no-store, and the
+//                           attestation in date and naming BROKER_PREVIEW_CONNECTIONS
+//   --attestation <file>    with --provider: the attestation file, when running
+//                           from a checkout without .gc-deploy/provider
 // The gateway's runtime account also mints the ID token for L0176's
 // /preflight (audience urn:graffiticode:0176), under the same role.
 
@@ -69,6 +75,17 @@ const authUrl = deploy.l0176.env.AUTH_URL;
 // `parse` reads L0176's lexicon from the api URL, once it's known.
 const { gcloud, serviceUrl, accessToken, idToken, parse } = createCanaryEnv({ uid, project, region, authUrl, apiUrl: () => config.apiUrl });
 
+// --provider: Broker's preview settings from deploy.json, and the preview
+// consumer's operator attestation (local, gitignored; see the runbook).
+async function providerConfig() {
+  const env = deploy.broker.env ?? {};
+  const previewConnection = JSON.parse(env.BROKER_PREVIEW_CONNECTIONS ?? "{}").learnosity ?? null;
+  // A release worktree has no local evidence: --attestation names the file.
+  const file = flag("--attestation") ?? new URL("../.gc-deploy/provider/preview-consumer-attestation.json", import.meta.url).pathname;
+  const attestation = await readFile(file, "utf8").then(JSON.parse, () => null);
+  return { previewConnection, expiresMinutes: Number(env.BROKER_PREVIEW_EXPIRES_MINUTES ?? 10), attestation };
+}
+
 const config = {
   apiUrl: flag("--api-url") ?? await serviceUrl("api"),
   policyUrl: deploy.l0176.env.POLICY_URL,
@@ -81,6 +98,7 @@ const config = {
   chainAdmission: args.includes("--chain-admission"),
   afterCutover: args.includes("--after-cutover"),
   reconcile: args.includes("--reconcile"),
+  provider: args.includes("--provider") ? await providerConfig() : null,
   languageUrl: args.includes("--chain-admission") || args.includes("--after-cutover") ? await serviceUrl("l0176") : null,
 };
 const retryFile = flag("--retry-state");

@@ -125,6 +125,63 @@ export const savedItemReferences = value => {
   return [...out];
 };
 
+// --provider (AT-10 release-verify): what the gateway preview's signed
+// request shows about Broker's preview signing, checked against the deployed
+// configuration and the preview consumer's operator attestation. Keys appear
+// only as fingerprints; nothing signed is printed.
+export const keyFingerprint = key => (typeof key === "string" && key ? `...${key.slice(-4)} sha256:${sha256(key).slice(0, 12)}` : null);
+// The first signed request in a compile's output, as { api, security, request }:
+// a Questions request carries its security fields merged in; an Items request
+// wraps { security, request }.
+export const signedPreviewRequest = value => {
+  if (Array.isArray(value)) {
+    for (const v of value) { const found = signedPreviewRequest(v); if (found) return found; }
+    return null;
+  }
+  if (!value || typeof value !== "object") return null;
+  if (isQuestionsSigned(value)) return { api: "questions", security: value, request: value };
+  let security = value.security;
+  if (typeof security === "string") { try { security = JSON.parse(security); } catch { security = null; } }
+  if (isSecurity(security)) {
+    let request = value.request;
+    if (typeof request === "string") { try { request = JSON.parse(request); } catch { request = null; } }
+    return { api: "items", security, request: request ?? {} };
+  }
+  for (const v of Object.values(value)) { const found = signedPreviewRequest(v); if (found) return found; }
+  return null;
+};
+// Learnosity's security time (YYYYMMDD-HHmm, UTC) as epoch ms, or null.
+export const learnosityMs = text => {
+  const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})$/.exec(String(text ?? ""));
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
+};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// provider: { expiresMinutes, previewConnection, attestation: { connectionId,
+// consumerKey, expiresAt } | null }. Returns [{ name, ok, detail }].
+export const providerChecks = ({ signed, cacheControl, provider, now }) => {
+  const checks = [];
+  const add = (name, ok, detail) => checks.push({ name: `provider: ${name}`, ok: Boolean(ok), detail });
+  if (!signed) {
+    add("signed request", false, "no signed request in the gateway preview");
+    return checks;
+  }
+  const consumer = keyFingerprint(signed.security.consumer_key);
+  const att = provider.attestation;
+  add("preview consumer", att && consumer === att.consumerKey,
+    att ? `signed by ${consumer}; the attested preview consumer is ${att.consumerKey}` : "no preview consumer attestation");
+  const expires = learnosityMs(signed.security.expires);
+  const ahead = expires === null ? null : (expires - now) / 60_000;
+  add("expires", ahead !== null && ahead > 0 && ahead <= provider.expiresMinutes + 1,
+    expires === null ? "the signed request carries no expires" : `expires ${Math.round(ahead * 10) / 10} min ahead (Broker's limit ${provider.expiresMinutes})`);
+  add("pinned fields", signed.request?.type === "local_practice" && UUID.test(String(signed.request?.session_id ?? "")),
+    `type ${signed.request?.type ?? "absent"}, session_id ${UUID.test(String(signed.request?.session_id ?? "")) ? "a fresh uuid" : "missing or not a uuid"}`);
+  add("no-store", /(^|,)\s*no-store\s*(,|$)/i.test(cacheControl ?? ""), `POST /compile Cache-Control: ${cacheControl ?? "absent"}`);
+  const attExpires = att ? Date.parse(att.expiresAt) : NaN;
+  add("attestation", att && att.connectionId === provider.previewConnection && attExpires > now,
+    att ? `connection ${att.connectionId === provider.previewConnection ? "matches" : `${att.connectionId} isn't`} BROKER_PREVIEW_CONNECTIONS; expires ${att.expiresAt} (${Math.floor((attExpires - now) / 86_400_000)} days)` : "no attestation file");
+  return checks;
+};
+
 const hasSavedItem = value => {
   if (Array.isArray(value)) return value.some(hasSavedItem);
   if (value && typeof value === "object") return value.saved === true || Object.values(value).some(hasSavedItem);
@@ -142,7 +199,7 @@ const hasSavedItem = value => {
 export const runCanary = async ({ http: send, archiveDrafts = null, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {}, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now }) => {
   const {
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
-    chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false
+    chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false, provider = null
   } = config;
   const results = [];
   // Every response passes through here, so the run knows each draft it saved.
@@ -244,6 +301,9 @@ export const runCanary = async ({ http: send, archiveDrafts = null, idToken, acc
     const errors = errorsOf(res);
     record("gateway preview", res.status === 200 && errors.length === 0 && hasSignedRequest(res.json?.data),
       res.status === 200 && errors.length === 0 ? (hasSignedRequest(res.json?.data) ? "signed preview returned" : "no signed request in the output") : `${res.status} ${JSON.stringify(errors)}`);
+    if (provider) {
+      for (const c of providerChecks({ signed: signedPreviewRequest(res.json?.data), cacheControl: res.headers?.["cache-control"] ?? null, provider, now: now() })) record(c.name, c.ok, c.detail);
+    }
   });
   let saveTaskId = null;
   let saveKey = null;

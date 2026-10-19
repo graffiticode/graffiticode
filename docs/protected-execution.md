@@ -714,6 +714,16 @@ Differences from v7:
   - questions, which have no status, are left.
 - **The preview consumer's attestation** (`.gc-deploy/provider/preview-consumer-attestation.json`,
   local) records that the consumer is previews-only. It expires 2027-01-16; renew it before then.
+- **After every Policy, Broker, L0176 or api release, add `--provider` to the canary.** It
+  checks the gateway preview's signed request:
+  - signed by the attested preview consumer (fingerprint only);
+  - `expires` within Broker's `BROKER_PREVIEW_EXPIRES_MINUTES`;
+  - `type` `local_practice` and a fresh `session_id`;
+  - `POST /compile` answers `Cache-Control: no-store`;
+  - the attestation is in date and names `BROKER_PREVIEW_CONNECTIONS`.
+
+  From a checkout without the local evidence, such as the release worktree, pass
+  `--attestation <file>`.
 
 ## AT-10 provider harness
 
@@ -735,7 +745,7 @@ Cases: `scope`, `integrity`, `acceptance`, `session`, `replay`, `rotation`, `dra
 gcloud, no signing, no browser, no network. Options: `--api-version` (default `v2026.2.LTS`, a
 pinned LTS), `--data-api-version` (default Broker's `v2025.2.LTS`), `--ages` (default
 `1m,5m,15m,30m,60m,6h,24h`), `--expires` (raw signer only), `--types`, `--states`,
-`--intervals`, `--probe research|save|submit`, `--replay-gap`, `--rotation-intervals`,
+`--probe isvalid|save|submit`, `--after-expiry`, `--no-store` (scope), `--uid`, `--replay-gap`, `--rotation-intervals`,
 `--qe-activity <file.json>`, `--out <file>`, `--resume <file>`, `--chromium <path>`, `--headed`.
 
 **Signers.**

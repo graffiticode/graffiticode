@@ -13,7 +13,7 @@ import {
 import {
   createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused, localAuthorizer
 } from "@graffiticode/broker";
-import { runCanary, hasSignedRequest, savedItemReferences } from "../lib/canary.js";
+import { runCanary, hasSignedRequest, savedItemReferences, providerChecks, signedPreviewRequest, keyFingerprint, learnosityMs } from "../lib/canary.js";
 import { createDraftArchiver } from "../lib/canary-archive.js";
 
 const CANARY = "0xcanary";
@@ -512,4 +512,43 @@ test("the archiver reads each item back and writes it again as archived", async 
   assert.deepEqual(await archive(["a", "gone"]), { archived: 1, failed: 1, reason: "1 not found" });
   assert.deepEqual(calls.map(c => c.action), ["get", "set"]);
   assert.deepEqual(calls[1].request.items, [{ reference: "a", status: "archived", definition: {} }]);
+});
+
+// --provider (AT-10 release-verify). Learnosity wire fields are snake_case.
+/* eslint-disable camelcase */
+test("provider checks pass on a preview signed by the attested consumer, with Broker's expires, pinned fields and no-store", () => {
+  const now = Date.UTC(2026, 9, 19, 15, 30);
+  const key = "preview-consumer-key-kigb";
+  const signed = signedPreviewRequest({ data: { request: { consumer_key: key, timestamp: "20261019-1530", user_id: "u", signature: "$02$x", expires: "20261019-1540", type: "local_practice", session_id: "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b", questions: [] } } });
+  assert.equal(signed.api, "questions");
+  const provider = { expiresMinutes: 10, previewConnection: "conn-p", attestation: { connectionId: "conn-p", consumerKey: keyFingerprint(key), expiresAt: "2027-01-16" } };
+  const checks = providerChecks({ signed, cacheControl: "no-store", provider, now });
+  assert.deepEqual(checks.map(c => [c.name, c.ok]), [
+    ["provider: preview consumer", true], ["provider: expires", true], ["provider: pinned fields", true], ["provider: no-store", true], ["provider: attestation", true],
+  ]);
+  // Never the key itself.
+  assert.ok(!JSON.stringify(checks).includes(key));
+});
+
+test("provider checks fail on another consumer, a long or missing expires, unpinned fields, a storable response, or a stale attestation", () => {
+  const now = Date.UTC(2026, 9, 19, 15, 30);
+  const signed = request => signedPreviewRequest({ request: { consumer_key: "owner-key", timestamp: "20261019-1530", user_id: "u", signature: "$02$x", ...request } });
+  const provider = { expiresMinutes: 10, previewConnection: "conn-p", attestation: { connectionId: "conn-other", consumerKey: keyFingerprint("preview-key"), expiresAt: "2026-10-01" } };
+  const byName = checks => Object.fromEntries(checks.map(c => [c.name.replace("provider: ", ""), c.ok]));
+  const out = byName(providerChecks({ signed: signed({ expires: "20261019-1700", type: "submit_practice", session_id: "chosen" }), cacheControl: "private, max-age=60", provider, now }));
+  assert.deepEqual(out, { "preview consumer": false, expires: false, "pinned fields": false, "no-store": false, attestation: false });
+  assert.equal(byName(providerChecks({ signed: signed({}), cacheControl: null, provider, now })).expires, false);
+  assert.deepEqual(providerChecks({ signed: null, cacheControl: "no-store", provider, now }).map(c => c.ok), [false]);
+  assert.equal(byName(providerChecks({ signed: signed({}), cacheControl: "no-store", provider: { ...provider, attestation: null }, now })).attestation, false);
+  // Items requests wrap { security, request }.
+  assert.equal(signedPreviewRequest({ security: JSON.stringify({ consumer_key: "k", signature: "$02$y" }), request: "{\"type\":\"local_practice\"}" }).request.type, "local_practice");
+  assert.equal(learnosityMs("20261019-1540"), Date.UTC(2026, 9, 19, 15, 40));
+  assert.equal(learnosityMs("nonsense"), null);
+});
+
+test("--provider adds its checks to a run, from the gateway preview", async () => {
+  const w = await world();
+  const out = await run(w, { provider: { expiresMinutes: 10, previewConnection: "conn-p", attestation: null } });
+  const names = out.results.map(r => r.name).filter(n => n.startsWith("provider: "));
+  assert.ok(names.length >= 1, JSON.stringify(out.results.map(r => r.name)));
 });
