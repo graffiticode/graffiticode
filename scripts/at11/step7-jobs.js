@@ -99,7 +99,7 @@ export function commands({ collect, classes, services, image }) {
   const lang = subject => subject.replace(/-run$/, "");
   const sa = subject => `${subject}@${PROJECT}.iam.gserviceaccount.com`;
   step("1. The sentinel at11/sentinel in Policy's and Broker's databases (once; it stays)",
-    ...["policy", "broker"].map(db => `curl -sf -X PATCH -H "Authorization: Bearer $(gcloud auth print-access-token)" -H content-type:application/json ${q(`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${db}/documents/at11/sentinel?currentDocument.exists=false`)} -d '{"fields":{"purpose":{"stringValue":"AT-11 IAM probe sentinel (ISOLATE-01 step 7); never read by a service"}}}'`));
+    ...["policy", "broker"].map(db => `curl -sf -X PATCH -H "Authorization: Bearer $(gcloud auth print-access-token)" -H x-goog-user-project:${PROJECT} -H content-type:application/json ${q(`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${db}/documents/at11/sentinel?currentDocument.exists=false`)} -d '{"fields":{"purpose":{"stringValue":"AT-11 IAM probe sentinel (ISOLATE-01 step 7); never read by a service"}}}'`));
   step("2. The probe image, from the repo root; note its digest",
     cmd("gcloud", "builds", "submit", `--project=${PROJECT}`, `--region=${REGION}`, "--config=deploy/egress-proxy/step7/probe.cloudbuild.yaml", "."),
     cmd("gcloud", "artifacts", "docker", "images", "describe", IMAGE_TAG, "--format=value(image_summary.digest)"));
