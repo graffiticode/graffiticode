@@ -775,6 +775,23 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0013r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0013",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org",
+          "storage.googleapis.com"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1226,6 +1243,23 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0013-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0013",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org",
+          "storage.googleapis.com"
+        ]
+      },
       "include": [
         "languages/l0013",
         "configs/Dockerfile.l0013.yaml"
@@ -2305,6 +2339,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0185r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0185",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -2342,6 +2392,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0185-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0185",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "include": [
         "languages/l0185",
         "configs/Dockerfile.l0185.yaml"
