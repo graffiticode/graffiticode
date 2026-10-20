@@ -775,6 +775,65 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0013r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0013",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "app.graffiticode.org",
+          "auth.graffiticode.org",
+          "l0000.graffiticode.org",
+          "l0001.graffiticode.org",
+          "l0002.graffiticode.org",
+          "l0003.graffiticode.org",
+          "l0010.graffiticode.org",
+          "l0011.graffiticode.org",
+          "l0012.graffiticode.org",
+          "l0013.graffiticode.org",
+          "l0014.graffiticode.org",
+          "l0137.graffiticode.org",
+          "l0151.graffiticode.org",
+          "l0152.graffiticode.org",
+          "l0153.graffiticode.org",
+          "l0154.graffiticode.org",
+          "l0155.graffiticode.org",
+          "l0156.graffiticode.org",
+          "l0157.graffiticode.org",
+          "l0158.graffiticode.org",
+          "l0159.graffiticode.org",
+          "l0160.graffiticode.org",
+          "l0161.graffiticode.org",
+          "l0163.graffiticode.org",
+          "l0166.graffiticode.org",
+          "l0169.graffiticode.org",
+          "l0170.graffiticode.org",
+          "l0171.graffiticode.org",
+          "l0172.graffiticode.org",
+          "l0173.graffiticode.org",
+          "l0174.graffiticode.org",
+          "l0175.graffiticode.org",
+          "l0176.graffiticode.org",
+          "l0177.graffiticode.org",
+          "l0178.graffiticode.org",
+          "l0179.graffiticode.org",
+          "l0180.graffiticode.org",
+          "l0181.graffiticode.org",
+          "l0182.graffiticode.org",
+          "l0183.graffiticode.org",
+          "l0184.graffiticode.org",
+          "l0185.graffiticode.org",
+          "l0186.graffiticode.org",
+          "storage.googleapis.com"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -1226,6 +1285,65 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0013-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0013",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "app.graffiticode.org",
+          "auth.graffiticode.org",
+          "l0000.graffiticode.org",
+          "l0001.graffiticode.org",
+          "l0002.graffiticode.org",
+          "l0003.graffiticode.org",
+          "l0010.graffiticode.org",
+          "l0011.graffiticode.org",
+          "l0012.graffiticode.org",
+          "l0013.graffiticode.org",
+          "l0014.graffiticode.org",
+          "l0137.graffiticode.org",
+          "l0151.graffiticode.org",
+          "l0152.graffiticode.org",
+          "l0153.graffiticode.org",
+          "l0154.graffiticode.org",
+          "l0155.graffiticode.org",
+          "l0156.graffiticode.org",
+          "l0157.graffiticode.org",
+          "l0158.graffiticode.org",
+          "l0159.graffiticode.org",
+          "l0160.graffiticode.org",
+          "l0161.graffiticode.org",
+          "l0163.graffiticode.org",
+          "l0166.graffiticode.org",
+          "l0169.graffiticode.org",
+          "l0170.graffiticode.org",
+          "l0171.graffiticode.org",
+          "l0172.graffiticode.org",
+          "l0173.graffiticode.org",
+          "l0174.graffiticode.org",
+          "l0175.graffiticode.org",
+          "l0176.graffiticode.org",
+          "l0177.graffiticode.org",
+          "l0178.graffiticode.org",
+          "l0179.graffiticode.org",
+          "l0180.graffiticode.org",
+          "l0181.graffiticode.org",
+          "l0182.graffiticode.org",
+          "l0183.graffiticode.org",
+          "l0184.graffiticode.org",
+          "l0185.graffiticode.org",
+          "l0186.graffiticode.org",
+          "storage.googleapis.com"
+        ]
+      },
       "include": [
         "languages/l0013",
         "configs/Dockerfile.l0013.yaml"
@@ -2305,6 +2423,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0185r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0185",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "exclude": [],
       "steps": [
         {
@@ -2342,6 +2476,22 @@
       "port": 8080,
       "access": "public",
       "runtimeServiceAccount": "l0185-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0185",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
       "include": [
         "languages/l0185",
         "configs/Dockerfile.l0185.yaml"
