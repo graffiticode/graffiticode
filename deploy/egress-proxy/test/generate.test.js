@@ -474,5 +474,7 @@ test("no access log writes a request's query: a query can carry a token (2026-10
       assert.ok(!/%REQ\(:PATH\)%|%PATH(\(WQ[^)]*\))?%|%REQ\(X-ENVOY-ORIGINAL-PATH/.test(op), `${field}: ${op} can log a query`);
     }
   }
-  assert.ok(formats.some(f => f.path === "%PATH(NQ:ORIG)%"), "the inner line logs the path without its query");
+  assert.ok(formats.some(f => f.path === "%PATH(NQ:PATH)%"), "the inner line logs the path without its query");
+  // ORIG is x-envoy-original-path, set only by a rewrite: it logs null (2026-10-20).
+  assert.ok(formats.every(f => !Object.values(f).some(op => /%PATH\([^)]*ORIG/.test(op))), "a path from x-envoy-original-path logs null");
 });

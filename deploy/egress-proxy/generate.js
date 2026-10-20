@@ -182,8 +182,10 @@ const innerLogFields = (className, host) => ({
   sni: "%REQUESTED_SERVER_NAME%",
   host: "%REQ(:AUTHORITY)%",
   // Without the query: a query can carry a token (L0013's snap opens /form?access_token=…),
-  // and these lines go to Cloud Logging (2026-10-20).
-  path: "%PATH(NQ:ORIG)%",
+  // and these lines go to Cloud Logging (2026-10-20). The source must be PATH (:path): ORIG
+  // reads x-envoy-original-path, which only a rewrite sets, so it logs null (seen on 1.39.4;
+  // validate/path-format.cloudbuild.yaml shows each operator's real output).
+  path: "%PATH(NQ:PATH)%",
   upstream: "%UPSTREAM_REMOTE_ADDRESS%",
   upstream_host: "%UPSTREAM_HOST%",
   code: "%RESPONSE_CODE%",
