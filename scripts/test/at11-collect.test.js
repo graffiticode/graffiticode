@@ -299,3 +299,15 @@ test("incomplete, repeated or mixed evidence parts are refused", async () => {
   assert.match(evidenceFrom(e([...lines.slice(0, 2), lines[2].replace(" 3/3 ", " 3/4 ")]), NONCE).error, /different sets/);
   assert.match(evidenceFrom(e([...lines, `AT11-EVIDENCE {"nonce":"${NONCE}"}`]), NONCE).error, /both/);
 });
+
+test("the D6 config probes the legacy compilers and excludes the rest with a reason", async () => {
+  const { d6Config } = await import("../at11/step7-config.js");
+  const inventory = [
+    { account: "l0176-run@graffiticode.iam.gserviceaccount.com", sources: ["deploy.json", "iam"] },
+    { account: "l0002-run@graffiticode.iam.gserviceaccount.com", sources: ["iam"] },
+  ];
+  const config = d6Config(inventory, new Set(["l0002"]), "b492fffa1316be33");
+  assert.deepEqual(config.compilers, [{ subject: "l0002-run", net: "at11-net-l0002", iam: "at11-iam-l0002" }]);
+  assert.deepEqual(config.excluded, [{ subject: "l0176-run", reason: "passed AT-11 run b492fffa1316be33 (2026-10-20)" }]);
+  assert.deepEqual(inventoryProblems(config, inventory), []);
+});
