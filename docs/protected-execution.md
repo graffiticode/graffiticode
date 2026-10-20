@@ -831,5 +831,7 @@ rotation. These rules bear on protected execution:
   controls, with no override.
 - **A proxy rollout fires the unhealthy alert** as each old VM shuts down. The README says how
   to tell that from a real failure.
-- **Exceptions:** D2 (L0185's open fetches) and D6 (the 26 legacy compilers outside
-  `deploy.json`). Both are recorded in the IAM review, §4 item 7.
+- **Exceptions:** D2 (L0185's open fetches, and the legacy l0137's and l0170's), recorded in the
+  IAM review, §4 item 7. D6 ended on 2026-10-20.
+- **The legacy compilers** deploy from their own repos with `npm run gcp:build`, whose deploy
+  step carries the controls. After any legacy deploy, run `node scripts/legacy-network-check.js`.
