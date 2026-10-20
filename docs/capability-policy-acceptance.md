@@ -61,7 +61,7 @@ Jeff accepts the production evidence. The agent did the mapping and the checks.
 | AT-08 | RECOVER-01, ARTIFACT-01 | **Pass** | None |
 | AT-09 | PREVIEW-01, READ-01, PUB-01 | **Pass** | Learner answers aren't a gateway path (the Learnosity client handles them), so only views are tested |
 | AT-10 | PROVIDER-01, L0176-01 | **Pass, with recorded residuals** (2026-10-18, registry v8) | Provider rotation documented, not measured; established-session lifetime documented, not measurable from the client; general Questions sessions possible under the previews-only consumer for 10 minutes (PROVIDER-01 revision) |
-| AT-11 | SECRET-01, ISOLATE-01 | **Deferred** | The ISOLATE-01 plan (self-hosted egress proxy) is deferred. Its "legacy provider credentials no longer work" clause is met as of 2026-10-15: no compiler can read a provider secret, the shared Learnosity secret is disabled, and the credential it held was retired at its provider |
+| AT-11 | SECRET-01, ISOLATE-01 | **Open: network part passed, IAM probe pending** | The egress proxy is deployed for all 36 `deploy.json` compilers (2026-10-20). The network probe passed for L0176 (2026-10-19, 18 passed, 4 n/a) and in step 0's prototype for every class. Each compiler was promoted on corpus and refusal evidence. **Pending:** the IAM probe for every compiler account (rollout step 7, PR #143). **Credentials clause:** no compiler holds or can read a provider credential. The shared Learnosity secret is deleted, but its consumer is still accepted by Learnosity: it's a developer sandbox's primary key that reaches no student-facing item, an accepted residual (Jeff, 2026-10-20). The "met 2026-10-15" entry was premature |
 | AT-12 | AUDIT-01, RELEASE-01 | **Pass** | None |
 
 ## Detail
@@ -238,7 +238,7 @@ expiry.
     cross-account recovery): tested.
 
 No test written for these gaps found a bug. AT-10 passed on 2026-10-18 with recorded
-residuals (registry v8). What remains is AT-11 (deferred with ISOLATE-01).
+residuals (registry v8). What remains is AT-11: ISOLATE-01 is deployed (2026-10-20), and its IAM probe is pending.
 
 Live coverage doesn't reach AT-01, AT-06, AT-08 or AT-09's save prohibition. These rest on
 CI tests.

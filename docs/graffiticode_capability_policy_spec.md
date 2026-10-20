@@ -114,6 +114,19 @@ Legacy provider credentials embedded in programs or available to compilers MUST 
 at the provider, and obsolete secret/decryption-key access removed. Removing their use from
 current code does not invalidate existing copies.
 
+*Note (2026-10-20): deployed with dated exceptions.* Every compiler in the deployment manifest
+sends its outbound traffic through the egress proxy, with a reviewed allowlist enforced by
+network class. The exceptions and residuals are:
+- **D2:** L0185 may fetch arbitrary public hosts. Provider, `run.app`, Google API and internal
+  names are refused by name, and internal addresses are refused too. The residual: it can
+  exfiltrate the content it compiles to a public host.
+- **D6:** 26 legacy compilers deployed outside the manifest aren't yet behind the proxy. That
+  exception is dated, and a follow-up wave brings them behind it.
+- **The legacy shared provider credential** is retired from every Graffiticode system, but the
+  provider still accepts it. It's a development sandbox's primary key, and it reaches no
+  student-facing item. This is an accepted residual, which ends with a production provider
+  organisation.
+
 ## 4. Invocation and chain-wide admission
 
 **RUN-01 — Logical identity.** Before protected execution, the gateway allocates a durable

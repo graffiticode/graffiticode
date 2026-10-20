@@ -404,7 +404,7 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   L0176 no longer reads legacy program/config credentials. The legacy `get-val-private`
   shared-secret path is retired: no service mounts the key, and the key is destroyed (see the
   inventory below). **Since 2026-10-15 no compiler holds or can read a provider credential**
-  (L0158 below). Deployed ISOLATE-01 controls and AT-11 remain open. Evidence:
+  (L0158 below). ISOLATE-01's controls are deployed (below), and AT-11's IAM probe is still open. Evidence:
   [secret storage](../packages/broker/src/firestore.ts),
   [rotation rules](../packages/broker/src/stores.ts), and [deployment manifest](../deploy.json).
 
@@ -457,10 +457,22 @@ Evidence: [gateway execution](../packages/api/src/data.js),
   - Follow-ups (not SECRET-01 blockers): remove the inert keyring `decrypt` from l0000 core
     (`compiler.ts`); review project-level Editor on the graffiticode-app default compute
     account; delete stale local `.env.local` copies of the destroyed key.
-- **Missing repo controls / deployment unverified — ISOLATE-01.** No compiler egress
-  enforcement satisfying the new allowlist contract was found in the inspected deployment
-  configuration. Historical IAM improvements do not establish current egress, secret-access,
-  impersonation, and credential invalidation guarantees. See §4 below.
+- **Implemented and deployed; AT-11's IAM probe pending — ISOLATE-01 (2026-10-20).**
+  - **Egress:** all 36 compilers in `deploy.json` send their outbound traffic through the
+    egress proxy, as allowlisted per class (rollout steps 1–5, 2026-10-18/20; graffiticode
+    #135, #137, #140–#142 and #144–#149):
+    - each was promoted on recorded evidence (`.gc-deploy/inventory/`);
+    - `release-check` is ok for every one, and no unproxied revision is reachable
+      (`.gc-deploy/at11/step5/`);
+    - `rollback` refuses an uncontrolled target.
+  - **Exceptions:**
+    - D2 (L0185's open fetches);
+    - D6 (the 26 legacy compilers outside `deploy.json`);
+    - the legacy sandbox Learnosity key, still accepted by the provider (an accepted residual).
+  - **Still open:** step 7, AT-11's IAM probe for every compiler account (PR #143). The
+    network probe passed for L0176 (2026-10-19) and in step 0's prototype.
+  - **Records:** IAM review §4 item 7, the runbook (`deploy/egress-proxy/README.md`), and the
+    plan's step records.
 - **Partial — AUDIT-01.** Since W3 (released 2026-10-06), Policy, Broker and api audit:
   - **What:** admission, snapshots, mint, each step's authorization, execution and its final
     outcome with the known prior steps, receipt replays, artifacts, publications and
@@ -919,7 +931,7 @@ coding agent does the implementation work named, and Jeff accepts the production
 | AUDIT-01 | Partial: denial records have no `category`; no reconciliation events | Agent implements categories and reconciliation audit events. Jeff accepts production evidence | Every audited refusal carries its category, checked by the inventory test; reconciliation outcomes audited; both shown on deployed records |
 | WRITE-02 | Missing: no reconciliation from provider evidence. No exactly-once provider guarantee is claimed | Agent implements W5 reconciliation and its tests. Jeff accepts provider-backed evidence | Uncertain and partial writes reconciled against provider evidence, with AT-10 for Author, shown against the provider |
 | RETAIN-01 | **Closed 2026-10-16:** restore test passed (see RETAIN-01 above) | Jeff owns production retention, backups and restore verification. Agent supplies the checks | A successful restore test, and verification that every record RETAIN-01 names (invocation records, idempotency bindings, admission plans, receipt claims and outcomes) has no unintended expiry and survives connection deletion, not just backups configured; in the Policy and Broker databases, recorded |
-| ISOLATE-01 | Compiler isolation and egress evidence outstanding. Credentials part done 2026-10-15: no compiler holds or can read a provider credential (SECRET-01) | Jeff owns production IAM and network controls. Agent supplies configuration changes and negative tests | Enforced egress allowlist; compilers denied access to credentials (secrets, keys, metadata tokens beyond their own) and denied impersonation; all shown by deployed negative tests (AT-11) |
+| ISOLATE-01 | **Deployed 2026-10-20:** all 36 `deploy.json` compilers are behind the egress proxy with reviewed allowlists, and no unproxied revision is reachable. Exceptions: D2, D6 and the legacy sandbox key (accepted residual). Open: AT-11's IAM probe (step 7, PR #143) | Jeff owns production IAM and network controls. Agent supplies configuration changes and negative tests | Enforced egress allowlist; compilers denied access to credentials (secrets, keys, metadata tokens beyond their own) and denied impersonation; all shown by deployed negative tests (AT-11) |
 
 Update this record when each requirement is implemented and tested. Record source revision,
 command/environment, outcome, and date; retain the distinction between local implementation

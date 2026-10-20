@@ -191,6 +191,13 @@ needed.
 
 **Rollback:** the same command with the previous template, which is always kept.
 
+**Cloud NAT has 4096 ports per VM and a 10 s UDP timeout** (`infra.js`). Envoy re-resolves
+every terminated host's cluster every 5 s, from a fresh source port. At the defaults (64 ports,
+30 s), 48 hosts exhausted the NAT, and it dropped DNS queries (2026-10-20). The terminated hosts
+kept their last address, but the open class's fresh lookups failed. After a rollout that adds
+hosts, check for drops:
+`gcloud logging read 'resource.type="nat_gateway" AND jsonPayload.allocation_status="DROPPED"' --freshness=30m`.
+
 **Patching.** COS auto-update is disabled (`cos-update-strategy=update_disabled`), and in-place
 updates don't reboot anyway, so the fleet is only ever replaced:
 1. Monthly, and on any COS or Envoy advisory, pick the newest image on the chosen COS LTS
@@ -201,7 +208,7 @@ updates don't reboot anyway, so the fleet is only ever replaced:
 
 | Date | COS image | Envoy digest | Node digest | By |
 | --- | --- | --- | --- | --- |
-| — | — | — | — | (not deployed) |
+| 2026-10-18 | `cos-129-19506-549-7` | `envoyproxy/envoy@sha256:74bd4eb5…cc01` | `node@sha256:0a7108bf…e402` | Jeff (step 1) |
 
 ## Certificates
 
@@ -221,6 +228,13 @@ leaves that machine.
   (`NODE_EXTRA_CA_CERTS`; Rust reads the same file).
 - **Rotation:** 30 days before expiry, issue new certificates, add them as new secret
   versions, and run a rolling update. Each VM fetches `latest` at boot.
+  - **Production expiry:**
+    - the first five host certificates (2026-10-18): 2027-11-19;
+    - `storage.googleapis.com`, `app.graffiticode.org` and the language hosts (2026-10-20):
+      2027-11-21;
+    - the CA: 2036-10-15.
+
+    Rotate the hosts by 2027-10-20.
 - **Rotating the CA:**
   1. Publish a bundle with both the old and the new CA.
   2. Roll the compilers onto it.

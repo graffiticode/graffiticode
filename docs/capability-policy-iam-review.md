@@ -289,7 +289,8 @@ so a shared compiler SA would let any compiler mint tokens for L0176's protected
 | `auth-run` | ✗ | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✓ conditioned to `(default)`, plus `tokenCreator` on itself. `secretAccessor` on `act-as-callers`, `act-as-grant-secret` and `audit-pseudonym-secret` (Step 12) | ✗ |
 | `policy-run` | — | ✓ `run.invoker` (admin routes: provisions connection credentials) | ✓ public | ✓ `cloudkms.signer` + `publicKeyViewer` on the key only | ✗ | ✓ `datastore.user` conditioned to `policy` | ✗ | ✗ (identity comes from verifying the auth token via `auth`, not from reading auth's data) | ✗ |
 | `broker-run` | ✗ (it fetches the public key from KMS directly) | — | ✗ | ✓ `publicKeyViewer` only (verifies, cannot sign) | ✓ `secretAccessor` | ✗ | ✓ `datastore.user` conditioned to `broker` | ✗ | ✓ `secretAccessor` |
-| `l0176-run`, `l0158-run` (protected-function compilers) | ✓ `run.invoker` | ✓ `run.invoker` | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ after cut-over. Until then, `learnosity-secret` (legacy) stays |
+| `l0176-run` (protected-function compiler) | ✓ `run.invoker` | ✓ `run.invoker` | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ (signs only through Broker; `forbiddenEnv` refuses `LEARNOSITY_*`) |
+| `l0158-run` | ✗ (removed by 2026-10-20: L0158 renders through L0176) | ✗ (removed by 2026-10-20) | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ (`learnosity-secret` deleted 2026-10-18) |
 | other `lNNNN-run` | ✗ (add when a language gains a protected function) | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | `l0013-run` | ✗ | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗. Separately: `storage.objectCreator` on bucket `graffiticode.appspot.com` |
 | Console runtime SA (project `graffiticode-app`) | ✓ `run.invoker` (cross-project; see §3 step 7). The only caller `auth` accepts on `/internal/act-as` (Step 12; auth is public, so this is the caller-identity check, not IAM) | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
@@ -1414,30 +1415,65 @@ project `graffiticode`.
    Sharing the `GRAFFITICODE_SECRET_KEY` keyring with every compiler means compilers can decrypt
    console-encrypted secrets, and broker's `BROKER_SECRET_KEY` must not reuse it.
 
-   **ISOLATE-01, pending deployment (2026-10-14).** Built in the repository but not deployed
-   (deferred). The plan is `~/.claude/plans/isolate-01-compiler-egress.md`, and the runbook is
-   `deploy/egress-proxy/README.md`. None of the following exists yet. The rollout creates:
-   - the `compilers` VPC, with the subnets `egress-proxy`, `compilers-default`, `compilers-l0185`
-     and one `compilers-<lang>` per language with reviewed external hosts;
-   - firewall rules: compilers may reach only the proxy's internal passthrough load balancer
-     (TCP 3128), and DNS lockdown applies;
-   - the DNS response policy `compilers-dns-lockdown`, and Cloud NAT for the proxy subnet only;
-   - the `egress-proxy@graffiticode.iam.gserviceaccount.com` account, with:
-     - `secretAccessor` on `egress-proxy-cert-<host>` only;
+   **ISOLATE-01, deployed (step 1 on 2026-10-18; compilers moved 2026-10-19/20).** The plan is
+   `~/.claude/plans/isolate-01-compiler-egress.md`, and the runbook is
+   `deploy/egress-proxy/README.md`. In place:
+   - **Network:** the `compilers` VPC, with the subnets `egress-proxy` (10.8.0.0/27) and five
+     classes: `compilers-default`, `compilers-l0000`, `compilers-l0176`, `compilers-l0013` and
+     `compilers-l0185`.
+   - **Firewall:** the network firewall policy `compilers-egress`. Compilers may reach only the
+     proxy's internal load balancer (`10.8.0.2:3128`); DNS other than the metadata server's is
+     denied, and so is everything else.
+   - **DNS and NAT:** the private root zone (only `metadata.google.internal`), and Cloud NAT for
+     the proxy subnet only, with 4096 ports per VM and a 10 s UDP timeout (since 2026-10-20; the
+     defaults ran out under Envoy's DNS refreshes).
+   - **The proxy account** `egress-proxy@graffiticode.iam.gserviceaccount.com` has:
+     - `secretAccessor` on the `egress-proxy-cert-<host>` secrets only, one per terminated host
+       (48 on 2026-10-20);
      - `roles/logging.logWriter` and `roles/monitoring.metricWriter`, for COS's logging agent.
-     Envoy's UID can't reach metadata, so it holds no credential;
-   - the secret `egress-proxy-ca-bundle` (the public CA certificate), readable by every compiler
-     account. That's the only new grant to an `lNNNN-run` account;
-   - one secret per terminated host, `egress-proxy-cert-<host-with-dashes>`, readable by
-     `egress-proxy` only;
-   - for AT-11: an `at11-control` account and its canary resources, and the time-limited
-     right to run the probe jobs as each compiler account.
 
-   Every compiler's `deploy.json` entry gets a `network` block whose `allow` list is its
-   reviewed hosts. The lists come from the rollout's inventory (step 3) and are recorded here.
-   One exception is recorded: D2 (L0185's open fetches, with their stated residuals). D1 (L0158's
-   preview-only consumer) was superseded on 2026-10-15: L0158 holds no credential, so it joins the
-   strict default class with no Learnosity host.
+     Envoy's UID can't reach metadata, so it holds no credential.
+   - **The CA bundle:** `egress-proxy-ca-bundle` (the public CA certificate only) is readable
+     by each of the 36 compiler runtime accounts in `deploy.json` (`lNNNN-run`, `lNNNNr-run`).
+     That's the only grant ISOLATE-01 adds to them.
+   - **The proxy itself:** a two-VM group, `egress-proxy-e99a11d79870`, config `f3c14d25`.
+
+   **Allow lists, as reviewed in the step 3 inventory** (`deploy.json` `network.allow`):
+   - `compilers-default` (14 TypeScript languages and 16 Rust `*r` services): `api` and `auth`
+     only.
+   - `compilers-l0000`: `api` and `auth`, Policy's `run.app` host and `www.googleapis.com` (the
+     `PREFLIGHT_GATEWAYS` key fetch).
+   - `compilers-l0176`: the same, plus Broker's `run.app` host.
+   - `compilers-l0013` (L0013, `l0013r`): `api`, `auth`, `storage.googleapis.com` (thumbnail
+     uploads), `app.graffiticode.org` (item resolve) and the 41 `lNNNN.graffiticode.org`
+     language hosts (Chrome renders an item's form on its language's host). Each is an exact
+     host, not a wildcard.
+   - `compilers-l0185` (L0185, `l0185r`): `api` and `auth` terminated, and public hosts through
+     the open route (D2).
+
+   Each compiler's evidence is in `.gc-deploy/inventory/<service>-<release>.json`.
+
+   **Exceptions:**
+   - **D2:** L0185's open fetches. Learnosity, `run.app`, `googleapis.com` and `internal` names
+     are refused by name; IP literals and internal addresses are refused too. The residual: it
+     can exfiltrate content it compiles to a public host.
+   - **D6:** the 26 legacy compilers outside `deploy.json` aren't on the proxy, as a dated
+     exception. Their residual is exfiltration of the content they compile, and a follow-up
+     wave brings them behind the proxy.
+
+   D1 (L0158's preview-only consumer) was superseded on 2026-10-15: L0158 holds no credential.
+
+   **Retired 2026-10-19/20:**
+   - every unproxied reachable compiler revision (step 5);
+   - `l0158-run`'s `run.invoker` on Policy and Broker;
+   - `learnosity-secret` (deleted 2026-10-18).
+
+   L0176's `forbiddenEnv` refuses `LEARNOSITY_KEY` and `LEARNOSITY_SECRET`.
+
+   **Accepted residual (Jeff, 2026-10-20):** the retired shared Learnosity consumer is still
+   accepted by Learnosity. It's a developer sandbox's primary key, and it reaches only that
+   development item bank, which never affects student-facing items.
+
 8. **`auth` private keys in Firestore `(default)`.** Move them to KMS or Secret Manager (a separate
    project) so `api-run`'s `(default)` access does not include the ability to mint auth tokens.
 9. **Receipts integrity.** Is Firestore-in-`broker`-DB enough, or do receipts also need a
