@@ -1,0 +1,16 @@
+# ISOLATE-01: what each access-log path operator really writes on the pinned Envoy, for a request
+# with a query. `envoy --mode validate` only parses a format; this runs it. Run from this directory:
+#   gcloud builds submit --project=<scratch project> --region=us-central1 --config=cloudbuild.yaml \
+#     --service-account=projects/<scratch project>/serviceAccounts/isolate01-build@<scratch project>.iam.gserviceaccount.com .
+# then read the log line holding "nq_path". 2026-10-20 on 1.39.4:
+#   {"nq_default":"/p/q","nq_orig":null,"nq_path":"/p/q","req_path":"/p/q?secret=x&id=1"}
+steps:
+- name: gcr.io/cloud-builders/docker
+  args: ["run", "-d", "--network", "cloudbuild", "--name", "envoy", "-v", "/workspace:/cfg", "envoyproxy/envoy@sha256:74bd4eb5629708d3fadca1a5e6b85d208f338d7bb54e06b69565905c5294cc01", "-c", "/cfg/envoy.yaml", "--log-level", "warn"]
+- name: curlimages/curl
+  entrypoint: sh
+  args: ["-c", "sleep 4; curl -s 'http://envoy:10000/p/q?secret=x&id=1'; echo; sleep 2"]
+- name: gcr.io/cloud-builders/docker
+  args: ["logs", "envoy"]
+options:
+  logging: CLOUD_LOGGING_ONLY
