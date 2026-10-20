@@ -463,3 +463,16 @@ test("the firewall self-check's awk accepts the generated chain and refuses a RE
   const check = config.write_files.find(f => f.path === "/etc/egress-proxy/firewall-check.sh").content;
   assert.ok(check.includes("a REJECT in ENVOY_OUT is not logged just before it"));
 });
+
+test("no access log writes a request's query: a query can carry a token (2026-10-20)", async () => {
+  const envoy = envoyConfig(await fixture());
+  const formats = [];
+  JSON.stringify(envoy, (k, v) => { if (k === "json_format") formats.push(v); return v; });
+  assert.ok(formats.length > 0);
+  for (const f of formats) {
+    for (const [field, op] of Object.entries(f)) {
+      assert.ok(!/%REQ\(:PATH\)%|%PATH(\(WQ[^)]*\))?%|%REQ\(X-ENVOY-ORIGINAL-PATH/.test(op), `${field}: ${op} can log a query`);
+    }
+  }
+  assert.ok(formats.some(f => f.path === "%PATH(NQ:ORIG)%"), "the inner line logs the path without its query");
+});

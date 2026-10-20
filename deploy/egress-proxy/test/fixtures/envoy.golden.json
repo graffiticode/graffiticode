@@ -4,8 +4,8 @@
     "cluster": "egress-proxy",
     "metadata": {
       "isolate01": {
-        "resources_sha256": "afa1f3edd8ba632429714a571aff4faa02a924d1f8c3ab7adb5e5459d577dd2d",
-        "config_sha256": "dc5cb57028259c6cc2f4faa22125597dc359d0f998f771200742a453a0ee5242"
+        "resources_sha256": "28cb4a18b8fd899cf9b1a254fee3a74b6d57da07d87636f3aa9079356b97bd3f",
+        "config_sha256": "d1075e555f0de3a44b5c9f4684fe7e505447a6db0e1cbe5036da2dd2b46ed554"
       }
     }
   },
@@ -1562,7 +1562,7 @@
                             "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "path": "%REQ(:PATH)%",
+                            "path": "%PATH(NQ:ORIG)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
                             "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
@@ -1785,7 +1785,7 @@
                             "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "path": "%REQ(:PATH)%",
+                            "path": "%PATH(NQ:ORIG)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
                             "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
@@ -2047,7 +2047,7 @@
                             "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "path": "%REQ(:PATH)%",
+                            "path": "%PATH(NQ:ORIG)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
                             "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
@@ -2309,7 +2309,7 @@
                             "target_metadata": "%DYNAMIC_METADATA(isolate01:target)%",
                             "sni": "%REQUESTED_SERVER_NAME%",
                             "host": "%REQ(:AUTHORITY)%",
-                            "path": "%REQ(:PATH)%",
+                            "path": "%PATH(NQ:ORIG)%",
                             "upstream": "%UPSTREAM_REMOTE_ADDRESS%",
                             "upstream_host": "%UPSTREAM_HOST%",
                             "code": "%RESPONSE_CODE%",
