@@ -20,7 +20,7 @@ import dgram from "node:dgram";
 import { promises as dns } from "node:dns";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { writeEvidence, parseArgs } from "./lib.js";
+import { writeEvidence, parseArgs, evidenceLines } from "./lib.js";
 
 // What a check can observe, as decided by `classify` (and, for Broker and auth, by their own
 // deciders):
@@ -671,8 +671,8 @@ async function main() {
     ...(await runNet(config)),
   };
   const file = await writeEvidence(args["--out"], args["--class"], "net", result);
-  // A job's filesystem doesn't outlive it: the evidence also goes to the log, one line.
-  console.log(`AT11-EVIDENCE ${JSON.stringify(result)}`);
+  // A job's filesystem doesn't outlive it: the evidence also goes to the log, in parts if long.
+  for (const line of evidenceLines(result)) console.log(line);
   for (const r of result.rows) console.log(`${r.state.padEnd(16)} ${r.id}: ${r.title} (expected ${r.expected})`);
   console.log(`${result.verdict.toUpperCase()} (only the collector's verdict counts); evidence: ${file}`);
   process.exit(result.verdict === "failed" ? 1 : 0);

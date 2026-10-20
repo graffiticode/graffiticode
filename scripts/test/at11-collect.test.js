@@ -273,3 +273,29 @@ test("the step 7 config probes every compiler account: deploy.json's with net an
   const inventory = compilerInventory({ deployServices, serviceAccounts: legacy.map(c => `${c.subject}@graffiticode.iam.gserviceaccount.com`) });
   assert.deepEqual(step7Config(inventory).compilers, committed.compilers);
 });
+
+test("long evidence goes out in parts under the log-line limit, and comes back whole (2026-10-20)", async () => {
+  const { evidenceLines, EVIDENCE_PART_MAX } = await import("../at11/lib.js");
+  const result = { probe: "net", nonce: NONCE, rows: Array.from({ length: 2000 }, (_, i) => ({ id: `row-${i}`, note: "é ünïcode ✓", pad: "x".repeat(60) })) };
+  const lines = evidenceLines(result);
+  assert.ok(lines.length > 1);
+  for (const l of lines) {
+    assert.match(l, /^AT11-EVIDENCE-PART \d+\/\d+ /);
+    assert.ok(Buffer.byteLength(l) < 64 * 1024 && Buffer.byteLength(l) <= EVIDENCE_PART_MAX + 40, `a ${Buffer.byteLength(l)}-byte line`);
+  }
+  const entries = lines.map(textPayload => ({ textPayload }));
+  // Log order isn't guaranteed: the parts are reassembled by index.
+  assert.deepEqual(evidenceFrom([...entries].reverse(), NONCE).evidence, result);
+  assert.deepEqual(evidenceFrom(evidenceLines({ nonce: NONCE, small: true }).map(textPayload => ({ textPayload })), NONCE).evidence, { nonce: NONCE, small: true });
+});
+
+test("incomplete, repeated or mixed evidence parts are refused", async () => {
+  const { evidenceLines } = await import("../at11/lib.js");
+  const lines = evidenceLines({ nonce: NONCE, pad: "y".repeat(150000) });
+  const e = ls => ls.map(textPayload => ({ textPayload }));
+  assert.equal(lines.length, 3);
+  assert.match(evidenceFrom(e(lines.slice(1)), NONCE).error, /PART 1\/3 is missing/);
+  assert.match(evidenceFrom(e([...lines, lines[0]]), NONCE).error, /twice/);
+  assert.match(evidenceFrom(e([...lines.slice(0, 2), lines[2].replace(" 3/3 ", " 3/4 ")]), NONCE).error, /different sets/);
+  assert.match(evidenceFrom(e([...lines, `AT11-EVIDENCE {"nonce":"${NONCE}"}`]), NONCE).error, /both/);
+});

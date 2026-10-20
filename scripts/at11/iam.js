@@ -21,7 +21,7 @@
 // Nothing here is run until rollout step 7 (deployment deferred).
 
 import { readFile } from "node:fs/promises";
-import { writeEvidence, parseArgs } from "./lib.js";
+import { writeEvidence, parseArgs, evidenceLines } from "./lib.js";
 
 // iam.json:
 //   project:   "graffiticode"
@@ -321,8 +321,8 @@ async function main() {
     ...(await runIam(config, role, { token, subject: role === "compiler" ? args["--subject"] : null, identity: email })),
   };
   const file = await writeEvidence(args["--out"], args["--subject"], `iam-${role}`, result);
-  // A job's filesystem doesn't outlive it: the evidence also goes to the log, one line.
-  console.log(`AT11-EVIDENCE ${JSON.stringify(result)}`);
+  // A job's filesystem doesn't outlive it: the evidence also goes to the log, in parts if long.
+  for (const line of evidenceLines(result)) console.log(line);
   for (const r of result.rows) console.log(`${r.passed ? "ok  " : "FAIL"} ${r.id}${r.why ? ` — ${r.why}` : ""}`);
   console.log(`${result.passed ? "PASSED" : "FAILED"} as ${email} (only the collector's combined verdict counts); evidence: ${file}`);
   process.exit(result.passed ? 0 : 1);

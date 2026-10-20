@@ -47,6 +47,7 @@ import { combine } from "./iam.js";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const EVIDENCE = "AT11-EVIDENCE ";
+const PART = "AT11-EVIDENCE-PART ";
 
 // A kernel log entry's text: COS's journal entries carry it as jsonPayload.MESSAGE.
 export const kernelText = e => e.jsonPayload?.MESSAGE ?? e.textPayload ?? "";
@@ -128,12 +129,32 @@ export function jobsOf(config) {
 }
 
 // The one evidence line of an execution, from its log entries. It must carry this run's nonce.
+// A long one comes in numbered parts (lib.js evidenceLines): every part of one set, once each.
 export function evidenceFrom(entries, nonce) {
-  const lines = entries.map(e => e.textPayload ?? "").filter(t => t.startsWith(EVIDENCE));
-  if (!lines.length) return { error: "no AT11-EVIDENCE line" };
-  if (lines.length > 1) return { error: `${lines.length} AT11-EVIDENCE lines` };
+  const texts = entries.map(e => e.textPayload ?? "");
+  const lines = texts.filter(t => t.startsWith(EVIDENCE));
+  const parts = texts.filter(t => t.startsWith(PART)).map(t => t.slice(PART.length).match(/^(\d+)\/(\d+) ([\s\S]*)$/));
+  if (lines.length && parts.length) return { error: "both a whole AT11-EVIDENCE line and parts" };
+  let text;
+  if (parts.length) {
+    if (parts.some(m => !m)) return { error: "a malformed AT11-EVIDENCE-PART line" };
+    const n = Number(parts[0][2]);
+    const byIndex = new Map();
+    for (const [, i, total, chunk] of parts) {
+      if (Number(total) !== n) return { error: "AT11-EVIDENCE-PART lines of different sets" };
+      if (byIndex.has(Number(i))) return { error: `AT11-EVIDENCE-PART ${i}/${n} twice` };
+      byIndex.set(Number(i), chunk);
+    }
+    for (let i = 1; i <= n; i++) if (!byIndex.has(i)) return { error: `AT11-EVIDENCE-PART ${i}/${n} is missing` };
+    if (byIndex.size !== n) return { error: `AT11-EVIDENCE-PART indexes outside 1..${n}` };
+    text = Array.from({ length: n }, (_, i) => byIndex.get(i + 1)).join("");
+  } else {
+    if (!lines.length) return { error: "no AT11-EVIDENCE line" };
+    if (lines.length > 1) return { error: `${lines.length} AT11-EVIDENCE lines` };
+    text = lines[0].slice(EVIDENCE.length);
+  }
   let evidence;
-  try { evidence = JSON.parse(lines[0].slice(EVIDENCE.length)); } catch { return { error: "the evidence line isn't JSON" }; }
+  try { evidence = JSON.parse(text); } catch { return { error: "the evidence line isn't JSON" }; }
   if (evidence.nonce !== nonce) return { error: `the evidence carries nonce ${evidence.nonce}, not ${nonce}`, refused: true };
   return { evidence };
 }
