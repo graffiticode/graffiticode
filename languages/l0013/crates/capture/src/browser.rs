@@ -14,7 +14,7 @@ use futures_util::StreamExt;
 use tokio::task::JoinHandle;
 
 use crate::CameraError;
-use crate::egress::{build_nss_db, chrome_egress};
+use crate::egress::{QUIET_DISABLED_FEATURES, QUIET_SWITCHES, build_nss_db, chrome_egress};
 
 /// A rectangle in the page's own (CSS) pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -45,6 +45,8 @@ impl Session {
             // Switch names without `--`: chromiumoxide adds it (a `--` here became `----x`, which
             // Chrome ignores).
             .args(["disable-setuid-sandbox", "disable-dev-shm-usage", "disable-gpu", "hide-scrollbars"])
+            .args(QUIET_SWITCHES.iter().copied())
+            .arg(("disable-features", QUIET_DISABLED_FEATURES))
             .args(egress.switches.iter().map(|(name, value)| (name.as_str(), value.as_str())))
             .user_data_dir(profile.path())
             // The window is sized per snap, through device metrics.

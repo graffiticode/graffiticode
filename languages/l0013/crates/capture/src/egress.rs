@@ -17,6 +17,23 @@ use crate::CameraError;
 /// The nickname the proxy's CA is stored under in Chrome's NSS database.
 pub const CA_NICKNAME: &str = "isolate01-egress-ca";
 
+/// Chrome's own background traffic, off: sign-in, component updates, sync, autofill, its
+/// connectivity and default-search checks. A capture needs none of it, and through the egress
+/// proxy each request is a refusal in the log (2026-10-20). Names without `--`, as chromiumoxide
+/// wants them; a bare name is a switch without a value.
+pub const QUIET_SWITCHES: &[&str] = &[
+    "disable-background-networking",
+    "disable-component-update",
+    "disable-sync",
+    "disable-default-apps",
+    "no-first-run",
+    "no-default-browser-check",
+    "disable-domain-reliability",
+    "disable-client-side-phishing-detection",
+];
+/// The `disable-features` switch's value, set beside QUIET_SWITCHES.
+pub const QUIET_DISABLED_FEATURES: &str = "OptimizationHints,Translate,MediaRouter,AutofillServerCommunication";
+
 /// What a launch adds for the proxy: Chrome switches (name without `--`, and value), and the CA
 /// it must trust. chromiumoxide adds the `--` itself, so a switch is never passed pre-formatted.
 #[derive(Debug, Default, PartialEq)]
@@ -39,7 +56,37 @@ pub fn chrome_egress(get: impl Fn(&str) -> Option<String>) -> Result<ChromeEgres
     let ca = set(&get, "NODE_EXTRA_CA_CERTS").or_else(|| set(&get, "SSL_CERT_FILE")).ok_or(
         "HTTPS_PROXY is set without NODE_EXTRA_CA_CERTS or SSL_CERT_FILE: Chrome can't trust the egress proxy",
     )?;
-    Ok(ChromeEgress { switches: vec![("proxy-server".into(), proxy)], ca: Some(PathBuf::from(ca)) })
+    let pac = pac_url(&proxy).map_err(|e| format!("HTTPS_PROXY {proxy}: {e}"))?;
+    Ok(ChromeEgress { switches: vec![("proxy-pac-url".into(), pac)], ca: Some(PathBuf::from(ca)) })
+}
+
+/// Chrome's proxy, as a PAC script: the Graffiticode hosts a capture loads go to the egress proxy,
+/// loopback stays direct, and everything else goes to a closed local port, so it fails inside the
+/// container. A switch can't reach Chrome's own background services (sign-in, updates,
+/// connectivity checks); this does, so they no longer reach the proxy only to be refused
+/// (2026-10-20). The proxy still enforces its own exact list.
+pub fn pac_script(proxy: &str) -> Result<String, String> {
+    let rest = proxy.split_once("://").map(|(_, r)| r).unwrap_or(proxy);
+    let host_port = rest.trim_end_matches('/');
+    if host_port.is_empty() || host_port.contains(['/', '"', '\\', ' ']) {
+        return Err("not a proxy address".into());
+    }
+    Ok([
+        "function FindProxyForURL(url, host) {".to_string(),
+        r#"  if (host === "localhost" || host === "127.0.0.1" || host === "[::1]") return "DIRECT";"#.to_string(),
+        format!(r#"  if (host === "graffiticode.org" || dnsDomainIs(host, ".graffiticode.org")) return "PROXY {host_port}";"#),
+        r#"  return "PROXY 127.0.0.1:9";"#.to_string(),
+        "}".to_string(),
+    ]
+    .join("\n"))
+}
+
+pub fn pac_url(proxy: &str) -> Result<String, String> {
+    use base64::Engine;
+    Ok(format!(
+        "data:application/x-ns-proxy-autoconfig;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(pac_script(proxy)?)
+    ))
 }
 
 /// The `certutil` invocations that make an NSS database at `nssdb` trusting `ca` for TLS.
@@ -99,6 +146,25 @@ mod tests {
     }
 
     #[test]
+    fn the_pac_script_proxies_only_graffiticode() {
+        let pac = pac_script("http://10.8.0.2:3128").unwrap();
+        assert!(pac.contains(r#"return "PROXY 10.8.0.2:3128";"#));
+        assert!(pac.contains(r#"dnsDomainIs(host, ".graffiticode.org")"#));
+        assert!(pac.contains(r#"return "PROXY 127.0.0.1:9";"#));
+        assert!(pac_script("http://a\"b:1").is_err());
+        assert!(pac_url("http://10.8.0.2:3128").unwrap().starts_with("data:application/x-ns-proxy-autoconfig;base64,"));
+    }
+
+    #[test]
+    fn chromes_background_traffic_is_off() {
+        for s in ["disable-background-networking", "disable-component-update", "disable-sync", "no-first-run"] {
+            assert!(QUIET_SWITCHES.contains(&s), "{s}");
+        }
+        assert!(QUIET_SWITCHES.iter().all(|s| !s.starts_with('-') && !s.contains('=')));
+        assert!(QUIET_DISABLED_FEATURES.contains("AutofillServerCommunication"));
+    }
+
+    #[test]
     fn no_proxy_adds_nothing() {
         assert_eq!(chrome_egress(env(&[])).unwrap(), ChromeEgress::default());
         assert_eq!(
@@ -114,10 +180,10 @@ mod tests {
             ("NODE_EXTRA_CA_CERTS", "/etc/egress/ca.pem"),
         ]))
         .unwrap();
-        assert_eq!(got.switches, vec![("proxy-server".to_string(), "http://10.8.0.2:3128".to_string())]);
+        assert_eq!(got.switches, vec![("proxy-pac-url".to_string(), pac_url("http://10.8.0.2:3128").unwrap())]);
         assert_eq!(got.ca, Some(PathBuf::from("/etc/egress/ca.pem")));
         let lower = chrome_egress(env(&[("https_proxy", "http://p:3128"), ("SSL_CERT_FILE", "/ca.pem")])).unwrap();
-        assert_eq!(lower.switches, vec![("proxy-server".to_string(), "http://p:3128".to_string())]);
+        assert_eq!(lower.switches, vec![("proxy-pac-url".to_string(), pac_url("http://p:3128").unwrap())]);
         assert_eq!(lower.ca, Some(PathBuf::from("/ca.pem")));
     }
 

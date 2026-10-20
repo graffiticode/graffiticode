@@ -14,6 +14,22 @@ import { join } from "node:path";
 
 export const CA_NICKNAME = "isolate01-egress-ca";
 
+// Chrome's own background traffic, off: sign-in, component updates, sync, autofill, its
+// connectivity and default-search checks. A capture needs none of it, and through the egress
+// proxy each request is a refusal in the log (accounts.google.com, update.googleapis.com,
+// www.google.com, start.duckduckgo.com and others on 2026-10-20).
+export const QUIET_ARGS = [
+  "--disable-background-networking",
+  "--disable-component-update",
+  "--disable-sync",
+  "--disable-default-apps",
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--disable-domain-reliability",
+  "--disable-client-side-phishing-detection",
+  "--disable-features=OptimizationHints,Translate,MediaRouter,AutofillServerCommunication",
+];
+
 type Env = Record<string, string | undefined>;
 
 export interface ChromeEgress {
@@ -32,8 +48,25 @@ export function chromeEgress(env: Env = process.env): ChromeEgress {
   if (!ca) {
     throw new Error("HTTPS_PROXY is set without NODE_EXTRA_CA_CERTS or SSL_CERT_FILE: Chrome can't trust the egress proxy");
   }
-  return { args: [`--proxy-server=${proxy}`], ca };
+  return { args: [`--proxy-pac-url=${pacUrl(proxy)}`], ca };
 }
+
+// Chrome's proxy, as a PAC script: the Graffiticode hosts a capture loads go to the egress proxy,
+// loopback stays direct, and everything else goes to a closed local port, so it fails inside the
+// container. A flag can't reach Chrome's own background services (sign-in, updates, connectivity
+// checks); this does, so they no longer reach the proxy only to be refused (2026-10-20). The proxy
+// still enforces its own exact list.
+export function pacScript(proxy: string): string {
+  const hostPort = new URL(proxy).host;
+  return [
+    "function FindProxyForURL(url, host) {",
+    '  if (host === "localhost" || host === "127.0.0.1" || host === "[::1]") return "DIRECT";',
+    `  if (host === "graffiticode.org" || dnsDomainIs(host, ".graffiticode.org")) return "PROXY ${hostPort}";`,
+    '  return "PROXY 127.0.0.1:9";',
+    "}",
+  ].join("\n");
+}
+export const pacUrl = (proxy: string) => `data:application/x-ns-proxy-autoconfig;base64,${Buffer.from(pacScript(proxy)).toString("base64")}`;
 
 // The certutil invocations that make an NSS database at `nssdb` trusting `ca` for TLS.
 export function nssCommands(nssdb: string, ca: string): string[][] {
