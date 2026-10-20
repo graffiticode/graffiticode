@@ -7,7 +7,7 @@ import { fullMatch, outcome, routeRequest } from "./route-sim.js";
 import {
   BLOCKED, EXTENSIONS, IP_LITERAL, LOG_FIELDS, ORDER_AWK, PAIRS_AWK, REJECT_PREFIX, TCP_LOG_FIELDS, TRAILING_DOT,
   buildModel, cloudInit, envoyConfig, envoyOutRules, extensionsUsed, inputRules, load, rejectRules, terminatedHosts,
-  logicalUserData,
+  logicalUserData, retryPolicy,
 } from "../generate.js";
 import { spawnSync } from "node:child_process";
 
@@ -154,8 +154,10 @@ test("only the open class forwards unlisted names, refusing denied names, IP lit
 test("upstreams resolve IPv4 only through the fixed resolvers and verify the listed name", async () => {
   const envoy = envoyConfig(await fixture());
   for (const c of envoy.static_resources.clusters.filter(c => c.name.startsWith("upstream-"))) {
-    assert.equal(c.dns_lookup_family, "V4_ONLY");
-    assert.deepEqual(c.typed_dns_resolver_config.typed_config.resolvers.map(r => r.socket_address.address), ["8.8.8.8", "8.8.4.4"]);
+    // The DNS settings live in the DNS cluster extension's config (2026-10-20).
+    const dns = c.cluster_type.typed_config;
+    assert.equal(dns.dns_lookup_family, "V4_ONLY");
+    assert.deepEqual(dns.typed_dns_resolver_config.typed_config.resolvers.map(r => r.socket_address.address), ["8.8.8.8", "8.8.4.4"]);
     const tls = c.transport_socket.typed_config;
     const host = c.load_assignment.endpoints[0].lb_endpoints[0].endpoint.address.socket_address.address;
     assert.equal(tls.sni, host);
@@ -477,4 +479,20 @@ test("no access log writes a request's query: a query can carry a token (2026-10
   assert.ok(formats.some(f => f.path === "%PATH(NQ:PATH)%"), "the inner line logs the path without its query");
   // ORIG is x-envoy-original-path, set only by a rewrite: it logs null (2026-10-20).
   assert.ok(formats.every(f => !Object.values(f).some(op => /%PATH\([^)]*ORIG/.test(op))), "a path from x-envoy-original-path logs null");
+});
+
+test("a terminated host's route retries once, on a reset only where its requests are reads; clusters follow the DNS TTL (2026-10-20)", async () => {
+  assert.deepEqual(retryPolicy("auth.graffiticode.org"), { retry_on: "connect-failure,reset", num_retries: 1 });
+  assert.deepEqual(retryPolicy("l0179.graffiticode.org"), { retry_on: "connect-failure,reset", num_retries: 1 });
+  assert.deepEqual(retryPolicy("www.googleapis.com"), { retry_on: "connect-failure,reset", num_retries: 1 });
+  // A write is never sent twice: only a request that never reached the upstream is retried.
+  for (const h of ["policy-sja7fatcta-uc.a.run.app", "broker-sja7fatcta-uc.a.run.app", "storage.googleapis.com"]) {
+    assert.deepEqual(retryPolicy(h), { retry_on: "connect-failure,reset-before-request", num_retries: 1 }, h);
+  }
+  const envoy = envoyConfig(await fixture());
+  const clusters = envoy.static_resources.clusters.filter(c => c.name.startsWith("upstream-"));
+  assert.ok(clusters.length > 0 && clusters.every(c => c.cluster_type?.name === "envoy.clusters.dns" && c.cluster_type.typed_config.respect_dns_ttl === true && c.cluster_type.typed_config.all_addresses_in_single_endpoint === true && !c.type));
+  const routes = [];
+  JSON.stringify(envoy, (k, v) => { if (v && typeof v === "object" && typeof v.cluster === "string" && v.cluster.startsWith("upstream-")) routes.push(v); return v; });
+  assert.ok(routes.length > 0 && routes.every(r => r.retry_policy?.num_retries === 1), "every terminated route has its retry policy");
 });

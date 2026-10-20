@@ -4,8 +4,8 @@
     "cluster": "egress-proxy",
     "metadata": {
       "isolate01": {
-        "resources_sha256": "384e6918a45b1da0b22782781684730643547c71cf91a626a5023852f5568a37",
-        "config_sha256": "90e6fb40594d24b0ff6ec1e70cc7513ff3153bdef152032d03531ce2e519d610"
+        "resources_sha256": "bfd9e8dee6f1a5f9f78c72100f0267b7df1cc5ad3142666098bcbf56ab026618",
+        "config_sha256": "76f6f44700102da750f9e83d400b6a9daae3780b700a08885644d93ed949e8d0"
       }
     }
   },
@@ -1471,7 +1471,11 @@
                             },
                             "route": {
                               "cluster": "upstream-broker-sja7fatcta-uc-a-run-app",
-                              "timeout": "300s"
+                              "timeout": "300s",
+                              "retry_policy": {
+                                "retry_on": "connect-failure,reset-before-request",
+                                "num_retries": 1
+                              }
                             },
                             "response_headers_to_add": [
                               {
@@ -1694,7 +1698,11 @@
                             },
                             "route": {
                               "cluster": "upstream-policy-sja7fatcta-uc-a-run-app",
-                              "timeout": "300s"
+                              "timeout": "300s",
+                              "retry_policy": {
+                                "retry_on": "connect-failure,reset-before-request",
+                                "num_retries": 1
+                              }
                             },
                             "response_headers_to_add": [
                               {
@@ -1956,7 +1964,11 @@
                             },
                             "route": {
                               "cluster": "upstream-storage-googleapis-com",
-                              "timeout": "300s"
+                              "timeout": "300s",
+                              "retry_policy": {
+                                "retry_on": "connect-failure,reset-before-request",
+                                "num_retries": 1
+                              }
                             },
                             "response_headers_to_add": [
                               {
@@ -2218,7 +2230,11 @@
                             },
                             "route": {
                               "cluster": "upstream-api-graffiticode-org",
-                              "timeout": "300s"
+                              "timeout": "300s",
+                              "retry_policy": {
+                                "retry_on": "connect-failure,reset",
+                                "num_retries": 1
+                              }
                             },
                             "response_headers_to_add": [
                               {
@@ -2535,29 +2551,36 @@
       },
       {
         "name": "upstream-api-graffiticode-org",
-        "type": "LOGICAL_DNS",
-        "dns_lookup_family": "V4_ONLY",
-        "typed_dns_resolver_config": {
-          "name": "envoy.network.dns_resolver.cares",
+        "cluster_type": {
+          "name": "envoy.clusters.dns",
           "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig",
-            "resolvers": [
-              {
-                "socket_address": {
-                  "address": "8.8.8.8",
-                  "port_value": 53
-                }
-              },
-              {
-                "socket_address": {
-                  "address": "8.8.4.4",
-                  "port_value": 53
+            "@type": "type.googleapis.com/envoy.extensions.clusters.dns.v3.DnsCluster",
+            "all_addresses_in_single_endpoint": true,
+            "respect_dns_ttl": true,
+            "dns_lookup_family": "V4_ONLY",
+            "typed_dns_resolver_config": {
+              "name": "envoy.network.dns_resolver.cares",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig",
+                "resolvers": [
+                  {
+                    "socket_address": {
+                      "address": "8.8.8.8",
+                      "port_value": 53
+                    }
+                  },
+                  {
+                    "socket_address": {
+                      "address": "8.8.4.4",
+                      "port_value": 53
+                    }
+                  }
+                ],
+                "use_resolvers_as_fallback": false,
+                "dns_resolver_options": {
+                  "no_default_search_domain": true
                 }
               }
-            ],
-            "use_resolvers_as_fallback": false,
-            "dns_resolver_options": {
-              "no_default_search_domain": true
             }
           }
         },
@@ -2623,29 +2646,36 @@
       },
       {
         "name": "upstream-broker-sja7fatcta-uc-a-run-app",
-        "type": "LOGICAL_DNS",
-        "dns_lookup_family": "V4_ONLY",
-        "typed_dns_resolver_config": {
-          "name": "envoy.network.dns_resolver.cares",
+        "cluster_type": {
+          "name": "envoy.clusters.dns",
           "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig",
-            "resolvers": [
-              {
-                "socket_address": {
-                  "address": "8.8.8.8",
-                  "port_value": 53
-                }
-              },
-              {
-                "socket_address": {
-                  "address": "8.8.4.4",
-                  "port_value": 53
+            "@type": "type.googleapis.com/envoy.extensions.clusters.dns.v3.DnsCluster",
+            "all_addresses_in_single_endpoint": true,
+            "respect_dns_ttl": true,
+            "dns_lookup_family": "V4_ONLY",
+            "typed_dns_resolver_config": {
+              "name": "envoy.network.dns_resolver.cares",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig",
+                "resolvers": [
+                  {
+                    "socket_address": {
+                      "address": "8.8.8.8",
+                      "port_value": 53
+                    }
+                  },
+                  {
+                    "socket_address": {
+                      "address": "8.8.4.4",
+                      "port_value": 53
+                    }
+                  }
+                ],
+                "use_resolvers_as_fallback": false,
+                "dns_resolver_options": {
+                  "no_default_search_domain": true
                 }
               }
-            ],
-            "use_resolvers_as_fallback": false,
-            "dns_resolver_options": {
-              "no_default_search_domain": true
             }
           }
         },
@@ -2711,29 +2741,36 @@
       },
       {
         "name": "upstream-policy-sja7fatcta-uc-a-run-app",
-        "type": "LOGICAL_DNS",
-        "dns_lookup_family": "V4_ONLY",
-        "typed_dns_resolver_config": {
-          "name": "envoy.network.dns_resolver.cares",
+        "cluster_type": {
+          "name": "envoy.clusters.dns",
           "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig",
-            "resolvers": [
-              {
-                "socket_address": {
-                  "address": "8.8.8.8",
-                  "port_value": 53
-                }
-              },
-              {
-                "socket_address": {
-                  "address": "8.8.4.4",
-                  "port_value": 53
+            "@type": "type.googleapis.com/envoy.extensions.clusters.dns.v3.DnsCluster",
+            "all_addresses_in_single_endpoint": true,
+            "respect_dns_ttl": true,
+            "dns_lookup_family": "V4_ONLY",
+            "typed_dns_resolver_config": {
+              "name": "envoy.network.dns_resolver.cares",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig",
+                "resolvers": [
+                  {
+                    "socket_address": {
+                      "address": "8.8.8.8",
+                      "port_value": 53
+                    }
+                  },
+                  {
+                    "socket_address": {
+                      "address": "8.8.4.4",
+                      "port_value": 53
+                    }
+                  }
+                ],
+                "use_resolvers_as_fallback": false,
+                "dns_resolver_options": {
+                  "no_default_search_domain": true
                 }
               }
-            ],
-            "use_resolvers_as_fallback": false,
-            "dns_resolver_options": {
-              "no_default_search_domain": true
             }
           }
         },
@@ -2799,29 +2836,36 @@
       },
       {
         "name": "upstream-storage-googleapis-com",
-        "type": "LOGICAL_DNS",
-        "dns_lookup_family": "V4_ONLY",
-        "typed_dns_resolver_config": {
-          "name": "envoy.network.dns_resolver.cares",
+        "cluster_type": {
+          "name": "envoy.clusters.dns",
           "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig",
-            "resolvers": [
-              {
-                "socket_address": {
-                  "address": "8.8.8.8",
-                  "port_value": 53
-                }
-              },
-              {
-                "socket_address": {
-                  "address": "8.8.4.4",
-                  "port_value": 53
+            "@type": "type.googleapis.com/envoy.extensions.clusters.dns.v3.DnsCluster",
+            "all_addresses_in_single_endpoint": true,
+            "respect_dns_ttl": true,
+            "dns_lookup_family": "V4_ONLY",
+            "typed_dns_resolver_config": {
+              "name": "envoy.network.dns_resolver.cares",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig",
+                "resolvers": [
+                  {
+                    "socket_address": {
+                      "address": "8.8.8.8",
+                      "port_value": 53
+                    }
+                  },
+                  {
+                    "socket_address": {
+                      "address": "8.8.4.4",
+                      "port_value": 53
+                    }
+                  }
+                ],
+                "use_resolvers_as_fallback": false,
+                "dns_resolver_options": {
+                  "no_default_search_domain": true
                 }
               }
-            ],
-            "use_resolvers_as_fallback": false,
-            "dns_resolver_options": {
-              "no_default_search_domain": true
             }
           }
         },
