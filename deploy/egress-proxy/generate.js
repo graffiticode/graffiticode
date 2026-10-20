@@ -181,7 +181,9 @@ const innerLogFields = (className, host) => ({
   target_metadata: "%DYNAMIC_METADATA(isolate01:target)%",
   sni: "%REQUESTED_SERVER_NAME%",
   host: "%REQ(:AUTHORITY)%",
-  path: "%REQ(:PATH)%",
+  // Without the query: a query can carry a token (L0013's snap opens /form?access_token=…),
+  // and these lines go to Cloud Logging (2026-10-20).
+  path: "%PATH(NQ:ORIG)%",
   upstream: "%UPSTREAM_REMOTE_ADDRESS%",
   upstream_host: "%UPSTREAM_HOST%",
   code: "%RESPONSE_CODE%",
