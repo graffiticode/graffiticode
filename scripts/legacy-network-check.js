@@ -6,6 +6,9 @@
 //
 //   node scripts/legacy-network-check.js [--only l0002,l0011] [--pending l0137,l0170]
 //
+// It also lists the project's services: any lNNNN-<branch> staging service must be on its
+// language's class too.
+//
 // Each service in deploy/egress-proxy/production/network.json marked "legacy": every revision its
 // traffic can reach (serving or tagged) must have the network interface, all-traffic egress,
 // the exact proxy variables and the CA mount. l0158 and l0160 must carry no LEARNOSITY_*
@@ -48,6 +51,17 @@ export async function checkAll(services, { cloud, pending = new Set() }) {
   return { results, ok: results.every(r => r.ready || r.pending) };
 }
 
+// A staging deploy makes lNNNN-<branch> (cloudbuild.staging.yaml). It's a compiler too, so it
+// must be on its language's class; one whose language isn't legacy is refused outright.
+export const STAGING = /^(l\d{4})-[a-z0-9-]+$/;
+export function stagingServices(names, legacy) {
+  const byName = new Map(legacy.map(s => [s.name, s]));
+  return names.filter(n => STAGING.test(n)).map(n => {
+    const base = byName.get(n.match(STAGING)[1]);
+    return base ? { ...base, name: n, staging: true } : { name: n, staging: true, unknown: true };
+  });
+}
+
 const run = promisify(execFile);
 const gcloud = async args => JSON.parse((await run("gcloud", [...args, `--project=${PROJECT}`, `--region=${REGION}`, "--format=json"], { maxBuffer: 16 * 1024 * 1024 })).stdout);
 
@@ -57,9 +71,15 @@ async function main() {
   const only = list("--only");
   const pending = list("--pending") ?? new Set();
   const network = JSON.parse(await readFile(path.join(ROOT, "deploy/egress-proxy/production/network.json"), "utf8"));
-  const services = legacyServices(network).filter(s => !only || only.has(s.name));
+  const legacy = legacyServices(network);
+  // Every staging service in the project, whatever --only says: none should exist off the proxy.
+  const names = (await gcloud(["run", "services", "list"])).map(s => s.metadata.name);
+  const staging = stagingServices(names, legacy);
+  const services = [...legacy.filter(s => !only || only.has(s.name)), ...staging.filter(s => !s.unknown)];
   if (!services.length) throw new Error("no legacy services selected");
-  const { results, ok } = await checkAll(services, { cloud: gcloud, pending });
+  const checked = await checkAll(services, { cloud: gcloud, pending });
+  const results = [...checked.results, ...staging.filter(s => s.unknown).map(s => ({ service: s.name, ready: false, why: ["a staging service of a language that isn't legacy"] }))];
+  const ok = checked.ok && !staging.some(s => s.unknown);
   for (const r of results) console.log(`${r.service}: ${r.ready ? "ok" : r.pending ? "pending" : "NOT READY"}${r.why ? ` (${r.why.join("; ")})` : ""}`);
   console.log(ok ? `ok: ${results.filter(r => r.ready).length} on the proxy` : "NOT READY");
   process.exit(ok ? 0 : 1);
