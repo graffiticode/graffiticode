@@ -1174,7 +1174,9 @@
         "SYSTEM_PREVIEW_DIRECT"
       ],
       "forbiddenEnv": [
-        "SYSTEM_PREVIEW_DIRECT"
+        "SYSTEM_PREVIEW_DIRECT",
+        "LEARNOSITY_KEY",
+        "LEARNOSITY_SECRET"
       ]
     },
     "l0003": {
