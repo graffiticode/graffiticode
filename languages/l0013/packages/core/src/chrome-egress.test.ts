@@ -55,3 +55,11 @@ describe("prepareChromeEgress", () => {
     expect(launch.env).toBeUndefined();
   });
 });
+
+describe("Chrome's background traffic", () => {
+  it("is switched off for every capture (2026-10-20)", async () => {
+    const { QUIET_ARGS } = await import("./chrome-egress.js");
+    for (const a of ["--disable-background-networking", "--disable-component-update", "--disable-sync", "--no-first-run"]) expect(QUIET_ARGS).toContain(a);
+    expect(QUIET_ARGS.find((a) => a.startsWith("--disable-features="))).toMatch(/AutofillServerCommunication/);
+  });
+});

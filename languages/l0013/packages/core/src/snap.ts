@@ -6,7 +6,7 @@
 // firebase-admin) are imported lazily here so that merely importing the compiler (e.g.
 // build-static) does not pull them in.
 import { createHash } from "node:crypto";
-import { prepareChromeEgress } from "./chrome-egress.js";
+import { prepareChromeEgress, QUIET_ARGS } from "./chrome-egress.js";
 
 const API_URL = process.env.GRAFFITICODE_API_URL || "https://api.graffiticode.org";
 // The app's item form route (`/form/{itemId}`) resolves an item id to its task + language and
@@ -385,7 +385,7 @@ export async function snap(args: SnapArgs): Promise<SnapResult> {
   try {
     browser = await puppeteer.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", ...egress.args],
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", ...QUIET_ARGS, ...egress.args],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       ...(egress.env ? { env: egress.env } : {}),
     });

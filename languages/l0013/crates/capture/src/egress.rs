@@ -17,6 +17,23 @@ use crate::CameraError;
 /// The nickname the proxy's CA is stored under in Chrome's NSS database.
 pub const CA_NICKNAME: &str = "isolate01-egress-ca";
 
+/// Chrome's own background traffic, off: sign-in, component updates, sync, autofill, its
+/// connectivity and default-search checks. A capture needs none of it, and through the egress
+/// proxy each request is a refusal in the log (2026-10-20). Names without `--`, as chromiumoxide
+/// wants them; a bare name is a switch without a value.
+pub const QUIET_SWITCHES: &[&str] = &[
+    "disable-background-networking",
+    "disable-component-update",
+    "disable-sync",
+    "disable-default-apps",
+    "no-first-run",
+    "no-default-browser-check",
+    "disable-domain-reliability",
+    "disable-client-side-phishing-detection",
+];
+/// The `disable-features` switch's value, set beside QUIET_SWITCHES.
+pub const QUIET_DISABLED_FEATURES: &str = "OptimizationHints,Translate,MediaRouter,AutofillServerCommunication";
+
 /// What a launch adds for the proxy: Chrome switches (name without `--`, and value), and the CA
 /// it must trust. chromiumoxide adds the `--` itself, so a switch is never passed pre-formatted.
 #[derive(Debug, Default, PartialEq)]
@@ -96,6 +113,15 @@ mod tests {
     fn env(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
         let map: HashMap<String, String> = pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
         move |name| map.get(name).cloned()
+    }
+
+    #[test]
+    fn chromes_background_traffic_is_off() {
+        for s in ["disable-background-networking", "disable-component-update", "disable-sync", "no-first-run"] {
+            assert!(QUIET_SWITCHES.contains(&s), "{s}");
+        }
+        assert!(QUIET_SWITCHES.iter().all(|s| !s.starts_with('-') && !s.contains('=')));
+        assert!(QUIET_DISABLED_FEATURES.contains("AutofillServerCommunication"));
     }
 
     #[test]

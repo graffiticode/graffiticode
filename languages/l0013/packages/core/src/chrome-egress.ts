@@ -14,6 +14,22 @@ import { join } from "node:path";
 
 export const CA_NICKNAME = "isolate01-egress-ca";
 
+// Chrome's own background traffic, off: sign-in, component updates, sync, autofill, its
+// connectivity and default-search checks. A capture needs none of it, and through the egress
+// proxy each request is a refusal in the log (accounts.google.com, update.googleapis.com,
+// www.google.com, start.duckduckgo.com and others on 2026-10-20).
+export const QUIET_ARGS = [
+  "--disable-background-networking",
+  "--disable-component-update",
+  "--disable-sync",
+  "--disable-default-apps",
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--disable-domain-reliability",
+  "--disable-client-side-phishing-detection",
+  "--disable-features=OptimizationHints,Translate,MediaRouter,AutofillServerCommunication",
+];
+
 type Env = Record<string, string | undefined>;
 
 export interface ChromeEgress {
