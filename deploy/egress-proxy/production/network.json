@@ -1,5 +1,5 @@
 {
-  "$comment": "ISOLATE-01 rollout step 1: the planned network blocks for the first wave (L0176, L0000) and the default-class waves (14 L0000-derived languages, then 16 Rust *r services, 2026-10-19), then L0013 and l0013r (compilers-l0013, with storage.googleapis.com) and L0185 and l0185r (compilers-l0185, the open class, D2), 2026-10-20, from the host inventory (plan: \"Host inventory\"). deploy/egress-proxy reads this file (--deploy) to build step 1's proxy; deploy.json gets each block only in rollout step 3, through deploy --stage. Each later compiler is added here first, then moves to deploy.json the same way.",
+  "$comment": "ISOLATE-01 rollout step 1: the planned network blocks for the first wave (L0176, L0000) and the default-class waves (14 L0000-derived languages, then 16 Rust *r services, 2026-10-19), then L0013 and l0013r (compilers-l0013, with storage.googleapis.com) and L0185 and l0185r (compilers-l0185, the open class, D2), 2026-10-20; then the D6 wave's 26 legacy compilers, deployed from their own repos (\"legacy\": true; not in deploy.json), with l0137 and l0170 in the open class, from the host inventory (plan: \"Host inventory\"). deploy/egress-proxy reads this file (--deploy) to build step 1's proxy; deploy.json gets each block only in rollout step 3, through deploy --stage. Each later compiler is added here first, then moves to deploy.json the same way.",
   "version": 1,
   "services": {
     "l0176": {
@@ -763,6 +763,526 @@
       "network": {
         "network": "compilers",
         "subnet": "compilers-l0185",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0001": {
+      "runtimeServiceAccount": "l0001-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0002": {
+      "runtimeServiceAccount": "l0002-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0011": {
+      "runtimeServiceAccount": "l0011-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0012": {
+      "runtimeServiceAccount": "l0012-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0137": {
+      "runtimeServiceAccount": "l0137-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0185",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0151": {
+      "runtimeServiceAccount": "l0151-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0152": {
+      "runtimeServiceAccount": "l0152-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0153": {
+      "runtimeServiceAccount": "l0153-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0154": {
+      "runtimeServiceAccount": "l0154-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0155": {
+      "runtimeServiceAccount": "l0155-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0156": {
+      "runtimeServiceAccount": "l0156-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0157": {
+      "runtimeServiceAccount": "l0157-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0158": {
+      "runtimeServiceAccount": "l0158-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0159": {
+      "runtimeServiceAccount": "l0159-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0160": {
+      "runtimeServiceAccount": "l0160-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0161": {
+      "runtimeServiceAccount": "l0161-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0163": {
+      "runtimeServiceAccount": "l0163-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0165": {
+      "runtimeServiceAccount": "l0165-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0166": {
+      "runtimeServiceAccount": "l0166-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0167": {
+      "runtimeServiceAccount": "l0167-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0168": {
+      "runtimeServiceAccount": "l0168-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0169": {
+      "runtimeServiceAccount": "l0169-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0170": {
+      "runtimeServiceAccount": "l0170-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0185",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0171": {
+      "runtimeServiceAccount": "l0171-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0172": {
+      "runtimeServiceAccount": "l0172-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      }
+    },
+    "l0173": {
+      "runtimeServiceAccount": "l0173-run@graffiticode.iam.gserviceaccount.com",
+      "legacy": true,
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
         "tags": [
           "compiler"
         ],
