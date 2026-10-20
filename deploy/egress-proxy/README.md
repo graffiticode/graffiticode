@@ -179,6 +179,16 @@ needed.
    pins two (`classes.json` `proxy.zones`).
 3. Watch the health check and the refusal metric, then run `verify-rollout.js`.
 
+   **Every rollout fires the unhealthy alert** (the `egress-proxy-unhealthy` metric), and
+   that's expected. Each old VM is reported UNHEALTHY as it shuts down. Check the order in the
+   health-check log (`logName:"compute.googleapis.com%2Fhealthchecks"`) against the group's
+   `compute.instances.delete` calls: each new VM must be HEALTHY before the group deletes an
+   old one, and each UNHEALTHY must be an old VM's address after its delete call.
+   - The 2026-10-20 rollout (`egress-proxy-39f91cc71d09`) went that way: new VM HEALTHY
+     15:58:26, then old delete 15:58:30, old UNHEALTHY 15:58:46; then new HEALTHY 15:59:56,
+     old delete 16:00:07, old UNHEALTHY 16:00:22.
+   - An UNHEALTHY on a new VM, or one with no delete before it, is a real failure. Roll back.
+
 **Rollback:** the same command with the previous template, which is always kept.
 
 **Patching.** COS auto-update is disabled (`cos-update-strategy=update_disabled`), and in-place
