@@ -3,6 +3,7 @@
   "project": "graffiticode",
   "region": "us-central1",
   "control": "at11-iam-control",
+  "controlProject": "graffiticode-isolate01",
   "compilers": [
     {
       "subject": "l0000-run",
@@ -318,10 +319,22 @@
   "excluded": [],
   "dnsExfil": "at11.graffiticode.org",
   "dnsLog": {
-    "filter": "resource.type=\"dns_query\" AND jsonPayload.queryName:\"at11.graffiticode.org\""
+    "filter": "resource.type=\"dns_query\" AND jsonPayload.queryName:\"at11.graffiticode.org\"",
+    "project": "graffiticode-isolate01"
   },
   "retries": {
     "attempts": 8,
     "waitMs": 30000
+  },
+  "blocked": {
+    "compilerSubnets": [
+      "10.8.16.0/22",
+      "10.8.20.0/22",
+      "10.8.24.0/22",
+      "10.8.28.0/22",
+      "10.8.32.0/22"
+    ],
+    "proxySubnet": "10.8.0.0/27",
+    "loadBalancer": "10.8.0.2"
   }
 }

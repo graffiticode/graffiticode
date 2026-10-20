@@ -20,6 +20,8 @@
 //   project:  "graffiticode"
 //   region:   "us-central1"
 //   control:  "at11-iam-control"                          the control's IAM job
+//   controlProject: "graffiticode-isolate01"              (optional) the control job's project,
+//             when its canary resources live outside `project` (step 7 reuses step 0's)
 //   compilers: [{ subject: "l0176-run", net: "at11-net-l0176", iam: "at11-iam-l0176" }, ...]
 //             every compiler account (compilerInventory: deploy.json's languages and every
 //             lNNNN-run / lNNNNr-run account in the project) must be here or in `excluded`
@@ -28,7 +30,7 @@
 //   deploy.json whose network egress is a recorded exception (plan, decision D6). Its IAM is
 //   still probed; its network matrix isn't run.
 //   dnsExfil: "<domain we run>"                           the same domain the net jobs use
-//   dnsLog:   { filter: "<Cloud Logging filter for the domain's query log>" }
+//   dnsLog:   { filter: "<Cloud Logging filter for the domain's query log>", project?: "<its project>" }
 //   blocked:  { compilerSubnets: [...], proxySubnet: "...", loadBalancer: "..." }
 //   retries:  { attempts: 6, waitMs: 30000 }
 // Nothing here is run until rollout step 7 (deployment deferred).
@@ -120,7 +122,7 @@ export function jobsOf(config) {
   if (!config.control) throw new Error("collect.json needs the control's job");
   if (!config.compilers?.length) throw new Error("collect.json needs at least one compiler");
   return [
-    { job: config.control, role: "control" },
+    { job: config.control, role: "control", ...(config.controlProject ? { project: config.controlProject } : {}) },
     ...config.compilers.flatMap(c => [...(c.net ? [{ job: c.net, role: "net", subject: c.subject }] : []), { job: c.iam, role: "iam", subject: c.subject }]),
   ];
 }
@@ -180,12 +182,12 @@ export async function collect(config, deps) {
 
   // 1–2. Start every job with the nonce; wait; one digest for all.
   const jobs = jobsOf(config);
-  for (const j of jobs) j.execution = (await runJob(j.job, { AT11_NONCE: nonce }))?.execution ?? null;
+  for (const j of jobs) j.execution = (await runJob(j.job, { AT11_NONCE: nonce }, j.project))?.execution ?? null;
   const missing = jobs.filter(j => !j.execution).map(j => j.job);
   if (missing.length) return { nonce, passed: false, void: true, why: `no execution for: ${missing.join(", ")}`, jobs };
   const digests = {};
   for (const j of jobs) {
-    const d = await describeExecution(j.execution);
+    const d = await describeExecution(j.execution, j.project);
     if (!d?.completed) return { nonce, passed: false, void: true, why: `execution ${j.execution} didn't complete`, jobs };
     digests[j.execution] = d.digest;
     j.digest = d.digest;
@@ -195,7 +197,7 @@ export async function collect(config, deps) {
 
   // 3. Each job's evidence, by execution and nonce.
   for (const j of jobs) {
-    const got = evidenceFrom(await readLogs({ kind: "evidence", execution: j.execution }), nonce);
+    const got = evidenceFrom(await readLogs({ kind: "evidence", execution: j.execution, project: j.project }), nonce);
     if (got.refused) return { nonce, passed: false, void: true, why: `${j.job}: ${got.error}`, jobs };
     j.evidence = got.evidence ?? null;
     j.evidenceError = got.error ?? null;
@@ -276,7 +278,9 @@ const gcloud = async (args) => JSON.parse((await run("gcloud", [...args, "--form
 export function gcloudDeps(config) {
   const p = `--project=${config.project}`;
   const r = `--region=${config.region}`;
-  const read = async (filter) => (await gcloud(["logging", "read", filter, p, "--limit=10000", "--order=asc"])) ?? [];
+  // A job or log in another project (the control's, the DNS zone's) names it; the rest are config.project's.
+  const pr = project => `--project=${project ?? config.project}`;
+  const read = async (filter, project) => (await gcloud(["logging", "read", filter, pr(project), "--limit=10000", "--order=asc"])) ?? [];
   const window = (from, to) => `timestamp>="${from}" AND timestamp<="${to}"`;
   return {
     // Read-only: deploy.json and the project's service accounts.
@@ -284,21 +288,21 @@ export function gcloudDeps(config) {
       deployServices: JSON.parse(await readFile(path.join(ROOT, "deploy.json"), "utf8")).services,
       serviceAccounts: ((await gcloud(["iam", "service-accounts", "list", p])) ?? []).map(a => a.email),
     }),
-    runJob: async (job, env) => {
-      const op = await gcloud(["run", "jobs", "execute", job, p, r, "--async", `--update-env-vars=${Object.entries(env).map(([k, v]) => `${k}=${v}`).join(",")}`]);
+    runJob: async (job, env, project) => {
+      const op = await gcloud(["run", "jobs", "execute", job, pr(project), r, "--async", `--update-env-vars=${Object.entries(env).map(([k, v]) => `${k}=${v}`).join(",")}`]);
       return { execution: op?.metadata?.name?.split("/").pop() ?? op?.name?.split("/").pop() ?? null };
     },
-    describeExecution: async (execution) => {
+    describeExecution: async (execution, project) => {
       for (let i = 0; i < 120; i++) {
-        const e = await gcloud(["run", "jobs", "executions", "describe", execution, p, r]);
+        const e = await gcloud(["run", "jobs", "executions", "describe", execution, pr(project), r]);
         const done = (e?.status?.conditions ?? []).find(c => c.type === "Completed");
         if (done && done.status !== "Unknown") return { completed: true, digest: e.spec?.template?.spec?.containers?.[0]?.image?.split("@")[1] ?? null };
         await new Promise(resolve => setTimeout(resolve, 10000));
       }
       return { completed: false };
     },
-    readLogs: async ({ kind, execution, probes, from, to }) => {
-      if (kind === "evidence") return read(`resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="${execution}" AND textPayload:"${EVIDENCE.trim()}"`);
+    readLogs: async ({ kind, execution, project, probes, from, to }) => {
+      if (kind === "evidence") return read(`resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="${execution}" AND textPayload:"${EVIDENCE.trim()}"`, project);
       if (kind === "access") {
         if (!probes.length) return [];
         const lines = (await read(`jsonPayload.isolate01:* AND ${window(from, to)}`)).map(e => e.jsonPayload);
@@ -313,7 +317,7 @@ export function gcloudDeps(config) {
     },
     resolveOutside: name => dns.resolve4(name),
     readDnsLog: async ({ from, to }) => {
-      const entries = await read(`${config.dnsLog.filter} AND ${window(from, to)}`);
+      const entries = await read(`${config.dnsLog.filter} AND ${window(from, to)}`, config.dnsLog.project);
       return { text: entries.map(e => JSON.stringify(e.jsonPayload ?? e.textPayload ?? "")).join("\n"), from, to, fetchedAt: new Date().toISOString() };
     },
   };

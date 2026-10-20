@@ -30,5 +30,20 @@
   ],
   "service": "projects/graffiticode/locations/us-central1/services/{lang}",
   "ownAudience": "urn:graffiticode:at11",
-  "canary": null
+  "canary": {
+    "secrets": [
+      "projects/graffiticode-isolate01/secrets/at11-canary-secret"
+    ],
+    "databases": [
+      "projects/graffiticode-isolate01/databases/at11-canary"
+    ],
+    "kmsKeys": [
+      "projects/graffiticode-isolate01/locations/us-central1/keyRings/at11/cryptoKeys/canary-signing/cryptoKeyVersions/1"
+    ],
+    "impersonate": [
+      "at11-canary-target@graffiticode-isolate01.iam.gserviceaccount.com"
+    ],
+    "service": "projects/graffiticode-isolate01/locations/us-central1/services/at11-canary-svc",
+    "project": "graffiticode-isolate01-ctl"
+  }
 }

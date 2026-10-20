@@ -56,10 +56,10 @@ function fakeDeps(overrides = {}) {
     inventory: async () => overrides.inventory ?? [{ account: "l0176-run@graffiticode.iam.gserviceaccount.com", sources: ["deploy.json", "iam"] }],
     now,
     sleep: async () => {},
-    runJob: async (job, env) => { calls.push(`run ${job} ${env.AT11_NONCE}`); return overrides.runJob ? overrides.runJob(job) : { execution: executions[job] }; },
-    describeExecution: async execution => { calls.push(`describe ${execution}`); return { completed: true, digest: overrides.digests?.[execution] ?? "sha256:one" }; },
+    runJob: async (job, env, project) => { calls.push(`run ${job} ${env.AT11_NONCE}${project ? ` in ${project}` : ""}`); return overrides.runJob ? overrides.runJob(job) : { execution: executions[job] }; },
+    describeExecution: async (execution, project) => { calls.push(`describe ${execution}${project ? ` in ${project}` : ""}`); return { completed: true, digest: overrides.digests?.[execution] ?? "sha256:one" }; },
     readLogs: async q => {
-      calls.push(`logs ${q.kind}`);
+      calls.push(`logs ${q.kind}${q.project ? ` in ${q.project}` : ""}`);
       if (q.kind === "evidence") return evidence[q.execution] ? line(evidence[q.execution]) : [];
       if (q.kind === "access") return overrides.accessLines ?? [{ isolate01: "egress", probe: `${NONCE}-2-bb`, decision: "refuse", reason: "unlisted" }];
       return [];
@@ -85,6 +85,17 @@ test("a run starts every identity-bound job with one nonce, and judges them toge
   assert.deepEqual(s.executions, { net: "at11-net-l0176-x2", iam: "at11-iam-l0176-x3", control: "at11-iam-control-x1" });
   assert.equal(s.net.rows.find(r => r.id === "dns-exfil").state, "passed");
   assert.equal(result.digest, "sha256:one");
+});
+
+test("a control job in another project is started, described and read there; the compilers stay in the config's project", async () => {
+  const { deps, calls } = fakeDeps();
+  const result = await collect({ ...config, controlProject: "graffiticode-isolate01" }, deps);
+  assert.equal(result.passed, true, JSON.stringify(result, null, 2));
+  assert.ok(calls.includes(`run at11-iam-control ${NONCE} in graffiticode-isolate01`), calls.join("\n"));
+  assert.ok(calls.includes("describe at11-iam-control-x1 in graffiticode-isolate01"));
+  assert.ok(calls.includes("logs evidence in graffiticode-isolate01"));
+  assert.ok(calls.includes(`run at11-net-l0176 ${NONCE}`) && calls.includes(`run at11-iam-l0176 ${NONCE}`));
+  assert.equal(calls.filter(c => c.endsWith("in graffiticode-isolate01")).length, 3);
 });
 
 test("the DNS control is sent before the log is fetched (A24)", async () => {
