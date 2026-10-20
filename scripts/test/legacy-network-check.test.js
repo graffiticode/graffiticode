@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { legacyServices, checkService, checkAll } from "../legacy-network-check.js";
+import { legacyServices, checkService, checkAll, stagingServices } from "../legacy-network-check.js";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
 const NETWORK = { network: "compilers", subnet: "compilers-default", tags: ["compiler"], proxy: "http://10.8.0.2:3128", ca: { secret: "egress-proxy-ca-bundle:1", path: "/etc/egress-ca/ca.pem" }, allow: ["api.graffiticode.org", "auth.graffiticode.org"] };
@@ -58,4 +58,12 @@ test("l0160 carrying a Learnosity variable isn't ready; a pending service doesn'
   const unproxied = fakeCloud({ traffic: [{ revisionName: "r1", percent: 100 }], revisions: { r1: revision({ egress: null }) } });
   assert.equal((await checkAll([{ name: "l0137", network: NETWORK, forbiddenEnv: [] }], { cloud: unproxied, pending: new Set(["l0137"]) })).ok, true);
   assert.equal((await checkAll([{ name: "l0137", network: NETWORK, forbiddenEnv: [] }], { cloud: unproxied })).ok, false);
+});
+
+test("a staging service is checked against its language's class; one of a language that isn't legacy is refused", async () => {
+  const legacy = [{ name: "l0170", network: { ...NETWORK, subnet: "compilers-l0185" }, forbiddenEnv: [] }, { name: "l0002", network: NETWORK, forbiddenEnv: [] }];
+  const staging = stagingServices(["l0002", "l0170-feature-x", "l0002-main", "l0176", "l0176r", "api", "l0179-try"], legacy);
+  assert.deepEqual(staging.map(s => [s.name, s.network?.subnet ?? null, !!s.unknown]), [["l0170-feature-x", "compilers-l0185", false], ["l0002-main", "compilers-default", false], ["l0179-try", null, true]]);
+  const r = await checkService(staging[0], { cloud: fakeCloud({ traffic: [{ revisionName: "s1", percent: 100 }], revisions: { s1: revision({ subnet: "compilers-default" }) } }) });
+  assert.equal(r.ready, false, "on the wrong class");
 });
