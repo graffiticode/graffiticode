@@ -40,6 +40,7 @@ export const EXTENSIONS = new Set([
   "envoy.filters.http.dynamic_forward_proxy",
   "envoy.filters.http.router",
   "envoy.clusters.dynamic_forward_proxy",
+  "envoy.clusters.dns",
   "envoy.transport_sockets.tls",
   "envoy.transport_sockets.internal_upstream",
   "envoy.transport_sockets.raw_buffer",
@@ -415,7 +416,7 @@ function innerListener(cls) {
       hcm(`terminate_${slug(host).replace(/-/g, "_")}`, {
         name: `terminate-${cls.name}-${slug(host)}`,
         virtual_hosts: [
-          { name: slug(host), domains: [host, `${host}:443`], routes: [{ match: { prefix: "/" }, ...allow("listed", { cluster: `upstream-${slug(host)}`, timeout: "300s" }) }] },
+          { name: slug(host), domains: [host, `${host}:443`], routes: [{ match: { prefix: "/" }, ...allow("listed", { cluster: `upstream-${slug(host)}`, timeout: "300s", retry_policy: retryPolicy(host) }) }] },
           { name: "fronted", domains: ["*"], routes: [{ match: { prefix: "" }, ...refuse("host-mismatch") }] },
         ],
       }, [], innerLogFields(cls.name, host)),
@@ -434,12 +435,35 @@ function innerListener(cls) {
   };
 }
 
+// One retry, decided host by host (2026-10-20). A pooled connection the upstream has closed
+// resets an in-flight request (a 503 UC on auth's /oauth/verify, step 3). Hosts whose requests are
+// reads, or idempotent (auth's token verify, api's schema and compile, app's resolve, the language
+// hosts' pages, Google's certs), are retried on a reset too. Hosts that take writes (Policy,
+// Broker, Cloud Storage uploads) are retried only when the request never reached the upstream,
+// so a write is never sent twice.
+export const RETRY_ON_RESET = host => host.endsWith(".graffiticode.org") || host === "www.googleapis.com";
+export const retryPolicy = host => ({
+  retry_on: RETRY_ON_RESET(host) ? "connect-failure,reset" : "connect-failure,reset-before-request",
+  num_retries: 1,
+});
+
 function upstreamCluster(host, model) {
   return {
     name: `upstream-${slug(host)}`,
-    type: "LOGICAL_DNS",
-    dns_lookup_family: "V4_ONLY",
-    typed_dns_resolver_config: caresResolver(model),
+    // The DNS cluster extension (the cluster-level DNS fields are deprecated in 1.39). One endpoint
+    // for every address is LOGICAL_DNS. It re-resolves on the record's TTL, not every 5 s: 48
+    // clusters at 5 s exhausted the NAT's ports with DNS (2026-10-20). Cloudflare's records here
+    // have a 300 s TTL.
+    cluster_type: {
+      name: "envoy.clusters.dns",
+      typed_config: {
+        "@type": "type.googleapis.com/envoy.extensions.clusters.dns.v3.DnsCluster",
+        all_addresses_in_single_endpoint: true,
+        respect_dns_ttl: true,
+        dns_lookup_family: "V4_ONLY",
+        typed_dns_resolver_config: caresResolver(model),
+      },
+    },
     connect_timeout: "5s",
     load_assignment: {
       cluster_name: `upstream-${slug(host)}`,
