@@ -17,6 +17,8 @@ import { parseArgs } from "./lib.js";
 import { compilerInventory, compilerJobs, inventoryProblems } from "./collect.js";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+// The production compiler network's addresses (classes.json), for the collector's attribution.
+const BLOCKED = { compilerSubnets: ["10.8.16.0/22", "10.8.20.0/22", "10.8.24.0/22", "10.8.28.0/22", "10.8.32.0/22"], proxySubnet: "10.8.0.0/27", loadBalancer: "10.8.0.2" };
 
 // The step 7 collect.json for an inventory. Its network fields are the production compiler
 // network's (step 1); the operator fills dnsLog from the step 1 records before a run.
@@ -27,10 +29,14 @@ export function step7Config(inventory) {
     project: "graffiticode",
     region: "us-central1",
     control: "at11-iam-control",
+    // Step 0's control and canary resources, reused (decided 2026-10-20).
+    controlProject: "graffiticode-isolate01",
     compilers,
     excluded: [],
     dnsExfil: "at11.graffiticode.org",
-    dnsLog: { filter: "resource.type=\"dns_query\" AND jsonPayload.queryName:\"at11.graffiticode.org\"" },
+    // The at11.graffiticode.org zone, and its query log, are step 0's.
+    dnsLog: { filter: "resource.type=\"dns_query\" AND jsonPayload.queryName:\"at11.graffiticode.org\"", project: "graffiticode-isolate01" },
+    blocked: BLOCKED,
     retries: { attempts: 8, waitMs: 30000 },
   };
   const problems = inventoryProblems(config, inventory);

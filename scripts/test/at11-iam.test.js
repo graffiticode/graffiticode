@@ -251,7 +251,7 @@ test("one IAM config serves every compiler: {lang} in its service comes from the
   assert.equal(resolveForSubject(shared, null), shared, "the control's config is unchanged");
 });
 
-test("the committed step 7 IAM config covers every privileged resource for any compiler, and voids runs until the control is provisioned", async () => {
+test("the committed step 7 IAM config covers every privileged resource for any compiler, and its control uses step 0's canary resources, none in production", async () => {
   const { readFile } = await import("node:fs/promises");
   const shared = JSON.parse(await readFile(new URL("../../deploy/egress-proxy/step7/at11/iam.json", import.meta.url), "utf8"));
   for (const subject of ["l0002-run", "l0176-run", "l0176r-run"]) {
@@ -259,5 +259,11 @@ test("the committed step 7 IAM config covers every privileged resource for any c
     assert.deepEqual(coverageProblems(config), [], subject);
     assert.deepEqual(subjectProblems(subject, accountOf(subject), config), [], subject);
   }
-  await assert.rejects(runIam(shared, "control", { token: "t", doFetch: async () => new Response("{}") }), /no canary resources/);
+  // The control (decided 2026-10-20: step 0's) proves the probe's paths work where IAM allows
+  // them. Its resources must be the prototype's, so a control success never touches production.
+  const c = shared.canary;
+  const names = [...c.secrets, ...c.databases, ...c.kmsKeys, c.service];
+  assert.ok(names.every(n => n.startsWith("projects/graffiticode-isolate01/")), names.join(", "));
+  assert.ok(c.impersonate.every(a => a.endsWith("@graffiticode-isolate01.iam.gserviceaccount.com")));
+  assert.equal(c.project, "graffiticode-isolate01-ctl");
 });
