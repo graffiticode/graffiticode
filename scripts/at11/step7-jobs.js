@@ -100,8 +100,11 @@ export function commands({ collect, classes, services, image }) {
   const sa = subject => `${subject}@${PROJECT}.iam.gserviceaccount.com`;
   step("1. The sentinel at11/sentinel in Policy's and Broker's databases (once; it stays)",
     ...["policy", "broker"].map(db => `curl -sf -X PATCH -H "Authorization: Bearer $(gcloud auth print-access-token)" -H x-goog-user-project:${PROJECT} -H content-type:application/json ${q(`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${db}/documents/at11/sentinel?currentDocument.exists=false`)} -d '{"fields":{"purpose":{"stringValue":"AT-11 IAM probe sentinel (ISOLATE-01 step 7); never read by a service"}}}'`));
-  step("2. The probe image, from the repo root; note its digest",
-    cmd("gcloud", "builds", "submit", `--project=${PROJECT}`, `--region=${REGION}`, "--config=deploy/egress-proxy/step7/probe.cloudbuild.yaml", "."),
+  // The build context is only what the image copies: submitting the repo root uploads every
+  // node_modules and Rust target (30 GiB on 2026-10-20).
+  step("2. The probe image, from the repo root, with a context of only what it copies; note its digest",
+    "C=$(mktemp -d) && mkdir -p $C/scripts/at11 $C/deploy/egress-proxy/step7 && cp scripts/at11/lib.js scripts/at11/net.js scripts/at11/iam.js $C/scripts/at11/ && cp -R deploy/egress-proxy/step7/at11 deploy/egress-proxy/step7/Dockerfile.probe deploy/egress-proxy/step7/probe.cloudbuild.yaml $C/deploy/egress-proxy/step7/",
+    `gcloud builds submit --project=${PROJECT} --region=${REGION} --config=$C/deploy/egress-proxy/step7/probe.cloudbuild.yaml $C`,
     cmd("gcloud", "artifacts", "docker", "images", "describe", IMAGE_TAG, "--format=value(image_summary.digest)"));
   step(`3. ${CONTROL_PROJECT}'s Cloud Run agent may pull it (removed in 6)`,
     `N=$(${CONTROL_PROJECT_NUMBER_CMD})`,
