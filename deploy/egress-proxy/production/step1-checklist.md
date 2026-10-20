@@ -133,7 +133,7 @@ Expected config digest: `f3c14d25333a77019fbb3e4375d1484ac8a0793c820ff8052572462
 - [ ] Run:
   ```bash
   gcloud compute routers create egress-proxy-router --project=graffiticode --region=us-central1 --network=compilers
-  gcloud compute routers nats create egress-proxy-nat --project=graffiticode --region=us-central1 --router=egress-proxy-router --auto-allocate-nat-external-ips --nat-custom-subnet-ip-ranges=egress-proxy --enable-logging
+  gcloud compute routers nats create egress-proxy-nat --project=graffiticode --region=us-central1 --router=egress-proxy-router --auto-allocate-nat-external-ips --nat-custom-subnet-ip-ranges=egress-proxy --enable-logging --min-ports-per-vm=4096 --udp-idle-timeout=10s
   ```
 - [ ] Check:
   ```bash
