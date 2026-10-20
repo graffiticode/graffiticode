@@ -96,10 +96,11 @@ const q = s => (/^[A-Za-z0-9_./:=@,+-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\
 const cmd = (...argv) => argv.map(q).join(" ");
 
 // The operator's commands, in order.
-export function commands({ collect, classes, services, image }) {
+export function commands({ collect, classes, services, image, collectPath = `${DIR}/collect.json` }) {
   const out = [];
   const step = (title, ...lines) => out.push(`# ${title}`, ...lines, "");
-  const classOf = Object.fromEntries(classes.flatMap(c => c.services.map(s => [s, c.subnet])));
+  // A legacy compiler (network.json, not deploy.json) brings its own network block in `services`.
+  const classOf = { ...Object.fromEntries(Object.entries(services).filter(([, s]) => s.network).map(([n, s]) => [n, s.network.subnet])), ...Object.fromEntries(classes.flatMap(c => c.services.map(s => [s, c.subnet]))) };
   const lang = subject => subject.replace(/-run$/, "");
   const sa = subject => `${subject}@${PROJECT}.iam.gserviceaccount.com`;
   step("1. The sentinel at11/sentinel in Policy's and Broker's databases (once; it stays)",
@@ -132,7 +133,7 @@ export function commands({ collect, classes, services, image }) {
   }
   step(`4. The jobs: the control (in ${CONTROL_PROJECT}), ${collect.compilers.length} IAM jobs and ${collect.compilers.filter(c => c.net).length} net jobs`, ...jobs);
   step("5. The collector (roles/logging.viewer and privateLogViewer in both projects); evidence in .gc-deploy/at11/<nonce>/",
-    cmd("node", "scripts/at11/collect.js", "--config", `${DIR}/collect.json`));
+    cmd("node", "scripts/at11/collect.js", "--config", collectPath));
   step("6. The teardown: the compiler jobs and the pull grant (the control job and the sentinels stay)",
     ...collect.compilers.flatMap(c => [c.iam, ...(c.net ? [c.net] : [])]).map(j => cmd("gcloud", "run", "jobs", "delete", j, `--project=${PROJECT}`, `--region=${REGION}`, "--quiet")),
     `gcloud artifacts repositories remove-iam-policy-binding services --project=${PROJECT} --location=${REGION} --member=serviceAccount:service-$N@serverless-robot-prod.iam.gserviceaccount.com --role=roles/artifactregistry.reader --condition=None`);
@@ -142,10 +143,13 @@ export function commands({ collect, classes, services, image }) {
 async function main() {
   const argv = process.argv.slice(2);
   const write = argv.includes("--write");
-  const args = parseArgs(argv.filter(a => a !== "--write"), ["--admin", "--image"]);
+  const args = parseArgs(argv.filter(a => a !== "--write"), ["--admin", "--image", "--collect"]);
   if (!/^10\.8\.0\.\d+$/.test(args["--admin"] ?? "")) throw new Error("usage: step7-jobs.js --admin <a proxy VM's address, 10.8.0.x> [--image <ref>] [--write]");
   const services = JSON.parse(await readFile(path.join(ROOT, "deploy.json"), "utf8")).services;
-  const collect = JSON.parse(await readFile(path.join(ROOT, DIR, "collect.json"), "utf8"));
+  const collect = JSON.parse(await readFile(args["--collect"] ?? path.join(ROOT, DIR, "collect.json"), "utf8"));
+  // The legacy compilers' network blocks, for their net jobs' class and CA (D6 wave).
+  const network = JSON.parse(await readFile(path.join(ROOT, "deploy/egress-proxy/production/network.json"), "utf8"));
+  const jobServices = { ...Object.fromEntries(Object.entries(network.services).filter(([, v]) => v.legacy)), ...services };
   const classes = classesOf(services);
   if (write) {
     const base = JSON.parse(await readFile(path.join(ROOT, "deploy/egress-proxy/step3/at11/probe-l0176.json"), "utf8"));
@@ -155,7 +159,7 @@ async function main() {
     iam.canary = CANARY;
     await writeFile(iamPath, `${JSON.stringify(iam, null, 2)}\n`);
   }
-  console.log(commands({ collect, classes, services, image: args["--image"] ?? `${IMAGE_TAG.replace(/:step7$/, "")}@sha256:<from step 2>` }));
+  console.log(commands({ collect, classes, services: jobServices, collectPath: args["--collect"], image: args["--image"] ?? `${IMAGE_TAG.replace(/:step7$/, "")}@sha256:<from step 2>` }));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

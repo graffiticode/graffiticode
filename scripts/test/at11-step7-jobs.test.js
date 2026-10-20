@@ -84,3 +84,21 @@ test("the teardown deletes every compiler job and the pull grant, and leaves the
   // The sentinels are created only where none exists.
   assert.match(text, /documents\/at11\/sentinel\?currentDocument\.exists=false/);
 });
+
+test("the D6 wave's run: each legacy compiler gets a net job on its own class from network.json (2026-10-20)", async () => {
+  const { services, classes } = await setup();
+  const network = await json("deploy/egress-proxy/production/network.json");
+  const legacy = Object.fromEntries(Object.entries(network.services).filter(([, v]) => v.legacy));
+  const collect = await json("deploy/egress-proxy/step7/at11/collect-d6.json");
+  assert.equal(collect.compilers.length, 26);
+  assert.ok(collect.compilers.every(c => c.net && c.iam && !c.exception));
+  assert.ok(collect.excluded.every(e => /passed AT-11 run [0-9a-f]+/.test(e.reason)));
+  const text = commands({ collect, classes, services: { ...legacy, ...services }, image: IMAGE, collectPath: "deploy/egress-proxy/step7/at11/collect-d6.json" });
+  const deploys = text.split("\n").filter(l => l.startsWith("gcloud run jobs deploy "));
+  assert.equal(deploys.length, 1 + 26 * 2);
+  for (const [l, want] of [["l0002", "compilers-default"], ["l0137", "compilers-l0185"], ["l0170", "compilers-l0185"]]) {
+    const line = deploys.find(d => d.includes(` at11-net-${l} `));
+    assert.ok(line.includes(`--subnet=${want} `) && line.includes(`--config,/config/probe-${want}.json`), line);
+  }
+  assert.match(text, /collect\.js --config deploy\/egress-proxy\/step7\/at11\/collect-d6\.json/);
+});
