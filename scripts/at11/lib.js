@@ -30,3 +30,15 @@ export async function writeEvidence(outDir, subject, probe, result) {
   await writeFile(file, JSON.stringify(result, null, 2) + "\n");
   return file;
 }
+
+// The evidence as log lines. Cloud Run cuts a log line at 64 KiB (a 45-host class's evidence
+// was cut at 65,532 characters, 2026-10-20), so a long one goes out in numbered parts the
+// collector reassembles: `AT11-EVIDENCE-PART <i>/<n> <chunk>`. Non-ASCII is escaped, so the
+// JSON is ASCII and a part's characters are its bytes.
+export const EVIDENCE_PART_MAX = 60000;
+export function evidenceLines(result, max = EVIDENCE_PART_MAX) {
+  const json = JSON.stringify(result).replace(/[\u0080-\uffff]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  if (json.length <= max) return [`AT11-EVIDENCE ${json}`];
+  const n = Math.ceil(json.length / max);
+  return Array.from({ length: n }, (_, i) => `AT11-EVIDENCE-PART ${i + 1}/${n} ${json.slice(i * max, (i + 1) * max)}`);
+}

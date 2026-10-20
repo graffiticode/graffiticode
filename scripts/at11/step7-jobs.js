@@ -80,6 +80,10 @@ export function probeConfig(cls, base, { admin }) {
     listed,
   };
   if (external.length) config.external = external; else delete config.external;
+  // L0013's list holds every language host, the legacy ones included: an idle Cloud Run service
+  // can take longer than 8 s to start, which isn't a refusal (seven timed out on 2026-10-20 and
+  // answered in under a second minutes later).
+  if (cls.subnet === "compilers-l0013") config.timeoutMs = 30000;
   if (kind === "open") {
     // A public name we run that this class doesn't list, so it goes through the open route.
     config.canary = "l0186.graffiticode.org";
