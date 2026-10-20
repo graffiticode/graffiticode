@@ -813,3 +813,23 @@ client, and is recorded as documented (AT-10). Silence in the network log is nev
 `Cache-Control` on `GET /data` (system and connection), `POST /compile` and `POST /preview/sign`;
 `--scan-documents` scans `compiles`, `artifacts`, `artifact-heads` and Policy's `publications` for
 signature fields and prints counts and paths only.
+
+## Compiler egress (ISOLATE-01)
+
+Since 2026-10-20, every compiler in `deploy.json` reaches the outside only through the egress
+proxy. The proxy's operations are in [`deploy/egress-proxy/README.md`](../deploy/egress-proxy/README.md):
+changing a compiler's hosts, rolling updates and rollback, patching, certificates and CA
+rotation. These rules bear on protected execution:
+
+- **Policy's or Broker's `run.app` host changes:** issue the proxy's certificate for the new
+  host and roll it out *before* L0000 or L0176 calls it. Otherwise their calls are refused, and
+  system previews come back unsigned.
+- **A compiler needs a new host:** update the proxy first (certificate, regenerate, rolling
+  update, `verify-rollout.js`), then stage the compiler's candidate and promote it with
+  evidence (`npm run deploy -- promote <service> --release <id> --evidence <file>`).
+- **`release-check` and `rollback`** refuse any compiler revision without the network
+  controls, with no override.
+- **A proxy rollout fires the unhealthy alert** as each old VM shuts down. The README says how
+  to tell that from a real failure.
+- **Exceptions:** D2 (L0185's open fetches) and D6 (the 26 legacy compilers outside
+  `deploy.json`). Both are recorded in the IAM review, §4 item 7.
