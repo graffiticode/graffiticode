@@ -68,6 +68,8 @@ test("the alert policies are real: the logging heartbeat, refusal spikes, unheal
   assert.doesNotMatch(text, /# alert policies, written in step 1/);
   assert.match(text, /logging metrics create egress-proxy-refused .*jsonPayload\.decision=/);
   assert.match(text, /health-checks create http egress-proxy-ready .*--enable-logging/);
+  // DNS from Envoy's clusters must not exhaust the NAT's ports (2026-10-20).
+  assert.match(text, /routers nats create egress-proxy-nat .*--min-ports-per-vm=4096 --udp-idle-timeout=10s/);
 });
 
 test("the load balancer is internal passthrough TCP, and patching rolls one VM at a time", async () => {

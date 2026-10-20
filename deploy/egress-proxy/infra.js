@@ -122,7 +122,12 @@ export function commands(model) {
   step("Cloud NAT for the proxy subnet only",
     cmd("gcloud", "compute", "routers", "create", "egress-proxy-router", p, r, `--network=${network}`),
     cmd("gcloud", "compute", "routers", "nats", "create", "egress-proxy-nat", p, r, "--router=egress-proxy-router", "--auto-allocate-nat-external-ips",
-      `--nat-custom-subnet-ip-ranges=${model.proxySubnet.name}`, "--enable-logging"));
+      `--nat-custom-subnet-ip-ranges=${model.proxySubnet.name}`, "--enable-logging",
+      // Envoy re-resolves every terminated host's cluster every 5 s, from a fresh source port
+      // each time. At the default 64 ports per VM and a 30 s UDP timeout, 48 hosts exhausted
+      // them, and Cloud NAT dropped DNS queries (2026-10-20). 4096 ports and a 10 s UDP timeout
+      // leave room for hundreds of hosts.
+      "--min-ports-per-vm=4096", "--udp-idle-timeout=10s"));
 
   step("The proxy's identity: certificate keys, logs and metrics, nothing else",
     cmd("gcloud", "iam", "service-accounts", "create", sa.split("@")[0], p, "--display-name=ISOLATE-01 egress proxy"),
