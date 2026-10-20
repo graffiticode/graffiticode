@@ -21,6 +21,12 @@
 //   region:   "us-central1"
 //   control:  "at11-iam-control"                          the control's IAM job
 //   compilers: [{ subject: "l0176-run", net: "at11-net-l0176", iam: "at11-iam-l0176" }, ...]
+//             every compiler account (compilerInventory: deploy.json's languages and every
+//             lNNNN-run / lNNNNr-run account in the project) must be here or in `excluded`
+//   excluded: [{ subject: "l0001-run", reason: "..." }, ...]   each with a stated reason
+//   A compiler entry may leave out `net` only with `exception: "D6"`: a legacy compiler outside
+//   deploy.json whose network egress is a recorded exception (plan, decision D6). Its IAM is
+//   still probed; its network matrix isn't run.
 //   dnsExfil: "<domain we run>"                           the same domain the net jobs use
 //   dnsLog:   { filter: "<Cloud Logging filter for the domain's query log>" }
 //   blocked:  { compilerSubnets: [...], proxySubnet: "...", loadBalancer: "..." }
@@ -43,13 +49,79 @@ const EVIDENCE = "AT11-EVIDENCE ";
 // A kernel log entry's text: COS's journal entries carry it as jsonPayload.MESSAGE.
 export const kernelText = e => e.jsonPayload?.MESSAGE ?? e.textPayload ?? "";
 
+// Every compiler account (step 7). deploy.json covers only the languages released by the deploy
+// CLI; others deploy from their own repositories, each with its own lNNNN-run account. So the
+// inventory is the union of deploy.json's language services and every lNNNN-run / lNNNNr-run
+// account in the project.
+export const COMPILER_ACCOUNT = /^l\d{4}r?-run@graffiticode\.iam\.gserviceaccount\.com$/;
+export function compilerInventory({ deployServices = {}, serviceAccounts = [] }) {
+  const accounts = new Map();
+  for (const [name, entry] of Object.entries(deployServices)) {
+    if (!/^l\d{4}r?$/.test(name)) continue;
+    const account = entry.runtimeServiceAccount ?? `${name}-run@graffiticode.iam.gserviceaccount.com`;
+    accounts.set(account, { account, sources: ["deploy.json"] });
+  }
+  for (const account of serviceAccounts) {
+    if (!COMPILER_ACCOUNT.test(account)) continue;
+    const known = accounts.get(account);
+    if (known) known.sources.push("iam");
+    else accounts.set(account, { account, sources: ["iam"] });
+  }
+  return [...accounts.values()].sort((a, b) => a.account.localeCompare(b.account));
+}
+
+const fullAccount = subject => (String(subject).includes("@") ? String(subject) : `${subject}@graffiticode.iam.gserviceaccount.com`);
+
+// What a run's config leaves out of the inventory: every compiler account must be probed or
+// excluded with a stated reason, and nothing may be probed or excluded that isn't a compiler.
+// Recorded network exceptions a compiler entry may carry instead of a net job.
+export const NETWORK_EXCEPTIONS = new Set(["D6"]);
+
+export function inventoryProblems(config, inventory) {
+  const probed = new Set((config.compilers ?? []).map(c => fullAccount(c.subject)));
+  const sources = new Map(inventory.map(i => [i.account, i.sources ?? []]));
+  const excluded = new Map((config.excluded ?? []).map(e => [fullAccount(e.subject), e.reason]));
+  const known = new Set(inventory.map(i => i.account));
+  const problems = [];
+  for (const { account } of inventory) {
+    if (!probed.has(account) && !excluded.has(account)) problems.push(`${account} is neither probed nor excluded`);
+  }
+  for (const [account, reason] of excluded) {
+    if (!(typeof reason === "string" && reason.trim())) problems.push(`${account} is excluded without a reason`);
+    if (probed.has(account)) problems.push(`${account} is both probed and excluded`);
+  }
+  for (const account of [...probed, ...excluded.keys()]) if (!known.has(account)) problems.push(`${account} isn't a compiler account`);
+  // Every compiler is IAM-probed. A net job may be left out only under a recorded exception, and
+  // D6 covers only legacy compilers outside deploy.json.
+  for (const c of config.compilers ?? []) {
+    const account = fullAccount(c.subject);
+    if (!c.iam) problems.push(`${account} has no IAM job`);
+    if (c.net && c.exception) problems.push(`${account} has both a net job and the ${c.exception} exception`);
+    if (!c.net) {
+      if (!NETWORK_EXCEPTIONS.has(c.exception)) problems.push(`${account} has no net job and no recorded exception`);
+      else if ((sources.get(account) ?? []).includes("deploy.json")) problems.push(`${account} is in deploy.json, so ${c.exception} doesn't cover it`);
+    }
+  }
+  return problems;
+}
+
+// The collect.json compilers entries for an inventory: an IAM job each, and a net job each,
+// except a legacy compiler outside deploy.json (sources only "iam"), which carries D6.
+export const compilerJobs = inventory => inventory.map(({ account, sources = [] }) => {
+  const lang = account.split("@")[0].replace(/-run$/, "");
+  const legacy = !sources.includes("deploy.json");
+  return legacy
+    ? { subject: `${lang}-run`, iam: `at11-iam-${lang}`, exception: "D6" }
+    : { subject: `${lang}-run`, net: `at11-net-${lang}`, iam: `at11-iam-${lang}` };
+});
+
 // The jobs a run starts: the control, then each compiler's net and IAM jobs.
 export function jobsOf(config) {
   if (!config.control) throw new Error("collect.json needs the control's job");
   if (!config.compilers?.length) throw new Error("collect.json needs at least one compiler");
   return [
     { job: config.control, role: "control" },
-    ...config.compilers.flatMap(c => [{ job: c.net, role: "net", subject: c.subject }, { job: c.iam, role: "iam", subject: c.subject }]),
+    ...config.compilers.flatMap(c => [...(c.net ? [{ job: c.net, role: "net", subject: c.subject }] : []), { job: c.iam, role: "iam", subject: c.subject }]),
   ];
 }
 
@@ -68,9 +140,14 @@ const probesOf = net => net.rows.flatMap(r => (r.results ?? []).flatMap(x => [x.
 
 // Judges one compiler: its net run settled by the logs and the DNS row by the authoritative log;
 // its IAM run combined with the control's.
-export function judgeCompiler({ net, iam, control, digests, logs, dnsLog, dnsControl, blocked }) {
-  if (!net) return { passed: false, void: true, why: "no net evidence" };
+export function judgeCompiler({ net, iam, control, digests, logs, dnsLog, dnsControl, blocked, exception = null }) {
   if (!iam) return { passed: false, void: true, why: "no IAM evidence" };
+  if (exception) {
+    // A recorded network exception (D6): the IAM probe alone decides; no network verdict.
+    const iamVerdict = control ? combine(iam, control, { digests }) : { void: true, passed: false, why: "no control run" };
+    return { passed: iamVerdict.passed && !iamVerdict.void, void: iamVerdict.void, net: { verdict: `exception ${exception}` }, iam: iamVerdict };
+  }
+  if (!net) return { passed: false, void: true, why: "no net evidence" };
   const settled = settleNetwork(net, { ...logs, blocked });
   const rows = settled.rows.map(row => {
     if (row.id !== "dns-exfil" || row.state === "n/a") return row;
@@ -90,10 +167,16 @@ export function judgeCompiler({ net, iam, control, digests, logs, dnsLog, dnsCon
 // The whole run. Every cloud and log call goes through `deps`, so tests drive it with
 // recorded output.
 export async function collect(config, deps) {
-  const { runJob, describeExecution, readLogs, resolveOutside, readDnsLog, now = () => new Date().toISOString(), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), nonce = randomBytes(8).toString("hex") } = deps;
+  const { runJob, describeExecution, readLogs, resolveOutside, readDnsLog, inventory, now = () => new Date().toISOString(), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), nonce = randomBytes(8).toString("hex") } = deps;
   const attempts = config.retries?.attempts ?? 6;
   const waitMs = config.retries?.waitMs ?? 30000;
   const startedAt = now();
+
+  // 0. Every compiler account, before any job starts.
+  if (typeof inventory !== "function") throw new Error("the collector needs the compiler inventory");
+  const accounts = await inventory();
+  const gaps = inventoryProblems(config, accounts);
+  if (gaps.length) return { nonce, passed: false, void: true, why: `the run doesn't cover every compiler account: ${gaps.join("; ")}`, inventory: accounts.length };
 
   // 1–2. Start every job with the nonce; wait; one digest for all.
   const jobs = jobsOf(config);
@@ -151,13 +234,14 @@ export async function collect(config, deps) {
 
   // 6. Judge, per compiler, and together.
   const subjects = config.compilers.map(c => {
-    const net = jobs.find(j => j.role === "net" && j.subject === c.subject);
+    const net = jobs.find(j => j.role === "net" && j.subject === c.subject) ?? null;
     const iam = jobs.find(j => j.role === "iam" && j.subject === c.subject);
     return {
       subject: c.subject,
-      executions: { net: net.execution, iam: iam.execution, control: jobs[0].execution },
-      ...(net.evidenceError || iam.evidenceError ? { evidenceErrors: [net.evidenceError, iam.evidenceError].filter(Boolean) } : {}),
-      ...judgeCompiler({ net: net.evidence, iam: iam.evidence, control, digests, logs, dnsLog, dnsControl, blocked: config.blocked }),
+      ...(c.exception ? { exception: c.exception } : {}),
+      executions: { net: net?.execution ?? null, iam: iam.execution, control: jobs[0].execution },
+      ...(net?.evidenceError || iam.evidenceError ? { evidenceErrors: [net?.evidenceError, iam.evidenceError].filter(Boolean) } : {}),
+      ...judgeCompiler({ net: net?.evidence ?? null, iam: iam.evidence, control, digests, logs, dnsLog, dnsControl, blocked: config.blocked, exception: c.exception ?? null }),
     };
   });
   return {
@@ -167,6 +251,8 @@ export async function collect(config, deps) {
     dnsControl,
     passed: subjects.every(s => s.passed),
     void: subjects.some(s => s.void),
+    inventory: accounts.length,
+    excluded: config.excluded ?? [],
     subjects,
     jobs: jobs.map(({ evidence, ...j }) => j),
   };
@@ -193,6 +279,11 @@ export function gcloudDeps(config) {
   const read = async (filter) => (await gcloud(["logging", "read", filter, p, "--limit=10000", "--order=asc"])) ?? [];
   const window = (from, to) => `timestamp>="${from}" AND timestamp<="${to}"`;
   return {
+    // Read-only: deploy.json and the project's service accounts.
+    inventory: async () => compilerInventory({
+      deployServices: JSON.parse(await readFile(path.join(ROOT, "deploy.json"), "utf8")).services,
+      serviceAccounts: ((await gcloud(["iam", "service-accounts", "list", p])) ?? []).map(a => a.email),
+    }),
     runJob: async (job, env) => {
       const op = await gcloud(["run", "jobs", "execute", job, p, r, "--async", `--update-env-vars=${Object.entries(env).map(([k, v]) => `${k}=${v}`).join(",")}`]);
       return { execution: op?.metadata?.name?.split("/").pop() ?? op?.name?.split("/").pop() ?? null };

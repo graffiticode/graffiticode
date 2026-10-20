@@ -159,6 +159,30 @@ export function coverageProblems(config) {
   if ((config.kmsKeys ?? []).length < PRIVILEGED.minKmsKeys) problems.push("Policy's signing key");
   if (!config.service) problems.push("its own service");
   if (!config.project) problems.push("the project");
+  // Every compiler run carries its own positive control (step 7): it must be able to do what it's
+  // meant to, minting its own ID token, so a denial can't come from a broken identity.
+  if (!config.ownAudience) problems.push("its own positive control (ownAudience)");
+  return problems;
+}
+
+// The account a subject names: "l0176-run" or a full email.
+export const accountOf = subject => (String(subject).includes("@") ? String(subject) : `${subject}@graffiticode.iam.gserviceaccount.com`);
+
+// One IAM config serves every compiler: its own service may be written with {lang}, filled in
+// from the subject (l0176-run -> .../services/l0176).
+export function resolveForSubject(config, subject) {
+  if (!subject || typeof config.service !== "string" || !config.service.includes("{lang}")) return config;
+  const lang = accountOf(subject).split("@")[0].replace(/-run$/, "");
+  return { ...config, service: config.service.replaceAll("{lang}", lang) };
+}
+
+// A compiler run must be the identity it claims, checking its own service (step 7): the job ran
+// as the subject's account, and the config's service is that compiler's (l0176-run, .../services/l0176).
+export function subjectProblems(subject, identity, config) {
+  const problems = [];
+  if (identity !== accountOf(subject)) problems.push(`ran as ${identity}, not ${accountOf(subject)}`);
+  const lang = accountOf(subject).split("@")[0].replace(/-run$/, "");
+  if (config.service && !config.service.endsWith(`/services/${lang}`)) problems.push(`its service ${config.service} isn't ${lang}'s`);
   return problems;
 }
 
@@ -231,7 +255,7 @@ const redact = body => {
   return out;
 };
 
-export async function runIam(config, role, { token, doFetch = fetch, idToken } = {}) {
+export async function runIam(config, role, { token, doFetch = fetch, idToken, subject = null, identity = null } = {}) {
   const resources = role === "control" ? config.canary : config;
   if (!resources) throw new Error(`no ${role === "control" ? "canary " : ""}resources in the config`);
   const judge = role === "control" ? judgeAllowed : judgeDenied;
@@ -239,6 +263,10 @@ export async function runIam(config, role, { token, doFetch = fetch, idToken } =
   if (role === "compiler") {
     const missing = coverageProblems(config);
     rows.push({ id: "coverage", kind: "coverage", passed: !missing.length, ...(missing.length ? { why: `the config doesn't cover: ${missing.join("; ")}` } : {}) });
+    if (subject !== null) {
+      const wrong = subjectProblems(subject, identity, config);
+      rows.push({ id: "subject", kind: "coverage", passed: !wrong.length, ...(wrong.length ? { why: wrong.join("; ") } : {}) });
+    }
   }
   for (const check of checksFor(resources)) {
     const response = await send(check, token, doFetch);
@@ -272,7 +300,7 @@ export function combine(compiler, control, { digests } = {}) {
   return { void: false, passed: compiler.passed };
 }
 
-export const VERSION = "at11-iam-2";
+export const VERSION = "at11-iam-3";
 
 async function main() {
   const args = parseArgs(process.argv.slice(2), ["--role", "--subject", "--config", "--out"]);
@@ -280,7 +308,7 @@ async function main() {
   if (!["compiler", "control"].includes(role) || !args["--subject"] || !args["--config"]) {
     throw new Error("usage: iam.js --role compiler|control --subject <account> --config <iam.json> [--out dir]");
   }
-  const config = JSON.parse(await readFile(args["--config"], "utf8"));
+  const config = resolveForSubject(JSON.parse(await readFile(args["--config"], "utf8")), role === "compiler" ? args["--subject"] : null);
   const token = JSON.parse(await metadata("instance/service-accounts/default/token")).access_token;
   const email = await metadata("instance/service-accounts/default/email");
   const result = {
@@ -290,7 +318,7 @@ async function main() {
     nonce: process.env.AT11_NONCE ?? null,
     execution: process.env.CLOUD_RUN_EXECUTION ?? null,
     at: new Date().toISOString(),
-    ...(await runIam(config, role, { token })),
+    ...(await runIam(config, role, { token, subject: role === "compiler" ? args["--subject"] : null, identity: email })),
   };
   const file = await writeEvidence(args["--out"], args["--subject"], `iam-${role}`, result);
   // A job's filesystem doesn't outlive it: the evidence also goes to the log, one line.
