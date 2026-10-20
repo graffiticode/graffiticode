@@ -1,8 +1,9 @@
 # Capability security acceptance run (W5 stage 5)
 
 Run 2026-10-14 against the spec's AT-01 to AT-12
-([spec](graffiticode_capability_policy_spec.md#11-acceptance-scenarios)). **AT-11 is excluded**: it
-waits for ISOLATE-01, which is deferred. The rest of this record is
+([spec](graffiticode_capability_policy_spec.md#11-acceptance-scenarios)). AT-11 was excluded then,
+since it waited for ISOLATE-01. It ran on 2026-10-20 and passed with recorded residuals (its row,
+below). The rest of this record is
 [the as-built record](capability-policy-as-built.md).
 
 Each clause was mapped to the automated tests that check it, and those tests run in CI. Live
@@ -61,7 +62,7 @@ Jeff accepts the production evidence. The agent did the mapping and the checks.
 | AT-08 | RECOVER-01, ARTIFACT-01 | **Pass** | None |
 | AT-09 | PREVIEW-01, READ-01, PUB-01 | **Pass** | Learner answers aren't a gateway path (the Learnosity client handles them), so only views are tested |
 | AT-10 | PROVIDER-01, L0176-01 | **Pass, with recorded residuals** (2026-10-18, registry v8) | Provider rotation documented, not measured; established-session lifetime documented, not measurable from the client; general Questions sessions possible under the previews-only consumer for 10 minutes (PROVIDER-01 revision) |
-| AT-11 | SECRET-01, ISOLATE-01 | **Open: network part passed, IAM probe pending** | The egress proxy is deployed for all 36 `deploy.json` compilers (2026-10-20). The network probe passed for L0176 (2026-10-19, 18 passed, 4 n/a) and in step 0's prototype for every class. Each compiler was promoted on corpus and refusal evidence. **Pending:** the IAM probe for every compiler account (rollout step 7, PR #143). **Credentials clause:** no compiler holds or can read a provider credential. The shared Learnosity secret is deleted, but its consumer is still accepted by Learnosity: it's a developer sandbox's primary key that reaches no student-facing item, an accepted residual (Jeff, 2026-10-20). The "met 2026-10-15" entry was premature |
+| AT-11 | SECRET-01, ISOLATE-01 | **Passed with recorded residuals (2026-10-20)** | Run `b492fffa1316be33` (one image, `at11-probe@sha256:2839d78d…`; evidence `.gc-deploy/at11/b492fffa1316be33/`). **All 62 compiler accounts passed:** the 36 in `deploy.json` passed the network matrix on their own class and the IAM probe; the 26 legacy ones passed the IAM probe, with their network under D6. The control passed in the same run. Network rows: 616 passed, 172 n/a, 4 residual (D2), none failed or void. **Residuals:** D2 (L0185's open fetches); D6 (the legacy compilers' network, a dated exception); the legacy sandbox Learnosity key, still accepted by the provider but reaching no student-facing item (Jeff, 2026-10-20) |
 | AT-12 | AUDIT-01, RELEASE-01 | **Pass** | None |
 
 ## Detail
@@ -238,7 +239,7 @@ expiry.
     cross-account recovery): tested.
 
 No test written for these gaps found a bug. AT-10 passed on 2026-10-18 with recorded
-residuals (registry v8). What remains is AT-11: ISOLATE-01 is deployed (2026-10-20), and its IAM probe is pending.
+residuals (registry v8). AT-11 passed with recorded residuals on 2026-10-20, so every AT now passes.
 
 Live coverage doesn't reach AT-01, AT-06, AT-08 or AT-09's save prohibition. These rest on
 CI tests.
