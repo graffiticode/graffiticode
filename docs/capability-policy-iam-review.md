@@ -1454,12 +1454,23 @@ project `graffiticode`.
    Each compiler's evidence is in `.gc-deploy/inventory/<service>-<release>.json`.
 
    **Exceptions:**
-   - **D2:** L0185's open fetches. Learnosity, `run.app`, `googleapis.com` and `internal` names
-     are refused by name; IP literals and internal addresses are refused too. The residual: it
-     can exfiltrate content it compiles to a public host.
-   - **D6:** the 26 legacy compilers outside `deploy.json` aren't on the proxy, as a dated
-     exception. Their residual is exfiltration of the content they compile, and a follow-up
-     wave brings them behind the proxy.
+   - **D2:** L0185's open fetches, and since 2026-10-20 those of the legacy l0137 and l0170
+     (Jeff). Learnosity, `run.app`, `googleapis.com` and `internal` names are refused by name;
+     IP literals and internal addresses are refused too. The residual: they can exfiltrate
+     content they compile to a public host.
+   - **D6 ended on 2026-10-20** (the D6 wave). The 26 legacy compilers outside `deploy.json`
+     are on the proxy.
+     - **Placement:** `deploy/egress-proxy/production/network.json` marks them `legacy`. l0137 and
+       l0170 are in `compilers-l0185`; the other 24 are in `compilers-default`, with api and
+       auth only.
+     - **Checks:** `scripts/legacy-network-check.js` checks every reachable revision, and refuses
+       `LEARNOSITY_*` on l0158 and l0160. Each repo's production deploy step carries the
+       controls, with `--update-env-vars` (graffiticode/l0002#1, l0158#2, and `#1` in the other
+       24).
+     - **New grant:** `656973052505@cloudbuild` (the legacy Cloud Build account) holds
+       `roles/compute.networkUser` on the `compilers-default` and `compilers-l0185` subnets only,
+       so it can deploy them.
+     - **AT-11:** passed for all 26 (run `eec4a66d71d25450`).
 
    D1 (L0158's preview-only consumer) was superseded on 2026-10-15: L0158 holds no credential.
 

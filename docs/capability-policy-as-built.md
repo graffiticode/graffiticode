@@ -469,8 +469,9 @@ Evidence: [gateway execution](../packages/api/src/data.js),
     - the network matrix for every `deploy.json` compiler;
     - the IAM probe for every account, the 26 legacy ones included, beside a passing control.
   - **Residuals:**
-    - D2: L0185's open fetches;
-    - D6: the 26 legacy compilers' network, a dated exception with a follow-up wave;
+    - D2: L0185's open fetches, and the legacy l0137's and l0170's;
+    - D6 (the legacy compilers' network) **ended on 2026-10-20**. All 26 are behind the proxy,
+      and AT-11 passed for them in run `eec4a66d71d25450` (#156, #157);
     - the legacy sandbox Learnosity key, still accepted by the provider but reaching no
       student-facing item.
   - **Records:** IAM review §4 item 7, the runbook (`deploy/egress-proxy/README.md`), and the
@@ -933,7 +934,7 @@ coding agent does the implementation work named, and Jeff accepts the production
 | AUDIT-01 | Partial: denial records have no `category`; no reconciliation events | Agent implements categories and reconciliation audit events. Jeff accepts production evidence | Every audited refusal carries its category, checked by the inventory test; reconciliation outcomes audited; both shown on deployed records |
 | WRITE-02 | Missing: no reconciliation from provider evidence. No exactly-once provider guarantee is claimed | Agent implements W5 reconciliation and its tests. Jeff accepts provider-backed evidence | Uncertain and partial writes reconciled against provider evidence, with AT-10 for Author, shown against the provider |
 | RETAIN-01 | **Closed 2026-10-16:** restore test passed (see RETAIN-01 above) | Jeff owns production retention, backups and restore verification. Agent supplies the checks | A successful restore test, and verification that every record RETAIN-01 names (invocation records, idempotency bindings, admission plans, receipt claims and outcomes) has no unintended expiry and survives connection deletion, not just backups configured; in the Policy and Broker databases, recorded |
-| ISOLATE-01 | **Closed 2026-10-20, with recorded residuals:** all 36 `deploy.json` compilers are behind the egress proxy, and AT-11 passed for all 62 compiler accounts (run `b492fffa1316be33`). Residuals: D2, D6 and the legacy sandbox key | Jeff owns production IAM and network controls. Agent supplies configuration changes and negative tests | Enforced egress allowlist; compilers denied access to credentials (secrets, keys, metadata tokens beyond their own) and denied impersonation; all shown by deployed negative tests (AT-11) |
+| ISOLATE-01 | **Closed 2026-10-20, with recorded residuals:** all 36 `deploy.json` compilers are behind the egress proxy, and AT-11 passed for all 62 compiler accounts (run `b492fffa1316be33`). Residuals: D2 and the legacy sandbox key; D6 ended 2026-10-20 (all 26 legacy compilers on the proxy, AT-11 run `eec4a66d71d25450`) | Jeff owns production IAM and network controls. Agent supplies configuration changes and negative tests | Enforced egress allowlist; compilers denied access to credentials (secrets, keys, metadata tokens beyond their own) and denied impersonation; all shown by deployed negative tests (AT-11) |
 
 Update this record when each requirement is implemented and tested. Record source revision,
 command/environment, outcome, and date; retain the distinction between local implementation
