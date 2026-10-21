@@ -1378,8 +1378,9 @@ internal route in auth, not only the cleanup:
 - the whole `/oauth-clients` router (`oauth-flow.js`) and the `/oauth-tokens` router.
 
 So anyone who could change what the job runs could use the key for those routes. That means
-anyone with `run.jobs.update` on it, or `actAs` on `auth-maintenance-run`, which today is only the
-Owners. Two things limit the exposure: the image is pinned by digest, and its command is fixed.
+anyone with `run.jobs.update` on it, or `actAs` on `auth-maintenance-run`. Today that's the three
+Owners, and Google's APIs service agent (`656973052505@cloudservices`, Editor), as for every
+other resource in the project. Two things limit the exposure: the image is pinned by digest, and its command is fixed.
 The key gives no project role and no Firestore access of its own.
 
 - **Follow-up (narrower):** a separate secret, checked only by `/v1/refresh-tokens/clean-expired`
