@@ -75,7 +75,7 @@ exposure without waiting for Steps 6–9.
 | 2 Deployers | Required APIs enabled (Run, Build, Artifact Registry, Container Analysis, KMS, Secret Manager) | Build/smoke SAs, the `services` Artifact Registry repo, deployer grants. Images still go to `gcr.io` and Cloud Build still runs as the legacy SA |
 | 3 Roles | `api-run`: `datastore.user` on `(default)` only, `cloudtrace.agent`. `auth-run`: `datastore.user` on `(default)` only, `roles/firebaseauth.viewer` (the code only calls `getUser`, `verifyIdToken`, `createCustomToken`, so viewer replaces the `firebaseauth.admin` proposed in Step 3), `tokenCreator` on itself | `l0013` bucket grant |
 | 4 Databases | `policy` and `broker` (nam5), each `datastore.user` to its own SA only. **Delete protection on for `policy`, `broker` and `(default)`** | — |
-| 5 Key and secrets | KMS `policy/token-signing` (P-256; `signer` = `policy-run`, `publicKeyViewer` = `policy-run`, `broker-run`). `policy-callers`, `broker-callers`, `audit-pseudonym-secret` and `BROKER_SECRET_KEY` each at v1, accessor only the intended SA(s). New: `auth-internal-api-key` v1, accessor `auth-run` | `broker-learnosity-system` (not created; the broker keeps connection credentials sealed in its own database) |
+| 5 Key and secrets | KMS `policy/token-signing` (P-256; `signer` = `policy-run`, `publicKeyViewer` = `policy-run`, `broker-run`). `policy-callers`, `broker-callers`, `audit-pseudonym-secret` and `BROKER_SECRET_KEY` each at v1, accessor only the intended SA(s). New: `auth-internal-api-key` v1, accessor `auth-run` (and, since 2026-10-21, `auth-maintenance-run`, Step 13) | `broker-learnosity-system` (not created; the broker keeps connection credentials sealed in its own database) |
 | 6 Move services | `api` → `api-run`, `l0176` → `l0176-run`, **`auth` → `auth-run`** (revision `auth-00014-9kl`; `INTERNAL_API_KEY` now from `auth-internal-api-key:1`, previously a plain env var readable by anyone with `run.services.get`) | 40 compilers, `l0158` first |
 | 7 Invokers | Both services private. `policy`: `api-run`, `console-run@graffiticode-app`, `l0176-run`. `broker`: `l0176-run`, `policy-run` | `deploy-smoke` on both; `l0158-run` once it exists |
 | 8 Shared secrets | — | Compute SA still reads `GRAFFITICODE_SECRET_KEY` and `learnosity-secret` (needed until the 40 compilers move) |
@@ -296,6 +296,8 @@ so a shared compiler SA would let any compiler mint tokens for L0176's protected
 | Console runtime SA (project `graffiticode-app`) | ✓ `run.invoker` (cross-project; see §3 step 7). The only caller `auth` accepts on `/internal/act-as` (Step 12; auth is public, so this is the caller-identity check, not IAM) | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | App-tier front doors `mcp-run@`, `openapi-run@` (project `graffiticode-app`) | ✗: they call no Policy route (core skips the connection lookup for them; connection writes run only in the console). Not in `policy-callers` | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗. They sign act-as grants (Step 12) but are not act-as callers, and hold no model key |
 | Default compute SA | ✗ | ✗ | ✓ public | ✗ | ✗ | ✗ after Editor removal | ✗ after Editor removal | ✗ after Editor removal | ✗ |
+| `auth-maintenance-run` (Step 13) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ (it reaches auth's internal route over HTTP with the internal key, not Firestore) | ✗. Only `secretAccessor` on `auth-internal-api-key` |
+| `auth-maintenance-scheduler` (Step 13) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗. Only `run.invoker` on the job `auth-refresh-token-cleanup` |
 | Cloud Build SA | ✗ | ✗ | ✓ public | ✗ | ✗ | ✗ | ✗ | ✗ | ✗. Needs `run.admin` plus `serviceAccountUser` on each runtime SA to deploy it |
 | Humans / deployers (Owners) | Owners can do everything; that is accepted. Keep day-to-day deployers on `run.developer` + `serviceAccountUser`, not Owner | | | | | | | | |
 
@@ -1339,6 +1341,57 @@ project `graffiticode`.
 
 - Rollback: remove `ACT_AS_CALLERS` from `auth`'s config (the route answers 503), or disable the
   grant secret's version. Tokens already issued expire within 5 minutes.
+
+### Step 13: the scheduled refresh-token cleanup (2026-10-21) [LIVE]
+
+`auth` deletes expired refresh tokens at `POST /v1/refresh-tokens/clean-expired`. That covers
+each token's doc, its `token-to-id` index entry and its `private/key` doc (since `f842011d`,
+2026-09-29). The route requires the internal key (`X-Internal-API-Key`, from
+`auth-internal-api-key`). Nothing called it, and 536 expired tokens had built up. Issue #4 asked
+for this cleanup, and PR #10 included an earlier version of it.
+
+Now a daily job calls it:
+- Cloud Scheduler `auth-refresh-token-cleanup` (us-central1, `17 4 * * *` UTC) POSTs to Cloud
+  Run's `…/jobs/auth-refresh-token-cleanup:run` with an OAuth token for
+  `auth-maintenance-scheduler`.
+- The Cloud Run job `auth-refresh-token-cleanup` runs `curlimages/curl@sha256:c1fe1679…` as
+  `auth-maintenance-run`. It reads the key as an env var from `auth-internal-api-key:1` and
+  calls the route (`max-retries 1`, 300 s).
+
+New identities and grants, each the narrowest that works:
+
+| Principal | Grant | Resource | Why |
+|---|---|---|---|
+| `auth-maintenance-run@graffiticode` (new) | `roles/secretmanager.secretAccessor` | secret `auth-internal-api-key` only | the job sends the internal key. No project roles, and nothing else |
+| `auth-maintenance-scheduler@graffiticode` (new) | `roles/run.invoker` | Cloud Run job `auth-refresh-token-cleanup` only | the scheduler starts that job. It can't read the key (Troubleshooter: `secretmanager.versions.access` NOT_GRANTED, `run.jobs.run` GRANTED) |
+| `service-656973052505@gcp-sa-cloudscheduler` | `roles/cloudscheduler.serviceAgent` (granted by Google when the API was enabled) | project | mints the scheduler account's OAuth token |
+
+Also new: the Cloud Scheduler API (`cloudscheduler.googleapis.com`) is enabled in `graffiticode`,
+for this job alone.
+
+`auth-internal-api-key` is now read by `auth-run` and `auth-maintenance-run`.
+
+**Residual: the internal key is broad, and the cleanup job holds it.** It authorizes every
+internal route in auth, not only the cleanup:
+- `/authenticate/internal/exists/:address`;
+- `/linked-emails/internal`, `internal/lookup`, `internal/search` and **`internal/sign-in`**;
+- the whole `/oauth-clients` router (`oauth-flow.js`) and the `/oauth-tokens` router.
+
+So anyone who could change what the job runs could use the key for those routes. That means
+anyone with `run.jobs.update` on it, or `actAs` on `auth-maintenance-run`. Today that's the three
+Owners, and Google's APIs service agent (`656973052505@cloudservices`, Editor), as for every
+other resource in the project. Two things limit the exposure: the image is pinned by digest, and its command is fixed.
+The key gives no project role and no Firestore access of its own.
+
+- **Follow-up (narrower):** a separate secret, checked only by `/v1/refresh-tokens/clean-expired`
+  (an `auth` change), would leave the job unable to reach the other internal routes.
+
+- **Verification:** a manual run deleted 536 expired tokens and kept 52. The first scheduled run
+  is due 2026-10-22 04:17 UTC (`gcloud scheduler jobs describe auth-refresh-token-cleanup
+  --location=us-central1`). A forced run right after enabling the API made no attempt.
+- **Rollback:** `gcloud scheduler jobs pause auth-refresh-token-cleanup --location=us-central1`.
+  To remove it, delete the scheduler job and the Cloud Run job, then remove
+  `auth-maintenance-run`'s grant on the secret and delete both accounts.
 
 ## 4. Verification (read-only)
 
