@@ -300,7 +300,16 @@ the alert watches the fleet's total, and a surge only adds lines.
 
 ## Before production (rollout step 0)
 
-**Running step 0.** The prototype lives in the scratch project `graffiticode-isolate01`, created
+**The prototype is retired.** Its projects, `graffiticode-isolate01` and
+`graffiticode-isolate01-ctl`, were deleted on 2026-10-21 (recoverable until about 2026-11-20).
+- The `at11.graffiticode.org` delegation was removed at Cloudflare first, so it can't dangle.
+- Config validation now runs in `graffiticode` (below).
+- A later AT-11 run needs new control resources, a DNS-exfiltration zone and rebinding names in
+  place of step 0's. `scripts/at11/step7-jobs.js` and `step7/at11/` still name the old ones.
+
+This section records how step 0 ran.
+
+**Running step 0.** The prototype lived in the scratch project `graffiticode-isolate01`, created
 2026-10-17. Its config is `step0/`:
 - `step0/classes.json`: the production classes plus `compilers-ext`, a class with a reviewed
   external host, so all three kinds are proved;
@@ -327,14 +336,15 @@ a new config always means a new template.
 
 **Validating a config.** `validate/cloudbuild.yaml` runs `envoy --mode validate` on the pinned
 Envoy in Cloud Build, with throwaway certificates at every path the config names (see its
-header). It fails on an invalid config, and on any Envoy deprecation warning. Step 0's config
+header). Since 2026-10-21 it runs in `graffiticode` as `deploy-build`. `validate/path-format/`
+runs the pinned Envoy on a real request, for a log-format change. It fails on an invalid config, and on any Envoy deprecation warning. Step 0's config
 passed on `envoyproxy/envoy:v1.39.4` on 2026-10-18 (9 clusters, 5 listeners). That includes
 host-kind `passthrough_metadata`, and the inner RBAC filter's `sourced_metadata` principal,
 which replaced the deprecated `Principal.metadata`.
 
-The DNS-exfiltration check's authoritative server is the public Cloud DNS zone
-`at11.graffiticode.org`. It's in the scratch project, with query logging, delegated from
-Cloudflare by four NS records. Resolvers randomise the case of names they pass on, so the log
+The DNS-exfiltration check's authoritative server was the public Cloud DNS zone
+`at11.graffiticode.org`. It was in the scratch project, with query logging, delegated from
+Cloudflare by four NS records (removed 2026-10-21). Resolvers randomise the case of names they pass on, so the log
 is matched without case.
 
 The prototype in a scratch project must show each check in the plan's step 0. It's also where
