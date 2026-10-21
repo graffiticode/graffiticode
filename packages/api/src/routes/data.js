@@ -10,8 +10,7 @@ import {
   parseConnectionId,
   parsePublicationId,
   setImmutableCacheHeaders,
-  setNoStoreCacheHeaders,
-  optionsHandler
+  setNoStoreCacheHeaders
 } from "./utils.js";
 
 export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
@@ -123,6 +122,5 @@ export default ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) =
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetDataHandler({ taskStorer, compileStorer, dataApi, signingLimiter }));
-  router.options("/", optionsHandler);
   return router;
 };

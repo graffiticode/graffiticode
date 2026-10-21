@@ -4,7 +4,6 @@ import { allInGenerationLang, getActiveGeneration, GENERATION_LANG } from "../ge
 import { buildGetTasks } from "./tasks.js";
 import {
   buildHttpHandler,
-  optionsHandler,
   parseIdsFromRequest,
   parseOriginFromRequest,
   parseConnectionId,
@@ -98,6 +97,5 @@ export const buildFormRouter = ({ pingLang, getBaseUrlForLanguage }) => ({ taskS
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetFormHandler({ pingLang, getBaseUrlForLanguage })({ taskStorer }));
-  router.options("/", optionsHandler);
   return router;
 };

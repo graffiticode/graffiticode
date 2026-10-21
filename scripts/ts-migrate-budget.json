@@ -12,6 +12,6 @@
   "broker:test": 0,
   "deploy": 8,
   "deploy:test": 7,
-  "api": 30,
-  "api:test": 82
+  "api": 22,
+  "api:test": 80
 }

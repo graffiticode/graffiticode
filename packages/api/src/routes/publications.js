@@ -7,8 +7,7 @@ import {
   createSuccessResponse,
   parseAuthTokenFromRequest,
   parseConnectionId,
-  parsePublicationId,
-  optionsHandler
+  parsePublicationId
 } from "./utils.js";
 
 //   POST   /publications        { id, connectionId }  publish the caller's current result for a task
@@ -64,6 +63,5 @@ export default ({ taskStorer, artifactStorer, publications }) => {
       throw e;
     }
   }));
-  router.options("/", optionsHandler);
   return router;
 };

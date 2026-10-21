@@ -22,6 +22,16 @@ describe("api", () => {
       .expect(200, "OK", done);
   });
 
+  // cors() answers every preflight before any router sees it.
+  it.each(["/data", "/compile", "/task", "/form", "/preview/sign", "/publications", "/lang-overrides"])("OPTIONS %s is a CORS preflight", async path => {
+    const res = await request(app)
+      .options(path)
+      .set("Origin", "https://console.test")
+      .set("Access-Control-Request-Method", "POST")
+      .expect(204);
+    expect(res.headers["access-control-allow-origin"]).toBe("*");
+  });
+
   it("GET / with auth token", async () => {
     const { accessToken: token } = await authApp.authService.generateTokens({ uid: "1" });
 

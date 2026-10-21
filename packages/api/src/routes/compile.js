@@ -9,7 +9,6 @@ import {
   parseAuthTokenFromRequest,
   parseConnectionId,
   parseIdempotencyKey,
-  optionsHandler,
   setNoStoreCacheHeaders
 } from "./utils.js";
 import { isNonNullObject } from "../util.js";
@@ -126,6 +125,5 @@ export default ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) =
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.post("/", buildPostCompileHandler({ taskStorer, compileStorer, dataApi, signingLimiter }));
-  router.options("/", optionsHandler);
   return router;
 };

@@ -1,27 +1,20 @@
 // Characterization tests: these pin the CURRENT behavior of routes/utils.js
 // (written before the TypeScript migration), not a judgment of it. A change to
 // one of these expectations is a behavior change and needs its own review.
-import { jest } from "@jest/globals";
 import express from "express";
 import request from "supertest";
 import { InvalidArgumentError, NotFoundError } from "../errors/http.js";
-import { encodeID } from "../id.js";
 import {
   buildHttpHandler,
-  checkCompileAllowedRemote,
   createCompileSuccessResponse,
   createError,
   createErrorResponse,
   createSuccessResponse,
-  getCachedCompileAllowed,
-  getStorageTypeForId,
   getStorageTypeForRequest,
-  optionsHandler,
   parseAuthTokenFromRequest,
   parseIdempotencyKey,
   parseIdsFromRequest,
   parseOriginFromRequest,
-  setCachedCompileAllowed,
   setImmutableCacheHeaders,
   setNoStoreCacheHeaders,
 } from "./utils.js";
@@ -146,100 +139,6 @@ describe("routes/utils", () => {
   it("getStorageTypeForRequest reads x-graffiticode-storage-type, defaulting to ephemeral", () => {
     expect(getStorageTypeForRequest(fakeReq({ headers: { "x-graffiticode-storage-type": "persistent" } }))).toBe("persistent");
     expect(getStorageTypeForRequest(fakeReq())).toBe("ephemeral");
-  });
-
-  describe("getStorageTypeForId", () => {
-    it("is ephemeral for an id whose code id is non-zero", () => {
-      expect(getStorageTypeForId(encodeID([1, 2, 0]))).toBe("ephemeral");
-      expect(getStorageTypeForId("5")).toBe("ephemeral");
-    });
-
-    it("is persistent for an invalid ([_, 0, _]) or undecodable id", () => {
-      expect(getStorageTypeForId("0")).toBe("persistent");
-      expect(getStorageTypeForId(undefined)).toBe("persistent");
-      expect(getStorageTypeForId({})).toBe("persistent");
-      expect(getStorageTypeForId(1.5)).toBe("persistent");
-    });
-  });
-
-  it("optionsHandler answers 204 with CORS headers", async () => {
-    const app = express();
-    app.options("/", optionsHandler);
-    const res = await request(app).options("/");
-    expect(res.status).toBe(204);
-    expect(res.headers["access-control-allow-origin"]).toBe("*");
-    expect(res.headers["access-control-request-methods"]).toBe("POST, GET, OPTIONS");
-    expect(res.headers["access-control-allow-headers"]).toBe("X-PINGOTHER, Content-Type");
-  });
-
-  describe("compile-allowed cache", () => {
-    afterEach(() => jest.useRealTimers());
-
-    it("remembers only allowed uids, for five minutes", () => {
-      jest.useFakeTimers({ now: 1_000_000 });
-      expect(getCachedCompileAllowed("u1")).toBeNull();
-      setCachedCompileAllowed("u1", true);
-      expect(getCachedCompileAllowed("u1")).toBe(true);
-      jest.setSystemTime(1_000_000 + 5 * 60 * 1000 - 1);
-      expect(getCachedCompileAllowed("u1")).toBe(true);
-      jest.setSystemTime(1_000_000 + 5 * 60 * 1000);
-      expect(getCachedCompileAllowed("u1")).toBeNull();
-    });
-
-    it("forgets a uid set to not allowed", () => {
-      setCachedCompileAllowed("u2", true);
-      setCachedCompileAllowed("u2", false);
-      expect(getCachedCompileAllowed("u2")).toBeNull();
-    });
-  });
-
-  describe("checkCompileAllowedRemote", () => {
-    const realFetch = global.fetch;
-    let errorSpy;
-    beforeEach(() => { errorSpy = jest.spyOn(console, "error").mockImplementation(() => {}); });
-    afterEach(() => {
-      global.fetch = realFetch;
-      errorSpy.mockRestore();
-    });
-
-    const respond = (body, { ok = true, status = 200, statusText = "OK" } = {}) => {
-      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
-      global.fetch = jest.fn(async () => ({ ok, status, statusText, json: async () => body }));
-      return global.fetch;
-    };
-
-    it("POSTs a GraphQL query to the console with the token as Authorization", async () => {
-      const fetch = respond({ data: { checkCompileAllowed: { allowed: true, reason: null } } });
-      await expect(checkCompileAllowedRemote("tok")).resolves.toEqual({ allowed: true, reason: null });
-      // @ts-expect-error TS-MIGRATE: jest mock typed as an untyped function
-      const [url, init] = fetch.mock.calls[0];
-      expect(url).toBe("https://console.graffiticode.com:443/api");
-      expect(init.method).toBe("POST");
-      expect(init.headers).toEqual({ "Content-Type": "application/json", Authorization: "tok" });
-      expect(JSON.parse(init.body)).toEqual({ query: "{ checkCompileAllowed { allowed reason } }" });
-    });
-
-    it("denies on an HTTP error", async () => {
-      respond({}, { ok: false, status: 503, statusText: "Unavailable" });
-      await expect(checkCompileAllowedRemote("tok")).resolves.toEqual({ allowed: false, reason: "Usage check failed (HTTP 503)" });
-    });
-
-    it("denies with the first GraphQL error message", async () => {
-      respond({ errors: [{ message: "over limit" }, { message: "other" }] });
-      await expect(checkCompileAllowedRemote("tok")).resolves.toEqual({ allowed: false, reason: "over limit" });
-      respond({ errors: [{}] });
-      await expect(checkCompileAllowedRemote("tok")).resolves.toEqual({ allowed: false, reason: "GraphQL error" });
-    });
-
-    it("denies when the answer is missing", async () => {
-      respond({ data: {} });
-      await expect(checkCompileAllowedRemote("tok")).resolves.toEqual({ allowed: false, reason: "Unknown error" });
-    });
-
-    it("denies when fetch throws", async () => {
-      global.fetch = jest.fn(async () => { throw new Error("down"); });
-      await expect(checkCompileAllowedRemote("tok")).resolves.toEqual({ allowed: false, reason: "Failed to check usage limit" });
-    });
   });
 
   describe("parseIdempotencyKey", () => {

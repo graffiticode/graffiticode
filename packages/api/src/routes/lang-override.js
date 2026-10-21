@@ -1,8 +1,7 @@
 import { Router } from "express";
 import {
   buildHttpHandler,
-  createSuccessResponse,
-  optionsHandler
+  createSuccessResponse
 } from "./utils.js";
 
 // Reports which languages the authenticated caller has a per-user binding
@@ -26,6 +25,5 @@ export default ({ langOverrideStorer }) => {
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetLangOverridesHandler({ langOverrideStorer }));
-  router.options("/", optionsHandler);
   return router;
 };
