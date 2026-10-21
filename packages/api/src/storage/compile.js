@@ -21,28 +21,20 @@ function decodeCompileData(compile) {
   }
 }
 
+// Every compile of an id counts once and moves lastCompile; a doc written
+// before firstCompile existed gets it from its legacy `timestamp`.
+const recompiled = (current, now) => ({
+  count: (current.count || 1) + 1,
+  lastCompile: now,
+  ...(!current.firstCompile && current.timestamp
+    ? { firstCompile: new Date(current.timestamp).toISOString() }
+    : {})
+});
+
 const buildCompileCreate = ({ db }) => async ({ id, compile, auth, overwrite = false }) => {
   const compileRef = db.doc(`compiles/${id}`);
   const compileDoc = await compileRef.get();
   const now = new Date().toISOString();
-
-  if (compileDoc.exists && overwrite) {
-    // A forced recompile (see data.js `refresh`). Without this the stored data
-    // was write-once — an existing doc only ever had count/lastCompile moved —
-    // so a verdict recorded before a breaking compiler change could never be
-    // corrected, only deleted. Keep count and firstCompile: this is the same
-    // task compiled again, not a new one.
-    const currentData = compileDoc.data();
-    await compileRef.update({
-      ...encodeCompileData(compile),
-      count: (currentData.count || 1) + 1,
-      lastCompile: now,
-      ...(currentData.firstCompile || !currentData.timestamp
-        ? {}
-        : { firstCompile: new Date(currentData.timestamp).toISOString() })
-    });
-    return id;
-  }
 
   if (!compileDoc.exists) {
     // New document - set count to 1, firstCompile and lastCompile timestamps
@@ -52,21 +44,18 @@ const buildCompileCreate = ({ db }) => async ({ id, compile, auth, overwrite = f
       firstCompile: now,
       lastCompile: now,
     });
+  } else if (overwrite) {
+    // A forced recompile (see data.js `refresh`). Without this the stored data
+    // was write-once — an existing doc only ever had count/lastCompile moved —
+    // so a verdict recorded before a breaking compiler change could never be
+    // corrected, only deleted. Keep count and firstCompile: this is the same
+    // task compiled again, not a new one.
+    await compileRef.update({
+      ...encodeCompileData(compile),
+      ...recompiled(compileDoc.data(), now)
+    });
   } else {
-    // Existing document - increment count (default to 1 if no count field) and update lastCompile
-    const currentData = compileDoc.data();
-    const currentCount = currentData.count || 1;
-    const updateData = {
-      count: currentCount + 1,
-      lastCompile: now,
-    };
-
-    // Add firstCompile if missing, using existing timestamp field
-    if (!currentData.firstCompile && currentData.timestamp) {
-      updateData.firstCompile = new Date(currentData.timestamp).toISOString();
-    }
-
-    await compileRef.update(updateData);
+    await compileRef.update(recompiled(compileDoc.data(), now));
   }
   return id;
 };
@@ -77,24 +66,11 @@ const buildCompileGet = ({ db }) => async ({ id, auth }) => {
   if (!compileDoc.exists) {
     return undefined;
   }
-  // Increment count (default to 1 if no count field) and update lastCompile
   const currentData = compileDoc.data();
-  const currentCount = currentData.count || 1;
-  const now = new Date().toISOString();
-  const updateData = {
-    count: currentCount + 1,
-    lastCompile: now,
-  };
-
-  // Add firstCompile if missing, using existing timestamp field
-  if (!currentData.firstCompile && currentData.timestamp) {
-    updateData.firstCompile = new Date(currentData.timestamp).toISOString();
-  }
-
+  const updateData = recompiled(currentData, new Date().toISOString());
   await compileRef.update(updateData);
-  // Get the updated document
-  const updatedDoc = await compileRef.get();
-  return decodeCompileData(updatedDoc.data());
+  // What the doc now holds, without reading it back.
+  return decodeCompileData({ ...currentData, ...updateData });
 };
 
 export const buildCompileStorer = () => {

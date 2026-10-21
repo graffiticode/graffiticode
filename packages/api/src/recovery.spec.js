@@ -81,10 +81,12 @@ beforeEach(async () => {
     activity: createMemoryActivityStore()
   });
 
-  const compile = async ({ uid, connectionId, invocationToken, stage }) => {
+  // The language server knows the caller by its auth token (here, the uid);
+  // the gateway's `uid` only ever routed the compile.
+  const compile = async ({ auth, connectionId, invocationToken, stage }) => {
     try {
       const { sessionToken } = await policy.snapshot({
-        caller: L0176, user: { uid }, lang: "0176", connectionId, fns: ["save-to-itembank"], invocationToken, stage
+        caller: L0176, user: { uid: auth }, lang: "0176", connectionId, fns: ["save-to-itembank"], invocationToken, stage
       });
       const { executionToken } = await policy.mint({
         caller: L0176, sessionToken, fn: "save-to-itembank", op: "learnosity.write-items", occurrenceId: "SAVE_TO_ITEMBANK:12.0", argsDigest: argsDigest(WRITE)

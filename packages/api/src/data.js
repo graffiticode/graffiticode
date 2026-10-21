@@ -2,6 +2,7 @@ import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/pr
 import { InvocationRefused } from "./invocations.js";
 import { buildReadArtifact, buildReadPublished } from "./read.js";
 import { ArtifactConflict } from "./storage/artifacts.js";
+import { bindingFor } from "./storage/lang-override.js";
 import { randomUUID } from "node:crypto";
 import { classify } from "@graffiticode/common/failures";
 import { canonicalDigest } from "@graffiticode/common/canonical";
@@ -110,7 +111,7 @@ const buildGetData = ({
     if (taskIds.length !== tasks.length) return refuseChain("Error: the task chain could not be read", "plan-binding-mismatch");
     // A user's language override pins them to a revision no plan can admit:
     // refused before anything is preflighted, never silently ignored.
-    const overridden = tasks.map(t => `L${normalizeLang(t.lang)}`).filter(lang => override?.bindings?.[lang]);
+    const overridden = tasks.map(t => `L${normalizeLang(t.lang)}`).filter(lang => bindingFor(override?.bindings, lang));
     if (overridden.length) {
       const message = `Error: a language override (${[...new Set(overridden)].join(", ")}) can't run through a connection; remove it to run this`;
       return refuseChain(message, "language-override-refused");
@@ -201,9 +202,13 @@ const buildGetData = ({
     // default-binding result would mask the override, and writing the
     // revision-specific result would pollute the cache for everyone else.
     const uid = auth?.uid;
+    // Read once: this snapshot routes every stage and schema fetch of the
+    // request, so a binding that changes (or a memo that expires) mid-request
+    // can't mix revisions, or route to a revision this decision didn't see.
     const override = uid && langOverrideStorer
       ? await langOverrideStorer.get({ uid })
       : undefined;
+    const routeFor = lang => bindingFor(override?.bindings, lang);
     // `refresh` is the caller saying "compile this now", not "tell me what it
     // once compiled to". It exists because a taskId is content-addressed over
     // {lang, code} and says NOTHING about the compiler version: when a language
@@ -242,11 +247,13 @@ const buildGetData = ({
     // data is kept — an upstream agent may still make use of it — but a result
     // carrying a schema error is never cached: it is a compiler bug, and the
     // next deploy should not be answered with this one's output.
-    const checkShape = async (lang, obj) => {
+    // `baseUrl` is the revision that produced `obj`, so its schema is the one
+    // checked.
+    const checkShape = async (lang, obj, baseUrl) => {
       if (typeof validateOutput !== "function") {
         return obj;
       }
-      const schemaErrors = await validateOutput(lang, obj, { uid, id });
+      const schemaErrors = await validateOutput(lang, obj, { baseUrl, id });
       if (!schemaErrors.length) {
         return obj;
       }
@@ -318,17 +325,20 @@ const buildGetData = ({
         if (admitted && data?.errors?.length) return data;
         const { lang, code } = task;
         const pinned = admitted?.stages[index];
+        // The admitted revision, else the snapshot's binding, else (null) the
+        // default resolution, which consults no override.
+        const stageBaseUrl = pinned?.tagUrl ?? routeFor(lang);
         let obj = await compile({
           lang,
           code,
           data,
           auth: authToken,
           options,
-          uid,
           connectionId,
           invocationToken: invocation?.invocationToken ?? null,
           stage: invocation ? `s${index}` : null,
-          ...(pinned ? { admissionToken: admitted.admissionToken, baseUrl: pinned.tagUrl } : {})
+          baseUrl: stageBaseUrl,
+          ...(pinned ? { admissionToken: admitted.admissionToken } : {})
         });
         if (pinned) {
           const { revision, responseLost, ...rest } = obj ?? {};
@@ -359,9 +369,9 @@ const buildGetData = ({
           // Strip the directive: it is for us, and would otherwise ride along
           // into the next layer's input data and out to the client.
           const { cache, ...rest } = out;
-          return checkShape(lang, rest);
+          return checkShape(lang, rest, stageBaseUrl);
         }
-        return checkShape(lang, out);
+        return checkShape(lang, out, stageBaseUrl);
       },
       Promise.resolve({})
     );
@@ -423,10 +433,10 @@ const buildGetData = ({
       // must not be held by the browser or the CDN either.
       action.noStore = true;
     }
-    // A refresh writes its fresh result back; an override must not, since its
-    // result is specific to that user's language-server revision and would
-    // pollute the shared cache for everyone else.
-    if ((!bypassCache || refresh) && cacheable) {
+    // A refresh writes its fresh result back; an override must not, even with
+    // a refresh, since its result is specific to that user's language-server
+    // revision and would pollute the shared cache for everyone else.
+    if (!override && (!bypassCache || refresh) && cacheable) {
       await compileStorer.create({
         id: cacheKey,
         compile: {

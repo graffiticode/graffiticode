@@ -1,5 +1,5 @@
 import { admin } from "./firebase.js";
-import { buildLangOverrideStorer } from "./lang-override.js";
+import { bindingFor, buildLangOverrideStorer } from "./lang-override.js";
 import { clearFirestore } from "../testing/firestore.js";
 
 describe("storage/lang-override", () => {
@@ -51,6 +51,31 @@ describe("storage/lang-override", () => {
       const url = "https://test42---l0175.example.run.app";
       await seed("user-1", { L0175: url });
       await expect(langOverrideStorer.getBaseUrl({ uid: "user-1", lang: "l0175" })).resolves.toBe(url);
+    });
+  });
+
+  describe("bindingFor", () => {
+    const url = "https://test42---l0175.example.run.app";
+
+    it("normalizes the lang to the doc's key", () => {
+      for (const lang of ["L0175", "l0175", "0175"]) {
+        expect(bindingFor({ L0175: url }, lang)).toBe(url);
+      }
+    });
+
+    it("returns null for anything but a non-empty string binding", () => {
+      expect(bindingFor({ L0175: "" }, "L0175")).toBeNull();
+      expect(bindingFor({ L0175: 42 }, "L0175")).toBeNull();
+      expect(bindingFor({ L0175: null }, "L0175")).toBeNull();
+      expect(bindingFor({ L0137: url }, "L0175")).toBeNull();
+      expect(bindingFor(undefined, "L0175")).toBeNull();
+      expect(bindingFor("https://not-a-map", "L0175")).toBeNull();
+    });
+
+    it("leaves getBaseUrl answering undefined for those, so the resolver falls back", async () => {
+      await seed("user-1", { L0175: "", L0137: 42 });
+      await expect(langOverrideStorer.getBaseUrl({ uid: "user-1", lang: "L0175" })).resolves.toBe(undefined);
+      await expect(langOverrideStorer.getBaseUrl({ uid: "user-1", lang: "L0137" })).resolves.toBe(undefined);
     });
   });
 

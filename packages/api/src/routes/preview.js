@@ -20,7 +20,7 @@ import { Router, json } from "express";
 import { HttpError, InvalidArgumentError } from "../errors/http.js";
 import { SIGNING_LANG } from "../signing-limit.js";
 import {
-  buildHttpHandler, createError, createErrorResponse, setNoStoreCacheHeaders, optionsHandler
+  buildHttpHandler, createError, createErrorResponse, setNoStoreCacheHeaders
 } from "./utils.js";
 
 export const PREVIEW_SIGN_LIMIT_BYTES = 256 * 1024;
@@ -112,6 +112,5 @@ const buildPostSignHandler = ({ compile, signingLimiter = null }) => buildHttpHa
 export default ({ compile, signingLimiter = null }) => {
   const router = Router();
   router.post("/sign", buildPostSignHandler({ compile, signingLimiter }));
-  router.options("/sign", optionsHandler);
   return router;
 };

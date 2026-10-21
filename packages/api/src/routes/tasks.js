@@ -5,8 +5,7 @@ import {
   buildHttpHandler,
   createSuccessResponse,
   parseIdsFromRequest,
-  setImmutableCacheHeaders,
-  optionsHandler
+  setImmutableCacheHeaders
 } from "./utils.js";
 
 const getIdFromIds = ids => {
@@ -84,6 +83,5 @@ export default ({ taskStorer }) => {
   const router = new Router();
   router.get("/", buildGetTaskHandler({ taskStorer }));
   router.post("/", buildPostTaskHandler({ taskStorer }));
-  router.options("/", optionsHandler);
   return router;
 };

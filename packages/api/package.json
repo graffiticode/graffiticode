@@ -20,18 +20,13 @@
     "@graffiticode/tracing": "^0.3.0",
     "ajv": "^8.20.0",
     "bent": "^7.3.12",
-    "child_process": "^1.0.2",
     "cors": "^2.8.5",
     "errorhandler": "^1.5.1",
     "express": "^4.18.2",
     "firebase-admin": "^11.10.0",
     "graceful-fs": "^4.2.9",
-    "graphql-request": "^5.2.0",
-    "hashids": "^2.2.10",
-    "jose": "^4.11.4",
     "method-override": "^3.0.0",
-    "morgan": "^1.10.0",
-    "redis": "^4.0.4"
+    "morgan": "^1.10.0"
   },
   "scripts": {
     "dev": "GCLOUD_PROJECT=\"graffiticode\" FIRESTORE_EMULATOR_HOST=\"127.0.0.1:8080\" AUTH_URL=\"http://127.0.0.1:4100\" nodemon --exec \"npx @graffiticode/api\"",
@@ -52,6 +47,7 @@
     "eslint-plugin-promise": "^6.1.0",
     "firebase-tools": "^12.4.4",
     "jest": "^29.6.1",
+    "jose": "^4.11.4",
     "nodemon": "^3.0.1",
     "nyc": "^15.1.0",
     "supertest": "^6.3.3"

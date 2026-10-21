@@ -46,7 +46,16 @@ describe("validateOutput", () => {
     const obj = { data: { interaction: { prompt: "hi" } }, errors: [] };
 
     await expect(validateOutput("0999", obj)).resolves.toEqual([]);
-    expect(getAsset).toHaveBeenCalledWith("L0999", "/schema.json", { uid: undefined });
+    expect(getAsset).toHaveBeenCalledWith("L0999", "/schema.json", { baseUrl: "http://localhost:50999" });
+  });
+
+  it("should fetch the schema from a given baseUrl without resolving one", async () => {
+    const validateOutput = build();
+    const obj = { data: { interaction: { prompt: "hi" } }, errors: [] };
+
+    await expect(validateOutput("0999", obj, { baseUrl: "https://pinned" })).resolves.toEqual([]);
+    expect(getBaseUrlForLanguage).not.toHaveBeenCalled();
+    expect(getAsset).toHaveBeenCalledWith("L0999", "/schema.json", { baseUrl: "https://pinned" });
   });
 
   it("should return internal errors for data that does not match (2020-12)", async () => {

@@ -4,10 +4,8 @@ import { allInGenerationLang, getActiveGeneration, GENERATION_LANG } from "../ge
 import { buildGetTasks } from "./tasks.js";
 import {
   buildHttpHandler,
-  optionsHandler,
   parseIdsFromRequest,
   parseOriginFromRequest,
-  parseAuthFromRequest,
   parseConnectionId,
   parsePublicationId,
 } from "./utils.js";
@@ -51,11 +49,10 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
     let lang;
     if (ids.length === 1) {
       const id = ids[0];
-      const authToken = parseAuthFromRequest(req);
       const dataParams = new URLSearchParams();
       dataParams.set("id", id);
       if (req.auth.token) {
-        dataParams.set("access_token", authToken);
+        dataParams.set("access_token", req.auth.token);
       }
       if (connection) {
         params.set("connection", connection);
@@ -100,6 +97,5 @@ export const buildFormRouter = ({ pingLang, getBaseUrlForLanguage }) => ({ taskS
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   router.get("/", buildGetFormHandler({ pingLang, getBaseUrlForLanguage })({ taskStorer }));
-  router.options("/", optionsHandler);
   return router;
 };
