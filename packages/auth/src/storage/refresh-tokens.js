@@ -4,7 +4,10 @@ import { v4 } from "uuid";
 import { getFirestore } from "../firebase.js";
 import { generateNonce } from "../utils.js";
 
-const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+const DAY = 24 * 60 * 60 * 1000;
+const THIRTY_DAYS = 30 * DAY;
+// A session unused this long has ended, even inside its 30 days.
+export const IDLE_TIMEOUT = 14 * DAY;
 // lastUsedAt is rewritten at most this often, so a busy session costs one write an hour.
 const LAST_USED_RESOLUTION = 60 * 60 * 1000;
 const MAX_USER_AGENT_LENGTH = 512;
@@ -16,6 +19,16 @@ const sessionMeta = ({ method, userAgent } = {}) => ({
   method: SESSION_METHODS.includes(method) ? method : null,
   userAgent: typeof userAgent === "string" && userAgent ? userAgent.slice(0, MAX_USER_AGENT_LENGTH) : null,
 });
+
+// A session ends at expiresAt, or IDLE_TIMEOUT after its last use. Sessions made before use was
+// recorded count from when they were created.
+const isEnded = (data, now = Date.now()) => {
+  if (data.expiresAt && data.expiresAt.toMillis() <= now) {
+    return true;
+  }
+  const lastActive = data.lastUsedAt ?? data.createdAt;
+  return Boolean(lastActive) && lastActive.toMillis() + IDLE_TIMEOUT <= now;
+};
 
 const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {}, meta = {} }) => {
   const id = v4();
@@ -49,7 +62,12 @@ const buildGetRefreshToken = ({ db }) => async (token) => {
   const id = tokenToIdDoc.get("id");
   const refreshTokenRef = db.doc(`refresh-tokens/${id}`);
   const refreshTokenDoc = await refreshTokenRef.get();
-  const { uid, additionalClaims, expiresAt, lastUsedAt } = refreshTokenDoc.data();
+  const data = refreshTokenDoc.data();
+  // An ended session is refused here rather than left to the cleanup job, which deletes it later.
+  if (!data || isEnded(data)) {
+    throw new NotFoundError("token does not exist");
+  }
+  const { uid, additionalClaims, expiresAt, lastUsedAt } = data;
   // Every exchange reads the token, so this is where its last use is recorded. Throttled, and
   // a failed write is only logged: recording use never fails the exchange.
   if (!lastUsedAt || Date.now() - lastUsedAt.toMillis() > LAST_USED_RESOLUTION) {
@@ -101,17 +119,26 @@ const deleteTokensById = async ({ db, ids }) => {
   }
 };
 
+// Deletes sessions past expiresAt, and idle ones. An idle session was created more than
+// IDLE_TIMEOUT ago, so only those are read and checked.
 const buildCleanExpiredRefreshTokens = ({ db }) => async () => {
-  const now = admin.firestore.Timestamp.now();
-  const expiredDocs = await db.collection("refresh-tokens")
-    .where("expiresAt", "<", now)
-    .get();
-  await deleteTokensById({ db, ids: expiredDocs.docs.map(doc => doc.id) });
+  const now = Date.now();
+  const [expiredDocs, olderDocs] = await Promise.all([
+    db.collection("refresh-tokens")
+      .where("expiresAt", "<", admin.firestore.Timestamp.fromMillis(now))
+      .get(),
+    db.collection("refresh-tokens")
+      .where("createdAt", "<", admin.firestore.Timestamp.fromMillis(now - IDLE_TIMEOUT))
+      .get(),
+  ]);
+  const ids = new Set(expiredDocs.docs.map(doc => doc.id));
+  olderDocs.docs.filter(doc => isEnded(doc.data(), now)).forEach(doc => ids.add(doc.id));
+  await deleteTokensById({ db, ids: [...ids] });
 };
 
 const toIso = ts => (ts && typeof ts.toDate === "function" ? ts.toDate().toISOString() : null);
 
-// Active sessions, most recently used first. `currentToken` (the caller's own refresh token)
+// Active sessions (not idle past IDLE_TIMEOUT), most recently used first. `currentToken` (the caller's own refresh token)
 // marks its row `current`. Sessions made before metadata was recorded have null method,
 // userAgent and lastUsedAt, except that a Google sign-in is known from its claims.
 const buildListSessions = ({ db }) => async ({ uid, currentToken }) => {
@@ -125,7 +152,7 @@ const buildListSessions = ({ db }) => async ({ uid, currentToken }) => {
   ]);
   const currentId = currentIndex?.exists ? currentIndex.get("id") : null;
 
-  const sessions = sessionsSnapshot.docs.map(doc => {
+  const sessions = sessionsSnapshot.docs.filter(doc => !isEnded(doc.data())).map(doc => {
     const data = doc.data();
     const method = data.method ?? (data.additionalClaims?.oauthProvider === "google" ? "google" : null);
     return {

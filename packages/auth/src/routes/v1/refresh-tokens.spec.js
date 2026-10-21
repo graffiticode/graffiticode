@@ -154,7 +154,7 @@ describe("routes/v1/ethereum", () => {
       await db.doc(`refresh-tokens/${expiredId}`).update({ expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 60 * 60 * 1000) });
 
       await request(authApp.app).post("/v1/refresh-tokens/clean-expired").set("X-Cleanup-API-Key", "wrong").expect(403);
-      await expect(authApp.authService.getRefreshToken({ refreshToken: expiredToken })).resolves.toBeDefined();
+      expect((await db.doc(`refresh-tokens/${expiredId}`).get()).exists).toBe(true);
 
       await request(authApp.app).post("/v1/refresh-tokens/clean-expired").set("X-Cleanup-API-Key", "test-cleanup-key").expect(200);
       await expect(authApp.authService.getRefreshToken({ refreshToken: activeToken })).resolves.toBeDefined();
