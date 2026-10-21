@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Publish**: `npm run publish` (publishes `@graffiticode/l0013` (core) and `@graffiticode/l0013-view` with public access)
 
 ### Testing
-`npm test` runs vitest (root `test` script, default config) over `packages/*/src/**/*.test.ts`, which `tsc` excludes from `dist/`. So far the only suite is `packages/core/src/chrome-egress.test.ts`: Chrome's ISOLATE-01 egress-proxy arguments and NSS database.
+`npm test` runs vitest (root `test` script, default config) over `packages/*/src/**/*.test.ts`, which `tsc` excludes from `dist/`. So far the only suite is `packages/core/src/chrome-egress.test.ts`: Chrome's ISOLATE-01 egress-proxy arguments (the PAC script, the background-traffic flags) and NSS database.
 
 ### Deployment
 - **Release**: `npm run deploy -- l0013` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0013.yaml`, runtime `l0013-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes. The service is sized for headless Chrome (**2Gi memory / 2 CPU / concurrency 4 / 300s timeout**); the deploy CLI passes only image, port, service account, env and pinned secrets, so scaling, CPU/memory, concurrency and timeout carry forward from the live service; change those with `gcloud run services update`. `l0013-run` has `roles/storage.objectAdmin` on `gs://graffiticode.appspot.com` for thumbnails.
@@ -107,7 +107,7 @@ The embedded form supports iframe embedding and communicates with parent windows
   - Storage upload uses Application Default Credentials only: the runtime service account on Cloud Run; locally, `gcloud auth application-default login` (your own account). No service-account key file (`GRAFFITICODE_CREDENTIALS` is no longer read).
   - `PUPPETEER_EXECUTABLE_PATH` — Chrome binary override (set in the container)
   - `GC_SNAP_ACCESS_TOKEN` — fallback auth token used when rendering the target item
-  - `HTTPS_PROXY` with `NODE_EXTRA_CA_CERTS` (set by the deploy CLI's `network` config, ISOLATE-01): Chrome is launched with `--proxy-server` and a temporary `HOME` whose NSS database (built with `certutil`, from the image's `nss-tools`) trusts the proxy's CA (`src/chrome-egress.ts`; the Rust side is `crates/capture/src/egress.rs`). A proxy without a CA, or without `certutil`, fails the snap rather than launching a browser that can't verify anything
+  - `HTTPS_PROXY` with `NODE_EXTRA_CA_CERTS` (set by the deploy CLI's `network` config, ISOLATE-01): Chrome is launched with a PAC script (`--proxy-pac-url`, a `data:` URL) that sends only `graffiticode.org` and `*.graffiticode.org` to the proxy, keeps loopback direct and sends everything else to a closed local port, with its background traffic off (`--disable-background-networking` and the rest), and a temporary `HOME` whose NSS database (built with `certutil`, from the image's `nss-tools`) trusts the proxy's CA (`src/chrome-egress.ts`; the Rust side is `crates/capture/src/egress.rs`). A proxy without a CA, or without `certutil`, fails the snap rather than launching a browser that can't verify anything
 
 ### Dependencies
 - `@graffiticode/l0000` / `@graffiticode/l0000-view` (published) — base language / view, inherited by `core` / `view`

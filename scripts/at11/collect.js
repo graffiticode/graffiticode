@@ -33,7 +33,7 @@
 //   dnsLog:   { filter: "<Cloud Logging filter for the domain's query log>", project?: "<its project>" }
 //   blocked:  { compilerSubnets: [...], proxySubnet: "...", loadBalancer: "..." }
 //   retries:  { attempts: 6, waitMs: 30000 }
-// Nothing here is run until rollout step 7 (deployment deferred).
+// Run in rollout step 7 (run b492fffa1316be33, 2026-10-20) and the D6 wave (eec4a66d71d25450).
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";

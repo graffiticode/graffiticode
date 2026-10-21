@@ -474,6 +474,17 @@ Evidence: [gateway execution](../packages/api/src/data.js),
       and AT-11 passed for them in run `eec4a66d71d25450` (#156, #157);
     - the legacy sandbox Learnosity key, still accepted by the provider but reaching no
       student-facing item.
+  - **Since closing (2026-10-20/21):**
+    - the proxy's access log drops the query (#154, #155), its terminated hosts' clusters follow
+      the DNS TTL, and each route retries once, decided host by host (#160; template
+      `egress-proxy-0cfb77e009f1`, config `1aa650b0`);
+    - L0013's Chrome takes a PAC script that sends only `*.graffiticode.org` to the proxy, with
+      its background traffic off (#161; `l0013-rmvhc4stk-007f29`, `l0013r-rmvi7wdw2-beaa02`);
+    - `scripts/legacy-network-check.js` also refuses a legacy staging service (`lNNNN-<branch>`)
+      off its language's class (#159), and the legacy repos' staging configs carry the controls;
+    - the step 0 prototype's projects (`graffiticode-isolate01`, `-ctl`) were deleted on
+      2026-10-21, and Envoy validation now runs in `graffiticode` (#162). A later AT-11 run
+      needs new control resources, a DNS-exfiltration zone and rebinding names.
   - **Records:** IAM review §4 item 7, the runbook (`deploy/egress-proxy/README.md`), and the
     plan's step records.
 - **Partial — AUDIT-01.** Since W3 (released 2026-10-06), Policy, Broker and api audit:
@@ -913,7 +924,7 @@ Gateway recovery/publication tests cited above were inspected, not rerun for thi
 Firestore integration, production IAM/egress, learner-answer routing, and live provider
 session behavior were not validated by those test runs.
 
-**Acceptance run, 2026-10-14 (W5 stage 5):** [capability-policy-acceptance.md](capability-policy-acceptance.md) maps each AT clause to its tests and the live evidence. Updated the same day once its gaps were closed: every AT passes except AT-07 (pending the restore test), AT-10 (open: provider-side) and AT-11 (deferred with ISOLATE-01). Since then AT-07 passed (restore test, 2026-10-16) and AT-10 passed with recorded residuals (registry v8, 2026-10-18), leaving AT-11. The backlog below is the pre-W4 view, kept for history.
+**Acceptance run, 2026-10-14 (W5 stage 5):** [capability-policy-acceptance.md](capability-policy-acceptance.md) maps each AT clause to its tests and the live evidence. Updated the same day once its gaps were closed: every AT passes except AT-07 (pending the restore test), AT-10 (open: provider-side) and AT-11 (deferred with ISOLATE-01). Since then AT-07 passed (restore test, 2026-10-16) and AT-10 passed with recorded residuals (registry v8, 2026-10-18), and AT-11 passed with recorded residuals (ISOLATE-01, 2026-10-20), so every AT passes. The backlog below is the pre-W4 view, kept for history.
 
 The spec's AT-01 through AT-12 are the release acceptance backlog. In particular:
 

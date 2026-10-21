@@ -11,7 +11,7 @@
 // Some rows need evidence the job can't read: the proxy's access logs, the kernel's and the
 // VPC firewall's rule hits, and the authoritative DNS log. Those rows are reported pending,
 // the job's verdict is then "pending", and only the operator's collector (collect.js)
-// decides them. Nothing here is run until rollout step 4 (deployment deferred).
+// decides them. First run in rollout step 3; AT-11 passed with it on 2026-10-20.
 
 import net, { isIP } from "node:net";
 import tls from "node:tls";

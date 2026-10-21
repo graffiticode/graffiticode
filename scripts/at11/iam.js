@@ -18,7 +18,7 @@
 // canary resources), the same requests must give exactly those answers, and testIamPermissions
 // must grant every permission asked. A compiler run counts only beside a passing control run
 // of the same nonce and image digest; without one it's void.
-// Nothing here is run until rollout step 7 (deployment deferred).
+// Run in rollout step 7 (run b492fffa1316be33, 2026-10-20) and the D6 wave (eec4a66d71d25450).
 
 import { readFile } from "node:fs/promises";
 import { writeEvidence, parseArgs, evidenceLines } from "./lib.js";

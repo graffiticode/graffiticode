@@ -1,4 +1,4 @@
-<title>Compiler Egress Today</title>
+<title>Compiler Egress Before</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -85,37 +85,37 @@
 </style>
 <div class="wrap">
   <header>
-    <p class="eyebrow">ISOLATE-01 · compiler egress · today</p>
-    <h1>What a compromised compiler can reach without ISOLATE-01</h1>
-    <div class="status" style="color:var(--no);background:var(--no-soft)">Today's production: no egress controls on any compiler</div>
-    <p>Compilers run as public Cloud Run services, each with its own <span class="mono">lNNNN-run</span> account and no VPC, proxy or allowlist. Policy, Broker and the registry still gate every brokered operation, so a <em>well-behaved</em> compiler can only act on Learnosity through Broker. ISOLATE-01 is about a <em>compromised</em> one: a malicious dependency or a bad build. The red flows below succeed today.</p>
-    <p class="peer">Peer page: <a href="isolate-01-compiler-egress.html">the same architecture with the Envoy egress proxy</a>.</p>
+    <p class="eyebrow">ISOLATE-01 · compiler egress · before</p>
+    <h1>What a compromised compiler could reach without ISOLATE-01</h1>
+    <div class="status">Historical: production until 2026-10-19, before any compiler was on the proxy. ISOLATE-01 closed 2026-10-20</div>
+    <p>Until ISOLATE-01, compilers ran as public Cloud Run services, each with its own <span class="mono">lNNNN-run</span> account and no VPC, proxy or allowlist. This page records that state and what closed each gap. Policy, Broker and the registry still gate every brokered operation, so a <em>well-behaved</em> compiler can only act on Learnosity through Broker. ISOLATE-01 is about a <em>compromised</em> one: a malicious dependency or a bad build. The red flows below succeeded then; each now fails (AT-11, 2026-10-20), except D2's public fetches.</p>
+    <p class="peer">Peer page: <a href="isolate-01-compiler-egress.html">the architecture as deployed, with the Envoy egress proxy</a>.</p>
   </header>
 
   <div class="legend" aria-label="Legend">
     <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--ok)" stroke-width="1.6"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--ok)"/></svg>Intended request</span>
     <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--line)" stroke-width="1.4" stroke-dasharray="4 3"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--line)"/></svg>Response</span>
-    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--no)" stroke-width="2.4"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--no)"/></svg>Succeeds today, and shouldn't</span>
-    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="26" y2="5" stroke="var(--ok)" stroke-width="1.6"/><path d="M27 1 L33 9 M33 1 L27 9" stroke="var(--ok)" stroke-width="1.8"/></svg>Refused today</span>
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5" stroke="var(--no)" stroke-width="2.4"/><path d="M28 1 L34 5 L28 9 Z" fill="var(--no)"/></svg>Succeeded before ISOLATE-01</span>
+    <span><svg width="34" height="10" aria-hidden="true"><line x1="0" y1="5" x2="26" y2="5" stroke="var(--ok)" stroke-width="1.6"/><path d="M27 1 L33 9 M33 1 L27 9" stroke="var(--ok)" stroke-width="1.8"/></svg>Refused even then</span>
   </div>
 
-  <div class="diagram" role="img" aria-label="Sequence diagram of compiler egress today, without ISOLATE-01, with the vulnerable flows highlighted.">
+  <div class="diagram" role="img" aria-label="Sequence diagram of compiler egress before ISOLATE-01, with the vulnerable flows highlighted.">
     <svg id="seq" xmlns="http://www.w3.org/2000/svg"></svg>
   </div>
 
   <div class="grid">
     <section>
-      <h2>The vulnerabilities, and what closes each</h2>
+      <h2>The vulnerabilities, and what closed each</h2>
       <ol class="vuln-list">
-        <li><span class="badge">1</span><div><span class="k">Anything a compiler sees can leave</span>Programs, item content, a pipeline's earlier-stage data and a user's form state go to any host. Nothing records where.<span class="fix">With ISOLATE-01: every compiler but L0185 reaches only its reviewed hosts, and the proxy logs every request, refused ones included.</span></div></li>
+        <li><span class="badge">1</span><div><span class="k">Anything a compiler sees can leave</span>Programs, item content, a pipeline's earlier-stage data and a user's form state go to any host. Nothing records where.<span class="fix">Closed by ISOLATE-01: every compiler but the open class (L0185, l0137, l0170; D2) reaches only its reviewed hosts, and the proxy logs every request, refused ones included.</span></div></li>
         <li><span class="badge">2</span><div><span class="k">L0158 holds the shared Learnosity credential</span>Its deploy mounts <span class="mono">learnosity-secret</span>, so a compromised L0158 can call Learnosity directly: no Policy, no Broker, no receipt, no audit.<span class="fix">Closed 2026-10-15, without an exception: L0158 renders through L0176, which signs only through Broker, and holds no credential. <span class="mono">learnosity-secret</span> was deleted on 2026-10-18.</span></div></li>
-        <li><span class="badge">3</span><div><span class="k">A credential found in a program works anywhere</span>A key pasted into a program or its data can be used against the provider from the compiler, outside every check.<span class="fix">With ISOLATE-01: provider hosts, IP literals and fronted requests are refused for every class.</span></div></li>
-        <li><span class="badge">4</span><div><span class="k">A compiler's identity can be shipped out</span>An ID token for Policy or Broker, sent elsewhere, lets someone call as that compiler until it expires. Policy and Broker still demand a user's invocation or execution token, so this widens the surface rather than opening the provider.<span class="fix">With ISOLATE-01: the token can't leave; only the metadata server is reached directly.</span></div></li>
-        <li><span class="badge">5</span><div><span class="k">L0185's fetches rest on its own code</span>Nothing outside L0185 stops a program's URL from naming the metadata address, a private address, a Google API or any public host.<span class="fix">With ISOLATE-01 (D2): still open to public hosts, but <span class="mono">run.app</span>, <span class="mono">googleapis.com</span>, <span class="mono">internal</span> and Learnosity names, IP literals and every internal address are refused.</span></div></li>
+        <li><span class="badge">3</span><div><span class="k">A credential found in a program works anywhere</span>A key pasted into a program or its data can be used against the provider from the compiler, outside every check.<span class="fix">Closed by ISOLATE-01: provider hosts, IP literals and fronted requests are refused for every class.</span></div></li>
+        <li><span class="badge">4</span><div><span class="k">A compiler's identity can be shipped out</span>An ID token for Policy or Broker, sent elsewhere, lets someone call as that compiler until it expires. Policy and Broker still demand a user's invocation or execution token, so this widens the surface rather than opening the provider.<span class="fix">Closed by ISOLATE-01: the token can't leave; only the metadata server is reached directly.</span></div></li>
+        <li><span class="badge">5</span><div><span class="k">L0185's fetches rest on its own code</span>Nothing outside L0185 stops a program's URL from naming the metadata address, a private address, a Google API or any public host.<span class="fix">Since ISOLATE-01 (D2): still open to public hosts, but <span class="mono">run.app</span>, <span class="mono">googleapis.com</span>, <span class="mono">internal</span> and Learnosity names, IP literals and every internal address are refused.</span></div></li>
       </ol>
     </section>
     <section>
-      <h2>What still holds without it</h2>
+      <h2>What held even without it</h2>
       <ul class="holds">
         <li>Broker is the only place the per-user connection credentials live, sealed; no compiler can read them.</li>
         <li>Every brokered operation needs a Policy execution token bound to one operation, its arguments' digest and a single-use <span class="mono">jti</span>, minted for a user's invocation and checked live.</li>

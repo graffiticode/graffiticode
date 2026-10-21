@@ -6,18 +6,19 @@
 //   node deploy/egress-proxy/infra.js --plan [--deploy deploy.json] [--classes classes.json]
 //   node deploy/egress-proxy/infra.js --apply --steps 1,2 --classes step0/classes.json --deploy step0/deploy.json [--workdir dir]
 //
-// Production deployment is deferred (Jeff, 2026-10-14): for production this
-// prints the commands for review and never runs them. --apply runs them only
-// against a scratch project (SCRATCH_PROJECTS), for rollout step 0: every
+// For production this prints the commands for review and never runs them: the
+// operator runs them by hand (step 1 ran that way, 2026-10-18). --apply runs them
+// only against a scratch project (SCRATCH_PROJECTS), as rollout step 0 did: every
 // command must name that project, no placeholder may remain, and nothing is
-// ever run against graffiticode.
+// ever run against graffiticode. Step 0's projects were deleted on 2026-10-21, so
+// a later --apply needs a new scratch project listed there.
 
 import { spawnSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { load, terminatedHosts, slug, BLOCKED, compilerAccounts, alertPolicies, envoyConfig, cloudInit, userDataDigest } from "./generate.js";
 
-export const DEFERRED = "deployment deferred (ISOLATE-01): infra.js only prints its commands; run with --plan";
+export const DEFERRED = "production is run by hand (ISOLATE-01): infra.js only prints its commands; run with --plan";
 
 // The only projects --apply will touch: rollout step 0's prototype.
 export const SCRATCH_PROJECTS = new Set(["graffiticode-isolate01"]);

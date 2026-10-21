@@ -3,19 +3,24 @@
 The enforced outbound control for compilers: Envoy on two Container-Optimized OS VMs, behind an
 internal passthrough Network Load Balancer, in the `compilers` VPC. The design and its reasons
 are in the ISOLATE-01 plan (`~/.claude/plans/isolate-01-compiler-egress.md`, "The proxy").
-A sequence diagram of the flows (identity, Policy, Broker, refusals, L0185's open class) is
-[docs/isolate-01-compiler-egress.html](../../docs/isolate-01-compiler-egress.html), and today's
-architecture without it, with each vulnerability it closes, is
+A sequence diagram of the flows (identity, Policy, Broker, refusals, the open class) is
+[docs/isolate-01-compiler-egress.html](../../docs/isolate-01-compiler-egress.html), and the
+architecture before it (production until 2026-10-19), with each vulnerability it closed, is
 [docs/isolate-01-compiler-egress-today.html](../../docs/isolate-01-compiler-egress-today.html); open
 them in a browser.
 
-**Status: not deployed.** Deployment is deferred (2026-10-14). `infra.js` prints its commands
-and refuses to run them, and no `deploy.json` service has a `network` block yet. Rollout step 0
-(the prototype in a scratch project) comes before anything here touches production.
+**Status: deployed; ISOLATE-01 closed 2026-10-20 with recorded residuals.** Every compiler is
+behind the proxy: the 36 in `deploy.json` (their `network` blocks) and the 26 legacy ones
+deployed from their own repos (`production/network.json`, `"legacy": true`; D6 ended
+2026-10-20). Live: the group `egress-proxy` on template `egress-proxy-0cfb77e009f1`, config
+`1aa650b0` (2026-10-20). `infra.js --apply` refuses production, so production changes are
+`--plan`'s output, run by hand. The records are in the as-built record and the IAM review, §4
+item 7.
 
 | File | What it is |
 | --- | --- |
-| `classes.json` | The compiler classes (a subnet each), the L0185 open class's refused names, and the proxy's fixed settings. `envoyImage`, `reportImage` and `cosImage` are `null` until step 0 pins them |
+| `classes.json` | The compiler classes (a subnet each), the open class's refused names, and the proxy's fixed settings, with `envoyImage`, `reportImage` and `cosImage` pinned (step 0, then each patch) |
+| `production/network.json` | Every compiler's `network` block: the 36 also in `deploy.json` (a test holds them identical) and the 26 legacy compilers (`"legacy": true`), which `scripts/legacy-network-check.js` checks live |
 | `generate.js` | `deploy.json` + `classes.json` → `out/envoy.json`, `out/cloud-init.yaml` and `out/alerts/*.json`, and prints the config digest |
 | `digest.js` | The config digest's canonical form and normalisation, shared by the generator and the VM's config report |
 | `infra.js --plan` | The gcloud commands for the VPC, firewall policy and rules, DNS, NAT, identity, secrets, template, group, load balancer, alerts and rolling update |
@@ -43,10 +48,15 @@ and refuses to run them, and no `deploy.json` service has a `network` block yet.
      403 `host-mismatch`.
 
    Envoy then opens its own TLS to the host, verifying the public certificate for that name.
+   The host's cluster follows its DNS record's TTL (`envoy.clusters.dns`, `respect_dns_ttl`),
+   and its route retries once (`retryPolicy` in `generate.js`): on `connect-failure,reset` for
+   hosts that take reads (`*.graffiticode.org`, `www.googleapis.com`), and only on
+   `connect-failure,reset-before-request` for Policy, Broker and Cloud Storage, so a write is
+   never sent twice.
 4. **Unlisted host:**
    - Strict classes: 403 `unlisted`.
-   - L0185's open class: names under `open.denySuffixes` get 403 `name`, IP literals 403
-     `ip-literal`, and CONNECTs to any port but 443 (matched by suffix: Envoy's regexes are
+   - The open class (L0185 and `l0185r`, and the legacy l0137 and l0170; D2): names under
+     `open.denySuffixes` get 403 `name`, IP literals 403 `ip-literal`, and CONNECTs to any port but 443 (matched by suffix: Envoy's regexes are
      full-match) get 403 `port`. Everything else goes through the dynamic forward proxy (IPv4
      only, through the fixed resolvers), and so does plain `http` in absolute form. The open
      class can never *list* a refused name: an exact listed route would win over the
@@ -80,7 +90,9 @@ header) and `start`. Every route sets `x-isolate01-decision` and `x-isolate01-re
 also `x-isolate01-refused: <reason>`, and allowed routes remove any upstream
 `x-isolate01-refused`, so an upstream can't forge a refusal. Connection-level lines
 (`egress-tcp`, `terminate-tcp`) record what closes before HTTP runs: `sni`, the passed-through
-`target`, `flags`, `termination` and `filter_chain`. `refusals.js` reads them all.
+`target`, `flags`, `termination` and `filter_chain`. `refusals.js` reads them all. Inner lines
+also log `path`, without its query (`%PATH(NQ:PATH)%`, since 2026-10-20): a query can carry a
+token, such as L0013's `/form?access_token=…`.
 
 ## The VM
 
@@ -191,10 +203,12 @@ needed.
 
 **Rollback:** the same command with the previous template, which is always kept.
 
-**Cloud NAT has 4096 ports per VM and a 10 s UDP timeout** (`infra.js`). Envoy re-resolves
-every terminated host's cluster every 5 s, from a fresh source port. At the defaults (64 ports,
-30 s), 48 hosts exhausted the NAT, and it dropped DNS queries (2026-10-20). The terminated hosts
-kept their last address, but the open class's fresh lookups failed. After a rollout that adds
+**Cloud NAT has 4096 ports per VM and a 10 s UDP timeout** (`infra.js`). Envoy used to
+re-resolve every terminated host's cluster every 5 s, from a fresh source port. At the defaults
+(64 ports, 30 s), 48 hosts exhausted the NAT, and it dropped DNS queries (2026-10-20). The
+terminated hosts kept their last address, but the open class's fresh lookups failed. Since config
+`1aa650b0` each terminated host's cluster is a DNS cluster (`envoy.clusters.dns`) that follows
+the record's TTL (`respect_dns_ttl`; 300 s for the Cloudflare names), so the load is far lower. After a rollout that adds
 hosts, check for drops:
 `gcloud logging read 'resource.type="nat_gateway" AND jsonPayload.allocation_status="DROPPED"' --freshness=30m`.
 
@@ -243,8 +257,8 @@ leaves that machine.
 
 ## Rollout step 1: production infrastructure
 
-Step 0 passed on 2026-10-18 (see the next section), so step 1 builds the same stack in
-`graffiticode`. Jeff runs the commands. `infra.js --apply` refuses production, so step 1 is
+Step 1 ran on 2026-10-18, after step 0 passed (see the next section). It built the same stack
+in `graffiticode`, and this section records how. Jeff runs the commands. `infra.js --apply` refuses production, so step 1 is
 `--plan`'s output, run by hand.
 
 **Inputs:**
@@ -256,11 +270,11 @@ Step 0 passed on 2026-10-18 (see the next section), so step 1 builds the same st
     (`storage.googleapis.com`).
 
   Its images are step 0's pins.
-- `production/network.json` holds the planned `network` blocks of the first wave, L0176 and
-  L0000. **They stay out of `deploy.json` until rollout step 3.** A `deploy.json` block puts
-  that service on the proxy at its next release, routine ones included. A test
-  (`production.test.js`) refuses any `deploy.json` block that `production/network.json`
-  doesn't hold, identically.
+- `production/network.json` held the planned `network` blocks of the first wave, L0176 and
+  L0000, which stayed out of `deploy.json` until rollout step 3 (a `deploy.json` block puts
+  that service on the proxy at its next release, routine ones included). It now holds every
+  compiler's block. A test (`production.test.js`) refuses any `deploy.json` block that
+  `production/network.json` doesn't hold, identically.
 
 **Before running anything:**
 1. Create a **fresh** production CA on an offline machine:
@@ -347,8 +361,8 @@ The DNS-exfiltration check's authoritative server was the public Cloud DNS zone
 Cloudflare by four NS records (removed 2026-10-21). Resolvers randomise the case of names they pass on, so the log
 is matched without case.
 
-The prototype in a scratch project must show each check in the plan's step 0. It's also where
-these get settled, each an assumption the offline tests can't prove:
+The prototype showed each check in the plan's step 0. It's also where these were settled, each
+an assumption the offline tests can't prove:
 - `envoy --mode validate -c out/envoy.json` on the pinned digest;
 - that host-kind `passthrough_metadata` reaches the inner listener's connection dynamic
   metadata, where the RBAC `metadata` principal reads it (a listed tunnel succeeds, and one
@@ -366,4 +380,5 @@ these get settled, each an assumption the offline tests can't prove:
 - that Cloud Run's Direct VPC egress traffic matches the firewall policy's source ranges;
 - that the proxy VMs' host DNS works with the lockdown active (a cold boot pulls, fetches,
   starts and ships logs), and that kernel `ISOLATE01-REJECT` lines reach Cloud Logging;
-- the DNS lockdown's form (`infra.js` marks it OPEN).
+- the DNS lockdown's form (settled: the private root zone `compilers-root`, holding only
+  `metadata.google.internal`).

@@ -1464,11 +1464,11 @@ opens every internal auth route: `linked-emails/internal/sign-in`, `/oauth-clien
    **Credentials done (2026-10-15):** no compiler holds or can read a provider credential. The
    parse-time credentials were retired 2026-10-02/03; L0176 signs only through Broker;
    L0158 now renders through L0176 (graffiticode #101, #102, #103; l0158 #1), and both shared
-   secrets are retired. Egress enforcement (below) is still open.
+   secrets are retired. Egress enforcement (below) is deployed, and ISOLATE-01 closed on 2026-10-20.
    Sharing the `GRAFFITICODE_SECRET_KEY` keyring with every compiler means compilers can decrypt
    console-encrypted secrets, and broker's `BROKER_SECRET_KEY` must not reuse it.
 
-   **ISOLATE-01, deployed (step 1 on 2026-10-18; compilers moved 2026-10-19/20).** The plan is
+   **ISOLATE-01, deployed and closed 2026-10-20 with recorded residuals (step 1 on 2026-10-18; compilers moved 2026-10-19/20; the legacy compilers in the D6 wave, 2026-10-20).** The plan is
    `~/.claude/plans/isolate-01-compiler-egress.md`, and the runbook is
    `deploy/egress-proxy/README.md`. In place:
    - **Network:** the `compilers` VPC, with the subnets `egress-proxy` (10.8.0.0/27) and five
@@ -1487,9 +1487,12 @@ opens every internal auth route: `linked-emails/internal/sign-in`, `/oauth-clien
 
      Envoy's UID can't reach metadata, so it holds no credential.
    - **The CA bundle:** `egress-proxy-ca-bundle` (the public CA certificate only) is readable
-     by each of the 36 compiler runtime accounts in `deploy.json` (`lNNNN-run`, `lNNNNr-run`).
-     That's the only grant ISOLATE-01 adds to them.
-   - **The proxy itself:** a two-VM group, `egress-proxy-e99a11d79870`, config `f3c14d25`.
+     by each of the 62 compiler runtime accounts: the 36 in `deploy.json` (`lNNNN-run`,
+     `lNNNNr-run`) and the 26 legacy ones (62 members, checked 2026-10-21). That's the only grant
+     ISOLATE-01 adds to them.
+   - **The proxy itself:** the two-VM group `egress-proxy`, on template
+     `egress-proxy-0cfb77e009f1`, config `1aa650b0` (2026-10-20: DNS clusters that follow the
+     TTL, one retry decided host by host, and an access log without queries).
 
    **Allow lists, as reviewed in the step 3 inventory** (`deploy.json` `network.allow`):
    - `compilers-default` (14 TypeScript languages and 16 Rust `*r` services): `api` and `auth`
