@@ -16,7 +16,7 @@ Policy issues the compiler a capability: single use, valid for sixty seconds at 
 Broker verifies the capability and checks live permission before each effect. Active grants allow the provider call. Revoked permission blocks the next effect.
 
 00:50.000 --> 01:00.000
-Compilers reach the outside only through the egress proxy. Listed hosts pass. Learnosity, attacker hosts and internal addresses are refused.
+Internet traffic uses the proxy: listed hosts for strict classes, public hosts for open classes. Metadata is direct. Learnosity is blocked.
 
 01:00.000 --> 01:10.000
 A durable receipt records the outcome. Retrying the same operation returns its receipt without repeating the write. The agent gets results, never credentials.

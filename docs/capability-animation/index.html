@@ -28,8 +28,7 @@
 </head>
 <body>
 <main>
-  <header><h1>Capability security, in 70 seconds</h1><span class="meta">GRAFFITICODE · with ISOLATE-01 egress (not yet deployed) · 1080p · Narrated · Captioned</span></header>
-  <p class="meta">Without ISOLATE-01, as it runs today: <a href="../capability-animation-today/">the 60-second version</a> · <a href="../capability-animation-compare.html">side by side</a></p>
+  <header><h1>Capability security, in 70 seconds</h1><span class="meta">GRAFFITICODE · ISOLATE-01 deployed October 20, 2026 · 1080p · Narrated · Captioned</span></header>
   <video id="film" controls playsinline preload="metadata" poster="poster.png" aria-label="70-second narrated animation of the Graffiticode capability security model, with ISOLATE-01 compiler egress">
     <source src="capability-security-70s.mp4" type="video/mp4">
     <track kind="captions" src="captions.vtt" srclang="en" label="English (also embedded in video)">
@@ -53,10 +52,11 @@
       <p><strong>00:20 · Admission.</strong> The gateway preflights every compiler stage. Policy checks the entire chain. One denied function blocks the run before any stage executes.</p>
       <p><strong>00:30 · The capability.</strong> Policy issues the compiler a capability: single use, valid for sixty seconds at most, bound to the function and exact arguments.</p>
       <p><strong>00:40 · Live checks.</strong> Broker verifies the capability and checks live permission before each effect. Active grants allow the provider call. Revoked permission blocks the next effect.</p>
-      <p><strong>00:50 · Contained egress.</strong> Compilers reach the outside only through the egress proxy. Listed hosts pass. Learnosity, attacker hosts and internal addresses are refused. <em>ISOLATE-01 is designed and coded, not yet deployed.</em></p>
+      <p><strong>00:50 · Contained egress.</strong> Internet traffic uses the proxy: listed hosts for strict classes, public hosts for open classes. Metadata is direct. Learnosity is blocked.</p>
       <p><strong>01:00 · Safe retries.</strong> A durable receipt records the outcome. Retrying the same operation returns its receipt without repeating the write. The agent gets results, never credentials.</p>
     </div>
-    <p>Based on the repository's <a href="../graffiticode_capability_policy_spec.md">security specification</a>, <a href="../capability-policy-as-built.md">implementation record</a> (W4 activated October 13, 2026), <a href="../../packages/common/src/protected-registry.ts">registry v7</a>, <a href="../../languages/l0000/packages/core/src/protected-client.ts">compiler's protected client</a>, and the ISOLATE-01 <a href="../isolate-01-compiler-egress.html">egress diagram</a> and <a href="../../deploy/egress-proxy/README.md">proxy runbook</a>.</p>
+    <p>Based on the repository's <a href="../graffiticode_capability_policy_spec.md">security specification</a>, <a href="../capability-policy-as-built.md">implementation record</a> (W4 activated October 13, 2026; ISOLATE-01 deployed October 20, 2026), <a href="../../packages/common/src/protected-registry.ts">registry v8</a>, <a href="../../languages/l0000/packages/core/src/protected-client.ts">compiler's protected client</a>, and the ISOLATE-01 <a href="../isolate-01-compiler-egress.html">egress diagram</a> and <a href="../../deploy/egress-proxy/README.md">proxy runbook</a>.</p>
+    <p>The D2 open classes—L0185, L0185r and legacy L0137 and L0170—permit unlisted public hosts. Denied names, including Learnosity, and private destinations remain blocked through the proxy. Compilers reach their metadata server directly for identity tokens. This animation explains the repository model and recorded deployment; it is not a fresh production conformance audit.</p>
     <p>Live checks can block the next effect; they cannot undo dispatched operations. Receipt replay prevents the same operation from being executed again by Broker; it does not promise provider transactionality or exactly-once provider effects. Outcomes include success, failed, partial, and uncertain.</p>
   </details>
 </main>

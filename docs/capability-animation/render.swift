@@ -312,43 +312,43 @@ func scene4(_ t:Double) {
     }
     reveal(t,7.7) { text("A fresh decision before every provider step, signature, or receipt replay.",960,801,25,secondary,align:"center") }
 }
-// ISOLATE-01: compilers reach the outside only through the egress proxy.
+// ISOLATE-01: internet traffic uses the proxy; metadata is reached directly.
 func sceneEgress(_ t:Double) {
     reveal(t,0.1) {
         actor("Compiler","compiler","Compromised dependency",100,400,330,230,teal)
-        pill("ISOLATE-01 · not yet deployed",100,322,amber,16)
+        pill("ISOLATE-01 · deployed 2026-10-20",100,322,teal,16)
     }
     reveal(t,0.8) {
         box(560,365,430,300,alpha(blue,0.06),stroke:alpha(blue,0.4))
         text("Egress proxy",590,392,31,white,bold:true)
         text("Envoy · internal load balancer",590,437,21,secondary)
-        text("reviewed allowlist per compiler",590,490,19,white,mono:true)
-        text("host = SNI = CONNECT target",590,527,19,white,mono:true)
-        text("internal addresses refused",590,564,19,white,mono:true)
+        text("reviewed rules per class",590,490,19,white,mono:true)
+        text("listed: host = SNI = target",590,527,19,white,mono:true)
+        text("private destinations refused",590,564,19,white,mono:true)
         text("every request logged",590,601,19,white,mono:true)
     }
     arrow(430,515,560,515,teal,p:ease((t-1.2)/0.6))
-    let rows: [(String,String,Bool,Double)] = [
-        ("Policy · Broker","listed Graffiticode hosts",true,2.0),
-        ("Learnosity","direct, around Broker",false,3.4),
-        ("Attacker host","any unlisted host",false,4.4),
-        ("Metadata · private IPs","by name or by address",false,5.4),
+    let rows: [(String,String,Bool,CGColor,Double)] = [
+        ("Strict classes","Listed hosts only",true,teal,2.0),
+        ("Open classes · public hosts","L0185 / L0185r · legacy L0137 / L0170",true,amber,3.1),
+        ("Direct Learnosity","Blocked for every class",false,red,4.2),
+        ("Private addresses","Blocked through the proxy",false,red,5.3),
     ]
     for (i,row) in rows.enumerated() {
         let y = 320+Double(i)*112
-        reveal(t,row.3) {
-            box(1225,y,595,90,alpha(row.2 ? teal : red,0.06),stroke:alpha(row.2 ? teal : red,0.3),radius:14)
+        reveal(t,row.4) {
+            box(1225,y,595,90,alpha(row.3,0.06),stroke:alpha(row.3,0.3),radius:14)
             text(row.0,1300,y+16,26,white,bold:true); text(row.1,1300,y+52,20,secondary)
-            if row.2 { check(1262,y+45,teal,24) } else { cross(1262,y+45,red,22) }
+            if row.2 { check(1262,y+45,row.3,24) } else { cross(1262,y+45,row.3,22) }
         }
-        let color = row.2 ? teal : red
-        arrow(990,515,1225,y+45,color,p:ease((t-row.3-0.1)/0.6))
-        if row.2 { pulse(990,515,1225,y+45,t,row.3+0.3,0.8,teal) }
+        let color = row.3
+        arrow(990,515,1225,y+45,color,p:ease((t-row.4-0.1)/0.6))
+        if row.2 { pulse(990,515,1225,y+45,t,row.4+0.3,0.8,color) }
     }
-    reveal(t,6.6) {
+    reveal(t,1.8) {
         path([CGPoint(x:265,y:630),CGPoint(x:265,y:770)],teal,width:2.5,dashed:true)
         text("Identity tokens: metadata server, direct",290,742,21,teal)
-        pill("DNS locked down",1225,770,secondary,17); pill("L0185: public hosts only",1225+measure("DNS locked down",size:17,mono:true)+52,770,secondary,17)
+        pill("DNS locked down",1225,770,secondary,17); pill("D2: open public hosts",1225+measure("DNS locked down",size:17,mono:true)+52,770,secondary,17)
     }
 }
 func scene5(_ t:Double) {
@@ -443,6 +443,15 @@ if mode == "preview" {
     try savePNG(6,output.appendingPathComponent("poster.png"))
     print("Rendered \(frames.count) 1920×1080 preview frames.")
 } else if mode == "video" {
+    // Validate narration before encoding the video, so an overlong take fails early.
+    let narration = try (0..<N).map { i -> AVURLAsset in
+        let audio = AVURLAsset(url:scratch.appendingPathComponent("scene-\(i).aiff"))
+        let duration = CMTimeGetSeconds(audio.duration)
+        guard duration > 0 else { throw NSError(domain:"Empty narration scene \(i)",code:1) }
+        guard duration < 9.5 else { throw NSError(domain:"Narration scene \(i) exceeds 9.5 s (\(duration))",code:1) }
+        print("Narration \(i+1): \(String(format:"%.2f",duration)) s")
+        return audio
+    }
     let videoURL = scratch.appendingPathComponent("silent.mp4")
     removeGenerated(videoURL)
     let writer = try AVAssetWriter(outputURL:videoURL,fileType:.mp4)
@@ -490,12 +499,8 @@ if mode == "preview" {
     let audioComposition = AVMutableComposition()
     let audioTrack = audioComposition.addMutableTrack(withMediaType:.audio,preferredTrackID:kCMPersistentTrackID_Invalid)!
     for i in 0..<N {
-        let audio = AVURLAsset(url:scratch.appendingPathComponent("scene-\(i).aiff"))
-        let duration = CMTimeGetSeconds(audio.duration)
-        guard duration > 0 else { throw NSError(domain:"Empty narration scene \(i)",code:1) }
-        guard duration < 9.5 else { throw NSError(domain:"Narration scene \(i) exceeds 9.5 s (\(duration))",code:1) }
+        let audio = narration[i]
         try audioTrack.insertTimeRange(CMTimeRange(start:.zero,duration:audio.duration),of:audio.tracks(withMediaType:.audio)[0],at:CMTime(seconds:Double(i)*10+0.45,preferredTimescale:600))
-        print("Narration \(i+1): \(String(format:"%.2f",duration)) s")
     }
     let audioURL = scratch.appendingPathComponent("narration.m4a"); removeGenerated(audioURL)
     let audioExport = AVAssetExportSession(asset:audioComposition,presetName:AVAssetExportPresetAppleM4A)!

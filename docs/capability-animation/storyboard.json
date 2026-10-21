@@ -51,9 +51,9 @@
       "start": 50,
       "scene": "egress",
       "chapter": "Contained egress",
-      "title": "Nothing goes around Broker.",
-      "subtitle": "ISOLATE-01: every compiler reaches the outside only through the egress proxy.",
-      "narration": "Compilers reach the outside only through the egress proxy. Listed hosts pass. Learnosity, attacker hosts and internal addresses are refused."
+      "title": "Contain compiler internet traffic.",
+      "subtitle": "ISOLATE-01 deployed October 20, 2026 · reviewed rules per compiler class.",
+      "narration": "Internet traffic uses the proxy: listed hosts for strict classes, public hosts for open classes. Metadata is direct. Learnosity is blocked."
     },
     {
       "start": 60,
@@ -66,11 +66,11 @@
   ],
   "sources": [
     "../graffiticode_capability_policy_spec.md",
-    "../capability-policy-as-built.md (W4 activated, 2026-10-13)",
-    "../../packages/common/src/protected-registry.ts (registry v7)",
+    "../capability-policy-as-built.md (W4 activated 2026-10-13; ISOLATE-01 deployed 2026-10-20)",
+    "../../packages/common/src/protected-registry.ts (registry v8)",
     "../../languages/l0000/packages/core/src/protected-client.ts",
-    "../isolate-01-compiler-egress.html and ../../deploy/egress-proxy (ISOLATE-01, designed and coded, not yet deployed)"
+    "../isolate-01-compiler-egress.html and ../../deploy/egress-proxy (ISOLATE-01, deployed 2026-10-20)"
   ],
-  "scope": "Conceptual explanation of the repository model, not a production conformance audit. No transactionality, provider exactly-once guarantee, or rollback is implied. Live checks prevent the next effect; they cannot undo a dispatched operation. The egress scene shows ISOLATE-01 as designed; it is not yet deployed (compare ../capability-animation-today, the model as it runs now).",
+  "scope": "Conceptual explanation of the repository model and recorded deployment, not a fresh production conformance audit. No transactionality, provider exactly-once guarantee, or rollback is implied. Live checks prevent the next effect; they cannot undo a dispatched operation. The egress scene reflects ISOLATE-01 recorded deployed on 2026-10-20. Strict classes allow listed hosts only. D2 open classes (L0185, L0185r and legacy L0137 and L0170) permit unlisted public hosts, with denied names and private destinations blocked. Compiler metadata remains directly reachable for identity tokens.",
   "file": "capability-security-70s.mp4"
 }
