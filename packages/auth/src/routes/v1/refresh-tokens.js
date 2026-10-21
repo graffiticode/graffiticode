@@ -2,7 +2,7 @@ import { Router } from "express";
 import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http";
-import { requireInternalAuth } from "../../middleware/internal-auth.js";
+import { requireCleanupAuth } from "../../middleware/internal-auth.js";
 
 const buildExchange = ({ authService }) => buildHttpHandler(async (req, res) => {
   const { refreshToken } = req.body;
@@ -69,7 +69,7 @@ export const buildRefreshTokensRouter = (deps) => {
 
   router.post("/exchange", buildExchange(deps));
   router.post("/revoke", buildRevoke(deps));
-  router.post("/clean-expired", requireInternalAuth, buildCleanExpired(deps));
+  router.post("/clean-expired", requireCleanupAuth, buildCleanExpired(deps));
   router.get("/sessions", buildListSessions(deps));
   router.delete("/sessions/:id", buildDeleteSession(deps));
   router.delete("/sessions", buildDeleteAllSessions(deps));

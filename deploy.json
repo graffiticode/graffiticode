@@ -202,6 +202,7 @@
       },
       "secrets": {
         "INTERNAL_API_KEY": "auth-internal-api-key:1",
+        "CLEANUP_API_KEY": "auth-cleanup-api-key:1",
         "ACT_AS_CALLERS": "act-as-callers:1",
         "ACT_AS_GRANT_SECRET": "act-as-grant-secret:1",
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1"
