@@ -141,6 +141,27 @@ describe("routes/v1/ethereum", () => {
     });
   });
 
+  describe("clean-expired with the cleanup-only key", () => {
+    let saved;
+    beforeEach(() => { saved = process.env.CLEANUP_API_KEY; process.env.CLEANUP_API_KEY = "test-cleanup-key"; });
+    afterEach(() => { if (saved === undefined) delete process.env.CLEANUP_API_KEY; else process.env.CLEANUP_API_KEY = saved; });
+
+    it("deletes expired tokens with the cleanup key, and refuses a wrong one", async () => {
+      const { refreshToken: activeToken } = await authApp.authService.generateTokens({ uid });
+      const { refreshToken: expiredToken } = await authApp.authService.generateTokens({ uid });
+      const db = getFirestore();
+      const expiredId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${expiredToken}`).get()).get("id");
+      await db.doc(`refresh-tokens/${expiredId}`).update({ expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 60 * 60 * 1000) });
+
+      await request(authApp.app).post("/v1/refresh-tokens/clean-expired").set("X-Cleanup-API-Key", "wrong").expect(403);
+      await expect(authApp.authService.getRefreshToken({ refreshToken: expiredToken })).resolves.toBeDefined();
+
+      await request(authApp.app).post("/v1/refresh-tokens/clean-expired").set("X-Cleanup-API-Key", "test-cleanup-key").expect(200);
+      await expect(authApp.authService.getRefreshToken({ refreshToken: activeToken })).resolves.toBeDefined();
+      await expect(authApp.authService.getRefreshToken({ refreshToken: expiredToken })).rejects.toThrow();
+    });
+  });
+
   describe("sessions", () => {
     it("should return 401 if unauthenticated", async () => {
       await request(authApp.app)
