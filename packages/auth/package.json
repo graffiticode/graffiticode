@@ -13,15 +13,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/graffiticode/auth.git"
+    "url": "git+https://github.com/graffiticode/graffiticode.git",
+    "directory": "packages/auth"
   },
   "keywords": [
     "graffiticode"
   ],
   "bugs": {
-    "url": "https://github.com/graffiticode/auth/issues"
+    "url": "https://github.com/graffiticode/graffiticode/issues"
   },
-  "homepage": "https://github.com/graffiticode/auth#readme",
+  "homepage": "https://github.com/graffiticode/graffiticode/tree/main/packages/auth#readme",
   "main": "./dist/main.js",
   "exports": {
     ".": "./dist/main.js",
