@@ -41,8 +41,8 @@ Expected config digest: `1aa650b05c2bb744c0a1fa4afe7ff16ae5b1ec6a6aca44e08cc14ba
 - [ ] Generate (to a file, not through a pipe):
   `node deploy/egress-proxy/generate.js --deploy deploy/egress-proxy/production/network.json --out <workdir>/out > <workdir>/generate.log`
   and check its first line says `config_sha256 1aa650b05c2bb744c0a1fa4afe7ff16ae5b1ec6a6aca44e08cc14ba3b2f76d36`, and `<workdir>/out/cloud-init.yaml` is non-empty.
-- [ ] Validate on the pinned Envoy (`deploy/egress-proxy/validate/cloudbuild.yaml`, run in the scratch project as in
-  step 0): `configuration 'envoy.json' OK`, no deprecation warning.
+- [ ] Validate on the pinned Envoy (`deploy/egress-proxy/validate/cloudbuild.yaml`, run in graffiticode as
+  `deploy-build`; see its header): `configuration 'envoy.json' OK`, no deprecation warning.
 - [ ] Create the alert channel: email to jeff@artcompiler.com (decided 2026-10-18; channels exist only in
   `gcloud beta`, which may ask to install the component once):
   ```bash

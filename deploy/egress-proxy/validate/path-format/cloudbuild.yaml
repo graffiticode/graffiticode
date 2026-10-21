@@ -1,7 +1,7 @@
 # ISOLATE-01: what each access-log path operator really writes on the pinned Envoy, for a request
 # with a query. `envoy --mode validate` only parses a format; this runs it. Run from this directory:
-#   gcloud builds submit --project=<scratch project> --region=us-central1 --config=cloudbuild.yaml \
-#     --service-account=projects/<scratch project>/serviceAccounts/isolate01-build@<scratch project>.iam.gserviceaccount.com .
+#   gcloud builds submit --project=graffiticode --region=us-central1 --config=cloudbuild.yaml \
+#     --service-account=projects/graffiticode/serviceAccounts/deploy-build@graffiticode.iam.gserviceaccount.com .
 # then read the log line holding "nq_path". 2026-10-20 on 1.39.4:
 #   {"nq_default":"/p/q","nq_orig":null,"nq_path":"/p/q","req_path":"/p/q?secret=x&id=1"}
 steps:

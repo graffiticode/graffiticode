@@ -3,8 +3,8 @@
 # generated envoy.json:
 #   node deploy/egress-proxy/generate.js --classes <classes.json> --deploy <deploy.json> --out <dir>
 #   cp deploy/egress-proxy/validate/cloudbuild.yaml <dir>/ && cd <dir>
-#   gcloud builds submit --project=<scratch project> --region=us-central1 --config=cloudbuild.yaml \
-#     --service-account=projects/<scratch project>/serviceAccounts/isolate01-build@<scratch project>.iam.gserviceaccount.com \
+#   gcloud builds submit --project=graffiticode --region=us-central1 --config=cloudbuild.yaml \
+#     --service-account=projects/graffiticode/serviceAccounts/deploy-build@graffiticode.iam.gserviceaccount.com \
 #     --substitutions=_ENVOY_IMAGE=<proxy.envoyImage> .
 # The build runs as its own account (logging.logWriter, storage.objectViewer), never the default
 # Compute Engine account. In step 0 that account's Editor role was removed, since its

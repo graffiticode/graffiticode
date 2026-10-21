@@ -28,6 +28,8 @@ const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../.
 const DIR = "deploy/egress-proxy/step7/at11";
 const PROJECT = "graffiticode";
 const REGION = "us-central1";
+// Step 0's prototype, deleted 2026-10-21: a later run needs new control resources (and its own
+// DNS-exfiltration zone and rebinding names) before these commands work again.
 const CONTROL_PROJECT = "graffiticode-isolate01";
 const CONTROL_PROJECT_NUMBER_CMD = `gcloud projects describe ${CONTROL_PROJECT} --format='value(projectNumber)'`;
 const IMAGE_TAG = `${REGION}-docker.pkg.dev/${PROJECT}/services/at11-probe:step7`;
