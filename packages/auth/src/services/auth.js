@@ -32,8 +32,8 @@ const buildVerifyToken = ({ firebaseAuth, keysService }) => async ({ token }) =>
   throw new UnauthenticatedError();
 };
 
-const buildGenerateRefreshToken = ({ refreshTokenStorer }) => async ({ uid, additionalClaims }) => {
-  const { token } = await refreshTokenStorer.createRefreshToken({ uid, additionalClaims });
+const buildGenerateRefreshToken = ({ refreshTokenStorer }) => async ({ uid, additionalClaims, meta }) => {
+  const { token } = await refreshTokenStorer.createRefreshToken({ uid, additionalClaims, meta });
   return token;
 };
 
@@ -82,8 +82,9 @@ const buildGenerateFirebaseCustomToken = ({ getRefreshToken, createFirebaseCusto
   return createFirebaseCustomToken({ uid, additionalClaims });
 };
 
-const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, createAccessToken, createFirebaseCustomToken }) => async ({ uid, additionalClaims }) => {
-  const refreshToken = await generateRefreshToken({ uid, additionalClaims });
+const buildGenerateTokens = ({ refreshTokenStorer, generateRefreshToken, createAccessToken, createFirebaseCustomToken }) => async ({ uid, additionalClaims, meta }) => {
+  // meta ({ method, userAgent }) describes the session for the sessions page; it isn't a claim.
+  const refreshToken = await generateRefreshToken({ uid, additionalClaims, meta });
 
   try {
     const [accessToken, firebaseCustomToken] = await Promise.all([
@@ -117,7 +118,7 @@ export const buildAuthService = ({ firebaseAuth, refreshTokenStorer, keysService
   const generateTokens = buildGenerateTokens({ refreshTokenStorer, generateRefreshToken, createAccessToken, createFirebaseCustomToken });
 
   const cleanExpiredRefreshTokens = () => refreshTokenStorer.cleanExpiredRefreshTokens();
-  const listSessions = ({ uid }) => refreshTokenStorer.listSessions({ uid });
+  const listSessions = ({ uid, currentToken }) => refreshTokenStorer.listSessions({ uid, currentToken });
   const revokeSession = ({ uid, id }) => refreshTokenStorer.deleteSession({ uid, id });
   const revokeAllSessions = ({ uid, exceptToken }) => refreshTokenStorer.deleteAllSessions({ uid, exceptToken });
 

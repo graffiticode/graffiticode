@@ -189,6 +189,25 @@ describe("routes/v1/ethereum", () => {
       await expect(authApp.authService.verifyToken({ token: accessToken })).resolves.toHaveProperty("uid", address);
     });
 
+    it("starts a wallet session that records the browser's user agent", async () => {
+      const nonce = await authApp.ethereumStorer.getNonce({ address });
+      const signature = createSignature({ privateKey, nonce });
+
+      const res = await request(authApp.app)
+        .post(`/v1/ethereum/${address}/authenticate`)
+        .set("User-Agent", "Mozilla/5.0 (Macintosh) Chrome/141.0")
+        .send({ nonce, signature })
+        .expect(200);
+
+      const { accessToken, refreshToken } = res.body.data;
+      const sessions = await request(authApp.app)
+        .get("/v1/refresh-tokens/sessions")
+        .set("Authorization", accessToken)
+        .set("X-Refresh-Token", refreshToken)
+        .expect(200);
+      expect(sessions.body.data.find(s => s.current)).toMatchObject({ method: "wallet", userAgent: "Mozilla/5.0 (Macintosh) Chrome/141.0" });
+    });
+
     it("should return access and refresh tokens for valid signature for uppercase signature", async () => {
       const nonce = await authApp.ethereumStorer.getNonce({ address });
       const signature = addHexPrefix(stripHexPrefix(createSignature({ privateKey, nonce })).toUpperCase());

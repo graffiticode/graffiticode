@@ -113,8 +113,11 @@ const buildSearchInternal = ({ linkedEmailsService }) => buildHttpHandler(async 
 // SDK runs in a different project than the one the client signs into, and
 // the Cloud Run service account lacks signBlob permissions anyway. Doing it
 // here keeps the token in the same project as the client's Firebase Auth.
+// It also starts a session (a refresh token), like the wallet and Google sign-ins, so an
+// email sign-in can be listed and signed out. The caller is a server, so it passes on the
+// browser's user agent.
 const buildSignInInternal = ({ authService, linkedEmailsService }) => buildHttpHandler(async (req, res) => {
-  const { email } = req.body || {};
+  const { email, userAgent } = req.body || {};
   if (!isNonEmptyString(email)) {
     throw new InvalidArgumentError("must provide email");
   }
@@ -123,8 +126,9 @@ const buildSignInInternal = ({ authService, linkedEmailsService }) => buildHttpH
     sendSuccessResponse(res, { matched: false });
     return;
   }
-  const firebaseCustomToken = await authService.createFirebaseCustomToken({ uid: record.uid });
-  sendSuccessResponse(res, { matched: true, uid: record.uid, firebaseCustomToken });
+  const meta = { method: "email", userAgent };
+  const { refreshToken, firebaseCustomToken } = await authService.generateTokens({ uid: record.uid, meta });
+  sendSuccessResponse(res, { matched: true, uid: record.uid, firebaseCustomToken, refreshToken });
 });
 
 export const buildLinkedEmailsRouter = (deps) => {

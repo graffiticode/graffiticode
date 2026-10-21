@@ -27,7 +27,8 @@ const buildAuthenticate = ({ ethereumService, authService }) => buildHttpHandler
     throw new InvalidArgumentError("must provide a signature");
   }
   const authContext = await ethereumService.authenticate({ address, nonce, signature });
-  const { accessToken, refreshToken } = await authService.generateTokens(authContext);
+  const meta = { method: "wallet", userAgent: req.get("user-agent") };
+  const { accessToken, refreshToken } = await authService.generateTokens({ ...authContext, meta });
   sendSuccessResponse(res, { accessToken, refreshToken });
 });
 

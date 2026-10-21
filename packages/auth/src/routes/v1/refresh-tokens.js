@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { InvalidArgumentError, UnauthenticatedError } from "@graffiticode/common/errors";
+import { InvalidArgumentError, UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http";
 import { requireCleanupAuth } from "../../middleware/internal-auth.js";
@@ -27,20 +27,29 @@ const buildCleanExpired = ({ authService }) => buildHttpHandler(async (req, res)
   sendSuccessResponse(res, null);
 });
 
-const buildListSessions = ({ authService }) => buildHttpHandler(async (req, res) => {
+// The session routes act for the person, so an access token minted from an API key may not
+// use them (as with /v1/api-keys).
+const requireSessionCaller = req => {
   if (!req.auth) {
     throw new UnauthenticatedError();
   }
-  const { uid } = req.auth;
-  const sessions = await authService.listSessions({ uid });
+  if (req.auth.token?.apiKey) {
+    throw new UnauthorizedError();
+  }
+  return req.auth.uid;
+};
+
+const buildListSessions = ({ authService }) => buildHttpHandler(async (req, res) => {
+  const uid = requireSessionCaller(req);
+  // The caller's own refresh token, if it sends one, marks its session as current. It travels
+  // in a header so it never lands in a URL or a request log.
+  const currentToken = req.get("x-refresh-token");
+  const sessions = await authService.listSessions({ uid, currentToken: isNonEmptyString(currentToken) ? currentToken : undefined });
   sendSuccessResponse(res, sessions);
 });
 
 const buildDeleteSession = ({ authService }) => buildHttpHandler(async (req, res) => {
-  if (!req.auth) {
-    throw new UnauthenticatedError();
-  }
-  const { uid } = req.auth;
+  const uid = requireSessionCaller(req);
   const { id } = req.params;
   if (!isNonEmptyString(id)) {
     throw new InvalidArgumentError("must provide an id");
@@ -50,10 +59,7 @@ const buildDeleteSession = ({ authService }) => buildHttpHandler(async (req, res
 });
 
 const buildDeleteAllSessions = ({ authService }) => buildHttpHandler(async (req, res) => {
-  if (!req.auth) {
-    throw new UnauthenticatedError();
-  }
-  const { uid } = req.auth;
+  const uid = requireSessionCaller(req);
   // Revokes every refresh token for the user (including OAuth-issued ones)
   // except the caller's own, if given. Access tokens already issued remain
   // valid until they expire (5m).

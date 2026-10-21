@@ -127,6 +127,62 @@ describe("storage/refresh-tokens", () => {
     expect(sessions).toHaveLength(0);
   });
 
+  it("should record session metadata and list it with ISO timestamps", async () => {
+    const uid = "abc123";
+    const db = getFirestore();
+    const longAgent = "Mozilla/5.0 " + "x".repeat(1000);
+    const { token: wallet } = await storer.createRefreshToken({ uid, meta: { method: "wallet", userAgent: longAgent } });
+    const { token: bogus } = await storer.createRefreshToken({ uid, meta: { method: "sorcery", userAgent: 42 } });
+    const walletId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${wallet}`).get()).get("id");
+    const bogusId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${bogus}`).get()).get("id");
+
+    const sessions = await storer.listSessions({ uid, currentToken: wallet });
+    const w = sessions.find(s => s.id === walletId);
+    expect(w).toMatchObject({ method: "wallet", current: true });
+    expect(w.userAgent).toHaveLength(512);
+    for (const field of ["createdAt", "expiresAt", "lastUsedAt"]) {
+      expect(new Date(w[field]).toISOString()).toBe(w[field]);
+    }
+    expect(sessions.find(s => s.id === bogusId)).toMatchObject({ method: null, userAgent: null, current: false });
+  });
+
+  it("should list a session made before metadata was recorded", async () => {
+    const uid = "abc123";
+    const db = getFirestore();
+    const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + 60000);
+    const createdAt = admin.firestore.Timestamp.fromMillis(Date.now() - 60000);
+    await db.doc("refresh-tokens/old-google").set({ uid, additionalClaims: { oauth: true, oauthProvider: "google" }, createdAt, expiresAt });
+    await db.doc("refresh-tokens/old-wallet").set({ uid, additionalClaims: {}, createdAt, expiresAt });
+
+    const sessions = await storer.listSessions({ uid, currentToken: "not-a-token" });
+    expect(sessions.find(s => s.id === "old-google")).toMatchObject({ method: "google", userAgent: null, lastUsedAt: null, current: false });
+    expect(sessions.find(s => s.id === "old-wallet")).toMatchObject({ method: null, createdAt: createdAt.toDate().toISOString() });
+  });
+
+  it("should record use on read, at most once an hour, and sort by last use", async () => {
+    const uid = "abc123";
+    const db = getFirestore();
+    const { token: older } = await storer.createRefreshToken({ uid });
+    const { token: newer } = await storer.createRefreshToken({ uid });
+    const olderId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${older}`).get()).get("id");
+    const newerId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${newer}`).get()).get("id");
+    const twoHoursAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000);
+    const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 60 * 1000);
+    await db.doc(`refresh-tokens/${olderId}`).update({ lastUsedAt: twoHoursAgo });
+    await db.doc(`refresh-tokens/${newerId}`).update({ lastUsedAt: tenMinutesAgo });
+
+    await storer.getRefreshToken(older);
+    await storer.getRefreshToken(newer);
+
+    const olderUsed = (await db.doc(`refresh-tokens/${olderId}`).get()).get("lastUsedAt");
+    expect(olderUsed.toMillis()).toBeGreaterThan(Date.now() - 60000);
+    const newerUsed = (await db.doc(`refresh-tokens/${newerId}`).get()).get("lastUsedAt");
+    expect(newerUsed.toMillis()).toBe(tenMinutesAgo.toMillis());
+
+    const sessions = await storer.listSessions({ uid });
+    expect(sessions.map(s => s.id)).toEqual([olderId, newerId]);
+  });
+
   it("should clean more expired tokens than fit in one batch", async () => {
     const uid = "abc123";
     const db = getFirestore();

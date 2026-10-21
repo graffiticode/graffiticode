@@ -93,3 +93,40 @@ describe("routes/linked-emails internal search", () => {
     expect(JSON.stringify(res.body)).not.toMatch(/@/);
   });
 });
+
+describe("routes/linked-emails internal sign-in", () => {
+  let app;
+  let prevKey;
+  let calls;
+  beforeEach(() => {
+    prevKey = process.env.INTERNAL_API_KEY;
+    process.env.INTERNAL_API_KEY = KEY;
+    calls = [];
+    const linkedEmailsService = {
+      lookup: async ({ email }) => (email === "a@b.c" ? { uid: "u1", id: "e1" } : null),
+    };
+    const authService = {
+      generateTokens: async args => {
+        calls.push(args);
+        return { refreshToken: "rt", accessToken: "at", firebaseCustomToken: "fct" };
+      },
+    };
+    app = createHttpApp(a => a.use("/linked-emails", buildLinkedEmailsRouter({ linkedEmailsService, authService })));
+  });
+  afterEach(() => {
+    process.env.INTERNAL_API_KEY = prevKey;
+  });
+
+  it("starts an email session carrying the browser's user agent", async () => {
+    const res = await request(app).post("/linked-emails/internal/sign-in").set("X-Internal-API-Key", KEY).send({ email: "a@b.c", userAgent: "UA" }).expect(200);
+    expect(res.body.data).toEqual({ matched: true, uid: "u1", firebaseCustomToken: "fct", refreshToken: "rt" });
+    expect(calls).toEqual([{ uid: "u1", meta: { method: "email", userAgent: "UA" } }]);
+  });
+
+  it("starts no session for an unknown email, or without the internal key", async () => {
+    const miss = await request(app).post("/linked-emails/internal/sign-in").set("X-Internal-API-Key", KEY).send({ email: "x@y.z" }).expect(200);
+    expect(miss.body.data).toEqual({ matched: false });
+    await request(app).post("/linked-emails/internal/sign-in").send({ email: "a@b.c" }).expect(403);
+    expect(calls).toHaveLength(0);
+  });
+});
