@@ -17,7 +17,6 @@ import {
   getStorageTypeForId,
   getStorageTypeForRequest,
   optionsHandler,
-  parseAuthFromRequest,
   parseAuthTokenFromRequest,
   parseIdempotencyKey,
   parseIdsFromRequest,
@@ -56,21 +55,6 @@ describe("routes/utils", () => {
   it("parseOriginFromRequest returns query.origin as is", () => {
     expect(parseOriginFromRequest(fakeReq({ query: { origin: "x" } }))).toBe("x");
     expect(parseOriginFromRequest(fakeReq())).toBeUndefined();
-  });
-
-  describe("parseAuthFromRequest", () => {
-    it("prefers query.access_token over body.auth", () => {
-      expect(parseAuthFromRequest(fakeReq({ query: { access_token: "q" }, body: { auth: "b" } }))).toBe("q");
-      expect(parseAuthFromRequest(fakeReq({ body: { auth: "b" } }))).toBe("b");
-    });
-
-    it("returns null when neither is a non-empty string", () => {
-      expect(parseAuthFromRequest(fakeReq({ query: { access_token: "" }, body: { auth: 1 } }))).toBeNull();
-    });
-
-    it("throws when the request has no body", () => {
-      expect(() => parseAuthFromRequest({ query: {} })).toThrow(TypeError);
-    });
   });
 
   describe("parseAuthTokenFromRequest", () => {

@@ -17,18 +17,6 @@ export const parseOriginFromRequest = req => {
   return req.query.origin;
 };
 
-export const parseAuthFromRequest = req => {
-  const { access_token: queryAuth } = req.query;
-  if (isNonEmptyString(queryAuth)) {
-    return queryAuth;
-  }
-  const { auth: bodyAuth } = req.body;
-  if (isNonEmptyString(bodyAuth)) {
-    return bodyAuth;
-  }
-  return null;
-};
-
 export const parseAuthTokenFromRequest = req => {
   const { access_token: queryAccessToken } = req.query;
   if (isNonEmptyString(queryAccessToken)) {

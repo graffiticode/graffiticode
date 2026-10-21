@@ -184,6 +184,17 @@ describe("routes/form", () => {
       expect(dataUrl.searchParams.get("generation")).toBe("g1");
     });
 
+    // A token validated from the Authorization header (no ?access_token) is
+    // the one the data url carries.
+    it("forwards a header-validated token on both urls", async () => {
+      const { formApp, taskStorer } = signedInForm();
+      const id = await taskStorer.create({ task: L0158_TASK, auth: null });
+      const res = await request(formApp).get("/form").set("Authorization", "Bearer tok").query({ id }).expect(302);
+      const location = new URL(res.headers.location);
+      expect(location.searchParams.get("access_token")).toBe("tok");
+      expect(new URL(location.searchParams.get("url")).searchParams.get("access_token")).toBe("tok");
+    });
+
     it("refuses an L0158 view through a connection once a generation is set", async () => {
       const { formApp, taskStorer } = signedInForm();
       const id = await taskStorer.create({ task: L0158_TASK, auth: null });

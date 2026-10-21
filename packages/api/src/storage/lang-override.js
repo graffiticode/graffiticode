@@ -40,22 +40,31 @@ const buildLangOverrideGet = ({ db, cache, ttlMs }) => ({ uid }) => {
   return promise;
 };
 
+// The base URL an override doc's bindings name for `lang` ("0175", "l0175" or
+// "L0175"), or null. Only a non-empty string is a binding; anything else falls
+// back to the env/config resolution, as a missing key does.
+export const bindingFor = (bindings, lang) => {
+  if (!bindings || typeof bindings !== "object" || lang === undefined || lang === null) {
+    return null;
+  }
+  const key = `L${String(lang).replace(/^L/i, "")}`.toUpperCase();
+  const url = bindings[key];
+  return typeof url === "string" && url.length > 0 ? url : null;
+};
+
 const buildLangOverrideGetBaseUrl = ({ get }) => async ({ uid, lang }) => {
   if (!uid || !lang) {
     return undefined;
   }
   const override = await get({ uid });
-  const bindings = override && override.bindings;
-  if (!bindings) {
-    return undefined;
-  }
-  return bindings[lang.toUpperCase()];
+  return bindingFor(override?.bindings, lang) ?? undefined;
 };
 
-export const buildLangOverrideStorer = () => {
+// `ttlMs` is for tests; each call builds its own memo.
+export const buildLangOverrideStorer = ({ ttlMs = OVERRIDE_CACHE_TTL_MS } = {}) => {
   const db = admin.firestore();
   const cache = new Map();
-  const get = buildLangOverrideGet({ db, cache, ttlMs: OVERRIDE_CACHE_TTL_MS });
+  const get = buildLangOverrideGet({ db, cache, ttlMs });
   const getBaseUrl = buildLangOverrideGetBaseUrl({ get });
   return { get, getBaseUrl };
 };

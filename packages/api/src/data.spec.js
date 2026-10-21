@@ -2,6 +2,13 @@ import { jest } from "@jest/globals";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildDataApi } from "./data.js";
 import { createStorers } from "./storage/index.js";
+import { buildLangOverrideStorer } from "./storage/lang-override.js";
+import { buildGetBaseUrlForLanguage } from "./lang/base-url.js";
+import { buildCompile as buildLangCompile } from "./lang/compile.js";
+import { buildGetAsset } from "./lang/get-asset.js";
+import { buildValidateOutput } from "./lang/validate-output.js";
+import { buildCompile } from "./comp.js";
+import { isNonEmptyString } from "./util.js";
 import { admin } from "./storage/firebase.js";
 import { clearFirestore } from "./testing/firestore.js";
 import { DATA1, DATA2, TASK1, TASK2 } from "./testing/fixture.js";
@@ -582,6 +589,122 @@ describe("data", () => {
       expect(await stored(`${id}@g1`)).toStrictEqual(NEW);
       expect(await stored(`${id}@g2`)).toBeUndefined();
       expect(await stored(id)).toBeUndefined();
+    });
+  });
+
+  // A user's language override is read once per request: that snapshot routes
+  // every stage and schema fetch, whatever the binding says by the time a later
+  // stage runs. Wired with the real resolver and a memo that never holds, so
+  // any second lookup would see the change.
+  describe("a language override", () => {
+    const DEFAULT = "https://default-l0000";
+    const A = "https://rev-a---l0000";
+    const B = "https://rev-b---l0000";
+    const UID = "tester";
+    let calls;
+    let onCompile;
+    const seed = bindings => admin.firestore().doc(`lang-overrides/${UID}`).set({ bindings });
+    // A stand-in for bent: records which URL each compile and schema fetch hit.
+    const fakeBent = (baseUrl, method) => {
+      if (method === "POST") {
+        return async (_path, req) => {
+          calls.push(["compile", baseUrl]);
+          if (onCompile) {
+            const run = onCompile;
+            onCompile = null;
+            await run();
+          }
+          return { data: { from: baseUrl, input: req.data ?? null }, errors: [] };
+        };
+      }
+      return async path => {
+        calls.push(["asset", baseUrl, path]);
+        return JSON.stringify({ type: "object" });
+      };
+    };
+    const overrideApi = ({ ttlMs = 0 } = {}) => {
+      const langOverrideStorer = buildLangOverrideStorer({ ttlMs });
+      const getBaseUrlForLanguage = buildGetBaseUrlForLanguage({
+        isNonEmptyString,
+        env: { BASE_URL_L0000: DEFAULT },
+        getConfig: () => ({}),
+        getCompilerHost: () => "unused",
+        getCompilerPort: () => 0,
+        getOverrideBaseUrl: langOverrideStorer.getBaseUrl
+      });
+      const langCompile = buildLangCompile({ getBaseUrlForLanguage, bent: fakeBent });
+      const getAsset = buildGetAsset({ getBaseUrlForLanguage, bent: fakeBent });
+      return /** @type {any} */ (buildDataApi(/** @type {any} */ ({
+        compile: buildCompile({ langCompile }),
+        langOverrideStorer,
+        validateOutput: buildValidateOutput({ getBaseUrlForLanguage, getAsset, env: { COMPILE_SCHEMA_CHECK: "emit" }, log: () => {} }),
+      })));
+    };
+    const chainOf = async () => {
+      const id1 = await taskStorer.create({ task: TASK1 });
+      const id2 = await taskStorer.create({ task: TASK2 });
+      return taskStorer.appendIds(id1, id2);
+    };
+    const get = (api, id, extra = {}) => api.get({ taskStorer, compileStorer, id, auth: { uid: UID }, ...extra });
+    // Every distinct URL the request reached, compiles and schema fetches alike.
+    const urls = () => [...new Set(calls.map(c => c[1]))];
+
+    beforeEach(() => {
+      calls = [];
+      onCompile = null;
+    });
+
+    it("routes every stage and schema fetch through the bindings it started with", async () => {
+      await seed({ L0000: A });
+      const id = await chainOf();
+      // Rebound while the first stage runs.
+      onCompile = () => seed({ L0000: B });
+
+      await get(overrideApi(), id);
+
+      expect(calls.filter(c => c[0] === "compile")).toHaveLength(2);
+      expect(calls.filter(c => c[0] === "asset").length).toBeGreaterThan(0);
+      expect(urls()).toEqual([A]);
+      await expect(compileStorer.get({ id })).resolves.toBeUndefined();
+    });
+
+    it("routes and caches by the default binding when the request started without one", async () => {
+      const id = await chainOf();
+      onCompile = () => seed({ L0000: A });
+
+      await get(overrideApi(), id);
+
+      expect(urls()).toEqual([DEFAULT]);
+      await expect(compileStorer.get({ id })).resolves.toEqual(expect.objectContaining({ data: expect.anything() }));
+    });
+
+    it.each([
+      ["an empty string", { L0000: "" }],
+      ["a non-string", { L0000: 42 }],
+      ["null", { L0000: null }],
+      ["bindings that are not an object", "https://not-a-map"],
+    ])("falls back to the default for %s, and still writes nothing shared", async (_what, bindings) => {
+      await seed(bindings);
+      const id = await chainOf();
+
+      await get(overrideApi(), id);
+
+      expect(urls()).toEqual([DEFAULT]);
+      await expect(compileStorer.get({ id })).resolves.toBeUndefined();
+    });
+
+    it("never writes its result to the shared cache, even with refresh", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      // A default-binding result is cached first.
+      const anonymous = await overrideApi().get({ taskStorer, compileStorer, id });
+      expect(anonymous.data.from).toBe(DEFAULT);
+      await seed({ L0000: A });
+
+      const out = await get(overrideApi(), id, { refresh: true });
+
+      expect(out.data.from).toBe(A);
+      const cached = await compileStorer.get({ id });
+      expect(cached.data.data.from).toBe(DEFAULT);
     });
   });
 });

@@ -42,8 +42,8 @@ export const buildValidateOutput = ({
 }) => {
   const cache = new Map(); // `${lang} ${baseUrl}` -> { validate, expires }
 
-  const getValidator = async (lang, { uid }) => {
-    const baseUrl = await getBaseUrlForLanguage(lang, { uid });
+  const getValidator = async (lang, { uid, baseUrl: given }) => {
+    const baseUrl = given ?? await getBaseUrlForLanguage(lang, { uid });
     const key = `${lang} ${baseUrl}`;
     const cached = cache.get(key);
     if (cached && now() < cached.expires) {
@@ -51,7 +51,7 @@ export const buildValidateOutput = ({
     }
     let validate = null;
     try {
-      const text = await getAsset(lang, "/schema.json", { uid });
+      const text = await getAsset(lang, "/schema.json", { baseUrl });
       if (text !== null && text !== undefined) {
         const schema = typeof text === "string" ? JSON.parse(text) : text;
         validate = compileValidator(schema);
@@ -65,8 +65,10 @@ export const buildValidateOutput = ({
     return validate;
   };
 
+  // `baseUrl`, when given, is the revision that produced `obj`; its schema is
+  // the one checked.
   // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-  return async (lang, obj, { uid, id } = {}) => {
+  return async (lang, obj, { uid, id, baseUrl } = {}) => {
     const mode = MODES.includes(env.COMPILE_SCHEMA_CHECK) ? env.COMPILE_SCHEMA_CHECK : "log";
     if (mode === "off") {
       return [];
@@ -79,7 +81,7 @@ export const buildValidateOutput = ({
     const name = `L${String(lang).replace(/^L/, "")}`;
     let validate;
     try {
-      validate = await getValidator(name, { uid });
+      validate = await getValidator(name, { uid, baseUrl });
     } catch (err) {
       log(`WARN schema check skipped for ${name}: ${err.message}`);
       return [];

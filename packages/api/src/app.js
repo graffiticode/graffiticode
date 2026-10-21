@@ -14,7 +14,7 @@ import { buildSigningLimiter, parseSigningLimitConfig } from "./signing-limit.js
 import { requestContextMiddleware } from "@graffiticode/policy/audit";
 import { buildAllocateInvocation, buildMetadataIdToken } from "./invocations.js";
 import { buildPublicationClient } from "./publications.js";
-import { compile as langCompile, validateOutput, getBaseUrlForLanguage } from "./lang/index.js";
+import { buildLang } from "./lang/index.js";
 import { buildChainAdmission, parseChainAdmission } from "./admission.js";
 import * as routes from "./routes/index.js";
 import { createStorers } from "./storage/index.js";
@@ -38,6 +38,7 @@ const env = process.env.NODE_ENV || "development";
 // minter for compiles, caller-identity.js), `audit` and `signingLimiter`.
 export const createApp = ({ authUrl, validateToken: givenValidateToken, callerIdToken, audit: givenAudit, signingLimiter: givenLimiter } = {}) => {
   const { taskStorer, compileStorer, langOverrideStorer, artifactStorer } = createStorers();
+  const { compile: langCompile, validateOutput, getBaseUrlForLanguage, getLangAsset, pingLang } = buildLang({ langOverrideStorer });
   // POLICY_URL (the policy service's run.app URL) enables compiles through a
   // selected connection; without it they are refused, never run unguarded.
   const policyUrl = process.env.POLICY_URL;
@@ -123,9 +124,10 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));
   app.use("/preview", routes.preview({ compile, signingLimiter }));
   app.use("/lang-overrides", routes.langOverrides({ langOverrideStorer }));
-  app.use("/lang", routes.langRouter);
-  app.use("/L*", routes.langRouter);
-  app.use("/form", routes.formRouter({ taskStorer }));
+  const langRouter = routes.buildLangRouter({ pingLang, getLangAsset });
+  app.use("/lang", langRouter);
+  app.use("/L*", langRouter);
+  app.use("/form", routes.buildFormRouter({ pingLang, getBaseUrlForLanguage })({ taskStorer }));
   app.use("/task", routes.tasks({ taskStorer }));
   app.use("/tasks", routes.tasks({ taskStorer }));
   app.use("/publications", routes.publications({ taskStorer, artifactStorer, publications }));

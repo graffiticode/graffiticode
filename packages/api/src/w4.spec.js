@@ -10,6 +10,7 @@ import { buildDataApi } from "./data.js";
 import { createApiAudit } from "./audit.js";
 import { InvocationRefused } from "./invocations.js";
 import { buildChainAdmission, parseChainAdmission, PreflightUnavailable } from "./admission.js";
+import { buildValidateOutput } from "./lang/validate-output.js";
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 import { createStorers } from "./storage/index.js";
 import { clearFirestore } from "./testing/firestore.js";
@@ -136,6 +137,44 @@ describe("chain admission (ADMIT-01, ADMIT-02)", () => {
     expect(admitted.stages.map(s => s.sourceDigest)).toEqual(sent);
     // The revision a stage reports is the gateway's to check, never the caller's.
     expect(JSON.stringify(out)).not.toContain("rev-");
+  });
+
+  // A stage's output is checked against the schema of the revision that
+  // produced it: the pinned one, not whatever serves by default now.
+  describe("schema check", () => {
+    const FITS_STAGE = { type: "object", required: ["stage"] };
+    const FITS_OTHER = { type: "object", required: ["other"] };
+    const withSchemas = ({ pinned, serving }) => {
+      const fetched = [];
+      const validateOutput = buildValidateOutput({
+        getBaseUrlForLanguage: async () => "https://serving-default",
+        getAsset: async (_lang, _path, { baseUrl }) => {
+          fetched.push(baseUrl);
+          return JSON.stringify(baseUrl.startsWith("https://tag-") ? pinned : serving);
+        },
+        env: { COMPILE_SCHEMA_CHECK: "emit" },
+        log: () => {},
+      });
+      return { fetched, validateOutput };
+    };
+
+    it("fetches the pinned revision's schema and passes output that fits it", async () => {
+      chain = fakeChain();
+      const { id } = await chainOf();
+      const { fetched, validateOutput } = withSchemas({ pinned: FITS_STAGE, serving: FITS_OTHER });
+      const out = await get(api(/** @type {any} */ ({ validateOutput })).dataApi, id);
+      expect(out.errors).toEqual([]);
+      expect(fetched).toEqual(["https://tag-s1", "https://tag-s0"]);
+    });
+
+    it("reports output that fits only the default revision's schema", async () => {
+      chain = fakeChain();
+      const { id } = await chainOf();
+      const { fetched, validateOutput } = withSchemas({ pinned: FITS_OTHER, serving: FITS_STAGE });
+      const out = await get(api(/** @type {any} */ ({ validateOutput })).dataApi, id);
+      expect(out.errors[0]).toMatchObject({ kind: "schema", internal: true });
+      expect(fetched[0]).toBe("https://tag-s1");
+    });
   });
 
   it("takes the admission path for a marked invocation even with CHAIN_ADMISSION off", async () => {

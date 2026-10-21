@@ -7,7 +7,6 @@ import {
   optionsHandler,
   parseIdsFromRequest,
   parseOriginFromRequest,
-  parseAuthFromRequest,
   parseConnectionId,
   parsePublicationId,
 } from "./utils.js";
@@ -51,11 +50,10 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
     let lang;
     if (ids.length === 1) {
       const id = ids[0];
-      const authToken = parseAuthFromRequest(req);
       const dataParams = new URLSearchParams();
       dataParams.set("id", id);
       if (req.auth.token) {
-        dataParams.set("access_token", authToken);
+        dataParams.set("access_token", req.auth.token);
       }
       if (connection) {
         params.set("connection", connection);
