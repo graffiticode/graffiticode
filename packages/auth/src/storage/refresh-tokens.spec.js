@@ -2,7 +2,7 @@ import { NotFoundError } from "@graffiticode/common/errors";
 import admin from "firebase-admin";
 import { cleanUpFirebase } from "../testing/firebase.js";
 import { getFirestore } from "../firebase.js";
-import { buildRefreshTokenStorer } from "./refresh-tokens.js";
+import { IDLE_TIMEOUT, buildRefreshTokenStorer } from "./refresh-tokens.js";
 
 describe("storage/refresh-tokens", () => {
   let storer;
@@ -83,6 +83,65 @@ describe("storage/refresh-tokens", () => {
     expect(mainDoc.exists).toBe(false);
     expect(privateKeyDoc.exists).toBe(false);
     expect(indexDoc.exists).toBe(false);
+  });
+
+  const idOf = async token => (await getFirestore().doc(`refresh-tokens/-indexes-/token-to-id/${token}`).get()).get("id");
+  const ago = ms => admin.firestore.Timestamp.fromMillis(Date.now() - ms);
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("should refuse a token past expiresAt before cleanup runs", async () => {
+    const { token } = await storer.createRefreshToken({ uid: "abc123" });
+    await getFirestore().doc(`refresh-tokens/${await idOf(token)}`).update({ expiresAt: ago(60 * 1000) });
+
+    await expect(storer.getRefreshToken(token)).rejects.toThrow(NotFoundError);
+  });
+
+  it("should end a session idle for 14 days, and not record its use", async () => {
+    const uid = "abc123";
+    const db = getFirestore();
+    const { token: idle } = await storer.createRefreshToken({ uid });
+    const { token: active } = await storer.createRefreshToken({ uid });
+    const idleId = await idOf(idle);
+    const activeId = await idOf(active);
+    await db.doc(`refresh-tokens/${idleId}`).update({ createdAt: ago(20 * DAY), lastUsedAt: ago(IDLE_TIMEOUT + 60 * 1000) });
+    await db.doc(`refresh-tokens/${activeId}`).update({ createdAt: ago(20 * DAY), lastUsedAt: ago(13 * DAY) });
+
+    await expect(storer.getRefreshToken(idle)).rejects.toThrow(NotFoundError);
+    await expect(storer.getRefreshToken(active)).resolves.toHaveProperty("uid", uid);
+    const idleUsed = (await db.doc(`refresh-tokens/${idleId}`).get()).get("lastUsedAt");
+    expect(idleUsed.toMillis()).toBeLessThan(Date.now() - IDLE_TIMEOUT);
+
+    const sessions = await storer.listSessions({ uid });
+    expect(sessions.map(s => s.id)).toEqual([activeId]);
+  });
+
+  it("should count a session made before use was recorded as idle from its creation", async () => {
+    const uid = "abc123";
+    const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + 10 * DAY);
+    await getFirestore().doc("refresh-tokens/old-idle").set({ uid, additionalClaims: {}, createdAt: ago(15 * DAY), expiresAt });
+    await getFirestore().doc("refresh-tokens/old-recent").set({ uid, additionalClaims: {}, createdAt: ago(DAY), expiresAt });
+
+    const sessions = await storer.listSessions({ uid });
+    expect(sessions.map(s => s.id)).toEqual(["old-recent"]);
+  });
+
+  it("should clean idle sessions and keep old ones still in use", async () => {
+    const uid = "abc123";
+    const db = getFirestore();
+    const { token: idle } = await storer.createRefreshToken({ uid });
+    const { token: inUse } = await storer.createRefreshToken({ uid });
+    const idleId = await idOf(idle);
+    await db.doc(`refresh-tokens/${idleId}`).update({ createdAt: ago(20 * DAY), lastUsedAt: ago(15 * DAY) });
+    await db.doc(`refresh-tokens/${await idOf(inUse)}`).update({ createdAt: ago(20 * DAY), lastUsedAt: ago(DAY) });
+    await db.doc("refresh-tokens/old-idle").set({ uid, additionalClaims: {}, createdAt: ago(15 * DAY), expiresAt: ago(-10 * DAY) });
+
+    await storer.cleanExpiredRefreshTokens();
+
+    expect((await db.doc(`refresh-tokens/${idleId}`).get()).exists).toBe(false);
+    expect((await db.doc(`refresh-tokens/${idleId}/private/key`).get()).exists).toBe(false);
+    expect((await db.doc(`refresh-tokens/-indexes-/token-to-id/${idle}`).get()).exists).toBe(false);
+    expect((await db.doc("refresh-tokens/old-idle").get()).exists).toBe(false);
+    await expect(storer.getRefreshToken(inUse)).resolves.toHaveProperty("uid", uid);
   });
 
   it("should list active sessions, delete a session, and delete all sessions", async () => {
