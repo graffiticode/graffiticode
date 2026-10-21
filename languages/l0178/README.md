@@ -9,7 +9,7 @@ A client describes a *data job*: which endpoint, which action, and what the requ
 
 **L0178 produces recipes. It does not call the Data API when handling a recipe request.** The caller's own code signs and sends every request with the caller's own consumer key; this repo holds no credentials. What L0178 supplies is the published documentation plus the un-written tricks and tips — the things the docs omit, or state in a way that reads correctly and behaves otherwise.
 
-It is the second dialect in this class. The first is [L0177](https://github.com/graffiticode/l0177), the Learnosity Author API oracle. Item *content* belongs to L0176; L0178 describes the operation that moves content into a bank, not the content itself.
+It is the second dialect in this class. The first is [L0177](../l0177), the Learnosity Author API oracle. Item *content* belongs to L0176; L0178 describes the operation that moves content into a bank, not the content itself.
 
 This is an empirical integration oracle. Its knowledge combines Learnosity's published documentation with observations from direct API experiments. It checks the integration design and returns a host-language-neutral recipe that identifies known behavior, documented expectations, and remaining verification work.
 

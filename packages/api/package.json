@@ -7,7 +7,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/graffiticode/api"
+    "url": "git+https://github.com/graffiticode/graffiticode.git",
+    "directory": "packages/api"
   },
   "main": "./src/app.js",
   "exports": {

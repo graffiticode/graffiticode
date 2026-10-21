@@ -6,7 +6,7 @@
 L0181 is a [Graffiticode](https://graffiticode.org) language for authoring **flashcard study
 decks** — two-sided cards a learner flips one at a time, rates, and re-runs by stack.
 
-It is a child of [L0000](https://github.com/graffiticode/l0000): the compiler is a handful of
+It is a child of [L0000](../l0000): the compiler is a handful of
 handlers on top of L0000's, and the browser harness is L0000's `View` with L0181's card player
 injected into it.
 
@@ -21,7 +21,7 @@ injected into it.
 
 L0181 is flashcards only. For matching and memory games see
 [L0159](https://github.com/graffiticode/l0159); for scored quizzes and tests see
-[L0180](https://github.com/graffiticode/l0180).
+[L0180](../l0180).
 
 ## The language
 

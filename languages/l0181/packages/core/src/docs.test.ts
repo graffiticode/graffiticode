@@ -127,7 +127,7 @@ describe("image URLs in the docs resolve to images", () => {
       for (const url of all) {
         const res = await fetch(url, {
           redirect: "follow",
-          headers: { "user-agent": "l0181-docs/1.0 (+https://github.com/graffiticode/l0181)" },
+          headers: { "user-agent": "l0181-docs/1.0 (+https://github.com/graffiticode/graffiticode/tree/main/languages/l0181)" },
         }).catch((e) => ({ ok: false, status: 0, headers: new Headers(), error: e }) as any);
         const type = res.headers?.get?.("content-type") ?? "";
         if (!res.ok || !type.startsWith("image/")) bad.push(`${url} -> ${res.status} ${type}`);

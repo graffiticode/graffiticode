@@ -78,7 +78,7 @@ It records one response. It does not draw the sample, aggregate across responden
 group ranking, an average rating or an NPS score, or analyse anything.
 
 It also has no notion of a right answer: a survey response is never scored. For graded questions
-use [L0180](https://github.com/graffiticode/l0180).
+use [L0180](../l0180).
 
 ## Development
 
