@@ -54,8 +54,9 @@ const buildEthereumAuthenticate = ({ authService, ethereumService }) => buildHtt
   }
 
   const authContext = await ethereumService.authenticate({ address, nonce, signature });
+  const meta = { method: "wallet", userAgent: req.get("user-agent") };
 
-  const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens(authContext);
+  const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens({ ...authContext, meta });
 
   sendSuccessResponse(res, { access_token: accessToken, refresh_token: refreshToken, firebaseCustomToken });
 });
@@ -142,7 +143,8 @@ const buildGoogleAuthenticate = ({ firebaseAuth, authService, oauthLinkStorer, l
 
   // Generate tokens for the resolved account.
   const authContext = { uid, additionalClaims: { oauth: true, oauthProvider: "google" } };
-  const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens(authContext);
+  const meta = { method: "google", userAgent: req.get("user-agent") };
+  const { accessToken, refreshToken, firebaseCustomToken } = await authService.generateTokens({ ...authContext, meta });
 
   // Include uid in response so callers can verify the correct user is being authenticated
   sendSuccessResponse(res, { access_token: accessToken, refresh_token: refreshToken, firebaseCustomToken, uid: authContext.uid });

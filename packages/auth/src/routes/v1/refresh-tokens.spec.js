@@ -188,6 +188,47 @@ describe("routes/v1/ethereum", () => {
     });
   });
 
+  describe("session details", () => {
+    it("marks the caller's session as current and returns its sign-in details", async () => {
+      const { accessToken, refreshToken } = await authApp.authService.generateTokens({ uid, meta: { method: "wallet", userAgent: "UA-1" } });
+      await authApp.authService.generateTokens({ uid, meta: { method: "email", userAgent: "UA-2" } });
+
+      const res = await request(authApp.app)
+        .get("/v1/refresh-tokens/sessions")
+        .set("Authorization", accessToken)
+        .set("X-Refresh-Token", refreshToken)
+        .expect(200);
+      const current = res.body.data.filter(s => s.current);
+      expect(current).toHaveLength(1);
+      expect(current[0]).toMatchObject({ method: "wallet", userAgent: "UA-1" });
+      expect(res.body.data.find(s => !s.current)).toMatchObject({ method: "email", userAgent: "UA-2" });
+
+      const none = await request(authApp.app)
+        .get("/v1/refresh-tokens/sessions")
+        .set("Authorization", accessToken)
+        .expect(200);
+      expect(none.body.data.some(s => s.current)).toBe(false);
+    });
+  });
+
+  describe("API-key access tokens", () => {
+    it("are refused on every session route", async () => {
+      await authApp.authService.generateTokens({ uid });
+      const { id, token } = await authApp.apiKeyService.create({ uid });
+      const authContext = await authApp.apiKeyService.authenticateWithId({ id, token });
+      const accessToken = await authApp.authService.createAccessToken(authContext);
+
+      await request(authApp.app).get("/v1/refresh-tokens/sessions").set("Authorization", accessToken).expect(403);
+      await request(authApp.app).delete("/v1/refresh-tokens/sessions/some-id").set("Authorization", accessToken).expect(403);
+      await request(authApp.app).delete("/v1/refresh-tokens/sessions").set("Authorization", accessToken).expect(403);
+
+      // Nothing was ended.
+      const { accessToken: personal } = await authApp.authService.generateTokens({ uid });
+      const res = await request(authApp.app).get("/v1/refresh-tokens/sessions").set("Authorization", personal).expect(200);
+      expect(res.body.data).toHaveLength(2);
+    });
+  });
+
   describe("delete session", () => {
     it("should return 401 if unauthenticated", async () => {
       await request(authApp.app)
