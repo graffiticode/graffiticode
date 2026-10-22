@@ -30,6 +30,7 @@ import { activityKey, isActivity, pickRow, resolveVariables } from "./resolve";
 import { signActivity, UNSIGNED_MESSAGE } from "./sign";
 import type { SignResult } from "./sign";
 import { createPreviewStatus } from "./preview-status";
+import { isStaleRequest } from "./expiry";
 
 function renderErrors(errors: CompileError[]) {
   return (
@@ -56,11 +57,29 @@ interface Renderable {
   errors: CompileError[];
 }
 
+export const EXPIRED_MESSAGE = "This preview's signature has expired. Open it again to refresh it.";
+
 // What to render for the compiled data: its own request, or the request
 // signed for its resolved content.
-function useRenderable(data: any): Renderable {
+//
+// `initedContentRef` is the Form's record of what Learnosity has already been
+// initialized with (a `contentKey`). It gates the expiry check below.
+function useRenderable(data: any, initedContentRef: { current: string | null }): Renderable {
   const activity = isActivity(data) ? data : null;
   const key = activity ? activityKey(activity) : null;
+  // Is the activity's own request too close to `expires` to START an
+  // assessment with (expiry.ts)? Decided ONCE per content, with the clock read
+  // when that content arrives, so a later rerender never re-decides it: an
+  // assessment already initialized keeps working past `expires`, and must
+  // never be dropped, re-signed or re-initialized because time passed. For the
+  // same reason it is false outright when Learnosity already holds this
+  // content. That comparison uses `contentKey` (what initedContentRef stores),
+  // not `activityKey`, whose format differs.
+  const stale = useMemo(() => {
+    if (!activity?.request) return false;
+    if (initedContentRef.current === contentKey(activity.type, activity.request)) return false;
+    return isStaleRequest(activity.request, Date.now());
+  }, [key]);
   // One row per mount; picked again only if the table itself changes.
   const table = JSON.stringify(activity?.data?.dynamic_content_data ?? null);
   const env = useMemo(() => (activity ? pickRow(activity.data.dynamic_content_data) : null), [table]);
@@ -76,9 +95,11 @@ function useRenderable(data: any): Renderable {
   // reference the system consumer can't see. So an already-signed items
   // activity is never re-signed, dynamic data or not (Learnosity still
   // substitutes its standard fields); only an already-signed questions
-  // activity whose substitution changed it is.
+  // activity whose substitution changed it is. A stale questions request is
+  // signed again too; a stale items request can't be (same reason), and is
+  // reported instead.
   const needsSign = Boolean(
-    resolved && (!activity.request || (activity.type === "questions" && resolved.changed)),
+    resolved && (!activity.request || (activity.type === "questions" && (resolved.changed || stale))),
   );
   // Keyed on the RESOLVED content, so the same content is signed once
   // whatever the identity of the data the host hands down.
@@ -102,6 +123,7 @@ function useRenderable(data: any): Renderable {
     return { type: data?.type, request: data?.request, pending: false, message: data?.signing?.message, errors: [] };
   }
   if (!needsSign) {
+    if (stale) return { type: activity.type, request: undefined, pending: false, message: EXPIRED_MESSAGE, errors: [] };
     return { type: activity.type, request: activity.request, pending: false, errors: [] };
   }
   const result = signed?.key === signKey ? signed.result : null;
@@ -115,15 +137,15 @@ function useRenderable(data: any): Renderable {
 }
 
 export const Form = ({ state }: FormProps) => {
-  const { type, request, pending, message, errors: signErrors } = useRenderable(state.data);
+  // The content key of the assessment currently mounted into Learnosity. Guards
+  // against the host's re-signed-request churn re-initializing the SDK (see
+  // contentKey above), and keeps expiry from touching a mounted assessment.
+  const initedContentRef = useRef<string | null>(null);
+  const { type, request, pending, message, errors: signErrors } = useRenderable(state.data, initedContentRef);
   const errors: CompileError[] = [...(state.errors ?? []), ...signErrors];
   const hasErrors = errors.length > 0;
   const hasRequest = Boolean(request);
   const [scriptLoaded, setScriptLoaded] = useState(false);
-  // The content key of the assessment currently mounted into Learnosity. Guards
-  // against the host's re-signed-request churn re-initializing the SDK (see
-  // contentKey above).
-  const initedContentRef = useRef<string | null>(null);
   // One outcome per mount, to the embedding host that asked for it.
   const [postStatus] = useState(() => createPreviewStatus());
   const unsigned = (type === "questions" || type === "items") && !request && !pending;

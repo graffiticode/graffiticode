@@ -8,7 +8,7 @@
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor, act, cleanup } from "@testing-library/react";
-import { Form } from "./Form";
+import { Form, EXPIRED_MESSAGE } from "./Form";
 import { BUSY_MESSAGE, getSignUrl } from "./sign";
 
 let init: ReturnType<typeof vi.fn>;
@@ -318,5 +318,78 @@ describe("the signing request", () => {
     );
     await settle();
     expect(init).not.toHaveBeenCalled();
+  });
+});
+
+describe("a signed request's expiry matters only before Learnosity starts", () => {
+  const lt = (ms: number) => {
+    const d = new Date(ms);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}`;
+  };
+  const mcq = { response_id: "artcompiler-mcq-e-0", type: "mcq", stimulus: "2 + 2?" };
+  const questions = (expiresAt: number) => ({
+    ...l0158([mcq]),
+    request: { consumer_key: "K", signature: "$02$compiled", expires: lt(expiresAt), questions: [mcq] },
+  });
+
+  test("a fresh questions request is used as is", async () => {
+    const data = questions(Date.now() + 10 * 60_000);
+    mount(data);
+    await loadLearnosity();
+    await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
+    expect(compiles).toEqual([]);
+    expect(init.mock.calls[0][0]).toBe(data.request);
+  });
+
+  test("a stale questions request is signed again once, then started", async () => {
+    mount(questions(Date.now() - 60_000));
+    await loadLearnosity();
+    await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
+    expect(compiles).toHaveLength(1);
+    expect(init.mock.calls[0][0]).toMatchObject({ signature: "$02$signed" });
+  });
+
+  test("a stale items request can't be signed again, so it says it has expired", async () => {
+    const items = {
+      type: "items",
+      data: { id: "act-1", name: "item", session_id: "s-1", items: [] },
+      request: { security: { consumer_key: "K", expires: lt(Date.now() - 60_000), signature: "$02$x" }, request: { items: [] } },
+    };
+    mount(items);
+    expect((await screen.findByRole("alert")).textContent).toBe(EXPIRED_MESSAGE);
+    await settle();
+    expect(compiles).toEqual([]);
+    expect(init).not.toHaveBeenCalled();
+  });
+
+  test("REGRESSION: a started assessment survives its expiry: no re-sign, no second init, answers kept", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const start = Date.now();
+      const data = questions(start + 10 * 60_000);
+      const view = mount(data);
+      await loadLearnosity();
+      await waitFor(() => expect(init).toHaveBeenCalledTimes(1));
+      // A learner's answer, in the DOM Learnosity rendered into.
+      const span = document.querySelector(`.learnosity-response.question-${mcq.response_id}`)!;
+      const answer = document.createElement("input");
+      answer.value = "4";
+      answer.id = "learner-answer";
+      span.appendChild(answer);
+
+      vi.setSystemTime(start + 30 * 60_000);
+      // The same content handed down again: a new identity, new errors array, unrelated state.
+      view.rerender(<Form state={{ data: { ...data, request: { ...data.request } }, errors: [], apply: () => {} }} />);
+      view.rerender(<Form state={{ data: { ...data }, errors: [], apply: () => {} }} />);
+      await settle();
+
+      expect(compiles).toEqual([]);
+      expect(init).toHaveBeenCalledTimes(1);
+      expect((document.getElementById("learner-answer") as HTMLInputElement | null)?.value).toBe("4");
+      expect(screen.queryByRole("alert")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

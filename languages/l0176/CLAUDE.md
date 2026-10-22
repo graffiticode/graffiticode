@@ -206,6 +206,18 @@ unsigned preview, the SDK script failing, a Learnosity error, data that isn't an
 posted at most once per mount, only when the page has an `origin` param, and only to that origin.
 The MCP widget frames `/form` for free-plan items and waits for it.
 
+**Parent mode (`/form?source=parent&origin=<o>`).** For the MCP widget, the page fetches nothing:
+`embed/main.tsx` mounts `ParentFed` (`components/form/parent-fed.tsx`) instead of the View. It posts
+`{ type: "preview-awaiting-data" }` to `<o>` and accepts exactly one `{ type: "preview-data", data }`
+from `window.parent` at exactly `<o>`. `data` is the compile envelope `{ data, errors }`, unwrapped
+by the shared View's own rule (an object whose `errors` is an array), with a bare activity also
+accepted. So a signed-in user's private item renders without any credential reaching the frame.
+**Expiry** (`components/form/expiry.ts`): a request within 60 s of its `expires` is stale. That is
+decided once per content when it arrives, and never once Learnosity holds that content
+(`initedContentRef`, compared by `contentKey`), because a started assessment keeps working past
+`expires` (measured). A stale questions request is re-signed through `/preview/sign`; a stale
+items request can't be, and shows "This preview's signature has expired." 
+
 ### Language Functions
 
 L0176 inherits the full L0000 base vocabulary (arithmetic, lists, lambdas, `map`/`filter`/
