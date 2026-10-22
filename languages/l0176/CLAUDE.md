@@ -198,7 +198,13 @@ User Input → State Update → POST /compile → Compiler (core; the broker sig
 ```
 
 The embedded form supports iframe embedding; the shared View (from `@graffiticode/l0000-view`)
-owns the parent-window postMessage/onload protocol.
+owns the parent-window postMessage/onload protocol. Its `onload`/`data-updated` fire on mount,
+before Learnosity is up, so the Form adds the one signal only it can see
+(`components/form/preview-status.ts`): `{ type: "preview-ready" }` from Learnosity's
+`readyListener`, or `{ type: "preview-error", reason }` when that won't come (compile errors, an
+unsigned preview, the SDK script failing, a Learnosity error, data that isn't an activity). It is
+posted at most once per mount, only when the page has an `origin` param, and only to that origin.
+The MCP widget frames `/form` for free-plan items and waits for it.
 
 ### Language Functions
 

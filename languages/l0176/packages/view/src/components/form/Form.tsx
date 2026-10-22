@@ -3,8 +3,10 @@
 // matching Learnosity browser SDK (questions / items) and mounting the
 // signed request. Ported from L0158's Form.tsx, adapted to the shared View's
 // FormProps contract (state.data / state.errors) — the View (from
-// @graffiticode/l0000-view) owns the iframe postMessage/onload protocol, so this
-// Form no longer posts to the parent itself.
+// @graffiticode/l0000-view) owns the iframe postMessage/onload protocol. The
+// Form adds one thing to it: whether Learnosity actually came up
+// (`preview-ready` / `preview-error`, preview-status.ts), which only it can
+// see.
 //
 // Resolve, then sign (ported from L0158's View). The compiled data is a
 // `{ type, data }` activity, signed at compile time (an L0176 item) or not
@@ -27,6 +29,7 @@ import { contentKey } from "./contentKey";
 import { activityKey, isActivity, pickRow, resolveVariables } from "./resolve";
 import { signActivity, UNSIGNED_MESSAGE } from "./sign";
 import type { SignResult } from "./sign";
+import { createPreviewStatus } from "./preview-status";
 
 function renderErrors(errors: CompileError[]) {
   return (
@@ -121,6 +124,19 @@ export const Form = ({ state }: FormProps) => {
   // against the host's re-signed-request churn re-initializing the SDK (see
   // contentKey above).
   const initedContentRef = useRef<string | null>(null);
+  // One outcome per mount, to the embedding host that asked for it.
+  const [postStatus] = useState(() => createPreviewStatus());
+  const unsigned = (type === "questions" || type === "items") && !request && !pending;
+  // Compiled data that isn't a Learnosity activity (a bare program's value).
+  // An empty record is the View's pre-load state, not an answer.
+  const loaded = state.data != null && !(typeof state.data === "object" && Object.keys(state.data).length === 0);
+  const notAnActivity = loaded && type !== "questions" && type !== "items";
+
+  useEffect(() => {
+    if (hasErrors) postStatus({ type: "preview-error", reason: "compile-errors" });
+    else if (unsigned) postStatus({ type: "preview-error", reason: `unsigned: ${message || UNSIGNED_MESSAGE}` });
+    else if (notAnActivity) postStatus({ type: "preview-error", reason: "not-an-activity" });
+  }, [hasErrors, unsigned, notAnActivity, message]);
 
   useEffect(() => {
     if (hasErrors) return;
@@ -137,6 +153,7 @@ export const Form = ({ state }: FormProps) => {
     script.onload = () => setScriptLoaded(true);
     script.onerror = (e) => {
       console.error("Learnosity script failed to load", type, script.src, e);
+      postStatus({ type: "preview-error", reason: "script-load" });
     };
     document.body.appendChild(script);
     return () => {
@@ -179,11 +196,13 @@ export const Form = ({ state }: FormProps) => {
       initedContentRef.current = key;
       LearnosityApp.init(request, {
         readyListener() {
-          // Assessment is interactive. The shared View posts onload to the
-          // parent iframe on data-ready, so nothing to do here.
+          // Assessment is interactive. The View's own onload fired long ago;
+          // this is the signal a framing host waits for.
+          postStatus({ type: "preview-ready" });
         },
         errorListener(err: any) {
           console.error("Learnosity error", type, err);
+          postStatus({ type: "preview-error", reason: `learnosity: ${err?.code ?? "error"}` });
         },
       });
     };
