@@ -192,7 +192,8 @@ and preserves logical identity.
 
 Execution claims bind principal, owner, connection, backend, language, function, operation,
 argument digest, registry version, session, operation ID, and authority provenance. User runs
-carry their plan/stage; publication and system-preview claims carry the restricted authority
+carry their plan/stage, except stored-artifact reads restricted as in READ-01;
+publication and system-preview claims carry the restricted authority
 identifiers needed for live checks. Tokens cannot switch provenance. Argument digests use
 SHA-256 over canonical JSON: sorted object keys, preserved array order, no whitespace,
 omitted undefined object members, and null for undefined array entries. Reject inputs outside
@@ -347,7 +348,14 @@ Responses carrying signed authority are not cacheable.
 
 **READ-01 — Views and answers.** A private view loads an existing artifact and obtains
 current preview authorization. Signing uses a fixed data-only program or equivalently
-constrained operation unable to execute source. Missing/incompatible artifacts require an
+constrained operation unable to execute source. Its `read` stage may obtain a contract-v2
+session without a source execution plan, limited to the registry's view-safe functions.
+Policy checks this restriction at snapshot, mint, and execution authorization; Broker
+independently checks it against the signed operation's stage and function. Connection,
+owner, grant, registry, and maintenance checks still apply. Other stages and non-view-safe
+functions require the execution plan. The `read` stage is the compiler's claim, which Policy
+cannot verify; claiming it gains no more than view-safe signing, the authority publication
+views and system previews already hold. Missing/incompatible artifacts require an
 explicit run, never automatic rebuild. Learner answers cannot rerun saves; required protected
 answer operations need separate registered authority. Reads cannot fall back to source
 execution when authorization or artifact selection fails.

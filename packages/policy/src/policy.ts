@@ -33,8 +33,9 @@
 //             manifest, pinned to approved compiler revisions, decided in one
 //             consistent read. Denying any stage denies the chain. The plan
 //             (by its digest) binds every later snapshot, mint and
-//             authorization for the invocation; a marked invocation never
-//             runs without it. `planLookup` gives a retry the plan before it
+//             authorization for the invocation. Stored-artifact reads may
+//             sign through view-safe functions without executing a plan.
+//             `planLookup` gives a retry the plan before it
 //             resolves any compiler URL.
 //
 // Callers are authenticated before reaching here: `user` is the verified end
@@ -182,15 +183,16 @@ export const createPolicy = ({
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
     let allocated;
     try {
-      // From the cutover every new invocation is admitted under a plan.
+      // From the cutover every new invocation requires a plan to execute
+      // source. Stored-artifact reads can only use view-safe functions.
       allocated = await invocations.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, admission: admission || minContractVersion >= 2 });
     } catch (e) {
       if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
       throw e;
     }
     const { invocationId, seq, reused } = allocated;
-    // The invocation's own marker (a retry can't change it): 2 means it runs
-    // only under an admitted plan.
+    // The invocation's own marker (a retry can't change it): 2 means source
+    // execution requires an admitted plan.
     const contract = allocated.contract ?? 1;
     const invocationToken = await issueToken(signer, "invocation", { sub: user.uid, conn: connectionId, inv: invocationId, seq, cv: contract });
     await audit({ ...record, ownerUid: connection.ownerUid, invocationId, outcome: "allowed", reason: reused ? "reused" : "new" });
@@ -380,16 +382,19 @@ export const createPolicy = ({
     // From here the invocation is verified: its id and the compiler's stage.
     Object.assign(record, { invocationId, stage });
 
-    // Contract v2: bound to the admitted plan, or refused if the invocation
-    // requires one. An unmarked invocation keeps the per-stage path (v1)
-    // until the cutover.
+    // A read signs stored data only. Like a publication, its session is
+    // confined to view-safe functions; it cannot authorize another save.
+    const reading = stage === "read" && admissionToken === null;
+    const viewSafe = reading ? new Set(viewSafeFunctionsForLang(lang)) : null;
+    // Executing a program requires its admitted plan. An unmarked
+    // invocation keeps the per-stage path (v1) until the cutover.
     let bound = null;
     if (admissionToken !== null) {
       if (typeof admissionToken !== "string") return deny("bad-request", record);
       bound = await planBinding({ admissionToken, invocationId, uid: user.uid, connectionId, lang, stage, manifest });
       if (bound.refusal) return deny(bound.refusal, record);
       Object.assign(record, { planDigest: bound.planDigest });
-    } else {
+    } else if (!reading) {
       const refusal = await planRefusal(invocationId);
       if (refusal) return deny(refusal, record);
     }
@@ -409,7 +414,7 @@ export const createPolicy = ({
     const admitted = bound ? new Set(bound.stage.requiredFunctions) : null;
     const allowed = [...new Set(fns)].filter(fn => {
       const spec = Object.prototype.hasOwnProperty.call(registered, fn) ? registered[fn] : null;
-      return Boolean(spec && spec.backend === connection.backend && mayUse(access, lang, fn) && (!admitted || admitted.has(fn)));
+      return Boolean(spec && spec.backend === connection.backend && mayUse(access, lang, fn) && (!admitted || admitted.has(fn)) && (!viewSafe || viewSafe.has(fn)));
     });
 
     const sessionToken = await issueToken(signer, "session", {
@@ -422,7 +427,7 @@ export const createPolicy = ({
       stg: stage,
       rv: REGISTRY_VERSION,
       fns: allowed,
-      ...(bound ? { cv: CONTRACT_VERSION, pld: bound.planDigest, bind: stageBinding(bound.stage) } : { cv: 1 }),
+      ...(bound ? { cv: CONTRACT_VERSION, pld: bound.planDigest, bind: stageBinding(bound.stage) } : { cv: reading ? CONTRACT_VERSION : 1 }),
     });
     await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed" });
     return { allowed, sessionToken };
@@ -584,13 +589,17 @@ export const createPolicy = ({
   // name a stored plan for this invocation whose stage `stage` is in
   // `lang`, admits `fn`, and pins a revision still runnable; an unbound
   // user-provenance token is refused when the invocation requires a plan.
-  // Publication and system tokens are bound by their own authority.
+  // Stored-artifact reads are confined to view-safe functions. Publication
+  // and system tokens are bound by their own authority.
   const contractRefusalFor = async ({ claims, provenance, fn, invocationId, stage, lang }) => {
     const cv = claims.cv ?? 1;
     if (!SUPPORTED_CONTRACT_VERSIONS.includes(cv)) return "contract-version-unsupported";
     if (cv < minContractVersion) return "contract-version-unsupported";
     if (provenance !== "user") return null;
-    if (!claims.pld) return planRefusal(invocationId);
+    if (!claims.pld) {
+      if (stage === "read" && viewSafeFunctionsForLang(lang).includes(fn)) return null;
+      return planRefusal(invocationId);
+    }
     const plan = await invocations.getPlan(claims.pld);
     const pinned = plan?.stages?.find(s => s.stage === stage);
     if (!plan || plan.invocationId !== invocationId || !pinned || pinned.lang !== lang || !pinned.requiredFunctions.includes(fn)) {

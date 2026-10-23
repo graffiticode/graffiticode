@@ -13,10 +13,12 @@ import {
 import {
   createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused, localAuthorizer
 } from "@graffiticode/broker";
-import { runCanary, hasSignedRequest, savedItemReferences, providerChecks, signedPreviewRequest, keyFingerprint, learnosityMs } from "../lib/canary.js";
+import { runCanary, signatureProblems, hasSignedRequest, savedItemReferences, providerChecks, signedPreviewRequest, keyFingerprint, learnosityMs } from "../lib/canary.js";
 import { createDraftArchiver } from "../lib/canary-archive.js";
 
 const CANARY = "0xcanary";
+// api's input digest for a compile without options (inputDigest({})).
+const NO_OPTIONS = createHash("sha256").update("{}").digest("hex");
 const CONN = "conn-canary";
 const config = {
   apiUrl: "https://api.test",
@@ -143,6 +145,11 @@ const world = async ({ tweak = {} } = {}) => {
   const refused = (status, reason) => ({ status, json: { status: "error", error: { code: status, reason } } });
   const tasks = new Map();
   const compiles = new Map();
+  // The saved read (READ-01): each save's stored result, by task id, and the
+  // security-audit records the views leave, as Policy and Broker log them.
+  const stored = new Map();
+  const auditLog = [];
+  let views = 0;
   const gateway = { role: "gateway" };
   // The gateway stand-in's admission of a chain: null, or the refusal.
   const admitChain = async ({ id, idempotencyKey }) => {
@@ -193,7 +200,43 @@ const world = async ({ tweak = {} } = {}) => {
         const seen = (compiles.get(body.idempotencyKey) ?? 0) + 1;
         compiles.set(body.idempotencyKey, seen);
         const effect = { fn: "save-to-itembank", op: "learnosity.write-items", status: "succeeded", steps: ["questions", "items"], stage: "s0", ...(seen > 1 ? { replayed: true } : {}) };
-        return withId(ok({ data: { itemBank: { saved: true } }, errors: [], ...(tweak.noEffects ? {} : { effects: [effect] }) }));
+        const itemBank = { saved: true, references: [`gc-${body.id}-i0`], questionReferences: [`gc-${body.id}-q0`] };
+        // As api: the write runs under the gateway's invocation for this key,
+        // which the stored result names.
+        const writeInvocation = await policy.allocateInvocation({ caller: gateway, user: { uid: CANARY }, connectionId: CONN, taskId: body.id, inputDigest: NO_OPTIONS, idempotencyKey: body.idempotencyKey });
+        stored.set(body.id, { itemBank, writeInvocationId: writeInvocation.invocationId });
+        return withId(ok({ data: { itemBank }, errors: [], ...(tweak.noEffects ? {} : { effects: [effect] }) }));
+      }
+      if (origin === config.apiUrl && pathname === "/data" && method === "GET") {
+        // As api's read path: the stored result, signed afresh for each view
+        // in a `read` stage. `readPlanRequired` stands for a Policy from before
+        // the read stage, `readLosesReferences` for a view that drops the save.
+        const { searchParams } = new URL(url);
+        const id = searchParams.get("id");
+        const saved = stored.get(id);
+        if (!saved || searchParams.get("connection") !== CONN) return ok({ errors: [{ message: "no result", code: "artifact-not-found" }] });
+        if (tweak.readPlanRequired) return ok({ errors: [{ message: "Permission check is unavailable; protected functions cannot run.", code: "plan-required" }] });
+        views += 1;
+        // As api's read path: one invocation per stored artifact for all of its views.
+        const readInvocation = await policy.allocateInvocation({ caller: gateway, user: { uid: CANARY }, connectionId: CONN, taskId: id, inputDigest: NO_OPTIONS, idempotencyKey: `read.${saved.writeInvocationId}` });
+        // Broker's record of this view's signing, unless a tweak replaces it
+        // (`readAudit`): "none", or records that look like controls but aren't.
+        const signing = { event: "execute", outcome: "allowed", fn: "init", op: "learnosity.sign-questions-preview", opid: `${readInvocation.invocationId}/read/prog.0`, jti: `jti-read-${views}`, connectionId: CONN, at: clock.now };
+        const forged = {
+          none: null,
+          denied: { ...signing, outcome: "denied", reason: "plan-required" },
+          otherInvocation: { ...signing, opid: "inv-unrelated/read/prog.0" },
+          otherStage: { ...signing, opid: `${readInvocation.invocationId}/s0/prog.0` },
+          sameToken: { ...signing, jti: "jti-read-1" },
+          // The review's repro: identical denied records from an unrelated invocation.
+          unrelatedDenied: { ...signing, outcome: "denied", reason: "plan-required", opid: "inv-unrelated/read/prog.0", jti: "jti-x" },
+        };
+        const record = tweak.readAudit ? forged[tweak.readAudit] : signing;
+        if (record) auditLog.push(record);
+        const itemBank = tweak.readLosesReferences ? { saved: true, references: [] } : saved.itemBank;
+        // eslint-disable-next-line camelcase -- Learnosity's field names
+        const request = { consumer_key: "k", timestamp: "20261023-1900", signature: `sig-read-${views}`, questions: [] };
+        return ok({ data: { type: "questions", data: { questions: [], itemBank }, request }, errors: [] });
       }
       if (origin === config.policyUrl) {
         const caller = callerOf(headers, "urn:graffiticode:policy");
@@ -233,15 +276,30 @@ const world = async ({ tweak = {} } = {}) => {
     return { status: 404, json: null };
   };
   const idToken = async (account, audience) => (tweak.noImpersonation ? Promise.reject(new Error("permission denied to impersonate")) : `id|${account}|${audience}`);
-  return { http, idToken, writes, connections, deploy, serving, reconcileAsks, clock };
+  // The audit source the saved read polls: the window's records, as Cloud
+  // Logging would return them. `auditWrite` adds a write in the window, at
+  // once ("now") or only from the third poll ("late", a log that arrives after
+  // the reads' own).
+  const polls = [];
+  const auditEvents = async ({ since, until, connectionId }) => {
+    polls.push(clock.now);
+    const from = Date.parse(since);
+    const to = Date.parse(until);
+    const inWindow = auditLog.filter(e => e.connectionId === connectionId && e.at >= from && e.at <= to);
+    const write = { event: "execute", fn: "save-to-itembank", op: "learnosity.write-items", opid: "inv-x/s0/n1.0", connectionId, at: from + 1 };
+    if (tweak.auditWrite === "now" || (tweak.auditWrite === "late" && polls.length >= 3)) inWindow.push(write);
+    return inWindow;
+  };
+  return { http, idToken, writes, connections, deploy, serving, reconcileAsks, clock, auditEvents, polls };
 };
 
 const memoryRetryState = () => {
   const state = { value: null };
   return { state, load: async () => state.value, save: async v => { state.value = v; }, clear: async () => { state.value = null; } };
 };
-const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang], archiveDrafts = null } = {}) => runCanary({
+const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang], archiveDrafts = null, auditEvents = w.auditEvents } = {}) => runCanary({
   archiveDrafts,
+  auditEvents,
   // A clock the canary's waits advance, so nothing really sleeps.
   now: () => w.clock.now,
   sleep: async ms => { w.clock.slept.push(ms); w.clock.now += ms; },
@@ -551,4 +609,142 @@ test("--provider adds its checks to a run, from the gateway preview", async () =
   const out = await run(w, { provider: { expiresMinutes: 10, previewConnection: "conn-p", attestation: null } });
   const names = out.results.map(r => r.name).filter(n => n.startsWith("provider: "));
   assert.ok(names.length >= 1, JSON.stringify(out.results.map(r => r.name)));
+});
+
+// READ-01 live: the view of a saved result (GET /data through the connection).
+const SAVED_READ = ["saved read: signed", "saved read: references", "saved read: no save effects", "saved read: audit"];
+const savedReadOf = results => Object.fromEntries(results.filter(r => r.name.startsWith("saved read")).map(r => [r.name, r]));
+
+test("saved read: two views of the saved result, each freshly signed, keeping its references, writing nothing", async () => {
+  const w = await world();
+  const { ok, results } = await run(w, { savedRead: true });
+  assert.equal(ok, true, JSON.stringify(results));
+  const read = savedReadOf(results);
+  assert.deepEqual(Object.keys(read), SAVED_READ);
+  assert.match(read["saved read: audit"].detail, /^bounded evidence: no write was logged for this connection between .* within a 120 s observation; read signings observed: 2$/);
+});
+
+test("saved read: the audit observation always runs its whole period, even once the reads' own records are in", async () => {
+  const w = await world();
+  await run(w, { savedRead: true });
+  // Polled every 10 s from the reads to the end of the 120 s period: the
+  // reads' signings were there on the first poll, and it kept going.
+  const gaps = w.polls.slice(1).map((t, i) => t - w.polls[i]);
+  assert.ok(gaps.every(g => g === 10_000), JSON.stringify(gaps));
+  assert.ok(w.polls.at(-1) - w.polls[0] >= 120_000, `observed ${w.polls.at(-1) - w.polls[0]} ms`);
+});
+
+test("saved read: fails when the view is refused plan-required (the contract-v2 bug)", async () => {
+  const { ok, results } = await run(await world({ tweak: { readPlanRequired: true } }), { savedRead: true });
+  assert.equal(ok, false);
+  const read = savedReadOf(results);
+  assert.equal(read["saved read: signed"].ok, false);
+  assert.match(read["saved read: signed"].detail, /plan-required/);
+});
+
+test("saved read: fails when a view loses the saved references", async () => {
+  const { ok, results } = await run(await world({ tweak: { readLosesReferences: true } }), { savedRead: true });
+  assert.equal(ok, false);
+  assert.equal(savedReadOf(results)["saved read: references"].ok, false);
+});
+
+test("saved read: fails on a write the audit log shows, though the views' responses report no effects", async () => {
+  const { ok, results } = await run(await world({ tweak: { auditWrite: "now" } }), { savedRead: true });
+  assert.equal(ok, false);
+  const read = savedReadOf(results);
+  assert.equal(read["saved read: no save effects"].ok, true);
+  assert.equal(read["saved read: audit"].ok, false);
+  assert.match(read["saved read: audit"].detail, /a write was logged/);
+});
+
+test("saved read: fails on a write whose log arrives after the reads' own", async () => {
+  const w = await world({ tweak: { auditWrite: "late" } });
+  const { ok, results } = await run(w, { savedRead: true });
+  assert.equal(ok, false);
+  assert.equal(savedReadOf(results)["saved read: audit"].ok, false);
+  // It stopped at the write, on the third poll, not at the controls on the first.
+  assert.equal(w.polls.length, 3);
+});
+
+test("saved read: fails, not skips, when the reads' own signings never reach the log", async () => {
+  const { ok, results } = await run(await world({ tweak: { readAudit: "none" } }), { savedRead: true });
+  assert.equal(ok, false);
+  assert.match(savedReadOf(results)["saved read: audit"].detail, /only 0 of 2 successful read signings/);
+});
+
+// Records that look like the views' signings but don't show this window's
+// records arrived: each must leave the control unmet, and the run failed.
+for (const [kind, why] of [
+  ["unrelatedDenied", "two identical denied records from an unrelated invocation (the review's repro)"],
+  ["denied", "denied signings"],
+  ["otherInvocation", "successful signings under another invocation"],
+  ["otherStage", "successful signings outside the read stage"],
+  ["sameToken", "two records of one execution token"],
+]) {
+  test(`saved read: the audit control isn't met by ${why}`, async () => {
+    const { ok, results } = await run(await world({ tweak: { readAudit: kind } }), { savedRead: true });
+    assert.equal(ok, false);
+    const audit = savedReadOf(results)["saved read: audit"];
+    assert.equal(audit.ok, false);
+    assert.match(audit.detail, /successful read signings \(distinct execution tokens, the views' invocation\)/);
+  });
+}
+
+test("saved read: its failure output carries no signature", async () => {
+  // A view whose signature repeats: the detail says so, and prints none of them.
+  const w = await world();
+  const http = async req => {
+    const res = await w.http(req);
+    if (req.method === "GET" && res.json?.data?.data?.request) res.json.data.data.request.signature = "SECRET-SIGNATURE-VALUE";
+    return res;
+  };
+  const { ok, results } = await runCanary({
+    auditEvents: w.auditEvents,
+    now: () => w.clock.now,
+    sleep: async ms => { w.clock.now += ms; },
+    http,
+    idToken: w.idToken,
+    accessToken: async () => "user-token",
+    parse: async src => ({ src, code: src }),
+    config: { ...config, savedRead: true },
+    servingRevision: async lang => w.serving[lang],
+    runId: "t1",
+  });
+  assert.equal(ok, false);
+  const signed = savedReadOf(results)["saved read: signed"];
+  assert.equal(signed.ok, false);
+  assert.equal(signed.detail, "both views carry the same signature");
+  assert.equal(JSON.stringify(results).includes("SECRET-SIGNATURE-VALUE"), false);
+});
+
+test("names what's wrong with the views' signatures, never the signatures", () => {
+  assert.deepEqual(signatureProblems(["a", "b"], "w"), []);
+  assert.deepEqual(signatureProblems([null, "b"], "w"), ["view 1 is unsigned"]);
+  assert.deepEqual(signatureProblems(["a", "a"], null), ["both views carry the same signature"]);
+  assert.deepEqual(signatureProblems(["w", "b"], "w"), ["view 1 reuses the write's signature"]);
+});
+
+test("saved read: without an audit source it fails; --no-audit-check skips only that part, and says so", async () => {
+  const none = await run(await world(), { savedRead: true }, { auditEvents: null });
+  assert.equal(none.ok, false);
+  assert.equal(savedReadOf(none.results)["saved read: audit"].ok, false);
+  const lines = [];
+  const w = await world();
+  const skipped = await runCanary({
+    auditEvents: w.auditEvents,
+    now: () => w.clock.now,
+    sleep: async ms => { w.clock.now += ms; },
+    http: w.http,
+    idToken: w.idToken,
+    accessToken: async () => "user-token",
+    parse: async src => ({ src, code: src }),
+    config: { ...config, savedRead: true, auditCheck: false },
+    servingRevision: async lang => w.serving[lang],
+    runId: "t1",
+    log: line => lines.push(line)
+  });
+  assert.equal(skipped.ok, true, JSON.stringify(skipped.results));
+  assert.equal("saved read: audit" in savedReadOf(skipped.results), false);
+  assert.ok(lines.some(l => /^SKIP saved read: audit \(--no-audit-check\)/.test(l)), lines.join("\n"));
+  assert.deepEqual(w.polls, []);
 });

@@ -67,7 +67,7 @@
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
 import { randomUUID } from "node:crypto";
-import { isOperationAllowed, isStepRegistered, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { isOperationAllowed, isStepRegistered, viewSafeFunctionsForLang, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { verifyToken, provenanceRefusal, opidParts, MAINTENANCE, admission } from "@graffiticode/policy";
 import { SUPPORTED_CONTRACT_VERSIONS } from "@graffiticode/common/contract";
 import { argsDigest } from "./canonical.js";
@@ -130,7 +130,8 @@ const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]);
 // The contract a token's claims meet (W4; spec RELEASE-01, TOKEN-01): a
 // version Broker doesn't support, or below its minimum, is refused; from
 // minimum 2, a user-provenance token must be bound to an admitted plan and
-// stage (`pld`, `stg`); and a bound token's stage must be its operation's.
+// stage (`pld`, `stg`), except view-safe functions in a stored-artifact read;
+// and a bound token's stage must be its operation's.
 // Policy decides the plan itself at each authorization; these are the checks
 // Broker can make on the token alone, before anything is spent.
 export const contractRefusal = (claims, minContractVersion = 1) => {
@@ -139,6 +140,7 @@ export const contractRefusal = (claims, minContractVersion = 1) => {
   if (claims.pld !== undefined || claims.stg !== undefined) {
     if (!claims.pld || !claims.stg || claims.stg !== opidParts(claims.opid).stage) return "plan-binding-mismatch";
   } else if (minContractVersion >= 2 && claims.prv === "user") {
+    if (opidParts(claims.opid).stage === "read" && viewSafeFunctionsForLang(claims.lang).includes(claims.fn)) return null;
     return "plan-required";
   }
   return null;

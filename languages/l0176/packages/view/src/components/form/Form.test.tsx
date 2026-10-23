@@ -8,7 +8,7 @@
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor, act, cleanup } from "@testing-library/react";
-import { Form, EXPIRED_MESSAGE } from "./Form";
+import { Form, EXPIRED_MESSAGE, SAVED_MESSAGE } from "./Form";
 import { BUSY_MESSAGE, getSignUrl } from "./sign";
 
 let init: ReturnType<typeof vi.fn>;
@@ -391,5 +391,53 @@ describe("a signed request's expiry matters only before Learnosity starts", () =
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("the saved marker", () => {
+  const mcq = { response_id: "artcompiler-mcq-t-0-0", type: "mcq", stimulus: "2 + 2?" };
+  const request = { consumer_key: "K", signature: "$02$compiled", questions: [mcq] };
+  // The broker's write-items result, as L0176 attaches it (data.itemBank).
+  const itemSave = { saved: true, references: ["gc-item-1"], questionReferences: ["gc-q-1"] };
+  const questionSave = { saved: true, references: ["gc-q-1", "gc-q-2"], questionReferences: ["gc-q-1", "gc-q-2"] };
+  const markerOf = (itemBank: any) => {
+    mount({ ...l0158([mcq], itemBank === undefined ? {} : { itemBank }), request });
+    return screen.queryByText(SAVED_MESSAGE);
+  };
+
+  test("a saved activity says so, with the saved references", async () => {
+    expect(markerOf(itemSave)).toBeTruthy();
+    expect(screen.getByText("References: gc-item-1")).toBeTruthy();
+  });
+
+  test("a question-only save gets the same generic wording, with its question references", async () => {
+    const marker = markerOf(questionSave);
+    expect(marker).toBeTruthy();
+    expect(screen.getByText("References: gc-q-1, gc-q-2")).toBeTruthy();
+    const text = marker!.closest('[role="status"]')!.textContent!;
+    expect(text).not.toMatch(/draft/i);
+    expect(text).not.toMatch(/\bitems?\b(?! bank)/i);
+  });
+
+  test("nothing is shown for a skipped save, or without one", async () => {
+    expect(markerOf({ skipped: "no-connection", fn: "save-to-itembank", occurrence: "n1" })).toBeNull();
+    cleanup();
+    expect(markerOf(undefined)).toBeNull();
+  });
+
+  // The Form can't tell who is viewing: the owner, a grant recipient through a shared
+  // connection (whose saves land in the owner's bank), or a publication viewer all receive the
+  // same stored artifact, so the wording must hold for every one of them.
+  test.each(["the connection owner", "a grant recipient", "a publication viewer"])(
+    "the same saved artifact reads owner-neutrally for %s",
+    async () => {
+      const marker = markerOf(itemSave);
+      expect(marker!.closest('[role="status"]')!.textContent).not.toMatch(/\byour\b/i);
+    },
+  );
+
+  test("an items activity shows it too", async () => {
+    mount({ type: "items", data: { items: ["gc-item-1"], itemBank: itemSave }, request: { security: {}, request: {} } });
+    expect(screen.getByText(SAVED_MESSAGE)).toBeTruthy();
   });
 });

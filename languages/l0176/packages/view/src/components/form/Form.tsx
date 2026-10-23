@@ -47,6 +47,24 @@ function renderErrors(errors: CompileError[]) {
   );
 }
 
+// The save this activity's compile made, from the broker's write-items result
+// (`data.itemBank`). Worded generically: a `questions` save writes question
+// records and no item, so its references are question references, and the
+// result doesn't say which. Owner-neutral, because a shared connection saves
+// into its owner's bank and a published view shows the artifact to others.
+export const SAVED_MESSAGE = "Saved to the Learnosity item bank";
+
+function SavedMarker({ itemBank }: { itemBank: any }) {
+  if (itemBank?.saved !== true) return null;
+  const references: string[] = Array.isArray(itemBank.references) ? itemBank.references : [];
+  return (
+    <div role="status" className="mx-4 mb-4 rounded-md p-3 border text-sm bg-gray-50 border-gray-200 text-gray-700">
+      {SAVED_MESSAGE}
+      {references.length > 0 && <div className="mt-1 text-xs text-gray-500">References: {references.join(", ")}</div>}
+    </div>
+  );
+}
+
 interface Renderable {
   type?: string;
   request?: any;
@@ -250,22 +268,28 @@ export const Form = ({ state }: FormProps) => {
     // level); the Items SDK wraps data in {security, request}.
     const questions = request?.questions ?? request?.request?.questions ?? [];
     return (
-      <div className="p-4">
-        {questions.map((q: { response_id: string }) => (
-          <span
-            key={q.response_id}
-            className={`learnosity-response question-${q.response_id}`}
-            data-response-id={q.response_id}
-          />
-        ))}
-      </div>
+      <>
+        <div className="p-4">
+          {questions.map((q: { response_id: string }) => (
+            <span
+              key={q.response_id}
+              className={`learnosity-response question-${q.response_id}`}
+              data-response-id={q.response_id}
+            />
+          ))}
+        </div>
+        <SavedMarker itemBank={state.data?.data?.itemBank} />
+      </>
     );
   }
   if (type === "items") {
     return (
-      <div className="p-4">
-        <span id="learnosity_assess" className="learnosity-item" data-reference="item-1" />
-      </div>
+      <>
+        <div className="p-4">
+          <span id="learnosity_assess" className="learnosity-item" data-reference="item-1" />
+        </div>
+        <SavedMarker itemBank={state.data?.data?.itemBank} />
+      </>
     );
   }
   // No Learnosity type (e.g. a bare `hello` program): show the raw compile data.
