@@ -1,5 +1,14 @@
 import { jest } from "@jest/globals";
+import { generateKeyPair, exportJWK } from "jose";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import {
+  createPolicy, createLocalSigner, createMemoryConnectionStore, createMemoryInvocationStore,
+  createMemoryPublicationStore, createProtectedSwitch
+} from "@graffiticode/policy";
+import {
+  createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore,
+  createMemoryActivityStore, createMemorySecretStore, localAuthorizer, argsDigest
+} from "@graffiticode/broker";
 import { buildDataApi } from "./data.js";
 import { signProgram } from "./read.js";
 import { InvocationRefused } from "./invocations.js";
@@ -77,6 +86,16 @@ describe("the read path", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
+  it("keeps a stored save result whole through the view's signing (the Form's saved marker reads it)", async () => {
+    const itemBank = { saved: true, references: ["gc-item-1"], questionReferences: ["gc-q-1"] };
+    const saved = { type: "questions", data: { questions: [], itemBank } };
+    await store({ content: { data: saved, errors: [] } });
+    // As L0176 signs it: the data literal back, with a fresh request.
+    compile.mockImplementation(async ({ code }) => ({ data: { ...JSON.parse(code[1].elts[0]), request: "signed" }, errors: [], cache: false }));
+    await expect(read()).resolves.toEqual({ data: { ...saved, request: "signed" }, errors: [] });
+    expect(compile).toHaveBeenCalledWith(expect.objectContaining({ code: signProgram(saved), stage: "read" }));
+  });
+
   it("serves a language that does not sign as stored, with no compile", async () => {
     await store();
     await expect(read(L0000_TASK)).resolves.toEqual(STORED);
@@ -109,4 +128,65 @@ describe("the read path", () => {
     await read(L0176_TASK, { read: false });
     expect(compile).toHaveBeenCalledWith(expect.objectContaining({ code: L0176_TASK.code, stage: "s0" }));
   });
+});
+
+it("renders a stored composed item through real v2 Policy and Broker without running its source", async () => {
+  const pair = await generateKeyPair("ES256", { extractable: true });
+  const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
+  const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
+  const protectedSwitch = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
+  const policy = createPolicy({
+    signer,
+    jwks,
+    protectedSwitch,
+    minContractVersion: 2,
+    audit: async () => {},
+    connections: createMemoryConnectionStore([{ connectionId: READ.connectionId, ownerUid: READ.uid, backend: "learnosity", status: "active" }]),
+    invocations: createMemoryInvocationStore(),
+    publications: createMemoryPublicationStore(),
+  });
+  const provider = jest.fn();
+  const broker = createBroker({
+    jwks,
+    protectedSwitch,
+    minContractVersion: 2,
+    audit: async () => {},
+    operations: buildOperations({ sdk: { init: () => "fresh-preview" }, domain: "example.org", dataApi: provider }),
+    secrets: createMemorySecretStore({ "preview-connection": { ownerUid: "system", backend: "learnosity", key: "k", secret: "s" } }),
+    previewConnections: { learnosity: "preview-connection" },
+    once: createMemoryOnceStore(),
+    receipts: createMemoryReceiptStore(),
+    activity: createMemoryActivityStore(),
+    authorize: localAuthorizer(policy),
+  });
+  const artifactStorer = buildMemoryArtifactStorer();
+  await artifactStorer.put({
+    ...READ, ownerUid: READ.uid, invocationId: "saved-run", seq: 1, registryVersion: REGISTRY_VERSION, content: STORED,
+  });
+  const caller = { role: "compiler", lang: "0176" };
+  const compile = jest.fn(async ({ code, stage, invocationToken, connectionId }) => {
+    expect(code).toEqual(signProgram(ACTIVITY));
+    const { sessionToken, allowed } = await policy.snapshot({
+      caller, user: { uid: READ.uid }, lang: "0176", connectionId, fns: ["init"], invocationToken, stage,
+    });
+    expect(allowed).toEqual(["init"]);
+    const op = "learnosity.sign-questions-preview";
+    const { executionToken } = await policy.mint({ caller, sessionToken, fn: "init", op, occurrenceId: "prog.0", argsDigest: argsDigest(ACTIVITY.data) });
+    const out = await broker.execute({ caller, token: executionToken, op, payload: ACTIVITY.data });
+    return { data: { ...ACTIVITY, request: out.result.request }, errors: [], cache: false };
+  });
+  const allocateInvocation = ({ connectionId, taskId, idempotencyKey }) => policy.allocateInvocation({
+    caller: { role: "gateway" }, user: { uid: READ.uid }, connectionId, taskId, idempotencyKey, inputDigest: "a".repeat(64),
+  });
+  const api = buildDataApi(/** @type {any} */ ({ compile, allocateInvocation, artifactStorer }));
+  // Neither source stage is executed by a read, and no whole-chain
+  // admission is needed to sign the stored activity.
+  const taskStorer = { get: async () => [L0176_TASK, L0000_TASK] };
+  for (let i = 0; i < 2; i++) {
+    const out = await api.get({ taskStorer, compileStorer, id: READ.taskId, auth: { uid: READ.uid }, authToken: "user", connectionId: READ.connectionId, read: true, options: {}, action: {}, refresh: false });
+    expect(out).toEqual({ data: { ...ACTIVITY, request: "fresh-preview" }, errors: [] });
+  }
+  expect(compile).toHaveBeenCalledTimes(2);
+  expect(provider).not.toHaveBeenCalled();
+  expect((await artifactStorer.getByInvocation("saved-run")).content).toEqual(STORED);
 });

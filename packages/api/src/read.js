@@ -6,7 +6,8 @@
 // Signing sends the compiler a fixed program that holds the unsigned activity
 // as a data literal and nothing else, so the only protected operation it can
 // reach is the language's implicit preview signature, authorized by policy
-// for this view like any compile. L0176's brokered.test.ts compiles this
+// for the view's `read` stage, confined to view-safe functions without a
+// source execution plan. L0176's brokered.test.ts compiles this
 // exact shape; keep the two in step.
 
 import { REGISTRY_VERSION, compilerConfigForLang } from "@graffiticode/common/protected-registry";

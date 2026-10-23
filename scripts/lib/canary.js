@@ -14,6 +14,13 @@
 //   effects   (W3b, spec FAIL-01) the write's response says what the save
 //             did: one save-to-itembank effect, succeeded, with its steps;
 //             the retry's says the same effect was replayed
+//   saved read (config.savedRead; READ-01) GET /data of the saved result
+//             through the connection, twice: each freshly signed, keeping
+//             the saved references, with no save effect; and bounded audit
+//             evidence that no write was logged for the connection during
+//             the views (a fixed 120 s observation of Policy's and Broker's
+//             security-audit records, which must include the views' own
+//             read signings)
 //
 // Direct path, as the gateway and compiler service identities (the only way
 // to hold an execution token):
@@ -182,6 +189,34 @@ export const providerChecks = ({ signed, cacheControl, provider, now }) => {
   return checks;
 };
 
+// The saved read's audit observation: how long to keep reading the window's
+// audit events after the reads, and how often. Logs arrive late and in no
+// order, so the whole period always runs: seeing the reads' own events says
+// nothing about whether a write's has arrived yet.
+export const AUDIT_OBSERVE_MS = 120_000;
+export const AUDIT_POLL_MS = 10_000;
+// Between the write and the reads, so the write's own events fall outside the
+// window, which is widened by AUDIT_SKEW_MS each side for clock skew.
+const READ_GAP_MS = 5_000;
+const AUDIT_SKEW_MS = 2_000;
+const opidStage = opid => (typeof opid === "string" ? opid.split("/")[1] : undefined);
+const isWriteEvent = e => e?.fn === "save-to-itembank" || e?.op === "learnosity.write-items";
+// A read signing that counts as the window's positive control: Broker
+// executed `init`, successfully, in the `read` stage of the views' own
+// invocation. Anything less (a denial, another invocation, another stage)
+// says nothing about whether this window's records have arrived.
+const opidInvocation = opid => (typeof opid === "string" ? opid.split("/")[0] : undefined);
+const isReadSigning = (e, readInvocationId) => e?.event === "execute" && e?.outcome === "allowed" && e?.fn === "init" &&
+  opidStage(e?.opid) === "read" && opidInvocation(e?.opid) === readInvocationId;
+// Why the views' signatures aren't fresh, without printing any of them.
+export const signatureProblems = (signatures, writeSignature) => {
+  const problems = [];
+  signatures.forEach((s, i) => { if (!s) problems.push(`view ${i + 1} is unsigned`); });
+  if (signatures[0] && signatures[0] === signatures[1]) problems.push("both views carry the same signature");
+  signatures.forEach((s, i) => { if (s && writeSignature && s === writeSignature) problems.push(`view ${i + 1} reuses the write's signature`); });
+  return problems;
+};
+
 const hasSavedItem = value => {
   if (Array.isArray(value)) return value.some(hasSavedItem);
   if (value && typeof value === "object") return value.saved === true || Object.values(value).some(hasSavedItem);
@@ -196,10 +231,20 @@ const hasSavedItem = value => {
 // retryState { load, save, clear } -> the retry across a deploy's record (W4)
 // archiveDrafts(itemReferences) -> { archived, failed, reason? }, optional:
 //   retires the drafts this run saved (cleanup, never a check)
-export const runCanary = async ({ http: send, archiveDrafts = null, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {}, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now }) => {
+// auditEvents({ since, until, connectionId }) -> the security-audit records
+//   (Policy's and Broker's) for the connection in [since, until] (ISO times),
+//   for the saved read's write observation; optional
+//
+// config.savedRead (default false here; scripts/canary.js turns it on): after
+// the gateway write, view the saved result twice through the connection
+// (GET /data, READ-01) and check each is freshly signed, keeps the saved
+// references, and writes nothing. config.auditCheck (default true) observes
+// the audit log for the last; false skips that part only, and says so.
+export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents = null, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {}, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now }) => {
   const {
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
-    chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false, provider = null
+    chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false, provider = null,
+    savedRead = false, auditCheck = true
   } = config;
   const results = [];
   // Every response passes through here, so the run knows each draft it saved.
@@ -307,6 +352,9 @@ export const runCanary = async ({ http: send, archiveDrafts = null, idToken, acc
   });
   let saveTaskId = null;
   let saveKey = null;
+  // What the write produced, for the saved read: its references and the
+  // signature its own render carried.
+  let savedWrite = null;
   await attempt("gateway write", async () => {
     saveTaskId = await postTask(SAVE_PROGRAM);
     const key = `canary:${runId}:save`;
@@ -314,6 +362,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, idToken, acc
     const first = await compile(saveTaskId, key);
     const ok = first.status === 200 && errorsOf(first).length === 0 && hasSavedItem(first.json?.data);
     if (!record("gateway write", ok, ok ? "draft saved through the connection" : `${first.status} ${JSON.stringify(errorsOf(first))}`)) return;
+    savedWrite = { references: savedItemReferences(first.json?.data), signature: signedPreviewRequest(first.json?.data)?.security?.signature ?? null };
     const wrote = saveEffects(first);
     record("gateway write effects", wrote.length === 1 && wrote[0].status === "succeeded" && !wrote[0].replayed && Array.isArray(wrote[0].steps) && wrote[0].steps.length > 0,
       describeEffects(wrote));
@@ -339,6 +388,86 @@ export const runCanary = async ({ http: send, archiveDrafts = null, idToken, acc
       log("recorded this write for the retry across a deploy: deploy L0176, then run the canary again");
     }
   });
+
+  // READ-01 live: a view of the saved result through the connection signs the
+  // stored activity afresh (a `read` stage, view-safe functions only, no plan)
+  // and never runs the save again. POST /compile above can't show this: the
+  // view is GET /data, a different path, which failed `plan-required` from the
+  // contract-v2 cutover until Policy and Broker learned the read stage.
+  if (savedRead) {
+    await attempt("saved read", async () => {
+      if (!savedWrite || !saveTaskId) {
+        record("saved read", false, "no saved write to view");
+        return;
+      }
+      await sleep(READ_GAP_MS);
+      const since = now();
+      const view = () => http({
+        method: "GET",
+        url: `${apiUrl}/data?id=${encodeURIComponent(saveTaskId)}&connection=${encodeURIComponent(connectionId)}`,
+        headers: asUser,
+      });
+      const reads = [await view(), await view()];
+      const until = now();
+      const signatures = reads.map(r => signedPreviewRequest(r.json?.data)?.security?.signature ?? null);
+      const clean = reads.every(r => r.status === 200 && errorsOf(r).length === 0);
+      const problems = signatureProblems(signatures, savedWrite.signature);
+      const fresh = clean && problems.length === 0;
+      record("saved read: signed", fresh, clean
+        ? (fresh ? "each view freshly signed" : problems.join("; "))
+        : reads.map(r => `${r.status} ${JSON.stringify(errorsOf(r).map(e => e?.code ?? e?.message))}`).join("; "));
+      const expected = JSON.stringify([...savedWrite.references].sort());
+      const kept = savedWrite.references.length > 0 && reads.every(r => JSON.stringify(savedItemReferences(r.json?.data).sort()) === expected);
+      record("saved read: references", kept, kept
+        ? `both views keep ${expected}`
+        : `the write saved ${expected}; the views show ${reads.map(r => JSON.stringify(savedItemReferences(r.json?.data))).join(", ")}`);
+      const effects = reads.flatMap(saveEffects);
+      record("saved read: no save effects", effects.length === 0, effects.length ? describeEffects(effects) : "no save effect in either view");
+      if (!auditCheck) {
+        log("SKIP saved read: audit (--no-audit-check): no audit evidence that the views wrote nothing");
+        return;
+      }
+      if (!auditEvents) {
+        record("saved read: audit", false, "no audit source to observe the views with");
+        return;
+      }
+      // The views' invocation, as the gateway finds it: api allocates one per
+      // stored artifact, keyed `read.<the write's invocation>`. Both lookups
+      // must find an existing invocation, or the controls can't be tied to
+      // these views.
+      const writeInvocation = await allocate({ taskId: saveTaskId, idempotencyKey: saveKey });
+      const readInvocation = await allocate({ taskId: saveTaskId, idempotencyKey: `read.${writeInvocation.invocationId}` });
+      if (writeInvocation.reused !== true || readInvocation.reused !== true) {
+        record("saved read: audit", false, writeInvocation.reused !== true ? "the write's invocation wasn't found" : "the views' invocation wasn't found");
+        return;
+      }
+      const readInvocationId = readInvocation.invocationId;
+      // Bounded audit evidence: the window's records, read for the whole
+      // observation period. A write anywhere in it fails at once; the reads'
+      // own signings must have arrived by the end, or the window proves nothing.
+      const window = { since: new Date(since - AUDIT_SKEW_MS).toISOString(), until: new Date(until + AUDIT_SKEW_MS).toISOString(), connectionId };
+      const deadline = until + AUDIT_OBSERVE_MS;
+      let writes = [];
+      let signings = [];
+      for (;;) {
+        const events = await auditEvents(window);
+        writes = events.filter(isWriteEvent);
+        signings = events.filter(e => isReadSigning(e, readInvocationId));
+        if (writes.length || now() >= deadline) break;
+        await sleep(AUDIT_POLL_MS);
+      }
+      const seconds = AUDIT_OBSERVE_MS / 1000;
+      // One successful signing per view, each under its own execution token.
+      const tokens = new Set(signings.map(e => e.jti).filter(j => typeof j === "string" && j));
+      if (writes.length) {
+        record("saved read: audit", false, `a write was logged for this connection between ${window.since} and ${window.until}: ${writes.map(e => `${e.event} ${e.fn ?? ""} ${e.op ?? ""} ${e.opid ?? ""}`.trim()).join("; ")}`);
+      } else if (tokens.size < reads.length) {
+        record("saved read: audit", false, `only ${tokens.size} of ${reads.length} successful read signings (distinct execution tokens, the views' invocation) were logged within ${seconds} s, so the window can't be relied on`);
+      } else {
+        record("saved read: audit", true, `bounded evidence: no write was logged for this connection between ${window.since} and ${window.until} within a ${seconds} s observation; read signings observed: ${tokens.size}`);
+      }
+    });
+  }
 
   // W4: a real L0000 -> L0176 chain. Input data makes the gateway prepend an
   // L0000 stage that runs first (api's compile route), so L0000 is

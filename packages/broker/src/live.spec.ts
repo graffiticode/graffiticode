@@ -493,6 +493,12 @@ describe("contract v2 (RELEASE-01, TOKEN-01)", () => {
     expect(contractRefusal({ ...user, cv: 2, pld: PLAN, stg: "s0" })).toBe("plan-binding-mismatch");
     expect(contractRefusal({ ...user, cv: 2, pld: PLAN })).toBe("plan-binding-mismatch");
     expect(contractRefusal({ ...user, cv: 2, stg: "s1" })).toBe("plan-binding-mismatch");
+    const read = { prv: "user", cv: 2, lang: "0176", fn: "init", opid: "inv-1/read/prog.0" };
+    expect(contractRefusal(read, 2)).toBeNull();
+    expect(contractRefusal({ ...read, fn: "save-to-itembank" }, 2)).toBe("plan-required");
+    expect(contractRefusal({ ...read, lang: "0000" }, 2)).toBe("plan-required");
+    expect(contractRefusal({ ...read, opid: "inv-1/s0/prog.0" }, 2)).toBe("plan-required");
+    expect(contractRefusal({ ...read, pld: PLAN, stg: "s0" }, 2)).toBe("plan-binding-mismatch");
     // Publication and system tokens are bound by their own authority.
     expect(contractRefusal({ prv: "system", cv: 2, opid: "sys-1/preview/p.0" }, 2)).toBeNull();
     expect(contractRefusal({ prv: "publication", pub: "pub-1", cv: 2, opid: "inv-1/view/p.0" }, 2)).toBeNull();

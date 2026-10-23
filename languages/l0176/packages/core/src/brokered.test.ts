@@ -347,6 +347,30 @@ describe("brokered compiles", () => {
     expect(fetched).toEqual([]);
   });
 
+  // The view after a save: the stored result carries the broker's write-items
+  // result, and the Form's saved marker reads it, so signing must keep it whole.
+  test("a stored saved result keeps its save on read, and the read writes nothing", async () => {
+    const built = await compile(`set-var "lrn-id" "t" save-to-itembank items [${ITEM}] {}..`);
+    const { request: _unsigned, ...activity } = built.val;
+    const itemBank = { saved: true, references: ["gc-item-1"], questionReferences: ["gc-q-1", "gc-q-2"] };
+    const stored = { ...activity, data: { ...activity.data, itemBank } };
+    invocations.length = 0;
+    const signProgram = {
+      1: { tag: "STR", elts: [JSON.stringify(stored)] },
+      2: { tag: "JSON", elts: [1] },
+      3: { tag: "EXPRS", elts: [2] },
+      4: { tag: "PROG", elts: [3] },
+      root: 4,
+    };
+    const { err, val } = await new Promise<{ err: any[]; val: any }>((resolve) =>
+      compiler.compile(signProgram, {}, {}, (e: any, v: any) => resolve({ err: e ?? [], val: v }), WITH_CONNECTION),
+    );
+    expect(err).toEqual([]);
+    expect(val.request).toBe("signed:learnosity.sign-questions-preview");
+    expect(val.data.itemBank).toEqual(itemBank);
+    expect(invocations.map((c) => c.op)).toEqual(["learnosity.sign-questions-preview"]);
+  });
+
   // Policy refuses an occurrence id outside this pattern (ID_RE in
   // graffiticode packages/policy/src/policy.js); keep the two in step.
   test("every occurrence id the compiler sends is one policy accepts", async () => {

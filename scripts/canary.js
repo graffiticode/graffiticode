@@ -42,6 +42,14 @@
 //                           attestation in date and naming BROKER_PREVIEW_CONNECTIONS
 //   --attestation <file>    with --provider: the attestation file, when running
 //                           from a checkout without .gc-deploy/provider
+//   --no-saved-read         skip the saved read (READ-01): two views of the
+//                           saved result through the connection (GET /data),
+//                           each freshly signed, keeping the saved references
+//   --no-audit-check        keep the saved read, but skip its audit observation
+//                           (for an operator without log access; reported as
+//                           skipped). Otherwise the run reads the window's
+//                           security-audit records from Cloud Logging for
+//                           120 s and fails on any write in it.
 // The gateway's runtime account also mints the ID token for L0176's
 // /preflight (audience urn:graffiticode:0176), under the same role.
 
@@ -100,6 +108,22 @@ const config = {
   reconcile: args.includes("--reconcile"),
   provider: args.includes("--provider") ? await providerConfig() : null,
   languageUrl: args.includes("--chain-admission") || args.includes("--after-cutover") ? await serviceUrl("l0176") : null,
+  savedRead: !args.includes("--no-saved-read"),
+  auditCheck: !args.includes("--no-audit-check"),
+};
+// The saved read's audit source: Policy's and Broker's security-audit records
+// for the canary connection in a time window, from Cloud Logging.
+const auditEvents = async ({ since, until, connectionId: conn }) => {
+  const filter = [
+    "resource.type=\"cloud_run_revision\"",
+    "resource.labels.service_name=(\"policy\" OR \"broker\")",
+    "jsonPayload.logName=\"security_audit\"",
+    `jsonPayload.connectionId="${conn}"`,
+    `timestamp>="${since}"`,
+    `timestamp<="${until}"`,
+  ].join(" AND ");
+  const out = await gcloud(["logging", "read", filter, "--limit=1000", "--format=json"]);
+  return (JSON.parse(out || "[]")).map(e => e.jsonPayload ?? {});
 };
 const retryFile = flag("--retry-state");
 if (retryFile && !config.chainAdmission) {
@@ -130,6 +154,6 @@ if (process.env.LRN_SANDBOX_KEY && process.env.LRN_SANDBOX_SECRET) {
   const { default: LearnositySDK } = await import("learnosity-sdk-nodejs");
   archiveDrafts = createDraftArchiver({ sdk: new LearnositySDK(), key: process.env.LRN_SANDBOX_KEY, secret: process.env.LRN_SANDBOX_SECRET, domain: process.env.LRN_SANDBOX_DOMAIN || "l0176.graffiticode.org" });
 }
-const { ok, results } = await runCanary({ http, archiveDrafts, idToken, accessToken, parse, config, servingRevision, retryState, log: line => console.log(`  ${line}`) });
+const { ok, results } = await runCanary({ http, archiveDrafts, auditEvents, idToken, accessToken, parse, config, servingRevision, retryState, log: line => console.log(`  ${line}`) });
 console.log(ok ? `canary passed (${results.length} checks)` : `canary FAILED (${results.filter(r => !r.ok).length} of ${results.length} checks)`);
 process.exit(ok ? 0 : 1);

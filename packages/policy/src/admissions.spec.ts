@@ -334,6 +334,65 @@ describe("plan-bound snapshots (ADMIT-03)", () => {
   });
 });
 
+describe("stored-artifact reads after the v2 cutover", () => {
+  const sign = sessionToken => policy.mint({ caller: L0176, sessionToken, fn: "init", op: "learnosity.sign-questions-preview", occurrenceId: "prog.0", argsDigest: ARGD });
+  const authorizeSign = executionToken => authorize(executionToken, { op: "learnosity.sign-questions-preview", step: "sign", purpose: "sign" });
+  const readSession = invocationToken => snapshot(invocationToken, null, { stage: "read", manifest: null });
+
+  beforeEach(() => { policy = build({ minContractVersion: 2 }); });
+
+  it("signs a saved result from a composed item without admitting or executing its source again", async () => {
+    const inv = await allocate({ admission: false, idempotencyKey: "read.saved-result" });
+    expect(inv.contract).toBe(2);
+    const { allowed, sessionToken } = await readSession(inv.invocationToken);
+    expect(allowed).toEqual(["init"]);
+    expect(await claimsOf("session", sessionToken)).toMatchObject({ cv: 2, stg: "read", inv: inv.invocationId, fns: ["init"] });
+    const { executionToken } = await sign(sessionToken);
+    const claims = await claimsOf("execution", executionToken);
+    expect(claims).toMatchObject({ cv: 2, prv: "user", fn: "init", opid: `${inv.invocationId}/read/prog.0` });
+    expect(claims.pld).toBeUndefined();
+    expect(await authorizeSign(executionToken)).toMatchObject({ decisionId: expect.any(String) });
+    expect(invocations.plans.size).toBe(0);
+    await denied(mint(sessionToken), "fn-not-in-session");
+    await denied(snapshot(inv.invocationToken, null), "plan-required");
+    await denied(snapshot(inv.invocationToken, "not-an-admission", { stage: "read" }), "bad-token");
+  });
+
+  it("checks read confinement at mint and at execution, even if a signed proof lists a write", async () => {
+    const inv = await allocate();
+    const sessionToken = await issueToken(signer, "session", {
+      sub: OWNER, own: OWNER, conn: "conn-1", backend: "learnosity", lang: "0176", inv: inv.invocationId, stg: "read", rv: REGISTRY_VERSION, fns: ["save-to-itembank"], cv: 2,
+    });
+    await denied(mint(sessionToken), "plan-required");
+    const executionToken = await issueToken(signer, "execution", {
+      sub: OWNER, own: OWNER, conn: "conn-1", backend: "learnosity", lang: "0176", fn: "save-to-itembank", op: WRITE, sid: "session-1", opid: `${inv.invocationId}/read/n1.0`, argd: ARGD, rv: REGISTRY_VERSION, prv: "user", cv: 2,
+    });
+    await denied(authorize(executionToken), "plan-required");
+  });
+
+  it("rechecks connection permissions before each read signature", async () => {
+    const inv = await allocate();
+    const { sessionToken } = await readSession(inv.invocationToken);
+    const { executionToken } = await sign(sessionToken);
+    await connections.put({ ...(await connections.get("conn-1")), ownerPermissions: [] });
+    await denied(sign(sessionToken), "not-granted");
+    await denied(authorizeSign(executionToken), "not-granted");
+    expect((await readSession(inv.invocationToken)).allowed).toEqual([]);
+  });
+
+  it("does not let an ordinary compile sign without its plan", async () => {
+    const inv = await allocate();
+    const sessionToken = await issueToken(signer, "session", {
+      sub: OWNER, own: OWNER, conn: "conn-1", backend: "learnosity", lang: "0176", inv: inv.invocationId, stg: "s1", rv: REGISTRY_VERSION, fns: ["init"], cv: 2,
+    });
+    await denied(sign(sessionToken), "plan-required");
+    const executionToken = await issueToken(signer, "execution", {
+      sub: OWNER, own: OWNER, conn: "conn-1", backend: "learnosity", lang: "0176", fn: "init", op: "learnosity.sign-questions-preview", sid: "session-1", opid: `${inv.invocationId}/s1/prog.0`, argd: ARGD, rv: REGISTRY_VERSION, prv: "user", cv: 2,
+    });
+    await denied(authorizeSign(executionToken), "plan-required");
+  });
+});
+
 describe("mint and authorize-execution under a plan", () => {
   it("carries the plan and stage into the execution token, and authorizes each step against the stored plan", async () => {
     const { admission, sessionToken } = await boundSession();
