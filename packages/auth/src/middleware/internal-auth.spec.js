@@ -69,6 +69,60 @@ describe("middleware/internal-auth", () => {
   });
 });
 
+describe("middleware/internal-auth rotation: INTERNAL_API_KEY_PREVIOUS (2026-10-24)", () => {
+  const saved = { current: process.env.INTERNAL_API_KEY, previous: process.env.INTERNAL_API_KEY_PREVIOUS };
+  let app;
+  let errorSpy;
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    app = createHttpApp(app => {
+      app.get("/internal", requireInternalAuth, (req, res) => res.json({ reached: true }));
+    });
+  });
+  afterEach(() => {
+    for (const [name, value] of [["INTERNAL_API_KEY", saved.current], ["INTERNAL_API_KEY_PREVIOUS", saved.previous]]) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    errorSpy.mockRestore();
+  });
+  const status = async key => (await request(app).get("/internal").set("X-Internal-API-Key", key)).status;
+
+  it("accepts the current key and the previous key while both are set", async () => {
+    process.env.INTERNAL_API_KEY = "new-key";
+    process.env.INTERNAL_API_KEY_PREVIOUS = "old-key";
+    expect(await status("new-key")).toBe(200);
+    expect(await status("old-key")).toBe(200);
+  });
+
+  it("refuses any other key, including near misses of either", async () => {
+    process.env.INTERNAL_API_KEY = "new-key";
+    process.env.INTERNAL_API_KEY_PREVIOUS = "old-key";
+    for (const key of ["", "new", "old-key2", "NEW-KEY", "new-keyold-key"]) {
+      expect(await status(key)).toBe(403);
+    }
+  });
+
+  it("refuses the old key once the previous key is removed", async () => {
+    process.env.INTERNAL_API_KEY = "new-key";
+    delete process.env.INTERNAL_API_KEY_PREVIOUS;
+    expect(await status("old-key")).toBe(403);
+    expect(await status("new-key")).toBe(200);
+  });
+
+  it("ignores an empty previous key rather than accepting an empty header", async () => {
+    process.env.INTERNAL_API_KEY = "new-key";
+    process.env.INTERNAL_API_KEY_PREVIOUS = "";
+    expect((await request(app).get("/internal")).status).toBe(403);
+  });
+
+  it("still fails closed when only the previous key is set", async () => {
+    delete process.env.INTERNAL_API_KEY;
+    process.env.INTERNAL_API_KEY_PREVIOUS = "old-key";
+    expect(await status("old-key")).toBe(500);
+  });
+});
+
 describe("middleware/internal-auth requireCleanupAuth (2026-10-21)", () => {
   const saved = { internal: process.env.INTERNAL_API_KEY, cleanup: process.env.CLEANUP_API_KEY };
   let app;
