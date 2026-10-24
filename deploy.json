@@ -201,7 +201,8 @@
         "module": "verify/auth.js"
       },
       "secrets": {
-        "INTERNAL_API_KEY": "auth-internal-api-key:1",
+        "INTERNAL_API_KEY": "auth-internal-api-key:2",
+        "INTERNAL_API_KEY_PREVIOUS": "auth-internal-api-key-previous:1",
         "CLEANUP_API_KEY": "auth-cleanup-api-key:1",
         "ACT_AS_CALLERS": "act-as-callers:1",
         "ACT_AS_GRANT_SECRET": "act-as-grant-secret:1",
