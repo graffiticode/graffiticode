@@ -39,9 +39,9 @@ const oldService = () => ({
 
 /**
  * @param {any} t
- * @param {{ buildFailure?: boolean, smokeFailure?: boolean, drift?: number, promotionFailure?: boolean, tags?: string[], tagFailure?: boolean }} [options]
+ * @param {{ buildFailure?: boolean, smokeFailure?: boolean, drift?: number, promotionFailure?: boolean, tags?: string[], tagFailure?: boolean, imageTagFailure?: boolean }} [options]
  */
-async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure, tags = [], tagFailure } = {}) {
+async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure, tags = [], tagFailure, imageTagFailure } = {}) {
   const temp = await mkdtemp(path.join(tmpdir(), "deploy-test-"));
   t.after(() => rm(temp, { recursive: true, force: true }));
   /** @type {any} */
@@ -63,6 +63,10 @@ async function harness(t, { buildFailure, smokeFailure, drift, promotionFailure,
     calls.push(args);
     if (args[0] === "iam") return {};
     if (args[0] === "secrets") return { state: "ENABLED" };
+    if (args[0] === "artifacts") {
+      if (imageTagFailure) throw new Error("tag add denied");
+      return "";
+    }
     if (args.includes("get-iam-policy")) return { bindings: [{ role: "roles/run.invoker", members: ["allUsers"] }] };
     if (args[0] === "builds") {
       if (args[1] === "submit") {
@@ -202,6 +206,12 @@ test("successful release deploys the returned digest and promotes only after ver
   assert.ok(h.calls.find(c => c[1] === "deploy").includes(`--image=${receipt.image}`));
   assert.equal(h.calls.filter(c => c.includes("update-traffic")).length, 1);
   assert.equal(h.getBuild().images.length, 1);
+  // The image is tagged serving-<revision> before the revision exists, so the
+  // registry's cleanup policy keeps it for as long as it can serve.
+  const tagAt = h.calls.findIndex(c => c[0] === "artifacts");
+  assert.deepEqual(h.calls[tagAt], ["artifacts", "docker", "tags", "add", receipt.image, `${config.image}:serving-${receipt.revision}`]);
+  assert.ok(tagAt < h.calls.findIndex(c => c[1] === "deploy"));
+  assert.equal(receipt.imageTag, `${config.image}:serving-${receipt.revision}`);
   const reverted = await rollback(context, receipt, h.deps);
   assert.equal(reverted.status, "rolled-back");
 });
@@ -211,6 +221,7 @@ for (const [label, settings, message, mayDeploy] of [
   ["failed smoke", { smokeFailure: true }, /smoke failed/, true],
   ["drift during build", { drift: 2 }, /changed during build/, false],
   ["drift during verification", { drift: 4 }, /changed during verification/, true],
+  ["failed image tag", { imageTagFailure: true }, /tag add denied/, false],
 ]) {
   test(`${label} never promotes traffic`, async t => {
     const h = await harness(t, /** @type {any} */ (settings));

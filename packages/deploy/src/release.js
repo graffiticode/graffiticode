@@ -43,6 +43,9 @@ export function buildConfig(config, image) {
   };
 }
 
+// The registry tag that keeps a revision's image from the cleanup policy.
+export const servingTag = (config, revision) => `${config.image}:serving-${revision}`;
+
 export function deployArgs(config, receipt) {
   const args = ["run", "deploy", config.service, `--image=${receipt.image}`, `--port=${config.port}`,
     `--service-account=${config.runtimeServiceAccount}`, "--no-traffic", `--tag=${receipt.id}`,
@@ -234,6 +237,13 @@ export async function release(context, source, deps) {
     await persist();
     const beforeDeploy = await cloud(["run", "services", "describe", config.service]);
     requireValue(fingerprint(beforeDeploy) === fingerprint(initial), "Service changed during build; refusing to deploy");
+    // The registry's cleanup policy deletes images by age and keeps any tagged
+    // serving-*, so the image is protected before a revision can run it. Age is
+    // the image's, not the revision's: a configuration release of an old image
+    // would otherwise lose it while it serves.
+    receipt.imageTag = servingTag(config, `${config.service}-${id}`);
+    await cloud(["artifacts", "docker", "tags", "add", receipt.image, receipt.imageTag], { json: false });
+    await persist();
     log(`Deploying ${receipt.image} with no traffic…`);
     await cloud(deployArgs(config, receipt));
     receipt.revision = `${config.service}-${id}`;
