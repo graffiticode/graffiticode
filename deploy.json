@@ -200,6 +200,8 @@
       "verify": {
         "module": "verify/auth.js"
       },
+      "retireTags": true,
+      "minInstances": 0,
       "secrets": {
         "INTERNAL_API_KEY": "auth-internal-api-key:2",
         "CLEANUP_API_KEY": "auth-cleanup-api-key:1",
