@@ -1453,8 +1453,13 @@ each one holds a value that is now revoked or about to be.
 **Still open:**
 - the Stripe overlap cleanup (above);
 - removing the compute account's Editor role;
-- reviewing provider usage (Anthropic, OpenAI, Stripe) from 2026-10-23 to each revocation for
-  activity that isn't ours.
+- reviewing provider usage for Anthropic and OpenAI, from 2026-10-23 to each revocation, for
+  activity that isn't ours. It needs the providers' dashboards.
+
+**Usage review: Stripe (2026-10-26, through the API, read-only).** Since 2026-10-22 there were 31
+events, all from three subscription renewals (invoice, payment intent, charge and subscription
+update for each). There were no refunds, payouts, transfers or disputes, and no changes to the
+account or to an external account. Nothing found.
 
 ## 4. Verification (read-only)
 
