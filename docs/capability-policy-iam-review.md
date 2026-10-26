@@ -1393,6 +1393,69 @@ opens every internal auth route: `linked-emails/internal/sign-in`, `/oauth-clien
   To remove it, delete the scheduler job and the Cloud Run job, then
   `auth-cleanup-api-key`, and both accounts.
 
+### Step 14: rotating the console credentials exposed on 2026-10-23 (2026-10-24 to 10-26) [LIVE]
+
+**The exposure.** The graffiticode-app `console` service held six values as plain env vars.
+Anyone who could read the service's configuration could read them, and all six were printed into
+an operator session transcript on 2026-10-23:
+- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`;
+- `STRIPE_SECRET_KEY` (live), `STRIPE_WEBHOOK_SECRET`;
+- `INTERNAL_API_KEY`, which was also on mcp-service, dspy-service, app and `auth` (here, as
+  `auth-internal-api-key:1`);
+- `VALID_INVITE_CODES`.
+
+An investigation agent also read the `INTERNAL_API_KEY` and `auth-internal-api-key` payloads
+while comparing them. Both are treated as exposed.
+
+**The rule.** Moving a value into Secret Manager doesn't close the exposure; the old value is
+still valid. Each credential was replaced, the replacement verified in production, and only
+then was the old one revoked.
+
+| Credential | Replacement | Verified | Old value |
+|---|---|---|---|
+| `INTERNAL_API_KEY` | New random key. auth checks it against `auth-internal-api-key:2`, and briefly also `_PREVIOUS` (#173, #174, #175: dual-key check, SHA-256 digests compared in constant time). Senders console, mcp-service and app read graffiticode-app `INTERNAL_API_KEY:2` | console, app and mcp-service calls to auth's internal routes succeed on the new key | **rejected**: auth refuses it, and dspy-service no longer accepts any key (it was retired from this credential: public invocation removed, then a missing key made to fail closed, then the key removed). Old versions disabled |
+| `ANTHROPIC_API_KEY` | **No static key.** console exchanges its runtime account's Google identity token for a short-lived Claude API token (Anthropic Workload Identity Federation; rule pinned to `console-run`'s `sub` and `email`), in `core/src/lib/anthropic-auth.ts` (graffiticode-app #50–#53). A failed exchange fails over to OpenAI | generations through federation, `fallbacks=0` | deleted in the Anthropic Console |
+| `OPENAI_API_KEY` | New service-account project key in the Artcompiler org, restricted to model capabilities and the Responses API: `OPENAI_API_KEY:2`, readable by `console-run` only | RAG `embedding.complete` on a fresh generation | the legacy user key is **revoked** (refused with 401). Version 1, a key created in the wrong org by mistake and never exposed, is disabled |
+| `STRIPE_SECRET_KEY` | Rolled in Stripe, with the old key kept valid for 24 h: `STRIPE_SECRET_KEY:1` | `/api/payments/subscription`, `usage` and `methods` returned 200 | expires 24 h after the roll (2026-10-27 about 18:00Z) |
+| `STRIPE_WEBHOOK_SECRET` | Rolled, with a 24 h overlap: `STRIPE_WEBHOOK_SECRET:1`. During the overlap the old one is held as `STRIPE_WEBHOOK_SECRET_PREVIOUS:1`, and `verifyStripeEvent` tries each (#48) | a Stripe test event was delivered with 200 | after the overlap: remove `_PREVIOUS`, disable that secret, and run `scripts/reconcile-subscriptions.ts` |
+| `VALID_INVITE_CODES` | none; the route and dialog were deleted (#48) | `/api/invite-code` returns 404 | removed from console, and listed in `removeEnv` |
+
+Each new secret is readable by its service's runtime account alone, and pinned in graffiticode-app
+`deploy.json` (#54, #57, #58).
+
+**Switching a plain env var to a secret mount** took one manual update per service:
+`gcloud run services update <svc> --remove-env-vars=X --update-secrets=X=X:N`, then
+`update-traffic`. gc-deploy refuses a name that is in both `env` and `secrets`, and an
+out-of-band update makes a revision that gets no traffic. Console's remaining `:latest` mounts
+were pinned to their current versions in the same pass, so console now mounts no `:latest`
+secret.
+
+**Rollback.** No console revision before `console-00697-sx6` is a valid rollback target, because
+each one holds a value that is now revoked or about to be.
+
+**The access review (2026-10-26).**
+- **graffiticode:** clean. Every service runs as its own `-run` account, and no user-managed
+  service account keys exist. The only secret reader that isn't a `-run` account is
+  `egress-proxy`, which reads its own certificates.
+- **graffiticode-app:**
+  - `www` (public) and `dspy-service` ran as the default compute account. That account holds
+    project **Editor** and could read 10 secrets. Both services now run as **`static-run@`**,
+    which has no roles (neither calls a Google API), and the compute account's secret grants are
+    removed. Its Editor role is still to be removed, once a quiet period shows nothing else uses
+    it. `questioncompiler`, unused, is deleted.
+  - The unused user-managed key `53ea457b` on `firebase-adminsdk-5zize` is deleted. Key
+    `9259e1c0` remains, for the operator's local tooling (last used 2026-10-13).
+- **People:** the owners (the operator, plus `kevin.m.dyer@gmail.com` on both projects and
+  `admin@artcompiler.com` on graffiticode) are kept, by decision.
+- **Secret Manager:** no human or service holds a project-level Secret Manager role. Grants are
+  per secret.
+
+**Still open:**
+- the Stripe overlap cleanup (above);
+- removing the compute account's Editor role;
+- reviewing provider usage (Anthropic, OpenAI, Stripe) from 2026-10-23 to each revocation for
+  activity that isn't ours.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
