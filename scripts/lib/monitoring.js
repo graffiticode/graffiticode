@@ -1,12 +1,12 @@
 // Monitoring for the security audit (capability plan W3, spec AUDIT-01):
 // log-based metrics that count each kind of failure once, log-match alert
 // policies (authorization outages, uncertain and partial writes, artifact
-// storage outages, permission denials outside the canary, the global system
-// preview signing limit), a metric-threshold policy (system signings per
-// hour) with an email channel, and checks that an alert's email really
-// arrives: one test record per log-match alert, and a scratch metric and
-// threshold policy for the metric path. The Google APIs and the
-// clock are injected so the operator sequence is tested
+// storage outages, permission denials and plan/contract refusals outside the
+// canary, the global system preview signing limit), a metric-threshold
+// policy (system signings per hour) with an email channel, and checks that an
+// alert's email really arrives: one test record per log-match alert, and a
+// scratch metric and threshold policy for the metric path. The Google APIs
+// and the clock are injected so the operator sequence is tested
 // (scripts/test/monitoring.test.js). See scripts/monitoring.js for usage.
 //
 // Every service writes one JSON line per decision on stdout; in Cloud Logging
@@ -38,6 +38,13 @@ export const SYSTEM_PREVIEW_LIMIT_SOURCES = Object.freeze([
   Object.freeze({ service: "broker", event: "execute", reason: "session-exhausted" }),
   Object.freeze({ service: "api", event: "system-signing-limit", reason: "rate-limited" }),
 ]);
+
+// The plan and contract refusals (contract v2, W4) that never happen in a
+// supported workflow: each means the gateway and Policy disagree.
+export const CONTRACT_REFUSALS = Object.freeze([
+  "plan-required", "plan-mismatch", "plan-binding-mismatch", "invocation-incompatible", "contract-version-unsupported",
+]);
+
 const or = clauses => clauses.length === 1 ? clauses[0] : `(${clauses.map(c => `(${c})`).join(" OR ")})`;
 const limitSource = ({ service: svc, event }) => `resource.labels.service_name="${svc}" AND jsonPayload.event="${event}"`;
 
@@ -280,6 +287,19 @@ export const alertSpecs = (project, { canaryConnections = [] } = {}) => {
       filter: `(${selector(project)} AND resource.type="cloud_run_revision" AND ${limitSource(SYSTEM_PREVIEW_LIMIT_SOURCES[0])} AND jsonPayload.outcome="denied" AND jsonPayload.reason="${SYSTEM_PREVIEW_LIMIT_SOURCES[0].reason}") OR (${testRecords(project)} AND jsonPayload.reason="rate-limited")`,
       test: { outcome: "denied", reason: "rate-limited", category: "unavailable" },
       content: "Policy refused a system preview mint as `rate-limited`: the global signing safeguard is engaged, so previews without a connection show the busy message. Check `security_audit/system_signings`, and `system_preview_limited` by source, for a burst or abuse; see docs/protected-execution.md, Monitoring.",
+    },
+    {
+      // A plan or contract refusal is `conflict`, not `permission`, so the
+      // denial alert never sees it: every connection read of a saved L0176
+      // item failed `plan-required` for days after the contract-v2 cutover
+      // without one. In a supported workflow these reasons mean the gateway
+      // and Policy disagree on the contract; nothing produces them on purpose
+      // except the canary.
+      id: "contract",
+      displayName: "Security audit: unexpected plan/contract refusal",
+      filter: `(((${specs.policy_denials.filter}) OR (${specs.broker_local_refusals.filter}) OR (${specs.api_denials.filter})) AND jsonPayload.category="conflict" AND jsonPayload.reason=(${CONTRACT_REFUSALS.map(r => `"${r}"`).join(" OR ")})${notCanary}) OR (${testRecords(project)} AND jsonPayload.outcome="denied" AND jsonPayload.reason="plan-required")`,
+      test: { outcome: "denied", reason: "plan-required", category: "conflict" },
+      content: "A request was refused for its plan or contract version (plan-required, plan-mismatch, plan-binding-mismatch, invocation-incompatible or contract-version-unsupported), outside the canary. The gateway and Policy disagree on the contract, so this workflow fails for everyone: check the stage, the service's contract minimum and recent releases of api, Policy and Broker; see docs/protected-execution.md, Monitoring.",
     },
     {
       id: "system-signings",

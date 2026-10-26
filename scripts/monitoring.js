@@ -2,7 +2,8 @@
 // Security-audit monitoring (capability plan W3; spec AUDIT-01): log-based
 // metrics counting each kind of failure once, alert policies for
 // authorization outages, uncertain and partial writes, artifact storage outages,
-// permission denials outside the canary and the system preview signing limit,
+// permission denials and plan/contract refusals outside the canary and the
+// system preview signing limit,
 // an hourly threshold on system signings, and checks that their email really
 // arrives. Runbook: docs/protected-execution.md, "Monitoring".
 //
@@ -36,7 +37,7 @@
 // metrics and policy (also dry unless --apply); run it after --confirm.
 //
 // --canary-connection (repeatable) names the canary's connection, which the
-// denial alert leaves out; it is required with --apply and --verify-alert, so
+// denial and contract alerts leave out; it is required with --apply and --verify-alert, so
 // the alert policy compared and written is always the same one.
 //
 // Options: --project (default graffiticode). Uses the gcloud account's access

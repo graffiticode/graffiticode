@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SCRATCH_METRIC_PREFIX, SCRATCH_POLICY, SYSTEM_PREVIEW_LIMIT_SOURCES, TEST_LOG, alertSpecs, apply, checkFilters, cleanupThreshold, confirmDelivery, desiredPolicy, metricSpecs, plan, policyChanged, thresholdCondition, verifyThreshold, writeTestRecords } from "../lib/monitoring.js";
+import { CONTRACT_REFUSALS, SCRATCH_METRIC_PREFIX, SCRATCH_POLICY, SYSTEM_PREVIEW_LIMIT_SOURCES, TEST_LOG, alertSpecs, apply, checkFilters, cleanupThreshold, confirmDelivery, desiredPolicy, metricSpecs, plan, policyChanged, thresholdCondition, verifyThreshold, writeTestRecords } from "../lib/monitoring.js";
 import { parse } from "../monitoring.js";
 
 /* eslint-disable camelcase -- Cloud Monitoring and Logging label keys are snake_case */
@@ -208,7 +208,7 @@ test("each alert's own condition matches its test record, and the real records",
 // denials outside the canary are alerted too.
 test("the new alerts match their own records and test records, and the denial alert leaves the canary out", () => {
   const alerts = Object.fromEntries(alertSpecs(P, { canaryConnections: ["conn-canary"] }).map(a => [a.id, a]));
-  assert.deepEqual(Object.keys(alerts), ["outage", "uncertain", "partial", "artifact", "denial", "rate-limited", "system-signings"]);
+  assert.deepEqual(Object.keys(alerts), ["outage", "uncertain", "partial", "artifact", "denial", "rate-limited", "contract", "system-signings"]);
   assert.ok(alerts.partial.filter.includes(spec("partial_writes").filter));
   assert.ok(alerts.artifact.filter.includes(`${spec("artifact_failures").filter} AND jsonPayload.category="unavailable"`));
   for (const id of ["policy_denials", "broker_local_refusals", "api_denials"]) assert.ok(alerts.denial.filter.includes(spec(id).filter), id);
@@ -219,6 +219,34 @@ test("the new alerts match their own records and test records, and the denial al
   assert.match(alerts.denial.filter, /monitoring-test" AND jsonPayload\.outcome="denied" AND jsonPayload\.category="permission"\)$/);
   assert.equal(alertSpecs(P).find(a => a.id === "denial").filter.includes("NOT jsonPayload.connectionId"), false);
   assert.match(spec("api_denials").filter, /service_name="api" AND jsonPayload\.outcome="denied"$/);
+});
+
+// A plan or contract refusal is `conflict`, so the denial alert never saw
+// one: saved L0176 reads failed `plan-required` for days without an alert.
+test("the contract alert catches plan and contract refusals outside the canary, and nothing else", () => {
+  const alerts = Object.fromEntries(alertSpecs(P, { canaryConnections: ["conn-canary"] }).map(a => [a.id, a]));
+  const record = (svc, payload) => ({
+    logName: `projects/${P}/logs/run.googleapis.com%2Fstdout`,
+    resource: { type: "cloud_run_revision", labels: { service_name: svc } },
+    jsonPayload: { logName: "security_audit", outcome: "denied", ...payload },
+  });
+  const hit = e => ["contract", "denial"].filter(id => matches(alerts[id].filter, e));
+  for (const reason of CONTRACT_REFUSALS) {
+    assert.deepEqual(hit(record("policy", { event: "snapshot", stage: "read", reason, category: "conflict", connectionId: "conn-user" })), ["contract"], reason);
+  }
+  assert.deepEqual(hit(record("api", { event: "gateway-invocation", reason: "invocation-incompatible", category: "conflict" })), ["contract"]);
+  assert.deepEqual(hit(record("broker", { event: "execute", reason: "contract-version-unsupported", category: "conflict" })), ["contract"]);
+  // Broker's relay of Policy's refusal is Policy's, alerted once.
+  assert.deepEqual(hit(record("broker", { event: "execute", reason: "authorization-denied:plan-required", category: "conflict" })), []);
+  // The canary refuses on purpose.
+  assert.deepEqual(hit(record("policy", { event: "snapshot", reason: "plan-required", category: "conflict", connectionId: "conn-canary" })), []);
+  // A permission denial on a read (access revoked) is the denial alert's, not this one's.
+  assert.deepEqual(hit(record("policy", { event: "snapshot", stage: "read", reason: "not-granted", category: "permission", connectionId: "conn-user" })), ["denial"]);
+  // Other conflicts (a replay, a reused key) are not contract failures.
+  for (const reason of ["token-replayed", "idempotency-key-reused", "pinned-revision-unavailable"]) {
+    assert.deepEqual(hit(record("policy", { event: "mint", reason, category: "conflict" })), [], reason);
+  }
+  assert.equal(alertSpecs(P).find(a => a.id === "contract").filter.includes("NOT jsonPayload.connectionId"), false);
 });
 
 test("the filter check fails a metric whose records match nothing, or that the canary should fill", async () => {
@@ -281,12 +309,12 @@ test("alert verification writes a test record per alert that its own condition m
   const g = fakeGoogle();
   await apply({ api: g.api, project: P, email: "ops@example.com" });
   const before = g.writes.length;
-  const nonces = ["n0nce001", "n0nce002", "n0nce003", "n0nce004", "n0nce005", "n0nce006"];
+  const nonces = ["n0nce001", "n0nce002", "n0nce003", "n0nce004", "n0nce005", "n0nce006", "n0nce007"];
   const written = await writeTestRecords({ api: g.api, project: P, email: "ops@example.com", nonce: () => nonces.shift(), now: () => new Date("2026-10-06T22:00:00Z") });
   const records = g.writes.slice(before);
   // One per log-match alert; the threshold alert has its own check.
-  assert.deepEqual(records.map(w => w.path), Array(6).fill("/v2/entries:write"));
-  assert.deepEqual(records.map(w => w.body.logName), Array(6).fill(`projects/${P}/logs/${TEST_LOG}`));
+  assert.deepEqual(records.map(w => w.path), Array(7).fill("/v2/entries:write"));
+  assert.deepEqual(records.map(w => w.body.logName), Array(7).fill(`projects/${P}/logs/${TEST_LOG}`));
   const at = "2026-10-06T22:00:00.000Z";
   assert.deepEqual(records.map(w => w.body.entries[0].jsonPayload), [
     { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "authorization-unavailable", nonce: "n0nce001", at },
@@ -295,6 +323,7 @@ test("alert verification writes a test record per alert that its own condition m
     { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "artifact-storage-unavailable", category: "unavailable", nonce: "n0nce004", at },
     { logName: "security_audit", event: "monitoring-test", outcome: "denied", reason: "not-granted", category: "permission", nonce: "n0nce005", at },
     { logName: "security_audit", event: "monitoring-test", outcome: "denied", reason: "rate-limited", category: "unavailable", nonce: "n0nce006", at },
+    { logName: "security_audit", event: "monitoring-test", outcome: "denied", reason: "plan-required", category: "conflict", nonce: "n0nce007", at },
   ]);
   // Each test record opens its own alert and no other.
   const logAlerts = alertSpecs(P).filter(a => a.test);
@@ -305,7 +334,7 @@ test("alert verification writes a test record per alert that its own condition m
   assert.deepEqual(written.map(w => [w.alert, w.nonce]), [
     ["Security audit: authorization outage", "n0nce001"], ["Security audit: uncertain write", "n0nce002"], ["Security audit: partial write", "n0nce003"],
     ["Security audit: artifact storage outage", "n0nce004"], ["Security audit: permission denial", "n0nce005"],
-    ["Security audit: system preview signing rate-limited", "n0nce006"],
+    ["Security audit: system preview signing rate-limited", "n0nce006"], ["Security audit: unexpected plan/contract refusal", "n0nce007"],
   ]);
 });
 
