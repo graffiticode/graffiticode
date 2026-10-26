@@ -1,19 +1,39 @@
 #!/usr/bin/env node
 import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { parseArgs, loadConfig, requireValue } from "./config.js";
+import { parseArgs, loadConfig, loadEnvironment, requireValue } from "./config.js";
+import { planImageTags, applyImageTags } from "./image-tags.js";
 import { createGit } from "./git.js";
 import { snapshot } from "./snapshot.js";
 import { run, streamOutput } from "./process.js";
 import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck, approveReleased, promote, evidenceProblems } from "./release.js";
 import { createFirestoreRest, createRevisionClient, retainedTags } from "./revisions.js";
 
+// gcloud, scoped to a project (and, for Cloud Build and Cloud Run, its region).
+function gcloud({ project, region, root }) {
+  const scope = args => {
+    const scoped = [...args, `--project=${project}`, "--quiet"];
+    if (["builds", "run"].includes(args[0])) scoped.push(`--region=${region}`);
+    return scoped;
+  };
+  const cloud = async (args, { json = true, stream = false } = {}) => {
+    const scoped = scope(args);
+    if (json) scoped.push("--format=json");
+    // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
+    const output = await run("gcloud", scoped, { cwd: root, stream });
+    return json ? JSON.parse(output) : output;
+  };
+  return { scope, cloud };
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
     console.log(`gc-deploy [deploy|rollback|retire-tags|release-check|approve|promote] [service] [--env production] [--config deploy.json]
+gc-deploy reconcile-image-tags [--env production] [--plan]
   --plan                 Preview locally; no cloud calls or mutations (retire-tags --plan
-                         reads the service to list its stale tags, and changes nothing)
+                         reads the service to list its stale tags, and reconcile-image-tags
+                         --plan reads the project to list its changes; neither changes anything)
   --allow-dirty          Deploy uncommitted workspace contents with a snapshot hash
   --stage                For a release: deploy and check the candidate, then stop with it
                          tagged and no traffic (receipt status staged) until promote
@@ -33,7 +53,25 @@ contract version, and meet the baseline. Releases of a pinnable service record
 their revision as approved before promotion; approve does it for one released
 earlier. Retirement is scripts/revisions.js.
 
+reconcile-image-tags keeps the registry's serving-<revision> tags (which the
+cleanup policy keeps) equal to every revision Cloud Run can reach in the project,
+whoever deployed it, and warns of tagged revisions kept warm while serving nothing.
+
 Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run service.`);
+    return;
+  }
+  if (options.command === "reconcile-image-tags") {
+    const target = await loadEnvironment(options);
+    const { cloud } = gcloud(target);
+    const plan = await planImageTags({ cloud });
+    console.log(`${target.project}: ${plan.reachable} reachable revision(s), ${plan.tags} serving- tag(s); ${plan.add.length} to add, ${plan.remove.length} to remove.`);
+    for (const w of plan.warm) console.log(`WARNING: ${w.revision} serves no traffic but is kept warm (revision min ${w.minInstances}) by a traffic tag; retire its tag, or release ${w.service} with minInstances 0.`);
+    for (const o of plan.outside) console.log(`  not protected (image outside this project's registry): ${o.revision} ${o.image}`);
+    if (options.plan) {
+      console.log(JSON.stringify({ action: "reconcile-image-tags", project: target.project, add: plan.add, remove: plan.remove }, null, 2));
+      return;
+    }
+    await applyImageTags(plan, { cloud, log: console.log });
     return;
   }
   const context = await loadConfig(options);
@@ -45,18 +83,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     await writeFile(`${filename}.tmp`, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
     await rename(`${filename}.tmp`, filename);
   };
-  const scope = args => {
-    const scoped = [...args, `--project=${config.project}`, "--quiet"];
-    if (["builds", "run"].includes(args[0])) scoped.push(`--region=${config.region}`);
-    return scoped;
-  };
-  const cloud = async (args, { json = true, stream = false } = {}) => {
-    const scoped = scope(args);
-    if (json) scoped.push("--format=json");
-    // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-    const output = await run("gcloud", scoped, { cwd: root, stream });
-    return json ? JSON.parse(output) : output;
-  };
+  const { scope, cloud } = gcloud({ project: config.project, region: config.region, root });
   const streamLog = buildId => streamOutput("gcloud", scope(["builds", "log", buildId, "--stream"]), { cwd: root });
   const git = createGit(root);
   // The approved-revisions store (capability plan W4), over Firestore's REST

@@ -39,7 +39,7 @@ export const SETTINGS = Object.freeze([
 
 export function parseArgs(args) {
   const options = { command: "deploy", env: "production", config: "deploy.json" };
-  if (["deploy", "rollback", "retire-tags", "release-check", "approve", "promote"].includes(args[0])) options.command = args.shift();
+  if (["deploy", "rollback", "retire-tags", "release-check", "approve", "promote", "reconcile-image-tags"].includes(args[0])) options.command = args.shift();
   while (args.length) {
     const arg = args.shift();
     if (["--plan", "--allow-dirty", "--help", "--below-baseline", "--json", "--stage"].includes(arg)) options[arg.slice(2)] = true;
@@ -56,7 +56,20 @@ export function parseArgs(args) {
   if (options.command === "promote" && !options.help) requireValue(options.evidence, "promote requires --evidence <file>");
   requireValue(!options.stage || options.command === "deploy", "--stage applies only to a release (deploy)");
   requireValue(!options.evidence || options.command === "promote", "--evidence applies only to promote");
+  requireValue(!(options.command === "reconcile-image-tags" && options.service), "reconcile-image-tags covers the whole project; it takes no service");
   return options;
+}
+
+// An environment's project and region, for commands that cover a whole project
+// rather than one service (reconcile-image-tags).
+export async function loadEnvironment(options, cwd = process.cwd()) {
+  const filename = path.resolve(cwd, options.config);
+  const raw = JSON.parse(await readFile(filename, "utf8"));
+  requireValue(raw.version === 1 && object(raw.services), "Expected deploy.json version 1 with services");
+  const environment = raw.environments?.[options.env];
+  requireValue(object(environment) && typeof environment.project === "string" && typeof environment.region === "string",
+    `Environment ${options.env} needs a project and region`);
+  return { root: path.dirname(filename), project: environment.project, region: environment.region };
 }
 
 export async function loadConfig(options, cwd = process.cwd(), env = process.env) {
