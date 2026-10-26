@@ -1,0 +1,9 @@
+# Builds the reconcile job's image (README, "Scheduled tag reconcile"). Submit
+# packages/deploy as the build context, from a committed tree (git archive).
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "-f", "reconcile/Dockerfile", "."]
+images: ["${_IMAGE}"]
+options:
+  logging: GCS_ONLY
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET

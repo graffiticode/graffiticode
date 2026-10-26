@@ -89,6 +89,23 @@ This implementation does not provision infrastructure or change IAM. Before usin
 
 No infrastructure changes, cloud builds, deployments, or package publication were performed while implementing this package.
 
+### Scheduled tag reconcile
+
+`reconcile-image-tags` runs weekly as the Cloud Run job `tag-reconcile` (graffiticode/us-central1), Sundays 06:00 America/Los_Angeles (Cloud Scheduler job `tag-reconcile`), against each project in `reconcile/projects/`. To add a project, add its file there, grant the bindings below in it, and rebuild. Provisioned 2026-10-26:
+
+- Service account `tag-reconcile@graffiticode.iam.gserviceaccount.com`. In each project: `roles/run.viewer`, `roles/artifactregistry.reader`, and the custom role `imageTagWriter` (`artifactregistry.tags.create`, `.update`, `.delete`: tags only, never versions). On the job: `roles/run.jobsExecutor`, so the scheduler can start it as this account.
+- Image `us-central1-docker.pkg.dev/graffiticode/services/tag-reconcile`, built from a committed tree as the build account:
+
+  ```bash
+  git archive HEAD:packages/deploy -o /tmp/deploy.tgz
+  gcloud builds submit /tmp/deploy.tgz --config=packages/deploy/reconcile/cloudbuild.yaml --project=graffiticode --region=us-central1 \
+    --service-account=projects/graffiticode/serviceAccounts/deploy-build@graffiticode.iam.gserviceaccount.com \
+    --substitutions=_IMAGE=us-central1-docker.pkg.dev/graffiticode/services/tag-reconcile:$(git rev-parse --short HEAD)
+  gcloud run jobs update tag-reconcile --image=<the built image@digest> --project=graffiticode --region=us-central1
+  ```
+
+A failed project fails the execution (`gcloud run jobs executions list --job=tag-reconcile`); warnings of warm tagged revisions are in its logs. Run it now with `gcloud run jobs execute tag-reconcile --wait`.
+
 ## Release and recovery behavior
 
 A release checks service identity/access and secret-version availability, submits the frozen source, streams build logs, and requires a successful build with a matching SHA-256 image digest. It deploys that digest to a named revision with no default traffic, verifies the candidate URL, then promotes the exact revision to 100%. It never resolves a mutable image tag during deployment.
