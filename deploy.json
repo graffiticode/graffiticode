@@ -543,7 +543,8 @@
           1,
           2
         ]
-      }
+      },
+      "minInstances": 0
     },
     "l0175": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0175",
@@ -611,7 +612,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0000r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0000r",
@@ -663,7 +665,8 @@
       "include": [
         "languages/l0000",
         "configs/Dockerfile.l0000r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0003r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0003r",
@@ -716,7 +719,8 @@
         "languages/l0003",
         "languages/l0000",
         "configs/Dockerfile.l0003r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0010r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0010r",
@@ -769,7 +773,8 @@
         "languages/l0010",
         "languages/l0000",
         "configs/Dockerfile.l0010r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0013r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0013r",
@@ -865,7 +870,8 @@
         "languages/l0013",
         "languages/l0000",
         "configs/Dockerfile.l0013r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0014r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0014r",
@@ -918,7 +924,8 @@
         "languages/l0014",
         "languages/l0000",
         "configs/Dockerfile.l0014r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0174r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0174r",
@@ -971,7 +978,8 @@
         "languages/l0174",
         "languages/l0000",
         "configs/Dockerfile.l0174r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0175r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0175r",
@@ -1024,7 +1032,8 @@
         "languages/l0175",
         "languages/l0000",
         "configs/Dockerfile.l0175r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0176r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176r",
@@ -1077,7 +1086,8 @@
         "languages/l0176",
         "languages/l0000",
         "configs/Dockerfile.l0176r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0176": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176",
@@ -1179,7 +1189,8 @@
         "SYSTEM_PREVIEW_DIRECT",
         "LEARNOSITY_KEY",
         "LEARNOSITY_SECRET"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0003": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0003",
@@ -1230,7 +1241,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0010": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0010",
@@ -1281,7 +1293,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0013": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0013",
@@ -1378,7 +1391,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0014": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0014",
@@ -1437,7 +1451,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0174": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0174",
@@ -1496,7 +1511,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0177r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0177r",
@@ -1549,7 +1565,8 @@
         "languages/l0177",
         "languages/l0000",
         "configs/Dockerfile.l0177r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0177": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0177",
@@ -1608,7 +1625,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0178r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0178r",
@@ -1661,7 +1679,8 @@
         "languages/l0178",
         "languages/l0000",
         "configs/Dockerfile.l0178r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0178": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0178",
@@ -1720,7 +1739,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0179r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0179r",
@@ -1773,7 +1793,8 @@
         "languages/l0179",
         "languages/l0000",
         "configs/Dockerfile.l0179r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0179": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0179",
@@ -1832,7 +1853,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0180r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0180r",
@@ -1885,7 +1907,8 @@
         "languages/l0180",
         "languages/l0000",
         "configs/Dockerfile.l0180r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0180": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0180",
@@ -1944,7 +1967,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0181r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0181r",
@@ -1997,7 +2021,8 @@
         "languages/l0181",
         "languages/l0000",
         "configs/Dockerfile.l0181r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0181": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0181",
@@ -2056,7 +2081,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0182r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0182r",
@@ -2109,7 +2135,8 @@
         "languages/l0182",
         "languages/l0000",
         "configs/Dockerfile.l0182r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0182": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0182",
@@ -2177,7 +2204,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0183r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0183r",
@@ -2230,7 +2258,8 @@
         "languages/l0183",
         "languages/l0000",
         "configs/Dockerfile.l0183r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0183": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0183",
@@ -2298,7 +2327,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0184r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0184r",
@@ -2351,7 +2381,8 @@
         "languages/l0184",
         "languages/l0000",
         "configs/Dockerfile.l0184r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0184": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0184",
@@ -2419,7 +2450,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0185r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0185r",
@@ -2472,7 +2504,8 @@
         "languages/l0185",
         "languages/l0000",
         "configs/Dockerfile.l0185r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0185": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0185",
@@ -2540,7 +2573,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     },
     "l0186r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0186r",
@@ -2593,7 +2627,8 @@
         "languages/l0186",
         "languages/l0000",
         "configs/Dockerfile.l0186r.yaml"
-      ]
+      ],
+      "minInstances": 0
     },
     "l0186": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0186",
@@ -2661,7 +2696,8 @@
           "path": "/lexicon.js",
           "status": 200
         }
-      ]
+      ],
+      "minInstances": 0
     }
   }
 }
