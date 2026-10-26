@@ -33,7 +33,7 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export const SETTINGS = Object.freeze([
   "service", "project", "region", "image", "dockerfile", "port", "access", "runtimeServiceAccount", "buildServiceAccount",
   "smokeServiceAccount", "steps", "smoke", "verify", "env", "secrets", "removeSecrets", "removeEnv", "forbiddenEnv",
-  "minInstances", "maxInstances", "retireTags", "pinnable", "baselines", "enforcesSwitch", "contractMinimum", "network",
+  "minInstances", "maxInstances", "concurrency", "retireTags", "pinnable", "baselines", "enforcesSwitch", "contractMinimum", "network",
   "protectedExecution", "requires", "exclude", "include", "blocked",
 ]);
 
@@ -175,6 +175,7 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   requireValue(config.minInstances === undefined || (Number.isInteger(config.minInstances) && config.minInstances >= 0 && config.minInstances <= 1000), "minInstances must be an integer from 0 to 1000");
   requireValue(config.maxInstances === undefined || (Number.isInteger(config.maxInstances) && config.maxInstances >= 1 && config.maxInstances <= 1000), "maxInstances must be an integer from 1 to 1000");
   requireValue(config.minInstances === undefined || config.maxInstances === undefined || config.minInstances <= config.maxInstances, "minInstances cannot exceed maxInstances");
+  requireValue(config.concurrency === undefined || (Number.isInteger(config.concurrency) && config.concurrency >= 1 && config.concurrency <= 1000), "concurrency must be an integer from 1 to 1000");
   requireValue(!config.exclude || (Array.isArray(config.exclude) && config.exclude.every(p => typeof p === "string" && p.length > 0)), "exclude must be an array of relative paths");
   requireValue(!config.include || (Array.isArray(config.include) && config.include.length > 0 && config.include.every(p => typeof p === "string" && p.length > 0 && !path.isAbsolute(p) && !p.split(/[\\/]/).includes(".."))), "include must be a non-empty array of relative paths");
   for (const key of ["runtimeServiceAccount", "buildServiceAccount", ...(config.access === "private" ? ["smokeServiceAccount"] : [])]) {

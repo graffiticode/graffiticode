@@ -70,6 +70,7 @@ export function deployArgs(config, receipt) {
   if (config.removeEnv?.length) args.push(`--remove-env-vars=${config.removeEnv.join(",")}`);
   if (config.minInstances !== undefined) args.push(`--min-instances=${config.minInstances}`);
   if (config.maxInstances !== undefined) args.push(`--max-instances=${config.maxInstances}`);
+  if (config.concurrency !== undefined) args.push(`--concurrency=${config.concurrency}`);
   return args;
 }
 

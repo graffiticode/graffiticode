@@ -1147,6 +1147,14 @@ test("minInstances and maxInstances become deploy flags and are validated", asyn
   await assert.rejects(load({ minInstances: 5, maxInstances: 2 }), /minInstances cannot exceed maxInstances/);
 });
 
+test("concurrency becomes a deploy flag and is validated", async t => {
+  assert.ok(deployArgs({ ...config, concurrency: 400 }, { id: "release", commit: source.commit }).includes("--concurrency=400"));
+  assert.ok(!deployArgs(config, { id: "release", commit: source.commit }).some(a => a.startsWith("--concurrency")));
+  const load = await loader(t);
+  assert.equal((await load({ concurrency: 400 })).config.concurrency, 400);
+  for (const bad of [{ concurrency: 0 }, { concurrency: 1001 }, { concurrency: "400" }, { concurrency: 2.5 }]) await assert.rejects(load(bad), /concurrency must be/);
+});
+
 test("an unknown setting is refused, not silently dropped", async t => {
   const load = await loader(t);
   await assert.rejects(load({ maxInstance: 20 }), /Unknown setting\(s\) for api: maxInstance/);
