@@ -1416,8 +1416,8 @@ then was the old one revoked.
 | `INTERNAL_API_KEY` | New random key. auth checks it against `auth-internal-api-key:2`, and briefly also `_PREVIOUS` (#173, #174, #175: dual-key check, SHA-256 digests compared in constant time). Senders console, mcp-service and app read graffiticode-app `INTERNAL_API_KEY:2` | console, app and mcp-service calls to auth's internal routes succeed on the new key | **rejected**: auth refuses it, and dspy-service no longer accepts any key (it was retired from this credential: public invocation removed, then a missing key made to fail closed, then the key removed). Old versions disabled |
 | `ANTHROPIC_API_KEY` | **No static key.** console exchanges its runtime account's Google identity token for a short-lived Claude API token (Anthropic Workload Identity Federation; rule pinned to `console-run`'s `sub` and `email`), in `core/src/lib/anthropic-auth.ts` (graffiticode-app #50–#53). A failed exchange fails over to OpenAI | generations through federation, `fallbacks=0` | deleted in the Anthropic Console |
 | `OPENAI_API_KEY` | New service-account project key in the Artcompiler org, restricted to model capabilities and the Responses API: `OPENAI_API_KEY:2`, readable by `console-run` only | RAG `embedding.complete` on a fresh generation | the legacy user key is **revoked** (refused with 401). Version 1, a key created in the wrong org by mistake and never exposed, is disabled |
-| `STRIPE_SECRET_KEY` | Rolled in Stripe, with the old key kept valid for 24 h: `STRIPE_SECRET_KEY:1` | `/api/payments/subscription`, `usage` and `methods` returned 200 | expires 24 h after the roll (2026-10-27 about 18:00Z) |
-| `STRIPE_WEBHOOK_SECRET` | Rolled, with a 24 h overlap: `STRIPE_WEBHOOK_SECRET:1`. During the overlap the old one is held as `STRIPE_WEBHOOK_SECRET_PREVIOUS:1`, and `verifyStripeEvent` tries each (#48) | a Stripe test event was delivered with 200 | after the overlap: remove `_PREVIOUS`, disable that secret, and run `scripts/reconcile-subscriptions.ts` |
+| `STRIPE_SECRET_KEY` | Rolled in Stripe, with the old key kept valid for 24 h: `STRIPE_SECRET_KEY:1` | `/api/payments/subscription`, `usage` and `methods` returned 200 | **refused** (401, checked 2026-10-27 after the 24 h window) |
+| `STRIPE_WEBHOOK_SECRET` | Rolled, with a 24 h overlap: `STRIPE_WEBHOOK_SECRET:1`. During the overlap the old one is held as `STRIPE_WEBHOOK_SECRET_PREVIOUS:1`, and `verifyStripeEvent` tries each (#48) | a Stripe test event was delivered with 200 | **done 2026-10-27**: `_PREVIOUS` removed (console-00699-6xs, graffiticode-app #69) and its version disabled. The only delivery during the overlap was the test event. `reconcile-subscriptions.ts` dry run with production's price ids: 4 in sync, 0 drift |
 | `VALID_INVITE_CODES` | none; the route and dialog were deleted (#48) | `/api/invite-code` returns 404 | removed from console, and listed in `removeEnv` |
 
 Each new secret is readable by its service's runtime account alone, and pinned in graffiticode-app
@@ -1451,15 +1451,29 @@ each one holds a value that is now revoked or about to be.
   per secret.
 
 **Still open:**
-- the Stripe overlap cleanup (above);
 - removing the compute account's Editor role;
-- reviewing provider usage for Anthropic and OpenAI, from 2026-10-23 to each revocation, for
-  activity that isn't ours. It needs the providers' dashboards.
 
 **Usage review: Stripe (2026-10-26, through the API, read-only).** Since 2026-10-22 there were 31
 events, all from three subscription renewals (invoice, payment intent, charge and subscription
 update for each). There were no refunds, payouts, transfers or disputes, and no changes to the
 account or to an external account. Nothing found.
+
+**Usage review: OpenAI and Anthropic (2026-10-27, from the providers' dashboards).**
+- **Exposure:**
+  - before 2026-10-23, only the three project owners could read console's configuration (the
+    access review above);
+  - the transcript exposure was on 10-23;
+  - each key was revoked on 10-24 (Anthropic) and 10-25 (OpenAI).
+- **OpenAI:**
+  - spend on the old key from Sep 27 to Oct 24 was $20.60;
+  - every day with spend matches a day of console's own OpenAI generations (Sep 28: 26; Sep
+    30: 24; Oct 5: 22; Oct 19: 62), and there's none without them;
+  - spend beyond what production's tokens explain came from local development runs: the
+    operator's local `.env.local` files held the same key;
+  - no spend on the old key after its revocation; Oct 25 is all on the new key.
+- **Anthropic:** the old console key had no usage after its deletion on 10-24 (reported by the
+  operator from the Usage page).
+- **Nothing found.** P1 #1 closed on 2026-10-27.
 
 ## 4. Verification (read-only)
 
