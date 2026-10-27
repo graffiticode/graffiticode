@@ -15,7 +15,30 @@
 //   { role: "console" }                 connection management routes (policy)
 //   { role: "gateway" }                 invocations and publications (policy)
 
-import { UnauthenticatedError, UnauthorizedError } from "./errors.js";
+import { UnauthenticatedError, UnauthorizedError, UnavailableError } from "./errors.js";
+
+// Why a caller token failed verification, without the token or its claims:
+// google-auth-library puts the token's header or payload after the first
+// colon of its messages ("No pem found for envelope: {...}", "Token used too
+// late, 1 > 0: {...}"), so only what comes before it is kept.
+const failureDetail = (err: unknown): string =>
+  String((err as Error)?.message ?? err).split(":")[0].slice(0, 120);
+
+// Reaching Google's certificates failed: a network error or a 5xx while
+// fetching them. That isn't the caller's fault, and a retry may succeed.
+const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENOTFOUND", "EPIPE", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_SOCKET"]);
+const verifierUnavailable = (err: unknown): boolean => {
+  const e = err as { code?: unknown; response?: { status?: unknown }; message?: unknown; cause?: { code?: unknown } };
+  const status = e?.response?.status;
+  return NETWORK_CODES.has(String(e?.code)) || NETWORK_CODES.has(String(e?.cause?.code)) ||
+    (typeof status === "number" && status >= 500) ||
+    /fetch failed|socket hang up|request to https:\/\/www\.googleapis\.com\/oauth2/i.test(String(e?.message));
+};
+
+// One line per refused caller (stderr, so Cloud Logging keeps it beside the
+// request). Before 2026-10-27 these refusals left no trace but the 401.
+const logRefusal = (log: (line: string) => void, fields: Record<string, unknown>) =>
+  log(JSON.stringify({ event: "caller-identity", outcome: "refused", ...fields }));
 
 const decodeUnverifiedEmail = header => {
   const token = String(header || "").replace(/^Bearer\s+/i, "");
@@ -28,23 +51,32 @@ const decodeUnverifiedEmail = header => {
   }
 };
 
-export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true }) =>
+export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) =>
   async req => {
+    const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
     const token = req.get("X-Caller-Identity");
-    if (!token) throw new UnauthenticatedError("missing X-Caller-Identity");
+    if (!token) {
+      logRefusal(log, { reason: "missing", invoker: forwardedEmail() });
+      throw new UnauthenticatedError("missing X-Caller-Identity");
+    }
     let claims;
     try {
       claims = await verifyIdToken(token, audience);
-    } catch {
+    } catch (err) {
+      const unavailable = verifierUnavailable(err);
+      logRefusal(log, { reason: unavailable ? "verifier-unavailable" : "invalid", detail: failureDetail(err), invoker: forwardedEmail() });
+      // The caller's token may be fine: say so, so it can retry.
+      if (unavailable) throw new UnavailableError("caller identity could not be verified; retry");
       throw new UnauthenticatedError("invalid X-Caller-Identity");
     }
     if (!claims?.email || claims.email_verified !== true) {
+      logRefusal(log, { reason: "no-verified-email", invoker: forwardedEmail() });
       throw new UnauthenticatedError("caller identity has no verified email");
     }
     const caller = Object.prototype.hasOwnProperty.call(callers, claims.email) ? callers[claims.email] : null;
     if (!caller) throw new UnauthorizedError("unknown caller");
     if (requireServerlessMatch) {
-      const forwarded = decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+      const forwarded = forwardedEmail();
       if (forwarded !== claims.email) throw new UnauthorizedError("caller identity does not match invoker");
     }
     return { ...caller, email: claims.email };
