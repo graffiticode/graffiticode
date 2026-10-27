@@ -1452,13 +1452,28 @@ each one holds a value that is now revoked or about to be.
 
 **Still open:**
 - removing the compute account's Editor role;
-- reviewing provider usage for Anthropic and OpenAI, from 2026-10-23 to each revocation, for
-  activity that isn't ours. It needs the providers' dashboards.
 
 **Usage review: Stripe (2026-10-26, through the API, read-only).** Since 2026-10-22 there were 31
 events, all from three subscription renewals (invoice, payment intent, charge and subscription
 update for each). There were no refunds, payouts, transfers or disputes, and no changes to the
 account or to an external account. Nothing found.
+
+**Usage review: OpenAI and Anthropic (2026-10-27, from the providers' dashboards).**
+- **Exposure:**
+  - before 2026-10-23, only the three project owners could read console's configuration (the
+    access review above);
+  - the transcript exposure was on 10-23;
+  - each key was revoked on 10-24 (Anthropic) and 10-25 (OpenAI).
+- **OpenAI:**
+  - spend on the old key from Sep 27 to Oct 24 was $20.60;
+  - every day with spend matches a day of console's own OpenAI generations (Sep 28: 26; Sep
+    30: 24; Oct 5: 22; Oct 19: 62), and there's none without them;
+  - spend beyond what production's tokens explain came from local development runs: the
+    operator's local `.env.local` files held the same key;
+  - no spend on the old key after its revocation; Oct 25 is all on the new key.
+- **Anthropic:** the old console key had no usage after its deletion on 10-24 (reported by the
+  operator from the Usage page).
+- **Nothing found.** P1 #1 closed on 2026-10-27.
 
 ## 4. Verification (read-only)
 
