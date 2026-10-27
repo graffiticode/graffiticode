@@ -308,6 +308,15 @@ every 5 minutes):
   as `rate-limited`. The global safeguard is engaged, so previews without a connection show
   "Previews are busy right now". Check `system_signings`, and `system_preview_limited` by
   source, for a burst or abuse.
+- *Security audit: unexpected plan/contract refusal*: a refusal with category `conflict` and
+  reason `plan-required`, `plan-mismatch`, `plan-binding-mismatch`, `invocation-incompatible`
+  or `contract-version-unsupported`, from Policy, Broker (not its relays of Policy) or the
+  gateway, on any connection but the canary's. These reasons are never meant to occur in a
+  supported workflow: the gateway and Policy disagree on the contract, so the workflow fails
+  for everyone. The *permission denial* alert can't see them, because they aren't `permission`;
+  every connection read of a saved L0176 item failed `plan-required` for days after the
+  contract-v2 cutover without an alert. Check the stage, the contract minimum, and recent
+  releases of api, Policy and Broker.
 - *Security audit: system signings over 600 in an hour*: a **metric-threshold** condition, not
   a log match. It sums `system_signings` (`ALIGN_SUM` over 3,600 s, `REDUCE_SUM` across
   instances, revisions and outcomes) and opens when the sum is over 600 (`COMPARISON_GT`,
