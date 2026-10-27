@@ -22,6 +22,8 @@ const LOGGING = "https://logging.googleapis.com/v2";
 const MONITORING = "https://monitoring.googleapis.com/v3";
 
 const selector = project => `logName="projects/${project}/logs/run.googleapis.com%2Fstdout" AND jsonPayload.logName="security_audit"`;
+// The scheduled canary job's stdout (Cloud Run job `canary`).
+const CANARY_JOB = project => `logName="projects/${project}/logs/run.googleapis.com%2Fstdout" AND resource.type="cloud_run_job" AND resource.labels.job_name="canary"`;
 const service = name => `resource.type="cloud_run_revision" AND resource.labels.service_name="${name}"`;
 const events = names => names.length === 1 ? `jsonPayload.event="${names[0]}"` : `jsonPayload.event=(${names.map(n => `"${n}"`).join(" OR ")})`;
 
@@ -166,6 +168,18 @@ export const metricSpecs = project => {
       match: `jsonPayload.outcome="denied" AND ${or(SYSTEM_PREVIEW_LIMIT_SOURCES.map(src => `${limitSource(src)} AND jsonPayload.reason="${src.reason}"`))}`,
     },
     {
+      // The scheduled canary's verdicts (P1 #2, B): its last line is "canary
+      // passed (N checks)" or "canary FAILED (n of N checks)". Plain text on
+      // the job's stdout, so the result comes from the text.
+      id: "canary_runs",
+      labels: ["result"],
+      extractors: { result: "REGEXP_EXTRACT(textPayload, \"^canary (passed|FAILED) \")" },
+      expected: true,
+      description: "The scheduled canary's runs, by result (passed or FAILED).",
+      base: CANARY_JOB(project),
+      match: "textPayload=~\"^canary (passed|FAILED) \"",
+    },
+    {
       id: "receipt_replays",
       labels: ["reason"],
       expected: true,
@@ -197,18 +211,25 @@ export const metricType = name => `logging.googleapis.com/user/${name}`;
 // A metric-threshold condition: the metric's points summed across every
 // series (instances, revisions, label values) over a window, compared with a
 // value. Log-match conditions match one record each and can't count.
-export const thresholdCondition = ({ metric, resourceType = "cloud_run_revision", value, period = "3600s", comparison = "COMPARISON_GT", displayName }) => ({
+//
+// `type` names a built-in metric instead of a log-based one, and `where`
+// narrows the series. `duration` and `evaluationMissingData` are for a
+// missing-run (heartbeat) alert: Monitoring applies evaluationMissingData only
+// when the retest window (`duration`) is at least 60 s, so a heartbeat sets
+// both.
+export const thresholdCondition = ({ metric, type, where, resourceType = "cloud_run_revision", value, period = "3600s", comparison = "COMPARISON_GT", duration = "0s", evaluationMissingData, displayName }) => ({
   displayName,
   conditionThreshold: {
-    filter: `metric.type="${metricType(metric)}" AND resource.type="${resourceType}"`,
+    filter: `metric.type="${type ?? metricType(metric)}" AND resource.type="${resourceType}"${where ? ` AND ${where}` : ""}`,
     // ALIGN_SUM, not ALIGN_DELTA: log-based counters are DELTA metrics, and
     // ALIGN_DELTA interpolates across alignment boundaries, so a window could
     // read 6 for 5 records and open early. ALIGN_SUM counts exactly.
     aggregations: [{ alignmentPeriod: period, perSeriesAligner: "ALIGN_SUM", crossSeriesReducer: "REDUCE_SUM" }],
     comparison,
     thresholdValue: value,
-    duration: "0s",
+    duration,
     trigger: { count: 1 },
+    ...(evaluationMissingData ? { evaluationMissingData } : {}),
   },
 });
 
@@ -302,6 +323,31 @@ export const alertSpecs = (project, { canaryConnections = [] } = {}) => {
       content: "A request was refused for its plan or contract version (plan-required, plan-mismatch, plan-binding-mismatch, invocation-incompatible or contract-version-unsupported), outside the canary. The gateway and Policy disagree on the contract, so this workflow fails for everyone: check the stage, the service's contract minimum and recent releases of api, Policy and Broker; see docs/protected-execution.md, Monitoring.",
     },
     {
+      // The scheduled canary (P1 #2, B), every 6 h. Three ways a run can go
+      // wrong, each its own alert: a check failed (its FAILED line); the
+      // execution failed without one (a crash, the 15-minute timeout, an
+      // image that wouldn't start); or no run passed at all for 13 h, two
+      // missed runs, whatever the reason (the scheduler stopped, every run
+      // failed, the job was deleted).
+      id: "canary-failed",
+      displayName: "Canary: run FAILED",
+      filter: `(${CANARY_JOB(project)} AND textPayload=~"^canary FAILED") OR (${testRecords(project)} AND jsonPayload.reason="canary-failed")`,
+      test: { outcome: "failed", reason: "canary-failed" },
+      content: "The scheduled canary failed one or more checks. Its output names them: `gcloud logging read 'resource.type=\"cloud_run_job\" resource.labels.job_name=\"canary\"' --project=graffiticode --freshness=1h`. See docs/protected-execution.md, Scheduled canary.",
+    },
+    {
+      id: "canary-execution-failed",
+      displayName: "Canary: job execution failed",
+      threshold: { type: "run.googleapis.com/job/completed_execution_count", resourceType: "cloud_run_job", where: "resource.labels.job_name=\"canary\" AND metric.labels.result=\"failed\"", value: 0, period: "3600s", comparison: "COMPARISON_GT" },
+      content: "A scheduled canary execution failed (exit not 0, the 15-minute timeout, or a container that wouldn't start), possibly before it could print a verdict. `gcloud run jobs executions list --job=canary --region=us-central1 --project=graffiticode`. See docs/protected-execution.md, Scheduled canary.",
+    },
+    {
+      id: "canary-missing",
+      displayName: "Canary: no passing run in 13 h",
+      threshold: { metric: specs.canary_runs.name, resourceType: "cloud_run_job", where: "metric.labels.result=\"passed\"", value: 1, period: "46800s", comparison: "COMPARISON_LT", duration: "300s", evaluationMissingData: "EVALUATION_MISSING_DATA_ACTIVE" },
+      content: "No scheduled canary run has passed for 13 hours (two missed runs): the scheduler stopped, the job is broken, or every run failed. `gcloud scheduler jobs describe canary --location=us-central1 --project=graffiticode`. See docs/protected-execution.md, Scheduled canary.",
+    },
+    {
       id: "system-signings",
       displayName: "Security audit: system signings over 600 in an hour",
       threshold: { metric: specs.system_signings.name, value: 600, period: "3600s", comparison: "COMPARISON_GT" },
@@ -380,6 +426,7 @@ const conditionView = c => {
       thresholdValue: Number(t.thresholdValue ?? 0),
       duration: t.duration ?? "0s",
       trigger: t.trigger?.count ?? 1,
+      evaluationMissingData: t.evaluationMissingData ?? null,
     };
   }
   return { displayName: c.displayName, kind: "log", filter: c.conditionMatchedLog?.filter, labelExtractors: c.conditionMatchedLog?.labelExtractors ?? {} };

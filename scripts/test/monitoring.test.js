@@ -174,7 +174,10 @@ const fakeGoogle = ({ count = () => 5 } = {}) => {
 const spec = id => metricSpecs(P).find(s => s.id === id);
 
 test("every metric reads only the security audit on the service that writes it", () => {
-  for (const s of metricSpecs(P)) {
+  // The one exception: the scheduled canary's verdicts, read from its own
+  // job's stdout and nothing else.
+  assert.ok(spec("canary_runs").filter.startsWith(`logName="projects/${P}/logs/run.googleapis.com%2Fstdout" AND resource.type="cloud_run_job" AND resource.labels.job_name="canary" AND `));
+  for (const s of metricSpecs(P).filter(m => m.id !== "canary_runs")) {
     assert.ok(s.filter.startsWith(`logName="projects/${P}/logs/run.googleapis.com%2Fstdout" AND jsonPayload.logName="security_audit" AND resource.type="cloud_run_revision" AND resource.labels.service_name=`), s.id);
     assert.ok(s.filter.startsWith(s.base), s.id);
     assert.ok(!s.filter.includes(TEST_LOG) && !s.filter.includes("monitoring-test"), `${s.id} must not count test records`);
@@ -208,7 +211,7 @@ test("each alert's own condition matches its test record, and the real records",
 // denials outside the canary are alerted too.
 test("the new alerts match their own records and test records, and the denial alert leaves the canary out", () => {
   const alerts = Object.fromEntries(alertSpecs(P, { canaryConnections: ["conn-canary"] }).map(a => [a.id, a]));
-  assert.deepEqual(Object.keys(alerts), ["outage", "uncertain", "partial", "artifact", "denial", "rate-limited", "contract", "system-signings"]);
+  assert.deepEqual(Object.keys(alerts), ["outage", "uncertain", "partial", "artifact", "denial", "rate-limited", "contract", "canary-failed", "canary-execution-failed", "canary-missing", "system-signings"]);
   assert.ok(alerts.partial.filter.includes(spec("partial_writes").filter));
   assert.ok(alerts.artifact.filter.includes(`${spec("artifact_failures").filter} AND jsonPayload.category="unavailable"`));
   for (const id of ["policy_denials", "broker_local_refusals", "api_denials"]) assert.ok(alerts.denial.filter.includes(spec(id).filter), id);
@@ -247,6 +250,44 @@ test("the contract alert catches plan and contract refusals outside the canary, 
     assert.deepEqual(hit(record("policy", { event: "mint", reason, category: "conflict" })), [], reason);
   }
   assert.equal(alertSpecs(P).find(a => a.id === "contract").filter.includes("NOT jsonPayload.connectionId"), false);
+});
+
+// P1 #2, B: the scheduled canary job. A FAILED verdict, an execution that
+// failed without one, and no passing run for 13 h are each alerted.
+test("the canary alerts: a FAILED line, a failed execution, and no passing run in 13 h", () => {
+  const alerts = Object.fromEntries(alertSpecs(P).map(a => [a.id, a]));
+  const line = textPayload => ({ logName: `projects/${P}/logs/run.googleapis.com%2Fstdout`, resource: { type: "cloud_run_job", labels: { job_name: "canary" } }, textPayload });
+  const failed = line("canary FAILED (2 of 27 checks)");
+  const passed = line("canary passed (27 checks)");
+  const logAlerts = alertSpecs(P).filter(a => a.filter);
+  assert.deepEqual(logAlerts.filter(a => matches(a.filter, failed)).map(a => a.id), ["canary-failed"]);
+  assert.deepEqual(logAlerts.filter(a => matches(a.filter, passed)).map(a => a.id), []);
+  // Another job's FAILED line is not the canary's.
+  assert.equal(matches(alerts["canary-failed"].filter, { ...failed, resource: { type: "cloud_run_job", labels: { job_name: "other" } } }), false);
+  // The runs metric counts both verdicts, and nothing else the job prints.
+  const runs = spec("canary_runs");
+  assert.equal(matches(runs.filter, failed), true);
+  assert.equal(matches(runs.filter, passed), true);
+  assert.equal(matches(runs.filter, line("  PASS token replay: first use: 200 succeeded")), false);
+  // A failed execution: Cloud Run's own count, so a crash or timeout without a verdict line counts.
+  const exec = desiredPolicy(alerts["canary-execution-failed"], "ch").conditions[0].conditionThreshold;
+  assert.equal(exec.filter, "metric.type=\"run.googleapis.com/job/completed_execution_count\" AND resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"canary\" AND metric.labels.result=\"failed\"");
+  assert.equal(exec.comparison, "COMPARISON_GT");
+  assert.equal(exec.thresholdValue, 0);
+  // The missing run: fires when no passing run is counted, including when no
+  // data arrives at all, which Monitoring applies only with a retest window of
+  // at least 60 s.
+  const missing = desiredPolicy(alerts["canary-missing"], "ch").conditions[0].conditionThreshold;
+  assert.equal(missing.filter, "metric.type=\"logging.googleapis.com/user/security_audit/canary_runs\" AND resource.type=\"cloud_run_job\" AND metric.labels.result=\"passed\"");
+  assert.equal(missing.comparison, "COMPARISON_LT");
+  assert.equal(missing.thresholdValue, 1);
+  assert.equal(missing.aggregations[0].alignmentPeriod, "46800s");
+  assert.equal(missing.evaluationMissingData, "EVALUATION_MISSING_DATA_ACTIVE");
+  assert.ok(Number(missing.duration.replace(/s$/, "")) >= 60, missing.duration);
+  // Without them, a threshold keeps Monitoring's defaults.
+  const plain = thresholdCondition({ metric: "m", value: 1 }).conditionThreshold;
+  assert.equal(plain.duration, "0s");
+  assert.equal("evaluationMissingData" in plain, false);
 });
 
 test("the filter check fails a metric whose records match nothing, or that the canary should fill", async () => {
@@ -309,12 +350,12 @@ test("alert verification writes a test record per alert that its own condition m
   const g = fakeGoogle();
   await apply({ api: g.api, project: P, email: "ops@example.com" });
   const before = g.writes.length;
-  const nonces = ["n0nce001", "n0nce002", "n0nce003", "n0nce004", "n0nce005", "n0nce006", "n0nce007"];
+  const nonces = ["n0nce001", "n0nce002", "n0nce003", "n0nce004", "n0nce005", "n0nce006", "n0nce007", "n0nce008"];
   const written = await writeTestRecords({ api: g.api, project: P, email: "ops@example.com", nonce: () => nonces.shift(), now: () => new Date("2026-10-06T22:00:00Z") });
   const records = g.writes.slice(before);
   // One per log-match alert; the threshold alert has its own check.
-  assert.deepEqual(records.map(w => w.path), Array(7).fill("/v2/entries:write"));
-  assert.deepEqual(records.map(w => w.body.logName), Array(7).fill(`projects/${P}/logs/${TEST_LOG}`));
+  assert.deepEqual(records.map(w => w.path), Array(8).fill("/v2/entries:write"));
+  assert.deepEqual(records.map(w => w.body.logName), Array(8).fill(`projects/${P}/logs/${TEST_LOG}`));
   const at = "2026-10-06T22:00:00.000Z";
   assert.deepEqual(records.map(w => w.body.entries[0].jsonPayload), [
     { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "authorization-unavailable", nonce: "n0nce001", at },
@@ -324,6 +365,7 @@ test("alert verification writes a test record per alert that its own condition m
     { logName: "security_audit", event: "monitoring-test", outcome: "denied", reason: "not-granted", category: "permission", nonce: "n0nce005", at },
     { logName: "security_audit", event: "monitoring-test", outcome: "denied", reason: "rate-limited", category: "unavailable", nonce: "n0nce006", at },
     { logName: "security_audit", event: "monitoring-test", outcome: "denied", reason: "plan-required", category: "conflict", nonce: "n0nce007", at },
+    { logName: "security_audit", event: "monitoring-test", outcome: "failed", reason: "canary-failed", nonce: "n0nce008", at },
   ]);
   // Each test record opens its own alert and no other.
   const logAlerts = alertSpecs(P).filter(a => a.test);
@@ -335,6 +377,7 @@ test("alert verification writes a test record per alert that its own condition m
     ["Security audit: authorization outage", "n0nce001"], ["Security audit: uncertain write", "n0nce002"], ["Security audit: partial write", "n0nce003"],
     ["Security audit: artifact storage outage", "n0nce004"], ["Security audit: permission denial", "n0nce005"],
     ["Security audit: system preview signing rate-limited", "n0nce006"], ["Security audit: unexpected plan/contract refusal", "n0nce007"],
+    ["Canary: run FAILED", "n0nce008"],
   ]);
 });
 

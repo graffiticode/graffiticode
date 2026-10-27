@@ -385,6 +385,46 @@ threshold; don't confirm it. The nonce is added to `pending.json`, so `--confirm
 records the result like the others. Afterwards, `--verify-threshold --cleanup --apply` removes
 every scratch metric and the scratch policy (dry without `--apply`).
 
+### Scheduled canary
+
+The canary (`scripts/canary.js`, "Running the canary" above) also runs on its own every 6
+hours, so a broken workflow is caught between releases. Before this, nothing ran it
+unattended: every connection read of a saved L0176 item failed for days, and nothing noticed.
+
+- **Job:** Cloud Run job `canary` (graffiticode, us-central1), with image
+  `services/canary` built from `configs/Dockerfile.canary.yaml` (Node plus the Cloud SDK) by
+  `configs/cloudbuild.canary.yaml`. Its arguments are `--uid <canary uid> --connection
+  <canary connection> --chain-admission --after-cutover`; `max-retries 0`, 15-minute
+  timeout. A run takes about 4.5 minutes and writes one or more sandbox drafts.
+- **Identity:** `canary-run@graffiticode`, a standing, least-privilege account, which replaces
+  the operator's time-boxed grant:
+  - `iam.serviceAccountOpenIdTokenCreator` on `api-run`, `l0176-run` and
+    `console-run@graffiticode-app` only;
+  - `secretAccessor` on `canary-api-key` only;
+  - `logging.viewer` and `run.viewer` on the project.
+- **Schedule:** Cloud Scheduler `canary` at `23 */6 * * *` UTC. It calls the Run API as
+  `canary-scheduler@graffiticode`, which holds `run.invoker` on the job alone.
+- **Alerts** (`scripts/monitoring.js`), to the same email channel:
+  - *Canary: run FAILED*: the run's last line is `canary FAILED (…)`. Read the run's output
+    for the failing checks.
+  - *Canary: job execution failed*: Cloud Run's `job/completed_execution_count` with
+    `result=failed` is above 0 within an hour. This catches a crash, the timeout, or a
+    container that wouldn't start, which may never print a verdict.
+  - *Canary: no passing run in 13 h*: `security_audit/canary_runs{result="passed"}`, summed
+    over 13 h, is below 1 (two missed runs), whatever the reason. Missing data counts as
+    firing (`EVALUATION_MISSING_DATA_ACTIVE`, retest window 300 s; Monitoring ignores
+    missing-data handling under 60 s).
+- **Releasing a new image:**
+  ```bash
+  git archive --format=tar.gz -o /tmp/canary-src.tgz HEAD -- . ':!languages'
+  gcloud builds submit /tmp/canary-src.tgz --project=graffiticode --region=us-central1 \
+    --config=configs/cloudbuild.canary.yaml --substitutions=_TAG=$(git rev-parse --short HEAD)
+  gcloud run jobs update canary --region=us-central1 --project=graffiticode \
+    --image=us-central1-docker.pkg.dev/graffiticode/services/canary@<digest>
+  ```
+- **Pausing:** `gcloud scheduler jobs pause canary --location=us-central1 --project=graffiticode`.
+  The missing-run alert fires after 13 h; that's the reminder to resume.
+
 ## Retention and restore (RETAIN-01)
 
 Invocation records, idempotency bindings, admission plans, receipt claims and outcomes never
