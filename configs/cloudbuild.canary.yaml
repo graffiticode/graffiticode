@@ -1,0 +1,19 @@
+# Builds the scheduled canary's image (configs/Dockerfile.canary.yaml). The job
+# isn't a gc-deploy service, so it is built and deployed by hand:
+#   git archive --format=tar.gz -o /tmp/canary-src.tgz HEAD -- . ':!languages'
+#   gcloud builds submit /tmp/canary-src.tgz --project=graffiticode \
+#     --config=configs/cloudbuild.canary.yaml --substitutions=_TAG=$(git rev-parse --short HEAD)
+#   gcloud run jobs deploy canary … --image=<the digest this prints>
+# See docs/protected-execution.md, "Scheduled canary".
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "configs/Dockerfile.canary.yaml",
+      "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/services/canary:${_TAG}",
+      "-t", "us-central1-docker.pkg.dev/$PROJECT_ID/services/canary:serving-canary-${_TAG}", "."]
+# serving-: the repository's cleanup policy keeps tags with that prefix.
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/services/canary:${_TAG}
+  - us-central1-docker.pkg.dev/$PROJECT_ID/services/canary:serving-canary-${_TAG}
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s
