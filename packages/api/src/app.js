@@ -6,6 +6,7 @@ import { createRequire } from "module";
 import morgan from "morgan";
 import cors from "cors";
 import { buildValidateToken } from "./auth.js";
+import { cacheVerifications } from "@graffiticode/common/verified-tokens";
 import { buildCompile } from "./comp.js";
 import { buildDataApi } from "./data.js";
 import { createApiAudit } from "./audit.js";
@@ -114,7 +115,8 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   app.use(methodOverride());
 
   // Authentication
-  const validateToken = givenValidateToken ?? buildValidateToken({ authUrl });
+  // A token that verified is remembered for up to 60 s (common/verified-tokens).
+  const validateToken = givenValidateToken ?? cacheVerifications(buildValidateToken({ authUrl }));
   app.use(routes.auth({ validateToken }));
 
   // Routes
