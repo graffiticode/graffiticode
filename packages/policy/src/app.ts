@@ -45,7 +45,7 @@
 
 import { Router } from "express";
 import { buildHttpHandler, createHttpApp, sendSuccessResponse, parseTokenFromRequest } from "@graffiticode/common/http";
-import { UnauthenticatedError, UnauthorizedError } from "@graffiticode/common/errors";
+import { UnauthenticatedError, UnauthorizedError, UnavailableError } from "@graffiticode/common/errors";
 import { classify } from "@graffiticode/common/failures";
 import { PolicyDenied, PolicyMaintenance } from "./policy.js";
 import { requestContextMiddleware } from "./audit.js";
@@ -61,7 +61,32 @@ const ROUTE_ROLES = Object.freeze({
   connections: ["console"],
 });
 
-export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, publicJwks, audit }) => {
+// The auth service couldn't be asked about a user token: a network error, or
+// an answer that isn't auth's (the client accepts only 200, 400 and 401, so a
+// 5xx or an edge error page arrives as a status error). Auth's own refusal
+// is a 400 or 401 it answered, never this. 2026-10-27: a snapshot's call to
+// auth never arrived (auth logged nothing), and Policy answered 401
+// "invalid user token" for a valid token.
+const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENOTFOUND", "EPIPE", "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT"]);
+export const authUnreachable = err => {
+  const status = err?.statusCode;
+  return NETWORK_CODES.has(String(err?.code)) || NETWORK_CODES.has(String(err?.cause?.code)) ||
+    (typeof status === "number" && (status >= 500 || status === 429)) ||
+    /socket hang up|fetch failed/i.test(String(err?.message));
+};
+
+// Asks auth once more when it couldn't be reached: verifying a token only
+// reads, so a retry is safe.
+export const verifyUserWithRetry = verifyUser => async token => {
+  try {
+    return await verifyUser(token);
+  } catch (err) {
+    if (!authUnreachable(err)) throw err;
+    return verifyUser(token);
+  }
+};
+
+export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, publicJwks, audit, log = line => console.warn(line) }) => {
   const authorize = route => async req => {
     let caller;
     try {
@@ -83,7 +108,12 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
       const { uid } = await verifyUser(token);
       if (!uid) throw new Error("no uid");
       return { uid };
-    } catch {
+    } catch (err) {
+      // Not the user's fault when auth couldn't be asked: 503, so the caller
+      // can retry, instead of a 401 for a token that may be valid.
+      const unreachable = authUnreachable(err);
+      log(JSON.stringify({ event: "user-token", outcome: "refused", reason: unreachable ? "auth-unreachable" : "invalid", detail: String(err?.code ?? err?.statusCode ?? "").slice(0, 40) }));
+      if (unreachable) throw new UnavailableError("the user token could not be verified; retry");
       throw new UnauthenticatedError("invalid user token");
     }
   };

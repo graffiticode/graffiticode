@@ -13,7 +13,9 @@ import {
   createMemoryGrantStore,
   createAudit,
   createPseudonymizer,
-  createProtectedSwitch
+  createProtectedSwitch,
+  verifyUserWithRetry,
+  authUnreachable
 } from "./index.js";
 
 const OWNER = "0xowneruid";
@@ -481,5 +483,61 @@ describe("policy http: reconcile", () => {
       expect(res.status).toBe(403);
     }
     expect(reconciled).toEqual([]);
+  });
+});
+
+// 2026-10-27: a snapshot's call to auth never arrived, and Policy answered
+// 401 "invalid user token" for a valid token. Auth that can't be reached is
+// asked once more, then 503 (retry); auth's own refusal is still 401.
+describe("user token verification when auth can't be reached", () => {
+  const caller = { role: "compiler", lang: "0176", email: SA.l0176 };
+  const appWith = (verify, lines = []) => createPolicyApp({
+    policy: { snapshot: async () => ({ allowed: true }) },
+    manager: {},
+    identifyCaller: async () => caller,
+    verifyUser: verifyUserWithRetry(verify),
+    publicJwks: { keys: [] },
+    audit: async () => {},
+    log: line => lines.push(line),
+  });
+  const snapshot = a => request(a).post("/v1/snapshot").set("Authorization", "Bearer user:x").send({ lang: "0176", connectionId: "conn-1", fns: ["init"], invocationToken: "t", stage: "s0" });
+  const reset = () => Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+  const edge = () => Object.assign(new Error("Incorrect statusCode: 502"), { statusCode: 502 });
+  const refused = () => Object.assign(new Error("invalid token"), { code: 401 });
+
+  it("asks auth again once when it couldn't be reached, and succeeds", async () => {
+    let calls = 0;
+    const res = await snapshot(appWith(async () => { if (++calls === 1) throw reset(); return { uid: "x" }; }));
+    expect(res.status).toBe(200);
+    expect(calls).toBe(2);
+  });
+
+  it("answers 503, not 401, when auth still can't be reached, and logs why", async () => {
+    for (const fail of [reset, edge]) {
+      const lines = [];
+      let calls = 0;
+      const res = await snapshot(appWith(async () => { calls++; throw fail(); }, lines));
+      expect(res.status).toBe(503);
+      expect(calls).toBe(2);
+      expect(JSON.parse(lines[0])).toMatchObject({ event: "user-token", outcome: "refused", reason: "auth-unreachable" });
+    }
+  });
+
+  it("still answers 401 for a token auth refused, without asking again", async () => {
+    const lines = [];
+    let calls = 0;
+    const res = await snapshot(appWith(async () => { calls++; throw refused(); }, lines));
+    expect(res.status).toBe(401);
+    expect(calls).toBe(1);
+    expect(JSON.parse(lines[0]).reason).toBe("invalid");
+    expect(lines[0]).not.toContain("user:x");
+  });
+
+  it("classifies only transport failures as unreachable", () => {
+    expect(authUnreachable(reset())).toBe(true);
+    expect(authUnreachable(edge())).toBe(true);
+    expect(authUnreachable(Object.assign(new Error("x"), { statusCode: 429 }))).toBe(true);
+    expect(authUnreachable(refused())).toBe(false);
+    expect(authUnreachable(new Error("no uid"))).toBe(false);
   });
 });

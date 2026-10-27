@@ -24,6 +24,7 @@ import { createClient as createAuthClient } from "@graffiticode/auth/client";
 import {
   createPolicy,
   createPolicyApp,
+  verifyUserWithRetry,
   createConnectionManager,
   createCallerIdentity,
   buildGoogleIdTokenVerifier,
@@ -95,7 +96,7 @@ const policy = createPolicy({
 });
 const manager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin });
 const authClient = createAuthClient(authUrl);
-const verifyUser = async token => ({ uid: (await authClient.verifyToken(token)).uid });
+const verifyUser = verifyUserWithRetry(async token => ({ uid: (await authClient.verifyToken(token)).uid }));
 
 const server = createPolicyApp({
   policy,
