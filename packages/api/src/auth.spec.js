@@ -63,6 +63,18 @@ describe("auth unreachable", () => {
     expect(calls).toBe(1);
   });
 
+  it("gives up on an attempt that doesn't answer in time, asks again, then answers 503", async () => {
+    let calls = 0;
+    const hang = () => new Promise(() => {});
+    const validate = buildValidateToken({ authUrl: "http://auth.invalid", client: { verifyToken: async () => { calls++; return hang(); } }, timeoutMs: 20 });
+    const err = await validate("t").catch(e => e);
+    expect(err).toBeInstanceOf(UnavailableError);
+    expect(calls).toBe(2);
+    let second = 0;
+    const recovers = buildValidateToken({ authUrl: "http://auth.invalid", client: { verifyToken: async () => (++second === 1 ? hang() : { uid: "1" }) }, timeoutMs: 20 });
+    await expect(recovers("t")).resolves.toStrictEqual({ uid: "1" });
+  });
+
   it("classifies only transport failures as unreachable", () => {
     expect(authUnreachable(reset())).toBe(true);
     expect(authUnreachable(edge())).toBe(true);

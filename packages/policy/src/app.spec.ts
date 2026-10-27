@@ -533,6 +533,27 @@ describe("user token verification when auth can't be reached", () => {
     expect(lines[0]).not.toContain("user:x");
   });
 
+  // 18:52Z the same day: a call that never answered waited out Cloud Run's 300 s.
+  it("gives up on an attempt that doesn't answer in time, asks again, then answers 503", async () => {
+    let calls = 0;
+    const hang = () => new Promise(() => {});
+    const a = createPolicyApp({
+      policy: { snapshot: async () => ({ allowed: true }) },
+      manager: {},
+      identifyCaller: async () => caller,
+      verifyUser: verifyUserWithRetry(async () => { calls++; return hang(); }, { timeoutMs: 20 }),
+      publicJwks: { keys: [] },
+      audit: async () => {},
+      log: () => {},
+    });
+    const res = await snapshot(a);
+    expect(res.status).toBe(503);
+    expect(calls).toBe(2);
+    let second = 0;
+    const recovers = verifyUserWithRetry(async () => (++second === 1 ? hang() : { uid: "x" }), { timeoutMs: 20 });
+    await expect(recovers("user:x")).resolves.toEqual({ uid: "x" });
+  });
+
   it("classifies only transport failures as unreachable", () => {
     expect(authUnreachable(reset())).toBe(true);
     expect(authUnreachable(edge())).toBe(true);
