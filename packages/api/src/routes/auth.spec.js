@@ -1,7 +1,7 @@
 import express from "express";
 import request from "supertest";
 import { jest } from "@jest/globals";
-import { UnauthenticatedError } from "../errors/http.js";
+import { UnauthenticatedError, UnavailableError } from "../errors/http.js";
 import buildAuthHandler from "./auth.js";
 
 describe("routes/auth", () => {
@@ -120,6 +120,20 @@ describe("routes/auth", () => {
     expect(res.body).toHaveProperty("auth.token", null);
     expect(res.body).toHaveProperty("auth.context", null);
     expect(validateToken).toHaveBeenCalledWith(token);
+  });
+
+  // 2026-10-27: a verify call that never reached auth. Its owner must not be
+  // served as anonymous (a private read would answer "not found").
+  it("should return 503, not degrade to anonymous, when auth couldn't be reached on a public read", async () => {
+    const token = "abc123";
+    validateToken.mockRejectedValue(new UnavailableError("the user token could not be verified; retry"));
+
+    const res = await request(app)
+      .get("/data")
+      .set("Authorization", token)
+      .expect(503);
+
+    expect(res.body).toHaveProperty("error.message", "the user token could not be verified; retry");
   });
 
   it("should return 401 if auth provider fails", async () => {

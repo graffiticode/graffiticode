@@ -1,4 +1,5 @@
 import { buildHttpHandler, parseAuthTokenFromRequest } from "./utils.js";
+import { UnavailableError } from "../errors/http.js";
 
 // GET reads of these resources are public when the underlying task is public,
 // so a stale/invalid token must not turn a readable public resource into a 401.
@@ -28,7 +29,9 @@ export default ({ validateToken }) => buildHttpHandler(async (req, res, next) =>
     } catch (err) {
       // Falling back to anonymous can only reduce access (public-only), never
       // grant it — safe for reads. Writes/other routes still reject the token.
-      if (!isPublicRead(req)) {
+      // Not when auth couldn't be asked: the token may be valid, and serving
+      // its owner as anonymous would answer a private read "not found".
+      if (!isPublicRead(req) || err instanceof UnavailableError) {
         throw err;
       }
       console.warn(
