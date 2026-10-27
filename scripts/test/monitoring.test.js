@@ -290,6 +290,37 @@ test("the canary alerts: a FAILED line, a failed execution, and no passing run i
   assert.equal("evaluationMissingData" in plain, false);
 });
 
+// P1 #2 D: SMS beside email on the alerts that must reach a person at once.
+test("SMS goes beside email on the refusal and canary alerts only, from a verified channel", async () => {
+  const sms = "projects/p/notificationChannels/sms1";
+  const byId = Object.fromEntries(alertSpecs(P).map(a => [a.id, a]));
+  for (const id of ["contract", "canary-failed", "canary-execution-failed", "canary-missing"]) {
+    assert.deepEqual(desiredPolicy(byId[id], "ch", { sms }).notificationChannels, ["ch", sms], id);
+  }
+  for (const id of ["outage", "uncertain", "partial", "artifact", "denial", "rate-limited", "system-signings"]) {
+    assert.deepEqual(desiredPolicy(byId[id], "ch", { sms }).notificationChannels, ["ch"], id);
+  }
+  assert.deepEqual(desiredPolicy(byId.contract, "ch").notificationChannels, ["ch"]);
+  // Channel order is not a change.
+  const p = desiredPolicy(byId.contract, "ch", { sms });
+  assert.equal(policyChanged({ ...p, notificationChannels: [sms, "ch"] }, p), false);
+  // The channel must exist and be verified; the script never creates one.
+  const withSms = status => {
+    const g = fakeGoogle();
+    const api = async (method, url, body) => {
+      if (method === "GET" && url.includes("/notificationChannels") && decodeURIComponent(url).includes("type=\"sms\"")) {
+        return { status: 200, json: { notificationChannels: status ? [{ name: sms, type: "sms", labels: { number: "+16505550100" }, verificationStatus: status }] : [] } };
+      }
+      return g.api(method, url, body);
+    };
+    return api;
+  };
+  await assert.rejects(plan({ api: withSms(null), project: P, email: "ops@example.com", sms: "+16505550100" }), /no SMS channel/);
+  await assert.rejects(plan({ api: withSms("UNVERIFIED"), project: P, email: "ops@example.com", sms: "+16505550100" }), /not verified/);
+  const { smsChannel } = await plan({ api: withSms("VERIFIED"), project: P, email: "ops@example.com", sms: "+16505550100" });
+  assert.equal(smsChannel.name, sms);
+});
+
 test("the filter check fails a metric whose records match nothing, or that the canary should fill", async () => {
   const replays = spec("receipt_replays");
   const g = fakeGoogle({ count: f => f.includes("service_name=\"api\"") ? 0 : f.includes(replays.match) ? 0 : 3 });
@@ -409,7 +440,7 @@ test("alert verification refuses until monitoring is applied as specified", asyn
 });
 
 test("options: dry run by default; apply and verify need an operator address", () => {
-  assert.deepEqual(parse([]), { project: P, email: null, days: 7, apply: false, verifyAlert: false, verifyThreshold: false, cleanup: false, settle: false, threshold: 5, confirm: null, canaryConnections: [] });
+  assert.deepEqual(parse([]), { project: P, email: null, days: 7, apply: false, verifyAlert: false, verifyThreshold: false, cleanup: false, settle: false, threshold: 5, confirm: null, canaryConnections: [], sms: null });
   assert.deepEqual(parse(["--confirm", "aa11bb22", "cc33dd44"]).confirm, ["aa11bb22", "cc33dd44"]);
   assert.deepEqual(parse(["--confirm"]).confirm, []);
   assert.equal(parse(["--confirm", "aa11bb22", "--settle"]).settle, true);
@@ -421,6 +452,8 @@ test("options: dry run by default; apply and verify need an operator address", (
   assert.throws(() => parse(["--verify-alert", "--email", "ops@example.com"]), /--canary-connection is required/);
   assert.throws(() => parse(["--canary-connection", "alice@example.com"]), /must be a connection id/);
   assert.throws(() => parse(["--apply"]), /--email is required/);
+  assert.equal(parse(["--apply", "--email", "a@b.c", "--canary-connection", "conn-a", "--sms", "+16505550100"]).sms, "+16505550100");
+  assert.throws(() => parse(["--sms", "6505550100"]), /must be an E.164 number/);
   assert.throws(() => parse(["--verify-alert", "--email", "nope"]), /must be an address/);
   assert.throws(() => parse(["--apply", "--verify-alert", "--email", "a@b.c"]), /separate runs/);
   // --verify-threshold: dry unless --apply; no canary needed; --cleanup needs no address.

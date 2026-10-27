@@ -317,6 +317,7 @@ export const alertSpecs = (project, { canaryConnections = [] } = {}) => {
       // and Policy disagree on the contract; nothing produces them on purpose
       // except the canary.
       id: "contract",
+      sms: true,
       displayName: "Security audit: unexpected plan/contract refusal",
       filter: `(((${specs.policy_denials.filter}) OR (${specs.broker_local_refusals.filter}) OR (${specs.api_denials.filter})) AND jsonPayload.category="conflict" AND jsonPayload.reason=(${CONTRACT_REFUSALS.map(r => `"${r}"`).join(" OR ")})${notCanary}) OR (${testRecords(project)} AND jsonPayload.outcome="denied" AND jsonPayload.reason="plan-required")`,
       test: { outcome: "denied", reason: "plan-required", category: "conflict" },
@@ -330,6 +331,7 @@ export const alertSpecs = (project, { canaryConnections = [] } = {}) => {
       // missed runs, whatever the reason (the scheduler stopped, every run
       // failed, the job was deleted).
       id: "canary-failed",
+      sms: true,
       displayName: "Canary: run FAILED",
       filter: `(${CANARY_JOB(project)} AND textPayload=~"^canary FAILED") OR (${testRecords(project)} AND jsonPayload.reason="canary-failed")`,
       test: { outcome: "failed", reason: "canary-failed" },
@@ -337,12 +339,14 @@ export const alertSpecs = (project, { canaryConnections = [] } = {}) => {
     },
     {
       id: "canary-execution-failed",
+      sms: true,
       displayName: "Canary: job execution failed",
       threshold: { type: "run.googleapis.com/job/completed_execution_count", resourceType: "cloud_run_job", where: "resource.labels.job_name=\"canary\" AND metric.labels.result=\"failed\"", value: 0, period: "3600s", comparison: "COMPARISON_GT" },
       content: "A scheduled canary execution failed (exit not 0, the 15-minute timeout, or a container that wouldn't start), possibly before it could print a verdict. `gcloud run jobs executions list --job=canary --region=us-central1 --project=graffiticode`. See docs/protected-execution.md, Scheduled canary.",
     },
     {
       id: "canary-missing",
+      sms: true,
       displayName: "Canary: no passing run in 13 h",
       threshold: { metric: specs.canary_runs.name, resourceType: "cloud_run_job", where: "metric.labels.result=\"passed\"", value: 1, period: "46800s", comparison: "COMPARISON_LT", duration: "300s", evaluationMissingData: "EVALUATION_MISSING_DATA_ACTIVE" },
       content: "No scheduled canary run has passed for 13 hours (two missed runs): the scheduler stopped, the job is broken, or every run failed. `gcloud scheduler jobs describe canary --location=us-central1 --project=graffiticode`. See docs/protected-execution.md, Scheduled canary.",
@@ -356,7 +360,13 @@ export const alertSpecs = (project, { canaryConnections = [] } = {}) => {
   ];
 };
 
-export const desiredPolicy = (spec, channel) => spec.threshold ? desiredThresholdPolicy(spec, channel) : desiredLogPolicy(spec, channel);
+// `sms`: the operator's SMS channel, added beside email on the alerts that
+// must reach a person at once (spec.sms: the plan/contract refusal and the
+// scheduled canary, P1 #2 D). The email channel stays on every alert.
+export const desiredPolicy = (spec, channel, { sms = null } = {}) => {
+  const policy = spec.threshold ? desiredThresholdPolicy(spec, channel) : desiredLogPolicy(spec, channel);
+  return spec.sms && sms ? { ...policy, notificationChannels: [channel, sms] } : policy;
+};
 
 // A metric-threshold policy. No notificationRateLimit: Monitoring accepts it
 // only on log-match policies.
@@ -404,7 +414,7 @@ const metricView = m => m && {
 const policyView = p => p && {
   combiner: p.combiner,
   enabled: p.enabled !== false,
-  notificationChannels: p.notificationChannels ?? [],
+  notificationChannels: [...(p.notificationChannels ?? [])].sort(),
   documentation: p.documentation?.content,
   conditions: (p.conditions ?? []).map(conditionView),
   rateLimit: p.alertStrategy?.notificationRateLimit?.period,
@@ -467,6 +477,17 @@ const findChannel = async (api, project, email) => {
   return (res.notificationChannels ?? []).find(c => c.labels?.email_address === email) ?? null;
 };
 
+// The operator's SMS channel for `number` (E.164). It must already exist and be
+// verified: Monitoring texts a code before a channel can send, which the
+// operator enters in the Cloud Console, so this script never creates one.
+const findSmsChannel = async (api, project, number) => {
+  const res = ok(await api("GET", `${MONITORING}/projects/${project}/notificationChannels?filter=${encodeURIComponent("type=\"sms\"")}`), "notificationChannels.list");
+  const channel = (res.notificationChannels ?? []).find(c => c.labels?.number === number);
+  if (!channel) throw new Error(`no SMS channel for ${number}: create it in the Cloud Console (Monitoring, Alerting, Edit notification channels) and verify it`);
+  if (channel.verificationStatus !== "VERIFIED") throw new Error(`the SMS channel for ${number} is not verified; verify it in the Cloud Console first`);
+  return channel;
+};
+
 const findPolicy = async (api, project, displayName) => {
   const res = ok(await api("GET", `${MONITORING}/projects/${project}/alertPolicies?filter=${encodeURIComponent(`display_name="${displayName}"`)}`), "alertPolicies.list");
   const found = res.alertPolicies ?? [];
@@ -477,7 +498,7 @@ const findPolicy = async (api, project, displayName) => {
 const metricUrl = (project, name) => `${LOGGING}/projects/${project}/metrics/${encodeURIComponent(name)}`;
 
 // The changes --apply would make: create, update or unchanged, per resource.
-export const plan = async ({ api, project, email, canaryConnections = [] }) => {
+export const plan = async ({ api, project, email, sms = null, canaryConnections = [] }) => {
   const steps = [];
   for (const spec of metricSpecs(project)) {
     const res = await api("GET", metricUrl(project, spec.name));
@@ -488,17 +509,18 @@ export const plan = async ({ api, project, email, canaryConnections = [] }) => {
   if (!email) return { steps, channel: null };
   const channel = await findChannel(api, project, email);
   steps.push({ kind: "channel", name: email, action: channel ? "unchanged" : "create", existing: channel });
+  const smsChannel = sms ? await findSmsChannel(api, project, sms) : null;
   for (const spec of alertSpecs(project, { canaryConnections })) {
     const existing = await findPolicy(api, project, spec.displayName);
-    const desired = desiredPolicy(spec, channel?.name ?? "(new channel)");
+    const desired = desiredPolicy(spec, channel?.name ?? "(new channel)", { sms: smsChannel?.name });
     const action = !existing ? "create" : channel && same(policyView(existing), policyView(desired)) ? "unchanged" : "update";
     steps.push({ kind: "policy", name: spec.displayName, action, existing, spec });
   }
-  return { steps, channel };
+  return { steps, channel, smsChannel };
 };
 
-export const apply = async ({ api, project, email, canaryConnections = [], log = () => {} }) => {
-  const { steps } = await plan({ api, project, email, canaryConnections });
+export const apply = async ({ api, project, email, sms = null, canaryConnections = [], log = () => {} }) => {
+  const { steps, smsChannel } = await plan({ api, project, email, sms, canaryConnections });
   let channelName = steps.find(s => s.kind === "channel")?.existing?.name;
   for (const step of steps) {
     if (step.action === "unchanged") continue;
@@ -513,7 +535,7 @@ export const apply = async ({ api, project, email, canaryConnections = [], log =
       channelName = created.name;
     }
     if (step.kind === "policy") {
-      const desired = desiredPolicy(step.spec, channelName);
+      const desired = desiredPolicy(step.spec, channelName, { sms: smsChannel?.name });
       if (step.action === "create") ok(await api("POST", `${MONITORING}/projects/${project}/alertPolicies`, desired), `alertPolicies.create ${step.name}`);
       else {
         const mask = "displayName,combiner,enabled,notificationChannels,documentation,conditions,alertStrategy";
@@ -530,8 +552,8 @@ export const apply = async ({ api, project, email, canaryConnections = [], log =
 // each alert, one test record that its own condition matches, carrying a
 // nonce; once the emails arrive, confirmDelivery matches the nonces the
 // operator copied from them.
-export const writeTestRecords = async ({ api, project, email, canaryConnections = [], now = () => new Date(), nonce = () => randomBytes(4).toString("hex"), log = () => {} }) => {
-  const { steps } = await plan({ api, project, email, canaryConnections });
+export const writeTestRecords = async ({ api, project, email, sms = null, canaryConnections = [], now = () => new Date(), nonce = () => randomBytes(4).toString("hex"), log = () => {} }) => {
+  const { steps } = await plan({ api, project, email, sms, canaryConnections });
   const pending = steps.filter(s => s.action !== "unchanged").map(s => `${s.kind} ${s.name}`);
   if (pending.length) throw new Error(`monitoring is not applied (${pending.join(", ")}); run --apply first`);
   const written = [];
