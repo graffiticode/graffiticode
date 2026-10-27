@@ -15,5 +15,12 @@ export default defineConfig({
   server: {
     fs: { strict: false },
   },
+  // One React. The repo root hoists React 19 (pulled in as @graffiticode/l0000-view's peer)
+  // while this package pins 18 locally; without dedupe the Form renders on 18 and l0000-view's
+  // swr imports 19, whose dispatcher react-dom 18 never sets — every hook in it throws
+  // "Cannot read properties of null (reading 'useContext')" and /form renders nothing.
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
   plugins: [react()],
 });

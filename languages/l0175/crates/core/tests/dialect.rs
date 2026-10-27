@@ -30,8 +30,10 @@ async fn compile(ast: &Json) -> graffiticode_l0000::Compilation {
 #[test]
 fn the_lexicon_adds_the_builder_words_and_redefines_nothing() {
     let lexicon = lexicon();
-    assert_eq!(lexicon.len(), Lexicon::base().len() + 122);
+    assert_eq!(lexicon.len(), Lexicon::base().len() + 123);
     assert_eq!(lexicon.get("task-model").unwrap().name, "TASK_MODEL");
+    // Out of the spec, but still a word: stored programs that carry one must parse and unparse.
+    assert_eq!(lexicon.get("title").unwrap().name, "TITLE");
     assert_eq!(lexicon.get("claim").unwrap().arity, 1);
     assert_eq!(lexicon.get("c1-t10").unwrap().name, "TAG");
     assert_eq!(lexicon.get("add"), Lexicon::base().get("add"));
