@@ -300,8 +300,9 @@ function composeProgram(top: any, errors: any[]): any {
   const readabilityWarnings: string[] = [];
   checkReadability(passage, grade, readabilityWarnings);
   const graphWarnings = [...targetWarnings, ...readabilityWarnings, ...validateGraph(ctx, errors)];
-  // `title` is no longer in the lexicon or spec (users never see it), so new programs cannot
-  // author it; kept here so programs that already carry a TITLE node compile unchanged.
+  // `title` is not in the spec (users never see it), so new programs are not steered to author
+  // it; it stays in the lexicon so programs that already carry a TITLE node parse, compile and
+  // unparse unchanged.
   const title = str(top.title);
 
   const items = outcomes.map((o, i) => composeOutcome(o, ctx, graphWarnings, i));

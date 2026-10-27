@@ -84,6 +84,10 @@ const additions = {
   focus: fn2("FOCUS"), // optional forced correct-claim id
   passage: fn2("PASSAGE"), // passage heading
   lines: fn2("LINES"), // passage line strings (auto-indexed)
+  // Not in instructions.md or the spec, so new programs are not steered to author it, but it
+  // stays a word: stored programs that carry `title` must still parse, and unparse needs the
+  // entry to print the TITLE node back (it broke when this was dropped on 2026-10-05).
+  title: fn2("TITLE"),
   target: fn2("TARGET"), // top-level SBAC learning target selector (see targets.ts)
   grade: fn2("GRADE"), // optional top-level grade override; defaults to the target's grade
   stem: fn2("STEM"),

@@ -33,3 +33,10 @@ export class UnauthenticatedError extends HttpError {
     super({ code: 401, message });
   }
 }
+
+// A dependency couldn't be reached: retry later. Not the caller's fault.
+export class UnavailableError extends HttpError {
+  constructor(message) {
+    super({ code: 503, message });
+  }
+}
