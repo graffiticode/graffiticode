@@ -22,4 +22,6 @@ COPY --from=build /usr/src/app/packages/auth/dist packages/auth/dist
 RUN npm ci --omit=dev
 
 EXPOSE 4100
-CMD [ "npx", "@graffiticode/auth" ]
+# node directly, like policy and broker: npx loads npm and resolves the
+# package (it can consult the registry) before the service's own code runs.
+CMD [ "node", "packages/auth/dist/main.js" ]

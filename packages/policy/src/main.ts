@@ -21,6 +21,7 @@ import { KeyManagementServiceClient } from "@google-cloud/kms";
 import { OAuth2Client, GoogleAuth } from "google-auth-library";
 import { importSPKI, exportJWK } from "jose";
 import { createClient as createAuthClient } from "@graffiticode/auth/client";
+import { cacheVerifications } from "@graffiticode/common/verified-tokens";
 import {
   createPolicy,
   createPolicyApp,
@@ -96,7 +97,8 @@ const policy = createPolicy({
 });
 const manager = createConnectionManager({ connections, grants, audit, systemConnections, brokerAdmin });
 const authClient = createAuthClient(authUrl);
-const verifyUser = verifyUserWithRetry(async token => ({ uid: (await authClient.verifyToken(token)).uid }));
+// A token that verified is remembered for up to 60 s (common/verified-tokens).
+const verifyUser = cacheVerifications(verifyUserWithRetry(async token => ({ uid: (await authClient.verifyToken(token)).uid })));
 
 const server = createPolicyApp({
   policy,
