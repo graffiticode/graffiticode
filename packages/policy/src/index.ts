@@ -5,7 +5,7 @@ export { createLocalSigner, issueToken, verifyToken, tokenParts, PROFILES, ISSUE
 export { createMemoryConnectionStore, connectionRefusal } from "./connections.js";
 export { createAudit, createPseudonymizer, validateAuditRecord, requestContextMiddleware, currentRequestId, AUDIT_FIELDS } from "./audit.js";
 export { createCallerIdentity, buildGoogleIdTokenVerifier } from "./caller.js";
-export { createPolicyApp, verifyUserWithRetry, authUnreachable } from "./app.js";
+export { createPolicyApp, verifyUserWithRetry, authUnreachable, withTimeout } from "./app.js";
 export { createKmsSigner, derToJose } from "./kms.js";
 export { createFirestoreConnectionStore, createFirestoreInvocationStore, createFirestorePublicationStore, createFirestoreGrantStore } from "./firestore.js";
 export { createMemoryGrantStore, grantIdFor } from "./grants.js";

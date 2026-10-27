@@ -75,14 +75,29 @@ export const authUnreachable = err => {
     /socket hang up|fetch failed/i.test(String(err?.message));
 };
 
-// Asks auth once more when it couldn't be reached: verifying a token only
-// reads, so a retry is safe.
-export const verifyUserWithRetry = verifyUser => async token => {
+// An answer from auth that doesn't come within `ms` counts as auth being
+// unreachable (code ETIMEDOUT). 2026-10-27 18:52Z: a gateway verify was
+// written to a connection that never answered, and with no timeout it waited
+// out Cloud Run's 300 s; auth logged nothing. The abandoned call is left to
+// fail on its own; its result is ignored.
+export const withTimeout = (promise, ms) => {
+  let timer;
+  const timeout = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => reject(Object.assign(new Error(`auth did not answer within ${ms} ms`), { code: "ETIMEDOUT" })), ms);
+    timer.unref?.();
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
+
+// Asks auth once more when it couldn't be reached (an error, or no answer
+// within `timeoutMs`): verifying a token only reads, so a retry is safe.
+export const verifyUserWithRetry = (verifyUser, { timeoutMs = 5000 } = {}) => async token => {
+  const attempt = () => withTimeout(verifyUser(token), timeoutMs);
   try {
-    return await verifyUser(token);
+    return await attempt();
   } catch (err) {
     if (!authUnreachable(err)) throw err;
-    return verifyUser(token);
+    return attempt();
   }
 };
 

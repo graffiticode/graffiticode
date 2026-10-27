@@ -98,7 +98,7 @@
         }
       ],
       "env": {
-        "AUTH_URL": "https://auth.graffiticode.org",
+        "AUTH_URL": "https://auth-sja7fatcta-uc.a.run.app",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
         "CHAIN_ADMISSION": "all",
         "CHAIN_ADMISSION_CONNECTIONS": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
@@ -396,7 +396,7 @@
         }
       ],
       "env": {
-        "AUTH_URL": "https://auth.graffiticode.org",
+        "AUTH_URL": "https://auth-sja7fatcta-uc.a.run.app",
         "POLICY_FIRESTORE_DB": "policy",
         "POLICY_KMS_KEY_VERSION": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1",
         "POLICY_KMS_KID": "policy-1",
