@@ -7,7 +7,7 @@
 // composition draws an item's foils ONLY from the distractors that target it.
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { parser } from "@graffiticode/parser";
+import { parser, unparse } from "@graffiticode/parser";
 import { lexicon, compiler } from "../dist/index.js";
 
 async function compile(src: string): Promise<{ errors: any[]; data: any }> {
@@ -358,21 +358,31 @@ describe("compose — vocabulary", () => {
     ]);
   });
 
-  it("does not offer title in the lexicon (users never see it)", () => {
-    expect((lexicon as any).title).toBeUndefined();
+  // `title` is out of the spec but stays in the lexicon: dropping it (2026-10-05) left stored
+  // programs that carry one unable to unparse.
+  it("keeps title in the lexicon and spec-free", () => {
+    expect((lexicon as any).title).toMatchObject({ name: "TITLE", arity: 2 });
+    const instructions = readFileSync(new URL("../spec/instructions.md", import.meta.url), "utf8");
+    expect(instructions).not.toMatch(/\btitle\b/);
   });
 
-  it("still echoes a title on programs that already carry one", async () => {
-    const withTitle = { ...lexicon, title: { tk: 1, name: "TITLE", cls: "function", length: 2, arity: 2 } };
+  it("parses, echoes and unparses a title on programs that already carry one", async () => {
     const src = `title "My Assessment"
       ${PASSAGE}
       claims [ claim id "c1" status supported dimension character text "correct inference here ok" cites ["e1"] {} ]
       evidence [ source id "e1" line 1 status directly-supports supports ["c1"] {} ]
       outcomes [ outcome id "q1" type short-text dimension character subject "x" focus "c1"
         stem "What inference can be made about the character? Explain using key details." {} ] {}..`;
-    const ast = await parser.parse("0175", src, withTitle);
-    const data: any = await new Promise((resolve) => compiler.compile(ast, {}, {}, (_err: any, d: any) => resolve(d)));
+    const { data } = await compile(src);
     expect(data.title).toBe("My Assessment");
+    const ast = await parser.parse("0175", src, lexicon);
+    const printed = unparse(ast, lexicon);
+    expect(printed).toContain('title "My Assessment"');
+    const reparsed = await parser.parse("0175", printed, lexicon);
+    const again: any = await new Promise((resolve) =>
+      compiler.compile(reparsed, {}, {}, (_err: any, d: any) => resolve(d)),
+    );
+    expect(again.title).toBe("My Assessment");
   });
 });
 
