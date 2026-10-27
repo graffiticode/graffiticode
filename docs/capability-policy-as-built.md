@@ -904,6 +904,40 @@ Broker and Policy run one minimum instance each (#124, released before the windo
 start of both had made a Broker authorization miss its 5-second limit. The console's Recompile
 wording followed (graffiticode-app #30, `console-rmvedpi6m-7310f4`).
 
+### Failure detection (P1 #2), 2026-10-27
+
+Before this, a supported workflow could fail for days unnoticed. From the contract-v2 cutover to
+2026-10-23, every connection read of a saved L0176 item failed `plan-required`, and nothing
+alerted: the only refusal alert matched `permission`, and the canary ran only by hand.
+
+**What now detects failure, and how each alert was proven to reach the operator:**
+
+| Detection | Where | Proof |
+|---|---|---|
+| *Security audit: unexpected plan/contract refusal*: `conflict` refusals with a plan or contract reason, outside the canary (#180) | graffiticode, `scripts/monitoring.js` | test record, nonce `0eb28da5` |
+| Scheduled canary: Cloud Run job `canary` every 6 h, as `canary-run@` (#184) | graffiticode | runs pass 27/27 |
+| *Canary: run FAILED* (the FAILED line) | graffiticode | test record, nonce `82c852aa`. Also a real run with a fake connection, 23:19Z (`canary-26666`): email and SMS |
+| *Canary: job execution failed* (Cloud Run's failed-execution count) | graffiticode | the same real failing run: email and SMS |
+| *Canary: no passing run in 13 h* | graffiticode | a scratch policy of the same shape (`COMPARISON_LT 1`, `EVALUATION_MISSING_DATA_ACTIVE`, `duration` at least 60 s) fired when its heartbeat stopped, nonce `240a97be`. The real policy read back with those fields |
+| Render-to-outcome check, every 15 min (graffiticode-app #70) | console `/api/internal/render-outcomes` | a `?test=unconfirmed` run (#71) with 3 synthetic beacon-less renders: email and Twilio SMS, nonce `50297f9c` |
+| *Render outcomes: check not running (45 min)* | graffiticode-app (set up by hand) | the same shape as the scratch proof. It fired once, falsely, at creation (no data yet) |
+| SMS beside email on the refusal and canary alerts (`--sms`, #193); graffiticode-app's render-outcome alerts too | both projects | texts arrived for the failing canary run (delayed) |
+
+The induced `plan-required` on a non-canary connection (plan step E3) was skipped by decision.
+The refusal alert's delivery is proven by its test record.
+
+**Also found and fixed while building this:**
+- **False 401s for valid users.** Policy and the gateway mapped a call to auth that never
+  arrived (reset, or hung for 300 s) to 401 "invalid user token", and the gateway then served
+  the owner as anonymous. Now each check times out after 5 s, retries once, and then answers
+  503. The check is also cached for 60 s. Auth keeps 2 warm instances (#185, #186, #188, #190,
+  #191).
+- **Internal job routes ran without the secret.** `corpus-ping`, `corpus-sweep` and
+  `funnel-digest` ran `?dry=1` unauthenticated: paid generations, or the usage funnel. They now
+  require the secret (graffiticode-app #70).
+
+**Open:** a week of scheduled canary passes (from 2026-10-27).
+
 ## 5. Validation evidence and remaining acceptance work
 
 During the 2026-10-02 comparison, local tests passed: Policy 137, Broker 43 (excluding its
