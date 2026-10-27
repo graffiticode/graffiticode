@@ -8,7 +8,7 @@
 // arrives. Runbook: docs/protected-execution.md, "Monitoring".
 //
 //   node scripts/monitoring.js [--email <operator address>]            dry run (default)
-//   node scripts/monitoring.js --apply --email <operator address> --canary-connection <id>
+//   node scripts/monitoring.js --apply --email <operator address> --canary-connection <id> [--sms <+E.164>]
 //   node scripts/monitoring.js --verify-alert --email <operator address> --canary-connection <id>
 //   node scripts/monitoring.js --confirm <nonce> [<nonce> ...] [--settle]
 //   node scripts/monitoring.js --verify-threshold --email <operator address> [--threshold N] [--apply]
@@ -53,7 +53,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DAY = 24 * 3600 * 1000;
 
 export const parse = argv => {
-  const opts = { project: "graffiticode", email: null, days: 7, apply: false, verifyAlert: false, verifyThreshold: false, cleanup: false, settle: false, threshold: SCRATCH_THRESHOLD, confirm: null, canaryConnections: [] };
+  const opts = { project: "graffiticode", email: null, days: 7, apply: false, verifyAlert: false, verifyThreshold: false, cleanup: false, settle: false, threshold: SCRATCH_THRESHOLD, confirm: null, canaryConnections: [], sms: null };
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (key === "--confirm") {
@@ -67,7 +67,7 @@ export const parse = argv => {
     if (key === "--cleanup") { opts.cleanup = true; continue; }
     if (key === "--settle") { opts.settle = true; continue; }
     const value = argv[++i];
-    if (!["--project", "--email", "--days", "--canary-connection", "--threshold"].includes(key) || value === undefined) throw new Error(`unknown or incomplete option ${key}`);
+    if (!["--project", "--email", "--days", "--canary-connection", "--threshold", "--sms"].includes(key) || value === undefined) throw new Error(`unknown or incomplete option ${key}`);
     if (key === "--threshold") opts.threshold = Number(value);
     if (key === "--canary-connection") {
       if (!/^conn-[A-Za-z0-9_-]{1,120}$/.test(value)) throw new Error("--canary-connection must be a connection id");
@@ -75,6 +75,7 @@ export const parse = argv => {
     }
     if (key === "--project") opts.project = value;
     if (key === "--email") opts.email = value;
+    if (key === "--sms") opts.sms = value;
     if (key === "--days") opts.days = Number(value);
   }
   // --verify-threshold takes --apply as the dry-run switch; it is its own run.
@@ -86,6 +87,7 @@ export const parse = argv => {
   if (opts.verifyThreshold && !opts.cleanup && !opts.email) throw new Error("--email is required with --verify-threshold");
   if ((opts.apply || opts.verifyAlert) && !opts.verifyThreshold && !opts.email) throw new Error("--email is required with --apply and --verify-alert");
   if (opts.email && !/^[^@\s]+@[^@\s]+$/.test(opts.email)) throw new Error("--email must be an address");
+  if (opts.sms && !/^\+[1-9]\d{7,14}$/.test(opts.sms)) throw new Error("--sms must be an E.164 number, like +16505550100");
   if ((opts.apply || opts.verifyAlert) && !opts.verifyThreshold && !opts.canaryConnections.length) throw new Error("--canary-connection is required with --apply and --verify-alert");
   if (!(opts.days > 0)) throw new Error("--days must be positive");
   return opts;
@@ -173,7 +175,7 @@ const main = async () => {
   }
 
   if (opts.verifyAlert) {
-    const written = await writeTestRecords({ api, project, email, canaryConnections: opts.canaryConnections, log });
+    const written = await writeTestRecords({ api, project, email, sms: opts.sms, canaryConnections: opts.canaryConnections, log });
     await mkdir(MONITORING_DIR, { recursive: true });
     await writeFile(PENDING, `${JSON.stringify(written, null, 2)}\n`, { mode: 0o600 });
     log(`Each alert's email should reach ${email} within about 5 minutes. Its nonce is the log entry's extracted label "nonce" (shown with the alert's labels, or at the end of its text).`);
@@ -190,7 +192,7 @@ const main = async () => {
   const failed = checks.filter(c => c.problem);
 
   if (!opts.apply) {
-    const { steps } = await plan({ api, project, email, canaryConnections: opts.canaryConnections });
+    const { steps } = await plan({ api, project, email, sms: opts.sms, canaryConnections: opts.canaryConnections });
     log(`\nDry run: --apply${email ? "" : " (with --email for the channel and alert policies)"} would make:`);
     for (const s of steps) log(`  ${s.action} ${s.kind} ${s.name}`);
     if (failed.length) process.exitCode = 1;
@@ -198,7 +200,7 @@ const main = async () => {
   }
   if (failed.length) throw new Error(`refusing to apply: ${failed.map(c => c.name).join(", ")} failed the filter check`);
   log("\nApplying:");
-  const steps = await apply({ api, project, email, canaryConnections: opts.canaryConnections, log });
+  const steps = await apply({ api, project, email, sms: opts.sms, canaryConnections: opts.canaryConnections, log });
   if (steps.every(s => s.action === "unchanged")) log("  nothing to change");
 };
 
