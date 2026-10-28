@@ -194,12 +194,17 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - A concurrent duplicate gets `pending` with the command id, and polls. It never blocks indefinitely.
   - The claim carries a **lease**. If the process dies, the lease expires, and a **recovery owner** takes the command over: the next retry with the same key, or a reconciler.
   - Taking over is safe because the pinned inputs and stable occurrence ids lead it to the same broker receipts. Writes that already happened are replayed from the receipts, not repeated.
-- **Terminal outcomes**, mapped from the broker's:
-  - `completed`: every step succeeded. Carries the recorded result.
-  - `failed`: definitely nothing was written (the broker's `failed`, `packages/broker/src/broker.ts:464`). It is safe to try again with a new key.
-  - `partial`: some steps completed. The broker persists each one (`receipts/{id}/steps/{n}`), and the outcome lists which.
-  - `uncertain`: the broker could not tell whether a write was applied (`packages/broker/src/broker.ts:14-25`).
-- **A retry returns the recorded outcome**, and never upgrades `partial` or `uncertain` to `completed`. Resolving either one is an explicit act: reconcile against the provider, or start a new command with a new key.
+- **Fencing.** An expired lease does not stop the original worker: a paused worker can resume after another has taken over. So every ownership carries a **fencing generation**, which increments on each takeover.
+  - **Every command-record write is conditional on the writer's generation:** installing the snapshot, recording progress, recording the outcome, and replacing the artifact. A worker whose generation is no longer current has its writes refused, and it stops.
+  - **The pinned inputs are installed exactly once**, by compare-and-set: create if absent, under the current generation. A later owner reads the installed snapshot and never replaces it, even if it would have resolved something different.
+  - **Effects already in flight** when ownership changes are covered by the broker, not by the fence. A broker operation that a stale worker started holds its receipt claim. The new owner, presenting the same operation id with the same pinned arguments, gets that operation's recorded outcome, or `uncertain` if it never finished, and never runs it a second time.
+- **Each broker operation has its own outcome**, mapped from the broker's: `completed`, `failed` (that operation wrote nothing, `packages/broker/src/broker.ts:464`), `partial` (some of its steps completed; the broker persists each one at `receipts/{id}/steps/{n}`), or `uncertain` (`packages/broker/src/broker.ts:14-25`). The command record keeps **every** operation's outcome, not just the last one.
+- **The command's outcome aggregates its operations:**
+  - `completed`: every operation completed. Carries the recorded result.
+  - `failed`: **no write happened anywhere in the command.** Every operation `failed`, or none was reached. Only then is it safe to try again with a new key.
+  - `uncertain`: any operation is `uncertain`. Uncertainty is never dropped while any write's outcome remains unknown.
+  - `partial`: otherwise. At least one write happened, and at least one operation did not complete. This includes an earlier save that completed followed by a later one that `failed`, the two-save case L0176 already tests (`languages/l0176/packages/core/src/brokered.test.ts:401`).
+- **A retry returns the recorded outcome**, and never upgrades `partial` or `uncertain` to `completed`. Resolving either one is an explicit act: reconcile against the provider, or start a new command with a new key. A new command repeats only the operations whose recorded outcome is `failed`; repeating any other can duplicate a write.
 
 **Command outcomes are not artifacts.**
 - A command's outcome is stored in its command record.
@@ -214,10 +219,23 @@ Tasks compose into chains (`id0+id1+id2`) that compile right to left; each stage
 - Each stage below the head passes its compiled *model* to the stage on its left, never an interpreted result.
 - Upstream stages therefore stay pure and remain cached by task id, as today.
 - Whatever an upstream stage contributes is part of the model the head receives. That includes things that need interpreting, such as a fetch an L0185 stage describes. Interpreting it is the head interpreter's job.
-- A language whose `get` should honor such contributions must understand them, for example by applying the same fetch semantics. The platform does not interpret intermediate stages on the head's behalf.
-- The composed result's `cache` class and `expiresAt` are the head interpreter's to set (§7).
+- The platform does not interpret intermediate stages on the head's behalf.
 
-**Existing exception:** when every task is L0158, the form is served as L0176 (`RENDER_LANG` in `packages/api/src/routes/form.js:14`). The head model is interpreted by another language. That language-selection rule should move into the interpreter declaration (§11) instead of staying hard-coded in the form route.
+**Deferred computations must survive compilation.** "Part of the model the head receives" is not automatic.
+- **Today a compiler consumes its input data and can lose a deferred value.** `get "amount" (data {})` returns `42` for resolved input. For a fetch descriptor, it succeeds and returns `undefined`. The head model then holds neither the fetch nor the field access, and no interpreter can recover them.
+- **A deferred value gets an explicit representation.** It is a tagged node in the model, for example `{"_deferred": {...}}`, with a reserved tag that no ordinary data can carry.
+- **The compiler preserves what it does with that value.** An operation applied to a deferred value does not evaluate. It produces a deferred expression: the operation plus its deferred operand, a *residual* the head interpreter evaluates once the input is resolved. For example, `get "amount"` on a deferred fetch becomes `deferred(get "amount", fetch)`.
+- **The mechanism belongs in the L0000 cores**, not in each language. The cores are the code every language does inherit: `@graffiticode/l0000` in Node, the kernel crate in Rust. Their evaluators lift operations over deferred values once, for every language.
+- **Unsupported composition is rejected, never silently lost.**
+  - A language declares, in the registry (§11), which deferred kinds it accepts as input and which operations it can residualize.
+  - If a compile meets a deferred value it doesn't accept, or an operation it can't residualize, the compile fails with an explicit error. It never yields `undefined`.
+  - Until a language declares support, that strict rejection is its behavior. Phase 1 ships the rejection; residualization follows per language.
+
+**Producer and interpreter pairs.**
+- When every task is L0158, the form is served as L0176 (`RENDER_LANG` in `packages/api/src/routes/form.js:14`), so a model one language produced is interpreted by another.
+- That generalizes into **registry-approved producer → interpreter pairs**. By default, a language interprets its own models. The registry adds the approved cross-language pairs, starting with L0158 → L0176.
+- One mapping drives both routing (which language's `get` runs for a head model, replacing the hard-coded `RENDER_LANG`) and provenance validation (Phase 1). The two can therefore never disagree.
+- The composed result's `cache` class and `expiresAt` are the head interpreter's to set (§7).
 
 ## 6. Interpreter behavior is compositional, not a fixed enum
 
@@ -310,6 +328,21 @@ Expiry and cacheability are different properties. A signed Learnosity request an
 - The boolean `cache: false` envelope field maps to `no-store` until languages move to the classification.
 
 For a `shared` result, the cache key must cover more than the model hash. Where they apply, it includes the execution ID, state version, and interpreter/configuration version.
+
+### Cutover from today's cache
+
+Server-side versioned keys are not enough to cut over. Responses already cached elsewhere can't be invalidated from the server:
+- Every cacheable `/data?id=…` response today is sent `max-age=31536000, immutable`. Browsers and the CDN may hold it for a year under its URL.
+- Existing Firestore `compiles/` entries for L0185 contain fetched output, not the fetch model the new compiler produces.
+
+So the cutover follows the L0158 compile-generation precedent (`packages/api/src/generation.js`):
+1. **A versioned request URL.** Interpreted results are served under URLs that carry the interpreter generation (a `generation` parameter, as L0158 uses). `/form` builds the `/data` URL (§8), so forms move to the new generation by themselves. A URL that browsers and the CDN have never cached can't be answered from those caches.
+2. **A generation in the store key.** Firestore compile entries are keyed by the generation (`generationKey(id, generation)`, as for L0158), so the new code never reads an old entry.
+3. **Legacy entries are rejected.** An entry without the model envelope (Phase 1) is legacy. It is recompiled, never served as a model, so fetched L0185 output is never mistaken for a fetch model.
+4. **Invalidation at rollout.**
+   - Purge the CDN's cache for `/data` once the new generation is live.
+   - Browser copies under old URLs can't be purged. They age out, and nothing the platform generates links to them any more.
+   - Old URLs embedded elsewhere, such as agents' saved links, keep returning their old, still-valid data until they expire. Only a new URL gets the new behavior.
 
 `expiresAt` from the interpreter should be authoritative for the projection's lifetime, subject to platform safety margins and security limits. Language-level TTL defaults and task-level overrides are possible future conveniences, but neither should extend a resource beyond its actual expiry. Task cache policy should be metadata rather than changes to program code where possible.
 
@@ -428,7 +461,7 @@ For identity languages, `get` returns the model and unsupported operations fail 
   - The **model envelope** carries provenance only: language, task id, model digest, compiler/configuration version, `REGISTRY_VERSION`. It names no caller, invocation or admission, so it is reusable (§5, "Immediate commands").
   - The **result envelope** carries `cache` (§7), `expiresAt`, refresh metadata the consumer can read (which authority to refresh under, and whether a refresh is allowed once the content has started), and, for a command, its outcome (§5).
 - Define admission separately from provenance:
-  - A `get` accepts a model whose provenance matches the interpreting language and `REGISTRY_VERSION`.
+  - A `get` accepts a model only if its producing language and the interpreting language are an approved pair (§5, "Producer and interpreter pairs"), and its `REGISTRY_VERSION` matches. The default pair is a language with itself.
   - A `start` additionally needs a command admission bound to the model's digest.
 - Add the interpreter declaration to the protected registry, covering:
   - identity or not;
@@ -463,7 +496,8 @@ For identity languages, `get` returns the model and unsupported operations fail 
   - **Frozen on submission.** Once a respondent submits answers, their assignment never changes.
   - **No external effect and no business transaction.** Only the assignment record is written, so it stays a `get` rather than a `start`.
   - **Classified `private`**, since it depends on the respondent.
-  - If even balancing across versions isn't required, a stateless draw (a hash of item id and respondent) gives the same stability with no write at all.
+  - **Keep the survey definition answers were given against.** Freezing the assigned version *identifier* isn't enough: a later revision can modify or remove that version. A submission records the digest of the immutable survey model it was answered against, and that model is retained as long as the answers are. So removed or changed content can still be rendered and validated later.
+  - **A stateless draw is weaker.** A hash of item id and respondent needs no write, but it changes assignments whenever the available version set changes. It gives the same revision stability only when hashed over a fixed **assignment epoch**: an immutable candidate set that a revision never changes, and that is replaced only by an explicit new epoch. Use it only if balancing across versions isn't required.
 - Audit grant enforcement and add observability across compile, interpret and form.
 
 **Deferred — durable executions.**
@@ -480,6 +514,8 @@ Phases 1–3 are done when tests show:
    - Only the head is interpreted.
    - Upstream stages pass compiled models and stay cached by task id.
    - The head interpreter receives an L0185 stage's model and honors its fetches, or reports that it doesn't support them. The platform never interprets an intermediate stage.
+   - An operation applied to a deferred input either yields a residual the head interpreter evaluates correctly (`get "amount"` over a fetch gives the fetched amount), or fails the compile. It never yields `undefined`.
+   - A head model is interpreted only by an approved producer → interpreter pair. L0158 → L0176 passes; an unapproved pair is refused at both routing and provenance.
 2. **Commands.**
    - A `start` without an idempotency key is refused.
    - A retry with the same key and input returns the recorded outcome without new external writes.
@@ -487,6 +523,8 @@ Phases 1–3 are done when tests show:
    - Concurrent duplicates execute once; the second caller sees `pending`, then the outcome.
    - A command that depends on fetched data, whose first attempt loses its response, is retried with the pinned snapshot. It reaches the same broker receipts, not `operation-id-reused`.
    - A process killed after the claim is recovered when its lease expires, without repeating completed writes.
+   - An original worker that resumes after a takeover has its snapshot, progress, outcome and artifact writes refused, and the pinned snapshot is never replaced.
+   - With two saves, where the first completes and the second fails, the command is `partial`, never `failed`. A follow-up command repeats only the failed save.
    - `failed`, `partial` and `uncertain` are returned as such on retry, never as `completed`, and none of them replaces the current artifact.
    - `start` runs only intents present in the model its admission's digest names.
 3. **Artifacts and publications.**
@@ -510,7 +548,12 @@ Phases 1–3 are done when tests show:
    - Restarts don't change it.
    - A revision that keeps the version keeps the assignment.
    - Submitted answers freeze it.
-8. **Compatibility.** The View's edit → `POST /compile` path returns the same interpreted result as `GET /data`, and static languages' output is unchanged.
+   - Answers submitted against a version that a later revision removes can still be rendered and validated.
+8. **Cutover.**
+   - After rollout, forms load results from generation-scoped URLs.
+   - No legacy compile entry is served as a model.
+   - The CDN holds no pre-cutover `/data` entry for a migrated language.
+9. **Compatibility.** The View's edit → `POST /compile` path returns the same interpreted result as `GET /data`, and static languages' output is unchanged.
 
 ## 13. Open design questions
 
@@ -523,7 +566,7 @@ Questions that block Phases 1–3:
 5. How do per-viewer signed resources work when one item is viewed through several connections?
 6. Where is the command record stored (§5), and how are `partial` and `uncertain` outcomes reconciled against the provider?
 7. Where does an L0182 respondent's assignment state live, who may read it, and what identifies a respondent who isn't signed in?
-8. How does a head language declare which upstream model contributions (such as L0185 fetches) it honors? Is honoring them shared library code or per-language?
+8. What is the exact representation of a deferred value and of a residual expression, and which operations must the L0000 cores lift first?
 9. What is the lease length for a `pending` command, and who is the recovery owner when no retry arrives?
 
 Questions deferred with durable executions:
@@ -559,7 +602,10 @@ Questions deferred with durable executions:
   - `pending`, then `completed`, `failed`, `partial` or `uncertain`, never upgraded on retry.
 
   Command outcomes are separate from artifacts.
-- *(Proposed)* **Separate model provenance from command admission.** Models name no caller and are reusable.
+- *(Proposed)* **Separate model provenance from command admission.** Models name no caller and are reusable. Provenance is validated against registry-approved producer → interpreter pairs, the same mapping that routes interpretation.
+- *(Proposed)* **Represent deferred computations explicitly.** Upstream contributions survive compilation as deferred values and residual expressions, lifted by the L0000 cores. Unsupported composition fails the compile and is never silently lost.
+- *(Proposed)* **Aggregate command outcomes across all broker operations.** `failed` means no write anywhere in the command, and uncertainty is never dropped. Ownership changes are fenced by generation, and pinned inputs are installed once.
+- *(Proposed)* **Cut over with a new interpreter generation**, in both URLs and store keys, following L0158's compile generation. Legacy entries are rejected, and the CDN is purged at rollout.
 - *(Proposed)* **`shared` is not public.** Cache-Control visibility follows the request (public only for anonymous reads), independently of the cache class.
 - *(Proposed)* **L0182's assignment is the one declared get-or-create exception to a read-only `get`.** It is atomic, durable, stable across revisions, and frozen on submission.
 - *(Proposed)* **Keep artifact and publication reads.** `get` interprets the selected artifact under the existing authority. A missing artifact never triggers an implicit run.
