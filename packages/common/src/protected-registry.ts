@@ -48,6 +48,26 @@ export const REGISTRY_VERSION = 8;
 // security review. The default is none: a version not listed is incompatible.
 export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([]);
 
+// A registry bump is rolled out across services, not swapped at once
+// (docs/graffiticode-interpreter-plan.md, P1b). Policy and Broker deploy
+// first with the new version and this window naming the old one, so
+// compilers still reporting it, plans admitted under it and tokens minted
+// for it keep working while compilers and the API catch up. A later release
+// empties the window. List a version here only when every function and
+// operation it registered keeps its meaning in the current registry: tokens
+// it covers are interpreted under the current tables. Each plan keeps the
+// version it was admitted under, and a receipt binds that version, so the
+// two are never interchangeable. The default is none.
+export const REGISTRY_WINDOW: readonly number[] = Object.freeze([]);
+
+// Whether `version` may still execute: the current version, or one in the
+// window.
+export const isAcceptedRegistryVersion = (
+  version: unknown,
+  { current = REGISTRY_VERSION, window = REGISTRY_WINDOW }: { current?: number, window?: readonly number[] } = {},
+): boolean =>
+  version === current || (Number.isInteger(version) && window.includes(version as number));
+
 // Whether an artifact made under `version` may be served now: the current
 // version, or one the current version declares compatible.
 export const isArtifactCompatible = (

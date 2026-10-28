@@ -44,6 +44,8 @@
 
 import {
   REGISTRY_VERSION,
+  REGISTRY_WINDOW,
+  isAcceptedRegistryVersion,
   isOperationAllowed,
   protectedFunctionsForLang,
   systemPreviewFunctionsForLang,
@@ -108,7 +110,11 @@ export const createPolicy = ({
   // The per-instance bucket on system preview mints (config.js
   // parseSystemSigningLimits), on the same clock.
   systemSigning = DEFAULT_SYSTEM_SIGNING,
+  // The registry this instance runs under, and the earlier versions it still
+  // accepts during a bump's rollout (P1b). Injectable for tests.
+  registryVersion = REGISTRY_VERSION, registryWindow = REGISTRY_WINDOW,
 }) => {
+  const acceptedRegistry = v => isAcceptedRegistryVersion(v, { current: registryVersion, window: registryWindow });
   // No default: a policy built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createPolicy needs a protectedSwitch");
   const systemSignings = createTokenBucket({ perMinute: systemSigning?.perMinute, burst: systemSigning?.burst, now });
@@ -319,7 +325,7 @@ export const createPolicy = ({
       inv: claims.inv,
       stg: stage,
       pub: claims.pub,
-      rv: REGISTRY_VERSION,
+      rv: registryVersion,
       fns: allowed,
       // A publication's v2 binding is the publication itself (`pub`).
       cv: CONTRACT_VERSION,
@@ -362,11 +368,14 @@ export const createPolicy = ({
     if (!plan || plan.invocationId !== invocationId || !pinned || pinned.lang !== lang) return { refusal: "plan-binding-mismatch" };
     if (manifestProblems(manifest, stage).length || !sameStage(manifest, pinned)) return { refusal: "plan-binding-mismatch" };
     if (!(await revisionAvailable(lang, pinned.revision))) return { refusal: "pinned-revision-unavailable" };
-    return { planDigest: claims.pld, stage: pinned };
+    // A plan keeps the registry version it was admitted under (P1b); once
+    // that version leaves the window, nothing new executes under it.
+    if (!acceptedRegistry(plan.registryVersion)) return { refusal: "registry-version-changed" };
+    return { planDigest: claims.pld, stage: pinned, registryVersion: plan.registryVersion };
   };
 
   const snapshot = async ({ caller, user, lang, connectionId, fns, invocationToken, stage, admissionToken = null, manifest = null }) => {
-    const record = { event: "snapshot", uid: user?.uid, lang, connectionId, registryVersion: REGISTRY_VERSION, callerRole: caller?.role };
+    const record = { event: "snapshot", uid: user?.uid, lang, connectionId, registryVersion, callerRole: caller?.role };
     // The user is verified; the connection is checked against it below, as
     // for anyone.
     await requireProtectedExecution(record, { uid: user?.uid, connectionId });
@@ -425,7 +434,7 @@ export const createPolicy = ({
       lang,
       inv: invocationId,
       stg: stage,
-      rv: REGISTRY_VERSION,
+      rv: bound ? bound.registryVersion : registryVersion,
       fns: allowed,
       ...(bound ? { cv: CONTRACT_VERSION, pld: bound.planDigest, bind: stageBinding(bound.stage) } : { cv: reading ? CONTRACT_VERSION : 1 }),
     });
@@ -459,7 +468,7 @@ export const createPolicy = ({
   // the system-preview functions and is marked `sys`, which mint confines to
   // them.
   const previewSession = async ({ caller, lang }) => {
-    const record = { event: "preview-session", lang, registryVersion: REGISTRY_VERSION, callerRole: caller?.role };
+    const record = { event: "preview-session", lang, registryVersion, callerRole: caller?.role };
     await requireProtectedExecution(record);
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== lang) return deny("caller-language-mismatch", record);
     if (!isLang(lang)) return deny("bad-request", record);
@@ -484,7 +493,7 @@ export const createPolicy = ({
       inv: systemInvocation,
       stg: "preview",
       sys: true,
-      rv: REGISTRY_VERSION,
+      rv: registryVersion,
       fns,
       // A system session's v2 binding is the system connection itself.
       cv: CONTRACT_VERSION,
@@ -556,7 +565,7 @@ export const createPolicy = ({
       callerRole: caller?.role,
     };
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== session.lang) return deny("caller-language-mismatch", record);
-    if (session.rv !== REGISTRY_VERSION) return deny("registry-version-changed", record);
+    if (!acceptedRegistry(session.rv)) return deny("registry-version-changed", record);
     if (!Array.isArray(session.fns) || !session.fns.includes(fn)) return deny("fn-not-in-session", record);
     if (!isOperationAllowed({ lang: session.lang, fn, op, backend: session.backend })) {
       return deny("operation-not-allowed", record);
@@ -675,7 +684,7 @@ export const createPolicy = ({
     // arguments, under this registry.
     if (claims.op !== op) return deny("operation-mismatch", record);
     if (claims.argd !== argsDigest) return deny("args-mismatch", record);
-    if (claims.rv !== REGISTRY_VERSION) return deny("registry-version-changed", record);
+    if (!acceptedRegistry(claims.rv)) return deny("registry-version-changed", record);
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
       return deny("operation-not-allowed", record);
     }
@@ -744,7 +753,7 @@ export const createPolicy = ({
   // is pinned: its revision must be approved for its language at one
   // consistent read, together with the connection and grants.
   const admit = async ({ caller, user, invocationToken, taskIds, stages }) => {
-    const record = { event: "admission", uid: user?.uid, callerRole: caller?.role, registryVersion: REGISTRY_VERSION };
+    const record = { event: "admission", uid: user?.uid, callerRole: caller?.role, registryVersion };
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (!user?.uid) return deny("no-user", record);
     if (typeof invocationToken !== "string") return deny("bad-request", record);
@@ -769,10 +778,25 @@ export const createPolicy = ({
     }
     if (JSON.stringify(invocationChain) !== JSON.stringify(taskIds)) return deny("plan-binding-mismatch", record);
     // A stage reports the registry version its language's declarations were
-    // written for: the current one, or 0 for a language with none (L0000),
-    // which needs no redeploy when the registry changes.
-    const expectedRegistry = m => (Object.keys(protectedFunctionsForLang(m.lang) || {}).length ? REGISTRY_VERSION : 0);
-    if (stages.some(m => m.registryVersion !== expectedRegistry(m))) return deny("registry-version-mismatch", record);
+    // written for, or 0 for a language with none (L0000), which needs no
+    // redeploy when the registry changes. A plan has one version (P1b): a
+    // retry keeps the one its plan was admitted under; a new plan takes its
+    // protected stages' version, which must be accepted and shared by all of
+    // them, or the instance's when it has none.
+    const isProtectedLang = lang => Object.keys(protectedFunctionsForLang(lang) || {}).length > 0;
+    if (stages.some(m => !isProtectedLang(m.lang) && m.registryVersion !== 0)) return deny("registry-version-mismatch", record);
+    const reported = stages.filter(m => isProtectedLang(m.lang)).map(m => m.registryVersion);
+    const stored = invocation.planDigest ? await invocations.getPlan(invocation.planDigest) : null;
+    let planRegistry;
+    if (stored) {
+      planRegistry = stored.registryVersion;
+      if (!acceptedRegistry(planRegistry)) return deny("registry-version-changed", record);
+    } else {
+      planRegistry = reported.length ? reported[0] : registryVersion;
+      if (!acceptedRegistry(planRegistry)) return deny("registry-version-mismatch", record);
+    }
+    if (reported.some(v => v !== planRegistry)) return deny("registry-version-mismatch", record);
+    Object.assign(record, { registryVersion: planRegistry });
     // A function the registry doesn't list for the stage's language can't be
     // admitted; a language without protected functions requires none.
     for (const m of stages) {
@@ -785,7 +809,7 @@ export const createPolicy = ({
       taskIds,
       connectionId,
       inputDigest: invocation.inputDigest,
-      registryVersion: REGISTRY_VERSION,
+      registryVersion: planRegistry,
       stages: stages.map(pinnedStage),
     };
     const digest = digestOf(plan);

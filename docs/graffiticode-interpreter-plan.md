@@ -60,7 +60,7 @@ Reasons:
       - **Session and execution tokens.** Their `rv` is the plan's version.
       - **Broker.** It compares a receipt's version with the token's `rv`, which is the plan's, never with the global version.
     - **The two versions are never interchangeable.** The version is part of the receipt binding. An `N` token matches only `N` receipts and an `N+1` token only `N+1` receipts, so an `N+1` execution can never replay or overwrite an `N` receipt, or the reverse.
-  - **Replay after contract.** Once `N` is dropped, Policy mints no new session or execution tokens for `N` plans, so nothing new executes under `N`. A retry of an `N` invocation still needs its recorded outcome:
+  - **Replay after contract** *(not yet implemented; a follow-up to the window, per-plan versions and the version check)*. Once `N` is dropped, Policy mints no new session or execution tokens for `N` plans, so nothing new executes under `N`. A retry of an `N` invocation still needs its recorded outcome:
     - Policy issues a **replay-only** token for that invocation's plan.
     - The broker accepts it only to return a recorded receipt. It refuses with no provider call when no receipt exists.
     - Replay-only tokens get their own `typ`, so they can never authorize a step.

@@ -49,6 +49,8 @@ jobs:
         run: npm run test:egress-proxy
       - name: Egress clients and bootstraps (ISOLATE-01)
         run: node scripts/check-egress-clients.js
+      - name: Registry version declarations agree
+        run: node scripts/check-registry-version.js
       - name: Candidate verify helper tests
         run: npm run test:verify
       - name: Operator script tests

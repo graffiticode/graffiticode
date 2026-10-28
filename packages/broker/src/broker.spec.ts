@@ -471,6 +471,37 @@ describe("preview signing", () => {
   });
 });
 
+// P1b (docs/graffiticode-interpreter-plan.md): during a bump's window Broker
+// runs the new registry and still executes tokens minted under the old one;
+// a receipt keeps the version it was written under, so the two never
+// substitute for each other.
+describe("the registry window (P1b)", () => {
+  const NEXT = REGISTRY_VERSION + 1;
+  const bumped = (window: number[]) => {
+    const p = createPolicy({ ...policyDeps, registryVersion: NEXT, registryWindow: window });
+    return { p, b: createBroker({ ...brokerDeps, authorize: localAuthorizer(p), registryVersion: NEXT, registryWindow: window }) };
+  };
+
+  it("executes a token minted under the previous version while it is in the window, and refuses it after", async () => {
+    const token = await previewToken();
+    await expect(bumped([REGISTRY_VERSION]).b.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }))
+      .resolves.toBeDefined();
+    await refused(bumped([]).b.execute({ caller: L0176, token, op: "learnosity.sign-questions-preview", payload: PREVIEW }), "registry-version-mismatch");
+  });
+
+  it("never lets an operation under the new version match a receipt written under the old one", async () => {
+    await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    const { p, b } = bumped([REGISTRY_VERSION]);
+    // The same invocation and occurrence, so the same operation id, minted under the new version.
+    const { invocationToken } = await p.allocateInvocation({
+      caller: { role: "gateway" }, user: { uid: OWNER }, connectionId: "conn-1", taskId: "task-1", inputDigest: argsDigest({}), idempotencyKey: "job-1"
+    });
+    const { sessionToken } = await p.snapshot({ caller: L0176, user: { uid: OWNER }, lang: "0176", connectionId: "conn-1", fns: ["save-to-itembank"], invocationToken, stage: "s0" });
+    const { executionToken } = await p.mint({ caller: L0176, sessionToken, fn: "save-to-itembank", op: "learnosity.write-items", occurrenceId: "n1.0", argsDigest: argsDigest(WRITE) });
+    await refused(b.execute({ caller: L0176, token: executionToken, op: "learnosity.write-items", payload: WRITE }), "receipt-registry-version-mismatch");
+  });
+});
+
 // WRITE-02 (W5 stage 3): the claim records the write's evidence before any
 // provider request, and every record Broker sends carries the operation's mark.
 describe("write evidence and the operation mark", () => {

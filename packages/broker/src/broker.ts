@@ -67,7 +67,7 @@
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
 import { randomUUID } from "node:crypto";
-import { isOperationAllowed, isStepRegistered, viewSafeFunctionsForLang, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { isOperationAllowed, isStepRegistered, viewSafeFunctionsForLang, REGISTRY_VERSION, REGISTRY_WINDOW, isAcceptedRegistryVersion } from "@graffiticode/common/protected-registry";
 import { verifyToken, provenanceRefusal, opidParts, MAINTENANCE, admission } from "@graffiticode/policy";
 import { SUPPORTED_CONTRACT_VERSIONS } from "@graffiticode/common/contract";
 import { argsDigest } from "./canonical.js";
@@ -157,6 +157,9 @@ export const createBroker = ({
   // "preview-consumer" signs only with it; with none for its backend, it's
   // refused.
   previewConnections = {} as Record<string, string>,
+  // The registry this instance runs under, and the earlier versions it still
+  // accepts during a bump's rollout (P1b). Injectable for tests.
+  registryVersion = REGISTRY_VERSION, registryWindow = REGISTRY_WINDOW as readonly number[],
 }) => {
   // No default: a broker built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
@@ -341,9 +344,11 @@ export const createBroker = ({
   };
 
   const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
-    // Never reinterpret a token under a different registry than it was minted
-    // for.
-    if (claims.rv !== REGISTRY_VERSION) return refuse("registry-version-mismatch");
+    // A token is interpreted only under its own registry version or one the
+    // window says keeps its meaning (P1b). The receipt binding below carries
+    // the token's version, so a write under one version never matches a
+    // receipt recorded under another.
+    if (!isAcceptedRegistryVersion(claims.rv, { current: registryVersion, window: registryWindow })) return refuse("registry-version-mismatch");
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
       return refuse("operation-not-allowed");
