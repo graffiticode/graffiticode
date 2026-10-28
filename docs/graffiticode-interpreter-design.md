@@ -218,7 +218,19 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
 - **A repair command is its own kind of command.** It names the original command, and its own idempotency key binds `(original command id, selected occurrence ids)`.
 - **It selects only intents whose recorded outcome is `failed`**, by occurrence id. Policy refuses to admit it if the selection includes any operation recorded `completed`, `partial` or `uncertain`. Those need reconciliation against the provider first, which records the operation's actual outcome.
 - **It runs against the original command's pinned snapshot and model digest**, under a new invocation, so its operations get new operation ids, and its outcome is aggregated on its own.
-- The other route remains available: compile a model containing only the remaining intents, admit it, and `start` it as an ordinary command.
+- **Repair eligibility is claimed in a shared repair ledger.** Checking the original's `failed` outcome is not enough on its own:
+  - Two repairs with different keys could both pass the check and run the same intent under different operation ids.
+  - A later repair could re-run an intent an earlier repair already completed, because the *original* outcome stays `failed`.
+  - So the ledger is keyed by `(original command id, occurrence id)`, independently of any repair's idempotency key.
+  - Before admission, a repair claims every occurrence it selects in one transaction. It succeeds only if each one's original outcome is `failed` and it has no ledger entry, or only entries whose repair ended `failed`.
+  - An occurrence whose latest repair is `pending`, `completed`, `partial` or `uncertain` blocks any other repair from selecting it. A `pending` repair's lease and fencing generation work exactly as for commands.
+  - The ledger entry records the repair's outcome for that occurrence, so the ledger is the occurrence's current outcome across the original and every repair.
+- **Repairs go only through the ledger.** Compiling a model that contains just the remaining intents and starting it as an ordinary command would bypass the ledger, and could repeat an intent a repair is also running. It is not a supported repair route.
+- **Artifact publication after a repair.**
+  - A repair never publishes its own outputs as the artifact: a completed subset must not replace the full item result.
+  - Once the ledger shows every occurrence of the original command `completed`, through the original or any repair, the platform **assembles** the artifact. It takes each occurrence's output from whichever run completed it, in the model's occurrence order, and publishes that.
+  - The assembly is written under the latest repair's fencing generation, and only if the artifact's current version is still the one the original command found. A newer completed command for the same item supersedes it, and the assembly is discarded rather than overwriting newer work.
+  - Until every occurrence has completed, the current artifact stays in place.
 
 **Command outcomes are not artifacts.**
 - A command's outcome is stored in its command record.
@@ -412,27 +424,36 @@ Conceptual read path for `/data` once durable executions exist:
 
 ```ts
 async function getFormResult(itemId, executionId, viewer) {
-  const model = await resolveCompiledModel(itemId);
+  const model = await resolveCompiledModel(itemId);   // head model, with its envelope
   const execution = await resolveExecution(model, executionId);
-  const key = resultCacheKey(model, execution, viewer);
 
-  if (isIdentityInterpreter(model.lang)) return model;
+  // Registry-approved producer -> interpreter pair (§5), e.g. L0158 -> L0176.
+  // The same mapping validates provenance; an unapproved pair is refused.
+  const interpreter = interpreterFor(model.envelope.producer);
+  validateProvenance(model.envelope, interpreter);
 
-  const cached = await resultCache.get(key);
+  // Identity only when the interpreter is identity AND nothing is deferred.
+  if (isIdentity(interpreter) && !model.envelope.hasDeferred) return model.data;
+  if (isIdentity(interpreter)) throw new ResidualModelRefused(model.envelope);
+
+  const key = resultCacheKey(model, execution, interpreter);
+  const cached = await resultCache.get(key, viewer);   // visibility-checked
   if (cached && isCurrentAndUnexpired(cached, execution)) return cached.data;
 
-  const fresh = await interpret(model.lang, {
+  const fresh = await interpret(interpreter, {
     operation: "get",
     model,
     executionId: execution?.id,
     context: contextFor(viewer)
   });
-  await resultCache.putIfCurrent(key, fresh);
+  if (isStorable(fresh.cache, interpreter)) {          // §7: class capped by the registry
+    await resultCache.putIfCurrent(key, fresh);
+  }
   return fresh.data;
 }
 ```
 
-This is conceptual pseudocode. `resultCache` holds only results that may be cached (see §7). A credential-bearing result skips both the lookup and the `put`. In a distributed system, the API must ensure it knows the current execution version (or uses an equivalent versioned cache protocol); merely trusting a stale local version would make the validity test unreliable.
+This is conceptual pseudocode. `resultCache` holds only results that may be cached (see §7). A credential-bearing result skips both the lookup and the `put`. For a connection or publication view, `resolveCompiledModel` is replaced by the artifact selection in this section. In a distributed system, the API must ensure it knows the current execution version (or uses an equivalent versioned cache protocol); merely trusting a stale local version would make the validity test unreliable.
 
 The form can receive updates through SSE, WebSockets, or polling. Reading a result and subscribing to updates are separate from `start` and `dispatch`. Local ephemeral UI state (hover, open menu, etc.) remains in the browser.
 
@@ -568,6 +589,9 @@ Phases 1–3 are done when tests show:
    - An original worker that resumes after a takeover has its snapshot, progress, outcome and artifact writes refused, and the pinned snapshot is never replaced.
    - With two saves, where the first completes and the second fails, the command is `partial`, never `failed`.
    - A repair command that selects the failed save runs only that save. A repair that selects the completed one is refused. A plain new `start` with a new key is not treated as a repair.
+   - Two concurrent repairs with different keys that select the same failed save: one claims it and runs, and the other is refused. Exactly one write results.
+   - A second repair after the first repair completed that save is refused, even though the original outcome is still `failed`.
+   - After the repair completes, the artifact is assembled from the original's completed save and the repaired save, and contains both. A repair that completes while a newer command has already replaced the artifact doesn't overwrite it.
    - A stale worker that resumes after a takeover can't start a new operation (authorize-execution refuses its generation). An operation it claimed before being refused appears in the command's terminal outcome.
    - `failed`, `partial` and `uncertain` are returned as such on retry, never as `completed`, and none of them replaces the current artifact.
    - `start` runs only intents present in the model its admission's digest names.
@@ -654,6 +678,8 @@ Questions deferred with durable executions:
   - Identity never applies to a residual model.
   - Residualization is its own milestone.
 - *(Proposed)* **A repair command, not a new key, re-runs failed intents.** It is bound to the original command and selects only `failed` operations.
+  - Eligibility is claimed atomically in a repair ledger keyed by `(original command, occurrence)`, shared across repair keys.
+  - The artifact is assembled from all completed occurrences once every one has completed, never from a repair's subset.
 - *(Proposed)* **Fence new effects at authorization.** Execution tokens carry the command's fencing generation, and the broker's receipt claim decides any race.
 - *(Proposed)* **Aggregate command outcomes across all broker operations.** `failed` means no write anywhere in the command, and uncertainty is never dropped. Ownership changes are fenced by generation, and pinned inputs are installed once.
 - *(Proposed)* **Cut over with a new interpreter generation**, in both URLs and store keys, following L0158's compile generation. The shared View carries the generation, legacy entries are rejected, and the CDN is purged at rollout.
