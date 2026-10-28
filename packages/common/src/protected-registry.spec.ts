@@ -1,5 +1,7 @@
 import {
   ARTIFACT_COMPATIBLE_VERSIONS,
+  REGISTRY_WINDOW,
+  isAcceptedRegistryVersion,
   isArtifactCompatible,
   OPERATIONS,
   PROTECTED_FUNCTIONS,
@@ -32,6 +34,22 @@ describe("protected-registry", () => {
     expect(isArtifactCompatible(REGISTRY_VERSION + 1, [REGISTRY_VERSION - 1])).toBe(false);
     expect(isArtifactCompatible(undefined, [REGISTRY_VERSION - 1])).toBe(false);
     expect(isArtifactCompatible(String(REGISTRY_VERSION))).toBe(false);
+  });
+
+  // P1b: the window names only earlier versions, and accepts nothing else.
+  it("accepts the current version and only the earlier versions its window names", () => {
+    for (const v of REGISTRY_WINDOW) {
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeLessThan(REGISTRY_VERSION);
+      expect(isAcceptedRegistryVersion(v)).toBe(true);
+    }
+    expect(isAcceptedRegistryVersion(REGISTRY_VERSION)).toBe(true);
+    const NEXT = REGISTRY_VERSION + 1;
+    expect(isAcceptedRegistryVersion(REGISTRY_VERSION, { current: NEXT, window: [] })).toBe(false);
+    expect(isAcceptedRegistryVersion(REGISTRY_VERSION, { current: NEXT, window: [REGISTRY_VERSION] })).toBe(true);
+    expect(isAcceptedRegistryVersion(NEXT, { current: NEXT, window: [REGISTRY_VERSION] })).toBe(true);
+    expect(isAcceptedRegistryVersion(REGISTRY_VERSION - 1, { current: NEXT, window: [REGISTRY_VERSION] })).toBe(false);
+    expect(isAcceptedRegistryVersion(undefined, { current: NEXT, window: [REGISTRY_VERSION] })).toBe(false);
   });
 
   it("names only known operations of the function's backend and kind", () => {

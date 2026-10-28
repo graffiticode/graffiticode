@@ -489,3 +489,57 @@ describe("audit (AUDIT-01)", () => {
     expect(validateAuditRecord({ planDigest: "not a digest" })).toEqual({ planDigest: "invalid" });
   });
 });
+
+// P1b (docs/graffiticode-interpreter-plan.md): a registry bump is rolled out
+// under a window. Policy runs the new version and still accepts the old one,
+// and every plan keeps the version it was admitted under, through retries,
+// sessions, mints and authorizations, until the window closes.
+describe("the registry window (P1b)", () => {
+  const NEXT = REGISTRY_VERSION + 1;
+  const bumped = (window: number[] = [REGISTRY_VERSION]) => build({ registryVersion: NEXT, registryWindow: window });
+  const planOf = async digest => invocations.getPlan(digest);
+
+  it("keeps a plan admitted before the bump on its own version through the window", async () => {
+    const { inv, admission } = await admitted();
+    policy = bumped();
+    // The retry re-admits the same plan rather than one under the new version.
+    expect((await admit(inv.invocationToken)).planDigest).toBe(admission.planDigest);
+    expect((await planOf(admission.planDigest)).registryVersion).toBe(REGISTRY_VERSION);
+    const { sessionToken } = await snapshot(inv.invocationToken, admission.admissionToken);
+    expect((await claimsOf("session", sessionToken)).rv).toBe(REGISTRY_VERSION);
+    const { executionToken } = await mint(sessionToken);
+    expect((await claimsOf("execution", executionToken)).rv).toBe(REGISTRY_VERSION);
+    await expect(authorize(executionToken)).resolves.toMatchObject({ decisionId: expect.any(String) });
+  });
+
+  it("refuses to execute anything new under a version once the window closes", async () => {
+    const { inv, admission, sessionToken } = await boundSession();
+    const { executionToken } = await mint(sessionToken);
+    policy = bumped([]);
+    await denied(admit(inv.invocationToken), "registry-version-changed");
+    await denied(snapshot(inv.invocationToken, admission.admissionToken), "registry-version-changed");
+    await denied(mint(sessionToken), "registry-version-changed");
+    await denied(authorize(executionToken), "registry-version-changed");
+  });
+
+  it("admits a new plan under its compilers' version, the old one or the new one, and nothing else", async () => {
+    policy = bumped();
+    const old = await allocate({ idempotencyKey: "job-old" });
+    const oldPlan = await admit(old.invocationToken);
+    expect((await planOf(oldPlan.planDigest)).registryVersion).toBe(REGISTRY_VERSION);
+    const next = await allocate({ idempotencyKey: "job-next" });
+    const nextStages = [manifests()[0], { ...manifests()[1], registryVersion: NEXT }];
+    const nextPlan = await admit(next.invocationToken, { stages: nextStages });
+    expect((await planOf(nextPlan.planDigest)).registryVersion).toBe(NEXT);
+    const { sessionToken } = await snapshot(next.invocationToken, nextPlan.admissionToken, { manifest: nextStages[1] });
+    expect((await claimsOf("session", sessionToken)).rv).toBe(NEXT);
+    const stale = await allocate({ idempotencyKey: "job-stale" });
+    await denied(admit(stale.invocationToken, { stages: [manifests()[0], { ...manifests()[1], registryVersion: REGISTRY_VERSION - 1 }] }), "registry-version-mismatch");
+  });
+
+  it("keeps a retry on its plan's version even when its compiler now reports the new one", async () => {
+    const { inv } = await admitted();
+    policy = bumped();
+    await denied(admit(inv.invocationToken, { stages: [manifests()[0], { ...manifests()[1], registryVersion: NEXT }] }), "registry-version-mismatch");
+  });
+});
