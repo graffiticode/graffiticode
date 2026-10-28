@@ -244,6 +244,13 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - A later repair could re-run an intent an earlier repair already completed, because the *original* outcome stays `failed`.
   - So the ledger is keyed by `(original command id, stage id, occurrence id)`, independently of any repair's idempotency key.
   - Before admission, a repair claims every occurrence it selects in one transaction. It succeeds only if each one's original outcome is `failed` and it has no ledger entry, or only entries whose repair ended `failed`.
+- **Stages the original never reached.** Under a chain plan, the first failing stage stops the chain (`packages/api/src/data.js:323`, spec ADMIT-03). The stages downstream of it have no outcomes and no pinned inputs, so repairing the failed stage alone can't complete the original command.
+  - Such stages are recorded in the command record as `not-reached`, beside the outcomes of the stages that ran.
+  - A repair that completes the last failed occurrence of a stage then **resumes** the chain from the next stage to its left:
+    - The repaired stage's resolved output (§5, materialization) becomes that stage's first pinned input, installed once by compare-and-set under the repair's fencing generation.
+    - Each `not-reached` stage then runs as a normal part of the repair: same invocation, same stage ids, its own intents claimed in the ledger as `(original command, stage, occurrence)`.
+  - Resumed stages can fail too. The repair's outcome aggregates them like any other, and stages beyond a new failure stay `not-reached` for a later repair.
+  - **A stage that failed partway cannot resume until it completes.** Repair selects only `failed` occurrences, so a stage with a `partial` or `uncertain` operation blocks resumption until it is reconciled (above). The chain past it stays `not-reached`.
   - An occurrence whose latest repair is `pending`, `completed`, `partial` or `uncertain` blocks any other repair from selecting it. A `pending` repair's lease and fencing generation work exactly as for commands.
   - The ledger entry records the repair's outcome for that occurrence, so the ledger is the occurrence's current outcome across the original and every repair.
 - **Repairs go only through the ledger.** Compiling a model that contains just the remaining intents and starting it as an ordinary command would bypass the ledger, and could repeat an intent a repair is also running. It is not a supported repair route.
@@ -252,7 +259,12 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - Once the ledger shows every occurrence of the original command `completed`, through the original or any repair, the platform **assembles** the artifact.
   - **Assembly is a language-provided, pure materialization, not a concatenation.** Occurrence outputs are not the program's result. L0176, for example, returns its final expression, which may combine, transform or ignore what its saves returned.
     - Each language whose model has effect intents implements a `materialize(model, pinnedInputs, occurrenceOutputs) → result` hook on the `Dialect` trait. It is called per stage, with that stage's model, its pinned input, and the outputs recorded under that stage id.
-    - The chain's artifact is materialized right to left: each stage's materialized result is the next stage's pinned input. Stages without effect intents are re-evaluated deterministically from their pinned inputs.
+    - The chain's artifact is materialized right to left: each stage's materialized result is the next stage's pinned input.
+    - **Materialization replays recorded observations, never live ones.** A stage's pinned input doesn't always determine its output. An L0185 stage can receive `{}` and fetch external data that has since changed or disappeared. So a command records, for every stage it ran, either:
+      - each external read's result, keyed by the stage and the read's occurrence; or
+      - the stage's resolved output as a whole.
+
+      Materialization replays those records, and only a stage that the registry declares **pure** (no external reads, no effects) is re-evaluated from its pinned input. Materialization makes no network calls. A stage with neither a record nor a pure declaration fails materialization, and nothing is published.
     - The hook re-evaluates the original model against the pinned inputs, and each effect intent evaluates to its recorded completed output instead of acting. It has no other inputs, so it is deterministic.
     - It may not call the broker or any external API. A materialization that reaches an intent without a completed output fails, and nothing is published.
     - The result is what the original command would have produced had every occurrence completed the first time.
@@ -500,7 +512,10 @@ async function getFormResult(itemId, viewer, initialInput): Promise<ResultEnvelo
       const key = cacheable && stageCacheKey(model, input, interpreter, mode, authorityFor(viewer));
       const cached = cacheable ? await resultCache.get(key, viewer) : null;  // visibility-checked
       if (cached && isUnexpired(cached)) {
-        out = cached.envelope;                         // stored already combined
+        // The key covers input *data*, not its restrictions: the same bytes can
+        // arrive with an earlier expiry or a stricter class. Re-apply the current
+        // registry cap and the current input on every hit.
+        out = combine(capClass(cached.envelope, interpreter, mode), input);
       } else {
         const fresh = await interpret(interpreter, {
           operation: "get", model, input: input.data, mode, stage, context: contextFor(viewer)
@@ -577,7 +592,7 @@ A workflow engine such as Temporal could implement durable orchestration behind 
 - The API never probes for the route at runtime.
 - The same declaration should replace today's hard-coded per-language constants: `RENDER_LANG` (`packages/api/src/routes/form.js:14`) and `CALLER_IDENTITY_LANGS` (`packages/api/src/caller-identity.js:15`).
 
-**Models serialize to plain JSON.** Every model and every stage result must serialize to plain JSON on its own, without the interpreter. That includes identity models and intermediate stages. In Node today the `Renderer` does this normalization, converting records and `Decimal` values (§2). The Rust compiler must produce the same plain JSON for the same task.
+**Models serialize to plain JSON.** Every model and every stage result must serialize to plain JSON on its own, without the interpreter. That includes identity models and intermediate stages. In Node today the `Renderer` does this normalization, converting records and `Decimal` values (§2). The compatibility boundary is the *interpreted result*, not the compiled model: for the same task and input, interpreting the Rust model must produce the same plain JSON as today's compile (§12).
 
 For a value model, `get` returns its value (identity) and unsupported operations fail explicitly. A plan model is never treated as identity, even if it happens to be input-independent (§4). For effectful languages, a declared interpreter is mandatory and must never silently fall back to identity.
 
@@ -732,6 +747,12 @@ Phases 1–3 are done when tests show:
     - L0176 feeds a downstream stage unsigned in `evaluate`, and signs only in `present`.
     - Stage ids keep their chain positions (`s0` is the head) though stages run right to left.
     - Two stages with the same program and occurrence ids are repaired and materialized independently.
+    - A cache hit is recombined with the current input. Identical input data arriving with a shorter expiry (cached result valid to 200, input valid to 120) yields a result that expires at 120. A tighter registry cap applies to existing entries.
+13. **Repair materialization and resumption.**
+    - A repair after an L0185 stage's fetched source has changed, or become unavailable, materializes from the recorded reads with no network calls. The artifact matches what the original run would have produced.
+    - A stage with neither recorded observations nor a pure declaration fails materialization, and nothing is published.
+    - In a chain whose middle stage failed, a repair of that stage resumes the `not-reached` stages to its left. They get their first pinned input from the repaired output, and the chain completes. A resumed stage that fails leaves the stages beyond it `not-reached`.
+    - A stage with a `partial` or `uncertain` operation blocks resumption until it is reconciled.
 
 ## 13. Open design questions
 
@@ -795,6 +816,8 @@ Questions deferred with durable executions:
 - *(Proposed)* **Separate model provenance from command admission.** Models name no caller and are reusable. Admission binds the ordered stage model digests, and intents are identified by `(command, stage, occurrence)`, with stage ids numbered from the head. Provenance is validated against registry-approved producer → interpreter pairs, the same mapping that routes interpretation.
 - *(Proposed)* **A repair command, not a new key, re-runs failed intents.** It is bound to the original command and selects only `failed` operations.
   - Eligibility is claimed atomically in a repair ledger keyed by `(original command, stage, occurrence)`, shared across repair keys.
+  - Repairs resume `not-reached` downstream stages from the repaired output.
+  - Materialization replays recorded external reads or stage outputs, re-evaluating only declared-pure stages, and never touches the network.
   - Once every occurrence has completed, the artifact is rebuilt by a language-provided, pure `materialize` over the original model, the pinned inputs and the completed outputs. It is never built from a repair's subset.
 - *(Proposed)* **Fence new effects at authorization.** Execution tokens carry the command's fencing generation, and the broker's receipt claim decides any race.
 - *(Proposed)* **Aggregate command outcomes across all broker operations.** `failed` means no write anywhere in the command, and uncertainty is never dropped. Ownership changes are fenced by generation, and pinned inputs are installed once.
