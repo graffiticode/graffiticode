@@ -1,7 +1,8 @@
 # Graffiticode Interpreter Pass: Architecture Design
 
 **Status:** Design proposal / discussion summary  
-**Date:** 2026-10-28
+**Date:** 2026-10-28  
+**Plan:** [graffiticode-interpreter-plan.md](graffiticode-interpreter-plan.md), the incremental, release-by-release implementation plan
 
 ## 1. Executive summary
 
@@ -13,11 +14,11 @@ The proposed language interface is:
 Code --POST /compile--> Model --POST /interpret--> Result --/form--> Experience
 ```
 
-`POST /interpret` is a **universal language contract** whose default is the **identity interpreter**. The protected registry declares which languages override it (§11). Languages override it only when they need dynamic behavior. For identity languages, the API skips the HTTP call.
+`POST /interpret` is a **universal language contract** whose default is the **identity interpreter**. A separate interpreter manifest declares which languages override it (§11). Languages override it only when they need dynamic behavior. For identity languages, the API skips the HTTP call.
 
 Two decisions shape the design:
 - **A pipeline is a chain of models, interpreted right to left.** Each task compiles on its own into a reusable model. Each language then interprets its own model, given the previous stage's resolved data: `interpret(A, interpret(B, interpret(C, input)))`. No language has to understand another language's model (§5, "Pipelines").
-- **Rust is the only implementation target.** `/interpret` and its identity default are built once, in the shared Rust server and `Dialect` interface, and every `lNNNNr` service inherits them. The Node language services are not changed. Each language's production compile *and* interpret routing switches to its Rust service, together, when that service is ready (§11, §12).
+- **Rust is the only implementation target.** `/interpret` and its identity default are built once, in the shared Rust server and `Dialect` interface, and every `lNNNNr` service inherits them. The Node language services are not changed. Each language first switches to its Rust service with today's semantics, and is upgraded to the interpreter later, as a separate release (§12; see the [plan](graffiticode-interpreter-plan.md)).
 
 Much of this already exists in another form: L0176's READ-01 read stage, `POST /preview/sign`, the form's refresh before expiry, and the policy/broker effect machinery (§2). This design formalizes and generalizes those pieces. Durable workflows are kept in the contract as reserved operations, and their design is deferred (§12).
 
@@ -188,6 +189,15 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
 **Identity.**
 - A command is identified by `(uid, idempotencyKey)`, and the caller must supply the key. Policy already supports this: `allocate` reuses an invocation for a known key and refuses the key if the binding differs (`packages/policy/src/invocations.ts:57`).
 - Without a key, every request allocates a new invocation, which is today's behavior. So **`start` requires an idempotency key**; a command without one is refused, not run.
+  - **Temporary exception: the compile-to-command bridge** (plan D2). Until each language's bridge is retired (plan D4), a legacy compile that reaches an effect is translated into a `start`. It uses the caller's key if one was supplied, and otherwise a fresh key per request, which is today's behavior.
+- **A key's execution protocol is decided once, at allocation, and never changes** (plan D2a).
+  - Policy records `legacy` or `command`, plus the command id, atomically with the key. The first allocation wins under concurrency, and a preliminary lookup never decides.
+  - A `legacy` invocation stays on its admitted plan at its pinned revisions. A `command` invocation is continued from its command record and is never recompiled.
+  - New keys allocate as `command` only while the language's `COMMANDS_LNNNN` flag is on.
+- **A command-aware API is the rollback floor** (plan D2b). Activation and rollback are per-language flag flips, never an API rollback below the release that understands command records.
+- **L0013 snapshots become brokered, receipted commands** (plan C5), replacing direct uploads with the compiler's own service account:
+  - per-intent scopes (a provider connection or an item) within the chain's one invocation;
+  - a capture sequence bound into the upload, so an older capture never replaces a newer one.
 - The key is bound to the command's input: the existing `connectionId`, `taskId` and `inputDigest`, plus the model digest. Reusing a key with a different binding is a conflict, not a replay.
 
 **Pinned inputs.**
@@ -318,6 +328,7 @@ result = interpret(A, interpret(B, interpret(C, input)))
 
      So L0176 can feed a downstream stage unsigned, and the blanket `no-store` only applies to what reaches the consumer.
    - An intermediate result classified `no-store` is still refused when it would feed a downstream stage. With per-mode policy that only happens when a language misbehaves.
+   - **The refusal applies only to declared (upgraded) stages** (plan B3). A legacy-adapter stage forwards its output downstream exactly as today, including L0176's signed output in `L0176→L0176` chains. Its `no-store` class still keeps it out of every cache, and the API logs such chains until L0176's upgrade makes its intermediate output unsigned.
    - **The mode is part of the cache key**, because the same model and input give different results in the two modes.
 3. **Commands stay explicit.**
    - A form read never executes a business write, at any stage.
@@ -422,7 +433,7 @@ Expiry and cacheability are different properties. A signed Learnosity request an
   - Likewise, a stored `shared` entry is read only through the same task-visibility check as a compile cache read.
 
 **The classification is trusted, not asserted.**
-- The language's declaration in the protected registry (§11) sets the *least restrictive* class each language may return.
+- The language's declaration in the interpreter manifest (§11) sets the *least restrictive* class each language may return.
 - The API applies the stricter of that declaration and what the result envelope says.
 - The existing rules still apply on top: protected or connection chains (`packages/api/src/data.js:231-244`) are at least `private`.
 - So a compromised or buggy language server cannot turn a signed result into a cached one.
@@ -514,14 +525,14 @@ async function getFormResult(itemId, viewer, initialInput): Promise<ResultEnvelo
       if (cached && isUnexpired(cached)) {
         // The key covers input *data*, not its restrictions: the same bytes can
         // arrive with an earlier expiry or a stricter class. Re-apply the current
-        // registry cap and the current input on every hit.
+        // manifest cap and the current input on every hit.
         out = combine(capClass(cached.envelope, interpreter, mode), input);
       } else {
         const fresh = await interpret(interpreter, {
           operation: "get", model, input: input.data, mode, stage, context: contextFor(viewer)
         });
         // Apply every restriction BEFORE deciding to store (§5 rule 1, §7):
-        // the registry cap for this mode, then the input's class and expiry.
+        // the manifest cap for this mode, then the input's class and expiry.
         out = combine(capClass(fresh, interpreter, mode), input);   // strictest class, earliest expiresAt
         if (cacheable && isStorable(out.cache)) await resultCache.putIfCurrent(key, out);
       }
@@ -582,13 +593,15 @@ A workflow engine such as Temporal could implement durable orchestration behind 
   - Language inheritance does reach every language now, because it is only needed in Rust.
   - A platform fallback is not needed, though the API still skips the call for value models.
 
-**The registry declares; the API reads.**
-- Each language's declaration lives in `@graffiticode/common/protected-registry`, beside `compilerConfigForLang`. It covers:
+**A separate manifest declares; the API reads.**
+- Each language's interpreter declaration lives in its **own manifest, with its own version** (`INTERPRETER_MANIFEST_VERSION`), next to `@graffiticode/common/protected-registry` but not part of `REGISTRY_VERSION` (plan P1c). It covers:
   - identity or not;
   - the least restrictive `cache` class;
   - producer → interpreter pairs;
   - L0182's get-or-create.
-- That registry is already the security-reviewed per-language manifest, and changing it requires a `REGISTRY_VERSION` bump.
+- Adding or changing a declaration therefore touches no token, receipt, admission or artifact check. The manifest is reviewed like the registry.
+- Per-language activation is API env: `INTERPRETER_LNNNN` for reads and `COMMANDS_LNNNN` for effects, each always paired with a new `COMPILE_GENERATION_LNNNN`.
+- `REGISTRY_VERSION` changes only when protected functions themselves change. A bump is an expand/contract rollout across Policy, Broker, compilers and API, and each admitted plan keeps the version it was admitted under (plan P1b).
 - The API never probes for the route at runtime.
 - The same declaration should replace today's hard-coded per-language constants: `RENDER_LANG` (`packages/api/src/routes/form.js:14`) and `CALLER_IDENTITY_LANGS` (`packages/api/src/caller-identity.js:15`).
 
@@ -605,7 +618,7 @@ For a value model, `get` returns its value (identity) and unsupported operations
 - **Admission, separate from provenance:**
   - A `get` accepts a model only if its producing language and the interpreting language are an approved pair (§5, "Producer and interpreter pairs"), and its `REGISTRY_VERSION` matches. The default pair is a language with itself.
   - A `start` additionally needs a command admission bound to the ordered stage model digests (§5).
-- **Registry:** add the interpreter declaration to the protected registry (§11). Identity is the default.
+- **Interpreter manifest:** add the interpreter declarations to their own manifest (§11). Compile-only is the default.
 - **Rust:** add `/interpret` to the shared server, and `Dialect::interpret` (kernel-evaluator default) and `Dialect::materialize` to the trait. Every `lNNNNr` service inherits them.
 - **API:**
   - Compile each task on its own, and interpret the chain right to left in the shared `getData` logic (§5, §8). Skip the call for value models.
@@ -616,30 +629,32 @@ For a value model, `get` returns its value (identity) and unsupported operations
   - Both routes must return the same interpreted result.
   - The View also consumes the result envelope's refresh metadata and carries the generation (§7).
 
-**Mixed chains during migration.** While some languages are switched and others aren't, a chain can contain both. A whole-chain migration would tie every language's switch to every other's, so the API runs a **legacy adapter** instead:
+**Sequencing (see the plan).** Each language switches to Rust *first*, with today's semantics and its parity checked against the TypeScript service (plan Track A). It is upgraded to the interpreter *later*, in Rust, as a separate release (plan Track C). This replaces switching compile and interpret routing together. The steps below describe the upgrade.
+
+**Mixed chains, and languages that never move.** While some languages are upgraded and others aren't, a chain can contain both. About 20 production languages outside this repository have no Rust implementation, so this is permanent, not only a migration state. A whole-chain migration would tie every language's switch to every other's, so the API runs a **legacy adapter** instead:
 - **A legacy stage runs today's call at its turn.** When right-to-left interpretation reaches a stage whose language hasn't switched, the API calls that language's existing `POST /compile { code, data }` with the resolved upstream result as `data`, exactly as today. Its output is that stage's result. A legacy stage has no separate model: its compile is its evaluation.
 - **Its result is treated like any stage result.**
-  - Its class comes from today's envelope: `cache: false` means `no-store`, and otherwise the result is `shared`, capped by the registry.
+  - Its class comes from today's envelope: `cache: false` means `no-store`, and otherwise the result is `shared`, capped by the interpreter manifest.
   - It is combined with its input's class and expiry.
   - It is cached by task id and input digest, never by task id alone.
-- **Presentation in a legacy head is today's behavior.** A legacy L0176 head still signs during compile, which is `present` mode in effect. A legacy L0176 below the head would hand signed output downstream, which rule 2 refuses. That fails loudly rather than leaking a credential, so such chains need L0176 to have switched first.
+- **Presentation in a legacy head is today's behavior.** A legacy L0176 head still signs during compile, which is `present` mode in effect. A legacy L0176 below the head forwards its signed output downstream as today: rule 2's refusal applies only to declared stages (§5). Once L0176 is upgraded, its intermediate output is unsigned in `evaluate` mode.
 - **Commands in a mixed chain** keep today's semantics for their legacy stages. Those effects run inside compile, under the chain's invocation, with today's stage ids. The guarantees of §5 (pinned inputs, repair, materialize) apply only to switched stages, and a repair can only select switched stages.
 - **The cache namespace changes with any constituent.** A chain's cached results are keyed by the generation of *every* language in it (§7), so switching any one language moves the whole chain to a new namespace. A chain is never served a result computed when one of its languages ran the other implementation.
 
-**Per-language switch to Rust.** Each language moves independently. The switch is where Phases 2 and 3 land for that language:
+**Per-language upgrade, after its switch to Rust.** Each language moves independently. Its upgrade is where Phases 2 and 3 land for it:
 1. Implement the language's compile/interpret boundary in its Rust dialect:
    - compile produces a model that accepts runtime input;
    - interpret evaluates it;
    - remove compile-time effects and nondeterminism (Phases 2–3).
-2. Validate on the language's non-pinnable `lNNNNr` Cloud Run service while production keeps running the TypeScript service. Matching models isn't enough; parity tests must show the same:
+2. Validate before activation. The language's switch to Rust (plan Track A) already established parity with the TypeScript service. The upgrade is checked against the switched Rust service, and parity tests must show the same:
    - observable API and form behavior;
    - authorization;
    - error semantics.
-3. **Switch compile and interpret routing together**, so a language is never compiled by one implementation and interpreted by another. Switch its compile generation at the same time (§7).
+3. **Activate by flags, with a new generation.** Turn on `INTERPRETER_LNNNN`, and for languages with effects `COMMANDS_LNNNN`, together with a new compile generation (§7). Compile and interpret both run on the language's Rust service. Rollback flips the flags and moves the generation again (plan "Rollback procedures").
 4. **Existing tasks keep working**: the Rust compiler accepts the same source, and the compatibility that counts is the *interpreted result*. The new compiled model (a value or a plan) is intentionally different from today's compile output. What must match is `interpret(compile(task), input)` against today's `compile(task, input)`.
 5. **Stored artifacts need an explicit compatibility policy.**
-   - Adding interpreter declarations to the registry bumps `REGISTRY_VERSION`, and today's readers refuse an artifact made under any other registry version (`artifact-incompatible`, `packages/api/src/read.js`). Without a policy, every switch would orphan every stored artifact and publication for that language.
-   - So a registry bump declares which earlier versions it stays **artifact-compatible** with. A change that only adds interpreter declarations, and doesn't change any protected function's meaning, declares compatibility with its predecessor. Readers accept artifacts whose version is in the current version's compatible set.
+   - Interpreter declarations don't bump `REGISTRY_VERSION` (§11). But a bump for a protected-function change does, and today's readers refuse an artifact made under any other registry version (`artifact-incompatible`, `packages/api/src/read.js`).
+   - So a registry bump declares which earlier versions it stays **artifact-compatible** with. Readers accept artifacts whose version is in the current version's compatible set.
    - That declaration is part of the security review of the bump. Its default is *incompatible*.
    - Where a switch does change protected semantics, the release notes say so, and affected artifacts and publications need a documented **rerun or republish** by their owners. The view keeps failing with `artifact-incompatible` until they do, never with a silent rerun.
 
@@ -658,7 +673,7 @@ For a value model, `get` returns its value (identity) and unsupported operations
   - A `completed` save replaces the **artifact** that connection and publication views read (§8). Any other outcome leaves the current artifact in place.
 - **L0176 dynamic-content reference:** derive the reference from the content (for example a digest of the table), not from the clock (the TypeScript compiler uses the clock today, `items.ts:64`).
 - **L0182 version draws:** a draw is per respondent, not per program. The model lists the versions; it doesn't choose one. Assigning a version is the one declared exception to a read-only `get`: an **idempotent get-or-create**.
-  - **Declared, not implicit.** The registry declaration names get-or-create for L0182 explicitly. No other language's `get` may write state.
+  - **Declared, not implicit.** The interpreter manifest names get-or-create for L0182 explicitly. No other language's `get` may write state.
   - **Atomic.** The assignment is created only if absent, in one transaction, keyed by `(survey item id, respondent)`. Concurrent first reads converge on one assignment, and later reads return it. It is stored durably, not in process-local maps, so restarts don't change it.
   - **Stable across revisions.** The key uses the item id, not the task id. A revision keeps the respondent's assignment as long as the assigned version still exists. If a revision removes that version, the respondent is reassigned only if they have submitted no answers.
   - **Frozen on submission.** Once a respondent submits answers, their assignment never changes.
@@ -709,7 +724,7 @@ Phases 1–3 are done when tests show:
    - A missing or incompatible artifact fails with its existing reason and never triggers a run.
 4. **Cache headers and storage.**
    - Each class maps to the storage and `Cache-Control` in §7.
-   - A language that claims a looser class than its registry declaration is held to the declaration.
+   - A language that claims a looser class than its manifest declaration is held to the declaration.
    - A `no-store` result never reaches Firestore `compiles/`, the browser cache or the CDN.
    - An authenticated read of a `shared` or `immutable` result is never sent `public`.
 5. **Refresh.**
@@ -734,7 +749,7 @@ Phases 1–3 are done when tests show:
 9. **Compatibility.** The View's edit → `POST /compile` path returns the same interpreted result as `GET /data`, and static languages' output is unchanged.
 10. **Per-language switch.**
     - Before a language's routing switches, its `lNNNNr` service passes parity tests against the TypeScript service for API and form behavior, authorization and error semantics.
-    - Compile and interpret switch together.
+    - The switch to Rust precedes the upgrade, and the upgrade is activated by flags with a new generation.
     - Existing tasks give the same interpreted results.
     - Artifacts made under a declared-compatible registry version still read. Incompatible ones fail with `artifact-incompatible` until rerun or republished.
 11. **Mixed chains.**
@@ -747,7 +762,7 @@ Phases 1–3 are done when tests show:
     - L0176 feeds a downstream stage unsigned in `evaluate`, and signs only in `present`.
     - Stage ids keep their chain positions (`s0` is the head) though stages run right to left.
     - Two stages with the same program and occurrence ids are repaired and materialized independently.
-    - A cache hit is recombined with the current input. Identical input data arriving with a shorter expiry (cached result valid to 200, input valid to 120) yields a result that expires at 120. A tighter registry cap applies to existing entries.
+    - A cache hit is recombined with the current input. Identical input data arriving with a shorter expiry (cached result valid to 200, input valid to 120) yields a result that expires at 120. A tighter manifest cap applies to existing entries.
 13. **Repair materialization and resumption.**
     - A repair after an L0185 stage's fetched source has changed, or become unavailable, materializes from the recorded reads with no network calls. The artifact matches what the original run would have produced.
     - A stage with neither recorded observations nor a pure declaration fails materialization, and nothing is published.
@@ -758,7 +773,7 @@ Phases 1–3 are done when tests show:
 
 Questions that block Phases 1–3:
 
-1. What is the exact schema of the registry declaration (§11, §12 Phase 1), and how is a change to it reviewed?
+1. What is the exact schema of the interpreter manifest declaration (§11, §12 Phase 1), and how is a change to it reviewed?
 2. Does the interpreter receive the full model, a model reference, or both? How is authorization conveyed (today: `auth`, `connectionId`, `invocationToken` and `stage` in the compile body)?
 3. Is `get | start | dispatch` enough, or should commands go through a dedicated command API while `/interpret` stays the language endpoint?
 4. Which refreshes may a `get` do beyond signing through view-safe functions in stage `read`? For example, what limits apply to L0185's fetches (rate, size, egress)?
@@ -768,7 +783,7 @@ Questions that block Phases 1–3:
 8. How is a stage's input canonicalized for its digest, so equal inputs produce equal cache keys?
 9. What is the lease length for a `pending` command, and who is the recovery owner when no retry arrives?
 10. How does the API call the stages of a chain: one `/interpret` request per stage, or a batched call for consecutive stages in the same language? What latency budget applies?
-11. What is the routing switch, mechanically: a per-language base-URL change, plus generation and registry entries, released together? How is it rolled back?
+11. ~~What is the routing switch, mechanically?~~ Answered in the plan: `BASE_URL_LNNNN` plus `COMPILE_GENERATION_LNNNN` in the API env for the switch, and `INTERPRETER_LNNNN` / `COMMANDS_LNNNN` with a new generation for the upgrade, each rolled back as the plan's "Rollback procedures" describe.
 
 Questions deferred with durable executions:
 
@@ -783,7 +798,7 @@ Questions deferred with durable executions:
 ## 14. Design decisions reached so far
 
 - **Use `/interpret`** as the language endpoint, rather than `/execute`.
-- **Make identity the universal default**, so no language author has to write a handler. It is provided by L0000 inheritance in the shared Rust server and `Dialect` trait, and declared in the protected registry (§11).
+- **Make identity the universal default**, so no language author has to write a handler. It is provided by L0000 inheritance in the shared Rust server and `Dialect` trait, and declared in a separate interpreter manifest (§11).
 - **Optimize identity away** in the API when safely declared.
 - **Keep compilation pure and models immutable** as the target architecture.
 - **Distinguish `get` from `start`/`dispatch`** so reading never inadvertently executes a business operation.
@@ -791,21 +806,24 @@ Questions deferred with durable executions:
 - **Let interpreters publish or invalidate result-cache entries** on durable state changes; prefer versioned publication when practical.
 - **Refresh expiring projections independently of workflow state changes** and without recompilation.
 - **Keep authoritative durable state outside the API result cache.**
-- *(Proposed)* **Keep cacheability and expiry separate.** A trusted `cache` class (`immutable`, `shared`, `private`, `no-store`), capped by the registry declaration, decides storage and headers. `expiresAt` only tells the consumer when to refresh. Bearer credentials are always `no-store`.
+- *(Proposed)* **Keep cacheability and expiry separate.** A trusted `cache` class (`immutable`, `shared`, `private`, `no-store`), capped by the interpreter manifest, decides storage and headers. `expiresAt` only tells the consumer when to refresh. Bearer credentials are always `no-store`.
 - **A pipeline is a chain of models interpreted right to left.** Each task compiles independently, and each language interprets its own model given the previous stage's resolved data.
   - Results are cached by model and input.
   - Presentation credentials stay out of intermediate data.
   - Commands use one invocation across the chain.
 
   This replaces head-only interpretation and cross-language residualization.
-- **Rust is the only implementation target.** `/interpret` is built once in the shared Rust server and `Dialect` trait; the Node language services get no interpreter. Each language's compile and interpret routing switches to Rust together, after parity validation on its `lNNNNr` service.
+- **Rust is the only implementation target.** `/interpret` is built once in the shared Rust server and `Dialect` trait; the Node language services get no interpreter.
+- **Each language switches to Rust first, with today's semantics, and is upgraded later.** These are two releases with separate rollbacks (plan Tracks A and C), replacing "switch compile and interpret routing together".
 - *(Proposed)* **Value models and plan models.** Input-independent, effect-free programs compile to values, which are interpreted by identity. Everything else is a plan, run by the kernel evaluator by default.
 - *(Proposed)* **The API sets an `evaluate` or `present` mode** per stage, with registry policy per mode and the mode in cache keys. Only the head presents.
-- *(Proposed)* **Mixed chains run through a legacy adapter** during migration. The chain's cache namespace includes every constituent's generation.
+- **The legacy adapter is permanent.** It serves the languages without a Rust implementation as well as languages not yet upgraded. Rule 2's refusal applies only to declared stages, and the chain's cache namespace includes every constituent's generation.
+- **Interpreter declarations have their own manifest and version.** `REGISTRY_VERSION` bumps follow an expand/contract rollout, and plans keep their admitted version (plan P1b, P1c).
 - *(Proposed)* **Compatibility is judged on interpreted results, and artifact compatibility across registry versions is declared**, defaulting to incompatible, with a documented rerun or republish otherwise.
 - **Models serialize to plain JSON** without the interpreter. The Rust compiler matches the normalization the TypeScript `Renderer` does today.
 - *(Proposed)* **Treat `start` as an immediate command, implemented now.** It has:
-  - a required idempotency key bound to its input and model digest;
+  - a required idempotency key bound to its input and model digest, except through the temporary compile-to-command bridge (plan D2);
+  - a protocol recorded with the key at allocation that never changes, and a command-aware API as the rollback floor (plan D2a, D2b);
   - an atomic claim with a lease and a recovery owner;
   - inputs pinned before its first effect;
   - intents and occurrence ids carried by the model;
@@ -828,5 +846,6 @@ Questions deferred with durable executions:
 - *(Proposed)* **Constrain refresh.** Refresh before initialization or while idle, under the original authority, without losing user input.
 - *(Proposed)* **Run `get` as policy stage `read`** with view-safe functions only, and send every `start`/`dispatch` effect through the broker under a policy invocation.
 - *(Proposed)* **Defer durable executions** to a follow-up doc. `dispatch` stays reserved in the contract.
+- **L0013 snapshots become brokered commands.** They use item-scoped authorization within the chain's invocation, a capture sequence, and a dated compatibility exception for public items. Both runtime accounts lose direct write when the bridge is retired (plan C5).
 
 This document summarizes a proposed architecture, not an assertion that these interfaces or migrations have already been implemented.
