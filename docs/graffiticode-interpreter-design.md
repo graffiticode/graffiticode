@@ -104,14 +104,26 @@ Use `/interpret`, not `/execute`, as the language endpoint. *Interpret* names th
 
 ### L0000 default
 
-L0000 provides identity semantics for `operation: "get"`:
+A compiled model is one of two kinds, recorded in its envelope:
+
+- **A value model** is already fully evaluated. The compiler produced its value because nothing in the program reads its input and it has no effect intents. Constant expressions are folded: `1 + 2` compiles to `3`, not to a plan that adds.
+- **A plan model** is an executable plan. It reads its input, or carries effect intents, or both.
+
+Input independence alone doesn't make a model a value. An input-independent plan that the compiler did *not* evaluate still needs evaluating. So the rule is that the compiler evaluates every input-independent, effect-free program to a value model, and only plans are left to interpret.
+
+L0000's default `get` follows from the kind:
 
 ```ts
-function interpret({ model, operation }: InterpretRequest): InterpretResult {
-  if (operation === "get") return { data: model };
-  throw new UnsupportedOperationError(operation);
+function interpret({ model, operation, input, mode }: InterpretRequest): InterpretResult {
+  if (operation !== "get") throw new UnsupportedOperationError(operation);
+  if (model.kind === "value") return { data: model.value };   // identity
+  return { data: kernelEvaluate(model.plan, input) };         // the kernel evaluator
 }
 ```
+
+- **Identity is the default for value models.** For these the API skips the network call (§8).
+- **The kernel evaluator is the default for plan models.**
+- Both defaults are on the `Dialect` trait. A dialect overrides `interpret` only for behavior the kernel doesn't have (§5, "Pipelines").
 
 A language can override `/interpret` to provide more capabilities. The API may skip the network call for a language that declares the identity implementation, but the **contract stays the same for every language**.
 
@@ -194,8 +206,8 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
 
 **Provenance and admission are separate.**
 - **Model provenance** describes the model and nothing else: language, task id, model digest, compiler revision, `REGISTRY_VERSION`. Because it names no caller, the model can be reused across callers and invocations.
-- **Command admission** is today's admission: bound to one invocation, user, connection, stage and revision (`packages/policy/src/tokens.ts`). It also binds, with authentication, the digest of the model it admits.
-- A command runs only when its admission's model digest matches the model it was handed.
+- **Command admission** is today's admission: bound to one invocation, user, connection, stage and revision (`packages/policy/src/tokens.ts`). It also binds, with authentication, the **ordered list of stage model digests** for the chain it admits, one per stage id (`s0` = head).
+- A command runs only when every stage's model matches the digest its admission binds for that stage id.
 
 **Lifecycle.**
 - **`pending`:** claimed and not yet finished. The command record and its key are claimed atomically, before any effect, the same way the broker claims a receipt.
@@ -223,13 +235,14 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - `partial`: otherwise. At least one write happened, and at least one operation did not complete. This includes an earlier save that completed followed by a later one that `failed`, the two-save case L0176 already tests (`languages/l0176/packages/core/src/brokered.test.ts:401`).
 - **A retry returns the recorded outcome**, and never upgrades `partial` or `uncertain` to `completed`. Resolving either one is an explicit act: reconcile against the provider, or issue a **repair command**.
 - **A new idempotency key alone is not a repair.** A new `start` on the same model executes *all* of the model's intents again, including the ones that already wrote.
-- **A repair command is its own kind of command.** It names the original command, and its own idempotency key binds `(original command id, selected occurrence ids)`.
+- **A repair command is its own kind of command.** It names the original command, and its own idempotency key binds `(original command id, selected (stage, occurrence) pairs)`.
+- **An intent is identified by stage and occurrence together.** Two stages can contain the same program and so produce identical occurrence ids, so an occurrence id alone is ambiguous. `(command, stage, occurrence)` is used throughout: repair selection, the ledger, outcomes and materialization. Broker operation ids already include the stage (`invocation/stage/occurrence`).
 - **It selects only intents whose recorded outcome is `failed`**, by occurrence id. Policy refuses to admit it if the selection includes any operation recorded `completed`, `partial` or `uncertain`. Those need reconciliation against the provider first, which records the operation's actual outcome.
 - **It runs against the original command's pinned snapshot and model digest**, under a new invocation, so its operations get new operation ids, and its outcome is aggregated on its own.
 - **Repair eligibility is claimed in a shared repair ledger.** Checking the original's `failed` outcome is not enough on its own:
   - Two repairs with different keys could both pass the check and run the same intent under different operation ids.
   - A later repair could re-run an intent an earlier repair already completed, because the *original* outcome stays `failed`.
-  - So the ledger is keyed by `(original command id, occurrence id)`, independently of any repair's idempotency key.
+  - So the ledger is keyed by `(original command id, stage id, occurrence id)`, independently of any repair's idempotency key.
   - Before admission, a repair claims every occurrence it selects in one transaction. It succeeds only if each one's original outcome is `failed` and it has no ledger entry, or only entries whose repair ended `failed`.
   - An occurrence whose latest repair is `pending`, `completed`, `partial` or `uncertain` blocks any other repair from selecting it. A `pending` repair's lease and fencing generation work exactly as for commands.
   - The ledger entry records the repair's outcome for that occurrence, so the ledger is the occurrence's current outcome across the original and every repair.
@@ -238,7 +251,8 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - A repair never publishes its own outputs as the artifact: a completed subset must not replace the full item result.
   - Once the ledger shows every occurrence of the original command `completed`, through the original or any repair, the platform **assembles** the artifact.
   - **Assembly is a language-provided, pure materialization, not a concatenation.** Occurrence outputs are not the program's result. L0176, for example, returns its final expression, which may combine, transform or ignore what its saves returned.
-    - Each language whose model has effect intents implements a `materialize(model, pinnedInputs, occurrenceOutputs) → result` hook on the `Dialect` trait.
+    - Each language whose model has effect intents implements a `materialize(model, pinnedInputs, occurrenceOutputs) → result` hook on the `Dialect` trait. It is called per stage, with that stage's model, its pinned input, and the outputs recorded under that stage id.
+    - The chain's artifact is materialized right to left: each stage's materialized result is the next stage's pinned input. Stages without effect intents are re-evaluated deterministically from their pinned inputs.
     - The hook re-evaluates the original model against the pinned inputs, and each effect intent evaluates to its recorded completed output instead of acting. It has no other inputs, so it is deterministic.
     - It may not call the broker or any external API. A materialization that reaches an intent without a completed output fails, and nothing is published.
     - The result is what the original command would have produced had every occurrence completed the first time.
@@ -269,8 +283,8 @@ result = interpret(A, interpret(B, interpret(C, input)))
 **A model describes a computation that accepts runtime input.**
 - This is the architectural change. A compiler can no longer eagerly evaluate an expression that depends on input, because the input doesn't exist when it compiles.
 - A model is therefore a validated, language-specific program or plan, and evaluating its input-dependent parts moves into that language's interpreter.
-- **Static models keep identity interpretation.** The compiler marks a model as input-independent when nothing in it reads its input and it has no effect intents, and identity applies only to such a model.
-- **The default interpreter is the kernel evaluator.** The shared Rust kernel can run a compiled plan against its input, so the `Dialect` trait's default `interpret` evaluates the plan with the input bound to `data`. That means most dialects need no interpreter code of their own:
+- **Static items stay identity.** An input-independent, effect-free program compiles to a *value model*, which is interpreted by identity. Anything else is a *plan model* (§4, "L0000 default").
+- **The default interpreter for a plan is the kernel evaluator.** The shared Rust kernel can run a compiled plan against its input, so the `Dialect` trait's default `interpret` evaluates the plan with the input bound to `data`. That means most dialects need no interpreter code of their own:
   - A dialect overrides `interpret` only for behavior the kernel doesn't have, such as signing or fetching.
   - It interprets its own operations through the same `Dialect::eval` it uses today.
 
@@ -280,11 +294,23 @@ result = interpret(A, interpret(B, interpret(C, input)))
    - A stage's `expiresAt` can be no later than its input's, so a result is never valid longer than what it was computed from.
    - Its `cache` class is at least as strict as its input's (§7).
 2. **Presentation credentials stay out of intermediate data.**
-   - Signing and other per-viewer presentation happen only for the final consumer, after the data pipeline: in the head's interpretation, never in a stage whose output feeds another stage.
-   - So an intermediate result classified `no-store` is refused when it would feed a downstream stage.
+   - Signing and other per-viewer presentation happen only for the final consumer, after the data pipeline. That means in the head's interpretation, never in a stage whose output feeds another stage.
+   - **The interpreter is told which it is doing.** Each `get` carries a **mode**, set by the API and never by the language:
+     - `evaluate`: produce data for the next stage;
+     - `present`: produce the result the final consumer receives.
+
+     The API sends `present` only to the head, and only on a read for a consumer (`/data`, `POST /compile`, `/form`). It sends `evaluate` to every other stage.
+   - **Registry policy is per mode.** A language's declaration (§11) caps its `cache` class separately for each mode. For example, L0176:
+     - In `evaluate` it never signs, and is capped at `shared` (or `private` behind a connection), because unsigned activity data holds no credentials.
+     - In `present` it signs, and is `no-store`.
+
+     So L0176 can feed a downstream stage unsigned, and the blanket `no-store` only applies to what reaches the consumer.
+   - An intermediate result classified `no-store` is still refused when it would feed a downstream stage. With per-mode policy that only happens when a language misbehaves.
+   - **The mode is part of the cache key**, because the same model and input give different results in the two modes.
 3. **Commands stay explicit.**
    - A form read never executes a business write, at any stage.
-   - An explicit command uses **one invocation across the whole chain**. Each stage has a stable stage id (the API already sends `stage` values `s0`, `s1`, … per stage). Each stage's resolved input is pinned before its first effect (§5, "Immediate commands"), so a retry reaches the same broker operation ids.
+   - An explicit command uses **one invocation across the whole chain**. Each stage has a stable stage id from its **position in the chain**, numbered from the head: `s0` is the head, as in today's chain admission (`packages/api/src/data.js:128`). Interpreting right to left changes the order stages run in, not their ids.
+   - Each stage's resolved input is pinned before its first effect (§5, "Immediate commands"), so a retry reaches the same broker operation ids.
 
 This removes the need for any cross-language machinery:
 - foreign expressions don't have to survive downstream compilers;
@@ -433,7 +459,7 @@ What `/data` returns depends on how the item is viewed:
 - A stale **questions** activity is re-signed through `POST /preview/sign`, under the system preview session.
 - A stale **items** activity is *not* re-signed. It can load bank items the system consumer can't see, so it is reported as expired instead.
 
-**Proposed flow.** Keep the redirect. `GET /data` is where the API interprets the chain right to left (§5, "Pipelines"), skipping the call for identity stages. These rules carry over unchanged:
+**Proposed flow.** Keep the redirect. `GET /data` is where the API interprets the chain right to left (§5, "Pipelines"), skipping the call for value models. These rules carry over unchanged:
 
 - **Artifacts and publications survive interpretation.** For a connection or publication view, `get` interprets the selected **artifact**, not a fresh compile of the model. It keeps the existing selection, the authority (the recipient's, or the publication's), and the failure reasons. A missing or incompatible artifact still requires an explicit `start` (run) or republish, never an implicit one. An artifact *is* the persisted result of a run (see Phase 3).
 - **Refresh preserves the user's state.** A refresh replaces only the presentation parts of a result (signatures, URLs). A consumer refreshes only before it has initialized the content or while it is idle. It never re-initializes content the user is working in, and never discards their input.
@@ -450,36 +476,43 @@ Conceptual read path for `/data`:
 // metadata consumers need — cache class, expiresAt, and refresh metadata
 // (authority to refresh under, whether refresh is allowed once started).
 async function getFormResult(itemId, viewer, initialInput): Promise<ResultEnvelope> {
-  const models = await resolveCompiledModels(itemId);  // one per task, tail last, each with its envelope
+  const models = await resolveCompiledModels(itemId);  // index 0 is the head, as in the chain
   let input = inputEnvelope(initialInput);             // { data, cache, expiresAt }
 
-  for (const [i, model] of [...models].reverse().entries()) {   // right to left
-    const isHead = i === models.length - 1;
+  for (let index = models.length - 1; index >= 0; index--) {   // run right to left
+    const model = models[index];
+    const stage = `s${index}`;                         // ids keep chain positions: s0 is the head
+    const mode = index === 0 ? "present" : "evaluate"; // set by the API, never by the language
+
+    // Mixed chains during migration (§12): a legacy stage runs today's /compile.
+    if (isLegacy(model.lang)) { input = await legacyCompile(model, input, stage); continue; }
 
     // Registry-approved producer -> interpreter pair (§5), e.g. L0158 -> L0176.
-    // The same mapping validates provenance; an unapproved pair is refused.
     const interpreter = interpreterFor(model.envelope.producer);
     validateProvenance(model.envelope, interpreter);
 
     let out;
-    if (isIdentity(interpreter) && model.envelope.inputIndependent) {
-      out = identityResult(model);                     // { data, cache: "immutable", expiresAt: null, refresh: null }
+    if (model.envelope.kind === "value") {
+      out = combine(identityResult(model), input);    // value models ignore input; combine is a no-op on data
     } else {
-      const key = stageCacheKey(model, input, interpreter, authorityFor(viewer));
-      const cached = await resultCache.get(key, viewer);           // visibility-checked
-      out = cached && isUnexpired(cached) ? cached.envelope : null;
-      if (!out) {
+      // Look up and store only when the input's restrictions allow storing at all.
+      const cacheable = isStorable(input.cache);
+      const key = cacheable && stageCacheKey(model, input, interpreter, mode, authorityFor(viewer));
+      const cached = cacheable ? await resultCache.get(key, viewer) : null;  // visibility-checked
+      if (cached && isUnexpired(cached)) {
+        out = cached.envelope;                         // stored already combined
+      } else {
         const fresh = await interpret(interpreter, {
-          operation: "get", model, input: input.data, stage: stageId(i), context: contextFor(viewer)
+          operation: "get", model, input: input.data, mode, stage, context: contextFor(viewer)
         });
-        out = capClass(fresh, interpreter);            // §7: class capped by the registry
-        if (isStorable(out.cache)) await resultCache.putIfCurrent(key, out);
+        // Apply every restriction BEFORE deciding to store (§5 rule 1, §7):
+        // the registry cap for this mode, then the input's class and expiry.
+        out = combine(capClass(fresh, interpreter, mode), input);   // strictest class, earliest expiresAt
+        if (cacheable && isStorable(out.cache)) await resultCache.putIfCurrent(key, out);
       }
     }
 
-    // A stage result is never looser or longer-lived than its input (§5 rule 1).
-    out = combine(out, input);                         // strictest class, earliest expiresAt
-    if (!isHead && out.cache === "no-store") throw new CredentialInIntermediateData(model);  // §5 rule 2
+    if (index !== 0 && out.cache === "no-store") throw new CredentialInIntermediateData(model);  // §5 rule 2
     input = out;
   }
   return input;                                        // the head's result envelope
@@ -487,6 +520,7 @@ async function getFormResult(itemId, viewer, initialInput): Promise<ResultEnvelo
 
 // The /data route returns the envelope to the consumer and derives
 // Cache-Control from envelope.cache, the request's visibility and envelope.expiresAt (§7).
+// The chain's own cache namespace includes every constituent language's generation (§7).
 ```
 
 This is conceptual pseudocode. `resultCache` holds only results that may be cached (see §7). A credential-bearing result skips both the lookup and the `put`. For a connection or publication view, the chain is replaced by the artifact selection in this section. Once durable executions exist (deferred), the API must also know the current execution version, or use an equivalent versioned cache protocol: merely trusting a stale local version would make the validity test unreliable.
@@ -531,7 +565,7 @@ A workflow engine such as Temporal could implement durable orchestration behind 
 - **The Node language services get no interpreter.** They keep running production, unchanged, until each language's routing switches to its Rust service. No interpreter is ever built twice.
 - This is how the two choices from the earlier draft resolve:
   - Language inheritance does reach every language now, because it is only needed in Rust.
-  - A platform fallback is not needed, though the API still skips the call for declared identity stages.
+  - A platform fallback is not needed, though the API still skips the call for value models.
 
 **The registry declares; the API reads.**
 - Each language's declaration lives in `@graffiticode/common/protected-registry`, beside `compilerConfigForLang`. It covers:
@@ -545,27 +579,37 @@ A workflow engine such as Temporal could implement durable orchestration behind 
 
 **Models serialize to plain JSON.** Every model and every stage result must serialize to plain JSON on its own, without the interpreter. That includes identity models and intermediate stages. In Node today the `Renderer` does this normalization, converting records and `Decimal` values (§2). The Rust compiler must produce the same plain JSON for the same task.
 
-For identity stages, `get` returns the model and unsupported operations fail explicitly. Identity applies only to an input-independent model with no effect intents (§5). For effectful languages, a declared interpreter is mandatory and must never silently fall back to identity.
+For a value model, `get` returns its value (identity) and unsupported operations fail explicitly. A plan model is never treated as identity, even if it happens to be input-independent (§4). For effectful languages, a declared interpreter is mandatory and must never silently fall back to identity.
 
 ## 12. Suggested rollout
 
 **Phase 1 — Contract, identity and orchestration.**
 - **Wire envelopes:**
-  - The **model envelope** carries provenance only: language, task id, model digest, compiler/configuration version, `REGISTRY_VERSION`, and whether the model is input-independent. It names no caller, invocation or admission, so it is reusable (§5, "Immediate commands").
+  - The **model envelope** carries provenance only: language, task id, model digest, compiler/configuration version, `REGISTRY_VERSION`, and the model's kind (`value` or `plan`, §4). It names no caller, invocation or admission, so it is reusable (§5, "Immediate commands").
   - The **result envelope** carries `cache` (§7), `expiresAt`, refresh metadata the consumer can read (which authority to refresh under, and whether a refresh is allowed once the content has started), and, for a command, its outcome (§5).
 - **Admission, separate from provenance:**
   - A `get` accepts a model only if its producing language and the interpreting language are an approved pair (§5, "Producer and interpreter pairs"), and its `REGISTRY_VERSION` matches. The default pair is a language with itself.
-  - A `start` additionally needs a command admission bound to the model's digest.
+  - A `start` additionally needs a command admission bound to the ordered stage model digests (§5).
 - **Registry:** add the interpreter declaration to the protected registry (§11). Identity is the default.
 - **Rust:** add `/interpret` to the shared server, and `Dialect::interpret` (kernel-evaluator default) and `Dialect::materialize` to the trait. Every `lNNNNr` service inherits them.
 - **API:**
-  - Compile each task on its own, and interpret the chain right to left in the shared `getData` logic (§5, §8). Skip the call for identity stages.
+  - Compile each task on its own, and interpret the chain right to left in the shared `getData` logic (§5, §8). Skip the call for value models.
   - The orchestration applies only to languages whose routing has switched to Rust. Unswitched languages compile exactly as today.
 - **Shared View:** keep it working. Its edit flow posts form state to `POST /compile` (`languages/l0000/packages/view/src/lib/api.ts:48`).
   - That route stores the form state as a data task, *appends* it to the chain (`id+dataId`, `packages/api/src/routes/compile.js:91`), and calls the same `getData` logic `GET /data` uses.
   - Under right-to-left interpretation, that data task is the tail, and its result is the next stage's input.
   - Both routes must return the same interpreted result.
   - The View also consumes the result envelope's refresh metadata and carries the generation (§7).
+
+**Mixed chains during migration.** While some languages are switched and others aren't, a chain can contain both. A whole-chain migration would tie every language's switch to every other's, so the API runs a **legacy adapter** instead:
+- **A legacy stage runs today's call at its turn.** When right-to-left interpretation reaches a stage whose language hasn't switched, the API calls that language's existing `POST /compile { code, data }` with the resolved upstream result as `data`, exactly as today. Its output is that stage's result. A legacy stage has no separate model: its compile is its evaluation.
+- **Its result is treated like any stage result.**
+  - Its class comes from today's envelope: `cache: false` means `no-store`, and otherwise the result is `shared`, capped by the registry.
+  - It is combined with its input's class and expiry.
+  - It is cached by task id and input digest, never by task id alone.
+- **Presentation in a legacy head is today's behavior.** A legacy L0176 head still signs during compile, which is `present` mode in effect. A legacy L0176 below the head would hand signed output downstream, which rule 2 refuses. That fails loudly rather than leaking a credential, so such chains need L0176 to have switched first.
+- **Commands in a mixed chain** keep today's semantics for their legacy stages. Those effects run inside compile, under the chain's invocation, with today's stage ids. The guarantees of §5 (pinned inputs, repair, materialize) apply only to switched stages, and a repair can only select switched stages.
+- **The cache namespace changes with any constituent.** A chain's cached results are keyed by the generation of *every* language in it (§7), so switching any one language moves the whole chain to a new namespace. A chain is never served a result computed when one of its languages ran the other implementation.
 
 **Per-language switch to Rust.** Each language moves independently. The switch is where Phases 2 and 3 land for that language:
 1. Implement the language's compile/interpret boundary in its Rust dialect:
@@ -577,7 +621,12 @@ For identity stages, `get` returns the model and unsupported operations fail exp
    - authorization;
    - error semantics.
 3. **Switch compile and interpret routing together**, so a language is never compiled by one implementation and interpreted by another. Switch its compile generation at the same time (§7).
-4. Existing tasks and stored content keep working because the Rust compiler accepts the same source and the models are backward compatible. Stored artifacts are re-validated against the new `REGISTRY_VERSION` like any other (§8).
+4. **Existing tasks keep working**: the Rust compiler accepts the same source, and the compatibility that counts is the *interpreted result*. The new compiled model (a value or a plan) is intentionally different from today's compile output. What must match is `interpret(compile(task), input)` against today's `compile(task, input)`.
+5. **Stored artifacts need an explicit compatibility policy.**
+   - Adding interpreter declarations to the registry bumps `REGISTRY_VERSION`, and today's readers refuse an artifact made under any other registry version (`artifact-incompatible`, `packages/api/src/read.js`). Without a policy, every switch would orphan every stored artifact and publication for that language.
+   - So a registry bump declares which earlier versions it stays **artifact-compatible** with. A change that only adds interpreter declarations, and doesn't change any protected function's meaning, declares compatibility with its predecessor. Readers accept artifacts whose version is in the current version's compatible set.
+   - That declaration is part of the security review of the bump. Its default is *incompatible*.
+   - Where a switch does change protected semantics, the release notes say so, and affected artifacts and publications need a documented **rerun or republish** by their owners. The view keeps failing with `artifact-incompatible` until they do, never with a silent rerun.
 
 **Phase 2 — Converge expiring projections.**
 - In L0176's Rust implementation, compile emits unsigned models and never signs. This covers both what `signForRender` and the `init <activity>` operator do in the TypeScript compiler today. Signing happens only in the head's `get`, which formalizes the READ-01 read stage and `/preview/sign`.
@@ -622,7 +671,7 @@ Phases 1–3 are done when tests show:
    - A `no-store` (credential-bearing) result is refused as input to a downstream stage; signing happens only at the head.
    - A form read executes no write at any stage. A command uses one invocation across the chain with stable stage ids.
    - A model is interpreted only by an approved producer → interpreter pair. L0158 → L0176 passes; an unapproved pair is refused at both routing and provenance.
-   - Identity applies only to input-independent models without effect intents.
+   - Only value models take the identity path. An input-independent, effect-free program compiles to a value model, with constants folded. A plan model is always evaluated, even when it is input-independent.
 2. **Commands.**
    - A `start` without an idempotency key is refused.
    - A retry with the same key and input returns the recorded outcome without new external writes.
@@ -654,7 +703,8 @@ Phases 1–3 are done when tests show:
    - A result that its original authority can't refresh is reported as expired, never re-signed under another identity.
 6. **Determinism and serialization.**
    - Compiling the same task twice yields byte-identical models for every migrated language: L0176, L0185, L0013 and L0182.
-   - Every model and stage result, including identity models and intermediate stages, is plain JSON. The Rust compiler produces the same plain JSON the TypeScript compiler's `Renderer` does today.
+   - Every model and stage result, including value models and intermediate stages, is plain JSON.
+   - For every task in each language's test corpus, the new *interpreted result* equals today's evaluated compile output, plain JSON as the TypeScript `Renderer` produces it. The compiled model itself is not compared; it is meant to differ.
    - The identity, cache-hit and fresh read paths return the same result envelope, with `cache`, `expiresAt` and refresh metadata.
 7. **L0182 assignment.**
    - Concurrent first reads produce one assignment.
@@ -667,7 +717,21 @@ Phases 1–3 are done when tests show:
    - No legacy compile entry is served as a model.
    - The CDN holds no pre-cutover `/data` entry for a migrated language.
 9. **Compatibility.** The View's edit → `POST /compile` path returns the same interpreted result as `GET /data`, and static languages' output is unchanged.
-10. **Per-language switch.** Before a language's routing switches, its `lNNNNr` service passes parity tests against the TypeScript service for API and form behavior, authorization and error semantics. Compile and interpret switch together, and existing tasks and stored content work afterwards.
+10. **Per-language switch.**
+    - Before a language's routing switches, its `lNNNNr` service passes parity tests against the TypeScript service for API and form behavior, authorization and error semantics.
+    - Compile and interpret switch together.
+    - Existing tasks give the same interpreted results.
+    - Artifacts made under a declared-compatible registry version still read. Incompatible ones fail with `artifact-incompatible` until rerun or republished.
+11. **Mixed chains.**
+    - A legacy stage at its turn receives the resolved upstream result through today's `/compile` and feeds the next stage.
+    - Switching any constituent language moves the chain to a new cache namespace.
+    - A legacy signing stage below the head is refused, not passed downstream.
+12. **Cache ordering and modes.**
+    - A `shared` stage output computed from `private` input is stored and served as `private`, never persisted as `shared`. No lookup or store happens when the input forbids it.
+    - The head gets `present` and every other stage `evaluate`. The mode is in the cache key.
+    - L0176 feeds a downstream stage unsigned in `evaluate`, and signs only in `present`.
+    - Stage ids keep their chain positions (`s0` is the head) though stages run right to left.
+    - Two stages with the same program and occurrence ids are repaired and materialized independently.
 
 ## 13. Open design questions
 
@@ -714,6 +778,10 @@ Questions deferred with durable executions:
 
   This replaces head-only interpretation and cross-language residualization.
 - **Rust is the only implementation target.** `/interpret` is built once in the shared Rust server and `Dialect` trait; the Node language services get no interpreter. Each language's compile and interpret routing switches to Rust together, after parity validation on its `lNNNNr` service.
+- *(Proposed)* **Value models and plan models.** Input-independent, effect-free programs compile to values, which are interpreted by identity. Everything else is a plan, run by the kernel evaluator by default.
+- *(Proposed)* **The API sets an `evaluate` or `present` mode** per stage, with registry policy per mode and the mode in cache keys. Only the head presents.
+- *(Proposed)* **Mixed chains run through a legacy adapter** during migration. The chain's cache namespace includes every constituent's generation.
+- *(Proposed)* **Compatibility is judged on interpreted results, and artifact compatibility across registry versions is declared**, defaulting to incompatible, with a documented rerun or republish otherwise.
 - **Models serialize to plain JSON** without the interpreter. The Rust compiler matches the normalization the TypeScript `Renderer` does today.
 - *(Proposed)* **Treat `start` as an immediate command, implemented now.** It has:
   - a required idempotency key bound to its input and model digest;
@@ -724,9 +792,9 @@ Questions deferred with durable executions:
   - `pending`, then `completed`, `failed`, `partial` or `uncertain`, never upgraded on retry.
 
   Command outcomes are separate from artifacts.
-- *(Proposed)* **Separate model provenance from command admission.** Models name no caller and are reusable. Provenance is validated against registry-approved producer → interpreter pairs, the same mapping that routes interpretation.
+- *(Proposed)* **Separate model provenance from command admission.** Models name no caller and are reusable. Admission binds the ordered stage model digests, and intents are identified by `(command, stage, occurrence)`, with stage ids numbered from the head. Provenance is validated against registry-approved producer → interpreter pairs, the same mapping that routes interpretation.
 - *(Proposed)* **A repair command, not a new key, re-runs failed intents.** It is bound to the original command and selects only `failed` operations.
-  - Eligibility is claimed atomically in a repair ledger keyed by `(original command, occurrence)`, shared across repair keys.
+  - Eligibility is claimed atomically in a repair ledger keyed by `(original command, stage, occurrence)`, shared across repair keys.
   - Once every occurrence has completed, the artifact is rebuilt by a language-provided, pure `materialize` over the original model, the pinned inputs and the completed outputs. It is never built from a repair's subset.
 - *(Proposed)* **Fence new effects at authorization.** Execution tokens carry the command's fencing generation, and the broker's receipt claim decides any race.
 - *(Proposed)* **Aggregate command outcomes across all broker operations.** `failed` means no write anywhere in the command, and uncertainty is never dropped. Ownership changes are fenced by generation, and pinned inputs are installed once.
