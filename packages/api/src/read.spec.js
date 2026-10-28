@@ -10,7 +10,7 @@ import {
   createMemoryActivityStore, createMemorySecretStore, localAuthorizer, argsDigest
 } from "@graffiticode/broker";
 import { buildDataApi } from "./data.js";
-import { signProgram } from "./read.js";
+import { signProgram, buildReadArtifact, buildReadPublished } from "./read.js";
 import { InvocationRefused } from "./invocations.js";
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 
@@ -189,4 +189,51 @@ it("renders a stored composed item through real v2 Policy and Broker without run
   expect(compile).toHaveBeenCalledTimes(2);
   expect(provider).not.toHaveBeenCalled();
   expect((await artifactStorer.getByInvocation("saved-run")).content).toEqual(STORED);
+});
+
+// P1 (docs/graffiticode-interpreter-plan.md): an artifact made under an earlier
+// registry version is served only when the current version declares that
+// version compatible. With none declared, it is "artifact-incompatible", as
+// before.
+describe("artifacts from an earlier registry version", () => {
+  const EARLIER = REGISTRY_VERSION - 1;
+  const VIEW = { taskId: "task-1", lang: "0000", artifactInvocationId: "inv-run", publisherUid: "u1", connectionId: "conn-1", invocationToken: "view.tok" };
+  let artifactStorer;
+  beforeEach(async () => {
+    artifactStorer = buildMemoryArtifactStorer();
+    await artifactStorer.put({
+      uid: "u1",
+      ownerUid: "u1",
+      connectionId: "conn-1",
+      taskId: "task-1",
+      invocationId: "inv-run",
+      seq: 1,
+      registryVersion: EARLIER,
+      content: STORED
+    });
+  });
+  const compile = jest.fn();
+  const allocateInvocation = jest.fn();
+  const publications = { authorizeView: async () => VIEW };
+  const readOwn = compatibleVersions =>
+    buildReadArtifact({ compile, artifactStorer, allocateInvocation, ...(compatibleVersions ? { compatibleVersions } : {}) })(
+      { tasks: [L0000_TASK], id: "task-1", uid: "u1", authToken: "user", connectionId: "conn-1" });
+  const readPublished = compatibleVersions =>
+    buildReadPublished({ compile, artifactStorer, publications, ...(compatibleVersions ? { compatibleVersions } : {}) })(
+      { tasks: [L0000_TASK], id: "task-1", publicationId: "pub-1" });
+
+  it("refuses them by default, through a connection and through a publication", async () => {
+    expect((await readOwn()).errors[0].code).toBe("artifact-incompatible");
+    expect((await readPublished()).errors[0].code).toBe("artifact-incompatible");
+  });
+
+  it("serves them when their version is declared compatible", async () => {
+    await expect(readOwn([EARLIER])).resolves.toEqual(STORED);
+    await expect(readPublished([EARLIER])).resolves.toEqual(STORED);
+  });
+
+  it("still refuses a version that is not declared", async () => {
+    expect((await readOwn([EARLIER - 1])).errors[0].code).toBe("artifact-incompatible");
+    expect((await readPublished([EARLIER - 1])).errors[0].code).toBe("artifact-incompatible");
+  });
 });
