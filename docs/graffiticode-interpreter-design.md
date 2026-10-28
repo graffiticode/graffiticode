@@ -228,8 +228,14 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
 - **Repairs go only through the ledger.** Compiling a model that contains just the remaining intents and starting it as an ordinary command would bypass the ledger, and could repeat an intent a repair is also running. It is not a supported repair route.
 - **Artifact publication after a repair.**
   - A repair never publishes its own outputs as the artifact: a completed subset must not replace the full item result.
-  - Once the ledger shows every occurrence of the original command `completed`, through the original or any repair, the platform **assembles** the artifact. It takes each occurrence's output from whichever run completed it, in the model's occurrence order, and publishes that.
-  - The assembly is written under the latest repair's fencing generation, and only if the artifact's current version is still the one the original command found. A newer completed command for the same item supersedes it, and the assembly is discarded rather than overwriting newer work.
+  - Once the ledger shows every occurrence of the original command `completed`, through the original or any repair, the platform **assembles** the artifact.
+  - **Assembly is a language-provided, pure materialization, not a concatenation.** Occurrence outputs are not the program's result. L0176, for example, returns its final expression, which may combine, transform or ignore what its saves returned.
+    - Each language whose model has effect intents implements a `materialize(model, pinnedInputs, occurrenceOutputs) → result` hook, on the `Dialect` trait in Rust and in the compiler configuration in Node.
+    - The hook re-evaluates the original model against the pinned inputs, and each effect intent evaluates to its recorded completed output instead of acting. It has no other inputs, so it is deterministic.
+    - It may not call the broker or any external API. A materialization that reaches an intent without a completed output fails, and nothing is published.
+    - The result is what the original command would have produced had every occurrence completed the first time.
+    - A language without the hook can't have an artifact assembled after a repair. Its repairs complete the ledger, but the artifact is replaced only by a new, fully completed command.
+  - The materialized result is written under the latest repair's fencing generation, and only if the artifact's current version is still the one the original command found. A newer completed command for the same item supersedes it, and the assembly is discarded rather than overwriting newer work.
   - Until every occurrence has completed, the current artifact stays in place.
 
 **Command outcomes are not artifacts.**
@@ -423,7 +429,10 @@ Durable executions (deferred, see §12): a stable `/form/:itemId` URL resolves t
 Conceptual read path for `/data` once durable executions exist:
 
 ```ts
-async function getFormResult(itemId, executionId, viewer) {
+// Every path returns the same result envelope (Phase 1): data plus the
+// metadata consumers need — cache class, expiresAt, and refresh metadata
+// (authority to refresh under, whether refresh is allowed once started).
+async function getFormResult(itemId, executionId, viewer): Promise<ResultEnvelope> {
   const model = await resolveCompiledModel(itemId);   // head model, with its envelope
   const execution = await resolveExecution(model, executionId);
 
@@ -433,12 +442,14 @@ async function getFormResult(itemId, executionId, viewer) {
   validateProvenance(model.envelope, interpreter);
 
   // Identity only when the interpreter is identity AND nothing is deferred.
-  if (isIdentity(interpreter) && !model.envelope.hasDeferred) return model.data;
+  if (isIdentity(interpreter) && !model.envelope.hasDeferred) {
+    return identityResult(model);                      // { data, cache: "immutable", expiresAt: null, refresh: null }
+  }
   if (isIdentity(interpreter)) throw new ResidualModelRefused(model.envelope);
 
   const key = resultCacheKey(model, execution, interpreter);
   const cached = await resultCache.get(key, viewer);   // visibility-checked
-  if (cached && isCurrentAndUnexpired(cached, execution)) return cached.data;
+  if (cached && isCurrentAndUnexpired(cached, execution)) return cached.envelope;  // stored whole, metadata included
 
   const fresh = await interpret(interpreter, {
     operation: "get",
@@ -446,11 +457,13 @@ async function getFormResult(itemId, executionId, viewer) {
     executionId: execution?.id,
     context: contextFor(viewer)
   });
-  if (isStorable(fresh.cache, interpreter)) {          // §7: class capped by the registry
-    await resultCache.putIfCurrent(key, fresh);
-  }
-  return fresh.data;
+  const envelope = capClass(fresh, interpreter);       // §7: class capped by the registry
+  if (isStorable(envelope.cache)) await resultCache.putIfCurrent(key, envelope);
+  return envelope;
 }
+
+// The /data route returns the envelope to the consumer and derives
+// Cache-Control from envelope.cache, the request's visibility and envelope.expiresAt (§7).
 ```
 
 This is conceptual pseudocode. `resultCache` holds only results that may be cached (see §7). A credential-bearing result skips both the lookup and the `put`. For a connection or publication view, `resolveCompiledModel` is replaced by the artifact selection in this section. In a distributed system, the API must ensure it knows the current execution version (or uses an equivalent versioned cache protocol); merely trusting a stale local version would make the validity test unreliable.
@@ -591,7 +604,7 @@ Phases 1–3 are done when tests show:
    - A repair command that selects the failed save runs only that save. A repair that selects the completed one is refused. A plain new `start` with a new key is not treated as a repair.
    - Two concurrent repairs with different keys that select the same failed save: one claims it and runs, and the other is refused. Exactly one write results.
    - A second repair after the first repair completed that save is refused, even though the original outcome is still `failed`.
-   - After the repair completes, the artifact is assembled from the original's completed save and the repaired save, and contains both. A repair that completes while a newer command has already replaced the artifact doesn't overwrite it.
+   - After the repair completes, the artifact is the language's materialization of the original model, given the original's completed save and the repaired save. It equals the result a fully successful first run would have produced, including a final expression that combines or ignores the save results, and no effect repeats during materialization. A repair that completes while a newer command has already replaced the artifact doesn't overwrite it.
    - A stale worker that resumes after a takeover can't start a new operation (authorize-execution refuses its generation). An operation it claimed before being refused appears in the command's terminal outcome.
    - `failed`, `partial` and `uncertain` are returned as such on retry, never as `completed`, and none of them replaces the current artifact.
    - `start` runs only intents present in the model its admission's digest names.
@@ -611,6 +624,7 @@ Phases 1–3 are done when tests show:
 6. **Determinism and serialization.**
    - Compiling the same task twice yields byte-identical models for every migrated language: L0176, L0185, L0013 and L0182.
    - Every model, including identity and non-head models, is plain JSON with records and `Decimal` values normalized.
+   - The identity, cache-hit and fresh read paths return the same result envelope, with `cache`, `expiresAt` and refresh metadata.
 7. **L0182 assignment.**
    - Concurrent first reads produce one assignment.
    - Restarts don't change it.
@@ -679,7 +693,7 @@ Questions deferred with durable executions:
   - Residualization is its own milestone.
 - *(Proposed)* **A repair command, not a new key, re-runs failed intents.** It is bound to the original command and selects only `failed` operations.
   - Eligibility is claimed atomically in a repair ledger keyed by `(original command, occurrence)`, shared across repair keys.
-  - The artifact is assembled from all completed occurrences once every one has completed, never from a repair's subset.
+  - Once every occurrence has completed, the artifact is rebuilt by a language-provided, pure `materialize` over the original model, the pinned inputs and the completed outputs. It is never built from a repair's subset.
 - *(Proposed)* **Fence new effects at authorization.** Execution tokens carry the command's fencing generation, and the broker's receipt claim decides any race.
 - *(Proposed)* **Aggregate command outcomes across all broker operations.** `failed` means no write anywhere in the command, and uncertainty is never dropped. Ownership changes are fenced by generation, and pinned inputs are installed once.
 - *(Proposed)* **Cut over with a new interpreter generation**, in both URLs and store keys, following L0158's compile generation. The shared View carries the generation, legacy entries are rejected, and the CDN is purged at rollout.
