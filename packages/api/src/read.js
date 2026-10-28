@@ -10,7 +10,7 @@
 // source execution plan. L0176's brokered.test.ts compiles this
 // exact shape; keep the two in step.
 
-import { REGISTRY_VERSION, compilerConfigForLang } from "@graffiticode/common/protected-registry";
+import { REGISTRY_VERSION, ARTIFACT_COMPATIBLE_VERSIONS, compilerConfigForLang, isArtifactCompatible } from "@graffiticode/common/protected-registry";
 import { InvocationRefused } from "./invocations.js";
 import { classify } from "@graffiticode/common/failures";
 import { noAudit } from "./audit.js";
@@ -50,12 +50,12 @@ const signStored = async ({ compile, lang, content, connectionId, invocationToke
   return envelope;
 };
 
-export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation, audit = noAudit }) =>
+export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation, audit = noAudit, compatibleVersions = ARTIFACT_COMPATIBLE_VERSIONS }) =>
   async ({ tasks, id, uid, authToken, connectionId }) => {
     if (!artifactStorer || !allocateInvocation) {
       return failure("Error: connections are not available on this server.", "connections-unavailable");
     }
-    const current = await artifactStorer.getCurrent({ uid, taskId: id, connectionId, registryVersion: REGISTRY_VERSION });
+    const current = await artifactStorer.getCurrent({ uid, taskId: id, connectionId, registryVersion: REGISTRY_VERSION, compatibleVersions });
     if (current.status === "missing") {
       return failure("Error: this version has no result through this connection yet. Save or recompile the item to create one.", "artifact-not-found");
     }
@@ -91,7 +91,7 @@ export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation,
 // viewer: policy re-checks the publication live and answers with an
 // invocation confined to viewSafe functions, and the compiler is sent no user.
 // The artifact is the one the publication names, never the viewer's own.
-export const buildReadPublished = ({ compile, artifactStorer, publications, audit = noAudit }) =>
+export const buildReadPublished = ({ compile, artifactStorer, publications, audit = noAudit, compatibleVersions = ARTIFACT_COMPATIBLE_VERSIONS }) =>
   async ({ tasks, id, publicationId }) => {
     if (!artifactStorer || !publications) {
       return failure("Error: publications are not available on this server.", "publications-unavailable");
@@ -117,7 +117,7 @@ export const buildReadPublished = ({ compile, artifactStorer, publications, audi
         artifact.taskId !== id) {
       return failure("Error: the published result is no longer available. The publisher can run it and publish again.", "published-artifact-unavailable");
     }
-    if (artifact.registryVersion !== REGISTRY_VERSION) {
+    if (!isArtifactCompatible(artifact.registryVersion, compatibleVersions)) {
       return failure("Error: the published result was made by an older version. The publisher can run it and publish again.", "artifact-incompatible");
     }
     // Verified by Policy (authorizeView), so the publication can be named.

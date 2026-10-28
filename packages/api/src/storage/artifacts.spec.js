@@ -81,6 +81,16 @@ describe.each(stores)("storage/artifacts (%s)", (_, build) => {
     expect((await store.getCurrent({ ...q, registryVersion: RV + 1 })).status).toBe("incompatible");
   });
 
+  it("serves an artifact from an earlier version only when it is declared compatible", async () => {
+    await store.put({ ...b, invocationId: `inv-${unique()}`, seq: 1, content: { v: 1 } });
+    const later = { ...q, registryVersion: RV + 1 };
+    expect((await store.getCurrent({ ...later, compatibleVersions: [] })).status).toBe("incompatible");
+    expect((await store.getCurrent({ ...later, compatibleVersions: [RV - 1] })).status).toBe("incompatible");
+    const current = await store.getCurrent({ ...later, compatibleVersions: [RV] });
+    expect(current.status).toBe("ok");
+    expect(current.artifact.content).toEqual({ v: 1 });
+  });
+
   it("finds an artifact by its invocation, whether or not it is current", async () => {
     const older = `inv-${unique()}`;
     await store.put({ ...b, invocationId: older, seq: 1, content: { v: 1 } });

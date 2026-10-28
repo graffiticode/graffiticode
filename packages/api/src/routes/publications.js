@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { REGISTRY_VERSION, ARTIFACT_COMPATIBLE_VERSIONS } from "@graffiticode/common/protected-registry";
 import { HttpError, InvalidArgumentError, UnauthenticatedError } from "../errors/http.js";
 import { InvocationRefused } from "../invocations.js";
 import {
@@ -36,7 +36,9 @@ export default ({ taskStorer, artifactStorer, publications }) => {
     if (!connectionId) throw new InvalidArgumentError("connectionId is required");
     const tasks = await taskStorer.get({ id, auth });
     if (!tasks) throw new InvalidArgumentError("task not found");
-    const current = await artifactStorer.getCurrent({ uid: auth.uid, taskId: id, connectionId, registryVersion: REGISTRY_VERSION });
+    const current = await artifactStorer.getCurrent({
+      uid: auth.uid, taskId: id, connectionId, registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS
+    });
     if (current.status !== "ok") {
       throw new HttpError({ code: 409, message: "run this item through the connection before publishing it" });
     }

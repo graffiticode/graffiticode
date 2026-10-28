@@ -1,4 +1,6 @@
 import {
+  ARTIFACT_COMPATIBLE_VERSIONS,
+  isArtifactCompatible,
   OPERATIONS,
   PROTECTED_FUNCTIONS,
   REGISTRY_VERSION,
@@ -14,6 +16,22 @@ import {
 describe("protected-registry", () => {
   it("has a version", () => {
     expect(Number.isInteger(REGISTRY_VERSION)).toBe(true);
+  });
+
+  // P1 (docs/graffiticode-interpreter-plan.md): artifact compatibility across
+  // registry versions is declared, and the default is incompatible.
+  it("serves artifacts from the current version and only the versions it declares compatible", () => {
+    expect(isArtifactCompatible(REGISTRY_VERSION)).toBe(true);
+    for (const v of ARTIFACT_COMPATIBLE_VERSIONS) {
+      expect(Number.isInteger(v)).toBe(true);
+      expect(v).toBeLessThan(REGISTRY_VERSION);
+      expect(isArtifactCompatible(v)).toBe(true);
+    }
+    expect(isArtifactCompatible(REGISTRY_VERSION - 1, [])).toBe(false);
+    expect(isArtifactCompatible(REGISTRY_VERSION - 1, [REGISTRY_VERSION - 1])).toBe(true);
+    expect(isArtifactCompatible(REGISTRY_VERSION + 1, [REGISTRY_VERSION - 1])).toBe(false);
+    expect(isArtifactCompatible(undefined, [REGISTRY_VERSION - 1])).toBe(false);
+    expect(isArtifactCompatible(String(REGISTRY_VERSION))).toBe(false);
   });
 
   it("names only known operations of the function's backend and kind", () => {

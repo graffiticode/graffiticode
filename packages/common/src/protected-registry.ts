@@ -39,6 +39,23 @@
 // re-saving a program makes new records.
 export const REGISTRY_VERSION = 8;
 
+// Earlier registry versions whose stored artifacts this version still serves
+// (docs/graffiticode-interpreter-plan.md, P1). An artifact records the version
+// it was made under, and a view or publish refuses one from any other version
+// as incompatible, which strands it until its owner reruns or republishes. A
+// bump that changes no protected function's meaning may list its predecessors
+// here so their artifacts stay readable; that listing is part of the bump's
+// security review. The default is none: a version not listed is incompatible.
+export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([]);
+
+// Whether an artifact made under `version` may be served now: the current
+// version, or one the current version declares compatible.
+export const isArtifactCompatible = (
+  version: unknown,
+  compatible: readonly number[] = ARTIFACT_COMPATIBLE_VERSIONS,
+): boolean =>
+  version === REGISTRY_VERSION || (Number.isInteger(version) && compatible.includes(version as number));
+
 // What a step of an operation does:
 //   dispatch  one provider request
 //   sign      one local signature issuance (no provider request)

@@ -20,8 +20,10 @@
 //     -> { current, acknowledged }   whether this invocation is now the head,
 //        and whether an identical artifact was already stored
 //     throws ArtifactConflict when a different one was
-//   getCurrent({ uid, taskId, connectionId, registryVersion })
+//   getCurrent({ uid, taskId, connectionId, registryVersion, compatibleVersions? })
 //     -> { status: "ok", artifact } | { status: "missing" } | { status: "incompatible" }
+//        an artifact made under registryVersion, or under one of the earlier
+//        compatibleVersions the current registry declares, is served
 //   getByInvocation(invocationId) -> artifact | null   (the one a publication names)
 //
 // "missing" and "incompatible" both mean an explicit run is needed; a read must
@@ -65,7 +67,9 @@ const sameOwner = (artifact, { uid, taskId, connectionId }) =>
 
 const resolveCurrent = (artifact, query) => {
   if (!artifact || !sameOwner(artifact, query)) return { status: "missing" };
-  if (artifact.registryVersion !== query.registryVersion) return { status: "incompatible" };
+  const accepted = artifact.registryVersion === query.registryVersion ||
+    (query.compatibleVersions ?? []).includes(artifact.registryVersion);
+  if (!accepted) return { status: "incompatible" };
   return { status: "ok", artifact };
 };
 
