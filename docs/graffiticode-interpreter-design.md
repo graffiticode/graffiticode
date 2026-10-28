@@ -13,7 +13,11 @@ The proposed language interface is:
 Code --POST /compile--> Model --POST /interpret--> Result --/form--> Experience
 ```
 
-`POST /interpret` is a **universal language contract** whose default is the **identity interpreter**. The platform supplies that default, and the protected registry declares which languages override it (§11). Languages override it only when they need dynamic behavior. For identity languages, the API skips the HTTP call.
+`POST /interpret` is a **universal language contract** whose default is the **identity interpreter**. The protected registry declares which languages override it (§11). Languages override it only when they need dynamic behavior. For identity languages, the API skips the HTTP call.
+
+Two decisions shape the design:
+- **A pipeline is a chain of models, interpreted right to left.** Each task compiles on its own into a reusable model. Each language then interprets its own model, given the previous stage's resolved data: `interpret(A, interpret(B, interpret(C, input)))`. No language has to understand another language's model (§5, "Pipelines").
+- **Rust is the only implementation target.** `/interpret` and its identity default are built once, in the shared Rust server and `Dialect` interface, and every `lNNNNr` service inherits them. The Node language services are not changed. Each language's production compile *and* interpret routing switches to its Rust service, together, when that service is ready (§11, §12).
 
 Much of this already exists in another form: L0176's READ-01 read stage, `POST /preview/sign`, the form's refresh before expiry, and the policy/broker effect machinery (§2). This design formalizes and generalizes those pieces. Durable workflows are kept in the contract as reserved operations, and their design is deferred (§12).
 
@@ -32,7 +36,7 @@ The central rule is: **Reading or refreshing a form must never unintentionally r
 
 Historically, external side effects in Graffiticode have occurred during **compilation**. This proposal changes that behavior: compilers should become pure and side effects should move to interpretation/execution. Existing caching of compiled models remains useful; dynamic state should no longer require appending upstream state objects to tasks and recompiling.
 
-The renderer pass is the conceptual predecessor of the proposed interpreter pass. It still exists in the Node core, but it does almost nothing (see below).
+The renderer pass is the conceptual predecessor of the proposed interpreter pass. It still exists in the Node core, but it does almost nothing (see below). The Rust core has no equivalent.
 
 ### What already exists
 
@@ -109,7 +113,11 @@ function interpret({ model, operation }: InterpretRequest): InterpretResult {
 }
 ```
 
-A language can override `/interpret` to provide more capabilities. The API may skip the network call for a language that declares the identity implementation, but the **contract stays the same for every language**. As §2 shows, a route added to L0000's Node server would not reach any production language. The identity default therefore has to come from the platform (§11).
+A language can override `/interpret` to provide more capabilities. The API may skip the network call for a language that declares the identity implementation, but the **contract stays the same for every language**.
+
+As §2 shows, every Rust dialect server inherits L0000's routes, while the Node servers don't. Because Rust is the only implementation target (§11), L0000 *can* provide the default by inheritance:
+- the route goes in the shared server's `app()`;
+- the default handler goes on the `Dialect` trait.
 
 **Failure behavior:** If a language declares a non-identity interpreter and that interpreter fails, return an error. Do not silently substitute the compiled model. A *declared, visible degraded result* is different from a fallback and is allowed: L0176 without a connection returns an unsigned preview marked `signing: {unsigned, message}`. The language chooses that result and labels it in the result itself. The platform never substitutes it.
 
@@ -171,7 +179,7 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
 - The key is bound to the command's input: the existing `connectionId`, `taskId` and `inputDigest`, plus the model digest. Reusing a key with a different binding is a conflict, not a replay.
 
 **Pinned inputs.**
-- A command may resolve data before it acts. An example is a head interpreter that fetches what an L0185 stage describes and then saves it.
+- A command may resolve data before it acts. An example is a chain in which an L0185 stage fetches rows and a downstream stage saves them.
 - A retry that re-resolved could get different data. It would then present the same broker operation id with different arguments, and the broker refuses that as `operation-id-reused` (`packages/broker/src/broker.ts:429`).
 - So before its first effect, a command persists, in its command record:
   - the resolved inputs, or a snapshot of them with its digest;
@@ -230,7 +238,7 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - A repair never publishes its own outputs as the artifact: a completed subset must not replace the full item result.
   - Once the ledger shows every occurrence of the original command `completed`, through the original or any repair, the platform **assembles** the artifact.
   - **Assembly is a language-provided, pure materialization, not a concatenation.** Occurrence outputs are not the program's result. L0176, for example, returns its final expression, which may combine, transform or ignore what its saves returned.
-    - Each language whose model has effect intents implements a `materialize(model, pinnedInputs, occurrenceOutputs) → result` hook, on the `Dialect` trait in Rust and in the compiler configuration in Node.
+    - Each language whose model has effect intents implements a `materialize(model, pinnedInputs, occurrenceOutputs) → result` hook on the `Dialect` trait.
     - The hook re-evaluates the original model against the pinned inputs, and each effect intent evaluates to its recorded completed output instead of acting. It has no other inputs, so it is deterministic.
     - It may not call the broker or any external API. A materialization that reaches an intent without a completed output fails, and nothing is published.
     - The result is what the original command would have produced had every occurrence completed the first time.
@@ -245,43 +253,51 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
 
 ### Pipelines
 
-Tasks compose into chains (`id0+id1+id2`) that compile right to left; each stage's output is the next stage's input `data` (`packages/api/src/data.js:318`).
+Tasks compose into chains (`id0+id1+id2`). Today they compile right to left: each stage's compiled *output* is the next stage's input `data` (`packages/api/src/data.js:318`).
 
-**Only the head is interpreted, and the head's interpreter interprets the whole model.**
-- Each stage below the head passes its compiled *model* to the stage on its left, never an interpreted result.
-- Upstream stages therefore stay pure and remain cached by task id, as today.
-- Whatever an upstream stage contributes is part of the model the head receives. That includes things that need interpreting, such as a fetch an L0185 stage describes. Interpreting it is the head interpreter's job.
-- The platform does not interpret intermediate stages on the head's behalf.
+**Proposed: a pipeline of models, interpreted right to left.**
 
-**Deferred computations must survive compilation.** "Part of the model the head receives" is not automatic.
-- **Today a compiler consumes its input data and can lose a deferred value.** `get "amount" (data {})` returns `42` for resolved input. For a fetch descriptor, it succeeds and returns `undefined`. The head model then holds neither the fetch nor the field access, and no interpreter can recover them.
-- **A deferred value gets an explicit representation, distinguishable from data.** A reserved property such as `_deferred` is not enough: ordinary JSON can contain that property, and a reader couldn't tell a model node from data. So:
-  - **The model envelope (Phase 1) records whether the model contains deferred computation, and where.** A model without that mark is data throughout, whatever properties it holds.
-  - **Within a marked model**, a deferred node is the reserved tag, and ordinary data that happens to contain the tag is escaped: wrapped as a literal node, for example `{"_literal": <value>}`. Decoding is unambiguous both ways.
-  - **Each deferred node names the language and semantic version** that produced it, so it is interpreted under the right rules.
-- **The compiler preserves what it does with that value.** An operation applied to a deferred value does not evaluate. It produces a deferred expression: the operation plus its deferred operand, a *residual* the head interpreter evaluates once the input is resolved. For example, `get "amount"` on a deferred fetch becomes `deferred(get "amount", fetch)`.
-- **The L0000 cores provide the mechanism, and the dialects provide their own operations.** The cores are the code every language does inherit: `@graffiticode/l0000` in Node, the kernel crate in Rust.
-  - The core evaluators lift *kernel* operations over deferred values, once, for every language.
-  - Dialects also implement their own eager operations, and the core can't know how to defer those. Each dialect therefore implements two hooks:
-    - **residualize:** turn a dialect operation applied to a deferred value into a residual node;
-    - **interpret:** evaluate that node once its input is resolved.
-  - Both hooks are versioned. A residual node records its operation, language and semantic version, and the interpreter evaluates it only under a matching version, or refuses.
-  - In Rust these hooks belong on the `Dialect` trait; in Node, on the compiler configuration.
-  - A dialect operation with no residualize hook is "can't residualize", and is rejected (below).
-- **Unsupported composition is rejected, never silently lost.**
-  - A language declares, in the registry (§11), which deferred kinds it accepts as input and which operations it can residualize.
-  - If a compile meets a deferred value it doesn't accept, or an operation it can't residualize, the compile fails with an explicit error. It never yields `undefined`.
-  - Until a language declares support, that strict rejection is its behavior.
-- **A residual model needs an interpreter that can evaluate it.** Identity interpretation returns the model unchanged, which is wrong for a model containing deferred computation.
-  - The identity fast path applies only to models whose envelope says they contain none.
-  - An identity language that is handed a residual model refuses it rather than passing it through.
-- **Rollout.** Phase 1 ships the envelope mark, literal escaping and the strict rejection. Residualization is partial evaluation inside the compiler, so it is its own milestone, **Milestone R** in §12, rather than part of any language migration.
+```text
+models:  compile(A)  compile(B)  compile(C)        each independent, cached by task id
+result = interpret(A, interpret(B, interpret(C, input)))
+```
+
+- **Each task compiles on its own** into a reusable model. Compiling no longer receives the upstream stage's data.
+- **The API interprets the models right to left.** It calls each stage's language with that stage's model and the previous stage's resolved result. The tail receives the chain's initial input.
+- **Each language interprets only its own model.** An L0185 interpreter fetches and shapes rows, and the next language receives those rows and applies its own operations. No language has to preserve, understand or run another language's model.
+
+**A model describes a computation that accepts runtime input.**
+- This is the architectural change. A compiler can no longer eagerly evaluate an expression that depends on input, because the input doesn't exist when it compiles.
+- A model is therefore a validated, language-specific program or plan, and evaluating its input-dependent parts moves into that language's interpreter.
+- **Static models keep identity interpretation.** The compiler marks a model as input-independent when nothing in it reads its input and it has no effect intents, and identity applies only to such a model.
+- **The default interpreter is the kernel evaluator.** The shared Rust kernel can run a compiled plan against its input, so the `Dialect` trait's default `interpret` evaluates the plan with the input bound to `data`. That means most dialects need no interpreter code of their own:
+  - A dialect overrides `interpret` only for behavior the kernel doesn't have, such as signing or fetching.
+  - It interprets its own operations through the same `Dialect::eval` it uses today.
+
+**Three rules hold for every pipeline:**
+1. **Cache by model and input.**
+   - A stage's result depends on its model digest, the digest of its resolved input, its interpreter version, and any authority it ran under. It is cached under all of those, never under the task id alone.
+   - A stage's `expiresAt` can be no later than its input's, so a result is never valid longer than what it was computed from.
+   - Its `cache` class is at least as strict as its input's (§7).
+2. **Presentation credentials stay out of intermediate data.**
+   - Signing and other per-viewer presentation happen only for the final consumer, after the data pipeline: in the head's interpretation, never in a stage whose output feeds another stage.
+   - So an intermediate result classified `no-store` is refused when it would feed a downstream stage.
+3. **Commands stay explicit.**
+   - A form read never executes a business write, at any stage.
+   - An explicit command uses **one invocation across the whole chain**. Each stage has a stable stage id (the API already sends `stage` values `s0`, `s1`, … per stage). Each stage's resolved input is pinned before its first effect (§5, "Immediate commands"), so a retry reaches the same broker operation ids.
+
+This removes the need for any cross-language machinery:
+- foreign expressions don't have to survive downstream compilers;
+- the head needs no versioned handlers for foreign operations;
+- there is no cross-language residualization.
+
+Each language still needs its own boundary between compile and interpret.
 
 **Producer and interpreter pairs.**
-- When every task is L0158, the form is served as L0176 (`RENDER_LANG` in `packages/api/src/routes/form.js:14`), so a model one language produced is interpreted by another.
-- That generalizes into **registry-approved producer → interpreter pairs**. By default, a language interprets its own models. The registry adds the approved cross-language pairs, starting with L0158 → L0176.
-- One mapping drives both routing (which language's `get` runs for a head model, replacing the hard-coded `RENDER_LANG`) and provenance validation (Phase 1). The two can therefore never disagree.
-- The composed result's `cache` class and `expiresAt` are the head interpreter's to set (§7).
+- By default a stage's model is interpreted by its own language.
+- There is one existing exception: when every task is L0158, the form is served as L0176 (`RENDER_LANG` in `packages/api/src/routes/form.js:14`), so a model one language produced is interpreted by another.
+- That generalizes into **registry-approved producer → interpreter pairs**, starting with L0158 → L0176.
+- One mapping drives both routing (which language's `interpret` runs for a model, replacing the hard-coded `RENDER_LANG`) and provenance validation (Phase 1). The two can therefore never disagree.
 
 ## 6. Interpreter behavior is compositional, not a fixed enum
 
@@ -319,6 +335,7 @@ Example: a claim workflow is waiting for approval. The durable state contains a 
 Separate three things:
 
 1. **Compiled model cache:** Immutable model keyed by task/code identity and relevant compiler version/configuration.
+   - **Stage result cache:** a stage's interpreted result, keyed by model digest, input digest, interpreter version and authority (§5, "Pipelines"). This is used only for results whose class allows storing them.
 2. **Authoritative execution store:** Durable state and event history, owned by the workflow/interpreter infrastructure.
 3. **API result cache:** Current **materialized form-facing projection**, potentially expiring, owned by the platform for efficient delivery.
 
@@ -373,7 +390,7 @@ Expiry and cacheability are different properties. A signed Learnosity request an
 - So a compromised or buggy language server cannot turn a signed result into a cached one.
 - The boolean `cache: false` envelope field maps to `no-store` until languages move to the classification.
 
-For a `shared` result, the cache key must cover more than the model hash. Where they apply, it includes the execution ID, state version, and interpreter/configuration version.
+For a `shared` result, the cache key must cover more than the model hash. It always includes the input digest. Where they apply, it also includes the execution ID, state version, and interpreter/configuration version.
 
 ### Cutover from today's cache
 
@@ -381,7 +398,7 @@ Server-side versioned keys are not enough to cut over. Responses already cached 
 - Every cacheable `/data?id=…` response today is sent `max-age=31536000, immutable`. Browsers and the CDN may hold it for a year under its URL.
 - Existing Firestore `compiles/` entries for L0185 contain fetched output, not the fetch model the new compiler produces.
 
-So the cutover follows the L0158 compile-generation precedent (`packages/api/src/generation.js`):
+So the cutover follows the L0158 compile-generation precedent (`packages/api/src/generation.js`). That precedent is already per language, which fits a per-language switch to Rust (§12): each language gets its new generation when its routing switches.
 1. **A versioned request URL.** Interpreted results are served under URLs that carry the interpreter generation (a `generation` parameter, as L0158 uses). A URL that browsers and the CDN have never cached can't be answered from those caches.
    - **This needs consumer changes; forms don't move by themselves.** `/form` puts the generation in its `?url=`, but the shared View (`@graffiticode/l0000-view`) ignores `?url=` and builds its own `/data?id=…` request (`languages/l0000/packages/view/src/lib/api.ts:29`).
    - Today L0176 works around this with an SWR middleware that copies the generation onto the View's data load (`languages/l0176/packages/view/src/generation.ts`).
@@ -416,7 +433,7 @@ What `/data` returns depends on how the item is viewed:
 - A stale **questions** activity is re-signed through `POST /preview/sign`, under the system preview session.
 - A stale **items** activity is *not* re-signed. It can load bank items the system consumer can't see, so it is reported as expired instead.
 
-**Proposed flow.** Keep the redirect. `GET /data` is where the API runs `interpret(get)` on the head model, and an identity language skips that call. These rules carry over unchanged:
+**Proposed flow.** Keep the redirect. `GET /data` is where the API interprets the chain right to left (§5, "Pipelines"), skipping the call for identity stages. These rules carry over unchanged:
 
 - **Artifacts and publications survive interpretation.** For a connection or publication view, `get` interprets the selected **artifact**, not a fresh compile of the model. It keeps the existing selection, the authority (the recipient's, or the publication's), and the failure reasons. A missing or incompatible artifact still requires an explicit `start` (run) or republish, never an implicit one. An artifact *is* the persisted result of a run (see Phase 3).
 - **Refresh preserves the user's state.** A refresh replaces only the presentation parts of a result (signatures, URLs). A consumer refreshes only before it has initialized the content or while it is idle. It never re-initializes content the user is working in, and never discards their input.
@@ -426,47 +443,53 @@ Within those rules, refresh becomes general. A result with `expiresAt` tells the
 
 Durable executions (deferred, see §12): a stable `/form/:itemId` URL resolves the task/model and the current execution, if any. If several executions exist for the same model, the platform needs a selection rule or an explicit selector such as `/form/:id?execution=...`.
 
-Conceptual read path for `/data` once durable executions exist:
+Conceptual read path for `/data`:
 
 ```ts
 // Every path returns the same result envelope (Phase 1): data plus the
 // metadata consumers need — cache class, expiresAt, and refresh metadata
 // (authority to refresh under, whether refresh is allowed once started).
-async function getFormResult(itemId, executionId, viewer): Promise<ResultEnvelope> {
-  const model = await resolveCompiledModel(itemId);   // head model, with its envelope
-  const execution = await resolveExecution(model, executionId);
+async function getFormResult(itemId, viewer, initialInput): Promise<ResultEnvelope> {
+  const models = await resolveCompiledModels(itemId);  // one per task, tail last, each with its envelope
+  let input = inputEnvelope(initialInput);             // { data, cache, expiresAt }
 
-  // Registry-approved producer -> interpreter pair (§5), e.g. L0158 -> L0176.
-  // The same mapping validates provenance; an unapproved pair is refused.
-  const interpreter = interpreterFor(model.envelope.producer);
-  validateProvenance(model.envelope, interpreter);
+  for (const [i, model] of [...models].reverse().entries()) {   // right to left
+    const isHead = i === models.length - 1;
 
-  // Identity only when the interpreter is identity AND nothing is deferred.
-  if (isIdentity(interpreter) && !model.envelope.hasDeferred) {
-    return identityResult(model);                      // { data, cache: "immutable", expiresAt: null, refresh: null }
+    // Registry-approved producer -> interpreter pair (§5), e.g. L0158 -> L0176.
+    // The same mapping validates provenance; an unapproved pair is refused.
+    const interpreter = interpreterFor(model.envelope.producer);
+    validateProvenance(model.envelope, interpreter);
+
+    let out;
+    if (isIdentity(interpreter) && model.envelope.inputIndependent) {
+      out = identityResult(model);                     // { data, cache: "immutable", expiresAt: null, refresh: null }
+    } else {
+      const key = stageCacheKey(model, input, interpreter, authorityFor(viewer));
+      const cached = await resultCache.get(key, viewer);           // visibility-checked
+      out = cached && isUnexpired(cached) ? cached.envelope : null;
+      if (!out) {
+        const fresh = await interpret(interpreter, {
+          operation: "get", model, input: input.data, stage: stageId(i), context: contextFor(viewer)
+        });
+        out = capClass(fresh, interpreter);            // §7: class capped by the registry
+        if (isStorable(out.cache)) await resultCache.putIfCurrent(key, out);
+      }
+    }
+
+    // A stage result is never looser or longer-lived than its input (§5 rule 1).
+    out = combine(out, input);                         // strictest class, earliest expiresAt
+    if (!isHead && out.cache === "no-store") throw new CredentialInIntermediateData(model);  // §5 rule 2
+    input = out;
   }
-  if (isIdentity(interpreter)) throw new ResidualModelRefused(model.envelope);
-
-  const key = resultCacheKey(model, execution, interpreter);
-  const cached = await resultCache.get(key, viewer);   // visibility-checked
-  if (cached && isCurrentAndUnexpired(cached, execution)) return cached.envelope;  // stored whole, metadata included
-
-  const fresh = await interpret(interpreter, {
-    operation: "get",
-    model,
-    executionId: execution?.id,
-    context: contextFor(viewer)
-  });
-  const envelope = capClass(fresh, interpreter);       // §7: class capped by the registry
-  if (isStorable(envelope.cache)) await resultCache.putIfCurrent(key, envelope);
-  return envelope;
+  return input;                                        // the head's result envelope
 }
 
 // The /data route returns the envelope to the consumer and derives
 // Cache-Control from envelope.cache, the request's visibility and envelope.expiresAt (§7).
 ```
 
-This is conceptual pseudocode. `resultCache` holds only results that may be cached (see §7). A credential-bearing result skips both the lookup and the `put`. For a connection or publication view, `resolveCompiledModel` is replaced by the artifact selection in this section. In a distributed system, the API must ensure it knows the current execution version (or uses an equivalent versioned cache protocol); merely trusting a stale local version would make the validity test unreliable.
+This is conceptual pseudocode. `resultCache` holds only results that may be cached (see §7). A credential-bearing result skips both the lookup and the `put`. For a connection or publication view, the chain is replaced by the artifact selection in this section. Once durable executions exist (deferred), the API must also know the current execution version, or use an equivalent versioned cache protocol: merely trusting a stale local version would make the validity test unreliable.
 
 The form can receive updates through SSE, WebSockets, or polling. Reading a result and subscribing to updates are separate from `start` and `dispatch`. Local ephemeral UI state (hover, open menu, etc.) remains in the browser.
 
@@ -498,70 +521,78 @@ A workflow engine such as Temporal could implement durable orchestration behind 
 
 ## 11. L0000 inheritance and implementation strategy
 
-There are two ways to make `/interpret` universal:
+**Rust is the sole implementation target for language interpreters.**
+- `/interpret` and its identity default are added once, to the shared Rust server (`app()` in `languages/l0000/crates/server/src/lib.rs`) and the `Dialect` trait. Every dialect server is `l0000r_server::serve(dialect, lexicon)` through a Cargo path dependency, so every `lNNNNr` service inherits both when it is rebuilt.
+- The `Dialect` trait gains:
+  - `interpret`, whose default runs the kernel evaluator over the compiled plan with its input (§5, "Pipelines");
+  - `materialize`, for languages with effect intents (§5).
 
-1. **Language inheritance:** every language server inherits L0000's route and default handler.
-2. **Platform fallback:** the API supplies identity for any language that doesn't declare an interpreter.
+  The Rust core has no stage after evaluation today.
+- **The Node language services get no interpreter.** They keep running production, unchanged, until each language's routing switches to its Rust service. No interpreter is ever built twice.
+- This is how the two choices from the earlier draft resolve:
+  - Language inheritance does reach every language now, because it is only needed in Rust.
+  - A platform fallback is not needed, though the API still skips the call for declared identity stages.
 
-**Recommendation: platform fallback (2), with the declaration in the protected registry.**
+**The registry declares; the API reads.**
+- Each language's declaration lives in `@graffiticode/common/protected-registry`, beside `compilerConfigForLang`. It covers:
+  - identity or not;
+  - the least restrictive `cache` class;
+  - producer → interpreter pairs;
+  - L0182's get-or-create.
+- That registry is already the security-reviewed per-language manifest, and changing it requires a `REGISTRY_VERSION` bump.
+- The API never probes for the route at runtime.
+- The same declaration should replace today's hard-coded per-language constants: `RENDER_LANG` (`packages/api/src/routes/form.js:14`) and `CALLER_IDENTITY_LANGS` (`packages/api/src/caller-identity.js:15`).
 
-- Inheritance works for the Rust servers, which all serve `l0000r_server::app()`. It does not work for the Node servers, which production runs: each has its own copy of the Express app (§2).
-- In practice, then, only the platform fallback reaches every language without editing and redeploying all of them.
-- The declaration belongs in `@graffiticode/common/protected-registry`, beside `compilerConfigForLang`. That is already the security-reviewed per-language manifest, and changing it requires a `REGISTRY_VERSION` bump. `language-info.json` is a weaker option, since a language server can change it on its own.
-- The API reads the declaration; it never probes for the route at runtime.
-- The same declaration should replace today's hard-coded per-language constants that do this job: `RENDER_LANG` (`packages/api/src/routes/form.js:14`) and `CALLER_IDENTITY_LANGS` (`packages/api/src/caller-identity.js:15`).
+**Models serialize to plain JSON.** Every model and every stage result must serialize to plain JSON on its own, without the interpreter. That includes identity models and intermediate stages. In Node today the `Renderer` does this normalization, converting records and `Decimal` values (§2). The Rust compiler must produce the same plain JSON for the same task.
 
-**Rust parity.**
-- Add `/interpret` to `app()` in `languages/l0000/crates/server/src/lib.rs`.
-- Add an `interpret` hook to the `Dialect` trait whose default is identity.
-- The Rust core has no stage after evaluation today.
-
-**Node.** The `Renderer` stays inside compilation as deterministic JSON normalization (records and `Decimal` to plain JSON). Every model, including identity models and non-head stages, must be serializable without the interpreter. The interpreter is a separate operation applied to the normalized model, never a replacement for the renderer.
-
-For identity languages, `get` returns the model and unsupported operations fail explicitly. Identity applies only to models with no deferred computation; an identity language refuses a residual model (§5). For effectful languages, a declared interpreter is mandatory and must never silently fall back to identity.
+For identity stages, `get` returns the model and unsupported operations fail explicitly. Identity applies only to an input-independent model with no effect intents (§5). For effectful languages, a declared interpreter is mandatory and must never silently fall back to identity.
 
 ## 12. Suggested rollout
 
-**Phase 1 — Contract and identity.**
-- Finalize the wire envelopes:
-  - The **model envelope** carries provenance only: language, task id, model digest, compiler/configuration version, `REGISTRY_VERSION`. It names no caller, invocation or admission, so it is reusable (§5, "Immediate commands").
+**Phase 1 — Contract, identity and orchestration.**
+- **Wire envelopes:**
+  - The **model envelope** carries provenance only: language, task id, model digest, compiler/configuration version, `REGISTRY_VERSION`, and whether the model is input-independent. It names no caller, invocation or admission, so it is reusable (§5, "Immediate commands").
   - The **result envelope** carries `cache` (§7), `expiresAt`, refresh metadata the consumer can read (which authority to refresh under, and whether a refresh is allowed once the content has started), and, for a command, its outcome (§5).
-- Define admission separately from provenance:
+- **Admission, separate from provenance:**
   - A `get` accepts a model only if its producing language and the interpreting language are an approved pair (§5, "Producer and interpreter pairs"), and its `REGISTRY_VERSION` matches. The default pair is a language with itself.
   - A `start` additionally needs a command admission bound to the model's digest.
-- Add the interpreter declaration to the protected registry, covering:
-  - identity or not;
-  - the least restrictive `cache` class;
-  - the head-language rule.
+- **Registry:** add the interpreter declaration to the protected registry (§11). Identity is the default.
+- **Rust:** add `/interpret` to the shared server, and `Dialect::interpret` (kernel-evaluator default) and `Dialect::materialize` to the trait. Every `lNNNNr` service inherits them.
+- **API:**
+  - Compile each task on its own, and interpret the chain right to left in the shared `getData` logic (§5, §8). Skip the call for identity stages.
+  - The orchestration applies only to languages whose routing has switched to Rust. Unswitched languages compile exactly as today.
+- **Shared View:** keep it working. Its edit flow posts form state to `POST /compile` (`languages/l0000/packages/view/src/lib/api.ts:48`).
+  - That route stores the form state as a data task, *appends* it to the chain (`id+dataId`, `packages/api/src/routes/compile.js:91`), and calls the same `getData` logic `GET /data` uses.
+  - Under right-to-left interpretation, that data task is the tail, and its result is the next stage's input.
+  - Both routes must return the same interpreted result.
+  - The View also consumes the result envelope's refresh metadata and carries the generation (§7).
 
-  Identity is the default.
-- Have the API run `get` on the head of the chain in the shared `getData` logic (§5, §8), and skip the call for identity languages when the model has no deferred computation.
-- Ship the deferred-value groundwork: the envelope mark, literal escaping, and rejection of any deferred input a language hasn't declared (§5).
-- Keep the `Renderer` inside compilation as JSON normalization (§11). The interpreter is a new, separate operation applied to its output.
-- Keep the shared View working. Its edit flow posts form state to `POST /compile` (`languages/l0000/packages/view/src/lib/api.ts:48`). That route stores the form state as a data task, *appends* it to the chain (`id+dataId`, `packages/api/src/routes/compile.js:91`), and calls the same `getData` logic `GET /data` uses. So the head interpretation must live in that shared logic, and both routes must return the same interpreted result.
-- Add the Rust `Dialect::interpret` hook and the `/interpret` route.
-- Existing static languages behave exactly as before.
-
-**Milestone R — Residualization (partial evaluation).** This is a distinct milestone, a prerequisite for any pipeline in which a deferred input flows into another language (Phase 3's L0185 fetches feeding a downstream head).
-- Lift the kernel operations over deferred values in both cores.
-- Define the dialect residualize and interpret hooks and their versioning.
-- Implement them per language, as each language needs them.
-- Test each lifted operation by checking that residualizing and then interpreting gives the same result as evaluating eagerly once the input is resolved.
+**Per-language switch to Rust.** Each language moves independently. The switch is where Phases 2 and 3 land for that language:
+1. Implement the language's compile/interpret boundary in its Rust dialect:
+   - compile produces a model that accepts runtime input;
+   - interpret evaluates it;
+   - remove compile-time effects and nondeterminism (Phases 2–3).
+2. Validate on the language's non-pinnable `lNNNNr` Cloud Run service while production keeps running the TypeScript service. Matching models isn't enough; parity tests must show the same:
+   - observable API and form behavior;
+   - authorization;
+   - error semantics.
+3. **Switch compile and interpret routing together**, so a language is never compiled by one implementation and interpreted by another. Switch its compile generation at the same time (§7).
+4. Existing tasks and stored content keep working because the Rust compiler accepts the same source and the models are backward compatible. Stored artifacts are re-validated against the new `REGISTRY_VERSION` like any other (§8).
 
 **Phase 2 — Converge expiring projections.**
-- L0176 stops signing in compile and emits unsigned models. This covers both `signForRender` and the `init <activity>` operator. Signing happens only in `get`, which formalizes the READ-01 read stage and `/preview/sign`.
+- In L0176's Rust implementation, compile emits unsigned models and never signs. This covers both what `signForRender` and the `init <activity>` operator do in the TypeScript compiler today. Signing happens only in the head's `get`, which formalizes the READ-01 read stage and `/preview/sign`.
 - The `cache` classification replaces `cache: false`: L0176 results are `no-store`.
 - The form's refresh before expiry becomes the general mechanism, under the lifecycle and authority rules in §8.
 - Update or check the consumers that expect signed `/data` output today: the console, the MCP widget, and the ChatGPT inline L0176 form.
 
-**Phase 3 — Migrate effects and nondeterminism out of compilers.**
-- **L0185:** move URL fetches out of compile. The model describes the fetches. The head interpreter performs them: L0185's own `get` when L0185 is the head, or a head language that honors L0185's model (§5). Results are `shared`, and the fetched data expires. A `start` that depends on fetched data pins it (§5).
+**Phase 3 — Move effects and nondeterminism out of compilers**, in each language's Rust implementation.
+- **L0185:** fetching moves from compile into L0185's `interpret`. The model describes the fetches and the shaping. Interpretation fetches the rows and shapes them, and its result is the next stage's input. Results are `shared`, and the fetched data expires. A `start` that depends on fetched data pins it (§5).
 - **L0013:** a snapshot is a write, so it becomes a `start`, not a `get`. It needs a deliberate write policy first. Either address objects immutably (for example `thumbnails/{item}/{sha}.png`, with the item pointing at the latest one), or make the overwrite conditional on a generation or version precondition so an older capture can never replace a newer one.
 - **L0176 `save-to-itembank`:** becomes an immediate `start` command through the broker. It is already an explicit command in the program.
   - The compiled model carries the validated save intent and its stable occurrence id, replacing the per-compile WeakMap (§5).
   - The command's outcome is persisted in its command record.
   - A `completed` save replaces the **artifact** that connection and publication views read (§8). Any other outcome leaves the current artifact in place.
-- **L0176 dynamic-content reference:** derive the reference from the content (for example a digest of the table), not from the clock.
+- **L0176 dynamic-content reference:** derive the reference from the content (for example a digest of the table), not from the clock (the TypeScript compiler uses the clock today, `items.ts:64`).
 - **L0182 version draws:** a draw is per respondent, not per program. The model lists the versions; it doesn't choose one. Assigning a version is the one declared exception to a read-only `get`: an **idempotent get-or-create**.
   - **Declared, not implicit.** The registry declaration names get-or-create for L0182 explicitly. No other language's `get` may write state.
   - **Atomic.** The assignment is created only if absent, in one transaction, keyed by `(survey item id, respondent)`. Concurrent first reads converge on one assignment, and later reads return it. It is stored durably, not in process-local maps, so restarts don't change it.
@@ -584,14 +615,14 @@ For identity languages, `get` returns the model and unsupported operations fail 
 Phases 1–3 are done when tests show:
 
 1. **Pipelines.**
-   - Only the head is interpreted.
-   - Upstream stages pass compiled models and stay cached by task id.
-   - The head interpreter receives an L0185 stage's model and honors its fetches, or reports that it doesn't support them. The platform never interprets an intermediate stage.
-   - An operation applied to a deferred input either yields a residual the head interpreter evaluates correctly (`get "amount"` over a fetch gives the fetched amount), or fails the compile. It never yields `undefined`.
-   - Ordinary data containing the reserved tag round-trips as data.
-   - A residual model is never served through the identity fast path, and an identity language refuses one.
-   - A residual node whose language or semantic version doesn't match its interpreter is refused.
-   - A head model is interpreted only by an approved producer → interpreter pair. L0158 → L0176 passes; an unapproved pair is refused at both routing and provenance.
+   - Each task compiles on its own; models are cached by task id and contain no upstream data.
+   - The chain is interpreted right to left: an L0185 stage feeding another language delivers fetched, shaped rows, and the downstream language applies its operations to them.
+   - A stage result is cached under model digest, input digest, interpreter version and authority. Changing the input changes the key.
+   - A stage's `expiresAt` is never later than its input's, and its class is never looser.
+   - A `no-store` (credential-bearing) result is refused as input to a downstream stage; signing happens only at the head.
+   - A form read executes no write at any stage. A command uses one invocation across the chain with stable stage ids.
+   - A model is interpreted only by an approved producer → interpreter pair. L0158 → L0176 passes; an unapproved pair is refused at both routing and provenance.
+   - Identity applies only to input-independent models without effect intents.
 2. **Commands.**
    - A `start` without an idempotency key is refused.
    - A retry with the same key and input returns the recorded outcome without new external writes.
@@ -623,7 +654,7 @@ Phases 1–3 are done when tests show:
    - A result that its original authority can't refresh is reported as expired, never re-signed under another identity.
 6. **Determinism and serialization.**
    - Compiling the same task twice yields byte-identical models for every migrated language: L0176, L0185, L0013 and L0182.
-   - Every model, including identity and non-head models, is plain JSON with records and `Decimal` values normalized.
+   - Every model and stage result, including identity models and intermediate stages, is plain JSON. The Rust compiler produces the same plain JSON the TypeScript compiler's `Renderer` does today.
    - The identity, cache-hit and fresh read paths return the same result envelope, with `cache`, `expiresAt` and refresh metadata.
 7. **L0182 assignment.**
    - Concurrent first reads produce one assignment.
@@ -636,6 +667,7 @@ Phases 1–3 are done when tests show:
    - No legacy compile entry is served as a model.
    - The CDN holds no pre-cutover `/data` entry for a migrated language.
 9. **Compatibility.** The View's edit → `POST /compile` path returns the same interpreted result as `GET /data`, and static languages' output is unchanged.
+10. **Per-language switch.** Before a language's routing switches, its `lNNNNr` service passes parity tests against the TypeScript service for API and form behavior, authorization and error semantics. Compile and interpret switch together, and existing tasks and stored content work afterwards.
 
 ## 13. Open design questions
 
@@ -648,9 +680,10 @@ Questions that block Phases 1–3:
 5. How do per-viewer signed resources work when one item is viewed through several connections?
 6. Where is the command record stored (§5), and how are `partial` and `uncertain` outcomes reconciled against the provider?
 7. Where does an L0182 respondent's assignment state live, who may read it, and what identifies a respondent who isn't signed in?
-8. What is the exact representation of a deferred value and of a residual expression, and which operations must the L0000 cores lift first?
+8. How is a stage's input canonicalized for its digest, so equal inputs produce equal cache keys?
 9. What is the lease length for a `pending` command, and who is the recovery owner when no retry arrives?
-10. How are a dialect's residual node versions retired, and what happens to stored residual models when one is?
+10. How does the API call the stages of a chain: one `/interpret` request per stage, or a batched call for consecutive stages in the same language? What latency budget applies?
+11. What is the routing switch, mechanically: a per-language base-URL change, plus generation and registry entries, released together? How is it rolled back?
 
 Questions deferred with durable executions:
 
@@ -665,7 +698,7 @@ Questions deferred with durable executions:
 ## 14. Design decisions reached so far
 
 - **Use `/interpret`** as the language endpoint, rather than `/execute`.
-- **Make identity the universal default**, so no language author has to write a handler. *(Proposed: the platform supplies it, declared in the protected registry, rather than L0000 route inheritance; see §11.)*
+- **Make identity the universal default**, so no language author has to write a handler. It is provided by L0000 inheritance in the shared Rust server and `Dialect` trait, and declared in the protected registry (§11).
 - **Optimize identity away** in the API when safely declared.
 - **Keep compilation pure and models immutable** as the target architecture.
 - **Distinguish `get` from `start`/`dispatch`** so reading never inadvertently executes a business operation.
@@ -674,8 +707,14 @@ Questions deferred with durable executions:
 - **Refresh expiring projections independently of workflow state changes** and without recompilation.
 - **Keep authoritative durable state outside the API result cache.**
 - *(Proposed)* **Keep cacheability and expiry separate.** A trusted `cache` class (`immutable`, `shared`, `private`, `no-store`), capped by the registry declaration, decides storage and headers. `expiresAt` only tells the consumer when to refresh. Bearer credentials are always `no-store`.
-- **Interpret only the head of a pipeline.** Upstream stages pass compiled models, and the head interpreter interprets the whole composed model, including what upstream stages contributed.
-- **Keep the `Renderer` in compilation** as deterministic JSON normalization. The interpreter is a separate operation applied after it.
+- **A pipeline is a chain of models interpreted right to left.** Each task compiles independently, and each language interprets its own model given the previous stage's resolved data.
+  - Results are cached by model and input.
+  - Presentation credentials stay out of intermediate data.
+  - Commands use one invocation across the chain.
+
+  This replaces head-only interpretation and cross-language residualization.
+- **Rust is the only implementation target.** `/interpret` is built once in the shared Rust server and `Dialect` trait; the Node language services get no interpreter. Each language's compile and interpret routing switches to Rust together, after parity validation on its `lNNNNr` service.
+- **Models serialize to plain JSON** without the interpreter. The Rust compiler matches the normalization the TypeScript `Renderer` does today.
 - *(Proposed)* **Treat `start` as an immediate command, implemented now.** It has:
   - a required idempotency key bound to its input and model digest;
   - an atomic claim with a lease and a recovery owner;
@@ -686,11 +725,6 @@ Questions deferred with durable executions:
 
   Command outcomes are separate from artifacts.
 - *(Proposed)* **Separate model provenance from command admission.** Models name no caller and are reusable. Provenance is validated against registry-approved producer → interpreter pairs, the same mapping that routes interpretation.
-- *(Proposed)* **Represent deferred computations explicitly.** Upstream contributions survive compilation as deferred values and residual expressions, and unsupported composition fails the compile instead of being silently lost.
-  - The model envelope marks deferred content, and data containing the reserved tag is escaped.
-  - The cores lift kernel operations; dialects add versioned residualize and interpret hooks.
-  - Identity never applies to a residual model.
-  - Residualization is its own milestone.
 - *(Proposed)* **A repair command, not a new key, re-runs failed intents.** It is bound to the original command and selects only `failed` operations.
   - Eligibility is claimed atomically in a repair ledger keyed by `(original command, occurrence)`, shared across repair keys.
   - Once every occurrence has completed, the artifact is rebuilt by a language-provided, pure `materialize` over the original model, the pinned inputs and the completed outputs. It is never built from a repair's subset.
