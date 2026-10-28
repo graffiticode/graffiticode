@@ -40,7 +40,7 @@ Several pieces of the interpreter pass exist today under other names. This desig
 
 | Existing mechanism | Where | Interpreter concept |
 | --- | --- | --- |
-| A `Renderer` stage. It is pluggable via `config.Renderer`, but it runs *inside* `Compiler.compile`, so its output is part of the compiled (and cached) result. The default only turns records into plain JSON, and no language overrides it. | `languages/l0000/packages/core/src/compiler.ts:2233`, `:2278`, `:2399` | A hook for an in-process `get` (Node only) |
+| A `Renderer` stage. It is pluggable via `config.Renderer`, but it runs *inside* `Compiler.compile`, so its output is part of the compiled (and cached) result. The default normalizes internal records and `Decimal` values to plain JSON. That step is required: without it `{"answer":42}` serializes as `{"_type":"record","_entries":{}}`. No language overrides it. | `languages/l0000/packages/core/src/compiler.ts:2233`, `:2278`, `:2399` | Not the interpreter. Deterministic JSON normalization, which stays in compilation |
 | The READ-01 read stage. It re-signs a stored L0176 artifact with a fixed data-only program, never runs the source, and may use only the view-safe functions under `stage: "read"`. | `packages/api/src/read.js`; enforced at `packages/policy/src/policy.ts:387,600` and `packages/broker/src/broker.ts:143` | `interpret(get)` for a saved item |
 | `POST /preview/sign`. It is stateless and `no-store`, and re-signs a preview activity through the system preview session. | `packages/api/src/routes/preview.js` | `interpret(get)` for a preview |
 | The form refreshes on its own. The L0176 form treats a request as stale 60 s before its `expires` and re-signs through `/preview/sign`. | `languages/l0176/packages/view/src/components/form/expiry.ts`, `sign.ts` | Refresh on expiry, driven by the consumer |
@@ -156,41 +156,68 @@ For long-running workflows, `/interpret` need not block until completion: `start
 The operations reuse the capability machinery that already exists, rather than adding a second effect path:
 
 - **`get`** runs as policy stage `read`. It may call only the language's view-safe functions (`viewSafeFunctionsForLang`), it needs no execution plan, and it never runs program source. This is exactly the READ-01 rule.
-- **`start` / `dispatch`** run under a policy invocation. The `executionId` is the invocation (or wraps it), and each command is a stage, so every external effect is a broker operation with id `invocation/stage/occurrence`.
+- **`start`** (and, later, `dispatch`) runs under a policy invocation. Each command is a stage, so every external effect is a broker operation with id `invocation/stage/occurrence`.
 - **No direct writes.** An interpreter never calls an external write API directly. Every protected effect goes through the broker, which asks policy to authorize the execution before each step and never caches that answer.
 
-### Command identity and retries
+### Immediate commands
 
-Broker receipts deduplicate *external writes*: one receipt per operation id. They do not deduplicate creating an execution, or a workflow's change of state. Commands therefore need their own identity:
+`start` is needed now, for L0176 item-bank saves and L0013 snapshots (Phase 3). That is an **immediate command**: one invocation, a bounded run, and a persisted outcome. Durable workflow orchestration is something else and stays deferred (§12): long-lived executions, `dispatch`, state versions, and published projections. Nothing below depends on it.
 
-- **A command has an identity.** It is `(uid, idempotencyKey)`, and the caller must supply the key. Policy already supports this: `allocate` reuses an invocation for a known key and refuses the key if the binding differs (`packages/policy/src/invocations.ts:57`). Without a key, every request allocates a new invocation, which is today's behavior. So **`start` and `dispatch` require an idempotency key**; a command without one is refused, not run.
-- **The key is bound to the command's input.** The binding is the existing `connectionId`, `taskId` and `inputDigest`, plus, for `dispatch`, the `executionId` and a digest of the event. Reusing a key with a different binding is a conflict, not a replay.
-- **Recording the command is atomic.** The command record and its key are claimed together, in one transaction, before any effect, the same way the broker claims a receipt before calling the provider. A concurrent duplicate finds the claim and waits for, or reads, its outcome.
-- **The outcome is one of three, and stays one of three.**
-  - `completed`: carries the recorded result.
-  - `partial`: some steps completed. The broker persists each step (`receipts/{id}/steps/{n}`), and the outcome lists which ones.
+Broker receipts deduplicate *external writes*: one receipt per operation id. They do not deduplicate the command itself. So a command has its own identity, inputs and lifecycle.
+
+**Identity.**
+- A command is identified by `(uid, idempotencyKey)`, and the caller must supply the key. Policy already supports this: `allocate` reuses an invocation for a known key and refuses the key if the binding differs (`packages/policy/src/invocations.ts:57`).
+- Without a key, every request allocates a new invocation, which is today's behavior. So **`start` requires an idempotency key**; a command without one is refused, not run.
+- The key is bound to the command's input: the existing `connectionId`, `taskId` and `inputDigest`, plus the model digest. Reusing a key with a different binding is a conflict, not a replay.
+
+**Pinned inputs.**
+- A command may resolve data before it acts. An example is a head interpreter that fetches what an L0185 stage describes and then saves it.
+- A retry that re-resolved could get different data. It would then present the same broker operation id with different arguments, and the broker refuses that as `operation-id-reused` (`packages/broker/src/broker.ts:429`).
+- So before its first effect, a command persists, in its command record:
+  - the resolved inputs, or a snapshot of them with its digest;
+  - the model digest;
+  - the implementation revisions it ran under (compiler, interpreter, `REGISTRY_VERSION`).
+- Every retry and every recovery reuses that snapshot and never fetches the data again. A retry that can't load it fails rather than fetching afresh.
+
+**Effect intents come from the model.**
+- Today L0176's save plans exist only in a WeakMap tied to one compile (`languages/l0176/packages/core/src/compiler.ts:77`). That is how `save-to-itembank` can save only an activity built by the same compile.
+- Once compilation and `start` are separate requests, that guarantee has to live in the model. The compiled model carries **validated effect intents**, each with a **stable occurrence id**.
+- `start` executes only intents found in the model whose digest it is bound to. The occurrence ids give the broker operation ids (`invocation/stage/occurrence`), so they must not change between attempts.
+
+**Provenance and admission are separate.**
+- **Model provenance** describes the model and nothing else: language, task id, model digest, compiler revision, `REGISTRY_VERSION`. Because it names no caller, the model can be reused across callers and invocations.
+- **Command admission** is today's admission: bound to one invocation, user, connection, stage and revision (`packages/policy/src/tokens.ts`). It also binds, with authentication, the digest of the model it admits.
+- A command runs only when its admission's model digest matches the model it was handed.
+
+**Lifecycle.**
+- **`pending`:** claimed and not yet finished. The command record and its key are claimed atomically, before any effect, the same way the broker claims a receipt.
+  - A concurrent duplicate gets `pending` with the command id, and polls. It never blocks indefinitely.
+  - The claim carries a **lease**. If the process dies, the lease expires, and a **recovery owner** takes the command over: the next retry with the same key, or a reconciler.
+  - Taking over is safe because the pinned inputs and stable occurrence ids lead it to the same broker receipts. Writes that already happened are replayed from the receipts, not repeated.
+- **Terminal outcomes**, mapped from the broker's:
+  - `completed`: every step succeeded. Carries the recorded result.
+  - `failed`: definitely nothing was written (the broker's `failed`, `packages/broker/src/broker.ts:464`). It is safe to try again with a new key.
+  - `partial`: some steps completed. The broker persists each one (`receipts/{id}/steps/{n}`), and the outcome lists which.
   - `uncertain`: the broker could not tell whether a write was applied (`packages/broker/src/broker.ts:14-25`).
+- **A retry returns the recorded outcome**, and never upgrades `partial` or `uncertain` to `completed`. Resolving either one is an explicit act: reconcile against the provider, or start a new command with a new key.
 
-  A retry returns the recorded outcome. It does not convert `partial` or `uncertain` into `completed`. Resolving either one is an explicit act: reconcile against the provider, or start a new command with a new key.
+**Command outcomes are not artifacts.**
+- A command's outcome is stored in its command record.
+- Only a `completed` outcome that produces a usable result replaces the **artifact** that connection and publication views read (§8).
+- A `failed`, `partial` or `uncertain` command leaves the current artifact in place.
 
 ### Pipelines
 
-Tasks compose into chains (`id0+id1+id2`) that compile right to left; each stage's output is the next stage's input `data` (`packages/api/src/data.js:318`). A language's `get` does one of two different jobs, and the two compose differently:
+Tasks compose into chains (`id0+id1+id2`) that compile right to left; each stage's output is the next stage's input `data` (`packages/api/src/data.js:318`).
 
-- **Resolution.** `get` produces *data* the program depends on, such as the URLs L0185 fetches. A downstream stage needs this data, not the model that describes how to fetch it.
-- **Presentation.** `get` adds what only a viewer needs, such as a Learnosity signature. A downstream stage must never receive it.
+**Only the head is interpreted, and the head's interpreter interprets the whole model.**
+- Each stage below the head passes its compiled *model* to the stage on its left, never an interpreted result.
+- Upstream stages therefore stay pure and remain cached by task id, as today.
+- Whatever an upstream stage contributes is part of the model the head receives. That includes things that need interpreting, such as a fetch an L0185 stage describes. Interpreting it is the head interpreter's job.
+- A language whose `get` should honor such contributions must understand them, for example by applying the same fetch semantics. The platform does not interpret intermediate stages on the head's behalf.
+- The composed result's `cache` class and `expiresAt` are the head interpreter's to set (§7).
 
-A language declares which job its `get` does (§11). The pipeline rule follows from that:
-
-1. **A resolving stage is interpreted wherever it sits in the chain.** Its result is the next stage's input. Otherwise L0185 feeding another language would hand over an unresolved fetch model, and L0185's interpreter would never run.
-2. **A presentation stage is interpreted only at the head.** Every stage below the head passes its model, so signed or expiring data never reaches a stage that is cached by task id.
-3. **A resolved result must not carry credentials.** A resolving `get` whose result is classified `private` or `no-store` (§7) is an error when that result would feed a downstream stage.
-4. **Resolution changes the cache key downstream.** A stage that consumes resolved data is no longer a function of task ids alone:
-   - Its compile is cached under the task id plus a digest of its input (the way `POST /compile` already appends a data task, `packages/api/src/routes/compile.js:91`).
-   - Or it inherits the upstream classification and earliest `expiresAt`.
-   - The composed result takes the strictest classification and the earliest expiry of any stage.
-
-**Existing exception:** when every task is L0158, the form is served as L0176 (`RENDER_LANG` in `packages/api/src/routes/form.js:14`). That is, in effect, a presentation `get` in another language at the head. The language-selection rule should move into the interpreter declaration (§11) instead of staying hard-coded in the form route.
+**Existing exception:** when every task is L0158, the form is served as L0176 (`RENDER_LANG` in `packages/api/src/routes/form.js:14`). The head model is interpreted by another language. That language-selection rule should move into the interpreter declaration (§11) instead of staying hard-coded in the form route.
 
 ## 6. Interpreter behavior is compositional, not a fixed enum
 
@@ -263,12 +290,17 @@ Expiry and cacheability are different properties. A signed Learnosity request an
 
   | `cache` | Meaning | API compile cache (Firestore `compiles/`) | `Cache-Control` (browser / CDN) |
   | --- | --- | --- | --- |
-  | `immutable` | A function of the task ids alone | Stored | `public\|private, max-age=31536000, immutable` (today's default) |
-  | `shared` | Viewer-independent, holds no credentials, valid until `expiresAt` | Stored, keyed as below, until `expiresAt` | `public, max-age=<seconds to expiresAt>` |
+  | `immutable` | A function of the task ids alone | Stored | `<visibility>, max-age=31536000, immutable` (today's default) |
+  | `shared` | Viewer-independent, holds no credentials, valid until `expiresAt` | Stored, keyed as below, until `expiresAt` | `<visibility>, max-age=<seconds to expiresAt>` |
   | `private` | Depends on the viewer or connection, holds no bearer credentials | Not stored | `private, no-store` |
   | `no-store` | Holds bearer credentials (signatures, signed URLs, tokens) | Not stored | `no-store`, today's `setNoStoreCacheHeaders` |
 
 - **`expiresAt`** says when a consumer must call `get` again. It never widens the class: a `no-store` result with a ten-minute `expiresAt` is still never stored.
+- **Visibility** is a third, independent property, and it comes from the *request*, not the result.
+  - A private task can produce viewer-independent data that still requires authorization to read.
+  - So `shared` means "the same for every *authorized* viewer". It does not mean public.
+  - `<visibility>` in the table is `public` only for an anonymous read. That can return only public tasks, because private ones throw NotFound. Every authenticated read is `private` (`packages/api/src/routes/data.js:110`, as today).
+  - Likewise, a stored `shared` entry is read only through the same task-visibility check as a compile cache read.
 
 **The classification is trusted, not asserted.**
 - The language's declaration in the protected registry (§11) sets the *least restrictive* class each language may return.
@@ -277,7 +309,7 @@ Expiry and cacheability are different properties. A signed Learnosity request an
 - So a compromised or buggy language server cannot turn a signed result into a cached one.
 - The boolean `cache: false` envelope field maps to `no-store` until languages move to the classification.
 
-For a `shared` result, the cache key must cover more than the model hash. It includes the input digest (§5, "Pipelines"), and, where they apply, the execution ID, state version, and interpreter/configuration version.
+For a `shared` result, the cache key must cover more than the model hash. Where they apply, it includes the execution ID, state version, and interpreter/configuration version.
 
 `expiresAt` from the interpreter should be authoritative for the projection's lifetime, subject to platform safety margins and security limits. Language-level TTL defaults and task-level overrides are possible future conveniences, but neither should extend a resource beyond its actual expiry. Task cache policy should be metadata rather than changes to program code where possible.
 
@@ -356,7 +388,7 @@ A workflow engine such as Temporal could implement durable orchestration behind 
 
 - **Explicit effect boundary:** Form GET and `interpret(get)` must not trigger business transactions. Side effects require explicit authorized commands.
 - **Grants at effect time:** Re-check authorization when a protected effect actually happens, not only at compile time or when a workflow starts. The broker already does this: it asks policy to authorize the execution before every step and never caches the answer. An interpreter's effects must go through it (§5). Revocation behavior still has to be defined for queued effects.
-- **Idempotency:** `start` and `dispatch` require an idempotency key bound to their input, and the command is recorded atomically (§5, "Command identity and retries"). Broker receipts (operation id `invocation/stage/occurrence`, single-use `jti`) deduplicate the external writes inside a command. They do not deduplicate the command itself. Retries return the recorded `completed`, `partial` or `uncertain` outcome unchanged.
+- **Idempotency:** `start` requires an idempotency key bound to its input and model digest, and the command is claimed atomically under a lease, with its inputs pinned (§5, "Immediate commands"). Broker receipts (operation id `invocation/stage/occurrence`, single-use `jti`) deduplicate the external writes inside a command. They do not deduplicate the command itself. Retries return the recorded outcome unchanged.
 - **Tenant isolation:** Partition execution state, cache keys, subscriptions, and published updates by tenant and authorized audience.
 - **Credential hygiene:** Signed URLs/tokens may be bearer credentials. Apply strict TTLs, avoid unsafe logging, and consider whether results can be shared across viewers.
 - **Version ordering:** Use monotonic state versions, compare-and-set updates, and recovery/reconciliation to handle out-of-order or lost publications.
@@ -385,7 +417,7 @@ There are two ways to make `/interpret` universal:
 - Add an `interpret` hook to the `Dialect` trait whose default is identity.
 - The Rust core has no stage after evaluation today.
 
-**Node.** The existing `Renderer` hook (`config.Renderer`) can carry an in-process `get` for languages that need one.
+**Node.** The `Renderer` stays inside compilation as deterministic JSON normalization (records and `Decimal` to plain JSON). Every model, including identity models and non-head stages, must be serializable without the interpreter. The interpreter is a separate operation applied to the normalized model, never a replacement for the renderer.
 
 For identity languages, `get` returns the model and unsupported operations fail explicitly. For effectful languages, a declared interpreter is mandatory and must never silently fall back to identity.
 
@@ -393,19 +425,20 @@ For identity languages, `get` returns the model and unsupported operations fail 
 
 **Phase 1 — Contract and identity.**
 - Finalize the wire envelopes:
-  - The **model envelope** carries provenance: language, task id, compiler/configuration version, `REGISTRY_VERSION`, and the admission under which it was compiled.
+  - The **model envelope** carries provenance only: language, task id, model digest, compiler/configuration version, `REGISTRY_VERSION`. It names no caller, invocation or admission, so it is reusable (§5, "Immediate commands").
   - The **result envelope** carries `cache` (§7), `expiresAt`, refresh metadata the consumer can read (which authority to refresh under, and whether a refresh is allowed once the content has started), and, for a command, its outcome (§5).
-- Define admission for `get`: which models an interpreter accepts, and that a model's provenance must match the language and registry version that interpret it.
+- Define admission separately from provenance:
+  - A `get` accepts a model whose provenance matches the interpreting language and `REGISTRY_VERSION`.
+  - A `start` additionally needs a command admission bound to the model's digest.
 - Add the interpreter declaration to the protected registry, covering:
   - identity or not;
-  - resolving or presentation `get` (§5);
   - the least restrictive `cache` class;
   - the head-language rule.
 
   Identity is the default.
-- Have the API run `get` in `GET /data` according to the pipeline rules (§5), and skip the call for identity languages.
-- Move the `Renderer` stage out of `Compiler.compile`, so a compiled model no longer includes rendering. The default renderer becomes the identity `get`.
-- Keep the shared View working. Its edit flow posts form state to `POST /compile` (`languages/l0000/packages/view/src/lib/api.ts:48`), which prepends a data task and delegates to `GET /data`, so that path must return the interpreted result exactly as `GET /data` does.
+- Have the API run `get` on the head of the chain in the shared `getData` logic (§5, §8), and skip the call for identity languages.
+- Keep the `Renderer` inside compilation as JSON normalization (§11). The interpreter is a new, separate operation applied to its output.
+- Keep the shared View working. Its edit flow posts form state to `POST /compile` (`languages/l0000/packages/view/src/lib/api.ts:48`). That route stores the form state as a data task, *appends* it to the chain (`id+dataId`, `packages/api/src/routes/compile.js:91`), and calls the same `getData` logic `GET /data` uses. So the head interpretation must live in that shared logic, and both routes must return the same interpreted result.
 - Add the Rust `Dialect::interpret` hook and the `/interpret` route.
 - Existing static languages behave exactly as before.
 
@@ -416,16 +449,27 @@ For identity languages, `get` returns the model and unsupported operations fail 
 - Update or check the consumers that expect signed `/data` output today: the console, the MCP widget, and the ChatGPT inline L0176 form.
 
 **Phase 3 — Migrate effects and nondeterminism out of compilers.**
-- **L0185:** move URL fetches into a *resolving* `get`, with `shared` results. The model is fixed; the fetched data expires.
+- **L0185:** move URL fetches out of compile. The model describes the fetches. The head interpreter performs them: L0185's own `get` when L0185 is the head, or a head language that honors L0185's model (§5). Results are `shared`, and the fetched data expires. A `start` that depends on fetched data pins it (§5).
 - **L0013:** a snapshot is a write, so it becomes a `start`, not a `get`. It needs a deliberate write policy first. Either address objects immutably (for example `thumbnails/{item}/{sha}.png`, with the item pointing at the latest one), or make the overwrite conditional on a generation or version precondition so an older capture can never replace a newer one.
-- **L0176 `save-to-itembank`:** becomes a `start` command through the broker. It is already an explicit command in the program. Even with durable executions deferred, the command's outcome (§5) is persisted as the **artifact** that connection and publication views read (§8), so a save and the views that follow it agree.
+- **L0176 `save-to-itembank`:** becomes an immediate `start` command through the broker. It is already an explicit command in the program.
+  - The compiled model carries the validated save intent and its stable occurrence id, replacing the per-compile WeakMap (§5).
+  - The command's outcome is persisted in its command record.
+  - A `completed` save replaces the **artifact** that connection and publication views read (§8). Any other outcome leaves the current artifact in place.
 - **L0176 dynamic-content reference:** derive the reference from the content (for example a digest of the table), not from the clock.
-- **L0182 version draws:** a draw is per respondent, not per program. Move it into `get`, keyed by a respondent or session seed, with durable assignment state instead of process-local maps, and classify the result `private`. The model lists the versions; it doesn't choose one.
+- **L0182 version draws:** a draw is per respondent, not per program. The model lists the versions; it doesn't choose one. Assigning a version is the one declared exception to a read-only `get`: an **idempotent get-or-create**.
+  - **Declared, not implicit.** The registry declaration names get-or-create for L0182 explicitly. No other language's `get` may write state.
+  - **Atomic.** The assignment is created only if absent, in one transaction, keyed by `(survey item id, respondent)`. Concurrent first reads converge on one assignment, and later reads return it. It is stored durably, not in process-local maps, so restarts don't change it.
+  - **Stable across revisions.** The key uses the item id, not the task id. A revision keeps the respondent's assignment as long as the assigned version still exists. If a revision removes that version, the respondent is reassigned only if they have submitted no answers.
+  - **Frozen on submission.** Once a respondent submits answers, their assignment never changes.
+  - **No external effect and no business transaction.** Only the assignment record is written, so it stays a `get` rather than a `start`.
+  - **Classified `private`**, since it depends on the respondent.
+  - If even balancing across versions isn't required, a stateless draw (a hash of item id and respondent) gives the same stability with no write at all.
 - Audit grant enforcement and add observability across compile, interpret and form.
 
 **Deferred — durable executions.**
-- Covers execution IDs, an authoritative execution store, state-change publication and invalidation, a versioned result cache, live form updates, and combined durable and expiring results.
-- No current language needs these. `start` and `dispatch` stay in the contract as reserved operations, and this part moves to a follow-up design doc once a language needs it.
+- Covers long-lived executions and execution IDs, `dispatch`, an authoritative execution store, state versions, state-change publication and invalidation, a versioned result cache, live form updates, and combined durable and expiring results.
+- No current language needs these. `dispatch` stays in the contract as a reserved operation, and this part moves to a follow-up design doc once a language needs it.
+- Immediate `start` commands (§5) are *not* deferred. Phase 3 needs them, with their invocation ids, pinned inputs and persisted outcomes.
 - §6–§9 sketch the direction for that doc.
 
 ### Acceptance criteria
@@ -433,27 +477,40 @@ For identity languages, `get` returns the model and unsupported operations fail 
 Phases 1–3 are done when tests show:
 
 1. **Pipelines.**
-   - An L0185 stage feeding another language delivers fetched data, not its fetch model.
-   - A presentation (signed) result never reaches a downstream stage.
-   - A resolving `get` that returns `private` or `no-store` data into a pipeline is refused.
-   - The composed result has the strictest class and the earliest expiry of its stages.
-2. **Command retries.**
+   - Only the head is interpreted.
+   - Upstream stages pass compiled models and stay cached by task id.
+   - The head interpreter receives an L0185 stage's model and honors its fetches, or reports that it doesn't support them. The platform never interprets an intermediate stage.
+2. **Commands.**
    - A `start` without an idempotency key is refused.
    - A retry with the same key and input returns the recorded outcome without new external writes.
    - The same key with different input is a conflict.
-   - Concurrent duplicates execute once.
-   - A `partial` or `uncertain` outcome is returned as such on retry, never reported as `completed`.
+   - Concurrent duplicates execute once; the second caller sees `pending`, then the outcome.
+   - A command that depends on fetched data, whose first attempt loses its response, is retried with the pinned snapshot. It reaches the same broker receipts, not `operation-id-reused`.
+   - A process killed after the claim is recovered when its lease expires, without repeating completed writes.
+   - `failed`, `partial` and `uncertain` are returned as such on retry, never as `completed`, and none of them replaces the current artifact.
+   - `start` runs only intents present in the model its admission's digest names.
 3. **Artifacts and publications.**
    - A connection view interprets the recipient's current artifact.
    - A publication view interprets the pinned artifact under the publication's authority, never the viewer's.
    - A missing or incompatible artifact fails with its existing reason and never triggers a run.
-4. **Cache headers and storage.** Each class maps to the storage and `Cache-Control` in §7. A language that claims a looser class than its registry declaration is held to the declaration. A `no-store` result never reaches Firestore `compiles/`, the browser cache or the CDN.
+4. **Cache headers and storage.**
+   - Each class maps to the storage and `Cache-Control` in §7.
+   - A language that claims a looser class than its registry declaration is held to the declaration.
+   - A `no-store` result never reaches Firestore `compiles/`, the browser cache or the CDN.
+   - An authenticated read of a `shared` or `immutable` result is never sent `public`.
 5. **Refresh.**
    - A stale result is refreshed before initialization, under its original authority.
    - Content the user is already working in is never re-signed or re-initialized, and their input survives.
    - A result that its original authority can't refresh is reported as expired, never re-signed under another identity.
-6. **Determinism.** Compiling the same task twice yields byte-identical models for every migrated language: L0176, L0185, L0013 and L0182.
-7. **Compatibility.** The View's edit → `POST /compile` path returns the same interpreted result as `GET /data`, and static languages' output is unchanged.
+6. **Determinism and serialization.**
+   - Compiling the same task twice yields byte-identical models for every migrated language: L0176, L0185, L0013 and L0182.
+   - Every model, including identity and non-head models, is plain JSON with records and `Decimal` values normalized.
+7. **L0182 assignment.**
+   - Concurrent first reads produce one assignment.
+   - Restarts don't change it.
+   - A revision that keeps the version keeps the assignment.
+   - Submitted answers freeze it.
+8. **Compatibility.** The View's edit → `POST /compile` path returns the same interpreted result as `GET /data`, and static languages' output is unchanged.
 
 ## 13. Open design questions
 
@@ -465,8 +522,9 @@ Questions that block Phases 1–3:
 4. Which refreshes may a `get` do beyond signing through view-safe functions in stage `read`? For example, what limits apply to L0185's fetches (rate, size, egress)?
 5. How do per-viewer signed resources work when one item is viewed through several connections?
 6. Where is the command record stored (§5), and how are `partial` and `uncertain` outcomes reconciled against the provider?
-7. Where does an L0182 respondent's assignment state live, and who may read it?
-8. Do the pipeline rules (§5) hold for L0158 → L0176, where the head is presented as a different language?
+7. Where does an L0182 respondent's assignment state live, who may read it, and what identifies a respondent who isn't signed in?
+8. How does a head language declare which upstream model contributions (such as L0185 fetches) it honors? Is honoring them shared library code or per-language?
+9. What is the lease length for a `pending` command, and who is the recovery owner when no retry arrives?
 
 Questions deferred with durable executions:
 
@@ -490,11 +548,23 @@ Questions deferred with durable executions:
 - **Refresh expiring projections independently of workflow state changes** and without recompilation.
 - **Keep authoritative durable state outside the API result cache.**
 - *(Proposed)* **Keep cacheability and expiry separate.** A trusted `cache` class (`immutable`, `shared`, `private`, `no-store`), capped by the registry declaration, decides storage and headers. `expiresAt` only tells the consumer when to refresh. Bearer credentials are always `no-store`.
-- *(Proposed)* **Treat resolving and presentation `get` differently in pipelines.** A resolving stage is interpreted wherever it sits and passes its result on. A presentation stage is interpreted only at the head.
-- *(Proposed)* **Give commands their own identity.** A required idempotency key, bound to the command's input, claimed atomically. Outcomes are `completed`, `partial` or `uncertain` and are never upgraded on retry.
+- **Interpret only the head of a pipeline.** Upstream stages pass compiled models, and the head interpreter interprets the whole composed model, including what upstream stages contributed.
+- **Keep the `Renderer` in compilation** as deterministic JSON normalization. The interpreter is a separate operation applied after it.
+- *(Proposed)* **Treat `start` as an immediate command, implemented now.** It has:
+  - a required idempotency key bound to its input and model digest;
+  - an atomic claim with a lease and a recovery owner;
+  - inputs pinned before its first effect;
+  - intents and occurrence ids carried by the model;
+  - admission bound to the model digest;
+  - `pending`, then `completed`, `failed`, `partial` or `uncertain`, never upgraded on retry.
+
+  Command outcomes are separate from artifacts.
+- *(Proposed)* **Separate model provenance from command admission.** Models name no caller and are reusable.
+- *(Proposed)* **`shared` is not public.** Cache-Control visibility follows the request (public only for anonymous reads), independently of the cache class.
+- *(Proposed)* **L0182's assignment is the one declared get-or-create exception to a read-only `get`.** It is atomic, durable, stable across revisions, and frozen on submission.
 - *(Proposed)* **Keep artifact and publication reads.** `get` interprets the selected artifact under the existing authority. A missing artifact never triggers an implicit run.
 - *(Proposed)* **Constrain refresh.** Refresh before initialization or while idle, under the original authority, without losing user input.
 - *(Proposed)* **Run `get` as policy stage `read`** with view-safe functions only, and send every `start`/`dispatch` effect through the broker under a policy invocation.
-- *(Proposed)* **Defer durable executions** to a follow-up doc; `start`/`dispatch` stay reserved in the contract.
+- *(Proposed)* **Defer durable executions** to a follow-up doc. `dispatch` stays reserved in the contract.
 
 This document summarizes a proposed architecture, not an assertion that these interfaces or migrations have already been implemented.
