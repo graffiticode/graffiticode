@@ -197,6 +197,15 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
 - **Fencing.** An expired lease does not stop the original worker: a paused worker can resume after another has taken over. So every ownership carries a **fencing generation**, which increments on each takeover.
   - **Every command-record write is conditional on the writer's generation:** installing the snapshot, recording progress, recording the outcome, and replacing the artifact. A worker whose generation is no longer current has its writes refused, and it stops.
   - **The pinned inputs are installed exactly once**, by compare-and-set: create if absent, under the current generation. A later owner reads the installed snapshot and never replaces it, even if it would have resolved something different.
+  - **New effects are fenced at authorization.** A stale worker might also try to *start* an operation after takeover. So the effect-authorization path checks ownership:
+    - Each execution token policy mints for a command carries the command's fencing generation.
+    - Policy's authorize-execution, which the broker calls before every step (§5), refuses a token whose generation is no longer current.
+    - So a stale worker can't begin a new operation or a new step.
+  - **The broker's receipt claim is the deciding point** for an operation authorized just before a takeover:
+    - Whichever worker claims an operation id first owns that operation's outcome.
+    - If the stale worker claims first, the new owner later finds the claim and gets its recorded outcome, or `uncertain`.
+    - If the new owner claims first, the stale worker gets the replay and writes nothing.
+    - Either way each write happens at most once, and the command record, written only under the current generation, aggregates every operation's receipt (below). An effect by a stale worker is therefore never missing from the terminal outcome, or from a repair command.
   - **Effects already in flight** when ownership changes are covered by the broker, not by the fence. A broker operation that a stale worker started holds its receipt claim. The new owner, presenting the same operation id with the same pinned arguments, gets that operation's recorded outcome, or `uncertain` if it never finished, and never runs it a second time.
 - **Each broker operation has its own outcome**, mapped from the broker's: `completed`, `failed` (that operation wrote nothing, `packages/broker/src/broker.ts:464`), `partial` (some of its steps completed; the broker persists each one at `receipts/{id}/steps/{n}`), or `uncertain` (`packages/broker/src/broker.ts:14-25`). The command record keeps **every** operation's outcome, not just the last one.
 - **The command's outcome aggregates its operations:**
@@ -204,7 +213,12 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - `failed`: **no write happened anywhere in the command.** Every operation `failed`, or none was reached. Only then is it safe to try again with a new key.
   - `uncertain`: any operation is `uncertain`. Uncertainty is never dropped while any write's outcome remains unknown.
   - `partial`: otherwise. At least one write happened, and at least one operation did not complete. This includes an earlier save that completed followed by a later one that `failed`, the two-save case L0176 already tests (`languages/l0176/packages/core/src/brokered.test.ts:401`).
-- **A retry returns the recorded outcome**, and never upgrades `partial` or `uncertain` to `completed`. Resolving either one is an explicit act: reconcile against the provider, or start a new command with a new key. A new command repeats only the operations whose recorded outcome is `failed`; repeating any other can duplicate a write.
+- **A retry returns the recorded outcome**, and never upgrades `partial` or `uncertain` to `completed`. Resolving either one is an explicit act: reconcile against the provider, or issue a **repair command**.
+- **A new idempotency key alone is not a repair.** A new `start` on the same model executes *all* of the model's intents again, including the ones that already wrote.
+- **A repair command is its own kind of command.** It names the original command, and its own idempotency key binds `(original command id, selected occurrence ids)`.
+- **It selects only intents whose recorded outcome is `failed`**, by occurrence id. Policy refuses to admit it if the selection includes any operation recorded `completed`, `partial` or `uncertain`. Those need reconciliation against the provider first, which records the operation's actual outcome.
+- **It runs against the original command's pinned snapshot and model digest**, under a new invocation, so its operations get new operation ids, and its outcome is aggregated on its own.
+- The other route remains available: compile a model containing only the remaining intents, admit it, and `start` it as an ordinary command.
 
 **Command outcomes are not artifacts.**
 - A command's outcome is stored in its command record.
@@ -223,13 +237,27 @@ Tasks compose into chains (`id0+id1+id2`) that compile right to left; each stage
 
 **Deferred computations must survive compilation.** "Part of the model the head receives" is not automatic.
 - **Today a compiler consumes its input data and can lose a deferred value.** `get "amount" (data {})` returns `42` for resolved input. For a fetch descriptor, it succeeds and returns `undefined`. The head model then holds neither the fetch nor the field access, and no interpreter can recover them.
-- **A deferred value gets an explicit representation.** It is a tagged node in the model, for example `{"_deferred": {...}}`, with a reserved tag that no ordinary data can carry.
+- **A deferred value gets an explicit representation, distinguishable from data.** A reserved property such as `_deferred` is not enough: ordinary JSON can contain that property, and a reader couldn't tell a model node from data. So:
+  - **The model envelope (Phase 1) records whether the model contains deferred computation, and where.** A model without that mark is data throughout, whatever properties it holds.
+  - **Within a marked model**, a deferred node is the reserved tag, and ordinary data that happens to contain the tag is escaped: wrapped as a literal node, for example `{"_literal": <value>}`. Decoding is unambiguous both ways.
+  - **Each deferred node names the language and semantic version** that produced it, so it is interpreted under the right rules.
 - **The compiler preserves what it does with that value.** An operation applied to a deferred value does not evaluate. It produces a deferred expression: the operation plus its deferred operand, a *residual* the head interpreter evaluates once the input is resolved. For example, `get "amount"` on a deferred fetch becomes `deferred(get "amount", fetch)`.
-- **The mechanism belongs in the L0000 cores**, not in each language. The cores are the code every language does inherit: `@graffiticode/l0000` in Node, the kernel crate in Rust. Their evaluators lift operations over deferred values once, for every language.
+- **The L0000 cores provide the mechanism, and the dialects provide their own operations.** The cores are the code every language does inherit: `@graffiticode/l0000` in Node, the kernel crate in Rust.
+  - The core evaluators lift *kernel* operations over deferred values, once, for every language.
+  - Dialects also implement their own eager operations, and the core can't know how to defer those. Each dialect therefore implements two hooks:
+    - **residualize:** turn a dialect operation applied to a deferred value into a residual node;
+    - **interpret:** evaluate that node once its input is resolved.
+  - Both hooks are versioned. A residual node records its operation, language and semantic version, and the interpreter evaluates it only under a matching version, or refuses.
+  - In Rust these hooks belong on the `Dialect` trait; in Node, on the compiler configuration.
+  - A dialect operation with no residualize hook is "can't residualize", and is rejected (below).
 - **Unsupported composition is rejected, never silently lost.**
   - A language declares, in the registry (§11), which deferred kinds it accepts as input and which operations it can residualize.
   - If a compile meets a deferred value it doesn't accept, or an operation it can't residualize, the compile fails with an explicit error. It never yields `undefined`.
-  - Until a language declares support, that strict rejection is its behavior. Phase 1 ships the rejection; residualization follows per language.
+  - Until a language declares support, that strict rejection is its behavior.
+- **A residual model needs an interpreter that can evaluate it.** Identity interpretation returns the model unchanged, which is wrong for a model containing deferred computation.
+  - The identity fast path applies only to models whose envelope says they contain none.
+  - An identity language that is handed a residual model refuses it rather than passing it through.
+- **Rollout.** Phase 1 ships the envelope mark, literal escaping and the strict rejection. Residualization is partial evaluation inside the compiler, so it is its own milestone, **Milestone R** in §12, rather than part of any language migration.
 
 **Producer and interpreter pairs.**
 - When every task is L0158, the form is served as L0176 (`RENDER_LANG` in `packages/api/src/routes/form.js:14`), so a model one language produced is interpreted by another.
@@ -336,7 +364,11 @@ Server-side versioned keys are not enough to cut over. Responses already cached 
 - Existing Firestore `compiles/` entries for L0185 contain fetched output, not the fetch model the new compiler produces.
 
 So the cutover follows the L0158 compile-generation precedent (`packages/api/src/generation.js`):
-1. **A versioned request URL.** Interpreted results are served under URLs that carry the interpreter generation (a `generation` parameter, as L0158 uses). `/form` builds the `/data` URL (§8), so forms move to the new generation by themselves. A URL that browsers and the CDN have never cached can't be answered from those caches.
+1. **A versioned request URL.** Interpreted results are served under URLs that carry the interpreter generation (a `generation` parameter, as L0158 uses). A URL that browsers and the CDN have never cached can't be answered from those caches.
+   - **This needs consumer changes; forms don't move by themselves.** `/form` puts the generation in its `?url=`, but the shared View (`@graffiticode/l0000-view`) ignores `?url=` and builds its own `/data?id=…` request (`languages/l0000/packages/view/src/lib/api.ts:29`).
+   - Today L0176 works around this with an SWR middleware that copies the generation onto the View's data load (`languages/l0176/packages/view/src/generation.ts`).
+   - Generalize that into the shared View: it reads the generation from `?url=` (only when that URL names the same id), puts it on every `/data` and `POST /compile` request, and includes it in its SWR cache keys, so cached data from two generations never mixes.
+   - Then remove the L0176 middleware. Languages pick the change up by upgrading `@graffiticode/l0000-view`, so the generation can't go live until every migrated language has upgraded.
 2. **A generation in the store key.** Firestore compile entries are keyed by the generation (`generationKey(id, generation)`, as for L0158), so the new code never reads an old entry.
 3. **Legacy entries are rejected.** An entry without the model envelope (Phase 1) is legacy. It is recompiled, never served as a model, so fetched L0185 output is never mistaken for a fetch model.
 4. **Invalidation at rollout.**
@@ -452,7 +484,7 @@ There are two ways to make `/interpret` universal:
 
 **Node.** The `Renderer` stays inside compilation as deterministic JSON normalization (records and `Decimal` to plain JSON). Every model, including identity models and non-head stages, must be serializable without the interpreter. The interpreter is a separate operation applied to the normalized model, never a replacement for the renderer.
 
-For identity languages, `get` returns the model and unsupported operations fail explicitly. For effectful languages, a declared interpreter is mandatory and must never silently fall back to identity.
+For identity languages, `get` returns the model and unsupported operations fail explicitly. Identity applies only to models with no deferred computation; an identity language refuses a residual model (§5). For effectful languages, a declared interpreter is mandatory and must never silently fall back to identity.
 
 ## 12. Suggested rollout
 
@@ -469,11 +501,18 @@ For identity languages, `get` returns the model and unsupported operations fail 
   - the head-language rule.
 
   Identity is the default.
-- Have the API run `get` on the head of the chain in the shared `getData` logic (§5, §8), and skip the call for identity languages.
+- Have the API run `get` on the head of the chain in the shared `getData` logic (§5, §8), and skip the call for identity languages when the model has no deferred computation.
+- Ship the deferred-value groundwork: the envelope mark, literal escaping, and rejection of any deferred input a language hasn't declared (§5).
 - Keep the `Renderer` inside compilation as JSON normalization (§11). The interpreter is a new, separate operation applied to its output.
 - Keep the shared View working. Its edit flow posts form state to `POST /compile` (`languages/l0000/packages/view/src/lib/api.ts:48`). That route stores the form state as a data task, *appends* it to the chain (`id+dataId`, `packages/api/src/routes/compile.js:91`), and calls the same `getData` logic `GET /data` uses. So the head interpretation must live in that shared logic, and both routes must return the same interpreted result.
 - Add the Rust `Dialect::interpret` hook and the `/interpret` route.
 - Existing static languages behave exactly as before.
+
+**Milestone R — Residualization (partial evaluation).** This is a distinct milestone, a prerequisite for any pipeline in which a deferred input flows into another language (Phase 3's L0185 fetches feeding a downstream head).
+- Lift the kernel operations over deferred values in both cores.
+- Define the dialect residualize and interpret hooks and their versioning.
+- Implement them per language, as each language needs them.
+- Test each lifted operation by checking that residualizing and then interpreting gives the same result as evaluating eagerly once the input is resolved.
 
 **Phase 2 — Converge expiring projections.**
 - L0176 stops signing in compile and emits unsigned models. This covers both `signForRender` and the `init <activity>` operator. Signing happens only in `get`, which formalizes the READ-01 read stage and `/preview/sign`.
@@ -515,6 +554,9 @@ Phases 1–3 are done when tests show:
    - Upstream stages pass compiled models and stay cached by task id.
    - The head interpreter receives an L0185 stage's model and honors its fetches, or reports that it doesn't support them. The platform never interprets an intermediate stage.
    - An operation applied to a deferred input either yields a residual the head interpreter evaluates correctly (`get "amount"` over a fetch gives the fetched amount), or fails the compile. It never yields `undefined`.
+   - Ordinary data containing the reserved tag round-trips as data.
+   - A residual model is never served through the identity fast path, and an identity language refuses one.
+   - A residual node whose language or semantic version doesn't match its interpreter is refused.
    - A head model is interpreted only by an approved producer → interpreter pair. L0158 → L0176 passes; an unapproved pair is refused at both routing and provenance.
 2. **Commands.**
    - A `start` without an idempotency key is refused.
@@ -524,7 +566,9 @@ Phases 1–3 are done when tests show:
    - A command that depends on fetched data, whose first attempt loses its response, is retried with the pinned snapshot. It reaches the same broker receipts, not `operation-id-reused`.
    - A process killed after the claim is recovered when its lease expires, without repeating completed writes.
    - An original worker that resumes after a takeover has its snapshot, progress, outcome and artifact writes refused, and the pinned snapshot is never replaced.
-   - With two saves, where the first completes and the second fails, the command is `partial`, never `failed`. A follow-up command repeats only the failed save.
+   - With two saves, where the first completes and the second fails, the command is `partial`, never `failed`.
+   - A repair command that selects the failed save runs only that save. A repair that selects the completed one is refused. A plain new `start` with a new key is not treated as a repair.
+   - A stale worker that resumes after a takeover can't start a new operation (authorize-execution refuses its generation). An operation it claimed before being refused appears in the command's terminal outcome.
    - `failed`, `partial` and `uncertain` are returned as such on retry, never as `completed`, and none of them replaces the current artifact.
    - `start` runs only intents present in the model its admission's digest names.
 3. **Artifacts and publications.**
@@ -550,7 +594,7 @@ Phases 1–3 are done when tests show:
    - Submitted answers freeze it.
    - Answers submitted against a version that a later revision removes can still be rendered and validated.
 8. **Cutover.**
-   - After rollout, forms load results from generation-scoped URLs.
+   - After rollout, forms load results from generation-scoped URLs. That includes the shared View's own `/data` and `POST /compile` requests, and its SWR keys include the generation.
    - No legacy compile entry is served as a model.
    - The CDN holds no pre-cutover `/data` entry for a migrated language.
 9. **Compatibility.** The View's edit → `POST /compile` path returns the same interpreted result as `GET /data`, and static languages' output is unchanged.
@@ -568,6 +612,7 @@ Questions that block Phases 1–3:
 7. Where does an L0182 respondent's assignment state live, who may read it, and what identifies a respondent who isn't signed in?
 8. What is the exact representation of a deferred value and of a residual expression, and which operations must the L0000 cores lift first?
 9. What is the lease length for a `pending` command, and who is the recovery owner when no retry arrives?
+10. How are a dialect's residual node versions retired, and what happens to stored residual models when one is?
 
 Questions deferred with durable executions:
 
@@ -603,9 +648,15 @@ Questions deferred with durable executions:
 
   Command outcomes are separate from artifacts.
 - *(Proposed)* **Separate model provenance from command admission.** Models name no caller and are reusable. Provenance is validated against registry-approved producer → interpreter pairs, the same mapping that routes interpretation.
-- *(Proposed)* **Represent deferred computations explicitly.** Upstream contributions survive compilation as deferred values and residual expressions, lifted by the L0000 cores. Unsupported composition fails the compile and is never silently lost.
+- *(Proposed)* **Represent deferred computations explicitly.** Upstream contributions survive compilation as deferred values and residual expressions, and unsupported composition fails the compile instead of being silently lost.
+  - The model envelope marks deferred content, and data containing the reserved tag is escaped.
+  - The cores lift kernel operations; dialects add versioned residualize and interpret hooks.
+  - Identity never applies to a residual model.
+  - Residualization is its own milestone.
+- *(Proposed)* **A repair command, not a new key, re-runs failed intents.** It is bound to the original command and selects only `failed` operations.
+- *(Proposed)* **Fence new effects at authorization.** Execution tokens carry the command's fencing generation, and the broker's receipt claim decides any race.
 - *(Proposed)* **Aggregate command outcomes across all broker operations.** `failed` means no write anywhere in the command, and uncertainty is never dropped. Ownership changes are fenced by generation, and pinned inputs are installed once.
-- *(Proposed)* **Cut over with a new interpreter generation**, in both URLs and store keys, following L0158's compile generation. Legacy entries are rejected, and the CDN is purged at rollout.
+- *(Proposed)* **Cut over with a new interpreter generation**, in both URLs and store keys, following L0158's compile generation. The shared View carries the generation, legacy entries are rejected, and the CDN is purged at rollout.
 - *(Proposed)* **`shared` is not public.** Cache-Control visibility follows the request (public only for anonymous reads), independently of the cache class.
 - *(Proposed)* **L0182's assignment is the one declared get-or-create exception to a read-only `get`.** It is atomic, durable, stable across revisions, and frozen on submission.
 - *(Proposed)* **Keep artifact and publication reads.** `get` interprets the selected artifact under the existing authority. A missing artifact never triggers an implicit run.
