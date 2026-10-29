@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { InvalidArgumentError } from "../errors/http.js";
-import { parseGenerationParam } from "../generation.js";
+import { parseGenerationParam, parseGenerationsParam } from "../generation.js";
 import { countSigningStages } from "../signing-limit.js";
 import {
   buildHttpHandler,
@@ -20,6 +20,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   return async ({
     auth, authToken, ids, action = {}, refresh = false, connectionId = null, idempotencyKey = null,
     read = false, publicationId = null, generation = /** @type {string | undefined} */ (undefined),
+    namedGenerations = /** @type {string | undefined} */ (undefined), generationDataTask = false,
     // Each id's tasks, already loaded by the route (or undefined).
     preloadedTasks = /** @type {any[] | undefined} */ (undefined)
   }) => {
@@ -41,6 +42,8 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       read,
       publicationId,
       generation,
+      namedGenerations,
+      generationDataTask,
       ...(preloadedTasks ? { preloadedTasks: preloadedTasks[i] } : {})
     })));
     let data;
@@ -82,6 +85,10 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
     // It changes no response header: the parameter alone makes the URL distinct
     // for browsers and the CDN.
     const generation = parseGenerationParam(req.query.generation);
+    // ?generations=<suffix>, from /form's data URL (B4): the switch generations
+    // the URL was made under. It only decides whether an interpreted result
+    // may be held as immutable.
+    const namedGenerations = parseGenerationsParam(req.query.generations);
     // The per-client signing limit (signing-limit.js): with no connection and
     // no publication, each L0176 stage of each id signs under the system
     // preview session, so each is charged, before anything dispatches. The
@@ -94,14 +101,19 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
     const action = {};
     // GET /data is a view: through a connection it reads the caller's stored
     // result; through a publication, the published one.
-    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true, generation, preloadedTasks });
+    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true, generation, namedGenerations, preloadedTasks });
     // A refreshed response must not be held anywhere. The id is immutable but
     // we just proved its data is not, and the whole point of asking was to get
     // past a stale copy — an immutable header here would plant another one in
     // the CDN and in the caller's browser.
+    // Optional refresh metadata (B4): when the result expires, the time to
+    // load it again. Absent, nothing expires, as before.
+    const body = action.expiresAt !== undefined
+      ? { ...createSuccessResponse({ data }), refreshAt: new Date(action.expiresAt).toISOString() }
+      : createSuccessResponse({ data });
     if (refresh) {
       setNoStoreCacheHeaders(res);
-      res.status(200).json(createSuccessResponse({ data }));
+      res.status(200).json(body);
       return;
     }
     if (action.noStore || connectionId || publicationId) {
@@ -112,7 +124,7 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
       // returned public tasks (private ones throw NotFound), so it's shareable.
       setImmutableCacheHeaders(res, { isPublic: auth === null });
     }
-    res.status(200).json(createSuccessResponse({ data }));
+    res.status(200).json(body);
   });
 };
 

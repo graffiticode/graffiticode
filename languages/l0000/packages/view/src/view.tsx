@@ -76,6 +76,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import type { ComponentType, CSSProperties } from "react";
 import useSWR from "swr";
 import { compile, getData } from "./swr/fetchers";
+import { DataLoad, dataGenerationsFor, type DataGenerations } from "./lib/api";
 import "./index.css";
 
 export interface CompileError {
@@ -100,6 +101,12 @@ export interface FormProps {
     data: any;
     errors: CompileError[];
     apply: (action: StateAction) => void;
+    /**
+     * Set once the loaded data's staleness deadline (`refreshAt`) has passed while the
+     * content was mounted. The View never replaces mounted content on its own; a Form may
+     * tell the learner. Absent while nothing has expired.
+     */
+    expired?: boolean;
   };
 }
 
@@ -323,7 +330,10 @@ export const View = ({
   // Revalidation is off: this is a one-shot load, and a background refetch on window focus
   // would re-apply the STORED model over whatever the learner has since entered — the form
   // silently reverting when you tab away and back.
-  const getDataResp = useSWR(id ? { accessToken, id, connection, publication } : null, getData, {
+  // The generations the api's /form named for this item's data (B4), in the key and the URL.
+  const [dataGenerations] = useState<DataGenerations>(() => (id ? dataGenerationsFor(window.location.search, id) : {}));
+  const dataKey = id ? { accessToken, id, connection, publication, ...dataGenerations } : null;
+  const getDataResp = useSWR(dataKey, getData, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     revalidateIfStale: false,
@@ -333,12 +343,83 @@ export const View = ({
   // mutated state mid-render and re-ran on every subsequent render, because the SWR result
   // stays populated — the old code only escaped that loop by flipping its own fetch key to
   // null, which is what let a warm cache entry re-apply a stale model later.
-  useEffect(() => {
-    if (getDataResp.data === undefined) return;
-    const env = asEnvelope(getDataResp.data);
+  //
+  // `refreshAt` (B4) is a staleness deadline, not permission to reload: once content is
+  // mounted, its deadline passing never replaces it (an assessment may already be under way,
+  // edits or not); the View reports the expiry instead (`expired` to the Form,
+  // `data-expired` to the host). Only a load that has expired BEFORE any content was
+  // initialized from it (a warm SWR entry on remount) is loaded again, through the same
+  // GET /data and credentials, and only once. Without a deadline, nothing changes.
+  //
+  // Content is initialized from ONE load. The SWR entry is shared by every View mounted for
+  // the same item, so a later update (another View's reload) must never reach a View that
+  // already has content: it would overwrite the learner's work.
+  const initialized = useRef(false);
+  const refreshedBeforeInit = useRef(false);
+  const [expiresAt, setExpiresAt] = useState<number | undefined>(undefined);
+  const [expired, setExpired] = useState(false);
+  // Why a reload before initialization failed, if it did.
+  const [reloadError, setReloadError] = useState<unknown>(undefined);
+  const initializeFrom = (raw: any) => {
+    if (initialized.current || raw === undefined) return;
+    initialized.current = true;
+    const load = raw instanceof DataLoad ? raw : new DataLoad(raw);
+    const env = asEnvelope(load.payload);
     apply({ type: "loaded", args: env.data });
     setErrors(env.errors);
+    setExpiresAt(load.refreshAt);
+  };
+  useEffect(() => {
+    if (getDataResp.data === undefined || initialized.current) return;
+    const load = getDataResp.data instanceof DataLoad ? getDataResp.data : new DataLoad(getDataResp.data);
+    if (load.refreshAt !== undefined && load.refreshAt <= Date.now() && !refreshedBeforeInit.current) {
+      refreshedBeforeInit.current = true;
+      // Fetched here with the same key and credentials, and initialized from directly: SWR
+      // reports no change when the reload is identical, so this effect may never run again.
+      // The shared entry takes the fresh load (other Views already initialized ignore it).
+      if (dataKey) {
+        getData(dataKey).then(
+          (fresh) => {
+            getDataResp.mutate(fresh, { revalidate: false });
+            initializeFrom(fresh);
+          },
+          (err) => setReloadError(err ?? new Error("reload failed")),
+        );
+      }
+      return;
+    }
+    initializeFrom(load);
   }, [getDataResp.data]);
+
+  // The deadline of the mounted content: reported when it passes, never acted on. A delay
+  // past what setTimeout can hold (about 24 days) is not scheduled.
+  useEffect(() => {
+    if (expiresAt === undefined) return;
+    const report = () => {
+      setExpired(true);
+      if (targetOrigin) {
+        window.parent.postMessage({ type: "data-expired", refreshAt: new Date(expiresAt).toISOString() }, targetOrigin);
+      }
+    };
+    const delay = expiresAt - Date.now();
+    if (delay <= 0) {
+      report();
+      return;
+    }
+    if (delay > 2 ** 31 - 1) return;
+    const timer = setTimeout(report, delay);
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
+
+  // An expired load the same credentials couldn't load again: nothing was initialized from
+  // it, the error screen says why, and the host is told it expired.
+  useEffect(() => {
+    if (reloadError === undefined || initialized.current) return;
+    const stale = getDataResp.data instanceof DataLoad ? getDataResp.data.refreshAt : undefined;
+    if (targetOrigin && stale !== undefined) {
+      window.parent.postMessage({ type: "data-expired", refreshAt: new Date(stale).toISOString() }, targetOrigin);
+    }
+  }, [reloadError]);
 
   // Recompile after a user edit.
   //
@@ -356,7 +437,7 @@ export const View = ({
     let cancelled = false;
     (async () => {
       try {
-        const out = await compile({ accessToken, id, data });
+        const out = await compile({ accessToken, id, data, generation: dataGenerations.generation });
         // Drop a response that a newer edit has already superseded, so a slow compile can
         // never overwrite a faster one that started later.
         if (cancelled || seq !== latestCompile.current) return;
@@ -393,7 +474,10 @@ export const View = ({
   );
   const shown =
     checked && result && isPlainObject(formData) ? { ...formData, showValidationUI: true } : formData;
-  const formState = useMemo(() => ({ data: shown, errors, apply }), [shown, errors]);
+  const formState = useMemo(
+    () => ({ data: shown, errors, apply, ...(expired ? { expired: true } : {}) }),
+    [shown, errors, expired],
+  );
 
   // Render priority: real content first; otherwise surface why there's none.
   // A getData failure (e.g. a stale/expired token 401ing a public read) used to
@@ -401,7 +485,18 @@ export const View = ({
   // from "still loading" and impossible to diagnose. Show the error (and a
   // retry) instead. Once data has loaded, a later revalidation error is ignored
   // so the form isn't replaced by an error screen.
-  const retry = useCallback(() => getDataResp.mutate(), [getDataResp]);
+  const retry = useCallback(() => {
+    setReloadError(undefined);
+    if (!dataKey) return;
+    getData(dataKey).then(
+      (fresh) => {
+        getDataResp.mutate(fresh, { revalidate: false });
+        initializeFrom(fresh);
+      },
+      (err) => setReloadError(err ?? new Error("reload failed")),
+    );
+  }, [getDataResp, dataKey]);
+  const loadError = getDataResp.error ?? reloadError;
 
   if (hasRenderable(data, errors)) {
     if (!result) return <Form state={formState} />;
@@ -412,12 +507,12 @@ export const View = ({
       </>
     );
   }
-  if (getDataResp.error) {
+  if (loadError) {
     return (
       <div role="alert" style={MESSAGE_STYLE}>
         <p style={{ margin: 0, fontWeight: 600 }}>Couldn’t load this form.</p>
         <p style={{ margin: "4px 0 12px", color: "#555" }}>
-          {String((getDataResp.error as { message?: string })?.message ?? getDataResp.error)}
+          {String((loadError as { message?: string })?.message ?? loadError)}
         </p>
         <button type="button" style={RETRY_STYLE} onClick={retry}>
           Retry

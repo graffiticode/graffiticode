@@ -14,6 +14,7 @@ import {
 import { isNonNullObject } from "../util.js";
 import { InvalidArgumentError } from "../errors/http.js";
 import { countSigningStages, isSigningLang } from "../signing-limit.js";
+import { checkGeneration, getActiveGeneration, parseGenerationParam } from "../generation.js";
 
 function getItemsFromRequest(req) {
   const { body } = req;
@@ -82,19 +83,33 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLi
       await postTasks({ auth, tasks: getTaskFromData({}), req });
     let data = await Promise.all(items.map(async (item, i) => {
       let { id, lang, code, data } = item;
+      // L0158's requested generation (B4): a recompile from a View that loaded
+      // the item under it stays in that namespace. Checked here against the
+      // item's own chain, before its data task is added; getData checks it
+      // again with exactly that one task allowed.
+      const generation = parseGenerationParam(item.generation);
+      if (generation !== undefined) {
+        if (connectionId) {
+          throw new InvalidArgumentError("a compile under a generation can't run through a connection");
+        }
+        const own = id ? await taskStorer.get({ id, auth }) : [{ lang, code }];
+        checkGeneration({ generation, active: getActiveGeneration(), tasks: own });
+      }
       if (!id) {
         id = await postTasks({ auth, tasks: { lang, code }, req });
       }
       data = data || {};
       const tasks = getTaskFromData(data);
       const dataId = await postTasks({ auth, tasks, req });
+      let generationDataTask = false;
       if (dataId !== EMPTY_OBJECT_ID && id.indexOf(dataId) < 0) {
         id = [id, dataId].join("+");
+        generationDataTask = generation !== undefined;
       }
       ids.push(id);
       // One key per item, so a multi-item request's invocations stay distinct.
       const itemKey = idempotencyKey && items.length > 1 ? `${idempotencyKey}.${i}` : idempotencyKey;
-      return await getData({ auth, authToken, ids: [id], connectionId, idempotencyKey: itemKey });
+      return await getData({ auth, authToken, ids: [id], connectionId, idempotencyKey: itemKey, generation, generationDataTask });
     }));
     if (data.length === 1) {
       data = data[0];

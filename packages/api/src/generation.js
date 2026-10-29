@@ -59,6 +59,30 @@ export const checkGeneration = ({ generation, active, tasks }) => {
   }
 };
 
+// The data task POST /compile appends to an item's chain for its `data`
+// (routes/compile.js): L0000's JSON over one string. Its shape, not its
+// language alone, is what identifies it.
+export const isGeneratedDataTask = task => {
+  const code = task?.code;
+  if (normalizeLang(task?.lang) !== "0000" || !code || typeof code !== "object") return false;
+  const root = code[code.root];
+  const str = root && Array.isArray(root.elts) && root.elts.length === 1 ? code[root.elts[0]] : null;
+  return Object.keys(code).length === 3 && root?.tag === "JSON" && str?.tag === "STR" &&
+    Array.isArray(str.elts) && str.elts.length === 1 && typeof str.elts[0] === "string";
+};
+
+// L0158's requested generation on a recompile (B4): checked against the item's
+// own chain, the tasks before the data task POST /compile appended, so edits
+// stay in the namespace the initial load read. The exception is exactly that
+// one generated task; any other mixed chain is refused as before.
+export const checkGenerationWithDataTask = ({ generation, active, tasks }) => {
+  const last = tasks?.[tasks.length - 1];
+  if (!isGeneratedDataTask(last)) {
+    throw new InvalidArgumentError("generation applies only to an item's chain and the data task a compile adds");
+  }
+  checkGeneration({ generation, active, tasks: tasks.slice(0, -1) });
+};
+
 // The compile store's key for an id under a generation.
 export const generationKey = (id, generation) => (generation ? `${id}@${generation}` : id);
 
@@ -99,6 +123,21 @@ export const languageGenerationSuffix = (tasks, generations) =>
     .sort()
     .map(lang => `@L${lang}=${generations[lang]}`)
     .join("");
+
+// The `generations` query parameter (interpreter plan B4): the switch
+// generations a /data URL was made under, as languageGenerationSuffix wrote
+// them. /form puts it on the data URL it hands a View, so the URL itself names
+// the namespace its result came from: when the configuration moves (a switch,
+// an interpreter flag, a rollback), /form hands out a new URL, and a browser or
+// CDN copy of the old one is never served for it. It changes nothing the API
+// reads or writes; a value that doesn't match only withholds immutable caching.
+export const parseGenerationsParam = value => {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") {
+    throw new InvalidArgumentError("generations must be given once");
+  }
+  return value;
+};
 
 // The compile store's key for an id: under the requested generation, if any,
 // and under every switch generation its chain's languages have.
