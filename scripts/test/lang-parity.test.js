@@ -17,7 +17,7 @@ test("a rule needs a known kind, a note, and its fields", () => {
     "0002": {},
   }), [
     "184: not a four-digit language id",
-    "0001[0]: kind must be one of error-text, lexicon-superset, upstream-envelope, case, header",
+    "0001[0]: kind must be one of error-text, error-presentation, lexicon-superset, upstream-envelope, case, header",
     "0001[1]: a note must explain the difference",
     "0001[1]: a case rule names its program source (src)",
     "0001[2]: a header rule names its path and header",
@@ -91,4 +91,17 @@ test("upstream-envelope allows a difference only for a case whose upstream data 
   assert.equal(isEnvelope({ data: 1, errors: "no" }), false);
   assert.equal(isEnvelope([{ errors: [] }]), false);
   assert.equal(isEnvelope(null), false);
+});
+
+test("error-presentation allows only differences in how errors are presented", () => {
+  const rules = [{ kind: "error-presentation", note: "x" }];
+  const ts = answer(200, { data: null, errors: [{ message: "empty array has no head", from: -1, to: -1 }, { message: "dup", from: -1, to: -1 }] });
+  const rust = answer(200, { data: null, errors: [{ message: "empty list has no head", from: 0, to: 2 }] });
+  assert.deepEqual(compareCase(ts, rust, { rules }), { allowed: "error-presentation" });
+  // Not without the rule; not when data, status or another field differs; not when one side has no errors.
+  assert.equal(compareCase(ts, rust), "different");
+  assert.equal(compareCase(ts, answer(200, { data: 1, errors: [{ message: "e" }] }), { rules }), "different");
+  assert.equal(compareCase(ts, answer(400, { data: null, errors: [{ message: "e" }] }), { rules }), "different");
+  assert.equal(compareCase(ts, answer(200, { data: null, errors: [{ message: "e" }], cache: false }), { rules }), "different");
+  assert.equal(compareCase(ts, answer(200, { data: null, errors: [] }), { rules }), "different");
 });

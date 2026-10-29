@@ -103,6 +103,8 @@
         "CHAIN_ADMISSION": "all",
         "CHAIN_ADMISSION_CONNECTIONS": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
         "COMPILE_GENERATION_L0158": "l0158-cutover-1",
+        "BASE_URL_L0000": "https://l0000r-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0000": "rust-1",
         "BASE_URL_L0184": "https://l0184r-sja7fatcta-uc.a.run.app",
         "COMPILE_GENERATION_L0184": "rust-1",
         "SYSTEM_SIGNING_STAGES_PER_CLIENT_PER_MINUTE": "10",
