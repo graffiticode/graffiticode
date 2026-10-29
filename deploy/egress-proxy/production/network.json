@@ -315,7 +315,7 @@
       "runtimeServiceAccount": "l0000r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
-        "subnet": "compilers-default",
+        "subnet": "compilers-l0000",
         "tags": [
           "compiler"
         ],
@@ -326,7 +326,9 @@
         },
         "allow": [
           "api.graffiticode.org",
-          "auth.graffiticode.org"
+          "auth.graffiticode.org",
+          "policy-sja7fatcta-uc.a.run.app",
+          "www.googleapis.com"
         ]
       }
     },
