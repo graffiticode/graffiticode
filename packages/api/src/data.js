@@ -362,15 +362,15 @@ const buildGetData = ({
       const modelBaseUrl = routeFor(task.lang);
       const baseUrl = interpreterLang === lang ? modelBaseUrl : routeFor(interpreterLang);
       const record = { stage, lang, interpreterLang, mode, run: "interpret" };
-      const fail = (message, code) =>
+      const failure = (message, code) =>
         ({ out: { data: null, errors: [failedWith(message, code)] }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: code } });
       const compiled = await interpreter.model({ lang, code: task.code, auth: authToken, options, uid, baseUrl: modelBaseUrl });
-      if (compiled?.responseLost) return fail(`Error: stage ${stage}'s compiler didn't answer`, "compile-response-lost");
+      if (compiled?.responseLost) return failure(`Error: stage ${stage}'s compiler didn't answer`, "compile-response-lost");
       if (Array.isArray(compiled?.errors) && compiled.errors.length) {
         return { out: { data: null, errors: compiled.errors }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: "compile-errors" } };
       }
       const model = compiled?.model;
-      if (!model || typeof model.digest !== "string") return fail(`Error: stage ${stage}'s compiler returned no model`, "model-unavailable");
+      if (!model || typeof model.digest !== "string") return failure(`Error: stage ${stage}'s compiler returned no model`, "model-unavailable");
       const revision = typeof compiled.revision === "string" ? compiled.revision : null;
       // The stage cache is shared: never for a user testing an override, never
       // for a protected task, never without the revision that keys it, and
