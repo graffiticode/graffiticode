@@ -2,11 +2,13 @@
 // `baseUrl`, when given, is a pinned revision's URL (chain admission, W4): it
 // is used as is, never resolved, so no override or redeploy can redirect it.
 // `headers`, when given, ride with the compile (the api's identity, comp.js).
-export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid, baseUrl: pinned = null, headers = null } = {}) => {
+// `path` is the route posted to: /compile, or /interpret for an interpreted
+// stage (interpreter plan B3).
+export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid, baseUrl: pinned = null, headers = null, path = "/compile" } = {}) => {
   const baseUrl = pinned ?? await getBaseUrlForLanguage(lang, { uid });
   try {
     const compilePost = bent(baseUrl, "POST", "json", 200, 202);
-    return await (headers ? compilePost("/compile", req, headers) : compilePost("/compile", req));
+    return await (headers ? compilePost(path, req, headers) : compilePost(path, req));
   } catch (x) {
     console.log(
       "ERROR",

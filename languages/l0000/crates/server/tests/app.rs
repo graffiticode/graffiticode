@@ -200,6 +200,7 @@ async fn compile_returns_a_model_only_when_asked() {
     assert_eq!(body["errors"], json!([]));
     assert_eq!((body["model"]["lang"].clone(), body["model"]["kind"].clone()), (json!("0000"), json!("plan")));
     assert_eq!(body["model"]["program"], data_program());
+    assert_eq!(body["revision"], json!(REVISION));
     // Asked for nothing, or for null: today's envelope.
     let reply = compile(&server.app, json!({ "code": data_program(), "data": { "x": 1 }, "form": null })).await;
     assert_eq!(reply.json(), json!({ "data": { "x": 1 }, "errors": [] }));
@@ -222,8 +223,12 @@ async fn interpreting_a_model_answers_as_compiling_its_program_does() {
         let compiled = compile(&server.app, json!({ "code": code, "data": input })).await;
         for mode in [json!(null), json!("evaluate"), json!("present")] {
             let interpreted = interpret(&server.app, json!({ "model": model, "input": input, "mode": mode })).await;
+            // The same envelope, plus the revision that answered (the API's stage cache key).
+            let mut body = interpreted.json();
+            assert_eq!(body["revision"], json!(REVISION), "{code} {input} {mode}");
+            body.as_object_mut().unwrap().remove("revision");
             assert_eq!(
-                (interpreted.status, interpreted.text()),
+                (interpreted.status, graffiticode_l0000::json_text(&body)),
                 (compiled.status, compiled.text()),
                 "{code} {input} {mode}"
             );

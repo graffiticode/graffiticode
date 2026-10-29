@@ -83,6 +83,10 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ...cat("unavailable", ["provider-response-lost", "step-not-persisted"]),
   ...cat("conflict", ["artifact-rejected", "artifact-incompatible", "published-artifact-unavailable", "signed-content"]),
   ...cat("malformed", ["artifact-not-found", "publication-other-item"]),
+  // api, interpreter pass (B3): a declared stage's no-store result would have
+  // fed another stage, or its compiler returned no model.
+  ...cat("conflict", ["no-store-intermediate"]),
+  ...cat("unavailable", ["model-unavailable"]),
 ]));
 
 // Broker wraps Policy's reason (`authorization-denied:<reason>`); the category

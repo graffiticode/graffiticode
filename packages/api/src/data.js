@@ -10,6 +10,11 @@ import { decodeChainId } from "@graffiticode/common/chain";
 import { noAudit } from "./audit.js";
 import { normalizeLang, PreflightUnavailable } from "./admission.js";
 import { checkGeneration, compileCacheKey, getActiveGeneration as readActiveGeneration, getLanguageGenerations as readLanguageGenerations } from "./generation.js";
+import { INTERPRETER_DECLARATIONS, interpreterLangFor } from "@graffiticode/common/interpreter-manifest";
+import {
+  NO_STORE, PERMANENT, authorityFor, combineRestrictions, getInterpreterLanguages as readInterpreterLanguages,
+  interpretedRestrictions, legacyRestrictions, permanent, sharable, stageCacheKey, withoutStageMetadata,
+} from "./interpret.js";
 
 // A compile error that names why it failed (spec FAIL-01): `message` is the
 // text callers already read; `code` and `category` say which kind of failure.
@@ -18,6 +23,11 @@ const failedWith = (message, code) => ({ message, from: -1, to: -1, code, catego
 const ARTIFACT_WRITE_ATTEMPTS = 3;
 const ARTIFACT_RETRY_MS = 100;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// What each stage of a chain with an interpreted stage did (interpreter plan
+// B3): its stage id, language, how it ran and whether the stage cache answered.
+// It is kept out of every stage's data and the response.
+const logStage = record => console.log("stage", JSON.stringify(record));
 
 // What a private artifact keeps of a compile's output: everything but a
 // signature. A language's envelope is { data, errors }; L0176 folds its
@@ -86,7 +96,14 @@ const buildGetData = ({
   chainAdmission = null, admissionWanted = _connectionId => false,
   // The active compile generation, and the per-language switch generations
   // (generation.js), each read at each request's start.
-  getActiveGeneration = readActiveGeneration, getLanguageGenerations = readLanguageGenerations
+  getActiveGeneration = readActiveGeneration, getLanguageGenerations = readLanguageGenerations,
+  // The interpreter pass (B3): the client for a language's model and
+  // /interpret calls (comp.js), the stage cache (storage/stage-results.js),
+  // the languages turned on (interpret.js, read at each request's start) and
+  // the declarations that cap them. Without an interpreter every stage is
+  // legacy.
+  interpreter = null, stageResults = null, getInterpreterLanguages = readInterpreterLanguages,
+  declarations = INTERPRETER_DECLARATIONS, onStage = logStage, now = Date.now
 }) => {
   const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation, audit });
 
@@ -179,6 +196,7 @@ const buildGetData = ({
     // active, never writes under it, however late it finishes.
     const active = getActiveGeneration();
     const generations = getLanguageGenerations();
+    const interpreterLangs = interpreter ? getInterpreterLanguages() : new Set();
     const tasks = preloadedTasks !== undefined ? preloadedTasks : await taskStorer.get({ id, auth });
     if (!tasks) {
       return { errors: [{ message: "Task not found", from: -1, to: -1 }] };
@@ -231,8 +249,15 @@ const buildGetData = ({
     // the compiler's permission admission entirely. This covers entries written
     // before the function was registered, because it is decided before lookup.
     const requiresProtected = tasks.some(task => taskRequiresProtected(task));
+    // A stage is interpreted when its language is turned on, and never through
+    // a connection (B3: commands come later; an admitted plan runs as today).
+    // A chain with one is never answered from, or written to, the whole-chain
+    // store: its key knows nothing of an interpreted stage's revision, expiry,
+    // class or authority. Its stages use the stage cache instead.
+    const isInterpreted = task => !connectionId && interpreterLangs.has(normalizeLang(task.lang));
+    const interpretedChain = tasks.some(isInterpreted);
     const bypassCache =
-      Boolean(override) || Boolean(refresh) || Boolean(connectionId) || requiresProtected;
+      Boolean(override) || Boolean(refresh) || Boolean(connectionId) || requiresProtected || interpretedChain;
     // There exists a task that we are authorized to see.
     if (!bypassCache) {
       const cached = await compileStorer.get({ id: cacheKey, auth });
@@ -318,6 +343,85 @@ const buildGetData = ({
       const { effects: _taken, ...rest } = obj;
       return rest;
     };
+    // The restrictions of the data the next stage receives: the strictest class
+    // and earliest expiry of every stage so far. Stages run one at a time, in
+    // order, so each reads it before the next stage starts.
+    /** @type {import("./interpret.js").Restrictions} */
+    let upstream = PERMANENT;
+    // Set when a declared stage's no-store result would have fed another stage.
+    let refused = false;
+    // An interpreted stage (B3): its program compiled to a model, then the
+    // model interpreted against its input, the upstream stage's envelope, in
+    // `present` mode at the head and `evaluate` below it. Returns its envelope,
+    // without the API's metadata, and its own restrictions.
+    const interpretStage = async ({ task, index, data }) => {
+      const lang = normalizeLang(task.lang);
+      const interpreterLang = interpreterLangFor(lang, declarations);
+      const stage = `s${index}`;
+      const mode = index === 0 ? "present" : "evaluate";
+      const modelBaseUrl = routeFor(task.lang);
+      const baseUrl = interpreterLang === lang ? modelBaseUrl : routeFor(interpreterLang);
+      const record = { stage, lang, interpreterLang, mode, run: "interpret" };
+      const failure = (message, code) =>
+        ({ out: { data: null, errors: [failedWith(message, code)] }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: code } });
+      const compiled = await interpreter.model({ lang, code: task.code, auth: authToken, options, uid, baseUrl: modelBaseUrl });
+      if (compiled?.responseLost) return failure(`Error: stage ${stage}'s compiler didn't answer`, "compile-response-lost");
+      if (Array.isArray(compiled?.errors) && compiled.errors.length) {
+        return { out: { data: null, errors: compiled.errors }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: "compile-errors" } };
+      }
+      const model = compiled?.model;
+      if (!model || typeof model.digest !== "string") return failure(`Error: stage ${stage}'s compiler returned no model`, "model-unavailable");
+      const revision = typeof compiled.revision === "string" ? compiled.revision : null;
+      // The stage cache is shared: never for a user testing an override, never
+      // for a protected task, never without the revision that keys it, and
+      // only for input that may itself be shared (not private or no-store,
+      // and not expired).
+      const key = stageResults && !override && !taskRequiresProtected(task) && revision
+        ? stageCacheKey({
+          lang,
+          interpreterLang,
+          modelDigest: model.digest,
+          revision,
+          options,
+          generation: { requested: generation ?? null, producer: generations[lang] ?? null, interpreter: generations[interpreterLang] ?? null },
+          mode,
+          authority: authorityFor(uid),
+          input: data,
+        })
+        : null;
+      const inputSharable = sharable(upstream, now());
+      // The manifest's caps for this stage, the interpreter's and the
+      // producer's, as they are now: applied to every result, fresh or cached.
+      const capped = claimed => combineRestrictions(
+        interpretedRestrictions(claimed, interpreterLang, mode, declarations),
+        interpretedRestrictions({}, lang, mode, declarations)
+      );
+      if (key && inputSharable && !refresh) {
+        let hit;
+        try {
+          hit = await stageResults.get({ key });
+        } catch (e) {
+          console.log("ERROR reading the stage cache", e?.message);
+        }
+        // A cap tightened since the entry was stored applies to it, and an
+        // entry it no longer lets be shared is a miss.
+        const own = hit && capped({ cache: hit.cacheClass, expiresAt: hit.expiresAt });
+        if (hit && sharable(own, now())) {
+          return { out: hit.data, own, baseUrl, hit: true, record: { ...record, revision, cache: "hit" } };
+        }
+      }
+      const reply = await interpreter.interpret({ lang: interpreterLang, model, input: data, mode, auth: authToken, options, uid, baseUrl });
+      const own = reply?.responseLost ? NO_STORE : capped(reply);
+      const out = takeEffects(withoutStageMetadata(reply), index);
+      // What the entry may be kept as: the result's own terms and its input's
+      // together, so it is never retained longer or shared more widely than
+      // the input it was computed from. Stored only when that may be shared,
+      // the result has no errors, and the revision that interpreted it is the
+      // one the key names (a deploy between the two calls is a miss next time).
+      const effective = combineRestrictions(upstream, own);
+      const store = Boolean(key) && inputSharable && sharable(effective, now()) && !out?.errors?.length && reply?.revision === revision;
+      return { out, own, baseUrl, store: store ? { key, revision, ...effective } : null, mode, record: { ...record, revision, cache: key && inputSharable && !refresh ? "miss" : "skip" } };
+    };
     const obj = await tasks.reduceRight(
       // OPTIMIZATION Call getData recursively using the longest id suffix to
       // use any existing compiles.
@@ -326,7 +430,35 @@ const buildGetData = ({
         // Under a plan, the first failing stage stops the chain: later stages
         // never execute (spec ADMIT-03). Its effects are already reported.
         if (admitted && data?.errors?.length) return data;
+        // A refused chain stops at the refusal: no later stage runs.
+        if (refused) return data;
         const { lang, code } = task;
+        if (isInterpreted(task)) {
+          const { out, own, baseUrl, store, hit, mode, record } = await interpretStage({ task, index, data });
+          // Every stage after this one sees its restrictions, combined with
+          // its input's, on a cache hit as on a fresh result.
+          upstream = combineRestrictions(upstream, own);
+          await onStage({ ...record, own, result: upstream });
+          // A declared stage's no-store result never feeds another stage
+          // (design §5 rule 2): what it carries (a signature, say) must not
+          // reach a compiler that could keep or pass it on. Only legacy stages
+          // keep today's forwarding. An envelope with no data, only errors, is
+          // forwarded as any stage's errors are.
+          if (index > 0 && own.cacheClass === "no-store" && out?.data !== null && out?.data !== undefined) {
+            refused = true;
+            return { data: null, errors: [failedWith(`Error: stage s${index} (L${normalizeLang(lang)}) produced a result that can't be stored, so it can't feed stage s${index - 1}`, "no-store-intermediate")] };
+          }
+          if (hit) return out;
+          const checked = await checkShape(lang, out, baseUrl);
+          if (store && checked === out) {
+            try {
+              await stageResults.put({ key: store.key, data: out, cacheClass: store.cacheClass, expiresAt: store.expiresAt, lang: normalizeLang(lang), mode, revision: store.revision });
+            } catch (e) {
+              console.log("ERROR writing the stage cache", e?.message);
+            }
+          }
+          return checked;
+        }
         const pinned = admitted?.stages[index];
         // The admitted revision, else the snapshot's binding, else (null) the
         // default resolution, which consults no override.
@@ -367,6 +499,15 @@ const buildGetData = ({
           }
         }
         const out = takeEffects(obj, index);
+        const own = legacyRestrictions(out);
+        upstream = combineRestrictions(upstream, own);
+        if (interpretedChain) await onStage({ stage: `s${index}`, lang: normalizeLang(lang), run: "legacy", cache: "skip", own, result: upstream });
+        // Before L0176 is upgraded (plan C6), every chain where a no-store
+        // stage's output feeds another stage is recorded, to confirm none
+        // relies on a signed intermediate.
+        if (index > 0 && own.cacheClass === "no-store") {
+          console.log(`chain: a no-store stage (L${normalizeLang(lang)}, s${index}) feeds s${index - 1}`);
+        }
         if (out && typeof out === "object" && out.cache === false) {
           cacheable = false;
           // Strip the directive: it is for us, and would otherwise ride along
@@ -431,7 +572,11 @@ const buildGetData = ({
         ? { event: "artifact", outcome: "failed", reason: notStored.error, category: notStored.category, invocationId: invocation.invocationId, connectionId, attemptId }
         : { event: "artifact", outcome: "succeeded", invocationId: invocation.invocationId, connectionId, attemptId });
     }
-    if (!cacheable && typeof action === "object") {
+    // A chain with an interpreted stage is never held as permanent while its
+    // generation isn't in its URL (plan B4): a rollback that moves the
+    // generation must reach browsers and the CDN too. Otherwise, only a result
+    // that is immutable with no expiry may be.
+    if ((!cacheable || interpretedChain || !permanent(upstream)) && typeof action === "object") {
       // Let the route drop the immutable cache headers — an expiring compile
       // must not be held by the browser or the CDN either.
       action.noStore = true;
@@ -439,7 +584,7 @@ const buildGetData = ({
     // A refresh writes its fresh result back; an override must not, even with
     // a refresh, since its result is specific to that user's language-server
     // revision and would pollute the shared cache for everyone else.
-    if (!override && (!bypassCache || refresh) && cacheable) {
+    if (!override && (!bypassCache || refresh) && cacheable && !interpretedChain) {
       await compileStorer.create({
         id: cacheKey,
         compile: {
@@ -456,6 +601,13 @@ const buildGetData = ({
     return notStored ? { ...result, artifact: notStored } : result;
   };
 };
-export const buildDataApi = ({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null, admissionWanted = _connectionId => false, getActiveGeneration = readActiveGeneration, getLanguageGenerations = readLanguageGenerations }) => {
-  return { get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations }) };
+export const buildDataApi = ({
+  compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null,
+  admissionWanted = _connectionId => false, getActiveGeneration = readActiveGeneration, getLanguageGenerations = readLanguageGenerations,
+  interpreter = null, stageResults = null, getInterpreterLanguages = readInterpreterLanguages, declarations = INTERPRETER_DECLARATIONS,
+  onStage = logStage, now = Date.now
+}) => {
+  return {
+    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, getInterpreterLanguages, declarations, onStage, now })
+  };
 };
