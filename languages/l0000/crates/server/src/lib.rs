@@ -58,9 +58,39 @@ pub struct AppState {
     pub lexicon: Arc<str>,
 }
 
+/// How `/form` may be cached. The View's `index.html` names the content-hashed bundle it loads,
+/// so a cached copy keeps every visitor on the previous build.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FormCaching {
+    /// No `Cache-Control`.
+    #[default]
+    Unset,
+    /// `Cache-Control: no-cache`.
+    NoCache,
+    /// `no-store, no-cache, must-revalidate`, and `no-store` in `CDN-Cache-Control` and
+    /// `Cloudflare-CDN-Cache-Control`, which a CDN honours ahead of `Cache-Control`.
+    NoStore,
+}
+
+/// A language's HTTP caching where it differs from the default, matching its TypeScript server
+/// (docs/graffiticode-interpreter-plan.md, P4), so switching a language's routing between the two
+/// changes no response header.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct HttpCaching {
+    pub form: FormCaching,
+    /// Files under `/assets/` carry a content hash in their names: a served one is
+    /// `public, max-age=31536000, immutable`. A miss is never marked.
+    pub immutable_assets: bool,
+}
+
 /// `static_dir` holds the public assets (`schema.json`, `spec.html`, `instructions.md`, …) and
 /// the View bundle, whose `index.html` is `/form`.
 pub fn app(state: AppState, static_dir: impl Into<PathBuf>) -> Router {
+    app_with(state, static_dir, HttpCaching::default())
+}
+
+/// [`app`], with a language's own HTTP caching.
+pub fn app_with(state: AppState, static_dir: impl Into<PathBuf>, caching: HttpCaching) -> Router {
     let static_dir = static_dir.into();
     Router::new()
         .route("/", get(|| async { "OK" }))
@@ -81,9 +111,37 @@ pub fn app(state: AppState, static_dir: impl Into<PathBuf>) -> Router {
             HeaderName::from_static("cross-origin-resource-policy"),
             HeaderValue::from_static("cross-origin"),
         ))
+        .layer(middleware::from_fn_with_state(caching, http_caching))
         .layer(CorsLayer::permissive())
         .layer(middleware::from_fn(require_https))
         .layer(TraceLayer::new_for_http())
+}
+
+/// The language's caching for `/form` and `/assets/` (see [`HttpCaching`]).
+async fn http_caching(State(caching): State<HttpCaching>, request: Request, next: Next) -> Response {
+    let path = request.uri().path().to_owned();
+    let mut response = next.run(request).await;
+    let served = response.status().is_success();
+    let headers = response.headers_mut();
+    if path == "/form" {
+        match caching.form {
+            FormCaching::Unset => {}
+            FormCaching::NoCache => {
+                headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+            }
+            FormCaching::NoStore => {
+                headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-store, no-cache, must-revalidate"));
+                headers.insert(HeaderName::from_static("cdn-cache-control"), HeaderValue::from_static("no-store"));
+                headers.insert(
+                    HeaderName::from_static("cloudflare-cdn-cache-control"),
+                    HeaderValue::from_static("no-store"),
+                );
+            }
+        }
+    } else if caching.immutable_assets && path.starts_with("/assets/") && served {
+        headers.insert(CACHE_CONTROL, HeaderValue::from_static("public, max-age=31536000, immutable"));
+    }
+    response
 }
 
 /// Behind a proxy that terminated plain HTTP, send the caller to HTTPS. Only a proxy sets
@@ -277,6 +335,15 @@ fn env_or(name: &str, default: &str) -> String {
 /// `GRAFFITICODE_SECRET_KEY(S)` keyring, and for chain admission `POLICY_URL`,
 /// `PREFLIGHT_GATEWAYS`, `K_REVISION` and `GC_IMAGE_DIGEST`.
 pub async fn serve(dialect: impl Dialect + 'static, lexicon: &Lexicon) -> Result<(), Box<dyn std::error::Error>> {
+    serve_with(dialect, lexicon, HttpCaching::default()).await
+}
+
+/// [`serve`], with a language's own HTTP caching.
+pub async fn serve_with(
+    dialect: impl Dialect + 'static,
+    lexicon: &Lexicon,
+    caching: HttpCaching,
+) -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt().with_env_filter(env_or("LOG_LEVEL", "info")).init();
 
     let port: u16 = env_or("PORT", "50000").parse()?;
@@ -322,7 +389,7 @@ pub async fn serve(dialect: impl Dialect + 'static, lexicon: &Lexicon) -> Result
     let address = std::net::SocketAddr::from((std::net::Ipv4Addr::UNSPECIFIED, port));
     let listener = tokio::net::TcpListener::bind(address).await?;
     tracing::info!(lang = %lang_id, port, %auth_url, %static_dir, "language server listening");
-    axum::serve(listener, app(state, static_dir)).with_graceful_shutdown(shutdown()).await?;
+    axum::serve(listener, app_with(state, static_dir, caching)).with_graceful_shutdown(shutdown()).await?;
     Ok(())
 }
 

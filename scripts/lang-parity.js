@@ -42,10 +42,15 @@ export const COMPARED_HEADERS = ["cache-control", "content-type", "cross-origin-
 //                     error's message (both answers have errors, as many)
 //   lexicon-superset  Rust's lexicon has every word TypeScript's has,
 //                     unchanged, plus others
+//   upstream-envelope a case whose upstream data is a {data, errors} envelope
+//                     (an object whose `errors` is an array): the Rust kernel
+//                     unwraps it for every dialect, while a TypeScript
+//                     language that reads its input directly spreads the
+//                     envelope itself
 //   case              one corpus case, by its program source (`src`)
 //   header            one header on one path (`path`, `header`)
 // Every rule needs a `note` saying why the difference is acceptable.
-export const RULE_KINDS = ["error-text", "lexicon-superset", "case", "header"];
+export const RULE_KINDS = ["error-text", "lexicon-superset", "upstream-envelope", "case", "header"];
 
 export const ruleProblems = rules => {
   const problems = [];
@@ -81,12 +86,17 @@ const withoutErrorText = body => {
   return { ...body, errors: body.errors.map(e => (e && typeof e === "object" ? { ...e, message: "" } : "")) };
 };
 
-// One case: "identical", { allowed: kind }, or "different".
-export const compareCase = (ts, rust, { src, rules = [] } = {}) => {
+// Upstream data in the envelope a chained stage passes on.
+export const isEnvelope = data => Boolean(data) && typeof data === "object" && !Array.isArray(data) && Array.isArray(data.errors);
+
+// One case: "identical", { allowed: kind }, or "different". `data` is the
+// case's upstream data.
+export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
   const a = comparable(ts);
   const b = comparable(rust);
   if (isDeepStrictEqual(a, b)) return "identical";
   if (rules.some(r => r.kind === "case" && r.src === src)) return { allowed: "case" };
+  if (rules.some(r => r.kind === "upstream-envelope") && isEnvelope(data)) return { allowed: "upstream-envelope" };
   if (rules.some(r => r.kind === "error-text") && a.status === b.status &&
       Array.isArray(a.body?.errors) && Array.isArray(b.body?.errors) && a.body.errors.length > 0 &&
       a.body.errors.length === b.body.errors.length &&
@@ -198,7 +208,7 @@ const main = async () => {
     const body = { code: c.ast, data: c.data ?? {} };
     const headers = token ? { Authorization: token } : {};
     const [a, b] = await Promise.all([request(tsUrl, "POST", "/compile", { headers, body }), request(rustUrl, "POST", "/compile", { headers, body })]);
-    const result = compareCase(a, b, { src: c.src, rules });
+    const result = compareCase(a, b, { src: c.src, data: c.data, rules });
     if (result === "identical") counts.identical++;
     else if (result === "different") {
       counts.different++;

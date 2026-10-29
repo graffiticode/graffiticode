@@ -17,7 +17,7 @@ use http_body_util::BodyExt;
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use l0000r_server::auth::{AuthContext, AuthError, TokenVerifier};
 use l0000r_server::gateway::GoogleGateways;
-use l0000r_server::{AppState, app};
+use l0000r_server::{AppState, FormCaching, HttpCaching, app_with};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -88,6 +88,10 @@ fn server() -> Server {
 }
 
 fn server_for(compiler: Compiler) -> Server {
+    server_with(compiler, HttpCaching::default())
+}
+
+fn server_with(compiler: Compiler, caching: HttpCaching) -> Server {
     let static_dir = tempfile::tempdir().unwrap();
     std::fs::write(static_dir.path().join("index.html"), "<!doctype html><title>form</title>").unwrap();
     std::fs::write(static_dir.path().join("schema.json"), r#"{"type":"object"}"#).unwrap();
@@ -106,7 +110,7 @@ fn server_for(compiler: Compiler) -> Server {
         revision: Some(REVISION.to_owned()),
         lexicon: graffiticode_l0000::Lexicon::base_json().into(),
     };
-    Server { app: app(state, static_dir.path()), verifier, _static_dir: static_dir }
+    Server { app: app_with(state, static_dir.path(), caching), verifier, _static_dir: static_dir }
 }
 
 struct Reply {
@@ -283,6 +287,48 @@ async fn static_assets_and_the_form_are_public() {
     // A directory is not an index page: `/` stays the health check and nothing else lists.
     assert_eq!(get(&server.app, "/assets/").await.status, StatusCode::NOT_FOUND);
     assert_eq!(get(&server.app, "/../Cargo.toml").await.status, StatusCode::NOT_FOUND);
+}
+
+// P4: a language's caching matches its TypeScript server's, so switching its routing changes no
+// response header.
+#[tokio::test]
+async fn by_default_nothing_is_marked_cacheable_or_uncacheable() {
+    let server = server();
+    for uri in ["/form", "/assets/index-abc123.js", "/schema.json"] {
+        assert!(get(&server.app, uri).await.headers.get(header::CACHE_CONTROL).is_none(), "{uri}");
+    }
+}
+
+#[tokio::test]
+async fn a_language_can_keep_its_form_from_being_cached() {
+    let no_cache =
+        server_with(Compiler::new(L0000), HttpCaching { form: FormCaching::NoCache, immutable_assets: false });
+    let form = get(&no_cache.app, "/form?id=abc").await;
+    assert_eq!(form.headers[header::CACHE_CONTROL], "no-cache");
+    assert!(form.headers.get("cdn-cache-control").is_none());
+
+    let no_store =
+        server_with(Compiler::new(L0000), HttpCaching { form: FormCaching::NoStore, immutable_assets: false });
+    let form = get(&no_store.app, "/form").await;
+    assert_eq!(form.status, StatusCode::OK);
+    assert_eq!(form.headers[header::CACHE_CONTROL], "no-store, no-cache, must-revalidate");
+    assert_eq!(form.headers["cdn-cache-control"], "no-store");
+    assert_eq!(form.headers["cloudflare-cdn-cache-control"], "no-store");
+    // Only the form.
+    assert!(get(&no_store.app, "/schema.json").await.headers.get(header::CACHE_CONTROL).is_none());
+}
+
+#[tokio::test]
+async fn hashed_assets_are_immutable_and_a_miss_is_never_marked() {
+    let server = server_with(Compiler::new(L0000), HttpCaching { form: FormCaching::NoStore, immutable_assets: true });
+    let asset = get(&server.app, "/assets/index-abc123.js").await;
+    assert_eq!(asset.status, StatusCode::OK);
+    assert_eq!(asset.headers[header::CACHE_CONTROL], "public, max-age=31536000, immutable");
+    let missing = get(&server.app, "/assets/index-gone.js").await;
+    assert_eq!(missing.status, StatusCode::NOT_FOUND);
+    assert!(missing.headers.get(header::CACHE_CONTROL).is_none());
+    // Not under /assets/: unmarked.
+    assert!(get(&server.app, "/schema.json").await.headers.get(header::CACHE_CONTROL).is_none());
 }
 
 #[tokio::test]
