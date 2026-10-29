@@ -87,9 +87,9 @@ Reasons:
   - A per-language allowlist records the accepted differences each `CLAUDE.md` documents. The gate's output is the `--evidence` file for `promote`.
   - Regenerate the `cases.json` fixtures from current TypeScript first, because some are stale (L0176's predate `init`).
 - **P4 Shared Rust server parity fixes** (`languages/l0000/crates/server/src/lib.rs`):
-  - per-language `/form` no-store or no-cache and `/assets` immutable headers;
-  - HTTPS-redirect behavior that matches TypeScript;
-  - the TypeScript-compatible upstream-envelope behavior in chains (l0179/l0180/l0181/l0183 differ today). Until B, a language must see the same upstream input as on TypeScript.
+  - per-language `/form` no-store or no-cache and `/assets` immutable headers *(done: `HttpCaching` and `serve_with` in the shared server; L0180 `/form` no-cache, L0182–L0186 `/form` no-store, and all six with immutable `/assets`)*;
+  - HTTPS-redirect behavior that matches TypeScript *(no change needed: every production TypeScript image sets `NODE_ENV=production`, so both redirect plain HTTP behind the proxy identically)*;
+  - the upstream-envelope behavior in chains (l0179/l0180/l0181/l0183 differ today). *Decision (2026-10-28): keep the Rust kernel's unwrapping rather than copy the TypeScript's raw spread of the envelope.* It is an allowed difference in the parity gate (`upstream-envelope`, scripts/lang-parity.allow.json), so this is the one place where a language's input does change at its switch. Each of the four languages' switch release notes must list the production chains in which it sits downstream of another stage, since those chains' results change.
 
   Redeploying the `lNNNNr` services is safe: nothing routes to them.
 - **P5 Tester soak.** Use the existing `lang-overrides/{uid}` Firestore bindings to point the canary and test accounts at `lNNNNr`. This only covers paths that don't go through a connection (connection paths refuse overrides).

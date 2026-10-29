@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { compareCase, compareLexicon, compareProbe, comparable, corpusBlock, ruleProblems, sendable } from "../lang-parity.js";
+import { compareCase, compareLexicon, compareProbe, comparable, corpusBlock, isEnvelope, ruleProblems, sendable } from "../lang-parity.js";
 
 const answer = (status, body) => ({ status, text: JSON.stringify(body) });
 
@@ -17,7 +17,7 @@ test("a rule needs a known kind, a note, and its fields", () => {
     "0002": {},
   }), [
     "184: not a four-digit language id",
-    "0001[0]: kind must be one of error-text, lexicon-superset, case, header",
+    "0001[0]: kind must be one of error-text, lexicon-superset, upstream-envelope, case, header",
     "0001[1]: a note must explain the difference",
     "0001[1]: a case rule names its program source (src)",
     "0001[2]: a header rule names its path and header",
@@ -79,4 +79,16 @@ test("falsy upstream data isn't sent, as the API never sends it", () => {
 
 test("the corpus block has the promote evidence's shape", () => {
   assert.deepEqual(corpusBlock({ ranAt: "2026-10-28T00:00:00Z", tasks: 3, failures: 0, extra: 1 }), { ranAt: "2026-10-28T00:00:00Z", tasks: 3, failures: 0 });
+});
+
+test("upstream-envelope allows a difference only for a case whose upstream data is an envelope", () => {
+  const rules = [{ kind: "upstream-envelope", note: "x" }];
+  const [ts, rust] = [answer(200, { data: { data: { a: 1 }, errors: [] }, errors: [] }), answer(200, { data: { a: 1 }, errors: [] })];
+  assert.deepEqual(compareCase(ts, rust, { data: { data: { a: 1 }, errors: [] }, rules }), { allowed: "upstream-envelope" });
+  assert.equal(compareCase(ts, rust, { data: { a: 1 }, rules }), "different");
+  assert.equal(compareCase(ts, rust, { data: { data: { a: 1 }, errors: [] } }), "different");
+  assert.equal(isEnvelope({ errors: [] }), true);
+  assert.equal(isEnvelope({ data: 1, errors: "no" }), false);
+  assert.equal(isEnvelope([{ errors: [] }]), false);
+  assert.equal(isEnvelope(null), false);
 });
