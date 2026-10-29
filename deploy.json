@@ -424,7 +424,7 @@
         "module": "verify/policy.js"
       },
       "secrets": {
-        "POLICY_CALLERS": "policy-callers:4",
+        "POLICY_CALLERS": "policy-callers:5",
         "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1"
       },
       "retireTags": true,
