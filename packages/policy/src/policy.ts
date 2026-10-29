@@ -368,10 +368,10 @@ export const createPolicy = ({
     if (!plan || plan.invocationId !== invocationId || !pinned || pinned.lang !== lang) return { refusal: "plan-binding-mismatch" };
     if (manifestProblems(manifest, stage).length || !sameStage(manifest, pinned)) return { refusal: "plan-binding-mismatch" };
     if (!(await revisionAvailable(lang, pinned.revision))) return { refusal: "pinned-revision-unavailable" };
-    // A plan keeps the registry version it was admitted under (P1b); once
-    // that version leaves the window, nothing new executes under it.
-    if (!acceptedRegistry(plan.registryVersion)) return { refusal: "registry-version-changed" };
-    return { planDigest: claims.pld, stage: pinned, registryVersion: plan.registryVersion };
+    // A plan keeps the registry version it was admitted under (P1b). Once
+    // that version leaves the window nothing new executes under it, but a
+    // retry may still recover its writes' recorded outcomes: replay only.
+    return { planDigest: claims.pld, stage: pinned, registryVersion: plan.registryVersion, replayOnly: !acceptedRegistry(plan.registryVersion) };
   };
 
   const snapshot = async ({ caller, user, lang, connectionId, fns, invocationToken, stage, admissionToken = null, manifest = null }) => {
@@ -421,9 +421,13 @@ export const createPolicy = ({
     // Under a plan a snapshot may only narrow it: never a function the plan
     // didn't admit for this stage.
     const admitted = bound ? new Set(bound.stage.requiredFunctions) : null;
+    // A replay-only session (P1b) recovers recorded writes: only a write has
+    // a receipt to return, so only writes are in it.
+    const replayOnly = Boolean(bound?.replayOnly);
     const allowed = [...new Set(fns)].filter(fn => {
       const spec = Object.prototype.hasOwnProperty.call(registered, fn) ? registered[fn] : null;
-      return Boolean(spec && spec.backend === connection.backend && mayUse(access, lang, fn) && (!admitted || admitted.has(fn)) && (!viewSafe || viewSafe.has(fn)));
+      return Boolean(spec && spec.backend === connection.backend && mayUse(access, lang, fn) && (!admitted || admitted.has(fn)) && (!viewSafe || viewSafe.has(fn)) &&
+        (!replayOnly || spec.kind === "write"));
     });
 
     const sessionToken = await issueToken(signer, "session", {
@@ -437,8 +441,9 @@ export const createPolicy = ({
       rv: bound ? bound.registryVersion : registryVersion,
       fns: allowed,
       ...(bound ? { cv: CONTRACT_VERSION, pld: bound.planDigest, bind: stageBinding(bound.stage) } : { cv: reading ? CONTRACT_VERSION : 1 }),
+      ...(replayOnly ? { rpl: true } : {}),
     });
-    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed" });
+    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed", ...(replayOnly ? { reason: "replay-only" } : {}) });
     return { allowed, sessionToken };
   };
 
@@ -565,7 +570,14 @@ export const createPolicy = ({
       callerRole: caller?.role,
     };
     if (caller?.role !== "compiler" || !caller.lang || caller.lang !== session.lang) return deny("caller-language-mismatch", record);
-    if (!acceptedRegistry(session.rv)) return deny("registry-version-changed", record);
+    // A replay-only session (P1b) mints replay tokens for writes, whatever
+    // its plan's version; anything else needs a version still accepted.
+    const replayOnly = session.rpl === true;
+    if (replayOnly) {
+      if (protectedFunctionsForLang(session.lang)?.[fn]?.kind !== "write") return deny("replay-only", record);
+    } else if (!acceptedRegistry(session.rv)) {
+      return deny("registry-version-changed", record);
+    }
     if (!Array.isArray(session.fns) || !session.fns.includes(fn)) return deny("fn-not-in-session", record);
     if (!isOperationAllowed({ lang: session.lang, fn, op, backend: session.backend })) {
       return deny("operation-not-allowed", record);
@@ -589,7 +601,7 @@ export const createPolicy = ({
     }
     const refusal = await liveRefusal({ ...session, provenance }, fn);
     if (refusal) return deny(refusal, live);
-    return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, record: { ...live, planDigest: session.pld } });
+    return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, replayOnly, record: { ...live, planDigest: session.pld } });
   };
 
   // The contract checks shared by mint and authorize-execution (W4). `claims`
@@ -619,11 +631,13 @@ export const createPolicy = ({
     return null;
   };
 
-  const issueExecution = async ({ session, provenance, fn, op, argsDigest, occurrenceId, record }) => {
+  const issueExecution = async ({ session, provenance, fn, op, argsDigest, occurrenceId, replayOnly = false, record }) => {
     // The invocation is durable and shared by its retries, and the stage and
     // occurrence are stable within it, so a retry reaches the same receipt.
     const operationId = `${session.inv}/${session.stg}/${occurrenceId}`;
-    const executionToken = await issueToken(signer, "execution", {
+    // A replay-only session's token is a replay token: same claims, its own
+    // typ, good only for returning a recorded receipt (P1b).
+    const executionToken = await issueToken(signer, replayOnly ? "replay" : "execution", {
       sub: session.sub,
       own: session.own,
       conn: session.conn,
@@ -643,7 +657,7 @@ export const createPolicy = ({
       cv: session.cv ?? 1,
       ...(session.pld ? { pld: session.pld, stg: session.stg } : {}),
     });
-    await audit({ ...record, opid: operationId, outcome: "allowed" });
+    await audit({ ...record, opid: operationId, outcome: "allowed", ...(replayOnly ? { reason: "replay-only" } : {}) });
     return { executionToken, operationId };
   };
 
@@ -659,10 +673,18 @@ export const createPolicy = ({
     const base = { event: "authorize-execution", op, step, purpose, callerRole: caller?.role };
     if (caller?.role !== "broker") return deny("caller-not-broker", base);
     let claims;
+    let replayOnly = false;
     try {
       ({ claims } = await verifyToken(jwks, "execution", executionToken));
     } catch (e) {
-      return deny(e?.code === "ERR_JWT_EXPIRED" ? "token-expired" : "bad-token", base);
+      // A replay token (P1b) authorizes one thing: returning a write's
+      // recorded receipt.
+      try {
+        ({ claims } = await verifyToken(jwks, "replay", executionToken));
+        replayOnly = true;
+      } catch {
+        return deny(e?.code === "ERR_JWT_EXPIRED" ? "token-expired" : "bad-token", base);
+      }
     }
     const record = {
       ...base,
@@ -684,7 +706,11 @@ export const createPolicy = ({
     // arguments, under this registry.
     if (claims.op !== op) return deny("operation-mismatch", record);
     if (claims.argd !== argsDigest) return deny("args-mismatch", record);
-    if (!acceptedRegistry(claims.rv)) return deny("registry-version-changed", record);
+    if (replayOnly) {
+      if (purpose !== "replay" || step !== "receipt") return deny("replay-only", record);
+    } else if (!acceptedRegistry(claims.rv)) {
+      return deny("registry-version-changed", record);
+    }
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
       return deny("operation-not-allowed", record);
     }
@@ -789,8 +815,10 @@ export const createPolicy = ({
     const stored = invocation.planDigest ? await invocations.getPlan(invocation.planDigest) : null;
     let planRegistry;
     if (stored) {
+      // A retry keeps its plan's version even after it leaves the window: its
+      // sessions are then replay-only (snapshot), so nothing new executes,
+      // but its writes' recorded outcomes can still be returned.
       planRegistry = stored.registryVersion;
-      if (!acceptedRegistry(planRegistry)) return deny("registry-version-changed", record);
     } else {
       planRegistry = reported.length ? reported[0] : registryVersion;
       if (!acceptedRegistry(planRegistry)) return deny("registry-version-mismatch", record);

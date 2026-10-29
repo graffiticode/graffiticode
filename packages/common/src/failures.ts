@@ -42,6 +42,9 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
     "token-replayed", "token-expiring", "operation-id-reused", "idempotency-key-reused",
     "provider-account-changed", "registry-version-changed", "registry-version-mismatch",
     "receipt-registry-version-mismatch",
+    // P1b: a replay-only token or session asked for more than a recorded
+    // outcome, or for a write that has none.
+    "replay-only", "replay-not-found",
   ]),
   ...cat("unavailable", [
     "maintenance", "authorization-unavailable", "deadline-exceeded", "unavailable",

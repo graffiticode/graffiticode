@@ -8,6 +8,8 @@
 //                                                      issued to the gateway
 //   session   aud=policy  typ=gc-session+jwt  ~15 min  one compile's admission
 //   execution aud=broker  typ=gc-exec+jwt     <=60 s   one broker operation
+//   replay    aud=broker  typ=gc-replay+jwt   <=60 s   one write's recorded
+//                                                      outcome, and nothing else
 //   admission aud=policy  typ=gc-admission+jwt 15 min  one admitted plan,
 //                                                      held by the gateway and
 //                                                      presented at each snapshot
@@ -71,7 +73,9 @@ export const PROFILES = Object.freeze({
     required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, inv: STRING, stg: STRING, rv: NUMBER, fns: STRINGS },
     // Contract v2 (W4): `cv` on every session; a user session bound to an
     // admitted plan adds `pld` (its digest) and `bind` (its stage).
-    optional: { pub: STRING, sys: BOOLEAN, cv: NUMBER, pld: STRING, bind: OBJECT },
+    // `rpl`: a replay-only session (P1b), for a plan whose registry version
+    // has left the window: its mints are replay tokens.
+    optional: { pub: STRING, sys: BOOLEAN, cv: NUMBER, pld: STRING, bind: OBJECT, rpl: BOOLEAN },
   }),
   execution: profile({
     typ: "gc-exec+jwt",
@@ -87,6 +91,18 @@ export const PROFILES = Object.freeze({
     // Broker's per-session signature slots outlive every token the session
     // can produce.
     optional: { pub: STRING, cv: NUMBER, pld: STRING, stg: STRING, sexp: NUMBER },
+  }),
+  // A retry's way back to a write's recorded outcome once the plan's registry
+  // version has left the window (docs/graffiticode-interpreter-plan.md, P1b).
+  // The same claims as an execution token, but its own typ, so it can never
+  // be read as one: Broker accepts it only to return a receipt that already
+  // exists, and Policy authorizes it only for a replay step.
+  replay: profile({
+    typ: "gc-replay+jwt",
+    audience: "urn:graffiticode:broker",
+    ttlSeconds: 60,
+    required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER, prv: STRING },
+    optional: { cv: NUMBER, pld: STRING, stg: STRING },
   }),
   // One admitted plan for one invocation (W4): issued to the gateway by
   // admission, and presented with each stage's snapshot. Policy's audience.

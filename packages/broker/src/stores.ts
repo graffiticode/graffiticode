@@ -110,6 +110,10 @@ export const createMemoryReceiptStore = () => {
       claims.set(operationId, claim);
       return { created: true };
     },
+    // The claim alone, never creating one: a replay-only token (P1b) reads it.
+    async getClaim(operationId) {
+      return claims.get(operationId) ?? null;
+    },
     async putStep(operationId, n, step) {
       checkStepIndex(n);
       const recorded = steps.get(operationId) ?? new Map();

@@ -219,11 +219,18 @@ export const createBroker = ({
     const startedAt = now();
     const deadline = startedAt + limits.executionMs;
     let claims;
+    // A replay token (P1b) returns a write's recorded outcome and nothing else.
+    let replayOnly = false;
     try {
       ({ claims } = await verifyToken(jwks, "execution", token));
     } catch {
-      await audit({ event: "execute", op, outcome: "denied", reason: "bad-token" });
-      throw new BrokerRefused("bad-token", 401);
+      try {
+        ({ claims } = await verifyToken(jwks, "replay", token));
+        replayOnly = true;
+      } catch {
+        await audit({ event: "execute", op, outcome: "denied", reason: "bad-token" });
+        throw new BrokerRefused("bad-token", 401);
+      }
     }
     // Correlation from the verified token (spec AUDIT-01): the operation, its
     // invocation and stage, and who is executing it.
@@ -320,7 +327,7 @@ export const createBroker = ({
     // failure to register propagates before any claim or provider request.
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (operation?.kind !== "write") {
-      return executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep: () => stepInProgress });
+      return executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep: () => stepInProgress });
     }
     const attempt = `${claims.opid}#${randomUUID()}`;
     await activity.begin(attempt, startedAt + maxExecutionMs(limits));
@@ -336,19 +343,25 @@ export const createBroker = ({
       if (!admission(await protectedSwitch.state({ fresh: true }), { uid: claims.sub, connectionId: claims.conn })) {
         return await refuse(MAINTENANCE, 503);
       }
-      return await executeAdmitted({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep: () => stepInProgress });
+      return await executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep: () => stepInProgress });
     } finally {
       // Best effort: an entry left behind expires on its own.
       await activity.end(attempt).catch(() => {});
     }
   };
 
-  const executeAdmitted = async ({ claims, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
+  const executeAdmitted = async ({ claims, replayOnly = false, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
     // A token is interpreted only under its own registry version or one the
     // window says keeps its meaning (P1b). The receipt binding below carries
     // the token's version, so a write under one version never matches a
-    // receipt recorded under another.
-    if (!isAcceptedRegistryVersion(claims.rv, { current: registryVersion, window: registryWindow })) return refuse("registry-version-mismatch");
+    // receipt recorded under another. A replay token is exempt: it can only
+    // return a receipt already recorded under its own version, and is never
+    // interpreted to act.
+    if (replayOnly) {
+      if (operation?.kind !== "write") return refuse("replay-only");
+    } else if (!isAcceptedRegistryVersion(claims.rv, { current: registryVersion, window: registryWindow })) {
+      return refuse("registry-version-mismatch");
+    }
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
     if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
       return refuse("operation-not-allowed");
@@ -362,6 +375,11 @@ export const createBroker = ({
     const digest = argsDigest(payload);
     if (digest !== claims.argd) return refuse("args-mismatch");
     if (!(await once.claim(claims.jti, claims.exp))) return refuse("token-replayed", 409);
+
+    // A replay token needs no credential: it never reaches the provider.
+    if (replayOnly) {
+      return replayRecorded({ claims, op, digest, record, refuse, authorizeStep, inTime });
+    }
 
     let credential;
     if (operation.signsWith === "preview-consumer") {
@@ -404,17 +422,53 @@ export const createBroker = ({
       return { status: "succeeded", result };
     }
 
-    const binding = {
-      principal: claims.sub,
-      ownerUid: claims.own,
-      connectionId: claims.conn,
-      lang: claims.lang,
-      fn: claims.fn,
-      op,
-      registryVersion: claims.rv,
-      argsDigest: digest,
-    };
+    const binding = writeBinding(claims, op, digest);
     return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime, failedStep });
+  };
+
+  // A write's binding, from its verified token and the payload's digest.
+  const writeBinding = (claims, op, digest) => ({
+    principal: claims.sub,
+    ownerUid: claims.own,
+    connectionId: claims.conn,
+    lang: claims.lang,
+    fn: claims.fn,
+    op,
+    registryVersion: claims.rv,
+    argsDigest: digest,
+  });
+
+  // Returns the recorded outcome of a claimed write: a retry's answer. The
+  // claim must have been made for the same binding, under the same registry
+  // version. Returning it is an effect too: read first, authorized last, so
+  // nothing awaited comes between the decision and returning it. A refusal
+  // leaves the receipt as it is.
+  const replayClaim = async ({ claims, binding, recorded, record, refuse, authorizeStep, inTime }) => {
+    if (recorded.registryVersion !== binding.registryVersion) return refuse("receipt-registry-version-mismatch", 409);
+    if (!sameBinding(recorded, binding)) return refuse("operation-id-reused", 409);
+    const outcome = await receipts.getOutcome(claims.opid);
+    const persistedSteps = outcome ? null : await receipts.getSteps(claims.opid);
+    try {
+      await authorizeStep("receipt", "replay");
+      await audit({ ...record, outcome: "replayed", reason: outcome ? outcome.status : "uncertain" });
+      inTime("replaying the receipt");
+    } catch (e) {
+      const reason = authorizationReason(e);
+      if (!reason) throw e;
+      return refuse(reason, e instanceof AuthorizationDenied ? 403 : 503);
+    }
+    return outcome
+      ? { status: outcome.status, result: outcome.result, steps: outcome.steps, ...defined({ reason: outcome.reason, failedStep: outcome.failedStep, category: outcome.category }), replayed: true }
+      : { status: "uncertain", steps: persistedSteps, replayed: true };
+  };
+
+  // A replay token (P1b): the recorded outcome of a write already claimed, or
+  // a refusal. It never claims, so it can never start a write, and it never
+  // reaches the provider.
+  const replayRecorded = async ({ claims, op, digest, record, refuse, authorizeStep, inTime }) => {
+    const claim = await receipts.getClaim(claims.opid);
+    if (!claim) return refuse("replay-not-found", 404);
+    return replayClaim({ claims, binding: writeBinding(claims, op, digest), recorded: claim.binding, record, refuse, authorizeStep, inTime });
   };
 
   const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
@@ -432,28 +486,7 @@ export const createBroker = ({
     const written = operation.references(payload, claims.opid);
     const evidence = operation.evidence?.(written);
     const claimed = await receipts.claim(claims.opid, binding, { ...(claims.pld ? { pld: claims.pld } : {}), ...(evidence ? { evidence } : {}) });
-    if (!claimed.created) {
-      const recorded = claimed.claim.binding;
-      if (recorded.registryVersion !== binding.registryVersion) return refuse("receipt-registry-version-mismatch", 409);
-      if (!sameBinding(recorded, binding)) return refuse("operation-id-reused", 409);
-      // Returning a recorded outcome is an effect too. It is read first and
-      // authorized last, so nothing awaited comes between the decision and
-      // returning it. A refusal leaves the receipt as it is.
-      const outcome = await receipts.getOutcome(claims.opid);
-      const persistedSteps = outcome ? null : await receipts.getSteps(claims.opid);
-      try {
-        await authorizeStep("receipt", "replay");
-        await audit({ ...record, outcome: "replayed", reason: outcome ? outcome.status : "uncertain" });
-        inTime("replaying the receipt");
-      } catch (e) {
-        const reason = authorizationReason(e);
-        if (!reason) throw e;
-        return refuse(reason, e instanceof AuthorizationDenied ? 403 : 503);
-      }
-      return outcome
-        ? { status: outcome.status, result: outcome.result, steps: outcome.steps, ...defined({ reason: outcome.reason, failedStep: outcome.failedStep, category: outcome.category }), replayed: true }
-        : { status: "uncertain", steps: persistedSteps, replayed: true };
-    }
+    if (!claimed.created) return replayClaim({ claims, binding, recorded: claimed.claim.binding, record, refuse, authorizeStep, inTime });
 
     // `steps` are the provider steps known to have completed; each is durable
     // before the operation may make its next provider request.

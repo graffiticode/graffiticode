@@ -500,6 +500,39 @@ describe("the registry window (P1b)", () => {
     const { executionToken } = await p.mint({ caller: L0176, sessionToken, fn: "save-to-itembank", op: "learnosity.write-items", occurrenceId: "n1.0", argsDigest: argsDigest(WRITE) });
     await refused(b.execute({ caller: L0176, token: executionToken, op: "learnosity.write-items", payload: WRITE }), "receipt-registry-version-mismatch");
   });
+
+  // After the window closes, a retry gets a replay token (Policy, P1b): the
+  // same claims as its execution token, under its own typ.
+  const asReplay = async token => {
+    const { iss: _iss, aud: _aud, iat: _iat, exp: _exp, nbf: _nbf, jti: _jti, ...claims } = decodeJwt(token);
+    return issueToken(signer, "replay", claims);
+  };
+
+  it("returns a write's recorded outcome to a replay token after the window closes, without reaching the provider", async () => {
+    const first = await broker.execute({ caller: L0176, token: await saveToken(), op: "learnosity.write-items", payload: WRITE });
+    const calls = providerCalls.length;
+    const { b } = bumped([]);
+    const replay = await asReplay(await saveToken());
+    await expect(b.execute({ caller: L0176, token: replay, op: "learnosity.write-items", payload: WRITE }))
+      .resolves.toMatchObject({ status: first.status, replayed: true });
+    expect(providerCalls.length).toBe(calls);
+  });
+
+  it("refuses a replay token for a write never claimed, and claims nothing", async () => {
+    const { b } = bumped([]);
+    const save = await saveToken({ idempotencyKey: "job-never-run" });
+    const replay = await asReplay(save);
+    await refused(b.execute({ caller: L0176, token: replay, op: "learnosity.write-items", payload: WRITE }), "replay-not-found");
+    expect(await receipts.getClaim(decodeJwt(save).opid)).toBeNull();
+    expect(providerCalls).toEqual([]);
+  });
+
+  it("never lets a replay token sign, or answer for a payload it wasn't minted for", async () => {
+    const { b } = bumped([]);
+    await refused(b.execute({ caller: L0176, token: await asReplay(await previewToken()), op: "learnosity.sign-questions-preview", payload: PREVIEW }), "replay-only");
+    // A replay token for a different payload is refused before anything is read.
+    await refused(b.execute({ caller: L0176, token: await asReplay(await saveToken()), op: "learnosity.write-items", payload: { ...WRITE, extra: 1 } }), "payload-rejected");
+  });
 });
 
 // WRITE-02 (W5 stage 3): the claim records the write's evidence before any
