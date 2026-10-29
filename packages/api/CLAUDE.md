@@ -79,6 +79,7 @@ This is the Graffiticode API Gateway - a service that acts as the central compil
   - `FIRESTORE_EMULATOR_HOST` - Firebase emulator host for development
   - `CONFIG` - Path to config file (default: `config/config.json`)
   - `COMPILE_GENERATION_L0158` - The active L0158 compile generation (`src/generation.js`). Unset (the default), it is inert. Set, `/form` sends L0158 items to L0176's form with `generation=<value>` on their data URL, and `GET /data?generation=<value>` reads and writes `compiles/{id}@{value}`; any other value is a 400
+  - `COMPILE_GENERATION_LNNNN` (any language but L0158) - A per-language switch generation (`src/generation.js`, interpreter plan P2). Unset (the default), it is inert. Set, every compile whose chain contains that language reads and writes `compiles/{id}@L{lang}={value}` (one suffix per language with a generation, in language order), unrequested. A routing switch (`BASE_URL_LNNNN`) sets it so the previous implementation's cached results are never served; restoring the previous value on rollback restores the previous namespace
 
 - **ESLint Configuration**: Uses parent `.eslintrc.cjs` with:
   - Standard style guide
