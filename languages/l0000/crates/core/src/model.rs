@@ -55,17 +55,31 @@ impl Mode {
     }
 }
 
+/// A model's identity: the digest of its language, its kind and what it carries, together. Every
+/// part changes its meaning, so none can change without the digest changing: a plan relabelled as a
+/// value, or a model claimed for another language, no longer matches.
+fn identity(lang: &str, kind: &str, carried: &Json) -> String {
+    digest_of(&json!({ "lang": lang, "kind": kind, "carried": carried }))
+}
+
 impl Model {
-    /// The model's JSON: `{ lang, kind, digest, value | program }`. The digest is of what it
-    /// carries, so a model can't be edited without its digest disagreeing.
+    /// The model's JSON: `{ lang, kind, digest, value | program }`, where the digest identifies the
+    /// whole model (see [`Model::digest`]).
     pub fn to_json(&self) -> Json {
+        let digest = self.digest();
         match &self.kind {
-            ModelKind::Value(value) => {
-                json!({ "lang": self.lang, "kind": "value", "digest": digest_of(value), "value": value })
-            }
+            ModelKind::Value(value) => json!({ "lang": self.lang, "kind": "value", "digest": digest, "value": value }),
             ModelKind::Plan(program) => {
-                json!({ "lang": self.lang, "kind": "plan", "digest": digest_of(program), "program": program })
+                json!({ "lang": self.lang, "kind": "plan", "digest": digest, "program": program })
             }
+        }
+    }
+
+    /// The digest of the language, kind and payload together: what a cache or an admission binds.
+    pub fn digest(&self) -> String {
+        match &self.kind {
+            ModelKind::Value(value) => identity(&self.lang, "value", value),
+            ModelKind::Plan(program) => identity(&self.lang, "plan", program),
         }
     }
 
@@ -75,20 +89,19 @@ impl Model {
         let object = json.as_object().ok_or_else(|| bad("expected an object"))?;
         let lang = object.get("lang").and_then(Json::as_str).ok_or_else(|| bad("no lang"))?.to_owned();
         let digest = object.get("digest").and_then(Json::as_str).ok_or_else(|| bad("no digest"))?;
-        let (kind, carried) = match object.get("kind").and_then(Json::as_str) {
+        let kind = match object.get("kind").and_then(Json::as_str) {
             Some("value") => {
-                let value = object.get("value").ok_or_else(|| bad("a value model carries its value"))?;
-                (ModelKind::Value(value.clone()), value)
+                ModelKind::Value(object.get("value").ok_or_else(|| bad("a value model carries its value"))?.clone())
             }
             Some("plan") => {
-                let program = object.get("program").ok_or_else(|| bad("a plan model carries its program"))?;
-                (ModelKind::Plan(program.clone()), program)
+                ModelKind::Plan(object.get("program").ok_or_else(|| bad("a plan model carries its program"))?.clone())
             }
             _ => return Err(bad("kind must be \"value\" or \"plan\"")),
         };
-        if digest_of(carried) != digest {
-            return Err(bad("its digest doesn't match what it carries"));
+        let model = Self { lang, kind };
+        if model.digest() != digest {
+            return Err(bad("its digest doesn't match its language, kind and contents"));
         }
-        Ok(Self { lang, kind })
+        Ok(model)
     }
 }

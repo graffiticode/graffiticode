@@ -126,6 +126,16 @@ async fn a_model_round_trips_through_json_and_refuses_tampering() {
     let mut plan = Compiler::new(L0000).model(&case.ast, &json!({})).await.unwrap().to_json();
     plan["program"]["root"] = json!("1");
     assert!(Model::from_json(&plan).unwrap_err().contains("digest doesn't match"));
+    // The digest binds the language and the kind too: relabelling either is refused.
+    let good = Compiler::new(L0000).model(&case.ast, &json!({})).await.unwrap().to_json();
+    let mut as_value = good.clone();
+    as_value["kind"] = json!("value");
+    as_value["value"] = good["program"].clone();
+    assert!(Model::from_json(&as_value).unwrap_err().contains("digest doesn't match"));
+    let mut other_lang = good.clone();
+    other_lang["lang"] = json!("0158");
+    assert!(Model::from_json(&other_lang).unwrap_err().contains("digest doesn't match"));
+    assert!(Model::from_json(&good).is_ok());
     for bad in [
         json!(1),
         json!({ "lang": "0000", "kind": "other", "digest": "x" }),

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { generateKeyPair, exportJWK } from "jose";
 import { canonicalDigest } from "@graffiticode/common/canonical";
+import { languageRoute, routedRevision } from "../lib/canary-env.js";
 import { encodeChainId, decodeChainId } from "@graffiticode/common/chain";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
@@ -747,4 +748,28 @@ test("saved read: without an audit source it fails; --no-audit-check skips only 
   assert.equal("saved read: audit" in savedReadOf(skipped.results), false);
   assert.ok(lines.some(l => /^SKIP saved read: audit \(--no-audit-check\)/.test(l)), lines.join("\n"));
   assert.deepEqual(w.polls, []);
+});
+
+test("a language's route is the service, and any tag, its api URL names", () => {
+  assert.deepEqual(languageRoute("0000", {}), { service: "l0000", tag: null });
+  assert.deepEqual(languageRoute("0000", { BASE_URL_L0000: "https://l0000r-sja7fatcta-uc.a.run.app" }), { service: "l0000r", tag: null });
+  assert.deepEqual(languageRoute("0000", { BASE_URL_L0000: "https://release-123---l0000r-sja7fatcta-uc.a.run.app" }), { service: "l0000r", tag: "release-123" });
+  assert.deepEqual(languageRoute("0184", { BASE_URL_L0000: "https://l0000r-sja7fatcta-uc.a.run.app" }), { service: "l0184", tag: null });
+  assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "https://l0176.graffiticode.org" }), { service: "l0176", tag: null });
+  assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "not a url" }), { service: "l0176", tag: null });
+});
+
+test("a route reaches its tag's revision, else the one serving all traffic", () => {
+  const service = {
+    status: {
+      traffic: [
+        { revisionName: "l0000r-new", percent: 100, tag: "new" },
+        { revisionName: "l0000r-old", percent: 0, tag: "release-123" },
+      ]
+    }
+  };
+  assert.equal(routedRevision(service, null), "l0000r-new");
+  assert.equal(routedRevision(service, "release-123"), "l0000r-old");
+  assert.equal(routedRevision(service, "gone"), null);
+  assert.equal(routedRevision({ status: { traffic: [{ latestRevision: true, percent: 100 }], latestReadyRevisionName: "l0000r-latest" } }, null), "l0000r-latest");
 });
