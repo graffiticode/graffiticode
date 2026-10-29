@@ -10,6 +10,7 @@ use crate::dialect::Dialect;
 use crate::error::Diagnostic;
 use crate::eval::{Context, Evaluator};
 use crate::exec::{ExecContext, Identity, ProtectedEffect};
+use crate::model::{Mode, Model, ModelKind};
 use crate::preflight::{RevisionIdentity, StageManifest, digest_of, required_protected_functions};
 use crate::protected::{PolicyClient, admit, admit_planned};
 use crate::schema::{NoSchemas, SchemaSource};
@@ -136,6 +137,57 @@ impl Compiler {
         })
         .run()
         .await
+    }
+
+    /// The model `code` compiles to (B1): a value model when the language declares this program
+    /// input-independent and it has no protected functions, otherwise a plan model carrying the
+    /// stored program. Nothing that could act runs here: a plan isn't evaluated, and a value
+    /// model's program has no protected function to call.
+    pub async fn model(&self, code: &Json, config: &Json) -> Result<Model, Vec<Diagnostic>> {
+        let dialect = &*self.dialect;
+        let (_program, ast) = self.program(code)?;
+        self.check(&ast)?;
+        let lang = dialect.lang_id().to_owned();
+        let protected = !required_protected_functions(&ast, dialect).is_empty()
+            || !dialect.implicit_protected_functions().is_empty();
+        if protected || !dialect.input_independent(&ast) {
+            return Ok(Model { lang, kind: ModelKind::Plan(code.clone()) });
+        }
+        // Input-independent: its value is the same for every input, so evaluate it once, with none.
+        let mut exec = ExecContext::new(Identity::default());
+        let value = self.run(code, &Json::Null, config, &mut exec).await?;
+        Ok(Model { lang, kind: ModelKind::Value(value.to_json().unwrap_or(Json::Null)) })
+    }
+
+    /// Interprets `model` against `input`, the previous stage's resolved data (B1). A value model
+    /// is its value. A plan model goes to the language's [`Dialect::interpret`], and if it
+    /// declines, it is compiled against the input exactly as [`compile`](Self::compile) does.
+    /// A model from another language is refused: which language interprets which is the API's
+    /// decision (the interpreter manifest's producer -> interpreter pairs), not this server's.
+    pub async fn interpret(
+        &self,
+        model: &Model,
+        input: &Json,
+        config: &Json,
+        mode: Mode,
+        identity: Identity,
+    ) -> Compilation {
+        if model.lang != self.dialect.lang_id() {
+            let refused = Diagnostic::new(format!(
+                "Error: a model from L{} can't be interpreted by L{}",
+                model.lang,
+                self.dialect.lang_id()
+            ))
+            .with_code("model-language-mismatch");
+            return Compilation { result: Err(vec![refused]), effects: Vec::new() };
+        }
+        match &model.kind {
+            ModelKind::Value(value) => Compilation { result: Ok(Value::from_json(value)), effects: Vec::new() },
+            ModelKind::Plan(program) => match self.dialect.interpret(model, input, mode).await {
+                Some(result) => Compilation { result: result.map(|json| Value::from_json(&json)), effects: Vec::new() },
+                None => self.compile(program, input, config, identity).await,
+            },
+        }
     }
 
     /// Preflight: this stage's manifest, or the errors that would stop it compiling.

@@ -39,6 +39,7 @@ use serde_json::Value as Json;
 use crate::ast::{Ast, NodeId, Op};
 use crate::error::Diagnostic;
 use crate::eval::Evaluator;
+use crate::model::{Mode, Model};
 use crate::protected::ProtectedFunction;
 use crate::value::Value;
 
@@ -111,6 +112,36 @@ pub trait Dialect: Send + Sync {
     /// so in the response, so that nothing upstream caches it.
     fn cacheable(&self) -> bool {
         true
+    }
+
+    /// Whether this program's value is the same for every input, so it compiles to a value
+    /// model that is interpreted by identity (docs/graffiticode-interpreter-plan.md, C1). Decided
+    /// per program, never per language: a program that reads `data`, or goes through a word that
+    /// merges input, is not. A program with protected functions never is, whatever this says.
+    /// The default is `false`: every program is a plan.
+    fn input_independent(&self, _ast: &Ast) -> bool {
+        false
+    }
+
+    /// Interprets a plan model this language produced, for a language whose interpretation
+    /// differs from evaluating the program against its input (signing in `present` mode,
+    /// fetching). `None` declines, and the kernel evaluates the plan, exactly as `/compile` does
+    /// today. A value model is never offered: it is interpreted by identity.
+    async fn interpret(&self, _model: &Model, _input: &Json, _mode: Mode) -> Option<Result<Json, Vec<Diagnostic>>> {
+        None
+    }
+
+    /// Rebuilds a command's result from its model, the inputs pinned before its first effect,
+    /// and the recorded outputs of its effect intents, by occurrence id, without performing any
+    /// effect (design §5, "Immediate commands"). `None` means this language can't, and a repaired
+    /// command's artifact is then replaced only by a new, fully completed command.
+    fn materialize(
+        &self,
+        _model: &Model,
+        _pinned_input: &Json,
+        _occurrence_outputs: &Json,
+    ) -> Option<Result<Json, Vec<Diagnostic>>> {
+        None
     }
 }
 

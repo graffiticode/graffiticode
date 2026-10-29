@@ -128,7 +128,7 @@ Rollback is an API rollback. The TypeScript service stays deployed.
    - Run the canary through a connection before switching.
 
 ## Track B — Interpreter platform (a no-op until a language opts in)
-- **B1 Rust contract.**
+- **B1 Rust contract** *(done: `crates/core/src/model.rs`, `Compiler::model`/`interpret`, `/interpret` and `"form": "model"` in the shared server; documented in `languages/l0000/CLAUDE.md`. A plan model carries the stored source, so interpreting it equals today's compile, checked over the whole L0000 conformance corpus. `Dialect::input_independent` decides value models and defaults to never)*.
   - Add `/interpret` to the shared `app()`.
   - Add `Dialect::interpret` (identity for value models, the kernel evaluator for plans) and `Dialect::materialize`.
   - `/compile` keeps today's behavior. The model form is produced only when the request asks for it, for example `{"form":"model"}`.

@@ -6,7 +6,8 @@
 //! | route | |
 //! |---|---|
 //! | `GET /` | health check |
-//! | `POST /compile` | `{ code, data, config }` → `{ data, errors }` (and `cache: false` for a language whose output expires) |
+//! | `POST /compile` | `{ code, data, config }` → `{ data, errors }` (and `cache: false` for a language whose output expires); with `"form": "model"`, `{ model, errors }` instead |
+//! | `POST /interpret` | `{ model, input, mode, config }` → `{ data, errors }`, as `/compile` answers |
 //! | `POST /preflight` | the gateway only: a stage's manifest, without running anything |
 //! | `GET /form` | the embeddable View bundle |
 //! | `GET /lexicon.json`, `GET /lexicon.js` | the lexicon |
@@ -33,7 +34,7 @@ use axum::{Json, Router};
 pub use graffiticode_l0000::egress;
 use graffiticode_l0000::policy_client::{HttpPolicyClient, MetadataIdTokens};
 use graffiticode_l0000::schema::HttpSchemas;
-use graffiticode_l0000::{Compiler, Dialect, Identity, Keyring, Lexicon, RevisionIdentity};
+use graffiticode_l0000::{Compiler, Dialect, Identity, Keyring, Lexicon, Mode, Model, RevisionIdentity};
 use serde_json::{Value, json};
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
@@ -95,6 +96,7 @@ pub fn app_with(state: AppState, static_dir: impl Into<PathBuf>, caching: HttpCa
     Router::new()
         .route("/", get(|| async { "OK" }))
         .route("/compile", post(compile))
+        .route("/interpret", post(interpret))
         .route("/preflight", post(preflight))
         .route_service("/form", ServeFile::new(static_dir.join("index.html")))
         .route("/lexicon.json", get(lexicon))
@@ -184,18 +186,17 @@ async fn lexicon(State(state): State<AppState>) -> impl IntoResponse {
     ([(CONTENT_TYPE, "application/json")], state.lexicon.to_string())
 }
 
-async fn compile(
-    State(state): State<AppState>,
-    uri: Uri,
-    RawQuery(query): RawQuery,
-    headers: HeaderMap,
-    body: Result<Json<Value>, JsonRejection>,
-) -> Response {
-    let Ok(Json(body)) = body else {
-        return bad_request(MISSING_PARAMETERS);
-    };
-    let access_token = query.as_deref().and_then(|query| query_param(query, "access_token"));
-    let token = token_from_request(access_token.as_deref(), &body, &headers);
+/// The caller's verified identity, from the request's token (query, body or header) and the
+/// gateway's fields, or the 401 to answer.
+async fn request_identity(
+    state: &AppState,
+    uri: &Uri,
+    query: Option<&str>,
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<Identity, Box<Response>> {
+    let access_token = query.and_then(|query| query_param(query, "access_token"));
+    let token = token_from_request(access_token.as_deref(), body, headers);
     // The uid comes only from the verified token, never from the body.
     let uid = match &token {
         Some(token) => match state.verifier.verify(token).await {
@@ -203,17 +204,13 @@ async fn compile(
             Err(err) => {
                 tracing::debug!(%uri, error = %err, "token rejected");
                 let error = json!({ "status": "error", "error": { "code": 401, "message": err.to_string() } });
-                return (StatusCode::UNAUTHORIZED, Json(error)).into_response();
+                return Err(Box::new((StatusCode::UNAUTHORIZED, Json(error)).into_response()));
             }
         },
         None => None,
     };
-    let (code, data) = (&body["code"], &body["data"]);
-    if is_absent(code) || is_absent(data) {
-        return bad_request(MISSING_PARAMETERS);
-    }
     let field = |name: &str| body.get(name).and_then(Value::as_str).map(str::to_owned);
-    let identity = Identity {
+    Ok(Identity {
         // Policy re-verifies the user token, so it is forwarded only alongside a verified uid.
         user_token: uid.as_ref().and(token),
         uid,
@@ -225,9 +222,80 @@ async fn compile(
         stage: field("stage"),
         // The admitted plan, from the gateway; policy verifies it.
         admission_token: field("admissionToken"),
+    })
+}
+
+async fn compile(
+    State(state): State<AppState>,
+    uri: Uri,
+    RawQuery(query): RawQuery,
+    headers: HeaderMap,
+    body: Result<Json<Value>, JsonRejection>,
+) -> Response {
+    let Ok(Json(body)) = body else {
+        return bad_request(MISSING_PARAMETERS);
     };
+    let identity = match request_identity(&state, &uri, query.as_deref(), &headers, &body).await {
+        Ok(identity) => identity,
+        Err(response) => return *response,
+    };
+    let (code, data) = (&body["code"], &body["data"]);
+    if is_absent(code) || is_absent(data) {
+        return bad_request(MISSING_PARAMETERS);
+    }
+    // The model form (B1), only when asked for: the program compiles on its own, to a model the
+    // interpreter evaluates later. Nothing runs that could act, so no identity is needed.
+    match body.get("form") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(form)) if form == "model" => {
+            let envelope = match state.compiler.model(code, &body["config"]).await {
+                Ok(model) => json!({ "model": model.to_json(), "errors": [] }),
+                Err(errors) => json!({ "model": null, "errors": errors }),
+            };
+            return ([(CONTENT_TYPE, "application/json")], graffiticode_l0000::json_text(&envelope)).into_response();
+        }
+        Some(_) => return bad_request("form must be \"model\" when given"),
+    }
     let planned = identity.admission_token.is_some();
     let compiled = state.compiler.compile(code, data, &body["config"], identity).await;
+    envelope_response(&state, compiled, planned)
+}
+
+/// The interpreter pass (B1): a model this language produced, evaluated against `input`, the
+/// previous stage's resolved data, in `mode`. It answers in `/compile`'s envelope. Nothing calls
+/// it until a language is declared in the interpreter manifest and turned on in the API.
+async fn interpret(
+    State(state): State<AppState>,
+    uri: Uri,
+    RawQuery(query): RawQuery,
+    headers: HeaderMap,
+    body: Result<Json<Value>, JsonRejection>,
+) -> Response {
+    let Ok(Json(body)) = body else {
+        return bad_request("Missing required parameters: model and input");
+    };
+    let identity = match request_identity(&state, &uri, query.as_deref(), &headers, &body).await {
+        Ok(identity) => identity,
+        Err(response) => return *response,
+    };
+    if is_absent(&body["model"]) || body.get("input").is_none() {
+        return bad_request("Missing required parameters: model and input");
+    }
+    let model = match Model::from_json(&body["model"]) {
+        Ok(model) => model,
+        Err(message) => return bad_request(&message),
+    };
+    let mode = match Mode::from_json(body.get("mode").unwrap_or(&Value::Null)) {
+        Ok(mode) => mode,
+        Err(message) => return bad_request(&message),
+    };
+    let planned = identity.admission_token.is_some();
+    let interpreted = state.compiler.interpret(&model, &body["input"], &body["config"], mode, identity).await;
+    envelope_response(&state, interpreted, planned)
+}
+
+/// A compile's or an interpretation's answer, in the envelope the TypeScript servers use.
+fn envelope_response(state: &AppState, compiled: graffiticode_l0000::Compilation, planned: bool) -> Response {
     // Compiled output goes in `data` and compile errors in `errors`, which is always present;
     // consumers branch on whether it is empty.
     let mut envelope = match compiled.result {
