@@ -90,7 +90,7 @@ Arithmetic uses `decimal.js`. A number value is a JS number when that number is 
 `createApp({ authUrl })` in `packages/api/src/app.ts` constructs the Express app. Notable ordering:
 
 1. HTTPS redirect (production, non-localhost).
-2. `GET /lexicon.js` back-compat alias (see "Static asset pipeline"), then `express.static(STATIC_DIR, { index: false })` — **before** auth. Public assets (`lexicon.json`, `schema.json`, `spec.html`, `instructions.md`, `language-info.json`, `usage-guide.md`, `scope.json`, `template.gc`, and the hashed `/form` bundle assets) are unauthenticated. `index: false` keeps `GET /` as a health check.
+2. `express.static(STATIC_DIR, { index: false })` — **before** auth. Public assets (`lexicon.json`, `schema.json`, `spec.html`, `instructions.md`, `language-info.json`, `usage-guide.md`, `scope.json`, `template.gc`, and the hashed `/form` bundle assets) are unauthenticated. `index: false` keeps `GET /` as a health check.
 3. Auth middleware attaches `req.auth` but does **not** reject anonymous requests.
 4. Routes: `/`, `/compile`, `GET /form` (serves `static/index.html` from the assembled view embed).
 
@@ -111,14 +111,14 @@ Arithmetic uses `decimal.js`. A number value is a JS number when that number is 
 
 `packages/core/tools/build-static.js` emits L0000's public assets into `packages/core/dist/static/`. Note these constraints enforced by the script — don't undo them:
 
-1. The lexicon is emitted as plain JSON in `lexicon.json` — no `lexicon.js` file. The still-deployed Graffiticode console still requests `lexicon.js`; the API server aliases that path to `lexicon.json` via an `app.get("/lexicon.js", …)` route registered before `express.static` (`packages/api/src/app.ts`). The console fetches the body, slices from the first `{`, and `JSON.parse`s it, so plain JSON works. Drop the alias route once the console migrates to `lexicon.json` (Stage 3 of the migration). Don't reintroduce the `export const` JS wrapper.
+1. The lexicon is emitted as plain JSON in `lexicon.json`, and served only under that name. The `/lexicon.js` alias the old console needed was removed on 2026-10-29, after no client had requested it for 14 days. Don't reintroduce the `export const` JS wrapper.
 2. `language-info.json` is enriched with an `authoring_guide` extracted from the `## Overview` section of `spec/usage-guide.md`. The build fails if the section is missing or under 100 chars, or if `spec/language-info.json` already contains an `authoring_guide` key. Treat the usage guide's `## Overview` as the source of truth for the authoring guide.
 
 ## Deployment
 
 The server ships as a single Docker image deployed to Cloud Run as service `l0000` in project `graffiticode`, running as `l0000-run` (no roles). The image: `npm ci` from the lockfile → `npm run build` (the full core→static→api→view→embed→assemble chain) → `npm prune --omit=dev` (runtime only runs compiled JS, so devDeps are dropped) → `npm start`. Cloud Run injects `PORT`; the server reads it (default `50000`). `AUTH_URL=https://auth.graffiticode.org`. The service is public, matching the app's own "static assets and `/compile` are public" posture.
 
-Release it with the monorepo's deploy CLI, from the repository root: `npm run deploy -- l0000` (config in root `deploy.json`, image from `configs/Dockerfile.l0000.yaml`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes. `npm run gcp:logs` tails the Cloud Run logs. The local `Dockerfile` builds the same image from this directory.
+Release it with the monorepo's deploy CLI, from the repository root: `npm run deploy -- l0000` (config in root `deploy.json`, image from `configs/Dockerfile.l0000.yaml`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.json`, then promotes. `npm run gcp:logs` tails the Cloud Run logs. The local `Dockerfile` builds the same image from this directory.
 
 ## Conventions
 
@@ -191,7 +191,7 @@ Tests that need signing keys (policy's session key, Google's ID-token key) gener
 - `POST /interpret` — `{ model, input, mode?, config? }` → the same envelope as `/compile`, with the same token and gateway fields. A value model is its value; a plan model goes to `Dialect::interpret` (default declines) and otherwise compiles against `input` exactly as `/compile` does, so `interpret(model(task), input)` equals `compile(task, input)` (`crates/core/tests/interpret.rs` checks every conformance case). `mode` is `evaluate` (default) or `present`, set by the API. A malformed or tampered model (its `digest` covers what it carries), or a bad mode, is a 400; a model from another language is the error `model-language-mismatch`. Nothing calls it until a language is declared in the interpreter manifest and turned on in the API. `Dialect::materialize` (default: can't) is for repaired commands later.
 - `POST /preflight` — for the gateway only (`src/gateway.rs`): `X-Caller-Identity` must be a Google ID token for a configured gateway account with audience `urn:graffiticode:0000`. `{ stage, lang?, code, config? }` → `{ status, data: { manifest } | { errors } }`, `Cache-Control: no-store`. It hashes `config`, never `options`, so it agrees with what a compile pins. Side-effect free.
 - `GET /form` — `static/index.html`.
-- `GET /lexicon.json`, `GET /lexicon.js` — the lexicon embedded in the binary. The still-deployed console requests `lexicon.js`, slices the body from the first `{` and `JSON.parse`s it, so the same JSON serves both; drop the `.js` route once the console migrates.
+- `GET /lexicon.json` — the lexicon embedded in the binary.
 - Anything else — a file under `STATIC_DIR`, no directory indexes.
 
 Everything is public and CORS-open, with `Cross-Origin-Resource-Policy: cross-origin` so the `/form` bundle loads in COEP-isolated iframes. Plain HTTP arriving through a proxy (`X-Forwarded-Proto` present and not `https`, host not `localhost`) is redirected to HTTPS. Tests drive the router in-process (`crates/server/tests/app.rs`).

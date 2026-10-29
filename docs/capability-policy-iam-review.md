@@ -348,7 +348,7 @@ Cloud Build configs, as the legacy Cloud Build SA.
 
 Browsers and third parties load compiler URLs directly [REPO]:
 - `express.static(STATIC_DIR)` is mounted **before auth** in `l0000/packages/api/src/app.ts` and
-  `l0176/packages/api/src/app.ts`: `lexicon.json`, `/lexicon.js` alias, `schema.json`, `spec.html`,
+  `l0176/packages/api/src/app.ts`: `lexicon.json`, `/lexicon.js` alias (removed 2026-10-29), `schema.json`, `spec.html`,
   `instructions.md`, `language-info.json`, `usage-guide.md`, `scope.json`, `template.gc`,
   `/assets/*` (the hashed `/form` bundle), `index.html`.
 - `GET /form` serves the embed. `api`'s `/form` route **302-redirects the browser to

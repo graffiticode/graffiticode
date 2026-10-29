@@ -60,8 +60,7 @@ Three workspaces on the published `@graffiticode/l0000` (^0.2.0) and `@graffitic
   `schema.json`, `instructions.md` and friends need no token; and a
   `Cross-Origin-Resource-Policy: cross-origin` header goes out on everything, without which
   COEP-isolated hosts (the claude.ai and chatgpt.com widget iframes) block the `/form` frame
-  outright. `GET /lexicon.js` is a hand-registered alias serving `lexicon.json` for the
-  still-deployed console; no such file is emitted.
+  outright.
 - **`packages/view`** (`@graffiticode/l0180-view`) — the `Form` and the scorer.
 
 ### The attribute table drives everything

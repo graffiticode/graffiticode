@@ -10,7 +10,7 @@
 //! | `POST /interpret` | `{ model, input, mode, config }` → `{ data, errors }`, as `/compile` answers |
 //! | `POST /preflight` | the gateway only: a stage's manifest, without running anything |
 //! | `GET /form` | the embeddable View bundle |
-//! | `GET /lexicon.json`, `GET /lexicon.js` | the lexicon |
+//! | `GET /lexicon.json` | the lexicon |
 //! | anything else | a file from the static directory |
 //!
 //! Everything is public. `/compile` verifies a token when one is sent, to learn who is
@@ -101,9 +101,6 @@ pub fn app_with(state: AppState, static_dir: impl Into<PathBuf>, caching: HttpCa
         .route_service("/form", ServeFile::new(static_dir.join("index.html")))
         .route("/lexicon.json", get(lexicon))
         .route("/egress", get(egress_status))
-        // The deployed console still asks for lexicon.js; it reads the body from the first `{`
-        // and parses it as JSON, so the same document serves both.
-        .route("/lexicon.js", get(lexicon))
         .fallback_service(ServeDir::new(static_dir).append_index_html_on_directories(false))
         .with_state(state)
         .layer(DefaultBodyLimit::max(BODY_LIMIT))

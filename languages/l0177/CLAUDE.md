@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Publish**: `npm run publish` (publishes `@graffiticode/l0177` and `@graffiticode/l0177-view` with public access)
 
 ### Deployment
-- **Release**: `npm run deploy -- l0177` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0177.yaml`, runtime `l0177-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes.
+- **Release**: `npm run deploy -- l0177` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0177.yaml`, runtime `l0177-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.json`, then promotes.
 - **View logs**: `npm run gcp:logs`
 
 ### Evidence and verification contract
@@ -85,7 +85,7 @@ scope — it is Assess API config passed through, see `scope.json`), `item_searc
   dev, compiled to `dist/` for prod. Port 50177 (or `PORT`).
   - `src/app.ts`: HTTPS redirect in production, CORS, `Cross-Origin-Resource-Policy:
     cross-origin` (so the `/form` bundle loads inside COEP-isolated hosts like claude.ai
-    widget iframes), a back-compat `/lexicon.js` → `lexicon.json` alias, then public static
+    widget iframes), then public static
     assets mounted **before** auth (so the spec assets need no token).
   - Routes: `GET /` (health check), `POST /compile`, `GET /form` (serves the embed bundle).
   - `src/compile.ts`: wraps `compiler.compile` into a `{ data, errors }` envelope.

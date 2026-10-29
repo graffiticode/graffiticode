@@ -310,9 +310,6 @@ var — spreadsheets read task data via `get-val-public` and params, never `get-
 `GRAFFITICODE_SECRET_KEY` is needed. If a private value is ever introduced, add it (pinned to a version) to
 the `l0179` entry's `secrets` in the root `deploy.json`, grant `l0179-run` access to it, **and** propagate it with `console/scripts/set-compiler-secret.sh 0179`.
 
-`/lexicon.js` is a back-compat alias serving `lexicon.json` for the still-deployed console; drop
-it once the console migrates.
-
 ## docs/
 
 Two decision records, not API docs:

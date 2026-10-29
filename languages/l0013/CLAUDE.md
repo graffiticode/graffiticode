@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 `npm test` runs vitest (root `test` script, default config) over `packages/*/src/**/*.test.ts`, which `tsc` excludes from `dist/`. So far the only suite is `packages/core/src/chrome-egress.test.ts`: Chrome's ISOLATE-01 egress-proxy arguments (the PAC script, the background-traffic flags) and NSS database.
 
 ### Deployment
-- **Release**: `npm run deploy -- l0013` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0013.yaml`, runtime `l0013-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes. The service is sized for headless Chrome (**2Gi memory / 2 CPU / concurrency 4 / 300s timeout**); the deploy CLI passes only image, port, service account, env and pinned secrets, so scaling, CPU/memory, concurrency and timeout carry forward from the live service; change those with `gcloud run services update`. `l0013-run` has `roles/storage.objectAdmin` on `gs://graffiticode.appspot.com` for thumbnails.
+- **Release**: `npm run deploy -- l0013` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0013.yaml`, runtime `l0013-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.json`, then promotes. The service is sized for headless Chrome (**2Gi memory / 2 CPU / concurrency 4 / 300s timeout**); the deploy CLI passes only image, port, service account, env and pinned secrets, so scaling, CPU/memory, concurrency and timeout carry forward from the live service; change those with `gcloud run services update`. `l0013-run` has `roles/storage.objectAdmin` on `gs://graffiticode.appspot.com` for thumbnails.
 - **View logs**: `npm run gcp:logs`
 
 ## Architecture
@@ -38,7 +38,7 @@ L0013 is a Graffiticode dialect — a child of `@graffiticode/l0000`. **Its purp
   - `src/lexicon.ts`: merges L0000's base lexicon with L0013's additions
   - `src/compiler.ts`: `Checker` and `Transformer` extending L0000's; the `SNAP` handler invokes `snap()` async, the modifier handlers normalize L0000 `Record` wrappers into a plain options object
   - `src/snap.ts`: **the side-effecting core** — render → content-aware crop → resize → upload. Node-only deps (puppeteer / sharp / firebase-admin) are imported **lazily** so that merely importing the compiler (e.g. `build-static`) doesn't pull them in
-  - `tools/build-static.js`: generates `dist/static/` (merged `lexicon.json` — the legacy `lexicon.js` request path is aliased to it by the API server, `spec.html` from spec-md, merged `instructions.md`, plus `usage-guide.md` / `scope.json` / `schema.json` / `template.gc`) for the API to serve
+  - `tools/build-static.js`: generates `dist/static/` (merged `lexicon.json`, `spec.html` from spec-md, merged `instructions.md`, plus `usage-guide.md` / `scope.json` / `schema.json` / `template.gc`) for the API to serve
 
 - **`packages/api/`** — `@graffiticode/api-l0013`: Express language server. TypeScript, `tsx` in dev, compiled to `dist/` for prod.
   - Routes (`src/routes/`): `root.ts` (`GET /` health check), `compile.ts` (`POST /compile` + `OPTIONS` for CORS — forwards to core `compile()` with `lang="0013"`), `auth.ts` (token validation middleware → `req.auth`), `utils.ts` (auth parsing, CORS, handler builder), `index.ts` (re-exports)

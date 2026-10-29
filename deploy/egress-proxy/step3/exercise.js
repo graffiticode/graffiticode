@@ -8,7 +8,7 @@
 //     --cases languages/l0000/crates/core/tests/conformance/cases.json [--proxy http://10.8.0.2:3128] [--limit N] [--no-preflight] [--direct] [--timeout seconds]
 //
 // With the operator's gcloud credentials:
-//   - /, /lexicon.js, and /egress (the bootstrap installed, with the expected proxy);
+//   - /, /lexicon.json, and /egress (the bootstrap installed, with the expected proxy);
 //   - /compile for each conformance case, as the verify account (verify-api-key, exchanged at
 //     auth): auth.graffiticode.org token verification, and the schema fetch from
 //     api.graffiticode.org;
@@ -61,7 +61,7 @@ async function http(method, path, { headers = {}, body } = {}) {
 const parseOr = text => { try { return JSON.parse(text); } catch { return undefined; } };
 
 // 1. Health and the bootstrap.
-for (const p of ["/", "/lexicon.js"]) {
+for (const p of ["/", "/lexicon.json"]) {
   const r = await http("GET", p);
   record(`GET ${p}`, r.status === 200, { status: r.status });
 }
