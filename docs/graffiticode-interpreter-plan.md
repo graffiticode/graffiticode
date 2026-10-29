@@ -158,6 +158,16 @@ Rollback is an API rollback. The TypeScript service stays deployed.
     - Before C6 ships, the API logs every chain in which a `no-store` stage feeds another stage, to confirm that none relies on a signed intermediate.
     - Amend the design doc's §12 legacy-adapter bullet to say this.
   - Test it with a declared fake language. Code: `packages/api/src/data.js` (`getData`), `comp.js`, `routes/data.js`, `routes/compile.js`.
+  - **As built (2026-10-29).** `packages/api/src/interpret.js`, `data.js`, `comp.js` (`buildInterpreter`), `storage/stage-results.js`; tests in `interpret.spec.js` with declared fake languages.
+    - Activation: declared `interpreter` in the manifest **and** `INTERPRETER_LNNNN=on`, read per request. No per-user activation: the first real-language canary is a staged API revision (Track C).
+    - Through a connection, every stage stays legacy (commands are B5/C5/C6). Connection and publication reads return before any stage runs, unchanged.
+    - Legacy stages keep their call order and receive the exact upstream envelope. The API strips `cache`, `expiresAt`, `revision` and `responseLost` from an interpreted stage's answer before anything downstream or the client sees it.
+    - Restrictions: a legacy stage is `no-store` on `cache: false`, else `immutable`. An interpreted stage takes the class it names (none is `immutable`, `false` is `no-store`, an unknown one is `no-store`), capped by the manifest for its mode, and its `expiresAt`. Each stage's result takes the stricter class and the earlier expiry of its input and itself, on a fresh result and on a cache hit alike. The manifest's current caps (interpreter's and producer's) are reapplied on every hit, and an entry they no longer let be shared is a miss.
+    - The scoped refusal: a declared stage whose result is `no-store` and carries data never feeds another stage. The chain stops there with `no-store-intermediate`, and nothing downstream runs. At the head it is presented, uncached. Legacy stages forward as today.
+    - A chain with an interpreted stage never reads or writes the whole-chain `compiles/` store, and is answered `no-store` until B4 puts the generation in the URL.
+    - Stage cache key: language, interpreter language, model digest (language, kind, contents), interpreter revision (reported by the Rust server on the model and `/interpret` responses), options digest, generations, mode, authority (`anonymous` or the caller's uid) and the input's canonical digest. Looked up and written only when the input is `immutable` or `shared` and unexpired; written only when the result, combined with its input's restrictions, is too (and stored with that combined class and expiry, so no entry outlives or outshares its input), has no errors, and was interpreted by the revision the key names. Never for an override or a protected task. `refresh` skips the lookup and writes.
+    - Every chain where a legacy `no-store` stage feeds another stage is logged (the C6 inventory).
+
 - **B4 Shared View.**
   - Carry the generation from `?url=` onto `/data` and `POST /compile`, and into the SWR keys.
   - Read optional refresh metadata; when it is absent, behave as today.

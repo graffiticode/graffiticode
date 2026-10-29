@@ -276,10 +276,12 @@ async fn compile(
     match body.get("form") {
         None | Some(Value::Null) => {}
         Some(Value::String(form)) if form == "model" => {
-            let envelope = match state.compiler.model(code, &body["config"]).await {
+            let mut envelope = match state.compiler.model(code, &body["config"]).await {
                 Ok(model) => json!({ "model": model.to_json(), "errors": [] }),
                 Err(errors) => json!({ "model": null, "errors": errors }),
             };
+            // The revision that compiled it, which the API keys its stage cache by (B3).
+            envelope["revision"] = json!(state.revision);
             return ([(CONTENT_TYPE, "application/json")], graffiticode_l0000::json_text(&envelope)).into_response();
         }
         Some(_) => return bad_request("form must be \"model\" when given"),
@@ -317,9 +319,9 @@ async fn interpret(
         Ok(mode) => mode,
         Err(message) => return bad_request(&message),
     };
-    let planned = identity.admission_token.is_some();
     let interpreted = state.compiler.interpret(&model, &body["input"], &body["config"], mode, identity).await;
-    envelope_response(&state, interpreted, planned)
+    // Always reports the revision that answered: the API keys its stage cache by it (B3).
+    envelope_response(&state, interpreted, true)
 }
 
 /// A compile's or an interpretation's answer, in the envelope the TypeScript servers use.

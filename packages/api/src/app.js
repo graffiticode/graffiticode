@@ -7,7 +7,7 @@ import morgan from "morgan";
 import cors from "cors";
 import { buildValidateToken } from "./auth.js";
 import { cacheVerifications } from "@graffiticode/common/verified-tokens";
-import { buildCompile } from "./comp.js";
+import { buildCompile, buildInterpreter } from "./comp.js";
 import { buildDataApi } from "./data.js";
 import { createApiAudit } from "./audit.js";
 import { buildCallerIdentity } from "./caller-identity.js";
@@ -38,7 +38,7 @@ const env = process.env.NODE_ENV || "development";
 // Tests may supply `validateToken`, `callerIdToken` (the api's ID-token
 // minter for compiles, caller-identity.js), `audit` and `signingLimiter`.
 export const createApp = ({ authUrl, validateToken: givenValidateToken, callerIdToken, audit: givenAudit, signingLimiter: givenLimiter } = {}) => {
-  const { taskStorer, compileStorer, langOverrideStorer, artifactStorer } = createStorers();
+  const { taskStorer, compileStorer, langOverrideStorer, artifactStorer, stageResultStorer } = createStorers();
   const { compile: langCompile, validateOutput, getBaseUrlForLanguage, getLangAsset, pingLang } = buildLang({ langOverrideStorer });
   // POLICY_URL (the policy service's run.app URL) enables compiles through a
   // selected connection; without it they are refused, never run unguarded.
@@ -51,7 +51,11 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   const identityMinter = callerIdToken !== undefined
     ? callerIdToken
     : (idToken ?? (process.env.K_SERVICE ? buildMetadataIdToken() : null));
-  const compile = buildCompile({ langCompile, callerIdentity: buildCallerIdentity({ idToken: identityMinter }) });
+  const callerIdentity = buildCallerIdentity({ idToken: identityMinter });
+  const compile = buildCompile({ langCompile, callerIdentity });
+  // The interpreter pass (plan B3): used only for languages declared in the
+  // interpreter manifest and turned on with INTERPRETER_LNNNN.
+  const interpreter = buildInterpreter({ langCompile, callerIdentity });
   const allocateInvocation = policyUrl ? buildAllocateInvocation({ policyUrl, idToken }) : null;
   const publications = policyUrl ? buildPublicationClient({ policyUrl, idToken }) : null;
   // Chain admission (capability plan W4): CHAIN_ADMISSION decides which new
@@ -75,6 +79,8 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
     audit,
     chainAdmission,
     admissionWanted: chainAdmissionMode.wants,
+    interpreter,
+    stageResults: stageResultStorer,
   });
 
   const app = express();
