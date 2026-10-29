@@ -40,6 +40,10 @@ export const COMPARED_HEADERS = ["cache-control", "content-type", "cross-origin-
 // The kinds of reviewed difference a rule can allow:
 //   error-text        the same status and envelope except the text of each
 //                     error's message (both answers have errors, as many)
+//   error-presentation  the same status and every field but `errors` identical,
+//                     both with at least one error: only how the errors are
+//                     presented differs (positions, wording, how often one is
+//                     reported)
 //   lexicon-superset  Rust's lexicon has every word TypeScript's has,
 //                     unchanged, plus others
 //   upstream-envelope a case whose upstream data is a {data, errors} envelope
@@ -50,7 +54,7 @@ export const COMPARED_HEADERS = ["cache-control", "content-type", "cross-origin-
 //   case              one corpus case, by its program source (`src`)
 //   header            one header on one path (`path`, `header`)
 // Every rule needs a `note` saying why the difference is acceptable.
-export const RULE_KINDS = ["error-text", "lexicon-superset", "upstream-envelope", "case", "header"];
+export const RULE_KINDS = ["error-text", "error-presentation", "lexicon-superset", "upstream-envelope", "case", "header"];
 
 export const ruleProblems = rules => {
   const problems = [];
@@ -86,6 +90,9 @@ const withoutErrorText = body => {
   return { ...body, errors: body.errors.map(e => (e && typeof e === "object" ? { ...e, message: "" } : "")) };
 };
 
+const failedWithErrors = body => Boolean(body) && typeof body === "object" && Array.isArray(body.errors) && body.errors.length > 0;
+const withoutErrors = ({ errors: _errors, ...rest }) => rest;
+
 // Upstream data in the envelope a chained stage passes on.
 export const isEnvelope = data => Boolean(data) && typeof data === "object" && !Array.isArray(data) && Array.isArray(data.errors);
 
@@ -97,6 +104,10 @@ export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
   if (isDeepStrictEqual(a, b)) return "identical";
   if (rules.some(r => r.kind === "case" && r.src === src)) return { allowed: "case" };
   if (rules.some(r => r.kind === "upstream-envelope") && isEnvelope(data)) return { allowed: "upstream-envelope" };
+  if (rules.some(r => r.kind === "error-presentation") && a.status === b.status && failedWithErrors(a.body) && failedWithErrors(b.body) &&
+      isDeepStrictEqual(withoutErrors(a.body), withoutErrors(b.body))) {
+    return { allowed: "error-presentation" };
+  }
   if (rules.some(r => r.kind === "error-text") && a.status === b.status &&
       Array.isArray(a.body?.errors) && Array.isArray(b.body?.errors) && a.body.errors.length > 0 &&
       a.body.errors.length === b.body.errors.length &&
