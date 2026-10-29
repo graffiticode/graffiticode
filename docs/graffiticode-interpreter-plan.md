@@ -60,10 +60,12 @@ Reasons:
       - **Session and execution tokens.** Their `rv` is the plan's version.
       - **Broker.** It compares a receipt's version with the token's `rv`, which is the plan's, never with the global version.
     - **The two versions are never interchangeable.** The version is part of the receipt binding. An `N` token matches only `N` receipts and an `N+1` token only `N+1` receipts, so an `N+1` execution can never replay or overwrite an `N` receipt, or the reverse.
-  - **Replay after contract** *(not yet implemented; a follow-up to the window, per-plan versions and the version check)*. Once `N` is dropped, Policy mints no new session or execution tokens for `N` plans, so nothing new executes under `N`. A retry of an `N` invocation still needs its recorded outcome:
+  - **Replay after contract** *(implemented)*. Once `N` is dropped, Policy mints no new session or execution tokens for `N` plans, so nothing new executes under `N`. A retry of an `N` invocation still needs its recorded outcome:
     - Policy issues a **replay-only** token for that invocation's plan.
     - The broker accepts it only to return a recorded receipt. It refuses with no provider call when no receipt exists.
     - Replay-only tokens get their own `typ`, so they can never authorize a step.
+    - As built: a retry's admission is re-issued for its stored plan; the snapshot gives a replay-only session (`rpl`) holding only write functions; its mints are `gc-replay+jwt` tokens; Policy authorizes them only for the `receipt` replay step; Broker returns an existing receipt for them (read with `getClaim`, never claimed) and refuses `replay-not-found` otherwise, with no provider call.
+    - Limits: such a retry's other effects aren't replayed. An L0176 compile's preview signing is refused (`replay-only`), so the retry returns the save's recorded outcome alongside a signing error. Replay also needs the plan's pinned compiler revisions still approved.
   - **Rollback.** Before contract, roll back compilers and API; Policy and Broker still accept `N`. After contract, rollback is a new expand step.
   - **Tests:**
     - An `N` invocation admitted before expand and retried after it replays.

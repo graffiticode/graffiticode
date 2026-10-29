@@ -56,6 +56,11 @@ export const createFirestoreReceiptStore = db => {
       const snap = await claimRef(operationId).get();
       return { created: false, claim: snap.data() };
     },
+    // The claim alone, never creating one: a replay-only token (P1b) reads it.
+    async getClaim(operationId) {
+      const snap = await claimRef(operationId).get();
+      return snap.exists ? snap.data() : null;
+    },
     async putStep(operationId, n, step) {
       if (!Number.isInteger(n) || n < 0) throw new Error(`step index must be a non-negative integer, not ${n}`);
       const ref = stepsRef(operationId).doc(String(n));

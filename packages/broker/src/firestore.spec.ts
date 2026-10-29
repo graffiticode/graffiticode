@@ -212,6 +212,17 @@ run("firestore broker stores", () => {
     expect((await receipts.getOutcome(op)).status).toBe("succeeded");
   });
 
+  // P1b: a replay token reads a claim and must never create one.
+  it("reads a receipt's claim without ever creating one", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = `${randomUUID()}/n1.0`;
+    expect(await receipts.getClaim(op)).toBeNull();
+    expect((await db.collection("receipts").where("operationId", "==", op).get()).size).toBe(0);
+    const binding = { principal: "u", connectionId: "c", fn: "f", op: "o", argsDigest: "d" };
+    await receipts.claim(op, binding);
+    expect((await receipts.getClaim(op)).binding).toEqual(binding);
+  });
+
   it("counts active executions until they end or expire", async () => {
     const activity = createFirestoreActivityStore(db);
     const now = Date.now();

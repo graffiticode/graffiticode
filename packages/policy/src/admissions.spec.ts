@@ -512,14 +512,41 @@ describe("the registry window (P1b)", () => {
     await expect(authorize(executionToken)).resolves.toMatchObject({ decisionId: expect.any(String) });
   });
 
-  it("refuses to execute anything new under a version once the window closes", async () => {
-    const { inv, admission, sessionToken } = await boundSession();
+  it("executes nothing new under a version once the window closes", async () => {
+    const { sessionToken } = await boundSession();
     const { executionToken } = await mint(sessionToken);
     policy = bumped([]);
-    await denied(admit(inv.invocationToken), "registry-version-changed");
-    await denied(snapshot(inv.invocationToken, admission.admissionToken), "registry-version-changed");
+    // Tokens and sessions from before are refused outright.
     await denied(mint(sessionToken), "registry-version-changed");
     await denied(authorize(executionToken), "registry-version-changed");
+  });
+
+  // After the window closes, a retry still recovers its writes' recorded
+  // outcomes: its plan is re-admitted for replay only, its session holds only
+  // writes, and its tokens are replay tokens, good for a replay step alone.
+  it("lets a retry replay a recorded write after the window closes, and nothing else", async () => {
+    const { inv, admission } = await admitted();
+    policy = bumped([]);
+    expect((await admit(inv.invocationToken)).planDigest).toBe(admission.planDigest);
+    const { allowed, sessionToken } = await snapshot(inv.invocationToken, admission.admissionToken);
+    expect(allowed).toEqual(["save-to-itembank"]);
+    const session = await claimsOf("session", sessionToken);
+    expect(session).toMatchObject({ rpl: true, rv: REGISTRY_VERSION });
+    // init signs a preview: a new effect, not a recorded one.
+    await denied(mint(sessionToken, { fn: "init", op: "learnosity.sign-questions-preview" }), "replay-only");
+    const { executionToken: replayToken } = await mint(sessionToken);
+    await expect(claimsOf("execution", replayToken)).rejects.toThrow();
+    expect(await claimsOf("replay", replayToken)).toMatchObject({ rv: REGISTRY_VERSION, op: WRITE, opid: `${inv.invocationId}/s1/n1.0` });
+    // Good for returning the receipt, and for no other step.
+    await denied(authorize(replayToken), "replay-only");
+    await denied(authorize(replayToken, { step: "items", purpose: "dispatch", after: "questions" }), "replay-only");
+    await expect(authorize(replayToken, { step: "receipt", purpose: "replay", after: null })).resolves.toMatchObject({ decisionId: expect.any(String) });
+  });
+
+  it("refuses a new plan under a version outside the window, replay or not", async () => {
+    policy = bumped([]);
+    const inv = await allocate({ idempotencyKey: "job-late" });
+    await denied(admit(inv.invocationToken), "registry-version-mismatch");
   });
 
   it("admits a new plan under its compilers' version, the old one or the new one, and nothing else", async () => {
