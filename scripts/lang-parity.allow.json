@@ -1,0 +1,15 @@
+{
+  "0000": [
+    { "kind": "error-text", "note": "The Rust kernel rewords some error messages; same errors otherwise (languages/l0000/CLAUDE.md, \"The Rust implementation\")." }
+  ],
+  "0003": [
+    { "kind": "error-text", "note": "Check errors name what was found more clearly (\"the string \\\"dark\\\"\" rather than \"tag dark\"); conformance compares them up to \"Got\" (languages/l0003/CLAUDE.md, \"Conformance\")." },
+    { "kind": "lexicon-superset", "note": "The TypeScript L0003 is on @graffiticode/l0000 0.8; the Rust kernel also has exact numbers and format-number, and serves those words (languages/l0003/CLAUDE.md, \"Conformance\")." }
+  ],
+  "0010": [
+    { "kind": "lexicon-superset", "note": "The TypeScript L0010 is on @graffiticode/l0000 0.8; the Rust kernel also has exact numbers and format-number (languages/l0010/CLAUDE.md, \"Conformance\")." }
+  ],
+  "0185": [
+    { "kind": "error-text", "note": "An L0000 error inside a record's function is the Rust kernel's message, not the TypeScript kernel's (languages/l0185/CLAUDE.md, \"Conformance\")." }
+  ]
+}
