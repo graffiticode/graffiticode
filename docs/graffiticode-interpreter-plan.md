@@ -120,7 +120,15 @@ Rollback is an API rollback. The TypeScript service stays deployed.
      The evidence goes into the `promote --evidence` file.
 2. **A2** l0003, l0010, l0175, l0177, l0178, l0179, l0181, l0185. Small known differences, each closed or allowlisted. For L0003 and L0010, the lexicon served by Rust is a superset; allowlist that, or pin it.
 3. **A3** l0182. Its per-process session memory is lost on a switch, the same as on any redeploy, so state that in its release notes.
-4. **A4** l0000. Needs `pinnable`, `POLICY_URL` and `PREFLIGHT_GATEWAYS` for `l0000r`, and admitted-plan stages and `/preflight` must work there. Requires an IAM review entry in `docs/capability-policy-iam-review.md`.
+4. **A4** l0000. Needs `pinnable`, `POLICY_URL` and `PREFLIGHT_GATEWAYS` for `l0000r`, and admitted-plan stages and `/preflight` must work there. IAM review entry: `docs/capability-policy-iam-review.md`, Step 15. The order:
+   1. **Configure** (one PR): `l0000r`'s `deploy.json` entry like `l0000`'s; the parity allowlist's `case` rules for L0000's six documented divergences; the docs.
+   2. **Policy trusts `l0000r-run`:** a new `policy-callers` version (validated with `parseCallers`), `run.invoker` on `policy`, `deploy.json`'s `policy` pinned to the version Secret Manager returns, `policy` released.
+   3. **Release `l0000r`** as a pinnable service (its approval is recorded before promotion). Then remove the old, never-approved serving revision's tag, after checking that no approved revision or admitted plan needs it.
+   4. **Parity gate** for L0000, with only the narrow `case` rules and `error-text`.
+   5. **Stage an API revision** (`npm run deploy -- api --stage`) with `BASE_URL_L0000` and a new `COMPILE_GENERATION_L0000`. It gets a tag URL and no traffic.
+   6. **Run the connection canary through the staged API's tag URL.** Verify full admission and execution, with L0000 as the appended data stage, not just `/preflight`.
+   7. **Retry an existing TypeScript invocation** through the staged API, and verify it replays through its pinned `l0000` revision.
+   8. **Promote the staged API** (`npm run deploy -- promote api --release <id> --evidence <file>`) only after 4, 6 and 7 pass.
 5. **A5** l0176, last.
    - Port the parity gaps: `init` validation, and gateway-only signing with the busy results.
    - Make `l0176r` pinnable with approvals.
