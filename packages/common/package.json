@@ -13,6 +13,7 @@
     "./failures": "./dist/failures.js",
     "./http": "./dist/http.js",
     "./protected-registry": "./dist/protected-registry.js",
+    "./interpreter-manifest": "./dist/interpreter-manifest.js",
     "./utils": "./dist/utils.js",
     "./caller": "./dist/caller.js",
     "./verified-tokens": "./dist/verified-tokens.js",
