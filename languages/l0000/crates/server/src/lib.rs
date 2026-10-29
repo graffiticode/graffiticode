@@ -143,7 +143,38 @@ async fn http_caching(State(caching): State<HttpCaching>, request: Request, next
     } else if caching.immutable_assets && path.starts_with("/assets/") && served {
         headers.insert(CACHE_CONTROL, HeaderValue::from_static("public, max-age=31536000, immutable"));
     }
+    if served && is_static_path(&path) {
+        express_static_defaults(headers);
+    }
     response
+}
+
+/// The paths served from the static directory (the form, the lexicon, and every public file),
+/// as opposed to the routes that compute an answer.
+fn is_static_path(path: &str) -> bool {
+    !matches!(path, "/" | "/compile" | "/interpret" | "/preflight" | "/egress")
+}
+
+/// What Express's `express.static` and `res.sendFile` add to a file they serve, so a language's
+/// switch from its TypeScript server changes no response header (P4, found by the parity gate):
+/// `Cache-Control: public, max-age=0` unless something already set one, and `charset=UTF-8` on a
+/// text type that names none.
+fn express_static_defaults(headers: &mut HeaderMap) {
+    if !headers.contains_key(CACHE_CONTROL) {
+        headers.insert(CACHE_CONTROL, HeaderValue::from_static("public, max-age=0"));
+    }
+    let Some(content_type) = headers.get(CONTENT_TYPE).and_then(|value| value.to_str().ok()) else {
+        return;
+    };
+    let essence = content_type.split(';').next().unwrap_or_default().trim().to_ascii_lowercase();
+    let textual =
+        essence.starts_with("text/") || matches!(essence.as_str(), "application/json" | "application/javascript");
+    if textual
+        && !content_type.to_ascii_lowercase().contains("charset=")
+        && let Ok(value) = HeaderValue::from_str(&format!("{essence}; charset=UTF-8"))
+    {
+        headers.insert(CONTENT_TYPE, value);
+    }
 }
 
 /// Behind a proxy that terminated plain HTTP, send the caller to HTTPS. Only a proxy sets

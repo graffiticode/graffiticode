@@ -331,7 +331,8 @@ async fn the_lexicon_is_served_under_both_names() {
     for uri in ["/lexicon.json", "/lexicon.js"] {
         let reply = get(&server.app, uri).await;
         assert_eq!(reply.status, StatusCode::OK, "{uri}");
-        assert_eq!(reply.headers[header::CONTENT_TYPE], "application/json");
+        // As Express serves the file in the TypeScript servers.
+        assert_eq!(reply.headers[header::CONTENT_TYPE], "application/json; charset=UTF-8");
         assert_eq!(reply.json()["add"]["name"], "ADD");
         // The console slices from the first `{`.
         assert!(reply.text().starts_with('{'));
@@ -362,11 +363,25 @@ async fn static_assets_and_the_form_are_public() {
 // P4: a language's caching matches its TypeScript server's, so switching its routing changes no
 // response header.
 #[tokio::test]
-async fn by_default_nothing_is_marked_cacheable_or_uncacheable() {
+async fn by_default_static_files_carry_express_s_headers() {
     let server = server();
-    for uri in ["/form", "/assets/index-abc123.js", "/schema.json"] {
-        assert!(get(&server.app, uri).await.headers.get(header::CACHE_CONTROL).is_none(), "{uri}");
+    for (uri, content_type) in [
+        ("/form", "text/html; charset=UTF-8"),
+        ("/schema.json", "application/json; charset=UTF-8"),
+        ("/lexicon.json", "application/json; charset=UTF-8"),
+        ("/lexicon.js", "application/json; charset=UTF-8"),
+        ("/assets/index-abc123.js", "text/javascript; charset=UTF-8"),
+    ] {
+        let reply = get(&server.app, uri).await;
+        assert_eq!(reply.status, StatusCode::OK, "{uri}");
+        assert_eq!(reply.headers[header::CACHE_CONTROL], "public, max-age=0", "{uri}");
+        assert_eq!(reply.headers[header::CONTENT_TYPE], content_type, "{uri}");
     }
+    // A miss is never marked, and the routes that compute an answer are left as they are.
+    assert!(get(&server.app, "/missing.json").await.headers.get(header::CACHE_CONTROL).is_none());
+    let compiled = compile(&server.app, json!({ "code": add_1_2(), "data": {} })).await;
+    assert!(compiled.headers.get(header::CACHE_CONTROL).is_none());
+    assert_eq!(compiled.headers[header::CONTENT_TYPE], "application/json");
 }
 
 #[tokio::test]
@@ -384,8 +399,8 @@ async fn a_language_can_keep_its_form_from_being_cached() {
     assert_eq!(form.headers[header::CACHE_CONTROL], "no-store, no-cache, must-revalidate");
     assert_eq!(form.headers["cdn-cache-control"], "no-store");
     assert_eq!(form.headers["cloudflare-cdn-cache-control"], "no-store");
-    // Only the form.
-    assert!(get(&no_store.app, "/schema.json").await.headers.get(header::CACHE_CONTROL).is_none());
+    // Only the form; other files keep Express's default.
+    assert_eq!(get(&no_store.app, "/schema.json").await.headers[header::CACHE_CONTROL], "public, max-age=0");
 }
 
 #[tokio::test]
@@ -397,8 +412,8 @@ async fn hashed_assets_are_immutable_and_a_miss_is_never_marked() {
     let missing = get(&server.app, "/assets/index-gone.js").await;
     assert_eq!(missing.status, StatusCode::NOT_FOUND);
     assert!(missing.headers.get(header::CACHE_CONTROL).is_none());
-    // Not under /assets/: unmarked.
-    assert!(get(&server.app, "/schema.json").await.headers.get(header::CACHE_CONTROL).is_none());
+    // Not under /assets/: Express's default.
+    assert_eq!(get(&server.app, "/schema.json").await.headers[header::CACHE_CONTROL], "public, max-age=0");
 }
 
 #[tokio::test]
