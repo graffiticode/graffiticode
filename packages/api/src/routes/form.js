@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { InvalidArgumentError, NotFoundError } from "../errors/http.js";
-import { allInGenerationLang, getActiveGeneration, GENERATION_LANG } from "../generation.js";
+import { allInGenerationLang, getActiveGeneration, getLanguageGenerations, languageGenerationSuffix, GENERATION_LANG } from "../generation.js";
 import { buildGetTasks } from "./tasks.js";
 import {
   buildHttpHandler,
@@ -79,6 +79,13 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
         }
         lang = RENDER_LANG;
         dataParams.set("generation", generation);
+      }
+      // The switch generations the item's data is answered under (B4), so the
+      // data URL names its namespace and a new one is a new URL. None set, the
+      // URL is as before.
+      const suffix = languageGenerationSuffix(tasks, getLanguageGenerations());
+      if (suffix) {
+        dataParams.set("generations", suffix);
       }
       params.set("id", id);
       params.set("url", `${protocol}://${req.headers.host}/data?${dataParams.toString()}`);

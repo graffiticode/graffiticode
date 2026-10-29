@@ -13,11 +13,13 @@ import type { FormProps } from "./view";
 
 let renders = 0;
 let lastData: any;
+let lastExpired: boolean | undefined;
 let apply!: (a: { type: string; args?: any }) => void;
 
 const CountingForm = ({ state }: FormProps) => {
   renders++;
   lastData = state.data;
+  lastExpired = state.expired;
   apply = state.apply;
   return <div data-testid="form">{JSON.stringify(state.data)}</div>;
 };
@@ -35,7 +37,7 @@ async function loadView() {
 const setSearch = (qs: string) => window.history.replaceState({}, "", `/form${qs}`);
 const tick = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
-beforeEach(() => { renders = 0; lastData = undefined; setSearch(""); });
+beforeEach(() => { renders = 0; lastData = undefined; lastExpired = undefined; setSearch(""); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 /**
@@ -522,5 +524,143 @@ describe("View", () => {
 
     const dataUrls = fetchSpy.mock.calls.map(([url]) => String(url)).filter((u) => u.includes("/data"));
     expect(dataUrls).toEqual([expect.stringContaining("connection=conn-1")]);
+  });
+
+  test("the data load carries the generations the /form redirect's data url names", async () => {
+    // The api's /form passes the item's data url as ?url= (interpreter plan B4).
+    const dataUrl = "https://api.graffiticode.org/data?id=item3&generation=g158&generations=%40L0184%3Drust-1";
+    setSearch(`?id=item3&url=${encodeURIComponent(dataUrl)}`);
+    const { fetchSpy } = stubApi({ stored: { cells: { A1: "6" } } });
+    const View = await loadView();
+
+    render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "6" }));
+
+    const [load] = fetchSpy.mock.calls.map(([url]) => new URL(String(url))).filter((u) => u.pathname === "/data");
+    expect(load.searchParams.get("id")).toBe("item3");
+    expect(load.searchParams.get("generation")).toBe("g158");
+    expect(load.searchParams.get("generations")).toBe("@L0184=rust-1");
+  });
+
+  test("a ?url= for another id, or that isn't a /data url, adds nothing", async () => {
+    for (const other of ["https://api.graffiticode.org/data?id=else&generations=x", "https://evil.example/steal?id=item4&generations=x", "not a url"]) {
+      cleanup();
+      setSearch(`?id=item4&url=${encodeURIComponent(other)}`);
+      const { fetchSpy } = stubApi({ stored: { cells: { A1: "8" } } });
+      const View = await loadView();
+      render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+      await waitFor(() => expect(lastData?.cells).toEqual({ A1: "8" }));
+      const urls = fetchSpy.mock.calls.map(([url]) => String(url));
+      expect(urls.every((u) => u.startsWith("http://localhost:3100/") || u.startsWith("https://api.graffiticode.org/"))).toBe(true);
+      expect(urls.filter((u) => u.includes("/data")).every((u) => !u.includes("generation"))).toBe(true);
+    }
+  });
+
+  test("recompiles carry L0158's requested generation from the data url", async () => {
+    const dataUrl = "https://api.graffiticode.org/data?id=item5&generation=g158";
+    setSearch(`?id=item5&url=${encodeURIComponent(dataUrl)}`);
+    const { fetchSpy } = stubApi({ stored: { cells: { A1: "1" } } });
+    const View = await loadView();
+    render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "1" }));
+    act(() => apply({ type: "update", args: { cells: { A1: "2" } } }));
+    await tick(20);
+    const posts = fetchSpy.mock.calls.filter(([url]) => String(url).includes("/compile")).map(([, init]) => JSON.parse(init.body));
+    expect(posts.length).toBeGreaterThan(0);
+    expect(posts.every((b) => b.generation === "g158")).toBe(true);
+  });
+
+  /** A /data that names a staleness deadline; `fail` makes every load after the first fail. */
+  function stubExpiring({ stored, refreshAt, fail = false }: { stored: any; refreshAt: () => string; fail?: boolean }) {
+    let loads = 0;
+    const fetchSpy = vi.fn(async (url: string, init?: any) => {
+      if (String(url).includes("/compile")) {
+        return { json: async () => ({ status: "success", data: { ...stored, ...(JSON.parse(init.body).data ?? {}) } }) };
+      }
+      loads++;
+      if (fail && loads > 1) return { json: async () => ({ status: "error", error: { message: "token expired" } }) };
+      return { json: async () => ({ status: "success", data: stored, refreshAt: refreshAt() }) };
+    });
+    vi.stubGlobal("fetch", fetchSpy as any);
+    return { fetchSpy, loads: () => loads };
+  }
+
+  test("a deadline passing never replaces mounted content: the Form and the host are told", async () => {
+    setSearch("?id=item6&origin=" + encodeURIComponent(window.location.origin));
+    const posted: any[] = [];
+    const postSpy = vi.spyOn(window.parent, "postMessage").mockImplementation((m: any) => { posted.push(m); });
+    const { loads } = stubExpiring({ stored: { cells: { A1: "1" } }, refreshAt: () => new Date(Date.now() + 60).toISOString() });
+    const View = await loadView();
+    render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "1" }));
+    expect(lastExpired).toBeUndefined();
+    // The learner works; the deadline passes.
+    act(() => apply({ type: "update", args: { cells: { A1: "9" } } }));
+    await tick(120);
+    expect(lastExpired).toBe(true);
+    expect(lastData.cells).toEqual({ A1: "9" });
+    expect(loads()).toBe(1);
+    expect(posted.filter((m) => m?.type === "data-expired")).toHaveLength(1);
+    postSpy.mockRestore();
+  });
+
+  test("a load already expired before anything was initialized is loaded again, once", async () => {
+    setSearch("?id=item7");
+    const { loads } = stubExpiring({ stored: { cells: { A1: "4" } }, refreshAt: () => new Date(Date.now() - 1000).toISOString() });
+    const View = await loadView();
+    render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "4" }));
+    await tick(20);
+    // The reload is still expired on arrival: it is used, not reloaded forever.
+    expect(loads()).toBe(2);
+    expect(lastExpired).toBe(true);
+  });
+
+  test("an expired load the same credentials can't load again isn't shown, and the host is told", async () => {
+    setSearch("?id=item8&origin=" + encodeURIComponent(window.location.origin));
+    const posted: any[] = [];
+    const postSpy = vi.spyOn(window.parent, "postMessage").mockImplementation((m: any) => { posted.push(m); });
+    stubExpiring({ stored: { cells: { A1: "5" } }, refreshAt: () => new Date(Date.now() - 1000).toISOString(), fail: true });
+    const View = await loadView();
+    render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeTruthy());
+    expect(lastData).toBeUndefined();
+    expect(posted.filter((m) => m?.type === "data-expired")).toHaveLength(1);
+    postSpy.mockRestore();
+  });
+
+  test("an identical expired reload still initializes the View", async () => {
+    setSearch("?id=item9");
+    const past = new Date(Date.now() - 1000).toISOString();
+    const { loads } = stubExpiring({ stored: { cells: { A1: "4" } }, refreshAt: () => past });
+    const View = await loadView();
+    render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "4" }));
+    expect(loads()).toBe(2);
+  });
+
+  test("another View's reload of the shared entry never overwrites mounted content", async () => {
+    setSearch("?id=item10");
+    const { loads } = stubExpiring({ stored: { cells: { A1: "1" } }, refreshAt: () => new Date(Date.now() + 50).toISOString() });
+    const View = await loadView();
+    let applyA!: (a: { type: string; args?: any }) => void;
+    let dataA: any;
+    const FormA = ({ state }: FormProps) => { applyA = state.apply; dataA = state.data; return <div />; };
+    let showB!: () => void;
+    const Host = () => {
+      const [b, setB] = React.useState(false);
+      showB = () => setB(true);
+      return <>{<View Form={FormA} />}{b && <View Form={CountingForm} />}</>;
+    };
+    render(<Wrapper><Host /></Wrapper>);
+    await waitFor(() => expect(dataA?.cells).toEqual({ A1: "1" }));
+    act(() => applyA({ type: "update", args: { cells: { A1: "9" } } }));
+    await tick(80);
+    // The shared entry has expired; a second View mounts and loads it again.
+    act(() => showB());
+    await waitFor(() => expect(lastData?.cells).toEqual({ A1: "1" }));
+    await tick(20);
+    expect(loads()).toBe(2);
+    expect(dataA.cells).toEqual({ A1: "9" });
   });
 });

@@ -9,7 +9,7 @@ import { canonicalDigest } from "@graffiticode/common/canonical";
 import { decodeChainId } from "@graffiticode/common/chain";
 import { noAudit } from "./audit.js";
 import { normalizeLang, PreflightUnavailable } from "./admission.js";
-import { checkGeneration, compileCacheKey, getActiveGeneration as readActiveGeneration, getLanguageGenerations as readLanguageGenerations } from "./generation.js";
+import { checkGeneration, checkGenerationWithDataTask, compileCacheKey, languageGenerationSuffix, getActiveGeneration as readActiveGeneration, getLanguageGenerations as readLanguageGenerations } from "./generation.js";
 import { INTERPRETER_DECLARATIONS, interpreterLangFor } from "@graffiticode/common/interpreter-manifest";
 import {
   NO_STORE, PERMANENT, authorityFor, combineRestrictions, getInterpreterLanguages as readInterpreterLanguages,
@@ -187,6 +187,12 @@ const buildGetData = ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
     connectionId = null, idempotencyKey = null, read = false, publicationId = null,
     generation = /** @type {string | undefined} */ (undefined),
+    // Whether the id is an item's chain plus the data task POST /compile
+    // appended, so a requested generation is checked against the item's chain
+    // (B4, recompiles of L0158 items).
+    generationDataTask = false,
+    // The switch generations the request's URL names (?generations=, B4).
+    namedGenerations = /** @type {string | undefined} */ (undefined),
     // The id's tasks, when the route already loaded them (to charge the
     // per-client signing limit, signing-limit.js), so they're read once.
     preloadedTasks = /** @type {any} */ (undefined)
@@ -203,9 +209,21 @@ const buildGetData = ({
     }
     // Refused (400) unless it is the active generation and every task is
     // L0158. It changes nothing but the compile store's key.
-    checkGeneration({ generation, active, tasks });
+    if (generationDataTask && generation !== undefined && generation !== null) {
+      checkGenerationWithDataTask({ generation, active, tasks });
+    } else {
+      checkGeneration({ generation, active, tasks });
+    }
     // Every language in the chain with a switch generation scopes it too.
     const cacheKey = compileCacheKey({ id, generation, tasks, generations });
+    // Whether the URL names the chain's current switch generations
+    // (?generations=, B4). A URL naming others is never held by a browser or
+    // the CDN, whatever answers it (a cache hit, a legacy chain, a read): the
+    // same URL may name another namespace's output after a switch or an
+    // activation.
+    const currentSuffix = languageGenerationSuffix(tasks, generations);
+    const urlNamesGenerations = namedGenerations !== undefined && namedGenerations === currentSuffix;
+    if (namedGenerations !== undefined && !urlNamesGenerations && typeof action === "object") action.noStore = true;
     // A view of a published item serves the result the publication names,
     // under the publisher's authority; the viewer may be anonymous.
     if (read && publicationId) {
@@ -572,11 +590,17 @@ const buildGetData = ({
         ? { event: "artifact", outcome: "failed", reason: notStored.error, category: notStored.category, invocationId: invocation.invocationId, connectionId, attemptId }
         : { event: "artifact", outcome: "succeeded", invocationId: invocation.invocationId, connectionId, attemptId });
     }
-    // A chain with an interpreted stage is never held as permanent while its
-    // generation isn't in its URL (plan B4): a rollback that moves the
-    // generation must reach browsers and the CDN too. Otherwise, only a result
+    // A chain with an interpreted stage is held as permanent only when its URL
+    // names the switch generations it was answered under (?generations=, plan
+    // B4): a rollback moves the generation, and so the URL /form hands out,
+    // which is what reaches browsers and the CDN. Otherwise, only a result
     // that is immutable with no expiry may be.
-    if ((!cacheable || interpretedChain || !permanent(upstream)) && typeof action === "object") {
+    // When the result expires, the route says so (refreshAt, B4), so a View
+    // can load it again then. Across a request's ids, the earliest.
+    if (upstream.expiresAt !== null && typeof action === "object") {
+      action.expiresAt = Math.min(action.expiresAt ?? Infinity, upstream.expiresAt);
+    }
+    if ((!cacheable || (interpretedChain && !urlNamesGenerations) || !permanent(upstream)) && typeof action === "object") {
       // Let the route drop the immutable cache headers — an expiring compile
       // must not be held by the browser or the CDN either.
       action.noStore = true;

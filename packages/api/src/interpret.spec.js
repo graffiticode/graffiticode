@@ -498,6 +498,43 @@ describe("the routes with interpreted stages", () => {
     expect(t.stages).toEqual([]);
   });
 
+  it("GET /data holds an interpreted result as immutable only when its url names the current generations", async () => {
+    const t = setup({ generations: { "0900": "g1" } });
+    const id = await t.chain([task("0900")]);
+    const app = appFor(t);
+    const cacheControl = async query => (await request(app).get("/data").query({ id, ...query }).expect(200)).headers["cache-control"];
+    expect(await cacheControl({ generations: "@L0900=g1" })).toBe("public, max-age=31536000, immutable");
+    // A URL from before a switch or a rollback, or none.
+    expect(await cacheControl({ generations: "@L0900=g0" })).toBe("no-store");
+    expect(await cacheControl({})).toBe("no-store");
+  });
+
+  it("GET /data never holds a url naming other generations, even for a legacy chain or a cache hit", async () => {
+    // L0184 on legacy, with a switch generation; a URL names a future one.
+    const t = setup({ env: {}, generations: { "0184": "rust-1" } });
+    const id = await t.chain([task("0184")]);
+    const app = appFor(t);
+    const cacheControl = async query => (await request(app).get("/data").query({ id, ...query }).expect(200)).headers["cache-control"];
+    expect(await cacheControl({ generations: "@L0184=interp-1" })).toBe("no-store");
+    // Now answered from the whole-chain store: still not held.
+    expect(t.compileStorer.entries.size).toBe(1);
+    expect(await cacheControl({ generations: "@L0184=interp-1" })).toBe("no-store");
+    expect(t.compile).toHaveBeenCalledTimes(1);
+    // The current generations, or none named: as before.
+    expect(await cacheControl({ generations: "@L0184=rust-1" })).toBe("public, max-age=31536000, immutable");
+    expect(await cacheControl({})).toBe("public, max-age=31536000, immutable");
+  });
+
+  it("GET /data names when an expiring result should be loaded again", async () => {
+    const t = setup({ interpretReply: () => ({ data: 1, errors: [], cache: "shared", expiresAt: NOW + HOUR, revision: "r1" }) });
+    const id = await t.chain([task("0900")]);
+    const res = await request(appFor(t)).get(`/data?id=${id}`).expect(200);
+    expect(res.body).toEqual({ status: "success", data: { data: 1, errors: [] }, refreshAt: new Date(NOW + HOUR).toISOString() });
+    // Nothing expires: no metadata, as before.
+    const legacy = await t.chain([task("0000")]);
+    expect((await request(appFor(t)).get(`/data?id=${legacy}`).expect(200)).body).not.toHaveProperty("refreshAt");
+  });
+
   it("POST /compile presents the item over its data task", async () => {
     const t = setup();
     const res = await request(appFor(t)).post("/compile").send({ item: { ...task("0900"), data: { a: 1 } } }).expect(200);
@@ -508,5 +545,58 @@ describe("the routes with interpreted stages", () => {
     expect(res.headers["cache-control"]).toBe("no-store");
     await request(appFor(t)).post("/compile").send({ item: { ...task("0900"), data: { a: 1 } } }).expect(200);
     expect(t.interpreter.interpret).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("recompiles under L0158's requested generation (B4)", () => {
+  let saved;
+  beforeEach(() => {
+    saved = process.env.COMPILE_GENERATION_L0158;
+    process.env.COMPILE_GENERATION_L0158 = "g1";
+  });
+  afterEach(() => {
+    if (saved === undefined) delete process.env.COMPILE_GENERATION_L0158;
+    else process.env.COMPILE_GENERATION_L0158 = saved;
+  });
+  const appFor = t => {
+    const app = express();
+    app.use(express.json());
+    app.use((/** @type {any} */ req, _res, next) => {
+      req.auth = { context: null, token: null };
+      next();
+    });
+    app.use("/compile", buildCompileRoute({ taskStorer: t.taskStorer, compileStorer: t.compileStorer, dataApi: t.dataApi }));
+    return app;
+  };
+
+  it("compiles an L0158 item's edit in the namespace its load read", async () => {
+    const t = setup({ env: {} });
+    const id = await t.chain([task("0158")]);
+    await request(appFor(t)).post("/compile").send({ id, data: { a: 1 }, generation: "g1" }).expect(200);
+    const keys = [...t.compileStorer.entries.keys()];
+    expect(keys).toHaveLength(1);
+    expect(keys[0].startsWith(`${id}+`)).toBe(true);
+    expect(keys[0].endsWith("@g1")).toBe(true);
+    // The data task the compile added is what the item's stage received.
+    expect(t.calls.map(c => `${c.call}:${c.lang}`)).toEqual(["compile:0000", "compile:0158"]);
+  });
+
+  it("refuses another generation, a mixed item chain, or a connection", async () => {
+    const t = setup({ env: {} });
+    const app = appFor(t);
+    const l0158 = await t.chain([task("0158")]);
+    await request(app).post("/compile").send({ id: l0158, data: { a: 1 }, generation: "g0" }).expect(400);
+    const mixed = await t.chain([task("0158"), task("0000")]);
+    await request(app).post("/compile").send({ id: mixed, data: { a: 1 }, generation: "g1" }).expect(400);
+    expect(t.compile).not.toHaveBeenCalled();
+    expect(t.compileStorer.entries.size).toBe(0);
+  });
+
+  it("allows only the generated data task beyond the item's chain", async () => {
+    const t = setup({ env: {} });
+    // An ordinary L0000 program in the data task's place is not the exception.
+    const id = await t.chain([task("0158"), task("0000")]);
+    await expect(t.get(id, { generation: "g1", generationDataTask: true })).rejects.toThrow(/data task/);
+    expect(t.compile).not.toHaveBeenCalled();
   });
 });

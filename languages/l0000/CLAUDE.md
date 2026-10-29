@@ -100,7 +100,7 @@ Arithmetic uses `decimal.js`. A number value is a JS number when that number is 
 
 `@graffiticode/l0000-view`'s `View` is the **shared** front-end harness child languages inherit. It is parameterized by a language-specific `Form` component (`<View Form={Form} />`). L0000 ships the base JSON `Form`. The View:
 
-- Reads `id`, `access_token`, `origin`, `data` from URL search params.
+- Reads `id`, `access_token`, `origin`, `data` from URL search params, and from `url` (the data URL the api's `/form` redirect passes) only `generation` and `generations`, when it is a `/data` URL for the same id. Its data load carries them, so a new compile generation is a new URL for browsers and the CDN (interpreter plan B4; `dataGenerationsFor` in `lib/api.ts`); recompiles carry `generation`. A `/data` response's `refreshAt` is a staleness deadline: mounted content is never replaced; when it passes the Form gets `state.expired` and the host a `data-expired` message. Only a load already expired before content was initialized is loaded again, once.
 - Compiles via SWR fetchers (`packages/view/src/swr/fetchers.ts`).
 - Treats responses as `{ data, errors }` envelopes — successful output replaces the form data model; errors are threaded to the Form alongside it.
 - Posts state to the parent window via `postMessage` when an `origin` is provided (iframe-embed path) and announces `onload`/`data-updated`.

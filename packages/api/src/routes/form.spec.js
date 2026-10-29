@@ -223,6 +223,21 @@ describe("routes/form", () => {
       expect(new URL(location.searchParams.get("url")).searchParams.has("generation")).toBe(false);
     });
 
+    it("names the chain's switch generations on its data url, and nothing when none is set", async () => {
+      const id = await postTask(TASK1);
+      const dataUrl = async () => new URL((await formLocation({ id })).searchParams.get("url"));
+      const savedGeneration = process.env.COMPILE_GENERATION_L0000;
+      try {
+        delete process.env.COMPILE_GENERATION_L0000;
+        expect((await dataUrl()).searchParams.has("generations")).toBe(false);
+        process.env.COMPILE_GENERATION_L0000 = "rust-1";
+        expect((await dataUrl()).searchParams.get("generations")).toBe("@L0000=rust-1");
+      } finally {
+        if (savedGeneration === undefined) delete process.env.COMPILE_GENERATION_L0000;
+        else process.env.COMPILE_GENERATION_L0000 = savedGeneration;
+      }
+    });
+
     it("leaves a chain with a non-L0158 stage on its head's form", async () => {
       process.env.COMPILE_GENERATION_L0158 = "g1";
       const { taskStorer } = createStorers();
