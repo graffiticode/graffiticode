@@ -186,6 +186,76 @@ async fn compile_reads_upstream_data_bare_or_enveloped() {
     }
 }
 
+async fn interpret(app: &Router, body: Value) -> Reply {
+    send(app, post_compile("/interpret").body(Body::from(body.to_string())).unwrap()).await
+}
+
+// B1 (docs/graffiticode-interpreter-plan.md): the model form, and the interpreter pass.
+#[tokio::test]
+async fn compile_returns_a_model_only_when_asked() {
+    let server = server();
+    let reply = compile(&server.app, json!({ "code": data_program(), "data": {}, "form": "model" })).await;
+    assert_eq!(reply.status, StatusCode::OK);
+    let body = reply.json();
+    assert_eq!(body["errors"], json!([]));
+    assert_eq!((body["model"]["lang"].clone(), body["model"]["kind"].clone()), (json!("0000"), json!("plan")));
+    assert_eq!(body["model"]["program"], data_program());
+    // Asked for nothing, or for null: today's envelope.
+    let reply = compile(&server.app, json!({ "code": data_program(), "data": { "x": 1 }, "form": null })).await;
+    assert_eq!(reply.json(), json!({ "data": { "x": 1 }, "errors": [] }));
+    assert_eq!(
+        compile(&server.app, json!({ "code": data_program(), "data": {}, "form": "value" })).await.status,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[tokio::test]
+async fn interpreting_a_model_answers_as_compiling_its_program_does() {
+    let server = server();
+    for (code, input) in [
+        (add_1_2(), json!({})),
+        (data_program(), json!({ "x": 1 })),
+        (data_program(), json!({ "data": { "x": 1 }, "errors": [] })),
+    ] {
+        let model =
+            compile(&server.app, json!({ "code": code, "data": {}, "form": "model" })).await.json()["model"].clone();
+        let compiled = compile(&server.app, json!({ "code": code, "data": input })).await;
+        for mode in [json!(null), json!("evaluate"), json!("present")] {
+            let interpreted = interpret(&server.app, json!({ "model": model, "input": input, "mode": mode })).await;
+            assert_eq!(
+                (interpreted.status, interpreted.text()),
+                (compiled.status, compiled.text()),
+                "{code} {input} {mode}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn interpret_refuses_what_isn_t_a_model_or_a_mode() {
+    let server = server();
+    let model =
+        compile(&server.app, json!({ "code": add_1_2(), "data": {}, "form": "model" })).await.json()["model"].clone();
+    let mut tampered = model.clone();
+    tampered["program"]["root"] = json!(2);
+    for body in [
+        json!({ "input": {} }),
+        json!({ "model": model }),
+        json!({ "model": tampered, "input": {} }),
+        json!({ "model": { "kind": "plan" }, "input": {} }),
+        json!({ "model": model, "input": {}, "mode": "render" }),
+    ] {
+        assert_eq!(interpret(&server.app, body.clone()).await.status, StatusCode::BAD_REQUEST, "{body}");
+    }
+    let other =
+        json!({ "lang": "0158", "kind": model["kind"], "digest": model["digest"], "program": model["program"] });
+    let reply = interpret(&server.app, json!({ "model": other, "input": {} })).await;
+    assert_eq!(reply.status, StatusCode::OK);
+    assert_eq!(reply.json()["errors"][0]["code"], "model-language-mismatch");
+    let reply = interpret(&server.app, json!({ "model": model, "input": {}, "auth": "bad-token" })).await;
+    assert_eq!(reply.status, StatusCode::UNAUTHORIZED);
+}
+
 #[tokio::test]
 async fn compile_errors_come_back_in_the_envelope() {
     // `add 1..` as the parser reports it.

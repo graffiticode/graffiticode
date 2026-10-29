@@ -39,6 +39,7 @@ mod eval;
 pub mod exec;
 pub mod format;
 pub mod lexicon;
+pub mod model;
 pub mod number;
 #[cfg(feature = "http")]
 pub mod policy_client;
@@ -55,6 +56,7 @@ pub use error::Diagnostic;
 pub use eval::{Eval, Evaluator};
 pub use exec::{EffectStatus, ExecContext, Identity, ProtectedEffect, SystemSessionRefusal};
 pub use lexicon::{Lexicon, LexiconEntry, LexiconError};
+pub use model::{Mode, Model, ModelKind};
 pub use number::Number;
 pub use preflight::{RevisionIdentity, StageManifest};
 pub use protected::{
