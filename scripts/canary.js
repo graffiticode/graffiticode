@@ -58,7 +58,7 @@ import path from "node:path";
 import { VERIFY_UID } from "../verify/auth.js";
 import { runCanary } from "./lib/canary.js";
 import { createDraftArchiver } from "./lib/canary-archive.js";
-import { createCanaryEnv, loadDeployServices, http } from "./lib/canary-env.js";
+import { createCanaryEnv, loadDeployServices, languageRoute, routedRevision, http } from "./lib/canary-env.js";
 
 const args = process.argv.slice(2);
 const flag = name => {
@@ -130,11 +130,12 @@ if (retryFile && !config.chainAdmission) {
   console.error("--retry-state needs --chain-admission");
   process.exit(2);
 }
-// The revision serving 100% of a language's traffic now.
+// The revision a language's compiles reach now: on the service the api routes
+// it to (deploy.json's api env), its tag's revision when the route names one,
+// else the revision serving all of the service's traffic.
 const servingRevision = async lang => {
-  const service = JSON.parse(await gcloud(["run", "services", "describe", `l${lang}`, `--region=${region}`, "--format=json"]));
-  const full = (service.status?.traffic ?? []).find(t => t.percent === 100);
-  return full?.revisionName ?? (full?.latestRevision ? service.status?.latestReadyRevisionName : null) ?? null;
+  const { service, tag } = languageRoute(lang, deploy.api?.env);
+  return routedRevision(JSON.parse(await gcloud(["run", "services", "describe", service, `--region=${region}`, "--format=json"])), tag);
 };
 const retryState = retryFile
   ? {

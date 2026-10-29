@@ -8,9 +8,15 @@
 //     (languages/lNNNN/crates/core/tests/conformance/cases.json), as the verify
 //     account: status and the whole envelope (data, errors, cache, effects),
 //     apart from `revision`, which names the deployment;
-//   - GET /lexicon.json: the same lexicon;
-//   - GET /, /form and /lexicon.json: the same status, and the
-//     same Cache-Control, Content-Type and Cross-Origin-Resource-Policy.
+//   - GET /lexicon.json: the same lexicon, a JSON object on both;
+//   - GET /form: each side's HTML loads a script, and every asset it references
+//     loads from that side's own server; the two HTML documents are the same;
+//   - GET /, /form and /lexicon.json: 200 on both, and the same
+//     Cache-Control, Content-Type and Cross-Origin-Resource-Policy.
+//
+// Every compile answer must arrive with HTTP 200 as a JSON object with an
+// `errors` list before it is compared; an answer that doesn't is a failure,
+// whatever the other side said, and no rule applies to it.
 //
 // A difference the language's CLAUDE.md documents and that was reviewed is
 // allowed by a rule in scripts/lang-parity.allow.json; every other difference
@@ -51,10 +57,12 @@ export const COMPARED_HEADERS = ["cache-control", "content-type", "cross-origin-
 //                     unwraps it for every dialect, while a TypeScript
 //                     language that reads its input directly spreads the
 //                     envelope itself
+//   form-body         the two servers' form HTML differs (each must still load
+//                     its own script and assets)
 //   case              one corpus case, by its program source (`src`)
 //   header            one header on one path (`path`, `header`)
 // Every rule needs a `note` saying why the difference is acceptable.
-export const RULE_KINDS = ["error-text", "error-presentation", "lexicon-superset", "upstream-envelope", "case", "header"];
+export const RULE_KINDS = ["error-text", "error-presentation", "lexicon-superset", "upstream-envelope", "form-body", "case", "header"];
 
 export const ruleProblems = rules => {
   const problems = [];
@@ -96,9 +104,25 @@ const withoutErrors = ({ errors: _errors, ...rest }) => rest;
 // Upstream data in the envelope a chained stage passes on.
 export const isEnvelope = data => Boolean(data) && typeof data === "object" && !Array.isArray(data) && Array.isArray(data.errors);
 
-// One case: "identical", { allowed: kind }, or "different". `data` is the
-// case's upstream data.
+// Why a compile answer can't be compared at all, or null: it must have
+// arrived (no transport failure), with HTTP 200, as a JSON object whose
+// `errors` is a list. A gate never treats two failures as agreement.
+export const answerProblem = ({ status, text }) => {
+  if (status === 0) return `no answer (${String(text).slice(0, 80)})`;
+  if (status !== 200) return `HTTP ${status}`;
+  const body = parse(text);
+  if (!body || typeof body !== "object" || Array.isArray(body)) return "not a JSON object";
+  if (!Array.isArray(body.errors)) return "no errors list";
+  return null;
+};
+
+// One case: "identical", { allowed: kind }, "different", or { invalid } when
+// either answer can't be compared (answerProblem). `data` is the case's
+// upstream data. No rule applies to an invalid answer.
 export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
+  const tsProblem = answerProblem(ts);
+  const rustProblem = answerProblem(rust);
+  if (tsProblem || rustProblem) return { invalid: { ts: tsProblem, rust: rustProblem } };
   const a = comparable(ts);
   const b = comparable(rust);
   if (isDeepStrictEqual(a, b)) return "identical";
@@ -118,9 +142,11 @@ export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
 };
 
 // The lexicons: "identical", { allowed: "lexicon-superset" }, or "different".
+// Each must be a JSON object: two missing lexicons are not the same lexicon.
 export const compareLexicon = (ts, rust, rules = []) => {
-  if (isDeepStrictEqual(ts, rust)) return "identical";
   const isObject = v => v && typeof v === "object" && !Array.isArray(v);
+  if (!isObject(ts) || !isObject(rust)) return "different";
+  if (isDeepStrictEqual(ts, rust)) return "identical";
   if (rules.some(r => r.kind === "lexicon-superset") && isObject(ts) && isObject(rust) &&
       Object.entries(ts).every(([word, entry]) => isDeepStrictEqual(rust[word], entry))) {
     return { allowed: "lexicon-superset" };
@@ -132,6 +158,10 @@ export const compareLexicon = (ts, rust, rules = []) => {
 // no rule allows.
 export const compareProbe = (pathname, ts, rust, rules = []) => {
   const differences = [];
+  // A probed path must answer, on both: two failures are not parity.
+  for (const [side, r] of [["ts", ts], ["rust", rust]]) {
+    if (r.status !== 200) differences.push({ path: pathname, what: "not 200", [side]: r.status });
+  }
   if (ts.status !== rust.status) differences.push({ path: pathname, what: "status", ts: ts.status, rust: rust.status });
   for (const header of COMPARED_HEADERS) {
     const a = ts.headers[header] ?? null;
@@ -141,6 +171,33 @@ export const compareProbe = (pathname, ts, rust, rules = []) => {
     differences.push({ path: pathname, what: header, ts: a, rust: b });
   }
   return differences;
+};
+
+// The assets a form's HTML loads from its own server: every src or href that
+// is a relative path (the bundle's hashed /assets/ files, a stylesheet), not
+// an absolute URL, a data URL or a fragment.
+export const formAssets = html => {
+  const refs = new Set();
+  for (const m of String(html ?? "").matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)) {
+    const ref = m[1].trim();
+    if (!ref || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(ref)) continue;
+    refs.add(ref.startsWith("/") ? ref : `/${ref.replace(/^\.\//, "")}`);
+  }
+  return [...refs].sort();
+};
+
+// Problems with one side's form: its HTML must load at least one script, and
+// every asset it references must load from the same server, non-empty.
+// `fetched` maps each referenced path to { status, length }.
+export const formProblems = (side, html, fetched) => {
+  const problems = [];
+  const assets = formAssets(html);
+  if (!assets.some(a => /\.m?js(?:\?|$)/.test(a))) problems.push({ side, what: "the form loads no script" });
+  for (const a of assets) {
+    const r = fetched[a];
+    if (!r || r.status !== 200 || !(r.length > 0)) problems.push({ side, what: `asset ${a}`, status: r?.status ?? null, length: r?.length ?? 0 });
+  }
+  return problems;
 };
 
 // A conformance case with falsy data runs in-process; over HTTP /compile
@@ -207,12 +264,31 @@ const main = async () => {
     if (p === "/lexicon.json") lexicon = compareLexicon(parse(a.text), parse(b.text), rules);
   }
   report.checks.probes = { ok: probeDifferences.length === 0, differences: probeDifferences };
+
+  // The served form: each side's HTML, and every asset it loads, from that
+  // side's own server. The two HTML documents are compared too: a form that
+  // differs needs a reviewed `form-body` rule.
+  const formIssues = [];
+  const forms = {};
+  for (const [side, base] of [["ts", tsUrl], ["rust", rustUrl]]) {
+    const form = await request(base, "GET", "/form");
+    forms[side] = form.text;
+    const fetched = {};
+    for (const a of formAssets(form.text)) {
+      const r = await request(base, "GET", a);
+      fetched[a] = { status: r.status, length: r.text.length };
+    }
+    formIssues.push(...formProblems(side, form.text, fetched));
+  }
+  if (forms.ts !== forms.rust && !rules.some(r => r.kind === "form-body")) formIssues.push({ what: "the two forms' HTML differs", ts: formAssets(forms.ts), rust: formAssets(forms.rust) });
+  report.checks.form = { ok: formIssues.length === 0, problems: formIssues };
   report.checks.lexicon = { ok: lexicon !== "different", result: lexicon };
 
   // 2. The corpus, case by case, to both services.
   const cases = JSON.parse(await readFile(casesFile, "utf8")).slice(0, limit);
-  const counts = { identical: 0, allowed: {}, different: 0, skipped: 0 };
+  const counts = { identical: 0, allowed: {}, different: 0, invalid: 0, skipped: 0 };
   const differences = [];
+  const invalid = [];
   for (const [i, c] of cases.entries()) {
     if (!sendable(c)) { counts.skipped++; continue; }
     if (Date.now() - mintedAt > 180000) { token = await exchange(); mintedAt = Date.now(); }
@@ -224,13 +300,16 @@ const main = async () => {
     else if (result === "different") {
       counts.different++;
       if (differences.length < 20) differences.push({ case: i, src: c.src, ts: comparable(a), rust: comparable(b) });
+    } else if (result.invalid) {
+      counts.invalid++;
+      if (invalid.length < 20) invalid.push({ case: i, src: c.src, ...result.invalid });
     } else counts.allowed[result.allowed] = (counts.allowed[result.allowed] ?? 0) + 1;
   }
   const compared = cases.length - counts.skipped;
-  report.checks.corpus = { ok: counts.different === 0 && compared > 0, ...counts, compared, differences };
+  report.checks.corpus = { ok: counts.different === 0 && counts.invalid === 0 && compared > 0, ...counts, compared, differences, invalidAnswers: invalid };
 
   report.endedAt = new Date().toISOString();
-  report.corpus = corpusBlock({ ranAt, tasks: compared, failures: counts.different + probeDifferences.length + (lexicon === "different" ? 1 : 0) });
+  report.corpus = corpusBlock({ ranAt, tasks: compared, failures: counts.different + counts.invalid + formIssues.length + probeDifferences.length + (lexicon === "different" ? 1 : 0) });
   report.passed = Object.values(report.checks).every(c => c.ok);
   const text = JSON.stringify(report, null, 2);
   if (out) await writeFile(out, `${text}\n`);

@@ -11,6 +11,36 @@ import { run } from "../../packages/deploy/src/process.js";
 export const loadDeployServices = async () =>
   JSON.parse(await readFile(new URL("../../deploy.json", import.meta.url), "utf8")).services;
 
+// Where the api routes a language: { service, tag }. The api's
+// BASE_URL_L<lang>, when it is a Cloud Run URL, names the service (a
+// language switched to its Rust service, interpreter plan Track A): a service
+// URL is `<service>-<hash>-<region>.a.run.app`, and a revision tag's is
+// `<tag>---<service>-<hash>-<region>.a.run.app`, which also pins the tag.
+// Otherwise it is l<lang>, untagged.
+export const languageRoute = (lang, apiEnv = {}) => {
+  const url = apiEnv[`BASE_URL_L${lang}`];
+  if (typeof url === "string") {
+    let host = null;
+    try {
+      host = new URL(url).hostname;
+    } catch {}
+    if (host?.endsWith(".run.app")) {
+      const [tag, rest] = host.includes("---") ? host.split("---") : [null, host];
+      return { service: rest.split("-")[0], tag };
+    }
+  }
+  return { service: `l${lang}`, tag: null };
+};
+
+// The revision a route reaches: its tag's revision, or the one serving all
+// of the service's traffic.
+export const routedRevision = (service, tag) => {
+  const traffic = service?.status?.traffic ?? [];
+  if (tag) return traffic.find(t => t.tag === tag)?.revisionName ?? null;
+  const full = traffic.find(t => t.percent === 100);
+  return full?.revisionName ?? (full?.latestRevision ? service.status?.latestReadyRevisionName : null) ?? null;
+};
+
 export const http = async ({ method, url, headers = {}, body }) => {
   const res = await fetch(url, { method, headers: { ...headers, ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, body: body === undefined ? undefined : JSON.stringify(body) });
   const text = await res.text();
