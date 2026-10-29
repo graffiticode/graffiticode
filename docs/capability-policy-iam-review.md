@@ -1475,6 +1475,26 @@ account or to an external account. Nothing found.
   operator from the Usage page).
 - **Nothing found.** P1 #1 closed on 2026-10-27.
 
+### Step 15: `l0000r` takes over L0000's protected-execution role (interpreter plan A4) [PLANNED]
+
+L0000's switch from `l0000` (TypeScript) to `l0000r` (Rust) needs `l0000r` to stand where `l0000`
+stands: a compiler Policy trusts for `0000`, pinnable, and on `l0000`'s network class. **Nothing
+below is applied yet**; each line is marked with its date when it is.
+
+- **Caller map.** A new `policy-callers` version adds `l0000r-run` as a `compiler` for `0000`,
+  alongside `l0000-run` (which stays, for plans pinned to `l0000` revisions). Validate it with
+  Policy's `parseCallers` before uploading. Pin `deploy.json`'s `policy` entry to **the version
+  Secret Manager returns** (not an assumed number) and release `policy`.
+- **Invoker.** `l0000r-run` gets `run.invoker` on `policy`, as `l0000-run` has.
+- **Network.** `l0000r` moves to subnet `compilers-l0000` (`api`, `auth`, Policy's `run.app`
+  host, `www.googleapis.com`), the same class as `l0000`.
+- **Pinnable.** `deploy.json`'s `l0000r` entry is `pinnable` for `0000` with contract versions 1
+  and 2, the W4 baseline, `POLICY_URL` and `PREFLIGHT_GATEWAYS=api-run`. Its first such release
+  records its revision in `revisions` before promotion. Its previous serving revision
+  (`l0000r-rmvfv6ypx-25d112`, never approved, needed by no plan) is then a reachable unapproved
+  revision; remove its tag with the deploy CLI's tag retirement.
+- `l0000` and its approved revisions stay: admitted plans that pin them keep retrying there.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |

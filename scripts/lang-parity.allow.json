@@ -3,6 +3,36 @@
     {
       "kind": "error-text",
       "note": "The Rust kernel rewords some error messages; same errors otherwise (languages/l0000/CLAUDE.md, \"The Rust implementation\")."
+    },
+    {
+      "kind": "case",
+      "src": "equiv [1 2] [1 2]..",
+      "note": "equiv compares lists by structure, not identity: a deliberate divergence of the Rust kernel (languages/l0000/crates/core/tests/conformance.rs, divergence())."
+    },
+    {
+      "kind": "case",
+      "src": "equiv {a: [1]} {a: [1]}..",
+      "note": "equiv compares nested values by structure, not identity: a deliberate divergence of the Rust kernel (languages/l0000/crates/core/tests/conformance.rs, divergence())."
+    },
+    {
+      "kind": "case",
+      "src": "length (get \"a\" (data {}))..",
+      "note": "a nested upstream object is a record like any other, so it has a length: a deliberate divergence of the Rust kernel (languages/l0000/crates/core/tests/conformance.rs, divergence())."
+    },
+    {
+      "kind": "case",
+      "src": "apply (<x: <y: add x y>>) [1]..",
+      "note": "a function returned from a function is a function, not a second application: a deliberate divergence of the Rust kernel (languages/l0000/crates/core/tests/conformance.rs, divergence())."
+    },
+    {
+      "kind": "case",
+      "src": "map (<x: <y: x>>) [1 2]..",
+      "note": "a function returned from a function is a function, not a second application: a deliberate divergence of the Rust kernel (languages/l0000/crates/core/tests/conformance.rs, divergence())."
+    },
+    {
+      "kind": "case",
+      "src": "map (<x: [x <y: y>]>) [1]..",
+      "note": "a function returned from a function is a function, not a second application: a deliberate divergence of the Rust kernel (languages/l0000/crates/core/tests/conformance.rs, divergence())."
     }
   ],
   "0003": [
