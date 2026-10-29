@@ -9,7 +9,7 @@
 //     account: status and the whole envelope (data, errors, cache, effects),
 //     apart from `revision`, which names the deployment;
 //   - GET /lexicon.json: the same lexicon;
-//   - GET /, /form, /lexicon.json and /lexicon.js: the same status, and the
+//   - GET /, /form and /lexicon.json: the same status, and the
 //     same Cache-Control, Content-Type and Cross-Origin-Resource-Policy.
 //
 // A difference the language's CLAUDE.md documents and that was reviewed is
@@ -34,7 +34,7 @@ import { isDeepStrictEqual } from "node:util";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 
-export const PROBED_PATHS = ["/", "/form", "/lexicon.json", "/lexicon.js"];
+export const PROBED_PATHS = ["/", "/form", "/lexicon.json"];
 export const COMPARED_HEADERS = ["cache-control", "content-type", "cross-origin-resource-policy"];
 
 // The kinds of reviewed difference a rule can allow:

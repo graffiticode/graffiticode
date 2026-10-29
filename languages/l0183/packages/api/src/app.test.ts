@@ -54,12 +54,10 @@ describe("public assets are readable with no token", () => {
     });
   }
 
-  it("serves lexicon.js from lexicon.json, for the still-deployed console", async () => {
-    // No lexicon.js is emitted. The console slices from the first "{" and parses, so plain
-    // JSON works. Drop the alias once it migrates.
-    const res = await request(app).get("/lexicon.js");
-    expect(res.status).toBe(200);
-    expect(JSON.parse(res.text)["concept-web"]).toBeDefined();
+  it("serves the lexicon only as lexicon.json: the lexicon.js alias is gone", async () => {
+    // No client requested /lexicon.js in the 14 days before its removal (2026-10-29).
+    expect((await request(app).get("/lexicon.js")).status).toBe(404);
+    expect((await request(app).get("/lexicon.json")).status).toBe(200);
   });
 
   it("keeps GET / a health check rather than the embed's index.html", async () => {

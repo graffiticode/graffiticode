@@ -35,7 +35,7 @@ the spec table.
 - **Publish**: `npm run publish` (publishes `@graffiticode/l0176` and `@graffiticode/l0176-view` with public access)
 
 ### Deployment
-- **Release**: from the graffiticode repository root, `npm run deploy -- l0176` (deploy CLI; config in root `deploy.json`, image from `configs/Dockerfile.l0176.yaml`, runtime `l0176-run`, port `50176`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes. Env and pinned secret versions live in that `deploy.json` entry.
+- **Release**: from the graffiticode repository root, `npm run deploy -- l0176` (deploy CLI; config in root `deploy.json`, image from `configs/Dockerfile.l0176.yaml`, runtime `l0176-run`, port `50176`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.json`, then promotes. Env and pinned secret versions live in that `deploy.json` entry.
 - **View logs**: `npm run gcp:logs`
 
 ## Architecture

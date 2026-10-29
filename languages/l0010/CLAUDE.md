@@ -25,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Vitest is installed at the root but no test runner script is wired up yet, and no `*.spec.*` files exist in the packages.
 
 ### Deployment
-- **Release**: `npm run deploy -- l0010` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0010.yaml`, runtime `l0010-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.js`, then promotes.
+- **Release**: `npm run deploy -- l0010` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0010.yaml`, runtime `l0010-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and `/lexicon.json`, then promotes.
 - **View logs**: `npm run gcp:logs`
 
 ## Architecture

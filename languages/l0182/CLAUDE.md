@@ -100,7 +100,7 @@ needs is in the program.
 ### Deploying
 
 Release with `npm run deploy -- l0182` from the graffiticode repository root (deploy CLI; entry in root `deploy.json`, image from `configs/Dockerfile.l0182.yaml`, runtime `l0182-run`). It tests, builds, deploys a no-traffic candidate, checks `/` and
-`/lexicon.js`, then promotes.
+`/lexicon.json`, then promotes.
 
 The two rules the old Cloud Build configs carried still hold, and the deploy CLI meets both:
 
@@ -315,9 +315,6 @@ Changing any of them looks harmless locally, where there is no CDN and no cross-
   headers are necessary and NOT sufficient** — see below.
 - **`Cross-Origin-Resource-Policy: cross-origin` on every response.** Without it a COEP-isolated
   host — the claude.ai and chatgpt.com widget iframes — blocks the `/form` frame outright.
-- **`GET /lexicon.js` is aliased to `lexicon.json`** for the still-deployed console, which
-  slices from the first `{` and parses. No `lexicon.js` is emitted; drop the alias once the
-  console migrates (Stage 3).
 
 ### The `/form` headers cannot win on their own — the zone overrides them
 
@@ -667,9 +664,9 @@ step `cargo test --locked`, env `AUTH_URL` only). Like the TypeScript it needs n
 makes no network call at compile time. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python
 3.10 or later (see `languages/l0000/CLAUDE.md`). The account needs no roles.
 
-The shared Rust server does not send `/form`'s three `no-store` headers or `/assets/*`'s
-`immutable` header that `app.ts` sends (it does send `Cross-Origin-Resource-Policy` and alias
-`/lexicon.js`); read "What `app.ts` serves" before pointing the public hostname at `l0182r`. The
+The shared Rust server sends the same headers `app.ts` does: `/form`'s three `no-store` headers,
+`/assets/*`'s `immutable`, Express's static defaults and `Cross-Origin-Resource-Policy`
+(interpreter plan P4); read "What `app.ts` serves" before pointing the public hostname at `l0182r`. The
 session memory is per process in both, so moving traffic between `l0182` and `l0182r` forgets
 every session's version, as a restart does.
 

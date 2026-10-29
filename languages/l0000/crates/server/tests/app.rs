@@ -326,17 +326,15 @@ async fn a_rejected_token_is_unauthorized() {
 }
 
 #[tokio::test]
-async fn the_lexicon_is_served_under_both_names() {
+async fn the_lexicon_is_served_as_lexicon_json_only() {
     let server = server();
-    for uri in ["/lexicon.json", "/lexicon.js"] {
-        let reply = get(&server.app, uri).await;
-        assert_eq!(reply.status, StatusCode::OK, "{uri}");
-        // As Express serves the file in the TypeScript servers.
-        assert_eq!(reply.headers[header::CONTENT_TYPE], "application/json; charset=UTF-8");
-        assert_eq!(reply.json()["add"]["name"], "ADD");
-        // The console slices from the first `{`.
-        assert!(reply.text().starts_with('{'));
-    }
+    let reply = get(&server.app, "/lexicon.json").await;
+    assert_eq!(reply.status, StatusCode::OK);
+    // As Express serves the file in the TypeScript servers.
+    assert_eq!(reply.headers[header::CONTENT_TYPE], "application/json; charset=UTF-8");
+    assert_eq!(reply.json()["add"]["name"], "ADD");
+    // The lexicon.js alias is gone: no client requested it in the 14 days before (2026-10-29).
+    assert_eq!(get(&server.app, "/lexicon.js").await.status, StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -369,7 +367,6 @@ async fn by_default_static_files_carry_express_s_headers() {
         ("/form", "text/html; charset=UTF-8"),
         ("/schema.json", "application/json; charset=UTF-8"),
         ("/lexicon.json", "application/json; charset=UTF-8"),
-        ("/lexicon.js", "application/json; charset=UTF-8"),
         ("/assets/index-abc123.js", "text/javascript; charset=UTF-8"),
     ] {
         let reply = get(&server.app, uri).await;

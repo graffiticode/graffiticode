@@ -58,13 +58,6 @@ export const createApp = ({ authUrl, preflightGateways = [], verifyCaller }: { a
   app.use(express.json({ limit: "50mb" }));
   app.use(methodOverride());
 
-  // Back-compat alias: the still-deployed console requests lexicon.js; serve lexicon.json for
-  // it (the console slices from the first "{" and JSON.parses, so plain JSON works). Registered
-  // before express.static — no lexicon.js file is emitted. Drop once the console migrates to
-  // lexicon.json (Stage 3).
-  app.get("/lexicon.js", (_req: Request, res: Response) => {
-    res.sendFile(path.join(STATIC_DIR, "lexicon.json"));
-  });
 
   // PUBLIC static assets — lexicon.json, schema.json, spec.html, instructions.md,
   // language-info.json, usage-guide.md, scope.json, template.gc, and the /form bundle's
