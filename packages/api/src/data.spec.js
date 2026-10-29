@@ -12,6 +12,7 @@ import { isNonEmptyString } from "./util.js";
 import { admin } from "./storage/firebase.js";
 import { clearFirestore } from "./testing/firestore.js";
 import { DATA1, DATA2, TASK1, TASK2 } from "./testing/fixture.js";
+import { normalizeLang } from "./admission.js";
 
 describe("data", () => {
   beforeEach(async () => {
@@ -588,6 +589,61 @@ describe("data", () => {
       await expect(request).resolves.toStrictEqual(NEW);
       expect(await stored(`${id}@g1`)).toStrictEqual(NEW);
       expect(await stored(`${id}@g2`)).toBeUndefined();
+      expect(await stored(id)).toBeUndefined();
+    });
+  });
+
+  // P2 (docs/graffiticode-interpreter-plan.md): a language's switch generation
+  // (COMPILE_GENERATION_LNNNN) scopes every compile of a chain that contains
+  // it, unrequested, so a routing switch never serves the previous
+  // implementation's cached results, and a rollback restores them.
+  describe("per-language switch generations", () => {
+    const OLD = { val: "previous implementation" };
+    const NEW = { val: "switched implementation" };
+    let generations;
+    const buildApi = /** @type {any} */ (buildDataApi);
+    beforeEach(() => {
+      generations = {};
+      dataApi = buildApi({ compile, getLanguageGenerations: () => generations });
+    });
+    const stored = async key => {
+      const doc = await admin.firestore().doc(`compiles/${key}`).get();
+      return doc.exists ? JSON.parse(doc.data().data) : undefined;
+    };
+    const lang = normalizeLang(TASK1.lang);
+
+    it("is inert with none set", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(OLD);
+      await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(OLD);
+      expect(await stored(id)).toStrictEqual(OLD);
+    });
+
+    it("misses the previous namespace after a switch, and finds it again after a rollback", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(OLD);
+      await dataApi.get({ taskStorer, compileStorer, id });
+      generations = { [lang]: "rust-1" };
+      mockCompileData(NEW);
+      await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(NEW);
+      expect(compile).toHaveBeenCalledTimes(2);
+      expect(await stored(`${id}@L${lang}=rust-1`)).toStrictEqual(NEW);
+      expect(await stored(id)).toStrictEqual(OLD);
+      // Rollback: the previous value (none) restores the previous namespace.
+      generations = {};
+      await expect(dataApi.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(OLD);
+      expect(compile).toHaveBeenCalledTimes(2);
+    });
+
+    it("scopes a chain when any one of its languages has a generation", async () => {
+      const id = taskStorer.appendIds(
+        await taskStorer.create({ task: TASK1 }),
+        await taskStorer.create({ task: { lang: "0000", code: TASK2.code } }));
+      generations = { "0000": "g1" };
+      mockCompileData(OLD);
+      mockCompileData(NEW);
+      await dataApi.get({ taskStorer, compileStorer, id });
+      expect(await stored(`${id}@L0000=g1`)).toBeDefined();
       expect(await stored(id)).toBeUndefined();
     });
   });
