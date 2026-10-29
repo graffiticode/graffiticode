@@ -1481,11 +1481,14 @@ L0000's switch from `l0000` (TypeScript) to `l0000r` (Rust) needs `l0000r` to st
 stands: a compiler Policy trusts for `0000`, pinnable, and on `l0000`'s network class. **Nothing
 below is applied yet**; each line is marked with its date when it is.
 
-- **Caller map.** A new `policy-callers` version adds `l0000r-run` as a `compiler` for `0000`,
+- **Caller map.** *(Uploaded 2026-10-29 as version 5: version 4 plus the one entry, validated
+  with `parseCallers`; `deploy.json` pins `policy-callers:5`, applied when `policy` is released.)*
+  A new `policy-callers` version adds `l0000r-run` as a `compiler` for `0000`,
   alongside `l0000-run` (which stays, for plans pinned to `l0000` revisions). Validate it with
   Policy's `parseCallers` before uploading. Pin `deploy.json`'s `policy` entry to **the version
   Secret Manager returns** (not an assumed number) and release `policy`.
-- **Invoker.** `l0000r-run` gets `run.invoker` on `policy`, as `l0000-run` has.
+- **Invoker.** `l0000r-run` gets `run.invoker` on `policy`, as `l0000-run` has. *(Granted
+  2026-10-29.)*
 - **Network.** `l0000r` moves to subnet `compilers-l0000` (`api`, `auth`, Policy's `run.app`
   host, `www.googleapis.com`), the same class as `l0000`.
 - **Pinnable.** `deploy.json`'s `l0000r` entry is `pinnable` for `0000` with contract versions 1
