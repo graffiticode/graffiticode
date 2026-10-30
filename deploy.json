@@ -109,7 +109,8 @@
         "COMPILE_GENERATION_L0184": "interp-1",
         "INTERPRETER_L0184": "on",
         "BASE_URL_L0186": "https://l0186r-sja7fatcta-uc.a.run.app",
-        "COMPILE_GENERATION_L0186": "rust-1",
+        "COMPILE_GENERATION_L0186": "interp-1",
+        "INTERPRETER_L0186": "on",
         "SYSTEM_SIGNING_STAGES_PER_CLIENT_PER_MINUTE": "10",
         "SYSTEM_SIGNING_STAGES_BURST": "10"
       },
