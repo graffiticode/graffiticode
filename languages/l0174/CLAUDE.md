@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Two implementations live here.** `packages/` is the TypeScript L0174 that production runs; `crates/` is L0174 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+> **Two implementations live here.** `crates/` is L0174 in Rust, which production runs (`l0174r`, since 2026-10-30); `packages/` is the TypeScript L0174, still deployed as `l0174` (min 0) as the switch's rollback target, and still the source of the static assets and the conformance fixtures. Everything down to "The Rust implementation" describes the TypeScript side.
 
 ## Commands
 
@@ -93,7 +93,7 @@ The embedded form supports iframe embedding and communicates with parent windows
 
 ## The Rust implementation (`crates/`)
 
-This directory holds **two implementations of L0174**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0174`). `crates/` is the same language in Rust, to be released to its own service `l0174r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec are shared by both.
+This directory holds **two implementations of L0174**. `packages/core` and `packages/api` are the TypeScript compiler and server (Cloud Run service `l0174`, min 0, kept as the switch's rollback target). `crates/` is the same language in Rust, released to its own service `l0174r`, which production runs: the api routes L0174 there (`BASE_URL_L0174`, interpreter plan A1, 2026-10-30, with the `upstream-envelope` rule: the posted state an envelope delivers is laid over the form at the top level; evidence in `docs/evidence/track-a-batch-l0174-l0175-l0183/`). `packages/view` and the spec are shared by both.
 
 - `crates/core` (`graffiticode-l0174`) — the whole dialect, in `src/lib.rs`: `L0174` implements `Dialect` from `graffiticode-l0000`. Two tables drive it, as in `compiler.ts`: `ATTRIBUTES` (tag → the field an arity-2 word sets) and `ELEMENTS` (tag → the type an arity-1 field word stamps). `lexicon()` is the base lexicon merged with `src/lexicon-additions.json`.
 - `crates/server` (`l0174r-server`, binary `l0174r`) — `l0000r_server::serve(L0174, lexicon())`. Routes, auth and static serving live in `languages/l0000/crates/server`.

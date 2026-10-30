@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Two implementations live here.** `packages/` is the TypeScript L0175 that production runs; `crates/` is L0175 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+> **Two implementations live here.** `crates/` is L0175 in Rust, which production runs (`l0175r`, since 2026-10-30); `packages/` is the TypeScript L0175, still deployed as `l0175` (min 0) as the switch's rollback target, and still the source of the static assets and the conformance fixtures. Everything down to "The Rust implementation" describes the TypeScript side.
 
 ## Commands
 
@@ -102,7 +102,7 @@ The embedded form supports iframe embedding and communicates with parent windows
 
 ## The Rust implementation (`crates/`)
 
-This directory holds **two implementations of L0175**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0175`). `crates/` is the same language in Rust, to be released to its own service `l0175r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec are shared by both.
+This directory holds **two implementations of L0175**. `packages/core` and `packages/api` are the TypeScript compiler and server (Cloud Run service `l0175`, min 0, kept as the switch's rollback target). `crates/` is the same language in Rust, released to its own service `l0175r`, which production runs: the api routes L0175 there (`BASE_URL_L0175`, interpreter plan A2, 2026-10-30; evidence in `docs/evidence/track-a-batch-l0174-l0175-l0183/`). `packages/view` and the spec are shared by both.
 
 - `crates/core` (`graffiticode-l0175`) — the language:
   - `src/lib.rs` — `L0175` implements `Dialect` from `graffiticode-l0000`: the attribute words (one table, tag → field), the six words that close an element's chain, and the `PROG` override that composes. `lexicon()` is the base lexicon merged with `src/lexicon-additions.json`.
@@ -147,6 +147,15 @@ Where an element was written travels on its record under a key no program can wr
 `crates/core/tests/conformance/generate.mjs` builds its corpus from the shipped examples (`spec/examples/*.gc`, every target with every task model), each example with something removed or changed (about 45 mutations, each applied to one example in five), the pool the TypeScript suite composes from, and hand-written cases for sentence splitting, word meanings and degenerate programs. `tests/conformance.rs` requires the same JSON text or the same error messages for all 298 cases. `L0175_EVERY_MUTATION=1 node crates/core/tests/conformance/generate.mjs` writes every mutation of every example (988 cases, 18MB) for a one-off run; do not commit that fixture.
 
 One deliberate difference: a chain that ends in a record literal with fields (`claim id "c1" {text: "…"}`) instead of `{}`. TypeScript does not see the literal's fields; the Rust does.
+
+### The interpreter pass (plan C1)
+
+`L0175::input_independent` is `!ast.reads_input()`: an item is composed from its program alone,
+so a program that doesn't read its input (all of the conformance corpus) compiles to a value
+model, evaluated once; one that does (`data`, a `get-var` that may name it) is a plan.
+`tests/interpret.rs` requires `interpret(model(case), input)` to write exactly what
+`compile(case, input)` writes for every case, in both modes and against three inputs. The api
+interprets L0175 only while `INTERPRETER_L0175=on`.
 
 ### Deploying the Rust server
 
