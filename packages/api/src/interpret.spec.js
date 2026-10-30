@@ -244,6 +244,11 @@ describe("getData with interpreted stages", () => {
     // The models are compiled again (they name the revision); neither stage is interpreted again.
     expect(t.interpreter.interpret).toHaveBeenCalledTimes(2);
     expect(t.stages.map(s => s.cache)).toEqual(["hit", "hit"]);
+    // A hit times its model compile and its lookup, and never interprets.
+    for (const s of t.stages) {
+      expect(Object.keys(s.ms).sort()).toEqual(["cache", "model"]);
+      expect(typeof s.ms.model).toBe("number");
+    }
     expect((await t.compileStorer.get({ id })).data).toEqual({ stale: true });
   });
 

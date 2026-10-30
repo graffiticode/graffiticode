@@ -13,7 +13,7 @@ name, one chart or a collection of charts shown as tabs. It replaces L0173 (a le
 It lives in the graffiticode monorepo as a **self-contained npm project**: its own lockfile,
 install, build and tests, all run from this directory.
 
-> **Two implementations live here.** `packages/` is the TypeScript L0184 that production runs; `crates/` is L0184 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+> **Two implementations live here.** `crates/` is L0184 in Rust, which production runs (`l0184r`, since 2026-10-29, interpreted since 2026-10-30); `packages/` is the TypeScript L0184, still deployed as `l0184` (min 0) as the switch's rollback target, and still the source of the static assets, the vocabulary and the conformance fixtures. Everything down to "The Rust implementation" describes the TypeScript side.
 
 ## Commands
 
@@ -113,7 +113,7 @@ data, L0170's successor on L0000) is planned: `data use "0185"` supplies a datas
 
 ## The Rust implementation (`crates/`)
 
-This directory holds **two implementations of L0184**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0184`). `crates/` is the same language in Rust, released to its own service `l0184r` so it can be vetted before it replaces the TypeScript. `packages/view` (the ECharts Form), the spec and the static assets are shared by both. A language change goes into the TypeScript first, then `npm run rust:fixtures`, then the Rust until `cargo test` passes.
+This directory holds **two implementations of L0184**. `crates/` is the language in Rust, released to its own service `l0184r`, which production runs: the api routes L0184 there (`BASE_URL_L0184`, interpreter plan A1, 2026-10-29) and interprets it (`INTERPRETER_L0184=on`, C1, 2026-10-30). `packages/core` and `packages/api` are the TypeScript compiler and server, still deployed as `l0184` (min 0) for rollback and still needed to build the static assets and generate the Rust data (interpreter plan A6 lists what must change before they can go). `packages/view` (the ECharts Form), the spec and the static assets are shared by both. A language change goes into the TypeScript first, then `npm run rust:fixtures`, then the Rust until `cargo test` passes.
 
 - `crates/core` (`graffiticode-l0184`) — `L0184` implements `Dialect` from `graffiticode-l0000`; `lexicon()` is the base lexicon merged with `src/lexicon-additions.json` (no base word is redefined). `src/lib.rs` dispatches every word by its row in the vocabulary (property, member, container) and holds the containers and PROG; `src/vocab.rs` is `attributes.ts` (`checkValue`, `hintFor`, `assertKnown*`) over `src/vocab.json`; `src/chart.rs`, `src/collection.rs`, `src/data.rs`, `src/colors.rs` and `src/stats.rs` are their TypeScript namesakes. `src/js.rs` is the plain JavaScript value a TypeScript handler sees after `toPlainObject` (`undefined`, key order, `String()`, `JSON.stringify`, `trim`, property reads that fail on `null` as JavaScript's do); `src/date.rs` is V8's `Date.parse`.
 - `src/vocab.json` and `src/lexicon-additions.json` are **generated**: the vocabulary and legality tables and the example descriptions from `attributes.ts`, and the Tailwind table read out of `colors.ts`. Edit the TypeScript and regenerate.
@@ -153,7 +153,7 @@ None in the fixture. (A number of 2^64 or more, `values [1e20]`, once came out a
 
 ### The interpreter pass (plan C1)
 
-`L0184::input_independent` is `!ast.reads_input()`: a chart description that doesn't read its input (no `data`, no `get-var` that may name it) compiles to a value model, evaluated once; one that reads it (`rows data use "0185"`) is a plan the kernel evaluates against the input. `tests/interpret.rs` requires `interpret(model(case), data)` to write exactly what `compile(case, data)` writes for every conformance case. The API uses this only while `INTERPRETER_L0184=on`.
+`L0184::input_independent` is `!ast.reads_input()`: a chart description that doesn't read its input (no `data`, no `get-var` that may name it) compiles to a value model, evaluated once; one that reads it (`rows data use "0185"`) is a plan the kernel evaluates against the input. `tests/interpret.rs` requires `interpret(model(case), data)` to write exactly what `compile(case, data)` writes for every conformance case. The API interprets L0184 while `INTERPRETER_L0184=on` (on in production since 2026-10-30; evidence in `docs/evidence/interpreter-c1-l0184/`).
 
 ### Deploying the Rust server
 

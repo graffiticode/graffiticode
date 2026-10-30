@@ -379,10 +379,21 @@ const buildGetData = ({
       const mode = index === 0 ? "present" : "evaluate";
       const modelBaseUrl = routeFor(task.lang);
       const baseUrl = interpreterLang === lang ? modelBaseUrl : routeFor(interpreterLang);
-      const record = { stage, lang, interpreterLang, mode, run: "interpret" };
+      // How long each call took (ms), so a stage-cache hit's latency (still a model
+      // compile) and a miss's (model and interpret) can be told apart in the logs.
+      const ms = {};
+      const timed = async (name, call) => {
+        const started = Date.now();
+        try {
+          return await call();
+        } finally {
+          ms[name] = Date.now() - started;
+        }
+      };
+      const record = { stage, lang, interpreterLang, mode, run: "interpret", ms };
       const failure = (message, code) =>
         ({ out: { data: null, errors: [failedWith(message, code)] }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: code } });
-      const compiled = await interpreter.model({ lang, code: task.code, auth: authToken, options, uid, baseUrl: modelBaseUrl });
+      const compiled = await timed("model", () => interpreter.model({ lang, code: task.code, auth: authToken, options, uid, baseUrl: modelBaseUrl }));
       if (compiled?.responseLost) return failure(`Error: stage ${stage}'s compiler didn't answer`, "compile-response-lost");
       if (Array.isArray(compiled?.errors) && compiled.errors.length) {
         return { out: { data: null, errors: compiled.errors }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: "compile-errors" } };
@@ -417,7 +428,7 @@ const buildGetData = ({
       if (key && inputSharable && !refresh) {
         let hit;
         try {
-          hit = await stageResults.get({ key });
+          hit = await timed("cache", () => stageResults.get({ key }));
         } catch (e) {
           console.log("ERROR reading the stage cache", e?.message);
         }
@@ -428,7 +439,7 @@ const buildGetData = ({
           return { out: hit.data, own, baseUrl, hit: true, record: { ...record, revision, cache: "hit" } };
         }
       }
-      const reply = await interpreter.interpret({ lang: interpreterLang, model, input: data, mode, auth: authToken, options, uid, baseUrl });
+      const reply = await timed("interpret", () => interpreter.interpret({ lang: interpreterLang, model, input: data, mode, auth: authToken, options, uid, baseUrl }));
       const own = reply?.responseLost ? NO_STORE : capped(reply);
       const out = takeEffects(withoutStageMetadata(reply), index);
       // What the entry may be kept as: the result's own terms and its input's
