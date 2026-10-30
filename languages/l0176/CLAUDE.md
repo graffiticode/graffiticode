@@ -95,8 +95,9 @@ An Author activity arriving as data is a compile error pointing to L0177.
   - `src/components/form/Form.tsx`: language-specific form rendering
   - `src/components/form/contentKey.ts`: stable key for the one-time `LearnosityApp.init`
   - `src/components/form/resolve.ts` / `sign.ts`: resolve-then-sign (below)
-  - `src/generation.ts`: SWR middleware the `/form` bundle installs around the View, so its
-    data load carries the `generation` of the `?url=` the api's `/form` redirect passes
+  - The shared View (l0000-view 0.5.0) carries the `generation` of the `?url=` the api's `/form`
+    redirect passes onto its data load and recompiles itself (`src/form-load.test.tsx` checks it
+    for an L0158 item); L0176's own middleware for it was retired
   - `embed/`: standalone HTML entry built by `vite.embed.config.ts` for embedding in the API's static bundle
   - Built on top of `@graffiticode/l0000-view`
 
