@@ -118,6 +118,10 @@
         "INTERPRETER_L0175": "on",
         "BASE_URL_L0183": "https://l0183r-sja7fatcta-uc.a.run.app",
         "COMPILE_GENERATION_L0183": "rust-1",
+        "BASE_URL_L0180": "https://l0180r-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0180": "rust-1",
+        "BASE_URL_L0014": "https://l0014r-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0014": "rust-1",
         "SYSTEM_SIGNING_STAGES_PER_CLIENT_PER_MINUTE": "10",
         "SYSTEM_SIGNING_STAGES_BURST": "10"
       },
