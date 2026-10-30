@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { answerProblem, compareCase, compareInterpreted, compareLexicon, compareProbe, comparable, corpusBlock, formAssets, formProblems, isEnvelope, ruleProblems, sendable } from "../lang-parity.js";
+import { answerProblem, asDelivered, compareCase, compareInterpreted, compareLexicon, compareProbe, comparable, corpusBlock, formAssets, formProblems, isEnvelope, ruleProblems, sendable } from "../lang-parity.js";
 
 const answer = (status, body) => ({ status, text: JSON.stringify(body) });
 
@@ -166,4 +166,12 @@ test("--interpreted: a program with no model must fail exactly as it compiles", 
   assert.equal(compareInterpreted(answer({ data: null, errors }), noModel, null), "identical");
   assert.equal(compareInterpreted(answer({ data: null, errors: [{ message: "other", from: 0, to: 1 }] }), noModel, null), "different");
   assert.equal(compareInterpreted(answer({ data: 1, errors: [] }), noModel, null), "different");
+});
+
+test("a case's data is also sent as the API delivers it: wrapped in the stage below's envelope", () => {
+  assert.deepEqual(asDelivered({ title: "x" }), { data: { title: "x" }, errors: [] });
+  assert.deepEqual(asDelivered([1, 2]), { data: [1, 2], errors: [] });
+  assert.deepEqual(asDelivered("text"), { data: "text", errors: [] });
+  // No data, or an empty record (which POST /compile never appends as a stage): nothing to deliver.
+  for (const none of [undefined, null, {}]) assert.equal(asDelivered(none), null);
 });
