@@ -1,0 +1,4 @@
+board [
+  page [ ] id "p1" name "One" {}
+  page [ ] id "p2" name "Two" {}
+] show-page-tabs false {}..

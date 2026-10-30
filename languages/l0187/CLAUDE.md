@@ -26,13 +26,38 @@ come) and dev tools.
     and the spelling rules (`font-size` → field `fontSize`, node tag `FONT_SIZE`).
   - `src/lexicon.rs` — the lexicon derived from the vocabulary, merged over L0000's (shadowing
     nothing).
+  - `src/check.rs` — value checks (`check_value`): ids, tags, colours, counts, opacity, id
+    lists. Every value is checked when evaluated, wherever it came from.
+  - `src/eval.rs` — the handlers: a property checks its value and extends its chain; a member
+    checks its description (keys ⊆ its properties, values valid, required present) and yields
+    `{sticky: …}`; a container checks its items and settings (and the layout rules: `columns`
+    only with GRID, which needs it; `direction` only with FLOW) and yields
+    `{section: {settings, children}}`. Items that did not come from a handler (records, bindings,
+    upstream data) are re-checked the same way, so forbidden fields can't slip in. Errors are
+    positioned at the word, carry `code` and `category` (`src/diag.rs`), and are product
+    surface: `tests/expected.json` pins every one.
+  - `src/ir.rs` — the semantic board (pages → region tree of marks/sections/groups, page
+    connectors), defaults filled. `src/resolve.rs` — board-wide ids, one tier of sections,
+    same-page mark endpoints, `before` legality and strict-cycle detection, positioned through a
+    source map of `id "…"` literals.
+  - `src/lib.rs` — `Dialect`: dispatch, `PROG` (one board, at most one `save-to-figjam`, upstream
+    data never merged), and `check` (early `{}`, hints on removed geometry words and missing
+    terminators, which reach us as parser errors).
   - `src/bin/emit.rs` — writes the vocabulary-derived files to `generated/`, or `--check`s them.
+
+Until layout lands, a compile returns the semantic board itself (`{type: "board", profile, …,
+pages: [{id, name, region, connectors}]}`); the positioned output replaces it.
 - `crates/server` (`l0187-server`, binary `l0187`) — `l0000r_server::serve_with(L0187, …)`.
 - `generated/` — **committed** emit output (`lexicon.json` so far; `schema.json` later). The
   freshness target for `emit --check`, and what the static assembly copies.
 - `crates/core/tests/programs/*.gc` — test programs, one per file; `invalid-*` must be rejected.
   `tools/parse-cases.mjs` parses them with `@graffiticode/parser` and `generated/lexicon.json`
   into `crates/core/tests/cases.json` (there is no Rust parser; the API parses upstream).
+- `crates/core/tests/compile.rs` — every program against the reviewed snapshot
+  `tests/expected.json` (output, or every error's message/code/category/position); upstream data
+  never changes a board; compiling is repeatable. `UPDATE_EXPECT=1 cargo test --test compile`
+  rewrites the snapshot — review the diff. `tests/interpret.rs` — the C1 interpreter pass
+  interprets every program exactly as it compiles.
 - `crates/core/tests/vocabulary.rs` — the vocabulary must equal the design doc's tables (words,
   arities, property words, allowed-property sets, container children, closed sets, required
   properties, removed geometry words), the committed lexicon must be current, and every test

@@ -1,0 +1,1193 @@
+{
+  "agenda": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "agenda",
+          "name": "Agenda",
+          "region": {
+            "layout": {
+              "mode": "COLUMN"
+            },
+            "children": [
+              {
+                "type": "textbox",
+                "id": "heading",
+                "text": "Workshop agenda",
+                "opacity": 100,
+                "fontSize": "LARGE"
+              },
+              {
+                "type": "group",
+                "id": "agenda-panels",
+                "region": {
+                  "layout": {
+                    "mode": "ROW"
+                  },
+                  "children": [
+                    {
+                      "type": "section",
+                      "id": "goals",
+                      "name": "Goals",
+                      "opacity": 100,
+                      "region": {
+                        "layout": {
+                          "mode": "AUTO"
+                        },
+                        "children": [
+                          {
+                            "type": "textbox",
+                            "id": "goal",
+                            "text": "Agree on the release scope",
+                            "opacity": 100,
+                            "fontSize": "MEDIUM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "id": "topics",
+                      "name": "Topics",
+                      "opacity": 100,
+                      "region": {
+                        "layout": {
+                          "mode": "GRID",
+                          "columns": 2
+                        },
+                        "children": [
+                          {
+                            "type": "sticky",
+                            "id": "scope",
+                            "text": "Discuss scope",
+                            "opacity": 100,
+                            "fontSize": "MEDIUM"
+                          },
+                          {
+                            "type": "sticky",
+                            "id": "risk",
+                            "text": "Review risks",
+                            "opacity": 100,
+                            "fontSize": "MEDIUM"
+                          },
+                          {
+                            "type": "sticky",
+                            "id": "owner",
+                            "text": "Assign owners",
+                            "opacity": 100,
+                            "fontSize": "MEDIUM"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "connectors": []
+        }
+      ]
+    }
+  },
+  "all-properties": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "title": "All",
+      "showPageTabs": true,
+      "showPageMenu": true,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Page",
+          "background": "#eeeeee",
+          "region": {
+            "layout": {
+              "mode": "GRID",
+              "columns": 2
+            },
+            "children": [
+              {
+                "type": "sticky",
+                "id": "s",
+                "text": "",
+                "fill": "#fc0",
+                "opacity": 50,
+                "fontSize": "LARGE"
+              },
+              {
+                "type": "shape",
+                "id": "sh",
+                "text": "Shape",
+                "kind": "ENG_DATABASE",
+                "fill": "white",
+                "stroke": "#112233",
+                "strokeWidth": "THICK",
+                "opacity": 80,
+                "fontSize": "SMALL"
+              },
+              {
+                "type": "textbox",
+                "id": "t",
+                "text": "Line one\nLine two",
+                "color": "gray",
+                "opacity": 100,
+                "fontSize": "HUGE"
+              }
+            ]
+          },
+          "connectors": [
+            {
+              "id": "c",
+              "from": "s",
+              "to": "t",
+              "label": "",
+              "stroke": "red",
+              "strokeWidth": "THICK",
+              "opacity": 40,
+              "fontSize": "MEDIUM",
+              "lineStyle": "DASHED",
+              "fromCap": "CIRCLE_FILLED",
+              "toCap": "TRIANGLE_FILLED"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cross-section-flow": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Page",
+          "region": {
+            "layout": {
+              "mode": "FLOW",
+              "direction": "DOWN"
+            },
+            "children": [
+              {
+                "type": "section",
+                "id": "left",
+                "name": "Left",
+                "opacity": 100,
+                "region": {
+                  "layout": {
+                    "mode": "AUTO"
+                  },
+                  "children": [
+                    {
+                      "type": "sticky",
+                      "id": "a",
+                      "text": "A",
+                      "opacity": 100,
+                      "fontSize": "MEDIUM"
+                    }
+                  ]
+                },
+                "before": [
+                  "right"
+                ]
+              },
+              {
+                "type": "section",
+                "id": "right",
+                "name": "Right",
+                "opacity": 100,
+                "region": {
+                  "layout": {
+                    "mode": "AUTO"
+                  },
+                  "children": [
+                    {
+                      "type": "sticky",
+                      "id": "b",
+                      "text": "B",
+                      "opacity": 100,
+                      "fontSize": "MEDIUM"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "connectors": [
+            {
+              "id": "ab",
+              "from": "a",
+              "to": "b",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "SOLID",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "empty-template": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "title": "Workshop",
+      "showPageTabs": true,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Template",
+          "region": {
+            "layout": {
+              "mode": "ROW"
+            },
+            "children": [
+              {
+                "type": "section",
+                "id": "ideas",
+                "name": "Ideas",
+                "opacity": 100,
+                "region": {
+                  "layout": {
+                    "mode": "AUTO"
+                  },
+                  "children": []
+                }
+              },
+              {
+                "type": "group",
+                "id": "spare",
+                "region": {
+                  "layout": {
+                    "mode": "AUTO"
+                  },
+                  "children": []
+                }
+              }
+            ]
+          },
+          "connectors": []
+        },
+        {
+          "id": "p2",
+          "name": "Empty page",
+          "region": {
+            "layout": {
+              "mode": "AUTO"
+            },
+            "children": []
+          },
+          "connectors": []
+        }
+      ]
+    }
+  },
+  "evaluated-description": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Page",
+          "region": {
+            "layout": {
+              "mode": "ROW"
+            },
+            "children": [
+              {
+                "type": "sticky",
+                "id": "a",
+                "text": "Shared text",
+                "fill": "yellow",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              },
+              {
+                "type": "sticky",
+                "id": "b",
+                "text": "Shared text",
+                "fill": "yellow",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              }
+            ]
+          },
+          "connectors": []
+        }
+      ]
+    }
+  },
+  "flow-return": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "processing",
+          "name": "Processing",
+          "region": {
+            "layout": {
+              "mode": "FLOW",
+              "direction": "RIGHT"
+            },
+            "children": [
+              {
+                "type": "shape",
+                "id": "fetch",
+                "text": "Fetch data",
+                "kind": "ROUNDED_RECTANGLE",
+                "strokeWidth": "THIN",
+                "opacity": 100,
+                "fontSize": "MEDIUM",
+                "before": [
+                  "valid"
+                ]
+              },
+              {
+                "type": "shape",
+                "id": "valid",
+                "text": "Valid?",
+                "kind": "DIAMOND",
+                "strokeWidth": "THIN",
+                "opacity": 100,
+                "fontSize": "MEDIUM",
+                "before": [
+                  "save",
+                  "error"
+                ]
+              },
+              {
+                "type": "shape",
+                "id": "save",
+                "text": "Save result",
+                "kind": "ROUNDED_RECTANGLE",
+                "strokeWidth": "THIN",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              },
+              {
+                "type": "shape",
+                "id": "error",
+                "text": "Report error",
+                "kind": "ROUNDED_RECTANGLE",
+                "strokeWidth": "THIN",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              }
+            ]
+          },
+          "connectors": [
+            {
+              "id": "fetch-valid",
+              "from": "fetch",
+              "to": "valid",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "SOLID",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            },
+            {
+              "id": "valid-save",
+              "from": "valid",
+              "to": "save",
+              "label": "Yes",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "SOLID",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            },
+            {
+              "id": "valid-error",
+              "from": "valid",
+              "to": "error",
+              "label": "No",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "SOLID",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            },
+            {
+              "id": "retry",
+              "from": "error",
+              "to": "fetch",
+              "label": "Retry",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "DASHED",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "invalid-before-descendant": {
+    "errors": [
+      {
+        "message": "sticky \"a\": before \"b\" is a sticky that is not a direct child of page \"p1\". `before` orders siblings in the same FLOW region: name one of \"g\".",
+        "from": 23,
+        "to": 25,
+        "code": "before-reference",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-before-duplicate": {
+    "errors": [
+      {
+        "message": "before: \"b\" is listed twice.",
+        "from": 39,
+        "to": 45,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-before-in-auto": {
+    "errors": [
+      {
+        "message": "sticky \"a\": `before` is legal only on a direct child of a `layout FLOW` region, and page \"p1\" is AUTO (the default): write `layout FLOW` on it to order its children by `before`, or use ROW, COLUMN or GRID, which keep the written order.",
+        "from": 23,
+        "to": 25,
+        "code": "before-placement",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-before-in-row": {
+    "errors": [
+      {
+        "message": "sticky \"a\": `before` is legal only on a direct child of a `layout FLOW` region, and page \"p1\" is ROW: ROW already keeps the children in the order they are written, so reorder them, or choose `layout FLOW`.",
+        "from": 23,
+        "to": 25,
+        "code": "before-placement",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-before-self": {
+    "errors": [
+      {
+        "message": "sticky \"a\": `before` names itself. A child comes before its siblings, not itself.",
+        "from": 23,
+        "to": 25,
+        "code": "before-reference",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-color": {
+    "errors": [
+      {
+        "message": "fill: expected a hex colour like \"#ffcc00\" or one of red, blue, green, yellow, purple, orange, pink, white, black, gray, got \"chartreuse\".",
+        "from": 39,
+        "to": 43,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-columns-fractional": {
+    "errors": [
+      {
+        "message": "columns: expected a whole number of columns, 1 or more, got 1.5.",
+        "from": 76,
+        "to": 83,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-connector-in-section": {
+    "errors": [
+      {
+        "message": "section \"s\": item 2 is `connector`, which is not a member of section. It holds: sticky, shape, textbox, group. Connectors are written directly in the page.",
+        "from": 15,
+        "to": 22,
+        "code": "not-a-member",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-cross-page-endpoint": {
+    "errors": [
+      {
+        "message": "connector \"ab\" is on page \"p1\" but its to \"b\" is a sticky on page \"p2\". A connector joins marks on the same page: put the connector and both marks on one page, or connect a mark on page \"p1\".",
+        "from": 54,
+        "to": 56,
+        "code": "cross-page-endpoint",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-direction-without-flow": {
+    "errors": [
+      {
+        "message": "page \"p1\": `direction` is legal only with `layout FLOW`, e.g. `page [ … ] id \"steps\" layout FLOW direction DOWN {}`.",
+        "from": 8,
+        "to": 12,
+        "code": "misplaced-setting",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-duplicate-id": {
+    "errors": [
+      {
+        "message": "id \"a\" is used by a sticky on page \"p1\" and again by a shape on page \"p1\". Ids are unique across the whole board: rename one, e.g. id \"a-2\".",
+        "from": 48,
+        "to": 50,
+        "code": "duplicate-id",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-early-close": {
+    "errors": [
+      {
+        "message": "sticky \"a\": needs `text`, e.g. sticky id \"idea\" text \"Idea\" {}.",
+        "from": 15,
+        "to": 21,
+        "code": "missing-property",
+        "category": "source"
+      },
+      {
+        "message": "page \"p1\": item 2 is `text`, which is not a member of page. It holds: sticky, shape, textbox, section, group, connector. If `text` belongs to the description before it, a `{}` ended that description early: a description ends in exactly one `{}`, after its last word.",
+        "from": 8,
+        "to": 12,
+        "code": "not-a-member",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-empty-board": {
+    "errors": [
+      {
+        "message": "A board needs at least one page, e.g. board [ page [ ] id \"p1\" name \"Page 1\" {} ] {}.",
+        "from": -1,
+        "to": -1,
+        "code": "empty-board",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-endpoint-missing": {
+    "errors": [
+      {
+        "message": "connector \"c\": to \"zz\" names nothing on the board. A connector joins two marks by their ids: give the mark `id \"zz\"`, or use the id it has.",
+        "from": 52,
+        "to": 54,
+        "code": "endpoint",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-endpoint-section": {
+    "errors": [
+      {
+        "message": "connector \"c\": from \"s\" is a section. A connector joins stickies, shapes and textboxes: name a mark inside it instead.",
+        "from": 109,
+        "to": 111,
+        "code": "endpoint",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-field-spelling": {
+    "errors": [
+      {
+        "message": "sticky \"a\": `fontSize` is not a property of sticky. It takes: id, text, fill, opacity, font-size, before. Write it as `font-size`.",
+        "from": 15,
+        "to": 21,
+        "code": "unknown-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-forbidden-evaluated": {
+    "errors": [
+      {
+        "message": "sticky \"a\": `width` is not a property of sticky. It takes: id, text, fill, opacity, font-size, before. L0187 computes placement, so `width` is not a word: arrange content with `layout` (ROW, COLUMN, GRID with `columns`, or FLOW with `direction` and `before`) on the page, section or group that holds it, e.g. `group [ … ] id \"cards\" layout GRID columns 3 {}`.",
+        "from": 67,
+        "to": 73,
+        "code": "unknown-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-forbidden-record": {
+    "errors": [
+      {
+        "message": "sticky \"a\": `x` is not a property of sticky. It takes: id, text, fill, opacity, font-size, before. L0187 computes placement, so `x` is not a word: arrange content with `layout` (ROW, COLUMN, GRID with `columns`, or FLOW with `direction` and `before`) on the page, section or group that holds it, e.g. `group [ … ] id \"cards\" layout GRID columns 3 {}`.",
+        "from": 15,
+        "to": 21,
+        "code": "unknown-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-grid-without-columns": {
+    "errors": [
+      {
+        "message": "page \"p1\": `layout GRID` needs `columns`, e.g. `page [ … ] id \"cards\" layout GRID columns 3 {}`.",
+        "from": 8,
+        "to": 12,
+        "code": "missing-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-misplaced-columns": {
+    "errors": [
+      {
+        "message": "group \"g\": `columns` is legal only with `layout GRID`, e.g. `group [ … ] id \"cards\" layout GRID columns 3 {}`. The legal settings of a group are: id, layout, direction, columns, before.",
+        "from": 15,
+        "to": 20,
+        "code": "misplaced-setting",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-misplaced-property": {
+    "errors": [
+      {
+        "message": "textbox \"t\": `fill` is not a property of textbox. It takes: id, text, color, opacity, font-size, before. `fill` belongs to: sticky, shape, section.",
+        "from": 15,
+        "to": 22,
+        "code": "unknown-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-missing-id": {
+    "errors": [
+      {
+        "message": "sticky: needs `id`, e.g. sticky id \"idea\" text \"Idea\" {}.",
+        "from": 15,
+        "to": 21,
+        "code": "missing-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-missing-page-name": {
+    "errors": [
+      {
+        "message": "page \"p1\": needs `name`, e.g. page [ sticky id \"idea\" text \"Idea\" {} ] id \"p1\" name \"Ideas\" {}.",
+        "from": 8,
+        "to": 12,
+        "code": "missing-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-missing-text": {
+    "errors": [
+      {
+        "message": "sticky \"a\": needs `text`, e.g. sticky id \"idea\" text \"Idea\" {}.",
+        "from": 15,
+        "to": 21,
+        "code": "missing-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-no-board": {
+    "errors": [
+      {
+        "message": "A program is one board, ending in `..`: e.g. board [ page [ sticky id \"a\" text \"Hello\" {} ] id \"p1\" name \"Page 1\" {} ] {}..",
+        "from": -1,
+        "to": -1,
+        "code": "program-shape",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-not-a-member": {
+    "errors": [
+      {
+        "message": "page \"p1\": item 1 is \"hello\", which is not a member of page. It holds: sticky, shape, textbox, section, group, connector.",
+        "from": 8,
+        "to": 12,
+        "code": "not-a-member",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-number-id": {
+    "errors": [
+      {
+        "message": "id: an id is a quoted string, like \"idea\"; got 7.",
+        "from": 23,
+        "to": 25,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-opacity": {
+    "errors": [
+      {
+        "message": "opacity: expected a number from 0 to 100, got 150.",
+        "from": 39,
+        "to": 46,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-page-navigation": {
+    "errors": [
+      {
+        "message": "A board with more than one page cannot hide both its page tabs and its page menu: drop `show-page-tabs false` or write `show-page-menu true`.",
+        "from": -1,
+        "to": -1,
+        "code": "page-navigation",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-quoted-tag": {
+    "errors": [
+      {
+        "message": "kind: expected one of SQUARE, ROUNDED_RECTANGLE, ELLIPSE, DIAMOND, PARALLELOGRAM_RIGHT, PREDEFINED_PROCESS, DOCUMENT_SINGLE, ENG_DATABASE, got \"diamond\". Write it bare and uppercase, without quotes: kind DIAMOND.",
+        "from": 38,
+        "to": 42,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-removed-geometry": {
+    "errors": [
+      {
+        "message": "Undefined reference 'x'. L0187 computes placement, so `x` is not a word: arrange content with `layout` (ROW, COLUMN, GRID with `columns`, or FLOW with `direction` and `before`) on the page, section or group that holds it, e.g. `group [ … ] id \"cards\" layout GRID columns 3 {}`.",
+        "from": 39,
+        "to": 40,
+        "code": "removed-geometry",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-removed-stamp": {
+    "errors": [
+      {
+        "message": "Undefined reference 'stamp'. `stamp` is not part of L0187.",
+        "from": 15,
+        "to": 20,
+        "code": "removed-word",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-repeated-property": {
+    "errors": [
+      {
+        "message": "text: is given twice. Each property appears once in a description.",
+        "from": 30,
+        "to": 34,
+        "code": "repeated-property",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-save-bad-key": {
+    "errors": [
+      {
+        "message": "save-to-figjam: expected a FigJam link like \"https://www.figma.com/board/ABC123/Name\" or a bare file key like \"ABC123\", got \"nope\".",
+        "from": 0,
+        "to": 14,
+        "code": "save-to-figjam",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-save-in-list": {
+    "errors": [
+      {
+        "message": "page \"p1\": item 1 is save-to-figjam, which is not a member of page. Write `save-to-figjam \"<file key or link>\"` on its own line before the board.",
+        "from": 8,
+        "to": 12,
+        "code": "save-to-figjam",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-save-twice": {
+    "errors": [
+      {
+        "message": "save-to-figjam is given twice. A board is drawn into one FigJam file: keep one save-to-figjam line.",
+        "from": -1,
+        "to": -1,
+        "code": "save-to-figjam",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-section-in-section": {
+    "errors": [
+      {
+        "message": "section \"inner\" is inside section \"outer\" (through a group). A section cannot hold another section, at any depth: make the inner one a group, or move it out beside \"outer\".",
+        "from": 46,
+        "to": 48,
+        "code": "section-in-section",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-section-in-section-direct": {
+    "errors": [
+      {
+        "message": "section \"outer\": item 1 is `section`, which is not a member of section. It holds: sticky, shape, textbox, group. A section cannot hold another section.",
+        "from": 15,
+        "to": 22,
+        "code": "not-a-member",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-star-id": {
+    "errors": [
+      {
+        "message": "id: \"*\" is reserved and cannot be an id or a reference.",
+        "from": 23,
+        "to": 25,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-strict-cycle": {
+    "errors": [
+      {
+        "message": "The `before` orders in page \"cycle\" form a cycle: a -> b -> a. Strict order cannot loop. Remove `before` from one of \"a\", \"b\"; a connector can still show the return path, e.g. connector id \"b-a\" from \"b\" to \"a\" {}.",
+        "from": 28,
+        "to": 30,
+        "code": "strict-cycle",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-strict-cycle-three": {
+    "errors": [
+      {
+        "message": "The `before` orders in page \"p1\" form a cycle: a -> b -> c -> a. Strict order cannot loop. Remove `before` from one of \"a\", \"b\", \"c\"; a connector can still show the return path, e.g. connector id \"c-a\" from \"c\" to \"a\" {}.",
+        "from": 25,
+        "to": 27,
+        "code": "strict-cycle",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-unterminated": {
+    "errors": [
+      {
+        "message": "Too few arguments for TEXT. Expected 2. `text` takes a value and then the rest of its description: every description ends in `{}` after its last word, e.g. `sticky id \"a\" text \"A\" {}`.",
+        "from": 30,
+        "to": 34,
+        "code": "unterminated-description",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-whitespace-id": {
+    "errors": [
+      {
+        "message": "id: an id must not start or end with white space; write \"a\".",
+        "from": 23,
+        "to": 25,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "invalid-wrong-tag-set": {
+    "errors": [
+      {
+        "message": "kind: expected one of SQUARE, ROUNDED_RECTANGLE, ELLIPSE, DIAMOND, PARALLELOGRAM_RIGHT, PREDEFINED_PROCESS, DOCUMENT_SINGLE, ENG_DATABASE, got ROW. ROW is a layout tag.",
+        "from": 38,
+        "to": 42,
+        "code": "invalid-value",
+        "category": "source"
+      }
+    ]
+  },
+  "planning": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "title": "Planning board",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "planning",
+          "name": "Planning",
+          "region": {
+            "layout": {
+              "mode": "FLOW",
+              "direction": "RIGHT"
+            },
+            "children": [
+              {
+                "type": "sticky",
+                "id": "idea",
+                "text": "Idea",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              },
+              {
+                "type": "sticky",
+                "id": "plan",
+                "text": "Plan",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              }
+            ]
+          },
+          "connectors": [
+            {
+              "id": "idea-plan",
+              "from": "idea",
+              "to": "plan",
+              "label": "develop",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "SOLID",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "retro": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "title": "Sprint retrospective",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "retro",
+          "name": "Sprint retrospective",
+          "region": {
+            "layout": {
+              "mode": "ROW"
+            },
+            "children": [
+              {
+                "type": "section",
+                "id": "went-well",
+                "name": "Went well",
+                "opacity": 100,
+                "region": {
+                  "layout": {
+                    "mode": "COLUMN"
+                  },
+                  "children": [
+                    {
+                      "type": "sticky",
+                      "id": "shipped",
+                      "text": "Shipped on time",
+                      "fill": "green",
+                      "opacity": 100,
+                      "fontSize": "MEDIUM"
+                    },
+                    {
+                      "type": "sticky",
+                      "id": "pairing",
+                      "text": "Pairing helped us resolve the integration issues",
+                      "fill": "green",
+                      "opacity": 100,
+                      "fontSize": "MEDIUM"
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "section",
+                "id": "improve",
+                "name": "To improve",
+                "opacity": 100,
+                "region": {
+                  "layout": {
+                    "mode": "COLUMN"
+                  },
+                  "children": [
+                    {
+                      "type": "sticky",
+                      "id": "flaky",
+                      "text": "Flaky tests delayed release verification",
+                      "fill": "pink",
+                      "opacity": 100,
+                      "fontSize": "MEDIUM"
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "section",
+                "id": "actions",
+                "name": "Action items",
+                "opacity": 100,
+                "region": {
+                  "layout": {
+                    "mode": "COLUMN"
+                  },
+                  "children": [
+                    {
+                      "type": "sticky",
+                      "id": "quarantine",
+                      "text": "Quarantine flaky tests and assign owners",
+                      "fill": "blue",
+                      "opacity": 100,
+                      "fontSize": "MEDIUM"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "connectors": []
+        }
+      ]
+    }
+  },
+  "save-to-figjam": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "fileKey": "ABC123xyz",
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Page",
+          "region": {
+            "layout": {
+              "mode": "AUTO"
+            },
+            "children": [
+              {
+                "type": "sticky",
+                "id": "a",
+                "text": "A",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              }
+            ]
+          },
+          "connectors": []
+        }
+      ]
+    }
+  },
+  "self-loop-parallel": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Graph",
+          "region": {
+            "layout": {
+              "mode": "FLOW",
+              "direction": "RIGHT"
+            },
+            "children": [
+              {
+                "type": "shape",
+                "id": "a",
+                "text": "A",
+                "kind": "SQUARE",
+                "strokeWidth": "THIN",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              },
+              {
+                "type": "shape",
+                "id": "b",
+                "text": "B",
+                "kind": "SQUARE",
+                "strokeWidth": "THIN",
+                "opacity": 100,
+                "fontSize": "MEDIUM"
+              }
+            ]
+          },
+          "connectors": [
+            {
+              "id": "loop",
+              "from": "a",
+              "to": "a",
+              "label": "again",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "SOLID",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            },
+            {
+              "id": "ab1",
+              "from": "a",
+              "to": "b",
+              "label": "first",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "SOLID",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            },
+            {
+              "id": "ab2",
+              "from": "a",
+              "to": "b",
+              "label": "second",
+              "strokeWidth": "THIN",
+              "opacity": 100,
+              "fontSize": "SMALL",
+              "lineStyle": "SOLID",
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

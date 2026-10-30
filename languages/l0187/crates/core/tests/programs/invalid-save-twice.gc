@@ -1,0 +1,3 @@
+save-to-figjam "ABCDEF1"
+save-to-figjam "ABCDEF2"
+board [ page [ ] id "p1" name "Page" {} ] {}..

@@ -5,7 +5,8 @@
 //! The design's tables (docs/l0187-language-design.md §3) are compared with [`vocab`] word for
 //! word: the words and their arities, every property word, the allowed-property sets, the
 //! container children and the closed sets. The served lexicon must be the committed
-//! `generated/lexicon.json`, and every test program must parse to words the lexicon defines.
+//! `generated/lexicon.json`, and every test program must parse to words the lexicon defines
+//! (and, unless it is an `invalid-*` program, parse without error).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -191,7 +192,8 @@ fn every_test_program_parses_to_known_words() {
             if let Node::Form { op: Op::Dialect(tag), .. } = node {
                 assert!(word_of_tag(tag).is_some(), "{}: {tag} is not an L0187 word", case.name);
             }
-            assert!(!matches!(node, Node::Form { op: Op::Error, .. }), "{}: a parse error", case.name);
+            let parse_error = matches!(node, Node::Form { op: Op::Error, .. });
+            assert!(!parse_error || case.name.starts_with("invalid-"), "{}: a parse error", case.name);
         }
     }
 }

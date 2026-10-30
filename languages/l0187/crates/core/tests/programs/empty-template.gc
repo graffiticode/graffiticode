@@ -1,0 +1,5 @@
+board [ page [
+  section [ ] id "ideas" name "Ideas" {}
+  group [ ] id "spare" {}
+] id "p1" name "Template" layout ROW {}
+page [ ] id "p2" name "Empty page" {} ] title "Workshop" {}..

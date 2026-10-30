@@ -1,0 +1,1 @@
+board [ page [ sticky id "a" text "A" {} shape id "a" text "A again" {} ] id "p1" name "Page" {} ] {}..

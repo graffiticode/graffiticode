@@ -1,0 +1,2 @@
+set-var "note" text "Shared text" fill "yellow" {}
+board [ page [ sticky id "a" get-var "note" sticky id "b" get-var "note" ] id "p1" name "Page" layout ROW {} ] {}..
