@@ -78,6 +78,16 @@
     {
       "kind": "upstream-envelope",
       "note": "The TypeScript PROG spreads options.data raw, so an envelope's data and errors keys go into the item; the Rust kernel unwraps it and spreads the learner's response (languages/l0180/CLAUDE.md). Kept, not copied (P4 decision 2026-10-28)."
+    },
+    {
+      "kind": "case",
+      "src": "choice [ get-var \"nope\" options [ [ text \"a\" ] ] {} ]..",
+      "note": "A reference to nothing inside a list: TypeScript holds undefined and names it so in the error; a kernel list holds null and the error says null. The same refusal, worded for the value each side has (languages/l0180/crates/core/tests/conformance.rs, diverges)."
+    },
+    {
+      "kind": "case",
+      "src": "paragraphs [ \"a\" get-var \"nope\" ]..",
+      "note": "A reference to nothing inside a list: TypeScript holds undefined and names it so in the error; a kernel list holds null and the error says null. The same refusal, worded for the value each side has (languages/l0180/crates/core/tests/conformance.rs, diverges)."
     }
   ],
   "0181": [
