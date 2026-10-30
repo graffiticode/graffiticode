@@ -200,6 +200,13 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
 **When a model may be a value.** A model is a value only when the compiler proves that *this program* is independent of its input: it neither reads `data` nor goes through a language step that merges input. Otherwise it is a plan, and constant folding happens only inside input-independent subexpressions. This is decided per program, not per language.
 
 1. **C1 Languages whose programs can be input-independent:** l0184 and l0186, which deliberately ignore input, and l0175. Programs that use the `data` operator are still plans.
+   - **C1 as built (2026-10-30), L0184, not yet active.**
+     - Kernel: `Ast::reads_input` (a reachable `data` form, or a `get-var` whose name isn't a literal other than `"data"`). L0184's `Dialect::input_independent` is `!reads_input()`. A program whose value is undefined stays a plan (a value model would answer `data: null` where `/compile` answers no `data`).
+     - Proof: `languages/l0184/crates/core/tests/interpret.rs` interprets every conformance case that compiles (674 value models, 82 plans) in both modes and requires the server's JSON to equal its compile; `languages/l0000/crates/core/tests/interpret.rs` does the same for the L0000 corpus with a dialect declaring the same rule.
+     - Live gate: `node scripts/lang-parity.js --lang 0184 --interpreted --rust <l0184r URL>` compares, per case, `/compile` with `/compile {form: "model"}` then `/interpret` in both modes, with no allowance.
+     - Manifest: `0184` declared `interpreter`, caps `immutable` in both modes (`INTERPRETER_MANIFEST_VERSION` 2). Inert until the API sets `INTERPRETER_L0184=on`.
+     - Deploy tool: a release or rollback that changes `INTERPRETER_LNNNN` or `COMMANDS_LNNNN` without changing `COMPILE_GENERATION_LNNNN` is refused (`flagGenerationProblems`).
+     - Activation: release `l0184r` with this kernel, run the live gate, then stage an API with `INTERPRETER_L0184=on` and `COMPILE_GENERATION_L0184=interp-1` as the canary and promote it with the gate's report as evidence.
 2. **C2 Languages that read their input:** l0174, l0003, l0179, l0180, l0181, l0183, l0177, l0178, l0010, l0014. These are plan models run by the kernel evaluator.
    - **L0174 is never a value model.** Its `PROG` merges upstream data into the form (`languages/l0174/packages/core/src/compiler.ts:168-174`), and its corpus expects the upstream `title` and extra fields, so returning the compiled value unchanged would lose them. Its interpreter performs that merge at runtime.
    - Do these as their chains allow: an upgraded downstream stage must receive the same input it did through the legacy adapter.

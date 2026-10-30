@@ -151,6 +151,10 @@ npm run rust:fixtures # build packages/core, then regenerate src/*.json and the 
 
 None in the fixture. (A number of 2^64 or more, `values [1e20]`, once came out as `1e+20`; the kernel now writes every number as `JSON.stringify` does, `100000000000000000000`.)
 
+### The interpreter pass (plan C1)
+
+`L0184::input_independent` is `!ast.reads_input()`: a chart description that doesn't read its input (no `data`, no `get-var` that may name it) compiles to a value model, evaluated once; one that reads it (`rows data use "0185"`) is a plan the kernel evaluates against the input. `tests/interpret.rs` requires `interpret(model(case), data)` to write exactly what `compile(case, data)` writes for every conformance case. The API uses this only while `INTERPRETER_L0184=on`.
+
 ### Deploying the Rust server
 
 `deploy.json` has an `l0184r` entry (own service, `l0184r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0184r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`, env `AUTH_URL` only). L0184 has no secrets and no protected functions. The only network call at compile time is the kernel's, for `data use "<lang>"`: the upstream language's `schema.json` from `GRAFFITICODE_API_URL` (default `https://api.graffiticode.org`), as the TypeScript does. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`). The account needs no roles.

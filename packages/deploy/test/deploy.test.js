@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig, SETTINGS } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run, streamOutput } from "../src/process.js";
-import { release, rollback, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV, forbiddenEnvProblems, promote, networkHash } from "../src/release.js";
+import { release, rollback, flagGenerationProblems, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV, forbiddenEnvProblems, promote, networkHash } from "../src/release.js";
 import { createRevisionClient, decodeFields, encodeFields, reachableProblems, retainedTags } from "../src/revisions.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
@@ -1487,4 +1487,50 @@ test("a second CA volume left over from the template doesn't hide a correct moun
   h.revisions.set("api-wrong", wrong);
   const found = await networkProblems(networked, ["api-twice", "api-wrong"], h.deps);
   assert.deepEqual(Object.fromEntries(found.map(p => [p.revision, p.problems])), { "api-wrong": ["ca"] });
+});
+
+test("an interpreter flag never changes without its language's compile generation", () => {
+  const base = { COMPILE_GENERATION_L0184: "rust-1" };
+  assert.deepEqual(flagGenerationProblems(base, base), []);
+  assert.deepEqual(flagGenerationProblems(base, { ...base, AUTH_URL: "x" }), []);
+  // On without a new generation: refused; with one: allowed.
+  assert.deepEqual(flagGenerationProblems(base, { ...base, INTERPRETER_L0184: "on" }),
+    [{ lang: "0184", flags: ["INTERPRETER_L0184"], generation: "COMPILE_GENERATION_L0184" }]);
+  assert.deepEqual(flagGenerationProblems(base, { INTERPRETER_L0184: "on", COMPILE_GENERATION_L0184: "interp-1" }), []);
+  // Off again (a rollback or a forward release) must move it too.
+  const on = { INTERPRETER_L0184: "on", COMPILE_GENERATION_L0184: "interp-1" };
+  assert.equal(flagGenerationProblems(on, { COMPILE_GENERATION_L0184: "interp-1" }).length, 1);
+  assert.deepEqual(flagGenerationProblems(on, base), []);
+  // COMMANDS_LNNNN is held to the same rule; both changing names both.
+  assert.deepEqual(flagGenerationProblems({}, { INTERPRETER_L0013: "on", COMMANDS_L0013: "on" }),
+    [{ lang: "0013", flags: ["INTERPRETER_L0013", "COMMANDS_L0013"], generation: "COMPILE_GENERATION_L0013" }]);
+});
+
+test("a release that turns an interpreter on without a new generation is refused before anything is built", async t => {
+  const h = await harness(t);
+  h.revisions.set("api-old", { metadata: { labels: {} }, spec: { containers: [{ env: [{ name: "COMPILE_GENERATION_L0184", value: "rust-1" }] }] } });
+  const flagged = { ...context, config: { ...config, env: { ...config.env, INTERPRETER_L0184: "on" } } };
+  await assert.rejects(release(flagged, source, h.deps), /INTERPRETER_L0184 changes but COMPILE_GENERATION_L0184 doesn't/);
+  assert.ok(!h.calls.some(c => c[0] === "builds"));
+  const moved = { ...context, config: { ...config, env: { ...config.env, INTERPRETER_L0184: "on", COMPILE_GENERATION_L0184: "interp-1" } } };
+  assert.equal((await release(moved, source, h.deps)).status, "released");
+});
+
+test("a rollback to other interpreter flags under the same generation is refused", async t => {
+  const h = await harness(t);
+  const env = (generation, flag) => ({
+    metadata: { labels: {} },
+    spec: { containers: [{ env: [{ name: "COMPILE_GENERATION_L0184", value: generation }, ...(flag ? [{ name: "INTERPRETER_L0184", value: "on" }] : [])] }] },
+  });
+  h.revisions.set("api-old", env("interp-0"));
+  const on = { ...context, config: { ...config, env: { ...config.env, INTERPRETER_L0184: "on", COMPILE_GENERATION_L0184: "interp-1" } } };
+  const receipt = await release(on, source, h.deps);
+  // Rolling back to a revision without the flag under the very same generation would
+  // serve what the interpreter cached; under its own generation it is fine.
+  h.revisions.set("api-old", env("interp-1"));
+  const before = h.calls.length;
+  await assert.rejects(rollback(context, receipt, h.deps), /Rollback target INTERPRETER_L0184 changes but COMPILE_GENERATION_L0184 doesn't; refusing, with no override/);
+  assert.ok(!h.calls.slice(before).some(c => c.includes("update-traffic")));
+  h.revisions.set("api-old", env("interp-0"));
+  assert.equal((await rollback(context, receipt, h.deps)).status, "rolled-back");
 });

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { answerProblem, compareCase, compareLexicon, compareProbe, comparable, corpusBlock, formAssets, formProblems, isEnvelope, ruleProblems, sendable } from "../lang-parity.js";
+import { answerProblem, compareCase, compareInterpreted, compareLexicon, compareProbe, comparable, corpusBlock, formAssets, formProblems, isEnvelope, ruleProblems, sendable } from "../lang-parity.js";
 
 const answer = (status, body) => ({ status, text: JSON.stringify(body) });
 
@@ -142,4 +142,28 @@ test("a form loads a script, and every relative asset it references must load fr
   assert.deepEqual(formProblems("rust", html, { ...good, "/assets/index-AB12.js": { status: 404, length: 0 } }),
     [{ side: "rust", what: "asset /assets/index-AB12.js", status: 404, length: 0 }]);
   assert.deepEqual(formProblems("ts", "<html><body>no bundle</body></html>", {}), [{ side: "ts", what: "the form loads no script" }]);
+});
+
+test("--interpreted: the model interpreted in both modes must answer exactly as the compile, revision aside", () => {
+  const answer = body => ({ status: 200, text: JSON.stringify(body) });
+  const compiled = answer({ data: { type: "charts" }, errors: [] });
+  const modelled = answer({ model: { lang: "0184", kind: "value", digest: "d", value: { type: "charts" } }, errors: [], revision: "r" });
+  const same = answer({ data: { type: "charts" }, errors: [], revision: "r" });
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate: same, present: same }), "identical");
+  const other = answer({ data: { type: "other" }, errors: [] });
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate: same, present: other }), "different");
+  // Interpretation must not add anything to the envelope either.
+  const extra = answer({ data: { type: "charts" }, errors: [], cache: false });
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate: same, present: extra }), "different");
+  assert.equal(compareInterpreted(compiled, modelled, null), "different");
+  assert.deepEqual(compareInterpreted(compiled, modelled, { evaluate: { status: 500, text: "" }, present: same }), { invalid: { evaluate: "HTTP 500" } });
+});
+
+test("--interpreted: a program with no model must fail exactly as it compiles", () => {
+  const answer = body => ({ status: 200, text: JSON.stringify(body) });
+  const errors = [{ message: "bad", from: 0, to: 1 }];
+  const noModel = answer({ model: null, errors, revision: "r" });
+  assert.equal(compareInterpreted(answer({ data: null, errors }), noModel, null), "identical");
+  assert.equal(compareInterpreted(answer({ data: null, errors: [{ message: "other", from: 0, to: 1 }] }), noModel, null), "different");
+  assert.equal(compareInterpreted(answer({ data: 1, errors: [] }), noModel, null), "different");
 });
