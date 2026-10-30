@@ -55,6 +55,13 @@
       "note": "The TypeScript L0010 is on @graffiticode/l0000 0.8; the Rust kernel also has exact numbers and format-number (languages/l0010/CLAUDE.md, \"Conformance\")."
     }
   ],
+  "0175": [
+    {
+      "kind": "case",
+      "src": "target c1-t4 passage \"The Tide Pool\" type literary lines [\n  \"Mara crouched at the edge of the tide pool, ignoring the picnic behind her.\"\n  \"Her brother called twice, but she did not turn around.\"\n  \"A tiny crab scuttled under a rock, and Mara smiled for the first time all day.\"\n  \"She traced the cold water as if the pool were the only thing that mattered.\"\n  \"Five more minutes, she whispered, though no one was listening.\"\n  \"Behind her, paper plates rustled and her mother laughed.\"\n] claims [claim id \"c1\" status supported dimension character {text: \"From a literal.\"}] outcomes [outcome id \"q\" type short-text dimension character focus \"c1\" stem \"What can be inferred?\" {}] {}..",
+      "note": "A chain ending in a record literal with fields: TypeScript doesn't see the literal's fields (\"missing text\"); the Rust does and compiles the item. Deliberate, pinned by a test (languages/l0175/CLAUDE.md). Rust accepts what TypeScript refused; no working item changes."
+    }
+  ],
   "0179": [
     {
       "kind": "upstream-envelope",
@@ -77,6 +84,21 @@
     {
       "kind": "upstream-envelope",
       "note": "The {data, errors} envelope is unwrapped however deep it nests (languages/l0183/CLAUDE.md, \"Upstream data\"). Kept, not copied (P4 decision 2026-10-28)."
+    },
+    {
+      "kind": "case",
+      "src": "{interaction: {type: \"concept-web\"}}..",
+      "note": "A record literal shaped like a web is read as one; TypeScript refuses it. Deliberate, pinned by a_record_literal_shaped_like_a_web_is_read_as_one (languages/l0183/CLAUDE.md). Rust accepts what TypeScript refused."
+    },
+    {
+      "kind": "case",
+      "src": "concept-web [ hub text \"A\" {} nodes [ node text \"B\" assess [get-var \"nope\"] {} ] {} ] {}..",
+      "note": "An undefined list entry: the Rust kernel has no undefined inside a list, so the error says \"Got null.\" where TypeScript says \"Got nothing.\". Same error otherwise; pinned by undefined_in_a_list_is_null (languages/l0183/CLAUDE.md)."
+    },
+    {
+      "kind": "case",
+      "src": "concept-web [ hub text \"A\" {} nodes [ node text \"B\" {a: get-var \"nope\"} ] {} ] {}..",
+      "note": "A record literal's field given an undefined value is absent in Rust, so the program compiles; TypeScript keeps the key and refuses it. Deliberate, pinned by a test (languages/l0183/CLAUDE.md). Rust accepts what TypeScript refused."
     }
   ],
   "0185": [

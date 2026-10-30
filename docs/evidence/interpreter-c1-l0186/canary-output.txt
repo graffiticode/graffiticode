@@ -1,0 +1,12 @@
+PASS board /data equals production 
+PASS repeat equals first 
+PASS interpreted, no generations in URL: no-store no-store
+PASS URL naming interp-1: immutable public, max-age=31536000, immutable
+PASS URL naming rust-1: no-store no-store
+PASS /form data URL names @L0186=interp-1 https://rmvvcc45i-e21e56---api-sja7fatcta-uc.a.run.app/data?id=eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19&generations=%40L0186%3Dinterp-1
+PASS board over data: /compile equals production {"data":{"type":"board","showPageTabs":false,"showPageMenu":false,"pages":[{"name":"Page 1","nodes":[{"type":"sticky","i
+PASS /compile no-store 
+PASS another board over data: /compile equals production 
+PASS L0000 over L0186 chain equals production {"data":1,"errors":[]}
+PASS compile errors equal production {"data":null,"errors":[{"message":"id: must not be empty.","from":-1,"to":-1}]}
+{"ranAt":"2026-10-30T19:14:44.498Z","staged":"https://rmvvcc45i-e21e56---api-sja7fatcta-uc.a.run.app","ids":{"value":"eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19","plan":"eyJ0YXNrSWRzIjpbInRsYXE3UEszazZ6NGlodXZYS1oyIl19","chain":"eyJ0YXNrSWRzIjpbImwwbDdZbllKTVNlbk1CamhLZURYIl19+eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19","errors":"eyJ0YXNrSWRzIjpbIjZvWkhJdHZ6bFRNY3NxdW9iRUFzIl19"},"results":[{"name":"board /data equals production","pass":true,"detail":""},{"name":"repeat equals first","pass":true,"detail":""},{"name":"interpreted, no generations in URL: no-store","pass":true,"detail":"no-store"},{"name":"URL naming interp-1: immutable","pass":true,"detail":"public, max-age=31536000, immutable"},{"name":"URL naming rust-1: no-store","pass":true,"detail":"no-store"},{"name":"/form data URL names @L0186=interp-1","pass":true,"detail":"https://rmvvcc45i-e21e56---api-sja7fatcta-uc.a.run.app/data?id=eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19&generations=%40L0186%3Dinterp-1"},{"name":"board over data: /compile equals production","pass":true,"detail":"{\"data\":{\"type\":\"board\",\"showPageTabs\":false,\"showPageMenu\":false,\"pages\":[{\"name\":\"Page 1\",\"nodes\":[{\"type\":\"sticky\",\"i"},{"name":"/compile no-store","pass":true,"detail":""},{"name":"another board over data: /compile equals production","pass":true,"detail":""},{"name":"L0000 over L0186 chain equals production","pass":true,"detail":"{\"data\":1,\"errors\":[]}"},{"name":"compile errors equal production","pass":true,"detail":"{\"data\":null,\"errors\":[{\"message\":\"id: must not be empty.\",\"from\":-1,\"to\":-1}]}"}],"failed":0}
