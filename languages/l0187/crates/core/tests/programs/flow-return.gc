@@ -1,0 +1,12 @@
+board [
+  page [
+    shape id "fetch" text "Fetch data" kind ROUNDED_RECTANGLE before ["valid"] {}
+    shape id "valid" text "Valid?" kind DIAMOND before ["save" "error"] {}
+    shape id "save" text "Save result" kind ROUNDED_RECTANGLE {}
+    shape id "error" text "Report error" kind ROUNDED_RECTANGLE {}
+    connector id "fetch-valid" from "fetch" to "valid" {}
+    connector id "valid-save" from "valid" to "save" label "Yes" {}
+    connector id "valid-error" from "valid" to "error" label "No" {}
+    connector id "retry" from "error" to "fetch" label "Retry" line-style DASHED {}
+  ] id "processing" name "Processing" layout FLOW direction RIGHT {}
+] layout-profile FIGJAM_V1 {}..

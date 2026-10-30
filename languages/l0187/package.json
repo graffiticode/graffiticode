@@ -1,0 +1,24 @@
+{
+  "name": "@graffiticode/l0187-monorepo",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "L0187 — declarative FigJam boards. The compiler and server are Rust (crates/); npm holds only the frontend view and the dev tools.",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "emit": "cargo run -q --bin emit -- generated",
+    "emit:check": "cargo run -q --bin emit -- --check",
+    "cases": "node tools/parse-cases.mjs",
+    "cases:check": "node tools/parse-cases.mjs --check",
+    "rust:build": "cargo build --release -p l0187-server",
+    "rust:dev": "AUTH_URL=\"http://127.0.0.1:4100\" PORT=50187 cargo run -p l0187-server",
+    "rust:test": "cargo test",
+    "rust:lint": "cargo clippy --all-targets -- -D warnings"
+  },
+  "devDependencies": {
+    "@graffiticode/parser": "^1.7.0"
+  }
+}

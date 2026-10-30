@@ -1,0 +1,6 @@
+board [
+  page [
+    shape id "a" text "A" before ["b"] {}
+    shape id "b" text "B" before ["a"] {}
+  ] id "cycle" name "Invalid order" layout FLOW {}
+] layout-profile FIGJAM_V1 {}..

@@ -1,0 +1,17 @@
+[package]
+name = "l0187-server"
+version = "0.1.0"
+description = "L0187 language server in Rust: /compile, /form, and the public static assets"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "l0187"
+path = "src/main.rs"
+
+[dependencies]
+graffiticode-l0187 = { path = "../core" }
+l0000r-server = { path = "../../../l0000/crates/server" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

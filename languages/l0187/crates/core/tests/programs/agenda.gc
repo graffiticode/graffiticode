@@ -1,0 +1,15 @@
+board [
+  page [
+    textbox id "heading" text "Workshop agenda" font-size LARGE {}
+    group [
+      section [
+        textbox id "goal" text "Agree on the release scope" {}
+      ] id "goals" name "Goals" {}
+      section [
+        sticky id "scope" text "Discuss scope" {}
+        sticky id "risk" text "Review risks" {}
+        sticky id "owner" text "Assign owners" {}
+      ] id "topics" name "Topics" layout GRID columns 2 {}
+    ] id "agenda-panels" layout ROW {}
+  ] id "agenda" name "Agenda" layout COLUMN {}
+] layout-profile FIGJAM_V1 {}..

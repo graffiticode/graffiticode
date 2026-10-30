@@ -1,0 +1,15 @@
+# dependencies
+node_modules
+
+# build output
+dist
+dist-embed
+
+# misc
+.DS_Store
+*.tgz
+*.log
+
+# Rust build output and the assembled static directory
+/static
+/target
