@@ -35,7 +35,7 @@ pub mod text;
 use std::sync::LazyLock;
 
 use async_trait::async_trait;
-use graffiticode_l0000::{Diagnostic, Dialect, Evaluator, Key, Lexicon, NodeId, Number, Op, Record, Value};
+use graffiticode_l0000::{Ast, Diagnostic, Dialect, Evaluator, Key, Lexicon, NodeId, Number, Op, Record, Value};
 
 use crate::authored::{NODE, Program};
 
@@ -107,6 +107,13 @@ impl Dialect for L0175 {
 
     fn overrides(&self, op: &Op) -> bool {
         matches!(op, Op::Prog)
+    }
+
+    /// An item is composed from its program alone; no L0175 word reads the input, so a program
+    /// the kernel finds doesn't read it (no `data`, no `get-var` that may name it) compiles to a
+    /// value model (interpreter plan C1).
+    fn input_independent(&self, ast: &Ast) -> bool {
+        !ast.reads_input()
     }
 
     async fn eval(&self, cx: &mut Evaluator<'_>, id: NodeId, op: &Op, elts: &[NodeId]) -> Option<Value> {

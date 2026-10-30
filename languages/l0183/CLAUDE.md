@@ -14,7 +14,7 @@ It is also the base of a **Learnosity custom question type**, embedded from L017
 `custom [lang "0183" …]`, exactly as L0179 is. That fixes the compiled output's shape; see
 "The output contract".
 
-> **Two implementations live here.** `packages/` is the TypeScript L0183 that production runs; `crates/` is L0183 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+> **Two implementations live here.** `crates/` is L0183 in Rust, which production runs (`l0183r`, since 2026-10-30); `packages/` is the TypeScript L0183, still deployed as `l0183` (min 0) as the switch's rollback target, and still the source of the static assets and the conformance fixtures. Everything down to "The Rust implementation" describes the TypeScript side.
 
 ## Commands
 
@@ -237,7 +237,7 @@ Defects in L0169 deliberately not reproduced — don't reintroduce them by copyi
 
 ## The Rust implementation (`crates/`)
 
-This directory holds **two implementations of L0183**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0183`). `crates/` is the same language in Rust, to be released to its own service `l0183r` so it can be vetted before it replaces the TypeScript. `packages/view` (the Form and `./scoring`), `packages/integrations/learnosity` (`question.js`, `scorer.js`, `question.css`) and the spec are shared by both: the Rust server serves the bundles they build.
+This directory holds **two implementations of L0183**. `packages/core` and `packages/api` are the TypeScript compiler and server (Cloud Run service `l0183`, min 0, kept as the switch's rollback target). `crates/` is the same language in Rust, released to its own service `l0183r`, which production runs: the api routes L0183 there (`BASE_URL_L0183`, interpreter plan A1, 2026-10-30; evidence in `docs/evidence/track-a-batch-l0174-l0175-l0183/`). `packages/view` (the Form and `./scoring`), `packages/integrations/learnosity` (`question.js`, `scorer.js`, `question.css`) and the spec are shared by both: the Rust server serves the bundles they build.
 
 - `crates/core` (`graffiticode-l0183`) — `L0183` implements `Dialect` from `graffiticode-l0000` and claims `PROG`.
   - `src/attributes.rs` — the vocabulary tables, read from `src/attributes.json`, which is **generated from `src/attributes.ts`** by `npm run rust:fixtures` (`chainFields`, `memberFields`, `assessFields`, `validAttributes`, `validSettings`); `attributes.ts` stays the single source of truth. `check_value`, `merge_attributes`, `assert_known_attributes`/`assert_known_settings` and the "belongs in" hints, word for word.
