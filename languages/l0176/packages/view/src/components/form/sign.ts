@@ -18,7 +18,7 @@
 // message } }` when it can't be signed, or a 4xx (429 when the per-client
 // limit is reached).
 import type { CompileError } from "@graffiticode/l0000-view";
-import { getApiUrl } from "../../generation";
+import { getApiUrl } from "../../api-url";
 
 export const UNSIGNED_MESSAGE = "This preview couldn't be signed.";
 
