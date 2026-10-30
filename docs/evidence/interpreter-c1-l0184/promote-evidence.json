@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmvv585jc-1d4f7e",
+  "revision": "api-rmvv585jc-1d4f7e",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (C1 activation approved: 'do it', 2026-10-30)",
+  "reviewedAt": "2026-10-30T15:56:20.000Z",
+  "corpus": {
+    "ranAt": "2026-10-30T15:55:42.215Z",
+    "tasks": 11,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "canary": {
+      "ranAt": "2026-10-30T15:55:42.215Z",
+      "staged": "https://rmvv585jc-1d4f7e---api-sja7fatcta-uc.a.run.app",
+      "ids": {
+        "value": "eyJ0YXNrSWRzIjpbIlJnSjlZNkQ3TDBHeGJ6UlZtZjNIIl19",
+        "plan": "eyJ0YXNrSWRzIjpbIkM3QnRFZDRSRDkzaWp3NEx0M2FTIl19",
+        "chain": "eyJ0YXNrSWRzIjpbImwwbDdZbllKTVNlbk1CamhLZURYIl19+eyJ0YXNrSWRzIjpbIlJnSjlZNkQ3TDBHeGJ6UlZtZjNIIl19",
+        "errors": "eyJ0YXNrSWRzIjpbIjBoQ2prY01rcGhJT2hkankzQVZYIl19"
+      },
+      "results": [
+        {
+          "name": "value chart /data equals production",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "repeat equals first",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "interpreted, no generations in URL: no-store",
+          "pass": true,
+          "detail": "no-store"
+        },
+        {
+          "name": "URL naming interp-1: immutable",
+          "pass": true,
+          "detail": "public, max-age=31536000, immutable"
+        },
+        {
+          "name": "URL naming rust-1: no-store",
+          "pass": true,
+          "detail": "no-store"
+        },
+        {
+          "name": "/form data URL names @L0184=interp-1",
+          "pass": true,
+          "detail": "https://rmvv585jc-1d4f7e---api-sja7fatcta-uc.a.run.app/data?id=eyJ0YXNrSWRzIjpbIlJnSjlZNkQ3TDBHeGJ6UlZtZjNIIl19&generations=%40L0184%3Dinterp-1"
+        },
+        {
+          "name": "plan chart over data: /compile equals production",
+          "pass": true,
+          "detail": "{\"data\":{\"type\":\"charts\",\"charts\":[{\"id\":\"c1\",\"name\":\"c1\",\"option\":{\"animation\":true,\"useUTC\":true,\"backgroundColor\":\"tr"
+        },
+        {
+          "name": "/compile no-store",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "value chart over data: /compile equals production",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "L0000 over L0184 chain equals production",
+          "pass": true,
+          "detail": "{\"data\":1,\"errors\":[]}"
+        },
+        {
+          "name": "compile errors equal production",
+          "pass": true,
+          "detail": "{\"data\":null,\"errors\":[{\"message\":\"charts: `id` is not a setting of charts. Its settings are: title,"
+        }
+      ],
+      "failed": 0
+    },
+    "stageLog": "api-rmvv585jc-1d4f7e: s0 0184 present miss then stage-cache hits; /compile s1 0000 legacy + s0 0184 interpret; L0000 head over s1 0184 evaluate; compile errors not cached",
+    "interpretedGate": {
+      "rust": "https://l0184r-sja7fatcta-uc.a.run.app",
+      "ranAt": "2026-10-30T15:23:31.119Z",
+      "compared": 2864,
+      "identical": 2864,
+      "different": 0,
+      "invalid": 0,
+      "values": 674,
+      "plans": 82
+    }
+  }
+}

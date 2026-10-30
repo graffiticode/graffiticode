@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Two implementations live here.** `packages/` is the TypeScript L0000 that production runs; `crates/` is L0000 in Rust, released to a separate service. Everything from "Repo shape" down to "The Rust implementation" describes the TypeScript side.
+> **Two implementations live here.** `crates/` is L0000 in Rust, which production runs (`l0000r`, since 2026-10-29); `packages/` is the TypeScript L0000, still deployed as `l0000` (pinned plans, rollback) and published as `@graffiticode/l0000`, which the TypeScript child languages extend. Everything from "Repo shape" down to "The Rust implementation" describes the TypeScript side.
 
 ## Repo shape
 
@@ -129,7 +129,7 @@ Release it with the monorepo's deploy CLI, from the repository root: `npm run de
 
 ## The Rust implementation (`crates/`)
 
-This directory holds **two implementations of L0000**. `packages/core` and `packages/api` are the TypeScript compiler and server: they are what production runs (Cloud Run service `l0000`, pinnable), and `@graffiticode/l0000` on npm is what TypeScript child languages extend. `crates/` is the same language in Rust, released to its own service `l0000r` so it can be vetted and soaked before it replaces the TypeScript. `packages/view` (the React `/form` view) and the spec are shared by both. The intended end state is this one directory with the Rust server and the TypeScript view; until then, a language change goes into the TypeScript first, then `npm run rust:fixtures`, then the Rust until `cargo test` passes.
+This directory holds **two implementations of L0000**. `packages/core` and `packages/api` are the TypeScript compiler and server (Cloud Run service `l0000`, pinnable, still deployed for plans pinned to its revisions), and `@graffiticode/l0000` on npm is what TypeScript child languages extend; production L0000 runs on `l0000r` since 2026-10-29. `crates/` is the same language in Rust, released to its own service `l0000r` so it can be vetted and soaked before it replaces the TypeScript. `packages/view` (the React `/form` view) and the spec are shared by both. The intended end state is this one directory with the Rust server and the TypeScript view; until then, a language change goes into the TypeScript first, then `npm run rust:fixtures`, then the Rust until `cargo test` passes.
 
 - `crates/core` (`graffiticode-l0000`) — the language: AST, values, evaluator, lexicon, and the `Dialect` trait that Rust child languages implement.
 - `crates/server` (`l0000r-server`, binary `l0000r`) — axum language server. `/compile`, `/interpret`, `/preflight`, `/form`, and the public static assets.
@@ -203,6 +203,6 @@ Everything is public and CORS-open, with `Cross-Origin-Resource-Policy: cross-or
 
 **`l0000r` is pinnable like `l0000`** (interpreter plan A4, `deploy.json`): `pinnable` for `0000` with contract versions 1 and 2, the W4 baseline, `POLICY_URL`, `PREFLIGHT_GATEWAYS`, and `l0000`'s network class (`compilers-l0000`). It is still a separate service, with its own runtime account `l0000r-run`, which Policy must list as a `0000` compiler before admitted-plan stages and `/preflight` work there (`docs/capability-policy-iam-review.md`, Step 15). Every reachable revision of either service must be recorded as approved; an admitted plan pins whichever revision answered its preflight.
 
-Nothing routes to `l0000r` by default. Send traffic with a per-user `lang-overrides/{uid}` Firestore binding for `L0000` (the API applies it within 10 seconds), `BASE_URL_L0000` on the API, or by repointing `l0000.graffiticode.org`. The Rust server is not byte-identical to the TypeScript one (see the divergences under "Conformance", and reworded error messages).
+**Production runs `l0000r`** since 2026-10-29 (interpreter plan A4): the API's `BASE_URL_L0000` names it, with `COMPILE_GENERATION_L0000=rust-1`. The TypeScript `l0000` stays deployed, for admitted plans pinned to its revisions and as the switch's rollback target. L0000 is not interpreted until C7. The Rust server is not byte-identical to the TypeScript one (see the divergences under "Conformance", and reworded error messages).
 
 Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; SPDX headers; `static/` and `target/` are gitignored build outputs (which also keeps them out of both services' deploy snapshots); `crates/core/src/lexicon.json` and the conformance JSON are generated, not edited. `.prettierignore` keeps `npm run format` off them.

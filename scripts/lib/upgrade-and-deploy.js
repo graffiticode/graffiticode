@@ -15,6 +15,11 @@
 //   2. commit each passing upgrade one at a time (one Git index), then push once;
 //   3. deploy in batches (the deploy CLI locks per service, so languages can run at once).
 // A language whose upgrade fails its tests is reverted and neither committed nor deployed.
+//
+// A language switched to Rust (interpreter plan Track A: the api's BASE_URL_LNNNN names its
+// lNNNNr service) serves production from lNNNNr, whose static assets come from the same
+// npm packages, so lNNNNr is released too. The TypeScript lNNNN is still released: it stays
+// deployed as the switch's rollback target until the language's A6/A7.
 
 import { spawn } from "child_process";
 import { existsSync, readFileSync, readdirSync } from "fs";
@@ -59,27 +64,35 @@ function run(cmd, cwd, timeoutMs = 10 * 60 * 1000) {
   });
 }
 
-function findLanguages(services, { PKG_NAME, TARGET_PKG }) {
-  return readdirSync(LANGUAGES_DIR)
+// The languages a release of PKG_NAME reaches, from `languagesDir`:
+//   consumers  languages whose TARGET_PKG depends on PKG_NAME: upgraded, then deployed;
+//   owners     the language whose TARGET_PKG IS PKG_NAME (L0000 for both shared packages):
+//              never upgraded (it would install the package into itself), but deployed,
+//              since its own services serve what it just published.
+export function selectLanguages({ languagesDir = LANGUAGES_DIR, langs = LANGS, services, PKG_NAME, TARGET_PKG, log = console.log }) {
+  const consumers = [];
+  const owners = [];
+  const names = readdirSync(languagesDir)
     .filter(name => /^l\d{4}$/.test(name))
-    .filter(name => !LANGS || LANGS.includes(name.slice(1)))
-    .filter(name => {
-      const core = resolve(LANGUAGES_DIR, name, TARGET_PKG, "package.json");
-      if (!existsSync(core)) return false;
-      const pkg = JSON.parse(readFileSync(core, "utf-8"));
-      // Only languages that depend on PKG_NAME; skip the package itself.
-      if (pkg.name === PKG_NAME || !pkg.dependencies?.[PKG_NAME]) return false;
-      if (!services[name]) {
-        console.log(`[${name}] No deploy.json entry, skipping`);
-        return false;
-      }
-      if (services[name].blocked) {
-        console.log(`[${name}] Blocked in deploy.json, skipping: ${services[name].blocked}`);
-        return false;
-      }
-      return true;
-    })
+    .filter(name => !langs || langs.includes(name.slice(1)))
     .sort();
+  for (const name of names) {
+    const manifest = resolve(languagesDir, name, TARGET_PKG, "package.json");
+    if (!existsSync(manifest)) continue;
+    const pkg = JSON.parse(readFileSync(manifest, "utf-8"));
+    const owner = pkg.name === PKG_NAME;
+    if (!owner && !pkg.dependencies?.[PKG_NAME]) continue;
+    if (!services[name]) {
+      log(`[${name}] No deploy.json entry, skipping`);
+      continue;
+    }
+    if (services[name].blocked) {
+      log(`[${name}] Blocked in deploy.json, skipping: ${services[name].blocked}`);
+      continue;
+    }
+    (owner ? owners : consumers).push(name);
+  }
+  return { consumers, owners };
 }
 
 async function upgrade(name, version, { PKG_NAME, TARGET_PKG }) {
@@ -102,6 +115,20 @@ async function upgrade(name, version, { PKG_NAME, TARGET_PKG }) {
     await run("git checkout -- . && git clean -fdq -- .", dir).catch(() => {});
     return { name, ok: false, error: (err.message || "").slice(-500) };
   }
+}
+
+// The services to release for these languages: each lNNNN, and its lNNNNr when the api
+// routes the language there.
+export function deployTargets(langs, services) {
+  const apiEnv = services.api?.env ?? {};
+  const targets = [];
+  for (const name of langs) {
+    targets.push(name);
+    const rust = `${name}r`;
+    const routed = apiEnv[`BASE_URL_L${name.slice(1)}`];
+    if (services[rust] && typeof routed === "string" && new URL(routed).hostname.startsWith(`${rust}-`)) targets.push(rust);
+  }
+  return targets;
 }
 
 async function deploy(name, service) {
@@ -143,9 +170,10 @@ export async function upgradeAndDeploy({ pkg, targetPkg }) {
   const TARGET_PKG = targetPkg;
   const SHORT_NAME = pkg.replace(/^@graffiticode\//, "");
   const services = JSON.parse(readFileSync(resolve(ROOT, "deploy.json"), "utf-8")).services;
-  const langs = findLanguages(services, { PKG_NAME, TARGET_PKG });
+  const { consumers: langs, owners } = selectLanguages({ services, PKG_NAME, TARGET_PKG });
   console.log(`Found ${langs.length} languages that depend on ${PKG_NAME}`);
   langs.forEach(l => console.log(`  ${l}`));
+  if (owners.length) console.log(`Deployed without an upgrade (they own ${PKG_NAME}): ${owners.join(" ")}`);
   console.log("");
 
   const failed = [];
@@ -168,7 +196,8 @@ export async function upgradeAndDeploy({ pkg, targetPkg }) {
     toDeploy = upgraded.filter(r => r.ok && (r.changed || FORCE_DEPLOY)).map(r => r.name);
   }
 
-  const deployed = await inBatches(toDeploy, l => deploy(l, services[l]));
+  const targets = deployTargets([...owners, ...toDeploy], services);
+  const deployed = await inBatches(targets, l => deploy(l, services[l]));
   failed.push(...deployed.filter(r => !r.ok));
 
   if (failed.length > 0) {
@@ -179,6 +208,6 @@ export async function upgradeAndDeploy({ pkg, targetPkg }) {
     }
     process.exit(1);
   } else {
-    console.log(`All ${toDeploy.length} languages ${PLAN ? "planned" : "upgraded and deployed"} successfully`);
+    console.log(`All ${toDeploy.length + owners.length} languages ${PLAN ? "planned" : "upgraded and deployed"} successfully (${targets.length} services)`);
   }
 }

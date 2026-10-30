@@ -1,0 +1,12 @@
+PASS value chart /data equals production 
+PASS repeat equals first 
+PASS interpreted, no generations in URL: no-store no-store
+PASS URL naming interp-1: immutable public, max-age=31536000, immutable
+PASS URL naming rust-1: no-store no-store
+PASS /form data URL names @L0184=interp-1 https://rmvv585jc-1d4f7e---api-sja7fatcta-uc.a.run.app/data?id=eyJ0YXNrSWRzIjpbIlJnSjlZNkQ3TDBHeGJ6UlZtZjNIIl19&generations=%40L0184%3Dinterp-1
+PASS plan chart over data: /compile equals production {"data":{"type":"charts","charts":[{"id":"c1","name":"c1","option":{"animation":true,"useUTC":true,"backgroundColor":"tr
+PASS /compile no-store 
+PASS value chart over data: /compile equals production 
+PASS L0000 over L0184 chain equals production {"data":1,"errors":[]}
+PASS compile errors equal production {"data":null,"errors":[{"message":"charts: `id` is not a setting of charts. Its settings are: title,
+{"ranAt":"2026-10-30T15:55:42.215Z","staged":"https://rmvv585jc-1d4f7e---api-sja7fatcta-uc.a.run.app","ids":{"value":"eyJ0YXNrSWRzIjpbIlJnSjlZNkQ3TDBHeGJ6UlZtZjNIIl19","plan":"eyJ0YXNrSWRzIjpbIkM3QnRFZDRSRDkzaWp3NEx0M2FTIl19","chain":"eyJ0YXNrSWRzIjpbImwwbDdZbllKTVNlbk1CamhLZURYIl19+eyJ0YXNrSWRzIjpbIlJnSjlZNkQ3TDBHeGJ6UlZtZjNIIl19","errors":"eyJ0YXNrSWRzIjpbIjBoQ2prY01rcGhJT2hkankzQVZYIl19"},"results":[{"name":"value chart /data equals production","pass":true,"detail":""},{"name":"repeat equals first","pass":true,"detail":""},{"name":"interpreted, no generations in URL: no-store","pass":true,"detail":"no-store"},{"name":"URL naming interp-1: immutable","pass":true,"detail":"public, max-age=31536000, immutable"},{"name":"URL naming rust-1: no-store","pass":true,"detail":"no-store"},{"name":"/form data URL names @L0184=interp-1","pass":true,"detail":"https://rmvv585jc-1d4f7e---api-sja7fatcta-uc.a.run.app/data?id=eyJ0YXNrSWRzIjpbIlJnSjlZNkQ3TDBHeGJ6UlZtZjNIIl19&generations=%40L0184%3Dinterp-1"},{"name":"plan chart over data: /compile equals production","pass":true,"detail":"{\"data\":{\"type\":\"charts\",\"charts\":[{\"id\":\"c1\",\"name\":\"c1\",\"option\":{\"animation\":true,\"useUTC\":true,\"backgroundColor\":\"tr"},{"name":"/compile no-store","pass":true,"detail":""},{"name":"value chart over data: /compile equals production","pass":true,"detail":""},{"name":"L0000 over L0184 chain equals production","pass":true,"detail":"{\"data\":1,\"errors\":[]}"},{"name":"compile errors equal production","pass":true,"detail":"{\"data\":null,\"errors\":[{\"message\":\"charts: `id` is not a setting of charts. Its settings are: title,"}],"failed":0}
