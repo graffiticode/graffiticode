@@ -33,7 +33,7 @@
 //   getOrCreate  the one declared exception to a read-only get: an atomic,
 //                idempotent create of per-viewer state (L0182's assignment).
 
-export const INTERPRETER_MANIFEST_VERSION = 1;
+export const INTERPRETER_MANIFEST_VERSION = 2;
 
 // From loosest to strictest.
 export const CACHE_CLASSES = Object.freeze(["immutable", "shared", "private", "no-store"] as const);
@@ -49,8 +49,19 @@ export type InterpreterDeclaration = Readonly<{
   getOrCreate?: boolean;
 }>;
 
-// No language is declared yet; B2 adds them as each language is upgraded.
-export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclaration>> = Object.freeze({});
+// Languages are added as each is upgraded (plan Track C). A declaration turns
+// nothing on by itself: the API interprets a language only while its
+// INTERPRETER_LNNNN is "on".
+//   0184  C1: charts. A program that doesn't read its input is a value model;
+//         one that does (`rows data use "0185"`) is a plan the kernel
+//         evaluates. Its results carry nothing that expires or is private, so
+//         they may be cached as immutable in either mode.
+export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclaration>> = Object.freeze({
+  "0184": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+});
 
 // What an undeclared language is: today's protocol, with no cap beyond what
 // its compile envelope already says.

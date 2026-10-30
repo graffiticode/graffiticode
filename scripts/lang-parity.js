@@ -27,6 +27,16 @@
 //   node scripts/lang-parity.js --lang 0184 --ts <TypeScript URL> --rust <Rust URL> \
 //     [--cases <cases.json>] [--limit N] [--timeout seconds] [--out report.json]
 //
+// --interpreted (interpreter plan C1) checks one Rust service against itself
+// instead, before its language's interpreter is turned on in the API: for
+// every case, the compile answer must equal what the API's interpreted stage
+// would get, POST /compile with "form": "model" then POST /interpret of that
+// model against the case's data, in both modes, apart from `revision`. No rule
+// applies: interpretation must not change a single answer. A program that
+// doesn't compile has no model, and its errors must be the compile's.
+//
+//   node scripts/lang-parity.js --lang 0184 --interpreted --rust <Rust URL> [--limit N] [--out file]
+//
 // With the operator's gcloud credentials (the verify account's key is read
 // from Secret Manager). Prints one JSON report; its `corpus` block has the
 // shape a promote evidence file's `corpus` takes ({ ranAt, tasks, failures }),
@@ -141,6 +151,29 @@ export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
   return "different";
 };
 
+// One case under --interpreted: "identical", "different", or { invalid }.
+// `compiled` is the /compile answer, `modelled` the model-form answer, and
+// `interpreted` the /interpret answers ({ evaluate, present }), or null when
+// there was no model to interpret.
+export const compareInterpreted = (compiled, modelled, interpreted) => {
+  const problems = { compiled: answerProblem(compiled), model: answerProblem(modelled) };
+  if (problems.compiled || problems.model) return { invalid: problems };
+  const compile = comparable(compiled);
+  const model = comparable(modelled).body;
+  if (!model.model) {
+    // No model: the program doesn't compile, and fails exactly as it compiles.
+    const failed = compile.body.data === null && failedWithErrors(model) && isDeepStrictEqual(compile.body.errors, model.errors) &&
+      Object.keys(compile.body).every(k => k === "data" || k === "errors");
+    return failed ? "identical" : "different";
+  }
+  for (const [mode, answer] of Object.entries(interpreted ?? {})) {
+    const problem = answerProblem(answer);
+    if (problem) return { invalid: { [mode]: problem } };
+    if (!isDeepStrictEqual(comparable(answer), compile)) return "different";
+  }
+  return interpreted && Object.keys(interpreted).length ? "identical" : "different";
+};
+
 // The lexicons: "identical", { allowed: "lexicon-superset" }, or "different".
 // Each must be a JSON object: two missing lexicons are not the same lexicon.
 export const compareLexicon = (ts, rust, rules = []) => {
@@ -217,8 +250,9 @@ const main = async () => {
   const limit = Number(arg("--limit", "0")) || Infinity;
   const timeoutMs = Number(arg("--timeout", "60")) * 1000;
   const out = arg("--out");
-  if (!/^\d{4}$/.test(lang) || !tsUrl || !rustUrl) {
-    console.error("usage: lang-parity.js --lang <NNNN> --ts <TypeScript URL> --rust <Rust URL> [--cases file] [--limit N] [--timeout s] [--out file]");
+  const interpretedMode = args.includes("--interpreted");
+  if (!/^\d{4}$/.test(lang) || !rustUrl || (!tsUrl && !interpretedMode)) {
+    console.error("usage: lang-parity.js --lang <NNNN> (--ts <TypeScript URL> | --interpreted) --rust <Rust URL> [--cases file] [--limit N] [--timeout s] [--out file]");
     process.exit(2);
   }
 
@@ -253,6 +287,52 @@ const main = async () => {
   let mintedAt = Date.now();
 
   const ranAt = new Date().toISOString();
+  if (interpretedMode) {
+    const cases = JSON.parse(await readFile(casesFile, "utf8")).slice(0, limit);
+    const counts = { identical: 0, different: 0, invalid: 0, skipped: 0, values: 0, plans: 0 };
+    const differences = [];
+    const invalid = [];
+    for (const [i, c] of cases.entries()) {
+      if (!sendable(c)) { counts.skipped++; continue; }
+      if (Date.now() - mintedAt > 180000) { token = await exchange(); mintedAt = Date.now(); }
+      const headers = token ? { Authorization: token } : {};
+      const data = c.data ?? {};
+      const [compiled, modelled] = await Promise.all([
+        request(rustUrl, "POST", "/compile", { headers, body: { code: c.ast, data } }),
+        request(rustUrl, "POST", "/compile", { headers, body: { code: c.ast, data: {}, form: "model" } }),
+      ]);
+      const model = parse(modelled.text)?.model;
+      let interpreted = null;
+      if (model) {
+        if (model.kind === "value") counts.values++;
+        else counts.plans++;
+        const [evaluate, present] = await Promise.all(["evaluate", "present"].map(mode =>
+          request(rustUrl, "POST", "/interpret", { headers, body: { model, input: data, mode } })));
+        interpreted = { evaluate, present };
+      }
+      const result = compareInterpreted(compiled, modelled, interpreted);
+      if (result === "identical") counts.identical++;
+      else if (result === "different") {
+        counts.different++;
+        if (differences.length < 20) {
+          differences.push({ case: i, src: c.src, compiled: comparable(compiled), model: comparable(modelled), interpreted: interpreted && Object.fromEntries(Object.entries(interpreted).map(([m, a]) => [m, comparable(a)])) });
+        }
+      } else {
+        counts.invalid++;
+        if (invalid.length < 20) invalid.push({ case: i, src: c.src, ...result.invalid });
+      }
+    }
+    const compared = cases.length - counts.skipped;
+    const report = { lang, mode: "interpreted", rust: rustUrl, ranAt, cases: casesFile, endedAt: new Date().toISOString() };
+    report.checks = { interpreted: { ok: counts.different === 0 && counts.invalid === 0 && compared > 0, ...counts, compared, differences, invalidAnswers: invalid } };
+    report.corpus = corpusBlock({ ranAt, tasks: compared, failures: counts.different + counts.invalid });
+    report.passed = report.checks.interpreted.ok;
+    const text = JSON.stringify(report, null, 2);
+    if (out) await writeFile(out, `${text}\n`);
+    console.log(text);
+    process.exitCode = report.passed ? 0 : 1;
+    return;
+  }
   const report = { lang, ts: tsUrl, rust: rustUrl, ranAt, cases: casesFile, checks: {} };
 
   // 1. The probed paths, and the lexicon itself.

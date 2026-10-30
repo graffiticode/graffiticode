@@ -156,7 +156,15 @@ impl Compiler {
         // Input-independent: its value is the same for every input, so evaluate it once, with none.
         let mut exec = ExecContext::new(Identity::default());
         let value = self.run(code, &Json::Null, config, &mut exec).await?;
-        Ok(Model { lang, kind: ModelKind::Value(value.to_json().unwrap_or(Json::Null)) })
+        // An undefined value has no JSON, and `/compile` answers it without `data`: as a value
+        // it would come back `null`, so such a program stays a plan.
+        Ok(Model {
+            kind: match value.to_json() {
+                Some(json) => ModelKind::Value(json),
+                None => ModelKind::Plan(code.clone()),
+            },
+            lang,
+        })
     }
 
     /// Interprets `model` against `input`, the previous stage's resolved data (B1). A value model

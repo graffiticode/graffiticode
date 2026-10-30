@@ -30,8 +30,15 @@ describe("interpreter-manifest", () => {
     for (const lang of ["0176", "L0176", "176", "0000"]) {
       expect(interpreterDeclarationFor(lang)).toBe(COMPILE_ONLY);
     }
+    expect(capCacheClass("immutable", "0000", "present")).toBe("immutable");
+    expect(capCacheClass("no-store", "0000", "evaluate")).toBe("no-store");
+  });
+
+  it("declares L0184 an interpreter (C1), uncapped in both modes; L0000 stays compile-only until C7", () => {
+    expect(interpreterDeclarationFor("L0184")).toEqual({ interpreter: "interpreter", cacheCaps: { evaluate: "immutable", present: "immutable" } });
     expect(capCacheClass("immutable", "0184", "present")).toBe("immutable");
-    expect(capCacheClass("no-store", "0184", "evaluate")).toBe("no-store");
+    expect(capCacheClass("shared", "0184", "evaluate")).toBe("shared");
+    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0184"]);
   });
 
   it("finds a declaration by any spelling of the language", () => {

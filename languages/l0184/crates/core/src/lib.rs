@@ -81,6 +81,13 @@ impl Dialect for L0184 {
         *op == Op::Prog
     }
 
+    /// A chart description is the same for every input unless it reads it (`rows data use
+    /// "0185"`, a `get-var "data"`): none of L0184's own words does, so a program the kernel
+    /// finds doesn't read its input compiles to a value model (interpreter plan C1).
+    fn input_independent(&self, ast: &Ast) -> bool {
+        !ast.reads_input()
+    }
+
     /// A `{}` written before the end of a description ends it there, and the words after it
     /// parse as a second top-level expression — well formed, and silently dropped. An L0184
     /// word or a bare `{}` anywhere but the last position is reported. L0000 expressions may

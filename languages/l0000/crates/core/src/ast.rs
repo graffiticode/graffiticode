@@ -228,6 +228,22 @@ impl Ast {
         found
     }
 
+    /// Whether the program can read its input, the upstream value it is chained onto: a
+    /// reachable `data` form, or a `get-var` whose name isn't a literal other than `"data"` (an
+    /// unset `get-var "data"` reads the input). A dialect whose own words never read the input
+    /// may declare a program that doesn't independent of it
+    /// ([`Dialect::input_independent`](crate::Dialect::input_independent)). Conservative: a name
+    /// computed at run time counts as reading it.
+    pub fn reads_input(&self) -> bool {
+        self.reachable().into_iter().any(|(_, node)| match node {
+            Node::Form { op: Op::Data, .. } => true,
+            Node::Form { op: Op::GetVar, elts } => {
+                !matches!(elts.first().and_then(|&e| self.get(e)), Some(Node::Str(name)) if name != "data")
+            }
+            _ => false,
+        })
+    }
+
     /// Every node in the pool in id order, reachable from the root or not.
     pub fn nodes(&self) -> impl Iterator<Item = (NodeId, &Node)> {
         self.nodes.iter().map(|(id, node)| (*id, node))

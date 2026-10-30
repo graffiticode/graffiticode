@@ -85,6 +85,79 @@ async fn a_plan_model_interprets_exactly_as_its_program_compiles() {
     assert!(failures.is_empty(), "{} of {} cases differ:\n{}", failures.len(), cases.len(), failures.join("\n"));
 }
 
+/// L0000's words, with every program that can't read its input declared independent of it
+/// (what a dialect whose own words never read the input declares, as L0184 does).
+struct Independent;
+
+#[async_trait]
+impl Dialect for Independent {
+    fn lang_id(&self) -> &str {
+        "0000"
+    }
+    fn input_independent(&self, ast: &Ast) -> bool {
+        !ast.reads_input()
+    }
+}
+
+/// Every conformance case, against its own data: a program [`Ast::reads_input`] clears compiles
+/// to a value model, evaluated once with no input, and that value is exactly what compiling it
+/// against the case's data gives, as the server writes it (JSON text, and whether there is a
+/// value at all). The rest are plans, as before.
+#[tokio::test]
+async fn a_program_that_doesn_t_read_its_input_is_a_value_equal_to_its_compile() {
+    let cases = cases();
+    let (mut values, mut plans, mut failures) = (0, 0, Vec::new());
+    for case in &cases {
+        let compiler = match &case.schema {
+            Some(schema) => Compiler::new(Independent).with_schemas(OneSchema(schema.clone())),
+            None => Compiler::new(Independent),
+        };
+        let compiled = compiler.compile(&case.ast, &case.data, &json!({}), Identity::default()).await;
+        let Ok(model) = compiler.model(&case.ast, &json!({})).await else { continue };
+        match &model.kind {
+            ModelKind::Value(_) => values += 1,
+            ModelKind::Plan(_) => plans += 1,
+        }
+        let interpreted = compiler.interpret(&model, &case.data, &json!({}), Mode::Present, Identity::default()).await;
+        let written = |result: &Result<graffiticode_l0000::Value, Vec<Diagnostic>>| match result {
+            Ok(value) => Ok(value.to_json().map(|json| graffiticode_l0000::json_text(&json))),
+            Err(errors) => Err(format!("{errors:?}")),
+        };
+        if written(&interpreted.result) != written(&compiled.result) {
+            failures.push(format!(
+                "{} (data {}):\n  compiled    {:?}\n  interpreted {:?}",
+                case.src, case.data, compiled.result, interpreted.result
+            ));
+        }
+    }
+    assert!(values > 100 && plans > 10, "{values} value models and {plans} plans: the split looks wrong");
+    assert!(failures.is_empty(), "{} of {} cases differ:\n{}", failures.len(), cases.len(), failures.join("\n"));
+}
+
+#[test]
+fn reading_the_input_is_a_data_form_or_a_get_var_that_may_name_it() {
+    let ast = |code: Json| Ast::from_json(&code).unwrap();
+    let get_var = |name: Json| {
+        ast(json!({ "1": { "tag": "STR", "elts": [name] }, "2": { "tag": "GET_VAR", "elts": [1] }, "root": 2 }))
+    };
+    assert!(!get_var(json!("x")).reads_input());
+    assert!(get_var(json!("data")).reads_input());
+    // A name computed at run time might be "data".
+    let computed = ast(json!({
+        "1": { "tag": "STR", "elts": ["da"] }, "2": { "tag": "STR", "elts": ["ta"] },
+        "3": { "tag": "CONCAT", "elts": [1, 2] }, "4": { "tag": "GET_VAR", "elts": [3] }, "root": 4,
+    }));
+    assert!(computed.reads_input());
+    let data = ast(json!({ "1": { "tag": "RECORD", "elts": [] }, "2": { "tag": "DATA", "elts": [1] }, "root": 2 }));
+    assert!(data.reads_input());
+    // Only what the program can reach counts.
+    let unreachable = ast(json!({
+        "1": { "tag": "NUM", "elts": ["1"] }, "2": { "tag": "RECORD", "elts": [] },
+        "3": { "tag": "DATA", "elts": [2] }, "root": 1,
+    }));
+    assert!(!unreachable.reads_input());
+}
+
 /// A dialect that declares every program input-independent: L0000's words, nothing more.
 struct Constant;
 

@@ -183,6 +183,51 @@ export async function waitForBuild(buildId, { cloud, log = () => {}, streamLog, 
   }
 }
 
+// The interpreter's activation flags (docs/graffiticode-interpreter-plan.md,
+// "Rollback procedures"): turning a language's INTERPRETER_LNNNN or
+// COMMANDS_LNNNN on or off always moves its COMPILE_GENERATION_LNNNN too, by
+// a release or a rollback, so results cached under one setting are never
+// served under the other. `before` and `after` are environments.
+const FLAG_RE = /^(INTERPRETER|COMMANDS)_L(\d{4})$/;
+export function flagGenerationProblems(before, after) {
+  const langs = new Set();
+  for (const env of [before, after]) {
+    for (const name of Object.keys(env)) {
+      const match = FLAG_RE.exec(name);
+      if (match) langs.add(match[2]);
+    }
+  }
+  const problems = [];
+  for (const lang of [...langs].sort()) {
+    const flags = ["INTERPRETER", "COMMANDS"].map(f => `${f}_L${lang}`).filter(f => (before[f] ?? "") !== (after[f] ?? ""));
+    const generation = `COMPILE_GENERATION_L${lang}`;
+    if (flags.length && (before[generation] ?? "") === (after[generation] ?? "")) problems.push({ lang, flags, generation });
+  }
+  return problems;
+}
+const describeFlagProblems = problems => problems.map(p => `${p.flags.join(" and ")} change${p.flags.length > 1 ? "" : "s"} but ${p.generation} doesn't`).join("; ");
+
+// A revision's plain environment variables.
+async function revisionEnv(cloud, name) {
+  const revision = await cloud(["run", "revisions", "describe", name]);
+  const container = revision.spec?.containers?.[0];
+  return Object.fromEntries((container?.env ?? []).filter(e => typeof e?.value === "string").map(e => [e.name, e.value]));
+}
+
+// What a release does to the activation flags: each serving revision's
+// environment against the one the new revision will have (Cloud Run merges
+// --update-env-vars into the template and drops removeEnv).
+async function releaseFlagProblems(config, service, cloud) {
+  const problems = [];
+  for (const name of Object.keys(traffic(service))) {
+    const before = await revisionEnv(cloud, name);
+    const after = { ...before, ...(config.env || {}) };
+    for (const removed of config.removeEnv || []) delete after[removed];
+    problems.push(...flagGenerationProblems(before, after));
+  }
+  return problems;
+}
+
 export async function release(context, source, deps) {
   const { config, configHash, environment } = context;
   const { cloud, log, save, temp } = deps;
@@ -191,6 +236,8 @@ export async function release(context, source, deps) {
   requireValue(!config.verify || source.files.includes(config.verify.module), `Verify module ${config.verify?.module} is missing from the source snapshot`);
   log("Checking existing service, identity, and secret versions…");
   const initial = await checkService(config, cloud);
+  const flagProblems = await releaseFlagProblems(config, initial, cloud);
+  requireValue(flagProblems.length === 0, `${describeFlagProblems(flagProblems)}: an interpreter flag never changes without its language's compile generation. Nothing built.`);
   for (const account of [config.buildServiceAccount, config.runtimeServiceAccount]) {
     await cloud(["iam", "service-accounts", "describe", account]);
   }
@@ -710,6 +757,13 @@ export async function rollback(context, receipt, deps) {
   const current = await cloud(["run", "services", "describe", config.service]);
   requireValue(same(traffic(current), { [receipt.revision]: 100 }), "Traffic no longer belongs exclusively to this release; refusing to overwrite a newer deployment");
   const targets = Object.keys(receipt.previousTraffic);
+  // Nor to a revision with other interpreter flags under the same compile
+  // generation: it would serve what the current one cached. No override.
+  const currentEnv = await revisionEnv(cloud, receipt.revision);
+  const flagProblems = [];
+  for (const target of targets) flagProblems.push(...flagGenerationProblems(currentEnv, await revisionEnv(cloud, target)));
+  requireValue(flagProblems.length === 0,
+    `Rollback target ${describeFlagProblems(flagProblems)}; refusing, with no override. Roll forward with a new generation.`);
   // ISOLATE-01: never put traffic back on a revision without the network's
   // controls. No override: roll forward, or back to a controlled revision.
   const uncontrolled = await networkProblems(context, targets, { cloud });
