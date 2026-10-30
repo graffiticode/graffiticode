@@ -26,7 +26,7 @@ Reasons:
   Every consumer unwraps these itself: the shared View (`languages/l0000/packages/view/src/view.tsx:144`), the ChatGPT widget, MCP `item-content.ts`, and the console `api.ts`. New metadata is additive and optional.
 - **A stage's input doesn't change for a language until that language's own upgrade (Track C).** About 6 compilers read `options.data` directly, and L0000's `DATA` merges it.
 - **Stored artifacts and publications stay readable.** The registry must not be bumped until artifact compatibility can be declared (step P1), and a bump follows the rollout protocol in P1.
-- **TypeScript `lNNNN` services keep running after a switch**, in line with the standing rule never to delete language services. A switch only changes where the API routes.
+- **TypeScript `lNNNN` services keep running after a switch.** A switch only changes where the API routes. Removing a language's TypeScript source (A6) never touches its deployed service; retiring the service (A7) is a separate, explicit decision per language. The language itself is never retired: its items keep compiling, on Rust.
 - **Execution behavior doesn't change for existing callers.** Anything that triggers an effect today through `/compile` (L0176 `save-to-itembank`, L0013 `snap`) keeps doing so until its callers have migrated to explicit commands (Track D). Keeping the envelope the same is not enough.
 - **No chain that works today is newly refused** until a step that names the affected chains and migrates them first.
 - **Every release names its rollback**, which is either an API rollback (`npm run deploy -- rollback --release <id>`) or a service rollback.
@@ -134,6 +134,37 @@ Rollback is an API rollback. The TypeScript service stays deployed.
    - Make `l0176r` pinnable with approvals.
    - Set `POLICY_URL` and `BROKER_URL`, have Policy accept `l0176r-run`, and move it to the `compilers-l0176` egress subnet.
    - Run the canary through a connection before switching.
+
+### Retiring the TypeScript implementation (per language, after its switch)
+Retirement is its own milestone for each language, after its Track A switch. It needn't wait for that language's Track C upgrade. It has two steps with separate decisions: **A6** removes the TypeScript compiler and server source from `main`; **A7** retires the deployed TypeScript service. Removing source never requires deleting a service.
+
+- **A6 Remove a language's TypeScript compiler and server source.** Allowed only when all five hold, each recorded in the language's `CLAUDE.md` with its evidence:
+  1. **Accepted behavioral parity.** The live parity gate passes for compilation, errors, authorization, mixed chains, lexicons, forms and assets. Every deliberate difference is documented and tested. A language with protected functions also has its real protected paths exercised (admitted plans, preflight, broker operations), not only previews.
+  2. **Production confidence.** Rust has passed the applicable soak and canaries, including cold starts and the language's uncommon operations. A low-traffic language needs targeted exercises: elapsed time alone isn't evidence.
+  3. **A tested recovery path that doesn't rebuild TypeScript.**
+     - Known-good images and release receipts are retained.
+     - A rollback to a compatible Rust revision has been demonstrated.
+     - Any exact TypeScript revision still needed is preserved: by pinned (admitted) plans, by direct callers, or by a supported rollback procedure. For L0000, admitted plans pinned to `l0000` revisions replay through them.
+  4. **No remaining dependency on the TypeScript implementation.** Rust builds, static-asset generation, vocabulary generation, CI, package consumers and deployment scripts all work without it. Known dependencies to remove first:
+     - **Static assets.** Each Rust language's `tools/assemble-static.mjs` builds the TypeScript core (`npm run -w packages/core build` and `build-static`; e.g. `languages/l0184/tools/assemble-static.mjs:24`). The static outputs (lexicon, schema, spec, instructions, language info) need a source of their own: spec files and a generator that doesn't import the compiler.
+     - **Generated Rust data.** Vocabulary generators and conformance generators import TypeScript exports (e.g. `languages/l0182/crates/core/tests/conformance/generate.mjs:44`, L0184's `vocab.json` and `lexicon-additions.json` from `attributes.ts`). Their outputs become checked-in sources edited directly, or generated from data that isn't TypeScript code.
+     - **The shared-package rollout.** `scripts/lib/upgrade-and-deploy.js:118` deploys `lNNNN`, the TypeScript service. For a switched language it must deploy the service the API routes it to (`lNNNNr`). This is already true for L0184 and L0000, whose View 0.5.0 rollout needed hand deploys of `l0184r` and `l0000r`.
+     - **L0000 is separate.** `@graffiticode/l0000` (the TypeScript kernel) is consumed from npm by the other TypeScript languages, and `@graffiticode/l0000-view` by every language. L0000's TypeScript compiler is removed only after every consumer has its own A6, and its View stays.
+  5. **Regression coverage survives deletion.**
+     - The last trusted TypeScript corpus, its expected outputs, the accepted differences and their provenance (commit, date, generator) are preserved in the repository.
+     - Rust keeps being tested against those fixtures.
+     - Expected results are never regenerated from Rust and called parity. A later language change updates the fixture by hand, with review, as a change to the language.
+
+  **Kept:** the TypeScript View, browser components and shared assets wherever Rust still uses them (every language's `/form` is the TypeScript View).
+  **The final check is the deletion PR itself:** it builds, tests and releases the Rust language from a clean checkout with the TypeScript compiler and server absent.
+  **Rollback:** a source revert. The deployed services and images are unchanged by A6.
+
+- **A7 Retire the deployed TypeScript service.** A separate decision per language, made explicitly by the owner, after A6. Never part of A6, and never implied by it. Before retiring:
+  - nothing routes to it: no API `BASE_URL`, no override, no domain mapping or DNS record (`lNNNN.graffiticode.org` repointed to the Rust service first), and no client that calls it directly, by logs over an agreed period;
+  - no admitted plan, receipt replay or supported rollback procedure names one of its revisions;
+  - its last images and receipts stay retained, so it could be redeployed.
+
+  Until that decision, the service stays deployed (at `min 0`), as every switched language's does today.
 
 ## Track B — Interpreter platform (a no-op until a language opts in)
 - **B1 Rust contract** *(done: `crates/core/src/model.rs`, `Compiler::model`/`interpret`, `/interpret` and `"form": "model"` in the shared server; documented in `languages/l0000/CLAUDE.md`. A plan model carries the stored source, so interpreting it equals today's compile, checked over the whole L0000 conformance corpus. `Dialect::input_independent` decides value models and defaults to never)*.
@@ -389,3 +420,4 @@ The design doc's §5, §11, §12 and §14 are amended to match.
 - Value models are decided per program. L0174 is a plan language.
 - L0013 is promoted with capture evidence against an isolated bucket.
 - P2 makes each language's routing switch a pair of API env vars, so rollback is an API rollback.
+- Retiring a language's TypeScript implementation is a per-language milestone after its switch: source removal (A6) behind five gates, and service retirement (A7) as a separate, explicit owner decision. The language itself is never retired.
