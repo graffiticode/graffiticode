@@ -33,7 +33,7 @@
 //   getOrCreate  the one declared exception to a read-only get: an atomic,
 //                idempotent create of per-viewer state (L0182's assignment).
 
-export const INTERPRETER_MANIFEST_VERSION = 2;
+export const INTERPRETER_MANIFEST_VERSION = 3;
 
 // From loosest to strictest.
 export const CACHE_CLASSES = Object.freeze(["immutable", "shared", "private", "no-store"] as const);
@@ -56,8 +56,15 @@ export type InterpreterDeclaration = Readonly<{
 //         one that does (`rows data use "0185"`) is a plan the kernel
 //         evaluates. Its results carry nothing that expires or is private, so
 //         they may be cached as immutable in either mode.
+//   0186  C1: FigJam boards. Upstream data never reaches a board, so every
+//         program that doesn't read its input (all of the corpus) is a value
+//         model; immutable in either mode, as L0184.
 export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclaration>> = Object.freeze({
   "0184": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0186": Object.freeze({
     interpreter: "interpreter",
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
   }),
