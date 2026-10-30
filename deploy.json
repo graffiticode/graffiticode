@@ -470,6 +470,7 @@
       "dockerfile": "configs/Dockerfile.l0000.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0000-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -557,6 +558,7 @@
       "dockerfile": "configs/Dockerfile.l0175.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0175-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -626,6 +628,7 @@
       "dockerfile": "configs/Dockerfile.l0000r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0000r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -696,6 +699,7 @@
       "dockerfile": "configs/Dockerfile.l0003r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0003r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -750,6 +754,7 @@
       "dockerfile": "configs/Dockerfile.l0010r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0010r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -804,6 +809,7 @@
       "dockerfile": "configs/Dockerfile.l0013r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0013r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -901,6 +907,7 @@
       "dockerfile": "configs/Dockerfile.l0014r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0014r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -955,6 +962,7 @@
       "dockerfile": "configs/Dockerfile.l0174r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0174r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1009,6 +1017,7 @@
       "dockerfile": "configs/Dockerfile.l0175r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0175r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1063,6 +1072,7 @@
       "dockerfile": "configs/Dockerfile.l0176r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0176r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1220,6 +1230,7 @@
       "dockerfile": "configs/Dockerfile.l0003.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0003-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1272,6 +1283,7 @@
       "dockerfile": "configs/Dockerfile.l0010.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0010-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1324,6 +1336,7 @@
       "dockerfile": "configs/Dockerfile.l0013.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0013-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1422,6 +1435,7 @@
       "dockerfile": "configs/Dockerfile.l0014.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0014-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1482,6 +1496,7 @@
       "dockerfile": "configs/Dockerfile.l0174.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0174-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1542,6 +1557,7 @@
       "dockerfile": "configs/Dockerfile.l0177r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0177r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1596,6 +1612,7 @@
       "dockerfile": "configs/Dockerfile.l0177.yaml",
       "port": 50177,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0177-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1656,6 +1673,7 @@
       "dockerfile": "configs/Dockerfile.l0178r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0178r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1710,6 +1728,7 @@
       "dockerfile": "configs/Dockerfile.l0178.yaml",
       "port": 50178,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0178-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1770,6 +1789,7 @@
       "dockerfile": "configs/Dockerfile.l0179r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0179r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1824,6 +1844,7 @@
       "dockerfile": "configs/Dockerfile.l0179.yaml",
       "port": 50179,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0179-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1884,6 +1905,7 @@
       "dockerfile": "configs/Dockerfile.l0180r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0180r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1938,6 +1960,7 @@
       "dockerfile": "configs/Dockerfile.l0180.yaml",
       "port": 50180,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0180-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -1998,6 +2021,7 @@
       "dockerfile": "configs/Dockerfile.l0181r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0181r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2052,6 +2076,7 @@
       "dockerfile": "configs/Dockerfile.l0181.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0181-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2112,6 +2137,7 @@
       "dockerfile": "configs/Dockerfile.l0182r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0182r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2166,6 +2192,7 @@
       "dockerfile": "configs/Dockerfile.l0182.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0182-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2235,6 +2262,7 @@
       "dockerfile": "configs/Dockerfile.l0183r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0183r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2289,6 +2317,7 @@
       "dockerfile": "configs/Dockerfile.l0183.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0183-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2358,6 +2387,7 @@
       "dockerfile": "configs/Dockerfile.l0184r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0184r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2412,6 +2442,7 @@
       "dockerfile": "configs/Dockerfile.l0184.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0184-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2481,6 +2512,7 @@
       "dockerfile": "configs/Dockerfile.l0185r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0185r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2535,6 +2567,7 @@
       "dockerfile": "configs/Dockerfile.l0185.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0185-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2604,6 +2637,7 @@
       "dockerfile": "configs/Dockerfile.l0186r.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0186r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
@@ -2658,6 +2692,7 @@
       "dockerfile": "configs/Dockerfile.l0186.yaml",
       "port": 8080,
       "access": "public",
+      "retireTags": true,
       "runtimeServiceAccount": "l0186-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
