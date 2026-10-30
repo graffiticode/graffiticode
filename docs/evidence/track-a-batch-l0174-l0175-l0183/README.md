@@ -18,7 +18,8 @@ changes. L0183 also keeps its `upstream-envelope` rule: a chain whose upstream d
 `{data, errors}` envelope is unwrapped by the Rust kernel (no corpus case needed it).
 
 L0174's corpus is small (90 cases). By the owner's decision its extra evidence is the staged
-canary with real items (`canary.mjs --items`), not an extended corpus.
+canary with real items (`canary.mjs --items items.json`), not an extended corpus: two public
+L0174 items the owner chose (a third was private, so an anonymous canary can't load it).
 
 Rollback: an api rollback to the release before this one (each TypeScript service stays
 deployed).
