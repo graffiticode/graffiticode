@@ -1,0 +1,6 @@
+board [ page [
+  sticky id "short" text "Ship" {}
+  sticky id "long" text "Pairing helped us resolve the integration issues quickly" {}
+  shape id "decide" text "Is the integration environment ready for the release candidate?" kind DIAMOND {}
+  textbox id "emoji" text "Launch 🚀 day" font-size LARGE {}
+] id "p1" name "Remeasure" layout ROW {} ] {}..

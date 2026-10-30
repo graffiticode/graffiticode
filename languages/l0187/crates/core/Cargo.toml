@@ -14,8 +14,11 @@ path = "src/bin/emit.rs"
 async-trait = "0.1"
 graffiticode-l0000 = { path = "../../../l0000/crates/core", default-features = false }
 indexmap = { version = "2", features = ["serde"] }
+rustybuzz = "=0.20.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
+unicode-linebreak = "=0.1.5"
+unicode-segmentation = "=1.13.3"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

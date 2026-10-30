@@ -24,7 +24,10 @@ pub mod diag;
 pub mod eval;
 pub mod ir;
 pub mod lexicon;
+pub mod measure;
+pub mod profile;
 pub mod resolve;
+pub mod size;
 pub mod vocab;
 
 use async_trait::async_trait;
@@ -202,19 +205,55 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
             return Value::Record(Default::default());
         }
     };
-    let errors = resolve::resolve(&board, &source_map(cx.ast()));
+    let spans = source_map(cx.ast());
+    let errors = resolve::resolve(&board, &spans);
     if !errors.is_empty() {
         for error in errors {
             cx.report_diagnostic(error);
         }
         return Value::Record(Default::default());
     }
-    output(&board)
+    let sizes = match size::size(&board) {
+        Ok(sizes) => sizes,
+        Err(limits) => {
+            for limit in limits {
+                let span = spans.get(&limit.id).and_then(|s| s.first()).copied();
+                cx.report_diagnostic(diag::diagnostic(diag::Category::ContentLimit, limit.code, limit.message, span));
+            }
+            return Value::Record(Default::default());
+        }
+    };
+    output(&board, &sizes)
 }
 
-/// The compiled board. Until layout exists (phase 4) this is the semantic board itself.
-fn output(board: &ir::Board) -> Value {
+/// The compiled board. Until layout exists (phase 4) this is the semantic board, each mark and
+/// label carrying its measured size and lines.
+fn output(board: &ir::Board, sizes: &size::Sizes) -> Value {
     let mut json = serde_json::to_value(board).expect("the board serializes");
+    fn annotate(value: &mut serde_json::Value, sizes: &size::Sizes) {
+        match value {
+            serde_json::Value::Object(object) => {
+                let id = object.get("id").and_then(|v| v.as_str()).map(str::to_owned);
+                if let Some(id) = id {
+                    if let Some(m) = sizes.marks.get(&id).filter(|_| object.contains_key("text")) {
+                        object.insert("measured".to_owned(), serde_json::to_value(m).expect("serializes"));
+                    }
+                    if let Some(m) = sizes.labels.get(&id).filter(|_| object.contains_key("from")) {
+                        object.insert("measuredLabel".to_owned(), serde_json::to_value(m).expect("serializes"));
+                    }
+                    if let Some(w) = sizes.titles.get(&id).filter(|_| object.contains_key("region")) {
+                        object.insert("titleWidth".to_owned(), (*w).into());
+                    }
+                }
+                for v in object.values_mut() {
+                    annotate(v, sizes);
+                }
+            }
+            serde_json::Value::Array(items) => items.iter_mut().for_each(|v| annotate(v, sizes)),
+            _ => {}
+        }
+    }
+    annotate(&mut json, sizes);
     if let Some(object) = json.as_object_mut() {
         let mut out = serde_json::Map::new();
         out.insert("type".to_owned(), "board".into());

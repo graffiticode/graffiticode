@@ -1,0 +1,1 @@
+board [ page [ textbox id "t" text "שלום" {} ] id "p1" name "Page" {} ] {}..

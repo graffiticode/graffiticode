@@ -1,0 +1,1 @@
+board [ page [ sticky id "long" text "This retrospective note is far too long to fit on one fixed size FigJam sticky at the default medium font size, because stickies never grow and L0187 never shrinks text to make it fit, so the compiler reports it" {} ] id "p1" name "Page" {} ] {}..

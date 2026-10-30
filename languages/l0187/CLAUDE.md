@@ -43,10 +43,27 @@ come) and dev tools.
   - `src/lib.rs` — `Dialect`: dispatch, `PROG` (one board, at most one `save-to-figjam`, upstream
     data never merged), and `check` (early `{}`, hints on removed geometry words and missing
     terminators, which reach us as parser errors).
+  - `src/profile.rs` — `FIGJAM_V1`: every geometry constant, with its provenance (calibrated
+    against FigJam on 2026-10-30, L0186's measurements, or L0187 policy). **Provisional** until
+    the phase 7 fidelity comparison; then frozen (a geometry change needs a new profile tag).
+  - `src/measure.rs` — text: the embedded **Inter 3.19 Medium** (`fonts/`, OFL; FigJam's widths
+    are its advances rounded up), shaped with rustybuzz, wrapped greedily at UAX #14
+    opportunities and between grapheme clusters inside a long word; lines re-join to the exact
+    text (`Break`). Coverage policy: `.notdef` emoji are modeled at 1.25 em; other `.notdef`
+    characters and right-to-left text are content limits. `content_box` is each shape kind's
+    calibrated text area.
+  - `src/size.rs` — every mark's box and lines: stickies keep their width (square, or wide when a
+    square would grow) and grow taller as FigJam's do; shapes are sized on the 24 grid to hold
+    their text (FigJam truncates a resized shape's overflow); textboxes wrap at 20 em; labels are
+    padded lines. Text that cannot be measured is a `content-limit` diagnostic.
   - `src/bin/emit.rs` — writes the vocabulary-derived files to `generated/`, or `--check`s them.
+  - `examples/` — calibration helpers (`advances`, `wrap`, `shapes`, `probe_lines`); the method
+    and results are in `docs/evidence/l0187-calibration/`.
 
 Until layout lands, a compile returns the semantic board itself (`{type: "board", profile, …,
-pages: [{id, name, region, connectors}]}`); the positioned output replaces it.
+pages: [{id, name, region, connectors}]}`), each mark carrying `measured` (size, content box,
+lines) and each labelled connector `measuredLabel`; the positioned output replaces it.
+
 - `crates/server` (`l0187-server`, binary `l0187`) — `l0000r_server::serve_with(L0187, …)`.
 - `generated/` — **committed** emit output (`lexicon.json` so far; `schema.json` later). The
   freshness target for `emit --check`, and what the static assembly copies.

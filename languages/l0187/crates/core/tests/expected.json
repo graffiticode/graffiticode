@@ -19,7 +19,28 @@
                 "id": "heading",
                 "text": "Workshop agenda",
                 "opacity": 100,
-                "fontSize": "LARGE"
+                "fontSize": "LARGE",
+                "measured": {
+                  "width": 347,
+                  "height": 48,
+                  "content": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 347,
+                    "h": 48
+                  },
+                  "fontSize": 40,
+                  "lineHeight": 1.2,
+                  "lines": [
+                    {
+                      "text": "Workshop agenda",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "group",
@@ -44,10 +65,32 @@
                             "id": "goal",
                             "text": "Agree on the release scope",
                             "opacity": 100,
-                            "fontSize": "MEDIUM"
+                            "fontSize": "MEDIUM",
+                            "measured": {
+                              "width": 314,
+                              "height": 29,
+                              "content": {
+                                "x": 0,
+                                "y": 0,
+                                "w": 314,
+                                "h": 29
+                              },
+                              "fontSize": 24,
+                              "lineHeight": 1.2083333333333333,
+                              "lines": [
+                                {
+                                  "text": "Agree on the release scope",
+                                  "break": {
+                                    "kind": "end",
+                                    "text": ""
+                                  }
+                                }
+                              ]
+                            }
                           }
                         ]
-                      }
+                      },
+                      "titleWidth": 54
                     },
                     {
                       "type": "section",
@@ -65,24 +108,88 @@
                             "id": "scope",
                             "text": "Discuss scope",
                             "opacity": 100,
-                            "fontSize": "MEDIUM"
+                            "fontSize": "MEDIUM",
+                            "measured": {
+                              "width": 240,
+                              "height": 240,
+                              "content": {
+                                "x": 17,
+                                "y": 24,
+                                "w": 206,
+                                "h": 192
+                              },
+                              "fontSize": 24,
+                              "lineHeight": 1.5,
+                              "lines": [
+                                {
+                                  "text": "Discuss scope",
+                                  "break": {
+                                    "kind": "end",
+                                    "text": ""
+                                  }
+                                }
+                              ]
+                            }
                           },
                           {
                             "type": "sticky",
                             "id": "risk",
                             "text": "Review risks",
                             "opacity": 100,
-                            "fontSize": "MEDIUM"
+                            "fontSize": "MEDIUM",
+                            "measured": {
+                              "width": 240,
+                              "height": 240,
+                              "content": {
+                                "x": 17,
+                                "y": 24,
+                                "w": 206,
+                                "h": 192
+                              },
+                              "fontSize": 24,
+                              "lineHeight": 1.5,
+                              "lines": [
+                                {
+                                  "text": "Review risks",
+                                  "break": {
+                                    "kind": "end",
+                                    "text": ""
+                                  }
+                                }
+                              ]
+                            }
                           },
                           {
                             "type": "sticky",
                             "id": "owner",
                             "text": "Assign owners",
                             "opacity": 100,
-                            "fontSize": "MEDIUM"
+                            "fontSize": "MEDIUM",
+                            "measured": {
+                              "width": 240,
+                              "height": 240,
+                              "content": {
+                                "x": 17,
+                                "y": 24,
+                                "w": 206,
+                                "h": 192
+                              },
+                              "fontSize": 24,
+                              "lineHeight": 1.5,
+                              "lines": [
+                                {
+                                  "text": "Assign owners",
+                                  "break": {
+                                    "kind": "end",
+                                    "text": ""
+                                  }
+                                }
+                              ]
+                            }
                           }
                         ]
-                      }
+                      },
+                      "titleWidth": 61
                     }
                   ]
                 }
@@ -118,7 +225,28 @@
                 "text": "",
                 "fill": "#fc0",
                 "opacity": 50,
-                "fontSize": "LARGE"
+                "fontSize": "LARGE",
+                "measured": {
+                  "width": 240,
+                  "height": 240,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  },
+                  "fontSize": 40,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "shape",
@@ -129,7 +257,28 @@
                 "stroke": "#112233",
                 "strokeWidth": "THICK",
                 "opacity": 80,
-                "fontSize": "SMALL"
+                "fontSize": "SMALL",
+                "measured": {
+                  "width": 176,
+                  "height": 176,
+                  "content": {
+                    "x": 18.5,
+                    "y": 38.896,
+                    "w": 139,
+                    "h": 98.208
+                  },
+                  "fontSize": 16,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Shape",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "textbox",
@@ -137,7 +286,35 @@
                 "text": "Line one\nLine two",
                 "color": "gray",
                 "opacity": 100,
-                "fontSize": "HUGE"
+                "fontSize": "HUGE",
+                "measured": {
+                  "width": 389,
+                  "height": 232,
+                  "content": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 389,
+                    "h": 232
+                  },
+                  "fontSize": 96,
+                  "lineHeight": 1.2083333333333333,
+                  "lines": [
+                    {
+                      "text": "Line one",
+                      "break": {
+                        "kind": "hard",
+                        "text": "\n"
+                      }
+                    },
+                    {
+                      "text": "Line two",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -191,13 +368,35 @@
                       "id": "a",
                       "text": "A",
                       "opacity": 100,
-                      "fontSize": "MEDIUM"
+                      "fontSize": "MEDIUM",
+                      "measured": {
+                        "width": 240,
+                        "height": 240,
+                        "content": {
+                          "x": 17,
+                          "y": 24,
+                          "w": 206,
+                          "h": 192
+                        },
+                        "fontSize": 24,
+                        "lineHeight": 1.5,
+                        "lines": [
+                          {
+                            "text": "A",
+                            "break": {
+                              "kind": "end",
+                              "text": ""
+                            }
+                          }
+                        ]
+                      }
                     }
                   ]
                 },
                 "before": [
                   "right"
-                ]
+                ],
+                "titleWidth": 43
               },
               {
                 "type": "section",
@@ -214,10 +413,32 @@
                       "id": "b",
                       "text": "B",
                       "opacity": 100,
-                      "fontSize": "MEDIUM"
+                      "fontSize": "MEDIUM",
+                      "measured": {
+                        "width": 240,
+                        "height": 240,
+                        "content": {
+                          "x": 17,
+                          "y": 24,
+                          "w": 206,
+                          "h": 192
+                        },
+                        "fontSize": 24,
+                        "lineHeight": 1.5,
+                        "lines": [
+                          {
+                            "text": "B",
+                            "break": {
+                              "kind": "end",
+                              "text": ""
+                            }
+                          }
+                        ]
+                      }
                     }
                   ]
-                }
+                },
+                "titleWidth": 51
               }
             ]
           },
@@ -264,7 +485,8 @@
                     "mode": "AUTO"
                   },
                   "children": []
-                }
+                },
+                "titleWidth": 53
               },
               {
                 "type": "group",
@@ -315,7 +537,28 @@
                 "text": "Shared text",
                 "fill": "yellow",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 240,
+                  "height": 240,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Shared text",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "sticky",
@@ -323,7 +566,28 @@
                 "text": "Shared text",
                 "fill": "yellow",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 240,
+                  "height": 240,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Shared text",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -358,7 +622,28 @@
                 "fontSize": "MEDIUM",
                 "before": [
                   "valid"
-                ]
+                ],
+                "measured": {
+                  "width": 176,
+                  "height": 176,
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Fetch data",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "shape",
@@ -371,7 +656,28 @@
                 "before": [
                   "save",
                   "error"
-                ]
+                ],
+                "measured": {
+                  "width": 176,
+                  "height": 176,
+                  "content": {
+                    "x": 46.2,
+                    "y": 66,
+                    "w": 83.6,
+                    "h": 44
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Valid?",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "shape",
@@ -380,7 +686,28 @@
                 "kind": "ROUNDED_RECTANGLE",
                 "strokeWidth": "THIN",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 176,
+                  "height": 176,
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Save result",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "shape",
@@ -389,7 +716,28 @@
                 "kind": "ROUNDED_RECTANGLE",
                 "strokeWidth": "THIN",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 176,
+                  "height": 176,
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Report error",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -415,7 +763,28 @@
               "fontSize": "SMALL",
               "lineStyle": "SOLID",
               "fromCap": "NONE",
-              "toCap": "ARROW_LINES"
+              "toCap": "ARROW_LINES",
+              "measuredLabel": {
+                "width": 44,
+                "height": 29,
+                "content": {
+                  "x": 8,
+                  "y": 4,
+                  "w": 28,
+                  "h": 21
+                },
+                "fontSize": 16,
+                "lineHeight": 1.3,
+                "lines": [
+                  {
+                    "text": "Yes",
+                    "break": {
+                      "kind": "end",
+                      "text": ""
+                    }
+                  }
+                ]
+              }
             },
             {
               "id": "valid-error",
@@ -427,7 +796,28 @@
               "fontSize": "SMALL",
               "lineStyle": "SOLID",
               "fromCap": "NONE",
-              "toCap": "ARROW_LINES"
+              "toCap": "ARROW_LINES",
+              "measuredLabel": {
+                "width": 38,
+                "height": 29,
+                "content": {
+                  "x": 8,
+                  "y": 4,
+                  "w": 22,
+                  "h": 21
+                },
+                "fontSize": 16,
+                "lineHeight": 1.3,
+                "lines": [
+                  {
+                    "text": "No",
+                    "break": {
+                      "kind": "end",
+                      "text": ""
+                    }
+                  }
+                ]
+              }
             },
             {
               "id": "retry",
@@ -439,7 +829,28 @@
               "fontSize": "SMALL",
               "lineStyle": "DASHED",
               "fromCap": "NONE",
-              "toCap": "ARROW_LINES"
+              "toCap": "ARROW_LINES",
+              "measuredLabel": {
+                "width": 58,
+                "height": 29,
+                "content": {
+                  "x": 8,
+                  "y": 4,
+                  "w": 42,
+                  "h": 21
+                },
+                "fontSize": 16,
+                "lineHeight": 1.3,
+                "lines": [
+                  {
+                    "text": "Retry",
+                    "break": {
+                      "kind": "end",
+                      "text": ""
+                    }
+                  }
+                ]
+              }
             }
           ]
         }
@@ -684,6 +1095,17 @@
       }
     ]
   },
+  "invalid-missing-glyph": {
+    "errors": [
+      {
+        "message": "sticky \"t\": the character '漢' (U+6F22) has no glyph in FIGJAM_V1's font, so it cannot be measured. Write the text with characters FIGJAM_V1 supports (Latin, Greek and Cyrillic scripts, common symbols and emoji).",
+        "from": 23,
+        "to": 25,
+        "code": "unsupported-text",
+        "category": "content-limit"
+      }
+    ]
+  },
   "invalid-missing-id": {
     "errors": [
       {
@@ -813,6 +1235,17 @@
         "to": 34,
         "code": "repeated-property",
         "category": "source"
+      }
+    ]
+  },
+  "invalid-rtl-text": {
+    "errors": [
+      {
+        "message": "textbox \"t\": the character 'ש' (U+05E9) is right-to-left text, which FIGJAM_V1 does not lay out. Write the text with characters FIGJAM_V1 supports (Latin, Greek and Cyrillic scripts, common symbols and emoji).",
+        "from": 24,
+        "to": 26,
+        "code": "unsupported-text",
+        "category": "content-limit"
       }
     ]
   },
@@ -959,14 +1392,56 @@
                 "id": "idea",
                 "text": "Idea",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 240,
+                  "height": 240,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Idea",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "sticky",
                 "id": "plan",
                 "text": "Plan",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 240,
+                  "height": 240,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Plan",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -981,9 +1456,208 @@
               "fontSize": "SMALL",
               "lineStyle": "SOLID",
               "fromCap": "NONE",
-              "toCap": "ARROW_LINES"
+              "toCap": "ARROW_LINES",
+              "measuredLabel": {
+                "width": 77,
+                "height": 29,
+                "content": {
+                  "x": 8,
+                  "y": 4,
+                  "w": 61,
+                  "h": 21
+                },
+                "fontSize": 16,
+                "lineHeight": 1.3,
+                "lines": [
+                  {
+                    "text": "develop",
+                    "break": {
+                      "kind": "end",
+                      "text": ""
+                    }
+                  }
+                ]
+              }
             }
           ]
+        }
+      ]
+    }
+  },
+  "remeasure": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Remeasure",
+          "region": {
+            "layout": {
+              "mode": "ROW"
+            },
+            "children": [
+              {
+                "type": "sticky",
+                "id": "short",
+                "text": "Ship",
+                "opacity": 100,
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 240,
+                  "height": 240,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Ship",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "sticky",
+                "id": "long",
+                "text": "Pairing helped us resolve the integration issues quickly",
+                "opacity": 100,
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 240,
+                  "height": 240,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Pairing helped us",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "resolve the",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "integration issues",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "quickly",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "shape",
+                "id": "decide",
+                "text": "Is the integration environment ready for the release candidate?",
+                "kind": "DIAMOND",
+                "strokeWidth": "THIN",
+                "opacity": 100,
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 464,
+                  "height": 392,
+                  "content": {
+                    "x": 121.80000000000001,
+                    "y": 120,
+                    "w": 220.39999999999998,
+                    "h": 152
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Is the integration",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "environment ready",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "for the release",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "candidate?",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "textbox",
+                "id": "emoji",
+                "text": "Launch 🚀 day",
+                "opacity": 100,
+                "fontSize": "LARGE",
+                "measured": {
+                  "width": 281,
+                  "height": 48,
+                  "content": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 281,
+                    "h": 48
+                  },
+                  "fontSize": 40,
+                  "lineHeight": 1.2,
+                  "lines": [
+                    {
+                      "text": "Launch 🚀 day",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "connectors": []
         }
       ]
     }
@@ -1020,7 +1694,28 @@
                       "text": "Shipped on time",
                       "fill": "green",
                       "opacity": 100,
-                      "fontSize": "MEDIUM"
+                      "fontSize": "MEDIUM",
+                      "measured": {
+                        "width": 240,
+                        "height": 240,
+                        "content": {
+                          "x": 17,
+                          "y": 24,
+                          "w": 206,
+                          "h": 192
+                        },
+                        "fontSize": 24,
+                        "lineHeight": 1.5,
+                        "lines": [
+                          {
+                            "text": "Shipped on time",
+                            "break": {
+                              "kind": "end",
+                              "text": ""
+                            }
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "sticky",
@@ -1028,10 +1723,46 @@
                       "text": "Pairing helped us resolve the integration issues",
                       "fill": "green",
                       "opacity": 100,
-                      "fontSize": "MEDIUM"
+                      "fontSize": "MEDIUM",
+                      "measured": {
+                        "width": 240,
+                        "height": 240,
+                        "content": {
+                          "x": 17,
+                          "y": 24,
+                          "w": 206,
+                          "h": 192
+                        },
+                        "fontSize": 24,
+                        "lineHeight": 1.5,
+                        "lines": [
+                          {
+                            "text": "Pairing helped us",
+                            "break": {
+                              "kind": "soft",
+                              "text": " "
+                            }
+                          },
+                          {
+                            "text": "resolve the",
+                            "break": {
+                              "kind": "soft",
+                              "text": " "
+                            }
+                          },
+                          {
+                            "text": "integration issues",
+                            "break": {
+                              "kind": "end",
+                              "text": ""
+                            }
+                          }
+                        ]
+                      }
                     }
                   ]
-                }
+                },
+                "titleWidth": 81
               },
               {
                 "type": "section",
@@ -1049,10 +1780,46 @@
                       "text": "Flaky tests delayed release verification",
                       "fill": "pink",
                       "opacity": 100,
-                      "fontSize": "MEDIUM"
+                      "fontSize": "MEDIUM",
+                      "measured": {
+                        "width": 240,
+                        "height": 240,
+                        "content": {
+                          "x": 17,
+                          "y": 24,
+                          "w": 206,
+                          "h": 192
+                        },
+                        "fontSize": 24,
+                        "lineHeight": 1.5,
+                        "lines": [
+                          {
+                            "text": "Flaky tests",
+                            "break": {
+                              "kind": "soft",
+                              "text": " "
+                            }
+                          },
+                          {
+                            "text": "delayed release",
+                            "break": {
+                              "kind": "soft",
+                              "text": " "
+                            }
+                          },
+                          {
+                            "text": "verification",
+                            "break": {
+                              "kind": "end",
+                              "text": ""
+                            }
+                          }
+                        ]
+                      }
                     }
                   ]
-                }
+                },
+                "titleWidth": 90
               },
               {
                 "type": "section",
@@ -1070,10 +1837,46 @@
                       "text": "Quarantine flaky tests and assign owners",
                       "fill": "blue",
                       "opacity": 100,
-                      "fontSize": "MEDIUM"
+                      "fontSize": "MEDIUM",
+                      "measured": {
+                        "width": 240,
+                        "height": 240,
+                        "content": {
+                          "x": 17,
+                          "y": 24,
+                          "w": 206,
+                          "h": 192
+                        },
+                        "fontSize": 24,
+                        "lineHeight": 1.5,
+                        "lines": [
+                          {
+                            "text": "Quarantine flaky",
+                            "break": {
+                              "kind": "soft",
+                              "text": " "
+                            }
+                          },
+                          {
+                            "text": "tests and assign",
+                            "break": {
+                              "kind": "soft",
+                              "text": " "
+                            }
+                          },
+                          {
+                            "text": "owners",
+                            "break": {
+                              "kind": "end",
+                              "text": ""
+                            }
+                          }
+                        ]
+                      }
                     }
                   ]
-                }
+                },
+                "titleWidth": 100
               }
             ]
           },
@@ -1103,7 +1906,28 @@
                 "id": "a",
                 "text": "A",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 240,
+                  "height": 240,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "A",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -1135,7 +1959,28 @@
                 "kind": "SQUARE",
                 "strokeWidth": "THIN",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 176,
+                  "height": 176,
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "A",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               },
               {
                 "type": "shape",
@@ -1144,7 +1989,28 @@
                 "kind": "SQUARE",
                 "strokeWidth": "THIN",
                 "opacity": 100,
-                "fontSize": "MEDIUM"
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 176,
+                  "height": 176,
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "B",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -1159,7 +2025,28 @@
               "fontSize": "SMALL",
               "lineStyle": "SOLID",
               "fromCap": "NONE",
-              "toCap": "ARROW_LINES"
+              "toCap": "ARROW_LINES",
+              "measuredLabel": {
+                "width": 58,
+                "height": 29,
+                "content": {
+                  "x": 8,
+                  "y": 4,
+                  "w": 42,
+                  "h": 21
+                },
+                "fontSize": 16,
+                "lineHeight": 1.3,
+                "lines": [
+                  {
+                    "text": "again",
+                    "break": {
+                      "kind": "end",
+                      "text": ""
+                    }
+                  }
+                ]
+              }
             },
             {
               "id": "ab1",
@@ -1171,7 +2058,28 @@
               "fontSize": "SMALL",
               "lineStyle": "SOLID",
               "fromCap": "NONE",
-              "toCap": "ARROW_LINES"
+              "toCap": "ARROW_LINES",
+              "measuredLabel": {
+                "width": 47,
+                "height": 29,
+                "content": {
+                  "x": 8,
+                  "y": 4,
+                  "w": 31,
+                  "h": 21
+                },
+                "fontSize": 16,
+                "lineHeight": 1.3,
+                "lines": [
+                  {
+                    "text": "first",
+                    "break": {
+                      "kind": "end",
+                      "text": ""
+                    }
+                  }
+                ]
+              }
             },
             {
               "id": "ab2",
@@ -1183,9 +2091,122 @@
               "fontSize": "SMALL",
               "lineStyle": "SOLID",
               "fromCap": "NONE",
-              "toCap": "ARROW_LINES"
+              "toCap": "ARROW_LINES",
+              "measuredLabel": {
+                "width": 73,
+                "height": 29,
+                "content": {
+                  "x": 8,
+                  "y": 4,
+                  "w": 57,
+                  "h": 21
+                },
+                "fontSize": 16,
+                "lineHeight": 1.3,
+                "lines": [
+                  {
+                    "text": "second",
+                    "break": {
+                      "kind": "end",
+                      "text": ""
+                    }
+                  }
+                ]
+              }
             }
           ]
+        }
+      ]
+    }
+  },
+  "sticky-grows": {
+    "data": {
+      "type": "board",
+      "profile": "FIGJAM_V1",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Page",
+          "region": {
+            "layout": {
+              "mode": "AUTO"
+            },
+            "children": [
+              {
+                "type": "sticky",
+                "id": "long",
+                "text": "This retrospective note is far too long to fit on one fixed size FigJam sticky at the default medium font size, because stickies never grow and L0187 never shrinks text to make it fit, so the compiler reports it",
+                "opacity": 100,
+                "fontSize": "MEDIUM",
+                "measured": {
+                  "width": 416,
+                  "height": 312,
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 264
+                  },
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "This retrospective note is far too",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "long to fit on one fixed size",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "FigJam sticky at the default",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "medium font size, because",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "stickies never grow and L0187",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "never shrinks text to make it fit,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "so the compiler reports it",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "connectors": []
         }
       ]
     }

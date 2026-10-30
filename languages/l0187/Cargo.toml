@@ -11,3 +11,7 @@ repository = "https://github.com/graffiticode/graffiticode"
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# Shaping is the hot path in tests; optimize dependencies even in debug builds.
+[profile.dev.package."*"]
+opt-level = 2

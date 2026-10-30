@@ -1,0 +1,102 @@
+# L0187 `FIGJAM_V1` calibration, 2026-10-30
+
+L0187 measures text and sizes marks itself (design §6, §9), so its profile has to agree with
+what FigJam draws. These measurements were taken in a scratch FigJam file (“L0187 calibration
+(scratch)”, in the owner's Artcompiler drafts) through the Plugin API (`use_figma`). Each node was
+created as the Graffiticode plugin creates it, then read back or screenshotted. The resulting
+values live in `languages/l0187/crates/core/src/profile.rs`. The tests in `measure.rs` and
+`size.rs` pin them.
+
+## Font
+
+- FigJam sticky, shape and text sublayers are **Inter Medium** (`variationSettings {wght: 500}`).
+- FigJam's text-node widths are **Inter 3.19 Medium**'s shaped advances, rounded up. This held
+  for every probe.
+
+| Probe | FigJam | Inter 3.19, rounded up | Inter 4.1 |
+| --- | --- | --- | --- |
+| 16 “Hello world” | 86 | 86 (85.82) | 86.33 |
+| 40 “Workshop agenda” | 347 | 347 (346.22) | 348.38 |
+| 24 “Pairing helped us resolve the integration issues” | 542 | 542 (541.40) | 541.31 |
+| 16 “AVATAR Wavy” | 107 | 107 (106.31) | 107.82 |
+| 14 “Sprint retrospective” | 133 | 133 (132.74) | 132.20 |
+| 96 “Huge” | 244 | 244 (243.95) | 245.11 |
+| 24 “Launch 🚀 day” | 169 | 169 (168.39 with 🚀 at 1.25 em) | — |
+
+- Inter 4.1's optical sizes made the fit worse. L0187 embeds `Inter-Medium.otf` from the Inter
+  3.19 release (SIL OFL 1.1).
+- Emoji: 🚀 at 24px is 30px wide, so the profile uses **1.25 em**. Emoji widths are reported as
+  modeled, not native.
+- Wrapping: at a fixed width, FigJam broke every probe exactly where L0187's greedy UAX #14 wrap
+  breaks it. Probes: 24px at 200, 16px at 120, and a 24px sticky.
+
+## Line heights
+
+- **Text node (AUTO):** each line is `round(1.21 × size)` pixels: 14→17, 16→19, 24→29, 40→48,
+  96→116. A k-line node is exactly k times that.
+- **Sticky and shape sublayers:** `PERCENT 150`.
+
+## Stickies
+
+- The width is fixed: 240 square, or 416 when `isWideWidth` is set. The plugin cannot resize a
+  sticky.
+- A sticky grows taller to fit its text. Its height is
+  `max(240, 48 + size × (1.5 × lines + 0.5))`.
+  - This is exact at 16px (8, 10 and 14 lines) and 24px (6, 8 and 10 lines).
+  - At 40px FigJam drew 304 where the model gives 308. The model may run taller than FigJam, never
+    shorter.
+- The text wraps at width − 32:
+  - square: a 206.7-wide word fits, a 211.5-wide one wraps;
+  - wide: 381.x fits, 383.7 wraps.
+  - The profile pads 17 per side.
+
+## Shapes
+
+- The default shape is 176×176, with a 4px stroke and 16px text.
+- A shape at the default size grows taller to fit its text. A **resized** shape does not: its
+  text is truncated with an ellipsis. So the compiler's size must hold the text.
+- The text area is not a fixed share of the width. The profile's bounds sit under every observed
+  “held on one line” width; widths are in the table below.
+- Heights:
+  - the default SQUARE grows as `36 × lines + 32` at 24px, so the text height is h − 32;
+  - the DIAMOND grows as `72 × lines + 88`, so its text height is (h − 88) / 2;
+  - a 320×440 DIAMOND showed five of six lines.
+
+Each cell is the widest word held on one line ↔ the narrowest that wrapped, at 24px:
+
+| Kind | 176×176 | 300×300 | 480×280 | Profile rule |
+| --- | --- | --- | --- | --- |
+| SQUARE, ROUNDED_RECTANGLE | 145.4 ↔ 147.5 | 239.8 ↔ 251.7 | ≥ 423.8 | w − 0.205 × min(w, h) |
+| ELLIPSE | 112 ↔ 128 | 215.2 ↔ 227.2 | 343.4 ↔ 351.7 | 0.715 w |
+| DIAMOND | — | 143.4 ↔ 155.5 | 231.4 ↔ 239.8 | 0.475 w |
+| PARALLELOGRAM_RIGHT | — | 155.5 ↔ 167.8 | ≥ 263.3 | 0.515 w |
+| PREDEFINED_PROCESS | 96 ↔ 105 | 203.6 ↔ 215.2 | ≥ 383.7 | 0.88 w − 61 |
+| DOCUMENT_SINGLE, ENG_DATABASE | — | 263.3 ↔ 275.3 | ≥ 443.7 | w − 37 |
+
+Screenshots: `diamond-300.png` (diamonds at 300×300 with probe words of rising width) and
+`square-480x280.png`.
+
+## Verification of compiled marks
+
+Marks compiled by L0187 were drawn at their compiled sizes:
+
+- **Stickies and textboxes** (`compiled-marks.png`): every native size equals the model. This
+  covers square and wide stickies, including a wide sticky grown to 312, and textboxes at 24px and
+  40px, including emoji.
+- **Shapes** (`compiled-shapes.png`): one long text in each of the eight kinds, at the size L0187
+  chose.
+  - Nothing is truncated.
+  - SQUARE, ROUNDED_RECTANGLE, ELLIPSE, PARALLELOGRAM_RIGHT, DOCUMENT_SINGLE and ENG_DATABASE
+    break their lines exactly where L0187 does.
+  - DIAMOND and PREDEFINED_PROCESS break in different places, because their modeled areas are
+    deliberately narrower. Native text fit for shapes stays an **unverified** check in the report
+    (design §8).
+
+## Not yet calibrated
+
+- Section title band, connector label boxes and routes. These are phase 5 and phase 7.
+- Text-area heights for ELLIPSE, DOCUMENT_SINGLE and ENG_DATABASE beyond L0186's modeled insets.
+- Shape text at sizes other than 24px.
+
+`FIGJAM_V1` stays provisional until the phase 7 native-fidelity comparison passes. See the
+profile freeze gate in the implementation plan.
