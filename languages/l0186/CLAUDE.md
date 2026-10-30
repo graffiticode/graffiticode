@@ -12,7 +12,7 @@ L0172 (a legacy `@graffiticode/basis` language) and does NOT accept L0172 progra
 It lives in the graffiticode monorepo as a **self-contained npm project**: its own lockfile,
 install, build and tests, all run from this directory.
 
-> **Two implementations live here.** `packages/` is the TypeScript L0186 that production runs; `crates/` is L0186's compiler in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+> **Two implementations live here.** `crates/` is L0186's compiler in Rust, which production runs (`l0186r`, since 2026-10-30); `packages/` is the TypeScript L0186, still deployed as `l0186` (min 0) as the switch's rollback target, and still the source of the static assets and the conformance fixtures. Everything down to "The Rust implementation" describes the TypeScript side.
 
 ## Commands
 
@@ -133,9 +133,10 @@ program being replaced; embedding an item that was edited since replaces its old
 ## The Rust implementation (`crates/`)
 
 This directory holds **two implementations of L0186's compiler**. `packages/core` and
-`packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service
-`l0186`). `crates/` is the same compiler in Rust, to be released to its own service `l0186r` so it
-can be vetted before it replaces the TypeScript.
+`packages/api` are the TypeScript compiler and server (Cloud Run service `l0186`, min 0, kept as
+the switch's rollback target). `crates/` is the same compiler in Rust, released to its own service
+`l0186r`, which production runs: the api routes L0186 there (`BASE_URL_L0186`, interpreter plan
+A1, 2026-10-30; evidence in `docs/evidence/track-a-l0186/`).
 
 - `crates/core` (`graffiticode-l0186`) — `L0186` implements `Dialect` from `graffiticode-l0000`.
   `src/lib.rs` has the properties, members, containers, `save-to-figjam`, the `PROG` override
@@ -212,6 +213,15 @@ lexicon.
 
 There are no deliberate differences. (Integers above 2^53 − 1 once came out in serde's float
 form, `1e+20`; the kernel now writes every number as `JSON.stringify` does.)
+
+### The interpreter pass (plan C1)
+
+`L0186::input_independent` is `!ast.reads_input()`: upstream data never reaches a board, so a
+program that doesn't read its input (all of the conformance corpus) compiles to a value model,
+evaluated once; one that does (`data`, a `get-var` that may name it) is a plan.
+`tests/interpret.rs` requires `interpret(model(case), input)` to write exactly what
+`compile(case, input)` writes for every case, in both modes and against three inputs. The api
+interprets L0186 only while `INTERPRETER_L0186=on`.
 
 ### Deploying the Rust server
 

@@ -67,6 +67,13 @@ impl Dialect for L0186 {
         *op == Op::Prog
     }
 
+    /// A board is the same for every input unless the program reads it (`data`, a `get-var`
+    /// that may name it): none of L0186's own words does, so a program the kernel finds doesn't
+    /// read its input compiles to a value model (interpreter plan C1).
+    fn input_independent(&self, ast: &Ast) -> bool {
+        !ast.reads_input()
+    }
+
     /// A `{}` written before the end of a description ends it there, and the words after it
     /// parse as a SECOND top-level expression — well formed, and silently dropped. The board is
     /// the only top-level expression built from L0186's description words, so a second one is

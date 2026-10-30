@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmvvabb4r-083249",
+  "revision": "api-rmvvabb4r-083249",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (L0186 switch; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-10-30T18:16:00.000Z",
+  "corpus": {
+    "ranAt": "2026-10-30T18:15:43.114Z",
+    "tasks": 12,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "canary": {
+      "ranAt": "2026-10-30T18:15:43.114Z",
+      "staged": "https://rmvvabb4r-083249---api-sja7fatcta-uc.a.run.app",
+      "ids": {
+        "value": "eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19",
+        "plan": "eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19",
+        "chain": "eyJ0YXNrSWRzIjpbImwwbDdZbllKTVNlbk1CamhLZURYIl19+eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19",
+        "errors": "eyJ0YXNrSWRzIjpbIjZvWkhJdHZ6bFRNY3NxdW9iRUFzIl19"
+      },
+      "results": [
+        {
+          "name": "board /data equals production",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "repeat equals first",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "legacy (switched) chain, no generations in URL: immutable as before",
+          "pass": true,
+          "detail": "public, max-age=31536000, immutable"
+        },
+        {
+          "name": "URL naming rust-1: immutable",
+          "pass": true,
+          "detail": "public, max-age=31536000, immutable"
+        },
+        {
+          "name": "URL naming another generation: no-store",
+          "pass": true,
+          "detail": "no-store"
+        },
+        {
+          "name": "/form data URL names @L0186=rust-1",
+          "pass": true,
+          "detail": "https://rmvvabb4r-083249---api-sja7fatcta-uc.a.run.app/data?id=eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19&generations=%40L0186%3Drust-1"
+        },
+        {
+          "name": "/form redirects to l0186r",
+          "pass": true,
+          "detail": "https://l0186r-sja7fatcta-uc.a.run.app/form?id=eyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19&url=https%3A%2F%2Frmvvabb4r-083249---api-sja7fatcta-uc.a.run.app%2Fdata%3Fid%3DeyJ0YXNrSWRzIjpbIkxkV2Jpd3lIVlFYekZxSlljRzZlIl19%26generations%3D%2540L0186%253Drust-1"
+        },
+        {
+          "name": "board over data: /compile equals production",
+          "pass": true,
+          "detail": "{\"data\":{\"type\":\"board\",\"showPageTabs\":false,\"showPageMenu\":false,\"pages\":[{\"name\":\"Page 1\",\"nodes\":[{\"type\":\"sticky\",\"i"
+        },
+        {
+          "name": "/compile no-store",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "board over other data: /compile equals production",
+          "pass": true,
+          "detail": ""
+        },
+        {
+          "name": "L0000 over L0186 chain equals production",
+          "pass": true,
+          "detail": "{\"data\":1,\"errors\":[]}"
+        },
+        {
+          "name": "compile errors equal production",
+          "pass": true,
+          "detail": "{\"data\":null,\"errors\":[{\"message\":\"id: must not be empty.\",\"from\":-1,\"to\":-1}]}"
+        }
+      ],
+      "failed": 0
+    },
+    "servedBy": "l0186r-rmvv7u6pg-830a8f answered the canary's /compile calls (200) at 18:15Z",
+    "parityGate": {
+      "rust": "https://l0186r-sja7fatcta-uc.a.run.app",
+      "ts": "https://l0186-sja7fatcta-uc.a.run.app",
+      "ranAt": "2026-10-30T17:11:28.940Z",
+      "compared": 3413,
+      "identical": 3413,
+      "different": 0,
+      "invalid": 0
+    }
+  }
+}
