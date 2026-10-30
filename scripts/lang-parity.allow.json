@@ -55,6 +55,12 @@
       "note": "The TypeScript L0010 is on @graffiticode/l0000 0.8; the Rust kernel also has exact numbers and format-number (languages/l0010/CLAUDE.md, \"Conformance\")."
     }
   ],
+  "0174": [
+    {
+      "kind": "upstream-envelope",
+      "note": "The Rust kernel unwraps the {data, errors} envelope an upstream stage delivers, so the form's posted state is laid over the form at the top level, as languages/l0174/CLAUDE.md describes and as the Form reads it (state.data.values/title/theme). TypeScript spreads the raw envelope, adding `data` and `errors` keys instead. Affects every L0174 compile over data, View recompiles included (owner's decision 2026-10-30, P4's kept-unwrapping decision)."
+    }
+  ],
   "0175": [
     {
       "kind": "case",

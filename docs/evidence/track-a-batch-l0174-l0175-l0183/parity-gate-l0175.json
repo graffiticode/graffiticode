@@ -2,7 +2,7 @@
   "lang": "0175",
   "ts": "https://l0175-sja7fatcta-uc.a.run.app",
   "rust": "https://l0175r-sja7fatcta-uc.a.run.app",
-  "ranAt": "2026-10-30T18:30:24.621Z",
+  "ranAt": "2026-10-30T20:24:51.439Z",
   "cases": "/Users/jeffdyer/work/graffiticode/graffiticode/languages/l0175/crates/core/tests/conformance/cases.json",
   "checks": {
     "probes": {
@@ -29,11 +29,22 @@
       "compared": 298,
       "differences": [],
       "invalidAnswers": []
+    },
+    "envelopes": {
+      "ok": true,
+      "identical": 0,
+      "allowed": {},
+      "different": 0,
+      "invalid": 0,
+      "skipped": 0,
+      "compared": 0,
+      "differences": [],
+      "invalidAnswers": []
     }
   },
-  "endedAt": "2026-10-30T18:31:37.816Z",
+  "endedAt": "2026-10-30T20:25:58.965Z",
   "corpus": {
-    "ranAt": "2026-10-30T18:30:24.621Z",
+    "ranAt": "2026-10-30T20:24:51.439Z",
     "tasks": 298,
     "failures": 0
   },

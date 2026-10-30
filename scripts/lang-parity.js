@@ -8,6 +8,10 @@
 //     (languages/lNNNN/crates/core/tests/conformance/cases.json), as the verify
 //     account: status and the whole envelope (data, errors, cache, effects),
 //     apart from `revision`, which names the deployment;
+//   - and again, for every case with upstream data, with that data as the API
+//     delivers it to a stage: wrapped in the {data, errors} envelope of the
+//     stage below it (a POST /compile's data task, a chain). Raw data alone
+//     missed a difference every L0174 recompile showed (2026-10-30);
 //   - GET /lexicon.json: the same lexicon, a JSON object on both;
 //   - GET /form: each side's HTML loads a script, and every asset it references
 //     loads from that side's own server; the two HTML documents are the same;
@@ -237,6 +241,15 @@ export const formProblems = (side, html, fetched) => {
 // refuses it, and the API never sends one.
 export const sendable = c => !(c.data !== undefined && !c.data);
 
+// A case's upstream data as the API delivers it to a stage: the envelope the
+// stage below it answered. Only data a stage would receive: a case without
+// any (or with an empty record, which POST /compile never appends) has none.
+export const asDelivered = data => {
+  if (data === undefined || data === null) return null;
+  if (typeof data === "object" && !Array.isArray(data) && Object.keys(data).length === 0) return null;
+  return { data, errors: [] };
+};
+
 // The report's corpus block, in the promote evidence's shape.
 export const corpusBlock = ({ ranAt, tasks, failures }) => ({ ranAt, tasks, failures });
 
@@ -366,30 +379,41 @@ const main = async () => {
 
   // 2. The corpus, case by case, to both services.
   const cases = JSON.parse(await readFile(casesFile, "utf8")).slice(0, limit);
-  const counts = { identical: 0, allowed: {}, different: 0, invalid: 0, skipped: 0 };
-  const differences = [];
-  const invalid = [];
-  for (const [i, c] of cases.entries()) {
-    if (!sendable(c)) { counts.skipped++; continue; }
-    if (Date.now() - mintedAt > 180000) { token = await exchange(); mintedAt = Date.now(); }
-    const body = { code: c.ast, data: c.data ?? {} };
-    const headers = token ? { Authorization: token } : {};
-    const [a, b] = await Promise.all([request(tsUrl, "POST", "/compile", { headers, body }), request(rustUrl, "POST", "/compile", { headers, body })]);
-    const result = compareCase(a, b, { src: c.src, data: c.data, rules });
-    if (result === "identical") counts.identical++;
+  const tally = () => ({ counts: { identical: 0, allowed: {}, different: 0, invalid: 0, skipped: 0 }, differences: [], invalid: [] });
+  const raw = tally();
+  const delivered = tally();
+  const record = (into, i, c, data, a, b) => {
+    const result = compareCase(a, b, { src: c.src, data, rules });
+    if (result === "identical") into.counts.identical++;
     else if (result === "different") {
-      counts.different++;
-      if (differences.length < 20) differences.push({ case: i, src: c.src, ts: comparable(a), rust: comparable(b) });
+      into.counts.different++;
+      if (into.differences.length < 20) into.differences.push({ case: i, src: c.src, data, ts: comparable(a), rust: comparable(b) });
     } else if (result.invalid) {
-      counts.invalid++;
-      if (invalid.length < 20) invalid.push({ case: i, src: c.src, ...result.invalid });
-    } else counts.allowed[result.allowed] = (counts.allowed[result.allowed] ?? 0) + 1;
+      into.counts.invalid++;
+      if (into.invalid.length < 20) into.invalid.push({ case: i, src: c.src, ...result.invalid });
+    } else into.counts.allowed[result.allowed] = (into.counts.allowed[result.allowed] ?? 0) + 1;
+  };
+  for (const [i, c] of cases.entries()) {
+    if (!sendable(c)) { raw.counts.skipped++; continue; }
+    if (Date.now() - mintedAt > 180000) { token = await exchange(); mintedAt = Date.now(); }
+    const headers = token ? { Authorization: token } : {};
+    const send = data => Promise.all([tsUrl, rustUrl].map(base => request(base, "POST", "/compile", { headers, body: { code: c.ast, data } })));
+    const [a, b] = await send(c.data ?? {});
+    record(raw, i, c, c.data, a, b);
+    const envelope = asDelivered(c.data);
+    if (envelope) {
+      const [ea, eb] = await send(envelope);
+      record(delivered, i, c, envelope, ea, eb);
+    }
   }
+  const counts = raw.counts;
   const compared = cases.length - counts.skipped;
-  report.checks.corpus = { ok: counts.different === 0 && counts.invalid === 0 && compared > 0, ...counts, compared, differences, invalidAnswers: invalid };
+  report.checks.corpus = { ok: counts.different === 0 && counts.invalid === 0 && compared > 0, ...counts, compared, differences: raw.differences, invalidAnswers: raw.invalid };
+  const enveloped = Object.values(delivered.counts).reduce((n, v) => n + (typeof v === "number" ? v : Object.values(v).reduce((a, b) => a + b, 0)), 0);
+  report.checks.envelopes = { ok: delivered.counts.different === 0 && delivered.counts.invalid === 0, ...delivered.counts, compared: enveloped, differences: delivered.differences, invalidAnswers: delivered.invalid };
 
   report.endedAt = new Date().toISOString();
-  report.corpus = corpusBlock({ ranAt, tasks: compared, failures: counts.different + counts.invalid + formIssues.length + probeDifferences.length + (lexicon === "different" ? 1 : 0) });
+  report.corpus = corpusBlock({ ranAt, tasks: compared + enveloped, failures: counts.different + counts.invalid + delivered.counts.different + delivered.counts.invalid + formIssues.length + probeDifferences.length + (lexicon === "different" ? 1 : 0) });
   report.passed = Object.values(report.checks).every(c => c.ok);
   const text = JSON.stringify(report, null, 2);
   if (out) await writeFile(out, `${text}\n`);

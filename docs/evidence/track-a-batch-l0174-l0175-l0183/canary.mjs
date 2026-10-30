@@ -28,6 +28,22 @@ const get = async (base, path) => {
   return { status: r.status, headers: r.headers, body: await r.json() };
 };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// Sorted keys, so two records with the same fields in another order compare equal.
+const canonical = v => (Array.isArray(v) ? v.map(canonical) : v && typeof v === "object"
+  ? Object.fromEntries(Object.keys(v).sort().map(k => [k, canonical(v[k])])) : v);
+// The languages whose Rust unwraps the {data, errors} envelope a POST /compile's data task
+// delivers (an `upstream-envelope` rule in scripts/lang-parity.allow.json), where TypeScript
+// spreads it: production's answer with that envelope unwrapped is what Rust must give.
+const rules = JSON.parse(readFileSync(new URL("../../../scripts/lang-parity.allow.json", import.meta.url), "utf8"));
+const unwraps = lang => (rules[lang] ?? []).some(r => r.kind === "upstream-envelope");
+const unwrapped = answer => {
+  const value = answer?.data;
+  if (!value || typeof value !== "object" || Array.isArray(value) || !("data" in value) || !Array.isArray(value.errors)) return answer;
+  const { data: posted, errors: _errors, ...rest } = value;
+  return { ...answer, data: { ...rest, ...(posted && typeof posted === "object" ? posted : {}) } };
+};
+const overData = (lang, staged, production) => same(staged, production) ||
+  (unwraps(lang) && same(canonical(staged), canonical(unwrapped(production))));
 const task = async t => (await post(prod, "/task", { task: t })).body.data.id;
 const L0000_ONE = { 1: { tag: "NUM", elts: ["1"] }, 2: { tag: "EXPRS", elts: [1] }, 3: { tag: "PROG", elts: [2] }, root: 3 };
 const ids = {};
@@ -51,10 +67,10 @@ for (const lang of LANGS) {
     const did = await task({ lang, code: withData.ast });
     ids[lang].withData = did;
     const [pc, sc] = await Promise.all([post(prod, "/compile", { id: did, data: withData.data }), post(staged, "/compile", { id: did, data: withData.data })]);
-    check(`L${lang} /compile over data equals production`, same(sc.body.data, pc.body.data), JSON.stringify(sc.body.data));
+    check(`L${lang} /compile over data equals production${unwraps(lang) ? " (envelope unwrapped)" : ""}`, overData(lang, sc.body.data, pc.body.data), JSON.stringify(sc.body.data));
   }
   const [pc2, sc2] = await Promise.all([post(prod, "/compile", { id, data: { a: 1 } }), post(staged, "/compile", { id, data: { a: 1 } })]);
-  check(`L${lang} /compile over {a: 1} equals production`, same(sc2.body.data, pc2.body.data), JSON.stringify(sc2.body.data));
+  check(`L${lang} /compile over {a: 1} equals production${unwraps(lang) ? " (envelope unwrapped)" : ""}`, overData(lang, sc2.body.data, pc2.body.data), JSON.stringify(sc2.body.data));
   const head = await task({ lang: "0000", code: L0000_ONE });
   const chain = `${head}+${id}`;
   const [pch, sch] = await Promise.all([get(prod, `/data?id=${chain}`), get(staged, `/data?id=${chain}`)]);
