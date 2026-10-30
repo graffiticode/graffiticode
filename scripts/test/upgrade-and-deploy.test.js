@@ -18,10 +18,10 @@ test("a language the api routes to its Rust service releases lNNNNr too", () => 
   assert.deepEqual(deployTargets(["l0177", "l0180", "l0184"], services), ["l0177", "l0180", "l0184", "l0184r"]);
 });
 
-test("deploy.json: the languages switched today are L0000 and L0184", () => {
+test("deploy.json: the languages switched today are L0000, L0184 and L0186", () => {
   const { services } = JSON.parse(readFileSync(new URL("../../deploy.json", import.meta.url), "utf8"));
   const langs = Object.keys(services).filter(n => /^l\d{4}$/.test(n));
-  assert.deepEqual(deployTargets(langs, services).filter(n => n.endsWith("r")), ["l0000r", "l0184r"]);
+  assert.deepEqual(deployTargets(langs, services).filter(n => n.endsWith("r")), ["l0000r", "l0184r", "l0186r"]);
 });
 
 test("a View release deploys L0000, which owns it, without upgrading it, and its consumers with an upgrade", () => {
