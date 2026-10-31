@@ -47,12 +47,26 @@
     {
       "kind": "lexicon-superset",
       "note": "The TypeScript L0003 is on @graffiticode/l0000 0.8; the Rust kernel also has exact numbers and format-number, and serves those words (languages/l0003/CLAUDE.md, \"Conformance\")."
+    },
+    {
+      "kind": "upstream-envelope",
+      "note": "The Rust kernel unwraps the {data, errors} envelope an upstream stage delivers, so the posted state is laid over the result at the top level, as languages/l0003/CLAUDE.md says (\"Upstream data wins\"). TypeScript spreads the raw envelope, adding `data` and `errors` keys instead. Affects every L0003 compile over data, View recompiles included (owner's decision 2026-10-30, as for L0174)."
     }
   ],
   "0010": [
     {
       "kind": "lexicon-superset",
       "note": "The TypeScript L0010 is on @graffiticode/l0000 0.8; the Rust kernel also has exact numbers and format-number (languages/l0010/CLAUDE.md, \"Conformance\")."
+    },
+    {
+      "kind": "case",
+      "src": "plan \"0158\"..",
+      "note": "The same plan error, at the plan's value (5-11) where TypeScript points at the word (0-4)."
+    },
+    {
+      "kind": "case",
+      "src": "plan 158..",
+      "note": "A plan that is a number: TypeScript accepts it and evaluates to no languages ({langs: []}); the Rust refuses it as every non-list plan is refused (\"each element must be a language id string\"). Deliberate (languages/l0010/crates/core/tests/conformance.rs, divergence); the owner accepted that this program is now refused (2026-10-30)."
     }
   ],
   "0174": [
@@ -66,6 +80,20 @@
       "kind": "case",
       "src": "target c1-t4 passage \"The Tide Pool\" type literary lines [\n  \"Mara crouched at the edge of the tide pool, ignoring the picnic behind her.\"\n  \"Her brother called twice, but she did not turn around.\"\n  \"A tiny crab scuttled under a rock, and Mara smiled for the first time all day.\"\n  \"She traced the cold water as if the pool were the only thing that mattered.\"\n  \"Five more minutes, she whispered, though no one was listening.\"\n  \"Behind her, paper plates rustled and her mother laughed.\"\n] claims [claim id \"c1\" status supported dimension character {text: \"From a literal.\"}] outcomes [outcome id \"q\" type short-text dimension character focus \"c1\" stem \"What can be inferred?\" {}] {}..",
       "note": "A chain ending in a record literal with fields: TypeScript doesn't see the literal's fields (\"missing text\"); the Rust does and compiles the item. Deliberate, pinned by a test (languages/l0175/CLAUDE.md). Rust accepts what TypeScript refused; no working item changes."
+    }
+  ],
+  "0177": [
+    {
+      "kind": "case",
+      "src": "author-embed domain get-var \"nope\" user-id \"u\" item-list [] {}..",
+      "note": "A property given an undefined value is kept as null (\"domain\": null); in TypeScript it holds undefined and vanishes from the JSON. The warnings are the same. Deliberate (languages/l0177/crates/core/tests/conformance.rs, the divergence list)."
+    }
+  ],
+  "0178": [
+    {
+      "kind": "case",
+      "src": "data-job paging EXHAUSTIVE items-get [ item-pool-id get-var \"nope\" {} ] {}..",
+      "note": "A field given an undefined value is kept as null (\"item-pool-id\": null); in TypeScript it holds undefined and vanishes from the JSON. The warnings are the same. Deliberate (languages/l0178/crates/core/tests/conformance.rs, the divergence list)."
     }
   ],
   "0179": [
@@ -94,6 +122,21 @@
     {
       "kind": "upstream-envelope",
       "note": "An upstream {data, errors} envelope is unwrapped by the kernel; the TypeScript merges the envelope itself (languages/l0181/CLAUDE.md). Kept, not copied (P4 decision 2026-10-28)."
+    },
+    {
+      "kind": "case",
+      "src": "add 1 title 3 {}..",
+      "note": "The kernel's own ADD error is worded differently (no DecimalError text); the L0181 error before it is the same. Deliberate (ADD_A_RECORD)."
+    },
+    {
+      "kind": "case",
+      "src": "map (<x: title 3 x>) [{}]..",
+      "note": "TypeScript reports the mapped title error twice; the kernel reports it once. Deliberate (MAPPED_ERROR)."
+    },
+    {
+      "kind": "case",
+      "src": "12345678901234567890..",
+      "note": "An exact number literal: TypeScript leaks decimal.js's internal object ({s, e, d}); the kernel writes the number, as JSON.stringify would. Deliberate (EXACT_NUMBER, languages/l0181/crates/core/tests/conformance.rs)."
     }
   ],
   "0183": [
@@ -121,6 +164,11 @@
     {
       "kind": "error-text",
       "note": "An L0000 error inside a record's function is the Rust kernel's message, not the TypeScript kernel's (languages/l0185/CLAUDE.md, \"Conformance\")."
+    },
+    {
+      "kind": "case",
+      "src": "rows [{a: format-number \"bad\" 1}] {}..",
+      "note": "The same format-number error, at the pattern's real position where TypeScript reports -1 (the kernel's positions, as L0000's error-presentation rule records)."
     }
   ]
 }
