@@ -166,3 +166,12 @@ server and runs `emit --check` in its Rust stage, then `parse-cases --check` and
 Release from the repository root: `npm run deploy -- l0187` (with `CLOUDSDK_PYTHON` pointing at
 Python 3.10+; see `languages/l0000/CLAUDE.md`). The api reaches it through `BASE_URL_L0187`.
 `npm test` here runs the view's tests (the gate `upgrade-l0000-view-and-deploy` uses).
+
+## The corpus gate
+
+`npm run check-corpus -- <examples.json> [--quiet]` (`[{n, code}]`) parses each program with the
+committed lexicon and compiles it with the Rust compiler (`examples/check_corpus.rs`); it exits 1
+unless every program compiles to a board the validator accepted, and prints the `--only` list to
+regenerate. The console's `generate-embeddings-from-examples` runs it on the rows it is about to
+embed (graffiticode-app `packages/console/scripts/lang-gate.ts`) and writes nothing when it fails.
+It needs cargo (it builds the example in release mode on first use).
