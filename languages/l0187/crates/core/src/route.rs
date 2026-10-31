@@ -206,6 +206,48 @@ pub fn cap_box(end: P, toward: P, stroke: f64, cap: &str) -> Option<Frame> {
     })
 }
 
+/// One end of a connector: the mark and the side whose magnet it uses.
+pub type End<'a> = (&'a str, Side);
+
+/// Why two routed connectors clash, if they do:
+///
+/// - a magnet is shared only by connectors that all leave it (fan-out) or all enter it (fan-in);
+///   one arriving where another leaves puts an arrowhead on the other's line;
+/// - connectors never run along one another, except on the trunk of a fan-out or fan-in: the
+///   first legs of two connectors leaving the same magnet, or the last legs of two entering one.
+pub fn clash(a: (&[P], End, End), b: (&[P], End, End)) -> Option<&'static str> {
+    let (pa, fa, ta) = a;
+    let (pb, fb, tb) = b;
+    if fa == tb || ta == fb {
+        return Some("arrives at a magnet another connector leaves from");
+    }
+    let (la, lb) = (pa.len() - 2, pb.len() - 2);
+    for (i, sa) in pa.windows(2).enumerate() {
+        for (j, sb) in pb.windows(2).enumerate() {
+            if !collinear_overlap(sa[0], sa[1], sb[0], sb[1]) {
+                continue;
+            }
+            let trunk = (i == 0 && j == 0 && fa == fb) || (i == la && j == lb && ta == tb);
+            if !trunk {
+                return Some("runs along another connector");
+            }
+        }
+    }
+    None
+}
+
+/// Whether two axis-aligned segments lie on one line and share more than a pixel of it.
+fn collinear_overlap(a: P, b: P, c: P, d: P) -> bool {
+    let along = |p: f64, q: f64, r: f64, s: f64| p.max(q).min(r.max(s)) - p.min(q).max(r.min(s)) > 1.0;
+    if a.y == b.y && c.y == d.y && a.y == c.y {
+        return along(a.x, b.x, c.x, d.x);
+    }
+    if a.x == b.x && c.x == d.x && a.x == c.x {
+        return along(a.y, b.y, c.y, d.y);
+    }
+    false
+}
+
 /// Whether two frames share interior.
 pub fn overlaps(a: &Frame, b: &Frame) -> bool {
     a.x < b.x + b.w - 1e-9 && b.x < a.x + a.w - 1e-9 && a.y < b.y + b.h - 1e-9 && b.y < a.y + a.h - 1e-9
@@ -238,6 +280,9 @@ pub fn crosses(a: P, b: P, f: &Frame) -> bool {
     true
 }
 
+/// A connector already placed: id, leg bands, label box, points, and both ends.
+type Placed = (String, Vec<Frame>, Option<Frame>, Vec<P>, (String, Side), (String, Side));
+
 /// What a page's routing works against.
 struct Scene<'a> {
     marks: Vec<(String, Frame)>,
@@ -247,10 +292,12 @@ struct Scene<'a> {
     /// Each object's chain of enclosing regions, innermost first (the page last).
     regions: HashMap<String, Vec<String>>,
     /// Routes and labels already placed.
-    placed: Vec<(String, Vec<Frame>, Option<Frame>)>,
+    placed: Vec<Placed>,
     lanes_used: HashMap<String, usize>,
     evaluations: usize,
     max: usize,
+    /// For each mark, the other marks its connectors join it to.
+    neighbours: HashMap<String, Vec<String>>,
 }
 
 /// A candidate route before it is checked.
@@ -316,14 +363,14 @@ impl Scene<'_> {
             if self.marks.iter().any(|(_, m)| overlaps(&grown, m)) {
                 return false;
             }
-            for (_, other_bands, other_label) in &self.placed {
+            for (_, other_bands, other_label, _, _, _) in &self.placed {
                 if other_bands.iter().any(|b| overlaps(&grown, b)) || other_label.is_some_and(|o| overlaps(&grown, &o))
                 {
                     return false;
                 }
             }
         }
-        for (_, _, other_label) in &self.placed {
+        for (_, _, other_label, _, _, _) in &self.placed {
             if let Some(o) = other_label
                 && bands.iter().any(|b| overlaps(b, o))
             {
@@ -341,13 +388,28 @@ impl Scene<'_> {
             // the leg beside the first side, so the loop reaches out far enough to clear it.
             let label = self.sizes.labels.get(&c.id).map_or((0.0, 0.0), |m| (m.width, m.height));
             let stroke = Self::stroke(c);
+            // The corner facing away from the mark's other connections goes first.
+            let ca = centre(&a);
+            let mut away = P { x: 0.0, y: 0.0 };
+            for other in self.neighbours.get(&c.from).into_iter().flatten() {
+                let cb = centre(&self.frames[other]);
+                let (dx, dy) = (cb.x - ca.x, cb.y - ca.y);
+                let l = dx.hypot(dy).max(1e-9);
+                away = P { x: away.x - dx / l, y: away.y - dy / l };
+            }
+            let mut corners = [
+                (Side::Top, Side::Right),
+                (Side::Right, Side::Bottom),
+                (Side::Bottom, Side::Left),
+                (Side::Left, Side::Top),
+            ];
+            let facing = |(s, t): &(Side, Side)| {
+                let (ds, dt) = (s.dir(), t.dir());
+                -((ds.x + dt.x) * away.x + (ds.y + dt.y) * away.y)
+            };
+            corners.sort_by(|p, q| facing(p).partial_cmp(&facing(q)).unwrap_or(std::cmp::Ordering::Equal));
             for step in [parallel, parallel + 1] {
-                for (s, t) in [
-                    (Side::Top, Side::Right),
-                    (Side::Right, Side::Bottom),
-                    (Side::Bottom, Side::Left),
-                    (Side::Left, Side::Top),
-                ] {
+                for (s, t) in corners {
                     let across = if s.dir().x == 0.0 { label.1 } else { label.0 };
                     let d =
                         (spacing::GUTTER / 2.0).max((across / 2.0 + CLEARANCE + stroke).ceil()) + 16.0 * step as f64;
@@ -514,6 +576,12 @@ impl Scene<'_> {
         let size = self.sizes.labels.get(&c.id).map(|m| (m.width, m.height));
         let (label_leg, label_box) = label_box(&clean, &from, &to, size);
         if !self.fits(c, &clean, label_box.as_ref()) {
+            return None;
+        }
+        let ends = ((c.from.as_str(), k.from_side), (c.to.as_str(), k.to_side));
+        if self.placed.iter().any(|(_, _, _, points, f, t)| {
+            clash((&clean, ends.0, ends.1), (points, (f.0.as_str(), f.1), (t.0.as_str(), t.1))).is_some()
+        }) {
             return None;
         }
         let waypoints = clean[1..clean.len() - 1].to_vec();
@@ -729,7 +797,14 @@ fn route_page(
         lanes_used: HashMap::new(),
         evaluations: 0,
         max,
+        neighbours: HashMap::new(),
     };
+    for c in &page.connectors {
+        if c.from != c.to {
+            scene.neighbours.entry(c.from.clone()).or_default().push(c.to.clone());
+            scene.neighbours.entry(c.to.clone()).or_default().push(c.from.clone());
+        }
+    }
     let mut routes = HashMap::new();
     let mut failed = Vec::new();
     let mut pairs: HashMap<(String, String), usize> = HashMap::new();
@@ -760,7 +835,8 @@ fn route_page(
             Some(r) => {
                 let stroke = Scene::stroke(c);
                 let bands = r.points.windows(2).map(|s| band(s[0], s[1], stroke)).collect();
-                scene.placed.push((c.id.clone(), bands, r.label_box));
+                let ends = ((c.from.clone(), r.from_side), (c.to.clone(), r.to_side));
+                scene.placed.push((c.id.clone(), bands, r.label_box, r.points.clone(), ends.0, ends.1));
                 routes.insert(c.id.clone(), r);
             }
             None => failed.push(Unrouted { connector: c.id.clone(), region }),

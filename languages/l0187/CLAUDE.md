@@ -14,8 +14,8 @@ and docs → plugin → deploy → ecosystem).
 
 L0187 is the **first language whose backend is Rust only**. There is no `packages/core` or
 `packages/api` and no TypeScript oracle: `crates/core/src/vocab.rs` is the source of truth for
-every word, and everything else is derived from it. npm here holds only the frontend view (to
-come) and dev tools.
+every word, and everything else is derived from it. npm here holds only the frontend view
+(`packages/view`) and dev tools (`tools/`).
 
 ## Layout
 
@@ -93,11 +93,27 @@ come) and dev tools.
 A compile returns the positioned board (see `src/lower.rs` and `generated/schema.json`) with the
 validator's report. Resource limits (2000 objects, 4000 characters a text) are `resource` errors.
 - `crates/server` (`l0187-server`, binary `l0187`) — `l0000r_server::serve_with(L0187, …)`.
+- `spec/` — the canonical, hand-written docs: `spec.md` (the reference; its vocabulary tables
+  are compared with `vocab.rs` by `tests/vocabulary.rs` and must stay equal to the design doc's),
+  `instructions.md` (for the generator; served after L0000's), `usage-guide.md` (its `## Overview`
+  becomes `language-info.json`'s `authoring_guide`), `examples.md` (the RAG prompts),
+  `template.gc`, `scope.json`, `language-info.json`. Every ```gc block, and the template, is
+  compiled by `tests/docs.rs`; a ```gc-invalid <code> block must fail with that code.
+- `packages/view` (`@graffiticode/l0187-view`) — the React preview. It **measures and lays out
+  nothing**: it paints the compiled board (boxes, `lines` in `content`, routes with the plugin's
+  corner rounding and FigJam's 8px endpoint gap, labels in `labelBox`), with pages selected by id.
+  `build:embed` makes the `/form` bundle; `/dev.html` shows every program in
+  `embed/fixtures.json` (`cargo run --example fixtures`, gitignored). Tests render every compiled
+  board in `crates/core/tests/expected.json`.
+- `tools/assemble-static.mjs` — Node-only: builds `./static` from `generated/`, `spec/` and the
+  view's embed bundle (spec.html via spec-md, merged instructions, language-info). Never runs
+  cargo.
 - `generated/` — **committed** emit output (`lexicon.json`, `schema.json`). The
   freshness target for `emit --check`, and what the static assembly copies.
 - `crates/core/tests/programs/*.gc` — test programs, one per file; `invalid-*` must be rejected.
   `tools/parse-cases.mjs` parses them with `@graffiticode/parser` and `generated/lexicon.json`
-  into `crates/core/tests/cases.json` (there is no Rust parser; the API parses upstream).
+  into `crates/core/tests/cases.json`, and every documented program into `doc-cases.json` (there
+  is no Rust parser; the API parses upstream). `--check` fails when either is stale.
 - `crates/core/tests/compile.rs` — every program against the reviewed snapshot
   `tests/expected.json` (output, or every error's message/code/category/position); upstream data
   never changes a board; compiling is repeatable. `UPDATE_EXPECT=1 cargo test --test compile`
@@ -112,17 +128,19 @@ validator's report. Resource limits (2000 objects, 4000 characters a text) are `
   pages, a violated ROW/GRID/`before`, truncated/reordered/overwide lines, too many lines, a
   wrong content box, a sticky shorter than FigJam grows it; and exhausting the repair bounds is a
   classified layout failure.
-- `crates/core/tests/vocabulary.rs` — the vocabulary must equal the design doc's tables (words,
+- `crates/core/tests/vocabulary.rs` — the vocabulary must equal the spec's tables (words,
   arities, property words, allowed-property sets, container children, closed sets, required
   properties, removed geometry words), the committed lexicon must be current, and every test
-  program must parse to known words. It reads `docs/l0187-language-design.md`, so a deploy
-  snapshot must include that file until the canonical `spec/spec.md` replaces it.
+  program must parse to known words. It reads `spec/spec.md`.
 
 ## Commands
 
 ```bash
-npm ci                  # the parser, for `npm run cases`
+npm ci                  # the parser, spec-md, the view's dependencies
 cargo test              # needs no Node and no network
+npm run test:view       # the view's tests (vitest)
+npm run rust:static     # build the /form bundle and assemble ./static
+npm run -w packages/view dev   # /dev.html: every fixture, compiled (cargo run --example fixtures)
 npm run rust:lint       # cargo clippy --all-targets -- -D warnings
 npm run emit            # regenerate generated/ after changing vocab.rs
 npm run cases           # re-parse the test programs after changing them or the vocabulary

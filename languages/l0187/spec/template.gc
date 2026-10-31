@@ -1,0 +1,14 @@
+board [
+  page [
+    textbox id "heading" text "Project kickoff" font-size LARGE {}
+    group [
+      section [
+        sticky id "goal-1" text "Ship the beta" fill "green" {}
+        sticky id "goal-2" text "Onboard ten teams" fill "green" {}
+      ] id "goals" name "Goals" layout COLUMN {}
+      section [
+        sticky id "risk-1" text "Hiring is slow" fill "pink" {}
+      ] id "risks" name "Risks" layout COLUMN {}
+    ] id "panels" layout ROW {}
+  ] id "kickoff" name "Kickoff" layout COLUMN {}
+] title "Project kickoff" {}..

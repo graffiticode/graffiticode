@@ -290,3 +290,19 @@ async fn exhausting_the_repair_budget_is_a_classified_layout_failure() {
     // The profile's own limits succeed, after added spacing.
     assert!(graffiticode_l0187::position_within(&board, &sizes, 4, 4096).is_ok());
 }
+
+#[tokio::test]
+async fn a_connector_arriving_where_another_leaves_is_rejected() {
+    let (board, mut c) = compiled("parallel-three").await;
+    // Draw "response" straight back along "request": it leaves Server's LEFT magnet, where
+    // "request" arrives, and arrives at Client's RIGHT magnet, where "request" leaves.
+    let req = node(&mut c, 0, "req").clone();
+    let res = node(&mut c, 0, "res");
+    res["fromSide"] = json!("LEFT");
+    res["toSide"] = json!("RIGHT");
+    res["waypoints"] = json!([]);
+    let mut route = req["route"].as_array().unwrap().clone();
+    route.reverse();
+    res["route"] = Json::Array(route);
+    fails(&board, &c, "routes");
+}

@@ -13,3 +13,6 @@ dist-embed
 # Rust build output and the assembled static directory
 /static
 /target
+
+# dev fixtures (cargo run --example fixtures)
+packages/view/embed/fixtures.json

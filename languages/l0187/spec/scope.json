@@ -1,0 +1,20 @@
+{
+  "id": "0187",
+  "summary": "Declarative FigJam boards — sticky notes, shapes, text, sections, groups and connectors on one or more pages, arranged and routed by the compiler from content, grouping, connections and order; previewed as a picture and drawn into a FigJam file by the Graffiticode FigJam plugin.",
+  "in_scope": [
+    "Sticky notes, text-bearing shapes (square, rounded rectangle, ellipse, diamond, parallelogram, predefined process, document, database) and free text",
+    "Titled sections and invisible groups that arrange what they hold",
+    "Rows, columns, grids and flows chosen by structure, never by coordinates",
+    "Connectors between marks: labelled, dashed, thick, with arrowheads; return paths, self-loops and parallel connectors",
+    "Retrospectives, kanban boards, workshop pages, comparisons, process and decision flows, small system diagrams",
+    "Boards with several pages, shown as tabs",
+    "Drawing the board into a FigJam file the user links, with the Graffiticode FigJam plugin"
+  ],
+  "out_of_scope": [
+    "Boards placed by explicit coordinates, sizes or routes are L0186; do NOT route them here.",
+    "Concept maps and webs that learners complete by dragging answers are L0183; do NOT route them here.",
+    "Charts and graphs of numbers are L0184; spreadsheets are L0179; quizzes are L0180 — do NOT route them here.",
+    "Reaction stamps, images, tables, comments, sections inside sections and FigJam widgets are not built.",
+    "Reading or editing what is already on a FigJam board is not built; L0187 only adds the board it describes."
+  ]
+}

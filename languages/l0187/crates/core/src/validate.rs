@@ -337,8 +337,9 @@ fn label_size(text: &str, size: f64) -> (f64, f64) {
     (w + 2.0 * profile::label::PAD_X, h + 2.0 * profile::label::PAD_Y)
 }
 
-/// A connector already checked: its id, its legs' bands, its legs, and its label box.
-type Placed = (String, Vec<Frame>, Vec<(P, P)>, Option<Frame>);
+/// A connector already checked: its id, its legs' bands, its legs, its label box, its points and
+/// its two ends.
+type Placed = (String, Vec<Frame>, Vec<(P, P)>, Option<Frame>, Vec<P>, (String, Side), (String, Side));
 
 fn segments_cross(a: P, b: P, c: P, d: P) -> bool {
     let orient = |p: P, q: P, r: P| (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
@@ -655,7 +656,13 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
                 }
                 None => None,
             };
-            for (other, other_bands, other_segments, other_label) in &placed {
+            for (other, other_bands, other_segments, other_label, other_points, of, ot) in &placed {
+                if let Some(why) = route::clash(
+                    (&points, (c.from.as_str(), fs), (c.to.as_str(), ts)),
+                    (other_points, (of.0.as_str(), of.1), (ot.0.as_str(), ot.1)),
+                ) {
+                    routes.push(format!("connector {:?} {why} ({other:?})", c.id));
+                }
                 if let Some((_, grown)) = &label_box {
                     if other_bands.iter().any(|b| overlaps(grown, b)) {
                         labels.push(format!("connector {:?}: its label touches connector {other:?}", c.id));
@@ -678,7 +685,15 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
                 }
             }
             let segments = points.windows(2).map(|s| (s[0], s[1])).collect();
-            placed.push((c.id.clone(), bands, segments, label_box.map(|(b, _)| b)));
+            placed.push((
+                c.id.clone(),
+                bands,
+                segments,
+                label_box.map(|(b, _)| b),
+                points.clone(),
+                (c.from.clone(), fs),
+                (c.to.clone(), ts),
+            ));
         }
     }
     checks.add("preservation", preservation);

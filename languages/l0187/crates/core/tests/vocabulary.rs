@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-//! The vocabulary, the lexicon and the published language design must say the same thing.
+//! The vocabulary, the lexicon and the published specification must say the same thing.
 //!
-//! The design's tables (docs/l0187-language-design.md §3) are compared with [`vocab`] word for
-//! word: the words and their arities, every property word, the allowed-property sets, the
+//! The tables in `spec/spec.md` (copied from docs/l0187-language-design.md §3, which they must
+//! keep equal to) are compared with [`vocab`] word for word: the words and their arities, every property word, the allowed-property sets, the
 //! container children and the closed sets. The served lexicon must be the committed
 //! `generated/lexicon.json`, and every test program must parse to words the lexicon defines
 //! (and, unless it is an `invalid-*` program, parse without error).
@@ -18,7 +18,7 @@ use graffiticode_l0187::vocab::{
 use serde::Deserialize;
 use serde_json::Value as Json;
 
-const DESIGN: &str = include_str!("../../../../../docs/l0187-language-design.md");
+const DESIGN: &str = include_str!("../../../spec/spec.md");
 const GENERATED_LEXICON: &str = include_str!("../../../generated/lexicon.json");
 
 /// The rows of the markdown table whose header row starts with `header`, as the backticked
