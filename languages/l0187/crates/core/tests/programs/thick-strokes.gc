@@ -1,0 +1,7 @@
+board [ page [
+  shape id "a" text "A" stroke-width THICK {}
+  shape id "b" text "B" stroke-width THICK {}
+  shape id "c" text "C" stroke-width THICK {}
+  connector id "a-c" from "a" to "c" stroke-width THICK label "skips B" {}
+  connector id "a-b" from "a" to "b" stroke-width THICK {}
+] id "p1" name "Thick" layout ROW {} ] {}..

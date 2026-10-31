@@ -29,7 +29,7 @@ use std::collections::{BTreeMap, HashMap};
 use serde::Serialize;
 
 use crate::ir::{Board, Child, Connector, Direction, Layout, Region};
-use crate::profile::{self, limits, section, spacing};
+use crate::profile::{limits, section, spacing};
 use crate::size::Sizes;
 
 /// A rectangle in page coordinates.
@@ -67,6 +67,8 @@ pub struct PageLayout {
     /// Routing channels a FLOW reserves beside its layers for connectors that run against the
     /// flow or skip a layer, by region id (a region may have several, one per AUTO group).
     pub channels: Vec<(String, Frame)>,
+    /// The connectors given a lane in a channel: they run against their flow or skip a layer.
+    pub against: Vec<String>,
 }
 
 /// Extra clearance between the children of a region, by region id: the routing repair loop's
@@ -81,6 +83,7 @@ struct Block {
     frames: Vec<(String, Frame)>,
     titles: Vec<(String, Frame)>,
     channels: Vec<(String, Frame)>,
+    against: Vec<String>,
 }
 
 impl Block {
@@ -88,12 +91,13 @@ impl Block {
         self.frames.extend(other.frames.into_iter().map(|(id, f)| (id, f.moved(x, y))));
         self.titles.extend(other.titles.into_iter().map(|(id, f)| (id, f.moved(x, y))));
         self.channels.extend(other.channels.into_iter().map(|(id, f)| (id, f.moved(x, y))));
+        self.against.extend(other.against);
     }
 }
 
 /// A region's arrangement: where each child goes, and any routing channels it reserves, relative
 /// to the region's origin.
-type Arrangement = (Vec<(f64, f64)>, Vec<Frame>);
+type Arrangement = (Vec<(f64, f64)>, Vec<Frame>, Vec<String>);
 
 /// One block of an AUTO region: its first member, each member's position and its channel
 /// relative to the block, and the block's height.
@@ -121,6 +125,8 @@ struct Edge {
     from: usize,
     to: usize,
     label: (f64, f64),
+    /// The connector's index on its page.
+    connector: usize,
 }
 
 fn half(x: f64) -> f64 {
@@ -138,10 +144,11 @@ impl Context<'_> {
         }
         self.connectors
             .iter()
-            .filter_map(|c| {
+            .enumerate()
+            .filter_map(|(connector, c)| {
                 let (from, to) = (*owner.get(&c.from)?, *owner.get(&c.to)?);
                 let label = self.sizes.labels.get(&c.id).map(|m| (m.width, m.height)).unwrap_or((0.0, 0.0));
-                (from != to).then_some(Edge { from, to, label })
+                (from != to).then_some(Edge { from, to, label, connector })
             })
             .collect()
     }
@@ -194,19 +201,19 @@ impl Context<'_> {
         }
         let edges = self.edges(region);
         let all: Vec<usize> = (0..blocks.len()).collect();
-        let (positions, channels) = match region.layout {
-            Layout::Row => (self.line(region, region_id, &blocks, &edges, true), Vec::new()),
-            Layout::Column => (self.line(region, region_id, &blocks, &edges, false), Vec::new()),
+        let (positions, channels, against) = match region.layout {
+            Layout::Row => (self.line(region, region_id, &blocks, &edges, true), Vec::new(), Vec::new()),
+            Layout::Column => (self.line(region, region_id, &blocks, &edges, false), Vec::new(), Vec::new()),
             Layout::Grid { columns } => {
-                (self.grid(region, region_id, &blocks, &edges, &all, columns as usize), Vec::new())
+                (self.grid(region, region_id, &blocks, &edges, &all, columns as usize), Vec::new(), Vec::new())
             }
             Layout::Flow { direction } => {
-                let (positions, channel) = self.flow(region, region_id, &blocks, &edges, &all, direction);
-                (positions, channel.into_iter().collect())
+                let (positions, channel, against) = self.flow(region, region_id, &blocks, &edges, &all, direction);
+                (positions, channel.into_iter().collect(), against)
             }
             Layout::Auto => self.auto(region, region_id, &blocks, &edges),
         };
-        let mut out = Block::default();
+        let mut out = Block { against, ..Block::default() };
         for channel in channels {
             out.w = out.w.max(channel.right());
             out.h = out.h.max(channel.bottom());
@@ -295,7 +302,7 @@ impl Context<'_> {
         edges: &[Edge],
         members: &[usize],
         direction: Direction,
-    ) -> (Vec<(f64, f64)>, Option<Frame>) {
+    ) -> (Vec<(f64, f64)>, Option<Frame>, Vec<String>) {
         let local: HashMap<usize, usize> = members.iter().enumerate().map(|(k, &i)| (i, k)).collect();
         let n = members.len();
         // Strict edges: `before`.
@@ -324,9 +331,11 @@ impl Context<'_> {
             false
         };
         let mut lifted: Vec<(usize, usize, (f64, f64))> = Vec::new();
+        let mut lifted_ids: Vec<usize> = Vec::new();
         for e in edges {
             let (Some(&a), Some(&b)) = (local.get(&e.from), local.get(&e.to)) else { continue };
             lifted.push((a, b, e.label));
+            lifted_ids.push(e.connector);
             if !succ[a].contains(&b) && !reaches(&succ, b, a) {
                 succ[a].push(b);
             }
@@ -444,6 +453,12 @@ impl Context<'_> {
             .filter(|(a, b, _)| layer[*b] != layer[*a] + 1)
             .map(|(_, _, (w, h))| spacing::GUTTER + if horizontal { *h } else { *w })
             .sum();
+        let against: Vec<String> = lifted
+            .iter()
+            .zip(&lifted_ids)
+            .filter(|((a, b, _), _)| layer[*b] != layer[*a] + 1)
+            .map(|(_, &k)| self.connectors[k].id.clone())
+            .collect();
         let channel = (lanes > 0.0).then(|| {
             let at = widest + spacing::GUTTER;
             if horizontal {
@@ -452,7 +467,7 @@ impl Context<'_> {
                 Frame { x: at, y: 0.0, w: lanes, h: total_main }
             }
         });
-        (out, channel)
+        (out, channel, against)
     }
 
     /// AUTO: connected groups as flows to the right, the rest in a near-square grid.
@@ -488,8 +503,10 @@ impl Context<'_> {
         let singles: Vec<usize> = single.into_iter().flatten().collect();
         // Each part: its first member, member positions and channel relative to it, its height.
         let mut parts: Vec<Part> = Vec::new();
+        let mut against = Vec::new();
         for members in &connected {
-            let (positions, channel) = self.flow(region, id, blocks, edges, members, Direction::Right);
+            let (positions, channel, mut back) = self.flow(region, id, blocks, edges, members, Direction::Right);
+            against.append(&mut back);
             parts.push(Self::part(blocks, members, &positions, channel));
         }
         if !singles.is_empty() {
@@ -512,7 +529,7 @@ impl Context<'_> {
             channels.extend(channel.map(|c| c.moved(0.0, at)));
             at += h;
         }
-        (out, channels)
+        (out, channels, against)
     }
 
     fn part(blocks: &[Block], members: &[usize], positions: &[(f64, f64)], channel: Option<Frame>) -> Part {
@@ -536,19 +553,8 @@ pub fn layout(board: &Board, sizes: &Sizes, spacing: &Spacing) -> Vec<PageLayout
                 frames: block.frames.into_iter().collect(),
                 titles: block.titles.into_iter().collect(),
                 channels: block.channels,
+                against: block.against,
             }
         })
         .collect()
-}
-
-/// The profile constants layout uses, for the record in the compiled output.
-pub fn policy() -> serde_json::Value {
-    serde_json::json!({
-        "gutter": spacing::GUTTER,
-        "regionGutter": spacing::REGION_GUTTER,
-        "sectionPadding": section::PADDING,
-        "titleBand": section::TITLE_BAND + section::TITLE_GAP,
-        "crossingSweeps": limits::CROSSING_SWEEPS,
-        "profile": profile::NAME,
-    })
 }

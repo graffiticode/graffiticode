@@ -14,7 +14,10 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 fn outputs() -> Vec<(&'static str, String)> {
-    vec![("lexicon.json", graffiticode_l0187::lexicon::lexicon_json())]
+    vec![
+        ("lexicon.json", graffiticode_l0187::lexicon::lexicon_json()),
+        ("schema.json", graffiticode_l0187::schema::schema_json()),
+    ]
 }
 
 fn main() -> ExitCode {

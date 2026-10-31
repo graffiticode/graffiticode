@@ -8,11 +8,11 @@
 //! surprise is reported as an internal error rather than unwrapped.
 
 use graffiticode_l0000::{Record, Value};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::eval::{CHILDREN, SETTINGS, key};
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Board {
     pub profile: String,
@@ -25,7 +25,7 @@ pub struct Board {
     pub pages: Vec<Page>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Page {
     pub id: String,
@@ -36,7 +36,7 @@ pub struct Page {
     pub connectors: Vec<Connector>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Layout {
     Auto,
@@ -46,7 +46,7 @@ pub enum Layout {
     Flow { direction: Direction },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Direction {
     Right,
@@ -56,13 +56,13 @@ pub enum Direction {
 }
 
 /// A page, section or group's arrangement of its direct placeable children.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Region {
     pub layout: Layout,
     pub children: Vec<Child>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Child {
     Sticky(Mark),
@@ -72,7 +72,7 @@ pub enum Child {
     Group(Group),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Mark {
     pub id: String,
@@ -90,11 +90,11 @@ pub struct Mark {
     pub color: Option<String>,
     pub opacity: f64,
     pub font_size: String,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub before: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Section {
     pub id: String,
@@ -103,20 +103,20 @@ pub struct Section {
     pub fill: Option<String>,
     pub opacity: f64,
     pub region: Region,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub before: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Group {
     pub id: String,
     pub region: Region,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub before: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connector {
     pub id: String,

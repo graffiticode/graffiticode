@@ -99,3 +99,27 @@ async fn compiling_is_repeatable() {
         assert_eq!(first, second, "{}", case.name);
     }
 }
+
+/// Every compiled board matches the published schema (`generated/schema.json`), and that file is
+/// the one the schema module emits.
+#[tokio::test]
+async fn every_compiled_board_matches_the_schema() {
+    let text = include_str!("../../../generated/schema.json");
+    assert!(text == graffiticode_l0187::schema::schema_json(), "generated/schema.json is stale: run `npm run emit`");
+    let schema: Json = serde_json::from_str(text).unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    for case in cases().iter().filter(|c| !c.name.starts_with("invalid-")) {
+        let data = compile(&case.ast, &json!({})).await["data"].clone();
+        let errors: Vec<String> =
+            validator.iter_errors(&data).map(|e| format!("{} at {}", e, e.instance_path())).collect();
+        assert!(errors.is_empty(), "{}: {}", case.name, errors.join("\n"));
+    }
+    // The schema is strict: an unknown field, or a mark off the whole-pixel grid, is rejected.
+    let retro = cases().into_iter().find(|c| c.name == "retro").unwrap();
+    let mut data = compile(&retro.ast, &json!({})).await["data"].clone();
+    data["pages"][0]["nodes"][0]["x"] = json!(1.5);
+    assert!(!validator.is_valid(&data));
+    let mut data = compile(&retro.ast, &json!({})).await["data"].clone();
+    data["pages"][0]["extra"] = json!(true);
+    assert!(!validator.is_valid(&data));
+}

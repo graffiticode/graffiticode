@@ -25,10 +25,14 @@ pub mod eval;
 pub mod ir;
 pub mod layout;
 pub mod lexicon;
+pub mod lower;
 pub mod measure;
 pub mod profile;
 pub mod resolve;
+pub mod route;
+pub mod schema;
 pub mod size;
+pub mod validate;
 pub mod vocab;
 
 use async_trait::async_trait;
@@ -41,6 +45,69 @@ use crate::vocab::{REMOVED_GEOMETRY, REMOVED_OTHER, SAVE_TO_FIGJAM};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct L0187;
+
+/// L0187 stopped after resolution: compiles to the semantic board, for tests and tools that
+/// examine a stage on its own (`semantic`).
+#[derive(Clone, Copy, Debug, Default)]
+struct SemanticStage;
+
+/// The semantic board a program declares, resolved and with defaults filled, before any
+/// measurement or geometry.
+pub async fn semantic(code: &serde_json::Value) -> Result<ir::Board, Vec<Diagnostic>> {
+    let compiled = graffiticode_l0000::Compiler::new(SemanticStage)
+        .compile(code, &serde_json::json!({}), &serde_json::json!({}), graffiticode_l0000::Identity::default())
+        .await;
+    let value = compiled.result?;
+    let json = value.to_json().unwrap_or_default();
+    serde_json::from_value(json).map_err(|e| vec![Diagnostic::new(format!("internal error: {e}"))])
+}
+
+#[async_trait]
+impl Dialect for SemanticStage {
+    fn lang_id(&self) -> &str {
+        "0187"
+    }
+
+    fn overrides(&self, op: &Op) -> bool {
+        *op == Op::Prog
+    }
+
+    async fn eval(&self, cx: &mut Evaluator<'_>, id: NodeId, op: &Op, elts: &[NodeId]) -> Option<Value> {
+        word(cx, id, op, elts, Stage::Semantic).await
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Stage {
+    Semantic,
+    Positioned,
+}
+
+async fn word(cx: &mut Evaluator<'_>, id: NodeId, op: &Op, elts: &[NodeId], stage: Stage) -> Option<Value> {
+    if *op == Op::Prog {
+        return Some(prog(cx, id, elts, stage).await);
+    }
+    let word = vocab::word_of_tag(op.tag())?;
+    let before = cx.error_count();
+    let value = if vocab::property(word).is_some() {
+        let given = cx.eval_arg(id, elts, 0).await;
+        let rest = cx.eval_arg(id, elts, 1).await;
+        eval::property(cx, id, word, given, rest)
+    } else if vocab::member(word).is_some() {
+        let raw = cx.eval_arg(id, elts, 0).await;
+        let quiet = cx.error_count() > before;
+        eval::member(cx, id, word, raw, quiet)
+    } else if word == SAVE_TO_FIGJAM {
+        let raw = cx.eval_arg(id, elts, 0).await;
+        eval::save_to_figjam(cx, id, raw)
+    } else {
+        let list = cx.eval_arg(id, elts, 0).await;
+        let settings = cx.eval_arg(id, elts, 1).await;
+        let quiet = cx.error_count() > before;
+        eval::container(cx, id, word, list, settings, quiet)
+    };
+    Some(value)
+}
 
 #[async_trait]
 impl Dialect for L0187 {
@@ -65,29 +132,7 @@ impl Dialect for L0187 {
     }
 
     async fn eval(&self, cx: &mut Evaluator<'_>, id: NodeId, op: &Op, elts: &[NodeId]) -> Option<Value> {
-        if *op == Op::Prog {
-            return Some(prog(cx, id, elts).await);
-        }
-        let word = vocab::word_of_tag(op.tag())?;
-        let before = cx.error_count();
-        let value = if vocab::property(word).is_some() {
-            let given = cx.eval_arg(id, elts, 0).await;
-            let rest = cx.eval_arg(id, elts, 1).await;
-            eval::property(cx, id, word, given, rest)
-        } else if vocab::member(word).is_some() {
-            let raw = cx.eval_arg(id, elts, 0).await;
-            let quiet = cx.error_count() > before;
-            eval::member(cx, id, word, raw, quiet)
-        } else if word == SAVE_TO_FIGJAM {
-            let raw = cx.eval_arg(id, elts, 0).await;
-            eval::save_to_figjam(cx, id, raw)
-        } else {
-            let list = cx.eval_arg(id, elts, 0).await;
-            let settings = cx.eval_arg(id, elts, 1).await;
-            let quiet = cx.error_count() > before;
-            eval::container(cx, id, word, list, settings, quiet)
-        };
-        Some(value)
+        word(cx, id, op, elts, Stage::Positioned).await
     }
 }
 
@@ -159,7 +204,7 @@ const PROGRAM_EXAMPLE: &str = "board [ page [ sticky id \"a\" text \"Hello\" {} 
 
 /// The program is one board, and optionally one `save-to-figjam` statement. Upstream data is
 /// never spread into the output: the board is exactly what this program declares.
-async fn prog(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
+async fn prog(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId], stage: Stage) -> Value {
     let before = cx.error_count();
     let values = top_level(cx, id, elts).await;
     if cx.error_count() > before {
@@ -214,6 +259,9 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
         }
         return Value::Record(Default::default());
     }
+    if stage == Stage::Semantic {
+        return Value::from_json(&serde_json::to_value(&board).expect("the board serializes"));
+    }
     let over = resource_limits(&board);
     if !over.is_empty() {
         for (id, message) in over {
@@ -232,8 +280,80 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
             return Value::Record(Default::default());
         }
     };
-    let pages = layout::layout(&board, &sizes, &layout::Spacing::new());
-    output(&board, &sizes, &pages)
+    match position(&board, &sizes) {
+        Ok(json) => Value::from_json(&json),
+        Err(diagnostic) => {
+            cx.report_diagnostic(*diagnostic);
+            Value::Record(Default::default())
+        }
+    }
+}
+
+/// Lays out, routes, lowers and validates the board. When a connector does not fit, the region
+/// that holds both its ends gets one more step of spacing and everything is laid out again, at
+/// most `REPAIR_ROUNDS` times; only spacing grows. Only a candidate the independent validator
+/// accepts is returned, with its report.
+fn position(board: &ir::Board, sizes: &size::Sizes) -> Result<serde_json::Value, Box<Diagnostic>> {
+    position_within(board, sizes, profile::limits::REPAIR_ROUNDS, profile::limits::ROUTE_EVALUATIONS)
+}
+
+/// [`position`] with explicit work limits: `rounds` of added spacing and `evaluations` route
+/// candidates per page. Tests use it to exercise the bounded failure.
+pub fn position_within(
+    board: &ir::Board,
+    sizes: &size::Sizes,
+    repair_rounds: usize,
+    evaluations_per_page: usize,
+) -> Result<serde_json::Value, Box<Diagnostic>> {
+    let mut spacing = layout::Spacing::new();
+    let mut evaluations = 0;
+    let mut rounds = 0;
+    let (pages, routed) = loop {
+        let pages = layout::layout(board, sizes, &spacing);
+        match route::route(board, &pages, sizes, evaluations_per_page) {
+            Ok(routed) => {
+                evaluations += routed.evaluations;
+                break (pages, routed);
+            }
+            Err((unrouted, spent)) => {
+                evaluations += spent;
+                if rounds == repair_rounds {
+                    let ids: Vec<String> = unrouted.iter().map(|u| format!("{:?}", u.connector)).collect();
+                    return Err(Box::new(diag::diagnostic(
+                        diag::Category::Layout,
+                        "layout-failure",
+                        format!(
+                            "The compiler could not route connector {} clear of the board's marks and labels within FIGJAM_V1's bounds ({} rounds of added spacing, {evaluations} route candidates). This is a compiler limitation, not an error in the program.",
+                            ids.join(", "),
+                            rounds + 1
+                        ),
+                        None,
+                    )));
+                }
+                for u in unrouted {
+                    *spacing.entry(u.region).or_insert(0.0) += profile::spacing::REPAIR_STEP;
+                }
+                rounds += 1;
+            }
+        }
+    };
+    let mut json = lower::lower(board, sizes, &pages, &routed.pages);
+    let report = validate::validate(board, &json);
+    if !report.accepted {
+        return Err(Box::new(diag::diagnostic(
+            diag::Category::Layout,
+            "validation-failure",
+            format!(
+                "The compiler produced a layout that failed its own geometry checks, so it was not accepted: {}. This is a compiler limitation, not an error in the program.",
+                report.failures().join("; ")
+            ),
+            None,
+        )));
+    }
+    let mut report_json = serde_json::to_value(&report).expect("the report serializes");
+    report_json["repair"] = serde_json::json!({ "rounds": rounds, "evaluations": evaluations });
+    json["report"] = report_json;
+    Ok(json)
 }
 
 /// The profile's resource limits (`profile::limits`): how many objects a board may have and how
@@ -274,78 +394,6 @@ fn resource_limits(board: &ir::Board) -> Vec<(Option<String>, String)> {
         );
     }
     out
-}
-
-/// The compiled board. Until lowering exists (phase 5) this is the semantic board, each mark and
-/// label carrying its measured size and lines, each placed object its `frame` (sections their
-/// `titleFrame` too) and each page its `size`.
-fn output(board: &ir::Board, sizes: &size::Sizes, pages: &[layout::PageLayout]) -> Value {
-    let mut json = serde_json::to_value(board).expect("the board serializes");
-    fn place(value: &mut serde_json::Value, page: &layout::PageLayout) {
-        match value {
-            serde_json::Value::Object(object) => {
-                let id = object.get("id").and_then(|v| v.as_str()).map(str::to_owned);
-                if let Some(id) = id.filter(|_| !object.contains_key("from")) {
-                    if let Some(f) = page.frames.get(&id) {
-                        object.insert("frame".to_owned(), serde_json::to_value(f).expect("serializes"));
-                    }
-                    if let Some(f) = page.titles.get(&id) {
-                        object.insert("titleFrame".to_owned(), serde_json::to_value(f).expect("serializes"));
-                    }
-                }
-                for v in object.values_mut() {
-                    place(v, page);
-                }
-            }
-            serde_json::Value::Array(items) => items.iter_mut().for_each(|v| place(v, page)),
-            _ => {}
-        }
-    }
-    if let Some(list) = json.get_mut("pages").and_then(|p| p.as_array_mut()) {
-        for (page_json, page) in list.iter_mut().zip(pages) {
-            place(page_json, page);
-            if let Some(object) = page_json.as_object_mut() {
-                object.insert("size".to_owned(), serde_json::json!({ "width": page.width, "height": page.height }));
-                let channels: Vec<serde_json::Value> = page
-                    .channels
-                    .iter()
-                    .map(|(region, f)| serde_json::json!({ "region": region, "frame": f }))
-                    .collect();
-                object.insert("channels".to_owned(), channels.into());
-            }
-        }
-    }
-    fn annotate(value: &mut serde_json::Value, sizes: &size::Sizes) {
-        match value {
-            serde_json::Value::Object(object) => {
-                let id = object.get("id").and_then(|v| v.as_str()).map(str::to_owned);
-                if let Some(id) = id {
-                    if let Some(m) = sizes.marks.get(&id).filter(|_| object.contains_key("text")) {
-                        object.insert("measured".to_owned(), serde_json::to_value(m).expect("serializes"));
-                    }
-                    if let Some(m) = sizes.labels.get(&id).filter(|_| object.contains_key("from")) {
-                        object.insert("measuredLabel".to_owned(), serde_json::to_value(m).expect("serializes"));
-                    }
-                    if let Some(w) = sizes.titles.get(&id).filter(|_| object.contains_key("region")) {
-                        object.insert("titleWidth".to_owned(), (*w).into());
-                    }
-                }
-                for v in object.values_mut() {
-                    annotate(v, sizes);
-                }
-            }
-            serde_json::Value::Array(items) => items.iter_mut().for_each(|v| annotate(v, sizes)),
-            _ => {}
-        }
-    }
-    annotate(&mut json, sizes);
-    if let Some(object) = json.as_object_mut() {
-        let mut out = serde_json::Map::new();
-        out.insert("type".to_owned(), "board".into());
-        out.append(object);
-        json = out.into();
-    }
-    Value::from_json(&json)
 }
 
 /// Where every literal id was written: the span of each `id "…"` property, in source order.

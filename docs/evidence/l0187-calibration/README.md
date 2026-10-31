@@ -92,9 +92,24 @@ Marks compiled by L0187 were drawn at their compiled sizes:
     deliberately narrower. Native text fit for shapes stays an **unverified** check in the report
     (design §8).
 
+## Connectors
+
+L0187 draws every connector as straight legs between fixed points: the side magnets and
+compiler-placed waypoints. The plugin already draws a waypoint route this way, one FigJam
+connector per leg. Compiled routes for `flow-return`, `parallel-three` and `self-loop-parallel`
+were drawn this way, with straight legs between the emitted magnets and waypoints, and each leg's
+bounding box was read back:
+
+- Every leg is a straight, zero-thickness segment between exactly the emitted points. For example,
+  `valid-save`'s middle leg runs from 583,200 to 583,88, and its label box is centred on that leg.
+- A leg attached to a mark starts or ends **8px off the mark's edge**. For example, from Valid's
+  right magnet at x=506 the leg began at 514; into Save's left magnet at 660 it ended at 652. The
+  router models this as `route::ENDPOINT_GAP` when it places a label on a leg that touches a mark.
+
 ## Not yet calibrated
 
-- Section title band, connector label boxes and routes. These are phase 5 and phase 7.
+- Section title band, and FigJam's own placement of labels within a leg (modeled as the leg's
+  midpoint). These are phase 7.
 - Text-area heights for ELLIPSE, DOCUMENT_SINGLE and ENG_DATABASE beyond L0186's modeled insets.
 - Shape text at sizes other than 24px.
 

@@ -17,7 +17,7 @@
 use std::sync::LazyLock;
 
 use rustybuzz::{Direction, Face, UnicodeBuffer};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use unicode_linebreak::{BreakOpportunity, linebreaks};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -173,7 +173,7 @@ impl Prefix {
 }
 
 /// What ended a line, so the lines re-joined reproduce the text exactly.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind", content = "text")]
 pub enum Break {
     /// A newline in the text (the newline itself, `\n` or `\r\n`).
@@ -186,13 +186,13 @@ pub enum Break {
     End(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Line {
     pub text: String,
     #[serde(rename = "break")]
     pub ends: Break,
     /// The line's measured advance in pixels.
-    #[serde(skip)]
+    #[serde(skip, default)]
     pub width: f64,
 }
 

@@ -64,18 +64,36 @@ come) and dev tools.
     connected groups out as flows to the right and packs the rest in a near-square grid. Gaps:
     the gutter (48), 72 next to a region, widened for labels, plus the repair loop's `Spacing`.
     Section title bands sit above the border inside the section's block. Whole pixels.
+  - `src/route.rs` — every connector as **straight legs between side magnets and compiler-placed
+    waypoints** (`lineType "straight"`), so the modeled route is the route FigJam draws. Candidates
+    in a fixed order (straight, Z/L elbow, the flow's channel lane for back/long edges, arcs that
+    also separate parallels, then an orthogonal Dijkstra search over the free space); self-loops
+    go around a corner, reaching out far enough for their label. The label box follows the
+    plugin's rule exactly (leg `floor((legs − 1) / 2)`, its midpoint after the plugin's 16px corner
+    rounding and FigJam's 8px endpoint gap). Clearance 8px around every leg band, cap and label.
+  - `src/lower.rs` — the plugin's board: L0186's shape with `positioned: 1`, every geometry field,
+    `lines` and `content` per mark, sections with `titleFrame` and absolute member nodes, groups
+    lowered away into `page.groups`, connectors with `fromSide`/`toSide`/`waypoints` plus `route`
+    and `labelBox` for the preview; each page shifted so nothing is negative.
+  - `src/validate.rs` — the independent checker: obligations from the semantic board, geometry
+    only from the candidate, nothing from layout or routing. Required: preservation, geometry,
+    text-fit (lines re-join, re-measured widths, recomputed content boxes, sticky growth),
+    peer-clearance, containment, order, routes, labels; `native-*` checks are reported
+    `unverified`, never passed.
+  - `src/lib.rs` `position` — the repair loop: layout, route; a connector that does not fit
+    widens the gutter of the region holding both its ends by 24, up to 4 rounds and 4096
+    candidates a page; then lower and validate. Only an accepted board is returned, with its
+    `report` (checks, quality, repair). Exhausting the bounds is a `layout` error saying it is a
+    compiler limitation. `semantic(code)` compiles to the semantic board alone, for tests.
+  - `src/schema.rs` — the output's JSON Schema, emitted to `generated/schema.json`.
   - `src/bin/emit.rs` — writes the vocabulary-derived files to `generated/`, or `--check`s them.
   - `examples/` — calibration helpers (`advances`, `wrap`, `shapes`, `probe_lines`); the method
     and results are in `docs/evidence/l0187-calibration/`.
 
-Until lowering lands (phase 5), a compile returns the semantic board itself (`{type: "board", profile, …,
-pages: [{id, name, region, connectors}]}`), each mark carrying `measured` (size, content box,
-lines) and each labelled connector `measuredLabel`, each placed object its absolute `frame`
-(sections also `titleFrame`), and each page its `size` and routing `channels`; the plugin board
-replaces it. Resource limits (2000 objects, 4000 characters a text) are `resource` errors.
-
+A compile returns the positioned board (see `src/lower.rs` and `generated/schema.json`) with the
+validator's report. Resource limits (2000 objects, 4000 characters a text) are `resource` errors.
 - `crates/server` (`l0187-server`, binary `l0187`) — `l0000r_server::serve_with(L0187, …)`.
-- `generated/` — **committed** emit output (`lexicon.json` so far; `schema.json` later). The
+- `generated/` — **committed** emit output (`lexicon.json`, `schema.json`). The
   freshness target for `emit --check`, and what the static assembly copies.
 - `crates/core/tests/programs/*.gc` — test programs, one per file; `invalid-*` must be rejected.
   `tools/parse-cases.mjs` parses them with `@graffiticode/parser` and `generated/lexicon.json`
@@ -85,10 +103,15 @@ replaces it. Resource limits (2000 objects, 4000 characters a text) are `resourc
   never changes a board; compiling is repeatable. `UPDATE_EXPECT=1 cargo test --test compile`
   rewrites the snapshot — review the diff. `tests/interpret.rs` — the C1 interpreter pass
   interprets every program exactly as it compiles.
-- `crates/core/tests/layout.rs` — the geometric contract on every valid program: siblings keep
-  the gutter on one axis, children stay inside section padding and group bounds, ROW/COLUMN/GRID
-  order, `before` disjoint along its flow with clearance, whole pixels, channels cross no mark;
-  then the design's examples one by one.
+- `crates/core/tests/layout.rs` — every valid program is accepted by the validator (every
+  required check passes, no unverifiable check reported passed, nothing off its page); then the
+  design's examples one by one, positions and routes.
+- `crates/core/tests/validate.rs` — the validator rejects broken candidates: overlapping peers, a
+  label on a node or off its leg's midpoint, a thick line grazing a node, a wrong magnet, a
+  dropped/extra mark, a changed endpoint or text, a mark out of its section or group, reordered
+  pages, a violated ROW/GRID/`before`, truncated/reordered/overwide lines, too many lines, a
+  wrong content box, a sticky shorter than FigJam grows it; and exhausting the repair bounds is a
+  classified layout failure.
 - `crates/core/tests/vocabulary.rs` — the vocabulary must equal the design doc's tables (words,
   arities, property words, allowed-property sets, container children, closed sets, required
   properties, removed geometry words), the committed lexicon must be current, and every test

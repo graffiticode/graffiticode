@@ -1,0 +1,6 @@
+board [ page [
+  sticky id "n1" text "1" {} sticky id "n2" text "2" {} sticky id "n3" text "3" {}
+  sticky id "n4" text "4" {} sticky id "mid" text "Middle" {} sticky id "n6" text "6" {}
+  sticky id "n7" text "7" {} sticky id "n8" text "8" {} sticky id "n9" text "9" {}
+  connector id "again" from "mid" to "mid" label "Again and again" font-size LARGE {}
+] id "p1" name "Repair" layout GRID columns 3 {} ] {}..

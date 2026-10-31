@@ -21,4 +21,5 @@ unicode-linebreak = "=0.1.5"
 unicode-segmentation = "=1.13.3"
 
 [dev-dependencies]
+jsonschema = { version = "0.60", default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
