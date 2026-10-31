@@ -36,14 +36,23 @@ const canonical = v => (Array.isArray(v) ? v.map(canonical) : v && typeof v === 
 // spreads it: production's answer with that envelope unwrapped is what Rust must give.
 const rules = JSON.parse(readFileSync(new URL("../../../scripts/lang-parity.allow.json", import.meta.url), "utf8"));
 const unwraps = lang => (rules[lang] ?? []).some(r => r.kind === "upstream-envelope");
+// A TypeScript result that spread the envelope carries it as a `data` field (L0179 drops the
+// envelope's `errors` key while spreading, the others keep it). The envelope's own `errors`
+// is not part of the result on either side, so it is left out of the comparison.
 const unwrapped = answer => {
   const value = answer?.data;
-  if (!value || typeof value !== "object" || Array.isArray(value) || !("data" in value) || !Array.isArray(value.errors)) return answer;
+  if (!value || typeof value !== "object" || Array.isArray(value) || !value.data || typeof value.data !== "object" || Array.isArray(value.data)) return answer;
   const { data: posted, errors: _errors, ...rest } = value;
-  return { ...answer, data: { ...rest, ...(posted && typeof posted === "object" ? posted : {}) } };
+  return { ...answer, data: { ...rest, ...posted } };
+};
+const withoutErrorsField = answer => {
+  const value = answer?.data;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return answer;
+  const { errors: _errors, ...rest } = value;
+  return { ...answer, data: rest };
 };
 const overData = (lang, staged, production) => same(staged, production) ||
-  (unwraps(lang) && same(canonical(staged), canonical(unwrapped(production))));
+  (unwraps(lang) && same(canonical(withoutErrorsField(staged)), canonical(withoutErrorsField(unwrapped(production)))));
 const task = async t => (await post(prod, "/task", { task: t })).body.data.id;
 const L0000_ONE = { 1: { tag: "NUM", elts: ["1"] }, 2: { tag: "EXPRS", elts: [1] }, 3: { tag: "PROG", elts: [2] }, root: 3 };
 const ids = {};
