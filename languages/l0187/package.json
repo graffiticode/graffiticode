@@ -21,7 +21,8 @@
     "rust:static": "node tools/assemble-static.mjs",
     "test:view": "npm run -w packages/view test",
     "lint": "eslint .",
-    "test": "npm run test:view"
+    "test": "npm run test:view",
+    "check-corpus": "node tools/check-corpus.mjs"
   },
   "devDependencies": {
     "@graffiticode/parser": "^1.7.0",
