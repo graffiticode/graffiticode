@@ -1077,6 +1077,210 @@
       }
     }
   },
+  "duplicate-page-names": {
+    "data": {
+      "type": "board",
+      "positioned": 1,
+      "profile": "FIGJAM_V1",
+      "revision": {
+        "compiler": "0.1.0",
+        "font": "Inter-Medium 3.19 sha256:99dab2bdcb613c4c8264000a94351d1227f74dc95a86d1249493aeee0c0179c4",
+        "layout": "FIGJAM_V1"
+      },
+      "showPageTabs": true,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "week-1",
+          "name": "Notes",
+          "width": 240,
+          "height": 240,
+          "nodes": [
+            {
+              "type": "sticky",
+              "id": "first",
+              "x": 0,
+              "y": 0,
+              "width": 240,
+              "height": 240,
+              "wide": false,
+              "opacity": 100,
+              "text": "First page",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "First page",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 17,
+                "y": 24,
+                "w": 206,
+                "h": 192
+              }
+            }
+          ],
+          "groups": []
+        },
+        {
+          "id": "week-2",
+          "name": "Notes",
+          "width": 480,
+          "height": 346,
+          "nodes": [
+            {
+              "type": "sticky",
+              "id": "second",
+              "x": 0,
+              "y": 0,
+              "width": 240,
+              "height": 240,
+              "wide": false,
+              "opacity": 100,
+              "text": "Second page",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "Second page",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 17,
+                "y": 24,
+                "w": 206,
+                "h": 192
+              }
+            },
+            {
+              "type": "text",
+              "id": "caption",
+              "x": 0,
+              "y": 288,
+              "width": 480,
+              "height": 58,
+              "opacity": 100,
+              "text": "A textbox wide enough to wrap onto a second line in FigJam",
+              "fontSize": 24,
+              "lineHeight": 1.2083333333333333,
+              "lines": [
+                {
+                  "text": "A textbox wide enough to wrap onto a",
+                  "break": {
+                    "kind": "soft",
+                    "text": " "
+                  }
+                },
+                {
+                  "text": "second line in FigJam",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 0,
+                "y": 0,
+                "w": 480,
+                "h": 58
+              }
+            }
+          ],
+          "groups": []
+        }
+      ],
+      "report": {
+        "accepted": true,
+        "checks": [
+          {
+            "name": "preservation",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "geometry",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "text-fit",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "peer-clearance",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "containment",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "order",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "routes",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "labels",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "native-text-fit",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam lays out the text in shapes itself; the model's text areas are calibrated bounds, not observations"
+            ]
+          },
+          {
+            "name": "native-labels",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam places a connector's label on its leg itself; the plugin's rule is modeled, not observed"
+            ]
+          }
+        ],
+        "quality": {
+          "crossings": 0,
+          "bends": 0,
+          "route_length": 0
+        },
+        "repair": {
+          "rounds": 0,
+          "evaluations": 0
+        }
+      }
+    }
+  },
   "empty-template": {
     "data": {
       "type": "board",
@@ -1398,13 +1602,13 @@
         {
           "id": "p1",
           "name": "Lifted",
-          "width": 627,
+          "width": 631,
           "height": 240,
           "nodes": [
             {
               "type": "sticky",
               "id": "b",
-              "x": 387,
+              "x": 391,
               "y": 0,
               "width": 240,
               "height": 240,
@@ -1494,16 +1698,16 @@
                   "y": 120
                 },
                 {
-                  "x": 387,
+                  "x": 391,
                   "y": 120
                 }
               ],
               "labelLeg": 0,
               "labelBox": {
                 "x": 288,
-                "y": 105.5,
-                "w": 51,
-                "h": 29
+                "y": 99.5,
+                "w": 55,
+                "h": 41
               },
               "routeKind": "straight"
             }
@@ -1512,7 +1716,7 @@
             {
               "id": "g2",
               "frame": {
-                "x": 387,
+                "x": 391,
                 "y": 0,
                 "w": 240,
                 "h": 240
@@ -1609,7 +1813,7 @@
         "quality": {
           "crossings": 0,
           "bends": 0,
-          "route_length": 147
+          "route_length": 151
         },
         "repair": {
           "rounds": 0,
@@ -1634,8 +1838,8 @@
         {
           "id": "processing",
           "name": "Processing",
-          "width": 836,
-          "height": 525,
+          "width": 844,
+          "height": 537,
           "nodes": [
             {
               "type": "shape",
@@ -1669,7 +1873,7 @@
             {
               "type": "shape",
               "id": "valid",
-              "x": 330,
+              "x": 334,
               "y": 112,
               "width": 176,
               "height": 176,
@@ -1698,7 +1902,7 @@
             {
               "type": "shape",
               "id": "save",
-              "x": 660,
+              "x": 668,
               "y": 0,
               "width": 176,
               "height": 176,
@@ -1727,7 +1931,7 @@
             {
               "type": "shape",
               "id": "error",
-              "x": 660,
+              "x": 668,
               "y": 224,
               "width": 176,
               "height": 176,
@@ -1773,7 +1977,7 @@
                   "y": 200
                 },
                 {
-                  "x": 330,
+                  "x": 334,
                   "y": 200
                 }
               ],
@@ -1790,11 +1994,11 @@
               "toSide": "LEFT",
               "waypoints": [
                 {
-                  "x": 583,
+                  "x": 589,
                   "y": 200
                 },
                 {
-                  "x": 583,
+                  "x": 589,
                   "y": 88
                 }
               ],
@@ -1815,28 +2019,28 @@
               ],
               "route": [
                 {
-                  "x": 506,
+                  "x": 510,
                   "y": 200
                 },
                 {
-                  "x": 583,
+                  "x": 589,
                   "y": 200
                 },
                 {
-                  "x": 583,
+                  "x": 589,
                   "y": 88
                 },
                 {
-                  "x": 660,
+                  "x": 668,
                   "y": 88
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 561,
-                "y": 129.5,
-                "w": 44,
-                "h": 29
+                "x": 565,
+                "y": 123.5,
+                "w": 48,
+                "h": 41
               },
               "routeKind": "elbow"
             },
@@ -1850,11 +2054,11 @@
               "toSide": "LEFT",
               "waypoints": [
                 {
-                  "x": 583,
+                  "x": 589,
                   "y": 200
                 },
                 {
-                  "x": 583,
+                  "x": 589,
                   "y": 312
                 }
               ],
@@ -1875,28 +2079,28 @@
               ],
               "route": [
                 {
-                  "x": 506,
+                  "x": 510,
                   "y": 200
                 },
                 {
-                  "x": 583,
+                  "x": 589,
                   "y": 200
                 },
                 {
-                  "x": 583,
+                  "x": 589,
                   "y": 312
                 },
                 {
-                  "x": 660,
+                  "x": 668,
                   "y": 312
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 564,
-                "y": 241.5,
-                "w": 38,
-                "h": 29
+                "x": 568,
+                "y": 235.5,
+                "w": 42,
+                "h": 41
               },
               "routeKind": "elbow"
             },
@@ -1910,12 +2114,12 @@
               "toSide": "BOTTOM",
               "waypoints": [
                 {
-                  "x": 748,
-                  "y": 487
+                  "x": 756,
+                  "y": 493
                 },
                 {
                   "x": 88,
-                  "y": 487
+                  "y": 493
                 }
               ],
               "fromCap": "NONE",
@@ -1936,16 +2140,16 @@
               ],
               "route": [
                 {
-                  "x": 748,
+                  "x": 756,
                   "y": 400
                 },
                 {
-                  "x": 748,
-                  "y": 487
+                  "x": 756,
+                  "y": 493
                 },
                 {
                   "x": 88,
-                  "y": 487
+                  "y": 493
                 },
                 {
                   "x": 88,
@@ -1954,10 +2158,10 @@
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 389,
+                "x": 391,
                 "y": 472.5,
-                "w": 58,
-                "h": 29
+                "w": 62,
+                "h": 41
               },
               "routeKind": "channel"
             }
@@ -2038,7 +2242,7 @@
         "quality": {
           "crossings": 0,
           "bends": 6,
-          "route_length": 1632
+          "route_length": 1664
         },
         "repair": {
           "rounds": 0,
@@ -2808,6 +3012,314 @@
       }
     ]
   },
+  "name-collision": {
+    "data": {
+      "type": "board",
+      "positioned": 1,
+      "profile": "FIGJAM_V1",
+      "revision": {
+        "compiler": "0.1.0",
+        "font": "Inter-Medium 3.19 sha256:99dab2bdcb613c4c8264000a94351d1227f74dc95a86d1249493aeee0c0179c4",
+        "layout": "FIGJAM_V1"
+      },
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Collision",
+          "width": 621,
+          "height": 377,
+          "nodes": [
+            {
+              "type": "section",
+              "id": "task-section",
+              "name": "task",
+              "opacity": 100,
+              "x": 0,
+              "y": 89,
+              "width": 288,
+              "height": 288,
+              "titleFrame": {
+                "x": 0,
+                "y": 55,
+                "w": 45,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "intro",
+                  "x": 24,
+                  "y": 113,
+                  "width": 240,
+                  "height": 240,
+                  "wide": false,
+                  "opacity": 100,
+                  "text": "Intro",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Intro",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "shape",
+              "id": "task",
+              "x": 390,
+              "y": 55,
+              "width": 176,
+              "height": 176,
+              "shapeType": "SQUARE",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "text": "Task",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "Task",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 18.039999999999992,
+                "y": 16,
+                "w": 139.92000000000002,
+                "h": 144
+              }
+            },
+            {
+              "type": "connector",
+              "id": "intro-task",
+              "from": "intro",
+              "to": "task",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [
+                {
+                  "x": 327,
+                  "y": 233
+                },
+                {
+                  "x": 327,
+                  "y": 143
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "next",
+              "labelLines": [
+                {
+                  "text": "next",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 264,
+                  "y": 233
+                },
+                {
+                  "x": 327,
+                  "y": 233
+                },
+                {
+                  "x": 327,
+                  "y": 143
+                },
+                {
+                  "x": 390,
+                  "y": 143
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 300,
+                "y": 167.5,
+                "w": 54,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "task-loop",
+              "from": "task",
+              "to": "task",
+              "lineType": "straight",
+              "fromSide": "TOP",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 478,
+                  "y": 22
+                },
+                {
+                  "x": 599,
+                  "y": 22
+                },
+                {
+                  "x": 599,
+                  "y": 143
+                }
+              ],
+              "fromCap": "CIRCLE_FILLED",
+              "toCap": "TRIANGLE_FILLED",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "retry",
+              "labelLines": [
+                {
+                  "text": "retry",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 478,
+                  "y": 55
+                },
+                {
+                  "x": 478,
+                  "y": 22
+                },
+                {
+                  "x": 599,
+                  "y": 22
+                },
+                {
+                  "x": 599,
+                  "y": 143
+                },
+                {
+                  "x": 566,
+                  "y": 143
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 510,
+                "y": 1.5,
+                "w": 57,
+                "h": 41
+              },
+              "routeKind": "loop"
+            }
+          ],
+          "groups": []
+        }
+      ],
+      "report": {
+        "accepted": true,
+        "checks": [
+          {
+            "name": "preservation",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "geometry",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "text-fit",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "peer-clearance",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "containment",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "order",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "routes",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "labels",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "native-text-fit",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam lays out the text in shapes itself; the model's text areas are calibrated bounds, not observations"
+            ]
+          },
+          {
+            "name": "native-labels",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam places a connector's label on its leg itself; the plugin's rule is modeled, not observed"
+            ]
+          }
+        ],
+        "quality": {
+          "crossings": 0,
+          "bends": 5,
+          "route_length": 524
+        },
+        "repair": {
+          "rounds": 0,
+          "evaluations": 2
+        }
+      }
+    }
+  },
   "parallel-three": {
     "data": {
       "type": "board",
@@ -2824,7 +3336,7 @@
         {
           "id": "p1",
           "name": "Parallel",
-          "width": 492,
+          "width": 496,
           "height": 340,
           "nodes": [
             {
@@ -2859,7 +3371,7 @@
             {
               "type": "shape",
               "id": "server",
-              "x": 316,
+              "x": 320,
               "y": 70,
               "width": 176,
               "height": 176,
@@ -2915,16 +3427,16 @@
                   "y": 158
                 },
                 {
-                  "x": 316,
+                  "x": 320,
                   "y": 158
                 }
               ],
               "labelLeg": 0,
               "labelBox": {
                 "x": 208.5,
-                "y": 143.5,
-                "w": 75,
-                "h": 29
+                "y": 137.5,
+                "w": 79,
+                "h": 41
               },
               "routeKind": "straight"
             },
@@ -2938,7 +3450,7 @@
               "toSide": "TOP",
               "waypoints": [
                 {
-                  "x": 404,
+                  "x": 408,
                   "y": 22
                 },
                 {
@@ -2963,11 +3475,11 @@
               ],
               "route": [
                 {
-                  "x": 404,
+                  "x": 408,
                   "y": 70
                 },
                 {
-                  "x": 404,
+                  "x": 408,
                   "y": 22
                 },
                 {
@@ -2982,9 +3494,9 @@
               "labelLeg": 1,
               "labelBox": {
                 "x": 202.5,
-                "y": 7.5,
-                "w": 87,
-                "h": 29
+                "y": 1.5,
+                "w": 91,
+                "h": 41
               },
               "routeKind": "arc"
             },
@@ -3002,7 +3514,7 @@
                   "y": 318
                 },
                 {
-                  "x": 404,
+                  "x": 408,
                   "y": 318
                 }
               ],
@@ -3032,20 +3544,20 @@
                   "y": 318
                 },
                 {
-                  "x": 404,
+                  "x": 408,
                   "y": 318
                 },
                 {
-                  "x": 404,
+                  "x": 408,
                   "y": 246
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
                 "x": 200,
-                "y": 303.5,
-                "w": 92,
-                "h": 29
+                "y": 297.5,
+                "w": 96,
+                "h": 41
               },
               "routeKind": "arc"
             }
@@ -3126,7 +3638,7 @@
         "quality": {
           "crossings": 0,
           "bends": 4,
-          "route_length": 1012
+          "route_length": 1024
         },
         "repair": {
           "rounds": 0,
@@ -3152,7 +3664,7 @@
         {
           "id": "planning",
           "name": "Planning",
-          "width": 653,
+          "width": 657,
           "height": 240,
           "nodes": [
             {
@@ -3186,7 +3698,7 @@
             {
               "type": "sticky",
               "id": "plan",
-              "x": 413,
+              "x": 417,
               "y": 0,
               "width": 240,
               "height": 240,
@@ -3241,16 +3753,16 @@
                   "y": 120
                 },
                 {
-                  "x": 413,
+                  "x": 417,
                   "y": 120
                 }
               ],
               "labelLeg": 0,
               "labelBox": {
                 "x": 288,
-                "y": 105.5,
-                "w": 77,
-                "h": 29
+                "y": 99.5,
+                "w": 81,
+                "h": 41
               },
               "routeKind": "straight"
             }
@@ -3331,7 +3843,7 @@
         "quality": {
           "crossings": 0,
           "bends": 0,
-          "route_length": 173
+          "route_length": 177
         },
         "repair": {
           "rounds": 0,
@@ -3615,8 +4127,8 @@
         {
           "id": "p1",
           "name": "Repair",
-          "width": 912,
-          "height": 912,
+          "width": 960,
+          "height": 960,
           "nodes": [
             {
               "type": "sticky",
@@ -3649,7 +4161,7 @@
             {
               "type": "sticky",
               "id": "n2",
-              "x": 336,
+              "x": 360,
               "y": 0,
               "width": 240,
               "height": 240,
@@ -3677,7 +4189,7 @@
             {
               "type": "sticky",
               "id": "n3",
-              "x": 672,
+              "x": 720,
               "y": 0,
               "width": 240,
               "height": 240,
@@ -3706,7 +4218,7 @@
               "type": "sticky",
               "id": "n4",
               "x": 0,
-              "y": 336,
+              "y": 360,
               "width": 240,
               "height": 240,
               "wide": false,
@@ -3733,8 +4245,8 @@
             {
               "type": "sticky",
               "id": "mid",
-              "x": 336,
-              "y": 336,
+              "x": 360,
+              "y": 360,
               "width": 240,
               "height": 240,
               "wide": false,
@@ -3761,8 +4273,8 @@
             {
               "type": "sticky",
               "id": "n6",
-              "x": 672,
-              "y": 336,
+              "x": 720,
+              "y": 360,
               "width": 240,
               "height": 240,
               "wide": false,
@@ -3790,7 +4302,7 @@
               "type": "sticky",
               "id": "n7",
               "x": 0,
-              "y": 672,
+              "y": 720,
               "width": 240,
               "height": 240,
               "wide": false,
@@ -3817,8 +4329,8 @@
             {
               "type": "sticky",
               "id": "n8",
-              "x": 336,
-              "y": 672,
+              "x": 360,
+              "y": 720,
               "width": 240,
               "height": 240,
               "wide": false,
@@ -3845,8 +4357,8 @@
             {
               "type": "sticky",
               "id": "n9",
-              "x": 672,
-              "y": 672,
+              "x": 720,
+              "y": 720,
               "width": 240,
               "height": 240,
               "wide": false,
@@ -3880,16 +4392,16 @@
               "toSide": "RIGHT",
               "waypoints": [
                 {
-                  "x": 456,
-                  "y": 294
+                  "x": 480,
+                  "y": 309
                 },
                 {
-                  "x": 618,
-                  "y": 294
+                  "x": 651,
+                  "y": 309
                 },
                 {
-                  "x": 618,
-                  "y": 456
+                  "x": 651,
+                  "y": 480
                 }
               ],
               "fromCap": "NONE",
@@ -3909,32 +4421,32 @@
               ],
               "route": [
                 {
-                  "x": 456,
-                  "y": 336
+                  "x": 480,
+                  "y": 360
                 },
                 {
-                  "x": 456,
-                  "y": 294
+                  "x": 480,
+                  "y": 309
                 },
                 {
-                  "x": 618,
-                  "y": 294
+                  "x": 651,
+                  "y": 309
                 },
                 {
-                  "x": 618,
-                  "y": 456
+                  "x": 651,
+                  "y": 480
                 },
                 {
-                  "x": 576,
-                  "y": 456
+                  "x": 600,
+                  "y": 480
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 376,
-                "y": 264,
-                "w": 322,
-                "h": 60
+                "x": 390.5,
+                "y": 270.5,
+                "w": 350,
+                "h": 77
               },
               "routeKind": "loop"
             }
@@ -4015,11 +4527,11 @@
         "quality": {
           "crossings": 0,
           "bends": 3,
-          "route_length": 408
+          "route_length": 444
         },
         "repair": {
-          "rounds": 2,
-          "evaluations": 17
+          "rounds": 3,
+          "evaluations": 25
         }
       }
     }
@@ -4492,13 +5004,13 @@
         {
           "id": "p1",
           "name": "Graph",
-          "width": 570,
-          "height": 295,
+          "width": 580,
+          "height": 301,
           "nodes": [
             {
               "type": "shape",
               "id": "a",
-              "x": 49,
+              "x": 55,
               "y": 70,
               "width": 176,
               "height": 176,
@@ -4527,7 +5039,7 @@
             {
               "type": "shape",
               "id": "b",
-              "x": 394,
+              "x": 404,
               "y": 70,
               "width": 176,
               "height": 176,
@@ -4563,12 +5075,12 @@
               "toSide": "LEFT",
               "waypoints": [
                 {
-                  "x": 137,
-                  "y": 273
+                  "x": 143,
+                  "y": 279
                 },
                 {
                   "x": 22,
-                  "y": 273
+                  "y": 279
                 },
                 {
                   "x": 22,
@@ -4592,32 +5104,32 @@
               ],
               "route": [
                 {
-                  "x": 137,
+                  "x": 143,
                   "y": 246
                 },
                 {
-                  "x": 137,
-                  "y": 273
+                  "x": 143,
+                  "y": 279
                 },
                 {
                   "x": 22,
-                  "y": 273
+                  "y": 279
                 },
                 {
                   "x": 22,
                   "y": 158
                 },
                 {
-                  "x": 49,
+                  "x": 55,
                   "y": 158
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 50.5,
+                "x": 51.5,
                 "y": 258.5,
-                "w": 58,
-                "h": 29
+                "w": 62,
+                "h": 41
               },
               "routeKind": "loop"
             },
@@ -4647,20 +5159,20 @@
               ],
               "route": [
                 {
-                  "x": 225,
+                  "x": 231,
                   "y": 158
                 },
                 {
-                  "x": 394,
+                  "x": 404,
                   "y": 158
                 }
               ],
               "labelLeg": 0,
               "labelBox": {
-                "x": 286,
-                "y": 143.5,
-                "w": 47,
-                "h": 29
+                "x": 292,
+                "y": 137.5,
+                "w": 51,
+                "h": 41
               },
               "routeKind": "straight"
             },
@@ -4674,11 +5186,11 @@
               "toSide": "TOP",
               "waypoints": [
                 {
-                  "x": 137,
+                  "x": 143,
                   "y": 22
                 },
                 {
-                  "x": 482,
+                  "x": 492,
                   "y": 22
                 }
               ],
@@ -4699,28 +5211,28 @@
               ],
               "route": [
                 {
-                  "x": 137,
+                  "x": 143,
                   "y": 70
                 },
                 {
-                  "x": 137,
+                  "x": 143,
                   "y": 22
                 },
                 {
-                  "x": 482,
+                  "x": 492,
                   "y": 22
                 },
                 {
-                  "x": 482,
+                  "x": 492,
                   "y": 70
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 273,
-                "y": 7.5,
-                "w": 73,
-                "h": 29
+                "x": 279,
+                "y": 1.5,
+                "w": 77,
+                "h": 41
               },
               "routeKind": "arc"
             }
@@ -4801,7 +5313,7 @@
         "quality": {
           "crossings": 0,
           "bends": 5,
-          "route_length": 894
+          "route_length": 926
         },
         "repair": {
           "rounds": 0,
@@ -5002,13 +5514,13 @@
           "id": "p1",
           "name": "Thick",
           "width": 624,
-          "height": 244,
+          "height": 252,
           "nodes": [
             {
               "type": "shape",
               "id": "a",
               "x": 0,
-              "y": 68,
+              "y": 76,
               "width": 176,
               "height": 176,
               "shapeType": "SQUARE",
@@ -5037,7 +5549,7 @@
               "type": "shape",
               "id": "b",
               "x": 224,
-              "y": 68,
+              "y": 76,
               "width": 176,
               "height": 176,
               "shapeType": "SQUARE",
@@ -5066,7 +5578,7 @@
               "type": "shape",
               "id": "c",
               "x": 448,
-              "y": 68,
+              "y": 76,
               "width": 176,
               "height": 176,
               "shapeType": "SQUARE",
@@ -5127,7 +5639,7 @@
               "route": [
                 {
                   "x": 88,
-                  "y": 68
+                  "y": 76
                 },
                 {
                   "x": 88,
@@ -5139,17 +5651,17 @@
                 },
                 {
                   "x": 536,
-                  "y": 68
+                  "y": 76
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 276.5,
-                "y": 29.5,
-                "w": 71,
-                "h": 29
+                "x": 272.5,
+                "y": 21.5,
+                "w": 79,
+                "h": 45
               },
-              "routeKind": "arc"
+              "routeKind": "search"
             },
             {
               "type": "connector",
@@ -5168,11 +5680,11 @@
               "route": [
                 {
                   "x": 176,
-                  "y": 156
+                  "y": 164
                 },
                 {
                   "x": 224,
-                  "y": 156
+                  "y": 164
                 }
               ],
               "labelLeg": 0,
@@ -5255,11 +5767,11 @@
         "quality": {
           "crossings": 0,
           "bends": 2,
-          "route_length": 544
+          "route_length": 560
         },
         "repair": {
           "rounds": 0,
-          "evaluations": 3
+          "evaluations": 7
         }
       }
     }
