@@ -112,6 +112,7 @@
         "COMPILE_GENERATION_L0186": "interp-1",
         "INTERPRETER_L0186": "on",
         "BASE_URL_L0187": "https://l0187-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0187": "interp-1",
         "INTERPRETER_L0187": "on",
         "BASE_URL_L0174": "https://l0174r-sja7fatcta-uc.a.run.app",
         "COMPILE_GENERATION_L0174": "rust-1",
