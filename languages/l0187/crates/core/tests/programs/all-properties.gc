@@ -1,0 +1,6 @@
+board [ page [
+  sticky id "s" text "" fill "#fc0" opacity 50 font-size LARGE {}
+  shape id "sh" text "Shape" kind ENG_DATABASE fill "white" stroke "#112233" stroke-width THICK opacity 80 font-size SMALL {}
+  textbox id "t" text "Line one\nLine two" color "gray" font-size HUGE {}
+  connector id "c" from "s" to "t" label "" stroke "red" stroke-width THICK opacity 40 font-size MEDIUM line-style DASHED from-cap CIRCLE_FILLED to-cap TRIANGLE_FILLED {}
+] id "p1" name "Page" background "#eeeeee" layout GRID columns 2 {} ] title "All" show-page-tabs true show-page-menu true layout-profile FIGJAM_V1 {}..

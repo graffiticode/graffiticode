@@ -1,0 +1,5 @@
+board [ page [
+  section [ sticky id "a" text "A" {} ] id "left" name "Left" before ["right"] {}
+  section [ sticky id "b" text "B" {} ] id "right" name "Right" {}
+  connector id "ab" from "a" to "b" {}
+] id "p1" name "Page" layout FLOW direction DOWN {} ] {}..

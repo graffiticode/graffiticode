@@ -1,0 +1,1 @@
+board [ page [ sticky {id: "a", text: "A", fontSize: "LARGE"} ] id "p1" name "Page" {} ] {}..

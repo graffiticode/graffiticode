@@ -1,0 +1,800 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://l0187.graffiticode.org/schema.json",
+  "title": "L0187 positioned FigJam board",
+  "description": "The board an L0187 program compiles to: every mark, section and connector positioned by the compiler under its layout profile, with the independent validator's report.",
+  "type": "object",
+  "required": [
+    "type",
+    "positioned",
+    "profile",
+    "revision",
+    "showPageTabs",
+    "showPageMenu",
+    "pages",
+    "report"
+  ],
+  "properties": {
+    "type": {
+      "const": "board"
+    },
+    "positioned": {
+      "const": 1
+    },
+    "profile": {
+      "const": "FIGJAM_V1"
+    },
+    "revision": {
+      "type": "object",
+      "required": [
+        "compiler",
+        "font",
+        "layout"
+      ],
+      "properties": {
+        "compiler": {
+          "type": "string"
+        },
+        "font": {
+          "type": "string"
+        },
+        "layout": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "title": {
+      "type": "string"
+    },
+    "showPageTabs": {
+      "type": "boolean"
+    },
+    "showPageMenu": {
+      "type": "boolean"
+    },
+    "fileKey": {
+      "type": "string"
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/page"
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": [
+        "accepted",
+        "checks",
+        "quality",
+        "repair"
+      ],
+      "properties": {
+        "accepted": {
+          "const": true
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/check"
+          }
+        },
+        "quality": {
+          "type": "object",
+          "required": [
+            "crossings",
+            "bends",
+            "route_length"
+          ],
+          "properties": {
+            "crossings": {
+              "type": "integer"
+            },
+            "bends": {
+              "type": "integer"
+            },
+            "route_length": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "repair": {
+          "type": "object",
+          "required": [
+            "rounds",
+            "evaluations"
+          ],
+          "properties": {
+            "rounds": {
+              "type": "integer"
+            },
+            "evaluations": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "rect": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "point": {
+      "type": "object",
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "colour": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+        },
+        {
+          "enum": [
+            "red",
+            "blue",
+            "green",
+            "yellow",
+            "purple",
+            "orange",
+            "pink",
+            "white",
+            "black",
+            "gray"
+          ]
+        }
+      ]
+    },
+    "line": {
+      "type": "object",
+      "required": [
+        "text",
+        "break"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "break": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "hard",
+                "soft",
+                "cluster",
+                "end"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sticky": {
+      "type": "object",
+      "required": [
+        "type",
+        "id",
+        "x",
+        "y",
+        "width",
+        "height",
+        "opacity",
+        "text",
+        "fontSize",
+        "lineHeight",
+        "lines",
+        "content",
+        "wide"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "y": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "width": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "height": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "enum": [
+            16,
+            24,
+            40,
+            64,
+            96
+          ]
+        },
+        "lineHeight": {
+          "type": "number"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/line"
+          },
+          "minItems": 1
+        },
+        "content": {
+          "$ref": "#/$defs/rect"
+        },
+        "type": {
+          "const": "sticky"
+        },
+        "wide": {
+          "type": "boolean"
+        },
+        "fill": {
+          "$ref": "#/$defs/colour"
+        }
+      },
+      "additionalProperties": false
+    },
+    "shape": {
+      "type": "object",
+      "required": [
+        "type",
+        "id",
+        "x",
+        "y",
+        "width",
+        "height",
+        "opacity",
+        "text",
+        "fontSize",
+        "lineHeight",
+        "lines",
+        "content",
+        "shapeType",
+        "strokeWidth"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "y": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "width": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "height": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "enum": [
+            16,
+            24,
+            40,
+            64,
+            96
+          ]
+        },
+        "lineHeight": {
+          "type": "number"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/line"
+          },
+          "minItems": 1
+        },
+        "content": {
+          "$ref": "#/$defs/rect"
+        },
+        "type": {
+          "const": "shape"
+        },
+        "shapeType": {
+          "enum": [
+            "SQUARE",
+            "ROUNDED_RECTANGLE",
+            "ELLIPSE",
+            "DIAMOND",
+            "PARALLELOGRAM_RIGHT",
+            "PREDEFINED_PROCESS",
+            "DOCUMENT_SINGLE",
+            "ENG_DATABASE"
+          ]
+        },
+        "strokeWidth": {
+          "enum": [
+            4,
+            8
+          ]
+        },
+        "fill": {
+          "$ref": "#/$defs/colour"
+        },
+        "stroke": {
+          "$ref": "#/$defs/colour"
+        }
+      },
+      "additionalProperties": false
+    },
+    "text": {
+      "type": "object",
+      "required": [
+        "type",
+        "id",
+        "x",
+        "y",
+        "width",
+        "height",
+        "opacity",
+        "text",
+        "fontSize",
+        "lineHeight",
+        "lines",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "y": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "width": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "height": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "enum": [
+            16,
+            24,
+            40,
+            64,
+            96
+          ]
+        },
+        "lineHeight": {
+          "type": "number"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/line"
+          },
+          "minItems": 1
+        },
+        "content": {
+          "$ref": "#/$defs/rect"
+        },
+        "type": {
+          "const": "text"
+        },
+        "color": {
+          "$ref": "#/$defs/colour"
+        }
+      },
+      "additionalProperties": false
+    },
+    "section": {
+      "type": "object",
+      "required": [
+        "type",
+        "id",
+        "name",
+        "opacity",
+        "x",
+        "y",
+        "width",
+        "height",
+        "titleFrame",
+        "nodes"
+      ],
+      "properties": {
+        "type": {
+          "const": "section"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "fill": {
+          "$ref": "#/$defs/colour"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "x": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "y": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "width": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "height": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "titleFrame": {
+          "$ref": "#/$defs/rect"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/sticky"
+              },
+              {
+                "$ref": "#/$defs/shape"
+              },
+              {
+                "$ref": "#/$defs/text"
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "connector": {
+      "type": "object",
+      "required": [
+        "type",
+        "id",
+        "from",
+        "to",
+        "lineType",
+        "fromSide",
+        "toSide",
+        "waypoints",
+        "fromCap",
+        "toCap",
+        "strokeWidth",
+        "opacity",
+        "fontSize",
+        "route",
+        "labelLeg",
+        "routeKind"
+      ],
+      "properties": {
+        "type": {
+          "const": "connector"
+        },
+        "id": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "lineType": {
+          "const": "straight"
+        },
+        "fromSide": {
+          "enum": [
+            "TOP",
+            "RIGHT",
+            "BOTTOM",
+            "LEFT"
+          ]
+        },
+        "toSide": {
+          "enum": [
+            "TOP",
+            "RIGHT",
+            "BOTTOM",
+            "LEFT"
+          ]
+        },
+        "waypoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        },
+        "fromCap": {
+          "enum": [
+            "NONE",
+            "ARROW_LINES",
+            "ARROW_EQUILATERAL",
+            "TRIANGLE_FILLED",
+            "CIRCLE_FILLED",
+            "DIAMOND_FILLED"
+          ]
+        },
+        "toCap": {
+          "enum": [
+            "NONE",
+            "ARROW_LINES",
+            "ARROW_EQUILATERAL",
+            "TRIANGLE_FILLED",
+            "CIRCLE_FILLED",
+            "DIAMOND_FILLED"
+          ]
+        },
+        "lineStyle": {
+          "const": "dashed"
+        },
+        "stroke": {
+          "$ref": "#/$defs/colour"
+        },
+        "strokeWidth": {
+          "enum": [
+            4,
+            8
+          ]
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "fontSize": {
+          "enum": [
+            16,
+            24,
+            40,
+            64,
+            96
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "labelLines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/line"
+          }
+        },
+        "route": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "minItems": 2
+        },
+        "labelLeg": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "labelBox": {
+          "$ref": "#/$defs/rect"
+        },
+        "routeKind": {
+          "enum": [
+            "straight",
+            "elbow",
+            "channel",
+            "arc",
+            "loop",
+            "search"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "page": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "width",
+        "height",
+        "nodes",
+        "groups"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "background": {
+          "$ref": "#/$defs/colour"
+        },
+        "width": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "height": {
+          "type": "number",
+          "multipleOf": 1
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/sticky"
+              },
+              {
+                "$ref": "#/$defs/shape"
+              },
+              {
+                "$ref": "#/$defs/text"
+              },
+              {
+                "$ref": "#/$defs/section"
+              },
+              {
+                "$ref": "#/$defs/connector"
+              }
+            ]
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "frame",
+              "members"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "frame": {
+                "$ref": "#/$defs/rect"
+              },
+              "members": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "check": {
+      "type": "object",
+      "required": [
+        "name",
+        "scope",
+        "required",
+        "status"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "modeled",
+            "native-unverified"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unverified"
+          ]
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

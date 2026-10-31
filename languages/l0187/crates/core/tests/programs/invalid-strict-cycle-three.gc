@@ -1,0 +1,5 @@
+board [ page [
+  sticky id "a" text "A" before ["b"] {}
+  sticky id "b" text "B" before ["c"] {}
+  sticky id "c" text "C" before ["a"] {}
+] id "p1" name "Page" layout FLOW {} ] {}..

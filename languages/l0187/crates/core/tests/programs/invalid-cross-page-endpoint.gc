@@ -1,0 +1,4 @@
+board [
+  page [ sticky id "a" text "A" {} connector id "ab" from "a" to "b" {} ] id "p1" name "One" {}
+  page [ sticky id "b" text "B" {} ] id "p2" name "Two" {}
+] {}..

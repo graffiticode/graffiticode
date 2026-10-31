@@ -1,0 +1,7 @@
+board [
+  page [
+    sticky id "idea" text "Idea" {}
+    sticky id "plan" text "Plan" {}
+    connector id "idea-plan" from "idea" to "plan" label "develop" {}
+  ] id "planning" name "Planning" layout FLOW direction RIGHT {}
+] title "Planning board" layout-profile FIGJAM_V1 {}..

@@ -1,0 +1,7 @@
+board [ page [
+  shape id "a" text "A" {}
+  shape id "b" text "B" {}
+  connector id "loop" from "a" to "a" label "again" {}
+  connector id "ab1" from "a" to "b" label "first" {}
+  connector id "ab2" from "a" to "b" label "second" {}
+] id "p1" name "Graph" layout FLOW {} ] {}..

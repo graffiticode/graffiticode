@@ -1,0 +1,34 @@
+{
+  "id": "0187",
+  "description": "Declarative FigJam boards — sticky notes, shapes, text, sections, groups and connectors, arranged, routed and checked by the compiler from what the board contains; previewed as a picture of the board and drawn into a FigJam file by the Graffiticode FigJam plugin.",
+  "supported_item_types": [
+    "figjam_board"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "A sprint retrospective with Went well, To improve and Action items columns, two notes in each.",
+      "produces": "figjam_board",
+      "notes": "Three `section [ sticky … {} ] id … name … layout COLUMN {}` in a page with `layout ROW`."
+    },
+    {
+      "prompt": "A flowchart: Fetch data, a Valid? decision, then Save or Report error, with a dashed Retry back to Fetch.",
+      "produces": "figjam_board",
+      "notes": "Shapes in a `layout FLOW` page, `before` for the stage order, labelled connectors; the return edge is just a connector."
+    },
+    {
+      "prompt": "A kanban board with To do, Doing and Done columns.",
+      "produces": "figjam_board",
+      "notes": "Sections in a ROW, each a COLUMN of stickies."
+    },
+    {
+      "prompt": "A workshop board with Agenda, Brainstorm and Decisions pages.",
+      "produces": "figjam_board",
+      "notes": "Three `page [ … ] id … name … {}` members in the board; pages show as tabs."
+    },
+    {
+      "prompt": "Add a retro board to my FigJam file https://www.figma.com/board/ABC123/Retro.",
+      "produces": "figjam_board",
+      "notes": "`save-to-figjam \"https://www.figma.com/board/ABC123/Retro\"` on its own line before the board."
+    }
+  ]
+}

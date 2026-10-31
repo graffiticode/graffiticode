@@ -1,0 +1,1 @@
+board [ page [ group [ sticky id "a" text "A" {} ] id "g" layout ROW columns 2 {} ] id "p1" name "Page" {} ] {}..

@@ -1,0 +1,9 @@
+board [ page [
+  sticky id "d" text "Loose idea" {}
+  shape id "a" text "Start" kind ELLIPSE {}
+  shape id "b" text "Build" {}
+  shape id "c" text "Ship" kind ROUNDED_RECTANGLE {}
+  sticky id "e" text "Another loose idea" {}
+  connector id "a-b" from "a" to "b" {}
+  connector id "b-c" from "b" to "c" {}
+] id "p1" name "Mixed" {} ] {}..

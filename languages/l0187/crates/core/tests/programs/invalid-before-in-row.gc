@@ -1,0 +1,1 @@
+board [ page [ sticky id "a" text "A" before ["b"] {} sticky id "b" text "B" {} ] id "p1" name "Page" layout ROW {} ] {}..

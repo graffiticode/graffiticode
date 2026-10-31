@@ -1,0 +1,2 @@
+save-to-figjam "https://www.figma.com/board/ABC123xyz/Planning"
+board [ page [ sticky id "a" text "A" {} ] id "p1" name "Page" {} ] {}..

@@ -1,0 +1,38 @@
+{
+  "name": "@graffiticode/l0187-monorepo",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "L0187 \u2014 declarative FigJam boards. The compiler and server are Rust (crates/); npm holds only the frontend view and the dev tools.",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "emit": "cargo run -q --bin emit -- generated",
+    "emit:check": "cargo run -q --bin emit -- --check",
+    "cases": "node tools/parse-cases.mjs",
+    "cases:check": "node tools/parse-cases.mjs --check",
+    "rust:build": "npm run rust:static && cargo build --release -p l0187-server",
+    "rust:dev": "AUTH_URL=\"http://127.0.0.1:4100\" PORT=50187 cargo run -p l0187-server",
+    "rust:test": "cargo test",
+    "rust:lint": "cargo clippy --all-targets -- -D warnings",
+    "build:view": "npm run -w packages/view build && npm run -w packages/view build:embed",
+    "rust:static": "node tools/assemble-static.mjs",
+    "test:view": "npm run -w packages/view test",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@graffiticode/parser": "^1.7.0",
+    "@eslint/js": "^10.0.1",
+    "@graffiticode/l0000": "^0.10.1",
+    "eslint": "^10.10.0",
+    "globals": "^15.11.0",
+    "spec-md": "^3.1.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.10.0"
+  },
+  "workspaces": [
+    "packages/view"
+  ]
+}

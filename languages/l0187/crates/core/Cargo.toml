@@ -1,0 +1,25 @@
+[package]
+name = "graffiticode-l0187"
+version = "0.1.0"
+description = "L0187 — declarative FigJam boards in Graffiticode, built on L0000"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "emit"
+path = "src/bin/emit.rs"
+
+[dependencies]
+async-trait = "0.1"
+graffiticode-l0000 = { path = "../../../l0000/crates/core", default-features = false }
+indexmap = { version = "2", features = ["serde"] }
+rustybuzz = "=0.20.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+unicode-linebreak = "=0.1.5"
+unicode-segmentation = "=1.13.3"
+
+[dev-dependencies]
+jsonschema = { version = "0.60", default-features = false }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

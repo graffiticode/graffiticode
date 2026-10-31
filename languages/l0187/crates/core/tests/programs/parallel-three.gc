@@ -1,0 +1,7 @@
+board [ page [
+  shape id "client" text "Client" {}
+  shape id "server" text "Server" {}
+  connector id "req" from "client" to "server" label "request" {}
+  connector id "res" from "server" to "client" label "response" {}
+  connector id "ping" from "client" to "server" label "heartbeat" line-style DASHED {}
+] id "p1" name "Parallel" layout ROW {} ] {}..

@@ -1,0 +1,2 @@
+set-var "geometry" {id: "a", text: "A", width: 300}
+board [ page [ sticky get-var "geometry" ] id "p1" name "Page" {} ] {}..

@@ -1,0 +1,14 @@
+board [
+  page [
+    section [
+      sticky id "shipped" text "Shipped on time" fill "green" {}
+      sticky id "pairing" text "Pairing helped us resolve the integration issues" fill "green" {}
+    ] id "went-well" name "Went well" layout COLUMN {}
+    section [
+      sticky id "flaky" text "Flaky tests delayed release verification" fill "pink" {}
+    ] id "improve" name "To improve" layout COLUMN {}
+    section [
+      sticky id "quarantine" text "Quarantine flaky tests and assign owners" fill "blue" {}
+    ] id "actions" name "Action items" layout COLUMN {}
+  ] id "retro" name "Sprint retrospective" layout ROW {}
+] title "Sprint retrospective" layout-profile FIGJAM_V1 {}..
