@@ -1,0 +1,9 @@
+board [
+  page [
+    sticky id "first" text "First page" {}
+  ] id "week-1" name "Notes" {}
+  page [
+    sticky id "second" text "Second page" {}
+    textbox id "caption" text "A textbox wide enough to wrap onto a second line in FigJam" {}
+  ] id "week-2" name "Notes" layout COLUMN {}
+] {}..

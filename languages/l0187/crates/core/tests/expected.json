@@ -1077,6 +1077,210 @@
       }
     }
   },
+  "duplicate-page-names": {
+    "data": {
+      "type": "board",
+      "positioned": 1,
+      "profile": "FIGJAM_V1",
+      "revision": {
+        "compiler": "0.1.0",
+        "font": "Inter-Medium 3.19 sha256:99dab2bdcb613c4c8264000a94351d1227f74dc95a86d1249493aeee0c0179c4",
+        "layout": "FIGJAM_V1"
+      },
+      "showPageTabs": true,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "week-1",
+          "name": "Notes",
+          "width": 240,
+          "height": 240,
+          "nodes": [
+            {
+              "type": "sticky",
+              "id": "first",
+              "x": 0,
+              "y": 0,
+              "width": 240,
+              "height": 240,
+              "wide": false,
+              "opacity": 100,
+              "text": "First page",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "First page",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 17,
+                "y": 24,
+                "w": 206,
+                "h": 192
+              }
+            }
+          ],
+          "groups": []
+        },
+        {
+          "id": "week-2",
+          "name": "Notes",
+          "width": 480,
+          "height": 346,
+          "nodes": [
+            {
+              "type": "sticky",
+              "id": "second",
+              "x": 0,
+              "y": 0,
+              "width": 240,
+              "height": 240,
+              "wide": false,
+              "opacity": 100,
+              "text": "Second page",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "Second page",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 17,
+                "y": 24,
+                "w": 206,
+                "h": 192
+              }
+            },
+            {
+              "type": "text",
+              "id": "caption",
+              "x": 0,
+              "y": 288,
+              "width": 480,
+              "height": 58,
+              "opacity": 100,
+              "text": "A textbox wide enough to wrap onto a second line in FigJam",
+              "fontSize": 24,
+              "lineHeight": 1.2083333333333333,
+              "lines": [
+                {
+                  "text": "A textbox wide enough to wrap onto a",
+                  "break": {
+                    "kind": "soft",
+                    "text": " "
+                  }
+                },
+                {
+                  "text": "second line in FigJam",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 0,
+                "y": 0,
+                "w": 480,
+                "h": 58
+              }
+            }
+          ],
+          "groups": []
+        }
+      ],
+      "report": {
+        "accepted": true,
+        "checks": [
+          {
+            "name": "preservation",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "geometry",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "text-fit",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "peer-clearance",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "containment",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "order",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "routes",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "labels",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "native-text-fit",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam lays out the text in shapes itself; the model's text areas are calibrated bounds, not observations"
+            ]
+          },
+          {
+            "name": "native-labels",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam places a connector's label on its leg itself; the plugin's rule is modeled, not observed"
+            ]
+          }
+        ],
+        "quality": {
+          "crossings": 0,
+          "bends": 0,
+          "route_length": 0
+        },
+        "repair": {
+          "rounds": 0,
+          "evaluations": 0
+        }
+      }
+    }
+  },
   "empty-template": {
     "data": {
       "type": "board",
@@ -2807,6 +3011,314 @@
         "category": "source"
       }
     ]
+  },
+  "name-collision": {
+    "data": {
+      "type": "board",
+      "positioned": 1,
+      "profile": "FIGJAM_V1",
+      "revision": {
+        "compiler": "0.1.0",
+        "font": "Inter-Medium 3.19 sha256:99dab2bdcb613c4c8264000a94351d1227f74dc95a86d1249493aeee0c0179c4",
+        "layout": "FIGJAM_V1"
+      },
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "p1",
+          "name": "Collision",
+          "width": 611,
+          "height": 371,
+          "nodes": [
+            {
+              "type": "section",
+              "id": "task-section",
+              "name": "task",
+              "opacity": 100,
+              "x": 0,
+              "y": 83,
+              "width": 288,
+              "height": 288,
+              "titleFrame": {
+                "x": 0,
+                "y": 49,
+                "w": 45,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "intro",
+                  "x": 24,
+                  "y": 107,
+                  "width": 240,
+                  "height": 240,
+                  "wide": false,
+                  "opacity": 100,
+                  "text": "Intro",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Intro",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 206,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "shape",
+              "id": "task",
+              "x": 386,
+              "y": 49,
+              "width": 176,
+              "height": 176,
+              "shapeType": "SQUARE",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "text": "Task",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "Task",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 18.039999999999992,
+                "y": 16,
+                "w": 139.92000000000002,
+                "h": 144
+              }
+            },
+            {
+              "type": "connector",
+              "id": "intro-task",
+              "from": "intro",
+              "to": "task",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [
+                {
+                  "x": 325,
+                  "y": 227
+                },
+                {
+                  "x": 325,
+                  "y": 137
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "next",
+              "labelLines": [
+                {
+                  "text": "next",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 264,
+                  "y": 227
+                },
+                {
+                  "x": 325,
+                  "y": 227
+                },
+                {
+                  "x": 325,
+                  "y": 137
+                },
+                {
+                  "x": 386,
+                  "y": 137
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 300,
+                "y": 167.5,
+                "w": 50,
+                "h": 29
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "task-loop",
+              "from": "task",
+              "to": "task",
+              "lineType": "straight",
+              "fromSide": "TOP",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 474,
+                  "y": 22
+                },
+                {
+                  "x": 589,
+                  "y": 22
+                },
+                {
+                  "x": 589,
+                  "y": 137
+                }
+              ],
+              "fromCap": "CIRCLE_FILLED",
+              "toCap": "TRIANGLE_FILLED",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "retry",
+              "labelLines": [
+                {
+                  "text": "retry",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 474,
+                  "y": 49
+                },
+                {
+                  "x": 474,
+                  "y": 22
+                },
+                {
+                  "x": 589,
+                  "y": 22
+                },
+                {
+                  "x": 589,
+                  "y": 137
+                },
+                {
+                  "x": 562,
+                  "y": 137
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 505,
+                "y": 7.5,
+                "w": 53,
+                "h": 29
+              },
+              "routeKind": "loop"
+            }
+          ],
+          "groups": []
+        }
+      ],
+      "report": {
+        "accepted": true,
+        "checks": [
+          {
+            "name": "preservation",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "geometry",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "text-fit",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "peer-clearance",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "containment",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "order",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "routes",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "labels",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "native-text-fit",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam lays out the text in shapes itself; the model's text areas are calibrated bounds, not observations"
+            ]
+          },
+          {
+            "name": "native-labels",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam places a connector's label on its leg itself; the plugin's rule is modeled, not observed"
+            ]
+          }
+        ],
+        "quality": {
+          "crossings": 0,
+          "bends": 5,
+          "route_length": 496
+        },
+        "repair": {
+          "rounds": 0,
+          "evaluations": 2
+        }
+      }
+    }
   },
   "parallel-three": {
     "data": {

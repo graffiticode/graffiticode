@@ -1,0 +1,8 @@
+board [ page [
+  section [
+    sticky id "intro" text "Intro" {}
+  ] id "task-section" name "task" {}
+  shape id "task" text "Task" {}
+  connector id "intro-task" from "intro" to "task" label "next" {}
+  connector id "task-loop" from "task" to "task" label "retry" from-cap CIRCLE_FILLED to-cap TRIANGLE_FILLED {}
+] id "p1" name "Collision" layout ROW {} ] {}..
