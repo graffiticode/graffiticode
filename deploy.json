@@ -2716,6 +2716,61 @@
       ],
       "minInstances": 0
     },
+    "l0187": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0187",
+      "dockerfile": "configs/Dockerfile.l0187.yaml",
+      "port": 8080,
+      "access": "public",
+      "retireTags": true,
+      "runtimeServiceAccount": "l0187-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-default",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org"
+        ]
+      },
+      "exclude": [],
+      "steps": [
+        {
+          "name": "rust:1.99-bookworm",
+          "entrypoint": "cargo",
+          "dir": "languages/l0187",
+          "args": [
+            "test",
+            "--locked"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.json",
+          "status": 200
+        }
+      ],
+      "include": [
+        "languages/l0187",
+        "languages/l0000",
+        "configs/Dockerfile.l0187.yaml"
+      ],
+      "minInstances": 0
+    },
     "l0186": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0186",
       "dockerfile": "configs/Dockerfile.l0186.yaml",

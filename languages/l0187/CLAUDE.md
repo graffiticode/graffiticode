@@ -153,3 +153,16 @@ then `npm run emit && npm run cases`.
 
 Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and clippy clean; `static/` and
 `target/` are gitignored; `generated/` and `tests/cases.json` are generated, not edited.
+
+## Deploying
+
+`deploy.json` has an `l0187` entry: Cloud Run service `l0187` (no `r` suffix: there is no
+TypeScript service), runtime `l0187-run@graffiticode.iam.gserviceaccount.com` (no roles; secret
+accessor on `egress-proxy-ca-bundle` only), image from `configs/Dockerfile.l0187.yaml`, snapshot
+this directory and `languages/l0000`, build step `cargo test --locked`, env `AUTH_URL` only, on
+the `compilers` network behind the egress proxy (allowed: `api` and `auth`). The image builds the
+server and runs `emit --check` in its Rust stage, then `parse-cases --check` and
+`assemble-static` in its Node stage, so stale generated files or parsed cases fail the build.
+Release from the repository root: `npm run deploy -- l0187` (with `CLOUDSDK_PYTHON` pointing at
+Python 3.10+; see `languages/l0000/CLAUDE.md`). The api reaches it through `BASE_URL_L0187`.
+`npm test` here runs the view's tests (the gate `upgrade-l0000-view-and-deploy` uses).

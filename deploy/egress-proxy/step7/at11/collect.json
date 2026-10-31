@@ -314,6 +314,11 @@
       "subject": "l0186r-run",
       "net": "at11-net-l0186r",
       "iam": "at11-iam-l0186r"
+    },
+    {
+      "subject": "l0187-run",
+      "net": "at11-net-l0187",
+      "iam": "at11-iam-l0187"
     }
   ],
   "excluded": [],
@@ -321,10 +326,6 @@
   "dnsLog": {
     "filter": "resource.type=\"dns_query\" AND jsonPayload.queryName:\"at11.graffiticode.org\"",
     "project": "graffiticode-isolate01"
-  },
-  "retries": {
-    "attempts": 8,
-    "waitMs": 30000
   },
   "blocked": {
     "compilerSubnets": [
@@ -336,5 +337,9 @@
     ],
     "proxySubnet": "10.8.0.0/27",
     "loadBalancer": "10.8.0.2"
+  },
+  "retries": {
+    "attempts": 8,
+    "waitMs": 30000
   }
 }
