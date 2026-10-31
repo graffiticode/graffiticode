@@ -1,0 +1,38 @@
+# l0187 — the L0187 language server, Rust only — from the monorepo root (deploy CLI, or
+# `docker build -f configs/Dockerfile.l0187.yaml .`). L0187 has no TypeScript compiler: the
+# server is crates/ on the kernel and server crates in languages/l0000, and npm builds only the
+# /form View bundle and assembles the public static assets.
+
+# The server, and the check that the vocabulary-derived files committed in generated/ (lexicon,
+# schema) are current: a stale generated/ fails the build here.
+FROM rust:1.99-bookworm AS server
+WORKDIR /src/languages/l0187
+COPY languages/l0000/Cargo.toml /src/languages/l0000/Cargo.toml
+COPY languages/l0000/crates /src/languages/l0000/crates
+COPY languages/l0187/Cargo.toml languages/l0187/Cargo.lock ./
+COPY languages/l0187/crates ./crates
+COPY languages/l0187/generated ./generated
+RUN cargo build --release --locked -p l0187-server && cargo run --release --locked --bin emit -- --check
+
+# Public static assets: generated/ (checked above), the spec documents and the /form bundle.
+# The test programs' parse is checked too, so a stale cases.json or doc-cases.json fails here.
+FROM node:22-alpine AS static
+WORKDIR /src
+COPY languages/l0187/package*.json ./
+COPY languages/l0187/packages/view/package*.json ./packages/view/
+RUN npm ci
+COPY languages/l0187/tsconfig.base.json ./
+COPY languages/l0187/packages ./packages
+COPY languages/l0187/tools ./tools
+COPY languages/l0187/spec ./spec
+COPY languages/l0187/generated ./generated
+COPY languages/l0187/crates/core/tests ./crates/core/tests
+RUN node tools/parse-cases.mjs --check && node tools/assemble-static.mjs --skip-install
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+WORKDIR /app
+COPY --from=server /src/languages/l0187/target/release/l0187 ./l0187
+COPY --from=static /src/static ./static
+ENV STATIC_DIR=/app/static
+EXPOSE 8080
+CMD ["/app/l0187"]

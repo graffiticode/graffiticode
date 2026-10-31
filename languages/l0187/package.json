@@ -20,7 +20,8 @@
     "build:view": "npm run -w packages/view build && npm run -w packages/view build:embed",
     "rust:static": "node tools/assemble-static.mjs",
     "test:view": "npm run -w packages/view test",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "npm run test:view"
   },
   "devDependencies": {
     "@graffiticode/parser": "^1.7.0",
