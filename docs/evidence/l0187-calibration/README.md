@@ -106,12 +106,41 @@ bounding box was read back:
   right magnet at x=506 the leg began at 514; into Save's left magnet at 660 it ended at 652. The
   router models this as `route::ENDPOINT_GAP` when it places a label on a leg that touches a mark.
 
-## Not yet calibrated
+## Phase 7: native fidelity (2026-10-30)
 
-- Section title band, and FigJam's own placement of labels within a leg (modeled as the leg's
-  midpoint). These are phase 7.
+Thirteen compiled boards were drawn into the scratch file with the figma-plugin's own positioned
+drawing code (graffiticode/figma-plugin#3, plugin data shimmed, since `use_figma` cannot set it):
+flow-return (the spec's processing flow), agenda, retro, name-collision, self-loop-parallel,
+parallel-three, sticky-grows, all-properties, thick-strokes, duplicate-page-names (week-2),
+repair-loop, auto-mixed and cross-section-flow (the "L0187 fidelity: …" sections at x ≥ 9960).
+Each native node's bounding box was read back and compared with the compiled board:
+
+- **Marks and sections:** every sticky, shape, textbox and section is exactly at its compiled box,
+  including FigJam's own growth. The wide sticky grew to 416×312, textboxes wrapped natively at
+  their compiled width to exactly the compiled height (48, 29, 58 for two lines, 232 for two lines
+  at 96px), and section members are in their absolute places.
+- **Connectors:** every leg runs between the emitted magnets and waypoints, with the 8px endpoint
+  gap; self-loops, caps on the outer ends, and parallel connectors labelled on distinct legs all
+  draw as the preview shows them.
+- **Labels:** FigJam puts the label exactly at its leg's midpoint, which is what the compiler
+  models, but its box was larger than modeled: 41 high at 16px where the compiler assumed 29, and
+  77 at 40px where it assumed 60. A direct probe (free-point straight legs, `Yes`, a two-line
+  label, `Wide label text`, `Retry`, at 16/24/40/64px with 4 and 8px strokes) found that FigJam
+  sets labels in Inter Medium at 150% line height with −1.1% letter spacing, in a box:
+  - `lines × 1.5 × size + 13 + stroke` high, exact in every case;
+  - `text + pad + stroke` wide, with pad 13 at 16px, 21.5–23.5 at 24, 38.5 at 40 and 64 at 64.
+
+  `profile::label` now models exactly that height, and a width padded by a full em, measured
+  without the letter spacing, so the modeled box is never narrower than FigJam's (it is at most
+  3px wider). The preview draws labels at 150%. Eight test boards re-routed for the larger labels;
+  all are still accepted.
+
+## Not calibrated
+
+- The section title band: FigJam draws a section's name as editor chrome that the Plugin API
+  cannot read back and screenshots do not render. It stays a modeled reservation (L0186).
 - Text-area heights for ELLIPSE, DOCUMENT_SINGLE and ENG_DATABASE beyond L0186's modeled insets.
 - Shape text at sizes other than 24px.
 
-`FIGJAM_V1` stays provisional until the phase 7 native-fidelity comparison passes. See the
-profile freeze gate in the implementation plan.
+With the font calibration and the phase 7 comparison done, `FIGJAM_V1` is **frozen**: any geometry
+change from now on needs a new profile tag.

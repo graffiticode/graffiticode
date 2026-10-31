@@ -44,8 +44,8 @@ every word, and everything else is derived from it. npm here holds only the fron
     data never merged), and `check` (early `{}`, hints on removed geometry words and missing
     terminators, which reach us as parser errors).
   - `src/profile.rs` — `FIGJAM_V1`: every geometry constant, with its provenance (calibrated
-    against FigJam on 2026-10-30, L0186's measurements, or L0187 policy). **Provisional** until
-    the phase 7 fidelity comparison; then frozen (a geometry change needs a new profile tag).
+    against FigJam on 2026-10-30, L0186's measurements, or L0187 policy). **Frozen** since the
+    phase 7 fidelity comparison (2026-10-30): a geometry change needs a new profile tag.
   - `src/measure.rs` — text: the embedded **Inter 3.19 Medium** (`fonts/`, OFL; FigJam's widths
     are its advances rounded up), shaped with rustybuzz, wrapped greedily at UAX #14
     opportunities and between grapheme clusters inside a long word; lines re-join to the exact

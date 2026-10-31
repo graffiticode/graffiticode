@@ -330,11 +330,12 @@ fn group_members(region: &Region, out: &mut Vec<(String, Vec<String>)>) {
     }
 }
 
-fn label_size(text: &str, size: f64) -> (f64, f64) {
+fn label_size(text: &str, size: f64, stroke: f64) -> (f64, f64) {
     let lines = wrap(text, size, None);
     let w = lines.iter().map(|l| advance(&l.text, size)).fold(0.0, f64::max).ceil();
-    let h = (lines.len() as f64 * size * line_height::LABEL).ceil();
-    (w + 2.0 * profile::label::PAD_X, h + 2.0 * profile::label::PAD_Y)
+    let h = (lines.len() as f64 * size * profile::label::LINE_HEIGHT).ceil();
+    let (px, py) = profile::label::pad(size, stroke);
+    (w + 2.0 * px, h + 2.0 * py)
 }
 
 /// A connector already checked: its id, its legs' bands, its legs, its label box, its points and
@@ -620,7 +621,7 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
             }
             let label_box = match c.label.as_deref().filter(|l| !l.is_empty()) {
                 Some(label) => {
-                    let size = label_size(label, profile::font_size(&c.font_size));
+                    let size = label_size(label, profile::font_size(&c.font_size), stroke);
                     let (leg, expect) = route::label_box(&points, &from, &to, Some(size));
                     let expect = expect.expect("a label box");
                     let given = j.get("labelBox").map(rect_of);

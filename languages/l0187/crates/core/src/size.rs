@@ -164,16 +164,16 @@ fn label(c: &Connector) -> Result<Option<Measured>, Limit> {
     let emoji = unsupported("connector", &c.id, text)?;
     let font = profile::font_size(&c.font_size);
     let lines = wrap(text, font, None);
-    let (px, py) = (profile::label::PAD_X, profile::label::PAD_Y);
+    let (px, py) = profile::label::pad(font, profile::stroke_width(&c.stroke_width));
     let w = widest(&lines).ceil();
-    let h = text_height(&lines, font, line_height::LABEL).ceil();
+    let h = text_height(&lines, font, profile::label::LINE_HEIGHT).ceil();
     let content = Rect { x: px, y: py, w, h };
     Ok(Some(Measured {
         width: w + 2.0 * px,
         height: h + 2.0 * py,
         content,
         font_size: font,
-        line_height: line_height::LABEL,
+        line_height: profile::label::LINE_HEIGHT,
         lines,
         emoji,
     }))

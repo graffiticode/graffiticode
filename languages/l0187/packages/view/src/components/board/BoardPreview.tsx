@@ -188,7 +188,7 @@ function Connector({ c, background }: { c: any; background: string }) {
       {lb && lines.length > 0 && (
         <g data-part="label">
           <rect x={lb.x} y={lb.y} width={lb.w} height={lb.h} fill={background} />
-          <TextBlock lines={lines} box={lb} fontSize={c.fontSize} lineHeight={1.3} color={CONNECTOR.label.color} align="center" valign="middle" />
+          <TextBlock lines={lines} box={lb} fontSize={c.fontSize} lineHeight={1.5} color={CONNECTOR.label.color} align="center" valign="middle" />
         </g>
       )}
     </g>

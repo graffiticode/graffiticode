@@ -3,11 +3,10 @@
 //! `FIGJAM_V1`: the measurement, sizing, spacing and work-limit policy a board is compiled with
 //! (design §9). Every geometry constant lives here, in one place.
 //!
-//! **Status: provisional.** The profile is frozen only when (1) the font metrics and the constants
-//! below are calibrated against FigJam and recorded with their date, and (2) the native-fidelity
-//! comparison (implementation plan phase 7) has passed. Until the first production release,
-//! geometry may change without a new tag; after it, any geometry change needs a new profile tag
-//! selected in source, which changes task identity.
+//! **Status: frozen (2026-10-30).** The font metrics and constants below were calibrated against
+//! FigJam, and the native-fidelity comparison (phase 7, which recalibrated `label`) passed; see
+//! `docs/evidence/l0187-calibration/`. Any geometry change now needs a new profile tag selected in
+//! source, which changes task identity.
 //!
 //! Provenance of each value is noted: `L0186` values were measured through the Plugin API on
 //! 2026-10-08 (`languages/l0186/packages/view/src/lib/figjam.ts`); `calibrated` values were
@@ -45,8 +44,6 @@ pub mod line_height {
     /// Text on a sticky or in a shape: FigJam's 150% (calibrated 2026-10-30, sticky and shape
     /// sublayers both read back `PERCENT 150`).
     pub const NOTE: f64 = 1.5;
-    /// A connector label (L0186: the label box is `fontSize × 1.3 + 2 × padY` high).
-    pub const LABEL: f64 = 1.3;
 }
 
 /// The height of one line of a textbox: Inter's AUTO line height, whole pixels per line
@@ -133,10 +130,23 @@ pub mod textbox {
     pub const MAX_EMS: f64 = 20.0;
 }
 
-/// A connector label: padding around its text (L0186).
+/// A connector label's box (calibrated 2026-10-30, the phase 7 fidelity check). FigJam draws a
+/// label in Inter Medium at 150% line height and −1.1% letter spacing, centred on its leg, in a
+/// box `lines × 1.5 em + 13 + stroke` high (exact at 16–64px, 4 and 8px strokes) and about
+/// `text + 1 em + stroke` wide (padding 13 at 16px, 21.5–23.5 at 24, 38.5 at 40, 64 at 64). The
+/// width pads by a full em and measures without the letter spacing, so it is never narrower than
+/// FigJam's.
 pub mod label {
-    pub const PAD_X: f64 = 8.0;
-    pub const PAD_Y: f64 = 4.0;
+    pub const LINE_HEIGHT: f64 = 1.5;
+    /// The padding across the text, in ems, both sides together, before the stroke.
+    pub const PAD_X_EMS: f64 = 1.0;
+    /// The padding above and below the text, together, before the stroke.
+    pub const PAD_Y: f64 = 13.0;
+
+    /// Padding on each side of a label's text: (horizontal, vertical).
+    pub fn pad(font_size: f64, stroke: f64) -> (f64, f64) {
+        ((PAD_X_EMS * font_size + stroke) / 2.0, (PAD_Y + stroke) / 2.0)
+    }
 }
 
 /// Sections: the title is drawn above the section's top edge, outside it (L0186).
