@@ -56,13 +56,23 @@ come) and dev tools.
     square would grow) and grow taller as FigJam's do; shapes are sized on the 24 grid to hold
     their text (FigJam truncates a resized shape's overflow); textboxes wrap at 20 em; labels are
     padded lines. Text that cannot be measured is a `content-limit` diagnostic.
+  - `src/layout.rs` — regions composed bottom-up. ROW/COLUMN keep the written order on a line,
+    GRID row by row in growing tracks (start-aligned); FLOW layers by `before` (strict) and
+    connectors lifted to the children containing their ends (preferred; one that would close a
+    cycle runs against the flow), orders layers by fixed barycentre sweeps, centres them, and
+    reserves a routing channel beside the layers for back and layer-skipping edges; AUTO lays
+    connected groups out as flows to the right and packs the rest in a near-square grid. Gaps:
+    the gutter (48), 72 next to a region, widened for labels, plus the repair loop's `Spacing`.
+    Section title bands sit above the border inside the section's block. Whole pixels.
   - `src/bin/emit.rs` — writes the vocabulary-derived files to `generated/`, or `--check`s them.
   - `examples/` — calibration helpers (`advances`, `wrap`, `shapes`, `probe_lines`); the method
     and results are in `docs/evidence/l0187-calibration/`.
 
-Until layout lands, a compile returns the semantic board itself (`{type: "board", profile, …,
+Until lowering lands (phase 5), a compile returns the semantic board itself (`{type: "board", profile, …,
 pages: [{id, name, region, connectors}]}`), each mark carrying `measured` (size, content box,
-lines) and each labelled connector `measuredLabel`; the positioned output replaces it.
+lines) and each labelled connector `measuredLabel`, each placed object its absolute `frame`
+(sections also `titleFrame`), and each page its `size` and routing `channels`; the plugin board
+replaces it. Resource limits (2000 objects, 4000 characters a text) are `resource` errors.
 
 - `crates/server` (`l0187-server`, binary `l0187`) — `l0000r_server::serve_with(L0187, …)`.
 - `generated/` — **committed** emit output (`lexicon.json` so far; `schema.json` later). The
@@ -75,6 +85,10 @@ lines) and each labelled connector `measuredLabel`; the positioned output replac
   never changes a board; compiling is repeatable. `UPDATE_EXPECT=1 cargo test --test compile`
   rewrites the snapshot — review the diff. `tests/interpret.rs` — the C1 interpreter pass
   interprets every program exactly as it compiles.
+- `crates/core/tests/layout.rs` — the geometric contract on every valid program: siblings keep
+  the gutter on one axis, children stay inside section padding and group bounds, ROW/COLUMN/GRID
+  order, `before` disjoint along its flow with clearance, whole pixels, channels cross no mark;
+  then the design's examples one by one.
 - `crates/core/tests/vocabulary.rs` — the vocabulary must equal the design doc's tables (words,
   arities, property words, allowed-property sets, container children, closed sets, required
   properties, removed geometry words), the committed lexicon must be current, and every test

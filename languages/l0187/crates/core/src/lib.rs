@@ -23,6 +23,7 @@ pub mod check;
 pub mod diag;
 pub mod eval;
 pub mod ir;
+pub mod layout;
 pub mod lexicon;
 pub mod measure;
 pub mod profile;
@@ -213,6 +214,14 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
         }
         return Value::Record(Default::default());
     }
+    let over = resource_limits(&board);
+    if !over.is_empty() {
+        for (id, message) in over {
+            let span = id.and_then(|id| spans.get(&id).and_then(|s| s.first()).copied());
+            cx.report_diagnostic(diag::diagnostic(diag::Category::Resource, "resource-limit", message, span));
+        }
+        return Value::Record(Default::default());
+    }
     let sizes = match size::size(&board) {
         Ok(sizes) => sizes,
         Err(limits) => {
@@ -223,13 +232,89 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
             return Value::Record(Default::default());
         }
     };
-    output(&board, &sizes)
+    let pages = layout::layout(&board, &sizes, &layout::Spacing::new());
+    output(&board, &sizes, &pages)
 }
 
-/// The compiled board. Until layout exists (phase 4) this is the semantic board, each mark and
-/// label carrying its measured size and lines.
-fn output(board: &ir::Board, sizes: &size::Sizes) -> Value {
+/// The profile's resource limits (`profile::limits`): how many objects a board may have and how
+/// long a text may be. Checked before measuring, so a huge board fails fast and the same way.
+fn resource_limits(board: &ir::Board) -> Vec<(Option<String>, String)> {
+    use profile::limits::{OBJECTS, TEXT_CHARS};
+    let mut out = Vec::new();
+    let mut objects = 0;
+    let long = |id: &str, word: &str, text: &str, out: &mut Vec<(Option<String>, String)>| {
+        let n = text.chars().count();
+        if n > TEXT_CHARS {
+            out.push((
+                Some(id.to_owned()),
+                format!("{word} {id:?}: its text is {n} characters, and FIGJAM_V1 lays out at most {TEXT_CHARS} per text. Split it across several marks."),
+            ));
+        }
+    };
+    for page in &board.pages {
+        objects += 1 + page.connectors.len();
+        let mut children = Vec::new();
+        ir::walk(&page.region, &mut |child, _| children.push(child));
+        objects += children.len();
+        for child in children {
+            if let ir::Child::Sticky(m) | ir::Child::Shape(m) | ir::Child::Textbox(m) = child {
+                long(&m.id, child.word(), &m.text, &mut out);
+            }
+        }
+        for c in &page.connectors {
+            if let Some(label) = &c.label {
+                long(&c.id, "connector", label, &mut out);
+            }
+        }
+    }
+    if objects > OBJECTS {
+        out.insert(
+            0,
+            (None, format!("The board has {objects} pages, marks, regions and connectors, and FIGJAM_V1 lays out at most {OBJECTS}. Split it into several boards.")),
+        );
+    }
+    out
+}
+
+/// The compiled board. Until lowering exists (phase 5) this is the semantic board, each mark and
+/// label carrying its measured size and lines, each placed object its `frame` (sections their
+/// `titleFrame` too) and each page its `size`.
+fn output(board: &ir::Board, sizes: &size::Sizes, pages: &[layout::PageLayout]) -> Value {
     let mut json = serde_json::to_value(board).expect("the board serializes");
+    fn place(value: &mut serde_json::Value, page: &layout::PageLayout) {
+        match value {
+            serde_json::Value::Object(object) => {
+                let id = object.get("id").and_then(|v| v.as_str()).map(str::to_owned);
+                if let Some(id) = id.filter(|_| !object.contains_key("from")) {
+                    if let Some(f) = page.frames.get(&id) {
+                        object.insert("frame".to_owned(), serde_json::to_value(f).expect("serializes"));
+                    }
+                    if let Some(f) = page.titles.get(&id) {
+                        object.insert("titleFrame".to_owned(), serde_json::to_value(f).expect("serializes"));
+                    }
+                }
+                for v in object.values_mut() {
+                    place(v, page);
+                }
+            }
+            serde_json::Value::Array(items) => items.iter_mut().for_each(|v| place(v, page)),
+            _ => {}
+        }
+    }
+    if let Some(list) = json.get_mut("pages").and_then(|p| p.as_array_mut()) {
+        for (page_json, page) in list.iter_mut().zip(pages) {
+            place(page_json, page);
+            if let Some(object) = page_json.as_object_mut() {
+                object.insert("size".to_owned(), serde_json::json!({ "width": page.width, "height": page.height }));
+                let channels: Vec<serde_json::Value> = page
+                    .channels
+                    .iter()
+                    .map(|(region, f)| serde_json::json!({ "region": region, "frame": f }))
+                    .collect();
+                object.insert("channels".to_owned(), channels.into());
+            }
+        }
+    }
     fn annotate(value: &mut serde_json::Value, sizes: &size::Sizes) {
         match value {
             serde_json::Value::Object(object) => {

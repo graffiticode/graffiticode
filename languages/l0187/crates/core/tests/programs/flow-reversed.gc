@@ -1,0 +1,8 @@
+board [ page [
+  shape id "one" text "One" before ["two"] {}
+  shape id "two" text "Two" {}
+  section [
+    sticky id "low" text "Bottom" before ["high"] {}
+    sticky id "high" text "Top" {}
+  ] id "climb" name "Climb" layout FLOW direction UP {}
+] id "p1" name "Reversed" layout FLOW direction LEFT {} ] {}..

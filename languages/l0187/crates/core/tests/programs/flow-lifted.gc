@@ -1,0 +1,5 @@
+board [ page [
+  group [ sticky id "b" text "Second, declared first" {} ] id "g2" {}
+  group [ sticky id "a" text "First" {} ] id "g1" {}
+  connector id "a-b" from "a" to "b" label "then" {}
+] id "p1" name "Lifted" layout FLOW {} ] {}..
