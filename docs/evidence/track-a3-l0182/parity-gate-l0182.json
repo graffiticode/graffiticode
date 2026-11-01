@@ -1,0 +1,52 @@
+{
+  "lang": "0182",
+  "ts": "https://l0182-sja7fatcta-uc.a.run.app",
+  "rust": "https://l0182r-sja7fatcta-uc.a.run.app",
+  "ranAt": "2026-11-01T22:59:13.386Z",
+  "cases": "/Users/jeffdyer/work/graffiticode/graffiticode-a2/languages/l0182/crates/core/tests/conformance/cases.json",
+  "checks": {
+    "probes": {
+      "ok": true,
+      "differences": []
+    },
+    "form": {
+      "ok": true,
+      "problems": []
+    },
+    "lexicon": {
+      "ok": true,
+      "result": "identical"
+    },
+    "corpus": {
+      "ok": true,
+      "identical": 3584,
+      "allowed": {
+        "case": 22
+      },
+      "different": 0,
+      "invalid": 0,
+      "skipped": 0,
+      "compared": 3606,
+      "differences": [],
+      "invalidAnswers": []
+    },
+    "envelopes": {
+      "ok": true,
+      "identical": 0,
+      "allowed": {},
+      "different": 0,
+      "invalid": 0,
+      "skipped": 0,
+      "compared": 0,
+      "differences": [],
+      "invalidAnswers": []
+    }
+  },
+  "endedAt": "2026-11-01T23:09:21.506Z",
+  "corpus": {
+    "ranAt": "2026-11-01T22:59:13.386Z",
+    "tasks": 3606,
+    "failures": 0
+  },
+  "passed": true
+}

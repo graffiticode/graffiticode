@@ -139,6 +139,98 @@
       "note": "An exact number literal: TypeScript leaks decimal.js's internal object ({s, e, d}); the kernel writes the number, as JSON.stringify would. Deliberate (EXACT_NUMBER, languages/l0181/crates/core/tests/conformance.rs)."
     }
   ],
+  "0182": [
+    {
+      "kind": "case",
+      "src": "survey [ id \"civic-priorities\" session-id get-val-public \"itemId\" ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"civic-priorities\" session-id get-val-public \"itemId\"\n         response [ choices [\"affordable housing\"] ] ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"workplace-pulse\" session-id get-val-public \"itemId\" ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [\n  id \"civic-priorities\"\n  session-id get-val-public \"itemId\"\n]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"civic-priorities\"  ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"civic-priorities\" session-id \"s-1\" ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"civic-priorities\" session-id \"  \" ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"workplace-pulse\"  ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"workplace-pulse\" session-id \"s-1\" ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"workplace-pulse\" session-id \"  \" ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"civic-priorities\" session-id \"s\" ] ..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"civic-priorities\" ] survey [ id \"civic-priorities\" ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "[ survey [ id \"civic-priorities\" ] survey [ id \"civic-priorities\" ] survey [ id \"workplace-pulse\" ] ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "[ survey [ id \"civic-priorities\" session-id \"a\" ] survey [ id \"civic-priorities\" session-id \"a\" ] survey [ id \"civic-priorities\" session-id \"b\" ] ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "[ survey [ id \"workplace-pulse\" session-id \"a\" ] survey [ id \"civic-priorities\" session-id \"a\" ] survey [ id \"civic-priorities\" session-id \"a\" ] ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "[ survey [ id \"workplace-pulse\" ] survey [ id \"workplace-pulse\" ] survey [ id \"workplace-pulse\" ] survey [ id \"workplace-pulse\" ] survey [ id \"workplace-pulse-2\" ] ]..",
+      "note": "Draws a version of a fixture survey without replacement, from memory each process holds (drawn: Map<session, instance>; languages/l0182/CLAUDE.md, \"A survey is looked up, drawn, and held by session\"): two services pick different versions by their own history, and the items and options follow. Named versions (no draw) are identical. Not a compile difference (interpreter plan A3)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ 12345678901234567890 ]..",
+      "note": "A number too precise for a float: TypeScript's Decimal fields leak into the error (`function Object() …`, `s`, `e`, `d`); the Rust says \"got a record\". Both refuse it. Deliberate (decimal, languages/l0182/crates/core/tests/conformance.rs)."
+    },
+    {
+      "kind": "case",
+      "src": "survey [ id \"school-1\" session-id get-val-public \"itemId\" ]..",
+      "note": "An unresolved get-val-public: the kernel's checker refuses the program at its position; TypeScript evaluates it to undefined and session-id refuses that. Both refuse it. Deliberate (unresolved_public_value, languages/l0182/crates/core/tests/conformance.rs)."
+    }
+  ],
   "0183": [
     {
       "kind": "upstream-envelope",
