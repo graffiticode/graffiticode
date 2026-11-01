@@ -3,6 +3,7 @@
   "summary": "Fetch JSON or CSV from a public https URL, or take data written inline, and reshape it: filter, pick and rename fields, compute new ones, group and summarize, sort, join two data sets. The output is the transformed data. Succeeds L0170.",
   "in_scope": [
     "Fetching JSON or CSV from a public https URL, and reaching the list inside a JSON document",
+    "Records whose fields hold markup or graphics source, such as SVG paths, viewBox dimensions or HTML: the data is fetched, filtered and passed through as text, never drawn",
     "Data written inline in the request, as records or as rows with column names",
     "Keeping the records that match conditions, including tests written as functions of the record",
     "Picking, dropping, renaming and computing fields",
