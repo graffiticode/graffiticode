@@ -917,7 +917,8 @@
         }
       ],
       "env": {
-        "AUTH_URL": "https://auth.graffiticode.org"
+        "AUTH_URL": "https://auth.graffiticode.org",
+        "THUMBNAIL_BUCKET": "graffiticode-l0013-evidence"
       },
       "smoke": [
         {

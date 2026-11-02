@@ -1498,6 +1498,24 @@ below is applied yet**; each line is marked with its date when it is.
   revision; remove its tag with the deploy CLI's tag retirement.
 - `l0000` and its approved revisions stay: admitted plans that pin them keep retrying there.
 
+### Step 16: an isolated bucket for `l0013r`'s capture evidence (interpreter plan A1b) [LIVE]
+
+Before L0013 switches to Rust, its captures are gathered against a bucket that isn't
+production's, so no evidence run can overwrite `thumbnails/{item}.png` in
+`graffiticode.appspot.com`. `l0013r` refuses to capture without `THUMBNAIL_BUCKET` (no default,
+PR #242) and reports the bucket in effect on `GET /egress` (`language.thumbnailBucket`).
+
+- **Bucket.** *(Created 2026-11-02.)* `gs://graffiticode-l0013-evidence`, `us-central1`,
+  fine-grained access (the upload's `publicRead` ACL needs object ACLs), public access prevention
+  inherited, lifecycle: objects deleted after 30 days.
+- **Access.** *(Granted 2026-11-02.)* `l0013r-run` has `roles/storage.objectAdmin` on this bucket
+  only; it has no new access to production's bucket. `l0013-run` (TypeScript) is unchanged.
+- **Configuration.** `deploy.json`'s `l0013r` sets `THUMBNAIL_BUCKET=graffiticode-l0013-evidence`.
+  Egress needs no change: `storage.googleapis.com` is already in `l0013r`'s allow list.
+- **At the switch** (later): `l0013r-run` gets write access to production's bucket and
+  `THUMBNAIL_BUCKET` is set to it, explicitly, in the same reviewed change. At D4 both runtime
+  accounts lose direct write (plan C5c).
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
