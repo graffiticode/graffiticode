@@ -67,7 +67,9 @@ every word, and everything else is derived from it. npm here holds only the fron
   - `src/route.rs` — every connector as **straight legs between side magnets and compiler-placed
     waypoints** (`lineType "straight"`), so the modeled route is the route FigJam draws. Candidates
     in a fixed order (straight, Z/L elbow, the flow's channel lane for back/long edges, arcs that
-    also separate parallels, then an orthogonal Dijkstra search over the free space); self-loops
+    also separate parallels, then an orthogonal Dijkstra search over the free space that steers
+    around labels already placed and magnets used the other way, and slides its legs sideways when its
+    path does not fit); self-loops
     go around a corner, reaching out far enough for their label. The label box follows the
     plugin's rule exactly (leg `floor((legs − 1) / 2)`, its midpoint after the plugin's 16px corner
     rounding and FigJam's 8px endpoint gap). Clearance 8px around every leg band, cap and label.

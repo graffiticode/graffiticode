@@ -176,6 +176,10 @@ pub fn label_box(points: &[P], from: &Frame, to: &Frame, size: Option<(f64, f64)
 /// The clearance a connector keeps from everything it must not touch.
 pub const CLEARANCE: f64 = 8.0;
 
+/// How far, and in how many steps each way, the search slides a leg that does not fit.
+const SLIDE: f64 = 8.0;
+const SLIDE_STEPS: usize = 30;
+
 /// A segment's band: the segment widened by half the stroke and the clearance.
 pub fn band(a: P, b: P, stroke: f64) -> Frame {
     let pad = stroke / 2.0 + CLEARANCE;
@@ -601,11 +605,18 @@ impl Scene<'_> {
     fn search(&mut self, c: &Connector) -> Option<Route> {
         let (a, b) = (self.frames[&c.from], self.frames[&c.to]);
         let m = spacing::GUTTER / 3.0;
-        let inflated: Vec<(String, Frame)> = self
+        let mut inflated: Vec<(String, Frame)> = self
             .marks
             .iter()
             .map(|(id, f)| (id.clone(), Frame { x: f.x - m, y: f.y - m, w: f.w + 2.0 * m, h: f.h + 2.0 * m }))
             .collect();
+        // Labels already placed are obstacles too: a leg may not run through one.
+        let g = CLEARANCE + Self::stroke(c) / 2.0;
+        for (id, _, label, _, _, _) in &self.placed {
+            if let Some(l) = label {
+                inflated.push((id.clone(), Frame { x: l.x - g, y: l.y - g, w: l.w + 2.0 * g, h: l.h + 2.0 * g }));
+            }
+        }
         let mut xs = BTreeSet::new();
         let mut ys = BTreeSet::new();
         let key = |v: f64| (v * 2.0).round() as i64;
@@ -626,10 +637,19 @@ impl Scene<'_> {
         for v in [lo_y - m, hi_y + m] {
             ys.insert(key(v));
         }
-        let ends: Vec<(bool, Side, P, P)> = [(true, &a), (false, &b)]
+        // A magnet is shared only by connectors that all leave it or all arrive at it, so a side
+        // another connector already uses the other way round is no end for this one.
+        let taken = |mark: &str, side: Side, leaving: bool| {
+            self.placed.iter().any(
+                |(_, _, _, _, f, t)| {
+                    if leaving { t.0 == mark && t.1 == side } else { f.0 == mark && f.1 == side }
+                },
+            )
+        };
+        let ends: Vec<(bool, Side, P, P)> = [(true, &a, c.from.as_str()), (false, &b, c.to.as_str())]
             .into_iter()
-            .flat_map(|(start, f)| {
-                Side::ALL.into_iter().map(move |s| {
+            .flat_map(|(start, f, mark)| {
+                Side::ALL.into_iter().filter(move |&s| !taken(mark, s, start)).map(move |s| {
                     let p = anchor(f, s);
                     let d = s.dir();
                     (start, s, p, P { x: p.x + d.x * m, y: p.y + d.y * m })
@@ -733,7 +753,45 @@ impl Scene<'_> {
         }
         let from_side = *starts.get(&state)?;
         path.reverse();
-        self.check(c, Candidate { from_side, to_side, waypoints: path, kind: "search" })
+        let first = Candidate { from_side, to_side, waypoints: path.clone(), kind: "search" };
+        if let Some(r) = self.check(c, first) {
+            return Some(r);
+        }
+        // The path is found without knowing where its label will sit, so it can fail on the label
+        // (or a clash) alone. Slide each leg sideways, the middle ones first, and check again; an
+        // end that moves keeps a jog back to where it was, so every leg stays orthogonal.
+        let n = path.len();
+        let mut legs: Vec<usize> = (0..n.saturating_sub(1)).collect();
+        let mid = (n.saturating_sub(1)) as f64 / 2.0;
+        legs.sort_by(|a, b| (*a as f64 + 0.5 - mid).abs().total_cmp(&(*b as f64 + 0.5 - mid).abs()));
+        for j in legs {
+            let (p, q) = (path[j], path[j + 1]);
+            let horizontal = (p.y - q.y).abs() < 1e-9;
+            for step in 1..=SLIDE_STEPS {
+                for sign in [1.0, -1.0] {
+                    if self.evaluations > self.max {
+                        return None;
+                    }
+                    let off = sign * SLIDE * step as f64;
+                    let shift = |v: P| if horizontal { P { x: v.x, y: v.y + off } } else { P { x: v.x + off, y: v.y } };
+                    let mut w = Vec::with_capacity(n + 2);
+                    w.extend_from_slice(&path[..j]);
+                    if j == 0 {
+                        w.push(p);
+                    }
+                    w.push(shift(p));
+                    w.push(shift(q));
+                    if j + 1 == n - 1 {
+                        w.push(q);
+                    }
+                    w.extend_from_slice(&path[j + 2..]);
+                    if let Some(r) = self.check(c, Candidate { from_side, to_side, waypoints: w, kind: "search" }) {
+                        return Some(r);
+                    }
+                }
+            }
+        }
+        None
     }
 }
 
