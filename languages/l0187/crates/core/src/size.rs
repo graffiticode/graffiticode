@@ -82,17 +82,20 @@ fn sticky(m: &Mark) -> Result<Measured, Limit> {
     use profile::sticky::{PAD_X, PAD_Y, SIZE, WIDE};
     let emoji = unsupported("sticky", &m.id, &m.text)?;
     let font = profile::font_size(&m.font_size);
-    // A square sticky, unless its text would make it grow and a wide one would hold it with
-    // less growth.
+    // A square sticky, unless its text would make it grow, or split a word, and a wide one
+    // would not (or would grow less).
+    let splits = |lines: &[Line]| lines.iter().any(|l| matches!(l.ends, Break::Cluster));
     let mut chosen = None;
     for width in [SIZE, WIDE] {
         let lines = wrap(&m.text, font, Some(width - 2.0 * PAD_X));
         let height = sticky_height(lines.len(), font);
-        let better = chosen.as_ref().is_none_or(|(_, h, _): &(f64, f64, Vec<Line>)| height < *h);
+        let better =
+            chosen.as_ref().is_none_or(|(_, h, l): &(f64, f64, Vec<Line>)| (splits(l), *h) > (splits(&lines), height));
+        let fits = height <= SIZE && !splits(&lines);
         if better {
             chosen = Some((width, height, lines));
         }
-        if height <= SIZE {
+        if fits {
             break;
         }
     }

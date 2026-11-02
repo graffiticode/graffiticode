@@ -3,8 +3,8 @@
 //! Layout under `FIGJAM_V1` (design §5): every page, section and group arranges its direct
 //! children by its `layout`, and its own measured extent is placed as one block by its parent.
 //!
-//! - **ROW / COLUMN** keep the written order on one line; **GRID** keeps it row by row in
-//!   `columns` tracks that grow to fit. Children start-align on the cross axis.
+//! - **ROW / COLUMN** keep the written order on one line; **GRID** keeps it row by row,
+//!   `columns` to a row, each row as wide as its own cells. Children start-align on the cross axis.
 //! - **FLOW** layers its children along `direction`: `before` orders are strict (a child is in an
 //!   earlier layer than every sibling it precedes), and connectors between children (including
 //!   ones between marks deep inside them) are preferred progression. A connector that would close
@@ -247,7 +247,9 @@ impl Context<'_> {
         out
     }
 
-    /// The written order in `columns` tracks, row by row; tracks grow to fit, cells start-align.
+    /// The written order, row by row, `columns` to a row. Each row is as wide as its own cells, so
+    /// one wide child widens only its own row rather than its whole column; rows are as tall as
+    /// their tallest cell, cells start-align.
     fn grid(
         &self,
         region: &Region,
@@ -259,10 +261,8 @@ impl Context<'_> {
     ) -> Vec<(f64, f64)> {
         let columns = columns.max(1);
         let rows = members.len().div_ceil(columns);
-        let mut widths = vec![0.0f64; columns];
         let mut heights = vec![0.0f64; rows];
         for (k, &i) in members.iter().enumerate() {
-            widths[k % columns] = widths[k % columns].max(blocks[i].w);
             heights[k / columns] = heights[k / columns].max(blocks[i].h);
         }
         let any_region = members.iter().any(|&i| region.children[i].region().is_some());
@@ -272,13 +272,6 @@ impl Context<'_> {
         let extra = self.spacing.get(id).copied().unwrap_or(0.0);
         let gap_x = base.max(label_w + spacing::GUTTER) + extra;
         let gap_y = base.max(label_h + spacing::GUTTER) + extra;
-        let xs: Vec<f64> = (0..columns)
-            .scan(0.0, |at, c| {
-                let x = *at;
-                *at += widths[c] + gap_x;
-                Some(x)
-            })
-            .collect();
         let ys: Vec<f64> = (0..rows)
             .scan(0.0, |at, r| {
                 let y = *at;
@@ -287,8 +280,13 @@ impl Context<'_> {
             })
             .collect();
         let mut out = vec![(0.0, 0.0); blocks.len()];
+        let mut x = 0.0;
         for (k, &i) in members.iter().enumerate() {
-            out[i] = (xs[k % columns], ys[k / columns]);
+            if k % columns == 0 {
+                x = 0.0;
+            }
+            out[i] = (x, ys[k / columns]);
+            x += blocks[i].w + gap_x;
         }
         out
     }

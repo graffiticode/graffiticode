@@ -314,7 +314,7 @@
           "id": "p1",
           "name": "Page",
           "background": "#eeeeee",
-          "width": 613,
+          "width": 464,
           "height": 520,
           "nodes": [
             {
@@ -349,7 +349,7 @@
             {
               "type": "shape",
               "id": "sh",
-              "x": 437,
+              "x": 288,
               "y": 0,
               "width": 176,
               "height": 176,
@@ -5514,8 +5514,8 @@
         {
           "id": "pagina",
           "name": "Visão geral",
-          "width": 4104,
-          "height": 4104,
+          "width": 3752,
+          "height": 4108,
           "nodes": [
             {
               "type": "section",
@@ -5523,12 +5523,12 @@
               "name": "Missão central",
               "opacity": 100,
               "x": 0,
-              "y": 34,
+              "y": 38,
               "width": 464,
               "height": 576,
               "titleFrame": {
                 "x": 0,
-                "y": 0,
+                "y": 4,
                 "w": 114,
                 "h": 28
               },
@@ -5537,7 +5537,7 @@
                   "type": "sticky",
                   "id": "neda-missao",
                   "x": 24,
-                  "y": 58,
+                  "y": 62,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5593,7 +5593,7 @@
                   "type": "sticky",
                   "id": "status-neda",
                   "x": 24,
-                  "y": 346,
+                  "y": 350,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5653,13 +5653,13 @@
               "id": "dependencia",
               "name": "Dependência crítica",
               "opacity": 100,
-              "x": 2608,
-              "y": 34,
+              "x": 680,
+              "y": 38,
               "width": 464,
               "height": 468,
               "titleFrame": {
-                "x": 2608,
-                "y": 0,
+                "x": 680,
+                "y": 4,
                 "w": 150,
                 "h": 28
               },
@@ -5667,8 +5667,8 @@
                 {
                   "type": "sticky",
                   "id": "dependencia-texto",
-                  "x": 2632,
-                  "y": 58,
+                  "x": 704,
+                  "y": 62,
                   "width": 416,
                   "height": 420,
                   "wide": true,
@@ -5763,13 +5763,13 @@
               "id": "piloto",
               "name": "Piloto inicial recomendado",
               "opacity": 100,
-              "x": 3640,
-              "y": 34,
+              "x": 1360,
+              "y": 38,
               "width": 464,
               "height": 944,
               "titleFrame": {
-                "x": 3640,
-                "y": 0,
+                "x": 1360,
+                "y": 4,
                 "w": 193,
                 "h": 28
               },
@@ -5777,8 +5777,8 @@
                 {
                   "type": "shape",
                   "id": "piloto-entrada",
-                  "x": 3664,
-                  "y": 58,
+                  "x": 1384,
+                  "y": 62,
                   "width": 224,
                   "height": 248,
                   "shapeType": "ROUNDED_RECTANGLE",
@@ -5841,8 +5841,8 @@
                 {
                   "type": "sticky",
                   "id": "piloto-incluido",
-                  "x": 3664,
-                  "y": 354,
+                  "x": 1384,
+                  "y": 358,
                   "width": 416,
                   "height": 312,
                   "wide": true,
@@ -5912,8 +5912,8 @@
                 {
                   "type": "sticky",
                   "id": "piloto-excluido",
-                  "x": 3664,
-                  "y": 714,
+                  "x": 1384,
+                  "y": 718,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5965,7 +5965,7 @@
               "type": "shape",
               "id": "etapa-consulta",
               "x": 0,
-              "y": 1187,
+              "y": 1191,
               "width": 200,
               "height": 224,
               "shapeType": "ROUNDED_RECTANGLE",
@@ -6022,7 +6022,7 @@
               "type": "shape",
               "id": "etapa-mapeamento",
               "x": 296,
-              "y": 1211,
+              "y": 1215,
               "width": 200,
               "height": 176,
               "shapeType": "ROUNDED_RECTANGLE",
@@ -6058,7 +6058,7 @@
               "type": "shape",
               "id": "etapa-revisao",
               "x": 592,
-              "y": 1211,
+              "y": 1215,
               "width": 200,
               "height": 176,
               "shapeType": "ROUNDED_RECTANGLE",
@@ -6108,7 +6108,7 @@
               "type": "shape",
               "id": "etapa-prototipo",
               "x": 888,
-              "y": 1211,
+              "y": 1215,
               "width": 176,
               "height": 176,
               "shapeType": "ROUNDED_RECTANGLE",
@@ -6158,7 +6158,7 @@
               "type": "shape",
               "id": "etapa-formacao",
               "x": 1160,
-              "y": 1211,
+              "y": 1215,
               "width": 176,
               "height": 176,
               "shapeType": "ROUNDED_RECTANGLE",
@@ -6194,7 +6194,7 @@
               "type": "shape",
               "id": "etapa-piloto-limitado",
               "x": 1432,
-              "y": 1211,
+              "y": 1215,
               "width": 176,
               "height": 176,
               "shapeType": "ROUNDED_RECTANGLE",
@@ -6230,7 +6230,7 @@
               "type": "shape",
               "id": "etapa-avaliacao",
               "x": 1704,
-              "y": 1211,
+              "y": 1215,
               "width": 200,
               "height": 176,
               "shapeType": "ROUNDED_RECTANGLE",
@@ -6266,7 +6266,7 @@
               "type": "shape",
               "id": "decisao-escala",
               "x": 2072,
-              "y": 1067,
+              "y": 1071,
               "width": 320,
               "height": 464,
               "shapeType": "DIAMOND",
@@ -6325,12 +6325,12 @@
               "name": "Indicadores de sucesso",
               "opacity": 100,
               "x": 2608,
-              "y": 1101,
+              "y": 1105,
               "width": 464,
               "height": 504,
               "titleFrame": {
                 "x": 2608,
-                "y": 1067,
+                "y": 1071,
                 "w": 175,
                 "h": 28
               },
@@ -6339,7 +6339,7 @@
                   "type": "sticky",
                   "id": "indicadores-lista",
                   "x": 2632,
-                  "y": 1125,
+                  "y": 1129,
                   "width": 416,
                   "height": 456,
                   "wide": true,
@@ -6440,13 +6440,13 @@
               "id": "riscos",
               "name": "Riscos e mitigação",
               "opacity": 100,
-              "x": 3640,
-              "y": 1101,
+              "x": 3288,
+              "y": 1105,
               "width": 464,
               "height": 2340,
               "titleFrame": {
-                "x": 3640,
-                "y": 1067,
+                "x": 3288,
+                "y": 1071,
                 "w": 142,
                 "h": 28
               },
@@ -6454,8 +6454,8 @@
                 {
                   "type": "sticky",
                   "id": "risco1",
-                  "x": 3664,
-                  "y": 1125,
+                  "x": 3312,
+                  "y": 1129,
                   "width": 240,
                   "height": 240,
                   "wide": false,
@@ -6510,8 +6510,8 @@
                 {
                   "type": "sticky",
                   "id": "risco2",
-                  "x": 3664,
-                  "y": 1413,
+                  "x": 3312,
+                  "y": 1417,
                   "width": 416,
                   "height": 276,
                   "wide": true,
@@ -6573,8 +6573,8 @@
                 {
                   "type": "sticky",
                   "id": "risco3",
-                  "x": 3664,
-                  "y": 1737,
+                  "x": 3312,
+                  "y": 1741,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -6615,8 +6615,8 @@
                 {
                   "type": "sticky",
                   "id": "risco4",
-                  "x": 3664,
-                  "y": 2025,
+                  "x": 3312,
+                  "y": 2029,
                   "width": 240,
                   "height": 240,
                   "wide": false,
@@ -6671,8 +6671,8 @@
                 {
                   "type": "sticky",
                   "id": "risco5",
-                  "x": 3664,
-                  "y": 2313,
+                  "x": 3312,
+                  "y": 2317,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -6713,8 +6713,8 @@
                 {
                   "type": "sticky",
                   "id": "risco6",
-                  "x": 3664,
-                  "y": 2601,
+                  "x": 3312,
+                  "y": 2605,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -6755,8 +6755,8 @@
                 {
                   "type": "sticky",
                   "id": "risco7",
-                  "x": 3664,
-                  "y": 2889,
+                  "x": 3312,
+                  "y": 2893,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -6804,8 +6804,8 @@
                 {
                   "type": "sticky",
                   "id": "risco8",
-                  "x": 3664,
-                  "y": 3177,
+                  "x": 3312,
+                  "y": 3181,
                   "width": 240,
                   "height": 240,
                   "wide": false,
@@ -6865,12 +6865,12 @@
               "name": "Condições de viabilidade",
               "opacity": 100,
               "x": 0,
-              "y": 3564,
+              "y": 3568,
               "width": 464,
               "height": 540,
               "titleFrame": {
                 "x": 0,
-                "y": 3530,
+                "y": 3534,
                 "w": 185,
                 "h": 28
               },
@@ -6879,7 +6879,7 @@
                   "type": "sticky",
                   "id": "condicoes-lista",
                   "x": 24,
-                  "y": 3588,
+                  "y": 3592,
                   "width": 416,
                   "height": 492,
                   "wide": true,
@@ -6987,13 +6987,13 @@
               "id": "outros-dominios",
               "name": "Outros domínios da NEDA — fases futuras, não lançamentos simultâneos",
               "opacity": 100,
-              "x": 2608,
-              "y": 3564,
-              "width": 816,
+              "x": 680,
+              "y": 3568,
+              "width": 768,
               "height": 448,
               "titleFrame": {
-                "x": 2608,
-                "y": 3530,
+                "x": 680,
+                "y": 3534,
                 "w": 504,
                 "h": 28
               },
@@ -7001,8 +7001,8 @@
                 {
                   "type": "shape",
                   "id": "dominio-educacao",
-                  "x": 2632,
-                  "y": 3588,
+                  "x": 704,
+                  "y": 3592,
                   "width": 176,
                   "height": 176,
                   "shapeType": "SQUARE",
@@ -7030,8 +7030,8 @@
                 {
                   "type": "shape",
                   "id": "dominio-conectividade",
-                  "x": 2856,
-                  "y": 3588,
+                  "x": 928,
+                  "y": 3592,
                   "width": 224,
                   "height": 176,
                   "shapeType": "SQUARE",
@@ -7059,8 +7059,8 @@
                 {
                   "type": "shape",
                   "id": "dominio-agricultura",
-                  "x": 3128,
-                  "y": 3588,
+                  "x": 1200,
+                  "y": 3592,
                   "width": 176,
                   "height": 176,
                   "shapeType": "SQUARE",
@@ -7088,8 +7088,8 @@
                 {
                   "type": "shape",
                   "id": "dominio-ambiente",
-                  "x": 2632,
-                  "y": 3812,
+                  "x": 704,
+                  "y": 3816,
                   "width": 176,
                   "height": 176,
                   "shapeType": "SQUARE",
@@ -7117,8 +7117,8 @@
                 {
                   "type": "shape",
                   "id": "dominio-servicos",
-                  "x": 2856,
-                  "y": 3812,
+                  "x": 928,
+                  "y": 3816,
                   "width": 176,
                   "height": 176,
                   "shapeType": "SQUARE",
@@ -7153,8 +7153,8 @@
                 {
                   "type": "shape",
                   "id": "dominio-telecom",
-                  "x": 3128,
-                  "y": 3812,
+                  "x": 1152,
+                  "y": 3816,
                   "width": 272,
                   "height": 176,
                   "shapeType": "SQUARE",
@@ -7186,13 +7186,13 @@
               "id": "governanca",
               "name": "Salvaguardas de governação",
               "opacity": 100,
-              "x": 3640,
-              "y": 3564,
+              "x": 1664,
+              "y": 3568,
               "width": 464,
               "height": 360,
               "titleFrame": {
-                "x": 3640,
-                "y": 3530,
+                "x": 1664,
+                "y": 3534,
                 "w": 210,
                 "h": 28
               },
@@ -7200,8 +7200,8 @@
                 {
                   "type": "sticky",
                   "id": "governanca-lista",
-                  "x": 3664,
-                  "y": 3588,
+                  "x": 1688,
+                  "y": 3592,
                   "width": 416,
                   "height": 312,
                   "wide": true,
@@ -7275,16 +7275,36 @@
               "from": "neda-missao",
               "to": "piloto-entrada",
               "lineType": "straight",
-              "fromSide": "TOP",
+              "fromSide": "RIGHT",
               "toSide": "TOP",
               "waypoints": [
                 {
-                  "x": 232,
-                  "y": 34
+                  "x": 688,
+                  "y": 182
                 },
                 {
-                  "x": 3776,
-                  "y": 34
+                  "x": 688,
+                  "y": 30
+                },
+                {
+                  "x": 912,
+                  "y": 30
+                },
+                {
+                  "x": 1080,
+                  "y": 22
+                },
+                {
+                  "x": 1120,
+                  "y": 22
+                },
+                {
+                  "x": 1136,
+                  "y": 30
+                },
+                {
+                  "x": 1496,
+                  "y": 30
                 }
               ],
               "fromCap": "NONE",
@@ -7304,30 +7324,50 @@
               ],
               "route": [
                 {
-                  "x": 232,
-                  "y": 58
+                  "x": 440,
+                  "y": 182
                 },
                 {
-                  "x": 232,
-                  "y": 34
+                  "x": 688,
+                  "y": 182
                 },
                 {
-                  "x": 3776,
-                  "y": 34
+                  "x": 688,
+                  "y": 30
                 },
                 {
-                  "x": 3776,
-                  "y": 58
+                  "x": 912,
+                  "y": 30
+                },
+                {
+                  "x": 1080,
+                  "y": 22
+                },
+                {
+                  "x": 1120,
+                  "y": 22
+                },
+                {
+                  "x": 1136,
+                  "y": 30
+                },
+                {
+                  "x": 1496,
+                  "y": 30
+                },
+                {
+                  "x": 1496,
+                  "y": 62
                 }
               ],
-              "labelLeg": 1,
+              "labelLeg": 3,
               "labelBox": {
-                "x": 1967,
-                "y": 13.5,
+                "x": 961.9966044131734,
+                "y": 5.35730455175365,
                 "w": 74,
                 "h": 41
               },
-              "routeKind": "arc"
+              "routeKind": "search"
             },
             {
               "type": "connector",
@@ -7339,12 +7379,12 @@
               "toSide": "LEFT",
               "waypoints": [
                 {
-                  "x": 3356,
-                  "y": 268
+                  "x": 1252,
+                  "y": 272
                 },
                 {
-                  "x": 3356,
-                  "y": 182
+                  "x": 1252,
+                  "y": 186
                 }
               ],
               "fromCap": "NONE",
@@ -7364,26 +7404,26 @@
               ],
               "route": [
                 {
-                  "x": 3048,
-                  "y": 268
+                  "x": 1120,
+                  "y": 272
                 },
                 {
-                  "x": 3356,
-                  "y": 268
+                  "x": 1252,
+                  "y": 272
                 },
                 {
-                  "x": 3356,
-                  "y": 182
+                  "x": 1252,
+                  "y": 186
                 },
                 {
-                  "x": 3664,
-                  "y": 182
+                  "x": 1384,
+                  "y": 186
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 3294.5,
-                "y": 204.5,
+                "x": 1190.5,
+                "y": 208.5,
                 "w": 123,
                 "h": 41
               },
@@ -7399,20 +7439,20 @@
               "toSide": "TOP",
               "waypoints": [
                 {
-                  "x": 3776,
-                  "y": 338
+                  "x": 1496,
+                  "y": 342
                 },
                 {
-                  "x": 3064,
-                  "y": 338
+                  "x": 1136,
+                  "y": 342
                 },
                 {
-                  "x": 3064,
-                  "y": 1051
+                  "x": 1136,
+                  "y": 1113
                 },
                 {
                   "x": 100,
-                  "y": 1051
+                  "y": 1113
                 }
               ],
               "fromCap": "NONE",
@@ -7432,34 +7472,34 @@
               ],
               "route": [
                 {
-                  "x": 3776,
-                  "y": 306
+                  "x": 1496,
+                  "y": 310
                 },
                 {
-                  "x": 3776,
-                  "y": 338
+                  "x": 1496,
+                  "y": 342
                 },
                 {
-                  "x": 3064,
-                  "y": 338
+                  "x": 1136,
+                  "y": 342
                 },
                 {
-                  "x": 3064,
-                  "y": 1051
-                },
-                {
-                  "x": 100,
-                  "y": 1051
+                  "x": 1136,
+                  "y": 1113
                 },
                 {
                   "x": 100,
-                  "y": 1187
+                  "y": 1113
+                },
+                {
+                  "x": 100,
+                  "y": 1191
                 }
               ],
               "labelLeg": 2,
               "labelBox": {
-                "x": 3034,
-                "y": 674,
+                "x": 1106,
+                "y": 707,
                 "w": 60,
                 "h": 41
               },
@@ -7482,11 +7522,11 @@
               "route": [
                 {
                   "x": 200,
-                  "y": 1299
+                  "y": 1303
                 },
                 {
                   "x": 296,
-                  "y": 1299
+                  "y": 1303
                 }
               ],
               "labelLeg": 0,
@@ -7509,11 +7549,11 @@
               "route": [
                 {
                   "x": 496,
-                  "y": 1299
+                  "y": 1303
                 },
                 {
                   "x": 592,
-                  "y": 1299
+                  "y": 1303
                 }
               ],
               "labelLeg": 0,
@@ -7536,11 +7576,11 @@
               "route": [
                 {
                   "x": 792,
-                  "y": 1299
+                  "y": 1303
                 },
                 {
                   "x": 888,
-                  "y": 1299
+                  "y": 1303
                 }
               ],
               "labelLeg": 0,
@@ -7563,11 +7603,11 @@
               "route": [
                 {
                   "x": 1064,
-                  "y": 1299
+                  "y": 1303
                 },
                 {
                   "x": 1160,
-                  "y": 1299
+                  "y": 1303
                 }
               ],
               "labelLeg": 0,
@@ -7590,11 +7630,11 @@
               "route": [
                 {
                   "x": 1336,
-                  "y": 1299
+                  "y": 1303
                 },
                 {
                   "x": 1432,
-                  "y": 1299
+                  "y": 1303
                 }
               ],
               "labelLeg": 0,
@@ -7617,11 +7657,11 @@
               "route": [
                 {
                   "x": 1608,
-                  "y": 1299
+                  "y": 1303
                 },
                 {
                   "x": 1704,
-                  "y": 1299
+                  "y": 1303
                 }
               ],
               "labelLeg": 0,
@@ -7654,17 +7694,17 @@
               "route": [
                 {
                   "x": 1904,
-                  "y": 1299
+                  "y": 1303
                 },
                 {
                   "x": 2072,
-                  "y": 1299
+                  "y": 1303
                 }
               ],
               "labelLeg": 0,
               "labelBox": {
                 "x": 1952,
-                "y": 1278.5,
+                "y": 1282.5,
                 "w": 72,
                 "h": 41
               },
@@ -7681,11 +7721,11 @@
               "waypoints": [
                 {
                   "x": 2840,
-                  "y": 1605
+                  "y": 1609
                 },
                 {
                   "x": 1804,
-                  "y": 1605
+                  "y": 1609
                 }
               ],
               "fromCap": "NONE",
@@ -7706,25 +7746,25 @@
               "route": [
                 {
                   "x": 2840,
-                  "y": 1581
+                  "y": 1585
                 },
                 {
                   "x": 2840,
-                  "y": 1605
+                  "y": 1609
                 },
                 {
                   "x": 1804,
-                  "y": 1605
+                  "y": 1609
                 },
                 {
                   "x": 1804,
-                  "y": 1387
+                  "y": 1391
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
                 "x": 2238,
-                "y": 1584.5,
+                "y": 1588.5,
                 "w": 168,
                 "h": 41
               },
@@ -7736,7 +7776,7 @@
               "id": "etapas-grupo",
               "frame": {
                 "x": 0,
-                "y": 1067,
+                "y": 1071,
                 "w": 2392,
                 "h": 464
               },
@@ -7826,12 +7866,12 @@
         ],
         "quality": {
           "crossings": 0,
-          "bends": 10,
-          "route_length": 10873
+          "bends": 15,
+          "route_length": 5905
         },
         "repair": {
           "rounds": 0,
-          "evaluations": 22
+          "evaluations": 28
         }
       }
     }

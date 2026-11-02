@@ -57,7 +57,8 @@ every word, and everything else is derived from it. npm here holds only the fron
     their text (FigJam truncates a resized shape's overflow); textboxes wrap at 20 em; labels are
     padded lines. Text that cannot be measured is a `content-limit` diagnostic.
   - `src/layout.rs` — regions composed bottom-up. ROW/COLUMN keep the written order on a line,
-    GRID row by row in growing tracks (start-aligned); FLOW layers by `before` (strict) and
+    GRID row by row, each row as wide as its own cells
+    and as tall as its tallest (start-aligned); FLOW layers by `before` (strict) and
     connectors lifted to the children containing their ends (preferred; one that would close a
     cycle runs against the flow), orders layers by fixed barycentre sweeps, centres them, and
     reserves a routing channel beside the layers for back and layer-skipping edges; AUTO lays
