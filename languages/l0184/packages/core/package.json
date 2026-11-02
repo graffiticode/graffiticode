@@ -4,7 +4,7 @@
   },
   "name": "@graffiticode/l0184",
   "version": "0.2.2",
-  "description": "L0184 language core — charts",
+  "description": "L0184 language core \u2014 charts",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,12 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./spec/*": "./spec/*"
+    }
   },
   "files": [
-    "dist",
-    "spec"
+    "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

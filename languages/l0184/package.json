@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "L0184 — a Graffiticode dialect for charts (Apache ECharts)",
+  "description": "L0184 \u2014 a Graffiticode dialect for charts (Apache ECharts)",
   "workspaces": [
     "packages/core",
     "packages/api",
@@ -35,11 +35,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@graffiticode/l0000": "^0.8.0",
     "@types/node": "^22.7.0",
     "eslint": "^10.10.0",
     "globals": "^15.11.0",
     "prettier": "^3.3.3",
     "shx": "^0.4.0",
+    "spec-md": "^3.1.0",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.10.0",

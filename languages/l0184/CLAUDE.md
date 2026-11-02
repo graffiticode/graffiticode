@@ -151,6 +151,20 @@ npm run rust:fixtures # build packages/core, then regenerate src/*.json and the 
 
 None in the fixture. (A number of 2^64 or more, `values [1e20]`, once came out as `1e+20`; the kernel now writes every number as `JSON.stringify` does, `100000000000000000000`.)
 
+### Static assets and fixtures without the TypeScript (interpreter plan A6)
+
+- **`spec/`** (the language's spec, instructions, usage guide, schema, scope, template and examples)
+  lives at this directory's root, not in `packages/core`. `tools/build-static.mjs` turns it into the
+  public assets (`spec.html` via spec-md, `instructions.md` with L0000's, `language-info.json` with
+  the usage guide's Overview as `authoring_guide`) without importing any compiler;
+  `tools/assemble-static.mjs` adds the View bundle from `packages/view`. The Rust server serves
+  `/lexicon.json` from its binary, so `static/` has no `lexicon.json`. The output is byte-identical
+  to what the TypeScript build produced (checked 2026-11-02).
+- **`crates/core/src/vocab.json`, `lexicon-additions.json` and `tests/conformance/cases.json` are
+  frozen**: the last trusted TypeScript record, with their provenance in
+  `crates/core/tests/conformance/PROVENANCE.md`. Never regenerate them from the Rust. Until the
+  TypeScript source is removed, `npm run rust:fixtures` still regenerates them from it.
+
 ### The interpreter pass (plan C1)
 
 `L0184::input_independent` is `!ast.reads_input()`: a chart description that doesn't read its input (no `data`, no `get-var` that may name it) compiles to a value model, evaluated once; one that reads it (`rows data use "0185"`) is a plan the kernel evaluates against the input. `tests/interpret.rs` requires `interpret(model(case), data)` to write exactly what `compile(case, data)` writes for every conformance case. The API interprets L0184 while `INTERPRETER_L0184=on` (on in production since 2026-10-30; evidence in `docs/evidence/interpreter-c1-l0184/`).

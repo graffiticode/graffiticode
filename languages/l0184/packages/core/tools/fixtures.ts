@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { compile } from "../src/harness.js";
 
 const programs: { from: string; src: string }[] = [];
-for (const f of ["spec/spec.md", "spec/instructions.md"]) {
+for (const f of ["../../spec/spec.md", "../../spec/instructions.md"]) {
   let cur: string[] | null = null;
   for (const l of readFileSync(f, "utf-8").split("\n")) {
     if (l.trim().startsWith("```")) {
@@ -19,7 +19,7 @@ for (const f of ["spec/spec.md", "spec/instructions.md"]) {
     if (cur) cur.push(l);
   }
 }
-programs.push({ from: "spec/template.gc", src: readFileSync("spec/template.gc", "utf-8") });
+programs.push({ from: "../../spec/template.gc", src: readFileSync("../../spec/template.gc", "utf-8") });
 // Browser acceptance: a box plot's legend entry toggles its box and outliers together, and the
 // outliers stay on their boxes through a resize, for vertical and horizontal boxes.
 for (const [from, axes] of [
