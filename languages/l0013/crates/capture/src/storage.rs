@@ -14,6 +14,16 @@ use crate::CameraError;
 #[async_trait]
 pub trait Storage: Send + Sync {
     async fn put_png(&self, object: &str, png: &[u8]) -> Result<String, CameraError>;
+
+    /// Whether a capture may be stored here at all, checked before anything is rendered.
+    fn ready(&self) -> Result<(), CameraError> {
+        Ok(())
+    }
+
+    /// The bucket captures are written to, when there is one, for the server to report.
+    fn bucket(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// A Google Cloud Storage bucket (the Firebase Storage bucket is one), written with the
@@ -21,7 +31,8 @@ pub trait Storage: Send + Sync {
 /// developer's own (`gcloud auth application-default login`) locally. No key file.
 pub struct GoogleStorage {
     client: reqwest::Client,
-    bucket: String,
+    /// None when THUMBNAIL_BUCKET is unset: every capture is refused (interpreter plan A1b).
+    bucket: Option<String>,
     credentials: OnceCell<Arc<dyn TokenProvider>>,
 }
 
@@ -29,8 +40,16 @@ const SCOPE: &str = "https://www.googleapis.com/auth/devstorage.full_control";
 const BOUNDARY: &str = "l0013-thumbnail-boundary";
 
 impl GoogleStorage {
-    pub fn new(client: reqwest::Client, bucket: impl Into<String>) -> Self {
-        Self { client, bucket: bucket.into(), credentials: OnceCell::new() }
+    pub fn new(client: reqwest::Client, bucket: Option<String>) -> Self {
+        Self { client, bucket, credentials: OnceCell::new() }
+    }
+
+    fn require_bucket(&self) -> Result<&str, CameraError> {
+        self.bucket.as_deref().ok_or_else(|| {
+            "THUMBNAIL_BUCKET is not set: this server stores no captures. Set it to the bucket \
+             captures belong in (an isolated bucket for any test run)."
+                .into()
+        })
     }
 }
 
@@ -49,14 +68,23 @@ fn multipart(object: &str, png: &[u8]) -> Vec<u8> {
 
 #[async_trait]
 impl Storage for GoogleStorage {
+    fn ready(&self) -> Result<(), CameraError> {
+        self.require_bucket().map(|_| ())
+    }
+
+    fn bucket(&self) -> Option<&str> {
+        self.bucket.as_deref()
+    }
+
     async fn put_png(&self, object: &str, png: &[u8]) -> Result<String, CameraError> {
+        let bucket = self.require_bucket()?;
         let credentials = self.credentials.get_or_try_init(gcp_auth::provider).await?;
         let token = credentials.token(&[SCOPE]).await?;
         // The object is made public in the same write. A separate ACL update would be its own
         // read-modify-write and can race with this one.
         let response = self
             .client
-            .post(format!("https://storage.googleapis.com/upload/storage/v1/b/{}/o", self.bucket))
+            .post(format!("https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o"))
             .query(&[("uploadType", "multipart"), ("predefinedAcl", "publicRead")])
             .bearer_auth(token.as_str())
             .header("Content-Type", format!("multipart/related; boundary={BOUNDARY}"))
@@ -66,9 +94,9 @@ impl Storage for GoogleStorage {
         if !response.status().is_success() {
             let status = response.status().as_u16();
             let detail: String = response.text().await.unwrap_or_default().chars().take(300).collect();
-            return Err(format!("upload to {} failed: HTTP {status} {detail}", self.bucket).into());
+            return Err(format!("upload to {bucket} failed: HTTP {status} {detail}").into());
         }
-        Ok(format!("https://storage.googleapis.com/{}/{object}", self.bucket))
+        Ok(format!("https://storage.googleapis.com/{bucket}/{object}"))
     }
 }
 
@@ -84,5 +112,18 @@ mod tests {
         assert!(text.contains(r#""name":"thumbnails/abc.png""#));
         assert!(text.contains(r#""cacheControl":"no-cache""#));
         assert!(text.contains("Content-Type: image/png\r\n\r\n\u{fffd}PNG-bytes\r\n--l0013-thumbnail-boundary--\r\n"));
+    }
+
+    /// Without THUMBNAIL_BUCKET nothing is stored: no default bucket (interpreter plan A1b).
+    #[tokio::test]
+    async fn without_a_bucket_nothing_is_stored() {
+        let none = GoogleStorage::new(reqwest::Client::new(), None);
+        assert_eq!(none.bucket(), None);
+        assert!(none.ready().unwrap_err().to_string().contains("THUMBNAIL_BUCKET is not set"));
+        let refused = none.put_png("thumbnails/x.png", b"png").await.unwrap_err();
+        assert!(refused.to_string().contains("THUMBNAIL_BUCKET is not set"), "{refused}");
+        let isolated = GoogleStorage::new(reqwest::Client::new(), Some("gc-l0013-evidence".to_owned()));
+        assert_eq!(isolated.bucket(), Some("gc-l0013-evidence"));
+        assert!(isolated.ready().is_ok());
     }
 }

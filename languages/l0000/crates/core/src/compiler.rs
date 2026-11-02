@@ -82,6 +82,11 @@ impl Compiler {
         self.dialect.lang_id()
     }
 
+    /// What the language reports about its configuration (see [`Dialect::status`]).
+    pub fn dialect_status(&self) -> Option<Json> {
+        self.dialect.status()
+    }
+
     /// Whether this language's output may be cached (see [`Dialect::cacheable`]).
     pub fn cacheable(&self) -> bool {
         self.dialect.cacheable()

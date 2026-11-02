@@ -135,7 +135,7 @@ npm run rust:lint     # cargo clippy --all-targets -- -D warnings
 npm run rust:fixtures # build packages/core, then regenerate tests/conformance/cases.json and src/lexicon-additions.json
 ```
 
-Capture env vars (same meaning as the TypeScript server's): `GRAFFITICODE_API_URL`, `GRAFFITICODE_APP_URL`, `THUMBNAIL_BUCKET`, `GC_SNAP_ACCESS_TOKEN`, and `CHROME_PATH` (or `PUPPETEER_EXECUTABLE_PATH`) for the browser; with neither, Chrome is found on the system.
+Capture env vars (same meaning as the TypeScript server's, except `THUMBNAIL_BUCKET`, below): `GRAFFITICODE_API_URL`, `GRAFFITICODE_APP_URL`, `THUMBNAIL_BUCKET`, `GC_SNAP_ACCESS_TOKEN`, and `CHROME_PATH` (or `PUPPETEER_EXECUTABLE_PATH`) for the browser; with neither, Chrome is found on the system.
 
 ### What differs from the TypeScript
 
@@ -157,6 +157,6 @@ Capture env vars (same meaning as the TypeScript server's): `GRAFFITICODE_API_UR
 
 The service and account do not exist until provisioned. To do what `snap` does, the account needs `roles/storage.objectAdmin` on the thumbnail bucket (`graffiticode.appspot.com`), as `l0013-run` has, and the service needs the sizing Chrome requires (the TypeScript service runs with 2 CPU, 2Gi, concurrency 4). Until it has the bucket role, every `snap` fails at the upload.
 
-**A real `snap` on this service overwrites the production thumbnail** for that item (`thumbnails/{item}.png`), exactly as the TypeScript service does. Point `THUMBNAIL_BUCKET` elsewhere to try it without that.
+**`THUMBNAIL_BUCKET` has no default here** (interpreter plan A1b): unset, the Rust server refuses every `snap` before anything is resolved or rendered ("THUMBNAIL_BUCKET is not set"), so no run can overwrite production's `thumbnails/{item}.png` by accident. `GET /egress` reports the bucket in effect as `language.thumbnailBucket` (null when unset), so an evidence run checks it is the isolated bucket before its first capture. Only the production switch sets it to `graffiticode.appspot.com`, explicitly. (The TypeScript service still defaults to the production bucket.)
 
 Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/lexicon-additions.json` and `tests/conformance/cases.json` are generated, not edited.

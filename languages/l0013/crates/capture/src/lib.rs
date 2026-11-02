@@ -78,12 +78,11 @@ impl Config {
     }
 }
 
-/// The bucket thumbnails are stored in: `THUMBNAIL_BUCKET`, or the project's default.
-pub fn bucket_from_env() -> String {
-    std::env::var("THUMBNAIL_BUCKET")
-        .ok()
-        .filter(|b| !b.is_empty())
-        .unwrap_or_else(|| "graffiticode.appspot.com".to_owned())
+/// The bucket thumbnails are stored in: `THUMBNAIL_BUCKET`, or none. There is no default:
+/// without it the server refuses every capture rather than write to production's bucket
+/// (interpreter plan A1b), and only a production release names that bucket, explicitly.
+pub fn bucket_from_env() -> Option<String> {
+    std::env::var("THUMBNAIL_BUCKET").ok().map(|b| b.trim().to_owned()).filter(|b| !b.is_empty())
 }
 
 pub struct ChromeCamera<S> {
@@ -242,8 +241,14 @@ fn object_path(item: &str) -> String {
 
 #[async_trait]
 impl<S: Storage> Camera for ChromeCamera<S> {
+    fn status(&self) -> Option<Json> {
+        Some(serde_json::json!({ "thumbnailBucket": self.storage.bucket() }))
+    }
+
     async fn snap(&self, request: SnapRequest) -> Result<Snapshot, CameraError> {
         let started = Instant::now();
+        // Refused before any rendering when there is nowhere to store the capture.
+        self.storage.ready()?;
         let token = request.token.as_deref().or(self.config.fallback_token.as_deref());
         let (task, lang) = match &request.task {
             Some(task) => (task.clone(), request.lang.clone()),
@@ -283,6 +288,25 @@ mod tests {
             form_url("https://api.example", "a+b", Some("0166"), Some("tok en")).unwrap(),
             "https://api.example/form?id=a%2Bb&lang=0166&access_token=tok+en"
         );
+    }
+
+    /// With no bucket a snapshot is refused before anything is resolved or rendered: the Chrome
+    /// named here doesn't exist, so the error can only be the bucket's. The camera reports the
+    /// (missing) bucket for `/egress`.
+    #[tokio::test]
+    async fn without_a_bucket_a_snapshot_is_refused_before_rendering() {
+        let config = Config {
+            api_url: "https://api.invalid".to_owned(),
+            app_url: "https://app.invalid".to_owned(),
+            chrome: Some(PathBuf::from("/nonexistent/chrome")),
+            fallback_token: None,
+        };
+        let camera =
+            ChromeCamera::new(config, reqwest::Client::new(), GoogleStorage::new(reqwest::Client::new(), None));
+        assert_eq!(camera.status(), Some(serde_json::json!({ "thumbnailBucket": null })));
+        let request = SnapRequest { item: "item-1".to_owned(), task: Some("task-1".to_owned()), ..Default::default() };
+        let refused = camera.snap(request).await.unwrap_err();
+        assert!(refused.to_string().contains("THUMBNAIL_BUCKET is not set"), "{refused}");
     }
 
     #[test]
