@@ -1,0 +1,64 @@
+board [
+  page [
+    section [
+      sticky id "neda-missao" text "Objetivo central: IA responsável que beneficia as pessoas, protege direitos e apoia o desenvolvimento sustentável, começando no Sumbe, Angola." {}
+      sticky id "status-neda" text "NEDA é uma proposta de iniciativa independente de interesse público — ainda não é uma instituição juridicamente registada nem endossada." fill "gray" {}
+    ] id "missao" name "Missão central" layout COLUMN {}
+    section [
+      sticky id "dependencia-texto" text "Dependência crítica: autorização escrita da unidade de saúde e das autoridades de saúde competentes; avaliação do fluxo de trabalho e dos sistemas existentes; compatibilidade com o DHIS2 (ecossistema nacional de informação de saúde de Angola), em vez de um sistema paralelo." fill "yellow" {}
+    ] id "dependencia" name "Dependência crítica" layout COLUMN {}
+    section [
+      shape id "piloto-entrada" text "Piloto: apoio administrativo a marcações e gestão de filas (uma unidade de saúde)" kind ROUNDED_RECTANGLE {}
+      sticky id "piloto-incluido" text "Inclui: registo de marcações; estado da fila; lembretes (apenas com consentimento e canal disponível); relatórios operacionais simples. O pessoal humano mantém todas as decisões." fill "blue" {}
+      sticky id "piloto-excluido" text "Exclui: diagnóstico; triagem de urgência clínica; prescrições; priorização de pacientes por IA; decisões clínicas autónomas." fill "pink" {}
+    ] id "piloto" name "Piloto inicial recomendado" layout COLUMN {}
+    group [
+      shape id "etapa-consulta" text "Consulta às partes interessadas e medição de base" kind ROUNDED_RECTANGLE {}
+      shape id "etapa-mapeamento" text "Mapeamento de processos" kind ROUNDED_RECTANGLE {}
+      shape id "etapa-revisao" text "Revisão jurídica, de privacidade e segurança" kind ROUNDED_RECTANGLE {}
+      shape id "etapa-prototipo" text "Protótipo com dados mínimos ou sintéticos" kind ROUNDED_RECTANGLE {}
+      shape id "etapa-formacao" text "Formação da equipa" kind ROUNDED_RECTANGLE {}
+      shape id "etapa-piloto-limitado" text "Piloto limitado" kind ROUNDED_RECTANGLE {}
+      shape id "etapa-avaliacao" text "Avaliação independente" kind ROUNDED_RECTANGLE {}
+      shape id "decisao-escala" text "Decisão de escalar — apenas após evidências e aprovação" kind DIAMOND {}
+    ] id "etapas-grupo" layout FLOW direction RIGHT {}
+    section [
+      sticky id "indicadores-lista" text "Indicadores a medir antes e depois (sem valores-alvo pré-definidos): tempo de espera; consultas não comparecidas; erros de registo; tempo da equipa em tarefas administrativas; satisfação dos utentes; disponibilidade do sistema; reclamações e incidentes de privacidade/segurança." {}
+    ] id "indicadores" name "Indicadores de sucesso" layout COLUMN {}
+    section [
+      sticky id "risco1" text "Risco: falta de acesso institucional. Mitigação: não iniciar o piloto." {}
+      sticky id "risco2" text "Risco: exposição de dados de saúde. Mitigação: minimização de dados, acesso baseado em funções, encriptação, limites de retenção, plano de incidentes, revisão jurídica." {}
+      sticky id "risco3" text "Risco: conectividade instável. Mitigação: alternativa offline / baixa largura de banda." {}
+      sticky id "risco4" text "Risco: resistência da equipa. Mitigação: co-conceção e formação." {}
+      sticky id "risco5" text "Risco: sistemas duplicados. Mitigação: integrar com o DHIS2 ou suspender." {}
+      sticky id "risco6" text "Risco: exclusão de pessoas sem telemóvel. Mitigação: manter opção presencial e em papel." {}
+      sticky id "risco7" text "Risco: dependência de fornecedor e aumento de custos. Mitigação: normas abertas, portabilidade, plano de saída." {}
+      sticky id "risco8" text "Risco: erros da IA. Mitigação: manter a IA fora das decisões clínicas." {}
+    ] id "riscos" name "Riscos e mitigação" layout COLUMN {}
+    section [
+      sticky id "condicoes-lista" text "Condições de viabilidade da NEDA: valor público credível e alinhamento político; originalidade demonstrada face a iniciativas existentes; âmbito faseado; governação multidisciplinar; financiamento transparente; auditoria independente; resultados mensuráveis; sem alegações de parceria com a UNESCO, a UA ou o MINSA até acordo formal." {}
+    ] id "condicoes" name "Condições de viabilidade" layout COLUMN {}
+    section [
+      shape id "dominio-educacao" text "Educação" kind SQUARE {}
+      shape id "dominio-conectividade" text "Conectividade" kind SQUARE {}
+      shape id "dominio-agricultura" text "Agricultura" kind SQUARE {}
+      shape id "dominio-ambiente" text "Ambiente" kind SQUARE {}
+      shape id "dominio-servicos" text "Serviços públicos" kind SQUARE {}
+      shape id "dominio-telecom" text "Telecomunicações" kind SQUARE {}
+    ] id "outros-dominios" name "Outros domínios da NEDA — fases futuras, não lançamentos simultâneos" layout GRID columns 3 {}
+    section [
+      sticky id "governanca-lista" text "Salvaguardas de governação: supervisão humana; direitos; transparência; responsabilização; proteção de dados; cibersegurança; acessibilidade; participação comunitária." {}
+    ] id "governanca" name "Salvaguardas de governação" layout COLUMN {}
+    connector id "missao-piloto" from "neda-missao" to "piloto-entrada" label "orienta" {}
+    connector id "dependencia-piloto" from "dependencia-texto" to "piloto-entrada" label "pré-condição" {}
+    connector id "piloto-etapas" from "piloto-entrada" to "etapa-consulta" label "inicia" {}
+    connector id "c-consulta-mapeamento" from "etapa-consulta" to "etapa-mapeamento" {}
+    connector id "c-mapeamento-revisao" from "etapa-mapeamento" to "etapa-revisao" {}
+    connector id "c-revisao-prototipo" from "etapa-revisao" to "etapa-prototipo" {}
+    connector id "c-prototipo-formacao" from "etapa-prototipo" to "etapa-formacao" {}
+    connector id "c-formacao-piloto-limitado" from "etapa-formacao" to "etapa-piloto-limitado" {}
+    connector id "c-piloto-limitado-avaliacao" from "etapa-piloto-limitado" to "etapa-avaliacao" {}
+    connector id "c-avaliacao-decisao" from "etapa-avaliacao" to "decisao-escala" label "decide" {}
+    connector id "c-indicadores-avaliacao" from "indicadores-lista" to "etapa-avaliacao" label "medir antes/depois" {}
+  ] id "pagina" name "Visão geral" layout GRID columns 3 {}
+] title "NEDA — Viabilidade e piloto inicial no Sumbe" {}..
