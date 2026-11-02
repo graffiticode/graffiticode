@@ -1,0 +1,40 @@
+{
+  "name": "@graffiticode/tracing",
+  "version": "0.4.0",
+  "description": "Opentelemetry tracing setup for graffiticode",
+  "main": "src/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "jest --passWithNoTests"
+  },
+  "keywords": [
+    "opentelemetry",
+    "graffiticode"
+  ],
+  "author": "Kevin Dyer <kevin.m.dyer@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/opentelemetry-cloud-trace-exporter": "^1.2.0",
+    "@opentelemetry/api": "^1.3.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.36.0",
+    "@opentelemetry/exporter-jaeger": "^1.2.0",
+    "@opentelemetry/exporter-zipkin": "^1.2.0",
+    "@opentelemetry/sdk-metrics": "^1.8.0",
+    "@opentelemetry/sdk-node": "^0.34.0",
+    "@opentelemetry/sdk-trace-base": "^1.8.0"
+  },
+  "devDependencies": {
+    "jest": "^27.3.1"
+  },
+  "gitHead": "54a2970386723c95e52110062baa1e50e117b240",
+  "files": [
+    "src"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/graffiticode/graffiticode.git",
+    "directory": "packages/tracing"
+  }
+}
