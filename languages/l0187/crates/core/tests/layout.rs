@@ -102,6 +102,27 @@ async fn every_valid_program_is_accepted_by_the_validator() {
 }
 
 #[tokio::test]
+async fn searched_routes_never_take_a_diagonal() {
+    let mut failures = Vec::new();
+    for case in cases().iter().filter(|c| !c.name.starts_with("invalid-")) {
+        let board = board(case).await;
+        for page in board["pages"].as_array().unwrap() {
+            for c in page["nodes"].as_array().unwrap().iter().filter(|c| c["routeKind"] == "search") {
+                let route = c["route"].as_array().unwrap();
+                for leg in route.windows(2) {
+                    let (dx, dy) =
+                        ((n(&leg[0], "x") - n(&leg[1], "x")).abs(), (n(&leg[0], "y") - n(&leg[1], "y")).abs());
+                    if dx >= 1.0 && dy >= 1.0 {
+                        failures.push(format!("{}: {} has a diagonal leg {leg:?}", case.name, c["id"]));
+                    }
+                }
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[tokio::test]
 async fn the_retrospective_keeps_its_sections_and_notes_in_order() {
     let board = named("retro").await;
     let f = frames(&board["pages"][0]);

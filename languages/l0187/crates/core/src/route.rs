@@ -176,6 +176,11 @@ pub fn label_box(points: &[P], from: &Frame, to: &Frame, size: Option<(f64, f64)
 /// The clearance a connector keeps from everything it must not touch.
 pub const CLEARANCE: f64 = 8.0;
 
+/// Whether every leg runs horizontally or vertically (a searched route never takes a diagonal).
+fn orthogonal(points: &[P]) -> bool {
+    points.windows(2).all(|s| (s[0].x - s[1].x).abs() < 1.0 || (s[0].y - s[1].y).abs() < 1.0)
+}
+
 /// How far, and in how many steps each way, the search slides a leg that does not fit.
 const SLIDE: f64 = 8.0;
 const SLIDE_STEPS: usize = 30;
@@ -753,6 +758,21 @@ impl Scene<'_> {
         }
         let from_side = *starts.get(&state)?;
         path.reverse();
+        // Keep only the corners: a point in the middle of a straight run would be dragged sideways
+        // with its neighbour when a leg slides, leaving a diagonal.
+        let mut corners: Vec<P> = Vec::with_capacity(path.len());
+        for p in path {
+            if corners.len() >= 2 {
+                let (a, b) = (corners[corners.len() - 2], corners[corners.len() - 1]);
+                if (a.x == b.x && b.x == p.x) || (a.y == b.y && b.y == p.y) {
+                    corners.pop();
+                }
+            }
+            if corners.last() != Some(&p) {
+                corners.push(p);
+            }
+        }
+        let path = corners;
         let first = Candidate { from_side, to_side, waypoints: path.clone(), kind: "search" };
         if let Some(r) = self.check(c, first) {
             return Some(r);
@@ -785,7 +805,9 @@ impl Scene<'_> {
                         w.push(q);
                     }
                     w.extend_from_slice(&path[j + 2..]);
-                    if let Some(r) = self.check(c, Candidate { from_side, to_side, waypoints: w, kind: "search" }) {
+                    if let Some(r) = self.check(c, Candidate { from_side, to_side, waypoints: w, kind: "search" })
+                        && orthogonal(&r.points)
+                    {
                         return Some(r);
                     }
                 }
