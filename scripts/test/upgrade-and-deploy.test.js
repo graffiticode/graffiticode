@@ -11,11 +11,12 @@ const quiet = () => {};
 
 test("a language the api routes to its Rust service releases lNNNNr too", () => {
   const services = {
-    api: { env: { BASE_URL_L0184: "https://l0184r-abc-uc.a.run.app", BASE_URL_L0177: "https://l0177-abc-uc.a.run.app" } },
-    ...Object.fromEntries(["l0184", "l0184r", "l0177", "l0177r", "l0180", "l0180r"].map(n => [n, {}])),
+    api: { env: { BASE_URL_L0184: "https://l0184r-abc-uc.a.run.app", BASE_URL_L0177: "https://l0177-abc-uc.a.run.app", BASE_URL_L0186: "https://l0186.graffiticode.org" } },
+    ...Object.fromEntries(["l0184", "l0184r", "l0177", "l0177r", "l0180", "l0180r", "l0186", "l0186r"].map(n => [n, {}])),
   };
   // l0177 is routed to its TypeScript service, l0180 not routed at all: TypeScript only.
-  assert.deepEqual(deployTargets(["l0177", "l0180", "l0184"], services), ["l0177", "l0180", "l0184", "l0184r"]);
+  // l0186 is routed to its own domain, which serves l0186r once switched.
+  assert.deepEqual(deployTargets(["l0177", "l0180", "l0184", "l0186"], services), ["l0177", "l0180", "l0184", "l0184r", "l0186", "l0186r"]);
 });
 
 test("deploy.json: the switched languages: L0000, L0003, L0010, L0014, L0174, L0175, L0177–L0186", () => {
