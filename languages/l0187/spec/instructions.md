@@ -55,8 +55,9 @@ not inherited; each region chooses its own.
 
 **Keep boards compact.** A board is read on one screen, so arrange a page with more than three
 sections or groups as a `GRID` (`columns 2` or `columns 3`), or leave it `AUTO`; never stack many
-sections in a page-level `COLUMN` or `ROW`, which makes one very tall or very wide strip. Use
-`COLUMN` inside a section for its notes, and `ROW` or `FLOW` for a short sequence of stages. Put a
+sections in a page-level `COLUMN` or `ROW`, which makes one very tall or very wide strip. Inside a
+section, use `COLUMN` for up to four notes and `GRID columns 2` (or `3`) for more, so no section
+grows much taller than its neighbours; use `ROW` or `FLOW` for a short sequence of stages. Put a
 long list in one sticky or textbox, or split it into a few stickies in a `GRID`, rather than one
 sticky per word.
 
