@@ -101,6 +101,13 @@ written in the wrong place is a compile error that says where it goes.
 - **Blanks.** A node with `assess [expected]` is a blank: write its answer as its `text`. The
   learner sees an empty slot; the text is kept as the answer key. A blank edge works the same way
   with its `label`. Ids are `n1`, `n2`, … by position among the drawn nodes.
+- **An "empty" part is a blank, never empty text.** A request for an empty centre, an empty node,
+  "what connects these?" or "leave the middle blank" asks the learner to FILL that part: write
+  the answer as its text with `assess [expected]` — `hub text "Inner planets" assess [expected] {}`.
+  NEVER write `text ""`: that draws a part with no answer, which nothing can mark.
+- **Only what the request asks the learner to fill is a blank.** "Label the relationships" makes
+  the edge labels blanks and leaves the nodes drawn; "place the animals" makes the nodes blanks.
+  Do not add a second tray the request did not ask for.
 - **The tray builds itself.** Every blank's answer goes into its tray automatically. Do NOT list
   the answers again.
 - **Distractors are members too.** A wrong answer is a `node` (for the node tray) or an `edge`
