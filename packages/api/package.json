@@ -18,7 +18,7 @@
   "dependencies": {
     "@graffiticode/auth": "*",
     "@graffiticode/common": "*",
-    "@graffiticode/tracing": "^0.3.0",
+    "@graffiticode/tracing": "^0.4.0",
     "ajv": "^8.20.0",
     "bent": "^7.3.12",
     "cors": "^2.8.5",
