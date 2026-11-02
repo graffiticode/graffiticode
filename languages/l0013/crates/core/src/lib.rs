@@ -94,6 +94,11 @@ pub type CameraError = Box<dyn std::error::Error + Send + Sync>;
 #[async_trait]
 pub trait Camera: Send + Sync {
     async fn snap(&self, request: SnapRequest) -> Result<Snapshot, CameraError>;
+
+    /// What the camera reports about its configuration (where captures go), for `/egress`.
+    fn status(&self) -> Option<serde_json::Value> {
+        None
+    }
 }
 
 #[derive(Clone)]
@@ -111,6 +116,12 @@ impl L0013 {
 impl Dialect for L0013 {
     fn lang_id(&self) -> &str {
         "0013"
+    }
+
+    /// Where captures are stored (`thumbnailBucket`, null when none is configured), so an
+    /// evidence run can check it is the isolated bucket before its first capture.
+    fn status(&self) -> Option<serde_json::Value> {
+        self.camera.status()
     }
 
     async fn eval(&self, cx: &mut Evaluator<'_>, id: NodeId, op: &Op, elts: &[NodeId]) -> Option<Value> {

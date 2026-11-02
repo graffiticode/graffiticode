@@ -687,4 +687,24 @@ async fn egress_reports_whether_the_proxy_is_in_use() {
     );
     let none = l0000r_server::egress::EgressEnv::from_lookup(|_| None);
     assert_eq!(l0000r_server::egress_report(&none)["installed"], json!(false));
+    // A language that reports nothing about itself adds nothing.
+    assert!(reply.json().get("language").is_none());
+}
+
+/// A language's own status (Dialect::status) rides on /egress, beside the proxy report.
+#[tokio::test]
+async fn egress_carries_what_a_language_reports_about_itself() {
+    struct Reporting;
+    #[async_trait]
+    impl graffiticode_l0000::Dialect for Reporting {
+        fn lang_id(&self) -> &str {
+            "0000"
+        }
+        fn status(&self) -> Option<Value> {
+            Some(json!({ "thumbnailBucket": "gc-evidence" }))
+        }
+    }
+    let server = server_with(Compiler::new(Reporting), HttpCaching::default());
+    let reply = get(&server.app, "/egress").await;
+    assert_eq!(reply.json()["language"], json!({ "thumbnailBucket": "gc-evidence" }));
 }

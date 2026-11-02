@@ -107,6 +107,13 @@ pub trait Dialect: Send + Sync {
         false
     }
 
+    /// What this language reports about its own configuration on the server's `/egress`, for
+    /// an operator or an evidence run to check before relying on it (L0013 names the bucket its
+    /// captures go to). `None`, the default, reports nothing.
+    fn status(&self) -> Option<Json> {
+        None
+    }
+
     /// Whether a compile's output may be stored and served again. A language whose output
     /// carries something that expires (a signature, say) answers `false`, and its server says
     /// so in the response, so that nothing upstream caches it.

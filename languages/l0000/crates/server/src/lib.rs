@@ -195,8 +195,13 @@ fn https_location(headers: &HeaderMap, uri: &Uri) -> Option<String> {
 /// helper's `/egress` reports. Every client is built by `egress::client_builder()` (CI's
 /// check-egress-clients refuses any other), so a proxy in the environment means it's used.
 /// The deploy CLI's candidate check reads it for a service with a network block.
-async fn egress_status() -> Json<Value> {
-    Json(egress_report(&egress::EgressEnv::from_env()))
+async fn egress_status(State(state): State<AppState>) -> Json<Value> {
+    let mut report = egress_report(&egress::EgressEnv::from_env());
+    // A language's own configuration, when it reports any (Dialect::status).
+    if let Some(status) = state.compiler.dialect_status() {
+        report["language"] = status;
+    }
+    Json(report)
 }
 
 /// What `/egress` reports for an environment.

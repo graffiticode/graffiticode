@@ -118,6 +118,7 @@ Rollback is an API rollback. The TypeScript service stays deployed.
      - defined image tolerances against the TypeScript capture of the same items: equal output dimensions and crop box, and a perceptual-difference threshold (pixels are not byte-identical, `CLAUDE.md:143`).
 
      The evidence goes into the `promote --evidence` file.
+     - **Step 1, as built (2026-11-01):** `l0013r` fails closed: `bucket_from_env()` has no default, `GoogleStorage` refuses to store without a bucket, and `ChromeCamera::snap` checks it before resolving or rendering anything. `GET /egress` reports `language.thumbnailBucket` through a new `Dialect::status` hook (default nothing, so other languages' `/egress` is unchanged). Next: an isolated bucket, `l0013r-run`'s write access to it, and `THUMBNAIL_BUCKET` on `l0013r`.
 2. **A2** l0003, l0010, l0175, l0177, l0178, l0179, l0181, l0185. Small known differences, each closed or allowlisted. For L0003 and L0010, the lexicon served by Rust is a superset; allowlist that, or pin it.
 3. **A3** l0182. Its per-process session memory is lost on a switch, the same as on any redeploy, so state that in its release notes.
 4. **A4** l0000. Needs `pinnable`, `POLICY_URL` and `PREFLIGHT_GATEWAYS` for `l0000r`, and admitted-plan stages and `/preflight` must work there. IAM review entry: `docs/capability-policy-iam-review.md`, Step 15. The order:
