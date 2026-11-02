@@ -1,0 +1,63 @@
+board [
+  page [
+    section [
+      textbox id "mission" text "MISSAO NEDA: Proposta de iniciativa independente de interesse publico para IA responsavel que beneficia pessoas, protege direitos e apoia o desenvolvimento sustentavel, com inicio no Sumbe, Angola." font-size LARGE {}
+      sticky id "status" text "ENQUADRAMENTO: Proposta em avaliacao. NEDA nao e instituicao legalmente registada nem endossada. Nao presumir parcerias com UNESCO, UA ou MINSA sem acordo formal." fill "yellow" {}
+    ] id "mission-section" name "Missao e enquadramento" layout COLUMN {}
+    section [
+      sticky id "pilot" text "PILOTO INICIAL: Uma unidade sanitaria no Sumbe para apoio ao registo de consultas e gestao de filas. A equipa humana mantem todas as decisoes." fill "green" {}
+      sticky id "scope" text "INCLUIDO: Registo de marcacoes; estado da fila; lembretes apenas com consentimento e canal disponivel; relatorios operacionais simples." {}
+      sticky id "limits" text "FORA DO ESCOPO: Sem diagnostico, triagem de urgencia clinica, prescricao, priorizacao de pacientes por IA ou decisoes clinicas autonomas." fill "pink" {}
+    ] id "pilot-section" name "Piloto proposto" layout COLUMN {}
+    section [
+      shape id "auth" text "GATE 1: Autorizacao escrita da unidade e das autoridades de saude relevantes" kind DIAMOND fill "orange" {}
+      sticky id "workflow" text "Antes de iniciar: avaliar o fluxo actual, sistemas existentes e compatibilidade com o ecossistema nacional DHIS2. Integrar, nao criar sistema paralelo." {}
+      shape id "go" text "Avancar apenas apos autorizacao, avaliacao do fluxo e revisao de compatibilidade" kind ROUNDED_RECTANGLE {}
+    ] id "dependency-section" name "Dependencia critica e gates" layout COLUMN {}
+    section [
+      group [
+        shape id "stage1" text "1. Consulta de partes interessadas e medicao de base" kind ROUNDED_RECTANGLE {}
+        shape id "stage2" text "2. Mapeamento de processos" kind ROUNDED_RECTANGLE {}
+        shape id "stage3" text "3. Revisao legal, privacidade e seguranca" kind ROUNDED_RECTANGLE {}
+        shape id "stage4" text "4. Prototipo com dados minimos ou sinteticos" kind ROUNDED_RECTANGLE {}
+        shape id "stage5" text "5. Formacao da equipa" kind ROUNDED_RECTANGLE {}
+        shape id "stage6" text "6. Piloto limitado" kind ROUNDED_RECTANGLE {}
+        shape id "stage7" text "7. Avaliacao independente" kind ROUNDED_RECTANGLE {}
+        shape id "stage8" text "8. Escalar apenas com evidencia e aprovacao" kind ROUNDED_RECTANGLE {}
+      ] id "stages-group" layout FLOW direction RIGHT {}
+    ] id "stages-section" name "Implementacao faseada" layout COLUMN {}
+    section [
+      textbox id "indicators" text "MEDIR ANTES E DEPOIS, SEM VALORES ALVO: tempo de espera; consultas perdidas; erros de registo; tempo da equipa em administracao; satisfacao dos utilizadores; disponibilidade do sistema; reclamacoes; incidentes de privacidade e seguranca." {}
+      sticky id "evidence" text "A avaliacao deve comparar a linha de base com o piloto e documentar resultados, efeitos adversos, limitacoes e recomendacao independente." fill "blue" {}
+    ] id "measurement-section" name "Indicadores e evidencia" layout COLUMN {}
+    section [
+      sticky id "risk-data" text "EXPOSICAO DE DADOS DE SAUDE: Minimizacao de dados; acesso por funcao; encriptacao; limites de retencao; plano de incidentes; revisao legal." fill "pink" {}
+      sticky id "risk-access" text "SEM ACESSO INSTITUCIONAL OU CONECTIVIDADE FIAVEL: Nao iniciar sem acesso autorizado. Prever alternativa offline ou de baixa largura de banda." fill "pink" {}
+      sticky id "risk-people" text "RESISTENCIA DA EQUIPA OU EXCLUSAO DIGITAL: Co-desenho e formacao. Manter atendimento presencial e opcao em papel para quem nao tem telefone." fill "pink" {}
+      sticky id "risk-system" text "DUPLICACAO, DEPENDENCIA E CUSTO CRESCENTE: Integrar ou parar. Usar padroes abertos, portabilidade e plano de saida." fill "pink" {}
+      sticky id "risk-ai" text "ERROS DA IA: Manter a IA fora das decisoes clinicas; supervisao humana e possibilidade de correccao." fill "pink" {}
+    ] id "risk-section" name "Riscos e mitigacao" layout COLUMN {}
+    section [
+      sticky id "feasibility" text "CONDICOES DE VIABILIDADE: Valor publico credivel e alinhamento com politicas; originalidade demonstrada face a iniciativas existentes; escopo faseado; governacao multidisciplinar; financiamento transparente; auditoria independente; resultados mensuraveis; sem alegar parcerias antes de acordo formal." fill "yellow" {}
+      sticky id "guardrails" text "BARREIRAS DE GOVERNACAO: Supervisao humana; direitos; transparencia; responsabilizacao; proteccao de dados; ciberseguranca; acessibilidade; participacao comunitaria." {}
+    ] id "governance-section" name "Viabilidade e salvaguardas" layout COLUMN {}
+    section [
+      sticky id "domains" text "FASES POSTERIORES, NAO LANCAMENTOS SIMULTANEOS: educacao; conectividade; agricultura; ambiente; servicos publicos; telecomunicacoes. Cada dominio requer avaliacao, autorizacao, desenho e evidencia proprios." fill "purple" {}
+      textbox id "decision" text "DECISAO DE ESCALA: Escalar somente depois de avaliacao independente, evidencia suficiente, aprovacao formal e confirmacao de capacidade operacional." font-size LARGE {}
+    ] id "future-section" name "Expansao responsavel" layout COLUMN {}
+    connector id "mission-pilot" from "mission" to "pilot" label "primeiro caso de uso" {}
+    connector id "pilot-auth" from "pilot" to "auth" label "depende de" {}
+    connector id "auth-workflow" from "auth" to "workflow" label "avaliar antes de iniciar" {}
+    connector id "workflow-go" from "workflow" to "go" label "gate de prontidao" {}
+    connector id "go-stage1" from "go" to "stage1" label "inicio controlado" {}
+    connector id "stage1-stage2" from "stage1" to "stage2" label "sequencia" {}
+    connector id "stage2-stage3" from "stage2" to "stage3" label "sequencia" {}
+    connector id "stage3-stage4" from "stage3" to "stage4" label "sequencia" {}
+    connector id "stage4-stage5" from "stage4" to "stage5" label "sequencia" {}
+    connector id "stage5-stage6" from "stage5" to "stage6" label "sequencia" {}
+    connector id "stage6-stage7" from "stage6" to "stage7" label "avaliar" {}
+    connector id "stage7-stage8" from "stage7" to "stage8" label "evidencia e aprovacao" {}
+    connector id "stage6-indicators" from "stage6" to "indicators" label "medir resultados" {}
+    connector id "stage7-decision" from "stage7" to "decision" label "decisao baseada em evidencia" {}
+  ] id "sumbe-strategy" name "Estrategia NEDA no Sumbe" layout GRID columns 2 {}
+] title "NEDA - Viabilidade e piloto inicial no Sumbe" {}..
