@@ -82,6 +82,14 @@ connector.
 - Every colour property: `fill` on stickies, shapes and sections; `stroke` on shapes and
   connectors; `color` on textboxes; `background` on pages.
 
+## Writing the text
+
+Write every `text`, `name`, `label` and `title` in the language the request uses, spelled
+correctly with all its accents and letters (`"Missão"`, `"decisões"`, `"segurança"`, `"Größe"`,
+`"élève"`), never stripped to plain ASCII: a lost accent can change the meaning (`"não é"`, "is
+not", is not `"nao e"`). Use ordinary sentence case, not all capitals; a section's `name` already
+serves as its heading.
+
 ## Connectors
 
 `connector id "…" from "<mark id>" to "<mark id>" {}`, with optional `label`, `line-style DASHED`,
