@@ -118,7 +118,9 @@ async function upgrade(name, version, { PKG_NAME, TARGET_PKG }) {
 }
 
 // The services to release for these languages: each lNNNN, and its lNNNNr when the api
-// routes the language there.
+// routes the language there: BASE_URL_LNNNN names lNNNNr's run.app host, or the language's
+// own domain, which serves lNNNNr once the language is switched (its domain mapping is
+// repointed with the switch).
 export function deployTargets(langs, services) {
   const apiEnv = services.api?.env ?? {};
   const targets = [];
@@ -126,7 +128,8 @@ export function deployTargets(langs, services) {
     targets.push(name);
     const rust = `${name}r`;
     const routed = apiEnv[`BASE_URL_L${name.slice(1)}`];
-    if (services[rust] && typeof routed === "string" && new URL(routed).hostname.startsWith(`${rust}-`)) targets.push(rust);
+    const host = typeof routed === "string" ? new URL(routed).hostname : "";
+    if (services[rust] && (host.startsWith(`${rust}-`) || host === `${name}.graffiticode.org`)) targets.push(rust);
   }
   return targets;
 }
