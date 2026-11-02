@@ -53,6 +53,13 @@ not inherited; each region chooses its own.
   `RIGHT` by default). `direction` goes only with `FLOW`.
 - No `layout` means `AUTO`: the compiler chooses, putting connected things in a flow.
 
+**Keep boards compact.** A board is read on one screen, so arrange a page with more than three
+sections or groups as a `GRID` (`columns 2` or `columns 3`), or leave it `AUTO`; never stack many
+sections in a page-level `COLUMN` or `ROW`, which makes one very tall or very wide strip. Use
+`COLUMN` inside a section for its notes, and `ROW` or `FLOW` for a short sequence of stages. Put a
+long list in one sticky or textbox, or split it into a few stickies in a `GRID`, rather than one
+sticky per word.
+
 In a `FLOW`, `before ["b" "c"]` on a child makes it come strictly before those siblings. Use it
 only for real stage order; connectors already suggest the direction. `before` names siblings in
 the same `FLOW` region, never something deeper, and never makes a loop. A return path is just a
