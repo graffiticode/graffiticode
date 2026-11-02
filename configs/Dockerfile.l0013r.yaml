@@ -32,8 +32,12 @@ COPY languages/l0013/crates ./crates
 RUN cargo build --release --locked -p l0013r-server
 
 FROM debian:bookworm-slim
+# Fonts: GNU FreeFont only, as the TypeScript image (Alpine's ttf-freefont), so a capture lays
+# out and renders as production's thumbnails do (sans-serif, Helvetica and Arial are FreeSans
+# in both). Noto and Liberation rendered the View's UI text in other faces and shifted the
+# content-aware crop (interpreter plan A1b capture evidence, 2026-11-02).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends chromium ca-certificates libnss3-tools fonts-liberation fonts-noto-core fonts-noto-color-emoji \
+    && apt-get install -y --no-install-recommends chromium ca-certificates libnss3-tools fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=server /src/languages/l0013/target/release/l0013r ./l0013r

@@ -1508,13 +1508,15 @@ PR #242) and reports the bucket in effect on `GET /egress` (`language.thumbnailB
 - **Bucket.** *(Created 2026-11-02.)* `gs://graffiticode-l0013-evidence`, `us-central1`,
   fine-grained access (the upload's `publicRead` ACL needs object ACLs), public access prevention
   inherited, lifecycle: objects deleted after 30 days.
-- **Access.** *(Granted 2026-11-02.)* `l0013r-run` has `roles/storage.objectAdmin` on this bucket
-  only; it has no new access to production's bucket. `l0013-run` (TypeScript) is unchanged.
+- **Access.** *(Granted 2026-11-02.)* `l0013r-run` has `roles/storage.objectAdmin` on this bucket.
+  It **already had** `roles/storage.objectAdmin` on production's `graffiticode.appspot.com`
+  (found 2026-11-02, alongside `l0013-run`), so before PR #242 an `l0013r` snap would have written
+  production thumbnails; the no-default `THUMBNAIL_BUCKET` is what keeps evidence runs off them.
 - **Configuration.** `deploy.json`'s `l0013r` sets `THUMBNAIL_BUCKET=graffiticode-l0013-evidence`.
   Egress needs no change: `storage.googleapis.com` is already in `l0013r`'s allow list.
-- **At the switch** (later): `l0013r-run` gets write access to production's bucket and
-  `THUMBNAIL_BUCKET` is set to it, explicitly, in the same reviewed change. At D4 both runtime
-  accounts lose direct write (plan C5c).
+- **At the switch:** `THUMBNAIL_BUCKET` is set to `graffiticode.appspot.com`, explicitly, in a
+  reviewed change (no new grant is needed). At D4 both runtime accounts lose direct write (plan
+  C5c).
 
 ## 4. Verification (read-only)
 
