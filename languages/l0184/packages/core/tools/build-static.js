@@ -16,7 +16,8 @@ const specMarkdown = require("spec-md");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgDir = join(__dirname, "..");
-const specDir = join(pkgDir, "spec");
+// The spec lives at the language root (spec/), shared with tools/build-static.mjs.
+const specDir = join(pkgDir, "..", "..", "spec");
 const outDir = join(pkgDir, "dist", "static");
 
 // Wipe and repopulate, exactly as `npm run assemble` does for packages/api/static: a stale file

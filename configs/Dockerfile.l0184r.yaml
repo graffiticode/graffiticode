@@ -15,6 +15,7 @@ RUN npm ci
 COPY languages/l0184/tsconfig.base.json ./
 COPY languages/l0184/packages ./packages
 COPY languages/l0184/tools ./tools
+COPY languages/l0184/spec ./spec
 RUN node tools/assemble-static.mjs --skip-install
 
 FROM rust:1.99-bookworm AS server
