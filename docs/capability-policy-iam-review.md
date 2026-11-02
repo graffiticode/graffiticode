@@ -1514,9 +1514,9 @@ PR #242) and reports the bucket in effect on `GET /egress` (`language.thumbnailB
   production thumbnails; the no-default `THUMBNAIL_BUCKET` is what keeps evidence runs off them.
 - **Configuration.** `deploy.json`'s `l0013r` sets `THUMBNAIL_BUCKET=graffiticode-l0013-evidence`.
   Egress needs no change: `storage.googleapis.com` is already in `l0013r`'s allow list.
-- **At the switch:** `THUMBNAIL_BUCKET` is set to `graffiticode.appspot.com`, explicitly, in a
-  reviewed change (no new grant is needed). At D4 both runtime accounts lose direct write (plan
-  C5c).
+- **At the switch** *(2026-11-02)*: `THUMBNAIL_BUCKET` is set to `graffiticode.appspot.com`,
+  explicitly, in the switch PR (no new grant is needed). At D4 both runtime accounts lose direct
+  write (plan C5c). The evidence bucket stays, emptying itself after 30 days.
 
 ## 4. Verification (read-only)
 
