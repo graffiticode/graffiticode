@@ -32,9 +32,9 @@ board [
 - One `board`, ending in `..`. Its list holds `page`s; its settings are `title`,
   `show-page-tabs`, `show-page-menu`.
 - `page [ … ] id "…" name "…" {}`: every page has an `id` and a `name`. Its list holds `sticky`,
-  `shape`, `textbox`, `section`, `group` and `connector`.
-- `section [ … ] id "…" name "…" {}`: a visible, titled area. It holds marks and groups, never
-  another section, never connectors.
+  `shape`, `textbox`, `section`, `group` and `connector`. `background "gray"` colours the page.
+- `section [ … ] id "…" name "…" {}`: a visible, titled area, with optional `fill` and `opacity`.
+  It holds marks and groups, never another section, never connectors.
 - `group [ … ] id "…" {}`: an invisible block for arranging things together. It holds marks,
   sections and groups.
 - **Every page, section, group, mark and connector has an `id`.** Ids are unique across the
@@ -64,11 +64,15 @@ connector.
   for long text.
 - `shape id "q" text "Valid?" kind DIAMOND {}`: kinds are `SQUARE` (default),
   `ROUNDED_RECTANGLE`, `ELLIPSE`, `DIAMOND`, `PARALLELOGRAM_RIGHT`, `PREDEFINED_PROCESS`,
-  `DOCUMENT_SINGLE`, `ENG_DATABASE`. Shapes grow to hold their text.
-- `textbox id "h" text "Heading" font-size LARGE {}`: free text, for headings and notes.
+  `DOCUMENT_SINGLE`, `ENG_DATABASE`. Shapes grow to hold their text. Optional `fill`, `stroke`
+  (outline colour) and `stroke-width THICK`.
+- `textbox id "h" text "Heading" font-size LARGE {}`: free text, for headings and notes; `color`
+  sets its text colour.
 - `font-size`: `SMALL`, `MEDIUM` (default), `LARGE`, `EXTRA_LARGE`, `HUGE`. Colours: hex like
   `"#ffcc00"`, or `"red"`, `"blue"`, `"green"`, `"yellow"`, `"purple"`, `"orange"`, `"pink"`,
-  `"white"`, `"black"`, `"gray"`. `opacity` is 0 to 100.
+  `"white"`, `"black"`, `"gray"`. `opacity` is 0 to 100, on marks, sections and connectors.
+- Every colour property: `fill` on stickies, shapes and sections; `stroke` on shapes and
+  connectors; `color` on textboxes; `background` on pages.
 
 ## Connectors
 
