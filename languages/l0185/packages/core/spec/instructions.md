@@ -106,7 +106,9 @@ rows [{item: "Pen" price: 1.5 qty: 4} {item: "Ink" price: 7 qty: 1}]
 Functions are L0000 lambdas. Inside them: `get "field" row` reads a field; `add sub mul div`
 do arithmetic; `gt ge lt le` compare numbers; `eq` compares NUMBERS and `equiv` compares any two
 values (use `equiv` for text); `and or not` combine tests; `concat` joins text and `str` turns a
-number into text; `format-number "#,##0.00" x` formats a number.
+number into text; `format-number "#,##0.00" x` formats a number. `format-number` returns TEXT
+(`"5.00"`): to round and keep a number, wrap it in `json` — `json (format-number "0.00" x)` gives
+`5`. Use the text form only when the field is for display.
 
 ## Summarizing: `group-by` and `summarize`
 
