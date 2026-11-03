@@ -64,7 +64,8 @@ pub struct Check {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Quality {
     pub crossings: usize,
-    /// Legs or labels that cross a section title or skirt a section border: the router avoids
+    /// Legs or labels near a section title, along a section border, or through a section that
+    /// holds neither end: the router avoids
     /// them, and takes one only when a connector has no other route.
     pub section_conflicts: usize,
     pub bends: usize,
@@ -614,7 +615,7 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
                     }
                 }
             }
-            if route::section_conflict(&points, stroke, None, &section_frames).is_some() {
+            if route::section_conflict(&points, stroke, None, &section_frames, (&from, &to)).is_some() {
                 quality.section_conflicts += 1;
             }
             for (end, at, owner, cap) in
@@ -661,7 +662,7 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
                             ));
                         }
                     }
-                    if route::section_conflict(&[], stroke, Some(&expect), &section_frames).is_some() {
+                    if route::section_conflict(&[], stroke, Some(&expect), &section_frames, (&from, &to)).is_some() {
                         quality.section_conflicts += 1;
                     }
                     Some((expect, grown))

@@ -70,8 +70,9 @@ every word, and everything else is derived from it. npm here holds only the fron
     in a fixed order (straight, Z/L elbow, the flow's channel lane for back/long edges, arcs that
     also separate parallels, then an orthogonal Dijkstra search over the free space that steers
     around labels already placed and magnets used the other way, and slides its legs sideways when its
-    path does not fit). Every connector is first routed clear of section titles and never running
-    along a section border, then without that rule if nothing fits; `quality.section_conflicts`
+    path does not fit). Every connector is first routed 20px clear of section titles and borders it
+    runs alongside, and out of sections that hold neither of its ends, then without that rule if
+    nothing fits; `quality.section_conflicts`
     counts the fallbacks; self-loops
     go around a corner, reaching out far enough for their label. The label box follows the
     plugin's rule exactly (leg `floor((legs − 1) / 2)`, its midpoint after the plugin's 16px corner

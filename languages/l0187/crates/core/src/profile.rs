@@ -12,8 +12,9 @@
 //! a sticky goes wide rather than split a word (1 of the 72 corpus boards changed). 2026-11-03:
 //! when one sticky in a GRID goes wide every sticky in it does, and routes prefer not to cross a
 //! section title or run along a section border (falling back when no route avoids them, counted
-//! in `quality.section_conflicts`). Boards cached before then keep their old, still valid, layout
-//! until recompiled.
+//! in `quality.section_conflicts`); later that day the margin a route keeps from a border or title
+//! became 20px, and a route keeps out of sections that hold neither of its ends. Boards cached
+//! before then keep their old, still valid, layout until recompiled.
 //!
 //! Provenance of each value is noted: `L0186` values were measured through the Plugin API on
 //! 2026-10-08 (`languages/l0186/packages/view/src/lib/figjam.ts`); `calibrated` values were
