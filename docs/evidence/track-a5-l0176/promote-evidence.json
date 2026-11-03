@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmw18zdds-309a6c",
+  "revision": "api-rmw18zdds-309a6c",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (L0176 switch, A5; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-03T22:44:17.000Z",
+  "corpus": {
+    "ranAt": "2026-11-03T22:40:02.000Z",
+    "tasks": 27,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "canary": {
+      "ranAt": "2026-11-03T22:40:02.000Z",
+      "staged": "https://rmw18zdds-309a6c---api-sja7fatcta-uc.a.run.app",
+      "checks": 27,
+      "failed": 0,
+      "log": "canary-run2-staged.txt",
+      "retryAcrossRouting": "a write recorded through the production api (L0176 on TypeScript, plan s0=l0176-rmvv31tuj-fa4690) retried through the staged api (L0176 on l0176r) replayed on l0176-rmvv31tuj-fa4690 under the same plan",
+      "newPlans": "s0=l0176r-rmw18bcvb-0b20c8; with L0000: s1=l0000r-rmvv1zoul-c9a437"
+    },
+    "run1Production": {
+      "log": "canary-run1-production.txt",
+      "checks": 15,
+      "failed": 1,
+      "failedCheck": "direct path: the TypeScript l0176-run had no canary-window token-creator grant (the TypeScript compiler's own direct path, unchanged by A5)"
+    },
+    "systemPreview": "a no-connection items preview through the staged api's gateway came back with a signed request (no-store), as through production",
+    "parityGate": {
+      "rust": "https://l0176r-sja7fatcta-uc.a.run.app",
+      "ts": "https://l0176-sja7fatcta-uc.a.run.app",
+      "ranAt": "2026-11-03T22:08:03.174Z",
+      "tasks": 202,
+      "identical": 139,
+      "allowed": {
+        "error-presentation": 14,
+        "volatile": 47,
+        "case": 2
+      },
+      "different": 0,
+      "invalid": 0,
+      "lexicon": "identical",
+      "report": "parity-gate-2026-11-03.json"
+    }
+  }
+}

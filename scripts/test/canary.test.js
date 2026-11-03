@@ -775,11 +775,33 @@ test("a route reaches its tag's revision, else the one serving all traffic", () 
 });
 
 test("serviceEnv reads a described service's literal env, so routes follow the live api", () => {
-  const api = { spec: { template: { spec: { containers: [{ env: [
-    { name: "BASE_URL_L0176", value: "https://l0176r-sja7fatcta-uc.a.run.app" },
-    { name: "INTERNAL_SECRET", valueFrom: { secretKeyRef: { name: "s", key: "1" } } },
-  ] }] } } } };
+  const api = {
+    spec: {
+      template: {
+        spec: {
+          containers: [{
+            env: [
+              { name: "BASE_URL_L0176", value: "https://l0176r-sja7fatcta-uc.a.run.app" },
+              { name: "INTERNAL_SECRET", valueFrom: { secretKeyRef: { name: "s", key: "1" } } },
+            ]
+          }]
+        }
+      }
+    }
+  };
   assert.deepEqual(serviceEnv(api), { BASE_URL_L0176: "https://l0176r-sja7fatcta-uc.a.run.app" });
   assert.deepEqual(languageRoute("0176", serviceEnv(api)), { service: "l0176r", tag: null });
   assert.deepEqual(serviceEnv(undefined), {});
+});
+
+test("a domain route names the service its mapping serves; the env is the deployed revision's", async () => {
+  const { languageRoute, revisionEnv, domainServices } = await import("../lib/canary-env.js");
+  const domains = domainServices([{ metadata: { name: "l0000.graffiticode.org" }, spec: { routeName: "l0000r" } }, { metadata: {}, spec: {} }]);
+  assert.deepEqual(domains, { "l0000.graffiticode.org": "l0000r" });
+  assert.deepEqual(languageRoute("0000", { BASE_URL_L0000: "https://l0000.graffiticode.org" }, domains), { service: "l0000r", tag: null });
+  // An unmapped domain, or none given, keeps the old default.
+  assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "https://l0176.graffiticode.org" }, domains), { service: "l0176", tag: null });
+  assert.deepEqual(languageRoute("0000", { BASE_URL_L0000: "https://l0000.graffiticode.org" }), { service: "l0000", tag: null });
+  assert.deepEqual(revisionEnv({ spec: { containers: [{ env: [{ name: "BASE_URL_L0176", value: "https://l0176r-x-uc.a.run.app" }, { name: "S", valueFrom: {} }] }] } }), { BASE_URL_L0176: "https://l0176r-x-uc.a.run.app" });
+  assert.deepEqual(revisionEnv(null), {});
 });

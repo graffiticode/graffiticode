@@ -58,7 +58,7 @@ import path from "node:path";
 import { VERIFY_UID } from "../verify/auth.js";
 import { runCanary } from "./lib/canary.js";
 import { createDraftArchiver } from "./lib/canary-archive.js";
-import { createCanaryEnv, loadDeployServices, languageRoute, routedRevision, serviceEnv, http } from "./lib/canary-env.js";
+import { createCanaryEnv, loadDeployServices, languageRoute, routedRevision, revisionEnv, domainServices, http } from "./lib/canary-env.js";
 
 const args = process.argv.slice(2);
 const flag = name => {
@@ -94,12 +94,30 @@ async function providerConfig() {
   return { previewConnection, expiresMinutes: Number(env.BROKER_PREVIEW_EXPIRES_MINUTES ?? 10), attestation };
 }
 
+// How the api under test routes languages: the env of the revision its URL
+// reaches (a staged release's tag, or the serving revision), and Cloud Run's
+// domain mappings for languages routed through lNNNN.graffiticode.org.
+// deploy.json can be ahead of what is deployed.
+const apiUrl = flag("--api-url") ?? await serviceUrl("api");
+const apiHost = new URL(apiUrl).hostname;
+const apiTag = apiHost.includes("---") ? apiHost.split("---")[0] : null;
+const apiService = JSON.parse(await gcloud(["run", "services", "describe", "api", `--region=${region}`, "--format=json"]));
+const apiRevision = routedRevision(apiService, apiTag);
+const apiEnv = apiRevision
+  ? revisionEnv(JSON.parse(await gcloud(["run", "revisions", "describe", apiRevision, `--region=${region}`, "--format=json"])))
+  : deploy.api?.env;
+const domains = domainServices(JSON.parse(await gcloud(["beta", "run", "domain-mappings", "list", `--region=${region}`, "--format=json"])));
+const route = lang => languageRoute(lang, apiEnv, domains);
+// L0176's compiler is wherever that api routes it: l0176, or l0176r once it is
+// switched (interpreter plan A5). Its runtime account mints the compiler's
+// tokens, and its URL serves /preflight.
+const l0176Service = route("0176").service;
 const config = {
-  apiUrl: flag("--api-url") ?? await serviceUrl("api"),
+  apiUrl,
   policyUrl: deploy.l0176.env.POLICY_URL,
   brokerUrl: deploy.l0176.env.BROKER_URL,
   gatewayAccount: deploy.api.runtimeServiceAccount,
-  compilerAccount: deploy.l0176.runtimeServiceAccount,
+  compilerAccount: deploy[l0176Service].runtimeServiceAccount,
   consoleAccount: flag("--console-account") ?? "console-run@graffiticode-app.iam.gserviceaccount.com",
   connectionId,
   revocationProbe: !args.includes("--no-revocation-probe"),
@@ -107,7 +125,7 @@ const config = {
   afterCutover: args.includes("--after-cutover"),
   reconcile: args.includes("--reconcile"),
   provider: args.includes("--provider") ? await providerConfig() : null,
-  languageUrl: args.includes("--chain-admission") || args.includes("--after-cutover") ? await serviceUrl("l0176") : null,
+  languageUrl: args.includes("--chain-admission") || args.includes("--after-cutover") ? await serviceUrl(l0176Service) : null,
   savedRead: !args.includes("--no-saved-read"),
   auditCheck: !args.includes("--no-audit-check"),
 };
@@ -130,19 +148,15 @@ if (retryFile && !config.chainAdmission) {
   console.error("--retry-state needs --chain-admission");
   process.exit(2);
 }
-// The revision a language's compiles reach now: on the service the api routes
-// it to, its tag's revision when the route names one, else the revision serving
-// all of the service's traffic.
-//
-// The route comes from the LIVE api service, not deploy.json. The scheduled
-// canary runs from an image, and the deploy.json baked into it goes stale at
-// every Rust cutover: L0000 (2026-10-29) and L0176 (2026-11-03) each failed the
-// chain-admission checks until the image was rebuilt, while production was
-// fine. Read once per run.
-let liveApiEnv;
+// The route comes from the deployed api, not deploy.json: the scheduled canary
+// runs from an image whose baked deploy.json goes stale at every Rust cutover
+// (L0000 on 2026-10-29 and L0176 on 2026-11-03 each failed the chain-admission
+// checks until the image was rebuilt, while production was fine).
+// The revision a language's compiles reach now: on the service the api under
+// test routes it to, its tag's revision when the route names one, else the
+// revision serving all of the service's traffic.
 const servingRevision = async lang => {
-  liveApiEnv ??= serviceEnv(JSON.parse(await gcloud(["run", "services", "describe", "api", `--region=${region}`, "--format=json"])));
-  const { service, tag } = languageRoute(lang, liveApiEnv);
+  const { service, tag } = route(lang);
   return routedRevision(JSON.parse(await gcloud(["run", "services", "describe", service, `--region=${region}`, "--format=json"])), tag);
 };
 const retryState = retryFile
@@ -155,7 +169,7 @@ const retryState = retryFile
       clear: async () => rm(retryFile, { force: true }),
     }
   : null;
-console.log(`canary ${uid} on ${connectionId} via ${config.apiUrl}`);
+console.log(`canary ${uid} on ${connectionId} via ${config.apiUrl} (api ${apiRevision ?? "deploy.json"}; L0176 on ${l0176Service})`);
 // Cleanup of the drafts this run saves, when the development organisation's
 // Data API key is in the environment (scripts/lib/canary-archive.js).
 let archiveDrafts = null;

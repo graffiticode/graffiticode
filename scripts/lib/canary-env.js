@@ -22,8 +22,11 @@ export const serviceEnv = service =>
 // language switched to its Rust service, interpreter plan Track A): a service
 // URL is `<service>-<hash>-<region>.a.run.app`, and a revision tag's is
 // `<tag>---<service>-<hash>-<region>.a.run.app`, which also pins the tag.
-// Otherwise it is l<lang>, untagged.
-export const languageRoute = (lang, apiEnv = {}) => {
+// When it is a custom domain, `domains` (host -> service, from Cloud Run's
+// domain mappings) names the service it serves: lNNNN.graffiticode.org maps to
+// lNNNNr once the language is switched (plan option C). Otherwise it is
+// l<lang>, untagged.
+export const languageRoute = (lang, apiEnv = {}, domains = {}) => {
   const url = apiEnv[`BASE_URL_L${lang}`];
   if (typeof url === "string") {
     let host = null;
@@ -34,9 +37,23 @@ export const languageRoute = (lang, apiEnv = {}) => {
       const [tag, rest] = host.includes("---") ? host.split("---") : [null, host];
       return { service: rest.split("-")[0], tag };
     }
+    if (host && domains[host]) return { service: domains[host], tag: null };
   }
   return { service: `l${lang}`, tag: null };
 };
+
+// The env of the api revision a URL reaches: a tag URL's revision, or the one
+// serving all of the service's traffic. Routing is read from what is
+// deployed, not from deploy.json, which can be ahead of it (a staged release).
+export const revisionEnv = revision => {
+  if (!revision) return {};
+  const containers = revision?.spec?.containers ?? [];
+  return Object.fromEntries((containers[0]?.env ?? []).filter(e => typeof e.value === "string").map(e => [e.name, e.value]));
+};
+
+// Cloud Run domain mappings as { host: service }.
+export const domainServices = mappings =>
+  Object.fromEntries((mappings ?? []).map(m => [m?.metadata?.name, m?.spec?.routeName]).filter(([h, s]) => h && s));
 
 // The revision a route reaches: its tag's revision, or the one serving all
 // of the service's traffic.

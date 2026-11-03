@@ -1,0 +1,30 @@
+canary 995cc0bc98105563168b7fbee7b1e59a4256331c on conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd via https://rmw18zdds-309a6c---api-sja7fatcta-uc.a.run.app (api api-rmw18zdds-309a6c; L0176 on l0176r)
+  PASS retry across a deploy: deployed: pinned l0176-rmvv31tuj-fa4690, serving l0176r-rmw18bcvb-0b20c8
+  PASS retry across a deploy: replayed on l0176-rmvv31tuj-fa4690 under the same plan
+  PASS gateway preview: signed preview returned
+  PASS gateway write: draft saved through the connection
+  PASS gateway write effects: succeeded steps=["questions","items"]
+  PASS gateway write retry: same outcome for the same idempotency key
+  PASS gateway write retry effects: succeeded replayed steps=["questions","items"]
+  PASS chain admission: pinned: contract 2, plan f5344170355e s0=l0176r-rmw18bcvb-0b20c8, L0176 serving l0176r-rmw18bcvb-0b20c8
+  PASS saved read: signed: each view freshly signed
+  PASS saved read: references: both views keep ["gc-8ac006fd6864e7cb-graffiticode-canary-0"]
+  PASS saved read: no save effects: no save effect in either view
+  PASS saved read: audit: bounded evidence: no write was logged for this connection between 2026-11-03T22:40:29.613Z and 2026-11-03T22:40:35.708Z within a 120 s observation; read signings observed: 2
+  PASS chain admission: L0000 stage: compiled: signed preview returned
+  PASS chain admission: L0000 stage: plan 952e8eb1f2bd s0=l0176r-rmw18bcvb-0b20c8 s1=l0000r-rmvv1zoul-c9a437, serving L0176 l0176r-rmw18bcvb-0b20c8, L0000 l0000r-rmvv1zoul-c9a437
+  PASS denied final stage: 200 ["not-granted"], 0 effects, no plan
+  PASS denied final stage: permissions restored: owner permissions null, expected null
+  PASS direct path: admitted: s0 pinned to l0176r-rmw18bcvb-0b20c8
+  PASS author removed: policy: snapshot allowed ["init","save-to-itembank"]
+  PASS author removed: broker answered 403 operation-mismatch
+  PASS token replay: first use: 200 succeeded
+  PASS token replay: reuse answered 409 token-replayed
+  PASS receipt replay: first write: 200 succeeded
+  PASS receipt replay: fresh token for the same operation answered 200 succeeded replayed=true
+  PASS revocation probe: first write: 200 succeeded
+  PASS revocation probe: replay after narrowing: answered 403 authorization-denied:not-granted
+  PASS revocation probe: minted, then narrowed: answered 200 failed steps=[] authorization-denied:not-granted
+  PASS revocation probe: permissions restored: owner permissions null, expected null
+  drafts saved this run: 4; archived 0, not archived 0 (skipped: no Data API credential (LRN_SANDBOX_KEY, LRN_SANDBOX_SECRET)): gc-e816ba73f4dc5a71-graffiticode-canary-0 gc-8ac006fd6864e7cb-graffiticode-canary-0 gc-971b43d5e596c8c9-graffiticode-canary gc-a088783671bde7ae-graffiticode-canary
+canary passed (27 checks)
