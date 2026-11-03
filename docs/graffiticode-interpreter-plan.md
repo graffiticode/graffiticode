@@ -279,7 +279,7 @@ Retirement is its own milestone for each language, after its Track A switch. It 
   - **When it starts.** When its entry gate below passes.
 - **B6 Commands, part 2.** The repair ledger keyed by `(command, stage, occurrence)`, `materialize` replay, and resuming stages the original never reached. Before B6 ships, a partial command is reported, and repairing it is manual reconciliation.
 
-### Entry gates for B5 and B6: usage, driven synthetically
+### Gates for B5 and B6: usage, driven synthetically
 B5 used to wait until the read path had "more production experience", which named no amount. It now waits on a **usage gate** instead. The gate counts what the read path has done, not how long it has been live, and a driver can produce that usage on demand.
 
 **How it is measured.**
@@ -311,18 +311,23 @@ B5 used to wait until the read path had "more production experience", which name
 
 B5 now also gates Track E (durable execution). These criteria don't change for that.
 
-**B6 gate.** B5 has shipped, and at least one command language runs on it. That can be from C3 or C5, or a Track E language such as L0188, whose production commands and reconciliations count. Then a synthetic drive with injected faults runs that language's commands:
+**B6 entry gate.** This decides when B6 work starts. It asks only for what B5 already provides. B5 has shipped, and at least one command language runs on it: one from C3 or C5, or a Track E language such as L0188, whose production commands and reconciliations count. A synthetic drive with injected faults then runs that language's commands:
 - **Faults.** Each run injects a failure at a stage, a lost response, or a lease that expires mid-step.
 - **Volume.** At least 200 commands, covering every operation, with retries using the same key.
-- **Outcomes.**
-  - Every partial command is reported as `partial` or `uncertain` and never re-executes a completed operation.
-- **Reconciliation evidence (separate from repair).** Reconciliation establishes what happened to an uncertain effect. It may find the effect already succeeded, and it never retries one. At least 10 `uncertain` or `partial` operations are reconciled against the provider. Each ends with its outcome established, as `completed` or `failed`, without a repeated write. At least one of them turns out to have already succeeded.
-- **Repair evidence (what B6 adds).** Replay repair retries eligible failed occurrences through the repair ledger (design §5, "Repair"). The drive shows each of these:
-  - **Failed-only selection.** A repair selecting a `completed`, `partial` or `uncertain` occurrence is refused at admission. Only occurrences recorded `failed`, or reconciled to `failed`, are eligible.
-  - **Concurrent-repair exclusion.** Two repairs with different keys that select the same occurrence: one claims it in the ledger, and the other is refused. A later repair can't re-run an occurrence an earlier repair completed.
-  - **Resumption.** A repair that completes a stage's last failed occurrence resumes the `not-reached` stages to its left.
-  - **Materialization.** The repaired artifact is materialized from the recorded observations and outputs, with no live reads or new effects, and is published under the latest repair's fencing generation.
-  - **Volume.** At least 10 repairs that succeed.
+- **Outcomes.** Every partial command is reported as `partial` or `uncertain`, and never re-executes a completed operation.
+- **Reconciliation evidence.** Reconciliation establishes what happened to an uncertain effect. It may find that the effect already succeeded, and it never retries one.
+  - At least 10 `uncertain` or `partial` operations are reconciled against the provider.
+  - Each ends with its outcome established, `completed` or `failed`, without a repeated write.
+  - At least one of them turns out to have already succeeded.
+
+  This is a separate operation from repair, and B5 alone supports it.
+
+**B6 completion gate.** This decides when B6 is done and repair can be offered to callers. Replay repair retries eligible failed occurrences through the repair ledger (design §5, "Repair"). A drive on the same language shows each of these:
+- **Failed-only selection.** A repair that selects a `completed`, `partial` or `uncertain` occurrence is refused at admission. Only occurrences recorded `failed`, or reconciled to `failed`, are eligible.
+- **Ledger exclusion.** When two repairs with different keys select the same occurrence, one claims it in the ledger and the other is refused. A later repair can't re-run an occurrence that an earlier repair completed.
+- **Resumption.** A repair that completes a stage's last failed occurrence resumes the `not-reached` stages to its left.
+- **Materialization.** The repaired artifact is materialized from the recorded observations and outputs, with no live reads or new effects. It is published under the latest repair's fencing generation.
+- **Volume.** At least 10 repairs that succeed.
 
 ## Track C — Upgrade each switched language to the interpreter (Rust only)
 Prerequisites: the language is switched (A), and B1–B4 have shipped. A language that needs commands also needs B5, and B6 before repairs can be offered. Track E's prerequisites (E1–E6) apply only to durable languages. No Track C upgrade or immediate command needs them.
