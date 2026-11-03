@@ -22,7 +22,7 @@ import { ARITY1, BLOCKS, PROPERTIES, PAGING_TAGS } from "./vocab.js";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
-const specDir = join(dirname(fileURLToPath(import.meta.url)), "..", "spec");
+const specDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "spec");
 const norm = (s: string) => s.replace(/[`*]/g, "").replace(/\s+/g, " ");
 const directive = norm(readFileSync(join(specDir, "spec-directive.md"), "utf-8"));
 const instructions = norm(readFileSync(join(specDir, "instructions.md"), "utf-8"));
@@ -283,7 +283,7 @@ describe("the envelope and its traps", () => {
     // line-anchored pattern would run across the whole document and match on any stray
     // "OPEN" in prose. It did exactly that once C20 described a fail-OPEN behaviour.
     const raw = readFileSync(
-      fileURLToPath(new URL("../spec/conflict-resolution.md", import.meta.url)), "utf-8",
+      fileURLToPath(new URL("../../../spec/conflict-resolution.md", import.meta.url)), "utf-8",
     );
     const rowsOpen = [...raw.matchAll(/^\| (C\d+) \|([^|]*)\|([^|]*)\|/gm)]
       .filter(m => /\bOPEN\b/.test(m[3])).map(m => m[1]);
@@ -296,7 +296,7 @@ describe("the envelope and its traps", () => {
     // The failure this catches is an entry added to one and not the other — which is how
     // a conflict ends up recorded nowhere a reader will look.
     const raw = readFileSync(
-      fileURLToPath(new URL("../spec/conflict-resolution.md", import.meta.url)), "utf-8",
+      fileURLToPath(new URL("../../../spec/conflict-resolution.md", import.meta.url)), "utf-8",
     );
     const rows = [...raw.matchAll(/^\| (C\d+) \|/gm)].map(m => m[1]);
     const headings = [...raw.matchAll(/^### (C\d+) —/gm)].map(m => m[1]);
@@ -435,7 +435,7 @@ describe("output hygiene", () => {
  */
 describe("instructions.md documents the whole vocabulary", () => {
   const instructions = readFileSync(
-    fileURLToPath(new URL("../spec/instructions.md", import.meta.url)), "utf-8",
+    fileURLToPath(new URL("../../../spec/instructions.md", import.meta.url)), "utf-8",
   );
   const all = [...ARITY1, ...Object.keys(BLOCKS), ...PROPERTIES, ...Object.keys(PAGING_TAGS)];
 
@@ -467,7 +467,7 @@ describe("instructions.md documents the whole vocabulary", () => {
  */
 describe("instructions.md shows the form of enumerated values", () => {
   const instructions = readFileSync(
-    fileURLToPath(new URL("../spec/instructions.md", import.meta.url)), "utf-8",
+    fileURLToPath(new URL("../../../spec/instructions.md", import.meta.url)), "utf-8",
   ).replace(/\s+/g, " ");
 
   test("the bare-vs-quoted rule is stated", () => {
@@ -489,7 +489,7 @@ describe("instructions.md shows the form of enumerated values", () => {
    */
   test("no fenced example writes an enumerated value bare", () => {
     const raw = readFileSync(
-      fileURLToPath(new URL("../spec/instructions.md", import.meta.url)), "utf-8",
+      fileURLToPath(new URL("../../../spec/instructions.md", import.meta.url)), "utf-8",
     );
     // Value-constrained fields are declared per block as [path, type, { values }].
     const valued = Object.values(BLOCKS).flatMap((b: any) =>
@@ -524,9 +524,9 @@ describe("the served catalog lists every block", () => {
   // examples.md and spec.md were guarded and this was not — the same drift, in the file
   // that matters most for discovery.
   const info = JSON.parse(readFileSync(
-    fileURLToPath(new URL("../spec/language-info.json", import.meta.url)), "utf-8"));
+    fileURLToPath(new URL("../../../spec/language-info.json", import.meta.url)), "utf-8"));
   const scope = JSON.parse(readFileSync(
-    fileURLToPath(new URL("../spec/scope.json", import.meta.url)), "utf-8"));
+    fileURLToPath(new URL("../../../spec/scope.json", import.meta.url)), "utf-8"));
 
   test("supported_item_types is exactly the registry", () => {
     expect([...info.supported_item_types].sort()).toEqual(Object.keys(BLOCKS).sort());
@@ -544,7 +544,7 @@ describe("the served catalog lists every block", () => {
 
 describe("spec.md indexes every block", () => {
   const spec = readFileSync(
-    fileURLToPath(new URL("../spec/spec.md", import.meta.url)), "utf-8",
+    fileURLToPath(new URL("../../../spec/spec.md", import.meta.url)), "utf-8",
   );
 
   test("every block appears in the index", () => {
@@ -562,7 +562,7 @@ describe("spec.md indexes every block", () => {
 
 describe("examples.md covers the whole vocabulary", () => {
   const examples = readFileSync(
-    fileURLToPath(new URL("../spec/examples.md", import.meta.url)), "utf-8",
+    fileURLToPath(new URL("../../../spec/examples.md", import.meta.url)), "utf-8",
   );
 
   test("every block is named in the corpus", () => {

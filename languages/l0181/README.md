@@ -47,8 +47,8 @@ literal. The attribute words may appear in any order.
 | `instructions` | `<string record: record>` | Guidance shown above the deck |
 | `theme` | `<tag record: record>` | The UI theme — `DARK` or `LIGHT` |
 
-Full vocabulary: [`packages/core/spec/spec.md`](packages/core/spec/spec.md).
-Authoring guidance: [`packages/core/spec/usage-guide.md`](packages/core/spec/usage-guide.md).
+Full vocabulary: [`spec/spec.md`](spec/spec.md).
+Authoring guidance: [`spec/usage-guide.md`](spec/usage-guide.md).
 
 ## How to use it
 

@@ -55,7 +55,7 @@ Every **property** is a lowercase-kebab **arity-2** function (`name value`) that
 | :------ | :--------- |
 | top-level | `domain`(str, req) · `user-id`(str, req) · `user-email` · `user-firstname` · `user-lastname` · `reference`(str) · `organisation-id`(num) · `question-type-groups`(group tags) · `allow-widgets`(widget tags) |
 | sections | `container` (`height` `fixed-footer-height` `scroll-into-view-selector`) · `widget-templates` (`back` `save` `require-validation`) · `global` (`disable-onbeforeunload`) |
-| views | 186 further options across `item-edit`, `item-list`, `activity-edit` and `activity-list` — see the [vocabulary reference](packages/core/spec/instructions.md) |
+| views | 186 further options across `item-edit`, `item-list`, `activity-edit` and `activity-list` — see the [vocabulary reference](spec/instructions.md) |
 
 **Properties are scoped to the view they appear in**, because Learnosity's own config is:
 `config.item_edit.item` and `config.item_list.item` are different nodes sharing one field name, and
@@ -79,7 +79,7 @@ Some values are records, written the way Learnosity receives them — content ta
 
 There is no in-UI switching between the four views, so the view you choose *is* the mode — each is a separate page and integration. All four are fully modeled: **193 configuration options**, every emitted path cross-checked against Learnosity's published reference.
 
-See [`packages/core/spec/`](packages/core/spec/) for the full specification, examples, and authoring guide.
+See [`spec/`](spec/) for the full specification, examples, and authoring guide.
 
 ## The recipe states its own uncertainty
 

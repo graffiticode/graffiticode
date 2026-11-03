@@ -125,9 +125,9 @@ function blocks(path) {
   return out;
 }
 const fragments = [
-  "packages/core/spec/spec.md",
-  "packages/core/spec/instructions.md",
-  "packages/core/spec/examples.md",
+  "spec/spec.md",
+  "spec/instructions.md",
+  "spec/examples.md",
 ]
   .flatMap(blocks)
   .map((block) => block.trim())
@@ -157,7 +157,7 @@ function testPrograms(path) {
 }
 
 const handwritten = [
-  readFileSync(join(root, "packages/core/spec/template.gc"), "utf8"),
+  readFileSync(join(root, "spec/template.gc"), "utf8"),
   "data-job {}..",
   // a field given an undefined value (the Rust keeps null; see tests/conformance.rs)
   'data-job paging EXHAUSTIVE items-get [ item-pool-id get-var "nope" {} ] {}..',

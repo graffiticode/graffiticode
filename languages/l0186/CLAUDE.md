@@ -223,6 +223,19 @@ evaluated once; one that does (`data`, a `get-var` that may name it) is a plan.
 `compile(case, input)` writes for every case, in both modes and against three inputs. The api
 interprets L0186 only while `INTERPRETER_L0186=on`.
 
+### Static assets and fixtures without the TypeScript (interpreter plan A6)
+
+- **`spec/`** (the language's spec, instructions, usage guide, schema, scope, template and examples)
+  lives at this directory's root, not in `packages/core`. `tools/build-static.mjs` turns it into the
+  public assets (`spec.html` via spec-md, `instructions.md` with L0000's, `language-info.json` with
+  the usage guide's Overview as `authoring_guide`) without importing any compiler;
+  `tools/assemble-static.mjs` adds the View bundle from `packages/view`. The Rust server serves
+  `/lexicon.json` from its binary, so `static/` has no `lexicon.json`. The output is byte-identical
+  to what the TypeScript build produced (checked 2026-11-03).
+- **`crates/core/src/vocab.json`, `crates/core/src/lexicon-additions.json` and `tests/conformance/cases.json` are frozen**: the last trusted TypeScript record, with their provenance in
+  `crates/core/tests/conformance/PROVENANCE.md`. Never regenerate them from the Rust. Until the
+  TypeScript source is removed, `npm run rust:fixtures` still regenerates them from it.
+
 ### Deploying the Rust server
 
 `deploy.json` has an `l0186r` entry (own service, `l0186r-run@graffiticode.iam.gserviceaccount.com`,

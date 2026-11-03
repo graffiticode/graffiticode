@@ -35,7 +35,7 @@ and rates. It is a child of `@graffiticode/l0000`: an npm-workspaces monorepo of
     throws at import if a child word shadows a base word without a declared override.
   - `src/compiler.ts` — `Checker`/`Transformer` extending L0000's, plus `PROG`.
   - `src/cards.ts` — validating and numbering the deck, and every error message it produces.
-  - `spec/` — the language spec, authoring guidance, routing descriptors, schema, template.
+  - `spec/` (at this directory's root since A6, not in `packages/core`) — the language spec, authoring guidance, routing descriptors, schema, template.
   - `tools/build-static.js` — emits `dist/static/` for the API to serve.
 - **`packages/api`** — private Express language server. `/compile`, `/form`, and the static
   assets, served before auth. Copied from L0180 and unchanged apart from the language id.
@@ -167,6 +167,19 @@ Deliberate differences, each with its own test:
 - **An error in an applied function is reported once**; TypeScript's `LAMBDA` reports its body's errors twice.
 
 Also different, and not in the fixture: a string spread into the chain that splits an astral character (`theme DARK "😀"..`) gives U+FFFD fields where JavaScript keeps the lone surrogates, which a Rust string cannot hold (unit-tested); and a program with both a syntax error and a bad `theme` gets the kernel's syntax errors first rather than in tree order.
+
+### Static assets and fixtures without the TypeScript (interpreter plan A6)
+
+- **`spec/`** (the language's spec, instructions, usage guide, schema, scope, template and examples)
+  lives at this directory's root, not in `packages/core`. `tools/build-static.mjs` turns it into the
+  public assets (`spec.html` via spec-md, `instructions.md` with L0000's, `language-info.json` with
+  the usage guide's Overview as `authoring_guide`) without importing any compiler;
+  `tools/assemble-static.mjs` adds the View bundle from `packages/view`. The Rust server serves
+  `/lexicon.json` from its binary, so `static/` has no `lexicon.json`. The output is byte-identical
+  to what the TypeScript build produced (checked 2026-11-03).
+- **`crates/core/src/lexicon-additions.json` and `tests/conformance/cases.json` are frozen**: the last trusted TypeScript record, with their provenance in
+  `crates/core/tests/conformance/PROVENANCE.md`. Never regenerate them from the Rust. Until the
+  TypeScript source is removed, `npm run rust:fixtures` still regenerates them from it.
 
 ### Deploying the Rust server
 

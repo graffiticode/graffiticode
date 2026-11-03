@@ -13,7 +13,7 @@ L0010 adds a single function on top of the L0000 base lexicon:
 |----------|:-----:|---------|-------------|
 | `plan`   | 1 | `plan ["0158" "0166"]..` | Builds a composition plan: a list of language-id strings → `{ langs: [...] }` (head first; each consumes the next). One id = atomic; empty = no composition. |
 
-See [`packages/core/spec/`](packages/core/spec/) for the full language specification, examples, and authoring guide.
+See [`spec/`](spec/) for the full language specification, examples, and authoring guide.
 
 ## Structure
 

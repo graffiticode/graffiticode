@@ -20,7 +20,7 @@ Two decisions shape the design:
 - **A pipeline is a chain of models, interpreted right to left.** Each task compiles on its own into a reusable model. Each language then interprets its own model, given the previous stage's resolved data: `interpret(A, interpret(B, interpret(C, input)))`. No language has to understand another language's model (§5, "Pipelines").
 - **Rust is the only implementation target.** `/interpret` and its identity default are built once, in the shared Rust server and `Dialect` interface, and every `lNNNNr` service inherits them. The Node language services are not changed. Each language first switches to its Rust service with today's semantics, and is upgraded to the interpreter later, as a separate release (§12; see the [plan](graffiticode-interpreter-plan.md)).
 
-Much of this already exists in another form: L0176's READ-01 read stage, `POST /preview/sign`, the form's refresh before expiry, and the policy/broker effect machinery (§2). This design formalizes and generalizes those pieces. Durable workflows are kept in the contract as reserved operations, and their design is deferred (§12).
+Much of this already exists in another form: L0176's READ-01 read stage, `POST /preview/sign`, the form's refresh before expiry, and the policy/broker effect machinery (§2). This design formalizes and generalizes those pieces. Durable workflows are delivered by plan Track E, whose first consumer is [L0188](l0188-language-design.md) (§12).
 
 The design supports four combinations of state and result validity: immutable/indefinite, immutable/expiring, mutable/indefinite, and mutable/expiring. A durable workflow can update its result when state changes **and** refresh expiring presentation credentials without restarting or advancing the workflow.
 
@@ -182,7 +182,7 @@ The operations reuse the capability machinery that already exists, rather than a
 
 ### Immediate commands
 
-`start` is needed now, for L0176 item-bank saves and L0013 snapshots (Phase 3). That is an **immediate command**: one invocation, a bounded run, and a persisted outcome. Durable workflow orchestration is something else and stays deferred (§12): long-lived executions, `dispatch`, state versions, and published projections. Nothing below depends on it.
+`start` is needed now, for L0176 item-bank saves and L0013 snapshots (Phase 3). That is an **immediate command**: one invocation, a bounded run, and a persisted outcome. Durable workflow orchestration is something else: long-lived executions, `dispatch`, state versions, and published projections. It is delivered by plan Track E, whose first consumer is [L0188](l0188-language-design.md) (§12). Immediate commands don't depend on it.
 
 Broker receipts deduplicate *external writes*: one receipt per operation id. They do not deduplicate the command itself. So a command has its own identity, inputs and lifecycle.
 
@@ -207,12 +207,20 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - the resolved inputs, or a snapshot of them with its digest;
   - the model digest;
   - the implementation revisions it ran under (compiler, interpreter, `REGISTRY_VERSION`).
-- Every retry and every recovery reuses that snapshot and never fetches the data again. A retry that can't load it fails rather than fetching afresh.
+- **Replaying a recorded observation.** A retry or recovery of a recorded observation, or of a write built from one, reuses the record and never fetches again. A retry that can't load the record fails rather than fetching afresh. This is what prevents `operation-id-reused`.
+- **Scheduling a new observation.** A new observation, such as the next poll of a provider job, is a new occurrence. It is allocated and recorded before the read, and once recorded it falls under the replay rule. A poll therefore can't replay an old "still running" answer forever, and a retry can't change what an earlier observation saw.
 
 **Effect intents come from the model.**
 - Today L0176's save plans exist only in a WeakMap tied to one compile (`languages/l0176/packages/core/src/compiler.ts:77`). That is how `save-to-itembank` can save only an activity built by the same compile.
 - Once compilation and `start` are separate requests, that guarantee has to live in the model. The compiled model carries **validated effect intents**, each with a **stable occurrence id**.
 - `start` executes only intents found in the model whose digest it is bound to. The occurrence ids give the broker operation ids (`invocation/stage/occurrence`), so they must not change between attempts.
+- **Runtime-expanded effects** are admitted as occurrences of the model's intents, not as new effects:
+  - **Intents.** An intent declares its registered function, its scope and its expansion bounds, for example "up to 100 sessions per batch, drawn from the retained cohort".
+  - **Occurrences.** A runtime occurrence, such as the third batch, has an expansion key derived from the pinned model and recorded observations.
+  - **Ids stay one segment.** An occurrence's id is a single segment, so `invocation/stage/occurrence` and Policy's validators are unchanged. It is a reserved prefix plus a hash of canonical `{intentId, expansionKey}`, and both fields are kept separately.
+  - **Persisted before dispatch.** Each occurrence is persisted with its id and arguments.
+  - **Checked by Policy.** At authorize-execution, Policy checks that the occurrence names an admitted intent, stays within its scope and bounds, and has an id that matches its encoding.
+  - **Immediate commands unchanged.** An intent with exactly one occurrence keeps its static id.
 
 **Provenance and admission are separate.**
 - **Model provenance** describes the model and nothing else: language, task id, model digest, compiler revision, `REGISTRY_VERSION`. Because it names no caller, the model can be reused across callers and invocations.
@@ -490,7 +498,7 @@ What `/data` returns depends on how the item is viewed:
 
 Within those rules, refresh becomes general. A result with `expiresAt` tells the consumer when to ask for a fresh `get`, through `/data` or a dedicated refresh route, and `/preview/sign` becomes one case of that mechanism.
 
-Durable executions (deferred, see §12): a stable `/form/:itemId` URL resolves the task/model and the current execution, if any. If several executions exist for the same model, the platform needs a selection rule or an explicit selector such as `/form/:id?execution=...`.
+Durable executions (plan Track E, §12): a stable `/form/:itemId` URL resolves the task/model and the current execution, if any. If several executions exist for the same model, the platform needs a selection rule or an explicit selector such as `/form/:id?execution=...`.
 
 Conceptual read path for `/data`:
 
@@ -549,7 +557,7 @@ async function getFormResult(itemId, viewer, initialInput): Promise<ResultEnvelo
 // The chain's own cache namespace includes every constituent language's generation (§7).
 ```
 
-This is conceptual pseudocode. `resultCache` holds only results that may be cached (see §7). A credential-bearing result skips both the lookup and the `put`. For a connection or publication view, the chain is replaced by the artifact selection in this section. Once durable executions exist (deferred), the API must also know the current execution version, or use an equivalent versioned cache protocol: merely trusting a stale local version would make the validity test unreliable.
+This is conceptual pseudocode. `resultCache` holds only results that may be cached (see §7). A credential-bearing result skips both the lookup and the `put`. For a connection or publication view, the chain is replaced by the artifact selection in this section. Once durable executions exist (plan Track E), the API must also know the current execution version, or use an equivalent versioned cache protocol: merely trusting a stale local version would make the validity test unreliable.
 
 The form can receive updates through SSE, WebSockets, or polling. Reading a result and subscribing to updates are separate from `start` and `dispatch`. Local ephemeral UI state (hover, open menu, etc.) remains in the browser.
 
@@ -629,7 +637,7 @@ For a value model, `get` returns its value (identity) and unsupported operations
   - Both routes must return the same interpreted result.
   - The View also consumes the result envelope's refresh metadata and carries the generation (§7).
 
-**Sequencing (see the plan).** Each language switches to Rust *first*, with today's semantics and its parity checked against the TypeScript service (plan Track A). It is upgraded to the interpreter *later*, in Rust, as a separate release (plan Track C). This replaces switching compile and interpret routing together. The steps below describe the upgrade.
+**Sequencing (see the plan).** Each language switches to Rust *first*, with today's semantics and its parity checked against the TypeScript service (plan Track A). It is upgraded to the interpreter *later*, in Rust, as a separate release (plan Track C). This replaces switching compile and interpret routing together. A language created natively in Rust (L0187, L0188) has no TypeScript to compare against. It skips the switch and is activated on its own compiler and interpreter conformance, with B5's command-recovery evidence added if it has commands, and Track E6's durable-execution gates if it is durable. A read-only native language never needs Track E. The steps below describe the upgrade.
 
 **Mixed chains, and languages that never move.** While some languages are upgraded and others aren't, a chain can contain both. About 20 production languages outside this repository have no Rust implementation, so this is permanent, not only a migration state. A whole-chain migration would tie every language's switch to every other's, so the API runs a **legacy adapter** instead:
 - **A legacy stage runs today's call at its turn.** When right-to-left interpretation reaches a stage whose language hasn't switched, the API calls that language's existing `POST /compile { code, data }` with the resolved upstream result as `data`, exactly as today. Its output is that stage's result. A legacy stage has no separate model: its compile is its evaluation.
@@ -683,11 +691,19 @@ For a value model, `get` returns its value (identity) and unsupported operations
   - **A stateless draw is weaker.** A hash of item id and respondent needs no write, but it changes assignments whenever the available version set changes. It gives the same revision stability only when hashed over a fixed **assignment epoch**: an immutable candidate set that a revision never changes, and that is replaced only by an explicit new epoch. Use it only if balancing across versions isn't required.
 - Audit grant enforcement and add observability across compile, interpret and form.
 
-**Deferred — durable executions.**
-- Covers long-lived executions and execution IDs, `dispatch`, an authoritative execution store, state versions, state-change publication and invalidation, a versioned result cache, live form updates, and combined durable and expiring results.
-- No current language needs these. `dispatch` stays in the contract as a reserved operation, and this part moves to a follow-up design doc once a language needs it.
-- Immediate `start` commands (§5) are *not* deferred. Phase 3 needs them, with their invocation ids, pinned inputs and persisted outcomes.
-- §6–§9 sketch the direction for that doc.
+**Durable executions (plan Track E, first consumer [L0188](l0188-language-design.md)).**
+- **What it covers.** Long-lived executions and execution ids; `dispatch`; an authoritative execution store; state versions; state-change publication and invalidation; a versioned result cache; live form updates; and combined durable and expiring results.
+- **Why now.** L0188's Learnosity Data operations outlive a request, a session and several deployments, so this is no longer deferred. Plan Track E delivers it:
+  - run records (E1);
+  - persisted scheduling and overdue-wait recovery (E2);
+  - Policy continuation (E3);
+  - run reads and the View's workflow update path (E4);
+  - one complete operation (E5);
+  - activation and recovery gates (E6).
+
+  It builds on B5 and D1/D2a.
+- **Immediate `start` commands (§5) were never deferred.** Phase 3 needs them, with their invocation ids, pinned inputs and persisted outcomes.
+- **Where the details live.** §6–§9 sketch the direction; the L0188 doc and plan Track E make it concrete.
 
 ### Acceptance criteria
 
@@ -785,7 +801,7 @@ Questions that block Phases 1–3:
 10. How does the API call the stages of a chain: one `/interpret` request per stage, or a batched call for consecutive stages in the same language? What latency budget applies?
 11. ~~What is the routing switch, mechanically?~~ Answered in the plan: `BASE_URL_LNNNN` plus `COMPILE_GENERATION_LNNNN` in the API env for the switch, and `INTERPRETER_LNNNN` / `COMMANDS_LNNNN` with a new generation for the upgrade, each rolled back as the plan's "Rollback procedures" describe.
 
-Questions deferred with durable executions:
+Open questions for durable executions (plan Track E; see also the L0188 doc's "Decisions still open"):
 
 - How an interpreter publishes updates to the API (callback endpoint, message bus, or shared execution service).
 - How the current execution of an item is selected.
@@ -845,7 +861,7 @@ Questions deferred with durable executions:
 - *(Proposed)* **Keep artifact and publication reads.** `get` interprets the selected artifact under the existing authority. A missing artifact never triggers an implicit run.
 - *(Proposed)* **Constrain refresh.** Refresh before initialization or while idle, under the original authority, without losing user input.
 - *(Proposed)* **Run `get` as policy stage `read`** with view-safe functions only, and send every `start`/`dispatch` effect through the broker under a policy invocation.
-- *(Proposed)* **Defer durable executions** to a follow-up doc. `dispatch` stays reserved in the contract.
+- **Durable executions are delivered by plan Track E**, driven by [L0188](l0188-language-design.md), instead of being deferred. B5 is their immediate-command foundation, and Track E extends it with run records, timers and overdue-wait recovery. `dispatch` is specified there.
 - **L0013 snapshots become brokered commands.** They use item-scoped authorization within the chain's invocation, a capture sequence, and a dated compatibility exception for public items. Both runtime accounts lose direct write when the bridge is retired (plan C5).
 
 This document summarizes a proposed architecture, not an assertion that these interfaces or migrations have already been implemented.

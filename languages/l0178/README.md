@@ -17,7 +17,7 @@ When handling a recipe request, the oracle does not sign or send Learnosity API 
 
 ## Status
 
-> **Early: 30 modeled operation blocks, including both sessions-set variants, against the ledger's 57 documented blocks. Modeled coverage is separate from empirical coverage: observations support specific behaviors, while session submissions, deletion, and six of eight update operations remain documented only.** See [`packages/core/spec/coverage.md`](packages/core/spec/coverage.md).
+> **Early: 30 modeled operation blocks, including both sessions-set variants, against the ledger's 57 documented blocks. Modeled coverage is separate from empirical coverage: observations support specific behaviors, while session submissions, deletion, and six of eight update operations remain documented only.** See [`spec/coverage.md`](spec/coverage.md).
 >
 > Paging and transport observations include the public demo bank (2026-08-13, `learnosity-sdk-nodejs` 0.7.0, `v2025.2.LTS`). Later private-consumer experiments on sandbox bank 386 established specific polling, write, and response behaviors. Consult the claim-level provenance; no observation proves behavior in the caller's deployment.
 
@@ -67,7 +67,7 @@ Drop the `paging` line and the compiler reports a hole rather than a design.
 
 Request fields are lowercase-kebab, flattened from the API's nesting. The flattening is ambiguous — `include-items` is `include.items` but `item-pool-id` is `item_pool_id` — so the compiled output carries a `paths` map, and the recipe copies from it rather than expanding the name.
 
-See [`packages/core/spec/`](packages/core/spec/) for the specification, scope boundaries, and authoring guide.
+See [`spec/`](spec/) for the specification, scope boundaries, and authoring guide.
 
 ## Structure
 

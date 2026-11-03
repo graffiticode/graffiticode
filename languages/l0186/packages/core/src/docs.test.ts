@@ -14,7 +14,7 @@ import { lexicon as base } from "@graffiticode/l0000";
 import { compile } from "./harness.js";
 import { containerMembers, lexicon, validAttributes, validSettings } from "./index.js";
 
-const SPEC_FILES = ["spec/spec.md", "spec/instructions.md", "spec/usage-guide.md"];
+const SPEC_FILES = ["../../spec/spec.md", "../../spec/instructions.md", "../../spec/usage-guide.md"];
 
 /** Every fenced block in a markdown file, dedented by its fence's indentation. */
 function blocks(path: string): string[] {
@@ -42,7 +42,7 @@ const isProgram = (src: string): boolean => !!src && src.trim().endsWith("..");
 
 describe("spec programs", () => {
   test("spec.md and instructions.md carry programs", () => {
-    for (const f of ["spec/spec.md", "spec/instructions.md"]) {
+    for (const f of ["../../spec/spec.md", "../../spec/instructions.md"]) {
       expect(blocks(f).filter(isProgram).length, `${f} has no programs`).toBeGreaterThan(0);
     }
   });
@@ -56,7 +56,7 @@ describe("spec programs", () => {
   });
 
   test("the starter template compiles to a board with nodes and connectors", async () => {
-    const out = await compile(readFileSync("spec/template.gc", "utf-8"));
+    const out = await compile(readFileSync("../../spec/template.gc", "utf-8"));
     const types = out.pages[0].nodes.map((n: any) => n.type);
     expect(types).toContain("connector");
     expect(types.filter((t: string) => t !== "connector").length).toBeGreaterThan(2);
@@ -77,7 +77,7 @@ describe("spec and lexicon agree", () => {
   const dialect = Object.keys(lexicon).filter((w) => !(w in base) && lexicon[w].cls === "function");
 
   test("every documented word exists, with the signature the lexicon gives it", () => {
-    for (const f of ["spec/spec.md", "spec/instructions.md"]) {
+    for (const f of ["../../spec/spec.md", "../../spec/instructions.md"]) {
       for (const [w, sig] of documented(f)) {
         expect(lexicon[w], `${f} documents \`${w}\`, which is not in the lexicon`).toBeDefined();
         expect(lexicon[w].type, `${f}: \`${w}\` signature drift`).toBe(sig);
@@ -86,14 +86,14 @@ describe("spec and lexicon agree", () => {
   });
 
   test("every L0186 word is documented in instructions.md and spec.md", () => {
-    for (const f of ["spec/spec.md", "spec/instructions.md"]) {
+    for (const f of ["../../spec/spec.md", "../../spec/instructions.md"]) {
       const words = documented(f);
       expect(dialect.filter((w) => !words.has(w)), `${f} is missing words`).toEqual([]);
     }
   });
 
   test("every tag is documented in spec.md", () => {
-    const text = readFileSync("spec/spec.md", "utf-8");
+    const text = readFileSync("../../spec/spec.md", "utf-8");
     const tags = Object.keys(lexicon).filter((w) => !(w in base) && lexicon[w].name === "TAG");
     expect(tags.filter((t) => !new RegExp(`\\b${t}\\b`).test(text))).toEqual([]);
   });
@@ -103,7 +103,7 @@ describe("the tables in instructions.md match the compiler", () => {
   // The generator reads these to decide where a word goes; the compiler rejects on the same
   // tables. If they disagree, the docs teach a refused program.
   function table(heading: string): Map<string, string[]> {
-    const text = readFileSync("spec/instructions.md", "utf-8");
+    const text = readFileSync("../../spec/instructions.md", "utf-8");
     const section = text.split(new RegExp(`^## ${heading}$`, "m"))[1]?.split(/^## /m)[0];
     expect(section, `instructions.md is missing "## ${heading}"`).toBeTruthy();
     const out = new Map<string, string[]>();
@@ -124,28 +124,28 @@ describe("the tables in instructions.md match the compiler", () => {
 });
 
 describe("schema.json describes what the compiler emits", () => {
-  const schema = JSON.parse(readFileSync("spec/schema.json", "utf-8"));
+  const schema = JSON.parse(readFileSync("../../spec/schema.json", "utf-8"));
   const ajv = new (Ajv as any)({ strict: false, allErrors: true });
   const validate = ajv.compile(schema);
   const check = (out: any, where: string) => expect(validate(out), `${where}: ${ajv.errorsText(validate.errors)}`).toBe(true);
 
   test("every spec program's compiled output validates", async () => {
     for (const f of SPEC_FILES) for (const src of blocks(f).filter(isProgram)) check(await compile(src), `${f}:\n${src}`);
-    check(await compile(readFileSync("spec/template.gc", "utf-8")), "template.gc");
+    check(await compile(readFileSync("../../spec/template.gc", "utf-8")), "template.gc");
   });
 
   test("rejects output the compiler could not have produced", async () => {
-    const out = await compile(readFileSync("spec/template.gc", "utf-8"));
+    const out = await compile(readFileSync("../../spec/template.gc", "utf-8"));
     out.pages[0].nodes[0].nonsense = true;
     expect(validate(out), "additionalProperties:false is not doing its job on a node").toBe(false);
-    const again = await compile(readFileSync("spec/template.gc", "utf-8"));
+    const again = await compile(readFileSync("../../spec/template.gc", "utf-8"));
     again.nonsense = true;
     expect(validate(again), "additionalProperties:false is not doing its job on the board").toBe(false);
   });
 });
 
 describe("examples.md", () => {
-  const text = readFileSync("spec/examples.md", "utf-8");
+  const text = readFileSync("../../spec/examples.md", "utf-8");
   const lines = text.split("\n");
   const numbered = lines.map((l) => l.match(/^(\d+)\.\s+\S/)).filter(Boolean).map((m) => Number(m![1]));
   const prompts = lines.filter((l) => /^\d+\.\s/.test(l));
@@ -183,7 +183,7 @@ describe("examples.md", () => {
 describe("scope.json carries the words the MCP router keeps", () => {
   // graffiticode-mcp-server's limitSentences() inlines only sentences matching this.
   const KEEP = /\b(ONLY when|do NOT|does NOT|are not built|not built yet|EARLY|never)\b/i;
-  const scope = JSON.parse(readFileSync("spec/scope.json", "utf-8"));
+  const scope = JSON.parse(readFileSync("../../spec/scope.json", "utf-8"));
 
   test("every out_of_scope sentence survives the router's filter", () => {
     expect(scope.out_of_scope.filter((s: string) => !KEEP.test(s))).toEqual([]);
