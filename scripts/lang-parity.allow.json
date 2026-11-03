@@ -262,5 +262,31 @@
       "src": "rows [{a: format-number \"bad\" 1}] {}..",
       "note": "The same format-number error, at the pattern's real position where TypeScript reports -1 (the kernel's positions, as L0000's error-presentation rule records)."
     }
+  ],
+  "0176": [
+    {
+      "kind": "volatile",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+      "note": "Every L0176 activity gets a fresh session_id (and, with no lrn-id, a fresh id): a UUID per compile, so two compiles of the same service differ too. languages/l0176/CLAUDE.md, \"Conformance\": the conformance test masks the same UUIDs."
+    },
+    {
+      "kind": "volatile",
+      "pattern": "graffiticode-\\d{4}-\\d{2}-\\d{2}T\\d{9}Z-row-\\d+",
+      "note": "items params rows are keyed by the compile's timestamp (graffiticode-<ISO time>-row-N), different on every compile; the conformance test masks the timestamped data."
+    },
+    {
+      "kind": "error-presentation",
+      "note": "get-val-* without a resolved value: the TypeScript appends the \"[object Object]\" its published @graffiticode/l0000 adds and reports position -1; Rust omits it and reports the word's real position (languages/l0176/CLAUDE.md, \"Deliberate differences\")."
+    },
+    {
+      "kind": "case",
+      "src": "set-var \"lrn-id\" \"t\" questions [mcq [stimulus get-var \"nope\"]] {}..",
+      "note": "An attribute given an undefined value (an unset get-var) emits null; TypeScript drops the field (languages/l0176/CLAUDE.md, \"Deliberate differences\")."
+    },
+    {
+      "kind": "case",
+      "src": "{type: \"questions\" data: {questions: []}}..",
+      "note": "An activity written as a record literal is signed (here: unsigned gateway-only, since the gate calls directly); TypeScript can't see a literal's type in its PROG and leaves it unsigned (languages/l0176/CLAUDE.md, \"Deliberate differences\")."
+    }
   ]
 }

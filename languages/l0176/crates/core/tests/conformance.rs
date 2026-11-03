@@ -164,3 +164,13 @@ async fn agrees_with_the_typescript_implementation() {
     failures.truncate(8);
     assert!(failures.is_empty(), "{total} of {} cases disagree:\n\n{}", cases.len(), failures.join("\n\n"));
 }
+
+#[test]
+fn the_published_lexicon_never_advertises_a_retired_spelling() {
+    let lexicon = graffiticode_l0176::lexicon();
+    for word in graffiticode_l0176::DEPRECATED_WORDS {
+        assert!(lexicon.get(word).is_none(), "{word} is retired and must not be served");
+    }
+    // The current spelling stays.
+    assert_eq!(lexicon.get("token-highlight").map(|e| e.name.as_str()), Some("TOKEN_HIGHLIGHT"));
+}
