@@ -130,11 +130,15 @@ Rollback is an API rollback. The TypeScript service stays deployed.
    6. **Run the connection canary through the staged API's tag URL.** Verify full admission and execution, with L0000 as the appended data stage, not just `/preflight`.
    7. **Retry an existing TypeScript invocation** through the staged API, and verify it replays through its pinned `l0000` revision.
    8. **Promote the staged API** (`npm run deploy -- promote api --release <id> --evidence <file>`) only after 4, 6 and 7 pass.
-5. **A5** l0176, last.
-   - Port the parity gaps: `init` validation, and gateway-only signing with the busy results.
-   - Make `l0176r` pinnable with approvals.
-   - Set `POLICY_URL` and `BROKER_URL`, have Policy accept `l0176r-run`, and move it to the `compilers-l0176` egress subnet.
-   - Run the canary through a connection before switching.
+5. **A5** l0176, last. The order follows A4's:
+   1. **Port the parity gaps** in `crates/`: `init` validation, and gateway-only system signing with the busy results. Regenerate the fixtures, which still come from the TypeScript.
+   2. **Policy and the Broker trust `l0176r-run`.** That means new `policy-callers` and `broker-callers` versions, `run.invoker` on both services, `deploy.json` pinned to the versions Secret Manager returns, and `policy` and `broker` released (IAM review Step 18).
+   3. **Release `l0176r` as a pinnable service** on `compilers-l0176`, with `POLICY_URL`, `BROKER_URL` and `PREFLIGHT_GATEWAYS`. Its approval is recorded before promotion.
+   4. **Parity gate** for L0176. It compares unsigned previews, because signatures are fresh on every compile.
+   5. **Stage an api revision** with `BASE_URL_L0176` and a new `COMPILE_GENERATION_L0176`.
+   6. **Run the connection canary through the staged tag URL.** Use the canary account and its sandbox connection, which writes only to the sandbox. Check a signed render, a save that is retried and replays, and a no-connection system preview through the gateway.
+   7. **Retry an existing TypeScript invocation** through the staged api, and verify it replays through its pinned `l0176` revision.
+   8. **Promote** only after steps 4, 6 and 7 pass. Then repoint `l0176.graffiticode.org` to `l0176r`, as option C did for the others, and purge Cloudflare's cached `/form`.
 
 ### Retiring the TypeScript implementation (per language, after its switch)
 Retirement is its own milestone for each language, after its Track A switch. It needn't wait for that language's Track C upgrade. It has two steps with separate decisions: **A6** removes the TypeScript compiler and server source from `main`; **A7** retires the deployed TypeScript service. Removing source never requires deleting a service.

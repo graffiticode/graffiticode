@@ -1111,9 +1111,38 @@
       "access": "public",
       "retireTags": true,
       "runtimeServiceAccount": "l0176r-run@graffiticode.iam.gserviceaccount.com",
+      "pinnable": {
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ]
+      },
+      "baselines": [
+        {
+          "milestone": "W4",
+          "commit": "7ff60213fd7c6554221b688d6eaab89b7df3bed0"
+        },
+        {
+          "milestone": "v7",
+          "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee"
+        },
+        {
+          "milestone": "gateway-only",
+          "commit": "dd5b903142c56eb215b5538c2219fa2e37655e66"
+        },
+        {
+          "milestone": "v8",
+          "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
+        },
+        {
+          "milestone": "rust-parity",
+          "commit": "db3ad15d484cfb590b0815e561dde12d77ac20de"
+        }
+      ],
       "network": {
         "network": "compilers",
-        "subnet": "compilers-default",
+        "subnet": "compilers-l0176",
         "tags": [
           "compiler"
         ],
@@ -1124,7 +1153,10 @@
         },
         "allow": [
           "api.graffiticode.org",
-          "auth.graffiticode.org"
+          "auth.graffiticode.org",
+          "broker-sja7fatcta-uc.a.run.app",
+          "policy-sja7fatcta-uc.a.run.app",
+          "www.googleapis.com"
         ]
       },
       "exclude": [],
@@ -1140,7 +1172,10 @@
         }
       ],
       "env": {
-        "AUTH_URL": "https://auth.graffiticode.org"
+        "AUTH_URL": "https://auth.graffiticode.org",
+        "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+        "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
+        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
       },
       "smoke": [
         {
@@ -1157,7 +1192,12 @@
         "languages/l0000",
         "configs/Dockerfile.l0176r.yaml"
       ],
-      "minInstances": 0
+      "minInstances": 0,
+      "forbiddenEnv": [
+        "SYSTEM_PREVIEW_DIRECT",
+        "LEARNOSITY_KEY",
+        "LEARNOSITY_SECRET"
+      ]
     },
     "l0176": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176",
