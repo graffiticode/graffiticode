@@ -1507,14 +1507,14 @@ stands: a `0176` compiler that both Policy and the Broker trust, pinnable, and o
 gateway-only system signing with the busy results. A compile only gets `POLICY_URL` and
 `BROKER_URL` after that. **Nothing below is applied yet.** Each line gets a date when it is.
 
-- **Policy's caller map.** Upload a new `policy-callers` version: version 5 plus `l0176r-run` as a
+- **Policy's caller map.** *(Uploaded 2026-11-03 as version 6, validated with `parseCallers`; `deploy.json` pins `policy-callers:6`, applied when `policy` is released.)* Upload a new `policy-callers` version: version 5 plus `l0176r-run` as a
   `compiler` for `0176`, next to `l0176-run`. `l0176-run` stays, because plans pinned to `l0176`
   revisions still retry there. Validate the version with `parseCallers` before uploading. Then
   pin `deploy.json`'s `policy` to **the version Secret Manager returns**, and release `policy`.
-- **Broker's caller map.** Upload a new `broker-callers` version in the same way: version 1 plus
+- **Broker's caller map.** *(Uploaded 2026-11-03 as version 2, validated with `parseCallers`; `deploy.json` pins `broker-callers:2`, applied when `broker` is released.)* Upload a new `broker-callers` version in the same way: version 1 plus
   `l0176r-run` as a `compiler` for `0176`. Then pin `deploy.json`'s `broker` to the returned
   version, and release `broker`.
-- **Invokers.** Grant `l0176r-run` `run.invoker` on `policy` and on `broker`, as `l0176-run` has.
+- **Invokers.** *(Granted 2026-11-03.)* Grant `l0176r-run` `run.invoker` on `policy` and on `broker`, as `l0176-run` has.
 - **Network.** Move `l0176r` to subnet `compilers-l0176`, the same class as `l0176`. That class
   allows `api`, `auth`, Policy's and the Broker's `run.app` hosts, and `www.googleapis.com`.
   `production/network.json` gets the same block. The proxy's generated config is unchanged by
