@@ -1475,11 +1475,12 @@ account or to an external account. Nothing found.
   operator from the Usage page).
 - **Nothing found.** P1 #1 closed on 2026-10-27.
 
-### Step 15: `l0000r` takes over L0000's protected-execution role (interpreter plan A4) [PLANNED]
+### Step 15: `l0000r` takes over L0000's protected-execution role (interpreter plan A4) [LIVE]
 
 L0000's switch from `l0000` (TypeScript) to `l0000r` (Rust) needs `l0000r` to stand where `l0000`
-stands: a compiler Policy trusts for `0000`, pinnable, and on `l0000`'s network class. **Nothing
-below is applied yet**; each line is marked with its date when it is.
+stands: a compiler Policy trusts for `0000`, pinnable, and on `l0000`'s network class. Applied
+with the A4 switch (2026-10-29). Checked 2026-11-03: `policy-callers:5` lists `l0000r-run`,
+which holds `run.invoker` on `policy`, and `l0000r` runs on `compilers-l0000`.
 
 - **Caller map.** *(Uploaded 2026-10-29 as version 5: version 4 plus the one entry, validated
   with `parseCallers`; `deploy.json` pins `policy-callers:5`, applied when `policy` is released.)*
@@ -1497,6 +1498,35 @@ below is applied yet**; each line is marked with its date when it is.
   (`l0000r-rmvfv6ypx-25d112`, never approved, needed by no plan) is then a reachable unapproved
   revision; remove its tag with the deploy CLI's tag retirement.
 - `l0000` and its approved revisions stay: admitted plans that pin them keep retrying there.
+
+### Step 18: `l0176r` takes over L0176's protected-execution role (interpreter plan A5) [PLANNED]
+
+This is Step 15 again for L0176, with the Broker added. `l0176r` has to stand where `l0176`
+stands: a `0176` compiler that both Policy and the Broker trust, pinnable, and on
+`compilers-l0176`. Its Rust side first ports L0176's two parity gaps: `init` validation, and
+gateway-only system signing with the busy results. A compile only gets `POLICY_URL` and
+`BROKER_URL` after that. **Nothing below is applied yet.** Each line gets a date when it is.
+
+- **Policy's caller map.** Upload a new `policy-callers` version: version 5 plus `l0176r-run` as a
+  `compiler` for `0176`, next to `l0176-run`. `l0176-run` stays, because plans pinned to `l0176`
+  revisions still retry there. Validate the version with `parseCallers` before uploading. Then
+  pin `deploy.json`'s `policy` to **the version Secret Manager returns**, and release `policy`.
+- **Broker's caller map.** Upload a new `broker-callers` version in the same way: version 1 plus
+  `l0176r-run` as a `compiler` for `0176`. Then pin `deploy.json`'s `broker` to the returned
+  version, and release `broker`.
+- **Invokers.** Grant `l0176r-run` `run.invoker` on `policy` and on `broker`, as `l0176-run` has.
+- **Network.** Move `l0176r` to subnet `compilers-l0176`, the same class as `l0176`. That class
+  allows `api`, `auth`, Policy's and the Broker's `run.app` hosts, and `www.googleapis.com`.
+  `production/network.json` gets the same block. The proxy's generated config is unchanged by
+  this (checked 2026-11-03), so the proxy needs no rebuild.
+- **Pinnable.** `deploy.json`'s `l0176r` takes `l0176`'s values:
+  - `pinnable` for `0176`, with contract versions 1 and 2;
+  - its `baselines`, plus a Rust milestone at the parity port's merge commit;
+  - `POLICY_URL`, `BROKER_URL`, and `PREFLIGHT_GATEWAYS=api-run`;
+  - `forbiddenEnv` of `SYSTEM_PREVIEW_DIRECT`, `LEARNOSITY_KEY` and `LEARNOSITY_SECRET`.
+
+  Its first release of this kind records its revision in `revisions` before promotion.
+- **`l0176` and its approved revisions stay** until A7, for the plans that pin them.
 
 ### Step 16: an isolated bucket for `l0013r`'s capture evidence (interpreter plan A1b) [LIVE]
 
