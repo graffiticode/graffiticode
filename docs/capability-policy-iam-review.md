@@ -1521,7 +1521,7 @@ gateway-only system signing with the busy results. A compile only gets `POLICY_U
   this (checked 2026-11-03), so the proxy needs no rebuild.
 - **Pinnable.** `deploy.json`'s `l0176r` takes `l0176`'s values:
   - `pinnable` for `0176`, with contract versions 1 and 2;
-  - its `baselines`, plus a Rust milestone at the parity port's merge commit;
+  - its `baselines`, plus `rust-parity` at the parity port's merge commit (#262, `db3ad15d`);
   - `POLICY_URL`, `BROKER_URL`, and `PREFLIGHT_GATEWAYS=api-run`;
   - `forbiddenEnv` of `SYSTEM_PREVIEW_DIRECT`, `LEARNOSITY_KEY` and `LEARNOSITY_SECRET`.
 

@@ -1134,6 +1134,10 @@
         {
           "milestone": "v8",
           "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
+        },
+        {
+          "milestone": "rust-parity",
+          "commit": "db3ad15d484cfb590b0815e561dde12d77ac20de"
         }
       ],
       "network": {
