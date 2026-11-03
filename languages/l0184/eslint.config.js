@@ -30,12 +30,4 @@ export default tseslint.config(
       "no-empty": ["error", { allowEmptyCatch: true }],
     },
   },
-  {
-    // The compiler core uses index-signature dispatch and `this[tag]` lookups.
-    files: ["packages/core/src/compiler.ts", "packages/core/src/visitor.ts"],
-    rules: {
-      "@typescript-eslint/no-this-alias": "off",
-      "no-prototype-builtins": "off",
-    },
-  },
 );

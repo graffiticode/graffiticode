@@ -7,28 +7,33 @@ Guidance for Claude Code when working in this directory.
 L0184 is a Graffiticode dialect for **charts**, drawn with Apache ECharts 6: BAR, LINE, PIE
 (donut, rose) and SCATTER plots, over data written inline or in datasets referred to by column
 name, one chart or a collection of charts shown as tabs. It replaces L0173 (a legacy
-`@graffiticode/basis` language), and does NOT accept L0173 programs. It is built on
-`@graffiticode/l0000` ^0.6.0 and `@graffiticode/l0000-view` ^0.4.0.
+`@graffiticode/basis` language), and does NOT accept L0173 programs. Its compiler is Rust, a
+dialect of the L0000 kernel (`languages/l0000/crates`); its `/form` view is `packages/view`,
+built on `@graffiticode/l0000-view`.
 
-It lives in the graffiticode monorepo as a **self-contained npm project**: its own lockfile,
-install, build and tests, all run from this directory.
+> **One implementation lives here: Rust** (`crates/`, service `l0184r`, which serves
+> `l0184.graffiticode.org`; on Rust since 2026-10-29, interpreted since 2026-10-30). The
+> TypeScript compiler and server (`packages/core`, `packages/api`) were **removed on
+> 2026-11-03** (interpreter plan A6). Their last behavior is the frozen conformance fixture
+> (`crates/core/tests/conformance/PROVENANCE.md`). The TypeScript service `l0184` stays deployed,
+> at min 0 and blocked in `deploy.json` (it can't be rebuilt), until its A7 decision.
 
-> **Two implementations live here.** `crates/` is L0184 in Rust, which production runs (`l0184r`, since 2026-10-29, interpreted since 2026-10-30); `packages/` is the TypeScript L0184, still deployed as `l0184` (min 0) as the switch's rollback target, and still the source of the static assets, the vocabulary and the conformance fixtures. Everything down to "The Rust implementation" describes the TypeScript side.
+The directory is also a small npm project (its own lockfile) for the view and the static assets.
 
 ## Commands
 
 ```bash
-npm install
-npm run build      # core → build-static → api → view → view:embed → assemble
-npm test           # core, api (needs the build: it serves static/), view
+cargo test            # the compiler: conformance, interpretation, unit tests (no Node, no network)
+npm ci
+npm test              # tools/docs.test.mjs (the spec agrees with the language) and the view's tests
 npm run lint
-npm run typecheck
-npm run -w packages/view dev             # /dev.html shows every spec program, compiled
-(cd packages/core && npx tsx tools/fixtures.ts)   # refresh those fixtures
+npm run typecheck     # the view
+npm run rust:static   # ./static: spec assets (tools/build-static.mjs) + the /form bundle
+npm run view:fixtures && npm run -w packages/view dev   # /dev.html: every spec program, rendered
 ```
 
-Release from the **graffiticode repository root**: `npm run deploy -- l0184` (deploy CLI; entry
-in root `deploy.json`, image from `configs/Dockerfile.l0184.yaml`, runtime `l0184-run`).
+Release from the **graffiticode repository root**: `npm run deploy -- l0184r` (deploy CLI; entry
+in root `deploy.json`, image from `configs/Dockerfile.l0184r.yaml`, runtime `l0184r-run`).
 
 ## The language
 
@@ -50,21 +55,18 @@ chart's `]`.
 L0000's. Never shadow `data`, `use`, `map`, `filter` either — L0000 expressions must keep working
 inside a program (tested).
 
-## How the core is organized
+## How the language is organized
 
-- `attributes.ts` — the vocabulary as data: `chainFields`, `memberFields`, `containerFields`,
-  the legality tables (`validAttributes`, `plotKindAttributes`, `validSettings`,
-  `containerParts`, `labelPositions`), `checkValue`, and the error helpers (`hintFor`,
-  `assertKnown*`). Adding a word is a row here; handlers are generated from it.
-- `compiler.ts` — generated handlers; the containers and PROG are hand-written. PROG's Checker
-  reports a `{}` that ended a description early (an L0184 word or a bare `{}` anywhere but last);
-  L0000 expressions before the program are allowed.
-- `collection.ts` — chart ids and names, navigation defaults, shared datasets, the envelope.
-- `chart.ts` — one chart: dataset selection, column resolution, axes and id references, the
-  per-kind data contract, legend/tooltip defaults, layout, lowering to an ECharts option.
-- `data.ts` — dataset normalization (list rows, record rows, `{rows, columns}`, integer-keyed
-  records from L0000's `DATA`), scopes and shadowing, and the list-or-column rule.
-- `colors.ts` — Tailwind tokens and hex; anything else is a compile error.
+The compiler is `crates/core` (see "The Rust implementation" below for each file). The
+vocabulary is data: `crates/core/src/vocab.json` holds the chain, member and container fields,
+the legality tables (`validAttributes`, `plotKindAttributes`, `validSettings`, `containerParts`,
+`labelPositions`) and the example descriptions; `src/lexicon-additions.json` holds the words L0184
+adds to L0000's lexicon. **Adding or changing a word is an edit to those files** (they were
+generated from the TypeScript's `attributes.ts` until 2026-11-03 and are now the source), plus
+the conformance cases that exercise it, reviewed as a change to the language. The containers and
+PROG are hand-written in `src/lib.rs`; PROG's check reports a `{}` that ended a description early
+(an L0184 word or a bare `{}` anywhere but last); L0000 expressions before the program are
+allowed.
 
 Rules the code enforces, each with a test: one `plots` per chart and at most one of each other
 part; ids unique after defaults (charts c1…, datasets d1…, axes x1/y1…, plots p1…); references by
@@ -96,10 +98,10 @@ tree-shaken in `lib/echarts.ts`: registering a chart there is the second half of
 Testing a live resize in an automated browser needs a rendered frame: a background tab reports
 `visibilityState: "hidden"` and runs no ResizeObserver callbacks.
 
-## Spec files (`packages/core/spec`)
+## Spec files (`spec/`)
 
-`instructions.md` is the generator's system prompt (its tables are guarded by `docs.test.ts`
-against the legality tables); `spec.md` renders to `spec.html` via spec-md, which reads bare
+`instructions.md` is the generator's system prompt (its tables are guarded by
+`tools/docs.test.mjs` against the legality tables in `vocab.json`); `spec.md` renders to `spec.html` via spec-md, which reads bare
 `{…}` in prose as a reference — keep braces inside code spans; `examples.md` holds RAG prompts,
 never programs; `scope.json` names the sibling languages; the word tables in both files are
 generated from the lexicon.
@@ -113,12 +115,12 @@ data, L0170's successor on L0000) is planned: `data use "0185"` supplies a datas
 
 ## The Rust implementation (`crates/`)
 
-This directory holds **two implementations of L0184**. `crates/` is the language in Rust, released to its own service `l0184r`, which production runs: the api routes L0184 there (`BASE_URL_L0184`, interpreter plan A1, 2026-10-29) and interprets it (`INTERPRETER_L0184=on`, C1, 2026-10-30). `packages/core` and `packages/api` are the TypeScript compiler and server, still deployed as `l0184` (min 0) for rollback and still needed to build the static assets and generate the Rust data (interpreter plan A6 lists what must change before they can go). `packages/view` (the ECharts Form), the spec and the static assets are shared by both. A language change goes into the TypeScript first, then `npm run rust:fixtures`, then the Rust until `cargo test` passes.
+`crates/` is L0184, released to the service `l0184r`, which production runs: the api routes L0184 to `l0184.graffiticode.org` (mapped to `l0184r`; interpreter plan A1 on 2026-10-29, domains 2026-11-02) and interprets it (`INTERPRETER_L0184=on`, C1, 2026-10-30). A language change goes into the Rust and the conformance fixture together.
 
 - `crates/core` (`graffiticode-l0184`) — `L0184` implements `Dialect` from `graffiticode-l0000`; `lexicon()` is the base lexicon merged with `src/lexicon-additions.json` (no base word is redefined). `src/lib.rs` dispatches every word by its row in the vocabulary (property, member, container) and holds the containers and PROG; `src/vocab.rs` is `attributes.ts` (`checkValue`, `hintFor`, `assertKnown*`) over `src/vocab.json`; `src/chart.rs`, `src/collection.rs`, `src/data.rs`, `src/colors.rs` and `src/stats.rs` are their TypeScript namesakes. `src/js.rs` is the plain JavaScript value a TypeScript handler sees after `toPlainObject` (`undefined`, key order, `String()`, `JSON.stringify`, `trim`, property reads that fail on `null` as JavaScript's do); `src/date.rs` is V8's `Date.parse`.
-- `src/vocab.json` and `src/lexicon-additions.json` are **generated**: the vocabulary and legality tables and the example descriptions from `attributes.ts`, and the Tailwind table read out of `colors.ts`. Edit the TypeScript and regenerate.
+- `src/vocab.json` and `src/lexicon-additions.json` are **the source** of the vocabulary, the legality tables, the example descriptions and the Tailwind table (frozen from the TypeScript on 2026-11-03; edit them directly).
 - `crates/server` (`l0184r-server`, binary `l0184r`) — `l0000r_server::serve(L0184, lexicon())`.
-- `tools/assemble-static.mjs` — builds `packages/core`'s static assets and `packages/view`'s embed bundle into `./static`, exactly what `npm run build` assembles into `packages/api/static`.
+- `tools/assemble-static.mjs` — `tools/build-static.mjs`'s spec assets plus `packages/view`'s embed bundle, into `./static`.
 
 **The Rust side depends on `languages/l0000` by relative path.** Read "The Rust implementation" in `languages/l0000/CLAUDE.md`.
 
@@ -127,7 +129,6 @@ cargo test            # conformance and unit tests; needs no Node and no network
 npm run rust:build    # rust:static, then cargo build --release -p l0184r-server
 npm run rust:dev      # cargo run -p l0184r-server on :50184 with AUTH_URL=http://127.0.0.1:4100
 npm run rust:lint     # cargo clippy --all-targets -- -D warnings
-npm run rust:fixtures # build packages/core, then regenerate src/*.json and the fixture
 ```
 
 ### What was not ported, and why
@@ -145,7 +146,7 @@ npm run rust:fixtures # build packages/core, then regenerate src/*.json and the 
 
 ### Conformance
 
-`crates/core/tests/conformance/generate.mjs` writes `cases.json` (2,864 cases, about 5MB): every word with a good value in every description and with every wrong value of its type in its own; every plot word on every plot kind, every pair of kinds in one chart, every label position; every tag in every tag slot, and quoted spellings; every scale in each direction with categories, bounds, positions and rotations; every Tailwind token and hex form and near misses; histogram, box-plot, radar, heatmap and gauge number sweeps; 110 date strings on a TIME axis; datasets and upstream rows (`data {}` and `data use "0185"` against L0185's schema, with list, record and empty upstreams); the spec's programs; **every program the TypeScript suite compiles, with its data**, recorded while vitest runs (`record.config.mjs` and `record.setup.mjs` wrap `parser.parse` and `Compiler.compile`); and hand-written edge cases, including fields written as record literals. Every error message in the TypeScript source appears in it, except the few no program can reach. `tests/conformance.rs` requires the same JSON text or the same errors for all of them but the difference below; the server returns `{"data":…,"errors":[]}` for every non-error case.
+`crates/core/tests/conformance/cases.json` (2,864 cases, about 5MB) was written by a generator that ran the TypeScript compiler, removed on 2026-11-03 with it; the file is now the frozen record (`PROVENANCE.md`). It holds: every word with a good value in every description and with every wrong value of its type in its own; every plot word on every plot kind, every pair of kinds in one chart, every label position; every tag in every tag slot, and quoted spellings; every scale in each direction with categories, bounds, positions and rotations; every Tailwind token and hex form and near misses; histogram, box-plot, radar, heatmap and gauge number sweeps; 110 date strings on a TIME axis; datasets and upstream rows (`data {}` and `data use "0185"` against L0185's schema, with list, record and empty upstreams); the spec's programs; **every program the TypeScript suite compiles, with its data**, recorded while vitest runs (`record.config.mjs` and `record.setup.mjs` wrap `parser.parse` and `Compiler.compile`); and hand-written edge cases, including fields written as record literals. Every error message in the TypeScript source appears in it, except the few no program can reach. `tests/conformance.rs` requires the same JSON text or the same errors for all of them but the difference below; the server returns `{"data":…,"errors":[]}` for every non-error case.
 
 ### Deliberate differences
 
@@ -154,7 +155,7 @@ None in the fixture. (A number of 2^64 or more, `values [1e20]`, once came out a
 ### Static assets and fixtures without the TypeScript (interpreter plan A6)
 
 - **`spec/`** (the language's spec, instructions, usage guide, schema, scope, template and examples)
-  lives at this directory's root, not in `packages/core`. `tools/build-static.mjs` turns it into the
+  lives at this directory's root. `tools/build-static.mjs` turns it into the
   public assets (`spec.html` via spec-md, `instructions.md` with L0000's, `language-info.json` with
   the usage guide's Overview as `authoring_guide`) without importing any compiler;
   `tools/assemble-static.mjs` adds the View bundle from `packages/view`. The Rust server serves
@@ -162,8 +163,8 @@ None in the fixture. (A number of 2^64 or more, `values [1e20]`, once came out a
   to what the TypeScript build produced (checked 2026-11-02).
 - **`crates/core/src/vocab.json`, `lexicon-additions.json` and `tests/conformance/cases.json` are
   frozen**: the last trusted TypeScript record, with their provenance in
-  `crates/core/tests/conformance/PROVENANCE.md`. Never regenerate them from the Rust. Until the
-  TypeScript source is removed, `npm run rust:fixtures` still regenerates them from it.
+  `crates/core/tests/conformance/PROVENANCE.md`. Never regenerate them from the Rust; the
+  TypeScript that generated them was removed on 2026-11-03.
 
 ### The interpreter pass (plan C1)
 

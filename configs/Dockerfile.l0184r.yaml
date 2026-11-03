@@ -1,15 +1,13 @@
 # l0184r — the L0184 language server in Rust — from the monorepo root (deploy CLI, or
-# `docker build -f configs/Dockerfile.l0184r.yaml .`). languages/l0184 holds both
-# implementations: this image is the Rust server (crates/), which builds on the kernel and
-# server crates in languages/l0000, with the static assets this language's npm packages build.
-# configs/Dockerfile.l0184.yaml builds the TypeScript server from the same directory.
+# `docker build -f configs/Dockerfile.l0184r.yaml .`). The Rust server (languages/l0184/crates),
+# which builds on the kernel and server crates in languages/l0000, with the static assets built
+# from languages/l0184/spec and the /form view (packages/view).
+# (The TypeScript server and its Dockerfile were removed in interpreter plan A6, 2026-11-03.)
 
 # Public static assets (spec documents, schema, language info) and the /form View bundle.
 FROM node:22-alpine AS static
 WORKDIR /src
 COPY languages/l0184/package*.json ./
-COPY languages/l0184/packages/core/package*.json ./packages/core/
-COPY languages/l0184/packages/api/package*.json ./packages/api/
 COPY languages/l0184/packages/view/package*.json ./packages/view/
 RUN npm ci
 COPY languages/l0184/tsconfig.base.json ./

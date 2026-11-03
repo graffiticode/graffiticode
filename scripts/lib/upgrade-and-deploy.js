@@ -86,7 +86,9 @@ export function selectLanguages({ languagesDir = LANGUAGES_DIR, langs = LANGS, s
       log(`[${name}] No deploy.json entry, skipping`);
       continue;
     }
-    if (services[name].blocked) {
+    // A blocked TypeScript service whose language runs on lNNNNr (A6 removed its source) is
+    // still upgraded: only lNNNNr is released (deployTargets).
+    if (services[name].blocked && !deployTargets([name], services).includes(`${name}r`)) {
       log(`[${name}] Blocked in deploy.json, skipping: ${services[name].blocked}`);
       continue;
     }
@@ -117,7 +119,7 @@ async function upgrade(name, version, { PKG_NAME, TARGET_PKG }) {
   }
 }
 
-// The services to release for these languages: each lNNNN, and its lNNNNr when the api
+// The services to release for these languages: each lNNNN (unless blocked), and its lNNNNr when the api
 // routes the language there: BASE_URL_LNNNN names lNNNNr's run.app host, or the language's
 // own domain, which serves lNNNNr once the language is switched (its domain mapping is
 // repointed with the switch).
@@ -125,7 +127,7 @@ export function deployTargets(langs, services) {
   const apiEnv = services.api?.env ?? {};
   const targets = [];
   for (const name of langs) {
-    targets.push(name);
+    if (!services[name]?.blocked) targets.push(name);
     const rust = `${name}r`;
     const routed = apiEnv[`BASE_URL_L${name.slice(1)}`];
     const host = typeof routed === "string" ? new URL(routed).hostname : "";

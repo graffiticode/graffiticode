@@ -19,6 +19,15 @@ test("a language the api routes to its Rust service releases lNNNNr too", () => 
   assert.deepEqual(deployTargets(["l0177", "l0180", "l0184", "l0186"], services), ["l0177", "l0180", "l0184", "l0184r", "l0186", "l0186r"]);
 });
 
+test("a language whose TypeScript service is blocked (A6) releases only its lNNNNr", () => {
+  const services = {
+    api: { env: { BASE_URL_L0184: "https://l0184.graffiticode.org" } },
+    l0184: { blocked: "A6" },
+    l0184r: {},
+  };
+  assert.deepEqual(deployTargets(["l0184"], services), ["l0184r"]);
+});
+
 test("deploy.json: the switched languages: L0000, L0003, L0010, L0013, L0014, L0174, L0175, L0177–L0186", () => {
   const { services } = JSON.parse(readFileSync(new URL("../../deploy.json", import.meta.url), "utf8"));
   const langs = Object.keys(services).filter(n => /^l\d{4}$/.test(n));
@@ -37,8 +46,9 @@ test("a View release deploys L0000, which owns it, without upgrading it, and its
   assert.deepEqual(only, { consumers: [], owners: ["l0000"] });
   assert.deepEqual(deployTargets([...only.owners, ...only.consumers], services), ["l0000", "l0000r"]);
   // The kernel package: the same owner.
-  const core = selectLanguages({ languagesDir, services, PKG_NAME: "@graffiticode/l0000", TARGET_PKG: "packages/core", langs: ["0000", "0184"], log: quiet });
-  assert.deepEqual(core, { consumers: ["l0184"], owners: ["l0000"] });
+  // L0184's TypeScript is gone (A6), so it no longer consumes the kernel package; L0183 still does.
+  const core = selectLanguages({ languagesDir, services, PKG_NAME: "@graffiticode/l0000", TARGET_PKG: "packages/core", langs: ["0000", "0183", "0184"], log: quiet });
+  assert.deepEqual(core, { consumers: ["l0183"], owners: ["l0000"] });
 });
 
 test("selection skips a language without the package, without a deploy.json entry, or blocked", () => {
