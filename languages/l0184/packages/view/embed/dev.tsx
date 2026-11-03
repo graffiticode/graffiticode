@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
- * Dev-only fixture page: every program in the spec, compiled by the real compiler
- * (`packages/core/tools/fixtures.ts` writes fixtures.json, which is generated and gitignored, so it
+ * Dev-only fixture page: every program in the spec, with the data the compiler gave for it
+ * (`tools/view-fixtures.mjs` writes fixtures.json from the trusted conformance fixture; it is generated and gitignored, so it
  * is fetched at runtime rather than imported — the build must not depend on it), rendered through
  * the real Form with no API behind it. Vite builds only index.html, so this is not in the bundle.
  *
@@ -21,7 +21,7 @@ const Page = () => {
       .catch(() => setFixtures([]));
   }, []);
   if (!fixtures) return <p style={{ padding: 16 }}>Loading fixtures…</p>;
-  if (!fixtures.length) return <p style={{ padding: 16 }}>No fixtures — run npx tsx tools/fixtures.ts in packages/core.</p>;
+  if (!fixtures.length) return <p style={{ padding: 16 }}>No fixtures — run npm run view:fixtures at the language root.</p>;
   return (
   <div style={{ display: "grid", gap: 24, padding: 16, maxWidth: 960 }}>
     {fixtures.map((f, i) => (

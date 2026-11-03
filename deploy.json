@@ -2475,6 +2475,7 @@
       "minInstances": 0
     },
     "l0184": {
+      "blocked": "Interpreter plan A6 (2026-11-03): L0184's TypeScript source was removed, so this service can't be rebuilt. It stays deployed, at min 0, until its A7 decision; production runs l0184r. Roll back to it by image (its last releases' receipts), not by building.",
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0184",
       "dockerfile": "configs/Dockerfile.l0184.yaml",
       "port": 8080,
