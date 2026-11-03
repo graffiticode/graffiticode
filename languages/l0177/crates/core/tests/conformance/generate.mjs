@@ -143,7 +143,7 @@ function blocks(path) {
   }
   return out;
 }
-const fragments = ["packages/core/spec/spec.md", "packages/core/spec/instructions.md"]
+const fragments = ["spec/spec.md", "spec/instructions.md"]
   .flatMap(blocks)
   .map((block) => block.trim())
   .filter((src) => src.startsWith("author-embed") && !src.includes("..."))
@@ -173,7 +173,7 @@ const COMPLETE = readFileSync(join(root, "packages/core/src/compiler.test.ts"), 
 
 const handwritten = [
   COMPLETE,
-  readFileSync(join(root, "packages/core/spec/template.gc"), "utf8"),
+  readFileSync(join(root, "spec/template.gc"), "utf8"),
   "author-embed {}..",
   // a property given an undefined value (the Rust emits null; see tests/conformance.rs)
   'author-embed domain get-var "nope" user-id "u" item-list [] {}..',

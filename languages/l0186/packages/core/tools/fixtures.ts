@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { compile } from "../src/harness.js";
 
 const programs: { from: string; src: string }[] = [];
-for (const f of ["spec/spec.md", "spec/instructions.md"]) {
+for (const f of ["../../spec/spec.md", "../../spec/instructions.md"]) {
   let cur: string[] | null = null;
   for (const l of readFileSync(f, "utf-8").split("\n")) {
     if (l.trim().startsWith("```")) {
@@ -19,7 +19,7 @@ for (const f of ["spec/spec.md", "spec/instructions.md"]) {
     if (cur) cur.push(l);
   }
 }
-programs.push({ from: "spec/template.gc", src: readFileSync("spec/template.gc", "utf-8") });
+programs.push({ from: "../../spec/template.gc", src: readFileSync("../../spec/template.gc", "utf-8") });
 // The fidelity board: every node type, every shape kind and every connector option, drawn by
 // the plugin and by the view and compared side by side (see packages/view/fixtures/).
 const kinds = ["SQUARE", "ELLIPSE", "ROUNDED_RECTANGLE", "DIAMOND", "TRIANGLE_UP", "TRIANGLE_DOWN", "PARALLELOGRAM_RIGHT", "PARALLELOGRAM_LEFT", "ENG_DATABASE", "ENG_QUEUE", "ENG_FILE", "ENG_FOLDER", "TRAPEZOID", "PREDEFINED_PROCESS", "SHIELD", "DOCUMENT_SINGLE", "DOCUMENT_MULTIPLE", "MANUAL_INPUT", "HEXAGON", "CHEVRON", "PENTAGON", "OCTAGON", "STAR", "PLUS", "ARROW_LEFT", "ARROW_RIGHT", "SUMMING_JUNCTION", "OR", "SPEECH_BUBBLE", "INTERNAL_STORAGE"];

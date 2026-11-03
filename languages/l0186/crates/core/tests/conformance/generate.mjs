@@ -295,10 +295,10 @@ function blocks(path) {
   return out;
 }
 const fragments = [
-  "packages/core/spec/spec.md",
-  "packages/core/spec/instructions.md",
-  "packages/core/spec/usage-guide.md",
-  "packages/core/spec/README.md",
+  "spec/spec.md",
+  "spec/instructions.md",
+  "spec/usage-guide.md",
+  "spec/README.md",
 ]
   .flatMap(blocks)
   .map((block) => block.trim())
@@ -339,7 +339,7 @@ function testPrograms(path) {
 /* ------------------------------------------------------------------ by hand */
 
 const handwritten = [
-  readFileSync(join(root, "packages/core/spec/template.gc"), "utf8"),
+  readFileSync(join(root, "spec/template.gc"), "utf8"),
   // degenerate programs
   "42..",
   "..",

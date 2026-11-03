@@ -22,7 +22,7 @@ board [
 | `packages/api` | private | The language server: `/compile`, `/form`, public assets |
 | `packages/view` | `@graffiticode/l0186-view` | The Form (an SVG preview of the board), for the shared View |
 
-See `CLAUDE.md` for how it is built, and `packages/core/spec/` for the language.
+See `CLAUDE.md` for how it is built, and `spec/` for the language.
 
 ## Rust implementation
 

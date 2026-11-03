@@ -22,7 +22,7 @@ import { fileURLToPath } from "url";
 // eval over N generations, not a unit test.
 
 const read = (name: string) =>
-  readFileSync(fileURLToPath(new URL(`../spec/${name}`, import.meta.url)), "utf-8")
+  readFileSync(fileURLToPath(new URL(`../../../spec/${name}`, import.meta.url)), "utf-8")
     // Prettier formats spec/*.md (there is no .prettierignore), so it may rewrap any of these
     // lines. Match on whitespace-normalized substrings, never on exact lines or line numbers.
     .replace(/\s+/g, " ");
@@ -256,7 +256,7 @@ describe("instructions.md keeps the canonical knowledge honest", () => {
     expect(instructions).toContain("never a data query");
     expect(instructions).toContain("it does not fetch rows");
     const scope = JSON.parse(
-      readFileSync(fileURLToPath(new URL("../spec/scope.json", import.meta.url)), "utf-8"),
+      readFileSync(fileURLToPath(new URL("../../../spec/scope.json", import.meta.url)), "utf-8"),
     );
     expect(scope.in_scope.join(" ")).toContain("CONFIGURING AN EMBEDDED BROWSER VIEW");
     expect(scope.out_of_scope.join(" ")).toContain("WHO consumes the result");

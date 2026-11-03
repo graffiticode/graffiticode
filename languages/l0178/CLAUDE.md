@@ -186,7 +186,7 @@ it would manufacture ceremony that teaches a reader nothing. See `spec/instructi
     silently shadow a base one. Expect collisions here: the Data API's own leaf names
     (`request`, `status`, `limit`, `next`) are exactly the words a base language wants.
   - `src/compiler.ts`: `Checker` and `Transformer` extending L0000's. Only `PROG` so far.
-  - `spec/`: **the product.** For an oracle dialect the prompts matter more than the
+  - `spec/` (at this directory's root since A6, not in `packages/core`): **the product.** For an oracle dialect the prompts matter more than the
     compiler — treat these files as load-bearing.
   - `spec/coverage.md`: **the coverage ledger** — the whole Data API surface (40 endpoints,
     57 `(endpoint, action)` blocks) read off Learnosity's published reference. This is the
@@ -338,6 +338,19 @@ npm run rust:fixtures # build packages/core, then regenerate src/vocab.json, src
 `crates/core/tests/conformance/generate.mjs` generates most of its corpus from the vocabulary: every block with all its fields valid and all wrong, with no paging and with an over-limit single page, and each field on its own. Then the spec's programs, the TypeScript suite's, and hand-written cases. `tests/conformance.rs` requires the same JSON text (field order, warning order and recorded paths included) or the same errors, for all 360 but the one difference below. A new block or field in `vocab.ts` is covered as soon as the fixture is regenerated.
 
 One deliberate difference: a field given an undefined value (`item-pool-id get-var "nope"`) is kept as `null` in the request; TypeScript's holds `undefined` and vanishes from the JSON. The warnings are the same.
+
+### Static assets and fixtures without the TypeScript (interpreter plan A6)
+
+- **`spec/`** (the language's spec, instructions, usage guide, schema, scope, template and examples)
+  lives at this directory's root, not in `packages/core`. `tools/build-static.mjs` turns it into the
+  public assets (`spec.html` via spec-md, `instructions.md` with L0000's, `language-info.json` with
+  the usage guide's Overview as `authoring_guide`) without importing any compiler;
+  `tools/assemble-static.mjs` adds the View bundle from `packages/view`. The Rust server serves
+  `/lexicon.json` from its binary, so `static/` has no `lexicon.json`. The output is byte-identical
+  to what the TypeScript build produced (checked 2026-11-03).
+- **`crates/core/src/vocab.json`, `crates/core/src/lexicon-additions.json` and `tests/conformance/cases.json` are frozen**: the last trusted TypeScript record, with their provenance in
+  `crates/core/tests/conformance/PROVENANCE.md`. Never regenerate them from the Rust. Until the
+  TypeScript source is removed, `npm run rust:fixtures` still regenerates them from it.
 
 ### Deploying the Rust server
 
