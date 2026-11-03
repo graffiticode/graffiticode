@@ -223,7 +223,42 @@ Retirement is its own milestone for each language, after its Track A switch. It 
     - an outcome per operation, aggregated into the command's.
   - Lease and fencing: execution tokens carry the fencing generation, and authorize-execution refuses a stale one. Code in `packages/policy/src/` and `packages/broker/src/`.
   - Used only by languages that declare commands.
+  - Starts when its entry gate below passes.
 - **B6 Commands, part 2.** The repair ledger keyed by `(command, stage, occurrence)`, `materialize` replay, and resuming stages the original never reached. Before B6 ships, a partial command is reported, and repairing it is manual reconciliation.
+
+### Entry gates for B5 and B6: usage, driven synthetically
+B5 used to wait until the read path had "more production experience", which named no amount. It now waits on a **usage gate** instead. The gate counts what the read path has done, not how long it has been live, and a driver can produce that usage on demand.
+
+**How it is measured.**
+- **Source of the counts.** The api's `stage` log records in production. Each record carries the stage, language, mode, `run`, `cache` (`hit`, `miss` or `skip`), `outcome`, `revision` and `ms.{model,cache,interpret}`.
+- **One small api change first.** Add the model's `kind` (`value` or `plan`) to the interpret record, so the counts can be split by model kind.
+- **The driver, `scripts/interpret-soak.js`.**
+  - It runs against `api.graffiticode.org` as the eval account, which is the account used for sweeps.
+  - It writes its own report to `docs/evidence/b5-gate/`.
+  - **The gate passes when the report passes and the log counts for the drive's window agree with it.**
+- **Real traffic counts toward the volumes but is not required.**
+
+**B5 gate.** These hold over the interpreted languages, which today are L0175, L0184 and L0186. The set must include at least one C2 language, so that plan models that read their input have run.
+1. **Volume.** Each language has at least 2,000 fresh interpretations (`cache: miss`) and 2,000 cache hits, and every corpus case has run at least 3 times.
+2. **Model kinds.** Each kind a language can produce has at least 500 executions. That means value and plan for L0184 and L0186, and plan for any C2 language.
+3. **Chain shapes.** Each of these runs at least 200 times:
+   - an interpreted stage over a legacy stage (for example, L0184 over L0185 data);
+   - a legacy stage over an interpreted one;
+   - two interpreted stages in a row;
+   - the View's loop: `POST /compile` with form state over an interpreted chain, both with and without `generations=`, plus one stale-generation URL, which must come back `no-store`.
+4. **Correctness.** Every response equals its oracle, with 0 mismatches. The oracle is the frozen fixture output, or a direct `lNNNNr /compile` with the same input.
+5. **Concurrency.** At least 20% of the drive runs at a concurrency of 16 or more, with identical keys in flight at once. Concurrent answers for one key are identical.
+6. **Failures.** None of `model-unavailable`, `compile-response-lost` or `no-store-intermediate` appears unless a planted case expects it. A transient 5xx is allowed only if its retry succeeds, and at most 0.1% of requests may need one.
+7. **Cache.** Repeats hit at least 95% of the time. Every `stage-results` document the drive wrote has a `ttl` no later than its result's own expiry.
+8. **Latency.** For each language, the interpreted p95 (`ms.model + ms.interpret`, or `ms.cache` on a hit) is at most 1.5 × the p95 of a direct `lNNNNr /compile`, plus 100 ms. Both are measured in the same drive.
+9. **Rollback rehearsal.** During the drive, one language's `INTERPRETER_LNNNN` is turned off and back on. Each flip is an api release that moves `COMPILE_GENERATION_LNNNN`. After each flip, no result cached under the previous generation is served, and the oracle still holds.
+
+**B6 gate.** B5 has shipped, and at least one command language (C3 or C5) runs on it. Then a synthetic drive with injected faults runs that language's commands:
+- **Faults.** Each run injects a failure at a stage, a lost response, or a lease that expires mid-step.
+- **Volume.** At least 200 commands, covering every operation, with retries using the same key.
+- **Outcomes.**
+  - Every partial command is reported as `partial` or `uncertain` and never re-executes a completed operation.
+  - Manual reconciliation has been done successfully for at least 10 of them, using the procedure that B6 automates.
 
 ## Track C — Upgrade each switched language to the interpreter (Rust only)
 Prerequisites: the language is switched (A), and B1–B4 have shipped. A language that needs commands also needs B5, and B6 before repairs can be offered.
