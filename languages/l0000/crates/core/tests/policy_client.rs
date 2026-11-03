@@ -160,6 +160,7 @@ fn identity(admission: Option<&str>) -> Identity {
         invocation_token: Some("inv".into()),
         stage: Some("s1".into()),
         admission_token: admission.map(str::to_owned),
+        ..Identity::default()
     }
 }
 

@@ -368,15 +368,15 @@ The same model as the TypeScript (see "Learnosity credentials" above); what carr
 
 - `protected_functions` declares `INIT` (`init`, sign) and `SAVE_TO_ITEMBANK` (`save-to-itembank`, write); `implicit_protected_functions` declares `init`, since every render is signed; `registry_version` is 7.
 - **A compile with a connection** is admitted by the kernel before it runs (one policy snapshot), and signs and saves through `ExecContext::invoke`.
-- **A compile without one** is not admitted at all (`Dialect::degrades_without_connection`): a save is reported as `itemBank: { skipped: "no-connection" }`, and a preview signs through `ExecContext::open_system_session`, which asks policy for a system session (`PolicyClient::preview_session`, `POST /v1/preview-session`) once per compile and grants it `init` alone, whatever policy's answer lists. A write can never run on it.
+- **A compile without one** is not admitted at all (`Dialect::degrades_without_connection`): a save is reported as `itemBank: { skipped: "no-connection" }`, and a preview signs through `ExecContext::open_system_session`, which asks policy for a system session (`PolicyClient::preview_session`, `POST /v1/preview-session`) once per compile and grants it `init` alone, whatever policy's answer lists. A write can never run on it. Only a compile the server permitted opens one (`Dialect::system_sessions_gateway_only`, below).
 - **Save plans** live in the compile's `ExecContext::state`. `save-to-itembank` saves only an activity this compile built, matched by value; an activity arriving as data, or built by another compile, is refused.
 - `Dialect::cacheable` is `false`, so the server answers `cache: false`, as the TypeScript does: every compile carries a fresh, expiring signature.
 
-These four kernel hooks were added for L0176 and are documented in `languages/l0000/CLAUDE.md`'s kernel section.
+These five kernel hooks were added for L0176 and are documented in `languages/l0000/CLAUDE.md`'s kernel section.
 
 ### Conformance
 
-`crates/core/tests/conformance/generate.mjs` compiles, with the TypeScript compiler and no policy client, every program fragment in `spec/spec.md` and `spec/instructions.md` (each again with an id set), the programs in `src/compiler.test.ts`, and hand-written cases; `tests/conformance.rs` requires the same JSON text, field order included, or the same error messages, for all 203 but the two deliberate differences below that a fixture case shows (each has its own test). UUIDs and the timestamped dynamic-content references are masked on both sides. Programs that `use` another language are left out: the TypeScript fetches its schema over the network. `programs.json` holds ASTs for `tests/brokered.rs`, which follows `brokered.test.ts` against a fake policy and broker (23 tests).
+`crates/core/tests/conformance/generate.mjs` compiles, with the TypeScript compiler and no policy client, every program fragment in `spec/spec.md` and `spec/instructions.md` (each again with an id set), the programs in `src/compiler.test.ts`, and hand-written cases; `tests/conformance.rs` requires the same JSON text, field order included, or the same error messages, for all 202 but the two deliberate differences below that a fixture case shows (each has its own test). UUIDs and the timestamped dynamic-content references are masked on both sides. Programs that `use` another language are left out: the TypeScript fetches its schema over the network. `programs.json` holds ASTs for `tests/brokered.rs`, which follows `brokered.test.ts` against a fake policy and broker (27 tests).
 
 Deliberate differences:
 
@@ -385,18 +385,22 @@ Deliberate differences:
 - `get-val-*` without a resolved value says so without the `[object Object]` the published `@graffiticode/l0000` this package uses appends.
 - An attribute given an undefined value (an unset `get-var`) emits `null`; TypeScript drops the field.
 
-**Parity gap (not yet ported):** the TypeScript `init` now refuses any value that isn't a
-`{ type, data }` activity with Broker-shaped questions, and drops a `request` an activity
-arrives with (in `init` and `PROG`) before signing it afresh. The Rust `init` still evaluates a
-non-activity to nothing and `{ type: "items" }` with no data to an unsigned preview, and the conformance
-fixtures (`init { "type": "items" }`, `init {type: "other"}`) predate the change; regenerate
-them with `npm run rust:fixtures` when the Rust side is brought level.
+**`init` validation** matches the TypeScript (`protection::activity_refusal`): anything but a
+`{ type: "questions" | "items", data }` activity whose questions each have a `type` and a
+Broker-acceptable `response_id` is a compile error with the same text, on both paths, before
+anything is signed. A `request` or `signing` an activity arrives with is dropped and the
+activity signed afresh, in `init` and `PROG` (`protection::without_signing`).
 
-**Parity gap (not yet ported): gateway-only.** The TypeScript server signs a no-connection
-preview only for a verified api identity (or `SYSTEM_PREVIEW_DIRECT=1`), and maps Policy's
-`rate-limited` and Broker's `session-exhausted` to unsigned busy results. The Rust side has
-neither. `l0176r` has no policy or broker configured, so it signs nothing today; bring this
-level before giving it `POLICY_URL`/`BROKER_URL`.
+**Gateway-only and busy** match the TypeScript too. `L0176` answers
+`Dialect::system_sessions_gateway_only`, so the shared server grants
+`Identity::system_session_permitted` only to a no-connection compile whose `X-Caller-Identity`
+verifies as a `PREFLIGHT_GATEWAYS` account (the `/preflight` verifier, audience
+`urn:graffiticode:0176`), or to any with `SYSTEM_PREVIEW_DIRECT=1` (exactly `"1"`). Any other
+gets its preview back unsigned, `signing: { unsigned: "gateway-only" }`, and policy is never
+asked. Policy's `rate-limited` (for the session) and Broker's `session-exhausted` (at execute)
+come back as `signing: { unsigned: <reason>, message: "Previews are busy right now; try again
+in a moment." }`; any other refusal keeps its fallback (`unavailable`, `signing-failed`) with the
+reason appended. `tests/brokered.rs` covers each.
 
 ### Deploying the Rust server
 

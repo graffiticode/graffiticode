@@ -92,6 +92,10 @@ fn server_for(compiler: Compiler) -> Server {
 }
 
 fn server_with(compiler: Compiler, caching: HttpCaching) -> Server {
+    server_configured(compiler, caching, false)
+}
+
+fn server_configured(compiler: Compiler, caching: HttpCaching, system_preview_direct: bool) -> Server {
     let static_dir = tempfile::tempdir().unwrap();
     std::fs::write(static_dir.path().join("index.html"), "<!doctype html><title>form</title>").unwrap();
     std::fs::write(static_dir.path().join("schema.json"), r#"{"type":"object"}"#).unwrap();
@@ -107,6 +111,7 @@ fn server_with(compiler: Compiler, caching: HttpCaching) -> Server {
         compiler: compiler.with_revision(revision),
         verifier: verifier.clone(),
         gateways: Arc::new(GoogleGateways::with_keys("0000", &[GATEWAY.to_owned()], keys)),
+        system_preview_direct,
         revision: Some(REVISION.to_owned()),
         lexicon: graffiticode_l0000::Lexicon::base_json().into(),
     };
@@ -707,4 +712,75 @@ async fn egress_carries_what_a_language_reports_about_itself() {
     let server = server_with(Compiler::new(Reporting), HttpCaching::default());
     let reply = get(&server.app, "/egress").await;
     assert_eq!(reply.json()["language"], json!({ "thumbnailBucket": "gc-evidence" }));
+}
+
+/// A dialect whose program's value is whether the server permitted the compile a system
+/// session; `gated` makes its system sessions gateway-only, as L0176's are.
+struct Permission {
+    gated: bool,
+}
+
+#[async_trait]
+impl graffiticode_l0000::Dialect for Permission {
+    fn lang_id(&self) -> &str {
+        "0000"
+    }
+
+    fn overrides(&self, op: &graffiticode_l0000::Op) -> bool {
+        *op == graffiticode_l0000::Op::Prog
+    }
+
+    fn system_sessions_gateway_only(&self) -> bool {
+        self.gated
+    }
+
+    async fn eval(
+        &self,
+        cx: &mut graffiticode_l0000::Evaluator<'_>,
+        _id: graffiticode_l0000::NodeId,
+        _op: &graffiticode_l0000::Op,
+        _elts: &[graffiticode_l0000::NodeId],
+    ) -> Option<graffiticode_l0000::Value> {
+        Some(graffiticode_l0000::Value::Bool(cx.exec().system_session_permitted()))
+    }
+}
+
+async fn permitted(app: &Router, caller: Option<&str>, body: Value) -> Value {
+    let mut request = post_compile("/compile");
+    if let Some(token) = caller {
+        request = request.header("x-caller-identity", token);
+    }
+    send(app, request.body(Body::from(body.to_string())).unwrap()).await.json()["data"].clone()
+}
+
+#[tokio::test]
+async fn a_gateway_only_dialect_permits_a_system_session_only_to_the_verified_gateway() {
+    let app = server_for(Compiler::new(Permission { gated: true })).app;
+    let body = json!({ "code": add_1_2(), "data": {} });
+    let gateway = GOOGLE.id_token(json!({}));
+    assert_eq!(permitted(&app, Some(&gateway), body.clone()).await, json!(true));
+    // A direct caller, a genuine Google identity that isn't a gateway, and a wrong audience.
+    assert_eq!(permitted(&app, None, body.clone()).await, json!(false));
+    let stranger = GOOGLE.id_token(json!({ "email": "someone@example.com" }));
+    assert_eq!(permitted(&app, Some(&stranger), body.clone()).await, json!(false));
+    let elsewhere = GOOGLE.id_token(json!({ "aud": "urn:graffiticode:0176" }));
+    assert_eq!(permitted(&app, Some(&elsewhere), body.clone()).await, json!(false));
+    // Nothing in the body counts.
+    let claimed = json!({ "code": add_1_2(), "data": {}, "systemSessionPermitted": true, "systemPreview": true });
+    assert_eq!(permitted(&app, None, claimed).await, json!(false));
+    // A compile with a connection never uses one, gateway or not.
+    let connected = json!({ "code": add_1_2(), "data": {}, "connectionId": "conn-1" });
+    assert_eq!(permitted(&app, Some(&gateway), connected).await, json!(false));
+}
+
+#[tokio::test]
+async fn system_preview_direct_permits_any_direct_compile() {
+    let app = server_configured(Compiler::new(Permission { gated: true }), HttpCaching::default(), true).app;
+    assert_eq!(permitted(&app, None, json!({ "code": add_1_2(), "data": {} })).await, json!(true));
+}
+
+#[tokio::test]
+async fn a_dialect_that_is_not_gateway_only_is_not_gated() {
+    let app = server_for(Compiler::new(Permission { gated: false })).app;
+    assert_eq!(permitted(&app, None, json!({ "code": add_1_2(), "data": {} })).await, json!(true));
 }

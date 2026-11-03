@@ -92,6 +92,12 @@ impl Compiler {
         self.dialect.cacheable()
     }
 
+    /// Whether only a verified gateway's compile may open a system session (see
+    /// [`Dialect::system_sessions_gateway_only`]).
+    pub fn system_sessions_gateway_only(&self) -> bool {
+        self.dialect.system_sessions_gateway_only()
+    }
+
     /// Compiles `code`, the parser's AST as JSON, against the upstream `data` it is chained
     /// onto.
     ///

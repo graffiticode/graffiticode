@@ -464,8 +464,10 @@ mod policy_snapshot {
 mod without_a_connection {
     use super::*;
 
+    /// No connection, and the server permits a system session (a verified gateway's compile,
+    /// or a dialect that isn't gateway-only).
     fn anonymous() -> Identity {
-        Identity { uid: Some("u1".into()), ..Identity::default() }
+        Identity { uid: Some("u1".into()), system_session_permitted: true, ..Identity::default() }
     }
 
     async fn degraded(src: &str, policy: Policy, identity: Identity) -> Run {
@@ -518,6 +520,14 @@ mod without_a_connection {
         let run = degraded("edit-it 1..", refused, anonymous()).await;
         let expected = format!("unsigned: {:?}", SystemSessionRefusal::Unavailable(Some("not-configured".into())));
         assert_eq!(run.result.unwrap(), Value::from(expected));
+    }
+
+    #[tokio::test]
+    async fn a_compile_the_server_did_not_permit_never_asks_policy() {
+        let unpermitted = Identity { uid: Some("u1".into()), ..Identity::default() };
+        let run = degraded("edit-it 1..", previewing(&["edit-it"]), unpermitted).await;
+        assert_eq!(run.result.unwrap(), Value::from(format!("unsigned: {:?}", SystemSessionRefusal::NotPermitted)));
+        assert_eq!(run.policy.previews.load(Ordering::Relaxed), 0, "policy is never asked");
     }
 
     #[tokio::test]
@@ -996,6 +1006,7 @@ mod admitted_plans {
             invocation_token: Some("inv".into()),
             stage: Some(stage.into()),
             admission_token: Some("adm".into()),
+            ..Identity::default()
         }
     }
 
