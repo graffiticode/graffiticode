@@ -8,9 +8,12 @@
 //! `docs/evidence/l0187-calibration/`. Any geometry change now needs a new profile tag selected in
 //! source, which changes task identity.
 //!
-//! Amended once, 2026-11-02, before L0187 had real users: GRID rows pack to their own widths, and
-//! a sticky goes wide rather than split a word (1 of the 72 corpus boards changed). Boards cached
-//! before then keep their old, still valid, layout until recompiled.
+//! Amended twice before L0187 had real users. 2026-11-02: GRID rows pack to their own widths, and
+//! a sticky goes wide rather than split a word (1 of the 72 corpus boards changed). 2026-11-03:
+//! when one sticky in a GRID goes wide every sticky in it does, and routes prefer not to cross a
+//! section title or run along a section border (falling back when no route avoids them, counted
+//! in `quality.section_conflicts`). Boards cached before then keep their old, still valid, layout
+//! until recompiled.
 //!
 //! Provenance of each value is noted: `L0186` values were measured through the Plugin API on
 //! 2026-10-08 (`languages/l0186/packages/view/src/lib/figjam.ts`); `calibrated` values were

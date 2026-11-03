@@ -64,6 +64,9 @@ pub struct Check {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Quality {
     pub crossings: usize,
+    /// Legs or labels that cross a section title or skirt a section border: the router avoids
+    /// them, and takes one only when a connector has no other route.
+    pub section_conflicts: usize,
     pub bends: usize,
     pub route_length: f64,
 }
@@ -359,7 +362,7 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
     let mut order = Vec::new();
     let mut routes = Vec::new();
     let mut labels = Vec::new();
-    let mut quality = Quality { crossings: 0, bends: 0, route_length: 0.0 };
+    let mut quality = Quality { crossings: 0, section_conflicts: 0, bends: 0, route_length: 0.0 };
     let pages = candidate["pages"].as_array().cloned().unwrap_or_default();
     if pages.len() != board.pages.len() {
         preservation.push(format!("the board has {} pages; the candidate has {}", board.pages.len(), pages.len()));
@@ -378,6 +381,7 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
         membership(&page.region, None, &mut sections_of, &mut kinds);
         let mut expected: HashSet<String> = HashSet::new();
         let mut marks: Vec<(String, Frame)> = Vec::new();
+        let mut section_frames: Vec<route::SectionFrame> = Vec::new();
         crate::ir::walk(&page.region, &mut |child, _| {
             if matches!(child, Child::Group(_)) {
                 return;
@@ -395,6 +399,7 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
                     if n["type"] != "section" || n["name"] != s.name.as_str() {
                         preservation.push(format!("section {:?} changed", s.id));
                     }
+                    section_frames.push((frame_of(n), n.get("titleFrame").map(rect_of)));
                 }
                 Child::Sticky(m) | Child::Shape(m) | Child::Textbox(m) => {
                     let ty = match child {
@@ -609,6 +614,9 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
                     }
                 }
             }
+            if route::section_conflict(&points, stroke, None, &section_frames).is_some() {
+                quality.section_conflicts += 1;
+            }
             for (end, at, owner, cap) in
                 [(points[0], points[1], &c.from, &c.from_cap), (points[legs], points[legs - 1], &c.to, &c.to_cap)]
             {
@@ -652,6 +660,9 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
                                 route::CLEARANCE
                             ));
                         }
+                    }
+                    if route::section_conflict(&[], stroke, Some(&expect), &section_frames).is_some() {
+                        quality.section_conflicts += 1;
                     }
                     Some((expect, grown))
                 }

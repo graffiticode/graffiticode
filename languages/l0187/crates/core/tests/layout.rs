@@ -230,3 +230,37 @@ async fn crowded_connectors_get_room_from_the_repair_loop() {
     assert!(board["report"]["repair"]["rounds"].as_u64().unwrap() > 0);
     assert_eq!(board["report"]["accepted"], true);
 }
+
+#[tokio::test]
+async fn stickies_in_a_grid_share_one_width() {
+    let board = named("neda-strategy").await;
+    for section in board["pages"][0]["nodes"].as_array().unwrap().iter().filter(|s| s["type"] == "section") {
+        let widths: Vec<f64> = section["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| m["type"] == "sticky")
+            .map(|m| n(m, "width"))
+            .collect();
+        assert!(widths.windows(2).all(|w| w[0] == w[1]), "{}: {widths:?}", section["id"]);
+    }
+}
+
+#[tokio::test]
+async fn a_route_into_a_section_clears_its_title_and_never_skirts_its_border() {
+    let board = named("neda-strategy").await;
+    assert_eq!(board["report"]["quality"]["section_conflicts"], 0);
+    let page = &board["pages"][0];
+    let stages = page["nodes"].as_array().unwrap().iter().find(|s| s["id"] == "stages-section").unwrap();
+    let title = &stages["titleFrame"];
+    let route = connector(page, "dhis2-to-consult")["route"].as_array().unwrap();
+    for leg in route.windows(2) {
+        let (x0, x1) = (n(&leg[0], "x").min(n(&leg[1], "x")), n(&leg[0], "x").max(n(&leg[1], "x")));
+        let (y0, y1) = (n(&leg[0], "y").min(n(&leg[1], "y")), n(&leg[0], "y").max(n(&leg[1], "y")));
+        let apart = x1 < n(title, "x")
+            || x0 > n(title, "x") + n(title, "w")
+            || y1 < n(title, "y")
+            || y0 > n(title, "y") + n(title, "h");
+        assert!(apart, "leg {leg:?} crosses the title {title}");
+    }
+}

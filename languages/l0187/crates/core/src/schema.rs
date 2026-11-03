@@ -206,8 +206,8 @@ pub fn schema() -> Json {
                     "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
                     "quality": {
                         "type": "object",
-                        "required": ["crossings", "bends", "route_length"],
-                        "properties": { "crossings": { "type": "integer" }, "bends": { "type": "integer" }, "route_length": number },
+                        "required": ["crossings", "section_conflicts", "bends", "route_length"],
+                        "properties": { "crossings": { "type": "integer" }, "section_conflicts": { "type": "integer" }, "bends": { "type": "integer" }, "route_length": number },
                         "additionalProperties": false
                     },
                     "repair": {
