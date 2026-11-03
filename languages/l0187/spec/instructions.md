@@ -74,6 +74,11 @@ connector.
   `ROUNDED_RECTANGLE`, `ELLIPSE`, `DIAMOND`, `PARALLELOGRAM_RIGHT`, `PREDEFINED_PROCESS`,
   `DOCUMENT_SINGLE`, `ENG_DATABASE`. Shapes grow to hold their text. Optional `fill`, `stroke`
   (outline colour) and `stroke-width THICK`.
+- **Keep shape text short.** A shape is a label, not a paragraph: a few words. A `DIAMOND` is a
+  decision and holds only a short question of about five words (`"Autorização obtida?"`): its
+  text fits only in the middle of the shape, so a sentence makes it several times larger than
+  everything around it. Put the detail in a sticky next to the diamond, in the same section,
+  rather than in the diamond itself.
 - `textbox id "h" text "Heading" font-size LARGE {}`: free text, for headings and notes; `color`
   sets its text colour.
 - `font-size`: `SMALL`, `MEDIUM` (default), `LARGE`, `EXTRA_LARGE`, `HUGE`. Colours: hex like
