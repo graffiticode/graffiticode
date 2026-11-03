@@ -12,12 +12,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./spec/*": "./spec/*"
+    }
   },
   "files": [
-    "dist",
-    "spec"
+    "dist"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

@@ -16,7 +16,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { compile } from "./testing.js";
 
 /** Files whose fenced blocks are programs. examples.md holds prompts and is checked separately. */
-const SPEC_FILES = ["spec/spec.md", "spec/instructions.md"];
+const SPEC_FILES = ["../../spec/spec.md", "../../spec/instructions.md"];
 
 /** Every fenced block in a markdown file, in order, with its 1-based start line. */
 function blocks(path: string): { line: number; src: string }[] {
@@ -59,7 +59,7 @@ describe("every program in the docs compiles", () => {
   }
 
   test("spec/template.gc compiles", async () => {
-    const out = await compile(readFileSync("spec/template.gc", "utf-8"));
+    const out = await compile(readFileSync("../../spec/template.gc", "utf-8"));
     expect(out.cards.length).toBeGreaterThan(0);
   });
 });
@@ -68,10 +68,10 @@ describe("compiled output matches the published schema", () => {
   // schema.json is served to consumers as the contract for L0181's output. A compiler change
   // that outgrows it should update it, not quietly diverge from it.
   const ajv = new (Ajv2020 as any)({ strict: false });
-  const validate = ajv.compile(JSON.parse(readFileSync("spec/schema.json", "utf-8")));
+  const validate = ajv.compile(JSON.parse(readFileSync("../../spec/schema.json", "utf-8")));
 
   test("the template validates", async () => {
-    const out = await compile(readFileSync("spec/template.gc", "utf-8"));
+    const out = await compile(readFileSync("../../spec/template.gc", "utf-8"));
     expect(validate(out) || ajv.errorsText(validate.errors)).toBe(true);
   });
 
@@ -90,11 +90,11 @@ describe("image URLs in the docs resolve to images", () => {
   // generator is written from and retrieved against, so a URL that does not resolve here
   // becomes a URL that does not resolve in a learner's deck.
   const FILES = [
-    "spec/spec.md",
-    "spec/instructions.md",
-    "spec/usage-guide.md",
-    "spec/examples.md",
-    "spec/template.gc",
+    "../../spec/spec.md",
+    "../../spec/instructions.md",
+    "../../spec/usage-guide.md",
+    "../../spec/examples.md",
+    "../../spec/template.gc",
   ];
 
   /** Every http(s) URL in a file, with trailing sentence punctuation and markdown trimmed. */
@@ -142,7 +142,7 @@ describe("examples.md numbering is coherent", () => {
   // The corpus generator numbers what it creates by the LABEL written here, so a repeated or
   // skipped number silently mislabels a run and there is no way to tell afterwards which
   // prompt produced which item.
-  const text = readFileSync("spec/examples.md", "utf-8");
+  const text = readFileSync("../../spec/examples.md", "utf-8");
   const lines = text.split("\n");
   const numbered = lines
     .map((l) => l.match(/^(\d+)\.\s+\S/))

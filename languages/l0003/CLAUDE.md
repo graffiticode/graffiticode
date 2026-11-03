@@ -37,7 +37,7 @@ L0003 is a Graffiticode dialect — the first child of `@graffiticode/l0000`. It
 - **`packages/core/`** — `@graffiticode/l0003`: the language itself. Pure TypeScript.
   - `src/lexicon.ts`: merges L0000's base lexicon with L0003's additions (`hello`, `image`, `theme`, `id`, plus `DARK`/`LIGHT` tags)
   - `src/compiler.ts`: `Checker` and `Transformer` classes extending L0000's, adding handlers for the L0003 vocabulary
-  - `spec/`: language documentation, examples, schema, RAG training prompts, etc.
+  - `spec/` (at this directory's root since A6, not in `packages/core`): language documentation, examples, schema, RAG training prompts, etc.
   - `tools/build-static.js`: copies spec content into `dist/static/` for the API to serve
 
 - **`packages/api/`** — `@graffiticode/api-l0003`: Express language server. TypeScript, run via `tsx` in dev and compiled to `dist/` for prod.
@@ -126,6 +126,19 @@ npm run rust:fixtures # build packages/core, then regenerate tests/conformance/c
 `crates/core/tests/conformance/generate.mjs` parses a corpus with L0003's TypeScript lexicon (parser from `../l0000/node_modules`), compiles each program against several upstream inputs with `@graffiticode/l0003`, and writes `cases.json`. `tests/conformance.rs` requires identical data for every case and the same errors, comparing check errors up to "Got": the Rust message names what was found more clearly than TypeScript's ("the string "dark"" rather than "tag dark"). There are no other divergences.
 
 The TypeScript L0003 depends on the published `@graffiticode/l0000` 0.8, which is older than the kernel here. The Rust dialect therefore also has what the base language gained since (exact numbers, `format-number`), and the lexicon it serves includes those words.
+
+### Static assets and fixtures without the TypeScript (interpreter plan A6)
+
+- **`spec/`** (the language's spec, instructions, usage guide, schema, scope, template and examples)
+  lives at this directory's root, not in `packages/core`. `tools/build-static.mjs` turns it into the
+  public assets (`spec.html` via spec-md, `instructions.md` with L0000's, `language-info.json` with
+  the usage guide's Overview as `authoring_guide`) without importing any compiler;
+  `tools/assemble-static.mjs` adds the View bundle from `packages/view`. The Rust server serves
+  `/lexicon.json` from its binary, so `static/` has no `lexicon.json`. The output is byte-identical
+  to what the TypeScript build produced (checked 2026-11-03).
+- **`crates/core/src/lexicon-additions.json` and `tests/conformance/cases.json` are frozen**: the last trusted TypeScript record, with their provenance in
+  `crates/core/tests/conformance/PROVENANCE.md`. Never regenerate them from the Rust. Until the
+  TypeScript source is removed, `npm run rust:fixtures` still regenerates them from it.
 
 ### Deploying the Rust server
 

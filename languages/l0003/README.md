@@ -16,7 +16,7 @@ L0003 adds the following on top of the L0000 base lexicon:
 | `theme`  | 2 | `theme DARK hello "world"..` | Wraps a UI expression in a theme (`DARK` or `LIGHT`) with a toggle |
 | `id`     | 2 | `id "tag" expr..` | Tags an expression with a stable identifier |
 
-See [`packages/core/spec/`](packages/core/spec/) for the full language specification, examples, and authoring guide.
+See [`spec/`](spec/) for the full language specification, examples, and authoring guide.
 
 ## Structure
 

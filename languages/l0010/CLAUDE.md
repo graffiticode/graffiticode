@@ -37,7 +37,7 @@ L0010 is the Graffiticode **composition planning** dialect, inheriting `@graffit
 - **`packages/core/`** — `@graffiticode/l0010`: the language itself. Pure TypeScript.
   - `src/lexicon.ts`: merges L0000's base lexicon with L0010's single addition (`plan`)
   - `src/compiler.ts`: `Checker` and `Transformer` classes extending L0000's, adding the `PLAN` handlers (validate ids / build `{ langs }`)
-  - `spec/`: language documentation, examples, schema, RAG training prompts, etc.
+  - `spec/` (at this directory's root since A6, not in `packages/core`): language documentation, examples, schema, RAG training prompts, etc.
   - `tools/build-static.js`: copies spec content into `dist/static/` for the API to serve
 
 - **`packages/api/`** — `@graffiticode/api-l0010`: Express language server. TypeScript, run via `tsx` in dev and compiled to `dist/` for prod.
@@ -117,6 +117,19 @@ npm run rust:fixtures # build packages/core, then regenerate tests/conformance/c
 `crates/core/tests/conformance/generate.mjs` parses a corpus with L0010's TypeScript lexicon (parser from `../l0000/node_modules`), compiles each program with `@graffiticode/l0010`, and writes `cases.json`. `tests/conformance.rs` requires identical data and identical errors for every case. One deliberate difference is listed in its `divergence` function: TypeScript accepts `plan 158` and evaluates it to an empty plan; here a plan that is not a list is rejected, as `plan "0158"` already is on both sides.
 
 The TypeScript L0010 depends on the published `@graffiticode/l0000` 0.8, which is older than the kernel here, so the Rust dialect also has what the base language gained since (exact numbers, `format-number`).
+
+### Static assets and fixtures without the TypeScript (interpreter plan A6)
+
+- **`spec/`** (the language's spec, instructions, usage guide, schema, scope, template and examples)
+  lives at this directory's root, not in `packages/core`. `tools/build-static.mjs` turns it into the
+  public assets (`spec.html` via spec-md, `instructions.md` with L0000's, `language-info.json` with
+  the usage guide's Overview as `authoring_guide`) without importing any compiler;
+  `tools/assemble-static.mjs` adds the View bundle from `packages/view`. The Rust server serves
+  `/lexicon.json` from its binary, so `static/` has no `lexicon.json`. The output is byte-identical
+  to what the TypeScript build produced (checked 2026-11-03).
+- **`crates/core/src/lexicon-additions.json` and `tests/conformance/cases.json` are frozen**: the last trusted TypeScript record, with their provenance in
+  `crates/core/tests/conformance/PROVENANCE.md`. Never regenerate them from the Rust. Until the
+  TypeScript source is removed, `npm run rust:fixtures` still regenerates them from it.
 
 ### Deploying the Rust server
 

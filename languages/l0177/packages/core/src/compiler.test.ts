@@ -559,7 +559,7 @@ describe("exact Learnosity paths accompany the design", () => {
  */
 describe("the shipped starting template introduces nothing", () => {
   const template = readFileSync(
-    fileURLToPath(new URL("../spec/template.gc", import.meta.url)), "utf-8",
+    fileURLToPath(new URL("../../../spec/template.gc", import.meta.url)), "utf-8",
   );
 
   test("asserts none of the hole-bearing properties, and no view", () => {

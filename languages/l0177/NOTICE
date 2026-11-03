@@ -7,7 +7,7 @@ This project uses a dual-license structure:
    Licensed under the MIT License.
    See: packages/LICENSE
 
-2. DOCUMENTATION AND SPECIFICATIONS (.md files in packages/api/spec/)
+2. DOCUMENTATION AND SPECIFICATIONS (.md files in spec/)
    Licensed under the Creative Commons Attribution 4.0 International License (CC-BY 4.0).
    See: LICENSE-DOCS
 
