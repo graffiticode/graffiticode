@@ -15,7 +15,10 @@ Reasons:
 - **Parity can be verified.** A switch changes the implementation, not the behavior, so the same `/compile` request can be compared on TypeScript and Rust. If the port and the semantic change happened together, there would be nothing to compare against.
 - **Each release has one rollback.** A switch is rolled back by a routing change, and an upgrade by per-language flags plus a generation change.
 - **The switch doesn't wait for `/interpret`.** Several languages are nearly ready to switch now.
-- **Native Rust languages are the exception.** A language created natively in Rust (L0187, L0188) has no TypeScript to switch from, so it skips Track A. Its activation evidence is operation conformance plus failure-recovery evidence (Track E6), not TypeScript parity.
+- **Native Rust languages are the exception.** A language created natively in Rust (L0187, L0188) has no TypeScript to switch from, so it skips Track A. Its activation evidence is conformance of its own compiler and interpreter, not TypeScript parity. Further gates are added only for the capabilities it has:
+  - **Read-only (L0187):** conformance alone, as for any Track C upgrade. It never needs E1–E6.
+  - **With commands:** also the B5 command and recovery evidence.
+  - **Durable (L0188):** also Track E6's durable-execution and failure-recovery gates.
 - **One code path serves three kinds of language.** About 20 production languages live outside this repo (L0002, L0158, L0166, L0170, …) and have no Rust implementation, so they keep today's `/compile` protocol permanently. The API's legacy adapter is therefore a permanent stage kind: it serves those languages, switched-but-not-yet-upgraded Rust languages, and unswitched Node languages alike.
 
 ## Invariants for every release point
@@ -300,7 +303,10 @@ B5 used to wait until the read path had "more production experience", which name
 5. **Concurrency.** At least 20% of the drive runs at a concurrency of 16 or more, with identical keys in flight at once. Concurrent answers for one key are identical.
 6. **Failures.** None of `model-unavailable`, `compile-response-lost` or `no-store-intermediate` appears unless a planted case expects it. A transient 5xx is allowed only if its retry succeeds, and at most 0.1% of requests may need one.
 7. **Cache.** Repeats hit at least 95% of the time. Every `stage-results` document the drive wrote has a `ttl` no later than its result's own expiry.
-8. **Latency.** For each language, the interpreted p95 (`ms.model + ms.interpret`, or `ms.cache` on a hit) is at most 1.5 × the p95 of a direct `lNNNNr /compile`, plus 100 ms. Both are measured in the same drive.
+8. **Latency.** It is measured as the request's elapsed time, as the driver sees it, not from a subset of the stage timings. Every hit also makes the model call, and every miss also does the cache lookup.
+   - **Stage breakdown.** The `ms.{model,cache,interpret}` split is reported alongside, summed consistently: `model + cache` on a hit, and `model + cache + interpret` on a miss.
+   - **Separate reporting.** Hits and misses are reported separately, per language.
+   - **Budget.** Each p95 is at most 1.5 × the p95 of a direct `lNNNNr /compile` of the same request, plus 100 ms. Both are measured in the same drive.
 9. **Rollback rehearsal.** During the drive, one language's `INTERPRETER_LNNNN` is turned off and back on. Each flip is an api release that moves `COMPILE_GENERATION_LNNNN`. After each flip, no result cached under the previous generation is served, and the oracle still holds.
 
 B5 now also gates Track E (durable execution). These criteria don't change for that.
@@ -310,7 +316,13 @@ B5 now also gates Track E (durable execution). These criteria don't change for t
 - **Volume.** At least 200 commands, covering every operation, with retries using the same key.
 - **Outcomes.**
   - Every partial command is reported as `partial` or `uncertain` and never re-executes a completed operation.
-  - Manual reconciliation has been done successfully for at least 10 of them, using the procedure that B6 automates.
+- **Reconciliation evidence (separate from repair).** Reconciliation establishes what happened to an uncertain effect. It may find the effect already succeeded, and it never retries one. At least 10 `uncertain` or `partial` operations are reconciled against the provider. Each ends with its outcome established, as `completed` or `failed`, without a repeated write. At least one of them turns out to have already succeeded.
+- **Repair evidence (what B6 adds).** Replay repair retries eligible failed occurrences through the repair ledger (design §5, "Repair"). The drive shows each of these:
+  - **Failed-only selection.** A repair selecting a `completed`, `partial` or `uncertain` occurrence is refused at admission. Only occurrences recorded `failed`, or reconciled to `failed`, are eligible.
+  - **Concurrent-repair exclusion.** Two repairs with different keys that select the same occurrence: one claims it in the ledger, and the other is refused. A later repair can't re-run an occurrence an earlier repair completed.
+  - **Resumption.** A repair that completes a stage's last failed occurrence resumes the `not-reached` stages to its left.
+  - **Materialization.** The repaired artifact is materialized from the recorded observations and outputs, with no live reads or new effects, and is published under the latest repair's fencing generation.
+  - **Volume.** At least 10 repairs that succeed.
 
 ## Track C — Upgrade each switched language to the interpreter (Rust only)
 Prerequisites: the language is switched (A), and B1–B4 have shipped. A language that needs commands also needs B5, and B6 before repairs can be offered. Track E's prerequisites (E1–E6) apply only to durable languages. No Track C upgrade or immediate command needs them.
