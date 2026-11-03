@@ -90,6 +90,11 @@ correctly with all its accents and letters (`"Missão"`, `"decisões"`, `"segura
 not", is not `"nao e"`). Use ordinary sentence case, not all capitals; a section's `name` already
 serves as its heading.
 
+Use that language's own words, even where the request writes an English term in passing: in
+Portuguese `"Salvaguardas"`, not `"Guardrails"`; `"Alternativa offline"`, not `"Fallback"`;
+`"Painel"`, not `"Dashboard"`. Keep proper names, acronyms and product names as given (`"DHIS2"`,
+`"UNESCO"`, `"FigJam"`).
+
 ## Connectors
 
 `connector id "…" from "<mark id>" to "<mark id>" {}`, with optional `label`, `line-style DASHED`,
