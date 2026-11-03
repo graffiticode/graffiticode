@@ -1518,6 +1518,26 @@ PR #242) and reports the bucket in effect on `GET /egress` (`language.thumbnailB
   explicitly, in the switch PR (no new grant is needed). At D4 both runtime accounts lose direct
   write (plan C5c). The evidence bucket stays, emptying itself after 30 days.
 
+### Step 17: the `l0184` TypeScript service is retired (interpreter plan A7) [LIVE]
+
+L0184 runs only on `l0184r` (domain `l0184.graffiticode.org` mapped to it on 2026-11-02, the
+api routing through the domain). The owner had the TypeScript service deleted.
+
+- **Service.** *(Deleted 2026-11-03.)* Cloud Run `l0184`. Its last revision,
+  `l0184-rmvu66ggb-23009b`, has its image in `us-central1-docker.pkg.dev/graffiticode/services/l0184`,
+  which is retained. The entry is removed from `deploy.json` and from
+  `deploy/egress-proxy/production/network.json`, so the regenerated `step1-checklist.md` no longer
+  grants or expects `l0184-run`'s binding. The regenerated AT-11 step 7 configs
+  (`deploy/egress-proxy/step7/at11/collect.json`, `probe-compilers-default.json`) no longer probe it.
+  A future inventory that still lists the account would show it as a compiler outside `deploy.json`.
+- **Runtime account.** `l0184-run` still exists. Its only remaining grant is
+  `roles/secretmanager.secretAccessor` on `egress-proxy-ca-bundle`, checked 2026-11-03: it has no
+  project roles and no invoker on `l0184r`. Removing that binding and the account is a separate
+  owner decision. Until then the live secret policy has one more member than the checklist
+  expects.
+- **Unchanged.** The proxy's certificate for `l0184.graffiticode.org` stays, because the domain
+  is live on `l0184r`, and so do the allow lists that name it.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |

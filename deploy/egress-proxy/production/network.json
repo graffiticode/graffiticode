@@ -273,25 +273,6 @@
         ]
       }
     },
-    "l0184": {
-      "runtimeServiceAccount": "l0184-run@graffiticode.iam.gserviceaccount.com",
-      "network": {
-        "network": "compilers",
-        "subnet": "compilers-default",
-        "tags": [
-          "compiler"
-        ],
-        "proxy": "http://10.8.0.2:3128",
-        "ca": {
-          "secret": "egress-proxy-ca-bundle:1",
-          "path": "/etc/egress-ca/ca.pem"
-        },
-        "allow": [
-          "api.graffiticode.org",
-          "auth.graffiticode.org"
-        ]
-      }
-    },
     "l0186": {
       "runtimeServiceAccount": "l0186-run@graffiticode.iam.gserviceaccount.com",
       "network": {
