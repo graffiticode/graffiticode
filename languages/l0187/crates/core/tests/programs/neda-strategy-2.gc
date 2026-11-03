@@ -1,0 +1,78 @@
+board [
+  page [
+    section [
+      textbox id "estado-neda" text "Estado declarado: proposta independente de interesse público; não apresentada como instituição legalmente registada, aprovada ou endossada." font-size LARGE color "black" {}
+      textbox id "regra-leitura" text "Leitura: Proposta = acção pretendida; Condição = requisito antes de avançar; Resultado = só após medição." color "gray" {}
+      group [
+        sticky id "missao-neda" text "Proposta — Promover inteligência artificial responsável que beneficie as pessoas, proteja direitos e apoie o desenvolvimento sustentável, começando no Sumbe, Angola." fill "#dbeafe" {}
+        shape id "piloto-central" text "Piloto administrativo numa unidade de saúde" kind ROUNDED_RECTANGLE fill "#dcfce7" {}
+        shape id "portas-centrais" text "Condições críticas cumpridas?" kind DIAMOND fill "#fef3c7" {}
+        shape id "decisao-escala" text "Escalar após medir?" kind DIAMOND fill "#ede9fe" {}
+      ] id "fluxo-central" layout FLOW direction RIGHT {}
+    ] id "visao-central" name "Missão, piloto e decisão" layout COLUMN fill "#f8fafc" {}
+    section [
+      sticky id "piloto-ambito" text "Proposta — Apoio à marcação administrativa e à gestão de filas numa única unidade de saúde. Todo o poder de decisão permanece com os profissionais humanos." fill "#dcfce7" {}
+      sticky id "piloto-funcoes" text "Funções: registo de marcações; consulta do estado da fila; lembretes apenas com consentimento e canal disponível; relatórios operacionais simples." fill "#ecfdf5" {}
+      sticky id "piloto-limites" text "Fora do âmbito: diagnóstico; triagem de urgência clínica; prescrições; priorização de pacientes por IA; decisões clínicas autónomas." fill "#fee2e2" {}
+    ] id "primeiro-piloto" name "Primeiro piloto recomendado" layout COLUMN fill "#f0fdf4" {}
+    section [
+      shape id "autorizacao-escrita" text "Autorização escrita obtida?" kind DIAMOND fill "#fef3c7" {}
+      sticky id "autoridades-condicao" text "Condição — Obter autorização escrita da unidade de saúde e das autoridades de saúde competentes. Sem autorização, não iniciar." fill "#fef3c7" {}
+      sticky id "fluxo-existente" text "Condição — Avaliar o fluxo de trabalho actual, necessidades reais, capacidades da equipa e sistemas já existentes." fill "#fff7ed" {}
+      sticky id "compatibilidade-dhis2" text "Condição — Assegurar compatibilidade com o ecossistema nacional de informação sanitária DHIS2 de Angola; não criar um sistema paralelo." fill "#fff7ed" {}
+    ] id "dependencias-criticas" name "Dependências e portas críticas" layout COLUMN fill "#fffbeb" {}
+    section [
+      shape id "etapa-consulta" text "Consulta e linha de base" kind ROUNDED_RECTANGLE fill "#dbeafe" {}
+      shape id "etapa-processos" text "Mapear processos" kind ROUNDED_RECTANGLE fill "#dbeafe" {}
+      shape id "etapa-revisao" text "Revisão legal e de segurança" kind ROUNDED_RECTANGLE fill "#fef3c7" {}
+      shape id "etapa-prototipo" text "Protótipo com dados mínimos" kind ROUNDED_RECTANGLE fill "#fef3c7" {}
+      shape id "etapa-formacao" text "Formar a equipa" kind ROUNDED_RECTANGLE fill "#dcfce7" {}
+      shape id "etapa-piloto" text "Piloto limitado" kind ROUNDED_RECTANGLE fill "#dcfce7" {}
+      shape id "etapa-avaliacao" text "Avaliação independente" kind ROUNDED_RECTANGLE fill "#ede9fe" {}
+      shape id "etapa-escala" text "Escala após evidência e aprovação" kind ROUNDED_RECTANGLE fill "#ede9fe" {}
+    ] id "etapas-implementacao" name "Etapas de implementação" layout GRID columns 2 fill "#f8fafc" {}
+    section [
+      sticky id "indicadores-fluxo" text "Medir antes e depois, sem valores-alvo pré-preenchidos: tempo de espera; faltas às marcações; erros de registo; tempo da equipa dedicado à administração." fill "#e0f2fe" {}
+      sticky id "indicadores-experiencia" text "Medir antes e depois: satisfação dos utilizadores; disponibilidade do sistema; reclamações; incidentes de privacidade e segurança." fill "#e0f2fe" {}
+      sticky id "indicadores-regra" text "Resultado — Documentar método, fonte, período e limitações de cada indicador. Comparar a linha de base com o piloto antes de decidir sobre escala." fill "#f3e8ff" {}
+    ] id "indicadores-sucesso" name "Indicadores de sucesso" layout COLUMN fill "#f0f9ff" {}
+    section [
+      sticky id "risco-acesso" text "Sem acesso institucional — Não iniciar." fill "#fee2e2" {}
+      sticky id "risco-dados" text "Exposição de dados de saúde — Minimização de dados, acesso por funções, encriptação, limites de retenção, plano de incidentes e revisão legal." fill "#fee2e2" {}
+      sticky id "risco-conectividade" text "Conectividade instável — Alternativa offline ou de baixa largura de banda." fill "#fff7ed" {}
+      sticky id "risco-resistencia" text "Resistência da equipa — Co-criação e formação." fill "#fff7ed" {}
+      sticky id "risco-duplicacao" text "Sistemas duplicados — Integrar com o existente ou parar." fill "#fef3c7" {}
+      sticky id "risco-exclusao" text "Exclusão de pessoas sem telefone — Manter atendimento presencial e opção em papel." fill "#fef3c7" {}
+      sticky id "risco-fornecedor" text "Dependência de fornecedor e aumento de custos — Normas abertas, portabilidade e plano de saída." fill "#ede9fe" {}
+      sticky id "risco-ia" text "Erros de IA — Manter a IA fora das decisões clínicas." fill "#ede9fe" {}
+    ] id "riscos-mitigacoes" name "Riscos principais e mitigação" layout GRID columns 2 fill "#fff7f7" {}
+    section [
+      sticky id "viabilidade-valor" text "Condição — Valor público credível e alinhamento com políticas relevantes." fill "#e0e7ff" {}
+      sticky id "viabilidade-originalidade" text "Condição — Demonstrar originalidade face às iniciativas existentes, evitando duplicação." fill "#e0e7ff" {}
+      sticky id "viabilidade-execucao" text "Condição — Âmbito faseado, governação multidisciplinar e resultados mensuráveis." fill "#e0e7ff" {}
+      sticky id "viabilidade-integridade" text "Condição — Financiamento transparente e auditoria independente." fill "#e0e7ff" {}
+      sticky id "viabilidade-parcerias" text "Não alegar parceria, aprovação ou endosso da UNESCO, União Africana, MINSA ou outras entidades até existir acordo formal." fill "#fee2e2" {}
+    ] id "condicoes-viabilidade" name "Viabilidade geral da NEDA" layout GRID columns 2 fill "#eef2ff" {}
+    section [
+      sticky id "dominios-futuros" text "Fases posteriores propostas: educação; conectividade; agricultura; ambiente; serviços públicos; telecomunicações." fill "#f3e8ff" {}
+      sticky id "dominios-regra" text "Não lançar estes domínios em simultâneo. Priorizar, testar e aprender com o primeiro piloto antes de ampliar o âmbito." fill "#ede9fe" {}
+    ] id "fases-posteriores" name "Outros domínios — fases posteriores" layout COLUMN fill "#faf5ff" {}
+    section [
+      sticky id "salvaguardas-humanas" text "Supervisão humana; respeito pelos direitos; acessibilidade; participação comunitária." fill "#dbeafe" {}
+      sticky id "salvaguardas-institucionais" text "Transparência; prestação de contas; responsabilidades e decisões documentadas." fill "#dbeafe" {}
+      sticky id "salvaguardas-dados" text "Protecção de dados; cibersegurança; acesso limitado; resposta a incidentes." fill "#dbeafe" {}
+    ] id "salvaguardas-governacao" name "Salvaguardas de governação" layout COLUMN fill "#eff6ff" {}
+    connector id "ligacao-missao-piloto" from "missao-neda" to "piloto-central" label "primeira aplicação proposta" stroke "#2563eb" stroke-width THICK {}
+    connector id "ligacao-piloto-portas" from "piloto-central" to "portas-centrais" label "só avança se" stroke "#ca8a04" stroke-width THICK {}
+    connector id "ligacao-portas-decisao" from "portas-centrais" to "decisao-escala" label "evidência e aprovação" stroke "#7c3aed" stroke-width THICK {}
+    connector id "ligacao-portas-autorizacao" from "portas-centrais" to "autorizacao-escrita" label "inclui autorização formal" line-style DASHED stroke "#ca8a04" {}
+    connector id "ligacao-consulta-processos" from "etapa-consulta" to "etapa-processos" label "depois" {}
+    connector id "ligacao-processos-revisao" from "etapa-processos" to "etapa-revisao" label "depois" {}
+    connector id "ligacao-revisao-prototipo" from "etapa-revisao" to "etapa-prototipo" label "se conforme" {}
+    connector id "ligacao-prototipo-formacao" from "etapa-prototipo" to "etapa-formacao" label "preparar operação" {}
+    connector id "ligacao-formacao-piloto" from "etapa-formacao" to "etapa-piloto" label "iniciar limitado" {}
+    connector id "ligacao-piloto-avaliacao" from "etapa-piloto" to "etapa-avaliacao" label "medir antes e depois" {}
+    connector id "ligacao-avaliacao-escala" from "etapa-avaliacao" to "etapa-escala" label "só com evidência e aprovação" stroke "#7c3aed" stroke-width THICK {}
+    connector id "ligacao-decisao-etapa-escala" from "decisao-escala" to "etapa-escala" label "decisão medida" line-style DASHED stroke "#7c3aed" {}
+  ] id "estrategia-neda" name "Estratégia do projecto" layout GRID columns 3 background "#f8fafc" {}
+] title "NEDA — Viabilidade e piloto inicial no Sumbe" show-page-tabs false {}..

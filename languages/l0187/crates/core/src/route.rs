@@ -176,12 +176,23 @@ pub fn label_box(points: &[P], from: &Frame, to: &Frame, size: Option<(f64, f64)
 /// The clearance a connector keeps from everything it must not touch.
 pub const CLEARANCE: f64 = 8.0;
 
-/// How close a leg may run alongside a section's border: clear of the line, not the full
-/// clearance (a gutter is often only 48px, and a leg there must pass between two sections).
-pub const BORDER_MARGIN: f64 = 4.0;
+/// How far a line keeps from a section's border it runs alongside, and from a section's title:
+/// enough to read as apart from it, while a leg can still pass down the middle of a 48px gutter.
+pub const BORDER_MARGIN: f64 = 20.0;
 
 fn border_reach(stroke: f64) -> f64 {
     stroke / 2.0 + BORDER_MARGIN
+}
+
+fn grow(f: &Frame, by: f64) -> Frame {
+    Frame { x: f.x - by, y: f.y - by, w: f.w + 2.0 * by, h: f.h + 2.0 * by }
+}
+
+fn inside(f: &Frame, border: &Frame) -> bool {
+    f.x >= border.x - 1e-9
+        && f.y >= border.y - 1e-9
+        && f.x + f.w <= border.x + border.w + 1e-9
+        && f.y + f.h <= border.y + border.h + 1e-9
 }
 
 /// Whether the straight leg a-b runs along one of the border's edges, within `reach` of it.
@@ -202,28 +213,44 @@ fn skirts(a: P, b: P, border: &Frame, reach: f64) -> bool {
 /// A section as routing sees it: its border, and the title band drawn above it.
 pub type SectionFrame = (Frame, Option<Frame>);
 
-/// Why a route sits badly against the page's sections, if it does: a leg (or its label) over a
-/// section's title band, or a leg running along a section's border within the clearance (a leg
-/// may cross a border, square on, but not skirt it). Shared by the router and the validator.
-pub fn section_conflict(points: &[P], stroke: f64, label: Option<&Frame>, sections: &[SectionFrame]) -> Option<String> {
+/// Why a route sits badly against the page's sections, if it does: a line within
+/// `BORDER_MARGIN` of a section's title band, or running along a section's border within it (a
+/// leg may cross a border, square on, but not skirt it); a leg through a section that holds
+/// neither of its ends (`ends`); a label near a title or inside such a section. Shared by the
+/// router and the validator.
+pub fn section_conflict(
+    points: &[P],
+    stroke: f64,
+    label: Option<&Frame>,
+    sections: &[SectionFrame],
+    ends: (&Frame, &Frame),
+) -> Option<String> {
     let reach = border_reach(stroke);
+    let foreign = |border: &Frame| !inside(ends.0, border) && !inside(ends.1, border);
     for (i, seg) in points.windows(2).enumerate() {
         let (a, b) = (seg[0], seg[1]);
-        let leg = band(a, b, stroke);
+        let line = grow(&band(a, b, 0.0), stroke / 2.0 - CLEARANCE);
         for (border, title) in sections {
-            if title.is_some_and(|t| overlaps(&leg, &t)) {
-                return Some(format!("leg {i} crosses a section title"));
+            if title.is_some_and(|t| overlaps(&line, &grow(&t, BORDER_MARGIN))) {
+                return Some(format!("leg {i} runs within {BORDER_MARGIN} of a section title"));
             }
             if skirts(a, b, border, reach) {
                 return Some(format!("leg {i} runs along a section border"));
             }
+            if foreign(border) && overlaps(&line, border) {
+                return Some(format!("leg {i} runs through a section neither end is in"));
+            }
         }
     }
     if let Some(lb) = label {
-        let grown =
-            Frame { x: lb.x - CLEARANCE, y: lb.y - CLEARANCE, w: lb.w + 2.0 * CLEARANCE, h: lb.h + 2.0 * CLEARANCE };
-        if sections.iter().any(|(_, t)| t.is_some_and(|t| overlaps(&grown, &t))) {
-            return Some("its label covers a section title".to_owned());
+        let grown = grow(lb, CLEARANCE);
+        for (border, title) in sections {
+            if title.is_some_and(|t| overlaps(&grown, &grow(&t, BORDER_MARGIN - CLEARANCE))) {
+                return Some("its label is near a section title".to_owned());
+            }
+            if foreign(border) && overlaps(&grown, border) {
+                return Some("its label sits in a section neither end is in".to_owned());
+            }
         }
     }
     None
@@ -443,7 +470,9 @@ impl Scene<'_> {
                 return false;
             }
         }
-        !self.strict_sections || section_conflict(points, stroke, label, &self.sections).is_none()
+        !self.strict_sections
+            || section_conflict(points, stroke, label, &self.sections, (&self.frames[&c.from], &self.frames[&c.to]))
+                .is_none()
     }
 
     fn candidates(&mut self, c: &Connector, parallel: usize, region: &str, against_flow: bool) -> Vec<Candidate> {
@@ -673,12 +702,17 @@ impl Scene<'_> {
             .map(|(id, f)| (id.clone(), Frame { x: f.x - m, y: f.y - m, w: f.w + 2.0 * m, h: f.h + 2.0 * m }))
             .collect();
         // Labels already placed, and section titles, are obstacles too: a leg may not run through one.
+        // So are, while the section rule holds, titles (with their margin) and sections that
+        // hold neither end.
         let g = CLEARANCE + Self::stroke(c) / 2.0;
         if self.strict_sections {
-            for (_, title) in &self.sections {
+            let half = Self::stroke(c) / 2.0;
+            for (border, title) in &self.sections {
                 if let Some(t) = title {
-                    inflated
-                        .push((String::new(), Frame { x: t.x - g, y: t.y - g, w: t.w + 2.0 * g, h: t.h + 2.0 * g }));
+                    inflated.push((String::new(), grow(t, BORDER_MARGIN + half)));
+                }
+                if !inside(&a, border) && !inside(&b, border) {
+                    inflated.push((String::new(), grow(border, half)));
                 }
             }
         }
@@ -708,7 +742,7 @@ impl Scene<'_> {
         // may not skirt a border or cross a title, so the lines hugging marks inside a section
         // (8px from its border) are not enough to route around it.
         let clear = border_reach(Self::stroke(c)) + 2.0;
-        let title_clear = CLEARANCE + Self::stroke(c) / 2.0 + 2.0;
+        let title_clear = BORDER_MARGIN + Self::stroke(c) / 2.0 + 2.0;
         for (border, title) in &self.sections {
             for x in [border.x, border.x + border.w] {
                 xs.insert(key(x - clear));
@@ -720,6 +754,7 @@ impl Scene<'_> {
             }
             if let Some(t) = title {
                 ys.insert(key(t.y - title_clear));
+                xs.insert(key(t.x - title_clear));
                 xs.insert(key(t.x + t.w + title_clear));
             }
         }

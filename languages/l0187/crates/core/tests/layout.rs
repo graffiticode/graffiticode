@@ -264,3 +264,30 @@ async fn a_route_into_a_section_clears_its_title_and_never_skirts_its_border() {
         assert!(apart, "leg {leg:?} crosses the title {title}");
     }
 }
+
+#[tokio::test]
+async fn a_route_keeps_out_of_sections_that_hold_neither_end_and_clear_of_borders() {
+    let board = named("neda-strategy-2").await;
+    assert_eq!(board["report"]["quality"]["section_conflicts"], 0);
+    let page = &board["pages"][0];
+    let section = |id: &str| page["nodes"].as_array().unwrap().iter().find(|s| s["id"] == id).unwrap().clone();
+    let (piloto, etapas) = (section("primeiro-piloto"), section("etapas-implementacao"));
+    let c = connector(page, "ligacao-portas-autorizacao");
+    let label = &c["labelBox"];
+    let (px, pw) = (n(&piloto, "x"), n(&piloto, "width"));
+    let (py, ph) = (n(&piloto, "y"), n(&piloto, "height"));
+    for leg in c["route"].as_array().unwrap().windows(2) {
+        let (x0, x1) = (n(&leg[0], "x").min(n(&leg[1], "x")), n(&leg[0], "x").max(n(&leg[1], "x")));
+        let (y0, y1) = (n(&leg[0], "y").min(n(&leg[1], "y")), n(&leg[0], "y").max(n(&leg[1], "y")));
+        assert!(x1 <= px || x0 >= px + pw || y1 <= py || y0 >= py + ph, "leg {leg:?} runs through primeiro-piloto");
+    }
+    assert!(n(label, "y") + n(label, "h") <= py || n(label, "x") >= px + pw || n(label, "x") + n(label, "w") <= px);
+    // The return to the last stage keeps its distance from the stages' right border.
+    let right = n(&etapas, "x") + n(&etapas, "width");
+    let c = connector(page, "ligacao-decisao-etapa-escala");
+    for leg in c["route"].as_array().unwrap().windows(2) {
+        if n(&leg[0], "x") == n(&leg[1], "x") && (n(&leg[0], "y") - n(&leg[1], "y")).abs() > 100.0 {
+            assert!((n(&leg[0], "x") - right).abs() >= 20.0, "leg {leg:?} hugs the stages border at {right}");
+        }
+    }
+}
