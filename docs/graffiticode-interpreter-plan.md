@@ -167,6 +167,10 @@ Retirement is its own milestone for each language, after its Track A switch. It 
 
   Until that decision, the service stays deployed (at `min 0`), as every switched language's does today.
 
+  **As built, L0184 (2026-11-03)**, the first language through A6 and A7:
+  - A6: #255 moved `spec/` and the static build off the compiler; #258 deleted `packages/core`, `packages/api` and the TypeScript Dockerfiles, porting the docs test to `tools/docs.test.mjs` over the frozen fixtures. Gate 3's drill rolled `l0184r` back to `rmvv42fue-21907b` and forward again, rebuilding no TypeScript. The release from clean `main`, `l0184r-rmw0zdrsf-b6f594`, serves static files, `/form`, assets and lexicon identical to the pre-deletion baseline.
+  - A7: the owner had `l0184` deleted. Its logs after the 11-01 domain repoint showed only our checks and certificate probes. After the deletion, fixture compiles through `api.graffiticode.org` matched. The cleanup PR removed its `deploy.json` and `production/network.json` entries, and taught `upgrade-and-deploy` to select a language by its `lNNNNr` entry once its `lNNNN` entry is gone. Without that, a View rollout would have skipped L0184. `l0184-run` remains, holding only `secretAccessor` on `egress-proxy-ca-bundle` (IAM review Step 17).
+
 ## Track B — Interpreter platform (a no-op until a language opts in)
 - **B1 Rust contract** *(done: `crates/core/src/model.rs`, `Compiler::model`/`interpret`, `/interpret` and `"form": "model"` in the shared server; documented in `languages/l0000/CLAUDE.md`. A plan model carries the stored source, so interpreting it equals today's compile, checked over the whole L0000 conformance corpus. `Dialect::input_independent` decides value models and defaults to never)*.
   - Add `/interpret` to the shared `app()`.
