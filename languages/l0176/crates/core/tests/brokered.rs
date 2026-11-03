@@ -125,6 +125,7 @@ fn connection() -> Identity {
         invocation_token: Some("inv".into()),
         stage: Some("s0".into()),
         admission_token: None,
+        ..Identity::default()
     }
 }
 
@@ -163,10 +164,86 @@ fn refused(reason: &str, category: Option<&str>) -> ProtectedCallError {
 mod without_a_connection {
     use super::*;
 
+    /// No connection, from the api: the server verified its `X-Caller-Identity` as a gateway's
+    /// (or runs with `SYSTEM_PREVIEW_DIRECT=1`), so it may sign on the system path.
+    fn gateway() -> Identity {
+        Identity { system_session_permitted: true, ..Identity::default() }
+    }
+
+    #[tokio::test]
+    async fn a_direct_caller_s_preview_is_unsigned_gateway_only_and_policy_is_never_asked() {
+        let fake = Fake::default();
+        for src in [items(), r#"set-var "lrn-id" "t" init questions [mcq []] {}.."#.to_owned()] {
+            let out = value(compile(&fake, &src, Identity::default()).await);
+            assert_eq!(out.get("request"), None);
+            assert_eq!(
+                out["signing"],
+                json!({
+                    "unsigned": "gateway-only",
+                    "message": "Preview not signed: a preview without a connection is signed only through the Graffiticode api. Select a Learnosity connection to sign it.",
+                })
+            );
+        }
+        assert!(fake.previews.lock().unwrap().is_empty(), "policy is never asked");
+        assert!(fake.ops().is_empty());
+    }
+
+    #[tokio::test]
+    async fn the_signing_limits_come_back_busy_under_their_own_reason() {
+        const BUSY: &str = "Previews are busy right now; try again in a moment.";
+        // Policy's mint bucket, for the session.
+        let limited = Fake {
+            preview: Arc::new(|| {
+                Err(ProtectedCallError::Rejected {
+                    path: "/v1/preview-session".into(),
+                    status: 429,
+                    reason: Some("rate-limited".into()),
+                    category: None,
+                    effect_unknown: false,
+                })
+            }),
+            ..Fake::default()
+        };
+        let out = value(compile(&limited, &items(), gateway()).await);
+        assert_eq!(out["signing"], json!({ "unsigned": "rate-limited", "message": BUSY }));
+        // Broker's per-session allowance, at execute.
+        let exhausted = Fake {
+            broker: Arc::new(|_| {
+                Ok(json!({ "status": "failed", "reason": "session-exhausted", "error": "session allowance spent" }))
+            }),
+            ..Fake::default()
+        };
+        let out = value(compile(&exhausted, &items(), gateway()).await);
+        assert_eq!(out["signing"], json!({ "unsigned": "session-exhausted", "message": BUSY }));
+        // A refusal that isn't a limit keeps its fallback, with the reason.
+        let other = Fake { broker: Arc::new(|_| Err(refused("token-expired", None))), ..Fake::default() };
+        let out = value(compile(&other, &items(), gateway()).await);
+        assert_eq!(out["signing"]["unsigned"], "signing-failed");
+        assert!(out["signing"]["message"].as_str().unwrap().ends_with("(token-expired)"));
+    }
+
+    #[tokio::test]
+    async fn an_activity_arriving_signed_is_signed_afresh() {
+        let fake = Fake::default();
+        let stale = json!({
+            "type": "questions",
+            "data": { "questions": [{ "type": "mcq", "response_id": "r1" }] },
+            "request": "signed-elsewhere",
+            "signing": { "unsigned": "unavailable" },
+        });
+        let signed = value(compile_with(&fake, program("data {}.."), gateway(), stale.clone()).await);
+        assert_eq!(signed["request"], "signed:learnosity.sign-questions-preview");
+        assert_eq!(signed.get("signing"), None);
+        let request = value(compile_with(&fake, program("init data {}.."), gateway(), stale).await);
+        assert_eq!(request, "signed:learnosity.sign-questions-preview");
+        let sent = format!("{:?}", fake.calls.lock().unwrap());
+        assert!(!sent.contains("signed-elsewhere"), "{sent}");
+    }
+
     #[tokio::test]
     async fn a_preview_is_signed_by_the_broker_under_a_system_session() {
         let fake = Fake::default();
-        let out = value(compile(&fake, &items(), Identity::default()).await);
+        let out = value(compile(&fake, &items(), gateway()).await);
         assert!(fake.snapshots.lock().unwrap().is_empty());
         assert_eq!(*fake.previews.lock().unwrap(), ["0176"]);
         let call = fake.call(0);
@@ -183,8 +260,7 @@ mod without_a_connection {
     #[tokio::test]
     async fn init_signs_through_the_system_session_too() {
         let fake = Fake::default();
-        let out =
-            value(compile(&fake, r#"set-var "lrn-id" "t" init questions [mcq []] {}.."#, Identity::default()).await);
+        let out = value(compile(&fake, r#"set-var "lrn-id" "t" init questions [mcq []] {}.."#, gateway()).await);
         assert_eq!(fake.ops(), ["learnosity.sign-questions-preview"]);
         let occurrence = fake.call(0).occurrence_id;
         assert!(occurrence.starts_with("INIT:") && occurrence.ends_with(".0"), "{occurrence}");
@@ -197,13 +273,13 @@ mod without_a_connection {
         let src = format!(
             r#"set-var "lrn-id" "t" set-var "learnosity-key" "own-key" set-var "learnosity-secret" "own-secret-0123456789" items [{ITEM}] {{}}.."#
         );
-        let out = value(compile(&fake, &src, Identity::default()).await);
+        let out = value(compile(&fake, &src, gateway()).await);
         assert_eq!(fake.sessions(), ["system-session"]);
         assert_eq!(out["request"], "signed:learnosity.sign-questions-preview");
         let config = json!({ "learnosity": { "key": "cfg-key", "secret": "cfg-secret-0123456789" } });
         let compiled = Compiler::new(L0176::new())
             .with_policy(fake.clone())
-            .compile(program(&items()), &json!({}), &config, Identity::default())
+            .compile(program(&items()), &json!({}), &config, gateway())
             .await;
         let out = value(compiled);
         let sent = format!("{:?} {out}", fake.calls.lock().unwrap());
@@ -240,7 +316,7 @@ mod without_a_connection {
         ];
         for (preview, said) in cases {
             let fake = Fake { preview, ..Fake::default() };
-            let out = value(compile(&fake, &items(), Identity::default()).await);
+            let out = value(compile(&fake, &items(), gateway()).await);
             assert_eq!(out["type"], "questions");
             assert_eq!(out.get("request"), None);
             assert_eq!(out["signing"]["unsigned"], "unavailable");
@@ -256,7 +332,7 @@ mod without_a_connection {
             broker: Arc::new(|_| Ok(json!({ "status": "failed", "error": "provider down" }))),
             ..Fake::default()
         };
-        let out = value(compile(&fake, &items(), Identity::default()).await);
+        let out = value(compile(&fake, &items(), gateway()).await);
         assert_eq!(out.get("request"), None);
         assert_eq!(out["signing"]["unsigned"], "signing-failed");
     }
@@ -270,7 +346,7 @@ mod without_a_connection {
                 }),
                 ..Fake::default()
             };
-            let out = value(compile(&fake, &save(), Identity::default()).await);
+            let out = value(compile(&fake, &save(), gateway()).await);
             assert_eq!(out["data"]["itemBank"]["skipped"], "no-connection");
             assert_eq!(fake.ops(), ["learnosity.sign-questions-preview"]);
         }
@@ -286,6 +362,60 @@ mod without_a_connection {
         let refused =
             Compiler::new(L0176::new()).compile(program(&items()), &json!({}), &json!({}), connection()).await;
         assert_eq!(errors(&refused)[0]["message"], "init is not permitted through the selected connection.");
+    }
+}
+
+/// `init` signs only a `{ type, data }` activity Broker would accept; anything else is a compile
+/// error on both paths, never signed (brokered.test.ts).
+#[tokio::test]
+async fn init_refuses_what_isn_t_an_activity_on_both_paths() {
+    const NOT_AN_ACTIVITY: &str = "Error: init signs a Learnosity activity, `{ type: \"questions\" | \"items\", data: { questions, ... } }`; it was given ";
+    let legacy_question = "Error: init: questions[0] needs a type and response_id. A legacy `{ type, reference, data }` question record is not accepted; recompile the program that made it.";
+    let legacy = json!({
+        "type": "questions",
+        "data": { "id": "act-1", "name": "legacy", "session_id": "s",
+            "questions": [{ "type": "mcq", "reference": "artcompiler-mcq-x-0", "data": { "type": "mcq", "stimulus": "?" } }] },
+    });
+    let bare =
+        json!({ "consumer_key": "K", "signature": "$02$abc", "questions": [{ "response_id": "r-0", "type": "mcq" }] });
+    let cases = [
+        (legacy.clone(), legacy_question.to_owned()),
+        (bare, format!("{NOT_AN_ACTIVITY}a record with no type (a bare signed request is not an activity).")),
+        (
+            json!({ "type": "items", "data": { "questions": [{ "reference": "q" }] }, "request": { "security": {} } }),
+            legacy_question.to_owned(),
+        ),
+        // `data {}` reads a list as a record, in TypeScript too.
+        (
+            json!([legacy]),
+            format!("{NOT_AN_ACTIVITY}a record with no type (a bare signed request is not an activity)."),
+        ),
+        (json!({}), format!("{NOT_AN_ACTIVITY}a record with no type (a bare signed request is not an activity).")),
+        (json!({ "type": "other", "data": {} }), format!("{NOT_AN_ACTIVITY}a \"other\" record.")),
+        (json!({ "type": "items" }), format!("{NOT_AN_ACTIVITY}a \"items\" record.")),
+        (
+            json!({ "type": "questions", "data": { "questions": "q" } }),
+            "Error: init: the activity's data.questions must be a list.".to_owned(),
+        ),
+        (
+            json!({ "type": "questions", "data": { "questions": [{ "type": "mcq", "response_id": "r 0/../x" }] } }),
+            legacy_question.to_owned(),
+        ),
+        (
+            json!({ "type": "questions", "data": { "questions": [{ "type": "mcq", "response_id": "r-0" }, "mcq"] } }),
+            legacy_question.replace("questions[0]", "questions[1]"),
+        ),
+    ];
+    let permitted = Identity { system_session_permitted: true, ..Identity::default() };
+    for (data, message) in cases {
+        for identity in [permitted.clone(), connection()] {
+            let fake = Fake::default();
+            let compiled = compile_with(&fake, program("init data {}.."), identity, data.clone()).await;
+            let errors = errors(&compiled);
+            assert_eq!(errors.len(), 1, "{data}: {errors:?}");
+            assert_eq!(errors[0]["message"], message, "{data}");
+            assert!(fake.ops().is_empty(), "{data}: nothing is signed");
+        }
     }
 }
 

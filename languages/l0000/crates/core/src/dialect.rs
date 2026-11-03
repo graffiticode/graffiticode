@@ -107,6 +107,17 @@ pub trait Dialect: Send + Sync {
         false
     }
 
+    /// Whether a compile may open a system session
+    /// ([`ExecContext::open_system_session`](crate::ExecContext::open_system_session)) only when
+    /// it comes from a verified gateway: the server then grants
+    /// [`Identity::system_session_permitted`](crate::Identity::system_session_permitted) only to
+    /// a request whose `X-Caller-Identity` verifies as a `PREFLIGHT_GATEWAYS` account (or with
+    /// `SYSTEM_PREVIEW_DIRECT=1`). `false`, the default, lets any compile with no connection
+    /// ask, and the server verifies nothing for it.
+    fn system_sessions_gateway_only(&self) -> bool {
+        false
+    }
+
     /// What this language reports about its own configuration on the server's `/egress`, for
     /// an operator or an evidence run to check before relying on it (L0013 names the bucket its
     /// captures go to). `None`, the default, reports nothing.

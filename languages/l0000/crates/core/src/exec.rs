@@ -40,6 +40,12 @@ pub struct Identity {
     /// The plan this chain was admitted under, from the gateway. Policy verifies it; with it,
     /// the compiler executes only what the plan pins for its stage.
     pub admission_token: Option<String>,
+    /// Whether the server lets this compile open a system session
+    /// ([`ExecContext::open_system_session`]). The server decides it from the request alone,
+    /// never from the body: for a dialect whose system sessions are gateway-only
+    /// ([`crate::Dialect::system_sessions_gateway_only`]) only a verified gateway caller gets
+    /// it. Off by default, so a session is never opened without the server's say.
+    pub system_session_permitted: bool,
 }
 
 impl fmt::Debug for Identity {
@@ -48,6 +54,7 @@ impl fmt::Debug for Identity {
             .field("uid", &self.uid)
             .field("connection_id", &self.connection_id)
             .field("stage", &self.stage)
+            .field("system_session_permitted", &self.system_session_permitted)
             .finish_non_exhaustive()
     }
 }
@@ -140,6 +147,9 @@ pub(crate) struct Grant {
 pub enum SystemSessionRefusal {
     /// This compiler has no policy client, or the compile is not one a system session is for.
     NotConfigured,
+    /// The server did not permit this compile a system session
+    /// ([`Identity::system_session_permitted`]); policy was not asked.
+    NotPermitted,
     /// Policy did not issue a session for the function, with its reason when it gave one.
     Unavailable(Option<String>),
 }
@@ -169,6 +179,7 @@ impl ExecContext {
                 invocation_token: present(identity.invocation_token),
                 stage: present(identity.stage),
                 admission_token: present(identity.admission_token),
+                system_session_permitted: identity.system_session_permitted,
             },
             compile_id: Uuid::new_v4(),
             occurrences: HashMap::new(),
@@ -221,6 +232,9 @@ impl ExecContext {
             return Err(SystemSessionRefusal::NotConfigured);
         }
         let policy = self.policy.clone().ok_or(SystemSessionRefusal::NotConfigured)?;
+        if !self.identity.system_session_permitted {
+            return Err(SystemSessionRefusal::NotPermitted);
+        }
         let session = match policy.preview_session(lang_id).await {
             Ok(session) => session,
             Err(ProtectedCallError::NoClient) => return Err(SystemSessionRefusal::NotConfigured),
@@ -241,6 +255,12 @@ impl ExecContext {
 
     pub fn uid(&self) -> Option<&str> {
         self.identity.uid.as_deref()
+    }
+
+    /// Whether the server permits this compile a system session (see
+    /// [`Identity::system_session_permitted`]).
+    pub fn system_session_permitted(&self) -> bool {
+        self.identity.system_session_permitted
     }
 
     pub fn connection_id(&self) -> Option<&str> {

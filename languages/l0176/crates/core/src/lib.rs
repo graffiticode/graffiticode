@@ -112,6 +112,13 @@ impl Dialect for L0176 {
         true
     }
 
+    /// Gateway-only (plan system-preview-rate-limit): a no-connection preview is signed only for
+    /// the api's verified compile, or with `SYSTEM_PREVIEW_DIRECT=1`; any other goes out
+    /// unsigned, `gateway-only`, without asking policy.
+    fn system_sessions_gateway_only(&self) -> bool {
+        true
+    }
+
     /// Every compile carries a fresh, expiring signature.
     fn cacheable(&self) -> bool {
         false
@@ -336,14 +343,25 @@ async fn save_to_itembank(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -
 }
 
 /// `init <activity>`: the signed request. Without a connection, signed through the system
-/// session; unsigned, the activity with `signing: { unsigned, message }`.
+/// session; unsigned, the activity with `signing: { unsigned, message }`. Anything but a
+/// `{ type, data }` activity Broker would accept is a compile error, and a `request` it arrives
+/// with is dropped and the activity signed afresh.
 async fn init(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
+    let before = cx.error_count();
     let activity = plain(&cx.eval_arg(id, elts, 0).await);
+    if cx.error_count() > before {
+        return Value::Undefined;
+    }
     if is_author(activity.as_ref()) {
         fail(cx, AUTHOR_NOT_SUPPORTED);
         return Value::Undefined;
     }
-    let Some(Json::Object(activity)) = activity else { return Value::Undefined };
+    if let Some(refusal) = protection::activity_refusal(activity.as_ref()) {
+        fail(cx, refusal);
+        return Value::Undefined;
+    }
+    let Some(Json::Object(mut activity)) = activity else { return Value::Undefined };
+    protection::without_signing(&mut activity);
     let key = occurrence_key(cx, id, "INIT");
     if is_brokered(cx.exec()) {
         return match protection::sign(cx.exec(), &activity, &key).await {
@@ -355,9 +373,6 @@ async fn init(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
                 Value::Undefined
             }
         };
-    }
-    if !matches!(activity.get("type").and_then(Json::as_str), Some("questions" | "items")) {
-        return Value::Undefined;
     }
     let mut signed = protection::sign_preview(cx.exec(), LANG_ID, activity, &key).await;
     match signed.remove("request") {
@@ -380,11 +395,13 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId) -> Value {
         fail(cx, AUTHOR_NOT_SUPPORTED);
         return Value::Undefined;
     }
-    // Only a `{ type, data }` activity not already signed.
-    let Some(Json::Object(activity)) = activity else { return top };
-    if !truthy(activity.get("type")) || truthy(activity.get("request")) {
+    // Only a `{ type, data }` activity. One arriving with a `request` (an old cached output,
+    // signed elsewhere) is never passed through: its request is dropped and it is signed afresh.
+    let Some(Json::Object(mut activity)) = activity else { return top };
+    if !truthy(activity.get("type")) {
         return top;
     }
+    let top = if protection::without_signing(&mut activity) { value(activity.clone()) } else { top };
     if is_brokered(cx.exec()) {
         return match protection::sign(cx.exec(), &activity, "prog").await {
             Ok(Some(request)) if truthy(Some(&request)) => {

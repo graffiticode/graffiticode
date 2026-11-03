@@ -51,8 +51,12 @@ const MISSING_PARAMETERS: &str = "Missing required parameters: code and data";
 pub struct AppState {
     pub compiler: Compiler,
     pub verifier: Arc<dyn TokenVerifier>,
-    /// Who may preflight.
+    /// Who may preflight, and, for a dialect whose system sessions are gateway-only, whose
+    /// compiles may open one.
     pub gateways: Arc<dyn GatewayVerifier>,
+    /// `SYSTEM_PREVIEW_DIRECT=1` (exactly `"1"`): a gateway-only dialect lets any compile with
+    /// no connection open a system session. For a rollout window only.
+    pub system_preview_direct: bool,
     /// The Cloud Run revision this server runs as, reported to the gateway for a planned stage.
     pub revision: Option<String>,
     /// The language's lexicon, as the JSON document served at `/lexicon.json`.
@@ -243,19 +247,36 @@ async fn request_identity(
         None => None,
     };
     let field = |name: &str| body.get(name).and_then(Value::as_str).map(str::to_owned);
+    let connection_id = field("connectionId");
     Ok(Identity {
+        system_session_permitted: system_session_permitted(state, headers, connection_id.as_deref()).await,
         // Policy re-verifies the user token, so it is forwarded only alongside a verified uid.
         user_token: uid.as_ref().and(token),
         uid,
         // The connection is the caller's selection, checked by policy. The invocation token and
         // stage come from the gateway; policy verifies the token, so a forged one only gets
         // the compile refused.
-        connection_id: field("connectionId"),
+        connection_id,
         invocation_token: field("invocationToken"),
         stage: field("stage"),
         // The admitted plan, from the gateway; policy verifies it.
         admission_token: field("admissionToken"),
     })
+}
+
+/// Whether this compile may open a system session. A compile with a connection never uses one.
+/// For a gateway-only dialect, only when `X-Caller-Identity` verifies as a gateway's (the
+/// verifier `/preflight` uses) or `SYSTEM_PREVIEW_DIRECT=1`: a missing, forged, expired or
+/// wrong-audience token is just "not permitted", and the compile still runs. Nothing in the
+/// body counts. Any other dialect is not gated, and nothing is verified for it.
+async fn system_session_permitted(state: &AppState, headers: &HeaderMap, connection_id: Option<&str>) -> bool {
+    if connection_id.is_some_and(|id| !id.is_empty()) {
+        return false;
+    }
+    if !state.compiler.system_sessions_gateway_only() || state.system_preview_direct {
+        return true;
+    }
+    state.gateways.verify(headers).await.is_ok()
 }
 
 async fn compile(
@@ -481,8 +502,13 @@ pub async fn serve_with(
     // The gateway service accounts allowed to preflight. With none, every preflight is refused.
     let gateways: Vec<String> = env_or("PREFLIGHT_GATEWAYS", "").split(',').map(str::to_owned).collect();
     let lang_id = compiler.lang_id().to_owned();
+    let system_preview_direct = env_or("SYSTEM_PREVIEW_DIRECT", "") == "1";
+    if system_preview_direct && compiler.system_sessions_gateway_only() {
+        tracing::warn!("SYSTEM_PREVIEW_DIRECT=1: any direct caller's no-connection preview may be signed");
+    }
     let state = AppState {
         gateways: Arc::new(GoogleGateways::new(client.clone(), &lang_id, &gateways)),
+        system_preview_direct,
         verifier: Arc::new(AuthService::new(client, &auth_url)),
         revision: revision.revision,
         lexicon: serde_json::to_string(lexicon)?.into(),
