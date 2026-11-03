@@ -15,8 +15,9 @@ built on `@graffiticode/l0000-view`.
 > `l0184.graffiticode.org`; on Rust since 2026-10-29, interpreted since 2026-10-30). The
 > TypeScript compiler and server (`packages/core`, `packages/api`) were **removed on
 > 2026-11-03** (interpreter plan A6). Their last behavior is the frozen conformance fixture
-> (`crates/core/tests/conformance/PROVENANCE.md`). The TypeScript service `l0184` stays deployed,
-> at min 0 and blocked in `deploy.json` (it can't be rebuilt), until its A7 decision.
+> (`crates/core/tests/conformance/PROVENANCE.md`). The TypeScript service `l0184` was **deleted
+> on 2026-11-03** (A7); its last image (revision `l0184-rmvu66ggb-23009b`) stays in Artifact
+> Registry, and its `deploy.json` entry is gone.
 
 The directory is also a small npm project (its own lockfile) for the view and the static assets.
 
