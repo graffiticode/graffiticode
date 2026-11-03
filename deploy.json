@@ -105,6 +105,8 @@
         "COMPILE_GENERATION_L0158": "l0158-cutover-1",
         "BASE_URL_L0000": "https://l0000.graffiticode.org",
         "COMPILE_GENERATION_L0000": "rust-1",
+        "BASE_URL_L0176": "https://l0176r-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0176": "rust-1",
         "BASE_URL_L0184": "https://l0184.graffiticode.org",
         "COMPILE_GENERATION_L0184": "interp-1",
         "INTERPRETER_L0184": "on",
