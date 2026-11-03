@@ -15,6 +15,7 @@ Reasons:
 - **Parity can be verified.** A switch changes the implementation, not the behavior, so the same `/compile` request can be compared on TypeScript and Rust. If the port and the semantic change happened together, there would be nothing to compare against.
 - **Each release has one rollback.** A switch is rolled back by a routing change, and an upgrade by per-language flags plus a generation change.
 - **The switch doesn't wait for `/interpret`.** Several languages are nearly ready to switch now.
+- **Native Rust languages are the exception.** A language created natively in Rust (L0187, L0188) has no TypeScript to switch from, so it skips Track A. Its activation evidence is operation conformance plus failure-recovery evidence (Track E6), not TypeScript parity.
 - **One code path serves three kinds of language.** About 20 production languages live outside this repo (L0002, L0158, L0166, L0170, …) and have no Rust implementation, so they keep today's `/compile` protocol permanently. The API's legacy adapter is therefore a permanent stage kind: it serves those languages, switched-but-not-yet-upgraded Rust languages, and unswitched Node languages alike.
 
 ## Invariants for every release point
@@ -66,6 +67,11 @@ Reasons:
     - Replay-only tokens get their own `typ`, so they can never authorize a step.
     - As built: a retry's admission is re-issued for its stored plan; the snapshot gives a replay-only session (`rpl`) holding only write functions; its mints are `gc-replay+jwt` tokens; Policy authorizes them only for the `receipt` replay step; Broker returns an existing receipt for them (read with `getClaim`, never claimed) and refuses `replay-not-found` otherwise, with no provider call.
     - Limits: such a retry's other effects aren't replayed. An L0176 compile's preview signing is refused (`replay-only`), so the retry returns the save's recorded outcome alongside a signing error. Replay also needs the plan's pinned compiler revisions still approved.
+  - **Live runs before contract (Track E).** A durable run may outlive its tokens and several deployments. Before Policy and Broker drop `N`, check for live runs that still need **new** effects under `N`. Each such run either:
+    - keeps `N` in the admission window until it finishes; or
+    - is paused (`paused-migration`) for an explicit migration decision.
+
+    Replay-only tokens return recorded receipts and never authorize continuation work.
   - **Rollback.** Before contract, roll back compilers and API; Policy and Broker still accept `N`. After contract, rollback is a new expand step.
   - **Tests:**
     - An `N` invocation admitted before expand and retried after it replays.
@@ -215,15 +221,59 @@ Retirement is its own milestone for each language, after its Track A switch. It 
   - Then retire L0176's `generation.ts` middleware.
   - **As built (2026-10-29, view 0.5.0, not yet published).** `/form` adds `generations=<languageGenerationSuffix>` to the data URL; the View reads `generation` and `generations` from `?url=` (only a `/data` URL for the same id) and adds them to its `/data` load and SWR key. `/data` accepts `generations`: a URL naming generations that aren't the chain's current ones is `no-store` on every path (legacy chains and cache hits too, since the same URL may later name another namespace's output), and an interpreted chain is held immutable only when its URL names the current ones. A stale URL never errors. Refresh metadata: `/data` adds `refreshAt` when the result expires. It is a staleness deadline, not permission to reload: the View never replaces mounted content (an assessment may be under way, edits or not); when the deadline passes it sets `expired` for the Form and posts `data-expired` to the host. Content is initialized from one load: later updates of the shared SWR entry (another View's reload) never reach a View that has content. Only a load already expired before any content was initialized from it is loaded again, once, through the same `GET /data` and credentials, and initialized from directly (an identical answer is no SWR update); if that fails, nothing is shown and the host is told it expired. A Form-signalled safe refresh is later work. Without `refreshAt`, nothing changes. Recompiles carry L0158's requested generation: `POST /compile` checks it against the item's own chain before adding the data task, and getData allows exactly that one generated task (`checkGenerationWithDataTask`); other mixed chains and connections are refused. L0176's `generation.ts` is retired once L0176 takes view 0.5.0.
 
-- **B5 Commands, part 1.**
-  - A command store with:
-    - idempotency keys;
-    - admission bound to the ordered stage model digests;
-    - pinned inputs per stage, with recorded external reads;
-    - an outcome per operation, aggregated into the command's.
-  - Lease and fencing: execution tokens carry the fencing generation, and authorize-execution refuses a stale one. Code in `packages/policy/src/` and `packages/broker/src/`.
-  - Used only by languages that declare commands.
-  - Starts when its entry gate below passes.
+- **B5 Commands, part 1.** The **immediate-command** foundation. It is also what durable execution (Track E) builds on, but B5's completion gate includes no Track E work: Track E extends it, in E1 and E2, through hooks B5 defines.
+  - **In B5 (needed by every command language):**
+    - **Command identity.** Idempotency keys, and admission bound to the ordered stage model digests.
+    - **Pinned inputs, recorded observations and receipts.** Replayed and new observations are distinguished (below).
+    - **Effect occurrences** admitted under the model's operations (below).
+    - **Outcomes.** An outcome per operation, aggregated into the command's.
+    - **Leases and fencing.** Execution tokens carry the fencing generation, and authorize-execution refuses a stale owner. Code in `packages/policy/src/` and `packages/broker/src/`.
+    - **Abandoned-command recovery.** A command whose lease expired mid-step is reclaimed with a new lease and fencing generation, and its pinned handler resumes. No caller retry is needed.
+    - **Extension points B5 defines but leaves unused:**
+      - an optional run reference on the command record;
+      - a non-terminal `pending` that can outlive its worker;
+      - the conditional-write path a scheduling intent will use.
+
+      None of them is required for an immediate command.
+  - **Extensions implemented in Track E (not part of B5's gate):**
+    - **E1:** durable run records and `stateVersion`. A `pending` command names its run and releases its worker at a wait.
+    - **E2:** persisted timers and scheduling. A transition and its scheduling intent (`nextWakeAt`, the next step) are persisted atomically, conditional on the owner's fencing generation. A recoverable equivalent, such as an outbox written in the same transaction, is also acceptable.
+    - **E2:** overdue-wait recovery. A waiting run may have no owner, so the sweeper also claims runs whose `nextWakeAt` has passed unclaimed, alongside B5's expired leases.
+  - **Split of responsibilities:**
+    - **Shared:** identity, leases, fencing and recovery claims (B5), and scheduling (E2).
+    - **The language interpreter:** provider completion, what a retry means, and recovery semantics, through Dialect hooks such as resume, reconcile and completion checks.
+  - **Replayed versus new observations.**
+    - **Stable identities.** Runtime expansion into targets, batches and polls gets stable occurrence identities. They derive from the pinned model plus recorded observations, within the admitted scope.
+    - **Retries reuse.** Retrying a submitted batch reuses its recorded targets and arguments.
+    - **New checks observe.** A new check of a job is a new observation. Its occurrence (expansion key `poll n`) is allocated and recorded before the read.
+    - **Recorded once.** Each new observation is recorded under the current fencing generation, and retrying that same observation reuses its record. So a poll can never replay an old "still running" answer forever.
+    - **Retained populations stay fixed.** Once effects depend on a retained population or batch, a retry can't discover a different one.
+  - **Admission of runtime-expanded effects.**
+    - **Two levels:**
+      - **The admitted operation** is the effect intent in the compiled model. It has a stable intent id, a registered protected function, a declared scope and expansion bounds, for example "up to 100 sessions per batch, drawn from the retained cohort". Admission binds the model digest, so every admitted operation is fixed at `start`.
+      - **A runtime occurrence** is one execution of an admitted operation, such as the third batch or the seventh poll. Its **expansion key** comes from the pinned model plus recorded observations.
+    - **The occurrence id stays one segment.** Policy's `ID_RE` (`packages/policy/src/policy.ts:86`) and `opidParts` (exactly three `/`-separated parts) don't change.
+      - A runtime occurrence's id is a reserved prefix plus a hash: `x:` and the hex SHA-256 of canonical JSON `{intentId, expansionKey}`.
+      - `intentId` and `expansionKey` are recorded as their own fields, and the id is recomputed from them on every check.
+      - Static occurrence ids keep their current form. A test checks that none begins with the reserved prefix.
+    - **Binding before dispatch.** Each occurrence is persisted, under the current fencing generation, with:
+      - its occurrence id;
+      - its intent id and expansion key;
+      - its arguments and their digest;
+      - the observations it derives from.
+
+      The broker operation id stays `invocation/stage/occurrence`.
+    - **Policy's checks at authorize-execution.** The occurrence must:
+      - name an admitted intent of the bound model;
+      - stay within that intent's declared scope and bounds;
+      - have an expansion key that the recorded observations justify;
+      - have an id that equals the encoding of its `(intentId, expansionKey)`.
+
+      Anything else is refused before any provider call.
+    - **Result.** A dynamically discovered third batch is valid, but an effect the model doesn't admit, or one outside its scope, is not.
+    - **Immediate commands are unchanged.** An intent that expands to exactly one occurrence keeps today's static id, so L0176's save and L0013's snapshot are unaffected.
+  - **Who uses it.** Languages that declare commands, and Track E.
+  - **When it starts.** When its entry gate below passes.
 - **B6 Commands, part 2.** The repair ledger keyed by `(command, stage, occurrence)`, `materialize` replay, and resuming stages the original never reached. Before B6 ships, a partial command is reported, and repairing it is manual reconciliation.
 
 ### Entry gates for B5 and B6: usage, driven synthetically
@@ -253,7 +303,9 @@ B5 used to wait until the read path had "more production experience", which name
 8. **Latency.** For each language, the interpreted p95 (`ms.model + ms.interpret`, or `ms.cache` on a hit) is at most 1.5 × the p95 of a direct `lNNNNr /compile`, plus 100 ms. Both are measured in the same drive.
 9. **Rollback rehearsal.** During the drive, one language's `INTERPRETER_LNNNN` is turned off and back on. Each flip is an api release that moves `COMPILE_GENERATION_LNNNN`. After each flip, no result cached under the previous generation is served, and the oracle still holds.
 
-**B6 gate.** B5 has shipped, and at least one command language (C3 or C5) runs on it. Then a synthetic drive with injected faults runs that language's commands:
+B5 now also gates Track E (durable execution). These criteria don't change for that.
+
+**B6 gate.** B5 has shipped, and at least one command language runs on it. That can be from C3 or C5, or a Track E language such as L0188, whose production commands and reconciliations count. Then a synthetic drive with injected faults runs that language's commands:
 - **Faults.** Each run injects a failure at a stage, a lost response, or a lease that expires mid-step.
 - **Volume.** At least 200 commands, covering every operation, with retries using the same key.
 - **Outcomes.**
@@ -261,7 +313,7 @@ B5 used to wait until the read path had "more production experience", which name
   - Manual reconciliation has been done successfully for at least 10 of them, using the procedure that B6 automates.
 
 ## Track C — Upgrade each switched language to the interpreter (Rust only)
-Prerequisites: the language is switched (A), and B1–B4 have shipped. A language that needs commands also needs B5, and B6 before repairs can be offered.
+Prerequisites: the language is switched (A), and B1–B4 have shipped. A language that needs commands also needs B5, and B6 before repairs can be offered. Track E's prerequisites (E1–E6) apply only to durable languages. No Track C upgrade or immediate command needs them.
 
 **Each upgrade is one release:**
 1. Its Rust compile produces models.
@@ -359,7 +411,65 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
    - Check the consumers that read `data.request`: MCP `item-content.ts:714`, the widget iframe, and the console.
 7. **C7 L0000** last, because it is the kernel the others depend on.
 
-Durable executions (`dispatch`, long-lived executions) stay deferred, as in the design doc.
+## Track E — Durable execution, driven by L0188
+Durable execution was deferred until a concrete language needed it. [L0188](l0188-language-design.md) (Learnosity Data Operations) is that language. Its operations, such as a cohort rescore or a dataset generation, outlive a request, a session and several deployments.
+
+**Independence, both ways.**
+- Track E doesn't wait on the remaining A, C or D work for other languages. It needs B1–B4 (shipped), B5, D1 and D2a.
+- Its prerequisites apply only to durable languages. An ordinary Track C upgrade, an immediate command (C5, C6) or a read-only interpretation never needs E1–E6.
+
+**Sequence:**
+1. B5, plus D1 and D2a.
+2. The durable runtime (E1, E2) and Policy continuation (E3).
+3. One L0188 operation, with run reads and form updates (E4, E5).
+4. Failure testing and activation (E6).
+
+**Later:**
+- B6 replay repair;
+- subscriptions and projection caching;
+- model-changing semantic repair, which needs its own linked protocol;
+- more operations.
+
+**Steps:**
+- **E1 Run records.** Authoritative run records carry a monotonic `stateVersion` and a versioned schema.
+  - They are kept apart from `stage-results` and `compiles/`.
+  - No TTL or cache eviction ever deletes them.
+  - A `pending` command names its run (B5's extension point).
+- **E2 Scheduling and recovery.**
+  - Persisted timers and scheduling. A transition and its scheduling intent are written atomically, conditional on the owner's fencing generation, or through a recoverable equivalent.
+  - Worker leases with takeover.
+  - Recovery of expired leases and of overdue waits, without a caller retry. A wait never depends on a timer delivery that isn't recorded.
+- **E3 Policy continuation.**
+  - **The grant.** A continuation grant is bound to the run, the initiating principal, the connection, the stage model digests and the pinned revisions.
+  - **Each wakeup.** Policy re-checks live revocation, then mints fresh, scoped, fenced tokens.
+  - **No extension.** A caller or invocation token is never extended or held across a wait.
+  - **Versions.** P1b's contract step accounts for live runs (see P1b).
+  - **Retention.** Every interpreter revision (by tag), provider-operation implementation and execution-schema version a live run requires is retained; otherwise the run is paused. The `retireTags` exclusion and the rollback rule for revisions that commands name extend to runs.
+- **E4 Run reads and form routing.**
+  - **Selecting a run.** `/data` and `/form` take an explicit execution selector. A missing or inaccessible run is an explicit error, never a fallback to compiling or to starting a run.
+  - **The View's workflow update path** (an addendum to B4):
+    - **Assessments are unchanged.** B4's freeze of mounted content stays the default, and assessment content is never replaced.
+    - **Opt-in for workflow forms.** A workflow form can take progress updates by authorized, run-specific polling of a private `no-store` projection.
+    - **Two orderings, kept separate:**
+      - **Workflow state.** A projection with an older `stateVersion` than the View holds is rejected. A newer one is applied as progress.
+      - **Presentation refresh at the same `stateVersion`.** A refreshed signature or download URL leaves the version unchanged, and design §6's hybrid contract requires it to be accepted. Each refresh carries a presentation sequence number, or its credentials' issue time. The View accepts one only for its current `stateVersion` and only if it is newer than the refresh it holds. So a late response can't restore expired credentials.
+    - **Delivery to the Form.** Updates go to the Form as progress, separately from content initialization, so local interaction isn't reset.
+    - **Later:** subscriptions and projection caching.
+- **E5 One complete L0188 provider operation, end to end.** The first is either a narrow provider job, as an engineering pilot, or the cohort rescore (the L0188 doc's choice). It is gated on the operation being executable:
+  - **Broker:** typed handlers for its provider steps.
+  - **Registry:** its protected functions and execution steps in the protected registry, rolled out under P1b's expand/contract (Policy, Broker, compilers, then api).
+  - **Interpreter manifest:** a separately approved interpreter declaration and producer/interpreter pair.
+
+  Continuation authority (E3) alone doesn't make an operation executable, and neither does oracle guidance or a compiler declaration.
+- **E6 Activation and recovery gates.** See "Native languages" under "Rollback procedures".
+  - **Evidence.** Operation conformance plus failure-recovery evidence; there is no TypeScript to compare against.
+  - **Promotion drills:**
+    - a worker crash mid-step;
+    - duplicate wakeups;
+    - a wakeup dropped entirely, so that the overdue-wait sweep has to resume the run;
+    - lost acknowledgements;
+    - revocation during a wait;
+    - a rollback with a live run.
 
 ## Rollback procedures
 **Track A (switch to Rust):**
@@ -397,10 +507,23 @@ Durable executions (`dispatch`, long-lived executions) stay deferred, as in the 
     - the bridge stays off.
   - A release that turns `COMMANDS_L0013` off after D4 is refused.
 
+**Native languages (L0188, Track E):**
+- **`COMMANDS_L0188` off.** New start allocations are rejected; nothing is ever allocated `legacy`. Existing command keys, run reads, retries and recovery continue on their recorded bindings.
+- **`INTERPRETER_L0188` off.** A run is never sent through the legacy compile adapter. There is no compile-to-command bridge, and an ordinary `/compile` never starts or advances a run.
+- **The rollback floor (D2b)** also preserves compatible workers, execution schemas, pinned revisions and authorization-contract versions.
+
 ## Track D — Move command callers to explicit commands (before C5 and C6 enforce them)
 Today an effect runs as a side effect of `/compile`. An L0176 save runs on any compile through a connection, the console's Learnosity save being one; L0013 `snap` runs on a compile. Idempotency keys are optional today (`packages/policy/src/invocations.ts:57`). Changing either one without the callers would break them.
 - **D1 Public command contract.**
-  - `POST /command { id, connection, idempotencyKey, … }` returns an outcome: `pending`, `completed`, `failed`, `partial` or `uncertain`, plus a status URL.
+  - `POST /command { id, connection, idempotencyKey, … }` returns an outcome: `pending`, `completed`, `failed`, `partial` or `uncertain`.
+  - **The response.**
+    - **Always:** the command id, its outcome and the command status URL. An immediate command returns only these.
+    - **When the command belongs to a durable run (Track E):** also the run id and the run status URL.
+  - **Command outcomes are separate from run status:**
+    - **An accepted job isn't completion.** Accepting a provider job leaves the initiating command `pending` until its completion conditions are established.
+    - **Earlier outcomes are kept.** Later reconciliation advances the run but preserves an earlier command's terminal `uncertain` or `partial` outcome.
+  - **Dispatch commands** (signals, reconciliation, stop) have their own keys and admission. Whether they are a command kind on `/command` or a route of their own is open (see the L0188 doc).
+  - **Repair.** B6 replay repair comes later. A model-changing repair needs a separate linked protocol.
   - The key is **required**.
   - It is documented in the API, and it is additive: nothing calls it yet.
 - **D2 Compatibility bridge.** For a language whose effects have moved to `start` (C5, C6), a legacy compile that reaches an effect intent is **translated by the API into a `start`**, with the same execution behavior callers get today:
@@ -436,7 +559,7 @@ Today an effect runs as a side effect of `/compile`. An L0176 save runs on any c
   5. A legacy L0176 save that was `partial` at activation, retried: completed operations aren't repeated, and the failed one runs at most once.
   6. `rollback --release` to a pre-floor API is refused once a command record exists.
 - **D3 Find and migrate the callers.**
-  - Inventory the callers from audit logs and code: console save (`graffiticode-app`), L0013 thumbnail requests, anything else invoking a compile through a connection. MCP authoring never writes.
+  - Inventory the callers from audit logs and code: console save (`graffiticode-app`), L0013 thumbnail requests, anything else invoking a compile through a connection. Ordinary MCP authoring never writes or starts a run. Only action-oriented MCP calls that explicitly submit `/command` do, and they use the same command contract.
   - Move each one to `POST /command` with a stable key.
   - Ship the clients first. The bridge keeps old clients working meanwhile.
 - **D4 Retire the bridge, per language.**
@@ -468,4 +591,12 @@ The design doc's §5, §11, §12 and §14 are amended to match.
 - Value models are decided per program. L0174 is a plan language.
 - L0013 is promoted with capture evidence against an isolated bucket.
 - P2 makes each language's routing switch a pair of API env vars, so rollback is an API rollback.
+- Durable execution is delivered by Track E, driven by L0188, instead of being deferred.
+  - B5 is the immediate-command foundation. Track E extends it with run records, timers and overdue-wait recovery.
+  - Replayed and new observations are distinguished.
+  - Runtime-expanded effects are admitted as occurrences of the model's operations, with single-segment hashed ids.
+  - Durable continuation renews authority through Policy and never extends a token. Live runs constrain P1b's contract step.
+  - D1 separates command outcomes from run status; run fields appear only for durable runs.
+  - The View gets an opt-in workflow update path, with presentation refreshes ordered apart from workflow state.
+  - Native languages are activated on conformance and recovery evidence, without a legacy allocation or a bridge.
 - Retiring a language's TypeScript implementation is a per-language milestone after its switch: source removal (A6) behind five gates, and service retirement (A7) as a separate, explicit owner decision. The language itself is never retired.
