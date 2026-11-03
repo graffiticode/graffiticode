@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::ir::{Board, Child, Connector, Mark, Region};
+use crate::ir::{Board, Child, Connector, Layout, Mark, Region};
 use crate::measure::{Break, Line, Rect, content_box, coverage, wrap};
 use crate::profile::{self, line_height};
 
@@ -100,6 +100,17 @@ fn sticky(m: &Mark) -> Result<Measured, Limit> {
         }
     }
     let (width, height, lines) = chosen.expect("a sticky width");
+    let content = Rect { x: PAD_X, y: PAD_Y, w: width - 2.0 * PAD_X, h: height - 2.0 * PAD_Y };
+    Ok(Measured { width, height, content, font_size: font, line_height: line_height::NOTE, lines, emoji })
+}
+
+/// A sticky at a given width (square or wide), its height grown to fit.
+fn sticky_at(m: &Mark, width: f64) -> Result<Measured, Limit> {
+    use profile::sticky::{PAD_X, PAD_Y};
+    let emoji = unsupported("sticky", &m.id, &m.text)?;
+    let font = profile::font_size(&m.font_size);
+    let lines = wrap(&m.text, font, Some(width - 2.0 * PAD_X));
+    let height = sticky_height(lines.len(), font);
     let content = Rect { x: PAD_X, y: PAD_Y, w: width - 2.0 * PAD_X, h: height - 2.0 * PAD_Y };
     Ok(Measured { width, height, content, font_size: font, line_height: line_height::NOTE, lines, emoji })
 }
@@ -219,6 +230,23 @@ fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
         }
         if let Some(inner) = child.region() {
             region(inner, sizes, limits);
+        }
+    }
+    // A grid reads as a table: when one of its stickies has to be wide, they all are, so its
+    // rows and columns line up instead of mixing square and wide notes.
+    if matches!(r.layout, Layout::Grid { .. }) {
+        let stickies: Vec<&Mark> =
+            r.children.iter().filter_map(|c| if let Child::Sticky(m) = c { Some(m) } else { None }).collect();
+        let any_wide =
+            stickies.iter().any(|m| sizes.marks.get(&m.id).is_some_and(|s| s.width == profile::sticky::WIDE));
+        if any_wide {
+            for m in stickies {
+                if sizes.marks.get(&m.id).is_some_and(|s| s.width != profile::sticky::WIDE)
+                    && let Ok(wide) = sticky_at(m, profile::sticky::WIDE)
+                {
+                    sizes.marks.insert(m.id.clone(), wide);
+                }
+            }
         }
     }
 }

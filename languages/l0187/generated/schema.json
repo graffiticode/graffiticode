@@ -85,11 +85,15 @@
           "type": "object",
           "required": [
             "crossings",
+            "section_conflicts",
             "bends",
             "route_length"
           ],
           "properties": {
             "crossings": {
+              "type": "integer"
+            },
+            "section_conflicts": {
               "type": "integer"
             },
             "bends": {

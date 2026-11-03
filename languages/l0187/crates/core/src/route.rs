@@ -176,6 +176,59 @@ pub fn label_box(points: &[P], from: &Frame, to: &Frame, size: Option<(f64, f64)
 /// The clearance a connector keeps from everything it must not touch.
 pub const CLEARANCE: f64 = 8.0;
 
+/// How close a leg may run alongside a section's border: clear of the line, not the full
+/// clearance (a gutter is often only 48px, and a leg there must pass between two sections).
+pub const BORDER_MARGIN: f64 = 4.0;
+
+fn border_reach(stroke: f64) -> f64 {
+    stroke / 2.0 + BORDER_MARGIN
+}
+
+/// Whether the straight leg a-b runs along one of the border's edges, within `reach` of it.
+fn skirts(a: P, b: P, border: &Frame, reach: f64) -> bool {
+    let horizontal = (a.y - b.y).abs() < 1e-9;
+    let vertical = (a.x - b.x).abs() < 1e-9;
+    let (lo, hi) = if horizontal { (a.x.min(b.x), a.x.max(b.x)) } else { (a.y.min(b.y), a.y.max(b.y)) };
+    (horizontal
+        && [border.y, border.y + border.h].iter().any(|e| (a.y - e).abs() < reach)
+        && lo < border.x + border.w - reach
+        && hi > border.x + reach)
+        || (vertical
+            && [border.x, border.x + border.w].iter().any(|e| (a.x - e).abs() < reach)
+            && lo < border.y + border.h - reach
+            && hi > border.y + reach)
+}
+
+/// A section as routing sees it: its border, and the title band drawn above it.
+pub type SectionFrame = (Frame, Option<Frame>);
+
+/// Why a route sits badly against the page's sections, if it does: a leg (or its label) over a
+/// section's title band, or a leg running along a section's border within the clearance (a leg
+/// may cross a border, square on, but not skirt it). Shared by the router and the validator.
+pub fn section_conflict(points: &[P], stroke: f64, label: Option<&Frame>, sections: &[SectionFrame]) -> Option<String> {
+    let reach = border_reach(stroke);
+    for (i, seg) in points.windows(2).enumerate() {
+        let (a, b) = (seg[0], seg[1]);
+        let leg = band(a, b, stroke);
+        for (border, title) in sections {
+            if title.is_some_and(|t| overlaps(&leg, &t)) {
+                return Some(format!("leg {i} crosses a section title"));
+            }
+            if skirts(a, b, border, reach) {
+                return Some(format!("leg {i} runs along a section border"));
+            }
+        }
+    }
+    if let Some(lb) = label {
+        let grown =
+            Frame { x: lb.x - CLEARANCE, y: lb.y - CLEARANCE, w: lb.w + 2.0 * CLEARANCE, h: lb.h + 2.0 * CLEARANCE };
+        if sections.iter().any(|(_, t)| t.is_some_and(|t| overlaps(&grown, &t))) {
+            return Some("its label covers a section title".to_owned());
+        }
+    }
+    None
+}
+
 /// Whether every leg runs horizontally or vertically (a searched route never takes a diagonal).
 fn orthogonal(points: &[P]) -> bool {
     points.windows(2).all(|s| (s[0].x - s[1].x).abs() < 1.0 || (s[0].y - s[1].y).abs() < 1.0)
@@ -307,6 +360,10 @@ struct Scene<'a> {
     max: usize,
     /// For each mark, the other marks its connectors join it to.
     neighbours: HashMap<String, Vec<String>>,
+    /// Every section's border and title band.
+    sections: Vec<SectionFrame>,
+    /// Whether routes must keep clear of section titles and borders (the first attempt).
+    strict_sections: bool,
 }
 
 /// A candidate route before it is checked.
@@ -386,7 +443,7 @@ impl Scene<'_> {
                 return false;
             }
         }
-        true
+        !self.strict_sections || section_conflict(points, stroke, label, &self.sections).is_none()
     }
 
     fn candidates(&mut self, c: &Connector, parallel: usize, region: &str, against_flow: bool) -> Vec<Candidate> {
@@ -615,8 +672,16 @@ impl Scene<'_> {
             .iter()
             .map(|(id, f)| (id.clone(), Frame { x: f.x - m, y: f.y - m, w: f.w + 2.0 * m, h: f.h + 2.0 * m }))
             .collect();
-        // Labels already placed are obstacles too: a leg may not run through one.
+        // Labels already placed, and section titles, are obstacles too: a leg may not run through one.
         let g = CLEARANCE + Self::stroke(c) / 2.0;
+        if self.strict_sections {
+            for (_, title) in &self.sections {
+                if let Some(t) = title {
+                    inflated
+                        .push((String::new(), Frame { x: t.x - g, y: t.y - g, w: t.w + 2.0 * g, h: t.h + 2.0 * g }));
+                }
+            }
+        }
         for (id, _, label, _, _, _) in &self.placed {
             if let Some(l) = label {
                 inflated.push((id.clone(), Frame { x: l.x - g, y: l.y - g, w: l.w + 2.0 * g, h: l.h + 2.0 * g }));
@@ -638,6 +703,25 @@ impl Scene<'_> {
         }
         for v in [lo_x - m, hi_x + m] {
             xs.insert(key(v));
+        }
+        // Lines just clear of every section's edges, inside and out, and of its title band: a leg
+        // may not skirt a border or cross a title, so the lines hugging marks inside a section
+        // (8px from its border) are not enough to route around it.
+        let clear = border_reach(Self::stroke(c)) + 2.0;
+        let title_clear = CLEARANCE + Self::stroke(c) / 2.0 + 2.0;
+        for (border, title) in &self.sections {
+            for x in [border.x, border.x + border.w] {
+                xs.insert(key(x - clear));
+                xs.insert(key(x + clear));
+            }
+            for y in [border.y, border.y + border.h] {
+                ys.insert(key(y - clear));
+                ys.insert(key(y + clear));
+            }
+            if let Some(t) = title {
+                ys.insert(key(t.y - title_clear));
+                xs.insert(key(t.x + t.w + title_clear));
+            }
         }
         for v in [lo_y - m, hi_y + m] {
             ys.insert(key(v));
@@ -675,7 +759,12 @@ impl Scene<'_> {
                 .iter()
                 .any(|(_, f)| p.x > f.x + 1e-9 && p.x < f.x + f.w - 1e-9 && p.y > f.y + 1e-9 && p.y < f.y + f.h - 1e-9)
         };
-        let clear = |p: P, q: P| !inflated.iter().any(|(_, f)| crosses(p, q, f));
+        let reach = border_reach(Self::stroke(c));
+        let sections: &[SectionFrame] = if self.strict_sections { &self.sections } else { &[] };
+        let clear = |p: P, q: P| {
+            !inflated.iter().any(|(_, f)| crosses(p, q, f))
+                && !sections.iter().any(|(border, _)| skirts(p, q, border, reach))
+        };
         let index = |v: f64, axis: &[f64]| axis.iter().position(|&a| (a - v).abs() < 1e-6);
         // State: (grid x, grid y, direction 0..4); cost in tenths of a pixel.
         const BEND: i64 = 400;
@@ -842,6 +931,19 @@ fn chains(region: &Region, chain: &[String], out: &mut HashMap<String, Vec<Strin
     }
 }
 
+fn sections_of(region: &Region, layout: &PageLayout, out: &mut Vec<SectionFrame>) {
+    for child in &region.children {
+        if let Child::Section(s) = child
+            && let Some(f) = layout.frames.get(&s.id)
+        {
+            out.push((*f, layout.titles.get(&s.id).copied()));
+        }
+        if let Some(inner) = child.region() {
+            sections_of(inner, layout, out);
+        }
+    }
+}
+
 fn marks_of(region: &Region, frames: &HashMap<String, Frame>, out: &mut Vec<(String, Frame)>) {
     for child in &region.children {
         match child {
@@ -878,7 +980,10 @@ fn route_page(
         evaluations: 0,
         max,
         neighbours: HashMap::new(),
+        sections: Vec::new(),
+        strict_sections: true,
     };
+    sections_of(&page.region, layout, &mut scene.sections);
     for c in &page.connectors {
         if c.from != c.to {
             scene.neighbours.entry(c.from.clone()).or_default().push(c.to.clone());
@@ -893,24 +998,33 @@ fn route_page(
         let parallel = *pairs.entry(pair.clone()).and_modify(|n| *n += 1).or_insert(0);
         let region = scene.lowest_common_region(&c.from, &c.to);
         let against = layout.against.contains(&c.id);
+        // First a route that keeps clear of section titles and borders; only when none exists,
+        // one that may skirt them — a board that routes is worth more than a tidier line.
         let mut chosen = None;
-        for k in scene.candidates(c, parallel, &region, against) {
-            if scene.evaluations >= max {
-                break;
-            }
-            let uses_channel = k.kind == "channel";
-            if let Some(r) = scene.check(c, k) {
-                if uses_channel {
-                    *scene.lanes_used.entry(region.clone()).or_insert(0) += 1;
+        for strict in [true, false] {
+            scene.strict_sections = strict;
+            for k in scene.candidates(c, parallel, &region, against) {
+                if scene.evaluations >= max {
+                    break;
                 }
-                chosen = Some(r);
+                let uses_channel = k.kind == "channel";
+                if let Some(r) = scene.check(c, k) {
+                    if uses_channel {
+                        *scene.lanes_used.entry(region.clone()).or_insert(0) += 1;
+                    }
+                    chosen = Some(r);
+                    break;
+                }
+            }
+            if chosen.is_none() && c.from != c.to && scene.evaluations < max {
+                scene.max = max;
+                chosen = scene.search(c);
+            }
+            if chosen.is_some() {
                 break;
             }
         }
-        if chosen.is_none() && c.from != c.to && scene.evaluations < max {
-            scene.max = max;
-            chosen = scene.search(c);
-        }
+        scene.strict_sections = true;
         match chosen {
             Some(r) => {
                 let stroke = Scene::stroke(c);

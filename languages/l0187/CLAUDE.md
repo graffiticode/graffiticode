@@ -53,7 +53,7 @@ every word, and everything else is derived from it. npm here holds only the fron
     characters and right-to-left text are content limits. `content_box` is each shape kind's
     calibrated text area.
   - `src/size.rs` — every mark's box and lines: stickies keep their width (square, or wide when a
-    square would grow) and grow taller as FigJam's do; shapes are sized on the 24 grid to hold
+    square would grow; in a GRID, all wide when one is) and grow taller as FigJam's do; shapes are sized on the 24 grid to hold
     their text (FigJam truncates a resized shape's overflow); textboxes wrap at 20 em; labels are
     padded lines. Text that cannot be measured is a `content-limit` diagnostic.
   - `src/layout.rs` — regions composed bottom-up. ROW/COLUMN keep the written order on a line,
@@ -70,7 +70,9 @@ every word, and everything else is derived from it. npm here holds only the fron
     in a fixed order (straight, Z/L elbow, the flow's channel lane for back/long edges, arcs that
     also separate parallels, then an orthogonal Dijkstra search over the free space that steers
     around labels already placed and magnets used the other way, and slides its legs sideways when its
-    path does not fit); self-loops
+    path does not fit). Every connector is first routed clear of section titles and never running
+    along a section border, then without that rule if nothing fits; `quality.section_conflicts`
+    counts the fallbacks; self-loops
     go around a corner, reaching out far enough for their label. The label box follows the
     plugin's rule exactly (leg `floor((legs − 1) / 2)`, its midpoint after the plugin's 16px corner
     rounding and FigJam's 8px endpoint gap). Clearance 8px around every leg band, cap and label.
