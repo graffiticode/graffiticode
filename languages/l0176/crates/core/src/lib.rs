@@ -40,12 +40,24 @@ use crate::protection::is_brokered;
 /// TypeScript package by `tests/conformance/generate.mjs`.
 const ADDITIONS_JSON: &str = include_str!("lexicon-additions.json");
 
+/// Retired spellings (`deprecatedAliases` in `packages/core/src/lexicon.ts`). A saved source that
+/// uses one still compiles, because the parser maps it onto the current word's AST name. But like
+/// the TypeScript's published `lexicon.json` (`tools/build-static.js`), the lexicon served here
+/// never advertises one: no autocomplete entry, no spec row, no generator prompt.
+pub const DEPRECATED_WORDS: &[&str] = &["hot-text"];
+
 static LEXICON: LazyLock<Lexicon> = LazyLock::new(|| {
-    let additions = serde_json::from_str(ADDITIONS_JSON).expect("the embedded lexicon additions are valid");
+    let mut additions: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_str(ADDITIONS_JSON).expect("the embedded lexicon additions are valid");
+    for word in DEPRECATED_WORDS {
+        additions.remove(*word);
+    }
+    let additions = serde_json::from_value(serde_json::Value::Object(additions)).expect("the additions are a lexicon");
     Lexicon::base().merge(additions, &[], Some("L0176")).expect("L0176 redefines no base word")
 });
 
-/// L0176's vocabulary: the base lexicon with the Learnosity words laid over it.
+/// L0176's published vocabulary: the base lexicon with the Learnosity words laid over it, without
+/// the retired spellings in [`DEPRECATED_WORDS`].
 pub fn lexicon() -> &'static Lexicon {
     &LEXICON
 }

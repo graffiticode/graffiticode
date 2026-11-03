@@ -75,8 +75,13 @@ export const COMPARED_HEADERS = ["cache-control", "content-type", "cross-origin-
 //                     its own script and assets)
 //   case              one corpus case, by its program source (`src`)
 //   header            one header on one path (`path`, `header`)
+//   volatile          values each compile generates afresh (a UUID, a
+//                     timestamped key): every string value or object key that
+//                     wholly matches `pattern` is masked on both sides, then
+//                     the answers must be identical. Two compiles of the same
+//                     side differ there too, so they say nothing about parity.
 // Every rule needs a `note` saying why the difference is acceptable.
-export const RULE_KINDS = ["error-text", "error-presentation", "lexicon-superset", "upstream-envelope", "form-body", "case", "header"];
+export const RULE_KINDS = ["error-text", "error-presentation", "lexicon-superset", "upstream-envelope", "form-body", "case", "header", "volatile"];
 
 export const ruleProblems = rules => {
   const problems = [];
@@ -89,6 +94,10 @@ export const ruleProblems = rules => {
       if (typeof r?.note !== "string" || !r.note.trim()) problems.push(`${at}: a note must explain the difference`);
       if (r?.kind === "case" && typeof r.src !== "string") problems.push(`${at}: a case rule names its program source (src)`);
       if (r?.kind === "header" && (typeof r.path !== "string" || typeof r.header !== "string")) problems.push(`${at}: a header rule names its path and header`);
+      if (r?.kind === "volatile") {
+        if (typeof r.pattern !== "string" || !r.pattern) problems.push(`${at}: a volatile rule names its pattern`);
+        else try { RegExp(r.pattern); } catch { problems.push(`${at}: the pattern is not a regular expression`); }
+      }
     }
   }
   return problems;
@@ -110,6 +119,19 @@ export const comparable = ({ status, text }) => {
 const withoutErrorText = body => {
   if (!body || typeof body !== "object" || !Array.isArray(body.errors)) return body;
   return { ...body, errors: body.errors.map(e => (e && typeof e === "object" ? { ...e, message: "" } : "")) };
+};
+
+// Masks what each compile generates afresh: every string value and object key
+// that wholly matches one of `patterns`.
+export const maskVolatile = (value, patterns) => {
+  const hit = text => patterns.some(re => re.test(text));
+  const walk = v => {
+    if (typeof v === "string") return hit(v) ? "<volatile>" : v;
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [hit(k) ? "<volatile>" : k, walk(x)]));
+    return v;
+  };
+  return walk(value);
 };
 
 const failedWithErrors = body => Boolean(body) && typeof body === "object" && Array.isArray(body.errors) && body.errors.length > 0;
@@ -141,6 +163,8 @@ export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
   const b = comparable(rust);
   if (isDeepStrictEqual(a, b)) return "identical";
   if (rules.some(r => r.kind === "case" && r.src === src)) return { allowed: "case" };
+  const volatile = rules.filter(r => r.kind === "volatile").map(r => new RegExp(`^(?:${r.pattern})$`));
+  if (volatile.length && isDeepStrictEqual(maskVolatile(a, volatile), maskVolatile(b, volatile))) return { allowed: "volatile" };
   if (rules.some(r => r.kind === "upstream-envelope") && isEnvelope(data)) return { allowed: "upstream-envelope" };
   if (rules.some(r => r.kind === "error-presentation") && a.status === b.status && failedWithErrors(a.body) && failedWithErrors(b.body) &&
       isDeepStrictEqual(withoutErrors(a.body), withoutErrors(b.body))) {

@@ -17,7 +17,7 @@ test("a rule needs a known kind, a note, and its fields", () => {
     "0002": {},
   }), [
     "184: not a four-digit language id",
-    "0001[0]: kind must be one of error-text, error-presentation, lexicon-superset, upstream-envelope, form-body, case, header",
+    "0001[0]: kind must be one of error-text, error-presentation, lexicon-superset, upstream-envelope, form-body, case, header, volatile",
     "0001[1]: a note must explain the difference",
     "0001[1]: a case rule names its program source (src)",
     "0001[2]: a header rule names its path and header",
@@ -174,4 +174,22 @@ test("a case's data is also sent as the API delivers it: wrapped in the stage be
   assert.deepEqual(asDelivered("text"), { data: "text", errors: [] });
   // No data, or an empty record (which POST /compile never appends as a stage): nothing to deliver.
   for (const none of [undefined, null, {}]) assert.equal(asDelivered(none), null);
+});
+
+test("volatile masks only values and keys that wholly match its pattern, then needs identical answers", () => {
+  const uuid = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+  const rules = [{ kind: "volatile", pattern: uuid, note: "fresh session ids" }, { kind: "volatile", pattern: "graffiticode-\\d{4}-\\d{2}-\\d{2}T\\d{6}\\d{3}Z-row-\\d+", note: "timestamped row keys" }];
+  const answer = (sid, row, extra = {}) => ({ status: 200, text: JSON.stringify({ data: { ["session" + "_id"]: sid, rows: { [row]: { index: 0 } }, ...extra }, errors: [] }) });
+  const a = answer("b1121c60-557f-421a-8a31-b0c17ff2da6f", "graffiticode-2026-11-03T214751584Z-row-0");
+  const b = answer("523baf9f-b668-47a9-915b-f058b4d3d5f4", "graffiticode-2026-11-03T214751563Z-row-0");
+  assert.deepEqual(compareCase(a, b, { rules }), { allowed: "volatile" });
+  // Anything else that differs still fails.
+  assert.equal(compareCase(a, answer("523baf9f-b668-47a9-915b-f058b4d3d5f4", "graffiticode-2026-11-03T214751563Z-row-0", { stimulus: null }), { rules }), "different");
+  // A value that only contains a match isn't masked, and a fixed id against a fresh one fails.
+  assert.equal(compareCase(answer("t", "r"), answer("b1121c60-557f-421a-8a31-b0c17ff2da6f", "r"), { rules }), "different");
+  assert.equal(compareCase(answer("id b1121c60-557f-421a-8a31-b0c17ff2da6f", "r"), answer("id 523baf9f-b668-47a9-915b-f058b4d3d5f4", "r"), { rules }), "different");
+  // Without the rule, the fresh ids differ.
+  assert.equal(compareCase(a, b), "different");
+  assert.deepEqual(ruleProblems({ "0176": [{ kind: "volatile", note: "x" }] }), ["0176[0]: a volatile rule names its pattern"]);
+  assert.deepEqual(ruleProblems({ "0176": [{ kind: "volatile", pattern: "(", note: "x" }] }), ["0176[0]: the pattern is not a regular expression"]);
 });
