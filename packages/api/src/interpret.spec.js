@@ -123,6 +123,26 @@ describe("interpret.js", () => {
     }
   });
 
+  it("records each interpreted stage's model kind, and none for a stage that has no model", async () => {
+    const t = setup({ interpretReply: ({ model }) => (model.kind === "value" ? { data: model.value, errors: [], revision: "r1" } : undefined) });
+    t.interpreter.model.mockImplementationOnce(async ({ lang, code }) => ({
+      model: { lang, kind: "value", digest: canonicalDigest({ lang, code, v: 1 }), value: { v: 1 } },
+      errors: [],
+      revision: "r1",
+    }));
+    await t.get(await t.chain([task("0900", "valued")]));
+    expect(t.stages.map(s => s.kind)).toEqual(["value"]);
+    t.stages.length = 0;
+    await t.get(await t.chain([task("0900", "planned")]));
+    expect(t.stages.map(s => s.kind)).toEqual(["plan"]);
+    t.stages.length = 0;
+    t.interpreter.model.mockImplementationOnce(async () => ({ errors: [{ message: "no" }], revision: "r1" }));
+    await t.get(await t.chain([task("0900", "broken")]));
+    expect(t.stages).toHaveLength(1);
+    expect(t.stages[0].kind).toBeUndefined();
+    expect(t.stages[0].outcome).toBe("compile-errors");
+  });
+
   it("reads a stage's class and expiry, capped by its declaration", () => {
     expect(legacyRestrictions({ data: 1, cache: false })).toEqual(NO_STORE);
     expect(legacyRestrictions({ data: 1 })).toEqual(PERMANENT);
@@ -244,10 +264,12 @@ describe("getData with interpreted stages", () => {
     // The models are compiled again (they name the revision); neither stage is interpreted again.
     expect(t.interpreter.interpret).toHaveBeenCalledTimes(2);
     expect(t.stages.map(s => s.cache)).toEqual(["hit", "hit"]);
-    // A hit times its model compile and its lookup, and never interprets.
+    // A hit times its model compile and its lookup, and never interprets. It names the model's
+    // kind, as a fresh interpretation does.
     for (const s of t.stages) {
       expect(Object.keys(s.ms).sort()).toEqual(["cache", "model"]);
       expect(typeof s.ms.model).toBe("number");
+      expect(s.kind).toBe("plan");
     }
     expect((await t.compileStorer.get({ id })).data).toEqual({ stale: true });
   });
