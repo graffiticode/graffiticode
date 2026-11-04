@@ -1574,6 +1574,9 @@ api routing through the domain). The owner had the TypeScript service deleted.
   expects.
 - **Unchanged.** The proxy's certificate for `l0184.graffiticode.org` stays, because the domain
   is live on `l0184r`, and so do the allow lists that name it.
+- **The Rust service takes the plain name** *(owner's rule, 2026-11-04)*. Cloud Run can't rename a service, so a new service `l0184` runs `l0184r`'s image. It runs as `l0184-run`, reused: that account holds exactly what `l0184r-run` did, `secretAccessor` on `egress-proxy-ca-bundle` and nothing else, so no grant changes. The AT-11 tooling maps a runtime account to its service by name, which is why the account follows the service.
+  - Then `l0184.graffiticode.org` is repointed to `l0184`, and `l0184r` is retired.
+  - After that, `l0184r-run` holds only that same CA-bundle grant, until it is removed.
 
 ## 4. Verification (read-only)
 

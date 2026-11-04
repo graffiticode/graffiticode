@@ -24,11 +24,11 @@ import { readFileSync } from "node:fs";
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { VERIFY_UID } from "../verify/auth.js";
-import { COLLECTION, parse, readBindings, urlProblem, withBinding, withoutBinding, writeBindings } from "./lib/lang-overrides.js";
+import { COLLECTION, parse, readBindings, rustService, urlProblem, withBinding, withoutBinding, writeBindings } from "./lib/lang-overrides.js";
 
+const deployConfig = JSON.parse(readFileSync(new URL("../deploy.json", import.meta.url), "utf8"));
 const resolveServiceUrl = (key, project) => {
-  const service = `${key.toLowerCase()}r`;
-  const deployConfig = JSON.parse(readFileSync(new URL("../deploy.json", import.meta.url), "utf8"));
+  const service = rustService(key, deployConfig.services);
   const region = deployConfig.environments?.production?.region ?? "us-central1";
   return execFileSync("gcloud", ["run", "services", "describe", service, `--project=${project}`, `--region=${region}`, "--format=value(status.url)"], { encoding: "utf8" }).trim();
 };
@@ -47,7 +47,7 @@ const main = async () => {
   let after;
   if (opts.command === "set") {
     const url = opts.url ?? resolveServiceUrl(opts.lang, opts.project);
-    const problem = urlProblem(opts.lang, url, { anyUrl: opts.anyUrl });
+    const problem = urlProblem(opts.lang, url, { anyUrl: opts.anyUrl, service: rustService(opts.lang, deployConfig.services) });
     if (problem) throw new Error(problem);
     after = withBinding(before, opts.lang, url.replace(/\/$/, ""));
   } else {

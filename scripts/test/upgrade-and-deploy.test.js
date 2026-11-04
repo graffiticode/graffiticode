@@ -43,7 +43,7 @@ test("deploy.json: the switched languages: L0000, L0003, L0010, L0013, L0014, L0
   const { services } = JSON.parse(readFileSync(new URL("../../deploy.json", import.meta.url), "utf8"));
   // A retired TypeScript service (A7, L0184) leaves only the lNNNNr entry.
   const langs = [...new Set(Object.keys(services).filter(n => /^l\d{4}r?$/.test(n)).map(n => n.slice(0, 5)))];
-  assert.deepEqual(deployTargets(langs, services).filter(n => n.endsWith("r")).sort(), ["l0000r", "l0003r", "l0010r", "l0013r", "l0014r", "l0174r", "l0175r", "l0176r", "l0177r", "l0178r", "l0179r", "l0180r", "l0181r", "l0182r", "l0183r", "l0184r", "l0185r", "l0186r"]);
+  assert.deepEqual(deployTargets(langs, services).filter(n => n.endsWith("r")).sort(), ["l0000r", "l0003r", "l0010r", "l0013r", "l0014r", "l0174r", "l0175r", "l0176r", "l0177r", "l0178r", "l0179r", "l0180r", "l0181r", "l0182r", "l0183r", "l0185r", "l0186r"]);
 });
 
 test("a View release deploys L0000, which owns it, without upgrading it, and its consumers with an upgrade", () => {
@@ -52,9 +52,9 @@ test("a View release deploys L0000, which owns it, without upgrading it, and its
   const all = selectLanguages({ ...view, langs: null });
   assert.deepEqual(all.owners, ["l0000"]);
   assert.ok(!all.consumers.includes("l0000"));
-  // L0184's TypeScript service is retired (A7): it's selected through l0184r.
+  // L0184's TypeScript service is retired (A7), and its Rust service has taken the plain name.
   assert.ok(all.consumers.includes("l0184") && all.consumers.includes("l0176"));
-  assert.deepEqual(deployTargets(["l0184"], services), ["l0184r"]);
+  assert.deepEqual(deployTargets(["l0184"], services), ["l0184"]);
   // --lang 0000 alone: L0000's own services, Rust included while the api routes there.
   const only = selectLanguages({ ...view, langs: ["0000"] });
   assert.deepEqual(only, { consumers: [], owners: ["l0000"] });

@@ -2461,13 +2461,13 @@
       ],
       "minInstances": 0
     },
-    "l0184r": {
+    "l0184": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0184r",
       "dockerfile": "configs/Dockerfile.l0184r.yaml",
       "port": 8080,
       "access": "public",
       "retireTags": true,
-      "runtimeServiceAccount": "l0184r-run@graffiticode.iam.gserviceaccount.com",
+      "runtimeServiceAccount": "l0184-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
         "subnet": "compilers-default",
