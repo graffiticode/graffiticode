@@ -398,8 +398,11 @@ unattended: every connection read of a saved L0176 item failed for days, and not
   timeout. A run takes about 4.5 minutes and writes one or more sandbox drafts.
 - **Identity:** `canary-run@graffiticode`, a standing, least-privilege account, which replaces
   the operator's time-boxed grant:
-  - `iam.serviceAccountOpenIdTokenCreator` on `api-run`, `l0176-run` and
-    `console-run@graffiticode-app` only;
+  - `iam.serviceAccountOpenIdTokenCreator` on `api-run`, `l0176-run`, `l0176r-run` and
+    `console-run@graffiticode-app` only. `l0176r-run` was added 2026-11-04: since L0176
+    switched to `l0176r` (A5), the canary mints its direct-path token for the compiler
+    account its route reaches, and without the grant that check failed 403. `l0176-run`
+    stays while the TypeScript `l0176` is kept for parity tests;
   - `secretAccessor` on `canary-api-key` only;
   - `logging.viewer` and `run.viewer` on the project.
 - **Schedule:** Cloud Scheduler `canary` at `23 */6 * * *` UTC. It calls the Run API as
