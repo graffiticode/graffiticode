@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmw2nuzov-fca4d4",
+  "revision": "api-rmw2nuzov-fca4d4",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (C2 batch 1; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-04T22:14:25.000Z",
+  "corpus": {
+    "ranAt": "2026-11-04T22:14:15.029Z",
+    "tasks": 40,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "canary": {
+      "staged": "https://rmw2nuzov-fca4d4---api-sja7fatcta-uc.a.run.app",
+      "checks": 40,
+      "failed": 0,
+      "output": "canary-output.json"
+    },
+    "interpretedGates": {
+      "0174": {
+        "ranAt": "2026-11-04T20:03:26.294Z",
+        "tasks": 90,
+        "failures": 0
+      },
+      "0179": {
+        "ranAt": "2026-11-04T20:03:26.284Z",
+        "tasks": 1097,
+        "failures": 0
+      },
+      "0181": {
+        "ranAt": "2026-11-04T20:03:26.315Z",
+        "tasks": 459,
+        "failures": 0
+      },
+      "0183": {
+        "ranAt": "2026-11-04T20:03:26.231Z",
+        "tasks": 1698,
+        "failures": 0
+      }
+    },
+    "flags": "INTERPRETER_L0174/L0179/L0181/L0183=on, COMPILE_GENERATION_*=interp-1 (from rust-1)"
+  }
+}

@@ -389,6 +389,19 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
 2. **C2 Languages that read their input:** l0174, l0003, l0179, l0180, l0181, l0183, l0177, l0178, l0010, l0014. These are plan models run by the kernel evaluator.
    - **L0174 is never a value model.** Its `PROG` merges upstream data into the form (`languages/l0174/packages/core/src/compiler.ts:168-174`), and its corpus expects the upstream `title` and extra fields, so returning the compiled value unchanged would lose them. Its interpreter performs that merge at runtime.
    - Do these as their chains allow: an upgraded downstream stage must receive the same input it did through the legacy adapter.
+   - **Batch 1 as built (2026-11-04): L0174, L0179, L0181 and L0183.** Evidence is in `docs/evidence/interpreter-c2-batch1/`.
+     - **Rust tests.** Each language has `crates/core/tests/interpret.rs`, run over its whole corpus. Each case is checked against its recorded data, against none, and against an upstream value and envelope, in both modes. Every model is a plan.
+     - **Manifest and flags (#286).** Interpreter manifest v6 declares all four `immutable` in either mode. `INTERPRETER_LNNNN=on`, and the generation moves from `rust-1` to `interp-1`.
+     - **Live interpreted gates.** No case differed:
+       | Language | Identical | Different |
+       |---|---|---|
+       | L0174 | 90 | 0 |
+       | L0179 | 1097 | 0 |
+       | L0181 | 459 | 0 (14 skipped: empty upstream data) |
+       | L0183 | 1698 | 0 |
+     - **Release.** The staged api `api-rmw2nuzov-fca4d4` passed its canary 40/40 and was promoted. Production compiles were then observed reaching each language's `/interpret`.
+     - **Rollback:** `npm run rollback -- api --env production --release rmw2nuzov-fca4d4`, which restores `rust-1`.
+     - **Batch 2:** L0003, L0010, L0177, L0178, L0180 and L0014.
 3. **C3 L0185:** fetching moves into `interpret`, results are `shared`, and fetched reads are recorded for commands.
 4. **C4 L0182:** the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against.
 5. **C5 L0013 snapshots become brokered commands.** Today `l0013` uploads directly with its own service account (`languages/l0013/crates/capture/src/storage.rs:51`, `predefinedAcl=publicRead`). There is no Policy invocation, broker receipt or fencing, so nothing exists to adopt or replay. C5 builds that path first:
