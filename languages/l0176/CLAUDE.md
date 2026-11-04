@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **Two implementations live here.** `packages/` is the TypeScript L0176 that production runs; `crates/` is L0176 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+> **Two implementations live here.** `crates/` is L0176 in Rust, which production runs: service `l0176r`, behind `l0176.graffiticode.org`, switched on 2026-11-03/04 (interpreter plan A5). `packages/` is the TypeScript L0176. Its service `l0176` stays deployed at min 0 for plans that pin its revisions. Everything down to "The Rust implementation" describes the TypeScript side.
 
 ## Commands
 
@@ -338,7 +338,7 @@ live example.
 
 ## The Rust implementation (`crates/`)
 
-This directory holds **two implementations of L0176**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0176`, pinnable). `crates/` is the same language in Rust, to be released to its own service `l0176r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec are shared by both.
+This directory holds **two implementations of L0176**. `packages/core` and `packages/api` are the TypeScript compiler and server (Cloud Run service `l0176`, pinnable), which production ran until 2026-11-03. `crates/` is the same language in Rust, released to its own pinnable service `l0176r`, which production runs since A5. `packages/view` and the spec are shared by both.
 
 - `crates/core` (`graffiticode-l0176`) — the language:
   - `src/lib.rs` — `L0176` implements `Dialect` from `graffiticode-l0000`: the block words (`items`, `item`, `questions`, `init`, `save-to-itembank`), the question types and attribute words, and the `PROG` override that signs the program's activity.
@@ -404,6 +404,12 @@ reason appended. `tests/brokered.rs` covers each.
 
 ### Deploying the Rust server
 
-`deploy.json` has an `l0176r` entry: its own service, `l0176r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0176r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`, env `AUTH_URL` only. **Without `POLICY_URL` and `BROKER_URL`, `l0176r` signs nothing**: every preview comes back `signing: { unsigned: "not-configured" }` (the Learnosity form then renders blank) and a compile that selects a connection is refused. Giving it those means policy must also accept `l0176r-run` as a caller for language 0176, a change to the capability policy's reviewed configuration (see `docs/capability-policy-iam-review.md` at the repository root) — not done. It is not pinnable either. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`).
+`deploy.json` has an `l0176r` entry: its own service, `l0176r-run@graffiticode.iam.gserviceaccount.com`, image from `configs/Dockerfile.l0176r.yaml`, snapshot this directory and `languages/l0000`, build step `cargo test --locked`. Since A5 it stands where `l0176` stands:
+- **Pinnable** for `0176`, with contract versions 1 and 2, `l0176`'s baselines plus `rust-parity`, and the `forbiddenEnv` list.
+- **Env:** `AUTH_URL`, `POLICY_URL`, `BROKER_URL` and `PREFLIGHT_GATEWAYS=api-run`.
+- **Network:** subnet `compilers-l0176`.
+- **Trust:** Policy (`policy-callers:6`) and the Broker (`broker-callers:2`) accept `l0176r-run` as a `0176` compiler, and it holds `run.invoker` on both (`docs/capability-policy-iam-review.md`, Step 18).
+
+A no-connection preview is signed only through the api gateway (`gateway-only` otherwise), and the served lexicon leaves out `DEPRECATED_WORDS`. Run the deploy with `CLOUDSDK_PYTHON` pointing at Python 3.10 or later (see `languages/l0000/CLAUDE.md`).
 
 Rust conventions: `cargo fmt` (`rustfmt.toml`, 120 columns) and `cargo clippy --all-targets -- -D warnings` clean; `static/` and `target/` are gitignored build outputs; `src/lexicon-additions.json` and `tests/conformance/*.json` are generated, not edited.

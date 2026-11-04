@@ -1499,34 +1499,41 @@ which holds `run.invoker` on `policy`, and `l0000r` runs on `compilers-l0000`.
   revision; remove its tag with the deploy CLI's tag retirement.
 - `l0000` and its approved revisions stay: admitted plans that pin them keep retrying there.
 
-### Step 18: `l0176r` takes over L0176's protected-execution role (interpreter plan A5) [PLANNED]
+### Step 18: `l0176r` takes over L0176's protected-execution role (interpreter plan A5) [LIVE]
 
 This is Step 15 again for L0176, with the Broker added. `l0176r` has to stand where `l0176`
 stands: a `0176` compiler that both Policy and the Broker trust, pinnable, and on
 `compilers-l0176`. Its Rust side first ports L0176's two parity gaps: `init` validation, and
 gateway-only system signing with the busy results. A compile only gets `POLICY_URL` and
-`BROKER_URL` after that. **Nothing below is applied yet.** Each line gets a date when it is.
+`BROKER_URL` after that. Applied 2026-11-03 and 2026-11-04, with the switch (plan A5); each line
+is dated.
 
-- **Policy's caller map.** *(Uploaded 2026-11-03 as version 6, validated with `parseCallers`; `deploy.json` pins `policy-callers:6`, applied when `policy` is released.)* Upload a new `policy-callers` version: version 5 plus `l0176r-run` as a
+- **Policy's caller map.** *(Uploaded 2026-11-03 as version 6, validated with `parseCallers`, read back identical; pinned in #265 and released as `policy-rmw14q3w9-a953d6`.)* Upload a new `policy-callers` version: version 5 plus `l0176r-run` as a
   `compiler` for `0176`, next to `l0176-run`. `l0176-run` stays, because plans pinned to `l0176`
   revisions still retry there. Validate the version with `parseCallers` before uploading. Then
   pin `deploy.json`'s `policy` to **the version Secret Manager returns**, and release `policy`.
-- **Broker's caller map.** *(Uploaded 2026-11-03 as version 2, validated with `parseCallers`; `deploy.json` pins `broker-callers:2`, applied when `broker` is released.)* Upload a new `broker-callers` version in the same way: version 1 plus
+- **Broker's caller map.** *(Uploaded 2026-11-03 as version 2, validated with `parseCallers`, read back identical; pinned in #265 and released as `broker-rmw153pw6-4af529`.)* Upload a new `broker-callers` version in the same way: version 1 plus
   `l0176r-run` as a `compiler` for `0176`. Then pin `deploy.json`'s `broker` to the returned
   version, and release `broker`.
 - **Invokers.** *(Granted 2026-11-03.)* Grant `l0176r-run` `run.invoker` on `policy` and on `broker`, as `l0176-run` has.
-- **Network.** Move `l0176r` to subnet `compilers-l0176`, the same class as `l0176`. That class
+- **Network.** *(Applied 2026-11-03, #261; `l0176r-rmw15gmir-6bba5a` and later run on it.)* Move `l0176r` to subnet `compilers-l0176`, the same class as `l0176`. That class
   allows `api`, `auth`, Policy's and the Broker's `run.app` hosts, and `www.googleapis.com`.
   `production/network.json` gets the same block. The proxy's generated config is unchanged by
   this (checked 2026-11-03), so the proxy needs no rebuild.
-- **Pinnable.** `deploy.json`'s `l0176r` takes `l0176`'s values:
+- **Pinnable.** *(Applied 2026-11-03, #261. `l0176r-rmw15gmir-6bba5a` was approved for `0176` before promotion, retiring the never-approved tag `rmvftxxii-b39b6c`; `l0176r-rmw18bcvb-0b20c8` followed with #270; release-check ok.)* `deploy.json`'s `l0176r` takes `l0176`'s values:
   - `pinnable` for `0176`, with contract versions 1 and 2;
   - its `baselines`, plus `rust-parity` at the parity port's merge commit (#262, `db3ad15d`);
   - `POLICY_URL`, `BROKER_URL`, and `PREFLIGHT_GATEWAYS=api-run`;
   - `forbiddenEnv` of `SYSTEM_PREVIEW_DIRECT`, `LEARNOSITY_KEY` and `LEARNOSITY_SECRET`.
 
   Its first release of this kind records its revision in `revisions` before promotion.
-- **`l0176` and its approved revisions stay** until A7, for the plans that pin them.
+- **`l0176` and its approved revisions stay** until A7, for the plans that pin them. The canary replayed a write pinned to `l0176-rmvv31tuj-fa4690` across the switch (2026-11-03).
+- **Canary window.** *(Granted 2026-11-03, expired 2026-11-04T04:00Z.)* The operator held `roles/iam.serviceAccountOpenIdTokenCreator` on `api-run`, `l0176r-run` and `console-run`, conditioned `canary-window-a5`. It covered the canary runs through the staged api (`docs/evidence/track-a5-l0176/`). `l0176-run` was left out, so run 1's direct-path check, which used the TypeScript compiler, failed. A5 doesn't change that path.
+- **Switch.** *(2026-11-03/04.)*
+  - `api-rmw18zdds-309a6c` (#271, routing to `l0176r`'s run.app host) was promoted with the canary evidence.
+  - `l0176.graffiticode.org` was then repointed to `l0176r`.
+  - `api-rmw2dx5l8-727612` (#278) routes through the domain.
+  - Warmth moved: `l0176r` is at min 1 and `l0176` at min 0.
 
 ### Step 16: an isolated bucket for `l0013r`'s capture evidence (interpreter plan A1b) [LIVE]
 

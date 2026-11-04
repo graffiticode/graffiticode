@@ -149,6 +149,29 @@ Rollback is an API rollback. The TypeScript service stays deployed.
    7. **Retry an existing TypeScript invocation** through the staged api, and verify it replays through its pinned `l0176` revision.
    8. **Promote** only after steps 4, 6 and 7 pass. Then repoint `l0176.graffiticode.org` to `l0176r`, as option C did for the others, and purge Cloudflare's cached `/form`.
 
+   **As built (2026-11-03/04; evidence in `docs/evidence/track-a5-l0176/`):**
+   1. **Parity port:** #262. Its kernel hook, `Dialect::system_sessions_gateway_only`, defaults to off for every other dialect.
+   2. **Policy and Broker trust:** `policy-callers:6` and `broker-callers:2` (#265), released as `policy-rmw14q3w9-a953d6` and `broker-rmw153pw6-4af529`.
+   3. **Pinnable `l0176r`:** #261 and the `rust-parity` milestone, released as `l0176r-rmw15gmir-6bba5a`, approved and on `compilers-l0176`.
+   4. **Parity gate.**
+      - **First run:** 63 differences and a lexicon difference.
+      - **The lexicon difference was a real bug.** Rust served the retired `hot-text`, which the TypeScript strips from its published lexicon; it was fixed in #270 and released as `l0176r-rmw18bcvb-0b20c8`.
+      - **A new rule kind.** The gate gained a `volatile` kind, for values each compile generates afresh: session UUIDs and timestamped row keys.
+      - **Rerun:** 202 cases. 139 were identical, 47 volatile, 14 error-presentation and 2 documented cases; 0 were different.
+   5. **Staged api:** #271, staged as `api-rmw18zdds-309a6c`, with the run.app host and `COMPILE_GENERATION_L0176=rust-1`.
+   6. **Connection canary through the tag:** 27/27.
+      - **A canary bug, fixed in #273.** The canary had read routing from `deploy.json`. It now reads the env of the api revision under test and Cloud Run's domain mappings.
+      - **No-connection previews** through the staged gateway came back signed.
+   7. **Replay:** a write recorded through production was retried through the staged api and replayed on `l0176-rmvv31tuj-fa4690` under the same plan.
+   8. **Promotion and domain:** promoted on 2026-11-03.
+      - **Repoint.** `l0176.graffiticode.org` was repointed on 2026-11-04. Its certificate took about 20 minutes to issue and about 5 more to reach Google's frontends.
+      - **Domain routing.** #278 was released as `api-rmw2dx5l8-727612`, and a compile through the domain reached `l0176r`.
+      - **Cloudflare.** The owner purged `/form`.
+      - **Warmth.** It moved to `l0176r`.
+      - **Rollback:**
+        - `npm run rollback -- api --env production --release rmw2dx5l8-727612` returns to the run.app route;
+        - `… --release rmw18zdds-309a6c` returns to the TypeScript service.
+
 ### Retiring the TypeScript implementation (per language, after its switch)
 Retirement is its own milestone for each language, after its Track A switch. It needn't wait for that language's Track C upgrade. It has two steps with separate decisions: **A6** removes the TypeScript compiler and server source from `main`; **A7** retires the deployed TypeScript service. Removing source never requires deleting a service.
 
