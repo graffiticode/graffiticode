@@ -206,6 +206,14 @@ Retirement is its own milestone for each language, after its Track A switch. It 
   **As built, L0184 (2026-11-03)**, the first language through A6 and A7:
   - A6: #255 moved `spec/` and the static build off the compiler; #258 deleted `packages/core`, `packages/api` and the TypeScript Dockerfiles, porting the docs test to `tools/docs.test.mjs` over the frozen fixtures. Gate 3's drill rolled `l0184r` back to `rmvv42fue-21907b` and forward again, rebuilding no TypeScript. The release from clean `main`, `l0184r-rmw0zdrsf-b6f594`, serves static files, `/form`, assets and lexicon identical to the pre-deletion baseline.
   - A7: the owner had `l0184` deleted. Its logs after the 11-01 domain repoint showed only our checks and certificate probes. After the deletion, fixture compiles through `api.graffiticode.org` matched. The cleanup PR removed its `deploy.json` and `production/network.json` entries, and taught `upgrade-and-deploy` to select a language by its `lNNNNr` entry once its `lNNNN` entry is gone. Without that, a View rollout would have skipped L0184. `l0184-run` remains, holding only `secretAccessor` on `egress-proxy-ca-bundle` (IAM review Step 17).
+  - **The Rust service then takes the language's own name.** This is the owner's rule for every A7, since Cloud Run can't rename a service:
+    1. Create a new `lNNNN` service from `lNNNNr`'s serving image and settings, running as `lNNNN-run`.
+    2. Point the api at its run.app host.
+    3. Repoint `lNNNN.graffiticode.org` to it. This needs the DNS-only certificate step.
+    4. Point the api back at the domain.
+    5. Retire `lNNNNr`.
+
+    For a pinnable language, `lNNNNr` stays until no live plan names its revisions. The rollout script, the canary and the tester overrides accept a Rust service under the plain name (`rustService` in `scripts/lib/lang-overrides.js`). L0184 is the first to be renamed.
 
 ## Track B — Interpreter platform (a no-op until a language opts in)
 - **B1 Rust contract** *(done: `crates/core/src/model.rs`, `Compiler::model`/`interpret`, `/interpret` and `"form": "model"` in the shared server; documented in `languages/l0000/CLAUDE.md`. A plan model carries the stored source, so interpreting it equals today's compile, checked over the whole L0000 conformance corpus. `Dialect::input_independent` decides value models and defaults to never)*.

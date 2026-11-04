@@ -18,9 +18,17 @@ export const bindingKey = lang => {
   return `L${digits.padStart(4, "0")}`;
 };
 
-// A soak binds a language only to its own Rust service (lNNNNr) on Cloud Run,
-// over https; anything else needs --any-url, said on purpose.
-export const urlProblem = (lang, url, { anyUrl = false } = {}) => {
+// A language's Rust service: lNNNNr while its TypeScript service exists, and
+// lNNNN once that is retired and the Rust service takes the language's own
+// name (plan A7). `services` is deploy.json's.
+export const rustService = (lang, services = {}) => {
+  const plain = bindingKey(lang).toLowerCase();
+  return services[`${plain}r`] || !services[plain] ? `${plain}r` : plain;
+};
+
+// A soak binds a language only to its own Rust service (rustService) on Cloud
+// Run, over https; anything else needs --any-url, said on purpose.
+export const urlProblem = (lang, url, { anyUrl = false, service = rustService(lang) } = {}) => {
   let parsed;
   try {
     parsed = new URL(url);
@@ -30,9 +38,8 @@ export const urlProblem = (lang, url, { anyUrl = false } = {}) => {
   if (parsed.protocol !== "https:") return `not https: ${url}`;
   if (parsed.pathname !== "/" || parsed.search || parsed.hash) return `a base URL has no path, query or fragment: ${url}`;
   if (anyUrl) return null;
-  const service = `${bindingKey(lang).toLowerCase()}r`;
   const host = parsed.hostname;
-  // A service URL (lNNNNr-<hash>-<region>.a.run.app) or a revision tag URL (<tag>---lNNNNr-...).
+  // A service URL (<service>-<hash>-<region>.a.run.app) or a revision tag URL (<tag>---<service>-...).
   const name = host.includes("---") ? host.split("---")[1] : host;
   if (!(name.startsWith(`${service}-`) && host.endsWith(".run.app"))) {
     return `${url} isn't ${service}'s Cloud Run URL; pass --any-url to bind another`;

@@ -79,3 +79,12 @@ test("writing no bindings deletes the document, and --plan writes nothing", asyn
   assert.equal(db.docs.size, 0);
   assert.deepEqual(await readBindings(db, UID), {});
 });
+
+test("once its TypeScript service is retired, a language's Rust service has its plain name (plan A7)", async () => {
+  const { rustService } = await import("../lib/lang-overrides.js");
+  assert.equal(rustService("0177", { l0177: {}, l0177r: {} }), "l0177r");
+  assert.equal(rustService("0184", { l0184: {} }), "l0184");
+  assert.equal(rustService("0184"), "l0184r");
+  assert.equal(urlProblem("0184", "https://l0184-abc123-uc.a.run.app", { service: "l0184" }), null);
+  assert.match(urlProblem("0184", "https://l0184r-abc123-uc.a.run.app", { service: "l0184" }), /isn't l0184's/);
+});

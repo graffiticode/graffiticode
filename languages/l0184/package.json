@@ -19,7 +19,7 @@
     "format": "prettier --write .",
     "typecheck": "npm run -w packages/view typecheck",
     "publish": "npm -w packages/view publish --access=public",
-    "gcp:logs": "gcloud run services logs read l0184r --project graffiticode --region us-central1",
+    "gcp:logs": "gcloud run services logs read l0184 --project graffiticode --region us-central1",
     "view:fixtures": "node tools/view-fixtures.mjs",
     "rust:static": "node tools/assemble-static.mjs",
     "rust:build": "npm run rust:static && cargo build --release -p l0184r-server",
