@@ -58,7 +58,7 @@ import path from "node:path";
 import { VERIFY_UID } from "../verify/auth.js";
 import { runCanary } from "./lib/canary.js";
 import { createDraftArchiver } from "./lib/canary-archive.js";
-import { createCanaryEnv, loadDeployServices, languageRoute, routedRevision, http } from "./lib/canary-env.js";
+import { createCanaryEnv, loadDeployServices, languageRoute, routedRevision, serviceEnv, http } from "./lib/canary-env.js";
 
 const args = process.argv.slice(2);
 const flag = name => {
@@ -131,10 +131,18 @@ if (retryFile && !config.chainAdmission) {
   process.exit(2);
 }
 // The revision a language's compiles reach now: on the service the api routes
-// it to (deploy.json's api env), its tag's revision when the route names one,
-// else the revision serving all of the service's traffic.
+// it to, its tag's revision when the route names one, else the revision serving
+// all of the service's traffic.
+//
+// The route comes from the LIVE api service, not deploy.json. The scheduled
+// canary runs from an image, and the deploy.json baked into it goes stale at
+// every Rust cutover: L0000 (2026-10-29) and L0176 (2026-11-03) each failed the
+// chain-admission checks until the image was rebuilt, while production was
+// fine. Read once per run.
+let liveApiEnv;
 const servingRevision = async lang => {
-  const { service, tag } = languageRoute(lang, deploy.api?.env);
+  liveApiEnv ??= serviceEnv(JSON.parse(await gcloud(["run", "services", "describe", "api", `--region=${region}`, "--format=json"])));
+  const { service, tag } = languageRoute(lang, liveApiEnv);
   return routedRevision(JSON.parse(await gcloud(["run", "services", "describe", service, `--region=${region}`, "--format=json"])), tag);
 };
 const retryState = retryFile
