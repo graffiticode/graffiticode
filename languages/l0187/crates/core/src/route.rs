@@ -1002,6 +1002,10 @@ pub struct Unrouted {
 pub struct Routed {
     pub pages: Vec<HashMap<String, Route>>,
     pub evaluations: usize,
+    /// Connectors that cross another or had to break the section rule, with the region whose
+    /// spacing might untangle them, and how tangled the board is: crossings plus such routes.
+    pub tangled: Vec<Unrouted>,
+    pub tangles: usize,
 }
 
 fn chains(region: &Region, chain: &[String], out: &mut HashMap<String, Vec<String>>) {
@@ -1042,6 +1046,9 @@ fn marks_of(region: &Region, frames: &HashMap<String, Frame>, out: &mut Vec<(Str
     }
 }
 
+/// A page's routes by connector id, its tangled connectors, and how tangled it is.
+type PageRoutes = (HashMap<String, Route>, Vec<Unrouted>, usize);
+
 /// A candidate that fits, and whether it uses its region's channel.
 type Fitted = (Route, bool);
 
@@ -1051,7 +1058,7 @@ fn route_page(
     sizes: &Sizes,
     budget: &mut usize,
     max: usize,
-) -> Result<HashMap<String, Route>, Vec<Unrouted>> {
+) -> Result<PageRoutes, Vec<Unrouted>> {
     let mut marks = Vec::new();
     marks_of(&page.region, &layout.frames, &mut marks);
     let mut regions = HashMap::new();
@@ -1080,6 +1087,8 @@ fn route_page(
     }
     let mut routes = HashMap::new();
     let mut failed = Vec::new();
+    // Connectors routed without the section rule, because no route kept it.
+    let mut loose: std::collections::HashSet<String> = std::collections::HashSet::new();
     let mut pairs: HashMap<(String, String), usize> = HashMap::new();
     for c in &page.connectors {
         let pair = if c.from <= c.to { (c.from.clone(), c.to.clone()) } else { (c.to.clone(), c.from.clone()) };
@@ -1120,6 +1129,9 @@ fn route_page(
             if chosen.is_some() {
                 break;
             }
+        }
+        if chosen.is_some() && !scene.strict_sections {
+            loose.insert(c.id.clone());
         }
         scene.strict_sections = true;
         match chosen {
@@ -1183,6 +1195,7 @@ fn route_page(
                     let ends = ((c.from.clone(), r.from_side), (c.to.clone(), r.to_side));
                     scene.placed.insert(at, (c.id.clone(), bands, r.label_box, r.points.clone(), ends.0, ends.1));
                     routes.insert(c.id.clone(), r);
+                    loose.remove(&c.id);
                 }
                 None => scene.placed.insert(at, saved),
             }
@@ -1190,7 +1203,30 @@ fn route_page(
         scene.uncrossing = false;
     }
     *budget += scene.evaluations;
-    if failed.is_empty() { Ok(routes) } else { Err(failed) }
+    if !failed.is_empty() {
+        return Err(failed);
+    }
+    let mut tangled = Vec::new();
+    let mut crossings = 0;
+    for (i, (id, _, _, points, _, _)) in scene.placed.iter().enumerate() {
+        let mut crossed = false;
+        for (j, (_, _, _, other, _, _)) in scene.placed.iter().enumerate() {
+            if i == j {
+                continue;
+            }
+            let n: usize = points
+                .windows(2)
+                .map(|s| other.windows(2).filter(|o| segments_cross(s[0], s[1], o[0], o[1])).count())
+                .sum();
+            crossings += n;
+            crossed |= n > 0;
+        }
+        if crossed || loose.contains(id) {
+            let c = page.connectors.iter().find(|c| &c.id == id).expect("a placed connector");
+            tangled.push(Unrouted { connector: id.clone(), region: scene.lowest_common_region(&c.from, &c.to) });
+        }
+    }
+    Ok((routes, tangled, crossings / 2 + loose.len()))
 }
 
 /// Routes every connector on every page, or reports the ones that did not fit, spending at most
@@ -1205,7 +1241,11 @@ pub fn route(
     let mut failures = Vec::new();
     for (page, layout) in board.pages.iter().zip(layouts) {
         match route_page(page, layout, sizes, &mut routed.evaluations, max) {
-            Ok(routes) => routed.pages.push(routes),
+            Ok((routes, mut tangled, tangles)) => {
+                routed.pages.push(routes);
+                routed.tangled.append(&mut tangled);
+                routed.tangles += tangles;
+            }
             Err(mut f) => {
                 failures.append(&mut f);
                 routed.pages.push(HashMap::new());

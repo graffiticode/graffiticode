@@ -3349,8 +3349,8 @@
           "id": "neda-strategy",
           "name": "Estratégia de viabilidade e piloto",
           "background": "#f2f4f7",
-          "width": 2744,
-          "height": 3712,
+          "width": 2943,
+          "height": 4960,
           "nodes": [
             {
               "type": "section",
@@ -3358,12 +3358,12 @@
               "name": "Missão e estatuto da NEDA",
               "fill": "white",
               "opacity": 100,
-              "x": 0,
+              "x": 44,
               "y": 34,
               "width": 464,
               "height": 900,
               "titleFrame": {
-                "x": 0,
+                "x": 44,
                 "y": 0,
                 "w": 198,
                 "h": 28
@@ -3372,7 +3372,7 @@
                 {
                   "type": "sticky",
                   "id": "neda-status",
-                  "x": 24,
+                  "x": 68,
                   "y": 58,
                   "width": 416,
                   "height": 240,
@@ -3429,7 +3429,7 @@
                 {
                   "type": "sticky",
                   "id": "neda-goal",
-                  "x": 24,
+                  "x": 68,
                   "y": 346,
                   "width": 416,
                   "height": 240,
@@ -3486,7 +3486,7 @@
                 {
                   "type": "sticky",
                   "id": "neda-claims",
-                  "x": 24,
+                  "x": 68,
                   "y": 634,
                   "width": 416,
                   "height": 276,
@@ -3555,12 +3555,12 @@
               "name": "Piloto inicial proposto",
               "fill": "white",
               "opacity": 100,
-              "x": 676,
+              "x": 720,
               "y": 34,
               "width": 464,
               "height": 1188,
               "titleFrame": {
-                "x": 676,
+                "x": 720,
                 "y": 0,
                 "w": 160,
                 "h": 28
@@ -3569,7 +3569,7 @@
                 {
                   "type": "sticky",
                   "id": "pilot-core",
-                  "x": 700,
+                  "x": 744,
                   "y": 58,
                   "width": 416,
                   "height": 240,
@@ -3619,7 +3619,7 @@
                 {
                   "type": "sticky",
                   "id": "pilot-functions",
-                  "x": 700,
+                  "x": 744,
                   "y": 346,
                   "width": 416,
                   "height": 276,
@@ -3683,7 +3683,7 @@
                 {
                   "type": "sticky",
                   "id": "pilot-human",
-                  "x": 700,
+                  "x": 744,
                   "y": 670,
                   "width": 416,
                   "height": 240,
@@ -3733,7 +3733,7 @@
                 {
                   "type": "sticky",
                   "id": "pilot-exclusions",
-                  "x": 700,
+                  "x": 744,
                   "y": 958,
                   "width": 416,
                   "height": 240,
@@ -3795,12 +3795,12 @@
               "name": "Dependências e portas críticas",
               "fill": "white",
               "opacity": 100,
-              "x": 1352,
+              "x": 1396,
               "y": 34,
               "width": 988,
               "height": 998,
               "titleFrame": {
-                "x": 1352,
+                "x": 1396,
                 "y": 0,
                 "w": 224,
                 "h": 28
@@ -3809,7 +3809,7 @@
                 {
                   "type": "shape",
                   "id": "gate-auth",
-                  "x": 1376,
+                  "x": 1420,
                   "y": 58,
                   "width": 296,
                   "height": 248,
@@ -3846,7 +3846,7 @@
                 {
                   "type": "sticky",
                   "id": "gate-auth-detail",
-                  "x": 1900,
+                  "x": 1944,
                   "y": 58,
                   "width": 416,
                   "height": 240,
@@ -3903,7 +3903,7 @@
                 {
                   "type": "shape",
                   "id": "gate-workflow",
-                  "x": 1376,
+                  "x": 1420,
                   "y": 395,
                   "width": 248,
                   "height": 248,
@@ -3940,7 +3940,7 @@
                 {
                   "type": "sticky",
                   "id": "gate-workflow-detail",
-                  "x": 1852,
+                  "x": 1896,
                   "y": 395,
                   "width": 416,
                   "height": 240,
@@ -3990,7 +3990,7 @@
                 {
                   "type": "shape",
                   "id": "gate-dhis2",
-                  "x": 1376,
+                  "x": 1420,
                   "y": 732,
                   "width": 296,
                   "height": 248,
@@ -4027,7 +4027,7 @@
                 {
                   "type": "sticky",
                   "id": "gate-dhis2-detail",
-                  "x": 1900,
+                  "x": 1944,
                   "y": 732,
                   "width": 416,
                   "height": 276,
@@ -4096,12 +4096,12 @@
               "name": "Etapas de implementação",
               "fill": "white",
               "opacity": 100,
-              "x": 0,
+              "x": 44,
               "y": 1349,
-              "width": 771,
-              "height": 1372,
+              "width": 1083,
+              "height": 2620,
               "titleFrame": {
-                "x": 0,
+                "x": 44,
                 "y": 1315,
                 "w": 189,
                 "h": 28
@@ -4110,7 +4110,7 @@
                 {
                   "type": "shape",
                   "id": "stage-consult",
-                  "x": 24,
+                  "x": 68,
                   "y": 1373,
                   "width": 176,
                   "height": 176,
@@ -4154,7 +4154,7 @@
                 {
                   "type": "shape",
                   "id": "stage-map",
-                  "x": 427,
+                  "x": 783,
                   "y": 1373,
                   "width": 176,
                   "height": 176,
@@ -4191,8 +4191,8 @@
                 {
                   "type": "shape",
                   "id": "stage-review",
-                  "x": 24,
-                  "y": 1642,
+                  "x": 68,
+                  "y": 1954,
                   "width": 176,
                   "height": 176,
                   "shapeType": "ROUNDED_RECTANGLE",
@@ -4235,8 +4235,8 @@
                 {
                   "type": "shape",
                   "id": "stage-prototype",
-                  "x": 427,
-                  "y": 1642,
+                  "x": 783,
+                  "y": 1954,
                   "width": 176,
                   "height": 176,
                   "shapeType": "ROUNDED_RECTANGLE",
@@ -4279,8 +4279,8 @@
                 {
                   "type": "shape",
                   "id": "stage-training",
-                  "x": 24,
-                  "y": 1911,
+                  "x": 68,
+                  "y": 2535,
                   "width": 176,
                   "height": 176,
                   "shapeType": "ROUNDED_RECTANGLE",
@@ -4316,8 +4316,8 @@
                 {
                   "type": "shape",
                   "id": "stage-pilot",
-                  "x": 427,
-                  "y": 1911,
+                  "x": 783,
+                  "y": 2535,
                   "width": 176,
                   "height": 176,
                   "shapeType": "ROUNDED_RECTANGLE",
@@ -4353,8 +4353,8 @@
                 {
                   "type": "shape",
                   "id": "stage-evaluation",
-                  "x": 24,
-                  "y": 2180,
+                  "x": 68,
+                  "y": 3116,
                   "width": 200,
                   "height": 176,
                   "shapeType": "ROUNDED_RECTANGLE",
@@ -4390,8 +4390,8 @@
                 {
                   "type": "shape",
                   "id": "scale-decision",
-                  "x": 451,
-                  "y": 2180,
+                  "x": 807,
+                  "y": 3116,
                   "width": 296,
                   "height": 248,
                   "shapeType": "DIAMOND",
@@ -4427,8 +4427,8 @@
                 {
                   "type": "shape",
                   "id": "stage-scale",
-                  "x": 24,
-                  "y": 2521,
+                  "x": 68,
+                  "y": 3769,
                   "width": 176,
                   "height": 176,
                   "shapeType": "ROUNDED_RECTANGLE",
@@ -4464,8 +4464,8 @@
                 {
                   "type": "shape",
                   "id": "stage-stop",
-                  "x": 427,
-                  "y": 2521,
+                  "x": 783,
+                  "y": 3769,
                   "width": 176,
                   "height": 176,
                   "shapeType": "ROUNDED_RECTANGLE",
@@ -4506,12 +4506,12 @@
               "name": "Indicadores antes e depois",
               "fill": "white",
               "opacity": 100,
-              "x": 983,
+              "x": 1339,
               "y": 1349,
               "width": 464,
               "height": 936,
               "titleFrame": {
-                "x": 983,
+                "x": 1339,
                 "y": 1315,
                 "w": 196,
                 "h": 28
@@ -4520,7 +4520,7 @@
                 {
                   "type": "sticky",
                   "id": "indicators-list",
-                  "x": 1007,
+                  "x": 1363,
                   "y": 1373,
                   "width": 416,
                   "height": 312,
@@ -4591,7 +4591,7 @@
                 {
                   "type": "sticky",
                   "id": "indicators-before",
-                  "x": 1007,
+                  "x": 1363,
                   "y": 1733,
                   "width": 416,
                   "height": 240,
@@ -4634,7 +4634,7 @@
                 {
                   "type": "sticky",
                   "id": "indicators-after",
-                  "x": 1007,
+                  "x": 1363,
                   "y": 2021,
                   "width": 416,
                   "height": 240,
@@ -4696,12 +4696,12 @@
               "name": "Riscos principais e mitigação",
               "fill": "white",
               "opacity": 100,
-              "x": 1659,
+              "x": 2015,
               "y": 1349,
               "width": 928,
               "height": 1152,
               "titleFrame": {
-                "x": 1659,
+                "x": 2015,
                 "y": 1315,
                 "w": 210,
                 "h": 28
@@ -4710,7 +4710,7 @@
                 {
                   "type": "sticky",
                   "id": "risk-access",
-                  "x": 1683,
+                  "x": 2039,
                   "y": 1373,
                   "width": 416,
                   "height": 240,
@@ -4746,7 +4746,7 @@
                 {
                   "type": "sticky",
                   "id": "risk-data",
-                  "x": 2147,
+                  "x": 2503,
                   "y": 1373,
                   "width": 416,
                   "height": 240,
@@ -4803,7 +4803,7 @@
                 {
                   "type": "sticky",
                   "id": "risk-connectivity",
-                  "x": 1683,
+                  "x": 2039,
                   "y": 1661,
                   "width": 416,
                   "height": 240,
@@ -4846,7 +4846,7 @@
                 {
                   "type": "sticky",
                   "id": "risk-resistance",
-                  "x": 2147,
+                  "x": 2503,
                   "y": 1661,
                   "width": 416,
                   "height": 240,
@@ -4889,7 +4889,7 @@
                 {
                   "type": "sticky",
                   "id": "risk-duplicate",
-                  "x": 1683,
+                  "x": 2039,
                   "y": 1949,
                   "width": 416,
                   "height": 240,
@@ -4925,7 +4925,7 @@
                 {
                   "type": "sticky",
                   "id": "risk-exclusion",
-                  "x": 2147,
+                  "x": 2503,
                   "y": 1949,
                   "width": 416,
                   "height": 240,
@@ -4968,7 +4968,7 @@
                 {
                   "type": "sticky",
                   "id": "risk-lockin",
-                  "x": 1683,
+                  "x": 2039,
                   "y": 2237,
                   "width": 416,
                   "height": 240,
@@ -5018,7 +5018,7 @@
                 {
                   "type": "sticky",
                   "id": "risk-ai",
-                  "x": 2147,
+                  "x": 2503,
                   "y": 2237,
                   "width": 416,
                   "height": 240,
@@ -5059,13 +5059,13 @@
               "name": "Condições de viabilidade da NEDA",
               "fill": "white",
               "opacity": 100,
-              "x": 0,
-              "y": 2848,
+              "x": 44,
+              "y": 4096,
               "width": 928,
               "height": 576,
               "titleFrame": {
-                "x": 0,
-                "y": 2814,
+                "x": 44,
+                "y": 4062,
                 "w": 247,
                 "h": 28
               },
@@ -5073,8 +5073,8 @@
                 {
                   "type": "sticky",
                   "id": "feasibility-value",
-                  "x": 24,
-                  "y": 2872,
+                  "x": 68,
+                  "y": 4120,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5123,8 +5123,8 @@
                 {
                   "type": "sticky",
                   "id": "feasibility-scope",
-                  "x": 488,
-                  "y": 2872,
+                  "x": 532,
+                  "y": 4120,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5173,8 +5173,8 @@
                 {
                   "type": "sticky",
                   "id": "feasibility-governance",
-                  "x": 24,
-                  "y": 3160,
+                  "x": 68,
+                  "y": 4408,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5223,8 +5223,8 @@
                 {
                   "type": "sticky",
                   "id": "feasibility-claims",
-                  "x": 488,
-                  "y": 3160,
+                  "x": 532,
+                  "y": 4408,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5278,13 +5278,13 @@
               "name": "Outros domínios, mais tarde",
               "fill": "white",
               "opacity": 100,
-              "x": 1140,
-              "y": 2848,
+              "x": 1184,
+              "y": 4096,
               "width": 464,
               "height": 576,
               "titleFrame": {
-                "x": 1140,
-                "y": 2814,
+                "x": 1184,
+                "y": 4062,
                 "w": 204,
                 "h": 28
               },
@@ -5292,8 +5292,8 @@
                 {
                   "type": "sticky",
                   "id": "later-principle",
-                  "x": 1164,
-                  "y": 2872,
+                  "x": 1208,
+                  "y": 4120,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5342,8 +5342,8 @@
                 {
                   "type": "sticky",
                   "id": "later-domains",
-                  "x": 1164,
-                  "y": 3160,
+                  "x": 1208,
+                  "y": 4408,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5390,13 +5390,13 @@
               "name": "Salvaguardas de governação",
               "fill": "white",
               "opacity": 100,
-              "x": 1816,
-              "y": 2848,
+              "x": 1860,
+              "y": 4096,
               "width": 928,
               "height": 864,
               "titleFrame": {
-                "x": 1816,
-                "y": 2814,
+                "x": 1860,
+                "y": 4062,
                 "w": 210,
                 "h": 28
               },
@@ -5404,8 +5404,8 @@
                 {
                   "type": "sticky",
                   "id": "guard-human",
-                  "x": 1840,
-                  "y": 2872,
+                  "x": 1884,
+                  "y": 4120,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5440,8 +5440,8 @@
                 {
                   "type": "sticky",
                   "id": "guard-rights",
-                  "x": 2304,
-                  "y": 2872,
+                  "x": 2348,
+                  "y": 4120,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5476,8 +5476,8 @@
                 {
                   "type": "sticky",
                   "id": "guard-transparency",
-                  "x": 1840,
-                  "y": 3160,
+                  "x": 1884,
+                  "y": 4408,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5512,8 +5512,8 @@
                 {
                   "type": "sticky",
                   "id": "guard-data",
-                  "x": 2304,
-                  "y": 3160,
+                  "x": 2348,
+                  "y": 4408,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5548,8 +5548,8 @@
                 {
                   "type": "sticky",
                   "id": "guard-security",
-                  "x": 1840,
-                  "y": 3448,
+                  "x": 1884,
+                  "y": 4696,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5584,8 +5584,8 @@
                 {
                   "type": "sticky",
                   "id": "guard-community",
-                  "x": 2304,
-                  "y": 3448,
+                  "x": 2348,
+                  "y": 4696,
                   "width": 416,
                   "height": 240,
                   "wide": true,
@@ -5629,11 +5629,11 @@
               "toSide": "LEFT",
               "waypoints": [
                 {
-                  "x": 570,
+                  "x": 614,
                   "y": 466
                 },
                 {
-                  "x": 570,
+                  "x": 614,
                   "y": 178
                 }
               ],
@@ -5655,25 +5655,25 @@
               ],
               "route": [
                 {
-                  "x": 440,
+                  "x": 484,
                   "y": 466
                 },
                 {
-                  "x": 570,
+                  "x": 614,
                   "y": 466
                 },
                 {
-                  "x": 570,
+                  "x": 614,
                   "y": 178
                 },
                 {
-                  "x": 700,
+                  "x": 744,
                   "y": 178
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 500.5,
+                "x": 544.5,
                 "y": 299.5,
                 "w": 139,
                 "h": 45
@@ -5690,11 +5690,11 @@
               "toSide": "BOTTOM",
               "waypoints": [
                 {
-                  "x": 908,
+                  "x": 952,
                   "y": 330
                 },
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 330
                 }
               ],
@@ -5716,25 +5716,25 @@
               ],
               "route": [
                 {
-                  "x": 908,
+                  "x": 952,
                   "y": 298
                 },
                 {
-                  "x": 908,
+                  "x": 952,
                   "y": 330
                 },
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 330
                 },
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 306
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 1136,
+                "x": 1180,
                 "y": 307.5,
                 "w": 160,
                 "h": 45
@@ -5751,11 +5751,11 @@
               "toSide": "RIGHT",
               "waypoints": [
                 {
-                  "x": 1696,
+                  "x": 1740,
                   "y": 182
                 },
                 {
-                  "x": 1696,
+                  "x": 1740,
                   "y": 519
                 }
               ],
@@ -5777,25 +5777,25 @@
               ],
               "route": [
                 {
-                  "x": 1672,
+                  "x": 1716,
                   "y": 182
                 },
                 {
-                  "x": 1696,
+                  "x": 1740,
                   "y": 182
                 },
                 {
-                  "x": 1696,
+                  "x": 1740,
                   "y": 519
                 },
                 {
-                  "x": 1624,
+                  "x": 1668,
                   "y": 519
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 1630.5,
+                "x": 1674.5,
                 "y": 330,
                 "w": 131,
                 "h": 41
@@ -5812,11 +5812,11 @@
               "toSide": "TOP",
               "waypoints": [
                 {
-                  "x": 1500,
+                  "x": 1544,
                   "y": 688
                 },
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 688
                 }
               ],
@@ -5838,25 +5838,25 @@
               ],
               "route": [
                 {
-                  "x": 1500,
+                  "x": 1544,
                   "y": 643
                 },
                 {
-                  "x": 1500,
+                  "x": 1544,
                   "y": 688
                 },
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 688
                 },
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 732
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 1422,
+                "x": 1466,
                 "y": 667.5,
                 "w": 180,
                 "h": 41
@@ -5873,15 +5873,15 @@
               "toSide": "RIGHT",
               "waypoints": [
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 1291
                 },
                 {
-                  "x": 222,
+                  "x": 266,
                   "y": 1291
                 },
                 {
-                  "x": 222,
+                  "x": 266,
                   "y": 1461
                 }
               ],
@@ -5903,29 +5903,29 @@
               ],
               "route": [
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 980
                 },
                 {
-                  "x": 1524,
+                  "x": 1568,
                   "y": 1291
                 },
                 {
-                  "x": 222,
+                  "x": 266,
                   "y": 1291
                 },
                 {
-                  "x": 222,
+                  "x": 266,
                   "y": 1461
                 },
                 {
-                  "x": 200,
+                  "x": 244,
                   "y": 1461
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 791,
+                "x": 835,
                 "y": 1268.5,
                 "w": 164,
                 "h": 45
@@ -5942,11 +5942,11 @@
               "toSide": "BOTTOM",
               "waypoints": [
                 {
-                  "x": 112,
+                  "x": 156,
                   "y": 1573
                 },
                 {
-                  "x": 515,
+                  "x": 871,
                   "y": 1573
                 }
               ],
@@ -5968,25 +5968,25 @@
               ],
               "route": [
                 {
-                  "x": 112,
+                  "x": 156,
                   "y": 1549
                 },
                 {
-                  "x": 112,
+                  "x": 156,
                   "y": 1573
                 },
                 {
-                  "x": 515,
+                  "x": 871,
                   "y": 1573
                 },
                 {
-                  "x": 515,
+                  "x": 871,
                   "y": 1549
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 270,
+                "x": 470,
                 "y": 1552.5,
                 "w": 87,
                 "h": 41
@@ -6003,20 +6003,12 @@
               "toSide": "RIGHT",
               "waypoints": [
                 {
-                  "x": 411,
+                  "x": 272,
                   "y": 1461
                 },
                 {
-                  "x": 411,
-                  "y": 1509
-                },
-                {
-                  "x": 220,
-                  "y": 1509
-                },
-                {
-                  "x": 220,
-                  "y": 1730
+                  "x": 272,
+                  "y": 2042
                 }
               ],
               "fromCap": "NONE",
@@ -6037,34 +6029,26 @@
               ],
               "route": [
                 {
-                  "x": 427,
+                  "x": 783,
                   "y": 1461
                 },
                 {
-                  "x": 411,
+                  "x": 272,
                   "y": 1461
                 },
                 {
-                  "x": 411,
-                  "y": 1509
+                  "x": 272,
+                  "y": 2042
                 },
                 {
-                  "x": 220,
-                  "y": 1509
-                },
-                {
-                  "x": 220,
-                  "y": 1730
-                },
-                {
-                  "x": 200,
-                  "y": 1730
+                  "x": 244,
+                  "y": 2042
                 }
               ],
-              "labelLeg": 2,
+              "labelLeg": 1,
               "labelBox": {
-                "x": 274,
-                "y": 1488.5,
+                "x": 228.5,
+                "y": 1731,
                 "w": 87,
                 "h": 41
               },
@@ -6077,15 +6061,23 @@
               "to": "stage-prototype",
               "lineType": "straight",
               "fromSide": "BOTTOM",
-              "toSide": "BOTTOM",
+              "toSide": "TOP",
               "waypoints": [
                 {
-                  "x": 112,
-                  "y": 1842
+                  "x": 156,
+                  "y": 2146
                 },
                 {
-                  "x": 515,
-                  "y": 1842
+                  "x": 438,
+                  "y": 2146
+                },
+                {
+                  "x": 438,
+                  "y": 1933
+                },
+                {
+                  "x": 871,
+                  "y": 1933
                 }
               ],
               "fromCap": "NONE",
@@ -6106,30 +6098,38 @@
               ],
               "route": [
                 {
-                  "x": 112,
-                  "y": 1818
+                  "x": 156,
+                  "y": 2130
                 },
                 {
-                  "x": 112,
-                  "y": 1842
+                  "x": 156,
+                  "y": 2146
                 },
                 {
-                  "x": 515,
-                  "y": 1842
+                  "x": 438,
+                  "y": 2146
                 },
                 {
-                  "x": 515,
-                  "y": 1818
+                  "x": 438,
+                  "y": 1933
+                },
+                {
+                  "x": 871,
+                  "y": 1933
+                },
+                {
+                  "x": 871,
+                  "y": 1954
                 }
               ],
-              "labelLeg": 1,
+              "labelLeg": 2,
               "labelBox": {
-                "x": 255.5,
-                "y": 1821.5,
+                "x": 380,
+                "y": 2019,
                 "w": 116,
                 "h": 41
               },
-              "routeKind": "arc"
+              "routeKind": "search"
             },
             {
               "type": "connector",
@@ -6141,20 +6141,12 @@
               "toSide": "RIGHT",
               "waypoints": [
                 {
-                  "x": 411,
-                  "y": 1730
+                  "x": 514,
+                  "y": 2042
                 },
                 {
-                  "x": 411,
-                  "y": 1778
-                },
-                {
-                  "x": 220,
-                  "y": 1778
-                },
-                {
-                  "x": 220,
-                  "y": 1999
+                  "x": 514,
+                  "y": 2623
                 }
               ],
               "fromCap": "NONE",
@@ -6175,38 +6167,30 @@
               ],
               "route": [
                 {
-                  "x": 427,
-                  "y": 1730
+                  "x": 783,
+                  "y": 2042
                 },
                 {
-                  "x": 411,
-                  "y": 1730
+                  "x": 514,
+                  "y": 2042
                 },
                 {
-                  "x": 411,
-                  "y": 1778
+                  "x": 514,
+                  "y": 2623
                 },
                 {
-                  "x": 220,
-                  "y": 1778
-                },
-                {
-                  "x": 220,
-                  "y": 1999
-                },
-                {
-                  "x": 200,
-                  "y": 1999
+                  "x": 244,
+                  "y": 2623
                 }
               ],
-              "labelLeg": 2,
+              "labelLeg": 1,
               "labelBox": {
-                "x": 258.5,
-                "y": 1757.5,
+                "x": 455,
+                "y": 2312,
                 "w": 118,
                 "h": 41
               },
-              "routeKind": "search"
+              "routeKind": "elbow"
             },
             {
               "type": "connector",
@@ -6218,12 +6202,12 @@
               "toSide": "BOTTOM",
               "waypoints": [
                 {
-                  "x": 112,
-                  "y": 2111
+                  "x": 156,
+                  "y": 2735
                 },
                 {
-                  "x": 515,
-                  "y": 2111
+                  "x": 871,
+                  "y": 2735
                 }
               ],
               "fromCap": "NONE",
@@ -6244,26 +6228,26 @@
               ],
               "route": [
                 {
-                  "x": 112,
-                  "y": 2087
+                  "x": 156,
+                  "y": 2711
                 },
                 {
-                  "x": 112,
-                  "y": 2111
+                  "x": 156,
+                  "y": 2735
                 },
                 {
-                  "x": 515,
-                  "y": 2111
+                  "x": 871,
+                  "y": 2735
                 },
                 {
-                  "x": 515,
-                  "y": 2087
+                  "x": 871,
+                  "y": 2711
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 248,
-                "y": 2090.5,
+                "x": 448,
+                "y": 2714.5,
                 "w": 131,
                 "h": 41
               },
@@ -6275,24 +6259,24 @@
               "from": "stage-pilot",
               "to": "stage-evaluation",
               "lineType": "straight",
-              "fromSide": "LEFT",
-              "toSide": "RIGHT",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
               "waypoints": [
                 {
-                  "x": 389,
-                  "y": 1999
+                  "x": 975,
+                  "y": 2623
                 },
                 {
-                  "x": 389,
-                  "y": 2316
+                  "x": 975,
+                  "y": 3036
                 },
                 {
-                  "x": 240,
-                  "y": 2316
+                  "x": 22,
+                  "y": 3036
                 },
                 {
-                  "x": 240,
-                  "y": 2268
+                  "x": 22,
+                  "y": 3204
                 }
               ],
               "fromCap": "NONE",
@@ -6313,34 +6297,34 @@
               ],
               "route": [
                 {
-                  "x": 427,
-                  "y": 1999
+                  "x": 959,
+                  "y": 2623
                 },
                 {
-                  "x": 389,
-                  "y": 1999
+                  "x": 975,
+                  "y": 2623
                 },
                 {
-                  "x": 389,
-                  "y": 2316
+                  "x": 975,
+                  "y": 3036
                 },
                 {
-                  "x": 240,
-                  "y": 2316
+                  "x": 22,
+                  "y": 3036
                 },
                 {
-                  "x": 240,
-                  "y": 2268
+                  "x": 22,
+                  "y": 3204
                 },
                 {
-                  "x": 224,
-                  "y": 2268
+                  "x": 68,
+                  "y": 3204
                 }
               ],
               "labelLeg": 2,
               "labelBox": {
-                "x": 277.5,
-                "y": 2295.5,
+                "x": 463.5,
+                "y": 3015.5,
                 "w": 70,
                 "h": 41
               },
@@ -6352,20 +6336,16 @@
               "from": "stage-evaluation",
               "to": "scale-decision",
               "lineType": "straight",
-              "fromSide": "BOTTOM",
-              "toSide": "LEFT",
+              "fromSide": "TOP",
+              "toSide": "TOP",
               "waypoints": [
                 {
-                  "x": 124,
-                  "y": 2388
+                  "x": 168,
+                  "y": 3092
                 },
                 {
-                  "x": 411,
-                  "y": 2388
-                },
-                {
-                  "x": 411,
-                  "y": 2304
+                  "x": 955,
+                  "y": 3092
                 }
               ],
               "fromCap": "NONE",
@@ -6386,34 +6366,30 @@
               ],
               "route": [
                 {
-                  "x": 124,
-                  "y": 2356
+                  "x": 168,
+                  "y": 3116
                 },
                 {
-                  "x": 124,
-                  "y": 2388
+                  "x": 168,
+                  "y": 3092
                 },
                 {
-                  "x": 411,
-                  "y": 2388
+                  "x": 955,
+                  "y": 3092
                 },
                 {
-                  "x": 411,
-                  "y": 2304
-                },
-                {
-                  "x": 451,
-                  "y": 2304
+                  "x": 955,
+                  "y": 3116
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 178,
-                "y": 2365.5,
+                "x": 472,
+                "y": 3069.5,
                 "w": 179,
                 "h": 45
               },
-              "routeKind": "search"
+              "routeKind": "arc"
             },
             {
               "type": "connector",
@@ -6421,16 +6397,16 @@
               "from": "scale-decision",
               "to": "stage-scale",
               "lineType": "straight",
-              "fromSide": "BOTTOM",
-              "toSide": "TOP",
+              "fromSide": "LEFT",
+              "toSide": "RIGHT",
               "waypoints": [
                 {
-                  "x": 599,
-                  "y": 2475
+                  "x": 526,
+                  "y": 3240
                 },
                 {
-                  "x": 112,
-                  "y": 2475
+                  "x": 526,
+                  "y": 3857
                 }
               ],
               "fromCap": "NONE",
@@ -6451,26 +6427,26 @@
               ],
               "route": [
                 {
-                  "x": 599,
-                  "y": 2428
+                  "x": 807,
+                  "y": 3240
                 },
                 {
-                  "x": 599,
-                  "y": 2475
+                  "x": 526,
+                  "y": 3240
                 },
                 {
-                  "x": 112,
-                  "y": 2475
+                  "x": 526,
+                  "y": 3857
                 },
                 {
-                  "x": 112,
-                  "y": 2521
+                  "x": 244,
+                  "y": 3857
                 }
               ],
               "labelLeg": 1,
               "labelBox": {
-                "x": 267,
-                "y": 2452.5,
+                "x": 437.5,
+                "y": 3526,
                 "w": 177,
                 "h": 45
               },
@@ -6486,20 +6462,12 @@
               "toSide": "TOP",
               "waypoints": [
                 {
-                  "x": 599,
-                  "y": 2444
+                  "x": 955,
+                  "y": 3567
                 },
                 {
-                  "x": 647,
-                  "y": 2444
-                },
-                {
-                  "x": 647,
-                  "y": 2503
-                },
-                {
-                  "x": 515,
-                  "y": 2503
+                  "x": 871,
+                  "y": 3567
                 }
               ],
               "fromCap": "NONE",
@@ -6521,38 +6489,30 @@
               ],
               "route": [
                 {
-                  "x": 599,
-                  "y": 2428
+                  "x": 955,
+                  "y": 3364
                 },
                 {
-                  "x": 599,
-                  "y": 2444
+                  "x": 955,
+                  "y": 3567
                 },
                 {
-                  "x": 647,
-                  "y": 2444
+                  "x": 871,
+                  "y": 3567
                 },
                 {
-                  "x": 647,
-                  "y": 2503
-                },
-                {
-                  "x": 515,
-                  "y": 2503
-                },
-                {
-                  "x": 515,
-                  "y": 2521
+                  "x": 871,
+                  "y": 3769
                 }
               ],
-              "labelLeg": 2,
+              "labelLeg": 1,
               "labelBox": {
-                "x": 622.5,
-                "y": 2451.625,
+                "x": 888.5,
+                "y": 3546.5,
                 "w": 49,
                 "h": 41
               },
-              "routeKind": "search"
+              "routeKind": "elbow"
             }
           ],
           "groups": []
@@ -6629,14 +6589,14 @@
           }
         ],
         "quality": {
-          "crossings": 3,
+          "crossings": 1,
           "section_conflicts": 0,
-          "bends": 38,
-          "route_length": 7780
+          "bends": 33,
+          "route_length": 12402
         },
         "repair": {
-          "rounds": 0,
-          "evaluations": 1855
+          "rounds": 4,
+          "evaluations": 8126
         }
       }
     }
@@ -15739,8 +15699,8 @@
           "route_length": 13023
         },
         "repair": {
-          "rounds": 0,
-          "evaluations": 1655
+          "rounds": 4,
+          "evaluations": 5591
         }
       }
     }
@@ -18799,6 +18759,3374 @@
         "repair": {
           "rounds": 0,
           "evaluations": 45
+        }
+      }
+    }
+  },
+  "neda-strategy-6": {
+    "data": {
+      "type": "board",
+      "positioned": 1,
+      "profile": "FIGJAM_V1",
+      "revision": {
+        "compiler": "0.1.0",
+        "font": "Inter-Medium 3.19 sha256:99dab2bdcb613c4c8264000a94351d1227f74dc95a86d1249493aeee0c0179c4",
+        "layout": "FIGJAM_V1"
+      },
+      "title": "NEDA — Viabilidade e piloto inicial no Sumbe",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "strategy-page",
+          "name": "Estratégia de viabilidade e piloto",
+          "background": "#eef2f6",
+          "width": 3648,
+          "height": 5226,
+          "nodes": [
+            {
+              "type": "section",
+              "id": "mission-section",
+              "name": "NEDA: estado, missão e ponto de partida",
+              "fill": "#f5f8fc",
+              "opacity": 100,
+              "x": 44,
+              "y": 102,
+              "width": 464,
+              "height": 1049,
+              "titleFrame": {
+                "x": 44,
+                "y": 68,
+                "w": 290,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "text",
+                  "id": "status-heading",
+                  "x": 68,
+                  "y": 126,
+                  "width": 313,
+                  "height": 48,
+                  "color": "#17365d",
+                  "opacity": 100,
+                  "text": "Estado e missão",
+                  "fontSize": 40,
+                  "lineHeight": 1.2,
+                  "lines": [
+                    {
+                      "text": "Estado e missão",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 313,
+                    "h": 48
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "neda-status",
+                  "x": 68,
+                  "y": 222,
+                  "width": 416,
+                  "height": 312,
+                  "wide": true,
+                  "fill": "#e8eef7",
+                  "opacity": 100,
+                  "text": "Estado confirmado neste quadro: a NEDA é uma iniciativa independente de interesse público em proposta. Não é apresentada como instituição legalmente registada, aprovada ou endossada.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Estado confirmado neste quadro:",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "a NEDA é uma iniciativa",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "independente de interesse",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "público em proposta. Não é",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "apresentada como instituição",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "legalmente registada, aprovada",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "ou endossada.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 264
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "neda-mission",
+                  "x": 68,
+                  "y": 582,
+                  "width": 416,
+                  "height": 276,
+                  "wide": true,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Objectivo proposto: promover inteligência artificial responsável que beneficie as pessoas, proteja direitos e apoie o desenvolvimento sustentável, começando no Sumbe, Angola.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Objectivo proposto: promover",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "inteligência artificial responsável",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "que beneficie as pessoas,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "proteja direitos e apoie o",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "desenvolvimento sustentável,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "começando no Sumbe, Angola.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 228
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "pilot-entry",
+                  "x": 68,
+                  "y": 951,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 8,
+                  "stroke": "#17365d",
+                  "fill": "#b4c7e7",
+                  "opacity": 100,
+                  "text": "Piloto inicial no Sumbe",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Piloto inicial",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "no Sumbe",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "pilot-section",
+              "name": "Primeiro piloto recomendado",
+              "fill": "#f6fbf4",
+              "opacity": 100,
+              "x": 814,
+              "y": 102,
+              "width": 928,
+              "height": 900,
+              "titleFrame": {
+                "x": 814,
+                "y": 68,
+                "w": 210,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "pilot-context",
+                  "x": 838,
+                  "y": 126,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9ead3",
+                  "opacity": 100,
+                  "text": "Recomendação proposta: apoio administrativo a marcações e gestão de filas numa única unidade sanitária.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Recomendação proposta: apoio",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "administrativo a marcações e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "gestão de filas numa única",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "unidade sanitária.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "pilot-functions",
+                  "x": 1302,
+                  "y": 126,
+                  "width": 416,
+                  "height": 276,
+                  "wide": true,
+                  "fill": "#e2f0d9",
+                  "opacity": 100,
+                  "text": "Funções: registo de marcações; consulta do estado da fila; lembretes apenas com consentimento e canal disponível; relatórios operacionais simples.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Funções: registo de marcações;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "consulta do estado da fila;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "lembretes apenas com",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "consentimento e canal",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "disponível; relatórios",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "operacionais simples.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 228
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "human-decisions",
+                  "x": 838,
+                  "y": 450,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Controlo humano: os profissionais mantêm todas as decisões. A ferramenta apenas apoia tarefas administrativas.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Controlo humano: os",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "profissionais mantêm todas as",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "decisões. A ferramenta apenas",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "apoia tarefas administrativas.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "clinical-exclusions",
+                  "x": 1302,
+                  "y": 450,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#f4cccc",
+                  "opacity": 100,
+                  "text": "Fora do âmbito: diagnóstico; triagem de urgência clínica; prescrições; priorização de pacientes por IA; decisões clínicas autónomas.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Fora do âmbito: diagnóstico;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "triagem de urgência clínica;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "prescrições; priorização de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "pacientes por IA; decisões",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "clínicas autónomas.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "pilot-boundary",
+                  "x": 838,
+                  "y": 738,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#e8eef7",
+                  "opacity": 100,
+                  "text": "Âmbito faseado: começar pequeno, documentar limitações e não ampliar funções durante o piloto sem nova revisão.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Âmbito faseado: começar",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "pequeno, documentar limitações",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "e não ampliar funções durante o",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "piloto sem nova revisão.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "dependency-section",
+              "name": "Dependência crítica e portas de entrada",
+              "fill": "#fffbef",
+              "opacity": 100,
+              "x": 2048,
+              "y": 102,
+              "width": 977,
+              "height": 1062,
+              "titleFrame": {
+                "x": 2048,
+                "y": 68,
+                "w": 285,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "shape",
+                  "id": "authorization-gate",
+                  "x": 2072,
+                  "y": 126,
+                  "width": 296,
+                  "height": 320,
+                  "shapeType": "DIAMOND",
+                  "strokeWidth": 8,
+                  "stroke": "#bf9000",
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Autorização escrita obtida?",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Autorização",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "escrita",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "obtida?",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 77.7,
+                    "y": 102,
+                    "w": 140.6,
+                    "h": 116
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "do-not-start",
+                  "x": 2465,
+                  "y": 126,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "#990000",
+                  "fill": "#f4cccc",
+                  "opacity": 100,
+                  "text": "Não iniciar",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Não iniciar",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "authorization-detail",
+                  "x": 2072,
+                  "y": 535,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Condição crítica: obter autorização escrita da unidade sanitária e das autoridades de saúde relevantes antes de qualquer implementação.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Condição crítica: obter",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "autorização escrita da unidade",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "sanitária e das autoridades de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "saúde relevantes antes de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "qualquer implementação.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "workflow-assessment",
+                  "x": 2585,
+                  "y": 535,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Acção proposta: avaliar o fluxo de trabalho actual, responsabilidades, necessidades dos utentes e sistemas já existentes.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Acção proposta: avaliar o fluxo",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "de trabalho actual,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "responsabilidades, necessidades",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "dos utentes e sistemas já",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "existentes.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "dhis2-compatibility",
+                  "x": 2072,
+                  "y": 864,
+                  "width": 416,
+                  "height": 276,
+                  "wide": true,
+                  "fill": "#d9ead3",
+                  "opacity": 100,
+                  "text": "Condição técnica: assegurar compatibilidade com o ecossistema nacional de informação sanitária DHIS2 de Angola; não criar um sistema paralelo.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Condição técnica: assegurar",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "compatibilidade com o",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "ecossistema nacional de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "informação sanitária DHIS2 de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Angola; não criar um sistema",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "paralelo.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 228
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "integration-stop",
+                  "x": 2585,
+                  "y": 864,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fce5cd",
+                  "opacity": 100,
+                  "text": "Porta de decisão: integrar com os sistemas adequados ou parar se a compatibilidade e a governação não forem viáveis.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Porta de decisão: integrar com",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "os sistemas adequados ou parar",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "se a compatibilidade e a",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "governação não forem viáveis.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "stages-section",
+              "name": "Etapas propostas, em ordem",
+              "fill": "#f7f9fc",
+              "opacity": 100,
+              "x": 44,
+              "y": 1387,
+              "width": 1136,
+              "height": 2716,
+              "titleFrame": {
+                "x": 44,
+                "y": 1353,
+                "w": 208,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "shape",
+                  "id": "stage-consultation",
+                  "x": 68,
+                  "y": 1411,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Consulta e linha de base",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Consulta e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "linha de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "base",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "stage-mapping",
+                  "x": 836,
+                  "y": 1411,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Mapear o processo",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Mapear o",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "processo",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "stage-review",
+                  "x": 68,
+                  "y": 2016,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Revisão legal e de segurança",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Revisão",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "legal e de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "segurança",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "stage-prototype",
+                  "x": 836,
+                  "y": 2016,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "#e2f0d9",
+                  "opacity": 100,
+                  "text": "Protótipo com dados mínimos",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Protótipo",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "com dados",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "mínimos",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "stage-training",
+                  "x": 68,
+                  "y": 2621,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "#e2f0d9",
+                  "opacity": 100,
+                  "text": "Formar a equipa",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Formar a",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "equipa",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "stage-pilot",
+                  "x": 836,
+                  "y": 2621,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "#c6e0b4",
+                  "opacity": 100,
+                  "text": "Piloto limitado",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Piloto",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "limitado",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "stage-evaluation",
+                  "x": 68,
+                  "y": 3226,
+                  "width": 200,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "#d9d2e9",
+                  "opacity": 100,
+                  "text": "Avaliação independente",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Avaliação",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "independente",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 163.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "scale-gate",
+                  "x": 860,
+                  "y": 3226,
+                  "width": 296,
+                  "height": 248,
+                  "shapeType": "DIAMOND",
+                  "strokeWidth": 8,
+                  "stroke": "#bf9000",
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Evidência e aprovação?",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Evidência e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "aprovação?",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 77.7,
+                    "y": 84,
+                    "w": 140.6,
+                    "h": 80
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "scale-action",
+                  "x": 68,
+                  "y": 3903,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 8,
+                  "stroke": "#38761d",
+                  "fill": "#b6d7a8",
+                  "opacity": 100,
+                  "text": "Escalar por fases",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Escalar por",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "fases",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "no-scale-action",
+                  "x": 836,
+                  "y": 3903,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "#990000",
+                  "fill": "#f4cccc",
+                  "opacity": 100,
+                  "text": "Não escalar",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Não escalar",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "indicators-section",
+              "name": "Indicadores de sucesso a medir",
+              "fill": "#f9f7fc",
+              "opacity": 100,
+              "x": 1486,
+              "y": 1387,
+              "width": 928,
+              "height": 864,
+              "titleFrame": {
+                "x": 1486,
+                "y": 1353,
+                "w": 228,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "measurement-rule",
+                  "x": 1510,
+                  "y": 1411,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Medir antes e depois do piloto. Definir métodos, fontes e períodos com antecedência. Não preencher metas ou resultados sem dados.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Medir antes e depois do piloto.",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Definir métodos, fontes e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "períodos com antecedência. Não",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "preencher metas ou resultados",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "sem dados.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "indicator-access",
+                  "x": 1974,
+                  "y": 1411,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Acesso e fluxo: tempo de espera; marcações não comparecidas.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Acesso e fluxo: tempo de espera;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "marcações não comparecidas.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "indicator-quality",
+                  "x": 1510,
+                  "y": 1699,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9ead3",
+                  "opacity": 100,
+                  "text": "Qualidade administrativa: erros de registo; tempo da equipa gasto em administração.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Qualidade administrativa: erros",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "de registo; tempo da equipa",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "gasto em administração.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "indicator-experience",
+                  "x": 1974,
+                  "y": 1699,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#eadcf8",
+                  "opacity": 100,
+                  "text": "Experiência: satisfação dos utilizadores; reclamações recebidas e tratadas.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Experiência: satisfação dos",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "utilizadores; reclamações",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "recebidas e tratadas.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "indicator-reliability",
+                  "x": 1510,
+                  "y": 1987,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fce5cd",
+                  "opacity": 100,
+                  "text": "Fiabilidade e protecção: disponibilidade do sistema; incidentes de privacidade ou segurança.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Fiabilidade e protecção:",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "disponibilidade do sistema;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "incidentes de privacidade ou",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "segurança.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "risks-section",
+              "name": "Riscos principais e mitigação",
+              "fill": "#fff8f5",
+              "opacity": 100,
+              "x": 2720,
+              "y": 1387,
+              "width": 928,
+              "height": 1152,
+              "titleFrame": {
+                "x": 2720,
+                "y": 1353,
+                "w": 210,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "risk-access",
+                  "x": 2744,
+                  "y": 1411,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#f4cccc",
+                  "opacity": 100,
+                  "text": "Sem acesso institucional: não iniciar.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Sem acesso institucional: não",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "iniciar.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risk-data",
+                  "x": 3208,
+                  "y": 1411,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fce5cd",
+                  "opacity": 100,
+                  "text": "Exposição de dados de saúde: minimizar dados; acesso por função; encriptação; limites de retenção; plano de incidentes; revisão legal.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Exposição de dados de saúde:",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "minimizar dados; acesso por",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "função; encriptação; limites de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "retenção; plano de incidentes;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "revisão legal.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risk-connectivity",
+                  "x": 2744,
+                  "y": 1699,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Conectividade pouco fiável: manter alternativa offline ou de baixa largura de banda.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Conectividade pouco fiável:",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "manter alternativa offline ou de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "baixa largura de banda.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risk-resistance",
+                  "x": 3208,
+                  "y": 1699,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Resistência da equipa: co-desenho, escuta e formação prática.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Resistência da equipa: co-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "desenho, escuta e formação",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "prática.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risk-duplicate",
+                  "x": 2744,
+                  "y": 1987,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#f4cccc",
+                  "opacity": 100,
+                  "text": "Sistemas duplicados: integrar com o ecossistema existente ou parar.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Sistemas duplicados: integrar",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "com o ecossistema existente ou",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "parar.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risk-exclusion",
+                  "x": 3208,
+                  "y": 1987,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9ead3",
+                  "opacity": 100,
+                  "text": "Exclusão de pessoas sem telefone: manter atendimento presencial e opção em papel.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Exclusão de pessoas sem",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "telefone: manter atendimento",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "presencial e opção em papel.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risk-lockin",
+                  "x": 2744,
+                  "y": 2275,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#eadcf8",
+                  "opacity": 100,
+                  "text": "Dependência de fornecedor e aumento de custos: padrões abertos, portabilidade e plano de saída.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Dependência de fornecedor e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "aumento de custos: padrões",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "abertos, portabilidade e plano de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "saída.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risk-ai-errors",
+                  "x": 3208,
+                  "y": 2275,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#f4cccc",
+                  "opacity": 100,
+                  "text": "Erros de IA: manter a IA fora das decisões clínicas.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Erros de IA: manter a IA fora das",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "decisões clínicas.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "feasibility-section",
+              "name": "Condições gerais de viabilidade da NEDA",
+              "fill": "#f6f8fb",
+              "opacity": 100,
+              "x": 44,
+              "y": 4326,
+              "width": 928,
+              "height": 864,
+              "titleFrame": {
+                "x": 44,
+                "y": 4292,
+                "w": 292,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "feasibility-value",
+                  "x": 68,
+                  "y": 4350,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Demonstrar valor público credível e alinhamento com políticas aplicáveis.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Demonstrar valor público",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "credível e alinhamento com",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "políticas aplicáveis.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "feasibility-originality",
+                  "x": 532,
+                  "y": 4350,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#e8eef7",
+                  "opacity": 100,
+                  "text": "Demonstrar originalidade e complementaridade face às iniciativas existentes.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Demonstrar originalidade e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "complementaridade face às",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "iniciativas existentes.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "feasibility-scope",
+                  "x": 68,
+                  "y": 4638,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9ead3",
+                  "opacity": 100,
+                  "text": "Adoptar âmbito faseado e governação multidisciplinar.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Adoptar âmbito faseado e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "governação multidisciplinar.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "feasibility-funding",
+                  "x": 532,
+                  "y": 4638,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Assegurar financiamento transparente, auditoria independente e resultados mensuráveis.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Assegurar financiamento",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "transparente, auditoria",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "independente e resultados",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "mensuráveis.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "feasibility-claims",
+                  "x": 68,
+                  "y": 4926,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#f4cccc",
+                  "opacity": 100,
+                  "text": "Não alegar parceria com UNESCO, União Africana ou MINSA enquanto não existir acordo formal.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Não alegar parceria com",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "UNESCO, União Africana ou",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "MINSA enquanto não existir",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "acordo formal.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "later-section",
+              "name": "Outros domínios para fases posteriores",
+              "fill": "#fbfaf3",
+              "opacity": 100,
+              "x": 1278,
+              "y": 4326,
+              "width": 464,
+              "height": 900,
+              "titleFrame": {
+                "x": 1278,
+                "y": 4292,
+                "w": 280,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "later-rule",
+                  "x": 1302,
+                  "y": 4350,
+                  "width": 416,
+                  "height": 276,
+                  "wide": true,
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Fases posteriores propostas, não lançamentos simultâneos. Cada domínio exige consulta, viabilidade, autorização, salvaguardas e evidência próprias.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Fases posteriores propostas, não",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "lançamentos simultâneos. Cada",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "domínio exige consulta,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "viabilidade, autorização,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "salvaguardas e evidência",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "próprias.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 228
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "later-domains-a",
+                  "x": 1302,
+                  "y": 4674,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Educação; conectividade; agricultura.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Educação; conectividade;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "agricultura.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "later-domains-b",
+                  "x": 1302,
+                  "y": 4962,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9ead3",
+                  "opacity": 100,
+                  "text": "Ambiente; serviços públicos; telecomunicações.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Ambiente; serviços públicos;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "telecomunicações.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "guardrails-section",
+              "name": "Salvaguardas de governação",
+              "fill": "#f8f7fb",
+              "opacity": 100,
+              "x": 2048,
+              "y": 4326,
+              "width": 928,
+              "height": 576,
+              "titleFrame": {
+                "x": 2048,
+                "y": 4292,
+                "w": 210,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "guardrails-human",
+                  "x": 2072,
+                  "y": 4350,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#d9eaf7",
+                  "opacity": 100,
+                  "text": "Supervisão humana; direitos; acessibilidade; participação comunitária.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Supervisão humana; direitos;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "acessibilidade; participação",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "comunitária.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "guardrails-accountability",
+                  "x": 2536,
+                  "y": 4350,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fff2cc",
+                  "opacity": 100,
+                  "text": "Transparência; responsabilização; canais de reclamação e correcção.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Transparência;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "responsabilização; canais de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "reclamação e correcção.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "guardrails-security",
+                  "x": 2072,
+                  "y": 4638,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "#fce5cd",
+                  "opacity": 100,
+                  "text": "Protecção de dados; cibersegurança; controlos proporcionais ao risco.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Protecção de dados;",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "cibersegurança; controlos",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "proporcionais ao risco.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "connector",
+              "id": "mission-to-pilot",
+              "from": "neda-mission",
+              "to": "pilot-entry",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 276,
+                  "y": 905
+                },
+                {
+                  "x": 156,
+                  "y": 905
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "#17365d",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "orienta",
+              "labelLines": [
+                {
+                  "text": "orienta",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 276,
+                  "y": 858
+                },
+                {
+                  "x": 276,
+                  "y": 905
+                },
+                {
+                  "x": 156,
+                  "y": 905
+                },
+                {
+                  "x": 156,
+                  "y": 951
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 177,
+                "y": 882.5,
+                "w": 78,
+                "h": 45
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "pilot-to-authorization",
+              "from": "pilot-entry",
+              "to": "authorization-gate",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [
+                {
+                  "x": 790,
+                  "y": 1039
+                },
+                {
+                  "x": 790,
+                  "y": 44
+                },
+                {
+                  "x": 2024,
+                  "y": 44
+                },
+                {
+                  "x": 2024,
+                  "y": 286
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "#17365d",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "depende de",
+              "labelLines": [
+                {
+                  "text": "depende de",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 244,
+                  "y": 1039
+                },
+                {
+                  "x": 790,
+                  "y": 1039
+                },
+                {
+                  "x": 790,
+                  "y": 44
+                },
+                {
+                  "x": 2024,
+                  "y": 44
+                },
+                {
+                  "x": 2024,
+                  "y": 286
+                },
+                {
+                  "x": 2072,
+                  "y": 286
+                }
+              ],
+              "labelLeg": 2,
+              "labelBox": {
+                "x": 1349,
+                "y": 21.5,
+                "w": 116,
+                "h": 45
+              },
+              "routeKind": "search"
+            },
+            {
+              "type": "connector",
+              "id": "authorization-no",
+              "from": "authorization-gate",
+              "to": "do-not-start",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [
+                {
+                  "x": 2417,
+                  "y": 286
+                },
+                {
+                  "x": 2417,
+                  "y": 214
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "#990000",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "não",
+              "labelLines": [
+                {
+                  "text": "não",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 2368,
+                  "y": 286
+                },
+                {
+                  "x": 2417,
+                  "y": 286
+                },
+                {
+                  "x": 2417,
+                  "y": 214
+                },
+                {
+                  "x": 2465,
+                  "y": 214
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 2392.5,
+                "y": 229.5,
+                "w": 49,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "authorization-yes",
+              "from": "authorization-gate",
+              "to": "stage-consultation",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 2220,
+                  "y": 519
+                },
+                {
+                  "x": 1832,
+                  "y": 519
+                },
+                {
+                  "x": 1832,
+                  "y": 1329
+                },
+                {
+                  "x": 276,
+                  "y": 1329
+                },
+                {
+                  "x": 276,
+                  "y": 1499
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "#38761d",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "sim: iniciar etapas",
+              "labelLines": [
+                {
+                  "text": "sim: iniciar etapas",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 2220,
+                  "y": 446
+                },
+                {
+                  "x": 2220,
+                  "y": 519
+                },
+                {
+                  "x": 1832,
+                  "y": 519
+                },
+                {
+                  "x": 1832,
+                  "y": 1329
+                },
+                {
+                  "x": 276,
+                  "y": 1329
+                },
+                {
+                  "x": 276,
+                  "y": 1499
+                },
+                {
+                  "x": 244,
+                  "y": 1499
+                }
+              ],
+              "labelLeg": 2,
+              "labelBox": {
+                "x": 1751,
+                "y": 901.5,
+                "w": 162,
+                "h": 45
+              },
+              "routeKind": "search"
+            },
+            {
+              "type": "connector",
+              "id": "stage-1-2",
+              "from": "stage-consultation",
+              "to": "stage-mapping",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "BOTTOM",
+              "waypoints": [
+                {
+                  "x": 156,
+                  "y": 1611
+                },
+                {
+                  "x": 924,
+                  "y": 1611
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "depois",
+              "labelLines": [
+                {
+                  "text": "depois",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 156,
+                  "y": 1587
+                },
+                {
+                  "x": 156,
+                  "y": 1611
+                },
+                {
+                  "x": 924,
+                  "y": 1611
+                },
+                {
+                  "x": 924,
+                  "y": 1587
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 504,
+                "y": 1590.5,
+                "w": 72,
+                "h": 41
+              },
+              "routeKind": "arc"
+            },
+            {
+              "type": "connector",
+              "id": "stage-2-3",
+              "from": "stage-mapping",
+              "to": "stage-review",
+              "lineType": "straight",
+              "fromSide": "LEFT",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 281,
+                  "y": 1499
+                },
+                {
+                  "x": 281,
+                  "y": 2104
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "depois",
+              "labelLines": [
+                {
+                  "text": "depois",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 836,
+                  "y": 1499
+                },
+                {
+                  "x": 281,
+                  "y": 1499
+                },
+                {
+                  "x": 281,
+                  "y": 2104
+                },
+                {
+                  "x": 244,
+                  "y": 2104
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 245,
+                "y": 1781,
+                "w": 72,
+                "h": 41
+              },
+              "routeKind": "search"
+            },
+            {
+              "type": "connector",
+              "id": "stage-3-4",
+              "from": "stage-review",
+              "to": "stage-prototype",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 156,
+                  "y": 2208
+                },
+                {
+                  "x": 460,
+                  "y": 2208
+                },
+                {
+                  "x": 460,
+                  "y": 1971
+                },
+                {
+                  "x": 924,
+                  "y": 1971
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "se conforme",
+              "labelLines": [
+                {
+                  "text": "se conforme",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 156,
+                  "y": 2192
+                },
+                {
+                  "x": 156,
+                  "y": 2208
+                },
+                {
+                  "x": 460,
+                  "y": 2208
+                },
+                {
+                  "x": 460,
+                  "y": 1971
+                },
+                {
+                  "x": 924,
+                  "y": 1971
+                },
+                {
+                  "x": 924,
+                  "y": 2016
+                }
+              ],
+              "labelLeg": 2,
+              "labelBox": {
+                "x": 402,
+                "y": 2069,
+                "w": 116,
+                "h": 41
+              },
+              "routeKind": "search"
+            },
+            {
+              "type": "connector",
+              "id": "stage-4-5",
+              "from": "stage-prototype",
+              "to": "stage-training",
+              "lineType": "straight",
+              "fromSide": "LEFT",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 540,
+                  "y": 2104
+                },
+                {
+                  "x": 540,
+                  "y": 2709
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "preparar",
+              "labelLines": [
+                {
+                  "text": "preparar",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 836,
+                  "y": 2104
+                },
+                {
+                  "x": 540,
+                  "y": 2104
+                },
+                {
+                  "x": 540,
+                  "y": 2709
+                },
+                {
+                  "x": 244,
+                  "y": 2709
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 497,
+                "y": 2386,
+                "w": 86,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "stage-5-6",
+              "from": "stage-training",
+              "to": "stage-pilot",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "BOTTOM",
+              "waypoints": [
+                {
+                  "x": 156,
+                  "y": 2821
+                },
+                {
+                  "x": 924,
+                  "y": 2821
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "executar",
+              "labelLines": [
+                {
+                  "text": "executar",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 156,
+                  "y": 2797
+                },
+                {
+                  "x": 156,
+                  "y": 2821
+                },
+                {
+                  "x": 924,
+                  "y": 2821
+                },
+                {
+                  "x": 924,
+                  "y": 2797
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 496.5,
+                "y": 2800.5,
+                "w": 87,
+                "h": 41
+              },
+              "routeKind": "arc"
+            },
+            {
+              "type": "connector",
+              "id": "stage-6-7",
+              "from": "stage-pilot",
+              "to": "stage-evaluation",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [
+                {
+                  "x": 1028,
+                  "y": 2709
+                },
+                {
+                  "x": 1028,
+                  "y": 3146
+                },
+                {
+                  "x": 22,
+                  "y": 3146
+                },
+                {
+                  "x": 22,
+                  "y": 3314
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "medir antes e depois",
+              "labelLines": [
+                {
+                  "text": "medir antes e depois",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 1012,
+                  "y": 2709
+                },
+                {
+                  "x": 1028,
+                  "y": 2709
+                },
+                {
+                  "x": 1028,
+                  "y": 3146
+                },
+                {
+                  "x": 22,
+                  "y": 3146
+                },
+                {
+                  "x": 22,
+                  "y": 3314
+                },
+                {
+                  "x": 68,
+                  "y": 3314
+                }
+              ],
+              "labelLeg": 2,
+              "labelBox": {
+                "x": 435,
+                "y": 3125.5,
+                "w": 180,
+                "h": 41
+              },
+              "routeKind": "search"
+            },
+            {
+              "type": "connector",
+              "id": "evaluation-to-gate",
+              "from": "stage-evaluation",
+              "to": "scale-gate",
+              "lineType": "straight",
+              "fromSide": "TOP",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 168,
+                  "y": 3202
+                },
+                {
+                  "x": 1008,
+                  "y": 3202
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "#7030a0",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "evidência independente",
+              "labelLines": [
+                {
+                  "text": "evidência independente",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 168,
+                  "y": 3226
+                },
+                {
+                  "x": 168,
+                  "y": 3202
+                },
+                {
+                  "x": 1008,
+                  "y": 3202
+                },
+                {
+                  "x": 1008,
+                  "y": 3226
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 484,
+                "y": 3179.5,
+                "w": 208,
+                "h": 45
+              },
+              "routeKind": "arc"
+            },
+            {
+              "type": "connector",
+              "id": "gate-to-scale",
+              "from": "scale-gate",
+              "to": "scale-action",
+              "lineType": "straight",
+              "fromSide": "LEFT",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 552,
+                  "y": 3350
+                },
+                {
+                  "x": 552,
+                  "y": 3991
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "#38761d",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "sim: decisão medida",
+              "labelLines": [
+                {
+                  "text": "sim: decisão medida",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 860,
+                  "y": 3350
+                },
+                {
+                  "x": 552,
+                  "y": 3350
+                },
+                {
+                  "x": 552,
+                  "y": 3991
+                },
+                {
+                  "x": 244,
+                  "y": 3991
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 461.5,
+                "y": 3648,
+                "w": 181,
+                "h": 45
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "gate-to-no-scale",
+              "from": "scale-gate",
+              "to": "no-scale-action",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 1008,
+                  "y": 3689
+                },
+                {
+                  "x": 924,
+                  "y": 3689
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "#990000",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "não",
+              "labelLines": [
+                {
+                  "text": "não",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 1008,
+                  "y": 3474
+                },
+                {
+                  "x": 1008,
+                  "y": 3689
+                },
+                {
+                  "x": 924,
+                  "y": 3689
+                },
+                {
+                  "x": 924,
+                  "y": 3903
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 941.5,
+                "y": 3668.5,
+                "w": 49,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            }
+          ],
+          "groups": []
+        }
+      ],
+      "report": {
+        "accepted": true,
+        "checks": [
+          {
+            "name": "preservation",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "geometry",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "text-fit",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "peer-clearance",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "containment",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "order",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "routes",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "labels",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "native-text-fit",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam lays out the text in shapes itself; the model's text areas are calibrated bounds, not observations"
+            ]
+          },
+          {
+            "name": "native-labels",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam places a connector's label on its leg itself; the plugin's rule is modeled, not observed"
+            ]
+          }
+        ],
+        "quality": {
+          "crossings": 1,
+          "section_conflicts": 0,
+          "bends": 35,
+          "route_length": 15899
+        },
+        "repair": {
+          "rounds": 4,
+          "evaluations": 10363
         }
       }
     }

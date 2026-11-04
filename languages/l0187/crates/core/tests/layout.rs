@@ -328,3 +328,14 @@ async fn connectors_are_rerouted_so_they_do_not_cross_when_they_can() {
     assert_eq!(board["report"]["quality"]["crossings"], 0);
     assert_eq!(board["report"]["accepted"], true);
 }
+
+#[tokio::test]
+async fn a_tangled_board_gets_more_spacing_and_keeps_the_least_tangled_layout() {
+    // On this board "sim: iniciar etapas" once crossed "depende de" twice and ran inside the edge
+    // of a section it doesn't belong to.
+    let board = named("neda-strategy-6").await;
+    let quality = &board["report"]["quality"];
+    assert_eq!(quality["section_conflicts"], 0);
+    assert!(quality["crossings"].as_u64().unwrap() <= 1, "{quality}");
+    assert_eq!(board["report"]["accepted"], true);
+}

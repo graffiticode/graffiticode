@@ -308,15 +308,35 @@ pub fn position_within(
     let mut spacing = layout::Spacing::new();
     let mut evaluations = 0;
     let mut rounds = 0;
+    // A board that routes but is tangled (connectors that cross, or that had to break the
+    // section rule) gets more spacing in the regions concerned while repair rounds remain; the
+    // least tangled layout found is kept, so the extra rounds never make a board worse.
+    let mut best: Option<(Vec<layout::PageLayout>, route::Routed)> = None;
     let (pages, routed) = loop {
         let pages = layout::layout(board, sizes, &spacing);
         match route::route(board, &pages, sizes, evaluations_per_page) {
             Ok(routed) => {
                 evaluations += routed.evaluations;
-                break (pages, routed);
+                let better = best.as_ref().is_none_or(|(_, b)| routed.tangles < b.tangles);
+                let untangle = !routed.tangled.is_empty() && rounds < repair_rounds;
+                let regions: Vec<String> = routed.tangled.iter().map(|u| u.region.clone()).collect();
+                if better {
+                    best = Some((pages, routed));
+                }
+                if !untangle || best.as_ref().is_some_and(|(_, b)| b.tangles == 0) {
+                    break best.take().expect("a routed layout");
+                }
+                for region in regions {
+                    *spacing.entry(region).or_insert(0.0) += profile::spacing::REPAIR_STEP;
+                }
+                rounds += 1;
             }
             Err((unrouted, spent)) => {
                 evaluations += spent;
+                // Widening to untangle made the board unroutable: keep the best layout found.
+                if let Some(found) = best.take() {
+                    break found;
+                }
                 if rounds == repair_rounds {
                     let ids: Vec<String> = unrouted.iter().map(|u| format!("{:?}", u.connector)).collect();
                     return Err(Box::new(diag::diagnostic(

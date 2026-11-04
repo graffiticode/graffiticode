@@ -92,7 +92,9 @@ every word, and everything else is derived from it. npm here holds only the fron
     `unverified`, never passed.
   - `src/lib.rs` `position` — the repair loop: layout, route; a connector that does not fit
     widens the gutter of the region holding both its ends by 24, up to 4 rounds and 4096
-    candidates a page; then lower and validate. Only an accepted board is returned, with its
+    candidates a page. A board that routes but is tangled (crossings, or routes that had to break
+    the section rule) also gets those rounds, on the regions of the tangled connectors, and keeps
+    its least tangled layout; then lower and validate. Only an accepted board is returned, with its
     `report` (checks, quality, repair). Exhausting the bounds is a `layout` error saying it is a
     compiler limitation. `semantic(code)` compiles to the semantic board alone, for tests.
   - `src/schema.rs` — the output's JSON Schema, emitted to `generated/schema.json`.
