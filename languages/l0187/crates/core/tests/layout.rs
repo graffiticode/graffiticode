@@ -320,3 +320,11 @@ async fn slid_and_elbowed_routes_avoid_short_jogs_when_they_can() {
         assert!(len >= spacing::GUTTER, "leg {i} is a {len}px jog");
     }
 }
+
+#[tokio::test]
+async fn connectors_are_rerouted_so_they_do_not_cross_when_they_can() {
+    // The dashed "informa a decisão" once crossed two stage connectors on its way up.
+    let board = named("neda-strategy-5").await;
+    assert_eq!(board["report"]["quality"]["crossings"], 0);
+    assert_eq!(board["report"]["accepted"], true);
+}

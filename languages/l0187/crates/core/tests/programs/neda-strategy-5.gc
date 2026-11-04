@@ -1,0 +1,157 @@
+board [
+  page [
+    section [
+      group [
+        shape id "missao" text "IA responsável para o bem público" kind ROUNDED_RECTANGLE fill "#dbeafe" stroke "#2563eb" stroke-width THICK {}
+        shape id "piloto" text "Piloto numa unidade de saúde" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "#16a34a" stroke-width THICK {}
+        shape id "portas" text "Condições cumpridas?" kind DIAMOND fill "#fef3c7" stroke "#d97706" stroke-width THICK {}
+        shape id "decisao-escala" text "Escalar com evidência?" kind DIAMOND fill "#ede9fe" stroke "#7c3aed" stroke-width THICK {}
+      ] id "linha-decisao" layout FLOW direction RIGHT {}
+      group [
+        sticky id "objectivo-central" text "Proposta — objectivo central
+
+Promover IA responsável que beneficie as pessoas, proteja direitos e apoie o desenvolvimento sustentável, começando no Sumbe, Angola." fill "#dbeafe" {}
+        sticky id "estado-neda" text "Estado declarado
+
+A NEDA é apresentada como uma iniciativa proposta, independente e de interesse público. Não se apresenta como instituição legalmente registada, aprovada ou endossada." fill "#f3f4f6" {}
+        sticky id "legenda" text "Leitura do painel
+
+Azul e verde: propostas de acção.
+Amarelo: condições obrigatórias.
+Cinzento: estado ou limite declarado.
+Roxo: decisão baseada em evidência." fill "#ede9fe" {}
+      ] id "contexto-central" layout ROW {}
+    ] id "estrategia-central" name "Missão e linha de decisão" layout COLUMN fill "white" {}
+    section [
+      sticky id "recomendacao-piloto" text "Proposta — primeiro piloto
+
+Apoio administrativo à marcação de consultas e à gestão de filas em UMA unidade de saúde. A equipa humana mantém todas as decisões." fill "#dcfce7" {}
+      sticky id "funcoes-piloto" text "Funções permitidas
+
+• Registo de marcações
+• Estado da fila
+• Lembretes, apenas com consentimento e canal disponível
+• Relatórios operacionais simples" fill "#dcfce7" {}
+      sticky id "limites-clinicos" text "Fora do âmbito
+
+• Diagnóstico
+• Triagem de urgência clínica
+• Prescrições
+• Priorização de pacientes por IA
+• Decisões clínicas autónomas" fill "#fee2e2" {}
+    ] id "ambito-piloto" name "Piloto recomendado e limites" layout COLUMN fill "white" {}
+    section [
+      sticky id "autorizacao-escrita" text "Condição obrigatória
+
+Obter autorização escrita da unidade de saúde e das autoridades de saúde relevantes antes de iniciar." fill "#fef3c7" {}
+      sticky id "avaliacao-existente" text "Acção necessária
+
+Avaliar o fluxo de trabalho actual, as necessidades dos profissionais e os sistemas já existentes." fill "#fef3c7" {}
+      sticky id "compatibilidade-dhis2" text "Porta de integração
+
+Assegurar compatibilidade com o ecossistema nacional de informação de saúde DHIS2 de Angola. Não criar um sistema paralelo." fill "#fef3c7" {}
+    ] id "dependencias" name "Dependências críticas" layout COLUMN fill "white" {}
+    section [
+      shape id "etapa-consulta" text "Consulta e linha de base" kind ROUNDED_RECTANGLE fill "#dbeafe" {}
+      shape id "etapa-processo" text "Mapear processos" kind ROUNDED_RECTANGLE fill "#dbeafe" {}
+      shape id "etapa-revisao" text "Revisão legal, privacidade e segurança" kind ROUNDED_RECTANGLE fill "#fef3c7" {}
+      shape id "etapa-prototipo" text "Protótipo com dados mínimos ou sintéticos" kind ROUNDED_RECTANGLE fill "#dcfce7" {}
+      shape id "etapa-formacao" text "Formar a equipa" kind ROUNDED_RECTANGLE fill "#dcfce7" {}
+      shape id "etapa-piloto" text "Piloto limitado" kind ROUNDED_RECTANGLE fill "#dcfce7" {}
+      shape id "etapa-avaliacao" text "Avaliação independente" kind ROUNDED_RECTANGLE fill "#ede9fe" {}
+      shape id "etapa-escala" text "Escala só com evidência e aprovação" kind ROUNDED_RECTANGLE fill "#ede9fe" {}
+    ] id "implementacao" name "Etapas de implementação" layout GRID columns 4 fill "white" {}
+    section [
+      sticky id "medicao-metodo" text "Medir antes e depois
+
+Registar uma linha de base antes do piloto e repetir a medição durante e após o piloto. Definir metas apenas com as partes autorizadas; não há valores pré-preenchidos." fill "#ede9fe" {}
+      sticky id "indicadores-operacionais" text "Indicadores operacionais
+
+• Tempo de espera
+• Faltas às marcações
+• Erros de registo
+• Tempo da equipa gasto em administração
+• Disponibilidade do sistema" fill "#ede9fe" {}
+      sticky id "indicadores-experiencia" text "Experiência, direitos e segurança
+
+• Satisfação dos utilizadores
+• Reclamações
+• Incidentes de privacidade
+• Incidentes de segurança" fill "#ede9fe" {}
+    ] id "indicadores" name "Indicadores de sucesso — sem metas prévias" layout COLUMN fill "white" {}
+    section [
+      sticky id "risco-acesso-dados" text "Acesso institucional e dados
+
+• Sem acesso institucional → não iniciar
+• Exposição de dados de saúde → minimizar dados; acesso por função; encriptação; limites de retenção; plano de incidentes; revisão legal" fill "#fee2e2" {}
+      sticky id "risco-conectividade-equipa" text "Operação e adopção
+
+• Conectividade instável → alternativa offline ou de baixa largura de banda
+• Resistência da equipa → co-desenho e formação" fill "#fff7ed" {}
+      sticky id "risco-duplicacao-exclusao" text "Integração e inclusão
+
+• Sistemas duplicados → integrar ou parar
+• Exclusão de pessoas sem telefone → manter atendimento presencial e opção em papel" fill "#fef3c7" {}
+      sticky id "risco-fornecedor-ia" text "Sustentabilidade e IA
+
+• Dependência do fornecedor e aumento de custos → normas abertas, portabilidade e plano de saída
+• Erros de IA → manter a IA fora das decisões clínicas" fill "#ede9fe" {}
+    ] id "riscos" name "Riscos principais e mitigação" layout GRID columns 2 fill "white" {}
+    section [
+      sticky id "viabilidade-valor" text "Valor e diferenciação
+
+• Valor público credível
+• Alinhamento com políticas
+• Originalidade demonstrada face a iniciativas existentes
+• Âmbito faseado" fill "#dbeafe" {}
+      sticky id "viabilidade-governacao" text "Confiança institucional
+
+• Governação multidisciplinar
+• Financiamento transparente
+• Auditoria independente
+• Resultados mensuráveis" fill "#dbeafe" {}
+      sticky id "sem-alegacoes-parceria" text "Limite de comunicação
+
+Não alegar parceria, aprovação ou apoio da UNESCO, União Africana ou MINSA enquanto não existir acordo formal." fill "#f3f4f6" {}
+    ] id "viabilidade-neda" name "Condições gerais de viabilidade da NEDA" layout COLUMN fill "white" {}
+    section [
+      sticky id "fases-posteriores" text "Fases posteriores — não lançar em simultâneo
+
+• Educação
+• Conectividade
+• Agricultura
+• Ambiente
+• Serviços públicos
+• Telecomunicações" fill "#dcfce7" {}
+      sticky id "regra-fases" text "Sequência proposta
+
+Considerar cada domínio apenas após aprendizagem, evidência, capacidade de governação e autorização adequadas. Evitar lançamentos simultâneos." fill "#fef3c7" {}
+    ] id "outros-dominios" name "Outros domínios da NEDA" layout COLUMN fill "white" {}
+    section [
+      sticky id "salvaguardas-governacao" text "Salvaguardas obrigatórias
+
+• Supervisão humana
+• Direitos
+• Transparência
+• Responsabilização
+• Protecção de dados
+• Cibersegurança
+• Acessibilidade
+• Participação comunitária" fill "#dbeafe" {}
+      sticky id "principio-decisao" text "Princípio de decisão
+
+Nenhuma expansão automática. As decisões devem ser documentadas, contestáveis e sustentadas por evidência, avaliação independente e aprovação competente." fill "#ede9fe" {}
+    ] id "salvaguardas" name "Governação e salvaguardas" layout COLUMN fill "white" {}
+    connector id "missao-piloto" from "missao" to "piloto" label "orienta" stroke "#2563eb" stroke-width THICK {}
+    connector id "piloto-portas" from "piloto" to "portas" label "sujeito a autorizações e integração" stroke "#d97706" stroke-width THICK {}
+    connector id "portas-decisao" from "portas" to "decisao-escala" label "decidir com indicadores" stroke "#7c3aed" stroke-width THICK {}
+    connector id "fluxo-1" from "etapa-consulta" to "etapa-processo" label "seguinte" stroke "#64748b" {}
+    connector id "fluxo-2" from "etapa-processo" to "etapa-revisao" label "seguinte" stroke "#64748b" {}
+    connector id "fluxo-3" from "etapa-revisao" to "etapa-prototipo" label "após conformidade" stroke "#64748b" {}
+    connector id "fluxo-4" from "etapa-prototipo" to "etapa-formacao" label "seguinte" stroke "#64748b" {}
+    connector id "fluxo-5" from "etapa-formacao" to "etapa-piloto" label "iniciar de forma limitada" stroke "#64748b" {}
+    connector id "fluxo-6" from "etapa-piloto" to "etapa-avaliacao" label "medir e avaliar" stroke "#64748b" {}
+    connector id "fluxo-7" from "etapa-avaliacao" to "etapa-escala" label "só com evidência e aprovação" stroke "#7c3aed" stroke-width THICK {}
+    connector id "avaliacao-decisao" from "etapa-avaliacao" to "decisao-escala" label "informa a decisão" line-style DASHED stroke "#7c3aed" {}
+  ] id "estrategia-neda" name "Estratégia do projecto" layout GRID columns 3 background "#f8fafc" {}
+] title "NEDA — Viabilidade e piloto inicial no Sumbe" show-page-tabs false show-page-menu false {}..

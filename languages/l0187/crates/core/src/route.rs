@@ -335,6 +335,14 @@ pub fn clash(a: (&[P], End, End), b: (&[P], End, End)) -> Option<&'static str> {
     None
 }
 
+/// Whether segments a-b and c-d cross at a point inside both (touching or overlapping is not a
+/// crossing).
+fn segments_cross(a: P, b: P, c: P, d: P) -> bool {
+    let orient = |p: P, q: P, r: P| (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    let (o1, o2, o3, o4) = (orient(a, b, c), orient(a, b, d), orient(c, d, a), orient(c, d, b));
+    o1 * o2 < 0.0 && o3 * o4 < 0.0
+}
+
 /// Whether two axis-aligned segments lie on one line and share more than a pixel of it.
 fn collinear_overlap(a: P, b: P, c: P, d: P) -> bool {
     let along = |p: f64, q: f64, r: f64, s: f64| p.max(q).min(r.max(s)) - p.min(q).max(r.min(s)) > 1.0;
@@ -401,6 +409,8 @@ struct Scene<'a> {
     sections: Vec<SectionFrame>,
     /// Whether routes must keep clear of section titles and borders (the first attempt).
     strict_sections: bool,
+    /// Whether the search is rerouting a connector to cross fewer others.
+    uncrossing: bool,
 }
 
 /// A candidate route before it is checked.
@@ -423,6 +433,17 @@ impl Scene<'_> {
 
     fn stroke(c: &Connector) -> f64 {
         profile::stroke_width(&c.stroke_width)
+    }
+
+    /// How many times a route crosses the connectors already placed.
+    fn crossings(&self, points: &[P]) -> usize {
+        let mut n = 0;
+        for s in points.windows(2) {
+            for (_, _, _, other, _, _) in &self.placed {
+                n += other.windows(2).filter(|o| segments_cross(s[0], s[1], o[0], o[1])).count();
+            }
+        }
+        n
     }
 
     /// Whether a route keeps clear of every mark (its own end marks only where it attaches),
@@ -473,9 +494,13 @@ impl Scene<'_> {
                 }
             }
         }
+        // A label keeps its clearance from the bands of connectors written before its own (the
+        // validator's order). Rerouting while uncrossing, a placed label may belong to a later
+        // connector, so this route keeps that label's clearance too.
+        let reach = if self.uncrossing { CLEARANCE } else { 0.0 };
         for (_, _, other_label, _, _, _) in &self.placed {
             if let Some(o) = other_label
-                && bands.iter().any(|b| overlaps(b, o))
+                && bands.iter().any(|b| overlaps(b, &grow(o, reach)))
             {
                 return false;
             }
@@ -813,6 +838,14 @@ impl Scene<'_> {
         let index = |v: f64, axis: &[f64]| axis.iter().position(|&a| (a - v).abs() < 1e-6);
         // State: (grid x, grid y, direction 0..4); cost in tenths of a pixel.
         const BEND: i64 = 400;
+        // While uncrossing, crossing a connector already placed costs as much as 2000px of extra
+        // length, so the search goes around when it reasonably can.
+        let cross_cost: i64 = if self.uncrossing { 20_000 } else { 0 };
+        let placed_legs: Vec<(P, P)> = self
+            .placed
+            .iter()
+            .flat_map(|(_, _, _, points, _, _)| points.windows(2).map(|w| (w[0], w[1])).collect::<Vec<_>>())
+            .collect();
         let dirs = [(0i64, -1i64), (1, 0), (0, 1), (-1, 0)];
         let mut best: HashMap<(usize, usize, usize), i64> = HashMap::new();
         let mut came: HashMap<(usize, usize, usize), (usize, usize, usize)> = HashMap::new();
@@ -874,7 +907,8 @@ impl Scene<'_> {
                     continue;
                 }
                 let step = ((next.x - here.x).abs() + (next.y - here.y).abs()) * 10.0;
-                let ncost = cost + step as i64 + if nd != d { BEND } else { 0 };
+                let crossed = placed_legs.iter().filter(|(p, q)| segments_cross(here, next, *p, *q)).count() as i64;
+                let ncost = cost + step as i64 + if nd != d { BEND } else { 0 } + cross_cost * crossed;
                 if ncost < *best.get(&(ni, nj, nd)).unwrap_or(&i64::MAX) {
                     best.insert((ni, nj, nd), ncost);
                     came.insert((ni, nj, nd), (i, j, d));
@@ -1035,6 +1069,7 @@ fn route_page(
         neighbours: HashMap::new(),
         sections: Vec::new(),
         strict_sections: true,
+        uncrossing: false,
     };
     sections_of(&page.region, layout, &mut scene.sections);
     for c in &page.connectors {
@@ -1097,6 +1132,62 @@ fn route_page(
             }
             None => failed.push(Unrouted { connector: c.id.clone(), region }),
         }
+    }
+    // Then uncross: reroute each connector that crosses others, in written order, and keep the
+    // new route only when it fits everything placed, crosses fewer connectors, leaves no short
+    // jog and keeps clear of section titles and borders. A connector otherwise keeps its route,
+    // so uncrossing never costs a board its routing.
+    if failed.is_empty() {
+        scene.uncrossing = true;
+        for (n, c) in page.connectors.iter().enumerate().filter(|(_, c)| c.from != c.to) {
+            if scene.evaluations >= max {
+                break;
+            }
+            let Some(at) = scene.placed.iter().position(|p| p.0 == c.id) else { continue };
+            let saved = scene.placed.remove(at);
+            let crossed = scene.crossings(&saved.3);
+            if crossed == 0 {
+                scene.placed.insert(at, saved);
+                continue;
+            }
+            fn pair(d: &Connector) -> (&str, &str) {
+                (d.from.as_str().min(d.to.as_str()), d.from.as_str().max(d.to.as_str()))
+            }
+            let parallel = page.connectors[..n].iter().filter(|d| pair(d) == pair(c)).count();
+            let region = scene.lowest_common_region(&c.from, &c.to);
+            let against = layout.against.contains(&c.id);
+            let mut better = None;
+            for k in scene.candidates(c, parallel, &region, against) {
+                if scene.evaluations >= max {
+                    break;
+                }
+                if k.kind == "channel" {
+                    continue;
+                }
+                if let Some(r) = scene.check(c, k)
+                    && scene.crossings(&r.points) < crossed
+                    && no_short_jog(&r.points)
+                {
+                    better = Some(r);
+                    break;
+                }
+            }
+            if better.is_none() && scene.evaluations < max {
+                scene.max = max;
+                better = scene.search(c).filter(|r| scene.crossings(&r.points) < crossed);
+            }
+            match better {
+                Some(r) => {
+                    let stroke = Scene::stroke(c);
+                    let bands = r.points.windows(2).map(|s| band(s[0], s[1], stroke)).collect();
+                    let ends = ((c.from.clone(), r.from_side), (c.to.clone(), r.to_side));
+                    scene.placed.insert(at, (c.id.clone(), bands, r.label_box, r.points.clone(), ends.0, ends.1));
+                    routes.insert(c.id.clone(), r);
+                }
+                None => scene.placed.insert(at, saved),
+            }
+        }
+        scene.uncrossing = false;
     }
     *budget += scene.evaluations;
     if failed.is_empty() { Ok(routes) } else { Err(failed) }

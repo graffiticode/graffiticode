@@ -16,7 +16,8 @@
 //! became 20px, and a route keeps out of sections that hold neither of its ends; then the
 //! uniform sticky width applies in every region, not only grids; then a textbox
 //! written first in a GRID heads it on a row of its own, and routes avoid jogs shorter than the
-//! gutter when another route fits. Boards cached
+//! gutter when another route fits; then connectors that cross are rerouted when a route that
+//! crosses fewer fits. Boards cached
 //! before then keep their old, still valid, layout until recompiled.
 //!
 //! Provenance of each value is noted: `L0186` values were measured through the Plugin API on
