@@ -33,7 +33,7 @@
 //   getOrCreate  the one declared exception to a read-only get: an atomic,
 //                idempotent create of per-viewer state (L0182's assignment).
 
-export const INTERPRETER_MANIFEST_VERSION = 6;
+export const INTERPRETER_MANIFEST_VERSION = 7;
 
 // From loosest to strictest.
 export const CACHE_CLASSES = Object.freeze(["immutable", "shared", "private", "no-store"] as const);
@@ -73,7 +73,24 @@ export type InterpreterDeclaration = Readonly<{
 //         results depend only on the program and its input, with nothing that
 //         expires or is private, so immutable in either mode (the stage cache is
 //         keyed by the input's digest).
+//   0003, 0010, 0014, 0177, 0178, 0180  C2 batch 2: the rest of the languages
+//         that read their input. Plans, immutable in either mode, as batch 1.
+//         L0014 translates through its TransLaTeX worker when interpreted, as it
+//         does when compiled; the translation is deterministic for the rule set
+//         and source.
 export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclaration>> = Object.freeze({
+  "0003": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0010": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0014": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
   "0174": Object.freeze({
     interpreter: "interpreter",
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
@@ -82,7 +99,19 @@ export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclar
     interpreter: "interpreter",
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
   }),
+  "0177": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0178": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
   "0179": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0180": Object.freeze({
     interpreter: "interpreter",
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
   }),
