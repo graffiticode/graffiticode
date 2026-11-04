@@ -9559,6 +9559,2818 @@
       }
     }
   },
+  "neda-strategy-3": {
+    "data": {
+      "type": "board",
+      "positioned": 1,
+      "profile": "FIGJAM_V1",
+      "revision": {
+        "compiler": "0.1.0",
+        "font": "Inter-Medium 3.19 sha256:99dab2bdcb613c4c8264000a94351d1227f74dc95a86d1249493aeee0c0179c4",
+        "layout": "FIGJAM_V1"
+      },
+      "title": "NEDA — Viabilidade e piloto inicial no Sumbe",
+      "showPageTabs": false,
+      "showPageMenu": false,
+      "pages": [
+        {
+          "id": "estrategia-neda",
+          "name": "Estratégia do projecto",
+          "background": "white",
+          "width": 3353,
+          "height": 3306,
+          "nodes": [
+            {
+              "type": "section",
+              "id": "missao-decisao",
+              "name": "Missão, estado e decisão",
+              "fill": "#eef4ff",
+              "opacity": 100,
+              "x": 0,
+              "y": 34,
+              "width": 2281,
+              "height": 1004,
+              "titleFrame": {
+                "x": 0,
+                "y": 0,
+                "w": 186,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "objectivo-central",
+                  "x": 24,
+                  "y": 58,
+                  "width": 416,
+                  "height": 276,
+                  "wide": true,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "Objectivo central proposto: promover IA responsável que beneficie as pessoas, proteja os direitos e apoie o desenvolvimento sustentável, começando no Sumbe, Angola.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Objectivo central proposto:",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "promover IA responsável que",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "beneficie as pessoas, proteja os",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "direitos e apoie o",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "desenvolvimento sustentável,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "começando no Sumbe, Angola.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 228
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "estado-neda",
+                  "x": 24,
+                  "y": 382,
+                  "width": 416,
+                  "height": 312,
+                  "wide": true,
+                  "fill": "gray",
+                  "opacity": 100,
+                  "text": "Estado institucional: a NEDA é apresentada como uma iniciativa independente de interesse público em proposta. Não é apresentada como instituição legalmente registada, aprovada ou endossada.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Estado institucional: a NEDA é",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "apresentada como uma iniciativa",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "independente de interesse",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "público em proposta. Não é",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "apresentada como instituição",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "legalmente registada, aprovada",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "ou endossada.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 264
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "missao-neda",
+                  "x": 24,
+                  "y": 802,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "Missão NEDA",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Missão",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "NEDA",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "piloto-inicial",
+                  "x": 533,
+                  "y": 802,
+                  "width": 200,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "yellow",
+                  "opacity": 100,
+                  "text": "Piloto administrativo",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Piloto",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "administrativo",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 163.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "porta-autorizacao",
+                  "x": 945,
+                  "y": 766,
+                  "width": 320,
+                  "height": 248,
+                  "shapeType": "DIAMOND",
+                  "strokeWidth": 4,
+                  "fill": "orange",
+                  "opacity": 100,
+                  "text": "Autorizações escritas?",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Autorizações",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "escritas?",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 84,
+                    "y": 84,
+                    "w": 152,
+                    "h": 80
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "porta-evidencia",
+                  "x": 1496,
+                  "y": 766,
+                  "width": 296,
+                  "height": 248,
+                  "shapeType": "DIAMOND",
+                  "strokeWidth": 4,
+                  "fill": "orange",
+                  "opacity": 100,
+                  "text": "Evidência e aprovação?",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Evidência e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "aprovação?",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 77.7,
+                    "y": 84,
+                    "w": 140.6,
+                    "h": 80
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "decisao-escala",
+                  "x": 2033,
+                  "y": 802,
+                  "width": 224,
+                  "height": 176,
+                  "shapeType": "DIAMOND",
+                  "strokeWidth": 4,
+                  "fill": "green",
+                  "opacity": 100,
+                  "text": "Escalar?",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Escalar?",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 58.800000000000004,
+                    "y": 66,
+                    "w": 106.39999999999999,
+                    "h": 44
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "ambito-piloto",
+              "name": "Piloto proposto: âmbito e limites",
+              "fill": "#f1f8f4",
+              "opacity": 100,
+              "x": 2353,
+              "y": 34,
+              "width": 464,
+              "height": 1008,
+              "titleFrame": {
+                "x": 2353,
+                "y": 0,
+                "w": 232,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "piloto-inclui",
+                  "x": 2377,
+                  "y": 58,
+                  "width": 416,
+                  "height": 384,
+                  "wide": true,
+                  "fill": "green",
+                  "opacity": 100,
+                  "text": "Recomendação inicial: apoio à marcação administrativa e à gestão de filas numa única unidade de saúde. Inclui registo de marcações, estado da fila, lembretes apenas com consentimento e canal disponível, e relatórios operacionais simples.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Recomendação inicial: apoio à",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "marcação administrativa e à",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "gestão de filas numa única",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "unidade de saúde. Inclui registo",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "de marcações, estado da fila,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "lembretes apenas com",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "consentimento e canal",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "disponível, e relatórios",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "operacionais simples.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 336
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "controlo-humano",
+                  "x": 2377,
+                  "y": 490,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "A equipa humana mantém todas as decisões e pode corrigir, suspender ou substituir o processo.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "A equipa humana mantém todas",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "as decisões e pode corrigir,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "suspender ou substituir o",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "processo.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "piloto-exclui",
+                  "x": 2377,
+                  "y": 778,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "pink",
+                  "opacity": 100,
+                  "text": "Fora do âmbito: diagnóstico, triagem de urgência clínica, prescrições, priorização de doentes por IA e decisões clínicas autónomas.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Fora do âmbito: diagnóstico,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "triagem de urgência clínica,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "prescrições, priorização de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "doentes por IA e decisões",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "clínicas autónomas.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "dependencias",
+              "name": "Dependências críticas",
+              "fill": "#fff7e8",
+              "opacity": 100,
+              "x": 2889,
+              "y": 34,
+              "width": 464,
+              "height": 900,
+              "titleFrame": {
+                "x": 2889,
+                "y": 0,
+                "w": 165,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "dependencia-autorizacao",
+                  "x": 2913,
+                  "y": 58,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "orange",
+                  "opacity": 100,
+                  "text": "Não iniciar sem autorização escrita da unidade de saúde e das autoridades de saúde relevantes.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Não iniciar sem autorização",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "escrita da unidade de saúde e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "das autoridades de saúde",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "relevantes.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "dependencia-processo",
+                  "x": 2913,
+                  "y": 346,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "yellow",
+                  "opacity": 100,
+                  "text": "Antes do protótipo: avaliar o fluxo de trabalho actual, responsabilidades, necessidades dos utilizadores e sistemas já existentes.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Antes do protótipo: avaliar o",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "fluxo de trabalho actual,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "responsabilidades, necessidades",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "dos utilizadores e sistemas já",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "existentes.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "dependencia-dhis2",
+                  "x": 2913,
+                  "y": 634,
+                  "width": 416,
+                  "height": 276,
+                  "wide": true,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "Assegurar compatibilidade com o ecossistema nacional de informação sanitária DHIS2 de Angola. Integrar com o que existe, em vez de criar um sistema paralelo.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Assegurar compatibilidade com",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "o ecossistema nacional de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "informação sanitária DHIS2 de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Angola. Integrar com o que",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "existe, em vez de criar um",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "sistema paralelo.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 228
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "etapas",
+              "name": "Etapas de implementação propostas",
+              "fill": "#f5f5f5",
+              "opacity": 100,
+              "x": 0,
+              "y": 1148,
+              "width": 747,
+              "height": 1019,
+              "titleFrame": {
+                "x": 0,
+                "y": 1114,
+                "w": 260,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "shape",
+                  "id": "etapa-consulta",
+                  "x": 24,
+                  "y": 1172,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "1. Consulta e medição inicial",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "1. Consulta",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "e medição",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "inicial",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "etapa-mapeamento",
+                  "x": 499,
+                  "y": 1172,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "2. Mapear o processo",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "2. Mapear o",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "processo",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "etapa-revisao",
+                  "x": 24,
+                  "y": 1437,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "orange",
+                  "opacity": 100,
+                  "text": "3. Revisão legal e de segurança",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "3. Revisão",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "legal e de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "segurança",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "etapa-prototipo",
+                  "x": 499,
+                  "y": 1437,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "yellow",
+                  "opacity": 100,
+                  "text": "4. Protótipo mínimo",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "4. Protótipo",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "mínimo",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "etapa-formacao",
+                  "x": 24,
+                  "y": 1702,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "yellow",
+                  "opacity": 100,
+                  "text": "5. Formação da equipa",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "5.",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Formação",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "da equipa",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "etapa-piloto",
+                  "x": 499,
+                  "y": 1702,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "green",
+                  "opacity": 100,
+                  "text": "6. Piloto limitado",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "6. Piloto",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "limitado",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "etapa-avaliacao",
+                  "x": 24,
+                  "y": 1967,
+                  "width": 200,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "purple",
+                  "opacity": 100,
+                  "text": "7. Avaliação independente",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "7. Avaliação",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "independente",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 163.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "etapa-escala",
+                  "x": 523,
+                  "y": 1967,
+                  "width": 200,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "fill": "green",
+                  "opacity": 100,
+                  "text": "8. Escala condicionada",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "8. Escala",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "condicionada",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 163.92000000000002,
+                    "h": 144
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "indicadores",
+              "name": "Indicadores de sucesso a medir",
+              "fill": "#eef4ff",
+              "opacity": 100,
+              "x": 819,
+              "y": 1148,
+              "width": 464,
+              "height": 1188,
+              "titleFrame": {
+                "x": 819,
+                "y": 1114,
+                "w": 228,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "indicadores-acesso",
+                  "x": 843,
+                  "y": 1172,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "Acesso e serviço: tempo de espera e faltas às marcações.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Acesso e serviço: tempo de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "espera e faltas às marcações.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "indicadores-operacao",
+                  "x": 843,
+                  "y": 1460,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "yellow",
+                  "opacity": 100,
+                  "text": "Operação: erros de registo, tempo da equipa dedicado à administração e disponibilidade do sistema.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Operação: erros de registo,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "tempo da equipa dedicado à",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "administração e disponibilidade",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "do sistema.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "indicadores-confianca",
+                  "x": 843,
+                  "y": 1748,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "purple",
+                  "opacity": 100,
+                  "text": "Confiança e protecção: satisfação dos utilizadores, reclamações e incidentes de privacidade ou segurança.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Confiança e protecção:",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "satisfação dos utilizadores,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "reclamações e incidentes de",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "privacidade ou segurança.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "indicadores-metodo",
+                  "x": 843,
+                  "y": 2036,
+                  "width": 416,
+                  "height": 276,
+                  "wide": true,
+                  "fill": "gray",
+                  "opacity": 100,
+                  "text": "Medir antes e depois do piloto. Definir método, fonte e responsabilidade antes da recolha; não preencher metas sem linha de base e acordo institucional.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Medir antes e depois do piloto.",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Definir método, fonte e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "responsabilidade antes da",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "recolha; não preencher metas",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "sem linha de base e acordo",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "institucional.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 228
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "riscos",
+              "name": "Riscos principais e mitigação",
+              "fill": "#fff0f2",
+              "opacity": 100,
+              "x": 1355,
+              "y": 1148,
+              "width": 928,
+              "height": 1152,
+              "titleFrame": {
+                "x": 1355,
+                "y": 1114,
+                "w": 210,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "risco-acesso",
+                  "x": 1379,
+                  "y": 1172,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "pink",
+                  "opacity": 100,
+                  "text": "Sem acesso institucional — não iniciar.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Sem acesso institucional — não",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "iniciar.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risco-dados",
+                  "x": 1843,
+                  "y": 1172,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "pink",
+                  "opacity": 100,
+                  "text": "Exposição de dados de saúde — minimizar dados, aplicar acesso por função, encriptação, limites de retenção, plano de incidentes e revisão legal.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Exposição de dados de saúde —",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "minimizar dados, aplicar acesso",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "por função, encriptação, limites",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "de retenção, plano de incidentes",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "e revisão legal.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risco-conectividade",
+                  "x": 1379,
+                  "y": 1460,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "orange",
+                  "opacity": 100,
+                  "text": "Conectividade instável — manter alternativa offline ou de baixa largura de banda.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Conectividade instável — manter",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "alternativa offline ou de baixa",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "largura de banda.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risco-equipa",
+                  "x": 1843,
+                  "y": 1460,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "yellow",
+                  "opacity": 100,
+                  "text": "Resistência da equipa — co-desenho, comunicação e formação.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Resistência da equipa — co-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "desenho, comunicação e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "formação.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risco-duplicacao",
+                  "x": 1379,
+                  "y": 1748,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "orange",
+                  "opacity": 100,
+                  "text": "Sistemas duplicados — integrar ou interromper o projecto.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Sistemas duplicados — integrar",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "ou interromper o projecto.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risco-exclusao",
+                  "x": 1843,
+                  "y": 1748,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "yellow",
+                  "opacity": 100,
+                  "text": "Exclusão de pessoas sem telefone — manter atendimento presencial e opção em papel.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Exclusão de pessoas sem",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "telefone — manter atendimento",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "presencial e opção em papel.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risco-fornecedor",
+                  "x": 1379,
+                  "y": 2036,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "purple",
+                  "opacity": 100,
+                  "text": "Dependência de fornecedor e crescimento de custos — normas abertas, portabilidade e plano de saída.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Dependência de fornecedor e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "crescimento de custos —",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "normas abertas, portabilidade e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "plano de saída.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "risco-ia",
+                  "x": 1843,
+                  "y": 2036,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "pink",
+                  "opacity": 100,
+                  "text": "Erros de IA — manter a IA fora das decisões clínicas.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Erros de IA — manter a IA fora",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "das decisões clínicas.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "viabilidade",
+              "name": "Condições gerais de viabilidade da NEDA",
+              "fill": "#f1f8f4",
+              "opacity": 100,
+              "x": 0,
+              "y": 2442,
+              "width": 928,
+              "height": 864,
+              "titleFrame": {
+                "x": 0,
+                "y": 2408,
+                "w": 292,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "viabilidade-valor",
+                  "x": 24,
+                  "y": 2466,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "Demonstrar valor público credível e alinhamento com políticas aplicáveis.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Demonstrar valor público",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "credível e alinhamento com",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "políticas aplicáveis.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "viabilidade-originalidade",
+                  "x": 488,
+                  "y": 2466,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "Demonstrar a originalidade face a iniciativas existentes, sem presumir novidade.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Demonstrar a originalidade face",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "a iniciativas existentes, sem",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "presumir novidade.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "viabilidade-fases",
+                  "x": 24,
+                  "y": 2754,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "green",
+                  "opacity": 100,
+                  "text": "Manter âmbito faseado e governação multidisciplinar.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Manter âmbito faseado e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "governação multidisciplinar.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "viabilidade-financiamento",
+                  "x": 488,
+                  "y": 2754,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "green",
+                  "opacity": 100,
+                  "text": "Assegurar financiamento transparente e auditoria independente.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Assegurar financiamento",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "transparente e auditoria",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "independente.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "viabilidade-resultados",
+                  "x": 24,
+                  "y": 3042,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "yellow",
+                  "opacity": 100,
+                  "text": "Definir resultados mensuráveis e publicar limitações e aprendizagem.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Definir resultados mensuráveis e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "publicar limitações e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "aprendizagem.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "viabilidade-alegacoes",
+                  "x": 488,
+                  "y": 3042,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "orange",
+                  "opacity": 100,
+                  "text": "Não alegar parceria com UNESCO, União Africana ou MINSA até existir acordo formal.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Não alegar parceria com",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "UNESCO, União Africana ou",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "MINSA até existir acordo formal.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "fases-futuras",
+              "name": "Outros domínios: fases posteriores",
+              "fill": "#f7f0ff",
+              "opacity": 100,
+              "x": 1000,
+              "y": 2442,
+              "width": 464,
+              "height": 396,
+              "titleFrame": {
+                "x": 1000,
+                "y": 2408,
+                "w": 250,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "dominios-futuros",
+                  "x": 1024,
+                  "y": 2466,
+                  "width": 416,
+                  "height": 348,
+                  "wide": true,
+                  "fill": "purple",
+                  "opacity": 100,
+                  "text": "Fases posteriores, sujeitas a evidência, capacidade e aprovação: educação, conectividade, agricultura, ambiente, serviços públicos e telecomunicações. Não lançar estes domínios em simultâneo com o primeiro piloto.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Fases posteriores, sujeitas a",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "evidência, capacidade e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "aprovação: educação,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "conectividade, agricultura,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "ambiente, serviços públicos e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "telecomunicações. Não lançar",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "estes domínios em simultâneo",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "com o primeiro piloto.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 300
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "salvaguardas",
+              "name": "Salvaguardas de governação",
+              "fill": "#eef4ff",
+              "opacity": 100,
+              "x": 1536,
+              "y": 2442,
+              "width": 464,
+              "height": 864,
+              "titleFrame": {
+                "x": 1536,
+                "y": 2408,
+                "w": 210,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "sticky",
+                  "id": "salvaguardas-humanas",
+                  "x": 1560,
+                  "y": 2466,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "blue",
+                  "opacity": 100,
+                  "text": "Supervisão humana, respeito pelos direitos e acessibilidade.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Supervisão humana, respeito",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "pelos direitos e acessibilidade.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "salvaguardas-responsabilidade",
+                  "x": 1560,
+                  "y": 2754,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "green",
+                  "opacity": 100,
+                  "text": "Transparência, responsabilização e participação comunitária.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Transparência,",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "responsabilização e participação",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "comunitária.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                },
+                {
+                  "type": "sticky",
+                  "id": "salvaguardas-dados",
+                  "x": 1560,
+                  "y": 3042,
+                  "width": 416,
+                  "height": 240,
+                  "wide": true,
+                  "fill": "orange",
+                  "opacity": 100,
+                  "text": "Protecção de dados e cibersegurança desde a concepção.",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Protecção de dados e",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "cibersegurança desde a",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "concepção.",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 17,
+                    "y": 24,
+                    "w": 382,
+                    "h": 192
+                  }
+                }
+              ]
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-missao-piloto",
+              "from": "missao-neda",
+              "to": "piloto-inicial",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "primeira aplicação proposta",
+              "labelLines": [
+                {
+                  "text": "primeira aplicação proposta",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 200,
+                  "y": 890
+                },
+                {
+                  "x": 533,
+                  "y": 890
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 248,
+                "y": 867.5,
+                "w": 237,
+                "h": 45
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-piloto-autorizacao",
+              "from": "piloto-inicial",
+              "to": "porta-autorizacao",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "orange",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "depende de",
+              "labelLines": [
+                {
+                  "text": "depende de",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 733,
+                  "y": 890
+                },
+                {
+                  "x": 945,
+                  "y": 890
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 781,
+                "y": 867.5,
+                "w": 116,
+                "h": 45
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-autorizacao-evidencia",
+              "from": "porta-autorizacao",
+              "to": "porta-evidencia",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "orange",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "pilotar e medir",
+              "labelLines": [
+                {
+                  "text": "pilotar e medir",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 1265,
+                  "y": 890
+                },
+                {
+                  "x": 1496,
+                  "y": 890
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 1313,
+                "y": 867.5,
+                "w": 135,
+                "h": 45
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-evidencia-decisao",
+              "from": "porta-evidencia",
+              "to": "decisao-escala",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "decisão medida",
+              "labelLines": [
+                {
+                  "text": "decisão medida",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 1792,
+                  "y": 890
+                },
+                {
+                  "x": 2033,
+                  "y": 890
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 1840,
+                "y": 867.5,
+                "w": 145,
+                "h": 45
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-etapa-1-2",
+              "from": "etapa-consulta",
+              "to": "etapa-mapeamento",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "depois",
+              "labelLines": [
+                {
+                  "text": "depois",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 200,
+                  "y": 1260
+                },
+                {
+                  "x": 499,
+                  "y": 1260
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 313.5,
+                "y": 1239.5,
+                "w": 72,
+                "h": 41
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-etapa-2-3",
+              "from": "etapa-mapeamento",
+              "to": "etapa-revisao",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 587,
+                  "y": 1393
+                },
+                {
+                  "x": 112,
+                  "y": 1393
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "depois",
+              "labelLines": [
+                {
+                  "text": "depois",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 587,
+                  "y": 1348
+                },
+                {
+                  "x": 587,
+                  "y": 1393
+                },
+                {
+                  "x": 112,
+                  "y": 1393
+                },
+                {
+                  "x": 112,
+                  "y": 1437
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 313.5,
+                "y": 1372.5,
+                "w": 72,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-etapa-3-4",
+              "from": "etapa-revisao",
+              "to": "etapa-prototipo",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "se conforme",
+              "labelLines": [
+                {
+                  "text": "se conforme",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 200,
+                  "y": 1525
+                },
+                {
+                  "x": 499,
+                  "y": 1525
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 291.5,
+                "y": 1504.5,
+                "w": 116,
+                "h": 41
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-etapa-4-5",
+              "from": "etapa-prototipo",
+              "to": "etapa-formacao",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 587,
+                  "y": 1658
+                },
+                {
+                  "x": 112,
+                  "y": 1658
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "preparar uso",
+              "labelLines": [
+                {
+                  "text": "preparar uso",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 587,
+                  "y": 1613
+                },
+                {
+                  "x": 587,
+                  "y": 1658
+                },
+                {
+                  "x": 112,
+                  "y": 1658
+                },
+                {
+                  "x": 112,
+                  "y": 1702
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 290.5,
+                "y": 1637.5,
+                "w": 118,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-etapa-5-6",
+              "from": "etapa-formacao",
+              "to": "etapa-piloto",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "iniciar limitado",
+              "labelLines": [
+                {
+                  "text": "iniciar limitado",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 200,
+                  "y": 1790
+                },
+                {
+                  "x": 499,
+                  "y": 1790
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 284,
+                "y": 1769.5,
+                "w": 131,
+                "h": 41
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-etapa-6-7",
+              "from": "etapa-piloto",
+              "to": "etapa-avaliacao",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 587,
+                  "y": 1923
+                },
+                {
+                  "x": 124,
+                  "y": 1923
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "medir antes e depois",
+              "labelLines": [
+                {
+                  "text": "medir antes e depois",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 587,
+                  "y": 1878
+                },
+                {
+                  "x": 587,
+                  "y": 1923
+                },
+                {
+                  "x": 124,
+                  "y": 1923
+                },
+                {
+                  "x": 124,
+                  "y": 1967
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 265.5,
+                "y": 1902.5,
+                "w": 180,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "ligacao-etapa-7-8",
+              "from": "etapa-avaliacao",
+              "to": "etapa-escala",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "LEFT",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "só com evidência e aprovação",
+              "labelLines": [
+                {
+                  "text": "só com evidência e aprovação",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 224,
+                  "y": 2055
+                },
+                {
+                  "x": 523,
+                  "y": 2055
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 248,
+                "y": 2034.5,
+                "w": 251,
+                "h": 41
+              },
+              "routeKind": "straight"
+            }
+          ],
+          "groups": [
+            {
+              "id": "fluxo-decisao",
+              "frame": {
+                "x": 24,
+                "y": 766,
+                "w": 2233,
+                "h": 248
+              },
+              "members": [
+                "missao-neda",
+                "piloto-inicial",
+                "porta-autorizacao",
+                "porta-evidencia",
+                "decisao-escala"
+              ]
+            }
+          ]
+        }
+      ],
+      "report": {
+        "accepted": true,
+        "checks": [
+          {
+            "name": "preservation",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "geometry",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "text-fit",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "peer-clearance",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "containment",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "order",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "routes",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "labels",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "native-text-fit",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam lays out the text in shapes itself; the model's text areas are calibrated bounds, not observations"
+            ]
+          },
+          {
+            "name": "native-labels",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam places a connector's label on its leg itself; the plugin's rule is modeled, not observed"
+            ]
+          }
+        ],
+        "quality": {
+          "crossings": 0,
+          "section_conflicts": 0,
+          "bends": 6,
+          "route_length": 3893
+        },
+        "repair": {
+          "rounds": 0,
+          "evaluations": 14
+        }
+      }
+    }
+  },
   "parallel-three": {
     "data": {
       "type": "board",
@@ -15272,37 +18084,23 @@
                   "id": "risco1",
                   "x": 3312,
                   "y": 1169,
-                  "width": 240,
+                  "width": 416,
                   "height": 240,
-                  "wide": false,
+                  "wide": true,
                   "opacity": 100,
                   "text": "Risco: falta de acesso institucional. Mitigação: não iniciar o piloto.",
                   "fontSize": 24,
                   "lineHeight": 1.5,
                   "lines": [
                     {
-                      "text": "Risco: falta de",
+                      "text": "Risco: falta de acesso",
                       "break": {
                         "kind": "soft",
                         "text": " "
                       }
                     },
                     {
-                      "text": "acesso",
-                      "break": {
-                        "kind": "soft",
-                        "text": " "
-                      }
-                    },
-                    {
-                      "text": "institucional.",
-                      "break": {
-                        "kind": "soft",
-                        "text": " "
-                      }
-                    },
-                    {
-                      "text": "Mitigação: não",
+                      "text": "institucional. Mitigação: não",
                       "break": {
                         "kind": "soft",
                         "text": " "
@@ -15319,7 +18117,7 @@
                   "content": {
                     "x": 17,
                     "y": 24,
-                    "w": 206,
+                    "w": 382,
                     "h": 192
                   }
                 },
@@ -15433,37 +18231,23 @@
                   "id": "risco4",
                   "x": 3312,
                   "y": 2069,
-                  "width": 240,
+                  "width": 416,
                   "height": 240,
-                  "wide": false,
+                  "wide": true,
                   "opacity": 100,
                   "text": "Risco: resistência da equipa. Mitigação: co-conceção e formação.",
                   "fontSize": 24,
                   "lineHeight": 1.5,
                   "lines": [
                     {
-                      "text": "Risco: resistência",
+                      "text": "Risco: resistência da equipa.",
                       "break": {
                         "kind": "soft",
                         "text": " "
                       }
                     },
                     {
-                      "text": "da equipa.",
-                      "break": {
-                        "kind": "soft",
-                        "text": " "
-                      }
-                    },
-                    {
-                      "text": "Mitigação: co-",
-                      "break": {
-                        "kind": "soft",
-                        "text": ""
-                      }
-                    },
-                    {
-                      "text": "conceção e",
+                      "text": "Mitigação: co-conceção e",
                       "break": {
                         "kind": "soft",
                         "text": " "
@@ -15480,7 +18264,7 @@
                   "content": {
                     "x": 17,
                     "y": 24,
-                    "w": 206,
+                    "w": 382,
                     "h": 192
                   }
                 },
@@ -15622,37 +18406,23 @@
                   "id": "risco8",
                   "x": 3312,
                   "y": 3221,
-                  "width": 240,
+                  "width": 416,
                   "height": 240,
-                  "wide": false,
+                  "wide": true,
                   "opacity": 100,
                   "text": "Risco: erros da IA. Mitigação: manter a IA fora das decisões clínicas.",
                   "fontSize": 24,
                   "lineHeight": 1.5,
                   "lines": [
                     {
-                      "text": "Risco: erros da",
+                      "text": "Risco: erros da IA. Mitigação:",
                       "break": {
                         "kind": "soft",
                         "text": " "
                       }
                     },
                     {
-                      "text": "IA. Mitigação:",
-                      "break": {
-                        "kind": "soft",
-                        "text": " "
-                      }
-                    },
-                    {
-                      "text": "manter a IA fora",
-                      "break": {
-                        "kind": "soft",
-                        "text": " "
-                      }
-                    },
-                    {
-                      "text": "das decisões",
+                      "text": "manter a IA fora das decisões",
                       "break": {
                         "kind": "soft",
                         "text": " "
@@ -15669,7 +18439,7 @@
                   "content": {
                     "x": 17,
                     "y": 24,
-                    "w": 206,
+                    "w": 382,
                     "h": 192
                   }
                 }

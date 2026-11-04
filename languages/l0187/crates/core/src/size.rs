@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::ir::{Board, Child, Connector, Layout, Mark, Region};
+use crate::ir::{Board, Child, Connector, Mark, Region};
 use crate::measure::{Break, Line, Rect, content_box, coverage, wrap};
 use crate::profile::{self, line_height};
 
@@ -232,20 +232,17 @@ fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
             region(inner, sizes, limits);
         }
     }
-    // A grid reads as a table: when one of its stickies has to be wide, they all are, so its
-    // rows and columns line up instead of mixing square and wide notes.
-    if matches!(r.layout, Layout::Grid { .. }) {
-        let stickies: Vec<&Mark> =
-            r.children.iter().filter_map(|c| if let Child::Sticky(m) = c { Some(m) } else { None }).collect();
-        let any_wide =
-            stickies.iter().any(|m| sizes.marks.get(&m.id).is_some_and(|s| s.width == profile::sticky::WIDE));
-        if any_wide {
-            for m in stickies {
-                if sizes.marks.get(&m.id).is_some_and(|s| s.width != profile::sticky::WIDE)
-                    && let Ok(wide) = sticky_at(m, profile::sticky::WIDE)
-                {
-                    sizes.marks.insert(m.id.clone(), wide);
-                }
+    // When one of a region's stickies has to be wide, they all are, so its notes line up instead
+    // of mixing square and wide ones.
+    let stickies: Vec<&Mark> =
+        r.children.iter().filter_map(|c| if let Child::Sticky(m) = c { Some(m) } else { None }).collect();
+    let any_wide = stickies.iter().any(|m| sizes.marks.get(&m.id).is_some_and(|s| s.width == profile::sticky::WIDE));
+    if any_wide {
+        for m in stickies {
+            if sizes.marks.get(&m.id).is_some_and(|s| s.width != profile::sticky::WIDE)
+                && let Ok(wide) = sticky_at(m, profile::sticky::WIDE)
+            {
+                sizes.marks.insert(m.id.clone(), wide);
             }
         }
     }
