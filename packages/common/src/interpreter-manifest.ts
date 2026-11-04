@@ -33,7 +33,7 @@
 //   getOrCreate  the one declared exception to a read-only get: an atomic,
 //                idempotent create of per-viewer state (L0182's assignment).
 
-export const INTERPRETER_MANIFEST_VERSION = 5;
+export const INTERPRETER_MANIFEST_VERSION = 6;
 
 // From loosest to strictest.
 export const CACHE_CLASSES = Object.freeze(["immutable", "shared", "private", "no-store"] as const);
@@ -66,8 +66,31 @@ export type InterpreterDeclaration = Readonly<{
 //         Upstream data never reaches a board and layout is deterministic per
 //         profile, so a program that doesn't read its input is a value model;
 //         immutable in either mode, as L0186.
+//   0174, 0179, 0181, 0183  C2: languages that read their input (forms,
+//         spreadsheets, flashcard decks, concept webs). They don't declare input
+//         independence, so every model is a plan the kernel evaluates against
+//         the stage's input; L0174's PROG merges upstream data at run time. Their
+//         results depend only on the program and its input, with nothing that
+//         expires or is private, so immutable in either mode (the stage cache is
+//         keyed by the input's digest).
 export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclaration>> = Object.freeze({
+  "0174": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
   "0175": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0179": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0181": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0183": Object.freeze({
     interpreter: "interpreter",
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
   }),
