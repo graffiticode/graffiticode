@@ -11,6 +11,12 @@ import { run } from "../../packages/deploy/src/process.js";
 export const loadDeployServices = async () =>
   JSON.parse(await readFile(new URL("../../deploy.json", import.meta.url), "utf8")).services;
 
+// A Cloud Run service's literal env vars, from `gcloud run services describe --format=json`.
+// Secret-backed entries (valueFrom) carry no value and are skipped.
+export const serviceEnv = service =>
+  Object.fromEntries((service?.spec?.template?.spec?.containers?.[0]?.env ?? [])
+    .filter(e => typeof e.value === "string")
+    .map(e => [e.name, e.value]));
 // Where the api routes a language: { service, tag }. The api's
 // BASE_URL_L<lang>, when it is a Cloud Run URL, names the service (a
 // language switched to its Rust service, interpreter plan Track A): a service

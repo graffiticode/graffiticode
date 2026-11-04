@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { generateKeyPair, exportJWK } from "jose";
 import { canonicalDigest } from "@graffiticode/common/canonical";
-import { languageRoute, routedRevision } from "../lib/canary-env.js";
+import { languageRoute, routedRevision, serviceEnv } from "../lib/canary-env.js";
 import { encodeChainId, decodeChainId } from "@graffiticode/common/chain";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
@@ -772,4 +772,14 @@ test("a route reaches its tag's revision, else the one serving all traffic", () 
   assert.equal(routedRevision(service, "release-123"), "l0000r-old");
   assert.equal(routedRevision(service, "gone"), null);
   assert.equal(routedRevision({ status: { traffic: [{ latestRevision: true, percent: 100 }], latestReadyRevisionName: "l0000r-latest" } }, null), "l0000r-latest");
+});
+
+test("serviceEnv reads a described service's literal env, so routes follow the live api", () => {
+  const api = { spec: { template: { spec: { containers: [{ env: [
+    { name: "BASE_URL_L0176", value: "https://l0176r-sja7fatcta-uc.a.run.app" },
+    { name: "INTERNAL_SECRET", valueFrom: { secretKeyRef: { name: "s", key: "1" } } },
+  ] }] } } } };
+  assert.deepEqual(serviceEnv(api), { BASE_URL_L0176: "https://l0176r-sja7fatcta-uc.a.run.app" });
+  assert.deepEqual(languageRoute("0176", serviceEnv(api)), { service: "l0176r", tag: null });
+  assert.deepEqual(serviceEnv(undefined), {});
 });
