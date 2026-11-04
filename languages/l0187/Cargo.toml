@@ -15,3 +15,8 @@ strip = true
 # Shaping is the hot path in tests; optimize dependencies even in debug builds.
 [profile.dev.package."*"]
 opt-level = 2
+
+# The routing tests compile every board several times (the repair and untangling rounds); at
+# opt-level 0 the suite outgrows the release build's 30 minutes.
+[profile.dev.package.graffiticode-l0187]
+opt-level = 2
