@@ -67,6 +67,11 @@ notes stacked above or below that flow in the same `COLUMN` leave a wide empty a
 Give the flow a section of its own, or put the notes that share its section in a
 `group [ … ] id "…" layout ROW {}` so they sit side by side across the flow's width.
 
+Connectors read best when they don't cross. A page `GRID` keeps the written order, so write the
+sections that connectors join next to each other: a section whose last step leads into another
+section comes right before it, and a decision comes right before the steps it opens. Fewer
+connectors between distant sections means fewer crossings.
+
 In a `FLOW`, `before ["b" "c"]` on a child makes it come strictly before those siblings. Use it
 only for real stage order; connectors already suggest the direction. `before` names siblings in
 the same `FLOW` region, never something deeper, and never makes a loop. A return path is just a
