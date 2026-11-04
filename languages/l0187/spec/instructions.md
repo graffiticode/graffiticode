@@ -61,6 +61,11 @@ grows much taller than its neighbours; use `ROW` or `FLOW` for a short sequence 
 long list in one sticky or textbox, or split it into a few stickies in a `GRID`, rather than one
 sticky per word.
 
+A `FLOW` of more than three shapes is wide, and a section takes the width of its widest child, so
+notes stacked above or below that flow in the same `COLUMN` leave a wide empty area beside them.
+Give the flow a section of its own, or put the notes that share its section in a
+`group [ … ] id "…" layout ROW {}` so they sit side by side across the flow's width.
+
 In a `FLOW`, `before ["b" "c"]` on a child makes it come strictly before those siblings. Use it
 only for real stage order; connectors already suggest the direction. `before` names siblings in
 the same `FLOW` region, never something deeper, and never makes a loop. A return path is just a

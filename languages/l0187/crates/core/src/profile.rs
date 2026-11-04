@@ -13,7 +13,8 @@
 //! when one sticky in a GRID goes wide every sticky in it does, and routes prefer not to cross a
 //! section title or run along a section border (falling back when no route avoids them, counted
 //! in `quality.section_conflicts`); later that day the margin a route keeps from a border or title
-//! became 20px, and a route keeps out of sections that hold neither of its ends. Boards cached
+//! became 20px, and a route keeps out of sections that hold neither of its ends; then the
+//! uniform sticky width applies in every region, not only grids. Boards cached
 //! before then keep their old, still valid, layout until recompiled.
 //!
 //! Provenance of each value is noted: `L0186` values were measured through the Plugin API on

@@ -53,7 +53,7 @@ every word, and everything else is derived from it. npm here holds only the fron
     characters and right-to-left text are content limits. `content_box` is each shape kind's
     calibrated text area.
   - `src/size.rs` — every mark's box and lines: stickies keep their width (square, or wide when a
-    square would grow; in a GRID, all wide when one is) and grow taller as FigJam's do; shapes are sized on the 24 grid to hold
+    square would grow; in a region, all wide when one is) and grow taller as FigJam's do; shapes are sized on the 24 grid to hold
     their text (FigJam truncates a resized shape's overflow); textboxes wrap at 20 em; labels are
     padded lines. Text that cannot be measured is a `content-limit` diagnostic.
   - `src/layout.rs` — regions composed bottom-up. ROW/COLUMN keep the written order on a line,

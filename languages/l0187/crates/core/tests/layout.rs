@@ -232,17 +232,19 @@ async fn crowded_connectors_get_room_from_the_repair_loop() {
 }
 
 #[tokio::test]
-async fn stickies_in_a_grid_share_one_width() {
-    let board = named("neda-strategy").await;
-    for section in board["pages"][0]["nodes"].as_array().unwrap().iter().filter(|s| s["type"] == "section") {
-        let widths: Vec<f64> = section["nodes"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|m| m["type"] == "sticky")
-            .map(|m| n(m, "width"))
-            .collect();
-        assert!(widths.windows(2).all(|w| w[0] == w[1]), "{}: {widths:?}", section["id"]);
+async fn stickies_in_a_section_share_one_width() {
+    for name in ["neda-strategy", "neda-strategy-3"] {
+        let board = named(name).await;
+        for section in board["pages"][0]["nodes"].as_array().unwrap().iter().filter(|s| s["type"] == "section") {
+            let widths: Vec<f64> = section["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|m| m["type"] == "sticky")
+                .map(|m| n(m, "width"))
+                .collect();
+            assert!(widths.windows(2).all(|w| w[0] == w[1]), "{}: {widths:?}", section["id"]);
+        }
     }
 }
 
