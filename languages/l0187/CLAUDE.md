@@ -57,7 +57,8 @@ every word, and everything else is derived from it. npm here holds only the fron
     their text (FigJam truncates a resized shape's overflow); textboxes wrap at 20 em; labels are
     padded lines. Text that cannot be measured is a `content-limit` diagnostic.
   - `src/layout.rs` — regions composed bottom-up. ROW/COLUMN keep the written order on a line,
-    GRID row by row, each row as wide as its own cells
+    GRID row by row (a leading textbox heads it on a row of its own, wrapped to the rows'
+    width), each row as wide as its own cells
     and as tall as its tallest (start-aligned); FLOW layers by `before` (strict) and
     connectors lifted to the children containing their ends (preferred; one that would close a
     cycle runs against the flow), orders layers by fixed barycentre sweeps, centres them, and
@@ -73,7 +74,8 @@ every word, and everything else is derived from it. npm here holds only the fron
     path does not fit). Every connector is first routed 20px clear of section titles and borders it
     runs alongside, and out of sections that hold neither of its ends, then without that rule if
     nothing fits; `quality.section_conflicts`
-    counts the fallbacks; self-loops
+    counts the fallbacks. A route with a leg shorter than the gutter between its end stubs is
+    taken only when no other candidate or slide fits; self-loops
     go around a corner, reaching out far enough for their label. The label box follows the
     plugin's rule exactly (leg `floor((legs − 1) / 2)`, its midpoint after the plugin's 16px corner
     rounding and FigJam's 8px endpoint gap). Clearance 8px around every leg band, cap and label.

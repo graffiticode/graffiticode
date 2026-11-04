@@ -260,6 +260,11 @@ impl Context<'_> {
         columns: usize,
     ) -> Vec<(f64, f64)> {
         let columns = columns.max(1);
+        // A header takes a row of its own above the cells.
+        let (header, members) = match members.split_first() {
+            Some((&h, rest)) if region.grid_header() && h == 0 => (Some(h), rest),
+            _ => (None, members),
+        };
         let rows = members.len().div_ceil(columns);
         let mut heights = vec![0.0f64; rows];
         for (k, &i) in members.iter().enumerate() {
@@ -272,8 +277,9 @@ impl Context<'_> {
         let extra = self.spacing.get(id).copied().unwrap_or(0.0);
         let gap_x = base.max(label_w + spacing::GUTTER) + extra;
         let gap_y = base.max(label_h + spacing::GUTTER) + extra;
+        let top = header.map_or(0.0, |h| blocks[h].h + gap_y);
         let ys: Vec<f64> = (0..rows)
-            .scan(0.0, |at, r| {
+            .scan(top, |at, r| {
                 let y = *at;
                 *at += heights[r] + gap_y;
                 Some(y)

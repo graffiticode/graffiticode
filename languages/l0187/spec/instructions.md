@@ -49,6 +49,7 @@ not inherited; each region chooses its own.
 
 - `layout ROW` / `layout COLUMN`: keep the written order in one row or one column.
 - `layout GRID columns 3`: keep the written order, row by row. `columns` goes only with `GRID`.
+  A `textbox` written first in a `GRID` becomes its heading, on a row of its own.
 - `layout FLOW direction RIGHT`: a flow along connectors (`RIGHT`, `LEFT`, `DOWN`, `UP`;
   `RIGHT` by default). `direction` goes only with `FLOW`.
 - No `layout` means `AUTO`: the compiler chooses, putting connected things in a flow.

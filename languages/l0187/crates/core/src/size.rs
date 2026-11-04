@@ -16,9 +16,9 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::ir::{Board, Child, Connector, Mark, Region};
+use crate::ir::{Board, Child, Connector, Layout, Mark, Region};
 use crate::measure::{Break, Line, Rect, content_box, coverage, wrap};
-use crate::profile::{self, line_height};
+use crate::profile::{self, line_height, spacing};
 
 /// A measured mark or label: its size, where its text sits inside it, and its lines.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -160,10 +160,16 @@ fn shape(m: &Mark) -> Result<Measured, Limit> {
 }
 
 fn textbox(m: &Mark) -> Result<Measured, Limit> {
+    textbox_within(m, None)
+}
+
+/// A textbox wrapped at 20 em, or at `within` when that is narrower (a header, wrapped to the
+/// width of what follows it, but never under 10 em).
+fn textbox_within(m: &Mark, within: Option<f64>) -> Result<Measured, Limit> {
     let emoji = unsupported("textbox", &m.id, &m.text)?;
     let font = profile::font_size(&m.font_size);
     let natural = widest(&wrap(&m.text, font, None));
-    let measure = profile::textbox::MAX_EMS * font;
+    let measure = (profile::textbox::MAX_EMS * font).min(within.map_or(f64::MAX, |w| w.max(10.0 * font)));
     let width = natural.min(measure).max(font).ceil();
     let lines = wrap(&m.text, font, Some(width));
     let width = width.max(widest(&lines).ceil());
@@ -244,6 +250,23 @@ fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
             {
                 sizes.marks.insert(m.id.clone(), wide);
             }
+        }
+    }
+    // A grid's header wraps to the width of its widest row of marks (with the gutter between
+    // cells). A grid holding sections or groups keeps its header at 20 em.
+    if let Some(m) = r.header() {
+        let rest: Option<Vec<f64>> = r.children[1..].iter().map(|c| sizes.marks.get(c.id()).map(|s| s.width)).collect();
+        let columns = if let Layout::Grid { columns } = r.layout { (columns as usize).max(1) } else { 1 };
+        let within = rest.map(|widths| {
+            widths
+                .chunks(columns)
+                .map(|row| row.iter().sum::<f64>() + spacing::GUTTER * (row.len() - 1) as f64)
+                .fold(0.0, f64::max)
+        });
+        if let Some(w) = within
+            && let Ok(header) = textbox_within(m, Some(w))
+        {
+            sizes.marks.insert(m.id.clone(), header);
         }
     }
 }

@@ -142,7 +142,8 @@ sections and groups; connectors do not occupy sequence slots.
 - `AUTO` (the default): unordered. Children joined by connectors are arranged as a flow; the rest
   are packed. Source order only breaks ties.
 - `ROW`, `COLUMN`: the written order, left to right or top to bottom, without wrapping.
-- `GRID`: the written order, row by row, in exactly `columns` columns.
+- `GRID`: the written order, row by row, in exactly `columns` columns. A `textbox` written first heads the grid:
+  it takes a row of its own above the cells, wrapped to the width of the rows below.
 - `FLOW`: connectors give the preferred progression along `direction` (`RIGHT` by default);
   `before` gives strict order. Declaration order only breaks ties.
 

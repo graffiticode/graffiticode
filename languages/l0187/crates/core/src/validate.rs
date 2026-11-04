@@ -237,10 +237,13 @@ fn check_regions(
         }
         Layout::Grid { columns } => {
             let c = columns as usize;
+            // A header is a row of its own; the cells' rows follow it.
+            let header = region.grid_header();
+            let row = |i: usize| if header { if i == 0 { 0 } else { 1 + (i - 1) / c } } else { i / c };
             for i in 0..region.children.len() {
                 for j in i + 1..region.children.len() {
                     if let (Some(a), Some(b)) = (at(i), at(j)) {
-                        let ok = if i / c == j / c { b.x >= a.x + a.w } else { b.y >= a.y + a.h };
+                        let ok = if row(i) == row(j) { b.x >= a.x + a.w } else { b.y >= a.y + a.h };
                         if !ok {
                             order.push(format!(
                                 "grid cell {:?} is out of order with {:?}",

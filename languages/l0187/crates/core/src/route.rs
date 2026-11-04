@@ -265,6 +265,16 @@ fn orthogonal(points: &[P]) -> bool {
 const SLIDE: f64 = 8.0;
 const SLIDE_STEPS: usize = 30;
 
+/// Whether a slid route keeps every leg between its two end stubs at least a gutter long: a
+/// slide that leaves a short jog reads as a glitch, not a bend.
+fn no_short_jog(points: &[P]) -> bool {
+    let legs = points.len().saturating_sub(1);
+    (1..legs.saturating_sub(1)).all(|i| {
+        let (a, b) = (points[i], points[i + 1]);
+        (a.x - b.x).abs() + (a.y - b.y).abs() >= spacing::GUTTER - 1e-6
+    })
+}
+
 /// A segment's band: the segment widened by half the stroke and the clearance.
 pub fn band(a: P, b: P, stroke: f64) -> Frame {
     let pad = stroke / 2.0 + CLEARANCE;
@@ -908,31 +918,36 @@ impl Scene<'_> {
         let mut legs: Vec<usize> = (0..n.saturating_sub(1)).collect();
         let mid = (n.saturating_sub(1)) as f64 / 2.0;
         legs.sort_by(|a, b| (*a as f64 + 0.5 - mid).abs().total_cmp(&(*b as f64 + 0.5 - mid).abs()));
-        for j in legs {
-            let (p, q) = (path[j], path[j + 1]);
-            let horizontal = (p.y - q.y).abs() < 1e-9;
-            for step in 1..=SLIDE_STEPS {
-                for sign in [1.0, -1.0] {
-                    if self.evaluations > self.max {
-                        return None;
-                    }
-                    let off = sign * SLIDE * step as f64;
-                    let shift = |v: P| if horizontal { P { x: v.x, y: v.y + off } } else { P { x: v.x + off, y: v.y } };
-                    let mut w = Vec::with_capacity(n + 2);
-                    w.extend_from_slice(&path[..j]);
-                    if j == 0 {
-                        w.push(p);
-                    }
-                    w.push(shift(p));
-                    w.push(shift(q));
-                    if j + 1 == n - 1 {
-                        w.push(q);
-                    }
-                    w.extend_from_slice(&path[j + 2..]);
-                    if let Some(r) = self.check(c, Candidate { from_side, to_side, waypoints: w, kind: "search" })
-                        && orthogonal(&r.points)
-                    {
-                        return Some(r);
+        // First a slide that leaves no short jog; only when none fits, one that does.
+        for clean in [true, false] {
+            for &j in &legs {
+                let (p, q) = (path[j], path[j + 1]);
+                let horizontal = (p.y - q.y).abs() < 1e-9;
+                for step in 1..=SLIDE_STEPS {
+                    for sign in [1.0, -1.0] {
+                        if self.evaluations > self.max {
+                            return None;
+                        }
+                        let off = sign * SLIDE * step as f64;
+                        let shift =
+                            |v: P| if horizontal { P { x: v.x, y: v.y + off } } else { P { x: v.x + off, y: v.y } };
+                        let mut w = Vec::with_capacity(n + 2);
+                        w.extend_from_slice(&path[..j]);
+                        if j == 0 {
+                            w.push(p);
+                        }
+                        w.push(shift(p));
+                        w.push(shift(q));
+                        if j + 1 == n - 1 {
+                            w.push(q);
+                        }
+                        w.extend_from_slice(&path[j + 2..]);
+                        if let Some(r) = self.check(c, Candidate { from_side, to_side, waypoints: w, kind: "search" })
+                            && orthogonal(&r.points)
+                            && (!clean || no_short_jog(&r.points))
+                        {
+                            return Some(r);
+                        }
                     }
                 }
             }
@@ -993,6 +1008,9 @@ fn marks_of(region: &Region, frames: &HashMap<String, Frame>, out: &mut Vec<(Str
     }
 }
 
+/// A candidate that fits, and whether it uses its region's channel.
+type Fitted = (Route, bool);
+
 fn route_page(
     page: &Page,
     layout: &PageLayout,
@@ -1038,18 +1056,27 @@ fn route_page(
         let mut chosen = None;
         for strict in [true, false] {
             scene.strict_sections = strict;
+            // The first candidate that fits and leaves no short jog; failing that, the first that
+            // fits.
+            let (mut clean, mut jogged): (Option<Fitted>, Option<Fitted>) = (None, None);
             for k in scene.candidates(c, parallel, &region, against) {
                 if scene.evaluations >= max {
                     break;
                 }
                 let uses_channel = k.kind == "channel";
                 if let Some(r) = scene.check(c, k) {
-                    if uses_channel {
-                        *scene.lanes_used.entry(region.clone()).or_insert(0) += 1;
+                    if no_short_jog(&r.points) {
+                        clean = Some((r, uses_channel));
+                        break;
                     }
-                    chosen = Some(r);
-                    break;
+                    jogged.get_or_insert((r, uses_channel));
                 }
+            }
+            if let Some((r, uses_channel)) = clean.or(jogged) {
+                if uses_channel {
+                    *scene.lanes_used.entry(region.clone()).or_insert(0) += 1;
+                }
+                chosen = Some(r);
             }
             if chosen.is_none() && c.from != c.to && scene.evaluations < max {
                 scene.max = max;

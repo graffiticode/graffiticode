@@ -134,6 +134,23 @@ pub struct Connector {
     pub to_cap: String,
 }
 
+impl Region {
+    /// A textbox written first in a GRID with more after it heads the grid: a row of its own, so
+    /// it does not set its first column's width, wrapped to the width of the rows below rather
+    /// than its own 20 em.
+    pub fn header(&self) -> Option<&Mark> {
+        match (&self.layout, self.children.first()) {
+            (Layout::Grid { .. }, Some(Child::Textbox(m))) if self.children.len() > 1 => Some(m),
+            _ => None,
+        }
+    }
+
+    /// Whether a GRID's first child is its header row.
+    pub fn grid_header(&self) -> bool {
+        self.header().is_some()
+    }
+}
+
 impl Child {
     pub fn id(&self) -> &str {
         match self {
