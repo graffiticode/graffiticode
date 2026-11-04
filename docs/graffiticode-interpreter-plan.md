@@ -402,6 +402,21 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
      - **Release.** The staged api `api-rmw2nuzov-fca4d4` passed its canary 40/40 and was promoted. Production compiles were then observed reaching each language's `/interpret`.
      - **Rollback:** `npm run rollback -- api --env production --release rmw2nuzov-fca4d4`, which restores `rust-1`.
      - **Batch 2:** L0003, L0010, L0177, L0178, L0180 and L0014.
+   - **Batch 2 as built (2026-11-04).** Evidence is in `docs/evidence/interpreter-c2-batch2/`.
+     - **Rust tests.** The same as batch 1, in each language's `interpret.rs`. L0014's translator answers from each case's recorded results.
+     - **Manifest and flags (#288).** Interpreter manifest v7, and `INTERPRETER_LNNNN=on` with `interp-1`.
+     - **Live interpreted gates.** No case differed:
+       | Language | Identical | Different |
+       |---|---|---|
+       | L0003 | 120 | 0 |
+       | L0010 | 70 | 0 |
+       | L0014 | 27 | 0 |
+       | L0177 | 99 | 0 |
+       | L0178 | 360 | 0 |
+       | L0180 | 2683 | 0 (1 skipped) |
+     - **Release.** The staged api `api-rmw2pdfj3-4c4eff` passed its canary 60/60 and was promoted. All six were then observed on `/interpret` in production.
+     - **Rollback:** `npm run rollback -- api --env production --release rmw2pdfj3-4c4eff`.
+     - **C2 is done.** All ten languages that read their input are interpreted.
 3. **C3 L0185:** fetching moves into `interpret`, results are `shared`, and fetched reads are recorded for commands.
 4. **C4 L0182:** the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against.
 5. **C5 L0013 snapshots become brokered commands.** Today `l0013` uploads directly with its own service account (`languages/l0013/crates/capture/src/storage.rs:51`, `predefinedAcl=publicRead`). There is no Policy invocation, broker receipt or fencing, so nothing exists to adopt or replay. C5 builds that path first:

@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmw2pdfj3-4c4eff",
+  "revision": "api-rmw2pdfj3-4c4eff",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (C2 batch 2; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-04T22:58:09.000Z",
+  "corpus": {
+    "ranAt": "2026-11-04T22:57:34.598Z",
+    "tasks": 60,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "canary": {
+      "staged": "https://rmw2pdfj3-4c4eff---api-sja7fatcta-uc.a.run.app",
+      "checks": 60,
+      "failed": 0,
+      "output": "canary-output.json"
+    },
+    "interpretedGates": {
+      "0003": {
+        "ranAt": "2026-11-04T22:21:56.677Z",
+        "tasks": 120,
+        "failures": 0
+      },
+      "0010": {
+        "ranAt": "2026-11-04T22:21:56.639Z",
+        "tasks": 70,
+        "failures": 0
+      },
+      "0014": {
+        "ranAt": "2026-11-04T22:21:56.673Z",
+        "tasks": 27,
+        "failures": 0
+      },
+      "0177": {
+        "ranAt": "2026-11-04T22:21:56.639Z",
+        "tasks": 99,
+        "failures": 0
+      },
+      "0178": {
+        "ranAt": "2026-11-04T22:21:56.672Z",
+        "tasks": 360,
+        "failures": 0
+      },
+      "0180": {
+        "ranAt": "2026-11-04T22:21:56.753Z",
+        "tasks": 2683,
+        "failures": 0
+      }
+    },
+    "flags": "INTERPRETER_L0003/L0010/L0014/L0177/L0178/L0180=on, COMPILE_GENERATION_*=interp-1 (from rust-1)"
+  }
+}
