@@ -34,13 +34,13 @@ describe("interpreter-manifest", () => {
     expect(capCacheClass("no-store", "0000", "evaluate")).toBe("no-store");
   });
 
-  it("declares L0175, L0184, L0186, L0187 (C1) and L0174, L0179, L0181, L0183 (C2) interpreters, uncapped in both modes; L0000 stays compile-only until C7", () => {
-    for (const lang of ["0174", "0175", "0179", "0181", "0183", "L0184", "0186", "0187"]) {
+  it("declares the C1 and C2 interpreters (L0003, L0010, L0014, L0174, L0175, L0177, L0178, L0179, L0180, L0181, L0183, L0184, L0186, L0187), uncapped in both modes; L0000 stays compile-only until C7", () => {
+    for (const lang of ["0003", "0010", "0014", "0174", "0175", "0177", "0178", "0179", "0180", "0181", "0183", "0184", "0186", "0187"]) {
       expect(interpreterDeclarationFor(lang)).toEqual({ interpreter: "interpreter", cacheCaps: { evaluate: "immutable", present: "immutable" } });
     }
     expect(capCacheClass("immutable", "0184", "present")).toBe("immutable");
     expect(capCacheClass("shared", "0184", "evaluate")).toBe("shared");
-    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0174", "0175", "0179", "0181", "0183", "0184", "0186", "0187"]);
+    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0003", "0010", "0014", "0174", "0175", "0177", "0178", "0179", "0180", "0181", "0183", "0184", "0186", "0187"]);
   });
 
   it("finds a declaration by any spelling of the language", () => {
