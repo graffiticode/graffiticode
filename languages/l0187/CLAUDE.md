@@ -75,7 +75,9 @@ every word, and everything else is derived from it. npm here holds only the fron
     runs alongside, and out of sections that hold neither of its ends, then without that rule if
     nothing fits; `quality.section_conflicts`
     counts the fallbacks. A route with a leg shorter than the gutter between its end stubs is
-    taken only when no other candidate or slide fits; self-loops
+    taken only when no other candidate or slide fits. After every connector is routed, each one that
+    crosses another is rerouted once, in written order (candidates, then a search that charges 2000px
+    a crossing), and keeps the new route only if it fits and crosses fewer; self-loops
     go around a corner, reaching out far enough for their label. The label box follows the
     plugin's rule exactly (leg `floor((legs − 1) / 2)`, its midpoint after the plugin's 16px corner
     rounding and FigJam's 8px endpoint gap). Clearance 8px around every leg band, cap and label.
