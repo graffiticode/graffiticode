@@ -115,8 +115,8 @@ describe("interpret.js", () => {
       expect([...getInterpreterLanguages({ INTERPRETER_L0900: "on", INTERPRETER_L0901: "off" }, DECLARATIONS)]).toEqual(["0900"]);
       // Not declared, or not "on": off.
       expect([...getInterpreterLanguages({ INTERPRETER_L0000: "on", INTERPRETER_L0900: "yes" }, DECLARATIONS)]).toEqual([]);
-      // The production manifest: L0175, L0184, L0186 and L0187 may be turned on (C1); L0000 isn't declared (C7).
-      expect([...getInterpreterLanguages({ INTERPRETER_L0175: "on", INTERPRETER_L0184: "on", INTERPRETER_L0186: "on", INTERPRETER_L0187: "on", INTERPRETER_L0000: "on" })].sort()).toEqual(["0175", "0184", "0186", "0187"]);
+      // The production manifest: L0175, L0184, L0186 and L0187 (C1), and L0174, L0179, L0181 and L0183 (C2) may be turned on; L0000 isn't declared (C7).
+      expect([...getInterpreterLanguages({ INTERPRETER_L0174: "on", INTERPRETER_L0175: "on", INTERPRETER_L0179: "on", INTERPRETER_L0181: "on", INTERPRETER_L0183: "on", INTERPRETER_L0184: "on", INTERPRETER_L0186: "on", INTERPRETER_L0187: "on", INTERPRETER_L0000: "on" })].sort()).toEqual(["0174", "0175", "0179", "0181", "0183", "0184", "0186", "0187"]);
       expect([...getInterpreterLanguages({})]).toEqual([]);
     } finally {
       log.mockRestore();
