@@ -293,3 +293,30 @@ async fn a_route_keeps_out_of_sections_that_hold_neither_end_and_clear_of_border
         }
     }
 }
+
+#[tokio::test]
+async fn a_textbox_first_in_a_grid_heads_it_on_a_row_of_its_own() {
+    let board = named("neda-strategy-4").await;
+    let page = &board["pages"][0];
+    let f = frames(page);
+    let note = f["medicao-nota"];
+    for id in ["indicador-espera", "indicador-faltas", "indicador-erros"] {
+        assert!(f[id].y >= note.y + note.h, "{id} is beside the heading, not under it");
+    }
+    // The first row of cells starts at the section's left edge, not past the heading.
+    assert_eq!(f["indicador-espera"].x, f["indicador-erros"].x);
+    assert!(f["indicador-faltas"].x > f["indicador-espera"].x);
+    assert!(note.w <= f["indicador-espera"].w * 2.0 + spacing::GUTTER, "the heading is not wrapped to the grid");
+}
+
+#[tokio::test]
+async fn slid_and_elbowed_routes_avoid_short_jogs_when_they_can() {
+    let board = named("neda-strategy-4").await;
+    let page = &board["pages"][0];
+    let route = connector(page, "ligacao-piloto-autorizacao")["route"].as_array().unwrap().clone();
+    for i in 1..route.len().saturating_sub(2) {
+        let (a, b) = (&route[i], &route[i + 1]);
+        let len = (n(a, "x") - n(b, "x")).abs() + (n(a, "y") - n(b, "y")).abs();
+        assert!(len >= spacing::GUTTER, "leg {i} is a {len}px jog");
+    }
+}
