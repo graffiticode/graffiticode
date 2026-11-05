@@ -400,6 +400,8 @@ const buildGetData = ({
       }
       const model = compiled?.model;
       if (!model || typeof model.digest !== "string") return failure(`Error: stage ${stage}'s compiler returned no model`, "model-unavailable");
+      // The model's kind, for the B5 usage gate's counts by kind (plan, "Gates for B5 and B6").
+      record.kind = model.kind === "value" ? "value" : "plan";
       const revision = typeof compiled.revision === "string" ? compiled.revision : null;
       // The stage cache is shared: never for a user testing an override, never
       // for a protected task, never without the revision that keys it, and
