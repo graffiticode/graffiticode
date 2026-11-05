@@ -207,12 +207,17 @@ describe("interpret.js", () => {
     expect(permanent({ cacheClass: "immutable", expiresAt: NOW + HOUR })).toBe(false);
   });
 
-  it("keys a stage by everything that decides its result", () => {
-    const base = { lang: "0900", interpreterLang: "0900", modelDigest: "m", revision: "r1", options: {}, generation: { producer: null }, mode: "evaluate", authority: "anonymous", input: { data: 1, errors: [] } };
+  it("keys a stage by everything that decides its result, key order included", () => {
+    const model = { lang: "0900", kind: "value", digest: "m", value: { type: "connector", from: "a", to: "b", toSide: "auto" } };
+    const base = { lang: "0900", interpreterLang: "0900", model, revision: "r1", options: {}, generation: { producer: null }, mode: "evaluate", authority: "anonymous", input: { data: 1, errors: [] } };
     const key = stageCacheKey(base);
-    expect(stageCacheKey({ ...base, input: { errors: [], data: 1 } })).toBe(key);
+    expect(stageCacheKey({ ...base, model: { ...model } })).toBe(key);
+    // Results follow their model's and input's key order, so those orders are part of the key:
+    // two L0186 connectors equal up to key order once shared an entry (the B5 drive, 2026-11-05).
+    expect(stageCacheKey({ ...base, model: { ...model, value: { type: "connector", toSide: "auto", from: "a", to: "b" } } })).not.toBe(key);
+    expect(stageCacheKey({ ...base, input: { errors: [], data: 1 } })).not.toBe(key);
     for (const change of [
-      { lang: "0901" }, { interpreterLang: "0901" }, { modelDigest: "n" }, { revision: "r2" }, { options: { a: 1 } },
+      { lang: "0901" }, { interpreterLang: "0901" }, { model: { ...model, digest: "n" } }, { revision: "r2" }, { options: { a: 1 } },
       { generation: { producer: "g2" } }, { mode: "present" }, { authority: "user:u1" }, { input: { data: 2, errors: [] } },
     ]) {
       expect(stageCacheKey({ ...base, ...change })).not.toBe(key);
