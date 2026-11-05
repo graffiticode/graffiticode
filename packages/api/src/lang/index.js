@@ -1,7 +1,7 @@
 import bent from "bent";
 import { getConfig } from "../config/index.js";
 import { isNonEmptyString, getCompilerHost, getCompilerPort } from "../util.js";
-import { buildGetBaseUrlForLanguage } from "./base-url.js";
+import { buildGetBaseUrlForLanguage, buildGetPublicBaseUrlForLanguage } from "./base-url.js";
 import { buildCompile } from "./compile.js";
 import { buildGetAsset } from "./get-asset.js";
 import { buildPingLang } from "./ping-lang.js";
@@ -18,6 +18,12 @@ export const buildLang = ({ langOverrideStorer }) => {
     getCompilerPort,
     getOverrideBaseUrl: langOverrideStorer.getBaseUrl
   });
+  const getPublicBaseUrlForLanguage = buildGetPublicBaseUrlForLanguage({
+    isNonEmptyString,
+    env: process.env,
+    getOverrideBaseUrl: langOverrideStorer.getBaseUrl,
+    getBaseUrlForLanguage,
+  });
   const compile = buildCompile({ getBaseUrlForLanguage, bent });
   const getLangAsset = buildGetAsset({ getBaseUrlForLanguage, bent });
   const pingLang = buildPingLang({
@@ -26,5 +32,5 @@ export const buildLang = ({ langOverrideStorer }) => {
     log: console.log
   });
   const validateOutput = buildValidateOutput({ getBaseUrlForLanguage, getAsset: getLangAsset });
-  return { getBaseUrlForLanguage, compile, getLangAsset, pingLang, validateOutput };
+  return { getBaseUrlForLanguage, getPublicBaseUrlForLanguage, compile, getLangAsset, pingLang, validateOutput };
 };
