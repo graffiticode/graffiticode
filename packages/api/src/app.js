@@ -6,6 +6,7 @@ import { createRequire } from "module";
 import morgan from "morgan";
 import cors from "cors";
 import { buildValidateToken } from "./auth.js";
+import { buildModelCache, parseModelCacheConfig } from "./model-cache.js";
 import { cacheVerifications } from "@graffiticode/common/verified-tokens";
 import { buildCompile, buildInterpreter } from "./comp.js";
 import { buildDataApi } from "./data.js";
@@ -69,6 +70,9 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   const audit = givenAudit ?? createApiAudit();
   // The per-client limit on system preview signing (signing-limit.js).
   const signingLimiter = givenLimiter ?? buildSigningLimiter({ ...parseSigningLimitConfig(process.env), audit });
+  // Interpreted stages' models, per instance (model-cache.js); MODEL_CACHE_TTL_MS=0 turns it off.
+  const modelCacheConfig = parseModelCacheConfig(process.env);
+  const modelCache = modelCacheConfig.enabled ? buildModelCache(modelCacheConfig) : null;
   const dataApi = buildDataApi({
     compile,
     langOverrideStorer,
@@ -81,6 +85,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
     admissionWanted: chainAdmissionMode.wants,
     interpreter,
     stageResults: stageResultStorer,
+    modelCache,
   });
 
   const app = express();

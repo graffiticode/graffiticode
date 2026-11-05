@@ -6,6 +6,7 @@ import { bindingFor } from "./storage/lang-override.js";
 import { randomUUID } from "node:crypto";
 import { classify } from "@graffiticode/common/failures";
 import { canonicalDigest } from "@graffiticode/common/canonical";
+import { modelCacheKey } from "./model-cache.js";
 import { decodeChainId } from "@graffiticode/common/chain";
 import { noAudit } from "./audit.js";
 import { normalizeLang, PreflightUnavailable } from "./admission.js";
@@ -102,7 +103,7 @@ const buildGetData = ({
   // the languages turned on (interpret.js, read at each request's start) and
   // the declarations that cap them. Without an interpreter every stage is
   // legacy.
-  interpreter = null, stageResults = null, getInterpreterLanguages = readInterpreterLanguages,
+  interpreter = null, stageResults = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages,
   declarations = INTERPRETER_DECLARATIONS, onStage = logStage, now = Date.now
 }) => {
   const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation, audit });
@@ -393,7 +394,14 @@ const buildGetData = ({
       const record = { stage, lang, interpreterLang, mode, run: "interpret", ms };
       const failure = (message, code) =>
         ({ out: { data: null, errors: [failedWith(message, code)] }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: code } });
-      const compiled = await timed("model", () => interpreter.model({ lang, code: task.code, auth: authToken, options, uid, baseUrl: modelBaseUrl }));
+      // The model, from the model cache when it may be shared (model-cache.js): never for a
+      // user testing an override, never for a protected task.
+      const modelKey = modelCache && !override && !taskRequiresProtected(task)
+        ? modelCacheKey({ lang, code: task.code, options, baseUrl: modelBaseUrl, generation: generations[lang] ?? null })
+        : null;
+      const cachedModel = modelKey ? modelCache.get(modelKey) : null;
+      record.modelCache = modelKey ? (cachedModel ? "hit" : "miss") : "skip";
+      const compiled = cachedModel ?? await timed("model", () => interpreter.model({ lang, code: task.code, auth: authToken, options, uid, baseUrl: modelBaseUrl }));
       if (compiled?.responseLost) return failure(`Error: stage ${stage}'s compiler didn't answer`, "compile-response-lost");
       if (Array.isArray(compiled?.errors) && compiled.errors.length) {
         return { out: { data: null, errors: compiled.errors }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: "compile-errors" } };
@@ -403,6 +411,8 @@ const buildGetData = ({
       // The model's kind, for the B5 usage gate's counts by kind (plan, "Gates for B5 and B6").
       record.kind = model.kind === "value" ? "value" : "plan";
       const revision = typeof compiled.revision === "string" ? compiled.revision : null;
+      // Only a model that names the revision that compiled it is kept.
+      if (modelKey && !cachedModel && revision) modelCache.put(modelKey, { model, revision });
       // The stage cache is shared: never for a user testing an override, never
       // for a protected task, never without the revision that keys it, and
       // only for input that may itself be shared (not private or no-store,
@@ -442,6 +452,8 @@ const buildGetData = ({
         }
       }
       const reply = await timed("interpret", () => interpreter.interpret({ lang: interpreterLang, model, input: data, mode, auth: authToken, options, uid, baseUrl }));
+      // A cached model from before a deploy: the next request compiles it afresh.
+      if (cachedModel && typeof reply?.revision === "string" && reply.revision !== revision) modelCache.drop(modelKey);
       const own = reply?.responseLost ? NO_STORE : capped(reply);
       const out = takeEffects(withoutStageMetadata(reply), index);
       // What the entry may be kept as: the result's own terms and its input's
@@ -641,10 +653,10 @@ const buildGetData = ({
 export const buildDataApi = ({
   compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null,
   admissionWanted = _connectionId => false, getActiveGeneration = readActiveGeneration, getLanguageGenerations = readLanguageGenerations,
-  interpreter = null, stageResults = null, getInterpreterLanguages = readInterpreterLanguages, declarations = INTERPRETER_DECLARATIONS,
+  interpreter = null, stageResults = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages, declarations = INTERPRETER_DECLARATIONS,
   onStage = logStage, now = Date.now
 }) => {
   return {
-    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, getInterpreterLanguages, declarations, onStage, now })
+    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, modelCache, getInterpreterLanguages, declarations, onStage, now })
   };
 };

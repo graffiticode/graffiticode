@@ -4,6 +4,7 @@ import { jest } from "@jest/globals";
 import express from "express";
 import request from "supertest";
 import { canonicalDigest } from "@graffiticode/common/canonical";
+import { buildModelCache } from "./model-cache.js";
 import { buildDataApi } from "./data.js";
 import {
   NO_STORE, PERMANENT, combineRestrictions, getInterpreterLanguages, interpretedRestrictions, legacyRestrictions,
@@ -141,6 +142,41 @@ describe("interpret.js", () => {
     expect(t.stages).toHaveLength(1);
     expect(t.stages[0].kind).toBeUndefined();
     expect(t.stages[0].outcome).toBe("compile-errors");
+  });
+
+  it("compiles a stage's model once, from the model cache after that, and never under an override", async () => {
+    const modelCache = buildModelCache();
+    const t = setup({ modelCache });
+    const id = await t.chain([task("0900", "cached")]);
+    const first = await t.get(id);
+    await expect(t.get(id)).resolves.toEqual(first);
+    expect(t.interpreter.model).toHaveBeenCalledTimes(1);
+    expect(t.stages.map(s => s.modelCache)).toEqual(["miss", "hit"]);
+    // A model served from the cache is not timed as a compile.
+    expect(t.stages[1].ms.model).toBeUndefined();
+    // Under an override, the model is compiled every time, and nothing is cached.
+    const o = setup({ modelCache: buildModelCache(), langOverrideStorer: { get: async () => ({ bindings: { L0900: "https://override.example" } }) } });
+    const oid = await o.chain([task("0900", "overridden")]);
+    await o.get(oid, { auth: { uid: "tester" } });
+    await o.get(oid, { auth: { uid: "tester" } });
+    expect(o.interpreter.model).toHaveBeenCalledTimes(2);
+    expect(o.stages.every(s => s.modelCache === "skip")).toBe(true);
+  });
+
+  it("drops a cached model when the service that interprets it names another revision", async () => {
+    const modelCache = buildModelCache();
+    const revisions = { "0900": "r1" };
+    const t = setup({ modelCache, revisions });
+    const id = await t.chain([task("0900", "deployed")]);
+    await t.get(id);
+    // A deploy: the service now answers as r2. The cached model (r1) is used once more, its
+    // interpretation is fresh (another key), and the entry is dropped.
+    revisions["0900"] = "r2";
+    await t.get(id, { refresh: true });
+    expect(t.interpreter.model).toHaveBeenCalledTimes(1);
+    expect(modelCache.size).toBe(0);
+    await t.get(id);
+    expect(t.interpreter.model).toHaveBeenCalledTimes(2);
   });
 
   it("reads a stage's class and expiry, capped by its declaration", () => {
