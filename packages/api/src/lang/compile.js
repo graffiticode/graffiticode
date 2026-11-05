@@ -1,4 +1,3 @@
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 // `baseUrl`, when given, is a pinned revision's URL (chain admission, W4): it
 // is used as is, never resolved, so no override or redeploy can redirect it.
 // `headers`, when given, ride with the compile (the api's identity, comp.js).
@@ -10,6 +9,7 @@
 // within milliseconds, seen under load on 2026-11-05). A call that may act is
 // never retried: its first attempt may already have.
 export const RESET_CODES = new Set(["ECONNRESET", "EPIPE", "UND_ERR_SOCKET"]);
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid, baseUrl: pinned = null, headers = null, path = "/compile", retryReset = false } = {}) => {
   const baseUrl = pinned ?? await getBaseUrlForLanguage(lang, { uid });
   const send = () => {
