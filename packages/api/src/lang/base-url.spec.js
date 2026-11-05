@@ -1,5 +1,5 @@
 import { jest } from "@jest/globals";
-import { buildGetBaseUrlForLanguage } from "./base-url.js";
+import { buildGetBaseUrlForLanguage, buildGetPublicBaseUrlForLanguage } from "./base-url.js";
 import { isNonEmptyString } from "../util.js";
 
 describe("baseUrl", () => {
@@ -197,5 +197,27 @@ describe("baseUrl", () => {
     // Assert
     expect(getOverrideBaseUrl).not.toHaveBeenCalled();
     expect(baseUrl).toBe("https://l175.graffiticode.org:443");
+  });
+});
+
+describe("publicBaseUrl", () => {
+  const getBaseUrlForLanguage = async lang => `https://${lang.toLowerCase()}r-sja7fatcta-uc.a.run.app`;
+  const build = (env, getOverrideBaseUrl = async () => null) =>
+    buildGetPublicBaseUrlForLanguage({ isNonEmptyString, env, getOverrideBaseUrl, getBaseUrlForLanguage });
+
+  it("sends browsers to a language's public URL while the api calls its base URL", async () => {
+    const get = build({ PUBLIC_URL_L0184: "https://l0184.graffiticode.org" });
+    expect(await get("L0184")).toBe("https://l0184.graffiticode.org");
+    expect(await get("0184")).toBe("https://l0184.graffiticode.org");
+  });
+
+  it("falls back to the base URL when no public URL is set", async () => {
+    expect(await build({})("L0187")).toBe("https://l0187r-sja7fatcta-uc.a.run.app");
+  });
+
+  it("lets a tester's override win, as for the base URL", async () => {
+    const get = build({ PUBLIC_URL_L0184: "https://l0184.graffiticode.org" }, async ({ uid }) => (uid === "t1" ? "https://cand---l0184-x.a.run.app" : null));
+    expect(await get("L0184", { uid: "t1" })).toBe("https://cand---l0184-x.a.run.app");
+    expect(await get("L0184", { uid: "t2" })).toBe("https://l0184.graffiticode.org");
   });
 });

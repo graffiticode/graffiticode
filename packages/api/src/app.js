@@ -40,7 +40,7 @@ const env = process.env.NODE_ENV || "development";
 // minter for compiles, caller-identity.js), `audit` and `signingLimiter`.
 export const createApp = ({ authUrl, validateToken: givenValidateToken, callerIdToken, audit: givenAudit, signingLimiter: givenLimiter } = {}) => {
   const { taskStorer, compileStorer, langOverrideStorer, artifactStorer, stageResultStorer } = createStorers();
-  const { compile: langCompile, validateOutput, getBaseUrlForLanguage, getLangAsset, pingLang } = buildLang({ langOverrideStorer });
+  const { compile: langCompile, validateOutput, getBaseUrlForLanguage, getPublicBaseUrlForLanguage, getLangAsset, pingLang } = buildLang({ langOverrideStorer });
   // POLICY_URL (the policy service's run.app URL) enables compiles through a
   // selected connection; without it they are refused, never run unguarded.
   const policyUrl = process.env.POLICY_URL;
@@ -140,7 +140,8 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   const langRouter = routes.buildLangRouter({ pingLang, getLangAsset });
   app.use("/lang", langRouter);
   app.use("/L*", langRouter);
-  app.use("/form", routes.buildFormRouter({ pingLang, getBaseUrlForLanguage })({ taskStorer }));
+  // Browsers go to a language's public URL (its domain); the api's own calls use its base URL.
+  app.use("/form", routes.buildFormRouter({ pingLang, getBaseUrlForLanguage: getPublicBaseUrlForLanguage })({ taskStorer }));
   app.use("/task", routes.tasks({ taskStorer }));
   app.use("/tasks", routes.tasks({ taskStorer }));
   app.use("/publications", routes.publications({ taskStorer, artifactStorer, publications }));
