@@ -72,7 +72,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   const signingLimiter = givenLimiter ?? buildSigningLimiter({ ...parseSigningLimitConfig(process.env), audit });
   // Interpreted stages' models, per instance (model-cache.js); MODEL_CACHE_TTL_MS=0 turns it off.
   const modelCacheConfig = parseModelCacheConfig(process.env);
-  const modelCache = modelCacheConfig.enabled ? buildModelCache(modelCacheConfig) : null;
+  const modelCache = modelCacheConfig.enabled ? buildModelCache({ ttlMs: modelCacheConfig.ttlMs, max: modelCacheConfig.max }) : null;
   const dataApi = buildDataApi({
     compile,
     langOverrideStorer,

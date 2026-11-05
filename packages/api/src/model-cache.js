@@ -16,6 +16,7 @@ export const MODEL_CACHE_DEFAULTS = Object.freeze({ ttlMs: 10 * 60 * 1000, max: 
 export const modelCacheKey = ({ lang, code, options, baseUrl, generation }) =>
   canonicalDigest({ lang, code, options: options ?? {}, baseUrl: baseUrl ?? null, generation: generation ?? null });
 
+/** @param {{ ttlMs?: number, max?: number, now?: () => number }} [opts] */
 export const buildModelCache = ({ ttlMs = MODEL_CACHE_DEFAULTS.ttlMs, max = MODEL_CACHE_DEFAULTS.max, now = Date.now } = {}) => {
   const entries = new Map();
   return {
