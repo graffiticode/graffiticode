@@ -1,14 +1,29 @@
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 // `baseUrl`, when given, is a pinned revision's URL (chain admission, W4): it
 // is used as is, never resolved, so no override or redeploy can redirect it.
 // `headers`, when given, ride with the compile (the api's identity, comp.js).
 // `path` is the route posted to: /compile, or /interpret for an interpreted
 // stage (interpreter plan B3).
-export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid, baseUrl: pinned = null, headers = null, path = "/compile" } = {}) => {
+// `retryReset`, for a call with no effects (an interpreted stage's model and
+// read, comp.js), sends it once more when the connection was reset before an
+// answer: a pooled keep-alive socket the far end had just closed (ECONNRESET
+// within milliseconds, seen under load on 2026-11-05). A call that may act is
+// never retried: its first attempt may already have.
+export const RESET_CODES = new Set(["ECONNRESET", "EPIPE", "UND_ERR_SOCKET"]);
+// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
+export const buildCompile = ({ getBaseUrlForLanguage, bent }) => async (lang, req, { uid, baseUrl: pinned = null, headers = null, path = "/compile", retryReset = false } = {}) => {
   const baseUrl = pinned ?? await getBaseUrlForLanguage(lang, { uid });
-  try {
+  const send = () => {
     const compilePost = bent(baseUrl, "POST", "json", 200, 202);
-    return await (headers ? compilePost(path, req, headers) : compilePost(path, req));
+    return headers ? compilePost(path, req, headers) : compilePost(path, req);
+  };
+  try {
+    try {
+      return await send();
+    } catch (x) {
+      if (!retryReset || !RESET_CODES.has(x?.code)) throw x;
+      console.log(`WARN ${path} to ${lang} reset (${x.code}); sending it again`);
+      return await send();
+    }
   } catch (x) {
     console.log(
       "ERROR",

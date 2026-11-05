@@ -52,8 +52,8 @@ describe("comp", () => {
       await interpreter.model({ lang: "0184", code: TASK1.code, auth: "tok", options: { o: 1 }, uid: "u1" });
       await interpreter.interpret({ lang: "0184", model: { digest: "d" }, input: { data: 1, errors: [] }, mode: "present", auth: "tok", options: { o: 1 }, uid: "u1", baseUrl: "https://pinned" });
       expect(langCompile.mock.calls).toEqual([
-        ["L0184", { code: TASK1.code, data: {}, auth: "tok", options: { o: 1 }, form: "model" }, { uid: "u1", path: "/compile", headers: { "X-Caller-Identity": "id" } }],
-        ["L0184", { model: { digest: "d" }, input: { data: 1, errors: [] }, mode: "present", auth: "tok", options: { o: 1 } }, { uid: "u1", path: "/interpret", baseUrl: "https://pinned", headers: { "X-Caller-Identity": "id" } }],
+        ["L0184", { code: TASK1.code, data: {}, auth: "tok", options: { o: 1 }, form: "model" }, { uid: "u1", path: "/compile", retryReset: true, headers: { "X-Caller-Identity": "id" } }],
+        ["L0184", { model: { digest: "d" }, input: { data: 1, errors: [] }, mode: "present", auth: "tok", options: { o: 1 } }, { uid: "u1", path: "/interpret", retryReset: true, baseUrl: "https://pinned", headers: { "X-Caller-Identity": "id" } }],
       ]);
     });
   });
