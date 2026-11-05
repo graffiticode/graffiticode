@@ -25,11 +25,12 @@ export const buildCompile = ({ langCompile, callerIdentity = async _lang => null
 //   model      POST /compile { code, data: {}, form: "model" } -> { model, errors, revision }
 //   interpret  POST /interpret { model, input, mode } -> the compile envelope, with revision
 // `input` is the upstream stage's envelope, exactly what a legacy compile
-// receives as `data`.
+// receives as `data`. Both calls have no effects (commands are B5), so a
+// connection reset is retried once (lang/compile.js, retryReset).
 export const buildInterpreter = ({ langCompile, callerIdentity = async _lang => null }) => {
   const post = async (lang, path, req, { uid, baseUrl }) => {
     const headers = await callerIdentity(lang);
-    return langCompile(`L${lang}`, req, { uid, path, ...(baseUrl ? { baseUrl } : {}), ...(headers ? { headers } : {}) });
+    return langCompile(`L${lang}`, req, { uid, path, retryReset: true, ...(baseUrl ? { baseUrl } : {}), ...(headers ? { headers } : {}) });
   };
   return {
     model: ({ lang, code, auth = null, options = {}, uid = null, baseUrl = null }) =>
