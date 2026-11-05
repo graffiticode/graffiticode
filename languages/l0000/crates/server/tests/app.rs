@@ -33,7 +33,8 @@ impl TokenVerifier for Verifier {
         self.seen.lock().unwrap().push(token.to_owned());
         match token {
             "good-token" => Ok(AuthContext { uid: Some("u1".to_owned()) }),
-            _ => Err(AuthError { code: "401".to_owned(), message: "invalid token".to_owned() }),
+            "auth-down" => Err(AuthError::unavailable("undefined", "timed out")),
+            _ => Err(AuthError::rejected("401", "invalid token")),
         }
     }
 }
@@ -344,6 +345,13 @@ async fn a_rejected_token_is_unauthorized() {
     let reply = compile(&server().app, json!({ "code": add_1_2(), "data": {}, "auth": "bad-token" })).await;
     assert_eq!(reply.status, StatusCode::UNAUTHORIZED);
     assert_eq!(reply.json(), json!({ "status": "error", "error": { "code": 401, "message": "401 - invalid token" } }));
+}
+
+#[tokio::test]
+async fn a_token_the_auth_service_couldn_t_judge_is_a_503_not_a_401() {
+    let reply = compile(&server().app, json!({ "code": add_1_2(), "data": {}, "auth": "auth-down" })).await;
+    assert_eq!(reply.status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(reply.json()["error"]["code"], 503);
 }
 
 #[tokio::test]

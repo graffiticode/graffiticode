@@ -73,6 +73,14 @@ describe("compile", () => {
     expect(later).toHaveBeenCalledTimes(3);
   });
 
+  it("retries a 503 (the auth service couldn't judge the token) as it does a reset", async () => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const unavailable = Object.assign(new Error("Service Unavailable"), { statusCode: 503 });
+    const call = /** @type {any} */ (jest.fn()).mockRejectedValueOnce(unavailable).mockResolvedValueOnce({ data: 3, errors: [] });
+    await expect(setup(call)("L0184", { model: {} }, { path: "/interpret", retryReset: true })).resolves.toEqual({ data: 3, errors: [] });
+    expect(call).toHaveBeenCalledTimes(2);
+  });
+
   it("never retries a call that may act, or an error that isn't a reset", async () => {
     jest.spyOn(console, "log").mockImplementation(() => {});
     const call = /** @type {any} */ (jest.fn()).mockRejectedValue(reset());

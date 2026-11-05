@@ -238,6 +238,12 @@ async fn request_identity(
     let uid = match &token {
         Some(token) => match state.verifier.verify(token).await {
             Ok(context) => context.uid,
+            // The auth service couldn't judge the token: retryable, not a refusal.
+            Err(err) if err.unavailable => {
+                tracing::warn!(%uri, error = %err, "token not verified: auth service unavailable");
+                let error = json!({ "status": "error", "error": { "code": 503, "message": err.to_string() } });
+                return Err(Box::new((StatusCode::SERVICE_UNAVAILABLE, Json(error)).into_response()));
+            }
             Err(err) => {
                 tracing::debug!(%uri, error = %err, "token rejected");
                 let error = json!({ "status": "error", "error": { "code": 401, "message": err.to_string() } });
@@ -509,7 +515,11 @@ pub async fn serve_with(
     let state = AppState {
         gateways: Arc::new(GoogleGateways::new(client.clone(), &lang_id, &gateways)),
         system_preview_direct,
-        verifier: Arc::new(AuthService::new(client, &auth_url)),
+        verifier: Arc::new(auth::CachingVerifier::new(
+            AuthService::new(client, &auth_url),
+            auth::CachingVerifier::<AuthService>::DEFAULT_TTL,
+            auth::CachingVerifier::<AuthService>::DEFAULT_MAX,
+        )),
         revision: revision.revision,
         lexicon: serde_json::to_string(lexicon)?.into(),
         compiler,

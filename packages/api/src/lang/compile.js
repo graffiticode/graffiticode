@@ -9,8 +9,11 @@
 // within milliseconds, seen under load on 2026-11-05). An immediate retry can
 // take another stale socket from the same pool (the B5 drive saw resets
 // survive one), so each retry waits first, long enough for closed sockets to
-// leave the pool: RESET_RETRY_DELAYS_MS, at most two retries. A call that may
-// act is never retried: its first attempt may already have.
+// leave the pool: RESET_RETRY_DELAYS_MS, at most two retries. A 503 is retried
+// the same way: a language service answers it when the auth service couldn't
+// judge the caller's token (the kernel's CachingVerifier), which says nothing
+// about the token. A call that may act is never retried: its first attempt may
+// already have.
 export const RESET_CODES = new Set(["ECONNRESET", "EPIPE", "UND_ERR_SOCKET"]);
 export const RESET_RETRY_DELAYS_MS = Object.freeze([50, 250]);
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -26,8 +29,9 @@ export const buildCompile = ({ getBaseUrlForLanguage, bent, delays = RESET_RETRY
       try {
         return await send();
       } catch (x) {
-        if (!retryReset || !RESET_CODES.has(x?.code) || attempt >= delays.length) throw x;
-        console.log(`WARN ${path} to ${lang} reset (${x.code}); sending it again in ${delays[attempt]} ms`);
+        const retryable = RESET_CODES.has(x?.code) || x?.statusCode === 503;
+        if (!retryReset || !retryable || attempt >= delays.length) throw x;
+        console.log(`WARN ${path} to ${lang} ${x?.code ? `reset (${x.code})` : `answered ${x.statusCode}`}; sending it again in ${delays[attempt]} ms`);
         await pause(delays[attempt]);
       }
     }
