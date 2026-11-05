@@ -337,7 +337,9 @@ B5 used to wait until the read path had "more production experience", which name
 8. **Latency.** It is measured as the request's elapsed time, as the driver sees it, not from a subset of the stage timings. Every hit also makes the model call, and every miss also does the cache lookup.
    - **Stage breakdown.** The `ms.{model,cache,interpret}` split is reported alongside, summed consistently: `model + cache` on a hit, and `model + cache + interpret` on a miss.
    - **Separate reporting.** Hits and misses are reported separately, per language.
-   - **Budget.** Each p95 is at most 1.5 × the p95 of a direct `lNNNNr /compile` of the same request, plus 100 ms. Both are measured in the same drive.
+   - **Budget.** Each p95 is at most 1.5 × the p95 of the same api request on the **legacy path**, plus 100 ms. The legacy path is `POST /compile` over fresh form state for a compile-only language, L0185 by default. Both are measured in the same drive, at the same concurrency.
+     - **Why not a direct compile.** The first trial (2026-11-05) showed that a direct `lNNNNr /compile` doesn't pay the api's route overhead: auth, the task lookup, and the data task. That overhead is about 650–850 ms on the legacy path too, against about 120 ms direct, so comparing with a direct compile charged it to interpretation.
+     - **Reported, not budgeted.** The direct compile's p95 is still reported, beside the stage breakdown.
 9. **Rollback rehearsal.** During the drive, one language's `INTERPRETER_LNNNN` is turned off and back on. Each flip is an api release that moves `COMPILE_GENERATION_LNNNN`. After each flip, no result cached under the previous generation is served, and the oracle still holds.
 
 B5 now also gates Track E (durable execution). These criteria don't change for that.
