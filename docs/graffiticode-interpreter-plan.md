@@ -214,6 +214,9 @@ Retirement is its own milestone for each language, after its Track A switch. It 
     5. Retire `lNNNNr`.
 
     For a pinnable language, `lNNNNr` stays until no live plan names its revisions. The rollout script, the canary and the tester overrides accept a Rust service under the plain name (`rustService` in `scripts/lib/lang-overrides.js`). L0184 is the first to be renamed.
+  - **A7 for fifteen more (2026-11-05).** The TypeScript services of L0003, L0010, L0013, L0014, L0174, L0175, L0177–L0183, L0185 and L0186 are deleted (IAM review Step 19). L0000 and L0176 are pinnable and stay for the plans that pin them.
+    - **Not done yet.** Their A6 (source removal) hasn't happened: the TypeScript stays in the repo, and no service is built from it.
+    - **Deferred.** The owner deferred the renames of their Rust services.
 
 ## Track B — Interpreter platform (a no-op until a language opts in)
 - **B1 Rust contract** *(done: `crates/core/src/model.rs`, `Compiler::model`/`interpret`, `/interpret` and `"form": "model"` in the shared server; documented in `languages/l0000/CLAUDE.md`. A plan model carries the stored source, so interpreting it equals today's compile, checked over the whole L0000 conformance corpus. `Dialect::input_independent` decides value models and defaults to never)*.

@@ -26,19 +26,9 @@
       "exception": "D6"
     },
     {
-      "subject": "l0003-run",
-      "net": "at11-net-l0003",
-      "iam": "at11-iam-l0003"
-    },
-    {
       "subject": "l0003r-run",
       "net": "at11-net-l0003r",
       "iam": "at11-iam-l0003r"
-    },
-    {
-      "subject": "l0010-run",
-      "net": "at11-net-l0010",
-      "iam": "at11-iam-l0010"
     },
     {
       "subject": "l0010r-run",
@@ -56,19 +46,9 @@
       "exception": "D6"
     },
     {
-      "subject": "l0013-run",
-      "net": "at11-net-l0013",
-      "iam": "at11-iam-l0013"
-    },
-    {
       "subject": "l0013r-run",
       "net": "at11-net-l0013r",
       "iam": "at11-iam-l0013r"
-    },
-    {
-      "subject": "l0014-run",
-      "net": "at11-net-l0014",
-      "iam": "at11-iam-l0014"
     },
     {
       "subject": "l0014r-run",
@@ -186,19 +166,9 @@
       "exception": "D6"
     },
     {
-      "subject": "l0174-run",
-      "net": "at11-net-l0174",
-      "iam": "at11-iam-l0174"
-    },
-    {
       "subject": "l0174r-run",
       "net": "at11-net-l0174r",
       "iam": "at11-iam-l0174r"
-    },
-    {
-      "subject": "l0175-run",
-      "net": "at11-net-l0175",
-      "iam": "at11-iam-l0175"
     },
     {
       "subject": "l0175r-run",
@@ -216,19 +186,9 @@
       "iam": "at11-iam-l0176r"
     },
     {
-      "subject": "l0177-run",
-      "net": "at11-net-l0177",
-      "iam": "at11-iam-l0177"
-    },
-    {
       "subject": "l0177r-run",
       "net": "at11-net-l0177r",
       "iam": "at11-iam-l0177r"
-    },
-    {
-      "subject": "l0178-run",
-      "net": "at11-net-l0178",
-      "iam": "at11-iam-l0178"
     },
     {
       "subject": "l0178r-run",
@@ -236,19 +196,9 @@
       "iam": "at11-iam-l0178r"
     },
     {
-      "subject": "l0179-run",
-      "net": "at11-net-l0179",
-      "iam": "at11-iam-l0179"
-    },
-    {
       "subject": "l0179r-run",
       "net": "at11-net-l0179r",
       "iam": "at11-iam-l0179r"
-    },
-    {
-      "subject": "l0180-run",
-      "net": "at11-net-l0180",
-      "iam": "at11-iam-l0180"
     },
     {
       "subject": "l0180r-run",
@@ -256,29 +206,14 @@
       "iam": "at11-iam-l0180r"
     },
     {
-      "subject": "l0181-run",
-      "net": "at11-net-l0181",
-      "iam": "at11-iam-l0181"
-    },
-    {
       "subject": "l0181r-run",
       "net": "at11-net-l0181r",
       "iam": "at11-iam-l0181r"
     },
     {
-      "subject": "l0182-run",
-      "net": "at11-net-l0182",
-      "iam": "at11-iam-l0182"
-    },
-    {
       "subject": "l0182r-run",
       "net": "at11-net-l0182r",
       "iam": "at11-iam-l0182r"
-    },
-    {
-      "subject": "l0183-run",
-      "net": "at11-net-l0183",
-      "iam": "at11-iam-l0183"
     },
     {
       "subject": "l0183r-run",
@@ -291,19 +226,9 @@
       "iam": "at11-iam-l0184"
     },
     {
-      "subject": "l0185-run",
-      "net": "at11-net-l0185",
-      "iam": "at11-iam-l0185"
-    },
-    {
       "subject": "l0185r-run",
       "net": "at11-net-l0185r",
       "iam": "at11-iam-l0185r"
-    },
-    {
-      "subject": "l0186-run",
-      "net": "at11-net-l0186",
-      "iam": "at11-iam-l0186"
     },
     {
       "subject": "l0186r-run",

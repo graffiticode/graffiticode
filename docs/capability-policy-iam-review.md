@@ -1578,6 +1578,24 @@ api routing through the domain). The owner had the TypeScript service deleted.
   - Then `l0184.graffiticode.org` is repointed to `l0184`, and `l0184r` is retired.
   - After that, `l0184r-run` holds only that same CA-bundle grant, until it is removed.
 
+### Step 19: fifteen more TypeScript services are retired (interpreter plan A7) [LIVE]
+
+The owner had the TypeScript services of every switched, non-pinnable language deleted
+*(2026-11-05)*: `l0003`, `l0010`, `l0013`, `l0014`, `l0174`, `l0175`, `l0177`–`l0183`, `l0185`
+and `l0186`. Production serves each language from its `lNNNNr` service, behind its domain.
+
+- **Before deleting.**
+  - No domain mapping named any of them.
+  - None had a request since 2026-11-03.
+  - No tester override pointed at one.
+  - None is pinnable, so no admitted plan pins its revisions.
+- **After.** A compile of each language through `api.graffiticode.org` came back without errors.
+- **Images.** The last images are retained in Artifact Registry, where the cleanup policy keeps each image's 10 newest versions.
+- **Config.** The `deploy.json` and `production/network.json` entries are removed. The step 1 checklist and the AT-11 step 7 configs are regenerated.
+- **Kept, deliberately.** `l0000` and `l0176` are pinnable, and admitted plans pin their TypeScript revisions; the A5 canary replayed one on `l0176-rmvv31tuj-fa4690`. Each stays until no live plan names one of its revisions.
+- **Runtime accounts.** The fifteen `lNNNN-run` accounts remain, holding only what they held before: the egress CA bundle, and for `l0013-run` the thumbnails bucket (removed at D4, plan C5c). Removing them is a separate decision.
+- **Rust names.** The renames of `lNNNNr` to `lNNNN` are deferred (owner, 2026-11-05).
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
