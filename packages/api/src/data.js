@@ -421,7 +421,7 @@ const buildGetData = ({
         ? stageCacheKey({
           lang,
           interpreterLang,
-          modelDigest: model.digest,
+          model,
           revision,
           options,
           generation: { requested: generation ?? null, producer: generations[lang] ?? null, interpreter: generations[interpreterLang] ?? null },

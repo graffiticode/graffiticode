@@ -7,6 +7,7 @@
 // in the API's environment. Every other stage goes through the legacy adapter,
 // today's POST /compile, unchanged. No language is declared yet, so every chain
 // runs exactly as before.
+import { createHash } from "node:crypto";
 import { canonicalDigest } from "@graffiticode/common/canonical";
 import {
   INTERPRETER_DECLARATIONS, capCacheClass, interpreterDeclarationFor, stricterCacheClass,
@@ -111,16 +112,27 @@ export const authorityFor = uid => (uid ? `user:${uid}` : "anonymous");
 // interpreter's revision, the configuration, the language's generation, the
 // mode and the authority are beside it, and so is the input, by its canonical
 // digest. A change to any one is a different entry.
-export const stageCacheKey = ({ lang, interpreterLang, modelDigest, revision, options, generation, mode, authority, input }) =>
+// The digest of a value's exact JSON text, key order included. A result's text
+// follows the key order of its model and its input (an L0186 connector's
+// attributes come out in the order the program gave them; L0174 lays its
+// upstream data over its form in that data's order), so two models or two
+// inputs equal up to key order are different stage results. Key-sorted digests
+// let them collide: the B5 drive (2026-11-05) served L0186 programs each
+// other's answers that way.
+export const exactDigest = value => createHash("sha256").update(JSON.stringify(value ?? null)).digest("hex");
+
+// v2 keys the model and the input by their exact text (exactDigest); v1 keyed
+// them key-sorted, so no v1 entry is read again.
+export const stageCacheKey = ({ lang, interpreterLang, model, revision, options, generation, mode, authority, input }) =>
   canonicalDigest({
-    v: 1,
+    v: 2,
     lang,
     interpreterLang,
-    modelDigest,
+    model: exactDigest(model),
     revision,
     config: canonicalDigest(options ?? {}),
     generation: generation ?? null,
     mode,
     authority,
-    input: canonicalDigest(input ?? null),
+    input: exactDigest(input),
   });
