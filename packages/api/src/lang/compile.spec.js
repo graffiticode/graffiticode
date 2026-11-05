@@ -48,7 +48,7 @@ describe("compile", () => {
 
   const reset = () => Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" });
   const setup = call => {
-    const getBaseUrlForLanguage = jest.fn().mockResolvedValue("https://l0184.example");
+    const getBaseUrlForLanguage = /** @type {any} */ (jest.fn()).mockResolvedValue("https://l0184.example");
     const bent = jest.fn().mockReturnValue(call);
     return buildCompile({ getBaseUrlForLanguage, bent });
   };
