@@ -24,6 +24,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 // with no effects (`retryReset`) gives up after 30 s and is sent again; any
 // other call after 240 s, and its answer is lost (data.js decides what that
 // means for the stage).
+/** @type {Readonly<{ read: number, other: number }>} */
 export const CALL_DEADLINES_MS = Object.freeze({ read: 30000, other: 240000 });
 const LANG_TIMEOUT = "LANG_TIMEOUT";
 const withDeadline = (promise, ms, what) => {
