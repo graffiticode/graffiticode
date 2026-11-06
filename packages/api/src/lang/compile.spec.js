@@ -50,7 +50,7 @@ describe("compile", () => {
   const setup = call => {
     const getBaseUrlForLanguage = /** @type {any} */ (jest.fn()).mockResolvedValue("https://l0184.example");
     const bent = jest.fn().mockReturnValue(call);
-    return buildCompile({ getBaseUrlForLanguage, bent, delays: [0, 0] });
+    return buildCompile({ getBaseUrlForLanguage, bent, delays: [0, 0], deadlines: { read: 20, other: 40 } });
   };
 
   it("sends a call with no effects once more after a connection reset", async () => {
@@ -79,6 +79,18 @@ describe("compile", () => {
     const call = /** @type {any} */ (jest.fn()).mockRejectedValueOnce(unavailable).mockResolvedValueOnce({ data: 3, errors: [] });
     await expect(setup(call)("L0184", { model: {} }, { path: "/interpret", retryReset: true })).resolves.toEqual({ data: 3, errors: [] });
     expect(call).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives a call that never answers a deadline: a read is sent again, any other call is lost", async () => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const never = new Promise(() => {});
+    const read = /** @type {any} */ (jest.fn()).mockReturnValueOnce(never).mockResolvedValueOnce({ data: 4, errors: [] });
+    await expect(setup(read)("L0184", { model: {} }, { path: "/interpret", retryReset: true })).resolves.toEqual({ data: 4, errors: [] });
+    expect(read).toHaveBeenCalledTimes(2);
+    const legacy = /** @type {any} */ (jest.fn()).mockReturnValue(never);
+    const lost = await setup(legacy)("L0000", { code: {} });
+    expect(lost.responseLost).toBe(true);
+    expect(legacy).toHaveBeenCalledTimes(1);
   });
 
   it("never retries a call that may act, or an error that isn't a reset", async () => {
