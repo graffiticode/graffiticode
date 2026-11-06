@@ -6,7 +6,7 @@
 //   set -a; source ../graffiticode-app/.env.local; set +a   # EVAL_API_KEY
 //   node scripts/interpret-soak.js --langs 0184,0186,0175,0179,0181 \
 //     [--api https://api.graffiticode.org] [--misses 2000] [--hits 2000] [--concurrency 16] \
-//     [--out docs/evidence/b5-gate/<date>] [--no-logs] [--rehearsal <file>] [--baseline-lang 0185]
+//     [--out docs/evidence/b5-gate/<date>] [--no-logs] [--rehearsal <file>] [--baseline-lang 0185] [--warmup 300]
 //
 // For each language:
 //   - corpus: every corpus case that compiles is read through GET /data three times. Its oracle
@@ -37,6 +37,7 @@ const flag = (name, fallback) => {
 const LANGS = String(flag("--langs", "0184,0186,0175,0179,0181")).split(",").map(s => s.trim().replace(/^L/i, "").padStart(4, "0"));
 const API = flag("--api", "https://api.graffiticode.org");
 const MISSES = Number(flag("--misses", THRESHOLDS.misses));
+const WARMUP = Number(flag("--warmup", 300));
 const HITS = Number(flag("--hits", THRESHOLDS.hits));
 const CONCURRENCY = Number(flag("--concurrency", THRESHOLDS.concurrency));
 const OUT = flag("--out", path.join("docs/evidence/b5-gate", new Date().toISOString().slice(0, 10)));
@@ -197,6 +198,14 @@ const driveLanguage = async lang => {
     return answer(r.json);
   };
   const compile = ({ c, data }) => () => send(`${API}/compile`, { method: "POST", body: { id: c.id, data } });
+  // Warm-up, unmeasured (plan, criterion 8): fresh requests at twice the drive's concurrency,
+  // so the api and the language's service have scaled out and their per-instance caches have
+  // filled before latency is timed. Production runs warm; a drive starting right after a release
+  // would otherwise charge Cloud Run's scale-out to the first languages it drives.
+  await pool(Array.from({ length: WARMUP }, (_, n) => () => {
+    const pick = byKind[kinds[n % kinds.length]];
+    return send(`${API}/compile`, { method: "POST", body: { id: pick[n % pick.length].id, data: { soak: RUN, warmup: n } } });
+  }), CONCURRENCY * 2);
   await pool(fresh.map((req, n) => async () => {
     const [reply, oracle] = await Promise.all([
       n % 5 === 0 ? burst(CONCURRENCY, compile(req), `L${lang} miss ${n}`) : compile(req)(),
