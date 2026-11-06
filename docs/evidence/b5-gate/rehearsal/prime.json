@@ -1,0 +1,256 @@
+{
+  "phase": "prime",
+  "expect": "interp-1",
+  "startedAt": "2026-11-06T20:35:02.118Z",
+  "endedAt": "2026-11-06T20:35:28.667Z",
+  "requests": 30,
+  "checks": {
+    "answersEqualOracles": true,
+    "generationNamed": true,
+    "currentImmutable": true,
+    "previousNoStore": true
+  },
+  "passed": true,
+  "results": [
+    {
+      "i": 0,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 1,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 2,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 3,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 4,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 5,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 6,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 7,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 8,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 9,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 10,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 11,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 12,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 13,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 14,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 15,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 16,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 17,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 18,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 19,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 20,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 21,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 22,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 23,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 24,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 25,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 26,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 27,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 28,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    },
+    {
+      "i": 29,
+      "ok": true,
+      "status": 200,
+      "generations": null,
+      "current": null,
+      "stale": null
+    }
+  ]
+}

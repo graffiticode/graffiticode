@@ -347,6 +347,11 @@ B5 used to wait until the read path had "more production experience", which name
 
 B5 now also gates Track E (durable execution). These criteria don't change for that.
 
+**The B5 gate passed on 2026-11-06** (`docs/evidence/b5-gate/`): drive 6 and the L0179 rollback rehearsal, 69 of 69 checks.
+- **Fixes on the way:** six drives found, and the fixes resolved, a stage-cache key collision, connection resets, a proxied-domain route, the kernel's token check, missing call deadlines, and a cold renamed service.
+- **Rollback procedure:** an `INTERPRETER_`/`COMMANDS_` flag is turned off by **value** (`"off"`), never by removing it from `deploy.json`. The deploy CLI's `--update-env-vars` keeps variables it isn't given.
+- **Also found by the rehearsal:** Cloudflare caches `/form` redirects for an hour, so a flip's new generation reaches browsers' data URLs only after that.
+
 **B6 entry gate.** This decides when B6 work starts. It asks only for what B5 already provides. B5 has shipped, and at least one command language runs on it: one from C3 or C5, or a Track E language such as L0188, whose production commands and reconciliations count. A synthetic drive with injected faults then runs that language's commands:
 - **Faults.** Each run injects a failure at a stage, a lost response, or a lease that expires mid-step.
 - **Volume.** At least 200 commands, covering every operation, with retries using the same key.

@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "language": "L0179",
+  "date": "2026-11-06",
+  "steps": [
+    {
+      "step": "1, off",
+      "releases": [
+        "api-rmw5fvr9h-5d8aa3 (#301: flag removed from deploy.json \u2014 stayed on; see findings)",
+        "api-rmw5kam54-e0d400 (#302: INTERPRETER_L0179=off, COMPILE_GENERATION_L0179=rust-3)"
+      ],
+      "checks": {
+        "requests": 30,
+        "answersEqualOracles": true,
+        "viewNamesRust3": true,
+        "currentImmutable": true,
+        "previousNoStore": true,
+        "l0179rInterpretCalls": 0,
+        "l0179rCompileCalls": 102
+      },
+      "passed": true
+    },
+    {
+      "step": "2, on",
+      "releases": [
+        "api-rmw5m874a-741109 (#303: INTERPRETER_L0179=on, COMPILE_GENERATION_L0179=interp-2)"
+      ],
+      "checks": {
+        "requests": 30,
+        "answersEqualOracles": true,
+        "apiNamesInterp2": "30 of 30, asked directly (rehearsal/step2-direct.txt)",
+        "immutable": "28 of 30; the other 2 answers carry program errors, which are never cached (no-store), as they should be",
+        "previousNoStore": true,
+        "l0179rInterpretCalls": 30
+      },
+      "passed": true
+    }
+  ],
+  "findings": [
+    "Removing an INTERPRETER_ flag from deploy.json does not turn it off: the deploy CLI uses --update-env-vars, which keeps variables it isn't given. Flags are turned off by value (\"off\"). Follow-up: the deploy CLI should refuse a release that drops a flag the live service still has.",
+    "Cloudflare caches api.graffiticode.org/form redirects for an hour (Cache-Control: max-age=3600), so after a generation change browsers can be sent data URLs naming the previous generation. Those are answered no-store with correct data, so nothing wrong is served, but View caching degrades for up to an hour. Follow-up: /form should send no-store or a short max-age, or a flip should purge /form."
+  ]
+}

@@ -1,0 +1,256 @@
+{
+  "phase": "check",
+  "expect": "rust-3",
+  "startedAt": "2026-11-06T23:31:18.727Z",
+  "endedAt": "2026-11-06T23:32:08.637Z",
+  "requests": 30,
+  "checks": {
+    "answersEqualOracles": true,
+    "generationNamed": true,
+    "currentImmutable": true,
+    "previousNoStore": true
+  },
+  "passed": true,
+  "results": [
+    {
+      "i": 0,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 1,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 2,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 3,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 4,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 5,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 6,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 7,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 8,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 9,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 10,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 11,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 12,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 13,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 14,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 15,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 16,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 17,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 18,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 19,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 20,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 21,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 22,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 23,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 24,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 25,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 26,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 27,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 28,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    },
+    {
+      "i": 29,
+      "ok": true,
+      "status": 200,
+      "generations": "@L0000=rust-1@L0179=rust-3",
+      "current": "public, max-age=31536000, immutable",
+      "stale": "no-store"
+    }
+  ]
+}
