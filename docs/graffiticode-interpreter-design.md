@@ -233,7 +233,12 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
   - The claim carries a **lease**. If the process dies, the lease expires, and a **recovery owner** takes the command over: the next retry with the same key, or a reconciler.
   - Taking over is safe because the pinned inputs and stable occurrence ids lead it to the same broker receipts. Writes that already happened are replayed from the receipts, not repeated.
 - **Fencing.** An expired lease does not stop the original worker: a paused worker can resume after another has taken over. So every ownership carries a **fencing generation**, which increments on each takeover.
-  - **Every command-record write is conditional on the writer's generation:** installing the snapshot, recording progress, recording the outcome, and replacing the artifact. A worker whose generation is no longer current has its writes refused, and it stops.
+  - **Every command-record write is conditional on the writer's generation:** installing the snapshot, recording progress, recording the outcome and committing the result. A worker whose generation is no longer current has its writes refused, and it stops.
+  - **The artifact is delivered from the committed result, not written under the fence.**
+    - The result the current owner commits with the outcome is the only content the artifact can receive.
+    - Delivery is idempotent, and content whose digest differs from the committed one is refused.
+    - So a stale deliverer can write only the committed content, and a stale worker's own result never reaches the artifact.
+    - A delivery interrupted by a crash is completed by recovery from the committed result (plan [B5](b5-commands-plan.md), §6).
   - **The pinned inputs are installed exactly once**, by compare-and-set: create if absent, under the current generation. A later owner reads the installed snapshot and never replaces it, even if it would have resolved something different.
   - **New effects are fenced at authorization.** A stale worker might also try to *start* an operation after takeover. So the effect-authorization path checks ownership:
     - Each execution token policy mints for a command carries the command's fencing generation.
@@ -287,12 +292,16 @@ Broker receipts deduplicate *external writes*: one receipt per operation id. The
     - It may not call the broker or any external API. A materialization that reaches an intent without a completed output fails, and nothing is published.
     - The result is what the original command would have produced had every occurrence completed the first time.
     - A language without the hook can't have an artifact assembled after a repair. Its repairs complete the ledger, but the artifact is replaced only by a new, fully completed command.
-  - The materialized result is written under the latest repair's fencing generation, and only if the artifact's current version is still the one the original command found. A newer completed command for the same item supersedes it, and the assembly is discarded rather than overwriting newer work.
+  - The materialized result is committed under the latest repair's fencing generation and delivered from that commit, by the same rule as a command's artifact (above), and only if the artifact's current version is still the one the original command found. A newer completed command for the same item supersedes it, and the assembly is discarded rather than overwriting newer work.
   - Until every occurrence has completed, the current artifact stays in place.
 
 **Command outcomes are not artifacts.**
 - A command's outcome is stored in its command record.
 - Only a `completed` outcome that produces a usable result replaces the **artifact** that connection and publication views read (§8).
+- **Completion and a usable result are separate facts.**
+  - A command can complete every write and still have no result to publish, for example when the head stage's response is lost.
+  - The program's result isn't reconstructed from the operations' outputs, since the final expression may transform or ignore them. Only `materialize` (B6) can rebuild it.
+  - Until then the command is `completed` with no result, and the current artifact stays in place.
 - A `failed`, `partial` or `uncertain` command leaves the current artifact in place.
 
 ### Pipelines
@@ -725,7 +734,7 @@ Phases 1–3 are done when tests show:
    - Concurrent duplicates execute once; the second caller sees `pending`, then the outcome.
    - A command that depends on fetched data, whose first attempt loses its response, is retried with the pinned snapshot. It reaches the same broker receipts, not `operation-id-reused`.
    - A process killed after the claim is recovered when its lease expires, without repeating completed writes.
-   - An original worker that resumes after a takeover has its snapshot, progress, outcome and artifact writes refused, and the pinned snapshot is never replaced.
+   - An original worker that resumes after a takeover has its snapshot, progress, outcome and result writes refused, and the pinned snapshot is never replaced. Its artifact delivery is acknowledged only for the result the current owner committed.
    - With two saves, where the first completes and the second fails, the command is `partial`, never `failed`.
    - A repair command that selects the failed save runs only that save. A repair that selects the completed one is refused. A plain new `start` with a new key is not treated as a repair.
    - Two concurrent repairs with different keys that select the same failed save: one claims it and runs, and the other is refused. Exactly one write results.
