@@ -17,6 +17,7 @@ const FORMS = [
   /\brefuse\("([a-z0-9-]+)"/g, // broker: refuse("reason", status)
   /\brefusal: "([a-z0-9-]+)"/g, // policy: { refusal: "reason" }
   /\bnew (?:BrokerRefused|PolicyDenied|AuthorizationDenied|AdmissionRefused)\("([a-z0-9-]+)"/g,
+  /\bnew ReceiptReadRefused\("([a-z0-9-]+)"/g, // broker: receipt reads (B5)
   /\breason: "([a-z0-9-]+)"/g, // audited denials (caller-rejected, route-not-allowed-for-caller)
   /\breason = (?:[^;]*?: )?"([a-z0-9-]+)";/g, // broker: an outcome's reason (provider-rejected, …)
   /\bdeny\([^;]*?\? "([a-z0-9-]+)" : "([a-z0-9-]+)"/g, // policy: deny(expired ? "token-expired" : "bad-token", …)
