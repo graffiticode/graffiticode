@@ -97,6 +97,34 @@
     "length": 1,
     "arity": 1
   },
+  "colspan": {
+    "tk": 1,
+    "name": "COLSPAN",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "rowspan": {
+    "tk": 1,
+    "name": "ROWSPAN",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "link": {
+    "tk": 1,
+    "name": "LINK",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "wrap": {
+    "tk": 1,
+    "name": "WRAP",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
   "assess": {
     "tk": 1,
     "name": "ASSESS",
@@ -139,6 +167,20 @@
     "length": 1,
     "arity": 1
   },
+  "freeze-rows": {
+    "tk": 1,
+    "name": "FREEZE_ROWS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
+  "freeze-columns": {
+    "tk": 1,
+    "name": "FREEZE_COLUMNS",
+    "cls": "function",
+    "length": 1,
+    "arity": 1
+  },
   "title": {
     "tk": 1,
     "name": "TITLE",
@@ -177,6 +219,13 @@
   "instant-feedback": {
     "tk": 1,
     "name": "INSTANT_FEEDBACK",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
+  "read-only": {
+    "tk": 1,
+    "name": "READ_ONLY",
     "cls": "function",
     "length": 2,
     "arity": 2

@@ -20,7 +20,7 @@ const updateTextNode = ({ editorView, from, text }) => {
   editorView.dispatch(transaction);
 }
 
-export const FormulaBar = ({ editorView }) => {
+export const FormulaBar = ({ editorView, readOnly = false }) => {
   const [ value, setValue ] = useState("");
   const updateFormulaBar = () => {
     if (editorView?.state) {
@@ -76,6 +76,8 @@ export const FormulaBar = ({ editorView }) => {
         name="formula"
         type="text"
         value={value}
+        // `read-only` sheets show a cell's formula here but take no edit through it.
+        readOnly={readOnly}
         // `outline: none`, not `focus:outline-0`: that only zeroes the width, and Chrome still draws
         // its `auto` focus-visible ring at width 0 — the blue box a click on the bar used to show.
         style={{borderStyle: "none", outline: "none"}}

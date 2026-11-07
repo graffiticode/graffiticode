@@ -92,11 +92,16 @@ Written inside a `[...]` list as a word applied to a value. Order does not matte
 | `text-decoration`, `vertical-align`, `border` | cell, column, row | Presentation. |
 | `format` | cell, column, row | A number format, e.g. `"#,##0.00"`. |
 | `protected` | cell, column, row | When true the learner cannot edit the cell. A bare `true` or `false`. |
+| `colspan`, `rowspan` | cell | Merge cells: this many columns (or rows), starting at this cell, become one. See [colspan / rowspan](#sec-colspan-rowspan). |
+| `link` | cell | A web address (`http://` or `https://`); the cell's text becomes a link to it. |
+| `wrap` | cell, column, row | Text wraps by default; `wrap false` keeps it on one line. A bare `true` or `false`. |
 | `name` | sheet | The sheet's label in the tab strip and the sheet menu. Defaults to its id. |
 | `hide-formulabar` | sheet | Hides the `fx` input above the grid. |
+| `freeze-rows`, `freeze-columns` | sheet | Keep this many rows from the top (columns from the left) in view while the grid scrolls. |
 | `title`, `instructions` | **program** | Text shown above the grid. Written after the `sheets` list, not inside a sheet. |
 | `show-sheet-tabs`, `hide-sheet-menu` | **program** | See [Several sheets](#sec-Several-sheets). Written after the `sheets` list. |
 | `hide-headings` | **program** | Hides the row (1, 2, 3…) and column (A, B, C…) headings on every sheet. Cells keep their names. Written after the `sheets` list. |
+| `read-only` | **program** | No cell on any sheet can be edited: a display table. Written after the `sheets` list. |
 | `instant-feedback` | **program** | Colour assessed cells as the learner answers, not only on a check. See [assess](#sec-assess). Written after the `sheets` list. |
 
 An attribute a container does not accept is a compile error naming what that container takes.
@@ -134,6 +139,86 @@ Set on a column or row, it protects every cell in it.
 
 ```
 column A [protected true]
+```
+
+### colspan / rowspan
+
+Merge a block of cells into one. Write the span on the **top-left** cell of the block, and write
+nothing for the cells it covers: they are hidden under the merge.
+
+```
+sheets [
+  sheet "s1" [
+    cells [
+      cell A1 [text "Quarterly Summary" colspan 4 align "center" font-weight "bold"]
+      cell A2 [text "Q1"] cell B2 [text "Q2"] cell C2 [text "Q3"] cell D2 [text "Q4"]
+    ] {}
+  ]
+] {
+  "v": "0.0.1"
+}..
+```
+
+Two cells may not overlap — writing `cell B1` beside `cell A1 [colspan 4]`, or two spans that
+cross, is a compile error naming both — and a span may not run past column Z. A formula that reads
+a covered cell reads an empty one.
+
+### link
+
+A web address the cell links to. The cell's `text` is the label; without one, the address itself
+is shown. A link cell is display-only, and clicking it opens the address in a new tab.
+
+```
+cell E3 [text "t.me/stroyka_chat" link "https://t.me/stroyka_chat"]
+```
+
+Only `http://` and `https://` addresses are accepted.
+
+### wrap
+
+Long text wraps onto several lines by default, and the row grows to fit. `wrap false` keeps a
+cell — or every cell of a column or row — on one line, clipped at the column's edge.
+
+```
+column A [width 120 wrap false]
+```
+
+### freeze-rows / freeze-columns
+
+Keep the top rows, or the left columns, in view while the grid scrolls — for a header row over a
+long table. Each is a whole number, written in the sheet; 0 freezes nothing. A grid with frozen
+rows or columns scrolls inside a fixed height.
+
+```
+sheets [
+  sheet "s1" [
+    freeze-rows 1
+    cells [
+      cell A1 [text "Name" font-weight "bold"] cell B1 [text "Score" font-weight "bold"]
+      cell A2 [text "Ana"] cell B2 [text "91"]
+    ] {}
+  ]
+] {
+  "v": "0.0.1"
+}..
+```
+
+A merged cell must sit wholly inside or wholly outside the frozen rows and columns: a title over
+A1:F1 is fine under `freeze-rows 2`, and a compile error under `freeze-columns 1`.
+
+### read-only
+
+No cell on any sheet can be edited — a table to read, not a worksheet to fill in. Written after the
+`sheets` list, like `title`. Formulas still compute and links still open.
+
+```
+sheets [
+  sheet "s1" [
+    cells [ cell A1 [text "Read me"] ] {}
+  ]
+] read-only true {
+  "v": "0.0.1"
+}..
 ```
 
 ### assess

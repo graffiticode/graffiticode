@@ -67,6 +67,26 @@
       "field": "protected",
       "expects": "boolean"
     },
+    "COLSPAN": {
+      "field": "colspan",
+      "expects": "number",
+      "validate": "positive-count"
+    },
+    "ROWSPAN": {
+      "field": "rowspan",
+      "expects": "number",
+      "validate": "positive-count"
+    },
+    "LINK": {
+      "field": "link",
+      "expects": "string",
+      "coerce": "as-tag",
+      "validate": "http-url"
+    },
+    "WRAP": {
+      "field": "wrap",
+      "expects": "boolean"
+    },
     "ASSESS": {
       "field": "assess",
       "shape": "object"
@@ -91,6 +111,16 @@
     "HIDE_FORMULABAR": {
       "field": "hideMenu",
       "expects": "boolean"
+    },
+    "FREEZE_ROWS": {
+      "field": "freezeRows",
+      "expects": "number",
+      "validate": "non-negative-count"
+    },
+    "FREEZE_COLUMNS": {
+      "field": "freezeColumns",
+      "expects": "number",
+      "validate": "non-negative-count"
     },
     "TITLE": {
       "field": "title",
@@ -120,6 +150,11 @@
       "expects": "boolean",
       "chaining": true,
       "coerce": "feedback"
+    },
+    "READ_ONLY": {
+      "field": "readOnly",
+      "expects": "boolean",
+      "chaining": true
     }
   },
   "containers": {
@@ -130,12 +165,15 @@
       "hide-sheet-menu",
       "hide-headings",
       "instant-feedback",
+      "read-only",
       "params",
       "v"
     ],
     "SHEET": [
       "name",
       "hide-formulabar",
+      "freeze-rows",
+      "freeze-columns",
       "columns",
       "rows",
       "cells"
@@ -155,7 +193,11 @@
       "border",
       "vertical-align",
       "format",
-      "protected"
+      "protected",
+      "colspan",
+      "rowspan",
+      "link",
+      "wrap"
     ],
     "COLUMN": [
       "width",
@@ -171,7 +213,8 @@
       "vertical-align",
       "format",
       "protected",
-      "assess"
+      "assess",
+      "wrap"
     ],
     "ROW": [
       "align",
@@ -186,7 +229,8 @@
       "vertical-align",
       "format",
       "protected",
-      "assess"
+      "assess",
+      "wrap"
     ],
     "ASSESS": [
       "method",

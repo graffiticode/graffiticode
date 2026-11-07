@@ -11,8 +11,10 @@ description of a grid; output is a spreadsheet that renders as an editable table
 assessed cells that grade what a learner types. A primary use case is spreadsheet-based
 assessment — cells that check a typed value or formula against an expected answer, with inputs
 that can vary per render. L0179 also serves display and worksheet modes with no grading at all:
-cell grids with text, formatting (fonts, colors, borders, alignment, column widths), and formulas
-(SUM, AVERAGE, ROUND, POWER, MAX, MIN, ABS, IF, OR, AND, NOT, arithmetic).
+cell grids with text, formatting (fonts, colors, borders, alignment, column widths, text wrap),
+merged cells, clickable links, frozen header rows and columns, and formulas (SUM, AVERAGE, ROUND,
+POWER, MAX, MIN, ABS, IF, OR, AND, NOT, arithmetic). A whole item can be made read-only, for a
+table that is there to be read rather than filled in.
 
 When composing a request, describe the grid the way you would describe a table: which cells hold
 which text, which columns need a width or an alignment, and which cells the learner fills in.

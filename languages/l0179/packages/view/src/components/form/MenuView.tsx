@@ -15,7 +15,7 @@ function classNames(...classes) {
  * attribute — so the schema no longer declares any, and that tracking would now throw on an
  * undefined `schema.marks.strong`.
  */
-export const MenuView = ({ className, editorView, hideMenu = false }) => {
+export const MenuView = ({ className, editorView, hideMenu = false, readOnly = false }) => {
   // Don't render anything if hideMenu is true
   if (hideMenu) {
     return null;
@@ -59,6 +59,7 @@ export const MenuView = ({ className, editorView, hideMenu = false }) => {
        */}
       <FormulaBar
         editorView={editorView}
+        readOnly={readOnly}
       />
     </div>
   );

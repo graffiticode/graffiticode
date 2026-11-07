@@ -71,18 +71,21 @@ There is no chaining. An attribute never takes the rest of the program.
 
 ## Attributes
 
-**On a cell** — `text`, `assess`, and the presentation attributes below.
+**On a cell** — `text`, `assess`, `colspan`, `rowspan`, `link`, and the presentation attributes
+below.
 **On a column or row** — the presentation attributes, plus `assess` to set defaults for the
 cells in it.
-**On the sheet** — `name`, `hide-formulabar`, and the `columns` / `rows` / `cells` blocks.
+**On the sheet** — `name`, `hide-formulabar`, `freeze-rows`, `freeze-columns`, and the
+`columns` / `rows` / `cells` blocks.
 **On the program**, after the `sheets` list — `title`, `instructions`, `show-sheet-tabs`,
-`hide-sheet-menu`, `hide-headings`, `instant-feedback`, then `params` last.
+`hide-sheet-menu`, `hide-headings`, `read-only`, `instant-feedback`, then `params` last.
 
 Presentation: `width`, `align`, `background-color`, `font-weight`, `font-size`, `font-family`,
-`font-style`, `color`, `text-decoration`, `border`, `vertical-align`, `format`, `protected`.
+`font-style`, `color`, `text-decoration`, `border`, `vertical-align`, `format`, `protected`, `wrap`.
 
-Values are CSS, written as strings, with two exceptions taking bare literals: `width` a number,
-and `protected` a `true` or `false`. Quoting either is a compile error:
+Values are CSS, written as strings, with exceptions taking bare literals: `width`, `colspan`,
+`rowspan`, `freeze-rows` and `freeze-columns` a number, and `protected`, `wrap` and `read-only`
+a `true` or `false`. Quoting any of them is a compile error:
 
 ```
 column A [width 200]
@@ -172,6 +175,52 @@ neither. Every cell of the region gets a ring instead if you write the CSS form.
 
 Border values are **not checked** at compile time. `border "sideways"` compiles and then renders
 nothing at all, so use exactly `top`, `bottom`, `left`, `right`, or `all`.
+
+### Widths are pixels
+
+`width` is in pixels. A request that gives widths in spreadsheet units ("column B 38 wide", as
+Excel counts characters) means roughly 8 pixels per unit: 12 → 100, 38 → 300, 52 → 420.
+
+## Display tables
+
+A sheet that presents information rather than asking for answers usually wants some of these:
+
+- **A merged title** — `colspan` on the top-left cell, nothing written for the cells it covers.
+- **A header row that stays in view** — `freeze-rows`, counting every row down to the header,
+  title row included.
+- **Links** — `link` with the full `https://` address; `text` is the label.
+- **Read-only** — `read-only true` after the `sheets` list, rather than `protected` on every cell.
+- **Banded rows** — `background-color` on alternate `row`s.
+- **Wrapped text** — the default; write `wrap false` only to keep a column on one line.
+- **A note under the table** — a cell below the last row, merged across the table's width.
+
+```
+sheets [
+  sheet "s1" [
+    name "Chats"
+    freeze-rows 2
+    columns [
+      column A [width 100] column B [width 300] column C [width 110 align "right"]
+    ] {}
+    rows [
+      row 2 [background-color "#1f3864" color "#ffffff" font-weight "bold"]
+      row 4 [background-color "#f2f6fc"]
+    ] {}
+    cells [
+      cell A1 [text "Verified chats" colspan 3 font-size "16px" font-weight "bold" align "center"]
+      cell A2 [text "Platform"] cell B2 [text "Link"] cell C2 [text "Members"]
+      cell A3 [text "Telegram"] cell B3 [text "t.me/stroyka_chat" link "https://t.me/stroyka_chat"] cell C3 [text "12136"]
+      cell A4 [text "Telegram"] cell B4 [text "t.me/siperchat" link "https://t.me/siperchat"] cell C4 [text "1062"]
+      cell A6 [text "Checked 6 November 2026. Member counts change." colspan 3 font-style "italic" align "left"]
+    ] {}
+  ]
+] read-only true {
+  "v": "0.0.1"
+}..
+```
+
+A covered cell must not be written: `cell B1` beside `cell A1 [colspan 3]` is a compile error.
+A merge may not straddle the frozen edge either — keep a title inside `freeze-rows`, or below it.
 
 ## Cell text and formulas
 
