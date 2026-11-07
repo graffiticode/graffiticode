@@ -137,7 +137,7 @@ beforeEach(async () => {
     identifyCaller,
     audit,
     reconcile: async args => { reconciled.push(args); return { invocationId: args.invocationId, operations: [] }; },
-    readReceipts: async args => {
+    readReceipts: async (args: { invocationId: string, operationIds?: string[] }) => {
       receiptReads.push(args);
       if (args.invocationId === "inv-bad/") throw new ReceiptReadRefused("bad-invocation-id");
       return { invocationId: args.invocationId, operations: [{ operationId: `${args.invocationId}/s0/a.0`, status: "succeeded" }] };
@@ -146,7 +146,7 @@ beforeEach(async () => {
 });
 
 let reconciled;
-let receiptReads;
+let receiptReads: { invocationId: string, operationIds?: string[] }[];
 
 let makeApp;
 let records;
