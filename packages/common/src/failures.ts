@@ -67,6 +67,12 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // (D2a), an owner request that isn't the current owner's, a takeover of a
   // live lease, and a command that is over or unknown.
   ...cat("conflict", ["command-protocol", "stale-generation", "lease-expired", "lease-live", "command-finished"]),
+  // Commands' records (B5 slice 2): writes out of order, a bind outside its
+  // admitted intent or bounds, a close that doesn't match what was bound, a
+  // finish while an occurrence is unsettled, and a Track E intent in B5.
+  ...cat("conflict", ["command-admitted", "not-admitted", "stage-closed", "close-mismatch", "occurrences-unsettled", "nothing-to-publish", "observation-not-recorded", "occurrence-not-bound"]),
+  ...cat("permission", ["intent-not-admitted", "occurrence-mismatch", "bounds-exceeded"]),
+  ...cat("malformed", ["not-supported"]),
   ...cat("permission", ["command-not-found"]),
   ...cat("malformed", ["input-too-large"]),
   // System preview signing limits: Policy's per-instance bucket on

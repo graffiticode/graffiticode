@@ -167,6 +167,24 @@ export const createFirestoreCommandStore = db => {
   };
 };
 
+// The transaction interface command-records.js is written against, over
+// `commands/{id}` and its subcollections.
+export const createFirestoreCommandBackend = db => {
+  const ref = path => (path.length === 2
+    ? db.collection("commands").doc(path[1])
+    : db.collection("commands").doc(path[1]).collection(path[2]).doc(path[3]));
+  return {
+    transaction: fn => db.runTransaction(async t => fn({
+      get: async path => {
+        const snap = await t.get(ref(path));
+        return snap.exists ? snap.data() : null;
+      },
+      set: (path, doc) => t.set(ref(path), doc),
+      list: async path => (await t.get(db.collection("commands").doc(path[1]).collection(path[2]))).docs.map(d => d.data()),
+    })),
+  };
+};
+
 // See publications.js for the contract.
 export const createFirestorePublicationStore = db => {
   const ref = publicationId => db.collection("publications").doc(publicationId);

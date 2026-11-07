@@ -9,6 +9,19 @@
 //                                 -> { protocol: "legacy", invocationId, seq } | { protocol: "command", commandId, …, owned }
 //   POST /v1/commands/:id/lease gateway  { worker, generation, takeOver? }  renew, or take over once expired
 //   GET  /v1/commands/:id gateway (+ user, who must own it)  the command's summary
+//   Owner writes and bookkeeping, gateway only, each with { generation, … } (fenced):
+//   PUT  /v1/commands/:id/models/:stage   { text, revision?, tagUrl? }   installed once
+//   PUT  /v1/commands/:id/inputs/:stage   { text }                       installed once
+//   POST /v1/commands/:id/observations    { stage, key, text? }          find, or install once
+//   PUT  /v1/commands/:id/occurrences/:stage/:occ { intentId, expansionKey?, args, observations? }
+//   POST /v1/commands/:id/stages/:stage/close { occurrences: { intentId: [occurrenceId] } }
+//   POST /v1/commands/:id/not-reached     { stages }
+//   POST /v1/commands/:id/settle          outcomes from Broker's receipts
+//   POST /v1/commands/:id/lost            { stage }   a lost stage response
+//   POST /v1/commands/:id/finish          { result? } the terminal status, aggregated here
+//   POST /v1/commands/:id/published       the publication delivered
+//   POST /v1/commands/:id/transition      extension point (Track E2); no intent in B5
+//   GET  /v1/commands/:id/records/:what   request | models | input?stage= | result | occurrences | outcomes
 //   POST /v1/invocations/plan gateway { invocationToken }   the invocation's plan, before a retry
 //                                 resolves compiler URLs   -> { contract, plan: null | { planDigest, stages } }
 //   POST /v1/admissions gateway   { invocationToken, taskIds, stages: [manifest per task] }
@@ -199,6 +212,40 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const u = await optionalUser(req);
     res.set("Cache-Control", "no-store");
     await decide(res, () => policy.getCommand({ caller, user: u, commandId: req.params.id }));
+  }));
+  const write = (fn, args = req => ({})) => buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    const { generation } = req.body ?? {};
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.commandWrite({ caller, commandId: req.params.id, generation, fn, args: args(req) }));
+  });
+  const body = req => req.body ?? {};
+  router.put("/commands/:id/models/:stage", write("installModel", req => ({ stage: req.params.stage, text: body(req).text, revision: body(req).revision ?? null, tagUrl: body(req).tagUrl ?? null })));
+  router.put("/commands/:id/inputs/:stage", write("installInput", req => ({ stage: req.params.stage, text: body(req).text })));
+  router.post("/commands/:id/observations", write("observation", req => ({ stage: body(req).stage, key: body(req).key, text: body(req).text })));
+  router.put("/commands/:id/occurrences/:stage/:occ", write("bindOccurrence", req => ({
+    stage: req.params.stage, occurrenceId: req.params.occ, intentId: body(req).intentId, expansionKey: body(req).expansionKey ?? null, args: body(req).args, observations: body(req).observations ?? [],
+  })));
+  router.post("/commands/:id/stages/:stage/close", write("closeStage", req => ({ stage: req.params.stage, occurrences: body(req).occurrences })));
+  router.post("/commands/:id/not-reached", write("markNotReached", req => ({ stages: Array.isArray(body(req).stages) ? body(req).stages : [] })));
+  router.post("/commands/:id/lost", write("recordLost", req => ({ stage: body(req).stage })));
+  router.post("/commands/:id/finish", write("finish", req => ({ result: body(req).result ?? null })));
+  router.post("/commands/:id/published", write("published"));
+  router.post("/commands/:id/settle", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.settleCommand({ caller, commandId: req.params.id, generation: body(req).generation }));
+  }));
+  router.post("/commands/:id/transition", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.transitionCommand({ caller, commandId: req.params.id, generation: body(req).generation, intent: body(req).intent ?? null }));
+  }));
+  router.get("/commands/:id/records/:what", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    res.set("Cache-Control", "no-store");
+    const stage = typeof req.query.stage === "string" ? req.query.stage : null;
+    await decide(res, () => policy.commandRead({ caller, commandId: req.params.id, what: req.params.what, stage }));
   }));
   // Chain admission (W4): the invocation's plan, if any, before a retry
   // resolves compiler URLs; and one decision for every stage of the chain.

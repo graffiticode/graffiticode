@@ -8,6 +8,9 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import {
   createFirestoreCommandStore,
+  createFirestoreCommandBackend,
+  createCommandRecords,
+  runtimeOccurrenceId,
   createFirestoreInvocationStore,
   CommandRefused,
   ProtocolMismatch,
@@ -23,12 +26,16 @@ const REQUEST = "{\"z\":1,\"a\":{\"y\":2,\"b\":3}}";
 run("command records in Firestore", () => {
   let commands;
   let invocations;
+  let records;
+  let db;
   let uid;
   beforeAll(() => {
     const app = admin.apps.length ? admin.app() : admin.initializeApp({ projectId: "demo-graffiticode" });
-    const db = getFirestore(app, "policy");
+    db = getFirestore(app, "policy");
     commands = createFirestoreCommandStore(db);
     invocations = createFirestoreInvocationStore(db);
+    // The records' clock: inside the first lease.
+    records = createCommandRecords({ backend: createFirestoreCommandBackend(db), now: () => T0 + 1000 });
   });
   // Each test its own user, so tests never see each other's keys.
   beforeEach(() => {
@@ -103,5 +110,44 @@ run("command records in Firestore", () => {
 
   it("refuses an unknown command", async () => {
     await expect(commands.renewLease({ commandId: commandIdFor(uid, "none"), worker: "api-1", generation: 1, now: T0 })).rejects.toMatchObject({ reason: "command-not-found" });
+  });
+
+  // Slice 2: the records' transactions read before they write, and bounds
+  // hold under real concurrency.
+  const admitted = async () => {
+    const { command } = await allocate();
+    await db.collection("commands").doc(command.commandId).update({
+      phase: "admitted",
+      admission: { planDigest: digest("plan"), stages: { s0: { modelDigest: digest("m"), intents: [{ id: "batch", runtime: true, bounds: { maxOccurrences: 2 } }] } } },
+    });
+    return command;
+  };
+  const bind = (command, n) => records.bindOccurrence({ commandId: command.commandId, generation: 1, stage: "s0", occurrenceId: runtimeOccurrenceId("batch", `b${n}`), intentId: "batch", expansionKey: `b${n}`, args: `{"n":${n}}` });
+
+  it("binds no more than the bound under concurrent binds", async () => {
+    const command = await admitted();
+    const results = await Promise.allSettled([1, 2, 3, 4].map(n => bind(command, n)));
+    expect(results.filter(r => r.status === "fulfilled")).toHaveLength(2);
+    expect((await records.listOccurrences(command.commandId))).toHaveLength(2);
+  });
+
+  it("settles, records a lost response, closes and finishes in transactions", async () => {
+    const command = await admitted();
+    await bind(command, 1);
+    await bind(command, 2);
+    const ids = [1, 2].map(n => runtimeOccurrenceId("batch", `b${n}`));
+    const { recorded } = await records.recordFromReceipts({ commandId: command.commandId, generation: 1, operations: [{ operationId: `${command.invocationId}/s0/${ids[0]}`, status: "succeeded", recorded: true }] });
+    expect(recorded).toHaveLength(1);
+    expect((await records.recordLost({ commandId: command.commandId, generation: 1, stage: "s0" })).recorded).toHaveLength(1);
+    await records.closeStage({ commandId: command.commandId, generation: 1, stage: "s0", occurrences: { batch: ids } });
+    const done = await records.finish({ commandId: command.commandId, generation: 1, result: "{\"b\":1,\"a\":2}" });
+    expect(done).toMatchObject({ status: "uncertain", result: { state: "available" }, publication: { state: "none" } });
+    expect((await records.getResult(command.commandId)).text).toBe("{\"b\":1,\"a\":2}");
+  });
+
+  it("refuses a stale generation without writing", async () => {
+    const command = await admitted();
+    await expect(records.installInput({ commandId: command.commandId, generation: 2, stage: "s0", text: "{}" })).rejects.toMatchObject({ reason: "stale-generation" });
+    expect(await records.getInput(command.commandId, "s0")).toBeNull();
   });
 });

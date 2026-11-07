@@ -42,8 +42,24 @@ export const createBrokerAdminClient = ({ brokerUrl, idToken, fetch: doFetch = f
     const reason = typeof json?.error?.reason === "string" ? json.error.reason : null;
     throw Object.assign(new Error(`broker reconcile failed (${res.status})`), { reason, status: res.status });
   };
+  // Command settlement (B5): what Broker recorded for one invocation's
+  // operations. Reads receipts only; no token, credential or provider call.
+  const receipts = async ({ invocationId, operationIds = undefined }) => {
+    const [invoker, caller] = await Promise.all([idToken(brokerUrl), idToken("urn:graffiticode:broker")]);
+    const res = await doFetch(`${brokerUrl}/v1/receipts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Serverless-Authorization": `Bearer ${invoker}`, "X-Caller-Identity": caller },
+      body: JSON.stringify({ invocationId, ...(operationIds ? { operationIds } : {}) })
+    });
+    let json: any = null;
+    try { json = await res.json(); } catch { json = null; }
+    if (res.ok && json?.status === "success") return json.data;
+    const reason = typeof json?.error?.reason === "string" ? json.error.reason : null;
+    throw Object.assign(new Error(`broker receipts failed (${res.status})`), { reason, status: res.status });
+  };
   return {
     reconcile,
+    receipts,
     createSecret: (connectionId, credential) => call("POST", connectionId, body(credential)),
     rotateSecret: (connectionId, credential) => call("PUT", connectionId, body(credential)),
     deleteSecret: connectionId => call("DELETE", connectionId)
