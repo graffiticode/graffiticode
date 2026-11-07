@@ -96,6 +96,11 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
     lang = await checkLangParam({ lang, pingLang, uid });
     const baseUrl = await getBaseUrlForLanguage(lang, { uid });
     const formUrl = `${baseUrl}/form?${params.toString()}`;
+    // The redirect names the chain's current generations in its data URL, so it
+    // must never be kept: a CDN that cached it (Cloudflare did, for an hour, the
+    // B5 rehearsal of 2026-11-06) would send browsers a previous generation's
+    // URL after a flag change or rollback, which is then answered no-store.
+    res.set("Cache-Control", "no-store");
     res.redirect(formUrl);
   });
 };

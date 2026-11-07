@@ -43,10 +43,12 @@ describe("routes/form", () => {
       .expect(200);
     expect(res).toHaveProperty("body.status", "success");
     const id = res.body.data.id;
-    await request(app)
+    const redirect = await request(app)
       .get("/form")
       .query({ id })
       .expect(302);
+    // The redirect names the chain's generations, so no CDN may keep it.
+    expect(redirect.headers["cache-control"]).toBe("no-store");
   });
 
   it("should carry a publication through to the view and its data url", async () => {

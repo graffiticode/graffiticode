@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, loadConfig, SETTINGS } from "../src/config.js";
 import { included, snapshot } from "../src/snapshot.js";
 import { run, streamOutput } from "../src/process.js";
-import { release, rollback, flagGenerationProblems, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV, forbiddenEnvProblems, promote, networkHash } from "../src/release.js";
+import { release, rollback, flagGenerationProblems, unmanagedFlagProblems, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV, forbiddenEnvProblems, promote, networkHash } from "../src/release.js";
 import { createRevisionClient, decodeFields, encodeFields, reachableProblems, retainedTags } from "../src/revisions.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
@@ -1514,6 +1514,22 @@ test("a release that turns an interpreter on without a new generation is refused
   assert.ok(!h.calls.some(c => c[0] === "builds"));
   const moved = { ...context, config: { ...config, env: { ...config.env, INTERPRETER_L0184: "on", COMPILE_GENERATION_L0184: "interp-1" } } };
   assert.equal((await release(moved, source, h.deps)).status, "released");
+});
+
+test("a flag the serving revision has but deploy.json doesn't name is refused: deleting it doesn't turn it off", async t => {
+  const live = { INTERPRETER_L0179: "on", COMPILE_GENERATION_L0179: "interp-1", AUTH_URL: "x" };
+  assert.deepEqual(unmanagedFlagProblems(live, { env: { COMPILE_GENERATION_L0179: "rust-2" } }), ["INTERPRETER_L0179"]);
+  assert.deepEqual(unmanagedFlagProblems(live, { env: { INTERPRETER_L0179: "off", COMPILE_GENERATION_L0179: "rust-2" } }), []);
+  assert.deepEqual(unmanagedFlagProblems(live, { env: {}, removeEnv: ["INTERPRETER_L0179"] }), []);
+  assert.deepEqual(unmanagedFlagProblems({ COMMANDS_L0013: "on", INTERPRETER_L0013: "on" }, { env: {} }), ["COMMANDS_L0013", "INTERPRETER_L0013"]);
+  // In a release: refused before anything is built, and allowed once the flag is set by value.
+  const h = await harness(t);
+  h.revisions.set("api-old", { metadata: { labels: {} }, spec: { containers: [{ env: [{ name: "COMPILE_GENERATION_L0179", value: "interp-1" }, { name: "INTERPRETER_L0179", value: "on" }] }] } });
+  const dropped = { ...context, config: { ...config, env: { ...config.env, COMPILE_GENERATION_L0179: "rust-2" } } };
+  await assert.rejects(release(dropped, source, h.deps), /INTERPRETER_L0179 is set on the serving revision but not in deploy.json/);
+  assert.ok(!h.calls.some(c => c[0] === "builds"));
+  const off = { ...context, config: { ...config, env: { ...config.env, INTERPRETER_L0179: "off", COMPILE_GENERATION_L0179: "rust-2" } } };
+  assert.equal((await release(off, source, h.deps)).status, "released");
 });
 
 test("a rollback to other interpreter flags under the same generation is refused", async t => {
