@@ -472,9 +472,10 @@ const spans = [
   sheet(`{freezeRows: "1"} cells [ cell A1 [text "T" rowspan 2] ] {}`),
   sheet(`cells [ cell A1 [text "t.me" link "https://t.me/x" wrap false] ] {}`),
   sheet(`columns [ column A [wrap false] ] {} rows [ row 1 [wrap true] ] {} cells [ cell A1 [text "x"] ] {}`),
+  sheet(`protected true cells [ cell A1 [text "x"] ] {}`),
+  sheet(`protected false freeze-rows 1 cells [ cell A1 [text "x" protected true] ] {}`),
   sheet(`cells [ cell A1 [text "x"] ] {}`, "read-only true"),
-  sheet(`cells [ cell A1 [text "x"] ] {}`, 'read-only false title "T"'),
-  two("freeze-rows 1", 'name "Two" freeze-columns 2', "read-only true"),
+  two("freeze-rows 1 protected true", 'name "Two" freeze-columns 2'),
   two('freeze-rows 1 name "One"'),
   `sheets [
     sheet "s1" [ cells [ cell A1 [text "a" colspan 2] cell B1 [text "b"] ] {} ]
@@ -543,7 +544,8 @@ const sampled = new Set([
   raw[6],
   raw[3],
   spans[0],
-  spans[28],
+  spans[26],
+  spans[29],
   readFileSync(join(root, "packages/core/spec/template.gc"), "utf8"),
 ]);
 

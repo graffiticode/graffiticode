@@ -20,8 +20,21 @@ const updateTextNode = ({ editorView, from, text }) => {
   editorView.dispatch(transaction);
 }
 
-export const FormulaBar = ({ editorView, readOnly = false }) => {
+/** Whether the selection is in a protected cell, whose edits the grid refuses. */
+const inProtectedCell = (state) => {
+  const $from = state.selection.$from;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    if (node.type.name === "table_cell") return node.attrs.protected === true;
+  }
+  return false;
+};
+
+export const FormulaBar = ({ editorView }) => {
   const [ value, setValue ] = useState("");
+  // A protected cell's formula is shown but not editable here: the grid refuses the edit, and an
+  // editable bar would show typing the cell never takes.
+  const [ readOnly, setReadOnly ] = useState(false);
   const updateFormulaBar = () => {
     if (editorView?.state) {
       const { from } = editorView.state.selection;
@@ -29,6 +42,7 @@ export const FormulaBar = ({ editorView, readOnly = false }) => {
       const node = editorView.state.doc.nodeAt(pos.pos - 1);
       const newValue = node?.textContent || "";
       setValue(newValue);
+      setReadOnly(inProtectedCell(editorView.state));
     }
   };
 
@@ -76,7 +90,6 @@ export const FormulaBar = ({ editorView, readOnly = false }) => {
         name="formula"
         type="text"
         value={value}
-        // `read-only` sheets show a cell's formula here but take no edit through it.
         readOnly={readOnly}
         // `outline: none`, not `focus:outline-0`: that only zeroes the width, and Chrome still draws
         // its `auto` focus-visible ring at width 0 — the blue box a click on the bar used to show.

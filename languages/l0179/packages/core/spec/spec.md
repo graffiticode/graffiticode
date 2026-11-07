@@ -91,7 +91,7 @@ Written inside a `[...]` list as a word applied to a value. Order does not matte
 | `font-weight`, `font-size`, `font-family`, `font-style` | cell, column, row | Type. |
 | `text-decoration`, `vertical-align`, `border` | cell, column, row | Presentation. |
 | `format` | cell, column, row | A number format, e.g. `"#,##0.00"`. |
-| `protected` | cell, column, row | When true the learner cannot edit the cell. A bare `true` or `false`. |
+| `protected` | cell, column, row, sheet | When true the learner cannot edit the cell. A bare `true` or `false`. |
 | `colspan`, `rowspan` | cell | Merge cells: this many columns (or rows), starting at this cell, become one. See [colspan / rowspan](#sec-colspan-rowspan). |
 | `link` | cell | A web address (`http://` or `https://`); the cell's text becomes a link to it. |
 | `wrap` | cell, column, row | Text wraps by default; `wrap false` keeps it on one line. A bare `true` or `false`. |
@@ -101,7 +101,6 @@ Written inside a `[...]` list as a word applied to a value. Order does not matte
 | `title`, `instructions` | **program** | Text shown above the grid. Written after the `sheets` list, not inside a sheet. |
 | `show-sheet-tabs`, `hide-sheet-menu` | **program** | See [Several sheets](#sec-Several-sheets). Written after the `sheets` list. |
 | `hide-headings` | **program** | Hides the row (1, 2, 3…) and column (A, B, C…) headings on every sheet. Cells keep their names. Written after the `sheets` list. |
-| `read-only` | **program** | No cell on any sheet can be edited: a display table. Written after the `sheets` list. |
 | `instant-feedback` | **program** | Colour assessed cells as the learner answers, not only on a check. See [assess](#sec-assess). Written after the `sheets` list. |
 
 An attribute a container does not accept is a compile error naming what that container takes.
@@ -135,10 +134,23 @@ Use it for display-only cells, such as the labels a learner reads but must not c
 cell A1 [text "2+3=" protected true]
 ```
 
-Set on a column or row, it protects every cell in it.
+Set on a column or row, it protects every cell in it. Set on a sheet, it protects the whole sheet —
+a table to read rather than a worksheet to fill in. Formulas still compute, links still open, and
+the learner can still move around and copy.
 
 ```
 column A [protected true]
+```
+
+```
+sheets [
+  sheet "s1" [
+    protected true
+    cells [ cell A1 [text "Read me"] ] {}
+  ]
+] {
+  "v": "0.0.1"
+}..
 ```
 
 ### colspan / rowspan
@@ -205,21 +217,6 @@ sheets [
 
 A merged cell must sit wholly inside or wholly outside the frozen rows and columns: a title over
 A1:F1 is fine under `freeze-rows 2`, and a compile error under `freeze-columns 1`.
-
-### read-only
-
-No cell on any sheet can be edited — a table to read, not a worksheet to fill in. Written after the
-`sheets` list, like `title`. Formulas still compute and links still open.
-
-```
-sheets [
-  sheet "s1" [
-    cells [ cell A1 [text "Read me"] ] {}
-  ]
-] read-only true {
-  "v": "0.0.1"
-}..
-```
 
 ### assess
 

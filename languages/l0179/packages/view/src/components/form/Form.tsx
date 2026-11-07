@@ -96,6 +96,7 @@ function sheetsOf(interaction: any) {
     ...(interaction?.hideMenu !== undefined ? { hideMenu: interaction.hideMenu } : {}),
     ...(interaction?.freezeRows !== undefined ? { freezeRows: interaction.freezeRows } : {}),
     ...(interaction?.freezeColumns !== undefined ? { freezeColumns: interaction.freezeColumns } : {}),
+    ...(interaction?.protected !== undefined ? { protected: interaction.protected } : {}),
   }];
 }
 
@@ -208,12 +209,10 @@ function sheetState(state: any, sheet: any, multi: boolean) {
         ...(sheet.hideMenu !== undefined ? { hideMenu: sheet.hideMenu } : {}),
         ...(sheet.freezeRows !== undefined ? { freezeRows: sheet.freezeRows } : {}),
         ...(sheet.freezeColumns !== undefined ? { freezeColumns: sheet.freezeColumns } : {}),
+        ...(sheet.protected !== undefined ? { protected: sheet.protected } : {}),
         // Program-level, so it comes from the top of the model, not the sheet: every grid gets it.
         ...(state.data?.interaction?.hideHeadings !== undefined
           ? { hideHeadings: state.data.interaction.hideHeadings }
-          : {}),
-        ...(state.data?.interaction?.readOnly !== undefined
-          ? { readOnly: state.data.interaction.readOnly }
           : {}),
       },
     },

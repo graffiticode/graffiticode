@@ -432,7 +432,7 @@ fn prog(cx: &mut Evaluator<'_>, program: Js, upstream: Js) -> Result<Js, String>
         interaction.set(name, field(name));
     }
     for name in
-        ["hideMenu", "freezeRows", "freezeColumns", "showSheetTabs", "hideSheetMenu", "hideHeadings", "readOnly"]
+        ["hideMenu", "freezeRows", "freezeColumns", "protected", "showSheetTabs", "hideSheetMenu", "hideHeadings"]
     {
         if field(name) != Js::Undefined {
             interaction.set(name, field(name));
@@ -447,7 +447,7 @@ fn prog(cx: &mut Evaluator<'_>, program: Js, upstream: Js) -> Result<Js, String>
             for name in ["rows", "columns", "cells"] {
                 entry.set(name, resolved.at(name));
             }
-            for name in ["hideMenu", "freezeRows", "freezeColumns"] {
+            for name in ["hideMenu", "freezeRows", "freezeColumns", "protected"] {
                 if s.at(name) != Js::Undefined {
                     entry.set(name, s.at(name));
                 }

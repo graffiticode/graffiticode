@@ -247,8 +247,6 @@ export const attributeFields: Record<string, AttributeMeta> = {
     coerce: (v) => (v ? "instant" : "check"),
     chaining: true,
   },
-  // No cell on any sheet can be edited: a display table rather than a worksheet.
-  READ_ONLY: { field: "readOnly", expects: "boolean", chaining: true },
 };
 
 /**
@@ -281,9 +279,10 @@ export const validAttributes: Record<string, string[]> = {
   // SHEETS entry, `assertKnownAttributes` returned early and the whole slot went unchecked.
   SHEETS: [
     "title", "instructions", "show-sheet-tabs", "hide-sheet-menu", "hide-headings", "instant-feedback",
-    "read-only", "params", "v",
+    "params", "v",
   ],
-  SHEET: ["name", "hide-formulabar", "freeze-rows", "freeze-columns", "columns", "rows", "cells"],
+  // `protected` here protects every cell of the sheet, as it does every cell of a column or row.
+  SHEET: ["name", "hide-formulabar", "freeze-rows", "freeze-columns", "protected", "columns", "rows", "cells"],
   CELL: [
     "text", "assess", "width", "align", "background-color", "font-weight", "font-size",
     "font-family", "font-style", "color", "text-decoration", "border", "vertical-align",

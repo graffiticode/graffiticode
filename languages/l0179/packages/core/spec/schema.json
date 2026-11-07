@@ -119,6 +119,10 @@
                 "minimum": 0,
                 "maximum": 1000,
                 "description": "Columns from the left that stay in view while the grid scrolls"
+              },
+              "protected": {
+                "type": "boolean",
+                "description": "Every cell of this sheet is protected from editing"
               }
             }
           }
@@ -135,9 +139,9 @@
           "type": "boolean",
           "description": "Hide the row (1, 2, 3...) and column (A, B, C...) headings on every sheet"
         },
-        "readOnly": {
+        "protected": {
           "type": "boolean",
-          "description": "No cell on any sheet can be edited"
+          "description": "Every cell of the sheet is protected from editing (first sheet)"
         },
         "freezeRows": {
           "type": "integer",

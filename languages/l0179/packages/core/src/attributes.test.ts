@@ -316,7 +316,7 @@ test("a bare param name is untouched — it means sheet 1, as it always has", as
   expect(out.templateVariablesRecords[0].A1).toBe("7");
 });
 
-// ── merged cells, links, wrap, freezing, read-only ────────────────────────
+// ── merged cells, links, wrap, freezing, sheet protection ─────────────────
 
 const one = (body: string, tail = "") => `sheets [ sheet "s1" [ ${body} ] ] ${tail} {}..`;
 
@@ -406,10 +406,24 @@ test("spans inside or outside the frozen area compile", async () => {
   expect(out.interaction.freezeRows).toBe(2);
 });
 
-test("read-only is program level, and absent unless written", async () => {
-  const out = await compileSrc(one('cells [ cell A1 [text "a"] ] {}', 'title "T" read-only true'));
-  expect(out.interaction.readOnly).toBe(true);
+test("protected on a sheet reaches interaction, and only when written", async () => {
+  const out = await compileSrc(one('protected true cells [ cell A1 [text "a"] ] {}'));
+  expect(out.interaction.protected).toBe(true);
+  expect(out.interaction).not.toHaveProperty("sheets");
   const plain = await compileSrc(one('cells [ cell A1 [text "a"] ] {}'));
-  expect(plain.interaction).not.toHaveProperty("readOnly");
-  await expectError(one('read-only true cells [ cell A1 [text "a"] ] {}'), "`read-only` belongs to sheets");
+  expect(plain.interaction).not.toHaveProperty("protected");
+});
+
+test("protected is per sheet with several sheets", async () => {
+  const out = await compileSrc(twoSheets("protected true", ""));
+  expect(out.interaction.sheets[0].protected).toBe(true);
+  expect(out.interaction.sheets[1]).not.toHaveProperty("protected");
+});
+
+test("protected after the sheets list is refused and pointed at the sheet", async () => {
+  await expectError(one('cells [ cell A1 [text "a"] ] {}', "protected true"), "`protected` belongs to");
+});
+
+test("read-only is no longer a word", async () => {
+  await expectError(one('cells [ cell A1 [text "a"] ] {}', "read-only true"), "read-only");
 });

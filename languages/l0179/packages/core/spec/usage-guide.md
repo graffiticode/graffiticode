@@ -13,7 +13,7 @@ assessment — cells that check a typed value or formula against an expected ans
 that can vary per render. L0179 also serves display and worksheet modes with no grading at all:
 cell grids with text, formatting (fonts, colors, borders, alignment, column widths, text wrap),
 merged cells, clickable links, frozen header rows and columns, and formulas (SUM, AVERAGE, ROUND,
-POWER, MAX, MIN, ABS, IF, OR, AND, NOT, arithmetic). A whole item can be made read-only, for a
+POWER, MAX, MIN, ABS, IF, OR, AND, NOT, arithmetic). A whole sheet can be protected, for a
 table that is there to be read rather than filled in.
 
 When composing a request, describe the grid the way you would describe a table: which cells hold
