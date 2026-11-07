@@ -54,12 +54,14 @@ import {
   PROTECTED_FUNCTIONS
 } from "@graffiticode/common/protected-registry";
 import { createHash, randomUUID } from "node:crypto";
+import { decodeJwt } from "jose";
 import { decodeChainId } from "@graffiticode/common/chain";
 import { CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinnedStage, planDigest as digestOf, stageBinding, sameStage } from "@graffiticode/common/contract";
 import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict, AdmissionRefused, ProtocolMismatch } from "./invocations.js";
 import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandSummary, ownerRefusal, requestProblem } from "./commands.js";
+import { RUNTIME_PREFIX, runtimeOccurrenceId } from "./command-records.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
@@ -97,6 +99,47 @@ const isLang = v => typeof v === "string" && /^\d{4}$/.test(v);
 // Every view of one publication shares one invocation, keyed by this input.
 const VIEW_INPUT = createHash("sha256").update("publication-view").digest("hex");
 export { SYSTEM_PREVIEW_SUBJECT };
+
+// After a command occurrence's last execution token expires, how long Broker
+// may still be finishing a claim it made in time (B5 §7): only past this can
+// an unclaimed occurrence be recorded as never written.
+export const COMMAND_SETTLE_GRACE_MS = 120_000;
+// Expansion bounds an intent may declare (B5 §4).
+export const MAX_INTENT_OCCURRENCES = 10_000;
+
+// A stage model's declared effect intents (B5 §4), checked against the
+// registry, the stage's admitted functions and the connection's backend.
+// Returns { intents } or { refusal }.
+export const modelIntents = ({ modelText, lang, requiredFunctions, backend }) => {
+  let model;
+  try {
+    model = JSON.parse(modelText);
+  } catch {
+    return { refusal: "bad-request" };
+  }
+  const declared = model?.intents ?? [];
+  if (!Array.isArray(declared)) return { refusal: "bad-request" };
+  const ids = new Set();
+  const intents = [];
+  for (const i of declared) {
+    if (!i || typeof i.id !== "string" || !/^[A-Za-z0-9_:.-]{1,128}$/.test(i.id) || ids.has(i.id)) return { refusal: "bad-request" };
+    ids.add(i.id);
+    const spec = protectedFunctionsForLang(lang)?.[i.fn];
+    if (!spec || !requiredFunctions.includes(i.fn) || typeof i.op !== "string" || !isOperationAllowed({ lang, fn: i.fn, op: i.op, backend })) {
+      return { refusal: "intent-not-registered" };
+    }
+    const runtime = i.runtime === true;
+    const occurrences = runtime ? [] : i.occurrences;
+    if (!runtime && (!Array.isArray(occurrences) || !occurrences.length || !occurrences.every(o => typeof o === "string" && /^[A-Za-z0-9_:.-]{1,200}$/.test(o) && !o.startsWith(RUNTIME_PREFIX)))) {
+      return { refusal: "bad-request" };
+    }
+    const max = runtime ? i.bounds?.maxOccurrences : occurrences.length;
+    if (!Number.isInteger(max) || max < 1 || max > MAX_INTENT_OCCURRENCES) return { refusal: "bad-request" };
+    if (i.scope !== undefined && typeof i.scope !== "string") return { refusal: "bad-request" };
+    intents.push({ id: i.id, fn: i.fn, op: i.op, runtime, ...(runtime ? {} : { occurrences: [...occurrences] }), bounds: { maxOccurrences: max }, ...(i.scope !== undefined ? { scope: i.scope } : {}) });
+  }
+  return { intents };
+};
 
 // How old an admission's consistent read may be when its plan is written.
 export const ADMISSION_MAX_AGE_MS = 5000;
@@ -357,6 +400,143 @@ export const createPolicy = ({
     if (refusal) throw new PolicyDenied(refusal);
     return commandSummary(command);
   };
+
+  // A command's first admission (B5 §6 step 2), service-authorized under the
+  // command's stored principal. The models it binds are the ones installed
+  // on the command, never the caller's; their intents come from the models.
+  // The plan is written as for any chain (admitChain), then recorded on the
+  // command once. A retry of the same admission is acknowledged.
+  const admitCommand = async ({ caller, commandId, generation, taskIds, stages }) => {
+    const record = { event: "command-admission", callerRole: caller?.role, registryVersion, commandId };
+    if (!commands || !commandRecords) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !Number.isInteger(generation)) return deny("bad-request", record);
+    const command = await commands.get(commandId);
+    const fenced = ownerRefusal(command, { generation, now: now() });
+    if (fenced) throw new PolicyDenied(fenced);
+    Object.assign(record, { uid: command.uid });
+    const invocation = await invocations.get(command.invocationId);
+    if (!invocation) return deny("invocation-incompatible", record);
+    if (!Array.isArray(stages)) return deny("bad-request", record);
+    const models = new Map<string, { text: string, digest: string }>((await commandRecords.getModels(commandId)).map(m => [m.stage, m]));
+    if (stages.some((m, i) => !models.has(`s${i}`))) return deny("models-missing", record);
+    const admitted = await admitChain({ record, uid: command.uid, invocation, taskIds, stages });
+    type AdmittedStage = { lang: string, modelDigest: string, revision: string, tagUrl: string, intents: unknown[] };
+    const admission: { planDigest: string, stages: Record<string, AdmittedStage> } = { planDigest: admitted.planDigest, stages: {} };
+    for (const [i, pinned] of admitted.plan.stages.entries()) {
+      const model = models.get(`s${i}`);
+      const declared = modelIntents({ modelText: model.text, lang: pinned.lang, requiredFunctions: pinned.requiredFunctions, backend: admitted.backend });
+      if (declared.refusal) return deny(declared.refusal, record);
+      admission.stages[pinned.stage] = { lang: pinned.lang, modelDigest: model.digest, revision: pinned.revision, tagUrl: admitted.stages[i].tagUrl, intents: declared.intents };
+    }
+    try {
+      await commandRecords.admit({ commandId, generation, admission });
+    } catch (e) {
+      if (e instanceof CommandRefused) throw new PolicyDenied(e.reason);
+      throw e;
+    }
+    await audit({ ...record, ownerUid: admitted.ownerUid, planDigest: admitted.planDigest, outcome: "allowed", reason: admitted.created ? "new" : "reused" });
+    return { planDigest: admitted.planDigest, stages: Object.entries(admission.stages).map(([stage, a]) => ({ stage, lang: a.lang, revision: a.revision, tagUrl: a.tagUrl, modelDigest: a.modelDigest })) };
+  };
+
+  // A command stage's session (B5 §6 step 3), service-authorized for the
+  // current owner. A dispatch action: live permission is checked now. The
+  // session names the command and the owner's generation, which mint and
+  // authorize-execution check on every token it yields.
+  const commandSession = async ({ caller, commandId, generation, stage }) => {
+    const record = { event: "command-session", callerRole: caller?.role, commandId, stage };
+    if (!commands || !commandRecords) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !Number.isInteger(generation) || typeof stage !== "string" || !/^s\d{1,3}$/.test(stage)) {
+      return deny("bad-request", record);
+    }
+    const command = await commands.get(commandId);
+    const fenced = ownerRefusal(command, { generation, now: now() });
+    if (fenced) throw new PolicyDenied(fenced);
+    Object.assign(record, { uid: command.uid, connectionId: command.connectionId, invocationId: command.invocationId });
+    await requireProtectedExecution(record, { uid: command.uid, connectionId: command.connectionId });
+    if (command.phase !== "admitted") return deny("not-admitted", record);
+    const plan = await invocations.getPlan(command.admission.planDigest);
+    const pinned = plan?.stages?.find(st => st.stage === stage);
+    if (!pinned || !command.admission.stages[stage]) return deny("plan-binding-mismatch", record);
+    if (!acceptedRegistry(plan.registryVersion)) return deny("registry-version-changed", record);
+    if (!(await revisionAvailable(pinned.lang, pinned.revision))) return deny("pinned-revision-unavailable", record);
+    const connection = await connections.get(command.connectionId);
+    const access = await accessFor(connection, command.uid);
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    const registered = protectedFunctionsForLang(pinned.lang) || {};
+    const allowed = pinned.requiredFunctions.filter(fn => registered[fn]?.backend === connection.backend && mayUse(access, pinned.lang, fn));
+    const sessionToken = await issueToken(signer, "session", {
+      sub: command.uid,
+      own: connection.ownerUid,
+      conn: command.connectionId,
+      backend: connection.backend,
+      lang: pinned.lang,
+      inv: command.invocationId,
+      stg: stage,
+      rv: plan.registryVersion,
+      fns: allowed,
+      cv: CONTRACT_VERSION,
+      pld: command.admission.planDigest,
+      bind: stageBinding(pinned),
+      cmd: commandId,
+      fg: generation,
+    });
+    await audit({ ...record, lang: pinned.lang, ownerUid: connection.ownerUid, planDigest: command.admission.planDigest, outcome: "allowed" });
+    return { allowed, sessionToken, lang: pinned.lang, tagUrl: command.admission.stages[stage].tagUrl };
+  };
+
+  // A command's operation, checked at mint and at every step (B5 §4, §7): the
+  // claims name this command, its invocation, principal and an admitted
+  // stage, at the owner's current generation with a live lease; the
+  // occurrence is bound, its arguments are the bound ones, and it is an
+  // admitted intent's, for that intent's function, operation and scope.
+  // Returns { refusal, definite? } or { command, occurrence }.
+  const commandOperation = async ({ claims, stage, occurrenceId, fn, op, argsDigest }) => {
+    if (!commands || !commandRecords) return { refusal: "unavailable" };
+    const command = typeof claims.cmd === "string" && COMMAND_ID_RE.test(claims.cmd) ? await commands.get(claims.cmd) : null;
+    if (!command || command.invocationId !== claims.inv || command.uid !== claims.sub || command.connectionId !== claims.conn) return { refusal: "plan-binding-mismatch" };
+    const fenced = ownerRefusal(command, { generation: claims.fg, now: now() });
+    if (fenced) return { refusal: fenced };
+    const admitted = command.admission?.stages?.[stage];
+    if (command.phase !== "admitted" || !admitted || command.admission.planDigest !== claims.pld) return { refusal: "plan-binding-mismatch" };
+    const occurrence = await commandRecords.getOccurrence(command.commandId, stage, occurrenceId);
+    if (!occurrence) return { refusal: "occurrence-not-bound", command };
+    const intent = admitted.intents.find(i => i.id === occurrence.intentId);
+    const runtime = occurrenceId.startsWith(RUNTIME_PREFIX);
+    const encoded = runtime ? occurrenceId === runtimeOccurrenceId(occurrence.intentId, occurrence.expansionKey) : (intent?.occurrences ?? []).includes(occurrenceId);
+    if (!intent || !encoded) return { refusal: "occurrence-mismatch", definite: true, command, occurrence };
+    if (intent.fn !== fn || intent.op !== op || (intent.scope !== undefined && intent.scope !== claims.conn)) return { refusal: "intent-mismatch", definite: true, command, occurrence };
+    if (occurrence.argd !== argsDigest) return { refusal: "args-mismatch", definite: true, command, occurrence };
+    return { command, occurrence };
+  };
+
+  // A definite refusal of a command's occurrence, from its current owner, is
+  // recorded `failed` only when no attempt wrote or can still write (B5 §7):
+  // a receipt decides if there is one; otherwise every token ever issued for
+  // it must be past use. Anything unsure records nothing: the sweeper comes
+  // back. Never throws: the refusal itself is what the caller gets.
+  const settleRefusal = async ({ command, generation, stage, occurrenceId, occurrence, reason }) => {
+    if (!brokerReceipts || !occurrence) return;
+    const opid = `${command.invocationId}/${stage}/${occurrenceId}`;
+    try {
+      const read = await brokerReceipts({ invocationId: command.invocationId, operationIds: [opid] });
+      if ((read.operations ?? []).length) {
+        await commandRecords.recordFromReceipts({ commandId: command.commandId, generation, operations: read.operations });
+        return;
+      }
+      // Read the time after the receipts: a claim made since then needed a
+      // token that is still usable now, and that keeps this from recording.
+      const usable = (occurrence.minted ?? []).some(m => m.exp * 1000 + COMMAND_SETTLE_GRACE_MS > now());
+      if (usable) return;
+      await commandRecords.recordRefusal({ commandId: command.commandId, generation, stage, occurrenceId, reason });
+    } catch {
+      // Unsure (Broker unreachable, or the owner changed): record nothing.
+    }
+  };
+
+  // Is this invocation a command's (D2a)? Then its tokens must say so.
+  const isCommandInvocation = async invocationId => isId(invocationId) && (await invocations.get(invocationId))?.protocol === "command";
 
   // A command's summary: for the gateway itself, or for the signed-in user
   // whose command it is.
@@ -763,9 +943,24 @@ export const createPolicy = ({
       const taken = systemSignings.take();
       if (!taken.ok) return deny("rate-limited", live, { retryAfter: taken.retryAfter });
     }
+    // A command's token (B5): its claims are mandatory and checked here, with
+    // the occurrence it is for.
+    let commandOp = null;
+    if (session.cmd !== undefined) {
+      commandOp = await commandOperation({ claims: session, stage: session.stg, occurrenceId, fn, op, argsDigest });
+      if (commandOp.refusal) {
+        if (commandOp.definite) await settleRefusal({ command: commandOp.command, generation: session.fg, stage: session.stg, occurrenceId, occurrence: commandOp.occurrence, reason: commandOp.refusal });
+        return deny(commandOp.refusal, { ...live, commandId: session.cmd });
+      }
+    } else if (provenance === "user" && await isCommandInvocation(session.inv)) {
+      return deny("command-claims-required", live);
+    }
     const refusal = await liveRefusal({ ...session, provenance }, fn);
-    if (refusal) return deny(refusal, live);
-    return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, replayOnly, record: { ...live, planDigest: session.pld } });
+    if (refusal) {
+      if (commandOp) await settleRefusal({ command: commandOp.command, generation: session.fg, stage: session.stg, occurrenceId, occurrence: commandOp.occurrence, reason: refusal });
+      return deny(refusal, live);
+    }
+    return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, replayOnly, record: { ...live, planDigest: session.pld }, commandOp });
   };
 
   // The contract checks shared by mint and authorize-execution (W4). `claims`
@@ -795,7 +990,7 @@ export const createPolicy = ({
     return null;
   };
 
-  const issueExecution = async ({ session, provenance, fn, op, argsDigest, occurrenceId, replayOnly = false, record }) => {
+  const issueExecution = async ({ session, provenance, fn, op, argsDigest, occurrenceId, replayOnly = false, record, commandOp = null }) => {
     // The invocation is durable and shared by its retries, and the stage and
     // occurrence are stable within it, so a retry reaches the same receipt.
     const operationId = `${session.inv}/${session.stg}/${occurrenceId}`;
@@ -820,8 +1015,21 @@ export const createPolicy = ({
       ...(provenance === "system" ? { sexp: session.exp } : {}),
       cv: session.cv ?? 1,
       ...(session.pld ? { pld: session.pld, stg: session.stg } : {}),
+      ...(session.cmd !== undefined ? { cmd: session.cmd, fg: session.fg } : {}),
     });
-    await audit({ ...record, opid: operationId, outcome: "allowed", ...(replayOnly ? { reason: "replay-only" } : {}) });
+    // A command's token leaves Policy only once its jti and expiry are
+    // committed to the occurrence's issuance log, by the current owner
+    // (B5 §7): an empty log then proves no token ever existed.
+    if (commandOp) {
+      const { jti, exp } = decodeJwt(executionToken);
+      try {
+        await commandRecords.logIssuance({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, jti, exp });
+      } catch (e) {
+        if (e instanceof CommandRefused) return deny(e.reason, { ...record, commandId: session.cmd });
+        throw e;
+      }
+    }
+    await audit({ ...record, opid: operationId, outcome: "allowed", ...(replayOnly ? { reason: "replay-only" } : {}), ...(session.cmd !== undefined ? { commandId: session.cmd } : {}) });
     return { executionToken, operationId };
   };
 
@@ -888,6 +1096,16 @@ export const createPolicy = ({
     if (claims.pld && claims.stg !== opStage) return deny("plan-binding-mismatch", { ...record, planDigest: claims.pld });
     const contractRefusal = await contractRefusalFor({ claims, provenance: claims.prv, fn: claims.fn, invocationId: opInvocation, stage: opStage, lang: claims.lang });
     if (contractRefusal) return deny(contractRefusal, { ...record, planDigest: claims.pld });
+    // A command's step (B5): the owner is still current, the occurrence still
+    // the bound one, and this token one Policy logged for it.
+    if (claims.cmd !== undefined) {
+      const occurrenceId = String(claims.opid).split("/")[2];
+      const checked = await commandOperation({ claims: { ...claims, inv: opInvocation }, stage: opStage, occurrenceId, fn: claims.fn, op, argsDigest });
+      if (checked.refusal) return deny(checked.refusal, { ...record, commandId: claims.cmd });
+      if (!(checked.occurrence.minted ?? []).some(m => m.jti === claims.jti)) return deny("token-not-logged", { ...record, commandId: claims.cmd });
+    } else if (claims.prv === "user" && await isCommandInvocation(opInvocation)) {
+      return deny("command-claims-required", record);
+    }
     // The same live checks as mint, re-read now.
     const refusal = await liveRefusal({ ...claims, provenance: claims.prv }, claims.fn);
     if (refusal) return deny(refusal, record);
@@ -949,10 +1167,21 @@ export const createPolicy = ({
     if (typeof invocationToken !== "string") return deny("bad-request", record);
     const found = await gatewayInvocation({ invocationToken, user });
     if (found.refusal) return deny(found.refusal, record);
-    const { invocation } = found;
+    const admitted = await admitChain({ record, uid: user.uid, invocation: found.invocation, taskIds, stages });
+    const { invocationId, connectionId } = found.invocation;
+    const admissionToken = await issueToken(signer, "admission", { sub: user.uid, conn: connectionId, inv: invocationId, pld: admitted.planDigest, cv: CONTRACT_VERSION });
+    await audit({ ...record, ownerUid: admitted.ownerUid, outcome: "allowed", reason: admitted.created ? "new" : "reused" });
+    return { planDigest: admitted.planDigest, admissionToken, stages: admitted.stages };
+  };
+
+  // The body of chain admission, shared by the gateway's admit (a user's
+  // invocation token) and a command's (its stored principal, B5): one
+  // decision for every stage at one consistent read, and the plan written.
+  // Returns { planDigest, plan, stages, ownerUid, created }, or denies.
+  const admitChain = async ({ record, uid, invocation, taskIds, stages }) => {
     const { invocationId, connectionId } = invocation;
     Object.assign(record, { invocationId, connectionId });
-    await requireProtectedExecution(record, { uid: user.uid, connectionId });
+    await requireProtectedExecution(record, { uid, connectionId });
     if (!approvals || !fence) return deny("unavailable", record);
     if (invocation.contract !== 2) return deny("invocation-incompatible", record);
     if (!Array.isArray(taskIds) || !taskIds.length || !taskIds.every(t => typeof t === "string" && t.length > 0) ||
@@ -1025,7 +1254,7 @@ export const createPolicy = ({
       if (!(rev.contractVersions ?? []).includes(CONTRACT_VERSION)) return deny("contract-version-unsupported", record);
     }
     const connection = await connections.get(connectionId, { readTime: lease.readTime });
-    const access = await accessFor(connection, user.uid, { readTime: lease.readTime });
+    const access = await accessFor(connection, uid, { readTime: lease.readTime });
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
     for (const m of plan.stages) {
       const registered = protectedFunctionsForLang(m.lang) || {};
@@ -1042,11 +1271,12 @@ export const createPolicy = ({
       if (e instanceof AdmissionRefused) return deny(e.reason, { ...record, ownerUid: connection.ownerUid });
       throw e;
     }
-    const admissionToken = await issueToken(signer, "admission", { sub: user.uid, conn: connectionId, inv: invocationId, pld: digest, cv: CONTRACT_VERSION });
-    await audit({ ...record, ownerUid: connection.ownerUid, outcome: "allowed", reason: committed.created ? "new" : "reused" });
     return {
       planDigest: digest,
-      admissionToken,
+      plan,
+      ownerUid: connection.ownerUid,
+      backend: connection.backend,
+      created: committed.created,
       stages: plan.stages.map((m, i) => ({ stage: m.stage, lang: m.lang, revision: m.revision, tagUrl: approved[i].record.tagUrl })),
     };
   };
@@ -1091,5 +1321,5 @@ export const createPolicy = ({
     return { enabled, source };
   };
 
-  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
+  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
 };
