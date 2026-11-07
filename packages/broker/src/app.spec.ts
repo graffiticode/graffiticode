@@ -315,7 +315,7 @@ describe("broker http: reconcile", () => {
 
 // Receipt reads (B5 settlement): Policy only, with no token.
 describe("broker http: receipts", () => {
-  const ask = (email, body = { invocationId: "inv-0001" }, token = null) => {
+  const ask = (email, body: { invocationId: string, operationIds?: string[] } = { invocationId: "inv-0001" }, token = null) => {
     const r = request(app).post("/v1/receipts").set("X-Caller-Identity", `idt|${email}|${AUD}`).set("X-Serverless-Authorization", forwarded(email));
     return (token ? r.set("Authorization", `Bearer ${token}`) : r).send(body);
   };
