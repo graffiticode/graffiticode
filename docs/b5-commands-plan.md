@@ -241,6 +241,7 @@ The result is separate from the status:
   - **No claim, but a token was issued:** nothing is recorded until every issued token has expired and the Broker's operation deadline has passed. Policy then settles again: a claim decides, and if there is still none, the occurrence is recorded `failed`. The Broker claims before any provider call, so an unclaimed opid whose tokens can no longer be used has written nothing.
 
     Until such an occurrence settles the command stays `pending`, and the sweeper revisits it.
+- **The issuance log is committed before any token leaves Policy.** Before returning an execution token, Policy commits its `jti` and `exp` to the occurrence's issuance log, in a transaction that checks the live lease and the current generation. No token is returned without that committed entry. So an empty log proves that no token for the occurrence ever existed.
 - **Only definite reasons are recorded:** `liveRefusal`'s reasons, and the intent, scope and bounds refusals.
 - **Transient refusals record nothing** (`token-expiring`, unavailability, rate limits). The occurrence stays open for the next attempt.
 - **Refusals inside the Broker** after a claim are already the receipt's `failed` or `partial`, and are settled through `/receipts`.
@@ -362,6 +363,10 @@ These are design §12 acceptance criteria 2, without the repair items (B6). They
   - Every write completes, and the worker dies before `finish`. Then the connection is revoked. Recovery settles from the receipts, and the command ends `completed`.
   - `finish` commits `completed`, then the connection is revoked and the worker dies before delivery. The sweeper delivers the publication, and the outcome stays `completed`.
   - A transient mint refusal records nothing, and the retry proceeds.
+  - **The issuance-log ordering.** Faults are injected at each point around a mint.
+    - **The log commit fails, or its transaction finds a stale lease or generation.** No token is returned, the log is unchanged, and the provider is never called.
+    - **Policy crashes after the log commit, before the response.** The entry exists with no token delivered. A later refusal waits for that entry's `exp` and the Broker's deadline, settles, and records `failed`. It never records `failed` early.
+    - **Every token the Broker accepts for the opid has a matching log entry.** This is checked by `jti` across the fault runs.
   - `/receipts` called with any token, or from a non-Policy caller, is refused.
 
 **Outcomes and results**
