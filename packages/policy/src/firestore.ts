@@ -3,7 +3,8 @@
 // secret — the broker holds that.
 
 import { createHash } from "node:crypto";
-import { InvocationConflict, newInvocationId, sameInvocationBinding, AdmissionRefused } from "./invocations.js";
+import { InvocationConflict, ProtocolMismatch, newInvocationId, sameInvocationBinding, AdmissionRefused } from "./invocations.js";
+import { COMMAND_LEASE_MS, CommandRefused, commandIdFor, newCommandRecord, renewedLease, takenOverLease } from "./commands.js";
 import { leaseRef, leaseIsActive } from "./revisions.js";
 
 const hashId = parts => createHash("sha256").update(JSON.stringify(parts)).digest("hex");
@@ -47,9 +48,11 @@ export const createFirestoreInvocationStore = db => ({
       if (keySnap?.exists) {
         const hit = keySnap.data();
         if (!sameInvocationBinding(hit.binding, binding)) throw new InvocationConflict("idempotency key reused");
+        // D2a: a key a command holds is never served by the legacy path.
+        if ((hit.protocol ?? "legacy") !== "legacy") throw new ProtocolMismatch(hit.protocol, hit.commandId);
         // The marker and plan are the invocation's own, never the retry's.
         const invocation = (await tx.get(db.collection("invocations").doc(hit.invocationId))).data() ?? {};
-        return { invocationId: hit.invocationId, seq: hit.seq, reused: true, contract: invocation.contract ?? 1, planDigest: invocation.planDigest ?? null };
+        return { invocationId: hit.invocationId, seq: hit.seq, reused: true, contract: invocation.contract ?? 1, planDigest: invocation.planDigest ?? null, protocol: "legacy" };
       }
       const seqSnap = await tx.get(seqRef);
       const seq = (seqSnap.exists ? seqSnap.data().seq : 0) + 1;
@@ -57,9 +60,9 @@ export const createFirestoreInvocationStore = db => ({
       const now = new Date().toISOString();
       const contract = admission ? 2 : 1;
       tx.set(seqRef, { seq, updatedAt: now });
-      tx.set(db.collection("invocations").doc(invocationId), { uid, ...binding, seq, contract, createdAt: now });
-      if (keyRef) tx.set(keyRef, { binding, invocationId, seq, createdAt: now });
-      return { invocationId, seq, reused: false, contract, planDigest: null };
+      tx.set(db.collection("invocations").doc(invocationId), { uid, ...binding, seq, contract, protocol: "legacy", createdAt: now });
+      if (keyRef) tx.set(keyRef, { binding, invocationId, seq, protocol: "legacy", createdAt: now });
+      return { invocationId, seq, reused: false, contract, planDigest: null, protocol: "legacy" };
     });
   },
   async get(invocationId) {
@@ -102,6 +105,67 @@ export const createFirestoreInvocationStore = db => ({
     });
   },
 });
+
+// See commands.js for the contract. Allocation is one transaction over the
+// idempotency key, the sequence counter, the invocation, the command and its
+// request, so concurrent first requests with one key get one command, and a
+// key the legacy path allocated first stays legacy (D2a). Every lease change
+// is a transaction that re-reads the command, so a stale owner changes nothing.
+export const createFirestoreCommandStore = db => {
+  const commandRef = commandId => db.collection("commands").doc(commandId);
+  const requestRef = commandId => commandRef(commandId).collection("request").doc("original");
+  const change = (commandId, fn) => db.runTransaction(async tx => {
+    const snap = await tx.get(commandRef(commandId));
+    if (!snap.exists) throw new CommandRefused("command-not-found");
+    const next = fn(snap.data());
+    tx.set(commandRef(commandId), next);
+    return next;
+  });
+  return {
+    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS }) {
+      const binding = { connectionId, taskId, inputDigest };
+      const keyRef = db.collection("idempotency-keys").doc(hashId([uid, idempotencyKey]));
+      const seqRef = db.collection("invocation-sequences").doc(hashId([uid, taskId, connectionId]));
+      return db.runTransaction(async tx => {
+        const keySnap = await tx.get(keyRef);
+        if (keySnap.exists) {
+          const hit = keySnap.data();
+          if (!sameInvocationBinding(hit.binding, binding)) throw new InvocationConflict("idempotency key reused");
+          if ((hit.protocol ?? "legacy") === "legacy") return { protocol: "legacy", invocationId: hit.invocationId, seq: hit.seq };
+          const command = await tx.get(commandRef(hit.commandId));
+          return { protocol: "command", reused: true, command: command.data() };
+        }
+        const seqSnap = await tx.get(seqRef);
+        const seq = (seqSnap.exists ? seqSnap.data().seq : 0) + 1;
+        const invocationId = newInvocationId();
+        const commandId = commandIdFor(uid, idempotencyKey);
+        const at = new Date(now).toISOString();
+        const command = newCommandRecord({ commandId, uid, idempotencyKey, invocationId, seq, lang, connectionId, taskId, inputDigest, worker, now, leaseMs });
+        tx.set(seqRef, { seq, updatedAt: at });
+        tx.set(db.collection("invocations").doc(invocationId), { uid, ...binding, seq, contract: 2, protocol: "command", commandId, createdAt: at });
+        tx.set(keyRef, { binding, invocationId, seq, protocol: "command", commandId, createdAt: at });
+        tx.set(commandRef(commandId), command);
+        // The request's exact text, never re-serialized (decision 2).
+        tx.set(requestRef(commandId), { text: request });
+        return { protocol: "command", reused: false, command };
+      });
+    },
+    async get(commandId) {
+      const snap = await commandRef(commandId).get();
+      return snap.exists ? snap.data() : null;
+    },
+    async getRequest(commandId) {
+      const snap = await requestRef(commandId).get();
+      return snap.exists ? snap.data().text : null;
+    },
+    async renewLease({ commandId, worker, generation, now, leaseMs = COMMAND_LEASE_MS }) {
+      return change(commandId, c => renewedLease(c, { worker, generation, now, leaseMs }));
+    },
+    async takeOver({ commandId, worker, expectedGeneration, now, leaseMs = COMMAND_LEASE_MS }) {
+      return change(commandId, c => takenOverLease(c, { worker, expectedGeneration, now, leaseMs }));
+    },
+  };
+};
 
 // See publications.js for the contract.
 export const createFirestorePublicationStore = db => {

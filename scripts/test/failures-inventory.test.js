@@ -24,6 +24,7 @@ const FORMS = [
   /\b(?:failedWith|failure)\([^;]*?, "([a-z0-9-]+)"\)/g, // api: failedWith(message, "code"), failure(message, "code")
   /\bartifactNotStored\(\{ error: "([a-z0-9-]+)"/g, // api: artifactNotStored({ error: "code", … })
   /\brefuseChain\([^;]*?, "([a-z0-9-]+)"/g, // api: refuseChain(message, "code", stage?) (chain admission, W4)
+  /\bnew CommandRefused\("([a-z0-9-]+)"/g, // policy: command records (B5)
 ];
 // Reasons returned from a function rather than in one of the forms above.
 const RETURNED = {
@@ -32,13 +33,18 @@ const RETURNED = {
   authorizationReason: /return "([a-z0-9-]+)";/g,
   // Contract v2 (W4): mint's and authorize-execution's plan checks.
   contractRefusalFor: /(?:return|\?) "([a-z0-9-]+)"/g,
+  // Commands (B5): an owner request's refusal, and a payload's problem.
+  ownerRefusal: /return "([a-z0-9-]+)";/g,
+  requestProblem: /return "([a-z0-9-]+)";/g,
 };
 
 // Strings the forms also match that aren't refusals: audit annotations of an
 // allowed or recorded outcome.
 const NOT_REFUSALS = new Set(["canary-during-maintenance", "system-preview", "publication", "outcome-not-recorded", "unclassified-reason", "new", "reused",
   // Reconciliation's findings, on allowed outcomes (WRITE-02, W5).
-  "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict"]);
+  "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict",
+  // Commands (B5): a key the legacy path holds, and a lease taken over.
+  "legacy-key", "takeover"]);
 
 const functionBody = (text, name) => {
   const start = text.search(new RegExp(`const ${name} = `));

@@ -53,6 +53,8 @@ const ANNOTATIONS = [
   "unclassified-reason", "succeeded", "failed", "partial", "uncertain",
   // Reconciliation's verdicts and findings (WRITE-02, W5).
   "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict",
+  // Commands (B5): a key the legacy path holds, and a lease taken over.
+  "legacy-key", "takeover",
 ];
 const reason = v => {
   if (typeof v !== "string") return INVALID;
@@ -85,6 +87,8 @@ const VALIDATORS = {
   callerRole: oneOf(["broker", "compiler", "console", "gateway", "policy"]),
   // Contract v2 (W4): the admitted plan, by its digest.
   planDigest: match(/^[a-f0-9]{64}$/),
+  // Commands (B5): `c:` and a key digest, never the key itself.
+  commandId: match(/^c:[a-f0-9]{64}$/),
 };
 // `fn` and `step` need the record's lang and op to be checked.
 const fnFor = (fn, lang) => (typeof fn === "string" && Object.prototype.hasOwnProperty.call(protectedFunctionsForLang(lang) || {}, fn) ? fn : INVALID);

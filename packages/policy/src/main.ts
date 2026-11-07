@@ -32,6 +32,7 @@ import {
   createKmsSigner,
   createFirestoreConnectionStore,
   createFirestoreInvocationStore,
+  createFirestoreCommandStore,
   createFirestorePublicationStore,
   createFirestoreGrantStore,
   createBrokerAdminClient,
@@ -85,6 +86,8 @@ const policy = createPolicy({
   jwks: publicJwks,
   connections,
   invocations,
+  // Command records (B5): in the same database, beside the invocations.
+  commands: createFirestoreCommandStore(db),
   publications,
   grants,
   systemConnections,
