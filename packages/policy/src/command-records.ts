@@ -92,6 +92,17 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       return { stage, digest: installed.digest, revision: installed.revision, tagUrl: installed.tagUrl };
     }),
 
+    // §6 step 2: admission recorded on the command, once. A retry of the same
+    // admission is acknowledged; a different one is refused.
+    admit: ({ commandId, generation, admission }) => owned(commandId, generation, async (tx, command) => {
+      if (command.phase === "admitted") {
+        if (command.admission?.planDigest !== admission.planDigest) throw new CommandRefused("plan-mismatch");
+        return command;
+      }
+      const stages = Object.fromEntries(Object.keys(admission.stages).map(name => [name, { ...stageOf(command, name) }]));
+      return touch(tx, command, { phase: "admitted", admission, stages, revisions: admission.revisions ?? null });
+    }),
+
     // §5: a stage's pinned input, installed once; a later owner gets the first.
     installInput: ({ commandId, generation, stage, text }) => owned(commandId, generation, async (tx, command) => {
       requireStage(stage);
@@ -122,10 +133,13 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
 
     // §4: an occurrence bound to its admitted intent before dispatch. Bounds
     // are enforced here, in the same transaction as the per-intent count.
-    bindOccurrence: ({ commandId, generation, stage, occurrenceId, intentId, expansionKey = null, args, observations = [] }) => owned(commandId, generation, async (tx, command) => {
+    bindOccurrence: ({ commandId, generation, stage, occurrenceId, intentId, expansionKey = null, args, argd = null, observations = [] }) => owned(commandId, generation, async (tx, command) => {
       requireStage(stage);
       if (typeof occurrenceId !== "string" || !OCC_RE.test(occurrenceId) || typeof intentId !== "string" || !intentId) throw new CommandRefused("bad-request");
       requirePayload(args);
+      // `argd`: the Broker's digest of the operation's payload, which mint
+      // and authorize-execution check the token's against.
+      if (argd !== null && (typeof argd !== "string" || !DIGEST_RE.test(argd))) throw new CommandRefused("bad-request");
       if (!Array.isArray(observations) || !observations.every(o => typeof o === "string" && OID_RE.test(o))) throw new CommandRefused("bad-request");
       const intents = admittedIntents(command, stage);
       if (!intents) throw new CommandRefused("not-admitted");
@@ -154,7 +168,7 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       const max = intent.bounds?.maxOccurrences ?? 1;
       if ((byIntent[countKey] ?? 0) >= max) throw new CommandRefused("bounds-exceeded");
       byIntent[countKey] = (byIntent[countKey] ?? 0) + 1;
-      tx.set(path, { stage, occurrenceId, intentId, expansionKey, args, argsDigest, observations, minted: [], boundAt: new Date(now()).toISOString(), generation });
+      tx.set(path, { stage, occurrenceId, intentId, expansionKey, args, argsDigest, argd, observations, minted: [], boundAt: new Date(now()).toISOString(), generation });
       touch(tx, command, { counts: { ...counts, byIntent, bound: (counts.bound ?? 0) + 1 } });
       return { stage, occurrenceId, argsDigest, bound: true };
     }),

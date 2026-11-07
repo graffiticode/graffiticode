@@ -21,6 +21,8 @@
 //   POST /v1/commands/:id/finish          { result? } the terminal status, aggregated here
 //   POST /v1/commands/:id/published       the publication delivered
 //   POST /v1/commands/:id/transition      extension point (Track E2); no intent in B5
+//   POST /v1/commands/:id/admit   { generation, taskIds, stages }  the first admission, under the stored principal
+//   POST /v1/commands/:id/session { generation, stage }  a stage's session, with cmd and fg (live permission checked)
 //   GET  /v1/commands/:id/records/:what   request | models | input?stage= | result | occurrences | outcomes
 //   POST /v1/invocations/plan gateway { invocationToken }   the invocation's plan, before a retry
 //                                 resolves compiler URLs   -> { contract, plan: null | { planDigest, stages } }
@@ -235,6 +237,17 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const caller = await authorize("commands")(req);
     res.set("Cache-Control", "no-store");
     await decide(res, () => policy.settleCommand({ caller, commandId: req.params.id, generation: body(req).generation }));
+  }));
+  router.post("/commands/:id/admit", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    res.set("Cache-Control", "no-store");
+    const { generation, taskIds, stages } = body(req);
+    await decide(res, () => policy.admitCommand({ caller, commandId: req.params.id, generation, taskIds, stages }));
+  }));
+  router.post("/commands/:id/session", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.commandSession({ caller, commandId: req.params.id, generation: body(req).generation, stage: body(req).stage }));
   }));
   router.post("/commands/:id/transition", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);

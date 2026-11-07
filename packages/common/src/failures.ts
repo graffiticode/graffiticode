@@ -73,6 +73,12 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ...cat("conflict", ["command-admitted", "not-admitted", "stage-closed", "close-mismatch", "occurrences-unsettled", "nothing-to-publish", "observation-not-recorded", "occurrence-not-bound"]),
   ...cat("permission", ["intent-not-admitted", "occurrence-mismatch", "bounds-exceeded"]),
   ...cat("malformed", ["not-supported"]),
+  // Command authority (B5 slice 3): admission before every stage's model is
+  // installed; an intent the registry or the stage doesn't allow; a token
+  // for a command's invocation without its claims; an operation outside its
+  // admitted intent; a step under a token Policy never logged.
+  ...cat("conflict", ["models-missing"]),
+  ...cat("permission", ["intent-not-registered", "intent-mismatch", "command-claims-required", "token-not-logged"]),
   ...cat("permission", ["command-not-found"]),
   ...cat("malformed", ["input-too-large"]),
   // System preview signing limits: Policy's per-instance bucket on

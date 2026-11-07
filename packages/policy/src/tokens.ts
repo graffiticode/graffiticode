@@ -75,7 +75,10 @@ export const PROFILES = Object.freeze({
     // admitted plan adds `pld` (its digest) and `bind` (its stage).
     // `rpl`: a replay-only session (P1b), for a plan whose registry version
     // has left the window: its mints are replay tokens.
-    optional: { pub: STRING, sys: BOOLEAN, cv: NUMBER, pld: STRING, bind: OBJECT, rpl: BOOLEAN },
+    // B5: a command's session names the command (`cmd`) and the owner's
+    // fencing generation (`fg`). Optional for every legacy session; Policy
+    // requires them for a command's (decision 6).
+    optional: { pub: STRING, sys: BOOLEAN, cv: NUMBER, pld: STRING, bind: OBJECT, rpl: BOOLEAN, cmd: STRING, fg: NUMBER },
   }),
   execution: profile({
     typ: "gc-exec+jwt",
@@ -90,7 +93,7 @@ export const PROFILES = Object.freeze({
     // session's expiry (epoch seconds), on every token minted under one, so
     // Broker's per-session signature slots outlive every token the session
     // can produce.
-    optional: { pub: STRING, cv: NUMBER, pld: STRING, stg: STRING, sexp: NUMBER },
+    optional: { pub: STRING, cv: NUMBER, pld: STRING, stg: STRING, sexp: NUMBER, cmd: STRING, fg: NUMBER },
   }),
   // A retry's way back to a write's recorded outcome once the plan's registry
   // version has left the window (docs/graffiticode-interpreter-plan.md, P1b).
@@ -102,7 +105,7 @@ export const PROFILES = Object.freeze({
     audience: "urn:graffiticode:broker",
     ttlSeconds: 60,
     required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER, prv: STRING },
-    optional: { cv: NUMBER, pld: STRING, stg: STRING },
+    optional: { cv: NUMBER, pld: STRING, stg: STRING, cmd: STRING, fg: NUMBER },
   }),
   // One admitted plan for one invocation (W4): issued to the gateway by
   // admission, and presented with each stage's snapshot. Policy's audience.
