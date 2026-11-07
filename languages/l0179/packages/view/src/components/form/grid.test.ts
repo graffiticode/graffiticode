@@ -16,7 +16,6 @@ import {
   findNextDataCell,
   getCellNodeByName,
   getAdjacentCellNodeByName,
-  makeReadOnlyPlugin,
   makeProtectedCellsPlugin,
   buildCellPlugin,
   stickyStyle,
@@ -243,43 +242,53 @@ describe("freezing", () => {
   });
 });
 
-describe("read-only", () => {
+describe("a protected sheet", () => {
   const sheet = { cells: { A1: { text: "a" }, B1: { text: "b" }, A2: { text: "=A1" } } };
-  const readOnly = () => stateOf(sheet, [makeReadOnlyPlugin(true)]);
+  const guarded = (cells: any = sheet.cells) =>
+    EditorState.fromJSON({ schema, plugins: [makeProtectedCellsPlugin(null)] },
+      makeEditorState({ type: "table", cells, sheetProtected: true }));
+
+  test("protects every cell", () => {
+    const state = guarded();
+    for (const name of ["A1", "B1", "A2"]) {
+      expect(getCellNodeByName({ state, name }).node.attrs.protected).toBe(true);
+    }
+  });
+
+  test("a cell's own protected false still opens it", () => {
+    const state = guarded({ A1: { text: "a" }, B1: { text: "", protected: false } });
+    expect(getCellNodeByName({ state, name: "B1" }).node.attrs.protected).toBe(false);
+    const inB1 = at(state, "B1");
+    expect(inB1.apply(inB1.tr.insertText("x")).doc.eq(inB1.doc)).toBe(false);
+  });
 
   test("Select All, then typing, changes nothing", () => {
-    let state = readOnly();
+    let state = guarded();
     state = state.apply(state.tr.setSelection(new AllSelection(state.doc)));
-    const after = state.apply(state.tr.insertText("x"));
-    expect(after.doc.eq(state.doc)).toBe(true);
+    expect(state.apply(state.tr.insertText("x")).doc.eq(state.doc)).toBe(true);
   });
 
   test("Select All, then Delete, changes nothing", () => {
-    let state = readOnly();
+    let state = guarded();
     state = state.apply(state.tr.setSelection(new AllSelection(state.doc)));
     expect(state.apply(state.tr.deleteSelection()).doc.eq(state.doc)).toBe(true);
   });
 
   test("a paste over the whole document, or into one cell, changes nothing", () => {
-    let state = readOnly();
+    let state = guarded();
     const slice = state.doc.slice(0, state.doc.content.size);
     state = state.apply(state.tr.setSelection(new AllSelection(state.doc)));
     expect(state.apply(state.tr.replaceSelection(slice)).doc.eq(state.doc)).toBe(true);
-    const inCell = at(readOnly(), "B1");
+    const inCell = at(guarded(), "B1");
     expect(inCell.apply(inCell.tr.insertText("pasted")).doc.eq(inCell.doc)).toBe(true);
   });
 
   test("the grid's own writes still land, so formulas display their values", () => {
-    const state = at(readOnly(), "A2");
+    const state = at(guarded(), "A2");
     const { pos, node } = getCellNodeByName({ state, name: "A2" });
     const tr = state.tr.replaceWith(pos + 1, pos + node.nodeSize - 1,
       schema.node("paragraph", null, schema.text("a"))).setMeta("systemFormatting", true);
     expect(state.apply(tr).doc.eq(state.doc)).toBe(false);
-  });
-
-  test("off, edits go through", () => {
-    const state = at(stateOf(sheet, [makeReadOnlyPlugin(false)]), "B1");
-    expect(state.apply(state.tr.insertText("x")).doc.eq(state.doc)).toBe(false);
   });
 });
 

@@ -380,7 +380,7 @@ Transformer.prototype.PROG = function (node: any, options: any, resume: any) {
       showSheetTabs,
       hideSheetMenu,
       hideHeadings,
-      readOnly,
+      protected: sheetProtected,
       feedback,
       sheetIds,
       errors,
@@ -440,11 +440,11 @@ Transformer.prototype.PROG = function (node: any, options: any, resume: any) {
         ...(hideMenu !== undefined ? { hideMenu } : {}),
         ...(freezeRows !== undefined ? { freezeRows } : {}),
         ...(freezeColumns !== undefined ? { freezeColumns } : {}),
+        ...(sheetProtected !== undefined ? { protected: sheetProtected } : {}),
         ...(showSheetTabs !== undefined ? { showSheetTabs } : {}),
         ...(hideSheetMenu !== undefined ? { hideSheetMenu } : {}),
         // Program-level: emitted once, here, and never per sheet — the view applies it to every grid.
         ...(hideHeadings !== undefined ? { hideHeadings } : {}),
-        ...(readOnly !== undefined ? { readOnly } : {}),
         ...(Array.isArray(val0.sheets) ? {
           sheets: val0.sheets.map((s: any, i: number) => ({
             id: s.id,
@@ -455,6 +455,7 @@ Transformer.prototype.PROG = function (node: any, options: any, resume: any) {
             ...(s.hideMenu !== undefined ? { hideMenu: s.hideMenu } : {}),
             ...(s.freezeRows !== undefined ? { freezeRows: s.freezeRows } : {}),
             ...(s.freezeColumns !== undefined ? { freezeColumns: s.freezeColumns } : {}),
+            ...(s.protected !== undefined ? { protected: s.protected } : {}),
           })),
         } : {}),
       },

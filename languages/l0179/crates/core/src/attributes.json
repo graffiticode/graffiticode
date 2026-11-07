@@ -150,11 +150,6 @@
       "expects": "boolean",
       "chaining": true,
       "coerce": "feedback"
-    },
-    "READ_ONLY": {
-      "field": "readOnly",
-      "expects": "boolean",
-      "chaining": true
     }
   },
   "containers": {
@@ -165,7 +160,6 @@
       "hide-sheet-menu",
       "hide-headings",
       "instant-feedback",
-      "read-only",
       "params",
       "v"
     ],
@@ -174,6 +168,7 @@
       "hide-formulabar",
       "freeze-rows",
       "freeze-columns",
+      "protected",
       "columns",
       "rows",
       "cells"

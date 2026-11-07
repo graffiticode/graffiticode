@@ -75,17 +75,17 @@ There is no chaining. An attribute never takes the rest of the program.
 below.
 **On a column or row** — the presentation attributes, plus `assess` to set defaults for the
 cells in it.
-**On the sheet** — `name`, `hide-formulabar`, `freeze-rows`, `freeze-columns`, and the
-`columns` / `rows` / `cells` blocks.
+**On the sheet** — `name`, `hide-formulabar`, `freeze-rows`, `freeze-columns`, `protected`, and
+the `columns` / `rows` / `cells` blocks.
 **On the program**, after the `sheets` list — `title`, `instructions`, `show-sheet-tabs`,
-`hide-sheet-menu`, `hide-headings`, `read-only`, `instant-feedback`, then `params` last.
+`hide-sheet-menu`, `hide-headings`, `instant-feedback`, then `params` last.
 
 Presentation: `width`, `align`, `background-color`, `font-weight`, `font-size`, `font-family`,
 `font-style`, `color`, `text-decoration`, `border`, `vertical-align`, `format`, `protected`, `wrap`.
 
 Values are CSS, written as strings, with exceptions taking bare literals: `width`, `colspan`,
-`rowspan`, `freeze-rows` and `freeze-columns` a number, and `protected`, `wrap` and `read-only`
-a `true` or `false`. Quoting any of them is a compile error:
+`rowspan`, `freeze-rows` and `freeze-columns` a number, and `protected` and `wrap` a `true` or
+`false`. Quoting any of them is a compile error:
 
 ```
 column A [width 200]
@@ -189,7 +189,7 @@ A sheet that presents information rather than asking for answers usually wants s
 - **A header row that stays in view** — `freeze-rows`, counting every row down to the header,
   title row included.
 - **Links** — `link` with the full `https://` address; `text` is the label.
-- **Read-only** — `read-only true` after the `sheets` list, rather than `protected` on every cell.
+- **Nothing editable** — `protected true` on the sheet, rather than on every cell or column.
 - **Banded rows** — `background-color` on alternate `row`s.
 - **Wrapped text** — the default; write `wrap false` only to keep a column on one line.
 - **A note under the table** — a cell below the last row, merged across the table's width.
@@ -199,6 +199,7 @@ sheets [
   sheet "s1" [
     name "Chats"
     freeze-rows 2
+    protected true
     columns [
       column A [width 100] column B [width 300] column C [width 110 align "right"]
     ] {}
@@ -214,7 +215,7 @@ sheets [
       cell A6 [text "Checked 6 November 2026. Member counts change." colspan 3 font-style "italic" align "left"]
     ] {}
   ]
-] read-only true {
+] {
   "v": "0.0.1"
 }..
 ```

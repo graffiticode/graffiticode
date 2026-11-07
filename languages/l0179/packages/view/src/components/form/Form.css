@@ -315,8 +315,3 @@ main {
 .ProseMirror a.gc-link:visited {
   color: #681da8;
 }
-
-/* `read-only`: nothing on the sheet takes input. */
-.gc-read-only .ProseMirror {
-  caret-color: transparent;
-}

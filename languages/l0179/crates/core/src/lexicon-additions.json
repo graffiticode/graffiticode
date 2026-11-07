@@ -223,13 +223,6 @@
     "length": 2,
     "arity": 2
   },
-  "read-only": {
-    "tk": 1,
-    "name": "READ_ONLY",
-    "cls": "function",
-    "length": 2,
-    "arity": 2
-  },
   "sheets": {
     "tk": 1,
     "name": "SHEETS",

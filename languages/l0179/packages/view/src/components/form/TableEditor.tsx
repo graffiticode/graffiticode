@@ -104,7 +104,6 @@ const buildMenuPlugin = (formState) => {
             className=""
             editorView={editorView}
             hideMenu={hideMenu}
-            readOnly={formState.data.interaction?.readOnly === true}
           />,
         );
       };
@@ -120,7 +119,6 @@ const buildMenuPlugin = (formState) => {
                 className=""
                 editorView={editorView}
                 hideMenu={hideMenu}
-                readOnly={formState.data.interaction?.readOnly === true}
               />,
             );
           }
@@ -1528,23 +1526,6 @@ export const touchesProtectedCell = (doc, from, to) => {
   return found;
 };
 
-/**
- * `read-only`: no cell on the sheet can be changed, by any route.
- *
- * Per-cell protection is not enough to build this on, and was not trusted for it: its checks look
- * at where the selection or the step STARTS, so a selection anchored outside every cell (Select
- * All) slipped past them. This refuses every transaction that changes the document, except the
- * grid's own — formatted values written at mount and on recalculation (`systemFormatting`) and
- * table normalisation (`gcInternal`). The view is also not editable (see TableEditor), so this is
- * the backstop for anything that dispatches directly: the formula bar, paste, a drop.
- */
-export const makeReadOnlyPlugin = (readOnly) => new Plugin({
-  filterTransaction(tr) {
-    if (!readOnly || !tr.docChanged) return true;
-    return tr.getMeta("systemFormatting") === true || tr.getMeta("gcInternal") === true;
-  },
-});
-
 export const makeProtectedCellsPlugin = (tooltipHandler) => new Plugin({
   props: {
     handleDOMEvents: {
@@ -2303,7 +2284,10 @@ const applyRules = ({ rows, rowsAttrs }) => {
   return rowAttrs;
 };
 
-const getCell = (row, col, cells, columns, rows) => {
+// `sheetProtected` is `protected` on the sheet: the default for every cell, beneath the cell's
+// own, its column's and its row's (cell beats column beats row beats sheet), so a protected sheet
+// can still leave a cell open with `protected false`.
+const getCell = (row, col, cells, columns, rows, sheetProtected = undefined) => {
   if (row === 0 && col === "_") {
     return {
       type: "th",
@@ -2378,7 +2362,8 @@ const getCell = (row, col, cells, columns, rows) => {
         assess: mergedAttrs?.assess,
         // A link cell is display-only: it is something to click, not to type into, and keeping
         // the caret out of it is what lets a plain click open the link.
-        protected: mergedAttrs?.protected || (isWebAddress(mergedAttrs?.link) ? true : undefined),
+        protected: (mergedAttrs?.protected ?? sheetProtected) ||
+          (isWebAddress(mergedAttrs?.link) ? true : undefined),
         // Read by buildCell: it builds the node's spans from these. Without them here the spans
         // never reach the document — prosemirror-tables declares the attributes, but only the
         // model has the values.
@@ -2392,7 +2377,7 @@ const getCell = (row, col, cells, columns, rows) => {
   return {};
 };
 
-export const makeEditorState = ({ type, columns, cells, rows, hideHeadings }: any) => {
+export const makeEditorState = ({ type, columns, cells, rows, hideHeadings, sheetProtected }: any) => {
   if (!cells || Object.keys(cells).length === 0) {
     return null;
   }
@@ -2407,7 +2392,7 @@ export const makeEditorState = ({ type, columns, cells, rows, hideHeadings }: an
       cols.reduce((rowAccum, col) =>
         ({
           ...rowAccum,
-          [col]: getCell(row, col, cells || {}, columns, rows)
+          [col]: getCell(row, col, cells || {}, columns, rows, sheetProtected)
         }), {}
       )
     );
@@ -2491,7 +2476,9 @@ const makeFreezePlugin = (freezeRows, freezeColumns) => new Plugin({
 });
 
 export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
-  const { type, columns, cells, rows, hideHeadings, readOnly } = state.data.interaction;
+  const { type, columns, cells, rows, hideHeadings } = state.data.interaction;
+  // `protected` on the sheet: every cell protected, through the same machinery as a protected cell.
+  const sheetProtected = state.data.interaction.protected === true ? true : undefined;
   const freezeRows = Number(state.data.interaction.freezeRows) || 0;
   const freezeColumns = Number(state.data.interaction.freezeColumns) || 0;
   const frozen = freezeRows > 0 || freezeColumns > 0;
@@ -2547,7 +2534,6 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     //  modelBackgroundPlugin(),
     makeTableHeadersReadOnlyPlugin(state),
     makeProtectedCellsPlugin(tooltipHandler),
-    makeReadOnlyPlugin(readOnly === true),
     ...(frozen ? [makeFreezePlugin(freezeRows, freezeColumns)] : []),
     cellPlugin,
   ];
@@ -2559,7 +2545,7 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     // Create initial state with data if available
     let initEditorState;
     if (cells && Object.keys(cells).length > 0) {
-      const editorStateData = makeEditorState({type, columns, cells, rows, hideHeadings});
+      const editorStateData = makeEditorState({type, columns, cells, rows, hideHeadings, sheetProtected});
       if (editorStateData) {
         initEditorState = EditorState.fromJSON({
           schema,
@@ -2578,11 +2564,9 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
       });
     }
     const fix = fixTables(initEditorState);
-    if (fix) initEditorState = initEditorState.apply(fix.setMeta('addToHistory', false).setMeta('gcInternal', true));
+    if (fix) initEditorState = initEditorState.apply(fix.setMeta('addToHistory', false));
     const editorView = new EditorView(editorRef.current, {
       state: initEditorState,
-      // `read-only`: nothing on the sheet takes input. makeReadOnlyPlugin is the backstop.
-      editable: () => readOnly !== true,
       dispatchTransaction(transaction) {
         const editorState = editorView.state.apply(transaction);
         editorView.updateState(editorState);
@@ -2609,17 +2593,12 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     editorView.dispatch(
       editorView.state.tr.setMeta("feedback", showFeedback).setMeta("addToHistory", false));
   }, [editorView, showFeedback]);
-  // A recompile can turn `read-only` on or off without remounting; the view's props are fixed at
-  // construction, so they are updated here.
-  useEffect(() => {
-    editorView?.setProps({ editable: () => readOnly !== true });
-  }, [editorView, readOnly]);
   // const templateVariablesRecords = state.data.templateVariablesRecords || [];
   // const index = Math.floor(Math.random() * templateVariablesRecords.length);
   // const env = templateVariablesRecords[index];
   useEffect(() => {
     if (editorView && cells) {
-      const editorStateData = makeEditorState({type, columns, cells, rows, hideHeadings});
+      const editorStateData = makeEditorState({type, columns, cells, rows, hideHeadings, sheetProtected});
       if (!editorStateData) {
         // If no editor state data, create an empty state
         const newEditorState = EditorState.create({
@@ -2645,7 +2624,7 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     <>
       <div
         ref={editorRef}
-        className={`border border-gray-300 p-2 bg-white text-xs font-sans${hideHeadings ? " gc-hide-headings" : ""}${frozen ? " gc-frozen" : ""}${readOnly === true ? " gc-read-only" : ""}`}
+        className={`border border-gray-300 p-2 bg-white text-xs font-sans${hideHeadings ? " gc-hide-headings" : ""}${frozen ? " gc-frozen" : ""}`}
       />
       <ProtectedCellTooltip
         visible={tooltipState.visible}
