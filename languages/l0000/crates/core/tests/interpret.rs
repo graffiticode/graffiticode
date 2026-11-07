@@ -189,6 +189,31 @@ async fn an_input_independent_program_compiles_to_a_value_that_interprets_by_ide
     }
 }
 
+#[test]
+fn a_model_s_digest_covers_its_key_order() {
+    use graffiticode_l0000::ModelKind;
+    use graffiticode_l0000::preflight::digest_of;
+    // Two values equal up to key order: different results as text, so different models.
+    let a = Model {
+        lang: "0186".to_owned(),
+        kind: ModelKind::Value(json!({ "type": "connector", "from": "a", "to": "b", "toSide": "auto" })),
+    };
+    let b = Model {
+        lang: "0186".to_owned(),
+        kind: ModelKind::Value(json!({ "type": "connector", "toSide": "auto", "from": "a", "to": "b" })),
+    };
+    assert_ne!(a.digest(), b.digest());
+    // A model carrying the key-sorted digest made before the change is still read (the transition),
+    // and it is the same model.
+    let mut legacy = a.to_json();
+    legacy["digest"] = json!(digest_of(&json!({ "lang": "0186", "kind": "value", "carried": legacy["value"] })));
+    assert_ne!(legacy["digest"], a.to_json()["digest"]);
+    assert_eq!(Model::from_json(&legacy).unwrap(), a);
+    // Any other digest is still refused.
+    legacy["digest"] = json!("0".repeat(64));
+    assert!(Model::from_json(&legacy).unwrap_err().contains("digest doesn't match"));
+}
+
 #[tokio::test]
 async fn a_model_round_trips_through_json_and_refuses_tampering() {
     let case = constant_case();
