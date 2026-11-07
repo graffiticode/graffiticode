@@ -150,7 +150,7 @@ export const createBrokerApp = ({ broker, secrets, identifyCaller, audit, reconc
     } catch (err) {
       if (err instanceof ReceiptReadRefused) {
         await audit({ event: "receipts", outcome: "denied", reason: err.reason });
-        res.status(err.status).json({ status: "error", error: { code: err.status, message: "receipt read refused", reason: err.reason, category: "malformed" }, data: null });
+        res.status(err.status).json({ status: "error", error: { code: err.status, message: "receipt read refused", reason: err.reason, category: classify(err.reason).category }, data: null });
         return;
       }
       throw err;

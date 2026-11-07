@@ -36,8 +36,9 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ]),
   ...cat("malformed", [
     "bad-request", "args-mismatch", "payload-rejected", "operation-mismatch", "bad-permissions",
-    // Broker's receipt reads (B5) act on Policy's authority alone.
-    "token-not-accepted",
+    // Broker's receipt reads (B5): they act on Policy's authority alone, and
+    // read only the named invocation's own operations.
+    "token-not-accepted", "bad-invocation-id", "bad-operation-ids", "operation-not-in-invocation",
     "bad-credential", "unknown-backend", "grant-not-found",
   ]),
   ...cat("conflict", [
