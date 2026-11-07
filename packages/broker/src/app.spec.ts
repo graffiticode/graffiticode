@@ -21,7 +21,8 @@ import {
   localAuthorizer,
   AuthorizationDenied,
   createMemorySecretStore,
-  argsDigest
+  argsDigest,
+  ReceiptReadRefused
 } from "./index.js";
 
 // Protected execution on (the maintenance switch is tested on its own).
@@ -129,10 +130,23 @@ beforeEach(async () => {
     }
   });
   reconciled = [];
-  app = createBrokerApp({ broker, secrets, identifyCaller, audit, reconcile: async args => { reconciled.push(args); return { invocationId: args.invocationId, operations: [] }; } });
+  receiptReads = [];
+  app = createBrokerApp({
+    broker,
+    secrets,
+    identifyCaller,
+    audit,
+    reconcile: async args => { reconciled.push(args); return { invocationId: args.invocationId, operations: [] }; },
+    readReceipts: async args => {
+      receiptReads.push(args);
+      if (args.invocationId === "inv-bad/") throw new ReceiptReadRefused("bad-invocation-id");
+      return { invocationId: args.invocationId, operations: [{ operationId: `${args.invocationId}/s0/a.0`, status: "succeeded" }] };
+    },
+  });
 });
 
 let reconciled;
+let receiptReads;
 
 let makeApp;
 let records;
@@ -296,5 +310,32 @@ describe("broker http: reconcile", () => {
     expect((await ask(SA.l0176)).status).toBe(403);
     expect((await ask(SA.policy, { connectionId: "conn-1", invocationId: "../etc", decisionId: "decision-0001" })).status).toBe(400);
     expect(reconciled).toEqual([]);
+  });
+});
+
+// Receipt reads (B5 settlement): Policy only, with no token.
+describe("broker http: receipts", () => {
+  const ask = (email, body = { invocationId: "inv-0001" }, token = null) => {
+    const r = request(app).post("/v1/receipts").set("X-Caller-Identity", `idt|${email}|${AUD}`).set("X-Serverless-Authorization", forwarded(email));
+    return (token ? r.set("Authorization", `Bearer ${token}`) : r).send(body);
+  };
+
+  it("reads for Policy", async () => {
+    const res = await ask(SA.policy, { invocationId: "inv-0001", operationIds: ["inv-0001/s0/a.0"] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.operations).toEqual([{ operationId: "inv-0001/s0/a.0", status: "succeeded" }]);
+    expect(receiptReads).toEqual([{ invocationId: "inv-0001", operationIds: ["inv-0001/s0/a.0"] }]);
+  });
+
+  it("refuses a compiler, and any request carrying a token, before reading", async () => {
+    expect((await ask(SA.l0176)).status).toBe(403);
+    expect((await ask(SA.policy, { invocationId: "inv-0001" }, executionToken)).status).toBe(400);
+    expect(receiptReads).toEqual([]);
+  });
+
+  it("reports a refused read with its reason", async () => {
+    const res = await ask(SA.policy, { invocationId: "inv-bad/" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatchObject({ reason: "bad-invocation-id", category: "malformed" });
   });
 });
