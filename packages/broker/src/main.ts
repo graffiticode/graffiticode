@@ -60,6 +60,7 @@ import {
   parseSystemSessionMaxSignings,
   parsePreviewConnections,
   createReconciler,
+  createReceiptReader,
   parseLimits,
   buildPolicyAuthorizer
 } from "./index.js";
@@ -111,8 +112,11 @@ const broker = createBroker({
 });
 // Reconciliation (WRITE-02, W5): reads only, over the same receipts and credentials.
 const reconcile = createReconciler({ receipts, secrets, operations, limits, audit });
+// Receipt reads for command settlement (B5): receipts only, no credentials.
+const readReceipts = createReceiptReader({ receipts });
 const server = createBrokerApp({
   reconcile,
+  readReceipts,
   broker,
   secrets,
   audit,
