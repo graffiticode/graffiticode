@@ -28,7 +28,7 @@ B5 activates no language. `COMMANDS_LNNNN` stays off everywhere until C5 (L0013)
 1. **Policy owns the command record.** Allocation, protocol, lease, fencing generation, admission, occurrence bindings and outcomes all live in Policy's Firestore, next to `invocations`.
    - Why: D2a requires the protocol and command id to be written atomically with the key, and authorize-execution must read the current generation on every step. Both already live in Policy.
    - The api is the **worker**. It calls Policy's command endpoints and never writes the record directly. The authentication is the same as `/v1/invocations` today.
-2. **Pinned inputs and observations are stored inline** in Policy's Firestore, as canonical JSON under their digest, in a `command-inputs` subcollection. They are capped at 512 KB each, and a larger one is refused with `input-too-large`. Today's L0176 saves and L0013 snapshot metadata fit.
+2. **Pinned inputs and observations are stored inline** in Policy's Firestore, as canonical JSON under their digest, in the command's `inputs` and `observations` subcollections (§3). They are capped at 512 KB each, and a larger one is refused with `input-too-large`. Today's L0176 saves and L0013 snapshot metadata fit.
    - A content-addressed GCS store is the fallback if a real caller exceeds the cap. It would bring its own IAM step, so it isn't in B5.
 3. **The recovery sweeper is an api route driven by Cloud Scheduler.** `POST /internal/commands/sweep` runs every minute and is invoked with OIDC by a dedicated scheduler account.
    - The api already holds the worker code, and Policy stays a decision service.
