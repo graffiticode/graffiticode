@@ -205,6 +205,16 @@ export function flagGenerationProblems(before, after) {
   }
   return problems;
 }
+// A flag the serving revision carries but deploy.json no longer names: a release
+// keeps it (--update-env-vars keeps every variable it isn't given), so deleting
+// the line doesn't turn the flag off. The B5 rehearsal (2026-11-06) found this:
+// "removing" INTERPRETER_L0179 left it on in production. A flag is turned off by
+// value ("off"), or removed explicitly with removeEnv.
+export function unmanagedFlagProblems(before, config) {
+  const env = config.env || {};
+  const removed = new Set(config.removeEnv || []);
+  return Object.keys(before).filter(name => FLAG_RE.test(name) && !(name in env) && !removed.has(name)).sort();
+}
 const describeFlagProblems = problems => problems.map(p => `${p.flags.join(" and ")} change${p.flags.length > 1 ? "" : "s"} but ${p.generation} doesn't`).join("; ");
 
 // A revision's plain environment variables.
@@ -219,13 +229,15 @@ async function revisionEnv(cloud, name) {
 // --update-env-vars into the template and drops removeEnv).
 async function releaseFlagProblems(config, service, cloud) {
   const problems = [];
+  const unmanaged = new Set();
   for (const name of Object.keys(traffic(service))) {
     const before = await revisionEnv(cloud, name);
+    for (const flag of unmanagedFlagProblems(before, config)) unmanaged.add(flag);
     const after = { ...before, ...(config.env || {}) };
     for (const removed of config.removeEnv || []) delete after[removed];
     problems.push(...flagGenerationProblems(before, after));
   }
-  return problems;
+  return { problems, unmanaged: [...unmanaged].sort() };
 }
 
 export async function release(context, source, deps) {
@@ -236,7 +248,8 @@ export async function release(context, source, deps) {
   requireValue(!config.verify || source.files.includes(config.verify.module), `Verify module ${config.verify?.module} is missing from the source snapshot`);
   log("Checking existing service, identity, and secret versions…");
   const initial = await checkService(config, cloud);
-  const flagProblems = await releaseFlagProblems(config, initial, cloud);
+  const { problems: flagProblems, unmanaged } = await releaseFlagProblems(config, initial, cloud);
+  requireValue(unmanaged.length === 0, `${unmanaged.join(", ")} ${unmanaged.length > 1 ? "are" : "is"} set on the serving revision but not in deploy.json: a release keeps ${unmanaged.length > 1 ? "them" : "it"} as ${unmanaged.length > 1 ? "they are" : "it is"}. Set ${unmanaged.length > 1 ? "each" : "it"} explicitly ("on" or "off"), or list ${unmanaged.length > 1 ? "them" : "it"} in removeEnv. Nothing built.`);
   requireValue(flagProblems.length === 0, `${describeFlagProblems(flagProblems)}: an interpreter flag never changes without its language's compile generation. Nothing built.`);
   for (const account of [config.buildServiceAccount, config.runtimeServiceAccount]) {
     await cloud(["iam", "service-accounts", "describe", account]);
