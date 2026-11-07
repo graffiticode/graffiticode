@@ -59,7 +59,7 @@ import { CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinned
 import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict, AdmissionRefused, ProtocolMismatch } from "./invocations.js";
-import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandSummary, requestProblem } from "./commands.js";
+import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandSummary, ownerRefusal, requestProblem } from "./commands.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
@@ -103,8 +103,9 @@ export const ADMISSION_MAX_AGE_MS = 5000;
 
 export const createPolicy = ({
   signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, protectedSwitch, audit,
-  // Command records (B5), when configured.
-  commands = null,
+  // Command records (B5), when configured: the store (allocation, leases),
+  // the records (everything after), and Broker's receipt read for settlement.
+  commands = null, commandRecords = null, brokerReceipts = null,
   // Reconciliation (WRITE-02, W5): Broker's admin call, when configured.
   brokerReconcile = null,
   // Contract v2 (W4): the approved-revisions reader and the lease fence, and
@@ -270,6 +271,91 @@ export const createPolicy = ({
       if (e instanceof CommandRefused) throw new PolicyDenied(e.reason);
       throw e;
     }
+  };
+
+  // Owner writes and bookkeeping on a command (B5 slice 2). Service only: the
+  // gateway's identity, the command id and the generation, never a user
+  // token. Each is fenced in the records (a live lease and exactly the
+  // current generation); a refusal changes nothing. `fn` names the records'
+  // operation; `args` are its arguments beside commandId and generation.
+  const COMMAND_WRITES = new Set(["installModel", "installInput", "observation", "bindOccurrence", "closeStage", "markNotReached", "recordLost", "finish", "published"]);
+  const commandWrite = async ({ caller, commandId, generation, fn, args = {} }) => {
+    const record = { event: "command-write", callerRole: caller?.role };
+    if (!commands || !commandRecords) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!COMMAND_WRITES.has(fn) || typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !Number.isInteger(generation) || generation < 1) {
+      return deny("bad-request", record);
+    }
+    try {
+      const out = await commandRecords[fn]({ ...args, commandId, generation });
+      if (fn === "finish") {
+        await audit({ ...record, commandId, invocationId: out.invocationId, outcome: "allowed", reason: out.status });
+        return commandSummary(out);
+      }
+      if (fn === "published") return commandSummary(out);
+      return out;
+    } catch (e) {
+      if (e instanceof CommandRefused) throw new PolicyDenied(e.reason);
+      throw e;
+    }
+  };
+
+  // Settlement (§7): outcomes recorded from Broker's receipts for the
+  // command's invocation. Bookkeeping: no live permission, no token minted,
+  // so a revoked connection never stops the record of what already ran.
+  const settleCommand = async ({ caller, commandId, generation }) => {
+    const record = { event: "command-settle", callerRole: caller?.role };
+    if (!commands || !commandRecords || !brokerReceipts) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !Number.isInteger(generation) || generation < 1) return deny("bad-request", record);
+    const command = await commands.get(commandId);
+    if (!command) return deny("command-not-found", record);
+    let read;
+    try {
+      read = await brokerReceipts({ invocationId: command.invocationId });
+    } catch {
+      return deny("unavailable", { ...record, commandId });
+    }
+    try {
+      const { recorded } = await commandRecords.recordFromReceipts({ commandId, generation, operations: read.operations ?? [] });
+      return { recorded: recorded.length, operations: recorded.map(o => ({ stage: o.stage, occurrenceId: o.occurrenceId, outcome: o.outcome, final: o.final })) };
+    } catch (e) {
+      if (e instanceof CommandRefused) throw new PolicyDenied(e.reason);
+      throw e;
+    }
+  };
+
+  // What recovery reads to continue a command (service only).
+  const COMMAND_READS = { request: "request", models: "models", input: "input", result: "result", occurrences: "occurrences", outcomes: "outcomes" };
+  const commandRead = async ({ caller, commandId, what, stage = null }) => {
+    const record = { event: "command-read", callerRole: caller?.role };
+    if (!commands || !commandRecords) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !COMMAND_READS[what]) return deny("bad-request", record);
+    if (!(await commands.get(commandId))) return deny("command-not-found", record);
+    if (what === "request") return { text: await commands.getRequest(commandId) };
+    if (what === "models") return { models: await commandRecords.getModels(commandId) };
+    if (what === "input") {
+      if (typeof stage !== "string" || !/^s\d{1,3}$/.test(stage)) return deny("bad-request", record);
+      return { input: await commandRecords.getInput(commandId, stage) };
+    }
+    if (what === "result") return { result: await commandRecords.getResult(commandId) };
+    if (what === "occurrences") return { occurrences: await commandRecords.listOccurrences(commandId) };
+    return { outcomes: await commandRecords.listOutcomes(commandId) };
+  };
+
+  // Extension point (Track E2): a fenced transition with an optional
+  // scheduling intent. B5 carries no intent.
+  const transitionCommand = async ({ caller, commandId, generation, intent = null }) => {
+    const record = { event: "command-write", callerRole: caller?.role };
+    if (!commands) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (intent !== null) return deny("not-supported", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !Number.isInteger(generation)) return deny("bad-request", record);
+    const command = await commands.get(commandId);
+    const refusal = ownerRefusal(command, { generation, now: now() });
+    if (refusal) throw new PolicyDenied(refusal);
+    return commandSummary(command);
   };
 
   // A command's summary: for the gateway itself, or for the signed-in user
@@ -1005,5 +1091,5 @@ export const createPolicy = ({
     return { enabled, source };
   };
 
-  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
+  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
 };

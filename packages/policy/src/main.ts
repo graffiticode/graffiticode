@@ -33,6 +33,8 @@ import {
   createFirestoreConnectionStore,
   createFirestoreInvocationStore,
   createFirestoreCommandStore,
+  createFirestoreCommandBackend,
+  createCommandRecords,
   createFirestorePublicationStore,
   createFirestoreGrantStore,
   createBrokerAdminClient,
@@ -88,6 +90,8 @@ const policy = createPolicy({
   invocations,
   // Command records (B5): in the same database, beside the invocations.
   commands: createFirestoreCommandStore(db),
+  commandRecords: createCommandRecords({ backend: createFirestoreCommandBackend(db) }),
+  brokerReceipts: brokerAdmin.receipts,
   publications,
   grants,
   systemConnections,
