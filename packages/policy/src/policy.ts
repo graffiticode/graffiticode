@@ -58,7 +58,8 @@ import { decodeChainId } from "@graffiticode/common/chain";
 import { CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinnedStage, planDigest as digestOf, stageBinding, sameStage } from "@graffiticode/common/contract";
 import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
-import { InvocationConflict, AdmissionRefused } from "./invocations.js";
+import { InvocationConflict, AdmissionRefused, ProtocolMismatch } from "./invocations.js";
+import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandSummary, requestProblem } from "./commands.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
@@ -102,6 +103,8 @@ export const ADMISSION_MAX_AGE_MS = 5000;
 
 export const createPolicy = ({
   signer, jwks, connections, invocations, publications, grants = null, systemConnections = {}, protectedSwitch, audit,
+  // Command records (B5), when configured.
+  commands = null,
   // Reconciliation (WRITE-02, W5): Broker's admin call, when configured.
   brokerReconcile = null,
   // Contract v2 (W4): the approved-revisions reader and the lease fence, and
@@ -194,6 +197,9 @@ export const createPolicy = ({
       allocated = await invocations.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, admission: admission || minContractVersion >= 2 });
     } catch (e) {
       if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
+      // D2a: a key a command holds is served from its command record, never
+      // by a legacy compile.
+      if (e instanceof ProtocolMismatch) return deny("command-protocol", record);
       throw e;
     }
     const { invocationId, seq, reused } = allocated;
@@ -204,7 +210,79 @@ export const createPolicy = ({
     await audit({ ...record, ownerUid: connection.ownerUid, invocationId, outcome: "allowed", reason: reused ? "reused" : "new" });
     // The owner and sequence go back to the gateway, which binds the private
     // result of this invocation to them.
-    return { invocationToken, invocationId, seq, reused, ownerUid: connection.ownerUid, contract, planDigest: allocated.planDigest ?? null, minContractVersion };
+    return { invocationToken, invocationId, seq, reused, ownerUid: connection.ownerUid, contract, planDigest: allocated.planDigest ?? null, minContractVersion, protocol: allocated.protocol ?? "legacy" };
+  };
+
+  // Commands (B5, docs/b5-commands-plan.md §3). Allocation is the only call
+  // that takes the user's token: it checks the user may use the connection
+  // now, and allocates the command, its key and its invocation at once. A key
+  // the legacy path allocated first stays legacy (D2a), and is answered with
+  // its protocol so the gateway serves it there.
+  const allocateCommand = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker }) => {
+    const record = { event: "command", uid: user?.uid, connectionId, callerRole: caller?.role };
+    if (!commands) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!user?.uid) return deny("no-user", record);
+    if (!isId(connectionId) || !isTaskId(taskId) || typeof inputDigest !== "string" || !DIGEST_RE.test(inputDigest) ||
+      !isId(idempotencyKey) || !isLang(lang) || typeof worker !== "string" || !WORKER_RE.test(worker)) {
+      return deny("bad-request", record);
+    }
+    const problem = requestProblem(request);
+    if (problem) return deny(problem, record);
+    const connection = await connections.get(connectionId);
+    const access = await accessFor(connection, user.uid);
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    let allocated;
+    try {
+      allocated = await commands.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now: now() });
+    } catch (e) {
+      if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
+      throw e;
+    }
+    if (allocated.protocol === "legacy") {
+      await audit({ ...record, invocationId: allocated.invocationId, outcome: "allowed", reason: "legacy-key" });
+      return { protocol: "legacy", invocationId: allocated.invocationId, seq: allocated.seq };
+    }
+    const { command, reused } = allocated;
+    await audit({ ...record, commandId: command.commandId, invocationId: command.invocationId, outcome: "allowed", reason: reused ? "reused" : "new" });
+    // A new command is owned by the worker that allocated it, at generation 1.
+    return { ...commandSummary(command), reused, owned: !reused, ownerUid: connection.ownerUid };
+  };
+
+  // The lease, renewed by its owner or taken over once expired. Service only:
+  // no user token, so recovery never depends on one (decision 3).
+  const leaseCommand = async ({ caller, commandId, worker, generation, takeOver = false }) => {
+    const record = { event: "command-lease", callerRole: caller?.role };
+    if (!commands) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || typeof worker !== "string" || !WORKER_RE.test(worker) ||
+      !Number.isInteger(generation) || generation < 1 || typeof takeOver !== "boolean") {
+      return deny("bad-request", record);
+    }
+    try {
+      const command = takeOver
+        ? await commands.takeOver({ commandId, worker, expectedGeneration: generation, now: now() })
+        : await commands.renewLease({ commandId, worker, generation, now: now() });
+      if (takeOver) await audit({ ...record, commandId, invocationId: command.invocationId, outcome: "allowed", reason: "takeover" });
+      return commandSummary(command);
+    } catch (e) {
+      // A refused owner request changes nothing; it is not audited as a decision.
+      if (e instanceof CommandRefused) throw new PolicyDenied(e.reason);
+      throw e;
+    }
+  };
+
+  // A command's summary: for the gateway itself, or for the signed-in user
+  // whose command it is.
+  const getCommand = async ({ caller, user = null, commandId }) => {
+    const record = { event: "command-read", uid: user?.uid, callerRole: caller?.role };
+    if (!commands) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId)) return deny("bad-request", record);
+    const command = await commands.get(commandId);
+    if (!command) return deny("command-not-found", record);
+    if (user && user.uid !== command.uid) return deny("command-not-found", record);
+    return commandSummary(command);
   };
 
   // The invocation comes only from a policy-issued invocation token for this
@@ -927,5 +1005,5 @@ export const createPolicy = ({
     return { enabled, source };
   };
 
-  return { allocateInvocation, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
+  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
 };

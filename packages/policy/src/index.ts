@@ -7,10 +7,11 @@ export { createAudit, createPseudonymizer, validateAuditRecord, requestContextMi
 export { createCallerIdentity, buildGoogleIdTokenVerifier } from "./caller.js";
 export { createPolicyApp, verifyUserWithRetry, authUnreachable, withTimeout } from "./app.js";
 export { createKmsSigner, derToJose } from "./kms.js";
-export { createFirestoreConnectionStore, createFirestoreInvocationStore, createFirestorePublicationStore, createFirestoreGrantStore } from "./firestore.js";
+export { createFirestoreConnectionStore, createFirestoreInvocationStore, createFirestorePublicationStore, createFirestoreGrantStore, createFirestoreCommandStore } from "./firestore.js";
+export { createMemoryCommandStore, CommandRefused, commandIdFor, commandSummary, ownerRefusal, requestProblem, COMMAND_LEASE_MS, MAX_PAYLOAD_BYTES, COMMAND_ID_RE } from "./commands.js";
 export { createMemoryGrantStore, grantIdFor } from "./grants.js";
 export { createMemoryPublicationStore } from "./publications.js";
-export { createMemoryInvocationStore, createMemoryLeaseFence, createMemoryApprovals, InvocationConflict, AdmissionRefused } from "./invocations.js";
+export { createMemoryInvocationStore, createMemoryLeaseFence, createMemoryApprovals, InvocationConflict, AdmissionRefused, ProtocolMismatch } from "./invocations.js";
 export { createFirestoreApprovals, createFirestoreLeaseFence } from "./revisions.js";
 export { createConnectionManager } from "./manage.js";
 export { createBrokerAdminClient, BrokerConflict } from "./broker-admin.js";

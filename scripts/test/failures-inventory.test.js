@@ -37,7 +37,9 @@ const RETURNED = {
 // allowed or recorded outcome.
 const NOT_REFUSALS = new Set(["canary-during-maintenance", "system-preview", "publication", "outcome-not-recorded", "unclassified-reason", "new", "reused",
   // Reconciliation's findings, on allowed outcomes (WRITE-02, W5).
-  "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict"]);
+  "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict",
+  // Commands (B5): a key the legacy path holds, and a lease taken over.
+  "legacy-key", "takeover"]);
 
 const functionBody = (text, name) => {
   const start = text.search(new RegExp(`const ${name} = `));

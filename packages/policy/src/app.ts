@@ -5,6 +5,10 @@
 //
 //   POST /v1/invocations gateway  { connectionId, taskId, inputDigest, idempotencyKey?, admission? }
 //                                 -> { invocationToken, invocationId, seq, reused, ownerUid, contract, planDigest }
+//   POST /v1/commands  gateway + user  { connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker }
+//                                 -> { protocol: "legacy", invocationId, seq } | { protocol: "command", commandId, …, owned }
+//   POST /v1/commands/:id/lease gateway  { worker, generation, takeOver? }  renew, or take over once expired
+//   GET  /v1/commands/:id gateway (+ user, who must own it)  the command's summary
 //   POST /v1/invocations/plan gateway { invocationToken }   the invocation's plan, before a retry
 //                                 resolves compiler URLs   -> { contract, plan: null | { planDigest, stages } }
 //   POST /v1/admissions gateway   { invocationToken, taskIds, stages: [manifest per task] }
@@ -52,6 +56,7 @@ import { requestContextMiddleware } from "./audit.js";
 
 const ROUTE_ROLES = Object.freeze({
   invocations: ["gateway"],
+  commands: ["gateway"],
   admissions: ["gateway"],
   publications: ["gateway"],
   snapshot: ["compiler"],
@@ -174,6 +179,26 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const u = await user(req);
     const { connectionId, taskId, inputDigest, idempotencyKey = null, admission = false } = req.body ?? {};
     await decide(res, () => policy.allocateInvocation({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey, admission }));
+  }));
+  // Commands (B5). Only allocation reads a user token.
+  router.post("/commands", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    const u = await user(req);
+    const { connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker } = req.body ?? {};
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.allocateCommand({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker }));
+  }));
+  router.post("/commands/:id/lease", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    const { worker, generation, takeOver = false } = req.body ?? {};
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.leaseCommand({ caller, commandId: req.params.id, worker, generation, takeOver }));
+  }));
+  router.get("/commands/:id", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    const u = await optionalUser(req);
+    res.set("Cache-Control", "no-store");
+    await decide(res, () => policy.getCommand({ caller, user: u, commandId: req.params.id }));
   }));
   // Chain admission (W4): the invocation's plan, if any, before a retry
   // resolves compiler URLs; and one decision for every stage of the chain.

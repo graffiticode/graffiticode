@@ -60,6 +60,12 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
     "invocation-incompatible", "contract-version-unsupported",
   ]),
   ...cat("unavailable", ["admission-stale", "preflight-unavailable", "compile-response-lost"]),
+  // Commands (B5, docs/b5-commands-plan.md): a key the other protocol holds
+  // (D2a), an owner request that isn't the current owner's, a takeover of a
+  // live lease, and a command that is over or unknown.
+  ...cat("conflict", ["command-protocol", "stale-generation", "lease-expired", "lease-live", "command-finished"]),
+  ...cat("permission", ["command-not-found"]),
+  ...cat("malformed", ["input-too-large"]),
   // System preview signing limits: Policy's per-instance bucket on
   // system-session mints (and the api's per-client 429s), and Broker's
   // per-session signature allowance. Busy, not denied: a later request, or a

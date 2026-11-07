@@ -19,7 +19,12 @@
 //
 // A store implements:
 //   allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey?, admission? })
-//     -> { invocationId, seq, reused, contract, planDigest }   throws InvocationConflict
+//     -> { invocationId, seq, reused, contract, planDigest, protocol: "legacy" }
+//     throws InvocationConflict, or ProtocolMismatch for a key a command holds (D2a)
+//
+// An idempotency key records its execution protocol (D2a, B5): `legacy` for a
+// key allocated here, `command` for one commands.js allocated. A key recorded
+// before the field existed reads as `legacy`.
 //   get(invocationId) -> { invocationId, uid, connectionId, taskId, inputDigest, seq, contract, planDigest } | null
 //   getPlan(planDigest) -> plan | null
 //   commitPlan({ leaseId, invocationId, planDigest, plan, revisions, readTime, maxAgeMs, now? })
@@ -28,6 +33,18 @@
 import { randomUUID } from "node:crypto";
 
 export class InvocationConflict extends Error {}
+
+// A key the other protocol allocated (D2a, B5): it is never adopted across
+// protocols. The legacy path refuses a `command` key, naming its command.
+export class ProtocolMismatch extends Error {
+  declare protocol: string;
+  declare commandId?: string;
+  constructor(protocol: string, commandId?: string) {
+    super(`idempotency key belongs to the ${protocol} protocol`);
+    this.protocol = protocol;
+    if (commandId) this.commandId = commandId;
+  }
+}
 
 // The plan write refused: the lease was invalidated (revision-retiring), the
 // invocation isn't eligible (invocation-incompatible) or already has another
@@ -51,6 +68,16 @@ export const createMemoryInvocationStore = ({ leases = new Map() } = {}) => {
   const seqs = new Map();
   const invocations = new Map();
   const plans = new Map();
+  // A new invocation, and its key with the protocol, at once.
+  const createInvocation = ({ uid, binding, contract = 2, protocol, idempotencyKey = null, commandId = undefined }) => {
+    const seqId = JSON.stringify([uid, binding.taskId, binding.connectionId]);
+    const seq = (seqs.get(seqId) ?? 0) + 1;
+    seqs.set(seqId, seq);
+    const invocation = { invocationId: newInvocationId(), seq };
+    invocations.set(invocation.invocationId, { invocationId: invocation.invocationId, uid, ...binding, seq, contract, planDigest: null, protocol, ...(commandId ? { commandId } : {}) });
+    if (idempotencyKey) keys.set(JSON.stringify([uid, idempotencyKey]), { binding, invocation, protocol, ...(commandId ? { commandId } : {}) });
+    return invocation;
+  };
   return {
     invocations,
     plans,
@@ -60,18 +87,19 @@ export const createMemoryInvocationStore = ({ leases = new Map() } = {}) => {
       if (keyId && keys.has(keyId)) {
         const hit = keys.get(keyId);
         if (!sameInvocationBinding(hit.binding, binding)) throw new InvocationConflict("idempotency key reused");
+        if ((hit.protocol ?? "legacy") !== "legacy") throw new ProtocolMismatch(hit.protocol, hit.commandId);
         const stored = invocations.get(hit.invocation.invocationId);
-        return { ...hit.invocation, reused: true, contract: stored.contract, planDigest: stored.planDigest };
+        return { ...hit.invocation, reused: true, contract: stored.contract, planDigest: stored.planDigest, protocol: "legacy" };
       }
-      const seqId = JSON.stringify([uid, taskId, connectionId]);
-      const seq = (seqs.get(seqId) ?? 0) + 1;
-      seqs.set(seqId, seq);
-      const invocation = { invocationId: newInvocationId(), seq };
       const contract = admission ? 2 : 1;
-      invocations.set(invocation.invocationId, { invocationId: invocation.invocationId, uid, ...binding, seq, contract, planDigest: null });
-      if (keyId) keys.set(keyId, { binding, invocation });
-      return { ...invocation, reused: false, contract, planDigest: null };
+      const invocation = createInvocation({ uid, binding, contract, protocol: "legacy", idempotencyKey });
+      return { ...invocation, reused: false, contract, planDigest: null, protocol: "legacy" };
     },
+    // Shared with the command store (commands.js), as Policy's database is.
+    keyRecord(uid, idempotencyKey) {
+      return keys.get(JSON.stringify([uid, idempotencyKey])) ?? null;
+    },
+    createInvocation,
     async get(invocationId) {
       const found = invocations.get(invocationId);
       return found ? { ...found } : null;
