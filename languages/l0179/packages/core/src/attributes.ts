@@ -71,7 +71,7 @@ export interface AttributeMeta {
    * silently ignored. That is the same silent-drop failure the type checks were added to close,
    * one level down.
    */
-  validate?: (v: any) => string | null;
+  validate?: (v: any, word: string) => string | null;
 }
 
 /** CSS keywords a font size may legitimately be instead of a length. */
@@ -91,6 +91,34 @@ function cssSize(v: any): string | null {
   if (FONT_SIZE_KEYWORDS.has(s.toLowerCase())) return null;
   if (/^-?(\d+\.?\d*|\.\d+)(px|pt|pc|em|rem|ex|ch|vw|vh|vmin|vmax|%|in|cm|mm|q)$/i.test(s.trim())) return null;
   return `E_INVALID_SIZE: font-size "${s}" needs a unit, e.g. "14px" — a bare number is not a CSS size and does not render.`;
+}
+
+/** The largest span or freeze count a sheet takes: the grid is built row by row in the browser. */
+export const MAX_COUNT = 1000;
+
+/** `colspan`, `rowspan`: a whole number of cells, at least 1. */
+function positiveCount(v: any, word: string): string | null {
+  if (typeof v !== "number") return null;     // the type check already reported this
+  if (Number.isInteger(v) && v >= 1 && v <= MAX_COUNT) return null;
+  return `E_INVALID_COUNT: ${word} ${v} must be a whole number from 1 to ${MAX_COUNT}.`;
+}
+
+/** `freeze-rows`, `freeze-columns`: a whole number of rows or columns, 0 to turn freezing off. */
+function nonNegativeCount(v: any, word: string): string | null {
+  if (typeof v !== "number") return null;
+  if (Number.isInteger(v) && v >= 0 && v <= MAX_COUNT) return null;
+  return `E_INVALID_COUNT: ${word} ${v} must be a whole number from 0 to ${MAX_COUNT}.`;
+}
+
+/**
+ * A web address. Only http and https: the value becomes an `href` a learner clicks, and any other
+ * scheme (`javascript:`, `data:`) is either a hazard or a link that goes nowhere from a browser.
+ */
+function httpUrl(v: any): string | null {
+  const s = tagValue(v);
+  if (s === undefined) return null;
+  if (/^https?:\/\/[^\s]+$/i.test(s)) return null;
+  return `E_INVALID_LINK: link "${s}" must be a web address starting with http:// or https://, with no spaces.`;
 }
 
 /**
@@ -136,7 +164,8 @@ export function checkType(name: string, meta: AttributeMeta, raw: any): string |
 
 /** Type first, then the attribute's own rule. Returns the first error, or null. */
 export function checkValue(name: string, meta: AttributeMeta, raw: any): string | null {
-  return checkType(name, meta, raw) ?? (meta.validate ? meta.validate(raw) : null);
+  const word = name.toLowerCase().replace(/_/g, "-");
+  return checkType(name, meta, raw) ?? (meta.validate ? meta.validate(raw, word) : null);
 }
 
 /** Name a bad value the way its author wrote it, so the message points at the mistake. */
@@ -172,6 +201,14 @@ export const attributeFields: Record<string, AttributeMeta> = {
   // sheet against that schema: "must be boolean". Because the sheet itself
   // compiled, the repair loop never saw an error to repair.
   PROTECTED: { field: "protected", expects: "boolean" },
+  // Merged cells, written on the top-left cell of the merge. The cells a span covers must not be
+  // written: SHEET refuses any two cells whose rectangles meet.
+  COLSPAN: { field: "colspan", expects: "number", validate: positiveCount },
+  ROWSPAN: { field: "rowspan", expects: "number", validate: positiveCount },
+  // A clickable web address. The cell's `text` is the label; without one the address is shown.
+  LINK: { field: "link", coerce: asTag, expects: "string", validate: httpUrl },
+  // Text wraps by default (the grid's long-standing rendering); `wrap false` keeps it on one line.
+  WRAP: { field: "wrap", expects: "boolean" },
 
   // Assessment
   ASSESS: { field: "assess", shape: "object" },
@@ -182,6 +219,9 @@ export const attributeFields: Record<string, AttributeMeta> = {
   // Sheet-level
   NAME: { field: "name", coerce: asTag, expects: "string" },
   HIDE_FORMULABAR: { field: "hideMenu", expects: "boolean" },
+  // Rows from the top and columns from the left that stay in view while the grid scrolls.
+  FREEZE_ROWS: { field: "freezeRows", expects: "number", validate: nonNegativeCount },
+  FREEZE_COLUMNS: { field: "freezeColumns", expects: "number", validate: nonNegativeCount },
 
   // Program-level, written in the `sheets` configuration slot. See `chaining` above.
   //
@@ -207,6 +247,8 @@ export const attributeFields: Record<string, AttributeMeta> = {
     coerce: (v) => (v ? "instant" : "check"),
     chaining: true,
   },
+  // No cell on any sheet can be edited: a display table rather than a worksheet.
+  READ_ONLY: { field: "readOnly", expects: "boolean", chaining: true },
 };
 
 /**
@@ -239,22 +281,23 @@ export const validAttributes: Record<string, string[]> = {
   // SHEETS entry, `assertKnownAttributes` returned early and the whole slot went unchecked.
   SHEETS: [
     "title", "instructions", "show-sheet-tabs", "hide-sheet-menu", "hide-headings", "instant-feedback",
-    "params", "v",
+    "read-only", "params", "v",
   ],
-  SHEET: ["name", "hide-formulabar", "columns", "rows", "cells"],
+  SHEET: ["name", "hide-formulabar", "freeze-rows", "freeze-columns", "columns", "rows", "cells"],
   CELL: [
     "text", "assess", "width", "align", "background-color", "font-weight", "font-size",
     "font-family", "font-style", "color", "text-decoration", "border", "vertical-align",
-    "format", "protected",
+    "format", "protected", "colspan", "rowspan", "link", "wrap",
   ],
   COLUMN: [
     "width", "align", "background-color", "font-weight", "font-size", "font-family",
     "font-style", "color", "text-decoration", "border", "vertical-align", "format",
-    "protected", "assess",
+    "protected", "assess", "wrap",
   ],
   ROW: [
     "align", "background-color", "font-weight", "font-size", "font-family", "font-style",
     "color", "text-decoration", "border", "vertical-align", "format", "protected", "assess",
+    "wrap",
   ],
   ASSESS: ["method", "expected", "points"],
 };

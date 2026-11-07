@@ -107,6 +107,18 @@
               "hideMenu": {
                 "type": "boolean",
                 "description": "Hide this sheet's formula bar"
+              },
+              "freezeRows": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000,
+                "description": "Rows from the top that stay in view while the grid scrolls"
+              },
+              "freezeColumns": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000,
+                "description": "Columns from the left that stay in view while the grid scrolls"
               }
             }
           }
@@ -122,6 +134,22 @@
         "hideHeadings": {
           "type": "boolean",
           "description": "Hide the row (1, 2, 3...) and column (A, B, C...) headings on every sheet"
+        },
+        "readOnly": {
+          "type": "boolean",
+          "description": "No cell on any sheet can be edited"
+        },
+        "freezeRows": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Rows from the top that stay in view while the grid scrolls (first sheet)"
+        },
+        "freezeColumns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "description": "Columns from the left that stay in view while the grid scrolls (first sheet)"
         }
       }
     }
@@ -145,6 +173,31 @@
           "type": "boolean",
           "description": "Whether the cell is protected from editing",
           "group": ""
+        },
+        "colspan": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Merge this many columns, starting here, into one cell",
+          "group": "cell"
+        },
+        "rowspan": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Merge this many rows, starting here, into one cell",
+          "group": "cell"
+        },
+        "link": {
+          "type": "string",
+          "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://[^\\s]+$",
+          "description": "A web address the cell links to; the cell's text is the label",
+          "group": "cell"
+        },
+        "wrap": {
+          "type": "boolean",
+          "description": "Wrap long text onto several lines (the default); false keeps it on one line",
+          "group": "text"
         },
         "align": {
           "type": "string",
@@ -362,6 +415,11 @@
           "type": "boolean",
           "description": "Whether all cells in the column are protected from editing",
           "group": ""
+        },
+        "wrap": {
+          "type": "boolean",
+          "description": "Wrap long text in the column's cells (the default); false keeps it on one line",
+          "group": "text"
         }
       },
       "additionalProperties": true
@@ -456,6 +514,11 @@
           "type": "boolean",
           "description": "Whether the row is protected from editing",
           "group": ""
+        },
+        "wrap": {
+          "type": "boolean",
+          "description": "Wrap long text in the row's cells (the default); false keeps it on one line",
+          "group": "text"
         }
       },
       "additionalProperties": true

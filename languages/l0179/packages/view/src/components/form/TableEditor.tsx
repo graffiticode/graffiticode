@@ -85,6 +85,9 @@ import {
   getCellRange,
   getColumnRange,
   getRowRange,
+  spansOf,
+  gridExtent,
+  columnIndex,
 } from '../../sheet/index.js';
 
 const buildMenuPlugin = (formState) => {
@@ -101,6 +104,7 @@ const buildMenuPlugin = (formState) => {
             className=""
             editorView={editorView}
             hideMenu={hideMenu}
+            readOnly={formState.data.interaction?.readOnly === true}
           />,
         );
       };
@@ -116,6 +120,7 @@ const buildMenuPlugin = (formState) => {
                 className=""
                 editorView={editorView}
                 hideMenu={hideMenu}
+                readOnly={formState.data.interaction?.readOnly === true}
               />,
             );
           }
@@ -130,18 +135,54 @@ const buildMenuPlugin = (formState) => {
 
 const applyDecoration = ({ doc, cells }) => {
   const decorations = [];
-  cells.forEach(({ from, to, color, textColor, fontWeight, border, borderClass }) => {
+  cells.forEach(({ from, to, color, textColor, fontWeight, border, borderClass, sticky, link }) => {
     decorations.push(Decoration.node(from, to, {
+      // `sticky` before `border`: a focused cell's border style raises its z-index above the
+      // frozen cells', and has to win.
       style: `
         background-color: ${color};
         ${textColor ? `color: ${textColor};` : ''}
         ${fontWeight ? `font-weight: ${fontWeight};` : ''}
+        ${sticky || ''}
         ${border};
       `,
       class: borderClass || ""
     }));
+    // A link cell's label, wrapped in an anchor. Inline, over the paragraph's text: the cell's
+    // content stays plain text, so the engine and the formula bar see what they always saw.
+    // Rechecked here as well as in the compiler — this becomes an href a learner clicks.
+    if (isWebAddress(link) && to - 2 > from + 2) {
+      decorations.push(Decoration.inline(from + 2, to - 2, {
+        nodeName: "a",
+        href: link,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        class: "gc-link",
+      }));
+    }
   });
   return DecorationSet.create(doc, decorations);
+};
+
+/** The only links the grid will render or open: http(s), as the compiler allows. */
+export const isWebAddress = (v: any): boolean => typeof v === "string" && /^https?:\/\/[^\s]+$/i.test(v);
+
+/**
+ * The sticky style for a cell in the frozen rows or columns, or "". Offsets come from CSS
+ * variables the freeze plugin measures and sets on the editor's container (`--gc-top-N`,
+ * `--gc-left-N`), because positions are layout, and decorations are computed without the DOM.
+ * The headings freeze with the area they label. A span never crosses the frozen edge (the compiler
+ * refuses that), so a cell is wholly inside or wholly outside.
+ */
+export const stickyStyle = (rect, freezeRows, freezeColumns) => {
+  if (!rect) return "";
+  const inRows = freezeRows > 0 && rect.bottom <= freezeRows + 1;
+  const inColumns = freezeColumns > 0 && rect.right <= freezeColumns + 1;
+  if (!inRows && !inColumns) return "";
+  return "position: sticky; " +
+    (inRows ? `top: var(--gc-top-${rect.top}, 0px); ` : "") +
+    (inColumns ? `left: var(--gc-left-${rect.left}, 0px); ` : "") +
+    `z-index: ${inRows && inColumns ? 4 : inRows ? 3 : 2};`;
 };
 
 // Determine if a position is within a header cell
@@ -157,105 +198,55 @@ const isPosInHeader = (state, pos) => {
   return false;
 };
 
-// Function to find the next non-header cell in the table
-const findNextDataCell = (state, dir) => {
-  const { doc, selection } = state;
-  const $pos = selection.$anchor;
-  const table = findTable($pos);
+/**
+ * The cell holding the selection's anchor: its table, map, and rectangle in map coordinates (the
+ * heading row is row 0 and the heading column is column 0). Read off the anchor's ancestors, not
+ * by scanning `TableMap.map` for an offset — with merged cells the map repeats an anchor's offset
+ * at every position it covers, so the map is not ordered and a scan lands on the wrong cell.
+ */
+export const cellRectAt = (state, pos = state.selection.$anchor.pos) => {
+  const $pos = state.doc.resolve(pos);
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if (!isTableCellOrHeader($pos.node(depth))) continue;
+    const table = findTable($pos);
+    if (!table) return null;
+    const map = TableMap.get(table.node);
+    const offset = $pos.before(depth) - table.pos - 1;
+    return { table, map, offset, rect: map.findCell(offset) };
+  }
+  return null;
+};
 
-  if (!table) return null;
-
-  const tableNode = doc.nodeAt(table.pos);
-  const tableMap = TableMap.get(tableNode);
-  const width = tableMap.width;
-  const height = tableMap.height;
-
-  // Get current cell position within the table
-  const cellPos = $pos.pos - table.pos - 1;
-
-  // Find the map index that contains our position
-  let currentMapIndex = -1;
-  for (let i = 0; i < tableMap.map.length; i++) {
-    if (tableMap.map[i] <= cellPos && (i === tableMap.map.length - 1 || tableMap.map[i + 1] > cellPos)) {
-      currentMapIndex = i;
-      break;
+/**
+ * The data cells in reading order: row by row, left to right, each cell ONCE, at its top-left. A
+ * merged cell occupies several map positions, and stepping position by position would land on it
+ * again and again — Shift-Tab inside an A1:B1 merge used to stay where it was.
+ */
+const dataCellsInOrder = map => {
+  const cells = [];
+  for (let r = 1; r < map.height; r++) {
+    for (let c = 1; c < map.width; c++) {
+      const offset = map.map[r * map.width + c];
+      const rect = map.findCell(offset);
+      if (rect.left === c && rect.top === r) cells.push(offset);
     }
   }
+  return cells;
+};
 
-  if (currentMapIndex === -1) {
-    // Fallback to the first data cell if we can't determine current position
-    return tableMap.map[width + 1] + table.pos + 1; // B2 cell (row 1, col 1)
-  }
-
-  // Calculate row and column
-  const row = Math.floor(currentMapIndex / width);
-  const col = currentMapIndex % width;
-
-  // Determine the next position based on direction
-  if (dir > 0) { // Forward (Tab, Right, Down)
-    // Try to find next cell in the same row
-    for (let c = col + 1; c < width; c++) {
-      const nextIndex = row * width + c;
-
-      // Skip if it's a header cell (first row or first column)
-      if (row > 0 && c > 0 && nextIndex < tableMap.map.length) {
-        return tableMap.map[nextIndex] + table.pos + 1;
-      }
-    }
-
-    // If we reached the end of the row, go to the next row
-    for (let r = row + 1; r < height; r++) {
-      // Start from first non-header column (col 1, which is B)
-      for (let c = 1; c < width; c++) {
-        const nextIndex = r * width + c;
-
-        // Skip if it's a header cell (first row or first column)
-        if (r > 0 && c > 0 && nextIndex < tableMap.map.length) {
-          return tableMap.map[nextIndex] + table.pos + 1;
-        }
-      }
-    }
-
-    // If we're at the last cell, wrap around to the first data cell
-    return tableMap.map[width + 1] + table.pos + 1; // B2 (row 1, col 1)
-
-  } else { // Backward (Shift-Tab, Left, Up)
-    // Try to find previous cell in the same row
-    for (let c = col - 1; c > 0; c--) {
-      const nextIndex = row * width + c;
-
-      // Skip if it's a header cell (first row or first column)
-      if (row > 0 && c > 0 && nextIndex < tableMap.map.length) {
-        return tableMap.map[nextIndex] + table.pos + 1;
-      }
-    }
-
-    // If we reached the start of the row, go to the previous row
-    for (let r = row - 1; r > 0; r--) {
-      // Go from right to left for previous row
-      for (let c = width - 1; c > 0; c--) {
-        const nextIndex = r * width + c;
-
-        // Skip if it's a header cell (first row or first column)
-        if (r > 0 && c > 0 && nextIndex < tableMap.map.length) {
-          return tableMap.map[nextIndex] + table.pos + 1;
-        }
-      }
-    }
-
-    // If we're at the first cell, wrap around to the last data cell
-    for (let r = height - 1; r > 0; r--) {
-      for (let c = width - 1; c > 0; c--) {
-        const nextIndex = r * width + c;
-        if (nextIndex < tableMap.map.length) {
-          return tableMap.map[nextIndex] + table.pos + 1;
-        }
-      }
-    }
-
-    // Fallback to the last valid cell
-    return tableMap.map[tableMap.map.length - 1] + table.pos + 1;
-  }
+// The next data cell in reading order (dir 1) or the previous (dir -1), wrapping at either end.
+export const findNextDataCell = (state, dir) => {
+  const at = cellRectAt(state);
+  if (!at) return null;
+  const { table, map, offset } = at;
+  const order = dataCellsInOrder(map);
+  if (order.length === 0) return null;
+  const i = order.indexOf(offset);
+  // From a heading (not in the order) forward is the first data cell, backward the last.
+  const next = i < 0
+    ? (dir > 0 ? order[0] : order[order.length - 1])
+    : order[(i + dir + order.length) % order.length];
+  return next + table.pos + 1;
 };
 
 // Skip headers in navigation
@@ -535,6 +526,8 @@ const applyModelRules = (cellExprs, state, value, validation, formState) => {
     return { styleStr, borderClass };
   };
 
+  const freezeRows = Number(formState?.data?.interaction?.freezeRows) || 0;
+  const freezeColumns = Number(formState?.data?.interaction?.freezeColumns) || 0;
   const coloredCells = cells.map(cell => {
     const isFocused = selection.anchor > cell.from && selection.anchor < cell.to;
     const { styleStr, borderClass } = getBorderStyle(cell, isFocused);
@@ -549,7 +542,8 @@ const applyModelRules = (cellExprs, state, value, validation, formState) => {
       borderClass: borderClass,
       color: focusColor || ((cell.col === 1 || cell.row === 1) && "#f8f8f8") || "#fff",
       textColor: focusTextColor,
-      fontWeight: focusFontWeight
+      fontWeight: focusFontWeight,
+      sticky: stickyStyle(cell.rect, freezeRows, freezeColumns),
     };
   });
   return applyDecoration({doc, cells: coloredCells});
@@ -562,17 +556,25 @@ const isTableCellOrHeader = node =>
 // const isTableCell = node =>
 //       node.type.name === "table_cell";
 
-const getCells = (cellExprs, state) => {
+// Every rendered cell, with its 1-based row and column (headings included, so B2 is the first data
+// cell) taken from the table map. Counting nodes along a row drifts after a merge: the cell after
+// an A1:F1 span is the second node in its row but sits in column G. Only cells with a node are
+// here — a covered address has none, and `applyModelRules` builds a node decoration for each
+// entry, which a position-less logical blank would break.
+export const getCells = (cellExprs, state) => {
   const { doc } = state;
   const cells = [];
-  let row = 0, col = 0;
+  let map = null;
+  let tableStart = 0;
   doc.descendants((node, pos) => {
-    if (node.type.name === "table_row") {
-      row++;
-      col = 0;
+    if (node.type.name === "table") {
+      map = TableMap.get(node);
+      tableStart = pos + 1;
     }
     if (isTableCellOrHeader(node)) {
-      col++;
+      const rect = map ? map.findCell(pos - tableStart) : null;
+      const row = rect ? rect.top + 1 : 0;
+      const col = rect ? rect.left + 1 : 0;
       const name = node.attrs.name;
       const text = cellExprs && name && cellExprs.cells[name]?.text || node.textContent;
       const val = cellExprs && name && cellExprs.cells[name]?.val;
@@ -598,6 +600,9 @@ const getCells = (cellExprs, state) => {
         underline: node.attrs.underline,
         border: node.attrs.border,
         protected: node.attrs.protected,
+        link: node.attrs.link,
+        wrap: node.attrs.wrap,
+        rect,
       });
     }
   });
@@ -611,7 +616,7 @@ const getCells = (cellExprs, state) => {
 //   });
 // }, 1000);
 
-const schema = new Schema({
+export const schema = new Schema({
   nodes: baseSchema.spec.nodes.append(
     tableNodes({
       tableGroup: 'block',
@@ -624,6 +629,16 @@ const schema = new Schema({
         name: { default: null },
         format: { default: null },
         assess: { default: null },
+        // A web address; the label is drawn as an anchor by a decoration. See applyDecoration.
+        link: { default: null },
+        // Text wraps unless this is false (the grid's long-standing rendering).
+        wrap: {
+          default: null,
+          setDOMAttr(value, attrs) {
+            if (value === false)
+              attrs.style = (attrs.style || '') + 'white-space: nowrap; text-overflow: ellipsis;';
+          },
+        },
         align: {
           default: null,
           getFromDOM(dom) {
@@ -835,7 +850,7 @@ const getCellRowColFromName = name => {
   return {row, col};
 };
 
-const getCellNodeByName = ({ state, name }) => {
+export const getCellNodeByName = ({ state, name }) => {
   const tablePos = getTablePosition(state);
   const tableNode = state.doc.nodeAt(tablePos);
   const tableMap = TableMap.get(tableNode);
@@ -846,7 +861,7 @@ const getCellNodeByName = ({ state, name }) => {
   return {node: cellNode, pos: cellPos};
 }
 
-const getAdjacentCellNodeByName = ({ state, name }) => {
+export const getAdjacentCellNodeByName = ({ state, name }) => {
   const { row, col } = getCellRowColFromName(name);
   const adjRow = row === 0 && row + 1 || row;
   const adjCol = col === 0 && col + 1 || col;
@@ -1397,43 +1412,21 @@ const makeTableHeadersReadOnlyPlugin = (formState) => new Plugin({
 
         // For all navigation keys, check if they would move into a header
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-          // Get current position
-          const $pos = state.selection.$anchor;
-          const table = findTable($pos);
-
-          if (table) {
-            const tableNode = state.doc.nodeAt(table.pos);
-            const tableMap = TableMap.get(tableNode);
-            const width = tableMap.width;
-
-            // Get current cell position
-            const cellPos = $pos.pos - table.pos - 1;
-            let currentMapIndex = -1;
-            for (let i = 0; i < tableMap.map.length; i++) {
-              if (tableMap.map[i] <= cellPos && (i === tableMap.map.length - 1 || tableMap.map[i + 1] > cellPos)) {
-                currentMapIndex = i;
-                break;
-              }
+          // The current cell's rectangle, so a merged cell is judged by its edges, not its anchor.
+          const at = cellRectAt(state);
+          if (at) {
+            const { rect, map } = at;
+            // Check if the move would end up in a header
+            if ((event.key === 'ArrowUp' && rect.top === 1) ||
+                (event.key === 'ArrowLeft' && rect.left === 1)) {
+              event.preventDefault();
+              return true; // Block the navigation
             }
-
-            if (currentMapIndex !== -1) {
-              const row = Math.floor(currentMapIndex / width);
-              const col = currentMapIndex % width;
-              const height = tableMap.height;
-
-              // Check if the move would end up in a header
-              if ((event.key === 'ArrowUp' && row === 1) ||
-                  (event.key === 'ArrowLeft' && col === 1)) {
-                event.preventDefault();
-                return true; // Block the navigation
-              }
-
-              // Block navigation at edges to prevent wrapping to headers
-              if ((event.key === 'ArrowRight' && col === width - 1) ||
-                  (event.key === 'ArrowDown' && row === height - 1)) {
-                event.preventDefault();
-                return true; // Block navigation at the edge
-              }
+            // Block navigation at edges to prevent wrapping to headers
+            if ((event.key === 'ArrowRight' && rect.right === map.width) ||
+                (event.key === 'ArrowDown' && rect.bottom === map.height)) {
+              event.preventDefault();
+              return true; // Block navigation at the edge
             }
           }
         }
@@ -1523,7 +1516,36 @@ function isInsideProtectedCell(state) {
   return false;
 }
 
-const makeProtectedCellsPlugin = (tooltipHandler) => new Plugin({
+/** Whether any protected cell lies in [from, to], or contains it. */
+export const touchesProtectedCell = (doc, from, to) => {
+  let found = false;
+  const end = Math.min(Math.max(from, to), doc.content.size);
+  doc.nodesBetween(Math.max(0, Math.min(from, to)), end, node => {
+    if (found) return false;
+    if (node.type.name === "table_cell" && node.attrs.protected === true) found = true;
+    return !found;
+  });
+  return found;
+};
+
+/**
+ * `read-only`: no cell on the sheet can be changed, by any route.
+ *
+ * Per-cell protection is not enough to build this on, and was not trusted for it: its checks look
+ * at where the selection or the step STARTS, so a selection anchored outside every cell (Select
+ * All) slipped past them. This refuses every transaction that changes the document, except the
+ * grid's own — formatted values written at mount and on recalculation (`systemFormatting`) and
+ * table normalisation (`gcInternal`). The view is also not editable (see TableEditor), so this is
+ * the backstop for anything that dispatches directly: the formula bar, paste, a drop.
+ */
+export const makeReadOnlyPlugin = (readOnly) => new Plugin({
+  filterTransaction(tr) {
+    if (!readOnly || !tr.docChanged) return true;
+    return tr.getMeta("systemFormatting") === true || tr.getMeta("gcInternal") === true;
+  },
+});
+
+export const makeProtectedCellsPlugin = (tooltipHandler) => new Plugin({
   props: {
     handleDOMEvents: {
       beforeinput(view, event) {
@@ -1615,15 +1637,11 @@ const makeProtectedCellsPlugin = (tooltipHandler) => new Plugin({
         if (stepJSON.stepType !== "setSelection" && isInsideProtectedCell(state)) {
           return false;
         }
-        // Also check if the step would modify a protected cell position
-        if (stepJSON.stepType === "replace" && stepJSON.from !== undefined) {
-          const $pos = state.doc.resolve(stepJSON.from);
-          for (let depth = $pos.depth; depth > 0; depth--) {
-            const node = $pos.node(depth);
-            if (node.type.name === "table_cell" && node.attrs.protected === true) {
-              return false;
-            }
-          }
+        // Also check every cell the step's range touches. Resolving only `from` missed a
+        // selection anchored outside any cell: Select All, then typing, replaced the whole table,
+        // protected cells included, because position 0 is inside no cell at all.
+        if (stepJSON.from !== undefined && touchesProtectedCell(state.doc, stepJSON.from, stepJSON.to ?? stepJSON.from)) {
+          return false;
         }
       }
     }
@@ -1633,8 +1651,12 @@ const makeProtectedCellsPlugin = (tooltipHandler) => new Plugin({
 });
 
 
-const buildCellPlugin = formState => {
+export const buildCellPlugin = formState => {
   let initialUpdateSent = false;
+  // Addresses hidden under a merge. They have no node, so a write addressed to one must be
+  // skipped: `getCellNodeByName` resolves a covered position to the ANCHOR's node, and writing
+  // there would put B1's text into A1.
+  const { covered } = spansOf(formState?.data?.interaction?.cells);
   const self = new Plugin({
     view(_editorView) {
       return {
@@ -1649,7 +1671,8 @@ const buildCellPlugin = formState => {
             // Send initial update after dirty cells are processed
             initialUpdateSent = true;
             const cells = pluginState.cells || {};
-            const allCellNames = Object.keys(cells);
+            // Not the logical blanks under a merge: they are the engine's, not the model's.
+            const allCellNames = Object.keys(cells).filter(name => !covered.has(name));
             if (allCellNames.length > 0) {
               formState.apply({
                 type: "update",
@@ -1724,6 +1747,7 @@ const buildCellPlugin = formState => {
           // populated cell in the sheet.
           const pending = [];
           pluginState.dirtyCells.forEach(name => {
+            if (covered.has(name)) return;
             cells[name] = {
               ...cells[name],
               ...evalCell({ env: {cells}, name, cache: pluginState.cache }),
@@ -1735,7 +1759,7 @@ const buildCellPlugin = formState => {
             }
           });
           if (pending.length) replaceCellContents(view, pending);
-          if (pluginState.focusedCell) {
+          if (pluginState.focusedCell && !covered.has(pluginState.focusedCell)) {
             const name = pluginState.focusedCell;
             const text = fixText(pluginState.cells[name]?.text || "");
             const { node } = getCellNodeByName({state: view.state, name});
@@ -1760,6 +1784,22 @@ const buildCellPlugin = formState => {
         const cells = {};
         for (const cell of allDocCells) {
           if (cell.row > 1 && cell.col > 1) cells[cell.name] = { ...cell, deps: [] };
+        }
+        // Every address under a merge is still a cell to the engine: an empty one. Without it a
+        // formula reading B1 under an A1:F1 merge reads a cell that does not exist, which is not
+        // the same as an empty one — with A1=5, `=A1*B1` gave 51 instead of 5 when B1 went
+        // missing. Added here only, never to `getCells`: they have no node and no position.
+        for (const name of covered.keys()) {
+          if (cells[name]) continue;
+          cells[name] = {
+            name,
+            text: "",
+            type: "text",
+            row: +name.slice(1) + 1,
+            col: columnIndex(name.slice(0, 1)) + 1,
+            covered: true,
+            deps: [],
+          };
         }
         const dirtyCells = [];
         for (const cell of allDocCells) {
@@ -1980,6 +2020,19 @@ const buildCellPlugin = formState => {
         return this.getState(state).decorations;
       },
       handleDOMEvents: {
+        // A link cell's anchor. Link cells are display-only (getCell protects them), so a plain
+        // click opens the link; a shift or cmd/ctrl click is a selection gesture and only selects.
+        // Opened here rather than left to the browser: inside an editable document a click on an
+        // anchor places the caret and goes nowhere.
+        click(_view, event) {
+          const anchor = (event.target as any)?.closest?.("a.gc-link");
+          if (!anchor) return false;
+          event.preventDefault();
+          if (event.shiftKey || event.metaKey || event.ctrlKey) return true;
+          const href = anchor.getAttribute("href");
+          if (isWebAddress(href)) window.open(href, "_blank", "noopener,noreferrer");
+          return true;
+        },
         mousedown(view, event) {
           // Get the position in the document from the mouse event
           const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
@@ -2107,9 +2160,14 @@ const headingWidth = hideHeadings => [hideHeadings ? 1 : 40];
 const buildCell = ({ col, row, attrs, colsAttrs, hideHeadings }) => {
   colsAttrs = colsAttrs || {};
   const cell = row[col];
-  const colspan = 1;
-  const rowspan = 1;
-  const colwidth = col === "_" && headingWidth(hideHeadings) || (colsAttrs[col]?.width ? [colsAttrs[col].width] : null);
+  const colspan = cell?.attrs?.colspan || 1;
+  const rowspan = cell?.attrs?.rowspan || 1;
+  // One width per column the cell covers, as prosemirror-tables expects of a spanning cell (0 is
+  // "no width"); null when none of them has one.
+  const spanned = col === "_" ? [] : Array.from({ length: colspan }, (_, i) =>
+    colsAttrs[String.fromCharCode(col.charCodeAt(0) + i)]?.width || 0);
+  const colwidth = col === "_" && headingWidth(hideHeadings) ||
+    (spanned.some(w => w) ? spanned : null);
   // Check cell's own background-color first (from attrs), then column's, then row's
   const background = cell?.attrs?.['background-color'] ||
                    colsAttrs[col]?.['background-color'] ||
@@ -2192,31 +2250,33 @@ const buildCell = ({ col, row, attrs, colsAttrs, hideHeadings }) => {
   return result;
 };
 
-const buildRow = ({ cols, row, attrs, colsAttrs, hideHeadings }) => {
+// A covered address gets no node: its anchor's colspan/rowspan already fills the position, and a
+// node there too would be an overfull row that `fixTables` "repairs" by mangling the table.
+const buildRow = ({ cols, row, rowIndex, attrs, colsAttrs, hideHeadings, covered }) => {
   return ({
     "type": "table_row",
-    "content": cols.map(col => {
-      return buildCell({col, row, attrs, colsAttrs, hideHeadings});
-    }),
+    "content": cols
+      .filter(col => !covered?.has(`${col}${rowIndex}`))
+      .map(col => buildCell({col, row, attrs, colsAttrs, hideHeadings})),
   })
 };
 
-const buildTable = ({ cols, rows, attrs, colsAttrs, hideHeadings }) => {
+const buildTable = ({ cols, rows, attrs, colsAttrs, hideHeadings, covered }) => {
   return ({
     "type": "table",
     "content": rows.map((row, rowIndex) => {
-      return buildRow({cols, row, colsAttrs, attrs: attrs[rowIndex], hideHeadings});
+      return buildRow({cols, row, rowIndex, colsAttrs, attrs: attrs[rowIndex], hideHeadings, covered});
     })
   })
 };
 
-const buildDocFromTable = ({ cols, rows, colsAttrs, rowsAttrs, hideHeadings }) => {
+const buildDocFromTable = ({ cols, rows, colsAttrs, rowsAttrs, hideHeadings, covered }) => {
   const attrs = applyRules({ rows, rowsAttrs });
   return {
     "type": "doc",
     "content": [
       {
-        ...buildTable({cols, rows, attrs, colsAttrs, hideHeadings}),
+        ...buildTable({cols, rows, attrs, colsAttrs, hideHeadings, covered}),
       },
     ]
   }
@@ -2298,7 +2358,8 @@ const getCell = (row, col, cells, columns, rows) => {
 
     return {
       type: "td",
-      text: text || "",  // Explicitly preserve text property
+      // A link with no label shows its address.
+      text: text || (isWebAddress(mergedAttrs?.link) ? mergedAttrs.link : ""),
       attrs: {
         // Extract attributes from merged attrs structure for ProseMirror
         underline: mergedAttrs?.underline,
@@ -2315,26 +2376,30 @@ const getCell = (row, col, cells, columns, rows) => {
         align: mergedAttrs?.align || mergedAttrs?.justify,
         format: mergedAttrs?.format,
         assess: mergedAttrs?.assess,
-        protected: mergedAttrs?.protected,
+        // A link cell is display-only: it is something to click, not to type into, and keeping
+        // the caret out of it is what lets a plain click open the link.
+        protected: mergedAttrs?.protected || (isWebAddress(mergedAttrs?.link) ? true : undefined),
+        // Read by buildCell: it builds the node's spans from these. Without them here the spans
+        // never reach the document — prosemirror-tables declares the attributes, but only the
+        // model has the values.
+        colspan: mergedAttrs?.colspan,
+        rowspan: mergedAttrs?.rowspan,
+        link: isWebAddress(mergedAttrs?.link) ? mergedAttrs.link : undefined,
+        wrap: mergedAttrs?.wrap,
       },
     };
   }
   return {};
 };
 
-const makeEditorState = ({ type, columns, cells, rows, hideHeadings }) => {
+export const makeEditorState = ({ type, columns, cells, rows, hideHeadings }: any) => {
   if (!cells || Object.keys(cells).length === 0) {
     return null;
   }
-  //x = x > 26 && 26 || x;  // Max col count is 26.
-  const { x, y } = Object.keys(cells).reduce((dims, cellName) => {
-    const x = letters.indexOf(cellName.slice(0, 1));
-    const y = +cellName.slice(1);
-    return {
-      x: x > dims.x && x || dims.x,
-      y: y > dims.y && y || dims.y,
-    };
-  }, {x: 0, y: 0});
+  // The grid reaches the far corner of every merge, not just of every named cell: an A1:F1 title
+  // over a single A1 needs columns through F. (Max col count is 26; the compiler enforces it.)
+  const { x, y } = gridExtent(cells);
+  const { covered } = spansOf(cells);
   switch (type) {
   case "table": {
     const cols = Array.apply(null, Array(x + 1)).map((_, col) => letters[col])
@@ -2352,6 +2417,7 @@ const makeEditorState = ({ type, columns, cells, rows, hideHeadings }) => {
       colsAttrs: columns,
       rowsAttrs: rows,
       hideHeadings,
+      covered,
     });
     return {
       doc: doc,
@@ -2367,8 +2433,68 @@ const makeEditorState = ({ type, columns, cells, rows, hideHeadings }) => {
   }
 };
 
+/**
+ * `freeze-rows` / `freeze-columns`: measures the frozen rows' heights and columns' widths and
+ * publishes the running offsets as CSS variables on the editor's container, where the sticky
+ * decorations (stickyStyle) read them. Measured after every update, since wrapping text changes a
+ * row's height; `offsetHeight` / `offsetWidth` ignore the sticky shift, so scrolling does not
+ * feed back into the measurement.
+ */
+const makeFreezePlugin = (freezeRows, freezeColumns) => new Plugin({
+  view(editorView) {
+    const measure = () => {
+      const host = editorView.dom.parentElement;
+      const tableEl = editorView.dom.querySelector("table");
+      if (!host || !tableEl) return;
+      let tableNode = null;
+      let tableStart = 0;
+      editorView.state.doc.descendants((node, pos) => {
+        if (tableNode) return false;
+        if (node.type.name === "table") {
+          tableNode = node;
+          tableStart = pos + 1;
+          return false;
+        }
+        return true;
+      });
+      if (!tableNode) return;
+      const map = TableMap.get(tableNode);
+      let top = 0;
+      for (let r = 0; r <= freezeRows && r < map.height; r++) {
+        host.style.setProperty(`--gc-top-${r}`, `${top}px`);
+        top += (tableEl.rows[r] as HTMLElement)?.offsetHeight || 0;
+      }
+      let left = 0;
+      for (let c = 0; c <= freezeColumns && c < map.width; c++) {
+        host.style.setProperty(`--gc-left-${c}`, `${left}px`);
+        // A column's width, from any cell that occupies it alone.
+        let width = 0;
+        for (let r = 0; r < map.height; r++) {
+          const offset = map.map[r * map.width + c];
+          const rect = map.findCell(offset);
+          if (rect.left !== c || rect.right !== c + 1) continue;
+          width = (editorView.nodeDOM(tableStart + offset) as HTMLElement)?.offsetWidth || 0;
+          break;
+        }
+        left += width;
+      }
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return {
+      update: measure,
+      destroy() {
+        window.removeEventListener("resize", measure);
+      },
+    };
+  },
+});
+
 export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
-  const { type, columns, cells, rows, hideHeadings } = state.data.interaction;
+  const { type, columns, cells, rows, hideHeadings, readOnly } = state.data.interaction;
+  const freezeRows = Number(state.data.interaction.freezeRows) || 0;
+  const freezeColumns = Number(state.data.interaction.freezeColumns) || 0;
+  const frozen = freezeRows > 0 || freezeColumns > 0;
   const [ editorView, setEditorView ] = useState(null);
   const [ tooltipState, setTooltipState ] = useState({ visible: false, x: 0, y: 0 });
   const tooltipHandler = {
@@ -2421,6 +2547,8 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     //  modelBackgroundPlugin(),
     makeTableHeadersReadOnlyPlugin(state),
     makeProtectedCellsPlugin(tooltipHandler),
+    makeReadOnlyPlugin(readOnly === true),
+    ...(frozen ? [makeFreezePlugin(freezeRows, freezeColumns)] : []),
     cellPlugin,
   ];
   const editorRef = useRef(null);
@@ -2450,9 +2578,11 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
       });
     }
     const fix = fixTables(initEditorState);
-    if (fix) initEditorState = initEditorState.apply(fix.setMeta('addToHistory', false));
+    if (fix) initEditorState = initEditorState.apply(fix.setMeta('addToHistory', false).setMeta('gcInternal', true));
     const editorView = new EditorView(editorRef.current, {
       state: initEditorState,
+      // `read-only`: nothing on the sheet takes input. makeReadOnlyPlugin is the backstop.
+      editable: () => readOnly !== true,
       dispatchTransaction(transaction) {
         const editorState = editorView.state.apply(transaction);
         editorView.updateState(editorState);
@@ -2479,6 +2609,11 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     editorView.dispatch(
       editorView.state.tr.setMeta("feedback", showFeedback).setMeta("addToHistory", false));
   }, [editorView, showFeedback]);
+  // A recompile can turn `read-only` on or off without remounting; the view's props are fixed at
+  // construction, so they are updated here.
+  useEffect(() => {
+    editorView?.setProps({ editable: () => readOnly !== true });
+  }, [editorView, readOnly]);
   // const templateVariablesRecords = state.data.templateVariablesRecords || [];
   // const index = Math.floor(Math.random() * templateVariablesRecords.length);
   // const env = templateVariablesRecords[index];
@@ -2510,7 +2645,7 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     <>
       <div
         ref={editorRef}
-        className={`border border-gray-300 p-2 bg-white text-xs font-sans${hideHeadings ? " gc-hide-headings" : ""}`}
+        className={`border border-gray-300 p-2 bg-white text-xs font-sans${hideHeadings ? " gc-hide-headings" : ""}${frozen ? " gc-frozen" : ""}${readOnly === true ? " gc-read-only" : ""}`}
       />
       <ProtectedCellTooltip
         visible={tooltipState.visible}

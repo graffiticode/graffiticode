@@ -68,7 +68,12 @@ const coercion = (fn) => {
   if (!name) throw new Error(`unknown coercion: ${String(fn)}`);
   return name;
 };
-const validators = { cssSize: "css-size" };
+const validators = {
+  cssSize: "css-size",
+  positiveCount: "positive-count",
+  nonNegativeCount: "non-negative-count",
+  httpUrl: "http-url",
+};
 const attributes = Object.fromEntries(
   Object.entries(attributeFields).map(([name, meta]) => {
     const validate = meta.validate && validators[meta.validate.name];
@@ -135,6 +140,25 @@ const extra = {
   POINTS: ["-0", "0.5", "-0.5"],
   WIDTH: ["-1"],
   INSTANT_FEEDBACK: ["true", "false"],
+  COLSPAN: ["1", "2", "26", "1000", "1001", "1.5", "-0", "1e21"],
+  ROWSPAN: ["3", "1000", "1001", "0.5"],
+  FREEZE_ROWS: ["-0", "1", "1000", "1001", "-1", "2.5"],
+  FREEZE_COLUMNS: ["3", "1000", "1001", "-1"],
+  LINK: [
+    '"https://t.me/stroyka_chat"',
+    '"HTTP://A.B"',
+    '"https://t.me/+Fs28SOzxAVYzZmMy"',
+    '"https://max.ru/join/KeWGFJdF?x=1#y"',
+    '"https://"',
+    '"http:/a"',
+    '"ftp://a"',
+    '"javascript:alert(1)"',
+    '"https://a b"',
+    '"https://a\u00a0"',
+    '"t.me/x"',
+    '"httpsx://a"',
+    '"й"',
+  ],
 };
 
 const containers = { CELL: inCell, COLUMN: inColumn, ROW: inRow, SHEET: inSheet, ASSESS: inAssess };
@@ -419,6 +443,45 @@ const suite = [
   ),
 ];
 
+// Merged cells and freezing: overlaps, crossings, the column-Z edge, keys that are not addresses,
+// raw records that reach the span check unvalidated, and what a single sheet and several emit.
+const spans = [
+  sheet(`cells [ cell A1 [text "T" colspan 6] cell A2 [text "h"] ] {}`),
+  sheet(`cells [ cell A1 [text "T" colspan 6] cell B1 [text "x"] ] {}`),
+  sheet(`cells [ cell B1 [text "x"] cell A1 [text "T" colspan 6] ] {}`),
+  sheet(`cells [ cell A2 [text "a" colspan 3] cell C1 [text "c" rowspan 3] ] {}`),
+  sheet(`cells [ cell A1 [text "a" colspan 2 rowspan 2] cell C1 [text "c" rowspan 2] cell A3 [text "x"] ] {}`),
+  sheet(`cells [ cell A1 [text "a" colspan 2 rowspan 2] cell B2 [text "c"] ] {}`),
+  sheet(`cells [ cell Y1 [text "a" colspan 2] ] {}`),
+  sheet(`cells [ cell Y1 [text "a" colspan 3] ] {}`),
+  sheet(`cells [ cell A0 [text "a" colspan 2] ] {}`),
+  sheet(`cells [ cell A0 [text "a"] cell A1 [text "b" rowspan 2] ] {}`),
+  sheet(`cells [ cell "x" [text "a" rowspan 2] ] {}`),
+  sheet(`cells [ cell "x" [text "a"] cell A1 [text "b"] ] {}`),
+  sheet(`cells [ cell A1 [{colspan: 5000}] ] {}`),
+  sheet(`cells [ cell A1 [{rowspan: "2"}] ] {}`),
+  sheet(`cells [ cell A1 [{colspan: 2.5}] ] {}`),
+  sheet(`cells [ cell A99999999999999999999 [text "a" rowspan 2] cell A100000000000000000000 [text "b"] ] {}`),
+  sheet(`freeze-rows 2 cells [ cell A1 [text "T" colspan 6] cell A2 [text "h"] ] {}`),
+  sheet(`freeze-rows 2 cells [ cell A2 [text "h" rowspan 2] ] {}`),
+  sheet(`freeze-rows 2 cells [ cell A3 [text "h" rowspan 2] ] {}`),
+  sheet(`freeze-columns 1 cells [ cell A1 [text "T" colspan 6] ] {}`),
+  sheet(`freeze-columns 1 cells [ cell B1 [text "T" colspan 5] ] {}`),
+  sheet(`freeze-columns 2 freeze-rows 1 cells [ cell A1 [text "T" colspan 2 rowspan 2] ] {}`),
+  sheet(`freeze-rows 0 cells [ cell A1 [text "T" rowspan 2] ] {}`),
+  sheet(`{freezeRows: "1"} cells [ cell A1 [text "T" rowspan 2] ] {}`),
+  sheet(`cells [ cell A1 [text "t.me" link "https://t.me/x" wrap false] ] {}`),
+  sheet(`columns [ column A [wrap false] ] {} rows [ row 1 [wrap true] ] {} cells [ cell A1 [text "x"] ] {}`),
+  sheet(`cells [ cell A1 [text "x"] ] {}`, "read-only true"),
+  sheet(`cells [ cell A1 [text "x"] ] {}`, 'read-only false title "T"'),
+  two("freeze-rows 1", 'name "Two" freeze-columns 2', "read-only true"),
+  two('freeze-rows 1 name "One"'),
+  `sheets [
+    sheet "s1" [ cells [ cell A1 [text "a" colspan 2] cell B1 [text "b"] ] {} ]
+    sheet "s2" [ cells [ cell A1 [text "a" colspan 2] cell C1 [text "c"] ] {} ]
+  ] {}..`,
+];
+
 const handwritten = [
   readFileSync(join(root, "packages/core/spec/template.gc"), "utf8"),
   "nope..",
@@ -450,6 +513,7 @@ const programs = [
   ...raw,
   ...fragments,
   ...suite,
+  ...spans,
   ...handwritten,
 ];
 
@@ -478,6 +542,8 @@ const sampled = new Set([
   paramPrograms.at(-6),
   raw[6],
   raw[3],
+  spans[0],
+  spans[28],
   readFileSync(join(root, "packages/core/spec/template.gc"), "utf8"),
 ]);
 

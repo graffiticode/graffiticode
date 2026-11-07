@@ -54,3 +54,7 @@ export {
 } from "./address.js";
 
 export { getCellColor, mergeBorders, ASSESS_VALID, ASSESS_INVALID } from "./presentation.js";
+
+// Merged cells: what the document omits, what the engine keeps as blanks, what writes skip.
+export { spansOf, gridExtent, columnIndex, columnLetter } from "./spans.js";
+export type { Span, Spans } from "./spans.js";

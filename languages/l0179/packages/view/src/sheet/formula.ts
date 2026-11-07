@@ -115,7 +115,9 @@ export const evalCell = ({ env, name, graph, cache }: any): CellValue => {
 
   // Apply normalization for non-formula input. The cell's format decides what `3/4` is: a date
   // in a date-formatted cell (this year, day-first if the format is), otherwise a fraction.
-  if (text && !text.startsWith('=')) {
+  // Not for a link cell: its text is a label (often the address itself), and a URL ending in
+  // digits would otherwise read as a date — `https://example.com/page/2` became 01/01/2001.
+  if (text && !text.startsWith('=') && !cell?.link) {
     const classified = classifyInput(text, { date: isDateFormat(format), dayFirst: isDayFirst(format) });
     if (classified) {
       result.val = classified.val;

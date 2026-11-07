@@ -38,7 +38,16 @@ pub enum Coerce {
 #[serde(rename_all = "kebab-case")]
 pub enum Validate {
     CssSize,
+    /// `colspan`, `rowspan`: a whole number from 1 to `MAX_COUNT`.
+    PositiveCount,
+    /// `freeze-rows`, `freeze-columns`: a whole number from 0 to `MAX_COUNT`.
+    NonNegativeCount,
+    /// `link`: `/^https?:\/\/[^\s]+$/i`.
+    HttpUrl,
 }
+
+/// `MAX_COUNT`: the largest span or freeze count a sheet takes.
+pub const MAX_COUNT: f64 = 1000.0;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Meta {
@@ -148,7 +157,44 @@ fn check_type(name: &str, meta: &Meta, raw: &Js) -> Option<String> {
 pub fn check_value(name: &str, meta: &Meta, raw: &Js) -> Option<String> {
     check_type(name, meta, raw).or_else(|| match meta.validate? {
         Validate::CssSize => css_size(raw),
+        Validate::PositiveCount => count(name, raw, 1.0),
+        Validate::NonNegativeCount => count(name, raw, 0.0),
+        Validate::HttpUrl => http_url(raw),
     })
+}
+
+/// `positiveCount` / `nonNegativeCount`: a whole number from `min` to `MAX_COUNT`.
+fn count(name: &str, raw: &Js, min: f64) -> Option<String> {
+    let Js::Num(n) = raw else { return None };
+    if n.fract() == 0.0 && (min..=MAX_COUNT).contains(n) {
+        return None;
+    }
+    Some(format!(
+        "E_INVALID_COUNT: {} {} must be a whole number from {} to {}.",
+        word(name),
+        number_string(*n),
+        number_string(min),
+        number_string(MAX_COUNT)
+    ))
+}
+
+/// `httpUrl`: `http://` or `https://` (any case), then at least one character and no spaces.
+fn http_url(raw: &Js) -> Option<String> {
+    let s = tag_value(raw)?;
+    let lower = s.get(..8).map(str::to_ascii_lowercase).unwrap_or_default();
+    let rest = if lower.starts_with("https://") {
+        &s[8..]
+    } else if s.get(..7).is_some_and(|p| p.eq_ignore_ascii_case("http://")) {
+        &s[7..]
+    } else {
+        ""
+    };
+    if !rest.is_empty() && !rest.chars().any(crate::js::is_space) {
+        return None;
+    }
+    Some(format!(
+        "E_INVALID_LINK: link \"{s}\" must be a web address starting with http:// or https://, with no spaces."
+    ))
 }
 
 const FONT_SIZE_KEYWORDS: &[&str] = &[
@@ -273,6 +319,26 @@ mod tests {
         assert_eq!(v.attributes["FONT_SIZE"].validate, Some(Validate::CssSize));
         assert_eq!(v.field_to_word["hideMenu"], "hide-formulabar");
         assert_eq!(v.owners["assess"], ["cell", "column", "row"]);
+    }
+
+    #[test]
+    fn a_link_is_a_web_address() {
+        for good in ["https://t.me/x", "HTTP://a", "http://a.b/c?d=1", "https://t.me/+Fs28SOz"] {
+            assert_eq!(http_url(&Js::str(good)), None, "{good}");
+        }
+        for bad in [
+            "https://",
+            "http:/a",
+            "ftp://a",
+            "javascript:alert(1)",
+            "https://a b",
+            "https://a\u{a0}",
+            "t.me/x",
+            "httpsx://a",
+            "й",
+        ] {
+            assert!(http_url(&Js::str(bad)).is_some(), "{bad}");
+        }
     }
 
     #[test]

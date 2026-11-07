@@ -26,6 +26,7 @@ import {
 } from "./attributes.js";
 import { resolveInheritedPoints, getValidation } from "./validation.js";
 import { MAX_LIMIT, generateDataFromArgs, buildEnv } from "./params.js";
+import { checkSpans } from "./spans.js";
 
 /** Unwrap L0000's internal Record representation to plain JS. Ported from L0176. */
 function toPlainObject(val: any): any {
@@ -171,6 +172,12 @@ export class Transformer extends BaseTransformer {
                 "effect on its own.",
               ),
               {});
+            return;
+          }
+          // Merged cells that overlap, or straddle the frozen rows or columns. See spans.ts.
+          const spanError = checkSpans(attrs);
+          if (spanError) {
+            resume(err.concat(spanError), {});
             return;
           }
           // The id travels IN the record, not on `options`. It used to be stashed as
@@ -368,9 +375,12 @@ Transformer.prototype.PROG = function (node: any, options: any, resume: any) {
       rows,
       cells,
       hideMenu,
+      freezeRows,
+      freezeColumns,
       showSheetTabs,
       hideSheetMenu,
       hideHeadings,
+      readOnly,
       feedback,
       sheetIds,
       errors,
@@ -428,10 +438,13 @@ Transformer.prototype.PROG = function (node: any, options: any, resume: any) {
         columns,
         cells,
         ...(hideMenu !== undefined ? { hideMenu } : {}),
+        ...(freezeRows !== undefined ? { freezeRows } : {}),
+        ...(freezeColumns !== undefined ? { freezeColumns } : {}),
         ...(showSheetTabs !== undefined ? { showSheetTabs } : {}),
         ...(hideSheetMenu !== undefined ? { hideSheetMenu } : {}),
         // Program-level: emitted once, here, and never per sheet — the view applies it to every grid.
         ...(hideHeadings !== undefined ? { hideHeadings } : {}),
+        ...(readOnly !== undefined ? { readOnly } : {}),
         ...(Array.isArray(val0.sheets) ? {
           sheets: val0.sheets.map((s: any, i: number) => ({
             id: s.id,
@@ -440,6 +453,8 @@ Transformer.prototype.PROG = function (node: any, options: any, resume: any) {
             columns: resolvedSheets[i].columns,
             cells: resolvedSheets[i].cells,
             ...(s.hideMenu !== undefined ? { hideMenu: s.hideMenu } : {}),
+            ...(s.freezeRows !== undefined ? { freezeRows: s.freezeRows } : {}),
+            ...(s.freezeColumns !== undefined ? { freezeColumns: s.freezeColumns } : {}),
           })),
         } : {}),
       },

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0179 RAG Training Examples
 
-122 example prompts for training a RAG model on L0179, the interactive-spreadsheet language —
+126 example prompts for training a RAG model on L0179, the interactive-spreadsheet language —
 covering display spreadsheets, assessed spreadsheets, parameterized templates, and whether an
 assessed sheet marks answers as the learner types or only when they check.
 
@@ -170,3 +170,10 @@ shows) is L0179's alone.
 120. Create a quiz-style spreadsheet on percentages with no hints while students work; feedback only when they check.
 121. A self-study grade book where students fill in each student's average and see right away if it is correct, worth 1 point per cell.
 122. Make a two-sheet practice workbook, Fractions and Decimals, that marks every answer right or wrong as students type it.
+
+## Category 14: Display Tables (123–126)
+
+123. Make a read-only directory of community chats with a merged title across the top, a dark blue header row with white bold text that stays in view while scrolling, alternating light row fills, and a clickable link in each row.
+124. Create a price list whose header row and first column stay in view while the table scrolls.
+125. Merge cells A1 through D1 into one centered title cell that says "Quarterly Summary".
+126. Make a table of product codes and long descriptions where the descriptions wrap and the codes stay on one line.

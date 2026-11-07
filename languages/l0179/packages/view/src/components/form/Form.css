@@ -284,3 +284,39 @@ main {
 .ProseMirror.resize-cursor {
   cursor: text;
 }
+
+/* `freeze-rows` / `freeze-columns`.
+ *
+ * The frozen cells are `position: sticky` (see stickyStyle in TableEditor), and sticky only sticks
+ * within the nearest scrolling ancestor. That is the table wrapper — `overflow-x: auto` makes it
+ * one in both directions — so the wrapper scrolls vertically too, within a fixed height. A fixed
+ * height and not a viewport one: embedded, the iframe is sized to its content, and a height in vh
+ * would chase its own tail. The table itself must not clip with `overflow: hidden`, which would
+ * make IT the scrolling ancestor and pin every frozen cell in place; `clip` clips without that. */
+.gc-frozen .ProseMirror .tableWrapper {
+  overflow: auto;
+  max-height: 600px;
+}
+.gc-frozen .ProseMirror table {
+  overflow: clip;
+  /* Chrome paints scrolled cells' text through the edges of sticky cells in a collapsed-border
+   * table (seen in a 6px band at the top and bottom of every frozen row). Separate borders with no
+   * spacing render the same grid without it. */
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* A link cell's label. Display-only cells, so the pointer is the link's, not a text caret. */
+.ProseMirror a.gc-link {
+  color: #1a0dab;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ProseMirror a.gc-link:visited {
+  color: #681da8;
+}
+
+/* `read-only`: nothing on the sheet takes input. */
+.gc-read-only .ProseMirror {
+  caret-color: transparent;
+}

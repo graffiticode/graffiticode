@@ -27,6 +27,7 @@
 pub mod attributes;
 pub mod js;
 pub mod params;
+pub mod spans;
 pub mod validation;
 
 use std::sync::LazyLock;
@@ -218,6 +219,10 @@ fn sheet(v0: Js, v1: Js) -> Result<Js, String> {
     let cells = attrs.get("cells").cloned().unwrap_or_default();
     if !cells.truthy() || cells.keys()?.is_empty() {
         return Err("sheet: no cells. A sheet needs a `cells` block holding at least one cell, e.g. cells [ cell A1 [text \"Total\"] ] {} — styling a row or column has no effect on its own.".to_owned());
+    }
+    // Merged cells that overlap, or straddle the frozen rows or columns.
+    if let Some(error) = spans::check_spans(&Js::Obj(attrs.clone())) {
+        return Err(error);
     }
     if let Some(id) = tag_value(&v0) {
         attrs.set("id", Js::Str(id));
@@ -426,7 +431,9 @@ fn prog(cx: &mut Evaluator<'_>, program: Js, upstream: Js) -> Result<Js, String>
     for name in ["rows", "columns", "cells"] {
         interaction.set(name, field(name));
     }
-    for name in ["hideMenu", "showSheetTabs", "hideSheetMenu", "hideHeadings"] {
+    for name in
+        ["hideMenu", "freezeRows", "freezeColumns", "showSheetTabs", "hideSheetMenu", "hideHeadings", "readOnly"]
+    {
         if field(name) != Js::Undefined {
             interaction.set(name, field(name));
         }
@@ -440,8 +447,10 @@ fn prog(cx: &mut Evaluator<'_>, program: Js, upstream: Js) -> Result<Js, String>
             for name in ["rows", "columns", "cells"] {
                 entry.set(name, resolved.at(name));
             }
-            if s.at("hideMenu") != Js::Undefined {
-                entry.set("hideMenu", s.at("hideMenu"));
+            for name in ["hideMenu", "freezeRows", "freezeColumns"] {
+                if s.at(name) != Js::Undefined {
+                    entry.set(name, s.at(name));
+                }
             }
             listed.push(Js::Obj(entry));
         }

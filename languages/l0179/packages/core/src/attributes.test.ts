@@ -315,3 +315,101 @@ test("a bare param name is untouched — it means sheet 1, as it always has", as
   const out = await compileSrc(twoSheets("", "", 'params { "A1": "7" }'));
   expect(out.templateVariablesRecords[0].A1).toBe("7");
 });
+
+// ── merged cells, links, wrap, freezing, read-only ────────────────────────
+
+const one = (body: string, tail = "") => `sheets [ sheet "s1" [ ${body} ] ] ${tail} {}..`;
+
+test("colspan and rowspan ride in the anchor cell's record", async () => {
+  const out = await compileSrc(one('cells [ cell A1 [text "T" colspan 6] cell A2 [text "h" rowspan 2] ] {}'));
+  expect(out.interaction.cells.A1).toEqual({ text: "T", colspan: 6 });
+  expect(out.interaction.cells.A2).toEqual({ text: "h", rowspan: 2 });
+});
+
+test("a span is a whole number from 1 to 1000", async () => {
+  await expectError(cell("colspan 0"), "colspan 0 must be a whole number from 1 to 1000");
+  await expectError(cell("rowspan 1.5"), "rowspan 1.5 must be a whole number");
+  await expectError(cell('colspan "2"'), "colspan expects a number");
+});
+
+test("a cell inside a span is refused, naming both cells", async () => {
+  await expectError(
+    one('cells [ cell A1 [text "T" colspan 6] cell B1 [text "x"] ] {}'),
+    "A1 (spanning A1:F1) and B1 overlap at B1");
+});
+
+test("crossing spans are refused although neither anchor is inside the other", async () => {
+  await expectError(
+    one('cells [ cell A2 [text "a" colspan 3] cell C1 [text "c" rowspan 3] ] {}'),
+    "A2 (spanning A2:C2) and C1 (spanning C1:C3) overlap at C2");
+});
+
+test("spans that touch without overlapping compile", async () => {
+  const out = await compileSrc(
+    one('cells [ cell A1 [text "a" colspan 2 rowspan 2] cell C1 [text "c" rowspan 2] cell A3 [text "x"] ] {}'));
+  expect(out.interaction.cells.C1.rowspan).toBe(2);
+});
+
+test("a span past column Z is refused", async () => {
+  await expectError(one('cells [ cell Y1 [text "a" colspan 3] ] {}'), "runs past column Z");
+});
+
+test("colspan and rowspan belong to cells only", async () => {
+  await expectError(
+    one('columns [ column A [colspan 2] ] {} cells [ cell A1 [text "a"] ] {}'),
+    "`colspan` belongs to cell");
+});
+
+test("link takes an http(s) address and nothing else", async () => {
+  const out = await compileSrc(cell('link "https://t.me/stroyka_chat"'));
+  expect(out.interaction.cells.A1.link).toBe("https://t.me/stroyka_chat");
+  await expectError(cell('link "javascript:alert(1)"'), "E_INVALID_LINK");
+  await expectError(cell('link "t.me/x"'), "E_INVALID_LINK");
+  await expectError(cell('link "https://a b"'), "E_INVALID_LINK");
+});
+
+test("wrap is a boolean on cells, columns and rows", async () => {
+  const out = await compileSrc(
+    one('columns [ column A [wrap false] ] {} rows [ row 1 [wrap true] ] {} cells [ cell A1 [text "x" wrap false] ] {}'));
+  expect(out.interaction.columns.A.wrap).toBe(false);
+  expect(out.interaction.rows["1"].wrap).toBe(true);
+  expect(out.interaction.cells.A1.wrap).toBe(false);
+  await expectError(cell('wrap "no"'), "wrap expects true or false");
+});
+
+test("freeze-rows and freeze-columns reach interaction flat for one sheet, without a sheets list", async () => {
+  const out = await compileSrc(one('freeze-rows 2 freeze-columns 1 cells [ cell A1 [text "a"] ] {}'));
+  expect(out.interaction.freezeRows).toBe(2);
+  expect(out.interaction.freezeColumns).toBe(1);
+  expect(out.interaction).not.toHaveProperty("sheets");
+});
+
+test("freeze words are per sheet with several sheets", async () => {
+  const out = await compileSrc(twoSheets("freeze-rows 1", "freeze-columns 2"));
+  expect(out.interaction.sheets[0].freezeRows).toBe(1);
+  expect(out.interaction.sheets[0]).not.toHaveProperty("freezeColumns");
+  expect(out.interaction.sheets[1].freezeColumns).toBe(2);
+});
+
+test("a span crossing the frozen rows or columns is refused", async () => {
+  await expectError(
+    one('freeze-rows 2 cells [ cell A2 [text "h" rowspan 2] ] {}'),
+    "crosses the edge of the frozen rows (freeze-rows 2)");
+  await expectError(
+    one('freeze-columns 1 cells [ cell A1 [text "T" colspan 6] ] {}'),
+    "crosses the edge of the frozen columns (freeze-columns 1)");
+});
+
+test("spans inside or outside the frozen area compile", async () => {
+  const out = await compileSrc(
+    one('freeze-rows 2 freeze-columns 1 cells [ cell A1 [text "T" rowspan 2] cell B1 [text "x" colspan 5] cell A3 [text "y" rowspan 4] ] {}'));
+  expect(out.interaction.freezeRows).toBe(2);
+});
+
+test("read-only is program level, and absent unless written", async () => {
+  const out = await compileSrc(one('cells [ cell A1 [text "a"] ] {}', 'title "T" read-only true'));
+  expect(out.interaction.readOnly).toBe(true);
+  const plain = await compileSrc(one('cells [ cell A1 [text "a"] ] {}'));
+  expect(plain.interaction).not.toHaveProperty("readOnly");
+  await expectError(one('read-only true cells [ cell A1 [text "a"] ] {}'), "`read-only` belongs to sheets");
+});
