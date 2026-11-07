@@ -260,7 +260,7 @@ Retirement is its own milestone for each language, after its Track A switch. It 
 
 - **B5 Commands, part 1.** The **immediate-command** foundation. It is also what durable execution (Track E) builds on, but B5's completion gate includes no Track E work: Track E extends it, in E1 and E2, through hooks B5 defines.
   - **In B5 (needed by every command language):**
-    - **Command identity.** Idempotency keys, and admission bound to the ordered stage model digests.
+    - **Command identity.** Idempotency keys, and admission bound to the ordered stage model digests. A model digest is of the model's exact JSON text, key order included (kernel, 2026-11-07): the key-sorted digest it replaced let two different L0186 programs share a stage-cache entry.
     - **Pinned inputs, recorded observations and receipts.** Replayed and new observations are distinguished (below).
     - **Effect occurrences** admitted under the model's operations (below).
     - **Outcomes.** An outcome per operation, aggregated into the command's.

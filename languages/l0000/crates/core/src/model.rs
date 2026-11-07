@@ -16,8 +16,10 @@
 //! request asks for `"form": "model"`, and `POST /interpret` is new.
 
 use serde_json::{Value as Json, json};
+use sha2::{Digest, Sha256};
 
 use crate::preflight::digest_of;
+use crate::value::json_text;
 
 /// A compiled model, as `/compile` returns it with `"form": "model"` and `/interpret` accepts it.
 #[derive(Clone, Debug, PartialEq)]
@@ -58,7 +60,21 @@ impl Mode {
 /// A model's identity: the digest of its language, its kind and what it carries, together. Every
 /// part changes its meaning, so none can change without the digest changing: a plan relabelled as a
 /// value, or a model claimed for another language, no longer matches.
+///
+/// The digest is of the exact JSON text, key order included. A result's text follows its model's
+/// key order (an L0186 connector's attributes come out in the order its program gave them), so two
+/// models equal up to key order are different models. Until 2026-11-07 the digest was key-sorted,
+/// and the B5 drive found the API's stage cache serving two such L0186 programs each other's
+/// answers (the API keys exactly since #296; admission will bind this digest, B5).
 fn identity(lang: &str, kind: &str, carried: &Json) -> String {
+    hex::encode(Sha256::digest(json_text(&json!({ "lang": lang, "kind": kind, "carried": carried }))))
+}
+
+/// The key-sorted digest models carried before the exact one. `from_json` still accepts it while
+/// models made before the change may be in flight (the API's model cache keeps a model up to ten
+/// minutes); remove it once every language service and the API have run the exact digest for longer
+/// than that.
+fn legacy_identity(lang: &str, kind: &str, carried: &Json) -> String {
     digest_of(&json!({ "lang": lang, "kind": kind, "carried": carried }))
 }
 
@@ -83,6 +99,13 @@ impl Model {
         }
     }
 
+    fn legacy_digest(&self) -> String {
+        match &self.kind {
+            ModelKind::Value(value) => legacy_identity(&self.lang, "value", value),
+            ModelKind::Plan(program) => legacy_identity(&self.lang, "plan", program),
+        }
+    }
+
     /// Reads a model, checking its shape and digest. The error says why it isn't one.
     pub fn from_json(json: &Json) -> Result<Self, String> {
         let bad = |why: &str| format!("Error: not a model: {why}");
@@ -99,7 +122,7 @@ impl Model {
             _ => return Err(bad("kind must be \"value\" or \"plan\"")),
         };
         let model = Self { lang, kind };
-        if model.digest() != digest {
+        if model.digest() != digest && model.legacy_digest() != digest {
             return Err(bad("its digest doesn't match its language, kind and contents"));
         }
         Ok(model)
