@@ -1,0 +1,678 @@
+{
+  "legacy": {
+    "lang": "0185",
+    "requests": 10000,
+    "p50": 664.1741249999031,
+    "p95": 1054.13491600001
+  },
+  "run": "kax5mhm1",
+  "api": "https://api.graffiticode.org",
+  "since": "2026-11-05T21:06:33.660Z",
+  "until": "2026-11-05T21:36:21.572Z",
+  "langs": [
+    "0184",
+    "0186",
+    "0175",
+    "0179",
+    "0181"
+  ],
+  "thresholds": {
+    "misses": 2000,
+    "hits": 2000,
+    "corpusRuns": 3,
+    "perKind": 500,
+    "perChainShape": 200,
+    "concurrentShare": 0.2,
+    "concurrency": 16,
+    "retryShare": 0.001,
+    "hitRate": 0.95,
+    "latencyFactor": 1.5,
+    "latencySlackMs": 100
+  },
+  "summary": {
+    "L0184": {
+      "misses": 2000,
+      "hits": 2000,
+      "kinds": {
+        "value": 4022,
+        "plan": 2129
+      },
+      "corpus": {
+        "cases": 717,
+        "minRuns": 3
+      },
+      "mismatches": 2,
+      "p95": {
+        "miss": 1723.6206670000101,
+        "hit": 1508.4797090000357,
+        "direct": 106.52724999998463
+      },
+      "logged": {
+        "hit": 7765,
+        "miss": 10665,
+        "skip": 1,
+        "kinds": {
+          "value": 10436,
+          "plan": 7994
+        },
+        "outcomes": {
+          "compile-response-lost": 1
+        }
+      }
+    },
+    "L0186": {
+      "misses": 2000,
+      "hits": 2000,
+      "kinds": {
+        "value": 5911,
+        "plan": 0
+      },
+      "corpus": {
+        "cases": 637,
+        "minRuns": 3
+      },
+      "mismatches": 0,
+      "p95": {
+        "miss": 976.9479590000119,
+        "hit": 745.8911669999361,
+        "direct": 138.51645799994003
+      },
+      "logged": {
+        "hit": 11756,
+        "miss": 6435,
+        "skip": 0,
+        "kinds": {
+          "value": 18191,
+          "plan": 0
+        },
+        "outcomes": {}
+      }
+    },
+    "L0175": {
+      "misses": 2000,
+      "hits": 2000,
+      "kinds": {
+        "value": 4534,
+        "plan": 0
+      },
+      "corpus": {
+        "cases": 178,
+        "minRuns": 3
+      },
+      "mismatches": 0,
+      "p95": {
+        "miss": 1315.818125000107,
+        "hit": 830.7905419999734,
+        "direct": 151.1579170000041
+      },
+      "logged": {
+        "hit": 11315,
+        "miss": 5499,
+        "skip": 0,
+        "kinds": {
+          "value": 16814,
+          "plan": 0
+        },
+        "outcomes": {}
+      }
+    },
+    "L0179": {
+      "misses": 2000,
+      "hits": 2000,
+      "kinds": {
+        "value": 0,
+        "plan": 5479
+      },
+      "corpus": {
+        "cases": 493,
+        "minRuns": 3
+      },
+      "mismatches": 0,
+      "p95": {
+        "miss": 1112.2130830001552,
+        "hit": 729.0065409999806,
+        "direct": 181.95337499980815
+      },
+      "logged": {
+        "hit": 11766,
+        "miss": 5929,
+        "skip": 0,
+        "kinds": {
+          "value": 0,
+          "plan": 17695
+        },
+        "outcomes": {}
+      }
+    },
+    "L0181": {
+      "misses": 2000,
+      "hits": 2000,
+      "kinds": {
+        "value": 0,
+        "plan": 4765
+      },
+      "corpus": {
+        "cases": 255,
+        "minRuns": 3
+      },
+      "mismatches": 0,
+      "p95": {
+        "miss": 1515.3101250000764,
+        "hit": 648.7772089999635,
+        "direct": 125.66370799997821
+      },
+      "logged": {
+        "hit": 11022,
+        "miss": 5971,
+        "skip": 0,
+        "kinds": {
+          "value": 0,
+          "plan": 16993
+        },
+        "outcomes": {}
+      }
+    }
+  },
+  "chains": {
+    "interpreted-over-legacy": 200,
+    "legacy-over-interpreted": 200,
+    "interpreted-over-interpreted": 200,
+    "view-loop": 200
+  },
+  "concurrent": {
+    "requests": 64000,
+    "groups": 4000,
+    "divergent": [
+      "L0184 hit 1070",
+      "L0184 hit 1090",
+      "L0179 miss 285",
+      "L0179 miss 325",
+      "L0179 hit 80"
+    ],
+    "share": 0.50151630319795
+  },
+  "requests": 127613,
+  "retried": 0,
+  "failed": [],
+  "viewLoop": {
+    "immutable": 200,
+    "staleNoStore": 200,
+    "wrongHeaders": []
+  },
+  "passed": false,
+  "checks": [
+    {
+      "name": "an input-reading (C2) language is in the drive",
+      "pass": true,
+      "detail": "0184, 0186, 0175, 0179, 0181"
+    },
+    {
+      "name": "L0184: 2000 fresh interpretations",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0184: 2000 repeats (cache hits)",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0184: every corpus case run 3 times",
+      "pass": true,
+      "detail": "717 cases, min 3"
+    },
+    {
+      "name": "L0184: 500 value executions",
+      "pass": true,
+      "detail": 4022
+    },
+    {
+      "name": "L0184: 500 plan executions",
+      "pass": true,
+      "detail": 2129
+    },
+    {
+      "name": "L0184: every answer equals its oracle",
+      "pass": false,
+      "detail": [
+        {
+          "case": 2350,
+          "via": "/compile repeat",
+          "n": 1066,
+          "status": 200,
+          "got": "{\"data\":{\"type\":\"charts\",\"charts\":[{\"id\":\"c1\",\"name\":\"c1\",\"option\":{\"animation\":true,\"useUTC\":true,\"backgroundColor\":\"transparent\",\"tooltip\":{\"show\":true,\"trigger\":\"axis\"},\"grid\":{\"left\":16,\"right\":16,\"top\":16,\"bottom\":16,\"outerBoundsMode\":\"same\",\"outerBoundsContain\":\"all\"},\"xAxis\":[{\"id\":\"x1\",\"type",
+          "want": "{\"data\":null,\"errors\":[{\"message\":\"charts datasets dataset \\\"sales\\\": expected a list of rows; got a record with keys \\\"soak\\\", \\\"n\\\".\",\"from\":-1,\"to\":-1}]}"
+        },
+        {
+          "case": 2365,
+          "via": "/compile repeat",
+          "n": 1089,
+          "status": 200,
+          "got": "{\"data\":null,\"errors\":[{\"message\":\"Language server error: Unauthorized\",\"from\":-1,\"to\":-1}]}",
+          "want": "{\"data\":null,\"errors\":[{\"message\":\"charts datasets dataset \\\"sales\\\": expected a list of rows; got a record with keys \\\"soak\\\", \\\"n\\\".\",\"from\":-1,\"to\":-1}]}"
+        }
+      ]
+    },
+    {
+      "name": "L0184: miss p95 within budget",
+      "pass": false,
+      "detail": {
+        "missP95": 1723.6206670000101,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 106.52724999998463
+      }
+    },
+    {
+      "name": "L0184: hit p95 within budget",
+      "pass": true,
+      "detail": {
+        "hitP95": 1508.4797090000357,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 106.52724999998463
+      }
+    },
+    {
+      "name": "L0184: logs agree (misses)",
+      "pass": true,
+      "detail": {
+        "logged": 10665,
+        "driven": 2000
+      }
+    },
+    {
+      "name": "L0184: repeats hit 95%",
+      "pass": true,
+      "detail": {
+        "logged": 7765,
+        "repeats": 2000
+      }
+    },
+    {
+      "name": "L0184: logs agree (value)",
+      "pass": true,
+      "detail": {
+        "logged": 10436,
+        "driven": 4022
+      }
+    },
+    {
+      "name": "L0184: logs agree (plan)",
+      "pass": true,
+      "detail": {
+        "logged": 7994,
+        "driven": 2129
+      }
+    },
+    {
+      "name": "L0184: no unexpected failure outcomes",
+      "pass": false,
+      "detail": [
+        "compile-response-lost: 1"
+      ]
+    },
+    {
+      "name": "L0186: 2000 fresh interpretations",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0186: 2000 repeats (cache hits)",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0186: every corpus case run 3 times",
+      "pass": true,
+      "detail": "637 cases, min 3"
+    },
+    {
+      "name": "L0186: 500 value executions",
+      "pass": true,
+      "detail": 5911
+    },
+    {
+      "name": "L0186: every answer equals its oracle",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "L0186: miss p95 within budget",
+      "pass": true,
+      "detail": {
+        "missP95": 976.9479590000119,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 138.51645799994003
+      }
+    },
+    {
+      "name": "L0186: hit p95 within budget",
+      "pass": true,
+      "detail": {
+        "hitP95": 745.8911669999361,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 138.51645799994003
+      }
+    },
+    {
+      "name": "L0186: logs agree (misses)",
+      "pass": true,
+      "detail": {
+        "logged": 6435,
+        "driven": 2000
+      }
+    },
+    {
+      "name": "L0186: repeats hit 95%",
+      "pass": true,
+      "detail": {
+        "logged": 11756,
+        "repeats": 2000
+      }
+    },
+    {
+      "name": "L0186: logs agree (value)",
+      "pass": true,
+      "detail": {
+        "logged": 18191,
+        "driven": 5911
+      }
+    },
+    {
+      "name": "L0186: no unexpected failure outcomes",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "L0175: 2000 fresh interpretations",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0175: 2000 repeats (cache hits)",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0175: every corpus case run 3 times",
+      "pass": true,
+      "detail": "178 cases, min 3"
+    },
+    {
+      "name": "L0175: 500 value executions",
+      "pass": true,
+      "detail": 4534
+    },
+    {
+      "name": "L0175: every answer equals its oracle",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "L0175: miss p95 within budget",
+      "pass": true,
+      "detail": {
+        "missP95": 1315.818125000107,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 151.1579170000041
+      }
+    },
+    {
+      "name": "L0175: hit p95 within budget",
+      "pass": true,
+      "detail": {
+        "hitP95": 830.7905419999734,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 151.1579170000041
+      }
+    },
+    {
+      "name": "L0175: logs agree (misses)",
+      "pass": true,
+      "detail": {
+        "logged": 5499,
+        "driven": 2000
+      }
+    },
+    {
+      "name": "L0175: repeats hit 95%",
+      "pass": true,
+      "detail": {
+        "logged": 11315,
+        "repeats": 2000
+      }
+    },
+    {
+      "name": "L0175: logs agree (value)",
+      "pass": true,
+      "detail": {
+        "logged": 16814,
+        "driven": 4534
+      }
+    },
+    {
+      "name": "L0175: no unexpected failure outcomes",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "L0179: 2000 fresh interpretations",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0179: 2000 repeats (cache hits)",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0179: every corpus case run 3 times",
+      "pass": true,
+      "detail": "493 cases, min 3"
+    },
+    {
+      "name": "L0179: 500 plan executions",
+      "pass": true,
+      "detail": 5479
+    },
+    {
+      "name": "L0179: every answer equals its oracle",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "L0179: miss p95 within budget",
+      "pass": true,
+      "detail": {
+        "missP95": 1112.2130830001552,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 181.95337499980815
+      }
+    },
+    {
+      "name": "L0179: hit p95 within budget",
+      "pass": true,
+      "detail": {
+        "hitP95": 729.0065409999806,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 181.95337499980815
+      }
+    },
+    {
+      "name": "L0179: logs agree (misses)",
+      "pass": true,
+      "detail": {
+        "logged": 5929,
+        "driven": 2000
+      }
+    },
+    {
+      "name": "L0179: repeats hit 95%",
+      "pass": true,
+      "detail": {
+        "logged": 11766,
+        "repeats": 2000
+      }
+    },
+    {
+      "name": "L0179: logs agree (plan)",
+      "pass": true,
+      "detail": {
+        "logged": 17695,
+        "driven": 5479
+      }
+    },
+    {
+      "name": "L0179: no unexpected failure outcomes",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "L0181: 2000 fresh interpretations",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0181: 2000 repeats (cache hits)",
+      "pass": true,
+      "detail": 2000
+    },
+    {
+      "name": "L0181: every corpus case run 3 times",
+      "pass": true,
+      "detail": "255 cases, min 3"
+    },
+    {
+      "name": "L0181: 500 plan executions",
+      "pass": true,
+      "detail": 4765
+    },
+    {
+      "name": "L0181: every answer equals its oracle",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "L0181: miss p95 within budget",
+      "pass": true,
+      "detail": {
+        "missP95": 1515.3101250000764,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 125.66370799997821
+      }
+    },
+    {
+      "name": "L0181: hit p95 within budget",
+      "pass": true,
+      "detail": {
+        "hitP95": 648.7772089999635,
+        "legacyP95": 1054.13491600001,
+        "budget": 1681.202374000015,
+        "directP95": 125.66370799997821
+      }
+    },
+    {
+      "name": "L0181: logs agree (misses)",
+      "pass": true,
+      "detail": {
+        "logged": 5971,
+        "driven": 2000
+      }
+    },
+    {
+      "name": "L0181: repeats hit 95%",
+      "pass": true,
+      "detail": {
+        "logged": 11022,
+        "repeats": 2000
+      }
+    },
+    {
+      "name": "L0181: logs agree (plan)",
+      "pass": true,
+      "detail": {
+        "logged": 16993,
+        "driven": 4765
+      }
+    },
+    {
+      "name": "L0181: no unexpected failure outcomes",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "chain interpreted-over-legacy: 200 runs",
+      "pass": true,
+      "detail": 200
+    },
+    {
+      "name": "chain legacy-over-interpreted: 200 runs",
+      "pass": true,
+      "detail": 200
+    },
+    {
+      "name": "chain interpreted-over-interpreted: 200 runs",
+      "pass": true,
+      "detail": 200
+    },
+    {
+      "name": "chain view-loop: 200 runs",
+      "pass": true,
+      "detail": 200
+    },
+    {
+      "name": "chains equal their oracles",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "view loop: URLs naming the current generations are immutable, stale ones no-store",
+      "pass": true,
+      "detail": {
+        "immutable": 200,
+        "staleNoStore": 200,
+        "wrongHeaders": []
+      }
+    },
+    {
+      "name": "20% of the drive at concurrency 16+ on one key",
+      "pass": true,
+      "detail": 0.502
+    },
+    {
+      "name": "concurrent answers for one key are identical",
+      "pass": false,
+      "detail": [
+        "L0184 hit 1070",
+        "L0184 hit 1090",
+        "L0179 miss 285"
+      ]
+    },
+    {
+      "name": "transient retries at most 0.1%",
+      "pass": true,
+      "detail": {
+        "retried": 0,
+        "requests": 127613
+      }
+    },
+    {
+      "name": "no request failed after its retry",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "rollback rehearsal (criterion 9, run with the owner)",
+      "pass": false,
+      "detail": "not run in this drive"
+    }
+  ]
+}
