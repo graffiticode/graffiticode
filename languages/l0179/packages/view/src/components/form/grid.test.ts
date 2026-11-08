@@ -306,3 +306,32 @@ describe("protected cells", () => {
     expect(state.apply(state.tr.insertText("x")).doc.eq(state.doc)).toBe(false);
   });
 });
+
+describe("default alignment", () => {
+  const alignOf = (cells: any, columns: any = undefined) => {
+    const formState = { data: { interaction: { type: "table", cells, columns } }, apply: () => {} };
+    const plugin: any = buildCellPlugin(formState);
+    const state = EditorState.fromJSON({ schema, plugins: [plugin] },
+      makeEditorState({ type: "table", cells, columns }));
+    const out: Record<string, string> = {};
+    for (const d of plugin.getState(state).decorations.find()) {
+      const name = state.doc.nodeAt(d.from)?.attrs?.name;
+      const m = /text-align:\s*(\w+)/.exec(d.type?.attrs?.style || "");
+      if (name && m) out[name] = m[1];
+    }
+    return out;
+  };
+
+  test("text left, numbers, dates, fractions and number formulas right", () => {
+    const a = alignOf({
+      A1: { text: "Name" }, B1: { text: "34739" }, C1: { text: "3/4" },
+      D1: { text: "=B1*2" }, E1: { text: "https://t.me/x", link: "https://t.me/x" }, F1: { text: "" },
+    });
+    expect(a).toMatchObject({ A1: "left", B1: "right", C1: "right", D1: "right", E1: "left", F1: "left" });
+  });
+
+  test("an authored align wins, on the cell or its column", () => {
+    const a = alignOf({ A1: { text: "Name", align: "center" }, B1: { text: "42" } }, { B: { align: "left" } });
+    expect(a).toMatchObject({ A1: "center", B1: "left" });
+  });
+});

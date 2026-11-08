@@ -86,7 +86,7 @@ Written inside a `[...]` list as a word applied to a value. Order does not matte
 | :-------- | :--------- | :---------- |
 | `text` | cell | The cell's content: a literal, or a formula starting with `=`. |
 | `width` | column | Column width in pixels. |
-| `align` | cell, column, row | `left`, `right`, `center`, `justify`. |
+| `align` | cell, column, row | `left`, `right`, `center`, `justify`. Unset, text aligns left and numbers right. |
 | `background-color`, `color` | cell, column, row | Fill and text color. |
 | `font-weight`, `font-size`, `font-family`, `font-style` | cell, column, row | Type. |
 | `text-decoration`, `vertical-align`, `border` | cell, column, row | Presentation. |
