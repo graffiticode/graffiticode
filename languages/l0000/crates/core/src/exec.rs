@@ -13,15 +13,37 @@
 //!    users. Each compile allocates a fresh context.
 
 use std::any::{Any, TypeId};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 use std::sync::Arc;
 
 use serde::Serialize;
 use serde_json::Value as Json;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::protected::{PolicyClient, ProtectedCall, ProtectedCallError};
+use crate::canonical::args_digest;
+use crate::model::Intent;
+use crate::protected::{OccurrenceBinding, PolicyClient, ProtectedCall, ProtectedCallError};
+
+/// A runtime occurrence's id (B5 §4): `x:` and the hex SHA-256 of `{"intentId":…,"expansionKey":…}`
+/// in that key order, exactly as policy recomputes it (`runtimeOccurrenceId` in
+/// packages/policy/src/command-records.ts, over `JSON.stringify`).
+pub fn runtime_occurrence_id(intent_id: &str, expansion_key: &str) -> String {
+    let quoted = |s: &str| serde_json::to_string(s).expect("a string serializes");
+    let text = format!("{{\"intentId\":{},\"expansionKey\":{}}}", quoted(intent_id), quoted(expansion_key));
+    format!("x:{}", hex::encode(Sha256::digest(text.as_bytes())))
+}
+
+/// A command stage's effects (B5): the model's intents, the runtime occurrences expanded from
+/// them, and the occurrences performed, by intent, which the stage's answer lists so the gateway
+/// can close the stage.
+#[derive(Default)]
+struct CommandState {
+    intents: Vec<Intent>,
+    expansions: HashMap<String, (String, String)>,
+    performed: BTreeMap<String, Vec<String>>,
+}
 
 /// The caller's VERIFIED identity and invocation, supplied by the language server from its
 /// authenticated request context — never from program input.
@@ -40,6 +62,9 @@ pub struct Identity {
     /// The plan this chain was admitted under, from the gateway. Policy verifies it; with it,
     /// the compiler executes only what the plan pins for its stage.
     pub admission_token: Option<String>,
+    /// A command stage's session, from the gateway (B5 §6 step 3). Policy issued it for this
+    /// command, stage and owner; with it the stage runs as a `start`.
+    pub command_session: Option<String>,
     /// Whether the server lets this compile open a system session
     /// ([`ExecContext::open_system_session`]). The server decides it from the request alone,
     /// never from the body: for a dialect whose system sessions are gateway-only
@@ -166,6 +191,8 @@ pub struct ExecContext {
     system_session: Option<Result<(), SystemSessionRefusal>>,
     /// What a dialect keeps for this invocation alone.
     state: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+    /// Set when this compile is a command's `start` (B5).
+    command: Option<CommandState>,
 }
 
 impl ExecContext {
@@ -179,6 +206,7 @@ impl ExecContext {
                 invocation_token: present(identity.invocation_token),
                 stage: present(identity.stage),
                 admission_token: present(identity.admission_token),
+                command_session: present(identity.command_session),
                 system_session_permitted: identity.system_session_permitted,
             },
             compile_id: Uuid::new_v4(),
@@ -188,6 +216,7 @@ impl ExecContext {
             policy: None,
             system_session: None,
             state: HashMap::new(),
+            command: None,
         }
     }
 
@@ -286,6 +315,86 @@ impl ExecContext {
         self.identity.admission_token.as_deref()
     }
 
+    /// The command session this compile runs under, if it is a command's `start`.
+    pub fn command_session(&self) -> Option<&str> {
+        self.identity.command_session.as_deref()
+    }
+
+    /// Whether this compile is a command's `start` that admission accepted.
+    pub fn is_command(&self) -> bool {
+        self.command.is_some()
+    }
+
+    pub(crate) fn set_command(&mut self, intents: Vec<Intent>) {
+        self.command = Some(CommandState { intents, ..CommandState::default() });
+    }
+
+    /// A runtime occurrence of `intent_id` (B5 §4): its id, for the dialect to invoke with. The
+    /// expansion key is what makes this occurrence this one (`batch 3`), and comes from the pinned
+    /// model and recorded observations, never from a count of attempts.
+    pub fn expand(&mut self, intent_id: &str, expansion_key: &str) -> Result<String, ProtectedCallError> {
+        let command = self.command.as_mut().ok_or_else(|| ProtectedCallError::NotAdmitted(intent_id.to_owned()))?;
+        if !command.intents.iter().any(|i| i.id == intent_id && i.is_runtime()) {
+            return Err(ProtectedCallError::NotAdmitted(intent_id.to_owned()));
+        }
+        let id = runtime_occurrence_id(intent_id, expansion_key);
+        command.expansions.insert(id.clone(), (intent_id.to_owned(), expansion_key.to_owned()));
+        Ok(id)
+    }
+
+    /// An external read a command depends on, recorded once (B5 §5). The first answer to `key` is
+    /// recorded under the command; every later one (a retry, a takeover) returns it and `read`
+    /// never runs. A new check is a new key (`poll 2`). Outside a command, `read` just runs.
+    pub async fn observe<F, Fut>(&mut self, key: &str, read: F) -> Result<Json, ProtectedCallError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<Json, ProtectedCallError>>,
+    {
+        let (Some(_), Some(session), Some(policy)) = (
+            self.command.as_ref(),
+            self.identity.command_session.clone(),
+            self.grant.as_ref().and_then(|g| g.policy.clone()),
+        ) else {
+            return read().await;
+        };
+        let parse = |text: String| {
+            serde_json::from_str(&text)
+                .map_err(|_| ProtectedCallError::Unavailable("a recorded observation isn't JSON".to_owned()))
+        };
+        if let Some(text) = policy.observe(&session, key, None).await? {
+            return parse(text);
+        }
+        let value = read().await?;
+        let text = serde_json::to_string(&value)
+            .map_err(|_| ProtectedCallError::Unavailable("an observation can't be recorded".to_owned()))?;
+        let recorded = policy.observe(&session, key, Some(&text)).await?.unwrap_or(text);
+        parse(recorded)
+    }
+
+    /// The occurrences this command stage performed, by intent: what the stage's answer lists.
+    pub fn command_occurrences(&self) -> Option<&BTreeMap<String, Vec<String>>> {
+        self.command.as_ref().map(|c| &c.performed)
+    }
+
+    /// The intent an occurrence belongs to, and its expansion key if it has one.
+    fn intent_of(&self, call: &ProtectedCall) -> Option<(String, Option<String>)> {
+        let command = self.command.as_ref()?;
+        let (intent_id, key) = match command.expansions.get(&call.occurrence_id) {
+            Some((intent, key)) => (intent.clone(), Some(key.clone())),
+            None => (
+                command
+                    .intents
+                    .iter()
+                    .find(|i| !i.is_runtime() && i.occurrences.contains(&call.occurrence_id))?
+                    .id
+                    .clone(),
+                None,
+            ),
+        };
+        let intent = command.intents.iter().find(|i| i.id == intent_id)?;
+        (intent.function == call.function && intent.op == call.op).then_some((intent_id, key))
+    }
+
     /// Whether this compile runs under an admitted plan.
     pub fn is_planned(&self) -> bool {
         self.identity.admission_token.is_some()
@@ -323,9 +432,35 @@ impl ExecContext {
             .ok_or_else(|| ProtectedCallError::NotAdmitted(call.function.clone()))?;
         let policy = grant.policy.clone().ok_or(ProtectedCallError::NoClient)?;
         let is_write = grant.writes.contains(&call.function);
-        let outcome = match grant.session_token.clone() {
-            Some(session) => policy.invoke(&session, call).await,
-            None => Err(ProtectedCallError::NoSession),
+        let session = grant.session_token.clone();
+        // A command performs only its model's intents, and binds each occurrence under its
+        // session before a token is minted for it (B5 §4).
+        let bound = match (&self.command, &session) {
+            (Some(_), Some(session)) => match self.intent_of(call) {
+                Some((intent_id, expansion_key)) => {
+                    let binding = OccurrenceBinding {
+                        occurrence_id: call.occurrence_id.clone(),
+                        args: serde_json::to_string(&call.payload).unwrap_or_default(),
+                        argd: args_digest(&call.payload),
+                        intent_id: intent_id.clone(),
+                        expansion_key,
+                    };
+                    policy.bind_occurrence(session, &binding).await.map(|()| Some(intent_id))
+                }
+                None => Err(ProtectedCallError::NotAdmitted(call.function.clone())),
+            },
+            _ => Ok(None),
+        };
+        let outcome = match (bound, session) {
+            (Err(error), _) => Err(error),
+            (Ok(intent), Some(session)) => {
+                let outcome = policy.invoke(&session, call).await;
+                if let (Some(intent), Some(command)) = (intent, self.command.as_mut()) {
+                    command.performed.entry(intent).or_default().push(call.occurrence_id.clone());
+                }
+                outcome
+            }
+            (Ok(_), None) => Err(ProtectedCallError::NoSession),
         };
         if is_write {
             self.effects.push(match &outcome {

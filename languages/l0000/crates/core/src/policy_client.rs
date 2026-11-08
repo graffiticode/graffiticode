@@ -21,7 +21,7 @@ use serde_json::{Value as Json, json};
 
 use crate::canonical::args_digest;
 use crate::protected::{
-    PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, SnapshotRequest,
+    OccurrenceBinding, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, SnapshotRequest,
 };
 
 pub const POLICY_AUDIENCE: &str = "urn:graffiticode:policy";
@@ -230,6 +230,52 @@ impl<T: IdTokenSource> PolicyClient for HttpPolicyClient<T> {
             Err(err) if err.reason() == Some("token-expiring") => attempt().await,
             outcome => outcome,
         }
+    }
+
+    /// A command stage's session (B5): verified as policy's, and read for its functions and the
+    /// stage binding policy signed into it. Nothing is asked of policy but its keys.
+    async fn command_session(&self, session_token: &str) -> Result<PolicySnapshot, ProtectedCallError> {
+        let mut claims = self.verify_session(session_token).await?;
+        if !claims["cmd"].is_string() || !claims["fg"].is_u64() {
+            return Err(ProtectedCallError::BadSession);
+        }
+        let allowed = PolicySnapshot::parse_allowed(&json!({ "allowed": claims["fns"].take() }))
+            .ok_or(ProtectedCallError::BadSession)?;
+        Ok(PolicySnapshot { allowed, session_token: Some(session_token.to_owned()), bind: Some(claims["bind"].take()) })
+    }
+
+    /// `POST /v1/command-occurrences`, under the command stage's session.
+    async fn bind_occurrence(
+        &self,
+        session_token: &str,
+        binding: &OccurrenceBinding,
+    ) -> Result<(), ProtectedCallError> {
+        let mut body = json!({
+            "sessionToken": session_token,
+            "occurrenceId": binding.occurrence_id,
+            "intentId": binding.intent_id,
+            "args": binding.args,
+            "argd": binding.argd,
+        });
+        if let Some(key) = &binding.expansion_key {
+            body["expansionKey"] = key.clone().into();
+        }
+        self.post(&self.policy_url, POLICY_AUDIENCE, "/v1/command-occurrences", &body, None).await.map(|_| ())
+    }
+
+    /// `POST /v1/command-observations`, under the command stage's session.
+    async fn observe(
+        &self,
+        session_token: &str,
+        key: &str,
+        text: Option<&str>,
+    ) -> Result<Option<String>, ProtectedCallError> {
+        let mut body = json!({ "sessionToken": session_token, "key": key });
+        if let Some(text) = text {
+            body["text"] = text.into();
+        }
+        let data = self.post(&self.policy_url, POLICY_AUDIENCE, "/v1/command-observations", &body, None).await?;
+        Ok(if data["recorded"] == true { data["text"].as_str().map(str::to_owned) } else { None })
     }
 
     /// `POST /v1/preview-session`, as this compiler's own identity and with no user token: the

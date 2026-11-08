@@ -307,6 +307,14 @@ describe("the transition extension point", () => {
   });
 });
 
+describe("runtimeOccurrenceId", () => {
+  // The same vectors as the kernel's (languages/l0000/crates/core/tests/commands.rs).
+  it("encodes {intentId, expansionKey} as the kernel does", () => {
+    expect(runtimeOccurrenceId("batch", "batch 3")).toBe("x:f35a77fd3bf9bee5b6545b22e547993efae82e6447c58aeccdea9f053eddd5d0");
+    expect(runtimeOccurrenceId("sa\"ve/é", "k\n1")).toBe("x:dcd6ad29865e8912dad4c9a8839841d6b91a7d6443a2f5c6868f221248f133b5");
+  });
+});
+
 describe("aggregateStatus", () => {
   const ran = { state: "ran", expansion: "closed", hasIntents: true };
   it("follows design §5's rules", () => {

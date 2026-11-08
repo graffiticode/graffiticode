@@ -54,14 +54,14 @@ pub use compiler::{Compilation, Compiler};
 pub use dialect::{Dialect, L0000};
 pub use error::Diagnostic;
 pub use eval::{Eval, Evaluator};
-pub use exec::{EffectStatus, ExecContext, Identity, ProtectedEffect, SystemSessionRefusal};
+pub use exec::{EffectStatus, ExecContext, Identity, ProtectedEffect, SystemSessionRefusal, runtime_occurrence_id};
 pub use lexicon::{Lexicon, LexiconEntry, LexiconError};
-pub use model::{Mode, Model, ModelKind};
+pub use model::{Intent, Mode, Model, ModelKind};
 pub use number::Number;
 pub use preflight::{RevisionIdentity, StageManifest};
 pub use protected::{
-    PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, ProtectedFunction, ProtectedKind,
-    SnapshotRequest,
+    OccurrenceBinding, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError,
+    ProtectedFunction, ProtectedKind, SnapshotRequest,
 };
 pub use schema::{LanguageSchema, NoSchemas, SchemaError, SchemaSource};
 pub use secret::Keyring;

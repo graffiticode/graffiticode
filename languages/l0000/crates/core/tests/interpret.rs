@@ -194,14 +194,10 @@ fn a_model_s_digest_covers_its_key_order() {
     use graffiticode_l0000::ModelKind;
     use graffiticode_l0000::preflight::digest_of;
     // Two values equal up to key order: different results as text, so different models.
-    let a = Model {
-        lang: "0186".to_owned(),
-        kind: ModelKind::Value(json!({ "type": "connector", "from": "a", "to": "b", "toSide": "auto" })),
-    };
-    let b = Model {
-        lang: "0186".to_owned(),
-        kind: ModelKind::Value(json!({ "type": "connector", "toSide": "auto", "from": "a", "to": "b" })),
-    };
+    let a =
+        Model::new("0186", ModelKind::Value(json!({ "type": "connector", "from": "a", "to": "b", "toSide": "auto" })));
+    let b =
+        Model::new("0186", ModelKind::Value(json!({ "type": "connector", "toSide": "auto", "from": "a", "to": "b" })));
     assert_ne!(a.digest(), b.digest());
     // A model carrying the key-sorted digest made before the change is still read (the transition),
     // and it is the same model.
@@ -246,7 +242,7 @@ async fn a_model_round_trips_through_json_and_refuses_tampering() {
 #[tokio::test]
 async fn a_model_from_another_language_is_refused() {
     let case = constant_case();
-    let model = Model { lang: "0158".to_owned(), kind: ModelKind::Plan(case.ast.clone()) };
+    let model = Model::new("0158", ModelKind::Plan(case.ast.clone()));
     let interpreted =
         Compiler::new(L0000).interpret(&model, &json!({}), &json!({}), Mode::Evaluate, Identity::default()).await;
     let errors = interpreted.result.unwrap_err();

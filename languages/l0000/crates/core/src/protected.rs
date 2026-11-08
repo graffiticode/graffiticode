@@ -165,6 +165,47 @@ pub trait PolicyClient: Send + Sync {
     async fn preview_session(&self, _lang_id: &str) -> Result<PreviewSession, ProtectedCallError> {
         Err(ProtectedCallError::NoClient)
     }
+
+    /// A command stage's session, as the gateway obtained it from policy (B5): its functions and
+    /// the stage binding policy signed into it, once its signature checks out. The compiler asks
+    /// policy for nothing here; policy re-checks everything at mint.
+    async fn command_session(&self, _session_token: &str) -> Result<PolicySnapshot, ProtectedCallError> {
+        Err(ProtectedCallError::NoClient)
+    }
+
+    /// Binds one occurrence of a command's intent under its session, before it is minted
+    /// (`POST /v1/command-occurrences`, B5 §4).
+    async fn bind_occurrence(
+        &self,
+        _session_token: &str,
+        _binding: &OccurrenceBinding,
+    ) -> Result<(), ProtectedCallError> {
+        Err(ProtectedCallError::NoClient)
+    }
+
+    /// A command's observation under its session (`POST /v1/command-observations`, B5 §5): with
+    /// no `text`, the recorded one if there is one; with `text`, records it once and returns
+    /// whichever was recorded first.
+    async fn observe(
+        &self,
+        _session_token: &str,
+        _key: &str,
+        _text: Option<&str>,
+    ) -> Result<Option<String>, ProtectedCallError> {
+        Err(ProtectedCallError::NoClient)
+    }
+}
+
+/// One occurrence of a command's intent, as policy binds it before any token is minted for it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OccurrenceBinding {
+    pub occurrence_id: String,
+    pub intent_id: String,
+    pub expansion_key: Option<String>,
+    /// The payload's exact JSON text.
+    pub args: String,
+    /// The broker's digest of the payload, which the execution token carries.
+    pub argd: String,
 }
 
 /// Decides every protected function before the program runs: one missing from the policy
@@ -295,6 +336,52 @@ pub(crate) async fn admit_planned(
         session_token: snapshot.session_token,
         policy: Some(Arc::clone(policy)),
     });
+    Vec::new()
+}
+
+/// Admission for a command stage (B5 §6 step 3): the session the gateway obtained from policy for
+/// this stage, checked as for a planned stage — this compiler must be the one the plan pins — and
+/// the model's intents, which are all a `start` may execute.
+pub(crate) async fn admit_command(
+    dialect: &dyn Dialect,
+    policy: Option<&Arc<dyn PolicyClient>>,
+    exec: &mut ExecContext,
+    manifest: &StageManifest,
+    session_token: &str,
+    intents: Vec<crate::model::Intent>,
+) -> Vec<Diagnostic> {
+    let Some(policy) = policy else {
+        return vec![Diagnostic::new("This compiler can't run a command: no permission service is configured.")];
+    };
+    let snapshot = match policy.command_session(session_token).await {
+        Ok(snapshot) => snapshot,
+        Err(err) => {
+            tracing::warn!(error = %err, "command session refused");
+            return vec![
+                Diagnostic::new("This command's session isn't valid for this compiler.").with_code("bad-session"),
+            ];
+        }
+    };
+    let problems = binding_problems(snapshot.bind.as_ref(), manifest);
+    if !problems.is_empty() {
+        return vec![Diagnostic::new(format!(
+            "This compiler is not the one the admitted plan pins ({}).",
+            problems.join(", ")
+        ))];
+    }
+    let writes = dialect
+        .protected_functions()
+        .iter()
+        .filter(|(_, f)| f.kind == ProtectedKind::Write && manifest.required_functions.contains(&f.name))
+        .map(|(_, f)| f.name.clone())
+        .collect();
+    exec.set_grant(Grant {
+        allowed: snapshot.allowed.into_iter().collect(),
+        writes,
+        session_token: Some(session_token.to_owned()),
+        policy: Some(Arc::clone(policy)),
+    });
+    exec.set_command(intents);
     Vec::new()
 }
 

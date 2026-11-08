@@ -266,11 +266,8 @@ async fn interpret_refuses_what_isn_t_a_model_or_a_mode() {
         StatusCode::BAD_REQUEST
     );
     // A well-formed model from another language is refused as a mismatch.
-    let other = graffiticode_l0000::Model {
-        lang: "0158".to_owned(),
-        kind: graffiticode_l0000::ModelKind::Plan(model["program"].clone()),
-    }
-    .to_json();
+    let other =
+        graffiticode_l0000::Model::new("0158", graffiticode_l0000::ModelKind::Plan(model["program"].clone())).to_json();
     let reply = interpret(&server.app, json!({ "model": other, "input": {} })).await;
     assert_eq!(reply.status, StatusCode::OK);
     assert_eq!(reply.json()["errors"][0]["code"], "model-language-mismatch");

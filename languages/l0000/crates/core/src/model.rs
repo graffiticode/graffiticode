@@ -27,6 +27,102 @@ pub struct Model {
     /// The language that produced it.
     pub lang: String,
     pub kind: ModelKind,
+    /// The effect intents a `start` of this model may execute (B5, docs/b5-commands-plan.md §4).
+    /// Empty for a model with none, which is then serialized and digested exactly as before.
+    pub intents: Vec<Intent>,
+}
+
+/// One effect a command may perform: a protected function and operation, with the occurrence
+/// ids it may run as. A static intent lists them; a runtime-expanded one names an upper bound,
+/// and each occurrence is an expansion of it ([`crate::ExecContext::expand`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Intent {
+    pub id: String,
+    pub function: String,
+    pub op: String,
+    /// Static occurrence ids (`<key>.<N>`). Empty for a runtime-expanded intent.
+    pub occurrences: Vec<String>,
+    /// A runtime-expanded intent's most occurrences. `None` for a static one.
+    pub max_occurrences: Option<u32>,
+    /// The connection it acts on, when it names one.
+    pub scope: Option<String>,
+}
+
+impl Intent {
+    /// A static intent: these occurrences and no others.
+    pub fn fixed(
+        id: impl Into<String>,
+        function: impl Into<String>,
+        op: impl Into<String>,
+        occurrences: Vec<String>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            function: function.into(),
+            op: op.into(),
+            occurrences,
+            max_occurrences: None,
+            scope: None,
+        }
+    }
+
+    /// A runtime-expanded intent of at most `max` occurrences.
+    pub fn expanding(id: impl Into<String>, function: impl Into<String>, op: impl Into<String>, max: u32) -> Self {
+        Self {
+            id: id.into(),
+            function: function.into(),
+            op: op.into(),
+            occurrences: Vec::new(),
+            max_occurrences: Some(max),
+            scope: None,
+        }
+    }
+
+    pub fn is_runtime(&self) -> bool {
+        self.max_occurrences.is_some()
+    }
+
+    /// Policy's shape for it (packages/policy/src/policy.ts, `modelIntents`).
+    pub fn to_json(&self) -> Json {
+        let mut json = json!({ "id": self.id, "fn": self.function, "op": self.op });
+        match self.max_occurrences {
+            Some(max) => {
+                json["runtime"] = true.into();
+                json["bounds"] = json!({ "maxOccurrences": max });
+            }
+            None => json["occurrences"] = json!(self.occurrences),
+        }
+        if let Some(scope) = &self.scope {
+            json["scope"] = scope.clone().into();
+        }
+        json
+    }
+
+    pub fn from_json(json: &Json) -> Result<Self, String> {
+        let text = |name: &str| {
+            json.get(name).and_then(Json::as_str).map(str::to_owned).ok_or_else(|| format!("an intent needs {name}"))
+        };
+        let runtime = json.get("runtime") == Some(&Json::Bool(true));
+        let max_occurrences = if runtime {
+            let max = json["bounds"]["maxOccurrences"]
+                .as_u64()
+                .filter(|max| *max >= 1)
+                .ok_or("a runtime intent needs bounds.maxOccurrences")?;
+            Some(u32::try_from(max).map_err(|_| "bounds.maxOccurrences is too large")?)
+        } else {
+            None
+        };
+        let occurrences = if runtime {
+            Vec::new()
+        } else {
+            json.get("occurrences")
+                .and_then(Json::as_array)
+                .and_then(|list| list.iter().map(|o| o.as_str().map(str::to_owned)).collect::<Option<Vec<_>>>())
+                .ok_or("a static intent lists its occurrences")?
+        };
+        let scope = json.get("scope").and_then(Json::as_str).map(str::to_owned);
+        Ok(Self { id: text("id")?, function: text("fn")?, op: text("op")?, occurrences, max_occurrences, scope })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -66,8 +162,16 @@ impl Mode {
 /// models equal up to key order are different models. Until 2026-11-07 the digest was key-sorted,
 /// and the B5 drive found the API's stage cache serving two such L0186 programs each other's
 /// answers (the API keys exactly since #296; admission will bind this digest, B5).
-fn identity(lang: &str, kind: &str, carried: &Json) -> String {
-    hex::encode(Sha256::digest(json_text(&json!({ "lang": lang, "kind": kind, "carried": carried }))))
+///
+/// A model's intents join the digest only when it has some, so a model without any keeps the
+/// digest it always had (decision 5 of the B5 plan): what a `start` may execute is bound into what
+/// admission binds.
+fn identity(lang: &str, kind: &str, carried: &Json, intents: &[Intent]) -> String {
+    let mut whole = json!({ "lang": lang, "kind": kind, "carried": carried });
+    if !intents.is_empty() {
+        whole["intents"] = intents.iter().map(Intent::to_json).collect();
+    }
+    hex::encode(Sha256::digest(json_text(&whole)))
 }
 
 /// The key-sorted digest models carried before the exact one. `from_json` still accepts it while
@@ -79,23 +183,33 @@ fn legacy_identity(lang: &str, kind: &str, carried: &Json) -> String {
 }
 
 impl Model {
+    /// A model with no intents.
+    pub fn new(lang: impl Into<String>, kind: ModelKind) -> Self {
+        Self { lang: lang.into(), kind, intents: Vec::new() }
+    }
+
     /// The model's JSON: `{ lang, kind, digest, value | program }`, where the digest identifies the
     /// whole model (see [`Model::digest`]).
     pub fn to_json(&self) -> Json {
         let digest = self.digest();
-        match &self.kind {
+        let mut json = match &self.kind {
             ModelKind::Value(value) => json!({ "lang": self.lang, "kind": "value", "digest": digest, "value": value }),
             ModelKind::Plan(program) => {
                 json!({ "lang": self.lang, "kind": "plan", "digest": digest, "program": program })
             }
+        };
+        // Omitted when empty, so a model without intents has exactly the text it always had.
+        if !self.intents.is_empty() {
+            json["intents"] = self.intents.iter().map(Intent::to_json).collect();
         }
+        json
     }
 
     /// The digest of the language, kind and payload together: what a cache or an admission binds.
     pub fn digest(&self) -> String {
         match &self.kind {
-            ModelKind::Value(value) => identity(&self.lang, "value", value),
-            ModelKind::Plan(program) => identity(&self.lang, "plan", program),
+            ModelKind::Value(value) => identity(&self.lang, "value", value, &self.intents),
+            ModelKind::Plan(program) => identity(&self.lang, "plan", program, &self.intents),
         }
     }
 
@@ -121,8 +235,16 @@ impl Model {
             }
             _ => return Err(bad("kind must be \"value\" or \"plan\"")),
         };
-        let model = Self { lang, kind };
-        if model.digest() != digest && model.legacy_digest() != digest {
+        let intents = match object.get("intents") {
+            None => Vec::new(),
+            Some(Json::Array(list)) => {
+                list.iter().map(Intent::from_json).collect::<Result<_, _>>().map_err(|why| bad(&why))?
+            }
+            Some(_) => return Err(bad("intents must be a list")),
+        };
+        let model = Self { lang, kind, intents };
+        // The legacy digest predates intents: a model that has some takes only the exact one.
+        if model.digest() != digest && (!model.intents.is_empty() || model.legacy_digest() != digest) {
             return Err(bad("its digest doesn't match its language, kind and contents"));
         }
         Ok(model)
