@@ -540,6 +540,21 @@ test("rollback below the current milestone needs --below-baseline and a verified
   assert.deepEqual(reverted.rolledBackBelowBaseline, ["api-old"]);
 });
 
+// B5's D2b: a floor is never rolled back below, --below-baseline or not.
+test("rollback below a floor is refused with no override", async t => {
+  const h = await harness(t);
+  const receipt = await release(context, source, h.deps);
+  const floored = withBaselines([{ milestone: "W0", commit: A }, { milestone: "B5", commit: B, floor: true }]);
+  for (const allowBelowBaseline of [false, true]) {
+    await assert.rejects(rollback(floored, receipt, { ...h.deps, git, allowBelowBaseline, switchState: switchOff }), /below the B5 floor; refusing, with no override/);
+  }
+  // A target that meets the floor rolls back as before.
+  const second = await release(context, { ...source, commit: C }, h.deps);
+  const third = await release(context, { ...source, commit: C }, h.deps);
+  assert.equal((await rollback(withBaselines([{ milestone: "B5", commit: C, floor: true }]), third, { ...h.deps, git })).status, "rolled-back");
+  assert.ok(second.revision);
+});
+
 test("a service that enforces the switch never rolls back below its first milestone", async t => {
   const h = await harness(t);
   const receipt = await release(context, source, h.deps);
@@ -586,11 +601,14 @@ test("baselines, enforcesSwitch and protectedExecution are validated, and the ne
   }));
   await write({ baselines: [{ milestone: "W0", commit: B }], enforcesSwitch: true, protectedExecution: { policyUrl: "https://policy.example", brokerUrl: "https://broker.example" } });
   assert.equal((await loadConfig(parseArgs(["--plan"]), root, {})).config.baselines[0].milestone, "W0");
+  await write({ baselines: [{ milestone: "B5", commit: B, floor: true }] });
+  assert.equal((await loadConfig(parseArgs(["--plan"]), root, {})).config.baselines[0].floor, true);
   for (const bad of [
     { baselines: [] },
     { baselines: [{ milestone: "W0", commit: "rmuqbq6tq-d97b10" }] },
     { baselines: [{ milestone: "W0", commit: B }, { milestone: "W0", commit: C }] },
     { baselines: { milestone: "W0", commit: B } },
+    { baselines: [{ milestone: "B5", commit: B, floor: "yes" }] },
     { enforcesSwitch: "yes" },
     { protectedExecution: { policyUrl: "http://policy.example", brokerUrl: "https://broker.example" } }
   ]) {

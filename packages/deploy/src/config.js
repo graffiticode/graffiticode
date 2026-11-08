@@ -131,8 +131,9 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
     (config.pinnable.database === undefined || /^[a-z][a-z0-9-]{0,62}$/.test(config.pinnable.database))),
   "pinnable must be { lang: \"NNNN\", contractVersions?: [int], minContractVersion?: int, database?: name }");
   requireValue(config.baselines === undefined || (Array.isArray(config.baselines) && config.baselines.length > 0 &&
-    config.baselines.every(b => object(b) && typeof b.milestone === "string" && b.milestone.length > 0 && typeof b.commit === "string" && /^[0-9a-f]{40}$/.test(b.commit)) &&
-    new Set(config.baselines.map(b => b.milestone)).size === config.baselines.length), "baselines must be a non-empty list of { milestone, commit: <40-hex commit> }, oldest first");
+    config.baselines.every(b => object(b) && typeof b.milestone === "string" && b.milestone.length > 0 && typeof b.commit === "string" && /^[0-9a-f]{40}$/.test(b.commit) &&
+      (b.floor === undefined || b.floor === true)) &&
+    new Set(config.baselines.map(b => b.milestone)).size === config.baselines.length), "baselines must be a non-empty list of { milestone, commit: <40-hex commit>, floor?: true }, oldest first");
   requireValue(config.enforcesSwitch === undefined || typeof config.enforcesSwitch === "boolean", "enforcesSwitch must be a boolean");
   // The contract minimum (W4): the variable Policy or Broker reads, and from
   // the cutover its floor, which this file's own value must then keep (a

@@ -543,6 +543,20 @@ export async function belowBaseline(context, names, { cloud, git }, which = "cur
   return below;
 }
 
+// The revisions (of `names`) below any baseline marked `floor: true`, each with
+// the floor it is below.
+export async function belowFloors(context, names, { cloud, git }) {
+  const floors = (context.config.baselines ?? []).filter(b => b.floor === true);
+  const below = [];
+  for (const name of names) {
+    const provenance = await provenanceOf(cloud, name);
+    for (const { milestone, commit } of floors) {
+      if (!(await meetsMilestone(git, provenance, commit))) below.push({ revision: name, milestone });
+    }
+  }
+  return below;
+}
+
 // ISOLATE-01 (W5 stage 4): what every revision of a networked compiler runs
 // with. The proxy is its only route out; NO_PROXY exempts only the metadata
 // server, which the runtime uses for its own identity and tokens; the proxy's
@@ -792,6 +806,13 @@ export async function rollback(context, receipt, deps) {
   const required = await requiredByProblems(context, targets, { cloud, git });
   requireValue(required.length === 0,
     `Rollback target ${describeRequiredBy(required)}; refusing, with no override. Roll forward; the requirement stays until ${[...new Set(required.map(p => p.requiredBy))].join(", ")}'s requires entry is removed from deploy.json, once no reachable revision of it needs the milestone.`);
+  // Nor below a floor (B5's D2b): the first release that understands command
+  // records. Rolling the service below it would drop command handling, and
+  // with it the record of commands already run. No override, --below-baseline
+  // included: activation and rollback are flag flips above the floor.
+  const floors = await belowFloors(context, targets, { cloud, git });
+  requireValue(floors.length === 0,
+    `Rollback target ${floors.map(f => `${f.revision} is below the ${f.milestone} floor`).join("; ")}; refusing, with no override. Turn the language's flags off by a forward release instead.`);
   const below = await belowBaseline(context, targets, { cloud, git });
   // A configuration rollback from the same commit meets every baseline, but
   // can lower the contract minimum: guarded the same way.

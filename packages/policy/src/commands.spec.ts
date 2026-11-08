@@ -235,3 +235,14 @@ describe("commands due for recovery", () => {
     await denied(policy.dueCommands({ caller: GATEWAY, limit: 500 }), "bad-request");
   });
 });
+
+describe("allocation without creating", () => {
+  it("answers none for a key nothing holds, and the protocol of one that is held, creating nothing", async () => {
+    expect(await allocate({ idempotencyKey: "fresh", create: false })).toEqual({ protocol: "none" });
+    expect(commandStore.commands.size).toBe(0);
+    const { invocationId } = await legacy({ idempotencyKey: "old" });
+    expect(await allocate({ idempotencyKey: "old", create: false })).toEqual({ protocol: "legacy", invocationId, seq: 1 });
+    const made = await allocate({ idempotencyKey: "cmd" });
+    expect(await allocate({ idempotencyKey: "cmd", create: false })).toMatchObject({ protocol: "command", commandId: made.commandId, reused: true });
+  });
+});

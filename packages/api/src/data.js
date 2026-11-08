@@ -104,7 +104,10 @@ const buildGetData = ({
   // the declarations that cap them. Without an interpreter every stage is
   // legacy.
   interpreter = null, stageResults = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages,
-  declarations = INTERPRETER_DECLARATIONS, onStage = logStage, now = Date.now
+  declarations = INTERPRETER_DECLARATIONS, onStage = logStage, now = Date.now,
+  // D2a (B5): a command's key arriving here is answered from its record
+  // (commands/dispatch.js), never compiled. Without it, it is refused.
+  commandEnvelope = null
 }) => {
   const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation, audit });
 
@@ -323,6 +326,9 @@ const buildGetData = ({
         invocation = await allocateInvocation({ authToken, connectionId, taskId: id, options, idempotencyKey, admission: Boolean(chainAdmission) && admissionWanted(connectionId) });
       } catch (e) {
         // Refused, the compile ends here: no other invocation is started.
+        if (e instanceof InvocationRefused && e.reason === "command-protocol" && commandEnvelope && idempotencyKey) {
+          return commandEnvelope({ uid: auth?.uid, idempotencyKey, authToken });
+        }
         if (e instanceof InvocationRefused) {
           await audit({ event: "gateway-invocation", outcome: "denied", reason: e.reason, category: classify(e.reason).category, connectionId, attemptId });
           return { errors: [failedWith(`Error: permission denied (${e.reason})`, e.reason)] };
@@ -654,9 +660,9 @@ export const buildDataApi = ({
   compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null,
   admissionWanted = _connectionId => false, getActiveGeneration = readActiveGeneration, getLanguageGenerations = readLanguageGenerations,
   interpreter = null, stageResults = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages, declarations = INTERPRETER_DECLARATIONS,
-  onStage = logStage, now = Date.now
+  onStage = logStage, now = Date.now, commandEnvelope = null
 }) => {
   return {
-    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, modelCache, getInterpreterLanguages, declarations, onStage, now })
+    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, modelCache, getInterpreterLanguages, declarations, onStage, now, commandEnvelope })
   };
 };

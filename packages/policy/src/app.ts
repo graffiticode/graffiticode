@@ -204,9 +204,9 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.post("/commands", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
     const u = await user(req);
-    const { connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker } = req.body ?? {};
+    const { connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true } = req.body ?? {};
     res.set("Cache-Control", "no-store");
-    await decide(res, () => policy.allocateCommand({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker }));
+    await decide(res, () => policy.allocateCommand({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create }));
   }));
   router.post("/commands/:id/lease", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);

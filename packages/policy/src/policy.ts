@@ -262,13 +262,16 @@ export const createPolicy = ({
   // now, and allocates the command, its key and its invocation at once. A key
   // the legacy path allocated first stays legacy (D2a), and is answered with
   // its protocol so the gateway serves it there.
-  const allocateCommand = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker }) => {
+  // With `create: false` (a language whose COMMANDS flag is off), a key nothing
+  // holds yet is answered { protocol: "none" } and no command is created; a
+  // key either protocol holds is answered as always (D2a).
+  const allocateCommand = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true }) => {
     const record = { event: "command", uid: user?.uid, connectionId, callerRole: caller?.role };
     if (!commands) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (!user?.uid) return deny("no-user", record);
     if (!isId(connectionId) || !isTaskId(taskId) || typeof inputDigest !== "string" || !DIGEST_RE.test(inputDigest) ||
-      !isId(idempotencyKey) || !isLang(lang) || typeof worker !== "string" || !WORKER_RE.test(worker)) {
+      !isId(idempotencyKey) || !isLang(lang) || typeof worker !== "string" || !WORKER_RE.test(worker) || typeof create !== "boolean") {
       return deny("bad-request", record);
     }
     const problem = requestProblem(request);
@@ -278,11 +281,12 @@ export const createPolicy = ({
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
     let allocated;
     try {
-      allocated = await commands.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now: now() });
+      allocated = await commands.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now: now(), create });
     } catch (e) {
       if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
       throw e;
     }
+    if (allocated.protocol === "none") return { protocol: "none" };
     if (allocated.protocol === "legacy") {
       await audit({ ...record, invocationId: allocated.invocationId, outcome: "allowed", reason: "legacy-key" });
       return { protocol: "legacy", invocationId: allocated.invocationId, seq: allocated.seq };

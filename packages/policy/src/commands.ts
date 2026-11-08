@@ -19,9 +19,10 @@
 //     changes nothing.
 //
 // A store implements:
-//   allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs })
+//   allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs, create? })
 //     -> { protocol: "legacy", invocationId, seq }
 //      | { protocol: "command", reused, command }          throws InvocationConflict
+//      | { protocol: "none" }   only with create: false, for a key nothing holds
 //   get(commandId) -> command | null
 //   getRequest(commandId) -> string | null
 //   renewLease({ commandId, worker, generation, now, leaseMs }) -> command   throws CommandRefused
@@ -149,9 +150,10 @@ export const createMemoryCommandStore = ({ invocationStore }) => {
   };
   return {
     commands,
-    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS }) {
+    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS, create = true }) {
       const binding = { connectionId, taskId, inputDigest };
       const hit = invocationStore.keyRecord(uid, idempotencyKey);
+      if (!hit && !create) return { protocol: "none" };
       if (hit) {
         if (!sameInvocationBinding(hit.binding, binding)) throw new InvocationConflict("idempotency key reused");
         if ((hit.protocol ?? "legacy") === "legacy") return { protocol: "legacy", invocationId: hit.invocation.invocationId, seq: hit.invocation.seq };
