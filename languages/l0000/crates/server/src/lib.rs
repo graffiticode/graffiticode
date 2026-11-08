@@ -267,6 +267,8 @@ async fn request_identity(
         stage: field("stage"),
         // The admitted plan, from the gateway; policy verifies it.
         admission_token: field("admissionToken"),
+        // Read only by `/interpret`'s `start` (B5); every other route runs without one.
+        command_session: None,
     })
 }
 
@@ -351,7 +353,19 @@ async fn interpret(
         Ok(mode) => mode,
         Err(message) => return bad_request(&message),
     };
-    let interpreted = state.compiler.interpret(&model, &body["input"], &body["config"], mode, identity).await;
+    // `get` (the default) reads; `start` runs the model as a command's stage, under the command
+    // session the gateway obtained from policy for it (B5 §6 step 3).
+    let interpreted = match body.get("operation").and_then(Value::as_str).unwrap_or("get") {
+        "get" => state.compiler.interpret(&model, &body["input"], &body["config"], mode, identity).await,
+        "start" => {
+            let command_session = body.get("commandSession").and_then(Value::as_str).map(str::to_owned);
+            state
+                .compiler
+                .start(&model, &body["input"], &body["config"], Identity { command_session, ..identity })
+                .await
+        }
+        _ => return bad_request("operation must be \"get\" or \"start\""),
+    };
     // Always reports the revision that answered: the API keys its stage cache by it (B3).
     envelope_response(&state, interpreted, true)
 }
@@ -377,6 +391,10 @@ fn envelope_response(state: &AppState, compiled: graffiticode_l0000::Compilation
     // out of the next stage's input.
     if !compiled.effects.is_empty() {
         envelope["effects"] = json!(compiled.effects);
+    }
+    // A command stage's occurrences, by intent: the gateway closes the stage with exactly these.
+    if let Some(occurrences) = &compiled.occurrences {
+        envelope["occurrences"] = json!(occurrences);
     }
     // Under an admitted plan the gateway checks the revision that answered against the one
     // the plan pins.

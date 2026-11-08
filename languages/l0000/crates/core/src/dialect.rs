@@ -39,7 +39,7 @@ use serde_json::Value as Json;
 use crate::ast::{Ast, NodeId, Op};
 use crate::error::Diagnostic;
 use crate::eval::Evaluator;
-use crate::model::{Mode, Model};
+use crate::model::{Intent, Mode, Model};
 use crate::protected::ProtectedFunction;
 use crate::value::Value;
 
@@ -139,6 +139,14 @@ pub trait Dialect: Send + Sync {
     /// The default is `false`: every program is a plan.
     fn input_independent(&self, _ast: &Ast) -> bool {
         false
+    }
+
+    /// The effect intents a `start` of this program may execute (B5, docs/b5-commands-plan.md
+    /// §4), each a protected write with the occurrence ids it runs as. They are carried in the
+    /// model and bound by admission, so a command can only perform what its model declares. The
+    /// default is none: the model can't be started.
+    fn intents(&self, _ast: &Ast) -> Vec<Intent> {
+        Vec::new()
     }
 
     /// Interprets a plan model this language produced, for a language whose interpretation

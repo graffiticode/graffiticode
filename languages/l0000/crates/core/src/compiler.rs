@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde_json::{Value as Json, json};
@@ -10,9 +11,9 @@ use crate::dialect::Dialect;
 use crate::error::Diagnostic;
 use crate::eval::{Context, Evaluator};
 use crate::exec::{ExecContext, Identity, ProtectedEffect};
-use crate::model::{Mode, Model, ModelKind};
+use crate::model::{Intent, Mode, Model, ModelKind};
 use crate::preflight::{RevisionIdentity, StageManifest, digest_of, required_protected_functions};
-use crate::protected::{PolicyClient, admit, admit_planned};
+use crate::protected::{PolicyClient, admit, admit_command, admit_planned};
 use crate::schema::{NoSchemas, SchemaSource};
 use crate::secret::Keyring;
 use crate::value::Value;
@@ -39,6 +40,15 @@ pub struct Compiler {
 pub struct Compilation {
     pub result: Result<Value, Vec<Diagnostic>>,
     pub effects: Vec<ProtectedEffect>,
+    /// A command's `start` only: the occurrences it performed, by intent, which the gateway
+    /// closes the stage with (B5 §4).
+    pub occurrences: Option<BTreeMap<String, Vec<String>>>,
+}
+
+impl Compilation {
+    fn of(result: Result<Value, Vec<Diagnostic>>) -> Self {
+        Self { result, effects: Vec::new(), occurrences: None }
+    }
 }
 
 impl Compiler {
@@ -108,8 +118,9 @@ impl Compiler {
     pub async fn compile(&self, code: &Json, data: &Json, config: &Json, identity: Identity) -> Compilation {
         let mut exec = ExecContext::new(identity);
         exec.set_policy(self.policy.clone());
-        let result = self.run(code, data, config, &mut exec).await;
-        Compilation { result, effects: exec.into_effects() }
+        let result = self.run(code, data, config, &mut exec, None).await;
+        let occurrences = exec.command_occurrences().cloned();
+        Compilation { result, effects: exec.into_effects(), occurrences }
     }
 
     async fn run(
@@ -118,13 +129,20 @@ impl Compiler {
         data: &Json,
         config: &Json,
         exec: &mut ExecContext,
+        intents: Option<Vec<Intent>>,
     ) -> Result<Value, Vec<Diagnostic>> {
         let dialect = &*self.dialect;
         // What executes is the normalized program (preflight applies the same).
         let (program, ast) = self.program(code)?;
         // Admission comes before anything runs. A stage of an admitted plan is bound to the
         // plan whatever functions its language has.
-        let refused = if exec.is_planned() {
+        // A command's `start` (B5): admitted by the session the gateway brought for this stage,
+        // and bound to the model's intents.
+        let refused = if let (Some(session), Some(intents)) = (exec.command_session().map(str::to_owned), intents) {
+            let stage = exec.stage().map(str::to_owned);
+            let manifest = self.stage_manifest(code, &program, &ast, stage, config)?;
+            admit_command(dialect, self.policy.as_ref(), exec, &manifest, &session, intents).await
+        } else if exec.is_planned() {
             let stage = exec.stage().map(str::to_owned);
             let manifest = self.stage_manifest(code, &program, &ast, stage, config)?;
             admit_planned(dialect, self.policy.as_ref(), exec, &manifest).await
@@ -162,11 +180,13 @@ impl Compiler {
         let protected = !required_protected_functions(&ast, dialect).is_empty()
             || !dialect.implicit_protected_functions().is_empty();
         if protected || !dialect.input_independent(&ast) {
-            return Ok(Model { lang, kind: ModelKind::Plan(code.clone()) });
+            // A plan carries the effects a `start` of it may execute (B5).
+            let intents = dialect.intents(&ast);
+            return Ok(Model { lang, kind: ModelKind::Plan(code.clone()), intents });
         }
         // Input-independent: its value is the same for every input, so evaluate it once, with none.
         let mut exec = ExecContext::new(Identity::default());
-        let value = self.run(code, &Json::Null, config, &mut exec).await?;
+        let value = self.run(code, &Json::Null, config, &mut exec, None).await?;
         // An undefined value has no JSON, and `/compile` answers it without `data`: as a value
         // it would come back `null`, so such a program stays a plan.
         Ok(Model {
@@ -175,6 +195,7 @@ impl Compiler {
                 None => ModelKind::Plan(code.clone()),
             },
             lang,
+            intents: Vec::new(),
         })
     }
 
@@ -198,15 +219,47 @@ impl Compiler {
                 self.dialect.lang_id()
             ))
             .with_code("model-language-mismatch");
-            return Compilation { result: Err(vec![refused]), effects: Vec::new() };
+            return Compilation::of(Err(vec![refused]));
         }
+        // A read never runs as a command, whatever it carries.
+        let identity = Identity { command_session: None, ..identity };
         match &model.kind {
-            ModelKind::Value(value) => Compilation { result: Ok(Value::from_json(value)), effects: Vec::new() },
+            ModelKind::Value(value) => Compilation::of(Ok(Value::from_json(value))),
             ModelKind::Plan(program) => match self.dialect.interpret(model, input, mode).await {
-                Some(result) => Compilation { result: result.map(|json| Value::from_json(&json)), effects: Vec::new() },
+                Some(result) => Compilation::of(result.map(|json| Value::from_json(&json))),
                 None => self.compile(program, input, config, identity).await,
             },
         }
+    }
+
+    /// Starts `model` as a command's stage (B5 §6 step 3): runs its plan against `input`, the
+    /// stage's pinned input, under the command session in `identity`, performing only the model's
+    /// intents. Refused, before anything runs, for a model of another language, a model with no
+    /// intents, and an identity without a command session.
+    pub async fn start(&self, model: &Model, input: &Json, config: &Json, identity: Identity) -> Compilation {
+        let refuse = |message: String, code: &str| Compilation::of(Err(vec![Diagnostic::new(message).with_code(code)]));
+        if model.lang != self.dialect.lang_id() {
+            return refuse(
+                format!("Error: a model from L{} can't be started by L{}", model.lang, self.dialect.lang_id()),
+                "model-language-mismatch",
+            );
+        }
+        let ModelKind::Plan(program) = &model.kind else {
+            return refuse("Error: a value model has no effects to start.".to_owned(), "no-intents");
+        };
+        if model.intents.is_empty() {
+            return refuse("Error: this model declares no effects to start.".to_owned(), "no-intents");
+        }
+        if identity.command_session.as_deref().is_none_or(str::is_empty) {
+            return refuse("Error: a start needs its command's session.".to_owned(), "bad-session");
+        }
+        let mut exec = ExecContext::new(identity);
+        exec.set_policy(self.policy.clone());
+        let result = self.run(program, input, config, &mut exec, Some(model.intents.clone())).await;
+        // The occurrences performed, even when the stage failed partway: what was bound is the
+        // stage's to close.
+        let occurrences = Some(exec.command_occurrences().cloned().unwrap_or_default());
+        Compilation { result, effects: exec.into_effects(), occurrences }
     }
 
     /// Preflight: this stage's manifest, or the errors that would stop it compiling.
