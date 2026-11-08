@@ -202,6 +202,11 @@
         {
           "milestone": "v8",
           "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
+        },
+        {
+          "milestone": "B5",
+          "commit": "032b953e7f7ec18b7439a46e3372e9b12be976f7",
+          "floor": true
         }
       ],
       "secrets": {
