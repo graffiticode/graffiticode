@@ -7,9 +7,11 @@
 // The key is required. A new key allocates a command only while the head
 // language's COMMANDS_LNNNN is on; an existing command's key is served from
 // its record whatever the flag says now (D2a). A key the legacy compile path
-// holds is answered with its protocol (D2a dispatch across paths is slice 7).
+// holds is served by that path (`legacy`, the getData of routes/data.js) and
+// answered as a command outcome, with `protocol: "legacy"`; it never becomes a
+// command (commands/dispatch.js).
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { buildHttpHandler, parseAuthTokenFromRequest, parseConnectionId, parseIdempotencyKey, setNoStoreCacheHeaders } from "./utils.js";
 import { InvalidArgumentError } from "../errors/http.js";
@@ -17,12 +19,11 @@ import { buildPostTasks } from "./tasks.js";
 import { inputDigest } from "../invocations.js";
 import { normalizeLang } from "../admission.js";
 import { PolicyRefused } from "../commands/policy-commands.js";
+import { legacyOutcome } from "../commands/dispatch.js";
 
 // Whether new commands may be allocated for a language: COMMANDS_LNNNN=on,
 // read per request.
 export const commandsEnabled = (lang, env = process.env) => env[`COMMANDS_L${normalizeLang(lang)}`] === "on";
-// A key's command id, as Policy derives it (commands.ts commandIdFor).
-export const commandIdFor = (uid, idempotencyKey) => `c:${createHash("sha256").update(JSON.stringify([uid, idempotencyKey])).digest("hex")}`;
 
 // The L0000 task a command's `data` becomes, appended to its chain, exactly as
 // POST /compile does (routes/compile.js).
@@ -37,7 +38,7 @@ const answer = state => ({
 
 // `policy`: commands/policy-commands.js. `run`: commands/worker.js's run.
 // `worker`: this instance's name in leases.
-export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${randomUUID()}`, env = process.env }) => {
+export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${randomUUID()}`, env = process.env, legacy = null }) => {
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
   const postTasks = buildPostTasks({ taskStorer });
@@ -59,17 +60,10 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     const tasks = await taskStorer.get({ id, auth });
     const lang = tasks[0]?.lang;
 
-    // A new key needs the flag; an existing command is served regardless.
-    if (!commandsEnabled(lang, env)) {
-      let existing = null;
-      try {
-        existing = await policy.get({ commandId: commandIdFor(auth.uid, idempotencyKey), authToken });
-      } catch (e) {
-        if (!(e instanceof PolicyRefused)) throw e;
-      }
-      if (!existing) return refused(res, 409, "commands-not-enabled");
-    }
-
+    // A new key needs the flag. A key either protocol already holds is served
+    // whatever the flag says now (D2a): with the flag off, Policy only answers
+    // which protocol holds the key, and creates nothing.
+    const create = commandsEnabled(lang, env);
     let allocated;
     try {
       const options = body.options ?? {};
@@ -82,12 +76,24 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
         lang: normalizeLang(lang),
         request: JSON.stringify({ id, connectionId, options }),
         worker,
+        create,
       });
     } catch (e) {
       if (e instanceof PolicyRefused) return refused(res, e.reason === "idempotency-key-reused" ? 409 : 403, e.reason);
       throw e;
     }
-    if (allocated.protocol === "legacy") return refused(res, 409, "legacy-protocol");
+    if (allocated.protocol === "none") return refused(res, 409, "commands-not-enabled");
+    if (allocated.protocol === "legacy") {
+      if (!legacy) return refused(res, 409, "legacy-protocol");
+      const envelope = await legacy({ auth, authToken, id, connectionId, idempotencyKey });
+      const outcome = legacyOutcome(envelope);
+      res.status(200).json({
+        status: "success",
+        data: { protocol: "legacy", invocationId: allocated.invocationId, outcome, result: outcome === "completed" && envelope?.data !== undefined ? "available" : "unavailable", ...(envelope?.data !== undefined ? { data: envelope.data } : {}) },
+        error: null,
+      });
+      return;
+    }
 
     let state = allocated;
     if (allocated.owned) {

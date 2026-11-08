@@ -14,6 +14,8 @@ import { buildPolicyCommands } from "./commands/policy-commands.js";
 import { buildCommandWorker } from "./commands/worker.js";
 import { buildCommandRouter } from "./routes/command.js";
 import { buildSweep, buildSweepAuthorizer, parseSweepConfig } from "./commands/sweep.js";
+import { buildCommandEnvelope } from "./commands/dispatch.js";
+import { buildGetData as buildRouteGetData } from "./routes/data.js";
 import { buildGoogleIdTokenVerifier } from "@graffiticode/common/caller";
 import { OAuth2Client } from "google-auth-library";
 import { buildDataApi } from "./data.js";
@@ -80,7 +82,11 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   // Interpreted stages' models, per instance (model-cache.js); MODEL_CACHE_TTL_MS=0 turns it off.
   const modelCacheConfig = parseModelCacheConfig(process.env);
   const modelCache = modelCacheConfig.enabled ? buildModelCache({ ttlMs: modelCacheConfig.ttlMs, max: modelCacheConfig.max }) : null;
+  // Commands (B5): Policy's command routes, when Policy is configured.
+  const policyCommands = policyUrl ? buildPolicyCommands({ policyUrl, idToken }) : null;
   const dataApi = buildDataApi({
+    // D2a: a command's key on /compile is answered from its record.
+    commandEnvelope: policyCommands ? buildCommandEnvelope({ policy: policyCommands }) : null,
     compile,
     langOverrideStorer,
     validateOutput,
@@ -134,9 +140,8 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
 
   // The command worker (B5): its Policy client, its run, and this instance's
   // name in leases. Only with Policy.
-  const commandWorker = policyUrl
+  const commandWorker = policyCommands
     ? (() => {
-        const policyCommands = buildPolicyCommands({ policyUrl, idToken });
         const worker = `${process.env.K_REVISION ?? "api"}:${randomUUID()}`;
         const run = buildCommandWorker({
           policy: policyCommands,
@@ -186,7 +191,10 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   // Commands (B5, D1): only with Policy, and allocating only for languages
   // whose COMMANDS_LNNNN is on.
   if (commandWorker) {
-    app.use("/command", buildCommandRouter({ taskStorer, policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker }));
+    // D2a: a legacy key on /command is served by the legacy compile path.
+    const getData = buildRouteGetData({ taskStorer, compileStorer, dataApi });
+    const legacy = ({ auth, authToken, id, connectionId, idempotencyKey }) => getData({ auth, authToken, ids: [id], connectionId, idempotencyKey });
+    app.use("/command", buildCommandRouter({ taskStorer, policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker, legacy }));
   }
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));

@@ -4,7 +4,7 @@
 // what the caller gets.
 import express from "express";
 import request from "supertest";
-import { buildCommandRouter, commandIdFor } from "./command.js";
+import { buildCommandRouter } from "./command.js";
 import { PolicyRefused } from "../commands/policy-commands.js";
 
 const UID = "0xuser";
@@ -57,13 +57,12 @@ describe("POST /command", () => {
     expect(calls).toEqual([]);
   });
 
-  it("refuses a new key while the flag is off, and serves an existing command", async () => {
+  it("asks only for the key's protocol while the flag is off: a new key is refused, an existing command served", async () => {
     const off = build({});
+    policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "none" }; };
     const refused = await post(off, BODY);
     expect([refused.status, refused.body.error.reason]).toEqual([409, "commands-not-enabled"]);
-    expect(calls.map(c => c[0])).toEqual(["get"]);
-    expect(calls[0][1].commandId).toBe(commandIdFor(UID, "job-1"));
-    policy.get = async () => ({ commandId: "c:1", status: "completed" });
+    expect(calls[0][1].create).toBe(false);
     policy.allocate = async () => ({ protocol: "command", commandId: "c:1", generation: 1, owned: false, status: "completed", result: { state: "available" }, leaseExpiresAt: 0 });
     const served = await post(off, BODY);
     expect(served.status).toBe(200);
@@ -71,10 +70,20 @@ describe("POST /command", () => {
     expect(runs).toEqual([]);
   });
 
-  it("answers a key the legacy path holds with its protocol", async () => {
+  it("serves a key the legacy path holds by that path, as a command outcome, whatever the flag", async () => {
     policy.allocate = async () => ({ protocol: "legacy", invocationId: "inv-1", seq: 1 });
-    const res = await post(build({ COMMANDS_L0176: "on" }), BODY);
-    expect([res.status, res.body.error.reason]).toEqual([409, "legacy-protocol"]);
+    const legacyCalls = [];
+    const legacy = async args => { legacyCalls.push(args); return { data: { saved: 1 }, errors: [], effects: [{ status: "succeeded" }] }; };
+    for (const env of [{ COMMANDS_L0176: "on" }, {}]) {
+      const app = express();
+      app.use(express.json());
+      app.use((/** @type {any} */ req, _res, next) => { req.auth = { context: { uid: UID } }; next(); });
+      app.use("/command", buildCommandRouter({ taskStorer: { get: async () => TASKS }, policy, run: async () => ({}), worker: "w1", env, legacy }));
+      const res = await post(app, BODY);
+      expect(res.body.data).toEqual({ protocol: "legacy", invocationId: "inv-1", outcome: "completed", result: "available", data: { saved: 1 } });
+    }
+    expect(legacyCalls[0]).toMatchObject({ id: "task-save", connectionId: "conn-1", idempotencyKey: "job-1" });
+    expect(runs).toEqual([]);
   });
 
   it("answers pending for a command another worker holds, and takes over one whose lease expired", async () => {

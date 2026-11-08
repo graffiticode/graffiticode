@@ -122,7 +122,7 @@ export const createFirestoreCommandStore = db => {
     return next;
   });
   return {
-    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS }) {
+    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS, create = true }) {
       const binding = { connectionId, taskId, inputDigest };
       const keyRef = db.collection("idempotency-keys").doc(hashId([uid, idempotencyKey]));
       const seqRef = db.collection("invocation-sequences").doc(hashId([uid, taskId, connectionId]));
@@ -135,6 +135,7 @@ export const createFirestoreCommandStore = db => {
           const command = await tx.get(commandRef(hit.commandId));
           return { protocol: "command", reused: true, command: command.data() };
         }
+        if (!create) return { protocol: "none" };
         const seqSnap = await tx.get(seqRef);
         const seq = (seqSnap.exists ? seqSnap.data().seq : 0) + 1;
         const invocationId = newInvocationId();

@@ -18,8 +18,8 @@ export const buildPolicyCommands = ({ policyUrl, idToken, fetch: doFetch = fetch
   };
   const at = commandId => `/v1/commands/${encodeURIComponent(commandId)}`;
   return {
-    allocate: ({ authToken, connectionId, taskId, inputDigest, idempotencyKey, lang, request: text, worker }) =>
-      call("POST", "/v1/commands", { authToken, body: { connectionId, taskId, inputDigest, idempotencyKey, lang, request: text, worker } }),
+    allocate: ({ authToken, connectionId, taskId, inputDigest, idempotencyKey, lang, request: text, worker, create = true }) =>
+      call("POST", "/v1/commands", { authToken, body: { connectionId, taskId, inputDigest, idempotencyKey, lang, request: text, worker, create } }),
     get: ({ commandId, authToken = null }) => call("GET", at(commandId), { authToken }),
     due: ({ limit = 20 } = {}) => call("GET", `/v1/commands-due?limit=${limit}`),
     lease: ({ commandId, worker, generation, takeOver = false }) => call("POST", `${at(commandId)}/lease`, { body: { worker, generation, takeOver } }),
