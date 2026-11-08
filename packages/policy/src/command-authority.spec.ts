@@ -279,3 +279,39 @@ describe("definite refusals", () => {
     expect(await outcomes()).toEqual([]);
   });
 });
+
+// The stage's compiler binds and observes under the command's session (B5 §4, §5).
+describe("binds and observations from the stage's compiler", () => {
+  const prepared = async () => {
+    await install();
+    await admit();
+    return session();
+  };
+  const bindAs = (caller, sessionToken, over = {}) => policy.commandBind({ caller, sessionToken, occurrenceId: "n1.0", intentId: "save", args: "{\"items\":[1]}", argd: ARGD, ...over });
+
+  it("binds an occurrence for the session's command, stage and owner, then mints for it", async () => {
+    const token = await prepared();
+    expect(await bindAs(L0176, token)).toMatchObject({ stage: "s1", occurrenceId: "n1.0", bound: true });
+    expect(await mint(token)).toHaveProperty("executionToken");
+  });
+
+  it("refuses another language's compiler, a session without the command claims, and a stale owner's session", async () => {
+    const token = await prepared();
+    await denied(bindAs({ role: "compiler", lang: "0000" }, token), "caller-language-mismatch");
+    await denied(bindAs({ role: "gateway" }, token), "caller-language-mismatch");
+    const claims = (await verifyToken(jwksRef, "session", token)).claims;
+    const { cmd: _cmd, fg: _fg, iss: _iss, aud: _aud, iat: _iat, exp: _exp, jti: _jti, ...rest } = claims;
+    await denied(bindAs(L0176, await issueToken(signerRef, "session", rest)), "command-claims-required");
+    clock += COMMAND_LEASE_MS + 1;
+    await policy.leaseCommand({ caller: GATEWAY, commandId, worker: "api-2", generation: 1, takeOver: true });
+    await denied(bindAs(L0176, token), "stale-generation");
+    expect(await records.getOccurrence(commandId, "s1", "n1.0")).toBeNull();
+  });
+
+  it("records an observation once and finds it again", async () => {
+    const token = await prepared();
+    expect(await policy.commandObserve({ caller: L0176, sessionToken: token, key: "poll 1" })).toMatchObject({ recorded: false });
+    await policy.commandObserve({ caller: L0176, sessionToken: token, key: "poll 1", text: "{\"state\":\"running\"}" });
+    expect(await policy.commandObserve({ caller: L0176, sessionToken: token, key: "poll 1", text: "{\"state\":\"done\"}" })).toMatchObject({ text: "{\"state\":\"running\"}" });
+  });
+});

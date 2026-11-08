@@ -23,6 +23,9 @@
 //   POST /v1/commands/:id/transition      extension point (Track E2); no intent in B5
 //   POST /v1/commands/:id/admit   { generation, taskIds, stages }  the first admission, under the stored principal
 //   POST /v1/commands/:id/session { generation, stage }  a stage's session, with cmd and fg (live permission checked)
+//   POST /v1/command-occurrences  compiler  { sessionToken, occurrenceId, intentId, expansionKey?, args, argd, observations? }
+//                                 a command stage's occurrence, bound under its session before mint
+//   POST /v1/command-observations compiler { sessionToken, key, text? }  find, or record once
 //   GET  /v1/commands/:id/records/:what   request | models | input?stage= | result | occurrences | outcomes
 //   POST /v1/invocations/plan gateway { invocationToken }   the invocation's plan, before a retry
 //                                 resolves compiler URLs   -> { contract, plan: null | { planDigest, stages } }
@@ -72,6 +75,7 @@ import { requestContextMiddleware } from "./audit.js";
 const ROUTE_ROLES = Object.freeze({
   invocations: ["gateway"],
   commands: ["gateway"],
+  "command-compiler": ["compiler"],
   admissions: ["gateway"],
   publications: ["gateway"],
   snapshot: ["compiler"],
@@ -248,6 +252,18 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const caller = await authorize("commands")(req);
     res.set("Cache-Control", "no-store");
     await decide(res, () => policy.commandSession({ caller, commandId: req.params.id, generation: body(req).generation, stage: body(req).stage }));
+  }));
+  router.post("/command-occurrences", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("command-compiler")(req);
+    res.set("Cache-Control", "no-store");
+    const { sessionToken, occurrenceId, intentId, expansionKey = null, args, argd, observations = [] } = body(req);
+    await decide(res, () => policy.commandBind({ caller, sessionToken, occurrenceId, intentId, expansionKey, args, argd, observations }));
+  }));
+  router.post("/command-observations", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("command-compiler")(req);
+    res.set("Cache-Control", "no-store");
+    const { sessionToken, key, text } = body(req);
+    await decide(res, () => policy.commandObserve({ caller, sessionToken, key, text }));
   }));
   router.post("/commands/:id/transition", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);

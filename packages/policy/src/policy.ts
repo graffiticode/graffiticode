@@ -535,6 +535,44 @@ export const createPolicy = ({
     }
   };
 
+  // A command stage's compiler binds its occurrences and records its
+  // observations (B5 §4, §5) under the stage's session: the session names the
+  // command, the owner's generation and the stage, and the records fence the
+  // write to that owner. Only the stage's own language may.
+  const commandSessionClaims = async ({ caller, sessionToken, record }) => {
+    let session;
+    try {
+      ({ claims: session } = await verifyToken(jwks, "session", sessionToken));
+    } catch {
+      return { refusal: await deny("bad-session", record) };
+    }
+    Object.assign(record, { uid: session.sub, lang: session.lang, invocationId: session.inv, stage: session.stg, connectionId: session.conn });
+    if (caller?.role !== "compiler" || !caller.lang || caller.lang !== session.lang) return { refusal: await deny("caller-language-mismatch", record) };
+    if (session.cmd === undefined || !Number.isInteger(session.fg)) return { refusal: await deny("command-claims-required", record) };
+    if (!commands || !commandRecords) return { refusal: await deny("unavailable", record) };
+    return { session };
+  };
+  const commandBind = async ({ caller, sessionToken, occurrenceId, intentId, expansionKey = null, args, argd, observations = [] }) => {
+    const record = { event: "command-bind", callerRole: caller?.role };
+    const { session } = await commandSessionClaims({ caller, sessionToken, record });
+    try {
+      return await commandRecords.bindOccurrence({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, intentId, expansionKey, args, argd, observations });
+    } catch (e) {
+      if (e instanceof CommandRefused) throw new PolicyDenied(e.reason);
+      throw e;
+    }
+  };
+  const commandObserve = async ({ caller, sessionToken, key, text = undefined }) => {
+    const record = { event: "command-observe", callerRole: caller?.role };
+    const { session } = await commandSessionClaims({ caller, sessionToken, record });
+    try {
+      return await commandRecords.observation({ commandId: session.cmd, generation: session.fg, stage: session.stg, key, text });
+    } catch (e) {
+      if (e instanceof CommandRefused) throw new PolicyDenied(e.reason);
+      throw e;
+    }
+  };
+
   // Is this invocation a command's (D2a)? Then its tokens must say so.
   const isCommandInvocation = async invocationId => isId(invocationId) && (await invocations.get(invocationId))?.protocol === "command";
 
@@ -1321,5 +1359,5 @@ export const createPolicy = ({
     return { enabled, source };
   };
 
-  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
+  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, commandBind, commandObserve, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
 };
