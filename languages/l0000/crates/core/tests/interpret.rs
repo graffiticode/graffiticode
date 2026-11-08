@@ -199,15 +199,14 @@ fn a_model_s_digest_covers_its_key_order() {
     let b =
         Model::new("0186", ModelKind::Value(json!({ "type": "connector", "toSide": "auto", "from": "a", "to": "b" })));
     assert_ne!(a.digest(), b.digest());
-    // A model carrying the key-sorted digest made before the change is still read (the transition),
-    // and it is the same model.
+    // The key-sorted digest models carried before 2026-11-07 is refused since the transition ended
+    // (B5 slice 4b): admission binds the exact digest only.
     let mut legacy = a.to_json();
     legacy["digest"] = json!(digest_of(&json!({ "lang": "0186", "kind": "value", "carried": legacy["value"] })));
     assert_ne!(legacy["digest"], a.to_json()["digest"]);
-    assert_eq!(Model::from_json(&legacy).unwrap(), a);
-    // Any other digest is still refused.
-    legacy["digest"] = json!("0".repeat(64));
     assert!(Model::from_json(&legacy).unwrap_err().contains("digest doesn't match"));
+    // The exact one is read.
+    assert_eq!(Model::from_json(&a.to_json()).unwrap(), a);
 }
 
 #[tokio::test]
