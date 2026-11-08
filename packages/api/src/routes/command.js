@@ -39,8 +39,8 @@ const answer = state => ({
 // `policy`: commands/policy-commands.js. `run`: commands/worker.js's run.
 // `worker`: this instance's name in leases.
 export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${randomUUID()}`, env = process.env, legacy = null }) => {
-  // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
-  const router = new Router();
+  // express's Router is callable; its types reject `new`, which works.
+  const router = new (/** @type {any} */ (Router))();
   const postTasks = buildPostTasks({ taskStorer });
   const refused = (res, status, reason) => res.status(status).json({ status: "error", error: { code: status, message: "command refused", reason }, data: null });
 
