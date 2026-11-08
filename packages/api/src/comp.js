@@ -39,3 +39,14 @@ export const buildInterpreter = ({ langCompile, callerIdentity = async _lang => 
       post(lang, "/interpret", { model, input, mode, auth, options }, { uid, baseUrl }),
   };
 };
+
+// A command stage's start (B5 §6 step 3): POST /interpret with operation
+// "start", the stage and its command session, at the stage's pinned revision.
+// It may act, so it is never sent again: a lost answer comes back as
+// `responseLost` (lang/compile.js), and the worker settles from receipts.
+export const buildCommandStart = ({ langCompile, callerIdentity = async _lang => null }) =>
+  async ({ lang, model, input, commandSession, stage, baseUrl }) => {
+    const headers = await callerIdentity(lang);
+    const req = { model, input, operation: "start", commandSession, stage, mode: "evaluate" };
+    return langCompile(`L${lang}`, req, { path: "/interpret", baseUrl, ...(headers ? { headers } : {}) });
+  };

@@ -369,13 +369,22 @@ export const createPolicy = ({
   };
 
   // What recovery reads to continue a command (service only).
-  const COMMAND_READS = { request: "request", models: "models", input: "input", result: "result", occurrences: "occurrences", outcomes: "outcomes" };
+  const COMMAND_READS = { state: "state", request: "request", models: "models", input: "input", result: "result", occurrences: "occurrences", outcomes: "outcomes" };
   const commandRead = async ({ caller, commandId, what, stage = null }) => {
     const record = { event: "command-read", callerRole: caller?.role };
     if (!commands || !commandRecords) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !COMMAND_READS[what]) return deny("bad-request", record);
-    if (!(await commands.get(commandId))) return deny("command-not-found", record);
+    const command = await commands.get(commandId);
+    if (!command) return deny("command-not-found", record);
+    // What the worker continues from: the record's phase, admission, stages,
+    // status, result and publication, and the connection's owner, whom the
+    // artifact is bound to. Never the request or any payload.
+    if (what === "state") {
+      const connection = await connections.get(command.connectionId);
+      const { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts } = command;
+      return { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, generation: command.owner.generation, leaseExpiresAt: command.owner.leaseExpiresAt, ownerUid: connection?.ownerUid ?? null };
+    }
     if (what === "request") return { text: await commands.getRequest(commandId) };
     if (what === "models") return { models: await commandRecords.getModels(commandId) };
     if (what === "input") {
