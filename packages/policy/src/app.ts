@@ -26,6 +26,7 @@
 //   POST /v1/command-occurrences  compiler  { sessionToken, occurrenceId, intentId, expansionKey?, args, argd, observations? }
 //                                 a command stage's occurrence, bound under its session before mint
 //   POST /v1/command-observations compiler { sessionToken, key, text? }  find, or record once
+//   GET  /v1/commands-due?limit=  gateway  commands to take over: pending, or publication due, with an expired lease
 //   GET  /v1/commands/:id/records/:what   request | models | input?stage= | result | occurrences | outcomes
 //   POST /v1/invocations/plan gateway { invocationToken }   the invocation's plan, before a retry
 //                                 resolves compiler URLs   -> { contract, plan: null | { planDigest, stages } }
@@ -252,6 +253,12 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const caller = await authorize("commands")(req);
     res.set("Cache-Control", "no-store");
     await decide(res, () => policy.commandSession({ caller, commandId: req.params.id, generation: body(req).generation, stage: body(req).stage }));
+  }));
+  router.get("/commands-due", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("commands")(req);
+    res.set("Cache-Control", "no-store");
+    const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+    await decide(res, () => policy.dueCommands({ caller, limit }));
   }));
   router.post("/command-occurrences", buildHttpHandler(async (req, res) => {
     const caller = await authorize("command-compiler")(req);

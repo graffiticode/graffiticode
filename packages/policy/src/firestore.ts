@@ -164,6 +164,15 @@ export const createFirestoreCommandStore = db => {
     async takeOver({ commandId, worker, expectedGeneration, now, leaseMs = COMMAND_LEASE_MS }) {
       return change(commandId, c => takenOverLease(c, { worker, expectedGeneration, now, leaseMs }));
     },
+    // Two queries, each on its composite index in the policy database
+    // (configs/firestore-policy-indexes.json): pending, and publication due,
+    // each with an expired lease.
+    async listDue({ now, limit }) {
+      const query = (field, value) => db.collection("commands").where(field, "==", value).where("owner.leaseExpiresAt", "<", now).orderBy("owner.leaseExpiresAt").limit(limit).get();
+      const [pending, due] = await Promise.all([query("status", "pending"), query("publication.state", "due")]);
+      const byId = new Map([...pending.docs, ...due.docs].map(d => [d.id, d.data()]));
+      return [...byId.values()].sort((a, b) => a.owner.leaseExpiresAt - b.owner.leaseExpiresAt).slice(0, limit);
+    },
   };
 };
 

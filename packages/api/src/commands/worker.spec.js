@@ -25,6 +25,7 @@ import {
 } from "@graffiticode/policy";
 import { createMemoryReceiptStore, createReceiptReader, argsDigest } from "@graffiticode/broker";
 import { buildCommandWorker } from "./worker.js";
+import { buildSweep } from "./sweep.js";
 import { PolicyRefused } from "./policy-commands.js";
 import { buildMemoryArtifactStorer } from "../storage/artifacts.js";
 
@@ -66,6 +67,7 @@ const client = () => {
   const write = (fn, argsOf = a => a) => as(({ commandId, generation, ...rest }) => policy.commandWrite({ caller: GATEWAY, commandId, generation, fn, args: argsOf(rest) }));
   return {
     read: as(({ commandId, what, stage = null }) => policy.commandRead({ caller: GATEWAY, commandId, what, stage })),
+    due: as(({ limit = 20 } = {}) => policy.dueCommands({ caller: GATEWAY, limit })),
     lease: as(({ commandId, worker, generation, takeOver = false }) => policy.leaseCommand({ caller: GATEWAY, commandId, worker, generation, takeOver })),
     installModel: write("installModel"),
     admit: as(({ commandId, generation, taskIds, stages }) => policy.admitCommand({ caller: GATEWAY, commandId, generation, taskIds, stages })),
@@ -281,5 +283,24 @@ describe("outcomes", () => {
     // Settled from the receipt; the head's own answer is gone, so no result.
     expect(state).toMatchObject({ status: "completed", result: { state: "unavailable" } });
     expect(provider).toHaveLength(1);
+  });
+});
+
+describe("the sweeper", () => {
+  it("recovers a command whose worker died, with no caller retry and no repeated write", async () => {
+    const { commandId, generation } = await allocate();
+    faults.crashAfterWrite = true;
+    await expect(workerAs("w1")({ commandId, generation })).rejects.toThrow("died");
+    // Nothing is due while the dead worker's lease runs.
+    const sweep = buildSweep({ policy: client(), run: workerAs("sweeper"), worker: "sweeper", log: () => {} });
+    expect(await sweep()).toMatchObject({ due: 0 });
+    clock += COMMAND_LEASE_MS + 1;
+    expect(await sweep()).toMatchObject({ due: 1, taken: 1, failed: 0 });
+    const state = await policy.commandRead({ caller: GATEWAY, commandId, what: "state" });
+    expect(state).toMatchObject({ status: "completed", publication: { state: "published" }, generation: 2 });
+    expect(provider).toHaveLength(1);
+    // Done: nothing is due any more.
+    clock += COMMAND_LEASE_MS + 1;
+    expect(await sweep()).toMatchObject({ due: 0 });
   });
 });

@@ -585,6 +585,19 @@ export const createPolicy = ({
   // Is this invocation a command's (D2a)? Then its tokens must say so.
   const isCommandInvocation = async invocationId => isId(invocationId) && (await invocations.get(invocationId))?.protocol === "command";
 
+  // Recovery (B5 §7): the commands whose owner stopped, for the gateway's
+  // sweeper to take over. Service only. Each is named with the generation a
+  // takeover must name; the takeover itself is the lease's compare-and-set.
+  const MAX_DUE = 50;
+  const dueCommands = async ({ caller, limit = 20 }) => {
+    const record = { event: "command-sweep", callerRole: caller?.role };
+    if (!commands) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_DUE) return deny("bad-request", record);
+    const due = await commands.listDue({ now: now(), limit });
+    return { commands: due.map(c => ({ commandId: c.commandId, generation: c.owner.generation, status: c.status, publication: c.publication?.state ?? "none" })) };
+  };
+
   // A command's summary: for the gateway itself, or for the signed-in user
   // whose command it is.
   const getCommand = async ({ caller, user = null, commandId }) => {
@@ -1368,5 +1381,5 @@ export const createPolicy = ({
     return { enabled, source };
   };
 
-  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, commandBind, commandObserve, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
+  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, commandBind, commandObserve, dueCommands, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
 };

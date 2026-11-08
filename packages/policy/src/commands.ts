@@ -26,6 +26,8 @@
 //   getRequest(commandId) -> string | null
 //   renewLease({ commandId, worker, generation, now, leaseMs }) -> command   throws CommandRefused
 //   takeOver({ commandId, worker, expectedGeneration, now, leaseMs }) -> command   throws CommandRefused
+//   listDue({ now, limit }) -> [command]   the commands recovery takes over (§7):
+//     pending with an expired lease, or with a publication due and an expired lease
 
 import { createHash } from "node:crypto";
 import { InvocationConflict, sameInvocationBinding } from "./invocations.js";
@@ -173,6 +175,13 @@ export const createMemoryCommandStore = ({ invocationStore }) => {
     },
     async takeOver({ commandId, worker, expectedGeneration, now, leaseMs = COMMAND_LEASE_MS }) {
       return update(commandId, c => takenOverLease(c, { worker, expectedGeneration, now, leaseMs }));
+    },
+    async listDue({ now, limit }) {
+      return [...commands.values()]
+        .filter(c => (c.status === "pending" || c.publication?.state === "due") && c.owner.leaseExpiresAt < now)
+        .sort((a, b) => a.owner.leaseExpiresAt - b.owner.leaseExpiresAt)
+        .slice(0, limit)
+        .map(c => structuredClone(c));
     },
   };
 };

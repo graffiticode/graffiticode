@@ -13,6 +13,9 @@ import { buildCompile, buildInterpreter, buildCommandStart } from "./comp.js";
 import { buildPolicyCommands } from "./commands/policy-commands.js";
 import { buildCommandWorker } from "./commands/worker.js";
 import { buildCommandRouter } from "./routes/command.js";
+import { buildSweep, buildSweepAuthorizer, parseSweepConfig } from "./commands/sweep.js";
+import { buildGoogleIdTokenVerifier } from "@graffiticode/common/caller";
+import { OAuth2Client } from "google-auth-library";
 import { buildDataApi } from "./data.js";
 import { createApiAudit } from "./audit.js";
 import { buildCallerIdentity } from "./caller-identity.js";
@@ -129,6 +132,49 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   app.use(requestContextMiddleware);
   app.use(methodOverride());
 
+  // The command worker (B5): its Policy client, its run, and this instance's
+  // name in leases. Only with Policy.
+  const commandWorker = policyUrl
+    ? (() => {
+        const policyCommands = buildPolicyCommands({ policyUrl, idToken });
+        const worker = `${process.env.K_REVISION ?? "api"}:${randomUUID()}`;
+        const run = buildCommandWorker({
+          policy: policyCommands,
+          taskStorer,
+          artifactStorer,
+          worker,
+          language: {
+            baseUrlFor: lang => getBaseUrlForLanguage(`L${String(lang).replace(/^L/i, "")}`),
+            model: interpreter.model,
+            interpret: interpreter.interpret,
+            start: buildCommandStart({ langCompile, callerIdentity }),
+            preflight: chainAdmission.preflight,
+          },
+        });
+        return { policy: policyCommands, run, worker };
+      })()
+    : null;
+  // Recovery of abandoned commands (B5 §7): Cloud Scheduler, with its own ID
+  // token, before user authentication (its token isn't a user's). Mounted only
+  // with SWEEP_AUDIENCE and SWEEP_CALLERS.
+  const sweepConfig = parseSweepConfig(process.env);
+  if (commandWorker && sweepConfig) {
+    const authorized = buildSweepAuthorizer({ verifyIdToken: buildGoogleIdTokenVerifier({ OAuth2Client }), ...sweepConfig });
+    const sweep = buildSweep({ policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker });
+    app.post("/internal/commands/sweep", async (req, res) => {
+      if (!(await authorized(req))) {
+        res.status(401).json({ status: "error", error: { code: 401, message: "not the scheduler" }, data: null });
+        return;
+      }
+      try {
+        res.status(200).json({ status: "success", data: await sweep(), error: null });
+      } catch (e) {
+        console.log(`ERROR command sweep: ${e?.message}`);
+        res.status(503).json({ status: "error", error: { code: 503, message: "sweep failed; the next one continues" }, data: null });
+      }
+    });
+  }
+
   // Authentication
   // A token that verified is remembered for up to 60 s (common/verified-tokens).
   const validateToken = givenValidateToken ?? cacheVerifications(buildValidateToken({ authUrl }));
@@ -139,23 +185,8 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi, signingLimiter }));
   // Commands (B5, D1): only with Policy, and allocating only for languages
   // whose COMMANDS_LNNNN is on.
-  if (policyUrl) {
-    const policyCommands = buildPolicyCommands({ policyUrl, idToken });
-    const worker = `${process.env.K_REVISION ?? "api"}:${randomUUID()}`;
-    const run = buildCommandWorker({
-      policy: policyCommands,
-      taskStorer,
-      artifactStorer,
-      worker,
-      language: {
-        baseUrlFor: lang => getBaseUrlForLanguage(`L${String(lang).replace(/^L/i, "")}`),
-        model: interpreter.model,
-        interpret: interpreter.interpret,
-        start: buildCommandStart({ langCompile, callerIdentity }),
-        preflight: chainAdmission.preflight,
-      },
-    });
-    app.use("/command", buildCommandRouter({ taskStorer, policy: policyCommands, run, worker }));
+  if (commandWorker) {
+    app.use("/command", buildCommandRouter({ taskStorer, policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker }));
   }
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));

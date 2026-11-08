@@ -211,3 +211,27 @@ describe("ownerRefusal", () => {
     expect(ownerRefusal(null, { generation: 3, now: 0 })).toBe("command-not-found");
   });
 });
+
+describe("commands due for recovery", () => {
+  it("lists pending commands and due publications whose lease expired, oldest first", async () => {
+    const a = await allocate({ idempotencyKey: "key-a" });
+    clock += 1000;
+    const b = await allocate({ idempotencyKey: "key-b" });
+    expect((await policy.dueCommands({ caller: GATEWAY })).commands).toEqual([]);
+    clock += COMMAND_LEASE_MS + 1000;
+    const due = (await policy.dueCommands({ caller: GATEWAY })).commands;
+    expect(due.map(d => d.commandId)).toEqual([a.commandId, b.commandId]);
+    expect(due[0]).toMatchObject({ generation: 1, status: "pending" });
+    // A finished command with nothing to publish is never due.
+    const c = commandStore.commands.get(a.commandId);
+    commandStore.commands.set(a.commandId, { ...c, status: "completed", publication: { state: "none", resultDigest: null } });
+    expect((await policy.dueCommands({ caller: GATEWAY })).commands.map(d => d.commandId)).toEqual([b.commandId]);
+    commandStore.commands.set(a.commandId, { ...c, status: "completed", publication: { state: "due", resultDigest: "d" } });
+    expect((await policy.dueCommands({ caller: GATEWAY, limit: 1 })).commands.map(d => d.commandId)).toEqual([a.commandId]);
+  });
+
+  it("is the gateway's only, within its limit", async () => {
+    await denied(policy.dueCommands({ caller: { role: "compiler", lang: "0176" } }), "caller-not-entry-point");
+    await denied(policy.dueCommands({ caller: GATEWAY, limit: 500 }), "bad-request");
+  });
+});

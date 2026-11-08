@@ -1,0 +1,29 @@
+{
+  "$comment": "Indexes in Policy's named Firestore database `policy` (B5, docs/b5-commands-plan.md §7). Releases don't deploy indexes: create them by hand before the api that sweeps commands is released, then check them with `gcloud firestore indexes composite list --database=policy --project=graffiticode`. Composite: `gcloud firestore indexes composite create --database=policy --project=graffiticode --collection-group=commands --query-scope=COLLECTION --field-config=field-path=status,order=ascending --field-config=field-path=owner.leaseExpiresAt,order=ascending` (and the same with publication.state). Exemptions: `gcloud firestore indexes fields update text --database=policy --project=graffiticode --collection-group=<group> --disable-indexes` for each payload field below.",
+  "indexes": [
+    {
+      "collectionGroup": "commands",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "owner.leaseExpiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "commands",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "publication.state", "order": "ASCENDING" },
+        { "fieldPath": "owner.leaseExpiresAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    { "collectionGroup": "request", "fieldPath": "text", "indexes": [] },
+    { "collectionGroup": "models", "fieldPath": "text", "indexes": [] },
+    { "collectionGroup": "inputs", "fieldPath": "text", "indexes": [] },
+    { "collectionGroup": "observations", "fieldPath": "text", "indexes": [] },
+    { "collectionGroup": "occurrences", "fieldPath": "args", "indexes": [] },
+    { "collectionGroup": "result", "fieldPath": "text", "indexes": [] }
+  ]
+}
