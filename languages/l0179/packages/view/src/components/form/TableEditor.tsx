@@ -82,6 +82,7 @@ import {
   getChangedCells,
   getCellColor,
   mergeBorders,
+  defaultAlign,
   getCellRange,
   getColumnRange,
   getRowRange,
@@ -519,7 +520,10 @@ const applyModelRules = (cellExprs, state, value, validation, formState) => {
     if (cell.col === 1 || cell.row === 1) {
       styleStr += 'text-align: center; ';
     } else {
-      styleStr += `font-weight: ${cell.fontWeight || "normal"}; text-align: ${cell.align || "right"}; `;
+      // Unaligned cells follow their value: numbers right, text left. The type is the engine's
+      // (`value.cells`), which exists from the first build, unlike the plugin state `getCells` reads.
+      const type = value.cells?.[cell.name]?.type || cell.type;
+      styleStr += `font-weight: ${cell.fontWeight || "normal"}; text-align: ${cell.align || defaultAlign(type)}; `;
     }
     return { styleStr, borderClass };
   };

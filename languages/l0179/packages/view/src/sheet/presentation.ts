@@ -81,3 +81,14 @@ export const mergeBorders = (border1: any, border2: any): any => {
 
   return mergedSides.join(",");
 };
+
+/** Value types the engine gives a cell (evalCell) that read as quantities. */
+const NUMERIC_TYPES = new Set(["number", "date", "fraction"]);
+
+/**
+ * A cell's alignment when the program sets none: numbers (and dates and fractions, which are
+ * numbers underneath) to the right, everything else — text, empty cells, errors — to the left, as
+ * a spreadsheet does. An authored `align` on the cell, its column or its row always wins.
+ */
+export const defaultAlign = (type: string | undefined): "left" | "right" =>
+  type && NUMERIC_TYPES.has(type) ? "right" : "left";
