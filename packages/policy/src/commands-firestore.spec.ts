@@ -150,4 +150,20 @@ run("command records in Firestore", () => {
     await expect(records.installInput({ commandId: command.commandId, generation: 2, stage: "s0", text: "{}" })).rejects.toMatchObject({ reason: "stale-generation" });
     expect(await records.getInput(command.commandId, "s0")).toBeNull();
   });
+
+  // Slice 6: recovery's two queries (pending, publication due), each with an
+  // expired lease. The emulator needs no index; production does
+  // (configs/firestore-policy-indexes.json).
+  it("lists the commands due for recovery", async () => {
+    const { command: pending } = await allocate({ idempotencyKey: `due-${uid}` });
+    const { command: published } = await allocate({ idempotencyKey: `pub-${uid}` });
+    await db.collection("commands").doc(published.commandId).update({ status: "completed", publication: { state: "due", resultDigest: digest("r") } });
+    const { command: done } = await allocate({ idempotencyKey: `done-${uid}` });
+    await db.collection("commands").doc(done.commandId).update({ status: "completed" });
+    const after = T0 + COMMAND_LEASE_MS + 1;
+    const ids = (await commands.listDue({ now: after, limit: 50 })).map(c => c.commandId);
+    expect(ids).toEqual(expect.arrayContaining([pending.commandId, published.commandId]));
+    expect(ids).not.toContain(done.commandId);
+    expect((await commands.listDue({ now: T0, limit: 50 })).map(c => c.commandId)).not.toContain(pending.commandId);
+  });
 });
