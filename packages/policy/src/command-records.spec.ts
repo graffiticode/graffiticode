@@ -326,3 +326,21 @@ describe("aggregateStatus", () => {
     expect(aggregateStatus({ operations: [{ outcome: "completed" }], stages: [ran, { state: "not-reached", expansion: "open", hasIntents: false }] })).toBe("completed");
   });
 });
+
+describe("resuming a closed stage", () => {
+  it("acknowledges a rebind of an already bound runtime occurrence after the close", async () => {
+    admit();
+    await bindBatch(1);
+    await write("closeStage", { stage: "s0", occurrences: { batch: [runtimeOccurrenceId("batch", "batch 1")] } });
+    expect(await bindBatch(1)).toMatchObject({ bound: false });
+    await denied(bindBatch(2), "stage-closed");
+  });
+
+  it("reads the worker's state with the connection's owner and no payloads", async () => {
+    admit();
+    const state = await policy.commandRead({ caller: GATEWAY, commandId, what: "state" });
+    expect(state).toMatchObject({ commandId, phase: "admitted", ownerUid: OWNER, generation: 1 });
+    expect(state).not.toHaveProperty("request");
+    expect(state.admission.stages.s0.intents[0].id).toBe("batch");
+  });
+});

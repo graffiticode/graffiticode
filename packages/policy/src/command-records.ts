@@ -151,14 +151,16 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       } else if (expansionKey !== null || !(intent.occurrences ?? []).includes(occurrenceId)) {
         throw new CommandRefused("occurrence-mismatch");
       }
-      if (stageOf(command, stage).expansion === "closed" && runtime) throw new CommandRefused("stage-closed");
       const argsDigest = sha256(args);
       const path = sub(commandId, "occurrences", docKey(stage, occurrenceId));
       const existing = await tx.get(path);
+      // A rebind of what is already bound is acknowledged, even once the stage
+      // is closed: a resumed stage presents its recorded occurrences again.
       if (existing) {
         if (existing.argsDigest !== argsDigest || existing.intentId !== intentId) throw new CommandRefused("operation-id-reused");
         return { stage, occurrenceId, argsDigest, bound: false };
       }
+      if (stageOf(command, stage).expansion === "closed" && runtime) throw new CommandRefused("stage-closed");
       for (const oid of observations) {
         if (!(await tx.get(sub(commandId, "observations", oid)))) throw new CommandRefused("observation-not-recorded");
       }

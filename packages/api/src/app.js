@@ -1,6 +1,7 @@
 import EventEmitter from "events";
 import errorHandler from "errorhandler";
 import express from "express";
+import { randomUUID } from "node:crypto";
 import methodOverride from "method-override";
 import { createRequire } from "module";
 import morgan from "morgan";
@@ -8,7 +9,10 @@ import cors from "cors";
 import { buildValidateToken } from "./auth.js";
 import { buildModelCache, parseModelCacheConfig } from "./model-cache.js";
 import { cacheVerifications } from "@graffiticode/common/verified-tokens";
-import { buildCompile, buildInterpreter } from "./comp.js";
+import { buildCompile, buildInterpreter, buildCommandStart } from "./comp.js";
+import { buildPolicyCommands } from "./commands/policy-commands.js";
+import { buildCommandWorker } from "./commands/worker.js";
+import { buildCommandRouter } from "./routes/command.js";
 import { buildDataApi } from "./data.js";
 import { createApiAudit } from "./audit.js";
 import { buildCallerIdentity } from "./caller-identity.js";
@@ -133,6 +137,26 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   // Routes
   app.use("/", routes.root());
   app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi, signingLimiter }));
+  // Commands (B5, D1): only with Policy, and allocating only for languages
+  // whose COMMANDS_LNNNN is on.
+  if (policyUrl) {
+    const policyCommands = buildPolicyCommands({ policyUrl, idToken });
+    const worker = `${process.env.K_REVISION ?? "api"}:${randomUUID()}`;
+    const run = buildCommandWorker({
+      policy: policyCommands,
+      taskStorer,
+      artifactStorer,
+      worker,
+      language: {
+        baseUrlFor: lang => getBaseUrlForLanguage(`L${String(lang).replace(/^L/i, "")}`),
+        model: interpreter.model,
+        interpret: interpreter.interpret,
+        start: buildCommandStart({ langCompile, callerIdentity }),
+        preflight: chainAdmission.preflight,
+      },
+    });
+    app.use("/command", buildCommandRouter({ taskStorer, policy: policyCommands, run, worker }));
+  }
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));
   app.use("/preview", routes.preview({ compile, signingLimiter }));
