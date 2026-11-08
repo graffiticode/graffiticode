@@ -18,7 +18,6 @@
 use serde_json::{Value as Json, json};
 use sha2::{Digest, Sha256};
 
-use crate::preflight::digest_of;
 use crate::value::json_text;
 
 /// A compiled model, as `/compile` returns it with `"form": "model"` and `/interpret` accepts it.
@@ -161,7 +160,8 @@ impl Mode {
 /// key order (an L0186 connector's attributes come out in the order its program gave them), so two
 /// models equal up to key order are different models. Until 2026-11-07 the digest was key-sorted,
 /// and the B5 drive found the API's stage cache serving two such L0186 programs each other's
-/// answers (the API keys exactly since #296; admission will bind this digest, B5).
+/// answers (the API keys exactly since #296; admission binds this digest, B5). The key-sorted
+/// digest was still accepted through the rollout; since B5 slice 4b it is refused.
 ///
 /// A model's intents join the digest only when it has some, so a model without any keeps the
 /// digest it always had (decision 5 of the B5 plan): what a `start` may execute is bound into what
@@ -172,14 +172,6 @@ fn identity(lang: &str, kind: &str, carried: &Json, intents: &[Intent]) -> Strin
         whole["intents"] = intents.iter().map(Intent::to_json).collect();
     }
     hex::encode(Sha256::digest(json_text(&whole)))
-}
-
-/// The key-sorted digest models carried before the exact one. `from_json` still accepts it while
-/// models made before the change may be in flight (the API's model cache keeps a model up to ten
-/// minutes); remove it once every language service and the API have run the exact digest for longer
-/// than that.
-fn legacy_identity(lang: &str, kind: &str, carried: &Json) -> String {
-    digest_of(&json!({ "lang": lang, "kind": kind, "carried": carried }))
 }
 
 impl Model {
@@ -213,13 +205,6 @@ impl Model {
         }
     }
 
-    fn legacy_digest(&self) -> String {
-        match &self.kind {
-            ModelKind::Value(value) => legacy_identity(&self.lang, "value", value),
-            ModelKind::Plan(program) => legacy_identity(&self.lang, "plan", program),
-        }
-    }
-
     /// Reads a model, checking its shape and digest. The error says why it isn't one.
     pub fn from_json(json: &Json) -> Result<Self, String> {
         let bad = |why: &str| format!("Error: not a model: {why}");
@@ -243,8 +228,7 @@ impl Model {
             Some(_) => return Err(bad("intents must be a list")),
         };
         let model = Self { lang, kind, intents };
-        // The legacy digest predates intents: a model that has some takes only the exact one.
-        if model.digest() != digest && (!model.intents.is_empty() || model.legacy_digest() != digest) {
+        if model.digest() != digest {
             return Err(bad("its digest doesn't match its language, kind and contents"));
         }
         Ok(model)
