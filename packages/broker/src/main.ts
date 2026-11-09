@@ -64,6 +64,7 @@ import {
   parseLimits,
   buildPolicyAuthorizer
 } from "./index.js";
+import { parseFaults } from "./faults.js";
 import { buildLearnosityDataApi } from "./learnosity.js";
 
 const env = process.env;
@@ -93,7 +94,10 @@ const operations = buildOperations({
   previewExpiresMinutes: parsePositiveInt(env, "BROKER_PREVIEW_EXPIRES_MINUTES", DEFAULT_PREVIEW_EXPIRES_MINUTES, 60),
   dataApi: buildLearnosityDataApi({ baseUrl: env.LEARNOSITY_DATA_API || "https://data.learnosity.com/v2025.2.LTS" })
 });
+// C6's drive only, and never on the production service (faults.js).
+const faults = parseFaults(env);
 const broker = createBroker({
+  faults,
   jwks,
   audit,
   secrets,
