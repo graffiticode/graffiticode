@@ -271,19 +271,10 @@ main {
   background: #d9e7fd;
 }
 
-/* The column-resize handle, hidden.
- *
- * `columnResizing()` has to stay — it renders the <colgroup> that carries every authored column
- * width — but the dragging it offers leads nowhere: a resized width is not carried by any action,
- * so it never reaches the model or the learner's response and is discarded on the next re-seed.
- * Hiding the handle removes the affordance while keeping the widths. */
-.ProseMirror .column-resize-handle {
-  display: none;
-}
-
-.ProseMirror.resize-cursor {
-  cursor: text;
-}
+/* The column-resize handle. Dragging a column border resizes it for this viewer: the width is
+ * view state — kept across re-seeds by TableEditor (resizedRef), never written to the model or
+ * the response — and passes the protected-cell guard, which refuses content changes only. The
+ * handle and the col-resize cursor are styled at the top of this file. */
 
 /* `freeze-rows` / `freeze-columns`.
  *

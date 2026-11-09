@@ -20,6 +20,8 @@ import {
   buildCellPlugin,
   stickyStyle,
   isWebAddress,
+  isColumnResize,
+  resizedColumnWidths,
 } from "./TableEditor";
 import { spansOf, gridExtent } from "../../sheet/index.js";
 
@@ -357,5 +359,43 @@ describe("default alignment", () => {
     const a = alignOf({ A1: { text: "N", align: "center" }, A2: { text: "1" }, B1: { text: "M" }, B2: { text: "2" } },
       { B: { align: "left" } });
     expect(a).toMatchObject({ A1: "center", B1: "left" });
+  });
+});
+
+describe("column resizing", () => {
+  // What prosemirror-tables' updateColumnWidth dispatches: colwidth on every cell of the column.
+  const resize = (state: any, col: string, width: number) => {
+    const tr = state.tr;
+    state.doc.descendants((node: any, pos: number) => {
+      if (node.attrs?.name && /^[A-Z]+\d+$/.test(node.attrs.name) && node.attrs.name.startsWith(col)) {
+        tr.setNodeMarkup(pos, null, { ...node.attrs, colwidth: [width] });
+      }
+      return true;
+    });
+    return tr;
+  };
+  const widthOf = (state: any, name: string) =>
+    state.doc.nodeAt(getCellNodeByName({ state, name }).pos).attrs.colwidth?.[0];
+
+  test("a resize passes the guard of a protected sheet", () => {
+    const state = at(stateOf({ cells: { A1: { text: "a" }, B1: { text: "1" } }, sheetProtected: true },
+      [makeProtectedCellsPlugin(null)]), "A1");
+    const tr = resize(state, "B", 222);
+    expect(isColumnResize(tr, state)).toBe(true);
+    expect(widthOf(state.apply(tr), "B1")).toBe(222);
+  });
+
+  test("a content edit on the protected sheet is still refused", () => {
+    const state = at(stateOf({ cells: { A1: { text: "a" } }, sheetProtected: true },
+      [makeProtectedCellsPlugin(null)]), "A1");
+    const tr = state.tr.insertText("x");
+    expect(isColumnResize(tr, state)).toBe(false);
+    expect(state.apply(tr).doc.eq(state.doc)).toBe(true);
+  });
+
+  test("the widths a resize set, by column letter", () => {
+    const state = stateOf({ cells: { A1: { text: "a" }, B1: { text: "1" }, B2: { text: "2" } } });
+    const tr = resize(state, "B", 180);
+    expect(resizedColumnWidths(state.doc, tr.doc)).toEqual({ B: 180 });
   });
 });
