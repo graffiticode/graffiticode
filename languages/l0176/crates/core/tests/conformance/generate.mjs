@@ -176,6 +176,9 @@ const brokered = [
   "data {}..",
   "init data {}..",
   "save-to-itembank data {}..",
+  // C6: one save site run three times, by a lambda and by a callback expression with none.
+  `set-var "lrn-id" "t" map (<x: save-to-itembank items [${ITEM}] {}>) [1 2 3]..`,
+  `set-var "lrn-id" "t" map (save-to-itembank items [${ITEM}] {}) [1 2 3]..`,
 ];
 const parsed = {};
 for (const src of brokered) parsed[src] = await parser.parse(176, src, structuredClone(lexicon));

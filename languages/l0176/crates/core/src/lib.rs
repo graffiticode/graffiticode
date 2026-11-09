@@ -30,7 +30,9 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 
 use async_trait::async_trait;
-use graffiticode_l0000::{Diagnostic, Dialect, Evaluator, Lexicon, NodeId, Op, ProtectedFunction, Value};
+use graffiticode_l0000::{
+    Ast, Diagnostic, Dialect, Evaluator, Intent, Lexicon, Node, NodeId, Op, ProtectedFunction, Value,
+};
 use serde_json::{Value as Json, json};
 
 use crate::plain::{Object, js_order, js_string, plain, truthy};
@@ -74,6 +76,28 @@ const NO_ID: &str = "Error: set-var \"lrn-id\" must be set to a non-empty string
 /// one of these: never a plan from program data, and never one another compile built.
 #[derive(Default)]
 struct SavePlans(Vec<(Json, Json)>);
+
+/// How many times each save call site has run in this command's `start`: the ordinal in its
+/// expansion key (C6).
+#[derive(Default)]
+struct SiteCounts(std::collections::HashMap<String, u64>);
+
+/// The most saves one call site may make in a command (C6 plan, decision 6): a proposed limit,
+/// not an existing one. Past it, policy refuses the bind and records the refusal, and the
+/// command ends partial.
+pub const MAX_SAVES_PER_SITE: u32 = 1000;
+
+/// A save call site, as stable as the stored program: its source position, or its node id where
+/// the parser gave none (nodes in a lambda body have no `coord`). The same stored program gives
+/// the same sites on every compile.
+pub fn save_site(ast: &Ast, id: NodeId) -> String {
+    ast.span(id).map_or_else(|| format!("n{id}"), |span| span.from.to_string())
+}
+
+/// A save call site's intent id: `save:<site>` (policy accepts `[A-Za-z0-9_:.-]`).
+pub fn save_intent_id(site: &str) -> String {
+    format!("save:{site}")
+}
 
 pub struct L0176 {
     protected: Vec<(String, ProtectedFunction)>,
@@ -134,6 +158,23 @@ impl Dialect for L0176 {
     /// Every compile carries a fresh, expiring signature.
     fn cacheable(&self) -> bool {
         false
+    }
+
+    /// One runtime-expanding intent per save call site (C6 plan, decision 1): a site may run any
+    /// number of times (a callback under `map` repeats it, with or without a `LAMBDA` of its
+    /// own), so no site is static.
+    fn intents(&self, ast: &Ast) -> Vec<Intent> {
+        ast.nodes()
+            .filter_map(|(id, node)| match node {
+                Node::Form { op, .. } if op.tag() == "SAVE_TO_ITEMBANK" => Some(Intent::expanding(
+                    save_intent_id(&save_site(ast, id)),
+                    protection::SAVE,
+                    protection::SAVE_OP,
+                    MAX_SAVES_PER_SITE,
+                )),
+                _ => None,
+            })
+            .collect()
     }
 
     async fn eval(&self, cx: &mut Evaluator<'_>, id: NodeId, op: &Op, elts: &[NodeId]) -> Option<Value> {
@@ -334,7 +375,28 @@ async fn save_to_itembank(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -
     };
     let key = occurrence_key(cx, id, "SAVE_TO_ITEMBANK");
     let item_bank = if is_brokered(cx.exec()) {
-        match protection::save(cx.exec(), &plan, &key).await {
+        // A command's save is an expansion of its site's intent, keyed by the call's ordinal at
+        // that site; a compile's is `<key>.<N>`, as always.
+        let occurrence = if cx.exec().is_command() {
+            let site = save_site(cx.ast(), id);
+            let n = {
+                let counts = &mut cx.exec().state::<SiteCounts>().0;
+                let n = counts.entry(site.clone()).or_default();
+                *n += 1;
+                *n - 1
+            };
+            match cx.exec().expand(&save_intent_id(&site), &format!("{site}#{n}")) {
+                Ok(occurrence) => occurrence,
+                Err(error) => {
+                    let diagnostic = protection::Failure::refused(&error, protection::SAVE).diagnostic(cx.exec());
+                    cx.report_diagnostic(diagnostic);
+                    return Value::Undefined;
+                }
+            }
+        } else {
+            cx.exec().next_occurrence(&key)
+        };
+        match protection::save(cx.exec(), &plan, occurrence).await {
             Ok(item_bank) => item_bank,
             Err(failure) => {
                 let diagnostic = failure.diagnostic(cx.exec());
@@ -374,6 +436,11 @@ async fn init(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
     }
     let Some(Json::Object(mut activity)) = activity else { return Value::Undefined };
     protection::without_signing(&mut activity);
+    // A command saves; it doesn't sign (C6 plan, decision 3).
+    if cx.exec().is_command() {
+        activity.insert("signing".into(), json!({ "unsigned": "command" }));
+        return value(activity);
+    }
     let key = occurrence_key(cx, id, "INIT");
     if is_brokered(cx.exec()) {
         return match protection::sign(cx.exec(), &activity, &key).await {
@@ -414,6 +481,11 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId) -> Value {
         return top;
     }
     let top = if protection::without_signing(&mut activity) { value(activity.clone()) } else { top };
+    // A command saves; it doesn't sign (C6 plan, decision 3).
+    if cx.exec().is_command() {
+        activity.insert("signing".into(), json!({ "unsigned": "command" }));
+        return value(activity);
+    }
     if is_brokered(cx.exec()) {
         return match protection::sign(cx.exec(), &activity, "prog").await {
             Ok(Some(request)) if truthy(Some(&request)) => {

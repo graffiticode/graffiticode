@@ -158,6 +158,14 @@ describe("command admission", () => {
     expect(check([{ id: "a", fn: "save-to-itembank", op: WRITE, runtime: true }]).refusal).toBe("bad-request");
     expect(check([{ id: "a", fn: "save-to-itembank", op: WRITE, occurrences: ["a.0"] }, { id: "a", fn: "save-to-itembank", op: WRITE, occurrences: ["a.1"] }]).refusal).toBe("bad-request");
     expect(check([]).intents).toEqual([]);
+    // L0176's intents (C6): one runtime intent per save site, by position or by node id.
+    const l0176 = modelIntents({
+      modelText: JSON.stringify({ intents: ["save:21", "save:n48"].map(id => ({ id, fn: "save-to-itembank", op: WRITE, runtime: true, bounds: { maxOccurrences: 1000 } })) }),
+      lang: "0176",
+      requiredFunctions: ["save-to-itembank"],
+      backend: "learnosity",
+    });
+    expect(l0176.intents?.map(i => [i.id, i.runtime, i.bounds.maxOccurrences])).toEqual([["save:21", true, 1000], ["save:n48", true, 1000]]);
   });
 });
 
