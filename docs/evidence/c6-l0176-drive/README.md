@@ -2,7 +2,7 @@
 
 The staged activation drive of `docs/c6-l0176-commands-plan.md` §6 step 3, which replaces B5's skipped soak and supplies the reconciliation evidence for the B6 entry gate. Run with `scripts/c6-drive.js`. The full record of every command is `drive-state.json`; this page summarizes it.
 
-**Verdict:** the first pass passed, and the live faults pass except a lost head answer, which found a gap (below). Production activation waits on that gap.
+**Verdict: passed.** The first pass passed. The live faults all pass, after a fix for the gap the lost head answer found (below).
 - First pass: 200 commands. The 188 clean ones all `completed`, and the 12 faulted ones all `uncertain`.
 - No write was repeated.
 - 17 of 17 dropped-outcome operations were reconciled `applied`, where 10 were required.
@@ -78,12 +78,13 @@ These faults run against the deployed recovery path:
 | `9c61cd` | revocation, first attempt | The records were right (the between-steps case, `partial`). The script's check expected a completed write, and was corrected for `d3b203`. |
 | `46c98b` | lost head answer, not applied | api-drive's traffic was still pinned to the release revision, so the fault env didn't serve. The 3 commands ran without a fault and completed (5 clean writes). |
 | `805d05` | **lost head answer** (`lose-head-answer`) | **Found a gap, 0/3.** Every write completed from its receipt, but each command ended **`partial`** with `result: unavailable`, instead of `completed` with `result: unavailable`. See below. |
+| `a5b97a` | **lost head answer, after the fix** | **Passed, 3/3** (one save, two saves, `map`). api-drive was re-released with the fix (`9c97a542`). Each head answer was lost with the expansion open, so api-drive left the command pending and answered 200. The production sweeper took each over, re-ran the open stage on its pinned input (the bound saves replayed at the Broker), closed it, and finished `completed` with its result. Every write has exactly one receipt. |
 
-**The lost-head gap.**
-- **What happens.** L0176's saves are runtime-expanding intents. A stage's expansion closes only from its answer's list of occurrences. When the head's answer is lost, the worker settles from receipts, records the stage lost and finishes, with the expansion still `open`. `finish` counts an open stage as not done, so the command is `partial` though every write completed.
-- **Why the tests missed it.** B5's worker test of a lost head answer uses static intents, which close at admission, so it ends `completed`.
-- **What the design asks.** B5 fix G says an open stage is to be resumed, not settled: re-run `start` on its pinned input, with bound occurrences replayed by the Broker. The kill phase above shows that resume works on the deployed path.
-- **The proposed fix.** A lost answer from a stage with an open runtime expansion leaves the command pending for recovery, as a stage with no effects already does. That needs a decision, since it changes B5's worker. Production activation waits for it.
+**The lost-head gap, found and fixed.**
+- **What happened.** L0176's saves are runtime-expanding intents. A stage's expansion closes only from its answer's list of occurrences. When the head's answer was lost, the worker settled from receipts, recorded the stage lost and finished with the expansion still `open`. `finish` counted the open stage as not done, so the command ended `partial` though every write completed.
+- **Why the tests missed it.** B5's worker test of a lost head answer uses static intents, which close at admission.
+- **The fix** (`9c97a542`, owner-approved, B5 fix G). A lost answer from a stage whose intents expand at run time now settles what the receipts hold and leaves the command pending. Recovery re-runs the stage, the bound saves replay, and the stage closes. Stages with static intents keep their lost-answer outcome. The worker tests cover it, with three new tests that fail without the fix.
+- **Where it runs.** Only the worker that receives the lost answer needs the fix. The production api's current code already resumes an open stage on takeover, as the kill phase shows. The fix reaches production with C6's activation release.
 
 ## Retained
 

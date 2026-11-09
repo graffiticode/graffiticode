@@ -322,6 +322,23 @@
           "detail": "324 references, 0 repeated"
         }
       ]
+    },
+    {
+      "runId": "a5b97a",
+      "phase": "lost-head",
+      "at": "2026-11-09T22:38:12.388Z",
+      "results": [
+        {
+          "name": "a lost head answer: left pending with its expansion open, then resumed by the production sweeper to completed, one receipt per write",
+          "ok": true,
+          "detail": "3/3"
+        },
+        {
+          "name": "no provider reference is shared by two operations",
+          "ok": true,
+          "detail": "329 references, 0 repeated"
+        }
+      ]
     }
   ],
   "commands": [
@@ -6738,6 +6755,102 @@
       "references": [
         "gc-85b6458af48230f1-graffiticode-c6drive-5fa4d4-215-0",
         "gc-a537700bb042cbac-graffiticode-c6drive-5fa4d4-215-0"
+      ],
+      "ok": true
+    },
+    {
+      "key": "c6-drive:a5b97a:216",
+      "id": "eyJ0YXNrSWRzIjpbInlkUjZ4V2hEaGd4aXJRbUV1VDFzIl19",
+      "via": "command",
+      "shape": "one",
+      "writes": 1,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:29012b06b9a186c27f466003135dd601637ae6a77d92165144a5663bcfcee61f",
+      "status": "completed",
+      "result": "available",
+      "generation": 2,
+      "finishedBy": "api-rmw9noal4-35457c:7e084071-015c-4a43-940f-4df59c26c915",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-2c1ab9c9-b24f-48f8-9773-40750a143329/s0/x:6006a3c6ecd13556d4aa73bb424c82e5e1b6263e4c3abf787cc32d8022d5a8ea"
+        }
+      ],
+      "claims": 1,
+      "references": [
+        "gc-aa0bdb63141e641d-graffiticode-c6drive-a5b97a-216-0"
+      ],
+      "ok": true
+    },
+    {
+      "key": "c6-drive:a5b97a:217",
+      "id": "eyJ0YXNrSWRzIjpbInVFZUlZa2tHT1ZCZlZ3TFJjZ3J2Il19",
+      "via": "command",
+      "shape": "two",
+      "writes": 2,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:f1720aab3945ab9454487ff075bbb8c988b5a260802d66f6ceeec352c0ee2e47",
+      "status": "completed",
+      "result": "available",
+      "generation": 2,
+      "finishedBy": "api-rmw9noal4-35457c:7e084071-015c-4a43-940f-4df59c26c915",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-c895648a-7f15-4103-86bd-636d2f302c18/s0/x:76d7388ab533eef048acfdfa2baa4408c8f7d818edfdaeb6d4eebf7139e29736"
+        },
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-c895648a-7f15-4103-86bd-636d2f302c18/s0/x:e41bcdfb19cea8b2aeb085921431a378f9ae54857d4a211ba4654de4e7fa404d"
+        }
+      ],
+      "claims": 2,
+      "references": [
+        "gc-3beda9a57cdc4ecb-graffiticode-c6drive-a5b97a-217-0",
+        "gc-07994ec2b1646fe7-graffiticode-c6drive-a5b97a-217-0"
+      ],
+      "ok": true
+    },
+    {
+      "key": "c6-drive:a5b97a:218",
+      "id": "eyJ0YXNrSWRzIjpbIlNLTzdnbzlHTGppWkl4cXdDanVSIl19",
+      "via": "command",
+      "shape": "map",
+      "writes": 2,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:52b89073daa1b3fa58ad7cb379981485497f55b60ae9d48ed37b9c6c1c235a4d",
+      "status": "completed",
+      "result": "available",
+      "generation": 2,
+      "finishedBy": "api-rmw9noal4-35457c:7e084071-015c-4a43-940f-4df59c26c915",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-caa09770-0ef0-4474-8748-7b47f73fe510/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"
+        },
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-caa09770-0ef0-4474-8748-7b47f73fe510/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2"
+        }
+      ],
+      "claims": 2,
+      "references": [
+        "gc-fb715affa667daee-graffiticode-c6drive-a5b97a-218-0",
+        "gc-c38da40d4510aaf6-graffiticode-c6drive-a5b97a-218-0"
       ],
       "ok": true
     }
