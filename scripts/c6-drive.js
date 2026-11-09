@@ -34,7 +34,8 @@
 //   lost-head  api-drive with API_COMMAND_FAULTS=lose-head-answer: each
 //              command ends completed with no result (result unavailable).
 //   revoke     no faults: a save inside a 10-element map; once its first write
-//              is claimed, the canary narrows its own connection to `init`
+//              has its final outcome (--narrow-after claim: once it's claimed,
+//              which cuts it between its steps), the canary narrows its own connection to `init`
 //              (Policy's console routes), and restores it after. The command
 //              ends partial: the saves before the narrowing completed, the
 //              rest failed by Policy's refusal, nothing repeated.
@@ -323,6 +324,18 @@ const claimsOf = async invocationId => {
   const res = await http({ method: "POST", url, headers: { Authorization: `Bearer ${operatorToken}` }, body: { structuredQuery } });
   return (Array.isArray(res.json) ? res.json : []).filter(r => r.document).map(r => r.document.fields.operationId.stringValue);
 };
+// How many of an invocation's claims have a final outcome recorded.
+const finishedClaims = async invocationId => {
+  const ids = await claimsOf(invocationId);
+  let done = 0;
+  for (const op of ids) {
+    // Broker keys a receipt by its operation id's SHA-256 (broker/src/firestore.ts).
+    const name = createHash("sha256").update(op).digest("hex");
+    const doc = await firestore("broker", `receipts/${name}/outcome/final`).catch(() => null);
+    if (doc && !Array.isArray(doc)) done++;
+  }
+  return { claims: ids.length, done };
+};
 const commandIdFor = key => `c:${createHash("sha256").update(JSON.stringify([uid, key])).digest("hex")}`;
 const apiFaults = (route.apiEnv.API_COMMAND_FAULTS ?? "").split(",").filter(Boolean);
 
@@ -406,6 +419,7 @@ if (phase === "revoke") {
     if (res.status !== 200) throw new Error(`PUT owner-permissions: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
   };
   const count = Number(flag("--count", 2));
+  const narrowAfter = flag("--narrow-after", "outcome");
   const saved = await permissions();
   console.log(`  owner permissions before: ${JSON.stringify(saved)}`);
   try {
@@ -415,13 +429,16 @@ if (phase === "revoke") {
       const key = `c6-drive:${runId}:${state.commands.length}`;
       const commandId = commandIdFor(key);
       const pending = send({ id, key, via: "command" }).catch(e => ({ status: null, error: String(e?.message ?? e) }));
-      // The first write claimed: then narrow.
+      // Narrow once the first write is claimed (--narrow-after claim: between
+      // its steps), or once it has its final outcome (the default: between
+      // operations).
       let claimsAtNarrow = 0;
-      for (let i = 0; i < 240; i++) {
+      for (let i = 0; i < 480; i++) {
         const rec = await firestore("policy", `commands/${encodeURIComponent(commandId)}`);
         if (rec?.invocationId) {
-          claimsAtNarrow = (await claimsOf(rec.invocationId)).length;
-          if (claimsAtNarrow > 0) break;
+          const { claims, done } = await finishedClaims(rec.invocationId);
+          claimsAtNarrow = claims;
+          if (narrowAfter === "claim" ? claims > 0 : done > 0) break;
         }
         await sleep(250);
       }
@@ -450,9 +467,16 @@ if (phase === "revoke") {
         claims: claims.length,
         references: read.result?.text ? referencesIn(JSON.parse(read.result.text)) : [],
       };
-      // Partial: some written once each, the rest refused by Policy, never written.
-      entry.ok = entry.status === "partial" && completed >= 1 && completed < 10 && claims.length === completed &&
-        outcomes.some(o => o.outcome === "failed" && o.source === "policy-refusal");
+      // Partial: what ran before the narrowing written once (a completed
+      // operation, or one cut between its steps), every receipt one claim,
+      // and the rest refused by Policy, never written.
+      const fromReceipts = outcomes.filter(o => o.source === "receipt");
+      const cut = fromReceipts.filter(o => o.outcome === "partial").length;
+      entry.narrowAfter = narrowAfter;
+      entry.cutBetweenSteps = cut;
+      entry.ok = entry.status === "partial" && completed + cut >= 1 && completed < 10 && claims.length === fromReceipts.length &&
+        outcomes.filter(o => o.source === "policy-refusal").every(o => o.outcome === "failed") &&
+        outcomes.some(o => o.outcome === "failed" && o.source === "policy-refusal") && outcomes.length === 10;
       state.commands.push(entry);
       console.log(`  ${state.commands.length - 1} long: http ${entry.httpStatus}; ${entry.status}; narrowed at ${claimsAtNarrow} claim(s); ${completed} completed, ${outcomes.filter(o => o.outcome === "failed").length} failed (${[...new Set(outcomes.map(o => o.source + ":" + (o.reason ?? "")))].join(" ")}), ${entry.refusals} refusal record(s); ${claims.length} claim(s)`);
       await save();

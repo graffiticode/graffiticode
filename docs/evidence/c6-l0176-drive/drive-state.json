@@ -205,6 +205,123 @@
           "detail": "314 references, 0 repeated"
         }
       ]
+    },
+    {
+      "runId": "9c61cd",
+      "phase": "revoke",
+      "at": "2026-11-09T22:09:01.370Z",
+      "results": [
+        {
+          "name": "the canary connection's owner permissions restored exactly",
+          "ok": true,
+          "detail": "null"
+        },
+        {
+          "name": "revocation mid-command: partial, the saves before it written once, the rest refused unwritten",
+          "ok": false,
+          "detail": "0/2"
+        },
+        {
+          "name": "no provider reference is shared by two operations",
+          "ok": true,
+          "detail": "314 references, 0 repeated"
+        }
+      ]
+    },
+    {
+      "runId": "508ab1",
+      "phase": "revoke",
+      "at": "2026-11-09T22:10:26.972Z",
+      "results": [
+        {
+          "name": "the canary connection's owner permissions restored exactly",
+          "ok": true,
+          "detail": "null"
+        },
+        {
+          "name": "revocation mid-command: partial, the saves before it written once, the rest refused unwritten",
+          "ok": true,
+          "detail": "2/2"
+        },
+        {
+          "name": "no provider reference is shared by two operations",
+          "ok": true,
+          "detail": "314 references, 0 repeated"
+        }
+      ]
+    },
+    {
+      "runId": "d3b203",
+      "phase": "revoke",
+      "at": "2026-11-09T22:10:47.176Z",
+      "results": [
+        {
+          "name": "the canary connection's owner permissions restored exactly",
+          "ok": true,
+          "detail": "null"
+        },
+        {
+          "name": "revocation mid-command: partial, the saves before it written once, the rest refused unwritten",
+          "ok": true,
+          "detail": "1/1"
+        },
+        {
+          "name": "no provider reference is shared by two operations",
+          "ok": true,
+          "detail": "314 references, 0 repeated"
+        }
+      ]
+    },
+    {
+      "runId": "46c98b",
+      "phase": "lost-head",
+      "at": "2026-11-09T22:11:25.336Z",
+      "results": [
+        {
+          "name": "a lost head answer: each command completed from its receipts, with no result",
+          "ok": false,
+          "detail": "0/3"
+        },
+        {
+          "name": "no provider reference is shared by two operations",
+          "ok": true,
+          "detail": "319 references, 0 repeated"
+        }
+      ]
+    },
+    {
+      "runId": "805d05",
+      "phase": "lost-head",
+      "at": "2026-11-09T22:12:24.312Z",
+      "results": [
+        {
+          "name": "a lost head answer: each command completed from its receipts, with no result",
+          "ok": false,
+          "detail": "0/3"
+        },
+        {
+          "name": "no provider reference is shared by two operations",
+          "ok": true,
+          "detail": "319 references, 0 repeated"
+        }
+      ]
+    },
+    {
+      "runId": "5fa4d4",
+      "phase": "kill",
+      "at": "2026-11-09T22:19:14.443Z",
+      "results": [
+        {
+          "name": "a worker killed after its writes: the production sweeper finished each command completed, one receipt per write",
+          "ok": true,
+          "detail": "3/3"
+        },
+        {
+          "name": "no provider reference is shared by two operations",
+          "ok": true,
+          "detail": "324 references, 0 repeated"
+        }
+      ]
     }
   ],
   "commands": [
@@ -5991,6 +6108,637 @@
         }
       ],
       "references": [],
+      "ok": true
+    },
+    {
+      "key": "c6-drive:9c61cd:202",
+      "id": "eyJ0YXNrSWRzIjpbIkU3NG4zNmNtWkxHM0RRd1U1WGdFIl19",
+      "via": "command",
+      "shape": "long",
+      "writes": 0,
+      "phase": "revoke",
+      "httpStatus": 200,
+      "commandId": "c:52eee5fe029628772cd200b50b37f121d435aa93fa50efc1b59b94b06756dd93",
+      "claimsAtNarrow": 1,
+      "status": "partial",
+      "result": "unavailable",
+      "outcomes": [
+        {
+          "outcome": "partial",
+          "source": "receipt",
+          "reason": "authorization-denied:not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        }
+      ],
+      "refusals": 0,
+      "claims": 1,
+      "references": [],
+      "ok": false
+    },
+    {
+      "key": "c6-drive:9c61cd:203",
+      "id": "eyJ0YXNrSWRzIjpbIkZWVk5SMDlKTFRSZWpETlpPVzFpIl19",
+      "via": "command",
+      "shape": "long",
+      "writes": 0,
+      "phase": "revoke",
+      "httpStatus": 200,
+      "commandId": "c:3369253abbc8f40cc21e459c463aadcf01082b4ae0e1b4e1cf5c02f1b2c9b337",
+      "claimsAtNarrow": 1,
+      "status": "partial",
+      "result": "unavailable",
+      "outcomes": [
+        {
+          "outcome": "partial",
+          "source": "receipt",
+          "reason": "authorization-denied:not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        }
+      ],
+      "refusals": 0,
+      "claims": 1,
+      "references": [],
+      "ok": false
+    },
+    {
+      "key": "c6-drive:508ab1:204",
+      "id": "eyJ0YXNrSWRzIjpbIjVocHZQZkhTQVdwdW1TVlNBallhIl19",
+      "via": "command",
+      "shape": "long",
+      "writes": 1,
+      "phase": "revoke",
+      "httpStatus": 200,
+      "commandId": "c:80b5a92db0ed4790d89c80ee12f7eaed5d1ab79d6312e900d58d75062b48617b",
+      "claimsAtNarrow": 1,
+      "status": "partial",
+      "result": "unavailable",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "reason": null
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        }
+      ],
+      "refusals": 0,
+      "claims": 1,
+      "references": [],
+      "narrowAfter": "outcome",
+      "cutBetweenSteps": 0,
+      "ok": true
+    },
+    {
+      "key": "c6-drive:508ab1:205",
+      "id": "eyJ0YXNrSWRzIjpbIk5NUnpUbTZsRDBOanF3RElsc2pCIl19",
+      "via": "command",
+      "shape": "long",
+      "writes": 1,
+      "phase": "revoke",
+      "httpStatus": 200,
+      "commandId": "c:9aebb91df95d5aad6d99024f557af2c99639f5ebe867f0fc7cc85d24083e05e1",
+      "claimsAtNarrow": 1,
+      "status": "partial",
+      "result": "unavailable",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "reason": null
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "receipt",
+          "reason": "authorization-denied:not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        }
+      ],
+      "refusals": 0,
+      "claims": 2,
+      "references": [],
+      "narrowAfter": "outcome",
+      "cutBetweenSteps": 0,
+      "ok": true
+    },
+    {
+      "key": "c6-drive:d3b203:206",
+      "id": "eyJ0YXNrSWRzIjpbIkhsSTlDeXpQRkt2N3BGZUZMNU9PIl19",
+      "via": "command",
+      "shape": "long",
+      "writes": 0,
+      "phase": "revoke",
+      "httpStatus": 200,
+      "commandId": "c:bd8001c7b816a526d13c515d669ac6744c29cafedc9fcb1047b9238916e12ba3",
+      "claimsAtNarrow": 1,
+      "status": "partial",
+      "result": "unavailable",
+      "outcomes": [
+        {
+          "outcome": "partial",
+          "source": "receipt",
+          "reason": "authorization-denied:not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        },
+        {
+          "outcome": "failed",
+          "source": "policy-refusal",
+          "reason": "not-granted"
+        }
+      ],
+      "refusals": 0,
+      "claims": 1,
+      "references": [],
+      "narrowAfter": "claim",
+      "cutBetweenSteps": 1,
+      "ok": true
+    },
+    {
+      "key": "c6-drive:46c98b:207",
+      "id": "eyJ0YXNrSWRzIjpbIkN5VENsQWF1VjNuRktKb2hOTkxZIl19",
+      "via": "command",
+      "shape": "one",
+      "writes": 1,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:6e8e4833898ce19e4a9e441f464fd9be19842f8dbda91491b71abab1d636ca23",
+      "status": "completed",
+      "result": "available",
+      "generation": 1,
+      "finishedBy": "api-drive-rmw9szk7s-61d56f:d57c3b96-703f-49b5-9d19-74fd71615675",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-105a74e5-c8fa-435c-892c-18c081f46815/s0/x:6006a3c6ecd13556d4aa73bb424c82e5e1b6263e4c3abf787cc32d8022d5a8ea"
+        }
+      ],
+      "claims": 1,
+      "references": [
+        "gc-ef887ef371548dca-graffiticode-c6drive-46c98b-207-0"
+      ],
+      "ok": false
+    },
+    {
+      "key": "c6-drive:46c98b:208",
+      "id": "eyJ0YXNrSWRzIjpbIjRENzdLWERzalhiZmhzRmxkemllIl19",
+      "via": "command",
+      "shape": "two",
+      "writes": 2,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:52227948fa33b839d9087a465b3488440d2474fa4172fc6ab182d457f08e23f3",
+      "status": "completed",
+      "result": "available",
+      "generation": 1,
+      "finishedBy": "api-drive-rmw9szk7s-61d56f:d57c3b96-703f-49b5-9d19-74fd71615675",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-ffcfb306-21f7-4656-90bb-6457059c6c6f/s0/x:76d7388ab533eef048acfdfa2baa4408c8f7d818edfdaeb6d4eebf7139e29736"
+        },
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-ffcfb306-21f7-4656-90bb-6457059c6c6f/s0/x:e41bcdfb19cea8b2aeb085921431a378f9ae54857d4a211ba4654de4e7fa404d"
+        }
+      ],
+      "claims": 2,
+      "references": [
+        "gc-552260c57344d95c-graffiticode-c6drive-46c98b-208-0",
+        "gc-ac977fadea88d7b3-graffiticode-c6drive-46c98b-208-0"
+      ],
+      "ok": false
+    },
+    {
+      "key": "c6-drive:46c98b:209",
+      "id": "eyJ0YXNrSWRzIjpbInBYMEZXako2VU1ybTZBWFIzdDI5Il19",
+      "via": "command",
+      "shape": "map",
+      "writes": 2,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:5ab52e77d7dff7747ebad27335588a39b5cf6c8205a016fbb091beb443ad62cc",
+      "status": "completed",
+      "result": "available",
+      "generation": 1,
+      "finishedBy": "api-drive-rmw9szk7s-61d56f:d57c3b96-703f-49b5-9d19-74fd71615675",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-d6a0e014-69ba-4306-a36e-d3369b860548/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"
+        },
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-d6a0e014-69ba-4306-a36e-d3369b860548/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2"
+        }
+      ],
+      "claims": 2,
+      "references": [
+        "gc-75941fa95322db70-graffiticode-c6drive-46c98b-209-0",
+        "gc-3e76ca24e6b07a5f-graffiticode-c6drive-46c98b-209-0"
+      ],
+      "ok": false
+    },
+    {
+      "key": "c6-drive:805d05:210",
+      "id": "eyJ0YXNrSWRzIjpbIkwydWoxc1hEc1BqaHNBRzBhYVFpIl19",
+      "via": "command",
+      "shape": "one",
+      "writes": 1,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:3eb290c1767fdb83a20bf17d137bfe3bfd7d555f26992c16139ad23b2b3c42d3",
+      "status": "partial",
+      "result": "unavailable",
+      "generation": 1,
+      "finishedBy": "api-drive-00003-d2g:c043d3a4-98c4-41c8-9908-6fc92658484d",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-b5aed6c2-c294-4368-af75-e260a322b43e/s0/x:6006a3c6ecd13556d4aa73bb424c82e5e1b6263e4c3abf787cc32d8022d5a8ea"
+        }
+      ],
+      "claims": 1,
+      "references": [],
+      "ok": false
+    },
+    {
+      "key": "c6-drive:805d05:211",
+      "id": "eyJ0YXNrSWRzIjpbIlVlTWg3QjlpdDhEbzF4SGRGQXUzIl19",
+      "via": "command",
+      "shape": "two",
+      "writes": 2,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:f66048c6ac4430fb76a37a6715f31ae854a9737b2e2ca19988ee47c1614e2c98",
+      "status": "partial",
+      "result": "unavailable",
+      "generation": 1,
+      "finishedBy": "api-drive-00003-d2g:c043d3a4-98c4-41c8-9908-6fc92658484d",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-4d1f3c9c-be8a-4289-b417-6b24fc74bf07/s0/x:76d7388ab533eef048acfdfa2baa4408c8f7d818edfdaeb6d4eebf7139e29736"
+        },
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-4d1f3c9c-be8a-4289-b417-6b24fc74bf07/s0/x:e41bcdfb19cea8b2aeb085921431a378f9ae54857d4a211ba4654de4e7fa404d"
+        }
+      ],
+      "claims": 2,
+      "references": [],
+      "ok": false
+    },
+    {
+      "key": "c6-drive:805d05:212",
+      "id": "eyJ0YXNrSWRzIjpbIkVEa3pTcWxLMkxxbzI4OTRRUzRKIl19",
+      "via": "command",
+      "shape": "map",
+      "writes": 2,
+      "phase": "lost-head",
+      "fault": "lose-head-answer",
+      "httpStatus": 200,
+      "commandId": "c:bb1adf080b8ce560024b2b44acd6da8b4f05da7d812705826be605798c13cfc5",
+      "status": "partial",
+      "result": "unavailable",
+      "generation": 1,
+      "finishedBy": "api-drive-00003-d2g:c043d3a4-98c4-41c8-9908-6fc92658484d",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-f56ca495-e12f-4430-b9f1-8d44cbd9dbec/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"
+        },
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-f56ca495-e12f-4430-b9f1-8d44cbd9dbec/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2"
+        }
+      ],
+      "claims": 2,
+      "references": [],
+      "ok": false
+    },
+    {
+      "key": "c6-drive:5fa4d4:213",
+      "id": "eyJ0YXNrSWRzIjpbInF3cXlTQkdhMXY3eExYNVRVdjJ4Il19",
+      "via": "command",
+      "shape": "one",
+      "writes": 1,
+      "phase": "kill",
+      "fault": "exit-after-write",
+      "httpStatus": 503,
+      "commandId": "c:b92b11cce4fb96f40fbf23ad0ffaffceb7bb280df26f9104764a6c8c87e42036",
+      "status": "completed",
+      "result": "available",
+      "generation": 2,
+      "finishedBy": "api-rmw9noal4-35457c:7e084071-015c-4a43-940f-4df59c26c915",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-8c62a6f7-990c-47a3-9ca7-1ac94ccbe91e/s0/x:6006a3c6ecd13556d4aa73bb424c82e5e1b6263e4c3abf787cc32d8022d5a8ea"
+        }
+      ],
+      "claims": 1,
+      "references": [
+        "gc-0637d6d6fbe6f9ef-graffiticode-c6drive-5fa4d4-213-0"
+      ],
+      "ok": true
+    },
+    {
+      "key": "c6-drive:5fa4d4:214",
+      "id": "eyJ0YXNrSWRzIjpbIkFkdVpMaGpGNUk0TXQwVEZuM09CIl19",
+      "via": "command",
+      "shape": "two",
+      "writes": 2,
+      "phase": "kill",
+      "fault": "exit-after-write",
+      "httpStatus": 503,
+      "commandId": "c:7470c981a752bbf42937d4d4c88834e52eccad4d584f67c95c5cddc3d5e82e3e",
+      "status": "completed",
+      "result": "available",
+      "generation": 2,
+      "finishedBy": "api-rmw9noal4-35457c:7e084071-015c-4a43-940f-4df59c26c915",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-e859de2a-215d-4b0e-968a-53130267b08c/s0/x:76d7388ab533eef048acfdfa2baa4408c8f7d818edfdaeb6d4eebf7139e29736"
+        },
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-e859de2a-215d-4b0e-968a-53130267b08c/s0/x:e41bcdfb19cea8b2aeb085921431a378f9ae54857d4a211ba4654de4e7fa404d"
+        }
+      ],
+      "claims": 2,
+      "references": [
+        "gc-ee33cb5e8c991f85-graffiticode-c6drive-5fa4d4-214-0",
+        "gc-9b80230e6b9bfc1e-graffiticode-c6drive-5fa4d4-214-0"
+      ],
+      "ok": true
+    },
+    {
+      "key": "c6-drive:5fa4d4:215",
+      "id": "eyJ0YXNrSWRzIjpbImJYOERXaE1KNVF0bnZGbVZxRTQ5Il19",
+      "via": "command",
+      "shape": "map",
+      "writes": 2,
+      "phase": "kill",
+      "fault": "exit-after-write",
+      "httpStatus": 503,
+      "commandId": "c:873c83efad6c4feb2e2ef25f8c0104fddcaa8847808a0327224e5d9066fe8fb9",
+      "status": "completed",
+      "result": "available",
+      "generation": 2,
+      "finishedBy": "api-rmw9noal4-35457c:7e084071-015c-4a43-940f-4df59c26c915",
+      "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+      "outcomes": [
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-c472a98c-58a0-4171-80f0-c1e043206d0e/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"
+        },
+        {
+          "outcome": "completed",
+          "source": "receipt",
+          "receipt": "inv-c472a98c-58a0-4171-80f0-c1e043206d0e/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2"
+        }
+      ],
+      "claims": 2,
+      "references": [
+        "gc-85b6458af48230f1-graffiticode-c6drive-5fa4d4-215-0",
+        "gc-a537700bb042cbac-graffiticode-c6drive-5fa4d4-215-0"
+      ],
       "ok": true
     }
   ],

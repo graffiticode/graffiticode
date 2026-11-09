@@ -2,8 +2,8 @@
 
 The staged activation drive of `docs/c6-l0176-commands-plan.md` §6 step 3, which replaces B5's skipped soak and supplies the reconciliation evidence for the B6 entry gate. Run with `scripts/c6-drive.js`. The full record of every command is `drive-state.json`; this page summarizes it.
 
-**Verdict: passed.**
-- 200 commands. The 188 clean ones all `completed`, and the 12 faulted ones all `uncertain`.
+**Verdict:** the first pass passed, and the live faults pass except a lost head answer, which found a gap (below). Production activation waits on that gap.
+- First pass: 200 commands. The 188 clean ones all `completed`, and the 12 faulted ones all `uncertain`.
 - No write was repeated.
 - 17 of 17 dropped-outcome operations were reconciled `applied`, where 10 were required.
 
@@ -64,12 +64,26 @@ The plan sets a runtime limit of 1000 saves per call site, and requires that the
 
 **Caveat:** real use is thin, 13 writes. The figure mainly shows that nothing in production comes near the bound, not that heavy use was observed. It is re-read with `scripts/c6-save-counts.js` before any later change to the bound.
 
-## Not exercised
+## Live faults (2026-11-09, second pass)
 
-These faults from the plan's list can't be injected from outside the api:
-- **A worker killed after a write.** Its recovery path, the production sweeper taking over through the admitted revision, is covered by B5's gate tests, not by this drive.
-- **A lost head answer.** Covered by B5's tests (`completed` with `result: unavailable`).
-- **Revocation mid-command.** Covered by B5's tests (`partial`, from receipts and a Policy refusal).
+These faults run against the deployed recovery path:
+- `api-drive` takes the worker faults of `packages/api/src/commands/faults.js`, for the canary only. The production api refuses to start with them set.
+- Revocation goes through Policy's console routes.
+- api-drive was released as `api-drive-rmw9szk7s-61d56f`. Its traffic was then moved to the latest revision, so that each fault setting serves.
+
+| Run | Fault | Result |
+| --- | --- | --- |
+| `5fa4d4` | **worker killed after its writes** (`exit-after-write`) | **Passed, 3/3** (one save, two saves, `map`). api-drive's process exited after the writes ran, and the client got 503. The **production api's sweeper** (`api-rmw9noal4-35457c`) took each command over through the admitted l0176r-drive revision, re-ran the open stage, and finished it `completed`, with its result. Every write has exactly one receipt, so no write was repeated. |
+| `508ab1`, `d3b203` | **revocation mid-command** | **Passed, 3/3.** A save in a 10-element `map`; the canary narrowed its own connection to `init` and restored it, read back exactly. Narrowed after the first write's final outcome (2 commands): 1 completed from its receipt, and the rest `failed` by Policy refusal (`not-granted`), never written. Narrowed after the first claim (1 command): the first operation was cut between its steps, so the Broker recorded `partial` (`authorization-denied:not-granted`), and the rest were refused. Every command ended `partial`, with as many receipts as claims. |
+| `9c61cd` | revocation, first attempt | The records were right (the between-steps case, `partial`). The script's check expected a completed write, and was corrected for `d3b203`. |
+| `46c98b` | lost head answer, not applied | api-drive's traffic was still pinned to the release revision, so the fault env didn't serve. The 3 commands ran without a fault and completed (5 clean writes). |
+| `805d05` | **lost head answer** (`lose-head-answer`) | **Found a gap, 0/3.** Every write completed from its receipt, but each command ended **`partial`** with `result: unavailable`, instead of `completed` with `result: unavailable`. See below. |
+
+**The lost-head gap.**
+- **What happens.** L0176's saves are runtime-expanding intents. A stage's expansion closes only from its answer's list of occurrences. When the head's answer is lost, the worker settles from receipts, records the stage lost and finishes, with the expansion still `open`. `finish` counts an open stage as not done, so the command is `partial` though every write completed.
+- **Why the tests missed it.** B5's worker test of a lost head answer uses static intents, which close at admission, so it ends `completed`.
+- **What the design asks.** B5 fix G says an open stage is to be resumed, not settled: re-run `start` on its pinned input, with bound occurrences replayed by the Broker. The kill phase above shows that resume works on the deployed path.
+- **The proposed fix.** A lost answer from a stage with an open runtime expansion leaves the command pending for recovery, as a stage with no effects already does. That needs a decision, since it changes B5's worker. Production activation waits for it.
 
 ## Retained
 
