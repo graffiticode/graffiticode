@@ -54,7 +54,7 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
      - A runtime intent covers one call and many alike.
      - The cost: a command's occurrence ids (`x:…`) differ from a legacy compile's (`SAVE_TO_ITEMBANK:<from>.<N>`). That's harmless, since D2a never moves a key between protocols, so their receipts never meet.
    - **Determinism:** the ordinal is fixed by the pinned input, because `map`, `filter` and `reduce` run in order (`l0000-evaluation-order`). A test pins it.
-   - **A save with no span** is refused at model time with a compile error. It never gets a `-` key.
+   - **A save with no source position** (the parser gives none to nodes in a lambda body) is named by its node id, as `save:n<id>`, which is as stable as the stored program. *(Slice 1: refusing such saves would have refused every save inside a lambda.)*
    - **The bound** is a *proposed C6 limit*, not an existing one (decision 6).
 2. **Deterministic payloads that keep row multiplicity and order.** The View samples uniformly over row ids, so a table `[A, A, B]` must keep A at ⅔: rows are never merged.
    - Each row's key is `graffiticode-<table digest>-<ordinal>`. The table digest is the first 16 hex characters of SHA-256 over the whole table's canonical JSON; the ordinal is the row's position.
@@ -104,7 +104,7 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 - **`save_to_itembank` under a command.**
   - Each occurrence is `exec.expand("save:<from>", "<from>#<n>")`, where `<n>` is a per-site counter kept in the dialect's invocation state.
   - Outside a command, nothing changes.
-- **Deterministic dynamic-content keys** (decision 2), keeping row multiplicity and order, in both the Rust and TypeScript L0176. TypeScript is changed only so that a pinned TS revision and a Rust one build the same plan for a legacy retry; the TypeScript service is otherwise frozen.
+- **Deterministic dynamic-content keys** (decision 2), keeping row multiplicity and order, in the Rust L0176. *(Slice 1: the TypeScript L0176 is unchanged. Pinned TS revisions are immutable images, so changing its source wouldn't change what a pinned legacy retry runs.)* TypeScript is changed only so that a pinned TS revision and a Rust one build the same plan for a legacy retry; the TypeScript service is otherwise frozen.
 - **Signing under a command** (decision 3): `prog` and `init` check `exec.is_command()`, and skip.
 - **Tests** in `crates/core/tests/commands.rs`, modeled on the kernel's:
   - a model's intents for a single save, two saves, a save inside `map`, and a save repeated by a callback with no `LAMBDA` node;

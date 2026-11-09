@@ -24,6 +24,8 @@ use crate::plain::Object;
 
 /// The registry version these declarations were written for. A plan pins it, and policy
 /// refuses a stage that reports another.
+/// The operation a save performs (the protected registry's `learnosity.write-items`).
+pub const SAVE_OP: &str = "learnosity.write-items";
 pub const REGISTRY_VERSION: u32 = 8;
 
 pub const SIGN: &str = "init";
@@ -115,8 +117,11 @@ pub fn without_signing(activity: &mut Object) -> bool {
 
 /// Whether this compile signs and saves through a connection: it selected one and admission
 /// gave it a session. A system session never counts: it has no connection.
+///
+/// A command's `start` (B5, C6) is brokered too: its session, which policy issued for the
+/// command's stage, carries the connection's authority, and the gateway sends no connection id.
 pub fn is_brokered(exec: &ExecContext) -> bool {
-    exec.connection_id().is_some() && exec.has_session()
+    (exec.connection_id().is_some() || exec.is_command()) && exec.has_session()
 }
 
 /// A protected call that did not succeed, with what the caller needs beside the message.
@@ -130,7 +135,7 @@ pub struct Failure {
 }
 
 impl Failure {
-    fn refused(error: &ProtectedCallError, function: &str) -> Self {
+    pub(crate) fn refused(error: &ProtectedCallError, function: &str) -> Self {
         Failure {
             message: error.to_string(),
             code: error.reason().map(str::to_owned),
@@ -204,13 +209,12 @@ pub async fn sign(exec: &mut ExecContext, activity: &Object, key: &str) -> Resul
 
 /// Writes a save plan through the broker. A retry of the same invocation returns the recorded
 /// outcome rather than writing again; an uncertain or partial save is reported, never re-run.
-pub async fn save(exec: &mut ExecContext, plan: &Json, key: &str) -> Result<Json, Failure> {
-    let call = ProtectedCall {
-        function: SAVE.to_owned(),
-        op: "learnosity.write-items".to_owned(),
-        payload: plan.clone(),
-        occurrence_id: exec.next_occurrence(key),
-    };
+///
+/// `occurrence_id` is the save's operation within the invocation: `<key>.<N>` for a compile, or
+/// a command's expansion of its save intent (C6).
+pub async fn save(exec: &mut ExecContext, plan: &Json, occurrence_id: String) -> Result<Json, Failure> {
+    let call =
+        ProtectedCall { function: SAVE.to_owned(), op: SAVE_OP.to_owned(), payload: plan.clone(), occurrence_id };
     let outcome = match exec.invoke(&call).await {
         Ok(outcome) => outcome,
         // The broker was asked to write and its answer was lost: as uncertain as an uncertain

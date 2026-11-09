@@ -8,8 +8,6 @@
 //! by `response_id`. The item bank takes a different shape, `{type, reference, data}` records,
 //! which is what a save plan holds.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use serde_json::{Value as Json, json};
 
 use crate::plain::{Object, js_string};
@@ -95,25 +93,6 @@ pub fn create_questions(questions: Vec<Json>, id: &str) -> Built {
     Built { activity, save_plan: json!({ "questionRecords": records, "itemRecords": [] }) }
 }
 
-/// Now, as `new Date().toISOString()` writes it without its `:` and `.`: `20261014T010203456Z`
-/// keeps the date's hyphens, `2026-10-14T010203456Z`.
-fn timestamp() -> String {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-    let (seconds, millis) = (now.as_secs() as i64, now.subsec_millis());
-    let (days, time) = (seconds.div_euclid(86_400), seconds.rem_euclid(86_400));
-    // Days since the epoch as a civil date (Howard Hinnant's algorithm).
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = yoe + era * 400 + i64::from(month <= 2);
-    format!("{year:04}-{month:02}-{day:02}T{:02}{:02}{:02}{millis:03}Z", time / 3600, time / 60 % 60, time % 60)
-}
-
 /// The keys and values JavaScript's `Object.keys` and `Object.values` give a row.
 fn entries(row: &Json) -> Result<Vec<(String, Json)>, String> {
     Ok(match row {
@@ -134,7 +113,11 @@ fn entries(row: &Json) -> Result<Vec<(String, Json)>, String> {
 fn dynamic_content(rows: Option<&Json>) -> Result<Option<Json>, String> {
     let Some(rows) = rows.filter(|rows| crate::plain::truthy(Some(rows))) else { return Ok(None) };
     let Json::Array(rows) = rows else { return Err("data.forEach is not a function".to_owned()) };
-    let reference = format!("graffiticode-{}", timestamp());
+    // The table's own digest, not the time: the same rows give the same references on every
+    // run, so a retried or resumed save sends the same payload (C6 plan, decision 2). Rows keep
+    // their order and their duplicates (`-row-<i>`): the View samples over row ids.
+    let reference =
+        format!("graffiticode-{}", &graffiticode_l0000::canonical::args_digest(&Json::Array(rows.clone()))[..16]);
     let mut cols = None;
     let mut table = Object::new();
     for (i, row) in rows.iter().enumerate() {
@@ -274,9 +257,19 @@ mod tests {
     }
 
     #[test]
-    fn the_timestamp_has_the_shape_javascript_gives_it() {
-        let stamp = timestamp();
-        assert_eq!(stamp.len(), "2026-10-14T010203456Z".len(), "{stamp}");
-        assert!(stamp.starts_with("20") && stamp.ends_with('Z') && stamp.as_bytes()[10] == b'T', "{stamp}");
+    fn dynamic_content_keys_are_the_tables_own_and_keep_every_row_in_order() {
+        let rows = json!([{ "v": "A" }, { "v": "A" }, { "v": "B" }]);
+        let first = dynamic_content(Some(&rows)).unwrap().unwrap();
+        // The same table gives the same keys on every run: a retried save sends the same payload.
+        assert_eq!(dynamic_content(Some(&rows)).unwrap().unwrap(), first);
+        // Duplicates aren't merged, and the order is kept: the View samples over row ids.
+        let keys: Vec<_> = first["rows"].as_object().unwrap().keys().cloned().collect();
+        assert_eq!(keys.len(), 3);
+        assert!(keys.iter().enumerate().all(|(i, key)| key.ends_with(&format!("-row-{i}"))), "{keys:?}");
+        assert_eq!(first["rows"][&keys[0]]["values"], json!(["A"]));
+        assert_eq!(first["rows"][&keys[1]]["values"], json!(["A"]));
+        // Another table, other keys.
+        let other = dynamic_content(Some(&json!([{ "v": "C" }]))).unwrap().unwrap();
+        assert_ne!(other["rows"].as_object().unwrap().keys().next(), first["rows"].as_object().unwrap().keys().next());
     }
 }

@@ -60,6 +60,11 @@ fn mask(text: &str) -> String {
             && digits(i + 24, 9)
             && at(i + 33, b'Z')
     };
+    // Since C6 this implementation keys a dynamic-content table by its digest, not the time
+    // (`graffiticode-<16 hex>-row-<i>`), so a retried save sends the same payload. The TypeScript
+    // one still uses the time. Both are masked alike; what follows them is still compared.
+    let digest =
+        |i: usize| bytes[i..].starts_with(b"graffiticode-") && hex(i + 13, 16) && bytes[i + 29..].starts_with(b"-row-");
     let mut out = String::with_capacity(text.len());
     let mut i = 0;
     while i < bytes.len() {
@@ -69,6 +74,9 @@ fn mask(text: &str) -> String {
         } else if stamp(i) {
             out.push_str("graffiticode-<time>");
             i += 34;
+        } else if digest(i) {
+            out.push_str("graffiticode-<time>");
+            i += 29;
         } else {
             let c = text[i..].chars().next().unwrap();
             out.push(c);
@@ -94,6 +102,9 @@ fn masking_hides_only_what_changes() {
         mask(r#"{"id":"455f8224-8aea-4671-8581-2a6240f036c9","r":"graffiticode-2026-10-14T010203456Z-row-0","t":"t"}"#),
         r#"{"id":"<uuid>","r":"graffiticode-<time>-row-0","t":"t"}"#
     );
+    assert_eq!(mask(r#"{"r":"graffiticode-db1ae46d919a4bf5-row-1"}"#), r#"{"r":"graffiticode-<time>-row-1"}"#);
+    // An item reference isn't a table key, even with sixteen hex characters.
+    assert_eq!(mask(r#"{"r":"graffiticode-db1ae46d919a4bf5-0"}"#), r#"{"r":"graffiticode-db1ae46d919a4bf5-0"}"#);
 }
 
 /// Where this implementation deliberately differs from the TypeScript one.

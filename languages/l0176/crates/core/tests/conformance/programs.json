@@ -1085,5 +1085,348 @@
    ]
   },
   "root": 11
+ },
+ "set-var \"lrn-id\" \"t\" map (<x: save-to-itembank items [item [questions [mcq []] {}]] {}>) [1 2 3]..": {
+  "2": {
+   "tag": "STR",
+   "elts": [
+    "lrn-id"
+   ],
+   "coord": {
+    "from": 8,
+    "to": 16
+   }
+  },
+  "3": {
+   "tag": "STR",
+   "elts": [
+    "t"
+   ],
+   "coord": {
+    "from": 17,
+    "to": 20
+   }
+  },
+  "5": {
+   "tag": "IDENT",
+   "elts": [
+    "x"
+   ]
+  },
+  "11": {
+   "tag": "LIST",
+   "elts": []
+  },
+  "13": {
+   "tag": "RECORD",
+   "elts": []
+  },
+  "17": {
+   "tag": "LIST",
+   "elts": [
+    5
+   ]
+  },
+  "18": {
+   "tag": "LIST",
+   "elts": [
+    0
+   ]
+  },
+  "22": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "23": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "24": {
+   "tag": "NUM",
+   "elts": [
+    "3"
+   ]
+  },
+  "25": {
+   "tag": "LIST",
+   "elts": [
+    22,
+    23,
+    24
+   ]
+  },
+  "37": {
+   "tag": "MCQ",
+   "elts": [
+    11
+   ]
+  },
+  "39": {
+   "tag": "LIST",
+   "elts": [
+    37
+   ]
+  },
+  "40": {
+   "tag": "QUESTIONS",
+   "elts": [
+    39,
+    13
+   ]
+  },
+  "42": {
+   "tag": "LIST",
+   "elts": [
+    40
+   ]
+  },
+  "43": {
+   "tag": "ITEM",
+   "elts": [
+    42
+   ]
+  },
+  "45": {
+   "tag": "LIST",
+   "elts": [
+    43
+   ]
+  },
+  "46": {
+   "tag": "ITEMS",
+   "elts": [
+    45,
+    13
+   ]
+  },
+  "48": {
+   "tag": "SAVE_TO_ITEMBANK",
+   "elts": [
+    46
+   ]
+  },
+  "50": {
+   "tag": "LAMBDA",
+   "elts": [
+    17,
+    48,
+    11,
+    18
+   ]
+  },
+  "51": {
+   "tag": "PAREN",
+   "elts": [
+    50
+   ]
+  },
+  "52": {
+   "tag": "MAP",
+   "elts": [
+    51,
+    25
+   ],
+   "coord": {
+    "from": 21,
+    "to": 24
+   }
+  },
+  "54": {
+   "tag": "SET_VAR",
+   "elts": [
+    2,
+    3
+   ],
+   "coord": {
+    "from": 0,
+    "to": 7
+   }
+  },
+  "56": {
+   "tag": "EXPRS",
+   "elts": [
+    54,
+    52
+   ]
+  },
+  "57": {
+   "tag": "PROG",
+   "elts": [
+    56
+   ]
+  },
+  "root": 57
+ },
+ "set-var \"lrn-id\" \"t\" map (save-to-itembank items [item [questions [mcq []] {}]] {}) [1 2 3]..": {
+  "2": {
+   "tag": "STR",
+   "elts": [
+    "lrn-id"
+   ],
+   "coord": {
+    "from": 8,
+    "to": 16
+   }
+  },
+  "3": {
+   "tag": "STR",
+   "elts": [
+    "t"
+   ],
+   "coord": {
+    "from": 17,
+    "to": 20
+   }
+  },
+  "10": {
+   "tag": "LIST",
+   "elts": []
+  },
+  "12": {
+   "tag": "RECORD",
+   "elts": []
+  },
+  "17": {
+   "tag": "NUM",
+   "elts": [
+    "1"
+   ]
+  },
+  "18": {
+   "tag": "NUM",
+   "elts": [
+    "2"
+   ]
+  },
+  "19": {
+   "tag": "NUM",
+   "elts": [
+    "3"
+   ]
+  },
+  "20": {
+   "tag": "LIST",
+   "elts": [
+    17,
+    18,
+    19
+   ]
+  },
+  "23": {
+   "tag": "MCQ",
+   "elts": [
+    10
+   ],
+   "coord": {
+    "from": 67,
+    "to": 70
+   }
+  },
+  "25": {
+   "tag": "LIST",
+   "elts": [
+    23
+   ]
+  },
+  "26": {
+   "tag": "QUESTIONS",
+   "elts": [
+    25,
+    12
+   ],
+   "coord": {
+    "from": 56,
+    "to": 65
+   }
+  },
+  "28": {
+   "tag": "LIST",
+   "elts": [
+    26
+   ]
+  },
+  "29": {
+   "tag": "ITEM",
+   "elts": [
+    28
+   ],
+   "coord": {
+    "from": 50,
+    "to": 54
+   }
+  },
+  "31": {
+   "tag": "LIST",
+   "elts": [
+    29
+   ]
+  },
+  "32": {
+   "tag": "ITEMS",
+   "elts": [
+    31,
+    12
+   ],
+   "coord": {
+    "from": 43,
+    "to": 48
+   }
+  },
+  "34": {
+   "tag": "SAVE_TO_ITEMBANK",
+   "elts": [
+    32
+   ],
+   "coord": {
+    "from": 26,
+    "to": 42
+   }
+  },
+  "36": {
+   "tag": "PAREN",
+   "elts": [
+    34
+   ]
+  },
+  "37": {
+   "tag": "MAP",
+   "elts": [
+    36,
+    20
+   ],
+   "coord": {
+    "from": 21,
+    "to": 24
+   }
+  },
+  "39": {
+   "tag": "SET_VAR",
+   "elts": [
+    2,
+    3
+   ],
+   "coord": {
+    "from": 0,
+    "to": 7
+   }
+  },
+  "41": {
+   "tag": "EXPRS",
+   "elts": [
+    39,
+    37
+   ]
+  },
+  "42": {
+   "tag": "PROG",
+   "elts": [
+    41
+   ]
+  },
+  "root": 42
  }
 }
