@@ -180,9 +180,19 @@ The order:
      - **Routing.** The staged l0176r revision points at that Broker tag, and the staged api at that l0176r tag. Nothing in production reaches it, and the flag is refused outside the canary principal.
      - **Approval of the staged compiler.** l0176r is pinnable, and Policy admits only approved revisions. A command preflights the staged l0176r tag, so its admission pins that revision, and without an approval Policy refuses it with `revision-not-approved`. `deploy --stage` leaves it unapproved, and today `approve` takes only a released (promoted) receipt. So:
        1. The deploy CLI gains `approve <service> --release <id> --staged`. It records the staged revision's approval and tag URL, with no traffic change. Approved tags are already kept by `retire-tags`, so the revision stays reachable for the drive.
-       2. Before the drive: approve the staged l0176r revision, and check the approval with `scripts/revisions.js`.
-       3. The drive's first command must show its admission pinning that revision: `records/state` `admission.stages[s].revision` and `tagUrl` equal the staged revision's. Otherwise the drive stops before any write.
-       4. Afterward, the staged revision is retired (`scripts/revisions.js retire`) and its tag removed. Production traffic never moves.
+       2. **Before any command, verify the routing and the approval**, read-only. `POST /command` runs the worker before it answers, so nothing read from a command's record can stop that command's own writes. These checks are what stop a misrouted first write:
+          - the staged api tag's environment has `BASE_URL_L0176` = the staged l0176r tag URL;
+          - the staged l0176r tag's environment has `BROKER_URL` = the staged Broker tag URL;
+          - the approval record for the staged l0176r revision exists, is `approved`, and names that tag URL (`scripts/revisions.js`);
+          - a gateway preflight of a canary task at the staged l0176r tag reports that same revision and image digest.
+
+          Any mismatch stops the drive before the first command.
+       3. **After the first command, a post-run check.** Its admission (`records/state` `admission.stages[s].revision` and `tagUrl`) must equal the staged revision. If it doesn't, the drive stops there, and that command's writes, which went to the sandbox through whichever compiler answered, are reconciled and reported.
+       4. **Afterward, the staged revision and its tag are retained.** The drive deliberately leaves receipts with no final outcome; reconciliation adds resolutions but doesn't change those receipts. So retirement's recovery report still counts them as unfinished, and ordinary retirement (`scripts/revisions.js retire`) would refuse the revision.
+          - It stays approved and tagged, with no traffic. Revisions aren't deleted in any case.
+          - It's recorded in `docs/evidence/` as the drive's retained revision.
+          - Its tag is removed only after a retirement succeeds, if one ever does. Tag removal never comes before retirement.
+          - Production traffic never moves.
      - **Volume:** at least 10 such operations, across single saves and expansions. Every one has a recorded uncertain outcome.
      - **Reconciling.** Permission is restored first, if a test revoked it. Then each is reconciled through Policy's `/v1/receipts/reconcile`.
      - **Verdicts:**
