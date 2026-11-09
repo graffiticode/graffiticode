@@ -96,6 +96,12 @@ cell A2 [text "2+3=" protected true]
 **A size needs its unit.** `font-size "14px"` renders; `font-size "16"` and `font-size 16` are
 both compile errors, because a bare number is not a CSS size and a browser discards it silently.
 
+**`width` is pixels, not characters.** Spreadsheet apps measure column width in characters, so
+a request like "widths: A 12, B 38" or "column B 40 wide" means characters: multiply by 8 and
+write `width 96`, `width 304`, `width 320`. Copying the small number gives a 12-pixel column that
+cannot show its text. Only a width the request gives in pixels ("200px") is written as is, and a
+column narrower than about 60 is almost never intended.
+
 An attribute a container does not accept is a compile error naming what it does take, so put
 each attribute on the thing it describes: `width` belongs to a column, not to the sheet.
 
