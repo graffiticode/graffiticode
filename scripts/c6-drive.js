@@ -19,6 +19,7 @@
 //              its admission must name the approved revision, or the drive
 //              stops. Then same-key retries (no new receipt, same references)
 //              and 16 concurrent duplicates of one key (one command).
+//   retries    every tenth clean command, retried with its own key and path.
 //   faults     broker-faults with BROKER_FAULTS=drop-outcome (refused
 //              otherwise): commands whose writes succeed with their outcome
 //              dropped. Each must end uncertain.
@@ -52,8 +53,8 @@ const region = flag("--region", "us-central1");
 const stateFile = flag("--state", new URL("../.gc-deploy/c6-drive/state.json", import.meta.url).pathname);
 const gatewayAccount = "api-run@graffiticode.iam.gserviceaccount.com";
 const consoleAccount = flag("--console-account", "console-run@graffiticode-app.iam.gserviceaccount.com");
-if (!["checks", "clean", "faults", "reconcile"].includes(phase)) {
-  console.error("usage: node scripts/c6-drive.js --phase checks|clean|faults|reconcile [--count N]");
+if (!["checks", "clean", "retries", "faults", "reconcile"].includes(phase)) {
+  console.error("usage: node scripts/c6-drive.js --phase checks|clean|retries|faults|reconcile [--count N]");
   process.exit(2);
 }
 
@@ -178,10 +179,17 @@ if (phase === "checks") {
   state.checks = { at: new Date().toISOString(), route, approval, ok: results.every(r => r.ok) };
 }
 
-const userToken = phase === "checks" ? null : await accessToken();
+// The canary's access token (300 s), refreshed well before it expires.
+let userToken = null;
+let userTokenAt = 0;
+const refreshUser = async () => {
+  if (Date.now() - userTokenAt > 2 * 60_000) [userToken, userTokenAt] = [await accessToken(), Date.now()];
+};
+if (phase !== "checks") await refreshUser();
 const asUser = () => ({ Authorization: userToken });
 
 const postTask = async src => {
+  await refreshUser();
   const res = await http({ method: "POST", url: `${apiUrl}/task`, headers: asUser(), body: { task: { lang: "0176", code: await parse(src) } } });
   const id = res.json?.data?.id;
   if (res.status !== 200 || typeof id !== "string") throw new Error(`POST /task: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
@@ -191,6 +199,7 @@ const postTask = async src => {
 // One command by either path. The bridge answers in the compile envelope,
 // which names the command; POST /command answers with it directly.
 const send = async ({ id, key, via }) => {
+  await refreshUser();
   if (via === "command") {
     const res = await http({ method: "POST", url: `${apiUrl}/command`, headers: asUser(), body: { id, connectionId, idempotencyKey: key } });
     return { status: res.status, commandId: res.json?.data?.commandId ?? null, outcome: res.json?.data?.outcome ?? null, body: res.json };
@@ -234,6 +243,19 @@ const runOne = async ({ shape, via, expect }) => {
   return entry;
 };
 
+// Same-key retries, by each command's own path: the recorded command again,
+// with no new receipt and the same references.
+const retry = async commands => {
+  let same = 0;
+  for (const c of commands) {
+    const again = await send({ id: c.id, key: c.key, via: c.via });
+    const read = await commandRecord(c.commandId);
+    const refs = read.result?.text ? referencesIn(JSON.parse(read.result.text)) : [];
+    if (again.commandId === c.commandId && read.outcomes.length === c.outcomes.length && JSON.stringify(refs) === JSON.stringify(c.references)) same++;
+  }
+  record("same-key retries return the recorded command and write nothing", same === commands.length, `${same}/${commands.length}`);
+};
+
 const brokerFault = route.brokerEnv.BROKER_FAULTS ?? null;
 
 if (phase === "clean" || phase === "faults") {
@@ -263,16 +285,7 @@ if (phase === "clean" || phase === "faults") {
     `${mine.filter(c => c.ok).length}/${count}; ${[...new Set(mine.filter(c => !c.ok).map(c => c.status ?? c.error))].join(", ")}`);
 
   if (phase === "clean") {
-    // Same-key retries: the recorded outcome again, with no new receipt.
-    const retried = mine.filter(c => c.ok).filter((_, i) => i % 10 === 0);
-    let same = 0;
-    for (const c of retried) {
-      const again = await send({ id: c.id, key: c.key, via: c.via });
-      const read = await commandRecord(c.commandId);
-      const refs = read.result?.text ? referencesIn(JSON.parse(read.result.text)) : [];
-      if (again.commandId === c.commandId && read.outcomes.length === c.outcomes.length && JSON.stringify(refs) === JSON.stringify(c.references)) same++;
-    }
-    record("same-key retries return the recorded command and write nothing", same === retried.length, `${same}/${retried.length}`);
+    await retry(mine.filter(c => c.ok).filter((_, i) => i % 10 === 0));
 
     // 16 concurrent duplicates of one new key: one command, written once.
     const id = await postTask(SHAPES.one.src(`c6drive-${runId}-dup`));
@@ -288,6 +301,9 @@ if (phase === "clean" || phase === "faults") {
   }
 }
 
+// Every tenth clean command of every run, retried.
+if (phase === "retries") await retry(state.commands.filter(c => c.phase === "clean" && c.ok && !c.duplicates).filter((_, i) => i % 10 === 0));
+
 if (phase === "reconcile") {
   const asConsole = {
     "X-Serverless-Authorization": `Bearer ${await idToken(consoleAccount, deploy.policy.env?.PUBLIC_URL ?? "https://policy-sja7fatcta-uc.a.run.app")}`,
@@ -295,6 +311,7 @@ if (phase === "reconcile") {
   };
   const policyUrl = "https://policy-sja7fatcta-uc.a.run.app";
   for (const key of state.faulted.filter(k => !state.reconciled.some(r => r.key === k))) {
+    await refreshUser();
     const ask = () => http({ method: "POST", url: `${policyUrl}/v1/receipts/reconcile`, headers: { ...asConsole, ...asUser() }, body: { connectionId, idempotencyKey: key } });
     let res = await ask();
     const early = (res.json?.data?.operations ?? []).filter(o => o.verdict === "too-early");
