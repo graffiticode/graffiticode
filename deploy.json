@@ -215,6 +215,179 @@
         "EDGE_AUTH_SECRET": "edge-auth-secret:1"
       }
     },
+    "api-drive": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/api-drive",
+      "dockerfile": "configs/Dockerfile.api.yaml",
+      "port": 3100,
+      "access": "public",
+      "runtimeServiceAccount": "api-run@graffiticode.iam.gserviceaccount.com",
+      "steps": [
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/common",
+            "--",
+            "--runInBand"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/deploy"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/policy"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/broker"
+          ]
+        },
+        {
+          "name": "gcr.io/graffiticode/firebase@sha256:8b553694fb6911470222f9ab9b53ddc2aba96538d5a5d3042f2b34525da54dde",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/auth"
+          ]
+        },
+        {
+          "name": "gcr.io/graffiticode/firebase@sha256:8b553694fb6911470222f9ab9b53ddc2aba96538d5a5d3042f2b34525da54dde",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/api"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth-sja7fatcta-uc.a.run.app",
+        "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+        "CHAIN_ADMISSION": "all",
+        "CHAIN_ADMISSION_CONNECTIONS": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+        "COMPILE_GENERATION_L0158": "l0158-cutover-1",
+        "BASE_URL_L0000": "https://l0000r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0000": "https://l0000.graffiticode.org",
+        "COMPILE_GENERATION_L0000": "rust-1",
+        "BASE_URL_L0176": "https://l0176r-drive-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0176": "https://l0176.graffiticode.org",
+        "COMPILE_GENERATION_L0176": "c6-drive-1",
+        "BASE_URL_L0184": "https://l0184-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0184": "https://l0184.graffiticode.org",
+        "COMPILE_GENERATION_L0184": "interp-1",
+        "INTERPRETER_L0184": "on",
+        "BASE_URL_L0186": "https://l0186r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0186": "https://l0186.graffiticode.org",
+        "COMPILE_GENERATION_L0186": "interp-1",
+        "INTERPRETER_L0186": "on",
+        "BASE_URL_L0187": "https://l0187-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0187": "interp-1",
+        "INTERPRETER_L0187": "on",
+        "BASE_URL_L0174": "https://l0174r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0174": "https://l0174.graffiticode.org",
+        "COMPILE_GENERATION_L0174": "interp-1",
+        "INTERPRETER_L0174": "on",
+        "BASE_URL_L0175": "https://l0175r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0175": "https://l0175.graffiticode.org",
+        "COMPILE_GENERATION_L0175": "interp-1",
+        "INTERPRETER_L0175": "on",
+        "BASE_URL_L0183": "https://l0183r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0183": "https://l0183.graffiticode.org",
+        "COMPILE_GENERATION_L0183": "interp-1",
+        "INTERPRETER_L0183": "on",
+        "BASE_URL_L0180": "https://l0180r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0180": "https://l0180.graffiticode.org",
+        "COMPILE_GENERATION_L0180": "interp-1",
+        "INTERPRETER_L0180": "on",
+        "BASE_URL_L0014": "https://l0014r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0014": "https://l0014.graffiticode.org",
+        "COMPILE_GENERATION_L0014": "interp-1",
+        "INTERPRETER_L0014": "on",
+        "BASE_URL_L0003": "https://l0003r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0003": "https://l0003.graffiticode.org",
+        "COMPILE_GENERATION_L0003": "interp-1",
+        "INTERPRETER_L0003": "on",
+        "BASE_URL_L0010": "https://l0010r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0010": "https://l0010.graffiticode.org",
+        "COMPILE_GENERATION_L0010": "interp-1",
+        "INTERPRETER_L0010": "on",
+        "BASE_URL_L0177": "https://l0177r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0177": "https://l0177.graffiticode.org",
+        "COMPILE_GENERATION_L0177": "interp-1",
+        "INTERPRETER_L0177": "on",
+        "BASE_URL_L0178": "https://l0178r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0178": "https://l0178.graffiticode.org",
+        "COMPILE_GENERATION_L0178": "interp-1",
+        "INTERPRETER_L0178": "on",
+        "BASE_URL_L0179": "https://l0179r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0179": "https://l0179.graffiticode.org",
+        "COMPILE_GENERATION_L0179": "interp-4",
+        "INTERPRETER_L0179": "on",
+        "BASE_URL_L0181": "https://l0181r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0181": "https://l0181.graffiticode.org",
+        "COMPILE_GENERATION_L0181": "interp-1",
+        "INTERPRETER_L0181": "on",
+        "BASE_URL_L0185": "https://l0185r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0185": "https://l0185.graffiticode.org",
+        "COMPILE_GENERATION_L0185": "rust-1",
+        "BASE_URL_L0182": "https://l0182r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0182": "https://l0182.graffiticode.org",
+        "COMPILE_GENERATION_L0182": "rust-1",
+        "BASE_URL_L0013": "https://l0013r-sja7fatcta-uc.a.run.app",
+        "PUBLIC_URL_L0013": "https://l0013.graffiticode.org",
+        "COMPILE_GENERATION_L0013": "rust-1",
+        "SYSTEM_SIGNING_STAGES_PER_CLIENT_PER_MINUTE": "10",
+        "SYSTEM_SIGNING_STAGES_BURST": "10",
+        "COMMANDS_L0176": "on"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        }
+      ],
+      "verify": {
+        "module": "verify/api.js"
+      },
+      "retireTags": true,
+      "secrets": {
+        "EDGE_AUTH_SECRET": "edge-auth-secret:1"
+      }
+    },
     "auth": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/auth",
       "dockerfile": "configs/Dockerfile.auth.yaml",
@@ -404,6 +577,108 @@
           "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
         }
       ],
+      "requires": [
+        {
+          "service": "policy",
+          "milestone": "sexp"
+        }
+      ]
+    },
+    "broker-faults": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/broker-faults",
+      "dockerfile": "configs/Dockerfile.broker.yaml",
+      "port": 8080,
+      "access": "private",
+      "runtimeServiceAccount": "broker-run@graffiticode.iam.gserviceaccount.com",
+      "steps": [
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "ci"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "run",
+            "build"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/common",
+            "--",
+            "--runInBand"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/deploy"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/policy"
+          ]
+        },
+        {
+          "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+          "entrypoint": "npm",
+          "args": [
+            "test",
+            "-w",
+            "packages/broker"
+          ]
+        }
+      ],
+      "env": {
+        "BROKER_FIRESTORE_DB": "broker",
+        "POLICY_KMS_KEY_VERSION": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1",
+        "POLICY_KMS_KID": "policy-1",
+        "LEARNOSITY_DOMAIN": "l0176.graffiticode.org",
+        "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+        "BROKER_MIN_CONTRACT_VERSION": "2",
+        "SYSTEM_SESSION_MAX_SIGNINGS": "4",
+        "BROKER_PREVIEW_CONNECTIONS": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}",
+        "BROKER_FAULTS": "drop-outcome",
+        "BROKER_FAULT_PRINCIPALS": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        }
+      ],
+      "smokeServiceAccount": "deploy-smoke@graffiticode.iam.gserviceaccount.com",
+      "verify": {
+        "module": "verify/broker.js"
+      },
+      "secrets": {
+        "BROKER_CALLERS": "broker-callers:2",
+        "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1",
+        "BROKER_SECRET_KEY": "BROKER_SECRET_KEY:1"
+      },
+      "minInstances": 0,
+      "retireTags": true,
+      "enforcesSwitch": true,
+      "contractMinimum": {
+        "env": "BROKER_MIN_CONTRACT_VERSION",
+        "floor": 2
+      },
       "requires": [
         {
           "service": "policy",
@@ -1142,6 +1417,80 @@
         "AUTH_URL": "https://auth.graffiticode.org",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
         "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
+        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
+      },
+      "smoke": [
+        {
+          "path": "/",
+          "status": 200
+        },
+        {
+          "path": "/lexicon.json",
+          "status": 200
+        }
+      ],
+      "include": [
+        "languages/l0176",
+        "languages/l0000",
+        "configs/Dockerfile.l0176r.yaml"
+      ],
+      "minInstances": 0,
+      "forbiddenEnv": [
+        "SYSTEM_PREVIEW_DIRECT",
+        "LEARNOSITY_KEY",
+        "LEARNOSITY_SECRET"
+      ]
+    },
+    "l0176r-drive": {
+      "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176r-drive",
+      "dockerfile": "configs/Dockerfile.l0176r.yaml",
+      "port": 8080,
+      "access": "public",
+      "retireTags": true,
+      "runtimeServiceAccount": "l0176r-run@graffiticode.iam.gserviceaccount.com",
+      "pinnable": {
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ]
+      },
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0176",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org",
+          "broker-faults-sja7fatcta-uc.a.run.app",
+          "broker-sja7fatcta-uc.a.run.app",
+          "policy-sja7fatcta-uc.a.run.app",
+          "www.googleapis.com"
+        ]
+      },
+      "exclude": [],
+      "steps": [
+        {
+          "name": "rust:1.99-bookworm",
+          "entrypoint": "cargo",
+          "dir": "languages/l0176",
+          "args": [
+            "test",
+            "--locked"
+          ]
+        }
+      ],
+      "env": {
+        "AUTH_URL": "https://auth.graffiticode.org",
+        "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+        "BROKER_URL": "https://broker-faults-sja7fatcta-uc.a.run.app",
         "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
       },
       "smoke": [

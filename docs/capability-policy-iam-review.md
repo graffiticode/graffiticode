@@ -1614,6 +1614,20 @@ Recovery of abandoned commands (`docs/b5-commands-plan.md` §7), set up 2026-11-
   - The composite indexes are `READY` (Firestore Admin API, `databases/policy/collectionGroups/commands/indexes`).
   - A `POST` to the sweep URL without that token answers 401.
 
+### Step 21: the C6 activation drive's services and the fault Broker's proxy host [LIVE, drive only]
+
+L0176's activation drive (`docs/c6-l0176-commands-plan.md` §6), set up 2026-11-09. Three non-production services, each on its production twin's runtime account, so no new identity or role exists. Production never routes to any of them.
+
+- **`broker-faults`** is the production Broker image with `BROKER_FAULTS=drop-outcome` and `BROKER_FAULT_PRINCIPALS` = the canary uid only. After a successful provider write for that principal it records no outcome and answers as if the response were lost. Every other principal gets the ordinary Broker. The production service refuses to start with any fault set (`K_SERVICE=broker`, `packages/broker/src/faults.ts`).
+  - Private. `run.invoker`: `l0176r-run` (the drive compiler) and `deploy-smoke` only. Neither `l0176-run` nor `policy-run` holds it.
+  - Its receipts are in the same `broker` database, so Policy's settle and reconcile (through the production Broker) read them.
+- **`l0176r-drive`** is the l0176r image with `BROKER_URL` = broker-faults, on `compilers-l0176` behind the proxy, as `l0176r-run`.
+- **`api-drive`** is the api image with `COMMANDS_L0176=on`, `COMPILE_GENERATION_L0176=c6-drive-1`, `BASE_URL_L0176` = l0176r-drive, and no sweeper settings. The production api's sweeper recovers drive commands too, through their admitted revision.
+- **The proxy.** `compilers-l0176` gains exactly `broker-faults-sja7fatcta-uc.a.run.app`, through l0176r-drive's `network.allow`. Its certificate is from the production CA, and the secret `egress-proxy-cert-broker-faults-sja7fatcta-uc-a-run-app` is readable by `egress-proxy` only. The config is `7ef2039e…` on template `egress-proxy-226124a1cda1`, rolled 2026-11-09 and verified by `verify-rollout.js` (both VMs `match: true`). The previous template `egress-proxy-0cfb77e009f1` is kept.
+- **Check:**
+  - `gcloud run services get-iam-policy broker-faults` lists only `l0176r-run` and `deploy-smoke`.
+  - The production broker's env has no `BROKER_FAULT*`.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
