@@ -43,6 +43,27 @@ The proxy gained exactly `broker-faults-sja7fatcta-uc.a.run.app` for `compilers-
 - The 314 clean writes produced 314 provider references, none shared.
 - The faulted writes' read-back found each operation's own marked records.
 
+## The bound's measurement (decision 6)
+
+The plan sets a runtime limit of 1000 saves per call site, and requires that the largest number production programs have made per site be measured first. Measured 2026-11-09, with two read-only scripts.
+
+**At run time** (`scripts/c6-save-counts.js`). This covers every Broker receipt, the whole window since the Broker took over writes: 2026-09-28T21:46Z to 2026-11-09T21:29Z.
+- **Totals:** 772 receipts, all `learnosity.write-items`, in 454 stages of invocations.
+- **Bounded from above:** a call site's saves can't exceed its stage's, so the stage count is a ceiling for each site.
+- **The most in one stage is 3** (94 stages made 3). None made 5 or more.
+- **Who wrote them:** the canary made 759 of the writes. One other principal made 13, over 13 stages, at most 1 each.
+- **Before the window:** writes went straight to Learnosity with no per-invocation record, so there is nothing earlier to read.
+
+**In the stored programs** (`scripts/c6-save-sites.js`). This covers every L0176 task in the default database.
+- 3359 programs, of which 328 save.
+- At most 2 save sites in any one program.
+- 71 programs have a `map`, where a save can repeat. The longest literal list in any of them has 4 elements.
+- **Limit:** a `map` over data from another stage isn't visible statically. The runtime figure covers that case.
+
+**Headroom:** about 333 times the most observed (3 against 1000). A program would have to save at one site in a map over more than 1000 elements to stop at the bound. It then ends `partial`, written once each up to the bound, and the drive's slice-0 tests show that outcome.
+
+**Caveat:** real use is thin, 13 writes. The figure mainly shows that nothing in production comes near the bound, not that heavy use was observed. It is re-read with `scripts/c6-save-counts.js` before any later change to the bound.
+
 ## Not exercised
 
 These faults from the plan's list can't be injected from outside the api:
