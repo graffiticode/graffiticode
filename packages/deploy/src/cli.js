@@ -38,7 +38,8 @@ gc-deploy reconcile-image-tags [--env production] [--plan]
   --stage                For a release: deploy and check the candidate, then stop with it
                          tagged and no traffic (receipt status staged) until promote
   --release <id>         For rollback: restore the traffic preceding this release; for
-                         approve: record this released revision of a pinnable service; for
+                         approve: record this released revision of a pinnable service
+                         (--staged: a staged one, with no traffic change); for
                          promote: the staged release to promote
   --evidence <file>      For promote: the reviewed inventory evidence (README, "Staging")
   --below-baseline       For rollback: allow a target below the service's milestone baseline
@@ -169,7 +170,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       return;
     }
     if (options.command === "approve") {
-      const receipt = await approveReleased(context, await readReceipt(root, options.release), { cloud, revisions });
+      const receipt = await approveReleased(context, await readReceipt(root, options.release), { cloud, revisions, staged: Boolean(options.staged) });
       await save(receipt);
       console.log(`Approved ${receipt.revision} (${receipt.approval.tagUrl}).`);
       return;

@@ -816,6 +816,31 @@ test("approve records a revision released before its service was pinnable, once"
   await assert.rejects(approveReleased(context, receipt, { ...h.deps, revisions }), /not pinnable/);
 });
 
+// C6: a staged revision commands pin before it serves (the fault-test
+// compiler) is approved explicitly, with no traffic change.
+test("approve --staged records a staged revision, moves no traffic, and is never implied", async t => {
+  const h = await harness(t);
+  const revisions = memoryRevisions();
+  const staged = await release(pinnable, source, { ...h.deps, revisions, stage: true });
+  assert.equal(staged.status, "staged");
+  const before = traffic(await h.deps.cloud(["run", "services", "describe", "api"]));
+  await assert.rejects(approveReleased(pinnable, staged, { ...h.deps, revisions }), /not a released api revision \(approve a staged one with --staged\)/);
+  const approved = await approveReleased(pinnable, staged, { ...h.deps, revisions, staged: true });
+  assert.equal(approved.status, "staged");
+  assert.equal(approved.approval.status, "approved");
+  const record = revisions.records.get(staged.revision);
+  assert.equal(record.staged, true);
+  assert.equal(record.tag, staged.id);
+  assert.match(record.tagUrl, new RegExp(staged.id));
+  // Traffic is exactly what it was.
+  assert.deepEqual(traffic(await h.deps.cloud(["run", "services", "describe", "api"])), before);
+  // --staged takes only a staged receipt.
+  const released = await release(pinnable, source, { ...h.deps, revisions });
+  await assert.rejects(approveReleased(pinnable, released, { ...h.deps, revisions, staged: true }), /not a staged api revision/);
+  assert.equal(parseArgs(["approve", "l0176r", "--release", "r1-abc", "--staged"]).staged, true);
+  assert.throws(() => parseArgs(["l0176r", "--staged"]), /--staged applies only to approve/);
+});
+
 test("the revisions client creates a record only if absent, and reads every page", async () => {
   const sent = [];
   const pages = [

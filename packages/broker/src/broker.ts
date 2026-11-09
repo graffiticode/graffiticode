@@ -160,6 +160,12 @@ export const createBroker = ({
   // The registry this instance runs under, and the earlier versions it still
   // accepts during a bump's rollout (P1b). Injectable for tests.
   registryVersion = REGISTRY_VERSION, registryWindow = REGISTRY_WINDOW as readonly number[],
+  // C6's activation drive only (docs/c6-l0176-commands-plan.md §6): with
+  // `drop-outcome`, a write that succeeded for one of `principals` records no
+  // outcome and fails as if its response were lost, leaving an uncertain
+  // receipt reconciliation can resolve. main.js refuses to start the
+  // production service with it (parseFaults).
+  faults = null as null | { dropOutcome: boolean, principals: Set<string> },
 }) => {
   // No default: a broker built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
@@ -186,6 +192,9 @@ export const createBroker = ({
   }
   if (!previewConnections || typeof previewConnections !== "object" || Object.values(previewConnections).some(id => typeof id !== "string" || !id)) {
     throw new Error("createBroker: previewConnections maps a backend to a connection id");
+  }
+  if (faults !== null && !(faults.principals instanceof Set && faults.principals.size > 0)) {
+    throw new Error("createBroker: faults apply only to named principals");
   }
   // Wait for one decision, at most `waitMs`. The timer aborts pending work;
   // it doesn't decide lateness, since a busy event loop can run it after a
@@ -531,6 +540,12 @@ export const createBroker = ({
         reason = "provider-response-lost";
         stopped = failedStep() ?? undefined;
       }
+    }
+    // The C6 drive's injected fault: the write happened, its outcome isn't
+    // recorded, and the caller hears nothing it can rely on.
+    if (status === "succeeded" && faults?.dropOutcome && faults.principals.has(claims.sub)) {
+      await audit({ ...record, outcome: "uncertain", steps, reason: "outcome-not-recorded" });
+      throw new Error("fault injected: the write's outcome was dropped");
     }
     // Every non-success outcome has a reason, so its category (spec AUDIT-01).
     const category = reason ? classify(reason).category : undefined;

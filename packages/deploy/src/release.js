@@ -758,12 +758,19 @@ export async function releaseCheck(context, { cloud, git, revisions = undefined 
 
 // Approves an already-released revision of a pinnable service from its
 // receipt: for a revision released before the service was pinnable.
-export async function approveReleased(context, receipt, { cloud, revisions }) {
+// With `staged` (approve --staged), a staged release is approved too, without
+// moving traffic: a tagged revision that commands are to pin before it
+// serves, such as C6's fault-test compiler (docs/c6-l0176-commands-plan.md §6).
+// Its tag is kept like any approved revision's, and the record says it was
+// staged. Never implied: a staged receipt without --staged is refused.
+export async function approveReleased(context, receipt, { cloud, revisions, staged = false }) {
   const { config } = context;
   requireValue(config.pinnable, `${config.service} is not pinnable`);
-  requireValue(receipt.service === config.service && receipt.status === "released", `Release ${receipt.id} is not a released ${config.service} revision`);
+  const accepted = staged ? ["staged"] : ["released"];
+  requireValue(receipt.service === config.service && accepted.includes(receipt.status),
+    `Release ${receipt.id} is not a ${staged ? "staged" : "released"} ${config.service} revision${staged ? "" : " (approve a staged one with --staged)"}`);
   const service = await cloud(["run", "services", "describe", config.service]);
-  const record = await revisions.approve(approvalRecord(config, receipt, service));
+  const record = await revisions.approve({ ...approvalRecord(config, receipt, service), ...(staged ? { staged: true } : {}) });
   return { ...receipt, approval: { ...record, approvedAt: record.approvedAt.toISOString() } };
 }
 

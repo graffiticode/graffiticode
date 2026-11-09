@@ -39,7 +39,9 @@ import {
   DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS,
   MAX_EXECUTION_TOKEN_LIFETIME_S,
   slotExpiresAt,
-  parseSystemSessionMaxSignings
+  parseSystemSessionMaxSignings,
+  createReceiptReader,
+  parseFaults
 } from "./index.js";
 
 // Protected execution on (the maintenance switch is tested on its own).
@@ -1236,5 +1238,39 @@ describe("time limits and active executions", () => {
   it("cannot be built without an activity store", () => {
     const { activity: _activity, ...rest } = brokerDeps;
     expect(() => createBroker(rest)).toThrow(/activity/);
+  });
+});
+
+// C6's activation drive: a write whose outcome is dropped, for named
+// principals only, on a service other than production's (faults.ts).
+describe("the drop-outcome fault", () => {
+  const faulty = principals => createBroker({ ...brokerDeps, faults: { dropOutcome: true, principals: new Set(principals) } });
+
+  it("writes once, records no outcome, and fails as a lost response, for a named principal", async () => {
+    const token = await saveToken({ idempotencyKey: "job-fault" });
+    await expect(faulty([OWNER]).execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE })).rejects.toThrow("fault injected");
+    expect(providerCalls.length).toBeGreaterThan(0);
+    const { opid } = decodeJwt(token);
+    expect(await receipts.getClaim(opid)).not.toBeNull();
+    expect(await receipts.getOutcome(opid)).toBeNull();
+    // Read back, the receipt is uncertain: what reconciliation resolves.
+    const read = await createReceiptReader({ receipts })({ invocationId: String(opid).split("/")[0] });
+    expect(read.operations.find(o => o.operationId === opid)).toMatchObject({ status: "uncertain", recorded: false });
+  });
+
+  it("leaves everyone else's writes alone", async () => {
+    const token = await saveToken({ idempotencyKey: "job-other" });
+    const out = await faulty(["0xsomeoneelse"]).execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
+    expect(out.status).toBe("succeeded");
+    expect(await receipts.getOutcome(decodeJwt(token).opid)).not.toBeNull();
+  });
+
+  it("is refused without principals, and on the production service", () => {
+    expect(() => faulty([])).toThrow("named principals");
+    expect(parseFaults({})).toBeNull();
+    expect(parseFaults({ BROKER_FAULTS: "drop-outcome", BROKER_FAULT_PRINCIPALS: "a, b", K_SERVICE: "broker-faults" })).toEqual({ dropOutcome: true, principals: new Set(["a", "b"]) });
+    expect(() => parseFaults({ BROKER_FAULTS: "drop-outcome", BROKER_FAULT_PRINCIPALS: "a", K_SERVICE: "broker" })).toThrow("refused on the production broker");
+    expect(() => parseFaults({ BROKER_FAULTS: "drop-outcome", K_SERVICE: "broker-faults" })).toThrow("BROKER_FAULT_PRINCIPALS");
+    expect(() => parseFaults({ BROKER_FAULTS: "lose-everything", BROKER_FAULT_PRINCIPALS: "a" })).toThrow("must be drop-outcome");
   });
 });

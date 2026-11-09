@@ -9,4 +9,5 @@ export { createSecretBox } from "./secret-box.js";
 export { createFirestoreOnceStore, createFirestoreReceiptStore, createFirestoreSecretStore, createFirestoreActivityStore, createFirestoreSessionSlotStore, SYSTEM_SESSION_SLOTS } from "./firestore.js";
 export { createReconciler, ReconcileRefused, RECONCILE_GRACE_MS } from "./reconcile.js";
 export { createReceiptReader, ReceiptReadRefused, MAX_OPERATION_IDS } from "./receipts-read.js";
+export { parseFaults, PRODUCTION_SERVICE } from "./faults.js";
 export { DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS, SLOT_RETENTION_MARGIN_S, MAX_EXECUTION_TOKEN_LIFETIME_S, parseSystemSessionMaxSignings, slotExpiresAt, systemSessionClaimsValid } from "./session-slots.js";
