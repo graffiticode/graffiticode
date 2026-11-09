@@ -353,7 +353,7 @@ B5 now also gates Track E (durable execution). These criteria don't change for t
 - **Rollback procedure:** an `INTERPRETER_`/`COMMANDS_` flag is turned off by **value** (`"off"`), never by removing it from `deploy.json`. The deploy CLI's `--update-env-vars` keeps variables it isn't given.
 - **Also found by the rehearsal:** Cloudflare caches `/form` redirects for an hour, so a flip's new generation reaches browsers' data URLs only after that.
 
-**B6 entry gate.** This decides when B6 work starts. It asks only for what B5 already provides. B5 has shipped, and at least one command language runs on it: one from C3 or C5, or a Track E language such as L0188, whose production commands and reconciliations count. A synthetic drive with injected faults then runs that language's commands:
+**B6 entry gate.** This decides when B6 work starts. It asks only for what B5 already provides. B5 has shipped, and at least one command language runs on it: one from C3, C5 or C6, or a Track E language such as L0188, whose production commands and reconciliations count. A synthetic drive with injected faults then runs that language's commands:
 - **Faults.** Each run injects a failure at a stage, a lost response, or a lease that expires mid-step.
 - **Volume.** At least 200 commands, covering every operation, with retries using the same key.
 - **Outcomes.** Every partial command is reported as `partial` or `uncertain`, and never re-executes a completed operation.
@@ -490,10 +490,10 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
      - A chain capturing two different items, and one mixing a snapshot with an L0176 save through a connection, is admitted with one invocation and a scope per intent. Each operation runs only under its own scope, and a mismatched credential and scope is refused.
      - A `credential: service` operation carrying a connection is refused.
      - After D4, neither `l0013-run` nor `l0013r-run` can write the bucket.
-6. **C6 L0176:**
+6. **C6 L0176:** saves as commands are planned in [c6-l0176-commands-plan.md](c6-l0176-commands-plan.md) (part 1); interpretation of reads is part 2.
    - Signing only in `present` mode, unsigned in `evaluate`.
    - Read-stage signing and `/preview/sign` become `get`.
-   - `save-to-itembank` becomes a `start` command (needs B5 and Track D; repair needs B6). This needs a `REGISTRY_VERSION` bump under P1b.
+   - `save-to-itembank` becomes a `start` command (needs B5 and Track D; repair needs B6). No `REGISTRY_VERSION` bump: intents live in the model, and the registry's functions, operations and steps don't change (C6 plan, decision 4). A bump would follow P1b if they ever did.
    - The content-digest dynamic-content reference.
    - Check the consumers that read `data.request`: MCP `item-content.ts:714`, the widget iframe, and the console.
 7. **C7 L0000** last, because it is the kernel the others depend on.
