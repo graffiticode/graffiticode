@@ -83,6 +83,7 @@ import {
   getCellColor,
   mergeBorders,
   defaultAlign,
+  numericColumnHeaders,
   getCellRange,
   getColumnRange,
   getRowRange,
@@ -427,6 +428,10 @@ const applyModelRules = (cellExprs, state, value, validation, formState) => {
     }
     cellFontWeights[row][col] = fontWeight;
   });
+  // The engine's type (`value.cells`) exists from the first build, unlike the plugin state
+  // `getCells` reads, so it decides what is a number.
+  const typeOf = (cell) => value.cells?.[cell.name]?.type || cell.type;
+  const numericHeaders = numericColumnHeaders(cells, typeOf);
   const getBorderStyle = (cell, isFocused) => {
     // Check if cell has a border property (CSS string or comma-separated sides)
     let hasBorderProperty = false;
@@ -520,10 +525,10 @@ const applyModelRules = (cellExprs, state, value, validation, formState) => {
     if (cell.col === 1 || cell.row === 1) {
       styleStr += 'text-align: center; ';
     } else {
-      // Unaligned cells follow their value: numbers right, text left. The type is the engine's
-      // (`value.cells`), which exists from the first build, unlike the plugin state `getCells` reads.
-      const type = value.cells?.[cell.name]?.type || cell.type;
-      styleStr += `font-weight: ${cell.fontWeight || "normal"}; text-align: ${cell.align || defaultAlign(type)}; `;
+      // Unaligned cells follow their value: numbers right, text left — except the header of a
+      // numeric column, which goes right with the numbers under it.
+      const align = cell.align || (numericHeaders.has(cell.name) ? "right" : defaultAlign(typeOf(cell)));
+      styleStr += `font-weight: ${cell.fontWeight || "normal"}; text-align: ${align}; `;
     }
     return { styleStr, borderClass };
   };

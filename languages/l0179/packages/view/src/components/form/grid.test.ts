@@ -334,4 +334,28 @@ describe("default alignment", () => {
     const a = alignOf({ A1: { text: "Name", align: "center" }, B1: { text: "42" } }, { B: { align: "left" } });
     expect(a).toMatchObject({ A1: "center", B1: "left" });
   });
+
+  test("the header of a numeric column goes right with its numbers", () => {
+    const a = alignOf({
+      A1: { text: "Title", colspan: 3 },
+      A2: { text: "Name" }, B2: { text: "Members" }, C2: { text: "Link" },
+      A3: { text: "x" }, B3: { text: "34739" }, C3: { text: "https://t.me/x", link: "https://t.me/x" },
+      A4: { text: "y" }, B4: { text: "12" }, C4: { text: "https://t.me/y", link: "https://t.me/y" },
+      A5: { text: "Total" }, B5: { text: "=B3+B4" },
+    });
+    expect(a).toMatchObject({ A1: "left", A2: "left", B2: "right", C2: "left", A5: "left", B5: "right" });
+  });
+
+  test("a text label inside a column of mostly text stays left", () => {
+    const a = alignOf({
+      A1: { text: "Notes" }, A2: { text: "12" }, A3: { text: "abc" }, A4: { text: "def" }, A5: { text: "ghi" },
+    });
+    expect(a).toMatchObject({ A1: "left" });
+  });
+
+  test("an authored align on the header or the column wins", () => {
+    const a = alignOf({ A1: { text: "N", align: "center" }, A2: { text: "1" }, B1: { text: "M" }, B2: { text: "2" } },
+      { B: { align: "left" } });
+    expect(a).toMatchObject({ A1: "center", B1: "left" });
+  });
 });

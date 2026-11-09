@@ -92,3 +92,39 @@ const NUMERIC_TYPES = new Set(["number", "date", "fraction"]);
  */
 export const defaultAlign = (type: string | undefined): "left" | "right" =>
   type && NUMERIC_TYPES.has(type) ? "right" : "left";
+
+type AlignCell = { name: string; row: number; col: number; text?: string; align?: string; rect?: any };
+
+/**
+ * The headers of numeric columns: unaligned text cells that sit above a column of numbers, so
+ * they can right-align with the numbers under them. A text cell qualifies when it spans one
+ * column, the next non-empty cell below it is an unaligned number, and numbers are at least half
+ * of the non-empty cells below it. A label inside the body ("Total") is not a header, because
+ * the next cell below it is not a number or it has more text than numbers below.
+ */
+export const numericColumnHeaders = (
+  cells: AlignCell[],
+  typeOf: (cell: AlignCell) => string | undefined,
+): Set<string> => {
+  const headers = new Set<string>();
+  const byCol = new Map<number, AlignCell[]>();
+  for (const cell of cells) {
+    if (!cell.name) continue;
+    if (!byCol.has(cell.col)) byCol.set(cell.col, []);
+    byCol.get(cell.col)!.push(cell);
+  }
+  const isNumber = (c: AlignCell) => NUMERIC_TYPES.has(typeOf(c) || "");
+  const isEmpty = (c: AlignCell) => !String(c.text ?? "").trim();
+  for (const column of byCol.values()) {
+    const filled = column.filter(c => !isEmpty(c)).sort((a, b) => a.row - b.row);
+    filled.forEach((cell, i) => {
+      const spansOne = !cell.rect || cell.rect.right - cell.rect.left === 1;
+      if (cell.align || isNumber(cell) || !spansOne) return;
+      const below = filled.slice(i + 1);
+      if (!below.length || !isNumber(below[0]) || below[0].align) return;
+      const numbers = below.filter(isNumber).length;
+      if (numbers * 2 >= below.length) headers.add(cell.name);
+    });
+  }
+  return headers;
+};
