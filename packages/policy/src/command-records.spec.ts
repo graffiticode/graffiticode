@@ -157,7 +157,7 @@ describe("occurrences", () => {
   it("refuses an unadmitted intent or occurrence, a static id with an expansion key, and an x: id that doesn't encode its fields", async () => {
     admit();
     await denied(write("bindOccurrence", { stage: "s1", occurrenceId: "SAVE:9.0", intentId: "save", args: "{}" }), "occurrence-mismatch");
-    await denied(write("bindOccurrence", { stage: "s1", occurrenceId: "SAVE:1.0", intentId: "other", args: "{}" }), "intent-not-admitted");
+    await denied(write("bindOccurrence", { stage: "s1", occurrenceId: "SAVE:7.0", intentId: "other", args: "{}" }), "intent-not-admitted");
     await denied(write("bindOccurrence", { stage: "s1", occurrenceId: "SAVE:1.0", intentId: "save", expansionKey: "k", args: "{}" }), "occurrence-mismatch");
     await denied(write("bindOccurrence", { stage: "s0", occurrenceId: runtimeOccurrenceId("batch", "batch 1"), intentId: "batch", expansionKey: "batch 2", args: "{}" }), "occurrence-mismatch");
   });
@@ -342,5 +342,55 @@ describe("resuming a closed stage", () => {
     expect(state).toMatchObject({ commandId, phase: "admitted", ownerUid: OWNER, generation: 1 });
     expect(state).not.toHaveProperty("request");
     expect(state.admission.stages.s0.intents[0].id).toBe("batch");
+  });
+});
+
+// C6 slice 0: a definite refusal of a bind is recorded, and counted failed.
+describe("refused binds", () => {
+  const closeAll = async n => {
+    await write("closeStage", { stage: "s1", occurrences: { save: ["SAVE:1.0"] } });
+    await write("closeStage", { stage: "s0", occurrences: { batch: Array.from({ length: n }, (_, i) => runtimeOccurrenceId("batch", `batch ${i + 1}`)) } });
+  };
+
+  it("records a bind past the bound, so the command is partial, not completed", async () => {
+    admit();
+    await bindStatic();
+    for (const n of [1, 2, 3]) await bindBatch(n);
+    await denied(bindBatch(4), "bounds-exceeded");
+    const { refusals } = await policy.commandRead({ caller: GATEWAY, commandId, what: "refusals" });
+    expect(refusals).toMatchObject([{ stage: "s0", occurrenceId: runtimeOccurrenceId("batch", "batch 4"), reason: "bounds-exceeded" }]);
+    receipt("s1", "SAVE:1.0", "succeeded");
+    for (const n of [1, 2, 3]) receipt("s0", runtimeOccurrenceId("batch", `batch ${n}`), "succeeded");
+    // The stage closes over what was bound: the refused one isn't in it.
+    await closeAll(3);
+    await settle();
+    expect(await write("finish", {})).toMatchObject({ status: "partial" });
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "state" })).counts).toMatchObject({ completed: 4, failed: 1 });
+  });
+
+  it("is failed when the only save was refused and nothing was written", async () => {
+    admit();
+    await denied(write("bindOccurrence", { stage: "s1", occurrenceId: "SAVE:7.0", intentId: "other", args: "{}" }), "intent-not-admitted");
+    expect(await write("finish", {})).toMatchObject({ status: "failed" });
+  });
+
+  it("answers a resumed run's same bind with the recorded refusal, after a takeover too", async () => {
+    admit();
+    for (const n of [1, 2, 3]) await bindBatch(n);
+    await denied(bindBatch(4), "bounds-exceeded");
+    clock += COMMAND_LEASE_MS + 1;
+    await policy.leaseCommand({ caller: GATEWAY, commandId, worker: "api-2", generation: 1, takeOver: true });
+    // The successful binds are acknowledged; the refused one meets its record.
+    for (const n of [1, 2, 3]) expect(await bindBatch(n).catch(() => null)).toBeNull();
+    const again = (n, g) => write("bindOccurrence", { stage: "s0", occurrenceId: runtimeOccurrenceId("batch", `batch ${n}`), intentId: "batch", expansionKey: `batch ${n}`, args: `{"batch":${n}}` }, g);
+    for (const n of [1, 2, 3]) expect(await again(n, 2)).toMatchObject({ bound: false });
+    await denied(again(4, 2), "bounds-exceeded");
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "refusals" })).refusals).toHaveLength(1);
+  });
+
+  it("records nothing for a stale owner's bind", async () => {
+    admit();
+    await denied(write("bindOccurrence", { stage: "s1", occurrenceId: "SAVE:7.0", intentId: "other", args: "{}" }, 2), "stale-generation");
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "refusals" })).refusals).toEqual([]);
   });
 });

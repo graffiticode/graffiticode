@@ -22,6 +22,7 @@ import {
   createCommandRecords,
   createProtectedSwitch,
   COMMAND_LEASE_MS,
+  runtimeOccurrenceId
 } from "@graffiticode/policy";
 import { createMemoryReceiptStore, createReceiptReader, argsDigest } from "@graffiticode/broker";
 import { buildCommandWorker } from "./worker.js";
@@ -183,7 +184,8 @@ const allocate = (key = "job-1", worker = "w1") => policy.allocateCommand({
   worker,
 });
 // No timers in tests: the lease is renewed by the tests' own clock moves.
-const workerAs = name => buildCommandWorker({ policy: client(), taskStorer, language, artifactStorer: artifacts, worker: name, setInterval: () => null, clearInterval: () => {}, log: () => {} });
+/** @type {(name: string, lang?: any) => any} */
+const workerAs = (name, lang = language) => buildCommandWorker({ policy: client(), taskStorer, language: lang, artifactStorer: artifacts, worker: name, setInterval: () => null, clearInterval: () => {}, log: () => {} });
 const takeOver = async (commandId, generation, name) => {
   clock += COMMAND_LEASE_MS + 1;
   return policy.leaseCommand({ caller: GATEWAY, commandId, worker: name, generation, takeOver: true });
@@ -302,5 +304,84 @@ describe("the sweeper", () => {
     // Done: nothing is due any more.
     clock += COMMAND_LEASE_MS + 1;
     expect(await sweep()).toMatchObject({ due: 0 });
+  });
+});
+
+// C6 slice 0: a save past its intent's bound is refused and recorded, so the
+// command is partial, through the complete worker and through recovery.
+describe("a save past the bound", () => {
+  const BOUND = 2;
+  // Like L0176 under start: one runtime intent; each save is an expansion,
+  // bound under the session before it mints. A refused bind makes the stage
+  // report an error, and that save isn't in the stage's occurrence list.
+  const expanding = {
+    ...language,
+    model: async ({ lang, code }) => ({
+      model: lang === "0176"
+        ? { lang, kind: "plan", digest: hex("a"), program: code, intents: [{ id: "save:1", fn: "save-to-itembank", op: WRITE, runtime: true, bounds: { maxOccurrences: BOUND } }] }
+        : { lang, kind: "value", digest: hex("b"), value: { items: [1, 2, 3] } },
+      errors: [],
+      revision: REVISIONS[lang],
+    }),
+    start: async ({ input, commandSession }) => {
+      const performed = [];
+      const errors = [];
+      for (const item of input.data.items) {
+        const key = `1#${item}`;
+        const occurrenceId = runtimeOccurrenceId("save:1", key);
+        const payload = { item };
+        try {
+          await policy.commandBind({ caller: L0176, sessionToken: commandSession, occurrenceId, intentId: "save:1", expansionKey: key, args: JSON.stringify(payload), argd: argsDigest(payload) });
+        } catch (e) {
+          errors.push({ message: `save ${item} refused (${e.reason})` });
+          continue;
+        }
+        const { executionToken } = await policy.mint({ caller: L0176, sessionToken: commandSession, fn: "save-to-itembank", op: WRITE, occurrenceId, argsDigest: argsDigest(payload) });
+        await execute({ executionToken, payload });
+        performed.push(occurrenceId);
+        if (faults.crashAfterSecondWrite && performed.length === 2) {
+          faults.crashAfterSecondWrite = false;
+          throw new Error("the worker's process died");
+        }
+      }
+      return { data: { saved: performed.length }, errors, occurrences: { "save:1": performed } };
+    },
+  };
+
+  it("ends partial: the saves within the bound written once, the extra one recorded failed", async () => {
+    const { commandId, generation } = await allocate();
+    const state = await workerAs("w1", expanding)({ commandId, generation });
+    expect(state).toMatchObject({ status: "partial", counts: { completed: BOUND, failed: 1 }, publication: { state: "none" } });
+    expect(provider).toHaveLength(BOUND);
+    const { refusals } = await policy.commandRead({ caller: GATEWAY, commandId, what: "refusals" });
+    expect(refusals.map(r => r.reason)).toEqual(["bounds-exceeded"]);
+    // A retry with the same key writes nothing more.
+    expect((await workerAs("w1", expanding)({ commandId, generation })).status).toBe("partial");
+    expect(provider).toHaveLength(BOUND);
+  });
+
+  it("ends partial after a crash too: the sweeper replays the writes and meets the refusal", async () => {
+    const { commandId, generation } = await allocate();
+    faults.crashAfterSecondWrite = true;
+    await expect(workerAs("w1", expanding)({ commandId, generation })).rejects.toThrow("died");
+    clock += COMMAND_LEASE_MS + 1;
+    const sweep = buildSweep({ policy: client(), run: workerAs("sweeper", expanding), worker: "sweeper", log: () => {} });
+    expect(await sweep()).toMatchObject({ taken: 1, failed: 0 });
+    const state = await policy.commandRead({ caller: GATEWAY, commandId, what: "state" });
+    expect(state).toMatchObject({ status: "partial", counts: { completed: BOUND, failed: 1 } });
+    expect(provider).toHaveLength(BOUND);
+  });
+
+  it("completes at exactly the bound", async () => {
+    const atBound = {
+      ...expanding,
+      model: async args => {
+        const out = await expanding.model(args);
+        return args.lang === "0176" ? out : { ...out, model: { ...out.model, value: { items: [1, 2] } } };
+      }
+    };
+    const { commandId, generation } = await allocate();
+    expect(await workerAs("w1", atBound)({ commandId, generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
+    expect(provider).toHaveLength(BOUND);
   });
 });

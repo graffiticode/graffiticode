@@ -61,7 +61,7 @@ run("command records in Firestore", () => {
     expect(new Set(results.map(r => r.command.commandId))).toEqual(new Set([commandIdFor(uid, "key-1")]));
     expect(new Set(results.map(r => r.command.invocationId)).size).toBe(1);
     expect((await commands.get(commandIdFor(uid, "key-1"))).owner).toEqual({ worker: created[0].command.owner.worker, generation: 1, leaseExpiresAt: T0 + COMMAND_LEASE_MS });
-  });
+  }, 30_000);
 
   it("stores the request as its exact text", async () => {
     const { command } = await allocate();
@@ -91,7 +91,7 @@ run("command records in Firestore", () => {
       expect(asLegacy.reason).toBeInstanceOf(ProtocolMismatch);
       expect(asCommand).toMatchObject({ status: "fulfilled", value: { protocol: "command", reused: false } });
     }
-  });
+  }, 30_000);
 
   it("takes a lease over once, at the next generation, and refuses the stale owner", async () => {
     const { command } = await allocate();
@@ -106,7 +106,7 @@ run("command records in Firestore", () => {
     expect(takeovers.find(t => t.status === "rejected")).toMatchObject({ reason: { reason: "stale-generation" } });
     expect((await commands.get(id)).owner.generation).toBe(2);
     await expect(commands.renewLease({ commandId: id, worker: "api-1", generation: 1, now: later })).rejects.toBeInstanceOf(CommandRefused);
-  });
+  }, 30_000);
 
   it("refuses an unknown command", async () => {
     await expect(commands.renewLease({ commandId: commandIdFor(uid, "none"), worker: "api-1", generation: 1, now: T0 })).rejects.toMatchObject({ reason: "command-not-found" });
@@ -126,10 +126,13 @@ run("command records in Firestore", () => {
 
   it("binds no more than the bound under concurrent binds", async () => {
     const command = await admitted();
-    const results = await Promise.allSettled([1, 2, 3, 4].map(n => bind(command, n)));
-    expect(results.filter(r => r.status === "fulfilled")).toHaveLength(2);
+    const results = await Promise.all([1, 2, 3, 4].map(n => bind(command, n)));
+    // Past the bound a bind is refused, and the refusal recorded (C6 slice 0).
+    expect(results.filter(r => r.bound)).toHaveLength(2);
+    expect(results.filter(r => r.refused === "bounds-exceeded")).toHaveLength(2);
+    expect(await records.listRefusals(command.commandId)).toHaveLength(2);
     expect((await records.listOccurrences(command.commandId))).toHaveLength(2);
-  });
+  }, 30_000);
 
   it("settles, records a lost response, closes and finishes in transactions", async () => {
     const command = await admitted();
