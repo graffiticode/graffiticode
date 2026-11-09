@@ -1596,6 +1596,24 @@ and `l0186`. Production serves each language from its `lNNNNr` service, behind i
 - **Runtime accounts.** The fifteen `lNNNN-run` accounts remain, holding only what they held before: the egress CA bundle, and for `l0013-run` the thumbnails bucket (removed at D4, plan C5c). Removing them is a separate decision.
 - **Rust names.** The renames of `lNNNNr` to `lNNNN` are deferred (owner, 2026-11-05).
 
+### Step 20: the B5 command sweeper and the policy database's indexes [LIVE]
+
+Recovery of abandoned commands (`docs/b5-commands-plan.md` §7), set up 2026-11-09.
+
+- **`command-sweeper@graffiticode.iam.gserviceaccount.com`** is new and holds **no roles**.
+  - Cloud Scheduler mints an OIDC token as it, for the audience `https://api-sja7fatcta-uc.a.run.app/internal/commands/sweep`.
+  - The api checks that token itself: the audience is `SWEEP_AUDIENCE`, and the email is verified and listed in `SWEEP_CALLERS`.
+  - The api is public on Cloud Run, so no invoker grant is involved. A token from any other account, or for any other audience, is refused with 401 before anything runs.
+- **Cloud Scheduler job `command-sweep`** runs every minute: `POST` to that URL with `oidcToken.serviceAccountEmail` = the sweeper.
+  - Each sweep asks Policy, as the api (gateway role), for the commands that are due, takes each over and continues it under the command's stored principal. No user token is involved.
+- **The `policy` database's indexes** are created by hand (releases don't deploy indexes) from `configs/firestore-policy-indexes.json`, through the Firestore Admin API. gcloud 586's `firestore indexes composite create` crashes.
+  - Composite on `commands`: `(status, owner.leaseExpiresAt)` and `(publication.state, owner.leaseExpiresAt)`.
+  - Index exemptions on the payload fields: `request.text`, `models.text`, `inputs.text`, `observations.text`, `occurrences.args` and `result.text`.
+- **Check:**
+  - `gcloud scheduler jobs describe command-sweep --location us-central1` shows the sweeper's OIDC token and that audience.
+  - The composite indexes are `READY` (Firestore Admin API, `databases/policy/collectionGroups/commands/indexes`).
+  - A `POST` to the sweep URL without that token answers 401.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
