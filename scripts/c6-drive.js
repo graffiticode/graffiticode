@@ -31,8 +31,10 @@
 //              exits once its stage's writes have run. The production
 //              sweeper must take each command over and finish it completed,
 //              with one receipt per write (none repeated).
-//   lost-head  api-drive with API_COMMAND_FAULTS=lose-head-answer: each
-//              command ends completed with no result (result unavailable).
+//   lost-head  api-drive with API_COMMAND_FAULTS=lose-head-answer: the head's
+//              answer is lost with its expansion open, so the command is left
+//              pending, and the production sweeper resumes the stage (its
+//              saves replayed) and finishes it completed, with its result.
 //   revoke     no faults: a save inside a 10-element map; once its first write
 //              has its final outcome (--narrow-after claim: once it's claimed,
 //              which cuts it between its steps), the canary narrows its own connection to `init`
@@ -349,7 +351,9 @@ if (phase === "kill" || phase === "lost-head") {
   if (brokerFault) throw new Error(`broker-faults has BROKER_FAULTS=${brokerFault}; unset it first`);
   const count = Number(flag("--count", 3));
   const shapes = ["one", "two", "map"];
-  const expect = phase === "kill" ? { status: "completed", result: "available" } : { status: "completed", result: "unavailable" };
+  // Either way the command is left to recovery: a dead worker, or a lost answer
+  // with the stage's expansion open (resumed, not settled; B5 fix G).
+  const expect = { status: "completed", result: "available" };
   for (let n = 0; n < count; n++) {
     const shape = shapes[n % shapes.length];
     const tag = `c6drive-${runId}-${state.commands.length}`;
@@ -385,7 +389,7 @@ if (phase === "kill" || phase === "lost-head") {
     };
     entry.ok = entry.status === expect.status && entry.result === expect.result && entry.claims === entry.writes &&
       entry.outcomes.length === entry.writes && entry.outcomes.every(o => o.outcome === "completed" && o.source === "receipt") &&
-      (phase === "lost-head" || (entry.references.length === entry.writes && /^api-/.test(entry.finishedBy ?? "") && !/^api-drive/.test(entry.finishedBy ?? "")));
+      entry.references.length === entry.writes && /^api-/.test(entry.finishedBy ?? "") && !/^api-drive/.test(entry.finishedBy ?? "");
     state.commands.push(entry);
     console.log(`  ${state.commands.length - 1} ${shape}: http ${entry.httpStatus}; ${entry.status}, result ${entry.result}, ${entry.claims} claim(s) for ${entry.writes} write(s), finished by ${entry.finishedBy}`);
     await save();
@@ -393,7 +397,7 @@ if (phase === "kill" || phase === "lost-head") {
   const mine = state.commands.filter(c => c.phase === phase && c.key.includes(runId));
   record(phase === "kill"
     ? "a worker killed after its writes: the production sweeper finished each command completed, one receipt per write"
-    : "a lost head answer: each command completed from its receipts, with no result",
+    : "a lost head answer: left pending with its expansion open, then resumed by the production sweeper to completed, one receipt per write",
   mine.length === count && mine.every(c => c.ok), `${mine.filter(c => c.ok).length}/${count}`);
 }
 
