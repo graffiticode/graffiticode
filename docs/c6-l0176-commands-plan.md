@@ -46,38 +46,59 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 
 ## 2. Decisions this plan proposes (owner to confirm)
 
-1. **Intents, one per save call site.** Each one is static or runtime-expanding, depending on where the call site is.
-   - **Outside any `LAMBDA`:** a static intent with one occurrence, `SAVE_TO_ITEMBANK:<from>.0`. This is today's id, so a legacy receipt and a command receipt for the same program line up.
-   - **Inside a function (`map`, `filter`, `reduce`, or a lambda applied elsewhere):** a runtime intent.
-     - The expansion key is `<from>#<n>`, where `<n>` is the call's ordinal at that site.
-     - The bound is `maxOccurrences` = 100, the Broker's per-invocation write budget.
-     - The ordinal is deterministic: the pinned input fixes the evaluation, and `map`/`filter`/`reduce` run in order (`l0000-evaluation-order`).
-   - A save the dialect can't place, with no span, is refused at model time with a compile error. It never gets a `-` key.
-2. **Deterministic payloads.** Dynamic-content row keys become a content digest: the first 16 hex characters of SHA-256 over the row's canonical JSON, as `graffiticode-<digest>`. Rows with identical content collapse to one key, which matches what the provider does with duplicate rows anyway. The same input then always gives the same payload, and the same `argd`.
+1. **Intents: one runtime-expanding intent per save call site.**
+   - **Id:** `save:<from>`. Policy accepts only `[A-Za-z0-9_:.-]` in intent ids (`modelIntents`, `packages/policy/src/policy.ts:125`), so `@` would fail admission.
+   - **Expansion key:** `<from>#<n>`, where `<n>` is the call's ordinal at that site in this run.
+   - **Every site is runtime-expanding, never static.** The source can't show how often a site runs. The kernel's `apply` evaluates any callback expression, so `map`, `filter` and `reduce` can run a save more than once without any `LAMBDA` node around it.
+     - A static `<key>.0` would let the first write succeed and refuse the second.
+     - A runtime intent covers one call and many alike.
+     - The cost: a command's occurrence ids (`x:…`) differ from a legacy compile's (`SAVE_TO_ITEMBANK:<from>.<N>`). That's harmless, since D2a never moves a key between protocols, so their receipts never meet.
+   - **Determinism:** the ordinal is fixed by the pinned input, because `map`, `filter` and `reduce` run in order (`l0000-evaluation-order`). A test pins it.
+   - **A save with no span** is refused at model time with a compile error. It never gets a `-` key.
+   - **The bound** is a *proposed C6 limit*, not an existing one (decision 6).
+2. **Deterministic payloads that keep row multiplicity and order.** The View samples uniformly over row ids, so a table `[A, A, B]` must keep A at ⅔: rows are never merged.
+   - Each row's key is `graffiticode-<table digest>-<ordinal>`. The table digest is the first 16 hex characters of SHA-256 over the whole table's canonical JSON; the ordinal is the row's position.
+   - The same input gives the same keys, in the same order, with the same duplicates. So the payload and its `argd` are the same on every run.
 3. **No signing under `start`.** A command's job is the save; the head's result is the activity with `data.itemBank`, unsigned.
    - Under `start` (`exec.is_command()`), PROG and `init` skip signing and attach `signing: { unsigned: "command" }`, with no protected call.
    - The console doesn't read the signed request from a save response. The canary and AT-10 do, but they read it from the separate preview compile, which stays a legacy read.
-4. **No `REGISTRY_VERSION` bump.** The registry's entries don't change: same functions, ops and steps. Intents live in the model, and admission binds them, not the registry. The interpreter plan's note that a bump is needed predates B5's design and its intents-in-the-model decision.
+4. **No `REGISTRY_VERSION` bump.** The parent plan's C6 bullet said a bump is needed. This PR corrects that bullet to match. The registry's entries don't change: same functions, ops and steps. Intents live in the model, and admission binds them, not the registry. The interpreter plan's note that a bump is needed predates B5's design and its intents-in-the-model decision.
    - **If a bump does turn out to be needed** (a new operation, or a changed step), it follows P1b's expand and contract. It moves three constants together: the registry, `compiler.ts:559` and `protection.rs:27`. TypeScript L0176 stays pinned inside the window.
 5. **The bridge first, then the callers.**
-   - **D2.** With `COMMANDS_L0176=on`, a `POST /compile` through a connection whose chain contains an L0176 save stage runs as a command. It uses the caller's key, or a fresh one if none, which matches today's new-invocation-per-request behavior. It answers in today's compile envelope, so no caller changes.
-   - **D3.** The console then moves to `POST /command`.
+   - **D2.** A `POST /compile` through a connection whose chain is command-eligible (decision 7) runs as a command. It uses the caller's key, or a fresh one if none, which matches today's new-invocation-per-request behavior. It answers in today's compile envelope, so no caller changes.
+   - **D3.** The console then moves to `POST /command`. A key keeps working across the move because both routes build the same task chain (decision 8).
    - **D4.** The bridge is retired later, per the interpreter plan.
+
+6. **A proposed bound of 1000 saves per call site, checked before any write.**
+   - **It's new.** No Broker or Policy limit exists today.
+   - **Measure first.** Before activation, the largest number of saves any production program has made per call site is read from the gateway's effects logs. The bound must exceed it by a wide margin, or it's raised.
+   - **No avoidable failure partway.** The dialect counts before it writes: under `start`, a *count pass* evaluates the program once with each save answering a placeholder and making no protected call.
+     - If any site's count exceeds the bound, the command fails with `too-many-saves` before any write.
+     - Policy's atomic bound at binding is the backstop, should the real run differ from the count (a program branching on save results).
+   - **Legacy compiles are unaffected.** The bound applies only to commands. A larger program still saves through the legacy path while the bridge is off for it, and until the bound is raised.
+7. **One eligibility rule, for both entry points.** A chain is *command-eligible* when any of its stages' languages has `COMMANDS_LNNNN=on`, read from the stored tasks.
+   - The same rule decides new allocation at `POST /command`, changed from slice 5's head-language check, and the bridge at `POST /compile`.
+   - So a chain headed by L0000 with an L0176 save stage is treated alike by both. Turning the flag off makes both refuse new allocations alike, while existing keys are still served.
+8. **One task-chain normalization.** `/compile` and `/command` build the chain with the same function, moved out of `routes/compile.js`:
+   - absent or empty `data` (`{}`) adds no data task;
+   - other data appends its L0000 data task, unless the id already contains it.
+
+   So the same item and key give the same `taskId`, and the same binding, on both routes.
 
 ## 3. The dialect (L0176 Rust, `languages/l0176/crates/core`)
 
-- **`Dialect::intents(ast)`.**
-  - It walks the normalized AST, which is the one the kernel passes.
-  - For each `SAVE_TO_ITEMBANK` node it emits a static intent (outside any lambda) or a runtime intent (inside one), per decision 1.
-  - Intent ids are `save@<from>`. `fn` is `save-to-itembank`; `op` is `learnosity.write-items`.
+- **`Dialect::intents(ast)`.** It walks the normalized AST, which is the one the kernel passes. For each `SAVE_TO_ITEMBANK` node it emits a runtime intent `save:<from>` (`fn` `save-to-itembank`, `op` `learnosity.write-items`, bounded per decision 6).
 - **`save_to_itembank` under a command.**
-  - **A static intent's occurrence:** `next_occurrence(key)`, exactly as today.
-  - **A runtime intent's occurrence:** `exec.expand("save@<from>", "<from>#<n>")`, where `<n>` is a per-site counter kept in the dialect's invocation state.
+  - Each occurrence is `exec.expand("save:<from>", "<from>#<n>")`, where `<n>` is a per-site counter kept in the dialect's invocation state.
+  - The count pass (decision 6) runs first, with no protected calls.
   - Outside a command, nothing changes.
-- **Deterministic dynamic-content keys** (decision 2), in both the Rust and TypeScript L0176. TypeScript is changed only so that a pinned TS revision and a Rust one build the same plan for a legacy retry; the TypeScript service is otherwise frozen.
+- **Deterministic dynamic-content keys** (decision 2), keeping row multiplicity and order, in both the Rust and TypeScript L0176. TypeScript is changed only so that a pinned TS revision and a Rust one build the same plan for a legacy retry; the TypeScript service is otherwise frozen.
 - **Signing under a command** (decision 3): `prog` and `init` check `exec.is_command()`, and skip.
 - **Tests** in `crates/core/tests/commands.rs`, modeled on the kernel's:
-  - a model's intents for a single save, two saves, and a save inside `map`;
+  - a model's intents for a single save, two saves, a save inside `map`, and a save repeated by a callback with no `LAMBDA` node;
+  - the intent ids pass Policy's `modelIntents`, through an in-process Policy admission;
+  - a dynamic-content table `[A, A, B]` keeps three rows in order, with stable keys;
+  - the count pass refuses with `too-many-saves` at bound + 1 before any write, and runs at exactly the bound;
   - `start` binds each occurrence before minting;
   - a retry builds identical arguments (`argd` stable across runs and dynamic content);
   - there's no signing call under `start`;
@@ -90,7 +111,8 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 ## 4. The api: the compile-to-command bridge (D2)
 
 **The bridge** (`packages/api/src/data.js`).
-- **When it applies:** `COMMANDS_LNNNN=on` for some stage's language, and a compile through a connection whose chain has a stage with intents.
+- **When it applies:** a compile through a connection whose chain is command-eligible (decision 7). This is the same rule `POST /command` uses, which this slice changes from the head language to any stage.
+- **Normalization:** both routes call the shared task-chain function (decision 8).
 - **What it does:** it allocates through `POST /v1/commands`, never `/v1/invocations`, with the caller's key or a fresh `bridge:<uuid>`. It then runs the B5 worker and builds today's compile envelope from the outcome.
 - **The envelope it builds.**
   - **`data`:** the head's committed result. It's present only when there is one; the result is unavailable after a lost head answer.
@@ -110,6 +132,8 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 - MCP: `data.request`, which isn't affected because MCP never writes.
 
 **Tests** (api):
+- A chain headed by L0000 with an L0176 save is treated the same by `/compile` and `/command`, when its flag is turned on and when it's turned off.
+- A key used on `/compile` (item with `data: {}`), then on `/command` with `data: {}` or none, gets the same `taskId` and binding: no `idempotency-key-reused`.
 - With the flag on, a connection compile with a key becomes a command. The same key again returns the recorded outcome, with no new write.
 - A compile without a key gets a fresh command each time.
 - The envelope matches today's for success, partial, uncertain and failed.
@@ -135,6 +159,10 @@ The order:
    - **Who and where:** the canary account, the Learnosity sandbox connection only, and the canary window (IAM re-grant).
    - **Volume:** 200 commands across single save, two saves, and a save inside `map`, mixed between the bridge path and `POST /command`.
    - **Injected faults:** a worker killed after a write (the sweeper recovers it); a lost head answer; a revocation mid-command; a retry with the same key; 16 concurrent duplicates.
+   - **Reconciliation** (B6's entry-gate evidence, kept in full):
+     - at least 10 operations left `uncertain` or `partial`, by losing the answer after the write and by revoking between steps;
+     - each reconciled against the provider through Policy's `/v1/receipts/reconcile`, establishing `completed` or `failed` with no repeated write;
+     - at least one of them found to have already succeeded.
    - **The rule:** the sandbox's records are compared with the command outcomes, and **no write may be repeated**. Each command's provider references must be unique to its operation, which v8's creates-only writes make checkable.
 4. **Promote** `COMMANDS_L0176=on` in production by a forward release, with the generation change.
 5. **D3 clients.**
@@ -142,15 +170,15 @@ The order:
 
 **Rollback.** Turn `COMMANDS_L0176` off, with a new generation, by a forward release. Existing command keys stay commands and are still served. Never roll back below the floor.
 
-**The B6 entry gate.** L0176 running on B5 meets B6's entry gate: a command language from C3 or C5 or a Track E language, extended here to C6 (to update in the plan's gate wording).
+**The B6 entry gate.** This PR adds C6 to the gate's eligible languages. Activation alone doesn't pass the gate: the drive's reconciliation evidence above is also required, and the gate is claimed only when both are recorded in `docs/evidence/`.
 
 ## 7. Slices
 
 | # | Slice | Where | Release |
 |---|---|---|---|
-| 1 | Intents, deterministic dynamic-content keys, no signing under `start`, tests | l0176 crates (and TS keys) | l0176r |
-| 2 | The bridge (D2), the worker returning the head answer, the effects envelope, tests | api (and a Policy outcome read if needed) | api, with the flag off |
-| 3 | The staged activation drive (`scripts/c6-drive.js`) and its evidence | scripts, docs/evidence | staged api revision |
+| 1 | Intents (`save:<from>`, runtime-expanding), the count pass and bound, deterministic dynamic-content keys, no signing under `start`, tests | l0176 crates (and TS keys) | l0176r |
+| 2 | The bridge (D2), one eligibility rule and one task-chain normalization for both routes, the worker returning the head answer, the effects envelope, tests | api (and a Policy outcome read if needed) | api, with the flag off |
+| 3 | The staged activation drive (`scripts/c6-drive.js`) with reconciliation, and its evidence | scripts, docs/evidence | staged api revision |
 | 4 | `COMMANDS_L0176=on` with a new generation | deploy.json | api |
 | 5 | Console `POST /command`, and the canary's `--command` mode | graffiticode-app, scripts | console |
 
@@ -166,4 +194,5 @@ The order:
 - **Ordinal expansion keys depend on evaluation order.** They're stable only while `map`/`filter`/`reduce` stay sequential (the kernel guarantees it, per `l0000-evaluation-order`). A test pins it.
 - **Dynamic-content keys change for legacy compiles too.** Any consumer that expects a timestamp shape must be checked. Nothing found so far.
 - **The bridge's envelope must match** what canary, AT-10 and the console read. The tests compare against recorded legacy envelopes.
-- **The 100-occurrence bound** might cut a real program short. If so, raise it per intent, and the model then declares it.
+- **The bound** (decision 6) is new. Measure production before activation; raise it if any real program comes near.
+- **The count pass** evaluates the program twice under `start`. Its placeholder results could differ from real ones only for a program that branches on what a save returned. Policy's bound is then the backstop.
