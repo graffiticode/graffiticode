@@ -74,8 +74,14 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
    - **Measure first.** Before activation, the largest number of saves any production program has made per call site is read from the gateway's effects logs. The bound must exceed it by a wide margin, or it's raised. Reaching it should then never happen in practice.
    - **The contract is a runtime limit, not a pre-check.**
      - A save is bound when it runs. Policy's per-intent counter, atomic in the bind transaction, refuses the bind past the bound (`bounds-exceeded`).
-     - That's a definite refusal: the occurrence is recorded `failed`, and nothing was written for it. The saves before it stand.
+     - That's a definite refusal, and nothing was written for it. The saves before it stand.
      - The command ends `partial`, and a retry with the same key returns `partial` without writing again.
+   - **B5 doesn't record that refusal today, so C6 adds it** (slice 0, Policy). `bindOccurrence` throws before storing anything, so the kernel leaves the refused occurrence out of the stage's list, and the worker could close the stage over the successful writes and finish `completed`.
+     - **A durable refused attempt.** In the same transaction that refuses a bind for a definite reason (`bounds-exceeded`, `intent-not-admitted`, `occurrence-mismatch`), Policy commits a record `refusals/{stage}:{occurrenceId}`: the intent, expansion key, reason and generation. It then answers the refusal.
+       - The record is idempotent: a resumed run's same refused bind finds it and answers the same.
+       - It's separate from the bound occurrences, so the stage's close (exactly the bound set) is unaffected.
+     - **Aggregation.** `finish` counts each refused attempt as a `failed` operation (`source: bind-refusal`). So a stage with one can never make the command `completed`: it's `partial` when anything was written and `failed` when nothing was. The aggregation function and its tests change with it.
+     - **Recovery.** A takeover re-runs the stage. Its successful binds are acknowledged and their writes replayed from receipts, and the refused bind meets its record. The outcome is the same `partial`.
    - **No count pass.** Evaluating with placeholder save results can't promise anything before the first write: a program that branches on what a save returned could undercount (and fail partway anyway) or overcount (and be refused although it fits). So nothing is promised before writing. The limit is enforced where the writes happen, and its partial outcome is documented.
    - **Legacy compiles are unaffected.** The bound applies only to commands.
 7. **One eligibility rule, for both entry points.** A chain is *command-eligible* when some stage both:
@@ -104,7 +110,7 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
   - a model's intents for a single save, two saves, a save inside `map`, and a save repeated by a callback with no `LAMBDA` node;
   - the intent ids pass Policy's `modelIntents`, through an in-process Policy admission;
   - a dynamic-content table `[A, A, B]` keeps three rows in order, with stable keys;
-  - at exactly the bound every save runs. At bound + 1 the extra bind is refused (`bounds-exceeded`), that occurrence is `failed`, the earlier saves stand, the command is `partial`, and a retry writes nothing;
+  - at exactly the bound every save runs;
   - `start` binds each occurrence before minting;
   - a retry builds identical arguments (`argd` stable across runs and dynamic content);
   - there's no signing call under `start`;
@@ -137,7 +143,9 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 - the console: status and errors;
 - MCP: `data.request`, which isn't affected because MCP never writes.
 
-**Tests** (api):
+**Tests** (api), each through the complete worker against an in-process Policy and receipt-keeping Broker (`commands/worker.spec.js` style):
+- **Bound + 1.** The extra bind is refused, and its refusal is recorded. The stage closes over the successful writes, and the command finishes `partial`, not `completed`. A retry returns `partial` with no new write.
+- **Recovery after the refusal.** A worker killed after the refused bind is taken over by the sweeper. The re-run replays the writes, meets the same refusal record, and ends `partial`, still with no repeated write.
 - With the flag on, a connection compile with no save (a preview) stays on the legacy path, unchanged. `/command` refuses such a chain with `no-effects`.
 - A chain headed by L0000 with an L0176 save is treated the same by `/compile` and `/command`, when its flag is turned on and when it's turned off.
 - A key used on `/compile` (item with `data: {}`), then on `/command` with `data: {}` or none, gets the same `taskId` and binding: no `idempotency-key-reused`.
@@ -170,6 +178,11 @@ The order:
    - **Reconciliation** (B6's entry-gate evidence, kept in full). It needs uncertainties the reconciler *can* resolve: a provider write that succeeded, whose response or durable outcome was lost.
      - **The fault.** A staged Broker revision (a tag with no traffic) honors `BROKER_FAULTS=drop-outcome`, for the canary principal only. After a successful provider write, it skips recording the outcome and answers as if the response were lost. The claim and steps stay, so the receipt reads `uncertain`.
      - **Routing.** The staged l0176r revision points at that Broker tag, and the staged api at that l0176r tag. Nothing in production reaches it, and the flag is refused outside the canary principal.
+     - **Approval of the staged compiler.** l0176r is pinnable, and Policy admits only approved revisions. A command preflights the staged l0176r tag, so its admission pins that revision, and without an approval Policy refuses it with `revision-not-approved`. `deploy --stage` leaves it unapproved, and today `approve` takes only a released (promoted) receipt. So:
+       1. The deploy CLI gains `approve <service> --release <id> --staged`. It records the staged revision's approval and tag URL, with no traffic change. Approved tags are already kept by `retire-tags`, so the revision stays reachable for the drive.
+       2. Before the drive: approve the staged l0176r revision, and check the approval with `scripts/revisions.js`.
+       3. The drive's first command must show its admission pinning that revision: `records/state` `admission.stages[s].revision` and `tagUrl` equal the staged revision's. Otherwise the drive stops before any write.
+       4. Afterward, the staged revision is retired (`scripts/revisions.js retire`) and its tag removed. Production traffic never moves.
      - **Volume:** at least 10 such operations, across single saves and expansions. Every one has a recorded uncertain outcome.
      - **Reconciling.** Permission is restored first, if a test revoked it. Then each is reconciled through Policy's `/v1/receipts/reconcile`.
      - **Verdicts:**
@@ -191,9 +204,10 @@ The order:
 
 | # | Slice | Where | Release |
 |---|---|---|---|
+| 0 | Durable refused attempts (`refusals/…`), counted `failed` by `finish`'s aggregation; tests | policy | Policy |
 | 1 | Intents (`save:<from>`, runtime-expanding, with the proposed bound), deterministic dynamic-content keys, no signing under `start`, tests | l0176 crates (and TS keys) | l0176r |
 | 2 | The bridge (D2), one eligibility rule and one task-chain normalization for both routes, the worker returning the head answer, the effects envelope, tests | api (and a Policy outcome read if needed) | api, with the flag off |
-| 3 | The staged activation drive (`scripts/c6-drive.js`) with reconciliation, the staged Broker's `drop-outcome` fault (canary principal only), and its evidence | scripts, broker, docs/evidence | staged broker, l0176r and api tags |
+| 3 | The staged activation drive (`scripts/c6-drive.js`) with reconciliation, the staged Broker's `drop-outcome` fault (canary principal only), `approve --staged` in the deploy CLI, and its evidence | scripts, broker, deploy, docs/evidence | staged broker, l0176r (approved, no traffic) and api tags |
 | 4 | `COMMANDS_L0176=on` with a new generation | deploy.json | api |
 | 5 | Console `POST /command`, and the canary's `--command` mode | graffiticode-app, scripts | console |
 
