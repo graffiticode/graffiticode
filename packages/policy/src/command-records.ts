@@ -143,13 +143,24 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       if (!Array.isArray(observations) || !observations.every(o => typeof o === "string" && OID_RE.test(o))) throw new CommandRefused("bad-request");
       const intents = admittedIntents(command, stage);
       if (!intents) throw new CommandRefused("not-admitted");
+      // A definite refusal of this occurrence is recorded, in this transaction,
+      // before it is answered (C6 slice 0): finish counts it failed, so a
+      // command with a refused save is never completed. Idempotent: a resumed
+      // run's same bind meets the record and is refused alike.
+      const refusalPath = sub(commandId, "refusals", docKey(stage, occurrenceId));
+      const prior = await tx.get(refusalPath);
+      if (prior) return { stage, occurrenceId, refused: prior.reason };
+      const refuse = reason => {
+        tx.set(refusalPath, { stage, occurrenceId, intentId, expansionKey, reason, at: new Date(now()).toISOString(), generation });
+        return { stage, occurrenceId, refused: reason };
+      };
       const intent = intents.find(i => i.id === intentId);
-      if (!intent) throw new CommandRefused("intent-not-admitted");
+      if (!intent) return refuse("intent-not-admitted");
       const runtime = occurrenceId.startsWith(RUNTIME_PREFIX);
       if (runtime) {
-        if (typeof expansionKey !== "string" || occurrenceId !== runtimeOccurrenceId(intentId, expansionKey)) throw new CommandRefused("occurrence-mismatch");
+        if (typeof expansionKey !== "string" || occurrenceId !== runtimeOccurrenceId(intentId, expansionKey)) return refuse("occurrence-mismatch");
       } else if (expansionKey !== null || !(intent.occurrences ?? []).includes(occurrenceId)) {
-        throw new CommandRefused("occurrence-mismatch");
+        return refuse("occurrence-mismatch");
       }
       const argsDigest = sha256(args);
       const path = sub(commandId, "occurrences", docKey(stage, occurrenceId));
@@ -168,7 +179,7 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       const counts = { ...(command.counts ?? {}) };
       const byIntent = { ...(counts.byIntent ?? {}) };
       const max = intent.bounds?.maxOccurrences ?? 1;
-      if ((byIntent[countKey] ?? 0) >= max) throw new CommandRefused("bounds-exceeded");
+      if ((byIntent[countKey] ?? 0) >= max) return refuse("bounds-exceeded");
       byIntent[countKey] = (byIntent[countKey] ?? 0) + 1;
       tx.set(path, { stage, occurrenceId, intentId, expansionKey, args, argsDigest, argd, observations, minted: [], boundAt: new Date(now()).toISOString(), generation });
       touch(tx, command, { counts: { ...counts, byIntent, bound: (counts.bound ?? 0) + 1 } });
@@ -262,7 +273,13 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       if (result !== null) requirePayload(result);
       const occurrences = await tx.list(["commands", commandId, "occurrences"]);
       const outcomes = new Map<string, { outcome: string }>((await tx.list(["commands", commandId, "outcomes"])).map(o => [docKey(o.stage, o.occurrenceId), o]));
-      const operations = occurrences.map(o => ({ outcome: outcomes.get(docKey(o.stage, o.occurrenceId))?.outcome ?? null }));
+      // A refused bind is a failed operation: nothing was written for it, and
+      // the command didn't do what its program asked (C6 slice 0).
+      const refusals = await tx.list(["commands", commandId, "refusals"]);
+      const operations = [
+        ...occurrences.map(o => ({ outcome: outcomes.get(docKey(o.stage, o.occurrenceId))?.outcome ?? null })),
+        ...refusals.map(() => ({ outcome: "failed" })),
+      ];
       // An occurrence still waiting to settle keeps the command pending (§7).
       if (operations.some(o => o.outcome === null)) throw new CommandRefused("occurrences-unsettled");
       // A stage is done when its answer closed it, or — for a stage whose
@@ -313,6 +330,9 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
     },
     async listOccurrences(commandId) {
       return backend.transaction(tx => tx.list(["commands", commandId, "occurrences"]));
+    },
+    async listRefusals(commandId) {
+      return backend.transaction(tx => tx.list(["commands", commandId, "refusals"]));
     },
     async listOutcomes(commandId) {
       return backend.transaction(tx => tx.list(["commands", commandId, "outcomes"]));

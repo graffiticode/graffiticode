@@ -335,6 +335,8 @@ export const createPolicy = ({
     }
     try {
       const out = await commandRecords[fn]({ ...args, commandId, generation });
+      // A refused bind was recorded; it is answered as the refusal it is.
+      if (out?.refused) throw new PolicyDenied(out.refused);
       if (fn === "finish") {
         await audit({ ...record, commandId, invocationId: out.invocationId, outcome: "allowed", reason: out.status });
         return commandSummary(out);
@@ -373,7 +375,7 @@ export const createPolicy = ({
   };
 
   // What recovery reads to continue a command (service only).
-  const COMMAND_READS = { state: "state", request: "request", models: "models", input: "input", result: "result", occurrences: "occurrences", outcomes: "outcomes" };
+  const COMMAND_READS = { state: "state", request: "request", models: "models", input: "input", result: "result", occurrences: "occurrences", outcomes: "outcomes", refusals: "refusals" };
   const commandRead = async ({ caller, commandId, what, stage = null }) => {
     const record = { event: "command-read", callerRole: caller?.role };
     if (!commands || !commandRecords) return deny("unavailable", record);
@@ -397,6 +399,7 @@ export const createPolicy = ({
     }
     if (what === "result") return { result: await commandRecords.getResult(commandId) };
     if (what === "occurrences") return { occurrences: await commandRecords.listOccurrences(commandId) };
+    if (what === "refusals") return { refusals: await commandRecords.listRefusals(commandId) };
     return { outcomes: await commandRecords.listOutcomes(commandId) };
   };
 
@@ -569,7 +572,10 @@ export const createPolicy = ({
     const record = { event: "command-bind", callerRole: caller?.role };
     const { session } = await commandSessionClaims({ caller, sessionToken, record });
     try {
-      return await commandRecords.bindOccurrence({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, intentId, expansionKey, args, argd, observations });
+      const out = await commandRecords.bindOccurrence({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, intentId, expansionKey, args, argd, observations });
+      // A refused bind was recorded; it is answered as the refusal it is.
+      if (out?.refused) throw new PolicyDenied(out.refused);
+      return out;
     } catch (e) {
       if (e instanceof CommandRefused) throw new PolicyDenied(e.reason);
       throw e;
