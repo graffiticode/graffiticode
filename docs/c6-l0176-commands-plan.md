@@ -69,16 +69,23 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
    - **D3.** The console then moves to `POST /command`. A key keeps working across the move because both routes build the same task chain (decision 8).
    - **D4.** The bridge is retired later, per the interpreter plan.
 
-6. **A proposed bound of 1000 saves per call site, checked before any write.**
+6. **A proposed runtime bound of 1000 saves per call site, with documented partial outcomes.**
    - **It's new.** No Broker or Policy limit exists today.
-   - **Measure first.** Before activation, the largest number of saves any production program has made per call site is read from the gateway's effects logs. The bound must exceed it by a wide margin, or it's raised.
-   - **No avoidable failure partway.** The dialect counts before it writes: under `start`, a *count pass* evaluates the program once with each save answering a placeholder and making no protected call.
-     - If any site's count exceeds the bound, the command fails with `too-many-saves` before any write.
-     - Policy's atomic bound at binding is the backstop, should the real run differ from the count (a program branching on save results).
-   - **Legacy compiles are unaffected.** The bound applies only to commands. A larger program still saves through the legacy path while the bridge is off for it, and until the bound is raised.
-7. **One eligibility rule, for both entry points.** A chain is *command-eligible* when any of its stages' languages has `COMMANDS_LNNNN=on`, read from the stored tasks.
+   - **Measure first.** Before activation, the largest number of saves any production program has made per call site is read from the gateway's effects logs. The bound must exceed it by a wide margin, or it's raised. Reaching it should then never happen in practice.
+   - **The contract is a runtime limit, not a pre-check.**
+     - A save is bound when it runs. Policy's per-intent counter, atomic in the bind transaction, refuses the bind past the bound (`bounds-exceeded`).
+     - That's a definite refusal: the occurrence is recorded `failed`, and nothing was written for it. The saves before it stand.
+     - The command ends `partial`, and a retry with the same key returns `partial` without writing again.
+   - **No count pass.** Evaluating with placeholder save results can't promise anything before the first write: a program that branches on what a save returned could undercount (and fail partway anyway) or overcount (and be refused although it fits). So nothing is promised before writing. The limit is enforced where the writes happen, and its partial outcome is documented.
+   - **Legacy compiles are unaffected.** The bound applies only to commands.
+7. **One eligibility rule, for both entry points.** A chain is *command-eligible* when some stage both:
+   - is in a language with `COMMANDS_LNNNN=on`, read from the stored tasks; and
+   - performs a write: its preflight manifest's `requiredFunctions` include a function the registry marks `write`. Preflight has no effects, and the gateway already runs it for admission.
+
+   A chain with no save stays on the legacy path, however the flags are set. A connection preview (L0176 `init` signing, no save) is never a command, so it never meets B5's "no writes, so failed" aggregation, and the read side stays as it is until part 2.
    - The same rule decides new allocation at `POST /command`, changed from slice 5's head-language check, and the bridge at `POST /compile`.
    - So a chain headed by L0000 with an L0176 save stage is treated alike by both. Turning the flag off makes both refuse new allocations alike, while existing keys are still served.
+   - **At `POST /command`,** a chain with no write is refused with `no-effects`; it's a read, so there's nothing to command. **At the bridge,** it simply stays legacy.
 8. **One task-chain normalization.** `/compile` and `/command` build the chain with the same function, moved out of `routes/compile.js`:
    - absent or empty `data` (`{}`) adds no data task;
    - other data appends its L0000 data task, unless the id already contains it.
@@ -90,7 +97,6 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 - **`Dialect::intents(ast)`.** It walks the normalized AST, which is the one the kernel passes. For each `SAVE_TO_ITEMBANK` node it emits a runtime intent `save:<from>` (`fn` `save-to-itembank`, `op` `learnosity.write-items`, bounded per decision 6).
 - **`save_to_itembank` under a command.**
   - Each occurrence is `exec.expand("save:<from>", "<from>#<n>")`, where `<n>` is a per-site counter kept in the dialect's invocation state.
-  - The count pass (decision 6) runs first, with no protected calls.
   - Outside a command, nothing changes.
 - **Deterministic dynamic-content keys** (decision 2), keeping row multiplicity and order, in both the Rust and TypeScript L0176. TypeScript is changed only so that a pinned TS revision and a Rust one build the same plan for a legacy retry; the TypeScript service is otherwise frozen.
 - **Signing under a command** (decision 3): `prog` and `init` check `exec.is_command()`, and skip.
@@ -98,7 +104,7 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
   - a model's intents for a single save, two saves, a save inside `map`, and a save repeated by a callback with no `LAMBDA` node;
   - the intent ids pass Policy's `modelIntents`, through an in-process Policy admission;
   - a dynamic-content table `[A, A, B]` keeps three rows in order, with stable keys;
-  - the count pass refuses with `too-many-saves` at bound + 1 before any write, and runs at exactly the bound;
+  - at exactly the bound every save runs. At bound + 1 the extra bind is refused (`bounds-exceeded`), that occurrence is `failed`, the earlier saves stand, the command is `partial`, and a retry writes nothing;
   - `start` binds each occurrence before minting;
   - a retry builds identical arguments (`argd` stable across runs and dynamic content);
   - there's no signing call under `start`;
@@ -111,7 +117,7 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 ## 4. The api: the compile-to-command bridge (D2)
 
 **The bridge** (`packages/api/src/data.js`).
-- **When it applies:** a compile through a connection whose chain is command-eligible (decision 7). This is the same rule `POST /command` uses, which this slice changes from the head language to any stage.
+- **When it applies:** a compile through a connection whose chain is command-eligible (decision 7): a flagged stage that performs a write. This is the same rule `POST /command` uses, which this slice changes from the head language to any writing stage. A compile with no save, such as a connection preview, stays legacy.
 - **Normalization:** both routes call the shared task-chain function (decision 8).
 - **What it does:** it allocates through `POST /v1/commands`, never `/v1/invocations`, with the caller's key or a fresh `bridge:<uuid>`. It then runs the B5 worker and builds today's compile envelope from the outcome.
 - **The envelope it builds.**
@@ -132,6 +138,7 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 - MCP: `data.request`, which isn't affected because MCP never writes.
 
 **Tests** (api):
+- With the flag on, a connection compile with no save (a preview) stays on the legacy path, unchanged. `/command` refuses such a chain with `no-effects`.
 - A chain headed by L0000 with an L0176 save is treated the same by `/compile` and `/command`, when its flag is turned on and when it's turned off.
 - A key used on `/compile` (item with `data: {}`), then on `/command` with `data: {}` or none, gets the same `taskId` and binding: no `idempotency-key-reused`.
 - With the flag on, a connection compile with a key becomes a command. The same key again returns the recorded outcome, with no new write.
@@ -154,15 +161,23 @@ That is part 2, after this. Until then, reads stay on the legacy adapter, exactl
 
 The order:
 1. **Release the l0176r dialect** (§3), and run the canary as today; it must not change.
+   - After activation (step 4), the existing **preview canary**, a connection compile with no save, runs again and must be byte-for-byte what it was: still legacy, still signed.
 2. **Release the api bridge** (§4) with `COMMANDS_L0176` off.
 3. **Stage.** A tagged api revision with `COMMANDS_L0176=on` and a new `COMPILE_GENERATION_L0176`. The deploy guard requires the generation to change with the flag. Run the activation drive against it, which replaces the skipped B5 soak.
    - **Who and where:** the canary account, the Learnosity sandbox connection only, and the canary window (IAM re-grant).
    - **Volume:** 200 commands across single save, two saves, and a save inside `map`, mixed between the bridge path and `POST /command`.
    - **Injected faults:** a worker killed after a write (the sweeper recovers it); a lost head answer; a revocation mid-command; a retry with the same key; 16 concurrent duplicates.
-   - **Reconciliation** (B6's entry-gate evidence, kept in full):
-     - at least 10 operations left `uncertain` or `partial`, by losing the answer after the write and by revoking between steps;
-     - each reconciled against the provider through Policy's `/v1/receipts/reconcile`, establishing `completed` or `failed` with no repeated write;
-     - at least one of them found to have already succeeded.
+   - **Reconciliation** (B6's entry-gate evidence, kept in full). It needs uncertainties the reconciler *can* resolve: a provider write that succeeded, whose response or durable outcome was lost.
+     - **The fault.** A staged Broker revision (a tag with no traffic) honors `BROKER_FAULTS=drop-outcome`, for the canary principal only. After a successful provider write, it skips recording the outcome and answers as if the response were lost. The claim and steps stay, so the receipt reads `uncertain`.
+     - **Routing.** The staged l0176r revision points at that Broker tag, and the staged api at that l0176r tag. Nothing in production reaches it, and the flag is refused outside the canary principal.
+     - **Volume:** at least 10 such operations, across single saves and expansions. Every one has a recorded uncertain outcome.
+     - **Reconciling.** Permission is restored first, if a test revoked it. Then each is reconciled through Policy's `/v1/receipts/reconcile`.
+     - **Verdicts:**
+       - The reconciler's `applied` verdict, where provider read-back finds the records, is the **established completion** of that operation. It's recorded in the evidence, with no repeated write.
+       - `unresolved` doesn't count toward the 10.
+       - At least one of the 10 is, by construction, already successful.
+     - **The command's terminal outcome is preserved.** It stays `uncertain` in its record (D1: later reconciliation advances knowledge but never rewrites a command's outcome). The evidence records the reconciled operations beside it.
+     - **Revocation between steps** is tested separately. It can leave a genuinely partial operation the reconciler reports `unresolved`. That's the expected answer for it, so it isn't counted toward the 10.
    - **The rule:** the sandbox's records are compared with the command outcomes, and **no write may be repeated**. Each command's provider references must be unique to its operation, which v8's creates-only writes make checkable.
 4. **Promote** `COMMANDS_L0176=on` in production by a forward release, with the generation change.
 5. **D3 clients.**
@@ -176,9 +191,9 @@ The order:
 
 | # | Slice | Where | Release |
 |---|---|---|---|
-| 1 | Intents (`save:<from>`, runtime-expanding), the count pass and bound, deterministic dynamic-content keys, no signing under `start`, tests | l0176 crates (and TS keys) | l0176r |
+| 1 | Intents (`save:<from>`, runtime-expanding, with the proposed bound), deterministic dynamic-content keys, no signing under `start`, tests | l0176 crates (and TS keys) | l0176r |
 | 2 | The bridge (D2), one eligibility rule and one task-chain normalization for both routes, the worker returning the head answer, the effects envelope, tests | api (and a Policy outcome read if needed) | api, with the flag off |
-| 3 | The staged activation drive (`scripts/c6-drive.js`) with reconciliation, and its evidence | scripts, docs/evidence | staged api revision |
+| 3 | The staged activation drive (`scripts/c6-drive.js`) with reconciliation, the staged Broker's `drop-outcome` fault (canary principal only), and its evidence | scripts, broker, docs/evidence | staged broker, l0176r and api tags |
 | 4 | `COMMANDS_L0176=on` with a new generation | deploy.json | api |
 | 5 | Console `POST /command`, and the canary's `--command` mode | graffiticode-app, scripts | console |
 
@@ -195,4 +210,4 @@ The order:
 - **Dynamic-content keys change for legacy compiles too.** Any consumer that expects a timestamp shape must be checked. Nothing found so far.
 - **The bridge's envelope must match** what canary, AT-10 and the console read. The tests compare against recorded legacy envelopes.
 - **The bound** (decision 6) is new. Measure production before activation; raise it if any real program comes near.
-- **The count pass** evaluates the program twice under `start`. Its placeholder results could differ from real ones only for a program that branches on what a save returned. Policy's bound is then the backstop.
+- **The Broker fault hook** must never act in production. It's honored only on a staged tag and only for the canary principal, and a test pins both conditions.
