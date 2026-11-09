@@ -76,6 +76,11 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // The C6 bridge: a compile that ran as a command, answered with an outcome
   // other than completed (its status URL names it).
   ...cat("conflict", ["command-not-completed"]),
+  // POST /command: a chain with no write, a language whose new commands
+  // aren't enabled, and a key the legacy path holds.
+  ...cat("malformed", ["no-effects"]),
+  ...cat("permission", ["commands-not-enabled"]),
+  ...cat("conflict", ["legacy-protocol"]),
   // Command authority (B5 slice 3): admission before every stage's model is
   // installed; an intent the registry or the stage doesn't allow; a token
   // for a command's invocation without its claims; an operation outside its

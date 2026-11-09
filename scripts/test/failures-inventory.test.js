@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { REASON_CATEGORIES, FAILURE_CATEGORIES, classify } from "@graffiticode/common/failures";
 
-const sources = dir => readdirSync(new URL(`../../packages/${dir}/src/`, import.meta.url))
-  .filter(f => /\.[jt]s$/.test(f) && !/\.spec\.[jt]s$/.test(f))
+const sources = dir => readdirSync(new URL(`../../packages/${dir}/src/`, import.meta.url), { recursive: true })
+  .filter(f => /\.[jt]s$/.test(f) && !/\.(spec|test)\.[jt]s$/.test(f) && !/(^|\/)(test|__tests__)\//.test(f))
   .map(f => ({ file: `${dir}/src/${f}`, text: readFileSync(new URL(`../../packages/${dir}/src/${f}`, import.meta.url), "utf8") }));
 
 // The forms a refusal reason takes in Policy and Broker.
@@ -25,6 +25,7 @@ const FORMS = [
   /\bartifactNotStored\(\{ error: "([a-z0-9-]+)"/g, // api: artifactNotStored({ error: "code", … })
   /\brefuseChain\([^;]*?, "([a-z0-9-]+)"/g, // api: refuseChain(message, "code", stage?) (chain admission, W4)
   /\bnew CommandRefused\("([a-z0-9-]+)"/g, // policy: command records (B5)
+  /\brefused\(res, [^;]*?"([a-z0-9-]+)"(?: : "([a-z0-9-]+)")?\);/g, // api: refused(res, status, "reason") (/command, B5)
 ];
 // Reasons returned from a function rather than in one of the forms above.
 const RETURNED = {
