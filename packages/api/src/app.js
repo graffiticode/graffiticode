@@ -15,6 +15,7 @@ import { buildCommandWorker } from "./commands/worker.js";
 import { buildCommandRouter } from "./routes/command.js";
 import { buildSweep, buildSweepAuthorizer, parseSweepConfig } from "./commands/sweep.js";
 import { buildCommandEnvelope } from "./commands/dispatch.js";
+import { buildEligibility, buildCompileEnvelope, buildCommandBridge } from "./commands/bridge.js";
 import { buildGetData as buildRouteGetData } from "./routes/data.js";
 import { buildGoogleIdTokenVerifier } from "@graffiticode/common/caller";
 import { OAuth2Client } from "google-auth-library";
@@ -84,9 +85,20 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   const modelCache = modelCacheConfig.enabled ? buildModelCache({ ttlMs: modelCacheConfig.ttlMs, max: modelCacheConfig.max }) : null;
   // Commands (B5): Policy's command routes, when Policy is configured.
   const policyCommands = policyUrl ? buildPolicyCommands({ policyUrl, idToken }) : null;
+  // C6 (D2): the one eligibility rule both routes use, and the compile bridge.
+  // The bridge reaches the worker through `commandRunner`, built below.
+  let commandRunner = null;
+  const eligible = chainAdmission
+    ? buildEligibility({ preflight: chainAdmission.preflight, baseUrlFor: chainAdmission.baseUrlFor })
+    : null;
+  const compileEnvelope = policyCommands ? buildCompileEnvelope({ policy: policyCommands }) : null;
+  const commandBridge = policyCommands && eligible
+    ? buildCommandBridge({ eligible, getRunner: () => commandRunner, compileEnvelope })
+    : null;
   const dataApi = buildDataApi({
     // D2a: a command's key on /compile is answered from its record.
     commandEnvelope: policyCommands ? buildCommandEnvelope({ policy: policyCommands }) : null,
+    commandBridge,
     compile,
     langOverrideStorer,
     validateOutput,
@@ -156,6 +168,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
             preflight: chainAdmission.preflight,
           },
         });
+        commandRunner = { policy: policyCommands, run, worker };
         return { policy: policyCommands, run, worker };
       })()
     : null;
@@ -194,7 +207,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
     // D2a: a legacy key on /command is served by the legacy compile path.
     const getData = buildRouteGetData({ taskStorer, compileStorer, dataApi });
     const legacy = ({ auth, authToken, id, connectionId, idempotencyKey }) => getData({ auth, authToken, ids: [id], connectionId, idempotencyKey });
-    app.use("/command", buildCommandRouter({ taskStorer, policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker, legacy }));
+    app.use("/command", buildCommandRouter({ taskStorer, policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker, legacy, eligible }));
   }
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));

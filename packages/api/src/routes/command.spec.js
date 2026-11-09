@@ -70,6 +70,18 @@ describe("POST /command", () => {
     expect(runs).toEqual([]);
   });
 
+  it("refuses a chain with a flagged stage but no write, as a read with nothing to command", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use((/** @type {any} */ req, _res, next) => { req.auth = { context: { uid: UID } }; next(); });
+    policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "none" }; };
+    app.use("/command", buildCommandRouter({ taskStorer: { get: async () => TASKS, create: async () => "task-data" }, policy, run: async () => ({}), worker: "w1", env: { COMMANDS_L0176: "on" }, eligible: async () => false }));
+    const res = await post(app, BODY);
+    expect([res.status, res.body.error.reason]).toEqual([409, "no-effects"]);
+    expect(calls[0][1].create).toBe(false);
+    expect(runs).toEqual([]);
+  });
+
   it("serves a key the legacy path holds by that path, as a command outcome, whatever the flag", async () => {
     policy.allocate = async () => ({ protocol: "legacy", invocationId: "inv-1", seq: 1 });
     const legacyCalls = [];
@@ -78,7 +90,7 @@ describe("POST /command", () => {
       const app = express();
       app.use(express.json());
       app.use((/** @type {any} */ req, _res, next) => { req.auth = { context: { uid: UID } }; next(); });
-      app.use("/command", buildCommandRouter({ taskStorer: { get: async () => TASKS }, policy, run: async () => ({}), worker: "w1", env, legacy }));
+      app.use("/command", buildCommandRouter({ taskStorer: { get: async () => TASKS, create: async () => "task-data" }, policy, run: async () => ({}), worker: "w1", env, legacy }));
       const res = await post(app, BODY);
       expect(res.body.data).toEqual({ protocol: "legacy", invocationId: "inv-1", outcome: "completed", result: "available", data: { saved: 1 } });
     }

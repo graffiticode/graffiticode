@@ -107,7 +107,11 @@ const buildGetData = ({
   declarations = INTERPRETER_DECLARATIONS, onStage = logStage, now = Date.now,
   // D2a (B5): a command's key arriving here is answered from its record
   // (commands/dispatch.js), never compiled. Without it, it is refused.
-  commandEnvelope = null
+  commandEnvelope = null,
+  // D2 (C6): a compile through a connection whose chain is command-eligible
+  // runs as a command and answers in this envelope (commands/bridge.js); it
+  // answers null for any other chain, which then runs as today.
+  commandBridge = null
 }) => {
   const readArtifact = buildReadArtifact({ compile, artifactStorer, allocateInvocation, audit });
 
@@ -321,6 +325,10 @@ const buildGetData = ({
     if (connectionId) {
       if (!allocateInvocation) {
         return { errors: [failedWith("Error: connections are not available on this server.", "connections-unavailable")] };
+      }
+      if (commandBridge) {
+        const bridged = await commandBridge({ tasks, id, auth, authToken, connectionId, options, idempotencyKey });
+        if (bridged) return bridged;
       }
       try {
         invocation = await allocateInvocation({ authToken, connectionId, taskId: id, options, idempotencyKey, admission: Boolean(chainAdmission) && admissionWanted(connectionId) });
@@ -660,9 +668,9 @@ export const buildDataApi = ({
   compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null,
   admissionWanted = _connectionId => false, getActiveGeneration = readActiveGeneration, getLanguageGenerations = readLanguageGenerations,
   interpreter = null, stageResults = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages, declarations = INTERPRETER_DECLARATIONS,
-  onStage = logStage, now = Date.now, commandEnvelope = null
+  onStage = logStage, now = Date.now, commandEnvelope = null, commandBridge = null
 }) => {
   return {
-    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, modelCache, getInterpreterLanguages, declarations, onStage, now, commandEnvelope })
+    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, modelCache, getInterpreterLanguages, declarations, onStage, now, commandEnvelope, commandBridge })
   };
 };

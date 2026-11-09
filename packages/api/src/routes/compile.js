@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { buildPostTasks } from "./tasks.js";
+import { buildChainWithData } from "./chain.js";
 import { buildGetData } from "./data.js";
 import {
   buildHttpHandler,
@@ -32,27 +33,6 @@ function getItemsFromRequest(req) {
   return items;
 }
 
-const getTaskFromData = data => ({
-  lang: "0000",
-  code: {
-    1: {
-      elts: [
-        JSON.stringify(data)
-      ],
-      tag: "STR"
-    },
-    2: {
-      elts: [
-        1
-      ],
-      tag: "JSON"
-    },
-    root: 2
-  }
-});
-
-let EMPTY_OBJECT_ID;
-
 // An item's signing stages (signing-limit.js): those of its stored chain, or
 // its inline task. The data task an item's `data` becomes is L0000's.
 const signingStagesOf = async ({ taskStorer, item, auth }) => (
@@ -64,6 +44,7 @@ const signingStagesOf = async ({ taskStorer, item, auth }) => (
 const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   const postTasks = buildPostTasks({ taskStorer });
+  const withData = buildChainWithData({ postTasks });
   return buildHttpHandler(async (req, res) => {
     const auth = req.auth.context;
     const authToken = parseAuthTokenFromRequest(req);
@@ -78,9 +59,6 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLi
       await signingLimiter.charge(req, counts.reduce((a, b) => a + b, 0));
     }
     const ids = [];
-    EMPTY_OBJECT_ID =
-      EMPTY_OBJECT_ID ||
-      await postTasks({ auth, tasks: getTaskFromData({}), req });
     let data = await Promise.all(items.map(async (item, i) => {
       let { id, lang, code, data } = item;
       // L0158's requested generation (B4): a recompile from a View that loaded
@@ -98,14 +76,10 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLi
       if (!id) {
         id = await postTasks({ auth, tasks: { lang, code }, req });
       }
-      data = data || {};
-      const tasks = getTaskFromData(data);
-      const dataId = await postTasks({ auth, tasks, req });
-      let generationDataTask = false;
-      if (dataId !== EMPTY_OBJECT_ID && id.indexOf(dataId) < 0) {
-        id = [id, dataId].join("+");
-        generationDataTask = generation !== undefined;
-      }
+      // The same normalization as POST /command (routes/chain.js).
+      const chained = await withData({ auth, id, data, req });
+      id = chained.id;
+      const generationDataTask = chained.appended && generation !== undefined;
       ids.push(id);
       // One key per item, so a multi-item request's invocations stay distinct.
       const itemKey = idempotencyKey && items.length > 1 ? `${idempotencyKey}.${i}` : idempotencyKey;

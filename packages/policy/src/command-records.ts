@@ -233,7 +233,10 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
         const path = sub(commandId, "outcomes", docKey(stage, occurrenceId));
         const existing = await tx.get(path);
         if (existing && (existing.source !== "receipt" || existing.final)) continue;
-        pending.push({ path, outcome: { stage, occurrenceId, outcome: outcomeFromReceipt(op.status), source: "receipt", receipt: op.operationId, final: op.recorded === true, reason: op.reason ?? null, at: new Date(now()).toISOString(), generation } });
+        // The receipt's steps go with it: what a compile's envelope reports
+        // for a write (the C6 bridge answers in that envelope).
+        const steps = Array.isArray(op.steps) ? op.steps.filter(x => typeof x === "string") : [];
+        pending.push({ path, outcome: { stage, occurrenceId, outcome: outcomeFromReceipt(op.status), source: "receipt", receipt: op.operationId, final: op.recorded === true, reason: op.reason ?? null, steps, at: new Date(now()).toISOString(), generation } });
       }
       for (const { path, outcome } of pending) tx.set(path, outcome);
       return { recorded: pending.map(p => p.outcome) };
