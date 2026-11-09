@@ -53,7 +53,7 @@ export {
   getCellRange,
 } from "./address.js";
 
-export { getCellColor, mergeBorders, defaultAlign, ASSESS_VALID, ASSESS_INVALID } from "./presentation.js";
+export { getCellColor, mergeBorders, defaultAlign, numericColumnHeaders, ASSESS_VALID, ASSESS_INVALID } from "./presentation.js";
 
 // Merged cells: what the document omits, what the engine keeps as blanks, what writes skip.
 export { spansOf, gridExtent, columnIndex, columnLetter } from "./spans.js";

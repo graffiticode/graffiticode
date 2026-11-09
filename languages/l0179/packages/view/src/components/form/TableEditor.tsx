@@ -83,6 +83,7 @@ import {
   getCellColor,
   mergeBorders,
   defaultAlign,
+  numericColumnHeaders,
   getCellRange,
   getColumnRange,
   getRowRange,
@@ -427,6 +428,10 @@ const applyModelRules = (cellExprs, state, value, validation, formState) => {
     }
     cellFontWeights[row][col] = fontWeight;
   });
+  // The engine's type (`value.cells`) exists from the first build, unlike the plugin state
+  // `getCells` reads, so it decides what is a number.
+  const typeOf = (cell) => value.cells?.[cell.name]?.type || cell.type;
+  const numericHeaders = numericColumnHeaders(cells, typeOf);
   const getBorderStyle = (cell, isFocused) => {
     // Check if cell has a border property (CSS string or comma-separated sides)
     let hasBorderProperty = false;
@@ -520,10 +525,10 @@ const applyModelRules = (cellExprs, state, value, validation, formState) => {
     if (cell.col === 1 || cell.row === 1) {
       styleStr += 'text-align: center; ';
     } else {
-      // Unaligned cells follow their value: numbers right, text left. The type is the engine's
-      // (`value.cells`), which exists from the first build, unlike the plugin state `getCells` reads.
-      const type = value.cells?.[cell.name]?.type || cell.type;
-      styleStr += `font-weight: ${cell.fontWeight || "normal"}; text-align: ${cell.align || defaultAlign(type)}; `;
+      // Unaligned cells follow their value: numbers right, text left — except the header of a
+      // numeric column, which goes right with the numbers under it.
+      const align = cell.align || (numericHeaders.has(cell.name) ? "right" : defaultAlign(typeOf(cell)));
+      styleStr += `font-weight: ${cell.fontWeight || "normal"}; text-align: ${align}; `;
     }
     return { styleStr, borderClass };
   };
@@ -1458,7 +1463,7 @@ const makeTableHeadersReadOnlyPlugin = (formState) => new Plugin({
 
   filterTransaction(tr, state) {
     // Skip our own redirected transactions - add a meta flag to prevent recursion
-    if (tr.getMeta("_headerRedirect")) {
+    if (tr.getMeta("_headerRedirect") || isColumnResize(tr, state)) {
       return true;
     }
 
@@ -1517,6 +1522,43 @@ function isInsideProtectedCell(state) {
   }
   return false;
 }
+
+const sameExceptColwidth = (a, b) => {
+  if (a.type !== b.type || a.childCount !== b.childCount) return false;
+  if (a.isText) return a.text === b.text && a.sameMarkup(b);
+  const keys = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)]);
+  for (const key of keys) {
+    if (key !== "colwidth" && JSON.stringify(a.attrs[key]) !== JSON.stringify(b.attrs[key])) return false;
+  }
+  for (let i = 0; i < a.childCount; i++) {
+    if (!sameExceptColwidth(a.child(i), b.child(i))) return false;
+  }
+  return true;
+};
+
+/**
+ * Whether a transaction only resizes columns: prosemirror-tables commits a drag as a change to
+ * `colwidth` on every cell in the column. That is presentation, not content, so it passes the
+ * protected-cell and header guards that refuse every other step on those cells.
+ */
+export const isColumnResize = (tr, state) =>
+  tr.docChanged && sameExceptColwidth(state.doc, tr.doc);
+
+/** The column widths a resize set, by column letter (single-column cells only). */
+export const resizedColumnWidths = (before, after) => {
+  const widths = {};
+  after.descendants((node, pos) => {
+    if (!isTableCellOrHeader(node)) return true;
+    const col = /^([A-Z]+)\d+$/.exec(String(node.attrs.name ?? ""))?.[1];
+    const width = node.attrs.colwidth?.[0];
+    if (col && node.attrs.colspan === 1 && width &&
+        before.nodeAt(pos)?.attrs?.colwidth?.[0] !== width) {
+      widths[col] = width;
+    }
+    return false;
+  });
+  return widths;
+};
 
 /** Whether any protected cell lies in [from, to], or contains it. */
 export const touchesProtectedCell = (doc, from, to) => {
@@ -1609,7 +1651,7 @@ export const makeProtectedCellsPlugin = (tooltipHandler) => new Plugin({
 
   filterTransaction(tr, state) {
     // Allow system formatting updates for protected cells
-    if (tr.getMeta("systemFormatting")) {
+    if (tr.getMeta("systemFormatting") || isColumnResize(tr, state)) {
       return true;
     }
     // Check if this transaction would modify content inside a protected cell
@@ -2487,6 +2529,16 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
   const freezeColumns = Number(state.data.interaction.freezeColumns) || 0;
   const frozen = freezeRows > 0 || freezeColumns > 0;
   const [ editorView, setEditorView ] = useState(null);
+  // Widths the learner dragged, by column letter. They are view state, not model: they survive a
+  // re-seed of the document (a recalculation or a new model) but never reach the response.
+  const resizedRef = useRef({});
+  const columnsWithResizes = () => {
+    const resized = resizedRef.current;
+    if (!Object.keys(resized).length) return columns;
+    const merged = { ...(columns || {}) };
+    for (const [col, width] of Object.entries(resized)) merged[col] = { ...(merged[col] || {}), width };
+    return merged;
+  };
   const [ tooltipState, setTooltipState ] = useState({ visible: false, x: 0, y: 0 });
   const tooltipHandler = {
     showTooltip: (event) => {
@@ -2549,7 +2601,7 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     // Create initial state with data if available
     let initEditorState;
     if (cells && Object.keys(cells).length > 0) {
-      const editorStateData = makeEditorState({type, columns, cells, rows, hideHeadings, sheetProtected});
+      const editorStateData = makeEditorState({type, columns: columnsWithResizes(), cells, rows, hideHeadings, sheetProtected});
       if (editorStateData) {
         initEditorState = EditorState.fromJSON({
           schema,
@@ -2572,6 +2624,9 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
     const editorView = new EditorView(editorRef.current, {
       state: initEditorState,
       dispatchTransaction(transaction) {
+        if (isColumnResize(transaction, editorView.state)) {
+          Object.assign(resizedRef.current, resizedColumnWidths(editorView.state.doc, transaction.doc));
+        }
         const editorState = editorView.state.apply(transaction);
         editorView.updateState(editorState);
         // debouncedStateUpdate({
@@ -2602,7 +2657,7 @@ export const TableEditor = ({ state, onEditorViewChange = undefined }: any) => {
   // const env = templateVariablesRecords[index];
   useEffect(() => {
     if (editorView && cells) {
-      const editorStateData = makeEditorState({type, columns, cells, rows, hideHeadings, sheetProtected});
+      const editorStateData = makeEditorState({type, columns: columnsWithResizes(), cells, rows, hideHeadings, sheetProtected});
       if (!editorStateData) {
         // If no editor state data, create an empty state
         const newEditorState = EditorState.create({
