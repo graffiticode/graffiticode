@@ -183,6 +183,29 @@
         ]
       }
     },
+    "l0176r-drive": {
+      "runtimeServiceAccount": "l0176r-run@graffiticode.iam.gserviceaccount.com",
+      "network": {
+        "network": "compilers",
+        "subnet": "compilers-l0176",
+        "tags": [
+          "compiler"
+        ],
+        "proxy": "http://10.8.0.2:3128",
+        "ca": {
+          "secret": "egress-proxy-ca-bundle:1",
+          "path": "/etc/egress-ca/ca.pem"
+        },
+        "allow": [
+          "api.graffiticode.org",
+          "auth.graffiticode.org",
+          "broker-faults-sja7fatcta-uc.a.run.app",
+          "broker-sja7fatcta-uc.a.run.app",
+          "policy-sja7fatcta-uc.a.run.app",
+          "www.googleapis.com"
+        ]
+      }
+    },
     "l0177r": {
       "runtimeServiceAccount": "l0177r-run@graffiticode.iam.gserviceaccount.com",
       "network": {

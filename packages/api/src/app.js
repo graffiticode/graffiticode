@@ -12,6 +12,7 @@ import { cacheVerifications } from "@graffiticode/common/verified-tokens";
 import { buildCompile, buildInterpreter, buildCommandStart } from "./comp.js";
 import { buildPolicyCommands } from "./commands/policy-commands.js";
 import { buildCommandWorker } from "./commands/worker.js";
+import { parseCommandFaults } from "./commands/faults.js";
 import { buildCommandRouter } from "./routes/command.js";
 import { buildSweep, buildSweepAuthorizer, parseSweepConfig } from "./commands/sweep.js";
 import { buildCommandEnvelope } from "./commands/dispatch.js";
@@ -160,6 +161,8 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
           taskStorer,
           artifactStorer,
           worker,
+          // C6's drive only, and never on the production service (faults.js).
+          faults: parseCommandFaults(),
           language: {
             baseUrlFor: lang => getBaseUrlForLanguage(`L${String(lang).replace(/^L/i, "")}`),
             model: interpreter.model,
