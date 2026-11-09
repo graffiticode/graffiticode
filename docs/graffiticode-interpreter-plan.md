@@ -490,7 +490,7 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
      - A chain capturing two different items, and one mixing a snapshot with an L0176 save through a connection, is admitted with one invocation and a scope per intent. Each operation runs only under its own scope, and a mismatched credential and scope is refused.
      - A `credential: service` operation carrying a connection is refused.
      - After D4, neither `l0013-run` nor `l0013r-run` can write the bucket.
-6. **C6 L0176:**
+6. **C6 L0176:** saves as commands are planned in [c6-l0176-commands-plan.md](c6-l0176-commands-plan.md) (part 1); interpretation of reads is part 2.
    - Signing only in `present` mode, unsigned in `evaluate`.
    - Read-stage signing and `/preview/sign` become `get`.
    - `save-to-itembank` becomes a `start` command (needs B5 and Track D; repair needs B6). This needs a `REGISTRY_VERSION` bump under P1b.
