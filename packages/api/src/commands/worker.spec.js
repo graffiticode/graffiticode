@@ -27,6 +27,7 @@ import {
 import { createMemoryReceiptStore, createReceiptReader, argsDigest } from "@graffiticode/broker";
 import { buildCommandWorker } from "./worker.js";
 import { buildSweep } from "./sweep.js";
+import { buildCommandBridge, buildCompileEnvelope } from "./bridge.js";
 import { PolicyRefused } from "./policy-commands.js";
 import { buildMemoryArtifactStorer } from "../storage/artifacts.js";
 
@@ -69,6 +70,8 @@ const client = () => {
   return {
     read: as(({ commandId, what, stage = null }) => policy.commandRead({ caller: GATEWAY, commandId, what, stage })),
     due: as(({ limit = 20 } = {}) => policy.dueCommands({ caller: GATEWAY, limit })),
+    allocate: as(({ connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true }) =>
+      policy.allocateCommand({ caller: GATEWAY, user: { uid: OWNER }, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create })),
     lease: as(({ commandId, worker, generation, takeOver = false }) => policy.leaseCommand({ caller: GATEWAY, commandId, worker, generation, takeOver })),
     installModel: write("installModel"),
     admit: as(({ commandId, generation, taskIds, stages }) => policy.admitCommand({ caller: GATEWAY, commandId, generation, taskIds, stages })),
@@ -383,5 +386,42 @@ describe("a save past the bound", () => {
     const { commandId, generation } = await allocate();
     expect(await workerAs("w1", atBound)({ commandId, generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
     expect(provider).toHaveLength(BOUND);
+  });
+});
+
+// C6 slice 2: a compile through a connection whose chain is eligible runs as
+// a command and answers in today's compile envelope.
+describe("the compile-to-command bridge", () => {
+  const bridgeAs = name => buildCommandBridge({
+    eligible: async () => true,
+    getRunner: () => ({ policy: client(), run: workerAs(name), worker: name }),
+    compileEnvelope: buildCompileEnvelope({ policy: client() }),
+  });
+  const compile = (key = "save:item-1") => bridgeAs("w1")({ tasks: [TASKS["task-save"], TASKS["task-data"]], id: CHAIN, authToken: "t", connectionId: "conn-1", options: {}, idempotencyKey: key });
+
+  it("answers as a compile does: the head's result, and the save as an effect", async () => {
+    const envelope = await compile();
+    expect(envelope).toMatchObject({
+      data: { count: 2 },
+      errors: [],
+      effects: [{ fn: "save-to-itembank", op: WRITE, status: "succeeded", steps: ["questions"], stage: "s0" }],
+    });
+    expect(envelope.effects[0].replayed).toBeUndefined();
+    expect(provider).toHaveLength(1);
+  });
+
+  it("answers a retry with the same key from the record, its write replayed and not repeated", async () => {
+    await compile();
+    const again = await compile();
+    expect(again).toMatchObject({ data: { count: 2 }, errors: [], effects: [{ status: "succeeded", replayed: true }] });
+    expect(provider).toHaveLength(1);
+  });
+
+  it("reports a lost answer as a compile would: no data, an error, the write uncertain", async () => {
+    faults.loseAfterWrite = true;
+    const envelope = await compile();
+    expect(envelope.data).toBeUndefined();
+    expect(envelope.errors[0]).toMatchObject({ code: "command-not-completed" });
+    expect(envelope.effects[0].status).toBe("uncertain");
   });
 });
