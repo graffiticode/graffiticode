@@ -21,6 +21,16 @@ export const LEASE_RENEW_MS = 20_000;
 const LOST_OWNERSHIP = new Set(["stale-generation", "lease-expired", "command-finished"]);
 const sha256 = text => createHash("sha256").update(text, "utf8").digest("hex");
 
+// A stage's answer was lost and the stage can be asked again (it has no
+// effects, or its runtime expansion is still open and its bound occurrences
+// replay): the command stays pending, and recovery continues it.
+export class ResumeLater extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ResumeLater";
+  }
+}
+
 export class OwnershipLost extends Error {
   constructor(reason) {
     super(`this worker no longer owns the command (${reason})`);
@@ -36,7 +46,7 @@ const failed = answer => Boolean(answer?.responseLost) || (Array.isArray(answer?
 // `language`: { model, preflight, interpret, start, baseUrlFor } for the
 // stages' services. `artifactStorer`: storage/artifacts.js.
 export const buildCommandWorker = ({
-  policy, taskStorer, language, artifactStorer, worker, renewEveryMs = LEASE_RENEW_MS,
+  policy, taskStorer, language, artifactStorer, worker, renewEveryMs = LEASE_RENEW_MS, faults = null,
   setInterval: every = setInterval, clearInterval: stopEvery = clearInterval,
   log = line => console.log(line),
 }) => async ({ commandId, generation }) => {
@@ -86,6 +96,10 @@ export const buildCommandWorker = ({
     if (e instanceof OwnershipLost) {
       log(`WARN command ${commandId}: stopped, ${e.message}`);
       return { commandId, status: "pending", lost: e.reason };
+    }
+    if (e instanceof ResumeLater) {
+      log(`WARN command ${commandId}: left pending for recovery, ${e.message}`);
+      return { commandId, status: "pending", resume: true };
     }
     throw e;
   } finally {
@@ -161,7 +175,7 @@ export const buildCommandWorker = ({
         const answer = await language.interpret({ lang: admitted.lang, model, input, mode: "evaluate", baseUrl: admitted.tagUrl });
         // A stage with no effects is safe to ask again: a lost answer leaves
         // the command pending for recovery, never failed.
-        if (answer?.responseLost) throw new Error(`command ${id}: ${stage} got no answer`);
+        if (answer?.responseLost) throw new ResumeLater(`${stage} got no answer`);
         if (failed(answer)) return stop();
         input = envelopeOf(answer);
         continue;
@@ -181,9 +195,28 @@ export const buildCommandWorker = ({
         await step(() => policy.settle({ commandId: id, generation: g }));
         return stop();
       }
-      const answer = await language.start({ lang: admitted.lang, model, input: JSON.parse(pinned.text), commandSession: sessionToken, stage, baseUrl: admitted.tagUrl });
+      let answer = await language.start({ lang: admitted.lang, model, input: JSON.parse(pinned.text), commandSession: sessionToken, stage, baseUrl: admitted.tagUrl });
+      // The drive's faults (faults.js), never set in production: the writes
+      // have run, and the worker dies, or the head's answer is lost.
+      if (faults?.appliesTo(state.uid) && !answer?.responseLost) {
+        if (faults.exitAfterWrite) {
+          log(`WARN command ${id}: fault exit-after-write`);
+          faults.exit();
+          throw new Error(`command ${id}: the worker's process exited (fault)`);
+        }
+        if (faults.loseHeadAnswer && position === stages.length - 1) {
+          log(`WARN command ${id}: fault lose-head-answer`);
+          answer = { responseLost: true };
+        }
+      }
       if (answer?.responseLost) {
         await step(() => policy.settle({ commandId: id, generation: g }));
+        // A runtime expansion closes only from the stage's own answer, so an
+        // open one can't be settled done (B5 fix G): it is resumed instead.
+        // Recovery re-runs start on the pinned input; the occurrences already
+        // bound present their recorded ids and the Broker replays them with no
+        // provider call, and the expansion continues and closes.
+        if (admitted.intents.some(i => i.runtime)) throw new ResumeLater(`${stage}'s answer was lost with its expansion open`);
         await step(() => policy.lost({ commandId: id, generation: g, stage }));
         return stop();
       }

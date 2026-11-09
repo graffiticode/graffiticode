@@ -26,6 +26,7 @@ import {
 } from "@graffiticode/policy";
 import { createMemoryReceiptStore, createReceiptReader, argsDigest } from "@graffiticode/broker";
 import { buildCommandWorker } from "./worker.js";
+import { parseCommandFaults } from "./faults.js";
 import { buildSweep } from "./sweep.js";
 import { buildCommandBridge, buildCompileEnvelope } from "./bridge.js";
 import { PolicyRefused } from "./policy-commands.js";
@@ -256,6 +257,53 @@ describe("recovery", () => {
   });
 });
 
+// The activation drive's faults (faults.js), as api-drive sets them: they act
+// only for their principals, and recovery is the ordinary path.
+describe("the drive's worker faults", () => {
+  const exited = () => { throw new Error("the process exited"); };
+  const withFaults = (name, env) => buildCommandWorker({
+    policy: client(),
+    taskStorer,
+    language,
+    artifactStorer: artifacts,
+    worker: name,
+    faults: parseCommandFaults({ K_SERVICE: "api-drive", ...env }, { exit: exited }),
+    setInterval: () => null,
+    clearInterval: () => {},
+    log: () => {},
+  });
+
+  it("exit-after-write: the worker dies after its write, and the next owner completes it with no repeated write", async () => {
+    const { commandId, generation } = await allocate();
+    await expect(withFaults("w1", { API_COMMAND_FAULTS: "exit-after-write", API_COMMAND_FAULT_PRINCIPALS: OWNER })({ commandId, generation })).rejects.toThrow("exited");
+    expect(provider).toHaveLength(1);
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "state" })).status).toBe("pending");
+    const taken = await takeOver(commandId, generation, "w2");
+    expect(await workerAs("w2")({ commandId, generation: taken.generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
+    expect(provider).toHaveLength(1);
+  });
+
+  it("lose-head-answer: completed from the receipt, with no result and nothing published", async () => {
+    const { commandId, generation } = await allocate();
+    const state = await withFaults("w1", { API_COMMAND_FAULTS: "lose-head-answer", API_COMMAND_FAULT_PRINCIPALS: OWNER })({ commandId, generation });
+    expect(state).toMatchObject({ status: "completed", result: { state: "unavailable" }, publication: { state: "none" } });
+    expect(provider).toHaveLength(1);
+  });
+
+  it("acts on no other principal", async () => {
+    const { commandId, generation } = await allocate();
+    const state = await withFaults("w1", { API_COMMAND_FAULTS: "exit-after-write,lose-head-answer", API_COMMAND_FAULT_PRINCIPALS: "0xsomeone-else" })({ commandId, generation });
+    expect(state).toMatchObject({ status: "completed", result: { state: "available" } });
+  });
+
+  it("is refused on the production service, unknown, or without principals, and absent when unset", () => {
+    expect(() => parseCommandFaults({ K_SERVICE: "api", API_COMMAND_FAULTS: "exit-after-write", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("production");
+    expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "drop-everything", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("unknown");
+    expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "exit-after-write" })).toThrow("PRINCIPALS");
+    expect(parseCommandFaults({ K_SERVICE: "api" })).toBeNull();
+  });
+});
+
 describe("outcomes", () => {
   it("is completed with no result, and publishes nothing, when the head's answer was lost after its write", async () => {
     const { commandId, generation } = await allocate();
@@ -350,6 +398,67 @@ describe("a save past the bound", () => {
       return { data: { saved: performed.length }, errors, occurrences: { "save:1": performed } };
     },
   };
+
+  // The same expansion within its bound, whose answer can be lost once.
+  const roomy = {
+    ...expanding,
+    model: async args => {
+      const out = await expanding.model(args);
+      if (args.lang === "0176") out.model.intents[0].bounds.maxOccurrences = 10;
+      return out;
+    },
+    start: async args => {
+      const answer = await expanding.start(args);
+      if (faults.loseExpandingAnswer) {
+        faults.loseExpandingAnswer = false;
+        return { errors: [{ message: "lost" }], responseLost: true };
+      }
+      return answer;
+    },
+  };
+
+  it("leaves a lost answer with its expansion open pending, and recovery resumes the stage to completed with no repeated write", async () => {
+    const { commandId, generation } = await allocate();
+    faults.loseExpandingAnswer = true;
+    // Every save ran; only the answer, which closes the expansion, was lost.
+    expect(await workerAs("w1", roomy)({ commandId, generation })).toMatchObject({ status: "pending", resume: true });
+    expect(provider).toHaveLength(3);
+    const taken = await takeOver(commandId, generation, "w2");
+    const state = await workerAs("w2", roomy)({ commandId, generation: taken.generation });
+    expect(state).toMatchObject({ status: "completed", result: { state: "available" }, publication: { state: "published" } });
+    expect(provider).toHaveLength(3);
+    expect((await current()).artifact.content).toEqual({ saved: 3 });
+  });
+
+  it("the sweeper resumes it with no caller retry", async () => {
+    const { commandId, generation } = await allocate();
+    faults.loseExpandingAnswer = true;
+    await workerAs("w1", roomy)({ commandId, generation });
+    clock += COMMAND_LEASE_MS + 1;
+    const sweep = buildSweep({ policy: client(), run: workerAs("sweeper", roomy), worker: "sweeper", log: () => {} });
+    await sweep();
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "state" })).status).toBe("completed");
+    expect(provider).toHaveLength(3);
+  });
+
+  it("the drive's lose-head-answer fault leaves it pending too, and an unfaulted owner completes it", async () => {
+    const { commandId, generation } = await allocate();
+    const faulted = buildCommandWorker({
+      policy: client(),
+      taskStorer,
+      language: roomy,
+      artifactStorer: artifacts,
+      worker: "w1",
+      faults: parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "lose-head-answer", API_COMMAND_FAULT_PRINCIPALS: OWNER }),
+      setInterval: () => null,
+      clearInterval: () => {},
+      log: () => {},
+    });
+    expect(await faulted({ commandId, generation })).toMatchObject({ status: "pending", resume: true });
+    const taken = await takeOver(commandId, generation, "w2");
+    expect(await workerAs("w2", roomy)({ commandId, generation: taken.generation })).toMatchObject({ status: "completed", result: { state: "available" } });
+    expect(provider).toHaveLength(3);
+  });
 
   it("ends partial: the saves within the bound written once, the extra one recorded failed", async () => {
     const { commandId, generation } = await allocate();
