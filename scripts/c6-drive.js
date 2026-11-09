@@ -27,6 +27,17 @@
 //              /v1/receipts/reconcile, as the console with the canary's token.
 //              `applied` is the established completion; the command's own
 //              outcome must stay uncertain (D1).
+//   kill       api-drive with API_COMMAND_FAULTS=exit-after-write: each worker
+//              exits once its stage's writes have run. The production
+//              sweeper must take each command over and finish it completed,
+//              with one receipt per write (none repeated).
+//   lost-head  api-drive with API_COMMAND_FAULTS=lose-head-answer: each
+//              command ends completed with no result (result unavailable).
+//   revoke     no faults: a save inside a 10-element map; once its first write
+//              is claimed, the canary narrows its own connection to `init`
+//              (Policy's console routes), and restores it after. The command
+//              ends partial: the saves before the narrowing completed, the
+//              rest failed by Policy's refusal, nothing repeated.
 // The rule throughout: every provider reference is unique to its operation,
 // so no write was repeated.
 //
@@ -37,7 +48,7 @@
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http, serviceEnv } from "./lib/canary-env.js";
 
 const args = process.argv.slice(2);
@@ -53,8 +64,8 @@ const region = flag("--region", "us-central1");
 const stateFile = flag("--state", new URL("../.gc-deploy/c6-drive/state.json", import.meta.url).pathname);
 const gatewayAccount = "api-run@graffiticode.iam.gserviceaccount.com";
 const consoleAccount = flag("--console-account", "console-run@graffiticode-app.iam.gserviceaccount.com");
-if (!["checks", "clean", "retries", "faults", "reconcile"].includes(phase)) {
-  console.error("usage: node scripts/c6-drive.js --phase checks|clean|retries|faults|reconcile [--count N]");
+if (!["checks", "clean", "retries", "faults", "reconcile", "kill", "lost-head", "revoke"].includes(phase)) {
+  console.error("usage: node scripts/c6-drive.js --phase checks|clean|retries|faults|reconcile|kill|lost-head|revoke [--count N]");
   process.exit(2);
 }
 
@@ -129,6 +140,7 @@ const SHAPES = {
   one: { writes: 1, src: tag => `set-var "lrn-id" "${tag}" save-to-itembank items [${ITEM}] {}..` },
   two: { writes: 2, src: tag => `set-var "lrn-id" "${tag}" [save-to-itembank items [${ITEM}] {} save-to-itembank items [${ITEM}] {}]..` },
   map: { writes: 2, src: tag => `set-var "lrn-id" "${tag}" map (<x: save-to-itembank items [${ITEM}] {}>) [1 2]..` },
+  long: { writes: 10, src: tag => `set-var "lrn-id" "${tag}" map (<x: save-to-itembank items [${ITEM}] {}>) [1 2 3 4 5 6 7 8 9 10]..` },
 };
 
 const results = [];
@@ -299,6 +311,159 @@ if (phase === "clean" || phase === "faults") {
     record("16 concurrent duplicates make one command with one write", ids.size === 1 && read?.outcomes?.length === 1 && read?.record?.status === "completed",
       `${ids.size} command id(s), ${read?.outcomes?.length ?? 0} outcome(s), ${read?.record?.status}; refused: ${answers.filter(a => !a.commandId).map(a => a.status).join(" ") || "none"}`);
   }
+}
+
+// Broker's write claims for an invocation (the broker database), by operation id.
+const claimsOf = async invocationId => {
+  operatorToken ??= await gcloud(["auth", "print-access-token"]);
+  const range = (op, value) => ({ fieldFilter: { field: { fieldPath: "operationId" }, op, value: { stringValue: value } } });
+  const where = { compositeFilter: { op: "AND", filters: [range("GREATER_THAN_OR_EQUAL", `${invocationId}/`), range("LESS_THAN", `${invocationId}/\uf8ff`)] } };
+  const structuredQuery = { from: [{ collectionId: "receipts" }], where, select: { fields: [{ fieldPath: "operationId" }] } };
+  const url = `https://firestore.googleapis.com/v1/projects/${project}/databases/broker/documents:runQuery`;
+  const res = await http({ method: "POST", url, headers: { Authorization: `Bearer ${operatorToken}` }, body: { structuredQuery } });
+  return (Array.isArray(res.json) ? res.json : []).filter(r => r.document).map(r => r.document.fields.operationId.stringValue);
+};
+const commandIdFor = key => `c:${createHash("sha256").update(JSON.stringify([uid, key])).digest("hex")}`;
+const apiFaults = (route.apiEnv.API_COMMAND_FAULTS ?? "").split(",").filter(Boolean);
+
+// A worker fault: the commands' own requests may fail (the worker died), so
+// each is read from its record once it is no longer pending.
+if (phase === "kill" || phase === "lost-head") {
+  if (!state.checks?.ok) throw new Error("run --phase checks first; it must pass");
+  const fault = phase === "kill" ? "exit-after-write" : "lose-head-answer";
+  if (JSON.stringify(apiFaults) !== JSON.stringify([fault])) throw new Error(`the ${phase} phase needs api-drive's API_COMMAND_FAULTS=${fault} alone, not ${apiFaults.join(",") || "unset"}`);
+  if (route.apiEnv.API_COMMAND_FAULT_PRINCIPALS !== uid) throw new Error("api-drive's faults must name the canary alone");
+  if (brokerFault) throw new Error(`broker-faults has BROKER_FAULTS=${brokerFault}; unset it first`);
+  const count = Number(flag("--count", 3));
+  const shapes = ["one", "two", "map"];
+  const expect = phase === "kill" ? { status: "completed", result: "available" } : { status: "completed", result: "unavailable" };
+  for (let n = 0; n < count; n++) {
+    const shape = shapes[n % shapes.length];
+    const tag = `c6drive-${runId}-${state.commands.length}`;
+    const id = await postTask(SHAPES[shape].src(tag));
+    const key = `c6-drive:${runId}:${state.commands.length}`;
+    const answer = await send({ id, key, via: "command" }).catch(e => ({ status: null, error: String(e?.message ?? e) }));
+    const commandId = commandIdFor(key);
+    // The sweeper runs each minute and a dead worker's lease lasts 60 s.
+    let read = await commandRecord(commandId);
+    for (let i = 0; i < 60 && (!read.record || read.record.status === "pending" || read.record.publication?.state === "due"); i++) {
+      await sleep(5000);
+      read = await commandRecord(commandId);
+    }
+    const claims = read.record?.invocationId ? await claimsOf(read.record.invocationId) : [];
+    const entry = {
+      key,
+      id,
+      via: "command",
+      shape,
+      writes: SHAPES[shape].writes,
+      phase,
+      fault,
+      httpStatus: answer.status,
+      commandId,
+      status: read.record?.status ?? null,
+      result: read.record?.result?.state ?? null,
+      generation: read.record?.owner?.generation ?? read.record?.generation ?? null,
+      finishedBy: read.record?.owner?.worker ?? null,
+      revision: read.record?.admission?.stages?.s0?.revision ?? null,
+      outcomes: read.outcomes.map(o => ({ outcome: o.outcome, source: o.source, receipt: o.receipt ?? null })),
+      claims: claims.length,
+      references: read.result?.text ? referencesIn(JSON.parse(read.result.text)) : [],
+    };
+    entry.ok = entry.status === expect.status && entry.result === expect.result && entry.claims === entry.writes &&
+      entry.outcomes.length === entry.writes && entry.outcomes.every(o => o.outcome === "completed" && o.source === "receipt") &&
+      (phase === "lost-head" || (entry.references.length === entry.writes && /^api-/.test(entry.finishedBy ?? "") && !/^api-drive/.test(entry.finishedBy ?? "")));
+    state.commands.push(entry);
+    console.log(`  ${state.commands.length - 1} ${shape}: http ${entry.httpStatus}; ${entry.status}, result ${entry.result}, ${entry.claims} claim(s) for ${entry.writes} write(s), finished by ${entry.finishedBy}`);
+    await save();
+  }
+  const mine = state.commands.filter(c => c.phase === phase && c.key.includes(runId));
+  record(phase === "kill"
+    ? "a worker killed after its writes: the production sweeper finished each command completed, one receipt per write"
+    : "a lost head answer: each command completed from its receipts, with no result",
+  mine.length === count && mine.every(c => c.ok), `${mine.filter(c => c.ok).length}/${count}`);
+}
+
+// Revocation mid-command: narrow the canary's own connection once the first
+// write is claimed, then restore exactly what was there.
+if (phase === "revoke") {
+  if (!state.checks?.ok) throw new Error("run --phase checks first; it must pass");
+  if (apiFaults.length || brokerFault) throw new Error("the revoke phase needs no api-drive or broker-faults fault set");
+  const policyUrl = "https://policy-sja7fatcta-uc.a.run.app";
+  const asConsole = async () => ({
+    "X-Serverless-Authorization": `Bearer ${await idToken(consoleAccount, policyUrl)}`,
+    "X-Caller-Identity": await idToken(consoleAccount, "urn:graffiticode:policy"),
+  });
+  const manage = async (method, p, body) => { await refreshUser(); return http({ method, url: `${policyUrl}${p}`, headers: { ...(await asConsole()), ...asUser() }, body }); };
+  const permissions = async () => {
+    const listed = await manage("GET", "/v1/connections");
+    const mine = Array.isArray(listed.json?.data) ? listed.json.data.find(c => c.connectionId === connectionId) : null;
+    if (!mine) throw new Error(`GET /v1/connections: ${listed.status}, ${connectionId} not listed`);
+    return mine.ownerPermissions ?? null;
+  };
+  const setPermissions = async list => {
+    const res = await manage("PUT", `/v1/connections/${encodeURIComponent(connectionId)}/owner-permissions`, { permissions: list });
+    if (res.status !== 200) throw new Error(`PUT owner-permissions: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+  };
+  const count = Number(flag("--count", 2));
+  const saved = await permissions();
+  console.log(`  owner permissions before: ${JSON.stringify(saved)}`);
+  try {
+    for (let n = 0; n < count; n++) {
+      const tag = `c6drive-${runId}-${state.commands.length}`;
+      const id = await postTask(SHAPES.long.src(tag));
+      const key = `c6-drive:${runId}:${state.commands.length}`;
+      const commandId = commandIdFor(key);
+      const pending = send({ id, key, via: "command" }).catch(e => ({ status: null, error: String(e?.message ?? e) }));
+      // The first write claimed: then narrow.
+      let claimsAtNarrow = 0;
+      for (let i = 0; i < 240; i++) {
+        const rec = await firestore("policy", `commands/${encodeURIComponent(commandId)}`);
+        if (rec?.invocationId) {
+          claimsAtNarrow = (await claimsOf(rec.invocationId)).length;
+          if (claimsAtNarrow > 0) break;
+        }
+        await sleep(250);
+      }
+      await setPermissions([{ lang: "0176", fn: "init" }]);
+      const answer = await pending;
+      await setPermissions(saved);
+      const read = await settled(commandId);
+      const claims = read.record?.invocationId ? await claimsOf(read.record.invocationId) : [];
+      const outcomes = read.outcomes.map(o => ({ outcome: o.outcome, source: o.source, reason: o.reason ?? null }));
+      const refusals = (await firestore("policy", `commands/${encodeURIComponent(commandId)}/refusals`)) ?? [];
+      const completed = outcomes.filter(o => o.outcome === "completed" && o.source === "receipt").length;
+      const entry = {
+        key,
+        id,
+        via: "command",
+        shape: "long",
+        writes: completed,
+        phase,
+        httpStatus: answer.status,
+        commandId,
+        claimsAtNarrow,
+        status: read.record?.status ?? null,
+        result: read.record?.result?.state ?? null,
+        outcomes,
+        refusals: refusals.length,
+        claims: claims.length,
+        references: read.result?.text ? referencesIn(JSON.parse(read.result.text)) : [],
+      };
+      // Partial: some written once each, the rest refused by Policy, never written.
+      entry.ok = entry.status === "partial" && completed >= 1 && completed < 10 && claims.length === completed &&
+        outcomes.some(o => o.outcome === "failed" && o.source === "policy-refusal");
+      state.commands.push(entry);
+      console.log(`  ${state.commands.length - 1} long: http ${entry.httpStatus}; ${entry.status}; narrowed at ${claimsAtNarrow} claim(s); ${completed} completed, ${outcomes.filter(o => o.outcome === "failed").length} failed (${[...new Set(outcomes.map(o => o.source + ":" + (o.reason ?? "")))].join(" ")}), ${entry.refusals} refusal record(s); ${claims.length} claim(s)`);
+      await save();
+    }
+  } finally {
+    await setPermissions(saved);
+    const now = await permissions();
+    record("the canary connection's owner permissions restored exactly", JSON.stringify(now) === JSON.stringify(saved), JSON.stringify(now));
+  }
+  const mine = state.commands.filter(c => c.phase === phase && c.key.includes(runId));
+  record("revocation mid-command: partial, the saves before it written once, the rest refused unwritten", mine.length === count && mine.every(c => c.ok), `${mine.filter(c => c.ok).length}/${count}`);
 }
 
 // Every tenth clean command of every run, retried.

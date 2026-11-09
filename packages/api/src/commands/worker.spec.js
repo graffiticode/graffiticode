@@ -26,6 +26,7 @@ import {
 } from "@graffiticode/policy";
 import { createMemoryReceiptStore, createReceiptReader, argsDigest } from "@graffiticode/broker";
 import { buildCommandWorker } from "./worker.js";
+import { parseCommandFaults } from "./faults.js";
 import { buildSweep } from "./sweep.js";
 import { buildCommandBridge, buildCompileEnvelope } from "./bridge.js";
 import { PolicyRefused } from "./policy-commands.js";
@@ -253,6 +254,53 @@ describe("recovery", () => {
     const taken = await takeOver(commandId, generation, "w2");
     expect(await workerAs("w2")({ commandId, generation: taken.generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
     expect((await current()).artifact.content).toEqual({ count: 2 });
+  });
+});
+
+// The activation drive's faults (faults.js), as api-drive sets them: they act
+// only for their principals, and recovery is the ordinary path.
+describe("the drive's worker faults", () => {
+  const exited = () => { throw new Error("the process exited"); };
+  const withFaults = (name, env) => buildCommandWorker({
+    policy: client(),
+    taskStorer,
+    language,
+    artifactStorer: artifacts,
+    worker: name,
+    faults: parseCommandFaults({ K_SERVICE: "api-drive", ...env }, { exit: exited }),
+    setInterval: () => null,
+    clearInterval: () => {},
+    log: () => {},
+  });
+
+  it("exit-after-write: the worker dies after its write, and the next owner completes it with no repeated write", async () => {
+    const { commandId, generation } = await allocate();
+    await expect(withFaults("w1", { API_COMMAND_FAULTS: "exit-after-write", API_COMMAND_FAULT_PRINCIPALS: OWNER })({ commandId, generation })).rejects.toThrow("exited");
+    expect(provider).toHaveLength(1);
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "state" })).status).toBe("pending");
+    const taken = await takeOver(commandId, generation, "w2");
+    expect(await workerAs("w2")({ commandId, generation: taken.generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
+    expect(provider).toHaveLength(1);
+  });
+
+  it("lose-head-answer: completed from the receipt, with no result and nothing published", async () => {
+    const { commandId, generation } = await allocate();
+    const state = await withFaults("w1", { API_COMMAND_FAULTS: "lose-head-answer", API_COMMAND_FAULT_PRINCIPALS: OWNER })({ commandId, generation });
+    expect(state).toMatchObject({ status: "completed", result: { state: "unavailable" }, publication: { state: "none" } });
+    expect(provider).toHaveLength(1);
+  });
+
+  it("acts on no other principal", async () => {
+    const { commandId, generation } = await allocate();
+    const state = await withFaults("w1", { API_COMMAND_FAULTS: "exit-after-write,lose-head-answer", API_COMMAND_FAULT_PRINCIPALS: "0xsomeone-else" })({ commandId, generation });
+    expect(state).toMatchObject({ status: "completed", result: { state: "available" } });
+  });
+
+  it("is refused on the production service, unknown, or without principals, and absent when unset", () => {
+    expect(() => parseCommandFaults({ K_SERVICE: "api", API_COMMAND_FAULTS: "exit-after-write", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("production");
+    expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "drop-everything", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("unknown");
+    expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "exit-after-write" })).toThrow("PRINCIPALS");
+    expect(parseCommandFaults({ K_SERVICE: "api" })).toBeNull();
   });
 });
 

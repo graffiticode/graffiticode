@@ -36,7 +36,7 @@ const failed = answer => Boolean(answer?.responseLost) || (Array.isArray(answer?
 // `language`: { model, preflight, interpret, start, baseUrlFor } for the
 // stages' services. `artifactStorer`: storage/artifacts.js.
 export const buildCommandWorker = ({
-  policy, taskStorer, language, artifactStorer, worker, renewEveryMs = LEASE_RENEW_MS,
+  policy, taskStorer, language, artifactStorer, worker, renewEveryMs = LEASE_RENEW_MS, faults = null,
   setInterval: every = setInterval, clearInterval: stopEvery = clearInterval,
   log = line => console.log(line),
 }) => async ({ commandId, generation }) => {
@@ -181,7 +181,20 @@ export const buildCommandWorker = ({
         await step(() => policy.settle({ commandId: id, generation: g }));
         return stop();
       }
-      const answer = await language.start({ lang: admitted.lang, model, input: JSON.parse(pinned.text), commandSession: sessionToken, stage, baseUrl: admitted.tagUrl });
+      let answer = await language.start({ lang: admitted.lang, model, input: JSON.parse(pinned.text), commandSession: sessionToken, stage, baseUrl: admitted.tagUrl });
+      // The drive's faults (faults.js), never set in production: the writes
+      // have run, and the worker dies, or the head's answer is lost.
+      if (faults?.appliesTo(state.uid) && !answer?.responseLost) {
+        if (faults.exitAfterWrite) {
+          log(`WARN command ${id}: fault exit-after-write`);
+          faults.exit();
+          throw new Error(`command ${id}: the worker's process exited (fault)`);
+        }
+        if (faults.loseHeadAnswer && position === stages.length - 1) {
+          log(`WARN command ${id}: fault lose-head-answer`);
+          answer = { responseLost: true };
+        }
+      }
       if (answer?.responseLost) {
         await step(() => policy.settle({ commandId: id, generation: g }));
         await step(() => policy.lost({ commandId: id, generation: g, stage }));
