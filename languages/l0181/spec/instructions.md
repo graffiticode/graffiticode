@@ -32,6 +32,12 @@ cards [["hola" "hello"] ["adiós" "goodbye"]] title "Spanish Vocab" {}..
 
 ## Guidelines
 
+- **Always give the deck a `title`** — the author's own if they named it ("titled…",
+  "called…"), otherwise a short one from the subject.
+- **`instructions` only when the request asks for them** — when the author says what the
+  learner should be told ("with instructions…", "tell students to…"). Otherwise leave it out:
+  do not add a stock line like "Flip each card to check yourself." The same request should
+  produce the same fields every time.
 - Each card is a two-element list, `["front" "back"]`. The front is the prompt the learner
   sees first; the back is what flipping reveals. Put the term on the front and the definition
   on the back, not the other way round.
@@ -76,11 +82,11 @@ cards [["hola" "hello"] ["adiós" "goodbye"]] title "Spanish Vocab" {}..
 
 ## Example Patterns
 
-- A bare deck:
+- A minimal deck:
   ```
-  cards [["term" "definition"]] {}..
+  cards [["term" "definition"]] title "Terms" {}..
   ```
-- Titled, with instructions:
+- With instructions (the request asked for them):
   ```
   cards [
     ["photosynthesis" "process by which plants convert light to energy"]
