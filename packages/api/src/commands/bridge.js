@@ -1,11 +1,19 @@
 // The compile-to-command bridge (D2) and what it shares with POST /command
 // (C6 plan, decisions 5 and 7; docs/c6-l0176-commands-plan.md §4).
 //
-//   eligibility(tasks) -> boolean
+//   eligibility(tasks) -> lang | false
 //     A chain is command-eligible when some stage is in a language whose
 //     COMMANDS_LNNNN is on and performs a write: its preflight manifest's
 //     requiredFunctions include a function the registry marks `write`. A chain
-//     with no write (a connection preview) is never a command.
+//     with no write (a connection preview) is never a command. Answers the
+//     first such stage's language.
+//
+//   BRIDGE_LNNNN (D4): the bridge is on unless set to "off". Off, a compile
+//   that reaches that language's write starts nothing: a key that already
+//   holds a command is answered from its record, and anything else is refused
+//   `bridge-retired`, naming POST /command. Every bridged compile logs one
+//   `bridge` line (language, outcome, key kind, user agent), the telemetry D4
+//   waits on.
 //
 //   runCommand({ ... }) -> { protocol: "legacy" | "none" } | { protocol: "command", state, reused }
 //     Allocates (or finds) the key's command and runs it when this request
@@ -27,6 +35,12 @@ import { statusUrlFor } from "./dispatch.js";
 // read per request.
 export const commandsEnabled = (lang, env = process.env) => env[`COMMANDS_L${normalizeLang(lang)}`] === "on";
 export const isWriteFunction = (lang, fn) => PROTECTED_FUNCTIONS[normalizeLang(lang)]?.[fn]?.kind === "write";
+// Whether compiles may still run a language's writes as commands (D4).
+export const bridgeEnabled = (lang, env = process.env) => env[`BRIDGE_L${normalizeLang(lang)}`] !== "off";
+// What kind of key a bridged compile carried, for the telemetry: the
+// console's (save, recompile), the canary's, a generated one (none sent), or
+// another client's.
+export const keyKindOf = key => (!key ? "generated" : (/^(save|recompile|canary|c6-drive):/.exec(key)?.[1] ?? "other"));
 
 // `preflight`: admission.js's (no effects). A stage that can't be preflighted
 // throws (PreflightUnavailable): whether to run a command can't be decided,
@@ -36,7 +50,7 @@ export const buildEligibility = ({ preflight, baseUrlFor, env = process.env }) =
     if (!commandsEnabled(task.lang, env)) continue;
     const out = await preflight({ baseUrl: await baseUrlFor(task.lang), lang: task.lang, stage: `s${index}`, code: task.code });
     const required = out?.manifest?.requiredFunctions ?? [];
-    if (required.some(fn => isWriteFunction(task.lang, fn))) return true;
+    if (required.some(fn => isWriteFunction(task.lang, fn))) return task.lang;
   }
   return false;
 };
@@ -120,36 +134,65 @@ export const buildCompileEnvelope = ({ policy }) => async ({ state, reused }) =>
 // for a key the legacy path holds (D2a), which then compile as today.
 // Refusals answer as a legacy compile's do: errors in the envelope.
 // `getRunner()`: the worker's { policy, run, worker }, once built.
-export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKey = () => `bridge:${randomUUID()}` }) =>
-  async ({ tasks, id, authToken, connectionId, options, idempotencyKey }) => {
+// `client`: the caller's user agent, for the telemetry only.
+// `log`: where the telemetry line goes (stdout, so Cloud Logging).
+export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKey = () => `bridge:${randomUUID()}`, env = process.env, log = line => console.log(line) }) =>
+  async ({ tasks, id, authToken, connectionId, options, idempotencyKey, client = null }) => {
     const runner = getRunner();
     if (!runner) return null;
     const refusal = (message, code) => ({ errors: [failure(message, code)] });
-    let isEligible;
+    let lang;
     try {
-      isEligible = await eligible(tasks);
+      lang = await eligible(tasks);
     } catch (e) {
       if (!(e instanceof PreflightUnavailable)) throw e;
       return refusal(`Error: ${e.message}`, "preflight-unavailable");
     }
-    if (!isEligible) return null;
+    if (!lang) return null;
+    const note = async outcome => {
+      try {
+        log(`bridge ${JSON.stringify({ lang: normalizeLang(lang), outcome, keyKind: keyKindOf(idempotencyKey), client })}`);
+      } catch { /* telemetry never fails the compile */ }
+    };
+    const run = create => runCommand({
+      ...runner,
+      authToken,
+      connectionId,
+      taskId: id,
+      inputDigest: inputDigest(options ?? {}),
+      idempotencyKey: idempotencyKey ?? newKey(),
+      lang: tasks[0]?.lang,
+      request: JSON.stringify({ id, connectionId, options: options ?? {} }),
+      create,
+    });
+    if (!bridgeEnabled(lang, env)) {
+      // Retired (D4): nothing new starts from a compile. A key that already
+      // holds a command is answered from its record.
+      if (idempotencyKey) {
+        let held;
+        try {
+          held = await run(false);
+        } catch (e) {
+          if (!(e instanceof PolicyRefused)) throw e;
+          held = null;
+        }
+        if (held?.protocol === "command") {
+          await note("retired-served");
+          return compileEnvelope(held);
+        }
+      }
+      await note("retired-refused");
+      return { errors: [failure(`Error: saves through POST /compile are retired for L${normalizeLang(lang)}, send them as POST /command`, "bridge-retired")] };
+    }
     let ran;
     try {
-      ran = await runCommand({
-        ...runner,
-        authToken,
-        connectionId,
-        taskId: id,
-        inputDigest: inputDigest(options ?? {}),
-        idempotencyKey: idempotencyKey ?? newKey(),
-        lang: tasks[0]?.lang,
-        request: JSON.stringify({ id, connectionId, options: options ?? {} }),
-        create: true,
-      });
+      ran = await run(true);
     } catch (e) {
       if (!(e instanceof PolicyRefused)) throw e;
+      await note(`refused:${e.reason}`);
       return refusal(`Error: permission denied (${e.reason})`, e.reason);
     }
     if (ran.protocol !== "command") return null;
+    await note(ran.state?.status ?? "pending");
     return compileEnvelope(ran);
   };

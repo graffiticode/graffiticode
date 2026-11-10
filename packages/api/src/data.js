@@ -194,6 +194,8 @@ const buildGetData = ({
   return async ({
     taskStorer, compileStorer, id, auth, authToken, options, action, refresh,
     connectionId = null, idempotencyKey = null, read = false, publicationId = null,
+    // The caller's user agent: the bridge's telemetry only (D4).
+    client = null,
     generation = /** @type {string | undefined} */ (undefined),
     // Whether the id is an item's chain plus the data task POST /compile
     // appended, so a requested generation is checked against the item's chain
@@ -327,7 +329,7 @@ const buildGetData = ({
         return { errors: [failedWith("Error: connections are not available on this server.", "connections-unavailable")] };
       }
       if (commandBridge) {
-        const bridged = await commandBridge({ tasks, id, auth, authToken, connectionId, options, idempotencyKey });
+        const bridged = await commandBridge({ tasks, id, auth, authToken, connectionId, options, idempotencyKey, client });
         if (bridged) return bridged;
       }
       try {
