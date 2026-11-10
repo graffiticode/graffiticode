@@ -4,7 +4,9 @@
 //! children by its `layout`, and its own measured extent is placed as one block by its parent.
 //!
 //! - **ROW / COLUMN** keep the written order on one line; **GRID** keeps it row by row,
-//!   `columns` to a row, each row as wide as its own cells. Children start-align on the cross axis.
+//!   `columns` to a row, each row as wide as its own cells. Across the line (or a grid row), children joined
+//!   by a connector centre the connected marks on each other, so it runs straight; the rest
+//!   start-align.
 //! - **FLOW** layers its children along `direction`: `before` orders are strict (a child is in an
 //!   earlier layer than every sibling it precedes), and connectors between children (including
 //!   ones between marks deep inside them) are preferred progression. A connector that would close
@@ -29,7 +31,8 @@ use std::collections::{BTreeMap, HashMap};
 use serde::Serialize;
 
 use crate::ir::{Board, Child, Connector, Direction, Layout, Region};
-use crate::profile::{limits, section, spacing};
+use crate::profile::{self, limits, section, spacing};
+use crate::route;
 use crate::size::Sizes;
 
 /// A rectangle in page coordinates.
@@ -129,6 +132,13 @@ struct Edge {
     connector: usize,
 }
 
+/// The room a straight connector with a label of this length needs between two marks: the
+/// label, and on either side of it a capped end's stub (`route::end_stub` for a thin stroke), so
+/// an arrowhead never meets the label. No label, no room.
+fn labelled(label: f64) -> f64 {
+    if label > 0.0 { label + 2.0 * route::end_stub(profile::stroke_width("THIN"), "ARROW_LINES") } else { 0.0 }
+}
+
 fn half(x: f64) -> f64 {
     (x / 2.0).floor()
 }
@@ -190,7 +200,7 @@ impl Context<'_> {
     /// label between them needs and the repair loop's extra.
     fn gap(&self, a: &Child, b: &Child, label: f64, region_id: &str) -> f64 {
         let base = if a.region().is_some() || b.region().is_some() { spacing::REGION_GUTTER } else { spacing::GUTTER };
-        base.max(label + spacing::GUTTER) + self.spacing.get(region_id).copied().unwrap_or(0.0)
+        base.max(labelled(label)) + self.spacing.get(region_id).copied().unwrap_or(0.0)
     }
 
     /// Lays out a region's children, returning its block (origin at its top-left).
@@ -227,8 +237,49 @@ impl Context<'_> {
         out
     }
 
-    /// ROW (`horizontal`) or COLUMN: the written order, start-aligned.
+    /// Cross-axis offsets for `members` (indices into the region's children) on one line, so that
+    /// connectors between them run straight: each member after the first lines up the centre of
+    /// its end of a connector with the centre of the other end, in a member already placed (the
+    /// nearest one first, then declaration order). A member with no such connector start-aligns
+    /// with the first. Offsets are whole pixels, the smallest 0.
+    fn align(&self, blocks: &[Block], edges: &[Edge], members: &[usize], horizontal: bool) -> HashMap<usize, f64> {
+        let centre = |i: usize, mark: &str| {
+            blocks[i]
+                .frames
+                .iter()
+                .find(|(id, _)| id == mark)
+                .map(|(_, f)| if horizontal { f.y + f.h / 2.0 } else { f.x + f.w / 2.0 })
+        };
+        let mut offset: HashMap<usize, f64> = HashMap::new();
+        for (k, &m) in members.iter().enumerate() {
+            let placed = &members[..k];
+            let mut best: Option<(usize, usize, f64)> = None;
+            for e in edges {
+                let (other, here, other_mark, here_mark) = if e.to == m && placed.contains(&e.from) {
+                    (e.from, e.to, &self.connectors[e.connector].from, &self.connectors[e.connector].to)
+                } else if e.from == m && placed.contains(&e.to) {
+                    (e.to, e.from, &self.connectors[e.connector].to, &self.connectors[e.connector].from)
+                } else {
+                    continue;
+                };
+                let (Some(there), Some(mine)) = (centre(other, other_mark), centre(here, here_mark)) else { continue };
+                let distance = k - placed.iter().position(|&p| p == other).unwrap_or(0);
+                if best.is_none_or(|(d, c, _)| (distance, e.connector) < (d, c)) {
+                    best = Some((distance, e.connector, (offset[&other] + there - mine).round()));
+                }
+            }
+            offset.insert(m, best.map_or(0.0, |(_, _, at)| at));
+        }
+        let low = offset.values().copied().fold(0.0, f64::min);
+        offset.values_mut().for_each(|v| *v -= low);
+        offset
+    }
+
+    /// ROW (`horizontal`) or COLUMN: the written order, connected marks centred on each other
+    /// across the line (`align`).
     fn line(&self, region: &Region, id: &str, blocks: &[Block], edges: &[Edge], horizontal: bool) -> Vec<(f64, f64)> {
+        let all: Vec<usize> = (0..blocks.len()).collect();
+        let cross = self.align(blocks, edges, &all, horizontal);
         let mut at = 0.0;
         let mut out = Vec::with_capacity(blocks.len());
         for (i, block) in blocks.iter().enumerate() {
@@ -241,7 +292,7 @@ impl Context<'_> {
                     .fold(0.0, f64::max);
                 at += self.gap(&region.children[i - 1], &region.children[i], label, id);
             }
-            out.push(if horizontal { (at, 0.0) } else { (0.0, at) });
+            out.push(if horizontal { (at, cross[&i]) } else { (cross[&i], at) });
             at += if horizontal { block.w } else { block.h };
         }
         out
@@ -249,7 +300,7 @@ impl Context<'_> {
 
     /// The written order, row by row, `columns` to a row. Each row is as wide as its own cells, so
     /// one wide child widens only its own row rather than its whole column; rows are as tall as
-    /// their tallest cell, cells start-align.
+    /// their tallest cell; connected cells centre on each other, the rest start-align.
     fn grid(
         &self,
         region: &Region,
@@ -266,17 +317,22 @@ impl Context<'_> {
             _ => (None, members),
         };
         let rows = members.len().div_ceil(columns);
+        // Within a row, connected cells centre on each other (`align`).
+        let mut down: HashMap<usize, f64> = HashMap::new();
+        for row in members.chunks(columns) {
+            down.extend(self.align(blocks, edges, row, true));
+        }
         let mut heights = vec![0.0f64; rows];
         for (k, &i) in members.iter().enumerate() {
-            heights[k / columns] = heights[k / columns].max(blocks[i].h);
+            heights[k / columns] = heights[k / columns].max(down[&i] + blocks[i].h);
         }
         let any_region = members.iter().any(|&i| region.children[i].region().is_some());
         let base = if any_region { spacing::REGION_GUTTER } else { spacing::GUTTER };
         let label_w = edges.iter().map(|e| e.label.0).fold(0.0, f64::max);
         let label_h = edges.iter().map(|e| e.label.1).fold(0.0, f64::max);
         let extra = self.spacing.get(id).copied().unwrap_or(0.0);
-        let gap_x = base.max(label_w + spacing::GUTTER) + extra;
-        let gap_y = base.max(label_h + spacing::GUTTER) + extra;
+        let gap_x = base.max(labelled(label_w)) + extra;
+        let gap_y = base.max(labelled(label_h)) + extra;
         let top = header.map_or(0.0, |h| blocks[h].h + gap_y);
         let ys: Vec<f64> = (0..rows)
             .scan(top, |at, r| {
@@ -291,7 +347,7 @@ impl Context<'_> {
             if k % columns == 0 {
                 x = 0.0;
             }
-            out[i] = (x, ys[k / columns]);
+            out[i] = (x, ys[k / columns] + down[&i]);
             x += blocks[i].w + gap_x;
         }
         out

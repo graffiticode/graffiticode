@@ -21,10 +21,10 @@
 //!   clearance.
 //! - **routes**: each route starts and ends at its marks' side magnets, its waypoints are its
 //!   interior points, its legs keep their band clear of every mark (their own end marks only
-//!   where they attach), and its caps clear other marks.
+//!   where they attach), its caps clear other marks, and no leg covers a section title.
 //! - **labels**: each label box is where the plugin's rule puts it (the middle leg's midpoint
-//!   after corner rounding), sized from its re-measured text, and clear of every mark, every
-//!   other label and every other connector.
+//!   after corner rounding), sized from its re-measured text, off every section title, and clear
+//!   of every mark, every other label and every other connector.
 //! - **native-text-fit**, **native-labels** (`native-unverified`): FigJam's own text layout in
 //!   shapes and its label placement cannot be observed from here; never reported as passed.
 //!
@@ -621,6 +621,9 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
             if route::section_conflict(&points, stroke, None, &section_frames, (&from, &to)).is_some() {
                 quality.section_conflicts += 1;
             }
+            if route::over_title(&points, stroke, None, &section_frames) {
+                routes.push(format!("connector {:?}: a leg runs over a section title", c.id));
+            }
             for (end, at, owner, cap) in
                 [(points[0], points[1], &c.from, &c.from_cap), (points[legs], points[legs - 1], &c.to, &c.to_cap)]
             {
@@ -664,6 +667,9 @@ pub fn validate(board: &Board, candidate: &Json) -> Report {
                                 route::CLEARANCE
                             ));
                         }
+                    }
+                    if route::over_title(&[], stroke, Some(&expect), &section_frames) {
+                        labels.push(format!("connector {:?}: its label covers a section title", c.id));
                     }
                     if route::section_conflict(&[], stroke, Some(&expect), &section_frames, (&from, &to)).is_some() {
                         quality.section_conflicts += 1;
