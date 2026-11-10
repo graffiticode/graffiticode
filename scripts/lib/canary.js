@@ -317,7 +317,36 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
     if (typeof res.json?.data?.invocationToken !== "string") throw new Error(`POST /v1/invocations: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
     return res.json.data;
   };
-  const planOf = async (taskId, idempotencyKey) => {
+  // C6: a key the compile bridge ran as a command has no legacy invocation
+  // to look up (Policy refuses that, command-protocol). Its record says what
+  // ran instead: its invocation, its admission (the plan's stages, pinned at
+  // admission) and its outcome. The compile response names the command.
+  const commandOf = res => res?.json?.data?.command?.commandId ?? null;
+  const commandState = async commandId => {
+    const res = await http({
+      method: "GET",
+      url: policy(`/v1/commands/${encodeURIComponent(commandId)}/records/state`),
+      headers: await asService(gatewayAccount, policyUrl, "urn:graffiticode:policy")
+    });
+    if (res.status !== 200 || !res.json?.data) throw new Error(`GET /v1/commands/${commandId}/records/state: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+    return res.json.data;
+  };
+  const commandPlan = admission => (admission
+    ? {
+        planDigest: admission.planDigest,
+        stages: Object.entries(admission.stages ?? {})
+          .sort(([a], [b]) => Number(a.slice(1)) - Number(b.slice(1)))
+          .map(([stage, a]) => ({ stage, lang: a.lang, revision: a.revision, tagUrl: a.tagUrl, available: typeof a.tagUrl === "string" }))
+      }
+    : null);
+  // The invocation and plan a compile ran under: its command's, when the
+  // response (`compiled`) names one, else the gateway's invocation for the key.
+  const planOf = async (taskId, idempotencyKey, compiled = null) => {
+    const commandId = commandOf(compiled);
+    if (commandId) {
+      const state = await commandState(commandId);
+      return { invocation: { reused: true, contract: 2, invocationId: state.invocationId, command: state }, plan: commandPlan(state.admission) };
+    }
     const invocation = await allocate({ taskId, idempotencyKey });
     const res = await http({
       method: "POST",
@@ -346,7 +375,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       if (!record("retry across a deploy: deployed", Boolean(now) && now !== pending.revision,
         now === pending.revision ? `L0176 still serves ${now}, the revision the write was pinned to; deploy L0176, then run the canary again` : `pinned ${pending.revision}, serving ${now}`)) return;
       const again = await compile(pending.taskId, pending.key);
-      const { plan } = await planOf(pending.taskId, pending.key);
+      const { plan } = await planOf(pending.taskId, pending.key, again);
       const samePlan = plan?.planDigest === pending.planDigest && plan.stages.every(s => s.revision === pending.revision);
       const ok = isWrite(again) && isReplayedWrite(again) && samePlan;
       record("retry across a deploy", ok, ok
@@ -379,7 +408,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
     const first = await compile(saveTaskId, key);
     const ok = first.status === 200 && errorsOf(first).length === 0 && hasSavedItem(first.json?.data);
     if (!record("gateway write", ok, ok ? "draft saved through the connection" : `${first.status} ${JSON.stringify(errorsOf(first))}`)) return;
-    savedWrite = { references: savedItemReferences(first.json?.data), signature: signedPreviewRequest(first.json?.data)?.security?.signature ?? null };
+    savedWrite = { references: savedItemReferences(first.json?.data), signature: signedPreviewRequest(first.json?.data)?.security?.signature ?? null, response: first };
     const wrote = saveEffects(first);
     record("gateway write effects", wrote.length === 1 && wrote[0].status === "succeeded" && !wrote[0].replayed && Array.isArray(wrote[0].steps) && wrote[0].steps.length > 0,
       describeEffects(wrote));
@@ -391,7 +420,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       describeEffects(replayed));
     if (!chainAdmission) return;
     // W4: that write ran under a plan, pinned to approved revisions.
-    const { invocation, plan } = await planOf(saveTaskId, key);
+    const { invocation, plan } = await planOf(saveTaskId, key, first);
     // Evidence, not assumption: without the serving revision the check fails.
     const serving = servingRevision ? await servingRevision("0176") : null;
     const l0176 = plan ? plan.stages.filter(s => s.lang === "0176") : [];
@@ -491,7 +520,9 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       // stored artifact, keyed `read.<the write's invocation>`. Both lookups
       // must find an existing invocation, or the controls can't be tied to
       // these views.
-      const writeInvocation = await allocate({ taskId: saveTaskId, idempotencyKey: saveKey });
+      const { invocation: writeInvocation } = commandOf(savedWrite.response)
+        ? await planOf(saveTaskId, saveKey, savedWrite.response)
+        : { invocation: await allocate({ taskId: saveTaskId, idempotencyKey: saveKey }) };
       const readInvocation = await allocate({ taskId: saveTaskId, idempotencyKey: `read.${writeInvocation.invocationId}` });
       if (writeInvocation.reused !== true || readInvocation.reused !== true) {
         record("saved read: audit", false, writeInvocation.reused !== true ? "the write's invocation wasn't found" : "the views' invocation wasn't found");
@@ -538,7 +569,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       const chainId = res.json?.id;
       if (!record("chain admission: L0000 stage: compiled", res.status === 200 && errors.length === 0 && hasSignedRequest(res.json?.data) && typeof chainId === "string",
         res.status === 200 && errors.length === 0 ? (hasSignedRequest(res.json?.data) ? "signed preview returned" : "no signed request in the output") : `${res.status} ${JSON.stringify(errors)}`)) return;
-      const { invocation, plan } = await planOf(chainId, key);
+      const { invocation, plan } = await planOf(chainId, key, res);
       const serving = { "0176": servingRevision ? await servingRevision("0176") : null, "0000": servingRevision ? await servingRevision("0000") : null };
       const langs = plan ? plan.stages.map(s => s.lang) : [];
       const ok = invocation.reused === true && allPinned(plan) && JSON.stringify(langs) === JSON.stringify(["0176", "0000"]) &&
@@ -592,10 +623,17 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
         const res = await compile(chainId, key);
         const errors = errorsOf(res);
         const effects = Array.isArray(res.json?.data?.effects) ? res.json.data.effects : [];
-        const { plan } = await planOf(chainId, key);
-        const ok = res.status === 200 && errors.some(e => e?.code === "not-granted") && effects.length === 0 &&
+        const { invocation, plan } = await planOf(chainId, key, res);
+        // As a command (C6), the refusal at admission finishes it failed,
+        // never admitted; the response says the command failed (its reason
+        // isn't in the answer).
+        const command = invocation.command ?? null;
+        const refused = command
+          ? command.status === "failed" && command.admission === null && errors.some(e => e?.code === "command-not-completed")
+          : errors.some(e => e?.code === "not-granted");
+        const ok = res.status === 200 && refused && effects.length === 0 &&
           !hasSavedItem(res.json?.data) && !hasSignedRequest(res.json?.data) && plan === null;
-        record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${describePlan(plan)}`);
+        record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${command ? `command ${command.status}, ` : ""}${describePlan(plan)}`);
       });
     } finally {
       if (owner) await owner.restore("denied final stage: permissions restored", saved);
