@@ -173,6 +173,14 @@ pub fn label_box(points: &[P], from: &Frame, to: &Frame, size: Option<(f64, f64)
     (leg, label)
 }
 
+/// How long the leg at a capped end of a route that turns must be, so the cap shows whole on a
+/// straight run: the cap's length (`max(16, 5 × stroke)`), the plugin's corner at the turn
+/// before it (up to 16px) and FigJam's [`ENDPOINT_GAP`]. An end without a cap needs no more
+/// than any leg.
+pub fn end_stub(stroke: f64, cap: &str) -> f64 {
+    if cap == "NONE" { 0.0 } else { (5.0 * stroke).max(16.0) + 16.0 + ENDPOINT_GAP }
+}
+
 /// The clearance a connector keeps from everything it must not touch.
 pub const CLEARANCE: f64 = 8.0;
 
@@ -256,6 +264,16 @@ pub fn section_conflict(
     None
 }
 
+/// Whether a route covers a section's title: a leg's band, or its label with its clearance,
+/// overlapping a title band. Unlike the section rule, this one holds for every route; a title
+/// hidden under a line or a label is lost. Shared by the router and the validator.
+pub fn over_title(points: &[P], stroke: f64, label: Option<&Frame>, sections: &[SectionFrame]) -> bool {
+    let titles = sections.iter().filter_map(|(_, t)| t.as_ref());
+    let bands: Vec<Frame> = points.windows(2).map(|s| band(s[0], s[1], stroke)).collect();
+    let label = label.map(|l| grow(l, CLEARANCE));
+    titles.into_iter().any(|t| bands.iter().any(|b| overlaps(b, t)) || label.is_some_and(|l| overlaps(&l, t)))
+}
+
 /// Whether every leg runs horizontally or vertically (a searched route never takes a diagonal).
 fn orthogonal(points: &[P]) -> bool {
     points.windows(2).all(|s| (s[0].x - s[1].x).abs() < 1.0 || (s[0].y - s[1].y).abs() < 1.0)
@@ -264,6 +282,9 @@ fn orthogonal(points: &[P]) -> bool {
 /// How far, and in how many steps each way, the search slides a leg that does not fit.
 const SLIDE: f64 = 8.0;
 const SLIDE_STEPS: usize = 30;
+
+/// How many distances, 24px apart, the arc candidates try.
+const ARC_STEPS: usize = 6;
 
 /// Whether a slid route keeps every leg between its two end stubs at least a gutter long: a
 /// slide that leaves a short jog reads as a glitch, not a bend.
@@ -451,6 +472,15 @@ impl Scene<'_> {
     fn fits(&self, c: &Connector, points: &[P], label: Option<&Frame>) -> bool {
         let stroke = Self::stroke(c);
         let legs = points.len() - 1;
+        // A route that turns leaves room at each capped end for the whole cap.
+        if legs >= 2 {
+            let length = |a: P, b: P| (a.x - b.x).abs() + (a.y - b.y).abs();
+            if length(points[0], points[1]) < end_stub(stroke, &c.from_cap) - 1e-6
+                || length(points[legs - 1], points[legs]) < end_stub(stroke, &c.to_cap) - 1e-6
+            {
+                return false;
+            }
+        }
         let bands: Vec<Frame> = points.windows(2).map(|s| band(s[0], s[1], stroke)).collect();
         for (i, seg) in points.windows(2).enumerate() {
             for (id, m) in &self.marks {
@@ -504,6 +534,9 @@ impl Scene<'_> {
             {
                 return false;
             }
+        }
+        if over_title(points, stroke, label, &self.sections) {
+            return false;
         }
         !self.strict_sections
             || section_conflict(points, stroke, label, &self.sections, (&self.frames[&c.from], &self.frames[&c.to]))
@@ -627,41 +660,45 @@ impl Scene<'_> {
                 });
             }
         }
-        // Arcs over and under both marks (and beside them), further out for each parallel.
-        let reach = spacing::GUTTER / 2.0 + 24.0 * parallel as f64;
+        // Arcs over and under both marks (and beside them), further out for each parallel; each
+        // also further out, step by step, so one can clear a section title or border near the
+        // marks. The nearest arcs come first.
         let mut arcs = Vec::new();
-        let top = a.y.min(b.y) - reach;
-        let bottom = (a.y + a.h).max(b.y + b.h) + reach;
-        let left = a.x.min(b.x) - reach;
-        let right = (a.x + a.w).max(b.x + b.w) + reach;
-        let (pt, qt) = (anchor(&a, Side::Top), anchor(&b, Side::Top));
-        arcs.push(Candidate {
-            from_side: Side::Top,
-            to_side: Side::Top,
-            waypoints: vec![P { x: pt.x, y: top }, P { x: qt.x, y: top }],
-            kind: "arc",
-        });
-        let (pb, qb) = (anchor(&a, Side::Bottom), anchor(&b, Side::Bottom));
-        arcs.push(Candidate {
-            from_side: Side::Bottom,
-            to_side: Side::Bottom,
-            waypoints: vec![P { x: pb.x, y: bottom }, P { x: qb.x, y: bottom }],
-            kind: "arc",
-        });
-        let (pl, ql) = (anchor(&a, Side::Left), anchor(&b, Side::Left));
-        arcs.push(Candidate {
-            from_side: Side::Left,
-            to_side: Side::Left,
-            waypoints: vec![P { x: left, y: pl.y }, P { x: left, y: ql.y }],
-            kind: "arc",
-        });
-        let (pr, qr) = (anchor(&a, Side::Right), anchor(&b, Side::Right));
-        arcs.push(Candidate {
-            from_side: Side::Right,
-            to_side: Side::Right,
-            waypoints: vec![P { x: right, y: pr.y }, P { x: right, y: qr.y }],
-            kind: "arc",
-        });
+        for step in 0..ARC_STEPS {
+            let reach = spacing::GUTTER / 2.0 + 24.0 * (parallel + step) as f64;
+            let top = a.y.min(b.y) - reach;
+            let bottom = (a.y + a.h).max(b.y + b.h) + reach;
+            let left = a.x.min(b.x) - reach;
+            let right = (a.x + a.w).max(b.x + b.w) + reach;
+            let (pt, qt) = (anchor(&a, Side::Top), anchor(&b, Side::Top));
+            arcs.push(Candidate {
+                from_side: Side::Top,
+                to_side: Side::Top,
+                waypoints: vec![P { x: pt.x, y: top }, P { x: qt.x, y: top }],
+                kind: "arc",
+            });
+            let (pb, qb) = (anchor(&a, Side::Bottom), anchor(&b, Side::Bottom));
+            arcs.push(Candidate {
+                from_side: Side::Bottom,
+                to_side: Side::Bottom,
+                waypoints: vec![P { x: pb.x, y: bottom }, P { x: qb.x, y: bottom }],
+                kind: "arc",
+            });
+            let (pl, ql) = (anchor(&a, Side::Left), anchor(&b, Side::Left));
+            arcs.push(Candidate {
+                from_side: Side::Left,
+                to_side: Side::Left,
+                waypoints: vec![P { x: left, y: pl.y }, P { x: left, y: ql.y }],
+                kind: "arc",
+            });
+            let (pr, qr) = (anchor(&a, Side::Right), anchor(&b, Side::Right));
+            arcs.push(Candidate {
+                from_side: Side::Right,
+                to_side: Side::Right,
+                waypoints: vec![P { x: right, y: pr.y }, P { x: right, y: qr.y }],
+                kind: "arc",
+            });
+        }
         // Order: a connector against the flow tries its channel first; a parallel one its arcs.
         if against_flow {
             out.extend(channel);
@@ -736,16 +773,19 @@ impl Scene<'_> {
             .iter()
             .map(|(id, f)| (id.clone(), Frame { x: f.x - m, y: f.y - m, w: f.w + 2.0 * m, h: f.h + 2.0 * m }))
             .collect();
-        // Labels already placed, and section titles, are obstacles too: a leg may not run through one.
-        // So are, while the section rule holds, titles (with their margin) and sections that
-        // hold neither end.
+        // Labels already placed and section titles are obstacles too: a leg may not run through
+        // one (a title with its margin while the section rule holds, its clearance otherwise). So
+        // are, while the section rule holds, sections that hold neither end.
         let g = CLEARANCE + Self::stroke(c) / 2.0;
+        let half = Self::stroke(c) / 2.0;
+        for (_, title) in &self.sections {
+            if let Some(t) = title {
+                let margin = if self.strict_sections { BORDER_MARGIN } else { CLEARANCE };
+                inflated.push((String::new(), grow(t, margin + half)));
+            }
+        }
         if self.strict_sections {
-            let half = Self::stroke(c) / 2.0;
-            for (border, title) in &self.sections {
-                if let Some(t) = title {
-                    inflated.push((String::new(), grow(t, BORDER_MARGIN + half)));
-                }
+            for (border, _) in &self.sections {
                 if !inside(&a, border) && !inside(&b, border) {
                     inflated.push((String::new(), grow(border, half)));
                 }
@@ -805,16 +845,20 @@ impl Scene<'_> {
                 },
             )
         };
-        let ends: Vec<(bool, Side, P, P)> = [(true, &a, c.from.as_str()), (false, &b, c.to.as_str())]
-            .into_iter()
-            .flat_map(|(start, f, mark)| {
-                Side::ALL.into_iter().filter(move |&s| !taken(mark, s, start)).map(move |s| {
-                    let p = anchor(f, s);
-                    let d = s.dir();
-                    (start, s, p, P { x: p.x + d.x * m, y: p.y + d.y * m })
+        // Each end leaves its magnet straight for at least its stub before it may turn.
+        let stroke = Self::stroke(c);
+        let ends: Vec<(bool, Side, P, P)> =
+            [(true, &a, c.from.as_str(), &c.from_cap), (false, &b, c.to.as_str(), &c.to_cap)]
+                .into_iter()
+                .flat_map(|(start, f, mark, cap)| {
+                    let out = m.max(end_stub(stroke, cap));
+                    Side::ALL.into_iter().filter(move |&s| !taken(mark, s, start)).map(move |s| {
+                        let p = anchor(f, s);
+                        let d = s.dir();
+                        (start, s, p, P { x: p.x + d.x * out, y: p.y + d.y * out })
+                    })
                 })
-            })
-            .collect();
+                .collect();
         for (_, _, p, q) in &ends {
             xs.insert(key(p.x));
             xs.insert(key(q.x));

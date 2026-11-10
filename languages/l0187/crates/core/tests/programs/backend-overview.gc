@@ -1,0 +1,41 @@
+board [
+  page [
+    textbox id "page-title" text "Graffiticode backend" font-size HUGE color "#0f172a" {}
+    textbox id "page-subtitle" text "01 / System overview · Major components and primary paths" font-size LARGE color "#334155" {}
+    group [
+      shape id "clients" text "Browser · AI assistants · Integrations" kind ROUNDED_RECTANGLE fill "#ede9fe" stroke "#8b5cf6" {}
+      section [
+        shape id "app-entry" text "Console · MCP · REST
+Authoring and item access" kind ROUNDED_RECTANGLE fill "#dbeafe" stroke "#3b82f6" {}
+      ] id "app-services" name "graffiticode-app / App services" layout COLUMN fill "#ffffff" {}
+      section [
+        group [
+          shape id "platform-api" text "API
+Task chains · compile / interpret · commands" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "#22c55e" {}
+          shape id "auth" text "Auth
+Identity · API keys · access tokens" kind ROUNDED_RECTANGLE fill "#dbeafe" stroke "#3b82f6" {}
+        ] id "api-auth-column" layout FLOW direction DOWN {}
+        shape id "language-servers" text "Language servers" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "#22c55e" {}
+      ] id "language-platform" name "graffiticode / Language platform" layout GRID columns 2 fill "#ffffff" {}
+      group [
+        section [
+          shape id "policy" text "Policy
+Connections · grants · admission · command state" kind ROUNDED_RECTANGLE fill "#fef3c7" stroke "#d97706" {}
+          shape id "broker" text "Broker
+Sealed credentials · receipts · provider operations" kind ROUNDED_RECTANGLE fill "#fef3c7" stroke "#d97706" {}
+        ] id "protected-execution" name "graffiticode / Protected execution" layout ROW fill "#ffffff" {}
+        shape id "learnosity" text "Learnosity
+Signed previews + sandbox / item-bank writes" kind ROUNDED_RECTANGLE fill "#ede9fe" stroke "#8b5cf6" {}
+      ] id "protected-area" layout ROW {}
+    ] id "system-map" layout ROW {}
+    connector id "api-to-auth" from "platform-api" to "auth" label "verify caller" stroke "#64748b" {}
+    connector id "clients-to-entry" from "clients" to "app-entry" label "author / view" stroke "#64748b" {}
+    connector id "entry-to-api" from "app-entry" to "platform-api" label "read / compile" stroke "#64748b" {}
+    connector id "api-to-language-servers" from "platform-api" to "language-servers" label "compile / interpret" stroke "#64748b" {}
+    connector id "api-to-policy" from "platform-api" to "policy" label "admit + manage commands" stroke "#64748b" {}
+    connector id "language-servers-to-policy" from "language-servers" to "policy" label "request authority" stroke "#64748b" {}
+    connector id "language-servers-to-broker" from "language-servers" to "broker" label "execute authorized operation" stroke "#64748b" {}
+    connector id "broker-to-policy" from "broker" to "policy" label "authorize each effect" stroke "#64748b" {}
+    connector id "broker-to-learnosity" from "broker" to "learnosity" label "sign / save" stroke "#64748b" {}
+  ] id "system-overview" name "01 · System overview" layout COLUMN background "#f8fafc" {}
+] title "Graffiticode backend" show-page-tabs false {}..

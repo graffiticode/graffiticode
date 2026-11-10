@@ -59,22 +59,27 @@ every word, and everything else is derived from it. npm here holds only the fron
   - `src/layout.rs` — regions composed bottom-up. ROW/COLUMN keep the written order on a line,
     GRID row by row (a leading textbox heads it on a row of its own, wrapped to the rows'
     width), each row as wide as its own cells
-    and as tall as its tallest (start-aligned); FLOW layers by `before` (strict) and
+    and as tall as its tallest; across a line or grid row, children joined by a connector centre
+    the connected marks on each other so it runs straight (the rest start-align); FLOW layers by `before` (strict) and
     connectors lifted to the children containing their ends (preferred; one that would close a
     cycle runs against the flow), orders layers by fixed barycentre sweeps, centres them, and
     reserves a routing channel beside the layers for back and layer-skipping edges; AUTO lays
     connected groups out as flows to the right and packs the rest in a near-square grid. Gaps:
-    the gutter (48), 72 next to a region, widened for labels, plus the repair loop's `Spacing`.
+    the gutter (48), 72 next to a region, widened for a label to the label plus a capped end's
+    stub on either side (so an arrowhead never meets it), plus the repair loop's `Spacing`.
     Section title bands sit above the border inside the section's block. Whole pixels.
   - `src/route.rs` — every connector as **straight legs between side magnets and compiler-placed
     waypoints** (`lineType "straight"`), so the modeled route is the route FigJam draws. Candidates
     in a fixed order (straight, Z/L elbow, the flow's channel lane for back/long edges, arcs that
-    also separate parallels, then an orthogonal Dijkstra search over the free space that steers
+    also separate parallels, stepping out 24px at a time to clear titles, then an orthogonal Dijkstra search over the free space that steers
     around labels already placed and magnets used the other way, and slides its legs sideways when its
     path does not fit). Every connector is first routed 20px clear of section titles and borders it
     runs alongside, and out of sections that hold neither of its ends, then without that rule if
     nothing fits; `quality.section_conflicts`
-    counts the fallbacks. A route with a leg shorter than the gutter between its end stubs is
+    counts the fallbacks. No route ever covers a section title (`over_title`: no leg band, no label
+    within its clearance), fallback or not. A route that turns keeps the leg at a capped end at
+    least `end_stub` long (cap + the plugin's corner + FigJam's endpoint gap: 40px thin), so the
+    head shows whole. A route with a leg shorter than the gutter between its end stubs is
     taken only when no other candidate or slide fits. After every connector is routed, each one that
     crosses another is rerouted once, in written order (candidates, then a search that charges 2000px
     a crossing), and keeps the new route only if it fits and crosses fewer; self-loops
@@ -99,7 +104,9 @@ every word, and everything else is derived from it. npm here holds only the fron
     compiler limitation. `semantic(code)` compiles to the semantic board alone, for tests.
   - `src/schema.rs` — the output's JSON Schema, emitted to `generated/schema.json`.
   - `src/bin/emit.rs` — writes the vocabulary-derived files to `generated/`, or `--check`s them.
-  - `examples/` — calibration helpers (`advances`, `wrap`, `shapes`, `probe_lines`); the method
+  - `examples/` — `dump` (`cargo run -q --example dump -- <case> [out.svg]`: one test program's
+    marks, routes, label boxes and quality, and an SVG sketch); calibration helpers (`advances`,
+    `wrap`, `shapes`, `probe_lines`); the method
     and results are in `docs/evidence/l0187-calibration/`.
 
 A compile returns the positioned board (see `src/lower.rs` and `generated/schema.json`) with the
