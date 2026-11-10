@@ -103,6 +103,16 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       return touch(tx, command, { phase: "admitted", admission, stages, revisions: admission.revisions ?? null });
     }),
 
+    // §6 step 2, refused: why Policy refused this command's admission (a
+    // permission no longer granted, a revision retired, ...), recorded for the
+    // command's callers. Only before admission; the first reason stays.
+    refuseAdmission: ({ commandId, generation, reason }) => owned(commandId, generation, async (tx, command) => {
+      if (typeof reason !== "string" || !reason) throw new CommandRefused("bad-request");
+      if (command.phase === "admitted") throw new CommandRefused("command-admitted");
+      if (command.admissionRefusal) return command;
+      return touch(tx, command, { admissionRefusal: { reason, at: new Date(now()).toISOString() } });
+    }),
+
     // §5: a stage's pinned input, installed once; a later owner gets the first.
     installInput: ({ commandId, generation, stage, text }) => owned(commandId, generation, async (tx, command) => {
       requireStage(stage);

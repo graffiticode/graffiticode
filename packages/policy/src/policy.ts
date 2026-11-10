@@ -388,8 +388,8 @@ export const createPolicy = ({
     // artifact is bound to. Never the request or any payload.
     if (what === "state") {
       const connection = await connections.get(command.connectionId);
-      const { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts } = command;
-      return { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, generation: command.owner.generation, leaseExpiresAt: command.owner.leaseExpiresAt, ownerUid: connection?.ownerUid ?? null };
+      const { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, admissionRefusal } = command;
+      return { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, ...(admissionRefusal ? { admissionRefusal } : {}), generation: command.owner.generation, leaseExpiresAt: command.owner.leaseExpiresAt, ownerUid: connection?.ownerUid ?? null };
     }
     if (what === "request") return { text: await commands.getRequest(commandId) };
     if (what === "models") return { models: await commandRecords.getModels(commandId) };
@@ -430,6 +430,19 @@ export const createPolicy = ({
     const command = await commands.get(commandId);
     const fenced = ownerRefusal(command, { generation, now: now() });
     if (fenced) throw new PolicyDenied(fenced);
+    try {
+      return await admitOwnedCommand({ record, command, commandId, generation, taskIds, stages });
+    } catch (e) {
+      // A refusal of the owner's admission is the command's answer: record its
+      // reason on the command, so its callers can say why it failed (C6).
+      // Best effort: the refusal stands either way.
+      if (e instanceof PolicyDenied && !(e instanceof PolicyMaintenance)) {
+        await commandRecords.refuseAdmission({ commandId, generation, reason: e.reason }).catch(() => {});
+      }
+      throw e;
+    }
+  };
+  const admitOwnedCommand = async ({ record, command, commandId, generation, taskIds, stages }) => {
     Object.assign(record, { uid: command.uid });
     const invocation = await invocations.get(command.invocationId);
     if (!invocation) return deny("invocation-incompatible", record);

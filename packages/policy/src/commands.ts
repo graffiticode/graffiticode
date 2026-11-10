@@ -133,6 +133,8 @@ export const commandSummary = command => command && ({
   status: command.status,
   result: command.result,
   publication: command.publication,
+  // Why admission was refused, when it was (C6): { reason, at }.
+  ...(command.admissionRefusal ? { admissionRefusal: command.admissionRefusal } : {}),
   generation: command.owner.generation,
   leaseExpiresAt: command.owner.leaseExpiresAt,
   runRef: command.runRef,

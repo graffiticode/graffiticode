@@ -97,9 +97,14 @@ export const buildCompileEnvelope = ({ policy }) => async ({ state, reused }) =>
     }),
   ];
   const statusUrl = statusUrlFor(commandId);
+  // A refused admission answers as a legacy compile's refusal did, with its
+  // reason (C6): nothing ran.
+  const refused = record.admissionRefusal?.reason;
   const errors = record.status === "completed"
     ? []
-    : [failure(`Error: the command is ${record.status}, read it at ${statusUrl}`, "command-not-completed")];
+    : refused
+      ? [failure(`Error: permission denied (${refused})`, refused)]
+      : [failure(`Error: the command is ${record.status}, read it at ${statusUrl}`, "command-not-completed")];
   let data;
   if (record.result?.state === "available") {
     const { result } = await read("result");

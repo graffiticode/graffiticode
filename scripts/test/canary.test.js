@@ -204,8 +204,14 @@ const world = async ({ tweak = {} } = {}) => {
           const refusal = await admitChain(body);
           if (refusal && asCommand) {
             // Not admitted: the command finishes failed, and says only that.
-            commandStates.set(commandId, { commandId, invocationId: null, status: "failed", phase: "allocated", admission: null });
-            return withId(ok({ errors: [{ message: `Error: the command is failed, read it at /command/${commandId}`, code: "command-not-completed" }], effects: [], command: { commandId, outcome: "failed" } }));
+            // `commandReason`: Policy records why (C6), and the bridge reports
+            // it as a legacy refusal did.
+            const why = tweak.commandReason ? { admissionRefusal: { reason: refusal, at: "2026-11-10T00:00:00Z" } } : {};
+            commandStates.set(commandId, { commandId, invocationId: null, status: "failed", phase: "allocated", admission: null, ...why });
+            const error = tweak.commandReason
+              ? { message: `Error: permission denied (${refusal})`, code: refusal }
+              : { message: `Error: the command is failed, read it at /command/${commandId}`, code: "command-not-completed" };
+            return withId(ok({ errors: [error], effects: [], command: { commandId, outcome: "failed" } }));
           }
           if (refusal) return withId(ok({ errors: [{ message: `Error: permission denied (${refusal})`, code: refusal }] }));
         }
@@ -659,6 +665,13 @@ test("C6: the legacy lookups the canary made before fail exactly as production d
   const w = await world({ tweak: { chain: true, commands: true } });
   const { results } = await run(w, PRODUCTION);
   assert.ok(!results.some(r => /command-protocol/.test(r.detail)), "no check reaches the legacy route with a command's key");
+});
+
+test("C6: a refused command's reason, once Policy records it, is the denied final stage's evidence", async () => {
+  const w = await world({ tweak: { chain: true, commands: true, commandReason: true } });
+  const { ok, results } = await run(w, PRODUCTION);
+  assert.equal(ok, true, JSON.stringify(results.filter(r => !r.ok)));
+  assert.match(results.find(r => r.name === "denied final stage").detail, /\["not-granted"\].*command failed \(not-granted\), no plan/);
 });
 
 test("C6: fails pinned admission when a command's stage isn't pinned to a tag", async () => {

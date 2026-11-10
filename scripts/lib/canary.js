@@ -625,15 +625,20 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
         const effects = Array.isArray(res.json?.data?.effects) ? res.json.data.effects : [];
         const { invocation, plan } = await planOf(chainId, key, res);
         // As a command (C6), the refusal at admission finishes it failed,
-        // never admitted; the response says the command failed (its reason
-        // isn't in the answer).
+        // never admitted. Policy records why (admissionRefusal), and the
+        // response carries that reason as a legacy refusal did; before that
+        // release it said only that the command failed (command-not-completed).
         const command = invocation.command ?? null;
+        const reason = command?.admissionRefusal?.reason ?? null;
         const refused = command
-          ? command.status === "failed" && command.admission === null && errors.some(e => e?.code === "command-not-completed")
+          ? command.status === "failed" && command.admission === null &&
+            (reason === null
+              ? errors.some(e => e?.code === "command-not-completed")
+              : reason === "not-granted" && errors.some(e => e?.code === "not-granted"))
           : errors.some(e => e?.code === "not-granted");
         const ok = res.status === 200 && refused && effects.length === 0 &&
           !hasSavedItem(res.json?.data) && !hasSignedRequest(res.json?.data) && plan === null;
-        record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${command ? `command ${command.status}, ` : ""}${describePlan(plan)}`);
+        record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${command ? `command ${command.status}${reason ? ` (${reason})` : ""}, ` : ""}${describePlan(plan)}`);
       });
     } finally {
       if (owner) await owner.restore("denied final stage: permissions restored", saved);

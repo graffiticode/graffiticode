@@ -27,11 +27,15 @@ import { commandsEnabled, runCommand } from "../commands/bridge.js";
 
 export { commandsEnabled };
 
+// `reason`: why Policy refused the command's admission, when it did (a
+// permission not granted, a revision retired, ...); the command failed with
+// nothing run.
 const answer = state => ({
   commandId: state.commandId,
   outcome: state.status,
   result: state.result?.state ?? "none",
   statusUrl: `/command/${encodeURIComponent(state.commandId)}`,
+  ...(state.admissionRefusal?.reason ? { reason: state.admissionRefusal.reason } : {}),
 });
 
 // `policy`: commands/policy-commands.js. `run`: commands/worker.js's run.

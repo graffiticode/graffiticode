@@ -150,6 +150,26 @@ describe("command admission", () => {
     await denied(admit(), "connection-disabled");
   });
 
+  // C6: the command's callers can say why it failed.
+  it("records why it refused the owner's admission on the command, once", async () => {
+    await install();
+    await revoke();
+    await denied(admit(), "connection-disabled");
+    const command = commandStore.commands.get(commandId);
+    expect(command.admissionRefusal).toEqual({ reason: "connection-disabled", at: expect.any(String) });
+    expect(command.phase).not.toBe("admitted");
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "state" })).admissionRefusal.reason).toBe("connection-disabled");
+    // The first reason stays.
+    await denied(admit(), "connection-disabled");
+    expect(commandStore.commands.get(commandId).admissionRefusal.at).toBe(command.admissionRefusal.at);
+  });
+
+  it("records nothing for a refusal that isn't the owner's: a stale generation", async () => {
+    await install();
+    await denied(admit(2), "stale-generation");
+    expect(commandStore.commands.get(commandId).admissionRefusal).toBeUndefined();
+  });
+
   it("refuses an intent the registry or the stage doesn't allow", () => {
     const check = intents => modelIntents({ modelText: JSON.stringify({ intents }), lang: "0176", requiredFunctions: ["save-to-itembank"], backend: "learnosity" });
     expect(check([{ id: "a", fn: "init", op: WRITE, occurrences: ["a.0"] }]).refusal).toBe("intent-not-registered");
