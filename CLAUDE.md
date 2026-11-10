@@ -10,40 +10,6 @@ This is a monorepo using npm workspaces. Seven packages are workspaces (`api`, `
 
 **TypeScript migration in progress** (notes: `docs/ts-migration-hotspots.md`). Packages whose `exports` point at `dist/` (so far: `common`, `auth`, `auth-client`, `policy`, `broker`) are loaded from their **compiled output** by every sibling, test and service, so run `npm run build` (or keep `npm run dev:build` watching) before tests, `typecheck`, or the dev servers. A stale or missing `dist/` means stale code.
 
-### Root-level commands
-```bash
-npm run emulator     # Start Firebase emulators (Firestore on 8080, Auth on 9099)
-npm run api          # Run api package dev server
-npm run auth         # Run auth package dev server
-npm test             # Run root-level tests with Firebase emulators
-npm run lint         # Lint root test/ directory
-```
-
-### Package-specific commands
-```bash
-# API package (packages/api)
-npm run -w packages/api dev       # Dev server with emulator env vars
-npm run -w packages/api test      # Tests with Firebase emulators
-npm run -w packages/api lint      # Lint src/ and tools/
-
-# Auth package (packages/auth)
-npm run -w packages/auth dev      # Dev server with emulator env vars
-npm run -w packages/auth test     # Tests with Firebase emulators
-npm run -w packages/auth lint
-
-# Parser package (packages/parser)
-npm run -w packages/parser test   # Tests with experimental VM modules
-npm run -w packages/parser lint
-
-# Common package (packages/common)
-npm run -w packages/common test
-npm run -w packages/common lint
-
-# Auth-client package (packages/auth-client)
-npm run -w packages/auth-client test
-npm run -w packages/auth-client lint
-```
-
 ### Running a single test
 ```bash
 NODE_OPTIONS=--experimental-vm-modules jest path/to/file.spec.js
@@ -56,30 +22,10 @@ CI (`.github/workflows/ci.yml`) runs jest per target from `scripts/test-targets.
 
 ### Deployment (Google Cloud Run)
 
-The shared workspace CLI lives in `packages/deploy`; `deploy.json` owns service configuration.
-
-```bash
-npm run deploy -- api --plan          # offline preview; no cloud calls
-npm run deploy -- api                 # build, candidate check, then promotion
-npm run deploy -- broker --plan
-npm run deploy -- policy --plan
-npm run rollback -- api --release <release-id>
-npm run test:deploy
-```
-
-`gcp:<service>:build` and `gcp:<service>:deploy` are compatibility aliases to the same
-complete release command. Do not chain them. Builds freeze local source, run tests in
-Cloud Build, publish an image, then return control to the workspace for deployment by
-digest. `--allow-dirty` explicitly permits uncommitted input. Receipts are in `.gc-deploy/`.
-
-Read `packages/deploy/README.md` before an actual release: the target Artifact Registry,
-build account, runtime identities, and existing services must be provisioned first.
-The IAM/data-boundary state (runtime accounts, invokers, secrets) is recorded in `docs/capability-policy-iam-review.md`; a `deploy.json` entry with a `blocked` field refuses to deploy until it is removed.
-The CLI does not provision infrastructure, change invocation IAM, or publish packages.
-The old `configs/cloudbuild.*.yaml` recipes now build only; normal releases generate their
-build configuration from `deploy.json`.
-
-To bump the shared base in every language and redeploy: `npm run upgrade-l0000-and-deploy` (or `upgrade-l0000-view-and-deploy`), with `-- --lang 0177 0184`, `--no-force`, `--plan`, `--verbose`. It upgrades and tests languages in parallel, commits each passing upgrade separately, pushes once, then deploys in batches; a failing upgrade is reverted (`scripts/lib/upgrade-and-deploy.js`).
+Releases go through the workspace CLI (`npm run deploy -- <service>`; `deploy.json` owns service configuration). The full workflow — plan, release, rollback, the l0000 upgrade-and-deploy script — is in the `deploy` skill (`.claude/skills/deploy/SKILL.md`). Always:
+- `gcp:<service>:build` and `gcp:<service>:deploy` are compatibility aliases to the same complete release command. Do not chain them.
+- A `deploy.json` entry with a `blocked` field refuses to deploy until it is removed; the IAM/data-boundary state is in `docs/capability-policy-iam-review.md`.
+- The CLI does not provision infrastructure, change invocation IAM, or publish packages.
 
 ## Architecture Overview
 
@@ -129,11 +75,3 @@ Languages are external HTTP compilers (e.g. `L0002`, `L0166`), referenced by num
 - Parser integrates with language lexicons loaded from API's lang module.
 - All server packages use Firebase Admin SDK; development uses Firebase emulators (Firestore 8080, Auth 9099). Firestore access rules live in `firestore.rules`; indexes in `firestore.indexes.json`.
 - Tests require the `--experimental-vm-modules` flag for ES module support.
-
-## Code Style
-
-ESLint config enforces:
-- Double quotes, semicolons required
-- ES modules only (no CommonJS)
-- Import extensions required (`.js`)
-- Standard style guide base
