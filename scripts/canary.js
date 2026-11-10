@@ -34,7 +34,13 @@
 //   --reconcile             reconcile the gateway write (W5, WRITE-02): Policy and
 //                           Broker must have reconciliation; adds about 90 s, the
 //                           write's deadline plus the grace period
-//   --after-cutover         Policy runs MIN_CONTRACT_VERSION=2: v1-shaped
+//   --command               C6 (COMMANDS_L0176=on): also save through POST
+//                           /command, as the console does: completed, the
+//                           saved item in its view, the same command for the
+//                           same key, its status URL, and a preview refused
+//                           no-effects. With --reconcile, its key reconciles too.
+//                           One more sandbox draft per run.
+//   --after-cutover        Policy runs MIN_CONTRACT_VERSION=2: v1-shaped
 //                           sessions must be refused
 //   --provider              AT-10 release-verify, on the gateway preview: signed by
 //                           the attested preview consumer, Broker's expires,
@@ -124,6 +130,7 @@ const config = {
   chainAdmission: args.includes("--chain-admission"),
   afterCutover: args.includes("--after-cutover"),
   reconcile: args.includes("--reconcile"),
+  command: args.includes("--command"),
   provider: args.includes("--provider") ? await providerConfig() : null,
   languageUrl: args.includes("--chain-admission") || args.includes("--after-cutover") ? await serviceUrl(l0176Service) : null,
   savedRead: !args.includes("--no-saved-read"),

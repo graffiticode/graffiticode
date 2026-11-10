@@ -146,6 +146,7 @@ const world = async ({ tweak = {} } = {}) => {
   const refused = (status, reason) => ({ status, json: { status: "error", error: { code: status, reason } } });
   const tasks = new Map();
   const compiles = new Map();
+  const commands = new Map();
   // The saved read (READ-01): each save's stored result, by task id, and the
   // security-audit records the views leave, as Policy and Broker log them.
   const stored = new Map();
@@ -207,6 +208,29 @@ const world = async ({ tweak = {} } = {}) => {
         const writeInvocation = await policy.allocateInvocation({ caller: gateway, user: { uid: CANARY }, connectionId: CONN, taskId: body.id, inputDigest: NO_OPTIONS, idempotencyKey: body.idempotencyKey });
         stored.set(body.id, { itemBank, writeInvocationId: writeInvocation.invocationId });
         return withId(ok({ data: { itemBank }, errors: [], ...(tweak.noEffects ? {} : { effects: [effect] }) }));
+      }
+      // As api's POST /command (C6): a chain with no write is refused
+      // no-effects; a save runs once per key and stores its result, and the
+      // same key answers the same command. `commandRewrites` stands for an api
+      // that runs the save again for the same key, `commandPreviewAccepted`
+      // for one that takes a preview as a command.
+      if (origin === config.apiUrl && pathname === "/command" && method === "POST") {
+        const saving = decodeChainId(body.id).some(t => tasks.get(t).code.src.includes("save-to-itembank"));
+        if (!saving && !tweak.commandPreviewAccepted) return refused(409, "no-effects");
+        let cmd = commands.get(body.idempotencyKey);
+        if (!cmd || tweak.commandRewrites) {
+          const commandId = `cmd-${commands.size + 1}-${body.idempotencyKey.length}${cmd ? "-again" : ""}`;
+          const writeInvocation = await policy.allocateInvocation({ caller: gateway, user: { uid: CANARY }, connectionId: CONN, taskId: body.id, inputDigest: NO_OPTIONS, idempotencyKey: body.idempotencyKey });
+          stored.set(body.id, { itemBank: { saved: true, references: [`gc-${body.id}-${commandId}-i0`] }, writeInvocationId: writeInvocation.invocationId });
+          cmd = { commandId, outcome: "completed", result: "available", statusUrl: `/command/${commandId}` };
+          commands.set(body.idempotencyKey, cmd);
+        }
+        return ok(cmd);
+      }
+      const commandRead = pathname.match(/^\/command\/([^/]+)$/);
+      if (origin === config.apiUrl && commandRead && method === "GET") {
+        const cmd = [...commands.values()].find(c => c.commandId === decodeURIComponent(commandRead[1]));
+        return cmd ? ok(cmd) : refused(404, "command-not-found");
       }
       if (origin === config.apiUrl && pathname === "/data" && method === "GET") {
         // As api's read path: the stored result, signed afresh for each view
@@ -538,6 +562,47 @@ test("reconcile is opt-in: without it, Policy is never asked", async () => {
   const { ok } = await run(w, { chainAdmission: true });
   assert.equal(ok, true);
   assert.deepEqual(w.reconcileAsks, []);
+});
+
+// C6 slice 5: the save as POST /command, as the console sends it.
+test("--command: saves through POST /command once per key, shows it in the view, and a preview isn't a command", async () => {
+  const w = await world();
+  const { ok, results } = await run(w, { command: true, savedRead: false });
+  assert.equal(ok, true, JSON.stringify(results));
+  const names = Object.keys(byName(results));
+  for (const name of ["command write", "command write: saved", "command write retry", "command status", "command preview refused"]) {
+    assert.ok(names.includes(name), name);
+  }
+  assert.ok(names.indexOf("gateway write") < names.indexOf("command write"), "the bridge path still runs, first");
+});
+
+test("--command off: the canary never posts a command", async () => {
+  const w = await world();
+  const { results } = await run(w);
+  assert.ok(!results.some(r => r.name.startsWith("command")));
+});
+
+test("--command: fails the retry when the api writes again for the same key", async () => {
+  const w = await world({ tweak: { commandRewrites: true } });
+  const { ok, results } = await run(w, { command: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["command write"], true);
+  assert.equal(byName(results)["command write retry"], false);
+});
+
+test("--command: fails when the api takes a preview as a command", async () => {
+  const w = await world({ tweak: { commandPreviewAccepted: true } });
+  const { ok, results } = await run(w, { command: true });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["command preview refused"], false);
+});
+
+test("--command with --reconcile reconciles the command's key as well as the bridge write's", async () => {
+  const w = await world({ tweak: { chain: true } });
+  const { ok, results } = await run(w, { chainAdmission: true, reconcile: true, command: true });
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.equal(byName(results)["reconcile: command"], true);
+  assert.equal(new Set(w.reconcileAsks).size, 2, "two invocations: the bridge write's and the command's");
 });
 
 // Registry v8: every save writes new drafts, so a run archives what it saved.
