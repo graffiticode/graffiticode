@@ -72,6 +72,21 @@
 // Reconciliation (`reconcile`, W5 WRITE-02, once Policy and Broker have it):
 //   reconcile      the gateway write, by its key, as the console: applied and
 //                  final, every record carrying the operation's mark
+// Commands (`command`, C6 slice 5, D1/D3: COMMANDS_L0176=on), as the console
+// saves. The write above goes through the compile bridge (D2); this one is the
+// same save sent as POST /command.
+//   command write  a save of its own program (its own task and stored result)
+//                  completes, with a result
+//   command write: saved  the command answers its outcome, not the result:
+//                  a view through the connection shows the saved item
+//   command write retry  the same key answers the same command and outcome,
+//                  and the view's references are unchanged (nothing new
+//                  written)
+//   command status  the command's status URL reads the same outcome
+//   command preview refused  a chain with no write isn't a command
+//                  (409 no-effects); the console compiles it instead
+//   reconcile: command  (with `reconcile`) the command's key reconciles as
+//                  the bridge write's does
 // After the cutover (`afterCutover`, Policy's MIN_CONTRACT_VERSION=2):
 //   v1 refused      every new invocation is marked, and a snapshot without
 //                   an admitted plan (the v1 shape) is refused, plan-required
@@ -85,6 +100,8 @@ import { decodeChainId } from "@graffiticode/common/chain";
 const ITEM = "item [questions [mcq []] {}]";
 export const PREVIEW_PROGRAM = `set-var "lrn-id" "canary" items [${ITEM}] {}..`;
 export const SAVE_PROGRAM = `set-var "lrn-id" "canary" save-to-itembank items [${ITEM}] {}..`;
+// The command write's own program, so its task and stored result are its own.
+export const COMMAND_PROGRAM = `set-var "lrn-id" "canary-command" save-to-itembank items [${ITEM}] {}..`;
 
 const sha256 = s => createHash("sha256").update(s).digest("hex");
 // The gateway's input digest for a compile without options (api's
@@ -244,7 +261,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
   const {
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
     chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false, provider = null,
-    savedRead = false, auditCheck = true
+    savedRead = false, auditCheck = true, command = false
   } = config;
   const results = [];
   // Every response passes through here, so the run knows each draft it saved.
@@ -300,7 +317,36 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
     if (typeof res.json?.data?.invocationToken !== "string") throw new Error(`POST /v1/invocations: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
     return res.json.data;
   };
-  const planOf = async (taskId, idempotencyKey) => {
+  // C6: a key the compile bridge ran as a command has no legacy invocation
+  // to look up (Policy refuses that, command-protocol). Its record says what
+  // ran instead: its invocation, its admission (the plan's stages, pinned at
+  // admission) and its outcome. The compile response names the command.
+  const commandOf = res => res?.json?.data?.command?.commandId ?? null;
+  const commandState = async commandId => {
+    const res = await http({
+      method: "GET",
+      url: policy(`/v1/commands/${encodeURIComponent(commandId)}/records/state`),
+      headers: await asService(gatewayAccount, policyUrl, "urn:graffiticode:policy")
+    });
+    if (res.status !== 200 || !res.json?.data) throw new Error(`GET /v1/commands/${commandId}/records/state: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+    return res.json.data;
+  };
+  const commandPlan = admission => (admission
+    ? {
+        planDigest: admission.planDigest,
+        stages: Object.entries(admission.stages ?? {})
+          .sort(([a], [b]) => Number(a.slice(1)) - Number(b.slice(1)))
+          .map(([stage, a]) => ({ stage, lang: a.lang, revision: a.revision, tagUrl: a.tagUrl, available: typeof a.tagUrl === "string" }))
+      }
+    : null);
+  // The invocation and plan a compile ran under: its command's, when the
+  // response (`compiled`) names one, else the gateway's invocation for the key.
+  const planOf = async (taskId, idempotencyKey, compiled = null) => {
+    const commandId = commandOf(compiled);
+    if (commandId) {
+      const state = await commandState(commandId);
+      return { invocation: { reused: true, contract: 2, invocationId: state.invocationId, command: state }, plan: commandPlan(state.admission) };
+    }
     const invocation = await allocate({ taskId, idempotencyKey });
     const res = await http({
       method: "POST",
@@ -329,7 +375,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       if (!record("retry across a deploy: deployed", Boolean(now) && now !== pending.revision,
         now === pending.revision ? `L0176 still serves ${now}, the revision the write was pinned to; deploy L0176, then run the canary again` : `pinned ${pending.revision}, serving ${now}`)) return;
       const again = await compile(pending.taskId, pending.key);
-      const { plan } = await planOf(pending.taskId, pending.key);
+      const { plan } = await planOf(pending.taskId, pending.key, again);
       const samePlan = plan?.planDigest === pending.planDigest && plan.stages.every(s => s.revision === pending.revision);
       const ok = isWrite(again) && isReplayedWrite(again) && samePlan;
       record("retry across a deploy", ok, ok
@@ -362,7 +408,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
     const first = await compile(saveTaskId, key);
     const ok = first.status === 200 && errorsOf(first).length === 0 && hasSavedItem(first.json?.data);
     if (!record("gateway write", ok, ok ? "draft saved through the connection" : `${first.status} ${JSON.stringify(errorsOf(first))}`)) return;
-    savedWrite = { references: savedItemReferences(first.json?.data), signature: signedPreviewRequest(first.json?.data)?.security?.signature ?? null };
+    savedWrite = { references: savedItemReferences(first.json?.data), signature: signedPreviewRequest(first.json?.data)?.security?.signature ?? null, response: first };
     const wrote = saveEffects(first);
     record("gateway write effects", wrote.length === 1 && wrote[0].status === "succeeded" && !wrote[0].replayed && Array.isArray(wrote[0].steps) && wrote[0].steps.length > 0,
       describeEffects(wrote));
@@ -374,7 +420,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       describeEffects(replayed));
     if (!chainAdmission) return;
     // W4: that write ran under a plan, pinned to approved revisions.
-    const { invocation, plan } = await planOf(saveTaskId, key);
+    const { invocation, plan } = await planOf(saveTaskId, key, first);
     // Evidence, not assumption: without the serving revision the check fails.
     const serving = servingRevision ? await servingRevision("0176") : null;
     const l0176 = plan ? plan.stages.filter(s => s.lang === "0176") : [];
@@ -388,6 +434,45 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       log("recorded this write for the retry across a deploy: deploy L0176, then run the canary again");
     }
   });
+
+  // C6 slice 5 (`command`): the save as a command, as the console sends it.
+  let commandKey = null;
+  if (command) {
+    const postCommand = (id, idempotencyKey) =>
+      http({ method: "POST", url: `${apiUrl}/command`, headers: asUser, body: { id, data: {}, connectionId, idempotencyKey } });
+    const view = id => http({ method: "GET", url: `${apiUrl}/data?id=${encodeURIComponent(id)}&connection=${encodeURIComponent(connectionId)}`, headers: asUser });
+    const answerOf = res => (res.status === 200 && res.json?.status === "success" ? res.json.data : null);
+    const describe = res => `${res.status} ${JSON.stringify(res.json?.data ?? res.json?.error ?? null)}`;
+    await attempt("command write", async () => {
+      const taskId = await postTask(COMMAND_PROGRAM);
+      const key = `canary:${runId}:command`;
+      commandKey = key;
+      const first = await postCommand(taskId, key);
+      const answer = answerOf(first);
+      const done = Boolean(answer) && !answer.protocol && typeof answer.commandId === "string" && answer.outcome === "completed" && answer.result === "available";
+      if (!record("command write", done, done ? `command ${answer.commandId} completed` : describe(first))) return;
+      const before = await view(taskId);
+      const references = savedItemReferences(before.json?.data);
+      const shown = before.status === 200 && errorsOf(before).length === 0 && hasSavedItem(before.json?.data) && references.length > 0;
+      record("command write: saved", shown, shown ? `the view shows ${JSON.stringify(references)}` : `${before.status} ${JSON.stringify(errorsOf(before))}`);
+      const again = answerOf(await postCommand(taskId, key));
+      const after = await view(taskId);
+      const same = Boolean(again) && again.commandId === answer.commandId && again.outcome === "completed" &&
+        JSON.stringify(savedItemReferences(after.json?.data).sort()) === JSON.stringify([...references].sort());
+      record("command write retry", same, same
+        ? "the same command and outcome for the same key; the view's references are unchanged"
+        : `${JSON.stringify(again)}; the view shows ${JSON.stringify(savedItemReferences(after.json?.data))}`);
+      const status = await http({ method: "GET", url: `${apiUrl}${answer.statusUrl}`, headers: asUser });
+      const read = answerOf(status);
+      record("command status", Boolean(read) && read.commandId === answer.commandId && read.outcome === "completed",
+        read ? `${answer.statusUrl}: ${read.outcome}` : describe(status));
+    });
+    await attempt("command preview refused", async () => {
+      const id = await postTask(PREVIEW_PROGRAM);
+      const res = await postCommand(id, `canary:${runId}:command-preview`);
+      record("command preview refused", res.status === 409 && res.json?.error?.reason === "no-effects", describe(res));
+    });
+  }
 
   // READ-01 live: a view of the saved result through the connection signs the
   // stored activity afresh (a `read` stage, view-safe functions only, no plan)
@@ -435,7 +520,9 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       // stored artifact, keyed `read.<the write's invocation>`. Both lookups
       // must find an existing invocation, or the controls can't be tied to
       // these views.
-      const writeInvocation = await allocate({ taskId: saveTaskId, idempotencyKey: saveKey });
+      const { invocation: writeInvocation } = commandOf(savedWrite.response)
+        ? await planOf(saveTaskId, saveKey, savedWrite.response)
+        : { invocation: await allocate({ taskId: saveTaskId, idempotencyKey: saveKey }) };
       const readInvocation = await allocate({ taskId: saveTaskId, idempotencyKey: `read.${writeInvocation.invocationId}` });
       if (writeInvocation.reused !== true || readInvocation.reused !== true) {
         record("saved read: audit", false, writeInvocation.reused !== true ? "the write's invocation wasn't found" : "the views' invocation wasn't found");
@@ -482,7 +569,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       const chainId = res.json?.id;
       if (!record("chain admission: L0000 stage: compiled", res.status === 200 && errors.length === 0 && hasSignedRequest(res.json?.data) && typeof chainId === "string",
         res.status === 200 && errors.length === 0 ? (hasSignedRequest(res.json?.data) ? "signed preview returned" : "no signed request in the output") : `${res.status} ${JSON.stringify(errors)}`)) return;
-      const { invocation, plan } = await planOf(chainId, key);
+      const { invocation, plan } = await planOf(chainId, key, res);
       const serving = { "0176": servingRevision ? await servingRevision("0176") : null, "0000": servingRevision ? await servingRevision("0000") : null };
       const langs = plan ? plan.stages.map(s => s.lang) : [];
       const ok = invocation.reused === true && allPinned(plan) && JSON.stringify(langs) === JSON.stringify(["0176", "0000"]) &&
@@ -536,10 +623,17 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
         const res = await compile(chainId, key);
         const errors = errorsOf(res);
         const effects = Array.isArray(res.json?.data?.effects) ? res.json.data.effects : [];
-        const { plan } = await planOf(chainId, key);
-        const ok = res.status === 200 && errors.some(e => e?.code === "not-granted") && effects.length === 0 &&
+        const { invocation, plan } = await planOf(chainId, key, res);
+        // As a command (C6), the refusal at admission finishes it failed,
+        // never admitted; the response says the command failed (its reason
+        // isn't in the answer).
+        const command = invocation.command ?? null;
+        const refused = command
+          ? command.status === "failed" && command.admission === null && errors.some(e => e?.code === "command-not-completed")
+          : errors.some(e => e?.code === "not-granted");
+        const ok = res.status === 200 && refused && effects.length === 0 &&
           !hasSavedItem(res.json?.data) && !hasSignedRequest(res.json?.data) && plan === null;
-        record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${describePlan(plan)}`);
+        record("denied final stage", ok, `${res.status} ${JSON.stringify(errors.map(e => e?.code ?? e?.message))}, ${effects.length} effects, ${command ? `command ${command.status}, ` : ""}${describePlan(plan)}`);
       });
     } finally {
       if (owner) await owner.restore("denied final stage: permissions restored", saved);
@@ -694,27 +788,29 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
   // nothing until the write's deadline plus a grace period, so a too-early
   // answer is waited out once. Every record must carry the operation's mark:
   // applied, and final.
+  const reconcileKey = (name, key, what) => attempt(name, async () => {
+    if (!key) throw new Error(`no ${what} to reconcile`);
+    const asConsole = await asService(consoleAccount, policyUrl, "urn:graffiticode:policy");
+    const ask = () => http({ method: "POST", url: policy("/v1/receipts/reconcile"), headers: { ...asConsole, ...asUser }, body: { connectionId, idempotencyKey: key } });
+    let res = await ask();
+    const early = (res.json?.data?.operations ?? []).filter(o => o.verdict === "too-early");
+    if (res.status === 200 && early.length) {
+      const until = Math.max(...early.map(o => Date.parse(o.retryAfter)));
+      const wait = Math.min(Math.max(until - now(), 0) + 2000, 180_000);
+      log(`  reconcile: waiting ${Math.round(wait / 1000)} s for the write's deadline and grace period`);
+      await sleep(wait);
+      res = await ask();
+    }
+    const ops = res.json?.data?.operations ?? [];
+    const ok = res.status === 200 && ops.length > 0 && ops.every(o => o.verdict === "applied" && o.final === true);
+    const landed = ops.flatMap(o => o.records ?? []).filter(r => r.landed).length;
+    record(name, ok, res.status === 200
+      ? `${ops.map(o => o.verdict).join(", ") || "no write operations"}; ${landed} record(s) carry the mark`
+      : `${res.status} ${res.json?.error?.reason ?? ""}`);
+  });
   if (reconcile) {
-    await attempt("reconcile", async () => {
-      if (!saveKey) throw new Error("no gateway write to reconcile");
-      const asConsole = await asService(consoleAccount, policyUrl, "urn:graffiticode:policy");
-      const ask = () => http({ method: "POST", url: policy("/v1/receipts/reconcile"), headers: { ...asConsole, ...asUser }, body: { connectionId, idempotencyKey: saveKey } });
-      let res = await ask();
-      const early = (res.json?.data?.operations ?? []).filter(o => o.verdict === "too-early");
-      if (res.status === 200 && early.length) {
-        const until = Math.max(...early.map(o => Date.parse(o.retryAfter)));
-        const wait = Math.min(Math.max(until - now(), 0) + 2000, 180_000);
-        log(`  reconcile: waiting ${Math.round(wait / 1000)} s for the write's deadline and grace period`);
-        await sleep(wait);
-        res = await ask();
-      }
-      const ops = res.json?.data?.operations ?? [];
-      const ok = res.status === 200 && ops.length > 0 && ops.every(o => o.verdict === "applied" && o.final === true);
-      const landed = ops.flatMap(o => o.records ?? []).filter(r => r.landed).length;
-      record("reconcile", ok, res.status === 200
-        ? `${ops.map(o => o.verdict).join(", ") || "no write operations"}; ${landed} record(s) carry the mark`
-        : `${res.status} ${res.json?.error?.reason ?? ""}`);
-    });
+    await reconcileKey("reconcile", saveKey, "gateway write");
+    if (command) await reconcileKey("reconcile: command", commandKey, "command write");
   }
 
   // Cleanup, not a check: the drafts this run saved.
