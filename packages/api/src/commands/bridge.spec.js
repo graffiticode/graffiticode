@@ -83,6 +83,19 @@ describe("the compile envelope", () => {
     expect(envelope.effects.map(e => [e.status, e.reason])).toEqual([["succeeded", undefined], ["failed", "bounds-exceeded"]]);
   });
 
+  it("answers a refused admission with its reason, as a legacy compile's refusal did", async () => {
+    const r = records({
+      state: { status: "failed", result: { state: "none" }, admission: null, admissionRefusal: { reason: "not-granted", at: "2026-11-10T00:00:00Z" } },
+      occurrences: [],
+      outcomes: [],
+    });
+    const envelope = await buildCompileEnvelope({ policy: policyOf(r) })({ state: { commandId: "c:1" }, reused: false });
+    expect(envelope.data).toBeUndefined();
+    expect(envelope.effects).toEqual([]);
+    expect(envelope.errors).toEqual([expect.objectContaining({ message: "Error: permission denied (not-granted)", code: "not-granted" })]);
+    expect(envelope.command).toEqual({ commandId: "c:1", outcome: "failed", statusUrl: "/command/c%3A1" });
+  });
+
   it("maps an uncertain write, and a bound occurrence with no outcome, to uncertain", async () => {
     const r = records({ state: { status: "uncertain", result: { state: "unavailable" } }, outcomes: [] });
     const envelope = await buildCompileEnvelope({ policy: policyOf(r) })({ state: { commandId: "c:1" }, reused: false });

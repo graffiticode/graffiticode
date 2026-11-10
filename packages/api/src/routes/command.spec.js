@@ -123,6 +123,12 @@ describe("GET /command/:id", () => {
     expect(res.body.data).toEqual({ commandId: "c:1", outcome: "partial", result: "unavailable", statusUrl: "/command/c%3A1" });
   });
 
+  it("says why a command whose admission was refused failed", async () => {
+    policy.get = async ({ commandId }) => ({ commandId, status: "failed", result: { state: "none" }, admissionRefusal: { reason: "not-granted", at: "2026-11-10T00:00:00Z" } });
+    const res = await request(build({})).get("/command/c%3A1").set({ authorization: "Bearer t" });
+    expect(res.body.data).toEqual({ commandId: "c:1", outcome: "failed", result: "none", statusUrl: "/command/c%3A1", reason: "not-granted" });
+  });
+
   it("answers 404 for another user's or an unknown command", async () => {
     const res = await request(build({})).get("/command/c%3A9").set({ authorization: "Bearer t" });
     expect(res.status).toBe(404);
