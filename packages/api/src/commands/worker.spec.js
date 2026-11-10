@@ -203,7 +203,7 @@ describe("a command, start to finish", () => {
     expect(state).toMatchObject({ status: "completed", result: { state: "available" }, publication: { state: "published" } });
     expect(provider).toHaveLength(1);
     const published = await current();
-    expect(published).toMatchObject({ status: "ok", artifact: { content: { count: 2 } } });
+    expect(published).toMatchObject({ status: "ok", artifact: { form: "result", content: { count: 2 } } });
   });
 
   it("returns the recorded outcome to a second run, with no new write", async () => {

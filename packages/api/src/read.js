@@ -29,6 +29,15 @@ const failure = (message, code) => ({ errors: [{ message, from: -1, to: -1, code
 
 const signsEveryRender = lang => compilerConfigForLang(lang).implicitProtectedFunctions.length > 0;
 
+// What a view serves from an artifact: a compile envelope, { data, errors }.
+// A legacy save stores that envelope. A command (C6, commands/worker.js)
+// stores the head's committed result, the output itself, and marks it
+// `form: "result"`; it is served as that output's envelope, so a command's
+// save views, signs and publishes as a legacy save's does.
+export const ARTIFACT_RESULT_FORM = "result";
+export const storedEnvelope = artifact =>
+  artifact.form === ARTIFACT_RESULT_FORM ? { data: artifact.content, errors: [] } : artifact.content;
+
 // Signs a stored result for a view, when the head language signs every
 // render; otherwise serves it as stored.
 const signStored = async ({ compile, lang, content, connectionId, invocationToken, stage, uid, authToken }) => {
@@ -62,7 +71,8 @@ export const buildReadArtifact = ({ compile, artifactStorer, allocateInvocation,
     if (current.status === "incompatible") {
       return failure("Error: this item's result was made by an older version. Recompile the item to update it.", "artifact-incompatible");
     }
-    const { content, invocationId } = current.artifact;
+    const { invocationId } = current.artifact;
+    const content = storedEnvelope(current.artifact);
     const [head] = tasks;
     if (!signsEveryRender(head.lang)) {
       return content;
@@ -125,7 +135,7 @@ export const buildReadPublished = ({ compile, artifactStorer, publications, audi
     return signStored({
       compile,
       lang: head.lang,
-      content: artifact.content,
+      content: storedEnvelope(artifact),
       connectionId: view.connectionId,
       invocationToken: view.invocationToken,
       stage: "view",

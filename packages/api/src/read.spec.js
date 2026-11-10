@@ -96,6 +96,19 @@ describe("the read path", () => {
     expect(compile).toHaveBeenCalledWith(expect.objectContaining({ code: signProgram(saved), stage: "read" }));
   });
 
+  // C6: a command's artifact holds the head's committed result, the activity
+  // itself (commands/worker.js), not a compile envelope. It is served and
+  // signed exactly as a legacy save's envelope is.
+  it("serves and signs a command's artifact (form: result) as a legacy save's", async () => {
+    const itemBank = { saved: true, references: ["gc-item-1"] };
+    const saved = { type: "questions", data: { questions: [], itemBank } };
+    await store({ content: saved, form: "result" });
+    compile.mockImplementation(async ({ code }) => ({ data: { ...JSON.parse(code[1].elts[0]), request: "signed" }, errors: [], cache: false }));
+    await expect(read()).resolves.toEqual({ data: { ...saved, request: "signed" }, errors: [] });
+    expect(compile).toHaveBeenCalledWith(expect.objectContaining({ code: signProgram(saved), stage: "read" }));
+    await expect(read(L0000_TASK)).resolves.toEqual({ data: saved, errors: [] });
+  });
+
   it("serves a language that does not sign as stored, with no compile", async () => {
     await store();
     await expect(read(L0000_TASK)).resolves.toEqual(STORED);

@@ -16,6 +16,7 @@ import { decodeChainId } from "@graffiticode/common/chain";
 import { canonicalDigest } from "@graffiticode/common/canonical";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { PolicyRefused } from "./policy-commands.js";
+import { ARTIFACT_RESULT_FORM } from "../read.js";
 
 export const LEASE_RENEW_MS = 20_000;
 const LOST_OWNERSHIP = new Set(["stale-generation", "lease-expired", "command-finished"]);
@@ -243,6 +244,10 @@ export const buildCommandWorker = ({
       invocationId: state.invocationId,
       seq: state.seq,
       registryVersion: REGISTRY_VERSION,
+      // The head's output, not a compile envelope: the read path serves it
+      // as one (read.js storedEnvelope). The mark isn't a binding, so a
+      // repeated delivery of an artifact stored before it still acknowledges.
+      form: ARTIFACT_RESULT_FORM,
       content: JSON.parse(result.text),
     });
     await step(() => policy.published({ commandId: id, generation: g }));
