@@ -24,6 +24,12 @@ export const signInAndGetIdToken = async (customToken) => {
 };
 
 export const cleanUpFirebase = async () => {
+  // Deletes every user and every collection: only ever against the emulators.
+  // Without these, the Admin SDK reaches the real project with the caller's
+  // credentials (on 2026-11-10 the api's equivalent deleted production data).
+  if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    throw new Error("cleanUpFirebase: FIRESTORE_EMULATOR_HOST and FIREBASE_AUTH_EMULATOR_HOST must be set; refusing to delete outside the emulators");
+  }
   // Clean up auth
   const auth = getAdminAuth();
   const { users } = await auth.listUsers();
