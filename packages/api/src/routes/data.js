@@ -18,7 +18,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // (see data.js): `compiled` for logging, `noStore` when the result expires.
   // Callers that don't care (routes/compile.js) can omit it.
   return async ({
-    auth, authToken, ids, action = {}, refresh = false, connectionId = null, idempotencyKey = null,
+    auth, authToken, ids, action = {}, refresh = false, connectionId = null, idempotencyKey = null, client = null,
     read = false, publicationId = null, generation = /** @type {string | undefined} */ (undefined),
     namedGenerations = /** @type {string | undefined} */ (undefined), generationDataTask = false,
     // Each id's tasks, already loaded by the route (or undefined).
@@ -39,6 +39,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       refresh,
       connectionId,
       idempotencyKey: keyFor(i),
+      client,
       read,
       publicationId,
       generation,

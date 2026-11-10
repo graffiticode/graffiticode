@@ -1,6 +1,6 @@
 // The compile-to-command bridge and its one eligibility rule (C6 slice 2,
 // docs/c6-l0176-commands-plan.md §4, decisions 5 and 7).
-import { buildEligibility, buildCompileEnvelope, buildCommandBridge, isWriteFunction } from "./bridge.js";
+import { buildEligibility, buildCompileEnvelope, buildCommandBridge, isWriteFunction, keyKindOf } from "./bridge.js";
 import { PolicyRefused } from "./policy-commands.js";
 import { PreflightUnavailable } from "../admission.js";
 
@@ -17,7 +17,7 @@ describe("eligibility", () => {
   const off = buildEligibility({ preflight, baseUrlFor, env: {} });
 
   it("is a flagged stage that writes", async () => {
-    expect(await on([SAVE, DATA])).toBe(true);
+    expect(await on([SAVE, DATA])).toBe("0176");
     expect(await off([SAVE, DATA])).toBe(false);
   });
 
@@ -27,7 +27,7 @@ describe("eligibility", () => {
 
   it("is the same for a chain headed by another language", async () => {
     // L0000 head, L0176 save below it: eligible when L0176's flag is on, not otherwise.
-    expect(await on([DATA, SAVE])).toBe(true);
+    expect(await on([DATA, SAVE])).toBe("0176");
     expect(await off([DATA, SAVE])).toBe(false);
   });
 
@@ -115,21 +115,74 @@ describe("the bridge", () => {
   it("leaves an ineligible chain, and a legacy key, to compile as today", async () => {
     expect(await buildCommandBridge({ eligible: async () => false, getRunner: () => runner(), compileEnvelope })(args)).toBeNull();
     const legacy = runner({ allocate: async () => ({ protocol: "legacy", invocationId: "inv-1" }) });
-    expect(await buildCommandBridge({ eligible: async () => true, getRunner: () => legacy, compileEnvelope })(args)).toBeNull();
+    expect(await buildCommandBridge({ eligible: async () => "0176", getRunner: () => legacy, compileEnvelope })(args)).toBeNull();
   });
 
   it("runs an eligible compile as a command, with the caller's key or a fresh one", async () => {
     const keys = [];
     const r = runner({ allocate: async a => { keys.push([a.idempotencyKey, a.create]); return { protocol: "command", commandId: "c:1", generation: 1, owned: true }; } });
-    const bridge = buildCommandBridge({ eligible: async () => true, getRunner: () => r, compileEnvelope, newKey: () => "bridge:fresh" });
+    const bridge = buildCommandBridge({ eligible: async () => "0176", getRunner: () => r, compileEnvelope, newKey: () => "bridge:fresh" });
     expect((await bridge(args)).ran.protocol).toBe("command");
     await bridge({ ...args, idempotencyKey: "save:abc" });
     expect(keys).toEqual([["bridge:fresh", true], ["save:abc", true]]);
   });
 
+  it("logs one telemetry line per bridged compile: language, outcome, key kind and client", async () => {
+    const lines = [];
+    const bridge = buildCommandBridge({ eligible: async () => "0176", getRunner: () => runner(), compileEnvelope, log: line => lines.push(line), env: {} });
+    await bridge({ ...args, idempotencyKey: "save:abc", client: "graffiticode-console" });
+    await bridge(args);
+    expect(lines.map(l => JSON.parse(l.replace(/^bridge /, "")))).toEqual([
+      { lang: "0176", outcome: "completed", keyKind: "save", client: "graffiticode-console" },
+      { lang: "0176", outcome: "completed", keyKind: "generated", client: null },
+    ]);
+    expect(await buildCommandBridge({ eligible: async () => false, getRunner: () => runner(), compileEnvelope, log: line => lines.push(line) })(args)).toBeNull();
+    expect(lines).toHaveLength(2);
+  });
+
+  it("names the kind of key without the key", () => {
+    expect(["save:x", "recompile:y", "canary:r:save", "c6-drive:r:1", "job-1", null].map(keyKindOf))
+      .toEqual(["save", "recompile", "canary", "c6-drive", "other", "generated"]);
+  });
+
+  describe("retired (BRIDGE_L0176=off)", () => {
+    const env = { BRIDGE_L0176: "off" };
+    it("starts nothing: a compile that would save is refused, naming POST /command", async () => {
+      const calls = [];
+      const lines = [];
+      const r = runner({ allocate: async a => { calls.push(a.create); return { protocol: "none" }; } });
+      const envelope = await buildCommandBridge({ eligible: async () => "0176", getRunner: () => r, compileEnvelope, env, log: line => lines.push(line) })({ ...args, idempotencyKey: "job-1" });
+      expect(envelope.errors[0]).toMatchObject({ code: "bridge-retired" });
+      expect(envelope.errors[0].message).toMatch(/POST \/command/);
+      expect(calls).toEqual([false]);
+      const keyless = await buildCommandBridge({ eligible: async () => "0176", getRunner: () => r, compileEnvelope, env, log: line => lines.push(line) })(args);
+      expect(keyless.errors[0].code).toBe("bridge-retired");
+      expect(calls).toEqual([false]);
+      expect(lines.map(l => JSON.parse(l.replace(/^bridge /, "")).outcome)).toEqual(["retired-refused", "retired-refused"]);
+    });
+
+    it("answers a key that already holds a command from its record, creating nothing", async () => {
+      const calls = [];
+      const r = runner({ allocate: async a => { calls.push(a.create); return { protocol: "command", commandId: "c:1", generation: 1, owned: false, status: "completed" }; } });
+      const envelope = await buildCommandBridge({ eligible: async () => "0176", getRunner: () => r, compileEnvelope, env, log: () => {} })({ ...args, idempotencyKey: "save:abc" });
+      expect(envelope.ran.protocol).toBe("command");
+      expect(calls).toEqual([false]);
+    });
+
+    it("refuses a key the legacy path holds too: a compile never writes once retired", async () => {
+      const r = runner({ allocate: async () => ({ protocol: "legacy", invocationId: "inv-1" }) });
+      const envelope = await buildCommandBridge({ eligible: async () => "0176", getRunner: () => r, compileEnvelope, env, log: () => {} })({ ...args, idempotencyKey: "save:abc" });
+      expect(envelope.errors[0].code).toBe("bridge-retired");
+    });
+
+    it("leaves a chain with no write (a preview) to compile as today", async () => {
+      expect(await buildCommandBridge({ eligible: async () => false, getRunner: () => runner(), compileEnvelope, env, log: () => {} })(args)).toBeNull();
+    });
+  });
+
   it("answers refusals in the envelope, as a legacy compile does", async () => {
     const refused = runner({ allocate: async () => { throw new PolicyRefused("connection-disabled"); } });
-    const envelope = await buildCommandBridge({ eligible: async () => true, getRunner: () => refused, compileEnvelope })(args);
+    const envelope = await buildCommandBridge({ eligible: async () => "0176", getRunner: () => refused, compileEnvelope })(args);
     expect(envelope.errors[0]).toMatchObject({ code: "connection-disabled", category: "permission" });
     const down = await buildCommandBridge({ eligible: async () => { throw new PreflightUnavailable("unreachable"); }, getRunner: () => runner(), compileEnvelope })(args);
     expect(down.errors[0].code).toBe("preflight-unavailable");

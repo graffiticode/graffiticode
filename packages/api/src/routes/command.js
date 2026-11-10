@@ -68,7 +68,7 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     // A new key needs an eligible chain. A key either protocol already holds
     // is served whatever the flags say now (D2a): otherwise Policy only answers
     // which protocol holds the key, and creates nothing.
-    const create = await isEligible(tasks);
+    const create = Boolean(await isEligible(tasks));
     let outcome;
     try {
       outcome = await runCommand({

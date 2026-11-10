@@ -83,7 +83,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLi
       ids.push(id);
       // One key per item, so a multi-item request's invocations stay distinct.
       const itemKey = idempotencyKey && items.length > 1 ? `${idempotencyKey}.${i}` : idempotencyKey;
-      return await getData({ auth, authToken, ids: [id], connectionId, idempotencyKey: itemKey, generation, generationDataTask });
+      return await getData({ auth, authToken, ids: [id], connectionId, idempotencyKey: itemKey, generation, generationDataTask, client: req.get("User-Agent")?.slice(0, 120) ?? null });
     }));
     if (data.length === 1) {
       data = data[0];

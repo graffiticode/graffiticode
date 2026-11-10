@@ -81,6 +81,9 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ...cat("malformed", ["no-effects"]),
   ...cat("permission", ["commands-not-enabled"]),
   ...cat("conflict", ["legacy-protocol"]),
+  // D4: the language's compile-to-command bridge is retired (BRIDGE_LNNNN=off);
+  // its writes are sent as POST /command.
+  ...cat("malformed", ["bridge-retired"]),
   // Command authority (B5 slice 3): admission before every stage's model is
   // installed; an intent the registry or the stage doesn't allow; a token
   // for a command's invocation without its claims; an operation outside its
