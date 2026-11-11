@@ -1628,6 +1628,28 @@ L0176's activation drive (`docs/c6-l0176-commands-plan.md` §6), set up 2026-11-
   - `gcloud run services get-iam-policy broker-faults` lists only `l0176r-run` and `deploy-smoke`.
   - The production broker's env has no `BROKER_FAULT*`.
 
+### Step 22: Firestore deletes are denied except to the runtime services, and logged [LIVE]
+
+After the 2026-11-10 incident: at 16:55Z a test cleanup (`clearFirestore`, run without the emulator) used owner credentials to delete production collections in the default database. Everything was restored from point-in-time recovery (`scripts/restore-default-firestore.js`), and the cleanup helpers now refuse to run outside the emulator (#338). These changes stop, detect and limit a repeat.
+
+- **The deny policy `firestore-no-deletes`** is attached to project `graffiticode`; the file is `configs/iam/firestore-no-deletes.json`. Live 2026-11-11 16:16Z.
+  - It denies `datastore.googleapis.com/entities.delete`, `databases.bulkDelete`, `databases.delete` and `backups.delete` to everyone, owners included.
+  - It exempts `api-run`, `auth-run`, `broker-run` and `policy-run`, the only identities that delete as part of normal work. The nightly `auth-refresh-token-cleanup` job deletes through auth's API, so as `auth-run`.
+  - It doesn't affect creates or updates, Firestore's own TTL expiry (`stage-results`), or point-in-time recovery reads.
+  - The one operator script that deleted documents, `lang-overrides clear`, now writes an empty `bindings` document instead, and the api treats that as no override (#344).
+  - **Managing it needs `roles/iam.denyAdmin`.** That role can only be granted on the organization (`artcompiler.com`, `496958484376`), and is held by `jeff@artcompiler.com`.
+  - **A deliberate owner delete:** remove the policy (`gcloud iam policies delete firestore-no-deletes --attachment-point=cloudresourcemanager.googleapis.com%2Fprojects%2Fgraffiticode --kind=denypolicies`), then recreate it from the file.
+- **Firestore data-access audit logs (`DATA_WRITE`)** are on for `datastore.googleapis.com`, through the project IAM policy's `auditConfigs`, since 2026-11-10.
+  - Entries carry document names, never field values.
+  - **The `_Default` sink exclusion `firestore-token-index-names`** drops entries naming auth's lookup-index documents (`*/-indexes-/*`). Those names contain the token itself: API keys, refresh tokens, OAuth access and refresh tokens. About 21 such entries were stored between 18:00 and 23:15Z on 11-10, before the exclusion. They are readable by owners only and age out with the bucket's retention.
+- **Alerts**, on the operator SMS and `jeff@artcompiler.com` email channels:
+  - **"Firestore: deletes by a person"**: any delete request whose caller isn't a service account. Log metric `firestore_deletes_by_person`.
+  - **"Firestore: delete burst"**: more than 100 delete requests in 10 minutes. Log metric `firestore_delete_requests`; normal is about 18 an hour.
+- **Check:**
+  - `gcloud iam policies get firestore-no-deletes --attachment-point=cloudresourcemanager.googleapis.com%2Fprojects%2Fgraffiticode --kind=denypolicies` matches the file.
+  - An owner `DELETE` of a non-existent document (`deny-check/probe-does-not-exist`) answers 403.
+  - The services' delete requests appear in the data-access log with status OK.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
