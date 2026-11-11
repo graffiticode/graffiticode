@@ -190,12 +190,20 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
 - **Host layout.** The diagram is a square at the web's **best fit**: the larger side of
   `solve`'s minimum, the smallest size at which nothing collides. It is computed from the
   content, and `Web.tsx` lays the canvas out at it.
-  - When the page is at least that wide, the square is shown at best fit and grows no further.
-  - On a narrower page the whole square scales down (a CSS transform) to the page width, with no
-    lower limit, so it never scrolls. Nodes and text shrink with it.
-  - In the /form embed, `#root` is a full-viewport flex column (`embed/index.html`) holding the
-    Form and the View's CheckBar. The Form scrolls inside the height left over, so Check stays on
+  - The square is shown at best fit when there is room, and never bigger. With less room in
+    either direction, the whole square scales down (a CSS transform) to fit, with no lower
+    limit, so it never scrolls. Nodes and text shrink with it.
+  - **In a full-viewport column** (the /form embed marks its `#root` `data-l0183-viewport`), the
+    room is the frame's share of the column: the height left after the title, the trays (each
+    capped at 25dvh and scrolling inside) and the View's CheckBar, which therefore stays on
     screen.
+  - **In page flow** (Learnosity, or a page of several webs), the height is capped at 85% of the
+    window. A drag held near the window's top or bottom edge scrolls the page, so a tray below
+    the fold can reach the web.
+  - A tray's hidden full-height copy (`ReservedTray`) is clipped. Unclipped, it hung below the
+    capped tray and made the page scroll into empty space.
+  - Below 320px wide, the shared View's CheckBar is wider than the screen. That is
+    `l0000-view`'s to fix, not this layout's.
 - **Touch** (`lib/gesture.ts`): who owns a touch is decided by where it starts, never by a
   timer.
   - A tray item drags from its grip (`touch-action: none`, shown on coarse pointers). Its body

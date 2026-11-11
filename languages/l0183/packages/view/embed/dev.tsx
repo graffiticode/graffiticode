@@ -274,9 +274,14 @@ const el = document.getElementById("root");
 if (el && only && FIXTURES[only]) {
   // One fixture under the /form embed's viewport contract (see index.html), or as a Learnosity
   // question (which cqt marks with `questionState`).
-  Object.assign(el.style, { height: "100dvh", display: "flex", flexDirection: "column" });
+  // Learnosity renders a question in its page's flow; the /form embed fills the viewport.
+  const learnosity = params.get("host") === "learnosity";
+  if (!learnosity) {
+    Object.assign(el.style, { height: "100dvh", display: "flex", flexDirection: "column" });
+    el.setAttribute("data-l0183-viewport", "");
+  }
   Object.assign(document.body.style, { margin: "0" });
-  const initial = params.get("host") === "learnosity" ? { ...FIXTURES[only], questionState: "initial" } : FIXTURES[only];
+  const initial = learnosity ? { ...FIXTURES[only], questionState: "initial" } : FIXTURES[only];
   createRoot(el).render(
     <React.StrictMode>
       <Fixture label={only} initial={initial} bare />
