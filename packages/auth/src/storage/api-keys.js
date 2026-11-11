@@ -3,6 +3,9 @@ import admin from "firebase-admin";
 import { v4 } from "uuid";
 import { getFirestore } from "../firebase.js";
 import { generateNonce } from "../utils.js";
+import { deleteTokenIndex, readTokenIndex, tokenIndexRef } from "./token-index.js";
+
+const INDEX = "api-keys/-indexes-/token-to-id";
 
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
@@ -21,8 +24,7 @@ const buildCreate = () => async ({ uid }) => {
   const apiKeyPrivateRef = db.doc(`api-keys/${id}/private/key`);
   batchWriter.create(apiKeyPrivateRef, { token });
 
-  const tokenToIdRef = db.doc(`api-keys/-indexes-/token-to-id/${token}`);
-  batchWriter.create(tokenToIdRef, { id });
+  batchWriter.create(tokenIndexRef(db, INDEX, token), { id });
 
   await batchWriter.commit();
 
@@ -36,22 +38,20 @@ const buildRemoveById = () => async (id) => {
   await db.runTransaction(async t => {
     const apiKeyPrivateDoc = await t.get(apiKeyPrivateRef);
     const token = apiKeyPrivateDoc.get("token");
-    const tokenToIdRef = db.doc(`api-keys/-indexes-/token-to-id/${token}`);
-    t.delete(tokenToIdRef)
-      .delete(apiKeyPrivateRef)
+    if (token) deleteTokenIndex(t, db, INDEX, token);
+    t.delete(apiKeyPrivateRef)
       .delete(apiKeyRef);
   });
 };
 
 const buildFindByToken = () => async (token) => {
   const db = getFirestore();
-  const tokenToIdRef = db.doc(`api-keys/-indexes-/token-to-id/${token}`);
-  const tokenToIdDoc = await tokenToIdRef.get();
-  if (!tokenToIdDoc.exists) {
+  const index = await readTokenIndex(db, INDEX, token);
+  if (!index) {
     throw new NotFoundError("api-key does not exist");
   }
 
-  const id = tokenToIdDoc.get("id");
+  const id = index.id;
   const apiKeyRef = db.doc(`api-keys/${id}`);
   const apiKeyDoc = await apiKeyRef.get();
   const { uid, createdAt } = apiKeyDoc.data();

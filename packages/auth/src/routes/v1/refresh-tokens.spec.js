@@ -1,3 +1,4 @@
+import { tokenIndexRef } from "../../storage/token-index.js";
 import { UnauthenticatedError } from "@graffiticode/common/errors";
 import request from "supertest";
 import { startAuthApp } from "../../testing/app.js";
@@ -124,7 +125,7 @@ describe("routes/v1/ethereum", () => {
       const { refreshToken: expiredToken } = await authApp.authService.generateTokens({ uid });
 
       const db = getFirestore();
-      const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${expiredToken}`);
+      const tokenToIdRef = tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", expiredToken);
       const tokenToIdDoc = await tokenToIdRef.get();
       const expiredId = tokenToIdDoc.get("id");
 
@@ -150,7 +151,7 @@ describe("routes/v1/ethereum", () => {
       const { refreshToken: activeToken } = await authApp.authService.generateTokens({ uid });
       const { refreshToken: expiredToken } = await authApp.authService.generateTokens({ uid });
       const db = getFirestore();
-      const expiredId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${expiredToken}`).get()).get("id");
+      const expiredId = (await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", expiredToken).get()).get("id");
       await db.doc(`refresh-tokens/${expiredId}`).update({ expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 60 * 60 * 1000) });
 
       await request(authApp.app).post("/v1/refresh-tokens/clean-expired").set("X-Cleanup-API-Key", "wrong").expect(403);

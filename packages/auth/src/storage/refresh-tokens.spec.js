@@ -1,3 +1,4 @@
+import { tokenIndexRef } from "./token-index.js";
 import { NotFoundError } from "@graffiticode/common/errors";
 import admin from "firebase-admin";
 import { cleanUpFirebase } from "../testing/firebase.js";
@@ -57,7 +58,7 @@ describe("storage/refresh-tokens", () => {
     const { token: expiredToken } = await storer.createRefreshToken({ uid });
 
     // Look up the expired token's ID to modify its expiresAt
-    const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${expiredToken}`);
+    const tokenToIdRef = tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", expiredToken);
     const tokenToIdDoc = await tokenToIdRef.get();
     const expiredId = tokenToIdDoc.get("id");
 
@@ -78,14 +79,14 @@ describe("storage/refresh-tokens", () => {
     // Ensure all references for the expired one are deleted
     const mainDoc = await db.doc(`refresh-tokens/${expiredId}`).get();
     const privateKeyDoc = await db.doc(`refresh-tokens/${expiredId}/private/key`).get();
-    const indexDoc = await db.doc(`refresh-tokens/-indexes-/token-to-id/${expiredToken}`).get();
+    const indexDoc = await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", expiredToken).get();
 
     expect(mainDoc.exists).toBe(false);
     expect(privateKeyDoc.exists).toBe(false);
     expect(indexDoc.exists).toBe(false);
   });
 
-  const idOf = async token => (await getFirestore().doc(`refresh-tokens/-indexes-/token-to-id/${token}`).get()).get("id");
+  const idOf = async token => (await tokenIndexRef(getFirestore(), "refresh-tokens/-indexes-/token-to-id", token).get()).get("id");
   const ago = ms => admin.firestore.Timestamp.fromMillis(Date.now() - ms);
   const DAY = 24 * 60 * 60 * 1000;
 
@@ -139,7 +140,7 @@ describe("storage/refresh-tokens", () => {
 
     expect((await db.doc(`refresh-tokens/${idleId}`).get()).exists).toBe(false);
     expect((await db.doc(`refresh-tokens/${idleId}/private/key`).get()).exists).toBe(false);
-    expect((await db.doc(`refresh-tokens/-indexes-/token-to-id/${idle}`).get()).exists).toBe(false);
+    expect((await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", idle).get()).exists).toBe(false);
     expect((await db.doc("refresh-tokens/old-idle").get()).exists).toBe(false);
     await expect(storer.getRefreshToken(inUse)).resolves.toHaveProperty("uid", uid);
   });
@@ -154,9 +155,9 @@ describe("storage/refresh-tokens", () => {
     const { token: t3 } = await storer.createRefreshToken({ uid, additionalClaims: { session: 3 } });
 
     // Get the IDs
-    const id1 = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${t1}`).get()).get("id");
-    const id2 = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${t2}`).get()).get("id");
-    const id3 = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${t3}`).get()).get("id");
+    const id1 = (await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", t1).get()).get("id");
+    const id2 = (await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", t2).get()).get("id");
+    const id3 = (await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", t3).get()).get("id");
 
     // List sessions
     let sessions = await storer.listSessions({ uid });
@@ -192,8 +193,8 @@ describe("storage/refresh-tokens", () => {
     const longAgent = "Mozilla/5.0 " + "x".repeat(1000);
     const { token: wallet } = await storer.createRefreshToken({ uid, meta: { method: "wallet", userAgent: longAgent } });
     const { token: bogus } = await storer.createRefreshToken({ uid, meta: { method: "sorcery", userAgent: 42 } });
-    const walletId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${wallet}`).get()).get("id");
-    const bogusId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${bogus}`).get()).get("id");
+    const walletId = (await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", wallet).get()).get("id");
+    const bogusId = (await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", bogus).get()).get("id");
 
     const sessions = await storer.listSessions({ uid, currentToken: wallet });
     const w = sessions.find(s => s.id === walletId);
@@ -223,8 +224,8 @@ describe("storage/refresh-tokens", () => {
     const db = getFirestore();
     const { token: older } = await storer.createRefreshToken({ uid });
     const { token: newer } = await storer.createRefreshToken({ uid });
-    const olderId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${older}`).get()).get("id");
-    const newerId = (await db.doc(`refresh-tokens/-indexes-/token-to-id/${newer}`).get()).get("id");
+    const olderId = (await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", older).get()).get("id");
+    const newerId = (await tokenIndexRef(db, "refresh-tokens/-indexes-/token-to-id", newer).get()).get("id");
     const twoHoursAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000);
     const tenMinutesAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 60 * 1000);
     await db.doc(`refresh-tokens/${olderId}`).update({ lastUsedAt: twoHoursAgo });

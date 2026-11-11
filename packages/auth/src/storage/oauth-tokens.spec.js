@@ -2,6 +2,7 @@
 // Characterization tests: these pin the CURRENT behavior of
 // storage/oauth-tokens.js (written before the TypeScript migration), not a
 // judgment of it. Runs against the Firestore emulator.
+import { tokenIndexRef } from "./token-index.js";
 import { NotFoundError } from "@graffiticode/common/errors";
 import { getFirestore } from "../firebase.js";
 import { cleanUpFirebase } from "../testing/firebase.js";
@@ -47,8 +48,8 @@ describe("storage/oauth-tokens", () => {
       const doc = await db.doc(`oauth-links/link-1/tokens/${id}`).get();
       expect(doc.data()).toEqual({ ...tokenData(1), created_at: expect.any(Number) });
       expect(doc.data()).not.toHaveProperty("link_id");
-      const byAccess = await db.doc("oauth-links/-indexes-/access-token/access-1").get();
-      const byRefresh = await db.doc("oauth-links/-indexes-/refresh-token/refresh-1").get();
+      const byAccess = await tokenIndexRef(db, "oauth-links/-indexes-/access-token", "access-1").get();
+      const byRefresh = await tokenIndexRef(db, "oauth-links/-indexes-/refresh-token", "refresh-1").get();
       expect(byAccess.data()).toEqual({ link_id: "link-1", token_id: id });
       expect(byRefresh.data()).toEqual({ link_id: "link-1", token_id: id });
     });
@@ -109,8 +110,8 @@ describe("storage/oauth-tokens", () => {
       await expect(storer.findByAccessToken("access-1")).resolves.toBeNull();
       await expect(storer.findByRefreshToken("refresh-1")).resolves.toBeNull();
       const db = getFirestore();
-      expect((await db.doc("oauth-links/-indexes-/access-token/access-1").get()).exists).toBe(false);
-      expect((await db.doc("oauth-links/-indexes-/refresh-token/refresh-1").get()).exists).toBe(false);
+      expect((await tokenIndexRef(db, "oauth-links/-indexes-/access-token", "access-1").get()).exists).toBe(false);
+      expect((await tokenIndexRef(db, "oauth-links/-indexes-/refresh-token", "refresh-1").get()).exists).toBe(false);
     });
 
     it("throws NotFoundError for a missing token", async () => {
