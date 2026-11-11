@@ -1,0 +1,23 @@
+{
+  "displayName": "Firestore: no deletes except the runtime services",
+  "rules": [
+    {
+      "description": "Only api-run, auth-run, broker-run and policy-run delete Firestore documents (routine cleanup). Everyone else, owners included, is denied: on 2026-11-10 a test run with owner credentials deleted production collections.",
+      "denyRule": {
+        "deniedPrincipals": ["principalSet://goog/public:all"],
+        "exceptionPrincipals": [
+          "principal://iam.googleapis.com/projects/-/serviceAccounts/api-run@graffiticode.iam.gserviceaccount.com",
+          "principal://iam.googleapis.com/projects/-/serviceAccounts/auth-run@graffiticode.iam.gserviceaccount.com",
+          "principal://iam.googleapis.com/projects/-/serviceAccounts/broker-run@graffiticode.iam.gserviceaccount.com",
+          "principal://iam.googleapis.com/projects/-/serviceAccounts/policy-run@graffiticode.iam.gserviceaccount.com"
+        ],
+        "deniedPermissions": [
+          "datastore.googleapis.com/entities.delete",
+          "datastore.googleapis.com/databases.bulkDelete",
+          "datastore.googleapis.com/databases.delete",
+          "datastore.googleapis.com/backups.delete"
+        ]
+      }
+    }
+  ]
+}
