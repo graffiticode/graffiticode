@@ -54,6 +54,7 @@ pub use compiler::{Compilation, Compiler};
 pub use dialect::{Dialect, L0000};
 pub use error::Diagnostic;
 pub use eval::{Eval, Evaluator};
+pub use exec::{CacheClass, Restriction};
 pub use exec::{EffectStatus, ExecContext, Identity, ProtectedEffect, SystemSessionRefusal, runtime_occurrence_id};
 pub use lexicon::{Lexicon, LexiconEntry, LexiconError};
 pub use model::{Intent, Mode, Model, ModelKind};

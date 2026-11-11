@@ -43,11 +43,14 @@ pub struct Compilation {
     /// A command's `start` only: the occurrences it performed, by intent, which the gateway
     /// closes the stage with (B5 §4).
     pub occurrences: Option<BTreeMap<String, Vec<String>>>,
+    /// How the result may be cached, when the dialect restricted it (C3). None is today's
+    /// default: the language's own [`Dialect::cacheable`].
+    pub restriction: Option<crate::exec::Restriction>,
 }
 
 impl Compilation {
     fn of(result: Result<Value, Vec<Diagnostic>>) -> Self {
-        Self { result, effects: Vec::new(), occurrences: None }
+        Self { result, effects: Vec::new(), occurrences: None, restriction: None }
     }
 }
 
@@ -120,7 +123,8 @@ impl Compiler {
         exec.set_policy(self.policy.clone());
         let result = self.run(code, data, config, &mut exec, None).await;
         let occurrences = exec.command_occurrences().cloned();
-        Compilation { result, effects: exec.into_effects(), occurrences }
+        let restriction = exec.restriction();
+        Compilation { result, effects: exec.into_effects(), occurrences, restriction }
     }
 
     async fn run(
@@ -259,7 +263,8 @@ impl Compiler {
         // The occurrences performed, even when the stage failed partway: what was bound is the
         // stage's to close.
         let occurrences = Some(exec.command_occurrences().cloned().unwrap_or_default());
-        Compilation { result, effects: exec.into_effects(), occurrences }
+        let restriction = exec.restriction();
+        Compilation { result, effects: exec.into_effects(), occurrences, restriction }
     }
 
     /// Preflight: this stage's manifest, or the errors that would stop it compiling.

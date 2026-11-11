@@ -179,6 +179,49 @@ pub enum SystemSessionRefusal {
     Unavailable(Option<String>),
 }
 
+/// How a result may be cached, loosest to strictest, as the API's interpreter manifest names
+/// them (`CACHE_CLASSES`): `immutable` forever, `shared` across viewers until it expires,
+/// `private` to its viewer, `no-store` never.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CacheClass {
+    Immutable,
+    Shared,
+    Private,
+    NoStore,
+}
+
+impl CacheClass {
+    /// The name the envelope's `cache` field carries.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CacheClass::Immutable => "immutable",
+            CacheClass::Shared => "shared",
+            CacheClass::Private => "private",
+            CacheClass::NoStore => "no-store",
+        }
+    }
+}
+
+/// A result's cache restriction: its class, and when it expires (epoch milliseconds), if ever.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Restriction {
+    pub class: CacheClass,
+    pub expires_at: Option<u64>,
+}
+
+impl Restriction {
+    /// Both restrictions at once: the stricter class and the earlier expiry.
+    pub fn and(self, other: Restriction) -> Restriction {
+        Restriction {
+            class: self.class.max(other.class),
+            expires_at: match (self.expires_at, other.expires_at) {
+                (Some(a), Some(b)) => Some(a.min(b)),
+                (a, b) => a.or(b),
+            },
+        }
+    }
+}
+
 pub struct ExecContext {
     identity: Identity,
     compile_id: Uuid,
@@ -193,6 +236,8 @@ pub struct ExecContext {
     state: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
     /// Set when this compile is a command's `start` (B5).
     command: Option<CommandState>,
+    /// How this compile's result may be cached, when a dialect restricted it (C3).
+    restriction: Option<Restriction>,
 }
 
 impl ExecContext {
@@ -217,7 +262,25 @@ impl ExecContext {
             system_session: None,
             state: HashMap::new(),
             command: None,
+            restriction: None,
         }
+    }
+
+    /// Restricts how this compile's result may be cached (C3): to `class` at least, and until
+    /// `expires_at` (epoch milliseconds) at the latest. Restrictions accumulate: the stricter
+    /// class and the earlier expiry win. A compile no dialect restricts carries none, and its
+    /// envelope is unchanged.
+    pub fn restrict(&mut self, class: CacheClass, expires_at: Option<u64>) {
+        let next = Restriction { class, expires_at };
+        self.restriction = Some(match self.restriction {
+            Some(current) => current.and(next),
+            None => next,
+        });
+    }
+
+    /// This compile's cache restriction, if any dialect set one.
+    pub fn restriction(&self) -> Option<Restriction> {
+        self.restriction
     }
 
     pub(crate) fn set_policy(&mut self, policy: Option<Arc<dyn PolicyClient>>) {
