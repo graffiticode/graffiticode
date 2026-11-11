@@ -173,6 +173,8 @@ test("a tap selects and a tap places; a filled blank drags; a swipe on empty can
   await page.locator("[data-l0183-canvas]").waitFor();
   await page.waitForTimeout(300);
   const cdp = await page.context().newCDPSession(page);
+  // At phone size the frame scrolls; bring the two lower blanks into view together.
+  await reveal(page, "n3", "n4");
   const [first, second] = await visibleEmptyBlanks(page);
   expect(first && second).toBeTruthy();
 
@@ -181,7 +183,9 @@ test("a tap selects and a tap places; a filled blank drags; a swipe on empty can
   await page.locator(`[data-l0183-blank="${first}"]`).tap();
   await expect(page.locator(`[data-l0183-blank="${first}"]`)).toHaveAttribute("aria-label", /holding/);
 
-  // A drag from the filled blank to another moves its answer.
+  // A drag from the filled blank to another moves its answer. (tap() scrolls its target into
+  // view, which can push the other blank out of the frame; bring both back first.)
+  await reveal(page, first, second);
   const from = await centre(page, `[data-l0183-blank="${first}"]`);
   const to = await centre(page, `[data-l0183-blank="${second}"]`);
   await swipe(cdp, page, from, to);
@@ -233,12 +237,13 @@ test("placing answers, including those that empty a wrapped tray row, moves noth
   expect(after.nodes).toEqual(start.nodes);
 });
 
-test("nodes keep their size; spacing fits the room up to best fit; only the frame scrolls, and only at the floor", async ({ page }) => {
+test("nodes keep their size; spacing fits the room up to best fit; no label on a node; only the frame scrolls", async ({ page }) => {
   for (const [fixture, host] of [
     ["web40", ""],
     ["web40", "&host=learnosity"],
     ["assessed40", ""],
     ["cell", ""],
+    ["rain", ""],
   ]) {
     let bestW = 0;
     for (const [w, h] of [
@@ -260,6 +265,10 @@ test("nodes keep their size; spacing fits the room up to best fit; only the fram
         const form = document.querySelector<HTMLElement>(".l0183-web")!;
         const doc = document.scrollingElement!;
         const nodes = [...c.querySelectorAll<HTMLElement>(".z-10")].map((n) => n.getBoundingClientRect());
+        const hit = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+        const labelsOnNodes = [...c.querySelectorAll<HTMLElement>(".z-20")]
+          .map((l) => (l.firstElementChild as HTMLElement).getBoundingClientRect())
+          .filter((l) => nodes.some((n) => hit(l, n))).length;
         let closest = Infinity; // the smallest gap between two node boxes, on their clear axis
         for (let i = 0; i < nodes.length; i++)
           for (let j = i + 1; j < nodes.length; j++) {
@@ -276,6 +285,7 @@ test("nodes keep their size; spacing fits the room up to best fit; only the fram
           formScrolls: form.scrollHeight > form.clientHeight + 1,
           pageScrolls: doc.scrollHeight > doc.clientHeight + 1,
           closest,
+          labelsOnNodes,
         };
       });
       const at = `${fixture} ${w}x${h}${host}`;
@@ -284,8 +294,8 @@ test("nodes keep their size; spacing fits the room up to best fit; only the fram
       // With the most room, the web sits at its best fit; it never spreads past it.
       if (w === 5120) bestW = s.canvas[0];
       expect(s.canvas[0], at).toBeLessThanOrEqual(bestW);
-      // The frame scrolls only once the spacing is at its floor: nodes nearly touching.
-      if (s.frameScrolls) expect(s.closest, at).toBeLessThan(10);
+      // No label ever sits on a node, at any spacing.
+      expect(s.labelsOnNodes, at).toBe(0);
       if (!host) {
         expect(s.formScrolls, at).toBe(false);
         expect(s.pageScrolls, at).toBe(false);

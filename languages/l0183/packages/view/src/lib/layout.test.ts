@@ -4,6 +4,7 @@ import { boxesOverlap, curveHitsBox, enterParam, exitParam, extremumT, pointAt }
 import {
   ARROW_LEN,
   canvasAt,
+  clearAt,
   compressionFloor,
   expand,
   place,
@@ -291,19 +292,32 @@ describe("expansion", () => {
 describe("spacing (the view's rule: nodes fixed, spacing in [floor, best fit])", () => {
   const webs = { star12: star(12, { w: 90, h: 24 }), web20: web(20, 3), web40: web(40, 7), chords: star(4) };
 
-  test("at the compression floor no two nodes touch, and any tighter some would", () => {
+  test("at the compression floor nothing collides — nodes, labels or lines — and one step tighter something does", () => {
     for (const [name, model] of Object.entries(webs)) {
       const min = solve(model);
       const floor = compressionFloor(min);
       expect(floor, name).toBeGreaterThan(0);
       expect(floor, name).toBeLessThanOrEqual(1);
-      const overlaps = (s: number) => {
-        const b = place(min, s).boxes;
-        for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) if (boxesOverlap(b[i], b[j])) return true;
-        return false;
-      };
-      expect(overlaps(floor), name).toBe(false);
-      if (floor < 1) expect(overlaps(floor * 0.9), name).toBe(true);
+      expect(clearAt(min, floor), name).toBe(true);
+      // The checker the rest of this file trusts agrees: nothing collides at the floor.
+      expect(collisions(place(min, floor)), name).toEqual([]);
+      expect(outside(place(min, floor)), name).toEqual([]);
+      if (floor < 1 && floor > 0.06) expect(clearAt(min, floor - 0.01), name).toBe(false);
+    }
+  });
+
+  test("labels stay clear of nodes at every spacing between the floor and best fit", () => {
+    for (const [name, model] of Object.entries(webs)) {
+      const min = solve(model);
+      const floor = compressionFloor(min);
+      for (let s = 1; s >= floor - 1e-9; s -= (1 - floor) / 6 || 1) {
+        const g = place(min, s);
+        const hits = g.labels
+          .filter((l) => !l.residual)
+          .flatMap((l) => g.boxes.filter((n) => boxesOverlap(l, n)).map((n) => `${l.id}/${n.id}`));
+        expect(hits, `${name} s=${s.toFixed(3)}`).toEqual([]);
+        if (floor >= 1) break;
+      }
     }
   });
 

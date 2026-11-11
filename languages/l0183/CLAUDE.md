@@ -190,9 +190,10 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   one factor about the hub (`spacingFor`, `place` in `lib/layout.ts`).
   - The minimum layout is the **best fit**, the closest spacing at which nothing collides. The
     web is never spread past it.
-  - With less room, in either direction, the spacing compresses to fit, down to
-    `compressionFloor`, where two nodes would start to touch. Below best fit, labels may overlap
-    nodes and lines; nodes never do.
+  - With less room, in either direction, the spacing compresses to fit, but only as far as
+    nothing collides (`compressionFloor`, `clearAt`). That means no two nodes touch, no label sits
+    on a node or another label, and no line runs through a node. To stay clear, each label may
+    slide along its own line. A best fit has little slack, so the floor is often 0.85–0.99.
   - Past the floor, the diagram scrolls inside its frame, opening centred on the hub.
   - **In a full-viewport column** (the /form embed marks its `#root` `data-l0183-viewport`), the
     room is the frame's share of the column: the height left after the title, the trays (each
