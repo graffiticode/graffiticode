@@ -96,10 +96,12 @@ function nodeFont(box: { w: number }, text: string | undefined): number {
   return Math.round(box.w * 0.12 * shrink * 10) / 10;
 }
 
-/** A Learnosity frame is never taller than this share of the window, nor (unless small) than 3/4 its width. */
-const LEARNOSITY_VH = 0.85;
-const SMALL_WEB_H = 320;
-/** Top and bottom trays take at most this share of the viewport (embed) or frame (Learnosity). */
+/**
+ * The diagram is a square as wide as the page, with no upper limit and never smaller than this.
+ * Below it, the square scrolls sideways inside its frame.
+ */
+const MIN_SIDE = 640;
+/** Top and bottom trays take at most this share of the viewport, scrolling inside. */
 const TRAY_SHARE = 0.25;
 /** Below this width, side trays stack above and below the diagram. */
 const WIDE = "(min-width: 640px)";
@@ -121,16 +123,6 @@ function useMedia(query: string): boolean {
     return () => m.removeEventListener?.("change", on);
   }, [query]);
   return matches;
-}
-
-function useWindowHeight(): number {
-  const [h, setH] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800));
-  useEffect(() => {
-    const on = () => setH(window.innerHeight);
-    window.addEventListener("resize", on);
-    return () => window.removeEventListener("resize", on);
-  }, []);
-  return h;
 }
 
 /** An element's inner size, tracked with a ResizeObserver and coalesced to animation frames. */
@@ -305,8 +297,13 @@ export function Web({
   const modelKey = JSON.stringify(model);
   const minLayout = useMemo(() => solve(model), [modelKey]);
 
+  // The diagram's square follows the page width: no upper limit, MIN_SIDE at least. The web
+  // spreads (nodes keep their size) to fill it, and the canvas is never smaller than the web's
+  // minimum, scrolling inside the frame when it is bigger.
   const [frameRef, frame] = useSize<HTMLDivElement>();
-  const geo = useMemo(() => expand(minLayout, frame), [minLayout, frame]);
+  const side = Math.max(MIN_SIDE, frame.width);
+  const target = useMemo(() => ({ width: side, height: side }), [side]);
+  const geo = useMemo(() => expand(minLayout, target), [minLayout, target]);
   // When the canvas is bigger than the frame, open on the hub, not on an empty corner. Done once
   // per minimum layout, so a resize or a placement never scrolls the web under the learner.
   const centredFor = useRef<unknown>(null);
@@ -322,16 +319,10 @@ export function Web({
   const pathById = useMemo(() => new Map(geo.edges.map((e) => [e.id, e.path])), [geo]);
 
   const wide = useMedia(WIDE);
-  const windowH = useWindowHeight();
-  const learnosity = host === "learnosity";
-  // The frame's height. Under Learnosity it comes from the page alone, never from the web's
-  // minimum (which the canvas inside takes, and scrolls): no min-height, so the cap always wins.
-  const learnosityH = Math.round(
-    Math.min(LEARNOSITY_VH * windowH, Math.max(frame.width * 0.75, SMALL_WEB_H)),
-  );
-  const frameStyle: CSSProperties = learnosity
-    ? { height: learnosityH }
-    : { minHeight: "max(240px, 40dvh)" };
+  // The frame is as tall as the square is wide, whatever the host; the page (or the Form, in the
+  // /form embed) scrolls to it. `host` is kept for callers and for future host-specific rules.
+  void host;
+  const frameStyle: CSSProperties = { height: side };
 
   // One marker id per instance: a fixed id collides when two webs share a page, and the second
   // web's arrows then point with the first web's arrowheads.
@@ -437,6 +428,15 @@ export function Web({
         const dy = p.y < r.top + EDGE_ZONE ? -EDGE_SPEED : p.y > r.bottom - EDGE_ZONE ? EDGE_SPEED : 0;
         const inside = p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
         if (inside && (dx || dy)) el.scrollBy(dx, dy);
+        // The square can be taller than the window, with the trays below it: near the window's
+        // top or bottom edge, scroll whatever holds the Form (the Form itself in the /form
+        // embed, else the page), so a blank above the fold can be reached from a tray below it.
+        const vy = p.y < EDGE_ZONE ? -EDGE_SPEED : p.y > window.innerHeight - EDGE_ZONE ? EDGE_SPEED : 0;
+        if (vy) {
+          const form = el.closest<HTMLElement>(".l0183-web");
+          if (form && form.scrollHeight > form.clientHeight) form.scrollBy(0, vy);
+          else window.scrollBy(0, vy);
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -675,7 +675,7 @@ export function Web({
         key={kind}
         group={group}
         chrome={chrome}
-        cap={learnosity ? TRAY_SHARE * learnosityH : `${TRAY_SHARE * 100}dvh`}
+        cap={`${TRAY_SHARE * 100}dvh`}
         all={trayList(kind, trayAll(kind), false, false)}
         live={trayList(kind, trayItems(kind), true, false)}
       />
@@ -686,7 +686,7 @@ export function Web({
     <div
       ref={frameRef}
       data-l0183-frame=""
-      className="relative min-h-0 min-w-0 flex-1 overflow-auto"
+      className="relative min-w-0 flex-1 shrink-0 overflow-auto"
       style={frameStyle}
       onKeyDown={(e) => {
         if (e.key === "Escape") setSelected(null);
@@ -741,11 +741,11 @@ export function Web({
   const sides = (align: "left" | "right") => (wide ? [] : at(align));
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col gap-3">
+    <div className="relative flex flex-col gap-3">
       <MeasureLabels candidates={candidates} onMeasure={onMeasure} />
       {at("top")}
       {sides("left")}
-      <div className="flex min-h-0 flex-1 flex-row items-stretch gap-3">
+      <div className="flex flex-row items-stretch gap-3">
         {wide && at("left")}
         {diagram}
         {wide && at("right")}

@@ -189,10 +189,14 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   - A tray reserves for all its items (`ReservedTray`), capped at 25dvh, and scrolls inside.
 
   The arrow marker id is per instance (`useId`).
-- **Host layout.** The /form embed's `#root` is a full-viewport flex column (`embed/index.html`)
-  holding the Form and the View's CheckBar. The Form takes the height left over, so Check stays
-  on screen, and the diagram frame has a `max(240px, 40dvh)` floor. Under Learnosity the frame's
-  height comes only from the page, `min(85vh, max(¾·width, 320px))`, with no floor.
+- **Host layout.** The diagram is a square as wide as the page, with no upper limit and never
+  smaller than 640×640 (`MIN_SIDE` in `Web.tsx`). The web spreads to fill it at a fixed node
+  size. Below 640px wide, the square scrolls sideways inside its frame. In both hosts the page
+  scrolls to the square's height, and a drag held near the window's top or bottom edge scrolls
+  it.
+  - In the /form embed, `#root` is a full-viewport flex column (`embed/index.html`) holding the
+    Form and the View's CheckBar. The Form scrolls inside the height left over, so Check stays on
+    screen.
 - **Touch** (`lib/gesture.ts`): who owns a touch is decided by where it starts, never by a
   timer.
   - A tray item drags from its grip (`touch-action: none`, shown on coarse pointers). Its body
