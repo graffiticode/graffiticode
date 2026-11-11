@@ -29,7 +29,8 @@
     "build:embed": "vite build --config vite.embed.config.ts",
     "test": "vitest run",
     "preview": "vite preview --config vite.embed.config.ts",
-    "lint": "eslint src embed"
+    "lint": "eslint src embed",
+    "test:e2e": "playwright test"
   },
   "peerDependencies": {
     "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@microsoft/api-extractor": "^7.59.1",
+    "@playwright/test": "^1.49.1",
     "@types/katex": "^0.16.7",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",

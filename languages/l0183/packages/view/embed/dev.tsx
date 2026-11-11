@@ -71,9 +71,180 @@ const crowded = {
   validation: { points: 0, cells: {} },
 };
 
+const ids = (n: number) => Array.from({ length: n }, (_, i) => `n${i + 1}`);
+const COLORS = ["blue", "teal", "green", "amber", "purple", "pink"];
+
+function seeded(seed: number) {
+  let s = seed;
+  return () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+}
+
+/** A plain web: n nodes, spokes for the first `spokes`, a tree beyond, and cross-links. */
+function bigWeb(n: number, seed: number, title: string) {
+  const rand = seeded(seed);
+  const edges: any[] = [];
+  ids(n).forEach((id, i) => {
+    const from = i < 8 ? "hub" : `n${1 + Math.floor(rand() * i)}`;
+    edges.push({ id: `t${i}`, from, to: id, style: "solid-arrow", ...(rand() < 0.3 ? { label: ["has", "causes", "is part of", "feeds"][i % 4] } : {}) });
+  });
+  for (let k = 0; k < Math.floor(n / 4); k++) {
+    const a = 1 + Math.floor(rand() * n);
+    const b = 1 + Math.floor(rand() * n);
+    if (a !== b) edges.push({ id: `x${k}`, from: `n${a}`, to: `n${b}`, style: "dashed" });
+  }
+  return {
+    title,
+    interaction: {
+      type: "concept-web",
+      hub: { id: "hub", text: "Ecosystem" },
+      nodes: ids(n).map((id, i) => ({ id, text: `Concept ${i + 1}`, color: COLORS[i % COLORS.length] })),
+      edges,
+      trays: {},
+      cells: {},
+    },
+    validation: { points: 0, cells: {} },
+  };
+}
+
+const sparse = {
+  title: "Four around one",
+  interaction: {
+    type: "concept-web",
+    hub: { id: "hub", text: "Water" },
+    nodes: ["Rain", "River", "Ocean", "Cloud"].map((text, i) => ({ id: `n${i + 1}`, text })),
+    edges: ids(4).map((id, i) => ({ id: `e${i}`, from: "hub", to: id, style: "solid" })),
+    trays: {},
+    cells: {},
+  },
+  validation: { points: 0, cells: {} },
+};
+
+const chords = {
+  title: "Opposite nodes linked",
+  interaction: {
+    ...sparse.interaction,
+    edges: [
+      ...sparse.interaction.edges,
+      { id: "c1", from: "n1", to: "n3", style: "dashed-arrow", label: "flows to" },
+      { id: "c2", from: "n2", to: "n4", style: "dashed-arrow", label: "evaporates" },
+    ],
+  },
+  validation: { points: 0, cells: {} },
+};
+
+const longLabels = {
+  title: "Twelve with long labels",
+  interaction: {
+    type: "concept-web",
+    hub: { id: "hub", text: "Photosynthesis" },
+    nodes: ids(12).map((id, i) => ({ id, text: `Stage ${i + 1}` })),
+    edges: ids(12).map((id, i) => ({
+      id: `e${i}`,
+      from: "hub",
+      to: id,
+      style: "solid-arrow",
+      label: "converts light energy into chemical energy stored as glucose".slice(0, 12 + i * 4),
+    })),
+    trays: {},
+    cells: {},
+  },
+  validation: { points: 0, cells: {} },
+};
+
+const candidates = {
+  title: "Line-label candidates of every kind",
+  interaction: {
+    type: "concept-web",
+    hub: { id: "hub", text: "Energy" },
+    nodes: ["Sun", "Plant", "Animal"].map((text, i) => ({ id: `n${i + 1}`, text })),
+    edges: [
+      { id: "e1", from: "hub", to: "n1", style: "solid-arrow", blank: true },
+      { id: "e2", from: "hub", to: "n2", style: "solid-arrow", blank: true },
+      { id: "e3", from: "n2", to: "n3", style: "solid-arrow", blank: true },
+    ],
+    trays: {
+      edges: {
+        items: [
+          "$E = mc^2 + \\frac{1}{2}mv^2 + \\int_0^\\infty e^{-x} dx$",
+          "https://flagcdn.com/w320/jp.png",
+          "Pneumonoultramicroscopicsilicovolcanoconiosis",
+          "feeds",
+        ].map((text, i) => ({ id: `r${i}`, text })),
+        align: "bottom",
+      },
+    },
+    cells: { e1: {}, e2: {}, e3: {} },
+  },
+  validation: {
+    points: 3,
+    cells: {
+      e1: { assess: { expected: "feeds", points: 1 }, pool: "p1" },
+      e2: { assess: { expected: "feeds", points: 1 }, pool: "p1" },
+      e3: { assess: { expected: "feeds", points: 1 }, pool: "p2" },
+    },
+  },
+};
+
+const chain = {
+  title: "A twenty-link chain",
+  interaction: {
+    type: "concept-web",
+    hub: { id: "hub", text: "Start" },
+    nodes: ids(20).map((id, i) => ({ id, text: `Step ${i + 1}` })),
+    edges: ids(20).map((id, i) => ({ id: `e${i}`, from: i === 0 ? "hub" : `n${i}`, to: id, style: "solid-arrow" })),
+    trays: {},
+    cells: {},
+  },
+  validation: { points: 0, cells: {} },
+};
+
+/** 40 blank nodes, half the spokes blank too, distractors in both trays. */
+function assessed(n: number) {
+  const answers = ids(n).map((_, i) => `Answer ${i + 1}`);
+  const labels = ids(n / 2).map((_, i) => `rel ${i + 1}`);
+  const cells: Record<string, object> = {};
+  const vcells: Record<string, object> = {};
+  ids(n).forEach((id, i) => {
+    cells[id] = {};
+    vcells[id] = { assess: { expected: answers[i], points: 1 }, pool: `p${id}` };
+  });
+  ids(n / 2).forEach((_, i) => {
+    cells[`e${i}`] = {};
+    vcells[`e${i}`] = { assess: { expected: labels[i], points: 1 }, pool: `q${i}` };
+  });
+  return {
+    title: `${n} blanks`,
+    interaction: {
+      type: "concept-web",
+      hub: { id: "hub", text: "Biology" },
+      nodes: ids(n).map((id) => ({ id, blank: true })),
+      edges: ids(n).map((id, i) => ({ id: `e${i}`, from: "hub", to: id, style: "solid", ...(i < n / 2 ? { blank: true } : {}) })),
+      trays: {
+        nodes: { items: [...answers, "Decoy A", "Decoy B"].map((text, i) => ({ id: `c${i}`, text })), align: "bottom" },
+        edges: { items: [...labels, "decoy"].map((text, i) => ({ id: `r${i}`, text })), align: "bottom" },
+      },
+      cells,
+    },
+    validation: { points: n + n / 2, cells: vcells },
+  };
+}
+
+const FIXTURES: Record<string, any> = {
+  cell,
+  crowded,
+  sparse,
+  chords,
+  longLabels,
+  candidates,
+  chain,
+  web40: bigWeb(40, 7, "Forty concepts"),
+  web100: bigWeb(100, 11, "A hundred concepts"),
+  assessed40: assessed(40),
+};
+
 const errors = [{ message: 'edge 1: `to "C"` names no node. The nodes are: hub ("A"), n1 ("B").' }];
 
-function Fixture({ label, initial, errs = [] }: { label: string; initial: any; errs?: any[] }) {
+function Fixture({ label, initial, errs = [], bare = false }: { label: string; initial: any; errs?: any[]; bare?: boolean }) {
   const [data, setData] = useState(initial);
   const [checked, setChecked] = useState(false);
   const apply = (action: any) => {
@@ -82,22 +253,46 @@ function Fixture({ label, initial, errs = [] }: { label: string; initial: any; e
   };
   const result = useMemo(() => score(data), [data]);
   const shown = checked ? { ...data, showValidationUI: true } : data;
+  const form = (
+    <>
+      <Form state={{ data: shown, errors: errs, apply }} />
+      {result && <CheckBar result={result} checked={checked} onToggle={() => setChecked((c) => !c)} />}
+    </>
+  );
+  if (bare) return form;
   return (
     <section style={{ marginBottom: 32 }}>
       <h2 style={{ fontFamily: "sans-serif", fontSize: 13, color: "#666" }}>{label}</h2>
-      <Form state={{ data: shown, errors: errs, apply }} />
-      {result && <CheckBar result={result} checked={checked} onToggle={() => setChecked((c) => !c)} />}
+      {form}
     </section>
   );
 }
 
+const params = new URLSearchParams(location.search);
+const only = params.get("fixture");
 const el = document.getElementById("root");
-if (el) {
+if (el && only && FIXTURES[only]) {
+  // One fixture under the /form embed's viewport contract (see index.html), or as a Learnosity
+  // question (which cqt marks with `questionState`).
+  Object.assign(el.style, { height: "100dvh", display: "flex", flexDirection: "column" });
+  Object.assign(document.body.style, { margin: "0" });
+  const initial = params.get("host") === "learnosity" ? { ...FIXTURES[only], questionState: "initial" } : FIXTURES[only];
+  createRoot(el).render(
+    <React.StrictMode>
+      <Fixture label={only} initial={initial} bare />
+    </React.StrictMode>,
+  );
+} else if (el) {
   createRoot(el).render(
     <React.StrictMode>
       <Fixture label="Blank nodes, a blank label, an image node" initial={cell} />
       <Fixture label="The same, with instant-feedback true" initial={{ ...cell, feedback: "instant" }} />
       <Fixture label="Crowded ring, dark, styled" initial={crowded} />
+      {Object.entries(FIXTURES)
+        .filter(([name]) => name !== "cell" && name !== "crowded")
+        .map(([name, f]) => (
+          <Fixture key={name} label={`${name} (open alone: ?fixture=${name})`} initial={f} />
+        ))}
       <Fixture label="Compile error" initial={{}} errs={errors} />
     </React.StrictMode>,
   );

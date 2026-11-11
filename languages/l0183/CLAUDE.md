@@ -166,15 +166,49 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   (HTML5 drag-and-drop never fires on touch — L0169's tray did nothing on a tablet),
   select-then-place (the keyboard path, and what a tap does), and activating or Deleting a
   filled blank to return its answer.
-- **Geometry** is one 0..1000 square space: nodes are positioned in percentages of a square box
-  and lines drawn in an SVG with the same viewBox, so nothing is measured and nothing recomputes
-  on resize. Text scales in `cqw` units. The arrow marker id is per instance (`useId`).
+- **Geometry** is in CSS pixels. Nodes and text have one fixed size, and the web spreads to fill
+  its frame (`lib/layout.ts`, whose header holds the safety argument), in two stages:
+  - `solve(model)` is the **minimum** layout. It is a function of the model and the measured
+    room for each label, never of the frame.
+    - Up to 12 nodes, it is one ring in author order. Past 12 it uses concentric rings
+      (`lib/rings.ts`): ring 1 holds every hub neighbour, the rest fill by capacity, and graph
+      distance only orders them.
+    - Edges are quadratic Béziers, bent around any node in their way (`route`).
+    - Ring radii grow a step at a time until nothing collides. Whatever still collides is
+      reported in `residuals`.
+  - `expand(min, frame)` stretches that layout about the hub by one factor `s ≥ 1` on both axes,
+    so rings stay circles. The tighter axis of the frame decides `s`, and the other keeps its
+    spare room, with the web centred in it. It never re-routes, so it cannot create a collision.
+
+  When the frame is smaller than the minimum, the canvas scrolls inside it, and opens centred on
+  the hub.
+
+  Room is **reserved** so placing an answer moves nothing:
+  - A label reserves for every candidate. A blank reserves for every edges-tray item, measured
+    offscreen with the real `LabelFace`, taking width and height separately.
+  - A tray reserves for all its items (`ReservedTray`), capped at 25dvh, and scrolls inside.
+
+  The arrow marker id is per instance (`useId`).
+- **Host layout.** The /form embed's `#root` is a full-viewport flex column (`embed/index.html`)
+  holding the Form and the View's CheckBar. The Form takes the height left over, so Check stays
+  on screen, and the diagram frame has a `max(240px, 40dvh)` floor. Under Learnosity the frame's
+  height comes only from the page, `min(85vh, max(¾·width, 320px))`, with no floor.
+- **Touch** (`lib/gesture.ts`): who owns a touch is decided by where it starts, never by a
+  timer.
+  - A tray item drags from its grip (`touch-action: none`, shown on coarse pointers). Its body
+    pans the tray and is tapped to select.
+  - A filled blank drags. The canvas scrolls from its empty space.
+
+  `npm run -w packages/view test:e2e` runs Playwright on the installed Chrome against
+  `embed/dev.html?fixture=…` (one fixture under the embed's viewport contract; `&host=learnosity`
+  for the Learnosity frame). It drives real touch through CDP, so it checks the browser's own
+  scroll-vs-drag decision.
 - **Trays are shuffled at render** (`lib/tray.ts`, seeded by content), never at compile time —
   every placement recompiles, and a compile-time shuffle would reorder the tray under the hand.
 - **Tailwind**: preflight off, `darkMode: "class"` (the program and the toggle decide, not the
   OS), and the restored preflight rules in `index.css` are scoped under `:where(.l0183-web)` —
   `:where()` keeps them below the utilities they reset.
-- Logic that can be wrong without looking wrong is pure and tested without a DOM: `scoring/`,
+- Logic that can be wrong without looking wrong is pure and tested without a DOM: `scoring/`, `lib/geom.ts`, `lib/rings.ts`, `lib/metrics.ts`, `lib/gesture.ts`,
   `lib/layout.ts`, `lib/tray.ts`, `components/web/reduce.ts`.
 
 **`src/scoring/` is published on its own `./scoring` subpath and must stay free of React and the
