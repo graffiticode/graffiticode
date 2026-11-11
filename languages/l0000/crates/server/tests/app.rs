@@ -667,6 +667,49 @@ async fn a_language_whose_output_expires_says_it_must_not_be_cached() {
     assert_eq!(ordinary.json().get("cache"), None);
 }
 
+/// A dialect that restricts a result (C3: L0185's fetched data is `shared` until it expires)
+/// has its class and expiry in the envelope; an unrestricted result's envelope is unchanged; and
+/// a language whose output must not be cached at all still says only that.
+#[tokio::test]
+async fn a_restricted_result_carries_its_cache_class_and_expiry() {
+    use graffiticode_l0000::{CacheClass, Evaluator, NodeId, Op, Value as GcValue};
+    struct Restricting {
+        cacheable: bool,
+    }
+    #[async_trait]
+    impl graffiticode_l0000::Dialect for Restricting {
+        fn lang_id(&self) -> &str {
+            "0000"
+        }
+        fn overrides(&self, op: &Op) -> bool {
+            *op == Op::Add
+        }
+        async fn eval(&self, cx: &mut Evaluator<'_>, _: NodeId, _: &Op, _: &[NodeId]) -> Option<GcValue> {
+            // Two restrictions in one compile: the stricter class and the earlier expiry win.
+            cx.exec().restrict(CacheClass::Shared, Some(2_000));
+            cx.exec().restrict(CacheClass::Immutable, Some(1_000));
+            None // the kernel's own ADD computes the value
+        }
+        fn cacheable(&self) -> bool {
+            self.cacheable
+        }
+    }
+    let restricted = compile(
+        &server_for(Compiler::new(Restricting { cacheable: true })).app,
+        json!({ "code": add_1_2(), "data": {} }),
+    )
+    .await;
+    assert_eq!(restricted.text(), r#"{"data":3,"errors":[],"cache":"shared","expiresAt":1000}"#);
+    let ordinary = compile(&server().app, json!({ "code": add_1_2(), "data": {} })).await;
+    assert_eq!(ordinary.text(), r#"{"data":3,"errors":[]}"#);
+    let never = compile(
+        &server_for(Compiler::new(Restricting { cacheable: false })).app,
+        json!({ "code": add_1_2(), "data": {} }),
+    )
+    .await;
+    assert_eq!(never.text(), r#"{"data":3,"errors":[],"cache":false}"#);
+}
+
 /// The response writes numbers as the TypeScript servers do.
 #[tokio::test]
 async fn a_large_number_is_written_as_javascript_writes_it() {

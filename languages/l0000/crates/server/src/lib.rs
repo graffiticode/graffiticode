@@ -386,6 +386,14 @@ fn envelope_response(state: &AppState, compiled: graffiticode_l0000::Compilation
     // response be cached.
     if !state.compiler.cacheable() {
         envelope["cache"] = json!(false);
+    } else if let Some(restriction) = compiled.restriction {
+        // How this result may be cached, when the dialect restricted it (C3): its class, and
+        // its expiry in epoch milliseconds. Nothing is added for an unrestricted result, so
+        // its envelope is unchanged.
+        envelope["cache"] = json!(restriction.class.as_str());
+        if let Some(expires_at) = restriction.expires_at {
+            envelope["expiresAt"] = json!(expires_at);
+        }
     }
     // What the compile's protected writes did. The gateway collects it per stage and keeps it
     // out of the next stage's input.

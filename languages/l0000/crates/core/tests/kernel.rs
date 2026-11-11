@@ -1117,3 +1117,82 @@ mod admitted_plans {
         assert_eq!(log.runs.load(Ordering::Relaxed), 0);
     }
 }
+
+/// C3: a result's cache restriction. Restrictions combine to the stricter class and the earlier
+/// expiry; `compile` and a declined `interpret` carry the compile's restriction; a value model
+/// carries none.
+mod restriction {
+    use async_trait::async_trait;
+    use graffiticode_l0000::{
+        CacheClass, Compiler, Dialect, Evaluator, Identity, Model, ModelKind, NodeId, Op, Restriction, Value,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn restrictions_combine_to_the_stricter_class_and_the_earlier_expiry() {
+        let shared_late = Restriction { class: CacheClass::Shared, expires_at: Some(2_000) };
+        let immutable_early = Restriction { class: CacheClass::Immutable, expires_at: Some(1_000) };
+        assert_eq!(
+            shared_late.and(immutable_early),
+            Restriction { class: CacheClass::Shared, expires_at: Some(1_000) }
+        );
+        let forever = Restriction { class: CacheClass::Immutable, expires_at: None };
+        assert_eq!(forever.and(shared_late), shared_late);
+        assert_eq!(
+            forever.and(Restriction { class: CacheClass::NoStore, expires_at: None }).class,
+            CacheClass::NoStore
+        );
+        assert!(
+            CacheClass::Immutable < CacheClass::Shared
+                && CacheClass::Shared < CacheClass::Private
+                && CacheClass::Private < CacheClass::NoStore
+        );
+        assert_eq!(CacheClass::NoStore.as_str(), "no-store");
+    }
+
+    struct Fetching;
+    #[async_trait]
+    impl Dialect for Fetching {
+        fn lang_id(&self) -> &str {
+            "0000"
+        }
+        fn overrides(&self, op: &Op) -> bool {
+            *op == Op::Add
+        }
+        async fn eval(&self, cx: &mut Evaluator<'_>, _: NodeId, _: &Op, _: &[NodeId]) -> Option<Value> {
+            cx.exec().restrict(CacheClass::Shared, Some(5_000));
+            None
+        }
+    }
+
+    fn add_1_2() -> serde_json::Value {
+        json!({
+            "2": { "tag": "NUM", "elts": ["1"] }, "3": { "tag": "NUM", "elts": ["2"] },
+            "6": { "tag": "ADD", "elts": [2, 3] }, "7": { "tag": "EXPRS", "elts": [6] },
+            "8": { "tag": "PROG", "elts": [7] }, "root": 8
+        })
+    }
+
+    #[tokio::test]
+    async fn compile_and_a_declined_interpret_carry_the_restriction() {
+        let compiler = Compiler::new(Fetching);
+        let shared = Some(Restriction { class: CacheClass::Shared, expires_at: Some(5_000) });
+        let compiled = compiler.compile(&add_1_2(), &json!({}), &json!({}), Identity::default()).await;
+        assert_eq!(compiled.restriction, shared);
+        let plan = Model { lang: "0000".into(), kind: ModelKind::Plan(add_1_2()), intents: Vec::new() };
+        let interpreted =
+            compiler.interpret(&plan, &json!({}), &json!({}), Default::default(), Identity::default()).await;
+        assert_eq!(interpreted.restriction, shared);
+        let value = Model { lang: "0000".into(), kind: ModelKind::Value(json!(3)), intents: Vec::new() };
+        let valued = compiler.interpret(&value, &json!({}), &json!({}), Default::default(), Identity::default()).await;
+        assert_eq!(valued.restriction, None);
+    }
+
+    #[tokio::test]
+    async fn an_unrestricted_compile_carries_none() {
+        let compiled = Compiler::new(graffiticode_l0000::L0000)
+            .compile(&add_1_2(), &json!({}), &json!({}), Identity::default())
+            .await;
+        assert_eq!(compiled.restriction, None);
+    }
+}
