@@ -638,7 +638,7 @@
     "cls": "function",
     "arity": 2,
     "type": "<tag record: record>",
-    "description": "The fixed measurement, layout and validation policy the board is compiled with: FIGJAM_V1, which is also what an omitted profile means."
+    "description": "The fixed measurement, layout and validation policy the board is compiled with: FIGJAM_V1, which is also what an omitted profile means, or FIGJAM_V2, which also measures Chinese and Japanese text."
   },
   "save-to-figjam": {
     "tk": 1,
@@ -911,5 +911,13 @@
     "arity": 0,
     "type": "<: tag>",
     "description": "The first measurement, layout and validation profile (the default)."
+  },
+  "FIGJAM_V2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "arity": 0,
+    "type": "<: tag>",
+    "description": "FIGJAM_V1, and Chinese and Japanese text measured as FigJam draws it."
   }
 }

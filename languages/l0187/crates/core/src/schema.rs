@@ -186,7 +186,7 @@ pub fn schema() -> Json {
         "properties": {
             "type": { "const": "board" },
             "positioned": { "const": 1 },
-            "profile": { "const": "FIGJAM_V1" },
+            "profile": { "enum": ["FIGJAM_V1", "FIGJAM_V2"] },
             "revision": {
                 "type": "object",
                 "required": ["compiler", "font", "layout"],

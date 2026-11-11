@@ -137,7 +137,10 @@ pub static CAPS: TagSet = TagSet {
 
 pub static PROFILES: TagSet = TagSet {
     name: "layout-profile",
-    tags: &[("FIGJAM_V1", "The first measurement, layout and validation profile (the default).")],
+    tags: &[
+        ("FIGJAM_V1", "The first measurement, layout and validation profile (the default)."),
+        ("FIGJAM_V2", "FIGJAM_V1, and Chinese and Japanese text measured as FigJam draws it."),
+    ],
 };
 
 /// Every closed set, each listed once.
@@ -294,7 +297,7 @@ pub static PROPERTIES: [Property; 25] = [
     Property {
         word: "layout-profile",
         value: ValueType::Tag(&PROFILES),
-        description: "The fixed measurement, layout and validation policy the board is compiled with: FIGJAM_V1, which is also what an omitted profile means.",
+        description: "The fixed measurement, layout and validation policy the board is compiled with: FIGJAM_V1, which is also what an omitted profile means, or FIGJAM_V2, which also measures Chinese and Japanese text.",
     },
 ];
 

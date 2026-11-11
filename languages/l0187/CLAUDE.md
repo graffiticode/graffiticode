@@ -46,10 +46,14 @@ every word, and everything else is derived from it. npm here holds only the fron
   - `src/profile.rs` — `FIGJAM_V1`: every geometry constant, with its provenance (calibrated
     against FigJam on 2026-10-30, L0186's measurements, or L0187 policy). **Frozen** since the
     phase 7 fidelity comparison (2026-10-30): a geometry change needs a new profile tag.
+    `FIGJAM_V2` (`Profile`, 2026-11-11) shares every constant and adds `CJK_ADVANCE_EMS`: it
+    measures the Chinese and Japanese text V1 rejects (`measure::is_cjk`), and nothing else
+    differs. A board selects it with `layout-profile FIGJAM_V2`; omitted still means V1.
   - `src/measure.rs` — text: the embedded **Inter 3.19 Medium** (`fonts/`, OFL; FigJam's widths
     are its advances rounded up), shaped with rustybuzz, wrapped greedily at UAX #14
     opportunities and between grapheme clusters inside a long word; lines re-join to the exact
-    text (`Break`). Coverage policy: `.notdef` emoji are modeled at 1.25 em; other `.notdef`
+    text (`Break`). Coverage policy (per profile): `.notdef` emoji are modeled at 1.25 em; `.notdef`
+    CJK at 1 em under V2 and a content limit under V1 (the message names V2); other `.notdef`
     characters and right-to-left text are content limits. `content_box` is each shape kind's
     calibrated text area.
   - `src/size.rs` — every mark's box and lines: stickies keep their width (square, or wide when a

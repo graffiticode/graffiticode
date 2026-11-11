@@ -117,7 +117,7 @@ required on connectors. A board requires at least one page; pages and regions ma
 | `stroke-width` | `THIN`, `THICK` |
 | `line-style` | `SOLID`, `DASHED` |
 | `from-cap`, `to-cap` | `NONE`, `ARROW_LINES`, `ARROW_EQUILATERAL`, `TRIANGLE_FILLED`, `CIRCLE_FILLED`, `DIAMOND_FILLED` |
-| `layout-profile` | `FIGJAM_V1` |
+| `layout-profile` | `FIGJAM_V1`, `FIGJAM_V2` |
 
 Tags are bare and uppercase. Colors are three- or six-digit hex strings, or one of `"red"`,
 `"blue"`, `"green"`, `"yellow"`, `"purple"`, `"orange"`, `"pink"`, `"white"`, `"black"`,
@@ -222,6 +222,22 @@ font size.
 `layout-profile FIGJAM_V1` selects an immutable bundle of measurement, sizing, spacing, layout,
 routing and validation policy. Omitting the property means `FIGJAM_V1`, never "latest". The same
 program and profile always compile to the same board.
+
+`FIGJAM_V1` measures Latin, Greek and Cyrillic text, common symbols and emoji; any other text is an
+`unsupported-text` content limit. `layout-profile FIGJAM_V2` is `FIGJAM_V1` that also measures
+Chinese and Japanese: Han ideographs, kana, CJK punctuation and full-width forms, each one em
+wide, as FigJam draws them. Every text `FIGJAM_V1` accepts compiles the same under `FIGJAM_V2`.
+Korean, half-width katakana and right-to-left text remain unsupported.
+
+```gc
+board [
+  page [
+    shape id "api" text "新业务 API" kind ROUNDED_RECTANGLE {}
+    shape id "db" text "新业务库 edu-game-fixed" kind ENG_DATABASE {}
+    connector id "api-db" from "api" to "db" label "业务读写" {}
+  ] id "p1" name "新系统" layout FLOW {}
+] title "两套业务库" layout-profile FIGJAM_V2 {}..
+```
 
 # Saving to FigJam
 
