@@ -52,6 +52,17 @@ export const bindingFor = (bindings, lang) => {
   return typeof url === "string" && url.length > 0 ? url : null;
 };
 
+// Whether a user has an override: a doc with any binding key. A doc with none
+// (a user whose overrides were all cleared; operators can't delete it) is no
+// override. A doc whose bindings are all invalid still counts, so that user's
+// results stay out of the shared caches, as before.
+export const hasBindings = override => {
+  if (!override) return false;
+  const { bindings } = override;
+  if (bindings === undefined || bindings === null) return false;
+  return typeof bindings !== "object" || Object.keys(bindings).length > 0;
+};
+
 const buildLangOverrideGetBaseUrl = ({ get }) => async ({ uid, lang }) => {
   if (!uid || !lang) {
     return undefined;

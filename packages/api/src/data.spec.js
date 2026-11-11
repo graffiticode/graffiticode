@@ -734,6 +734,16 @@ describe("data", () => {
       await expect(compileStorer.get({ id })).resolves.toEqual(expect.objectContaining({ data: expect.anything() }));
     });
 
+    it("treats a cleared user's empty override doc as no override: default binding, cached", async () => {
+      await seed({});
+      const id = await chainOf();
+
+      await get(overrideApi(), id);
+
+      expect(urls()).toEqual([DEFAULT]);
+      await expect(compileStorer.get({ id })).resolves.toEqual(expect.objectContaining({ data: expect.anything() }));
+    });
+
     it.each([
       ["an empty string", { L0000: "" }],
       ["a non-string", { L0000: 42 }],

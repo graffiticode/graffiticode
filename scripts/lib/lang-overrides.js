@@ -90,14 +90,13 @@ export const readBindings = async (db, uid) => {
   return snap.exists ? (snap.data()?.bindings ?? {}) : {};
 };
 
-// Writes the bindings, deleting the document when none are left, so a
-// cleared user is exactly a user with no override. Returns what it wrote.
+// Writes the bindings. When none are left the document stays, with no
+// bindings, which the api treats as no override (hasBindings): operators
+// can't delete Firestore documents (the firestore-no-deletes deny policy).
+// Returns what it wrote.
 export const writeBindings = async (db, uid, bindings, { plan = false } = {}) => {
   const ref = db.doc(`${COLLECTION}/${uid}`);
   const empty = Object.keys(bindings).length === 0;
-  if (!plan) {
-    if (empty) await ref.delete();
-    else await ref.set({ bindings });
-  }
-  return empty ? { uid, deleted: true } : { uid, bindings };
+  if (!plan) await ref.set({ bindings });
+  return empty ? { uid, cleared: true } : { uid, bindings };
 };

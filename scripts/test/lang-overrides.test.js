@@ -69,14 +69,16 @@ test("set adds or replaces one binding and keeps the others; clear removes one, 
   assert.deepEqual(withoutBinding(undefined, "L0184"), {});
 });
 
-test("writing no bindings deletes the document, and --plan writes nothing", async () => {
+test("writing no bindings keeps the document with none, never deletes it, and --plan writes nothing", async () => {
   const db = fakeDb();
+  // Operators can't delete Firestore documents (the firestore-no-deletes deny policy).
+  db.doc = (orig => path => ({ ...orig(path), delete: async () => { throw new Error("deletes are denied"); } }))(db.doc.bind(db));
   assert.deepEqual(await writeBindings(db, UID, { L0184: RUST }, { plan: true }), { uid: UID, bindings: { L0184: RUST } });
   assert.equal(db.docs.size, 0);
   await writeBindings(db, UID, { L0184: RUST });
   assert.deepEqual(await readBindings(db, UID), { L0184: RUST });
-  assert.deepEqual(await writeBindings(db, UID, {}), { uid: UID, deleted: true });
-  assert.equal(db.docs.size, 0);
+  assert.deepEqual(await writeBindings(db, UID, {}), { uid: UID, cleared: true });
+  assert.equal(db.docs.size, 1);
   assert.deepEqual(await readBindings(db, UID), {});
 });
 
