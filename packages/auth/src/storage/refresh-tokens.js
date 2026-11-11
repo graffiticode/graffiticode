@@ -3,6 +3,9 @@ import admin from "firebase-admin";
 import { v4 } from "uuid";
 import { getFirestore } from "../firebase.js";
 import { generateNonce } from "../utils.js";
+import { deleteTokenIndex, readTokenIndex, tokenIndexRef } from "./token-index.js";
+
+const INDEX = "refresh-tokens/-indexes-/token-to-id";
 
 const DAY = 24 * 60 * 60 * 1000;
 const THIRTY_DAYS = 30 * DAY;
@@ -44,8 +47,7 @@ const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {},
   const refreshTokenPrivateRef = db.doc(`refresh-tokens/${id}/private/key`);
   batchWriter.create(refreshTokenPrivateRef, { token });
 
-  const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${token}`);
-  batchWriter.create(tokenToIdRef, { id });
+  batchWriter.create(tokenIndexRef(db, INDEX, token), { id });
 
   await batchWriter.commit();
 
@@ -53,13 +55,12 @@ const buildCreateRefreshToken = ({ db }) => async ({ uid, additionalClaims = {},
 };
 
 const buildGetRefreshToken = ({ db }) => async (token) => {
-  const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${token}`);
-  const tokenToIdDoc = await tokenToIdRef.get();
-  if (!tokenToIdDoc.exists) {
+  const index = await readTokenIndex(db, INDEX, token);
+  if (!index) {
     throw new NotFoundError("token does not exist");
   }
 
-  const id = tokenToIdDoc.get("id");
+  const id = index.id;
   const refreshTokenRef = db.doc(`refresh-tokens/${id}`);
   const refreshTokenDoc = await refreshTokenRef.get();
   const data = refreshTokenDoc.data();
@@ -79,26 +80,24 @@ const buildGetRefreshToken = ({ db }) => async (token) => {
 
 const buildDeleteRefreshToken = ({ db }) => async (token) => {
   const db = getFirestore();
-  const tokenToIdRef = db.doc(`refresh-tokens/-indexes-/token-to-id/${token}`);
-  const tokenToIdDoc = await tokenToIdRef.get();
-  if (!tokenToIdDoc.exists) {
+  const index = await readTokenIndex(db, INDEX, token);
+  if (!index) {
     return;
   }
 
-  const id = tokenToIdDoc.get("id");
+  const id = index.id;
   const refreshTokenRef = db.doc(`refresh-tokens/${id}`);
   const refreshTokenPrivateRef = db.doc(`refresh-tokens/${id}/private/key`);
 
-  await db.batch()
-    .delete(tokenToIdRef)
+  await deleteTokenIndex(db.batch(), db, INDEX, token)
     .delete(refreshTokenPrivateRef)
     .delete(refreshTokenRef)
     .commit();
 };
 
-// Each token owns three docs (main, private key, index); stay under the
-// 500-write batch limit.
-const DELETE_CHUNK_SIZE = 150;
+// Each token's removal is four deletes (main, private key, and both names of
+// its index entry); stay under the 500-write batch limit.
+const DELETE_CHUNK_SIZE = 120;
 
 const deleteTokensById = async ({ db, ids }) => {
   for (let i = 0; i < ids.length; i += DELETE_CHUNK_SIZE) {
@@ -110,7 +109,7 @@ const deleteTokensById = async ({ db, ids }) => {
     chunk.forEach((id, index) => {
       const token = privateKeyDocs[index].get("token");
       if (token) {
-        batch.delete(db.doc(`refresh-tokens/-indexes-/token-to-id/${token}`));
+        deleteTokenIndex(batch, db, INDEX, token);
       }
       batch.delete(db.doc(`refresh-tokens/${id}/private/key`));
       batch.delete(db.doc(`refresh-tokens/${id}`));
@@ -148,9 +147,9 @@ const buildListSessions = ({ db }) => async ({ uid, currentToken }) => {
       .where("uid", "==", uid)
       .where("expiresAt", ">", now)
       .get(),
-    currentToken ? db.doc(`refresh-tokens/-indexes-/token-to-id/${currentToken}`).get() : null,
+    currentToken ? readTokenIndex(db, INDEX, currentToken) : null,
   ]);
-  const currentId = currentIndex?.exists ? currentIndex.get("id") : null;
+  const currentId = currentIndex?.id ?? null;
 
   const sessions = sessionsSnapshot.docs.filter(doc => !isEnded(doc.data())).map(doc => {
     const data = doc.data();
@@ -182,9 +181,9 @@ const buildDeleteSession = ({ db }) => async ({ uid, id }) => {
 const buildDeleteAllSessions = ({ db }) => async ({ uid, exceptToken }) => {
   let exceptId = null;
   if (exceptToken) {
-    const tokenToIdDoc = await db.doc(`refresh-tokens/-indexes-/token-to-id/${exceptToken}`).get();
-    if (tokenToIdDoc.exists) {
-      exceptId = tokenToIdDoc.get("id");
+    const index = await readTokenIndex(db, INDEX, exceptToken);
+    if (index) {
+      exceptId = index.id;
     }
   }
   const sessionsSnapshot = await db.collection("refresh-tokens")
