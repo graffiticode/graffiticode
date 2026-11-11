@@ -2005,6 +2005,3153 @@
       }
     }
   },
+  "cjk-databases": {
+    "data": {
+      "type": "board",
+      "positioned": 1,
+      "profile": "FIGJAM_V2",
+      "revision": {
+        "compiler": "0.1.0",
+        "font": "Inter-Medium 3.19 sha256:99dab2bdcb613c4c8264000a94351d1227f74dc95a86d1249493aeee0c0179c4",
+        "layout": "FIGJAM_V2"
+      },
+      "title": "两套业务库",
+      "showPageTabs": true,
+      "showPageMenu": true,
+      "pages": [
+        {
+          "id": "page-read-write",
+          "name": "两套业务库怎么读写",
+          "background": "#f7f7f5",
+          "width": 1328,
+          "height": 1863,
+          "nodes": [
+            {
+              "type": "section",
+              "id": "p1-old-lane",
+              "name": "旧系统 edu-game",
+              "fill": "#eff6ff",
+              "opacity": 70,
+              "x": 0,
+              "y": 34,
+              "width": 628,
+              "height": 1163,
+              "titleFrame": {
+                "x": 0,
+                "y": 0,
+                "w": 131,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "shape",
+                  "id": "p1-old-client",
+                  "x": 24,
+                  "y": 58,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "学员端 / 管理端",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "学员端 / 管",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "理端",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-old-nginx",
+                  "x": 136,
+                  "y": 371,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "PREDEFINED_PROCESS",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "Nginx · /edu-api/",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Nginx",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "· /edu-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "api/",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 41.06,
+                    "y": 16,
+                    "w": 93.88,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-old-api",
+                  "x": 136,
+                  "y": 684,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "旧业务 API",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "旧业务 API",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-old-worker",
+                  "x": 248,
+                  "y": 58,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "旧业务 Worker",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "旧业务",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Worker",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-old-connection",
+                  "x": 100,
+                  "y": 997,
+                  "width": 248,
+                  "height": 176,
+                  "shapeType": "PREDEFINED_PROCESS",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "旧库连接 · 容器网络 pg-vector:5432",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "旧库连接 · 容",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "器网络 pg-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "vector:5432",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 45.379999999999995,
+                    "y": 16,
+                    "w": 157.24,
+                    "h": 144
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "p1-new-lane",
+              "name": "新系统 edu-game-fixed",
+              "fill": "#f0fdf4",
+              "opacity": 70,
+              "x": 700,
+              "y": 34,
+              "width": 628,
+              "height": 1163,
+              "titleFrame": {
+                "x": 700,
+                "y": 0,
+                "w": 171,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "shape",
+                  "id": "p1-new-client",
+                  "x": 724,
+                  "y": 58,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "学员端 / 管理端",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "学员端 / 管",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "理端",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-new-nginx",
+                  "x": 836,
+                  "y": 371,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "PREDEFINED_PROCESS",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "Nginx · /edu-api/",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Nginx",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "· /edu-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "api/",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 41.06,
+                    "y": 16,
+                    "w": 93.88,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-new-api",
+                  "x": 836,
+                  "y": 684,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "新业务 API",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "新业务 API",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-new-worker",
+                  "x": 948,
+                  "y": 58,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "新业务 Worker",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "新业务",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Worker",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-new-connection",
+                  "x": 836,
+                  "y": 997,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "PREDEFINED_PROCESS",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "新库连接 · 主机发布端口 5433",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "新库连",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "接 · 主机",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "发布端",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "口 5433",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 41.06,
+                    "y": 16,
+                    "w": 93.88,
+                    "h": 144
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "p1-shared-postgres",
+              "name": "同一 PostgreSQL 实例 · edu-pg",
+              "fill": "#e5e7eb",
+              "opacity": 65,
+              "x": 112,
+              "y": 1303,
+              "width": 448,
+              "height": 248,
+              "titleFrame": {
+                "x": 112,
+                "y": 1269,
+                "w": 220,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "shape",
+                  "id": "p1-old-database",
+                  "x": 136,
+                  "y": 1327,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ENG_DATABASE",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "旧业务库 edu-game",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "旧业务库",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "edu-game",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.5,
+                    "y": 38.896,
+                    "w": 139,
+                    "h": 98.208
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p1-new-database",
+                  "x": 360,
+                  "y": 1327,
+                  "width": 176,
+                  "height": 200,
+                  "shapeType": "ENG_DATABASE",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "新业务库 edu-game-fixed",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "新业务库",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "edu-game-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "fixed",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.5,
+                    "y": 44.199999999999996,
+                    "w": 139,
+                    "h": 111.60000000000001
+                  }
+                }
+              ]
+            },
+            {
+              "type": "sticky",
+              "id": "p1-note",
+              "x": 112,
+              "y": 1623,
+              "width": 240,
+              "height": 240,
+              "wide": false,
+              "fill": "#e5e7eb",
+              "opacity": 100,
+              "text": "业务数据各自存放，实例资源和故障范围共用",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "业务数据各自存",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "放，实例资源和故",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "障范围共用",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 17,
+                "y": 24,
+                "w": 206,
+                "h": 192
+              }
+            },
+            {
+              "type": "connector",
+              "id": "p1-old-client-nginx",
+              "from": "p1-old-client",
+              "to": "p1-old-nginx",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 112,
+                  "y": 303
+                },
+                {
+                  "x": 224,
+                  "y": 303
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 112,
+                  "y": 234
+                },
+                {
+                  "x": 112,
+                  "y": 303
+                },
+                {
+                  "x": 224,
+                  "y": 303
+                },
+                {
+                  "x": 224,
+                  "y": 371
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p1-old-nginx-api",
+              "from": "p1-old-nginx",
+              "to": "p1-old-api",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 224,
+                  "y": 547
+                },
+                {
+                  "x": 224,
+                  "y": 684
+                }
+              ],
+              "labelLeg": 0,
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p1-old-api-connection",
+              "from": "p1-old-api",
+              "to": "p1-old-connection",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "业务读写",
+              "labelLines": [
+                {
+                  "text": "业务读写",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 224,
+                  "y": 860
+                },
+                {
+                  "x": 224,
+                  "y": 997
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 182,
+                "y": 908,
+                "w": 84,
+                "h": 41
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p1-old-worker-connection",
+              "from": "p1-old-worker",
+              "to": "p1-old-connection",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 538,
+                  "y": 146
+                },
+                {
+                  "x": 538,
+                  "y": 1085
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "业务读写",
+              "labelLines": [
+                {
+                  "text": "业务读写",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 424,
+                  "y": 146
+                },
+                {
+                  "x": 538,
+                  "y": 146
+                },
+                {
+                  "x": 538,
+                  "y": 1085
+                },
+                {
+                  "x": 348,
+                  "y": 1085
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 496,
+                "y": 595,
+                "w": 84,
+                "h": 41
+              },
+              "routeKind": "channel"
+            },
+            {
+              "type": "connector",
+              "id": "p1-old-connection-database",
+              "from": "p1-old-connection",
+              "to": "p1-old-database",
+              "lineType": "straight",
+              "fromSide": "LEFT",
+              "toSide": "LEFT",
+              "waypoints": [
+                {
+                  "x": 76,
+                  "y": 1085
+                },
+                {
+                  "x": 76,
+                  "y": 1415
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 100,
+                  "y": 1085
+                },
+                {
+                  "x": 76,
+                  "y": 1085
+                },
+                {
+                  "x": 76,
+                  "y": 1415
+                },
+                {
+                  "x": 136,
+                  "y": 1415
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "arc"
+            },
+            {
+              "type": "connector",
+              "id": "p1-new-client-nginx",
+              "from": "p1-new-client",
+              "to": "p1-new-nginx",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 812,
+                  "y": 303
+                },
+                {
+                  "x": 924,
+                  "y": 303
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 812,
+                  "y": 234
+                },
+                {
+                  "x": 812,
+                  "y": 303
+                },
+                {
+                  "x": 924,
+                  "y": 303
+                },
+                {
+                  "x": 924,
+                  "y": 371
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p1-new-nginx-api",
+              "from": "p1-new-nginx",
+              "to": "p1-new-api",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 924,
+                  "y": 547
+                },
+                {
+                  "x": 924,
+                  "y": 684
+                }
+              ],
+              "labelLeg": 0,
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p1-new-api-connection",
+              "from": "p1-new-api",
+              "to": "p1-new-connection",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "业务读写",
+              "labelLines": [
+                {
+                  "text": "业务读写",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 924,
+                  "y": 860
+                },
+                {
+                  "x": 924,
+                  "y": 997
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 882,
+                "y": 908,
+                "w": 84,
+                "h": 41
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p1-new-worker-connection",
+              "from": "p1-new-worker",
+              "to": "p1-new-connection",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 1238,
+                  "y": 146
+                },
+                {
+                  "x": 1238,
+                  "y": 1085
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "业务读写",
+              "labelLines": [
+                {
+                  "text": "业务读写",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 1124,
+                  "y": 146
+                },
+                {
+                  "x": 1238,
+                  "y": 146
+                },
+                {
+                  "x": 1238,
+                  "y": 1085
+                },
+                {
+                  "x": 1012,
+                  "y": 1085
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 1196,
+                "y": 595,
+                "w": 84,
+                "h": 41
+              },
+              "routeKind": "channel"
+            },
+            {
+              "type": "connector",
+              "id": "p1-new-connection-database",
+              "from": "p1-new-connection",
+              "to": "p1-new-database",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 924,
+                  "y": 1250
+                },
+                {
+                  "x": 448,
+                  "y": 1250
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 924,
+                  "y": 1173
+                },
+                {
+                  "x": 924,
+                  "y": 1250
+                },
+                {
+                  "x": 448,
+                  "y": 1250
+                },
+                {
+                  "x": 448,
+                  "y": 1327
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "elbow"
+            }
+          ],
+          "groups": [
+            {
+              "id": "p1-lanes",
+              "frame": {
+                "x": 0,
+                "y": 0,
+                "w": 1328,
+                "h": 1197
+              },
+              "members": [
+                "p1-old-lane",
+                "p1-old-client",
+                "p1-old-nginx",
+                "p1-old-api",
+                "p1-old-worker",
+                "p1-old-connection",
+                "p1-new-lane",
+                "p1-new-client",
+                "p1-new-nginx",
+                "p1-new-api",
+                "p1-new-worker",
+                "p1-new-connection"
+              ]
+            },
+            {
+              "id": "p1-shared-area",
+              "frame": {
+                "x": 112,
+                "y": 1269,
+                "w": 448,
+                "h": 594
+              },
+              "members": [
+                "p1-shared-postgres",
+                "p1-old-database",
+                "p1-new-database",
+                "p1-note"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "page-jenkins-check",
+          "name": "Jenkins 发布怎么核对数据库",
+          "background": "#f7f7f5",
+          "width": 1337,
+          "height": 1939,
+          "nodes": [
+            {
+              "type": "section",
+              "id": "p2-old-release",
+              "name": "旧系统发布",
+              "fill": "#eff6ff",
+              "opacity": 70,
+              "x": 0,
+              "y": 34,
+              "width": 610,
+              "height": 1569,
+              "titleFrame": {
+                "x": 0,
+                "y": 0,
+                "w": 86,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "shape",
+                  "id": "p2-old-repository",
+                  "x": 24,
+                  "y": 58,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "DOCUMENT_SINGLE",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "旧仓库 edu-game.git / main",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "旧仓库 edu-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "game.git /",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "main",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.5,
+                    "y": 22.879999999999995,
+                    "w": 139,
+                    "h": 130.24
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-old-jenkins",
+                  "x": 169,
+                  "y": 330,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "PREDEFINED_PROCESS",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "Jenkins · edu-game-api",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Jenkins",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "· edu-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "game-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "api",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 41.06,
+                    "y": 16,
+                    "w": 93.88,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-old-sha",
+                  "x": 169,
+                  "y": 602,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "固定本次提交 SHA",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "固定本次提",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "交 SHA",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-old-decision",
+                  "x": 145,
+                  "y": 874,
+                  "width": 224,
+                  "height": 392,
+                  "shapeType": "DIAMOND",
+                  "strokeWidth": 4,
+                  "stroke": "orange",
+                  "fill": "#fef3c7",
+                  "opacity": 100,
+                  "text": "镜像迁移头与对应业务库版本一致？",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "镜像迁移",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "头与对应",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "业务库版",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "本一致？",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 58.800000000000004,
+                    "y": 120,
+                    "w": 106.39999999999999,
+                    "h": 152
+                  }
+                },
+                {
+                  "type": "text",
+                  "id": "p2-old-version",
+                  "x": 248,
+                  "y": 136,
+                  "width": 242,
+                  "height": 19,
+                  "color": "gray",
+                  "opacity": 100,
+                  "text": "旧库 edu-game.alembic_version",
+                  "fontSize": 16,
+                  "lineHeight": 1.1875,
+                  "lines": [
+                    {
+                      "text": "旧库 edu-game.alembic_version",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 242,
+                    "h": 19
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-old-switch",
+                  "x": 57,
+                  "y": 1403,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "blue",
+                  "fill": "#dbeafe",
+                  "opacity": 100,
+                  "text": "切换本系统 API / Worker，再检查健康",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "切换本系统",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "API /",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Worker，再",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "检查健康",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-old-stop",
+                  "x": 281,
+                  "y": 1403,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "orange",
+                  "fill": "#fef3c7",
+                  "opacity": 100,
+                  "text": "停止本次发布",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "停止本次发",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "布",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                }
+              ]
+            },
+            {
+              "type": "section",
+              "id": "p2-new-release",
+              "name": "新系统发布",
+              "fill": "#f0fdf4",
+              "opacity": 70,
+              "x": 682,
+              "y": 34,
+              "width": 655,
+              "height": 1593,
+              "titleFrame": {
+                "x": 682,
+                "y": 0,
+                "w": 86,
+                "h": 28
+              },
+              "nodes": [
+                {
+                  "type": "shape",
+                  "id": "p2-new-repository",
+                  "x": 706,
+                  "y": 58,
+                  "width": 176,
+                  "height": 200,
+                  "shapeType": "DOCUMENT_SINGLE",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "新仓库 edu-game-fixed.git / main",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "新仓库 edu-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "game-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "fixed.git /",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "main",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.5,
+                    "y": 26,
+                    "w": 139,
+                    "h": 148
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-new-jenkins",
+                  "x": 861,
+                  "y": 354,
+                  "width": 200,
+                  "height": 176,
+                  "shapeType": "PREDEFINED_PROCESS",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "Jenkins · edu-game-fixed-api",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "Jenkins ·",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "edu-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "game-",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "fixed-api",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 42.5,
+                    "y": 16,
+                    "w": 115,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-new-sha",
+                  "x": 873,
+                  "y": 626,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "固定本次提交 SHA",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "固定本次提",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "交 SHA",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-new-decision",
+                  "x": 849,
+                  "y": 898,
+                  "width": 224,
+                  "height": 392,
+                  "shapeType": "DIAMOND",
+                  "strokeWidth": 4,
+                  "stroke": "orange",
+                  "fill": "#fef3c7",
+                  "opacity": 100,
+                  "text": "镜像迁移头与对应业务库版本一致？",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "镜像迁移",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "头与对应",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "业务库版",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "本一致？",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 58.800000000000004,
+                    "y": 120,
+                    "w": 106.39999999999999,
+                    "h": 152
+                  }
+                },
+                {
+                  "type": "text",
+                  "id": "p2-new-version",
+                  "x": 930,
+                  "y": 148,
+                  "width": 287,
+                  "height": 19,
+                  "color": "gray",
+                  "opacity": 100,
+                  "text": "新库 edu-game-fixed.alembic_version",
+                  "fontSize": 16,
+                  "lineHeight": 1.1875,
+                  "lines": [
+                    {
+                      "text": "新库 edu-game-fixed.alembic_version",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 287,
+                    "h": 19
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-new-switch",
+                  "x": 761,
+                  "y": 1427,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "green",
+                  "fill": "#dcfce7",
+                  "opacity": 100,
+                  "text": "切换本系统 API / Worker，再检查健康",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "切换本系统",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "API /",
+                      "break": {
+                        "kind": "soft",
+                        "text": " "
+                      }
+                    },
+                    {
+                      "text": "Worker，再",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "检查健康",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                },
+                {
+                  "type": "shape",
+                  "id": "p2-new-stop",
+                  "x": 985,
+                  "y": 1427,
+                  "width": 176,
+                  "height": 176,
+                  "shapeType": "ROUNDED_RECTANGLE",
+                  "strokeWidth": 4,
+                  "stroke": "orange",
+                  "fill": "#fef3c7",
+                  "opacity": 100,
+                  "text": "停止本次发布",
+                  "fontSize": 24,
+                  "lineHeight": 1.5,
+                  "lines": [
+                    {
+                      "text": "停止本次发",
+                      "break": {
+                        "kind": "soft",
+                        "text": ""
+                      }
+                    },
+                    {
+                      "text": "布",
+                      "break": {
+                        "kind": "end",
+                        "text": ""
+                      }
+                    }
+                  ],
+                  "content": {
+                    "x": 18.039999999999992,
+                    "y": 16,
+                    "w": 139.92000000000002,
+                    "h": 144
+                  }
+                }
+              ]
+            },
+            {
+              "type": "sticky",
+              "id": "p2-migration-note",
+              "x": 0,
+              "y": 1699,
+              "width": 416,
+              "height": 240,
+              "wide": true,
+              "fill": "#e5e7eb",
+              "opacity": 100,
+              "text": "正常发布只核对迁移版本。结构变更走单独维护流程，先在隔离环境验证，再执行正式迁移。",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "正常发布只核对迁移版本。结构变",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "更走单独维护流程，先在隔离环境",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "验证，再执行正式迁移。",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 17,
+                "y": 24,
+                "w": 382,
+                "h": 192
+              }
+            },
+            {
+              "type": "sticky",
+              "id": "p2-web-note",
+              "x": 464,
+              "y": 1699,
+              "width": 416,
+              "height": 240,
+              "wide": true,
+              "fill": "#e5e7eb",
+              "opacity": 100,
+              "text": "Web 任务构建和部署前端，业务读写仍由 API 完成。",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "Web 任务构建和部署前端，业务读",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "写仍由 API 完成。",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 17,
+                "y": 24,
+                "w": 382,
+                "h": 192
+              }
+            },
+            {
+              "type": "connector",
+              "id": "p2-old-repository-jenkins",
+              "from": "p2-old-repository",
+              "to": "p2-old-jenkins",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 112,
+                  "y": 282
+                },
+                {
+                  "x": 257,
+                  "y": 282
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 112,
+                  "y": 234
+                },
+                {
+                  "x": 112,
+                  "y": 282
+                },
+                {
+                  "x": 257,
+                  "y": 282
+                },
+                {
+                  "x": 257,
+                  "y": 330
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p2-old-jenkins-sha",
+              "from": "p2-old-jenkins",
+              "to": "p2-old-sha",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 257,
+                  "y": 506
+                },
+                {
+                  "x": 257,
+                  "y": 602
+                }
+              ],
+              "labelLeg": 0,
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p2-old-sha-decision",
+              "from": "p2-old-sha",
+              "to": "p2-old-decision",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 257,
+                  "y": 778
+                },
+                {
+                  "x": 257,
+                  "y": 874
+                }
+              ],
+              "labelLeg": 0,
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p2-old-version-decision",
+              "from": "p2-old-version",
+              "to": "p2-old-decision",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 562,
+                  "y": 146
+                },
+                {
+                  "x": 562,
+                  "y": 1070
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "lineStyle": "dashed",
+              "stroke": "gray",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 490,
+                  "y": 145.5
+                },
+                {
+                  "x": 562,
+                  "y": 146
+                },
+                {
+                  "x": 562,
+                  "y": 1070
+                },
+                {
+                  "x": 369,
+                  "y": 1070
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "channel"
+            },
+            {
+              "type": "connector",
+              "id": "p2-old-decision-switch",
+              "from": "p2-old-decision",
+              "to": "p2-old-switch",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 257,
+                  "y": 1335
+                },
+                {
+                  "x": 145,
+                  "y": 1335
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "blue",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "一致",
+              "labelLines": [
+                {
+                  "text": "一致",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 257,
+                  "y": 1266
+                },
+                {
+                  "x": 257,
+                  "y": 1335
+                },
+                {
+                  "x": 145,
+                  "y": 1335
+                },
+                {
+                  "x": 145,
+                  "y": 1403
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 175,
+                "y": 1314.5,
+                "w": 52,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p2-old-decision-stop",
+              "from": "p2-old-decision",
+              "to": "p2-old-stop",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 257,
+                  "y": 1335
+                },
+                {
+                  "x": 369,
+                  "y": 1335
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "orange",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "不一致",
+              "labelLines": [
+                {
+                  "text": "不一致",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 257,
+                  "y": 1266
+                },
+                {
+                  "x": 257,
+                  "y": 1335
+                },
+                {
+                  "x": 369,
+                  "y": 1335
+                },
+                {
+                  "x": 369,
+                  "y": 1403
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 279,
+                "y": 1314.5,
+                "w": 68,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p2-new-repository-jenkins",
+              "from": "p2-new-repository",
+              "to": "p2-new-jenkins",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 794,
+                  "y": 306
+                },
+                {
+                  "x": 961,
+                  "y": 306
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 794,
+                  "y": 258
+                },
+                {
+                  "x": 794,
+                  "y": 306
+                },
+                {
+                  "x": 961,
+                  "y": 306
+                },
+                {
+                  "x": 961,
+                  "y": 354
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p2-new-jenkins-sha",
+              "from": "p2-new-jenkins",
+              "to": "p2-new-sha",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 961,
+                  "y": 530
+                },
+                {
+                  "x": 961,
+                  "y": 626
+                }
+              ],
+              "labelLeg": 0,
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p2-new-sha-decision",
+              "from": "p2-new-sha",
+              "to": "p2-new-decision",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 961,
+                  "y": 802
+                },
+                {
+                  "x": 961,
+                  "y": 898
+                }
+              ],
+              "labelLeg": 0,
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p2-new-version-decision",
+              "from": "p2-new-version",
+              "to": "p2-new-decision",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 1289,
+                  "y": 158
+                },
+                {
+                  "x": 1289,
+                  "y": 1094
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "lineStyle": "dashed",
+              "stroke": "gray",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 1217,
+                  "y": 157.5
+                },
+                {
+                  "x": 1289,
+                  "y": 158
+                },
+                {
+                  "x": 1289,
+                  "y": 1094
+                },
+                {
+                  "x": 1073,
+                  "y": 1094
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "channel"
+            },
+            {
+              "type": "connector",
+              "id": "p2-new-decision-switch",
+              "from": "p2-new-decision",
+              "to": "p2-new-switch",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 961,
+                  "y": 1359
+                },
+                {
+                  "x": 849,
+                  "y": 1359
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "一致",
+              "labelLines": [
+                {
+                  "text": "一致",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 961,
+                  "y": 1290
+                },
+                {
+                  "x": 961,
+                  "y": 1359
+                },
+                {
+                  "x": 849,
+                  "y": 1359
+                },
+                {
+                  "x": 849,
+                  "y": 1427
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 879,
+                "y": 1338.5,
+                "w": 52,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p2-new-decision-stop",
+              "from": "p2-new-decision",
+              "to": "p2-new-stop",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 961,
+                  "y": 1359
+                },
+                {
+                  "x": 1073,
+                  "y": 1359
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "orange",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "不一致",
+              "labelLines": [
+                {
+                  "text": "不一致",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 961,
+                  "y": 1290
+                },
+                {
+                  "x": 961,
+                  "y": 1359
+                },
+                {
+                  "x": 1073,
+                  "y": 1359
+                },
+                {
+                  "x": 1073,
+                  "y": 1427
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 983,
+                "y": 1338.5,
+                "w": 68,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            }
+          ],
+          "groups": [
+            {
+              "id": "p2-lanes",
+              "frame": {
+                "x": 0,
+                "y": 0,
+                "w": 1337,
+                "h": 1627
+              },
+              "members": [
+                "p2-old-release",
+                "p2-old-repository",
+                "p2-old-jenkins",
+                "p2-old-sha",
+                "p2-old-decision",
+                "p2-old-version",
+                "p2-old-switch",
+                "p2-old-stop",
+                "p2-new-release",
+                "p2-new-repository",
+                "p2-new-jenkins",
+                "p2-new-sha",
+                "p2-new-decision",
+                "p2-new-version",
+                "p2-new-switch",
+                "p2-new-stop"
+              ]
+            },
+            {
+              "id": "p2-notes",
+              "frame": {
+                "x": 0,
+                "y": 1699,
+                "w": 880,
+                "h": 240
+              },
+              "members": [
+                "p2-migration-note",
+                "p2-web-note"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "page-local-debug",
+          "name": "新系统个人联调",
+          "background": "#f7f7f5",
+          "width": 548,
+          "height": 1800,
+          "nodes": [
+            {
+              "type": "shape",
+              "id": "p3-entry",
+              "x": 112,
+              "y": 0,
+              "width": 176,
+              "height": 176,
+              "shapeType": "ROUNDED_RECTANGLE",
+              "strokeWidth": 4,
+              "stroke": "gray",
+              "fill": "#e5e7eb",
+              "opacity": 100,
+              "text": "统一启动入口 / 个人配置",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "统一启动入",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "口 / 个人配",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "置",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 18.039999999999992,
+                "y": 16,
+                "w": 139.92000000000002,
+                "h": 144
+              }
+            },
+            {
+              "type": "shape",
+              "id": "p3-preflight",
+              "x": 100,
+              "y": 272,
+              "width": 200,
+              "height": 176,
+              "shapeType": "PREDEFINED_PROCESS",
+              "strokeWidth": 4,
+              "stroke": "gray",
+              "fill": "#e5e7eb",
+              "opacity": 100,
+              "text": "只读预检 · 检查连接与迁移版本",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "只读预检 ·",
+                  "break": {
+                    "kind": "soft",
+                    "text": " "
+                  }
+                },
+                {
+                  "text": "检查连接",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "与迁移版",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "本",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 42.5,
+                "y": 16,
+                "w": 115,
+                "h": 144
+              }
+            },
+            {
+              "type": "shape",
+              "id": "p3-decision",
+              "x": 112,
+              "y": 585,
+              "width": 176,
+              "height": 248,
+              "shapeType": "DIAMOND",
+              "strokeWidth": 4,
+              "stroke": "orange",
+              "fill": "#fef3c7",
+              "opacity": 100,
+              "text": "检查通过？",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "检查通",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "过？",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 46.2,
+                "y": 84,
+                "w": 83.6,
+                "h": 80
+              }
+            },
+            {
+              "type": "shape",
+              "id": "p3-start-local",
+              "x": 0,
+              "y": 970,
+              "width": 176,
+              "height": 176,
+              "shapeType": "ROUNDED_RECTANGLE",
+              "strokeWidth": 4,
+              "stroke": "green",
+              "fill": "#dcfce7",
+              "opacity": 100,
+              "text": "本机启动前端和 API",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "本机启动前",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "端和 API",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 18.039999999999992,
+                "y": 16,
+                "w": 139.92000000000002,
+                "h": 144
+              }
+            },
+            {
+              "type": "shape",
+              "id": "p3-stop",
+              "x": 224,
+              "y": 970,
+              "width": 176,
+              "height": 176,
+              "shapeType": "ROUNDED_RECTANGLE",
+              "strokeWidth": 4,
+              "stroke": "orange",
+              "fill": "#fef3c7",
+              "opacity": 100,
+              "text": "停止启动，核对配置和版本",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "停止启动，",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "核对配置和",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "版本",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 18.039999999999992,
+                "y": 16,
+                "w": 139.92000000000002,
+                "h": 144
+              }
+            },
+            {
+              "type": "shape",
+              "id": "p3-local-request",
+              "x": 112,
+              "y": 1283,
+              "width": 176,
+              "height": 176,
+              "shapeType": "ROUNDED_RECTANGLE",
+              "strokeWidth": 4,
+              "stroke": "green",
+              "fill": "#dcfce7",
+              "opacity": 100,
+              "text": "前端请求 → 本机 API :7291",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "前端请求 →",
+                  "break": {
+                    "kind": "soft",
+                    "text": " "
+                  }
+                },
+                {
+                  "text": "本机",
+                  "break": {
+                    "kind": "soft",
+                    "text": " "
+                  }
+                },
+                {
+                  "text": "API :7291",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 18.039999999999992,
+                "y": 16,
+                "w": 139.92000000000002,
+                "h": 144
+              }
+            },
+            {
+              "type": "shape",
+              "id": "p3-new-database",
+              "x": 112,
+              "y": 1600,
+              "width": 176,
+              "height": 200,
+              "shapeType": "ENG_DATABASE",
+              "strokeWidth": 4,
+              "stroke": "green",
+              "fill": "#dcfce7",
+              "opacity": 100,
+              "text": "服务器新业务库 edu-game-fixed",
+              "fontSize": 24,
+              "lineHeight": 1.5,
+              "lines": [
+                {
+                  "text": "服务器新业",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "务库 edu-",
+                  "break": {
+                    "kind": "soft",
+                    "text": ""
+                  }
+                },
+                {
+                  "text": "game-fixed",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "content": {
+                "x": 18.5,
+                "y": 44.199999999999996,
+                "w": 139,
+                "h": 111.60000000000001
+              }
+            },
+            {
+              "type": "connector",
+              "id": "p3-entry-preflight",
+              "from": "p3-entry",
+              "to": "p3-preflight",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "gray",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 200,
+                  "y": 176
+                },
+                {
+                  "x": 200,
+                  "y": 272
+                }
+              ],
+              "labelLeg": 0,
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p3-preflight-decision",
+              "from": "p3-preflight",
+              "to": "p3-decision",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "gray",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 200,
+                  "y": 448
+                },
+                {
+                  "x": 200,
+                  "y": 585
+                }
+              ],
+              "labelLeg": 0,
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p3-decision-start",
+              "from": "p3-decision",
+              "to": "p3-start-local",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 200,
+                  "y": 902
+                },
+                {
+                  "x": 88,
+                  "y": 902
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "是",
+              "labelLines": [
+                {
+                  "text": "是",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 200,
+                  "y": 833
+                },
+                {
+                  "x": 200,
+                  "y": 902
+                },
+                {
+                  "x": 88,
+                  "y": 902
+                },
+                {
+                  "x": 88,
+                  "y": 970
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 126,
+                "y": 881.5,
+                "w": 36,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p3-decision-stop",
+              "from": "p3-decision",
+              "to": "p3-stop",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 200,
+                  "y": 902
+                },
+                {
+                  "x": 312,
+                  "y": 902
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "orange",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "否",
+              "labelLines": [
+                {
+                  "text": "否",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 200,
+                  "y": 833
+                },
+                {
+                  "x": 200,
+                  "y": 902
+                },
+                {
+                  "x": 312,
+                  "y": 902
+                },
+                {
+                  "x": 312,
+                  "y": 970
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 238,
+                "y": 881.5,
+                "w": 36,
+                "h": 41
+              },
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p3-start-request",
+              "from": "p3-start-local",
+              "to": "p3-local-request",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [
+                {
+                  "x": 88,
+                  "y": 1215
+                },
+                {
+                  "x": 200,
+                  "y": 1215
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "route": [
+                {
+                  "x": 88,
+                  "y": 1146
+                },
+                {
+                  "x": 88,
+                  "y": 1215
+                },
+                {
+                  "x": 200,
+                  "y": 1215
+                },
+                {
+                  "x": 200,
+                  "y": 1283
+                }
+              ],
+              "labelLeg": 1,
+              "routeKind": "elbow"
+            },
+            {
+              "type": "connector",
+              "id": "p3-request-database",
+              "from": "p3-local-request",
+              "to": "p3-new-database",
+              "lineType": "straight",
+              "fromSide": "BOTTOM",
+              "toSide": "TOP",
+              "waypoints": [],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "stroke": "green",
+              "strokeWidth": 8,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "运行时业务读写",
+              "labelLines": [
+                {
+                  "text": "运行时业务读写",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 200,
+                  "y": 1459
+                },
+                {
+                  "x": 200,
+                  "y": 1600
+                }
+              ],
+              "labelLeg": 0,
+              "labelBox": {
+                "x": 132,
+                "y": 1507,
+                "w": 136,
+                "h": 45
+              },
+              "routeKind": "straight"
+            },
+            {
+              "type": "connector",
+              "id": "p3-preflight-database",
+              "from": "p3-preflight",
+              "to": "p3-new-database",
+              "lineType": "straight",
+              "fromSide": "RIGHT",
+              "toSide": "RIGHT",
+              "waypoints": [
+                {
+                  "x": 498,
+                  "y": 360
+                },
+                {
+                  "x": 498,
+                  "y": 1700
+                }
+              ],
+              "fromCap": "NONE",
+              "toCap": "ARROW_LINES",
+              "lineStyle": "dashed",
+              "stroke": "gray",
+              "strokeWidth": 4,
+              "opacity": 100,
+              "fontSize": 16,
+              "label": "只读",
+              "labelLines": [
+                {
+                  "text": "只读",
+                  "break": {
+                    "kind": "end",
+                    "text": ""
+                  }
+                }
+              ],
+              "route": [
+                {
+                  "x": 300,
+                  "y": 360
+                },
+                {
+                  "x": 498,
+                  "y": 360
+                },
+                {
+                  "x": 498,
+                  "y": 1700
+                },
+                {
+                  "x": 288,
+                  "y": 1700
+                }
+              ],
+              "labelLeg": 1,
+              "labelBox": {
+                "x": 472,
+                "y": 1009.5,
+                "w": 52,
+                "h": 41
+              },
+              "routeKind": "channel"
+            }
+          ],
+          "groups": []
+        }
+      ],
+      "report": {
+        "accepted": true,
+        "checks": [
+          {
+            "name": "preservation",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "geometry",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "text-fit",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "peer-clearance",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "containment",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "order",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "routes",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "labels",
+            "scope": "modeled",
+            "required": true,
+            "status": "pass"
+          },
+          {
+            "name": "native-text-fit",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam lays out the text in shapes itself; the model's text areas are calibrated bounds, not observations"
+            ]
+          },
+          {
+            "name": "native-labels",
+            "scope": "native-unverified",
+            "required": false,
+            "status": "unverified",
+            "failures": [
+              "FigJam places a connector's label on its leg itself; the plugin's rule is modeled, not observed"
+            ]
+          }
+        ],
+        "quality": {
+          "crossings": 0,
+          "section_conflicts": 0,
+          "bends": 36,
+          "route_length": 11779
+        },
+        "repair": {
+          "rounds": 0,
+          "evaluations": 33
+        }
+      }
+    }
+  },
   "cross-section-flow": {
     "data": {
       "type": "board",
@@ -3888,7 +7035,7 @@
   "invalid-missing-glyph": {
     "errors": [
       {
-        "message": "sticky \"t\": the character '漢' (U+6F22) has no glyph in FIGJAM_V1's font, so it cannot be measured. Write the text with characters FIGJAM_V1 supports (Latin, Greek and Cyrillic scripts, common symbols and emoji).",
+        "message": "sticky \"t\": the character '漢' (U+6F22) is Chinese or Japanese text, which FIGJAM_V1 does not measure; FIGJAM_V2 does. Add layout-profile FIGJAM_V2 to the board's settings (after its last `]`) to measure Chinese and Japanese text; keep the text in its language.",
         "from": 23,
         "to": 25,
         "code": "unsupported-text",

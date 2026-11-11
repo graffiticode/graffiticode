@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-//! `FIGJAM_V1`: the measurement, sizing, spacing and work-limit policy a board is compiled with
-//! (design §9). Every geometry constant lives here, in one place.
+//! `FIGJAM_V1` and `FIGJAM_V2`: the measurement, sizing, spacing and work-limit policy a board is
+//! compiled with (design §9). Every geometry constant lives here, in one place.
+//!
+//! `FIGJAM_V2` is `FIGJAM_V1` plus one measurement: the CJK text V1 rejects as unsupported
+//! (Chinese and Japanese ideographs, kana, CJK punctuation and full-width forms) is measured at
+//! [`CJK_ADVANCE_EMS`] (calibrated 2026-11-11). Every text V1 accepts measures the same under V2,
+//! so the two differ only in what they accept; every other constant here is shared. A board
+//! selects V2 with `layout-profile FIGJAM_V2`; omitting the property still means `FIGJAM_V1`.
 //!
 //! **Status: frozen (2026-10-30).** The font metrics and constants below were calibrated against
 //! FigJam, and the native-fidelity comparison (phase 7, which recalibrated `label`) passed; see
@@ -26,8 +32,34 @@
 //! measured for L0187 (see `docs/evidence/l0187-calibration/` when present); `policy` values are
 //! L0187's own choices, not FigJam facts.
 
-/// The profile tag this module implements.
-pub const NAME: &str = "FIGJAM_V1";
+/// A layout profile a board can select with `layout-profile`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Profile {
+    /// `FIGJAM_V1`, also what an omitted `layout-profile` means.
+    V1,
+    /// `FIGJAM_V2`: V1, and CJK text measured at [`CJK_ADVANCE_EMS`].
+    V2,
+}
+
+impl Profile {
+    /// The profile a board's `layout-profile` tag names. The vocabulary admits only known tags,
+    /// so anything else (or nothing) is the default, `FIGJAM_V1`.
+    pub fn from_tag(tag: &str) -> Profile {
+        if tag == "FIGJAM_V2" { Profile::V2 } else { Profile::V1 }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Profile::V1 => "FIGJAM_V1",
+            Profile::V2 => "FIGJAM_V2",
+        }
+    }
+
+    /// Whether this profile measures CJK text (rather than rejecting it as unsupported).
+    pub fn measures_cjk(self) -> bool {
+        self == Profile::V2
+    }
+}
 
 /// The embedded font: Inter 3.19 Medium (SIL OFL 1.1), the face the plugin loads for every text.
 /// Calibrated 2026-10-30: FigJam's text widths are this font's shaped advances rounded up, for
@@ -194,6 +226,15 @@ pub mod spacing {
 /// An emoji cluster Inter has no glyph for (FigJam draws it with a fallback font): its advance
 /// in ems. Calibrated 2026-10-30 (🚀 at 24px is 30px wide); reported as modeled only.
 pub const EMOJI_ADVANCE_EMS: f64 = 1.25;
+
+/// A CJK grapheme cluster Inter has no glyph for (an ideograph, kana, CJK punctuation or a
+/// full-width form; FigJam draws it with a fallback font): its advance in ems. `FIGJAM_V2` only;
+/// `FIGJAM_V1` rejects such text. Calibrated 2026-11-11 (`docs/evidence/l0187-calibration/`):
+/// once FigJam's fallback font has loaded, every such character is exactly 1 em at 16, 24, 40,
+/// 64 and 96px, and a mixed line is Inter's shaped advance plus 1 em per CJK character, rounded
+/// up. Line heights and wrapping are unchanged (UAX #14 breaks between ideographs and keeps
+/// closing punctuation such as `，` and `。` off the start of a line, as FigJam does).
+pub const CJK_ADVANCE_EMS: f64 = 1.0;
 
 /// Deterministic work limits: counted, never timed, so the result never depends on load.
 pub mod limits {

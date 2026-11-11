@@ -21,7 +21,9 @@ fn main() {
             font_size: "MEDIUM".into(),
             before: Vec::new(),
         };
-        let measured = graffiticode_l0187::size::mark(&Child::Shape(m)).unwrap().unwrap();
+        let measured = graffiticode_l0187::size::mark(&Child::Shape(m), graffiticode_l0187::profile::Profile::V1)
+            .unwrap()
+            .unwrap();
         let lines: Vec<&str> = measured.lines.iter().map(|l| l.text.as_str()).collect();
         out.push(serde_json::json!({ "kind": kind, "text": text, "w": measured.width, "h": measured.height, "lines": lines }));
     }

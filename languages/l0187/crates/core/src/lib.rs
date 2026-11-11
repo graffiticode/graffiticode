@@ -343,8 +343,9 @@ pub fn position_within(
                         diag::Category::Layout,
                         "layout-failure",
                         format!(
-                            "The compiler could not route connector {} clear of the board's marks and labels within FIGJAM_V1's bounds ({} rounds of added spacing, {evaluations} route candidates). This is a compiler limitation, not an error in the program.",
+                            "The compiler could not route connector {} clear of the board's marks and labels within {}'s bounds ({} rounds of added spacing, {evaluations} route candidates). This is a compiler limitation, not an error in the program.",
                             ids.join(", "),
+                            board.profile,
                             rounds + 1
                         ),
                         None,
@@ -387,7 +388,7 @@ fn resource_limits(board: &ir::Board) -> Vec<(Option<String>, String)> {
         if n > TEXT_CHARS {
             out.push((
                 Some(id.to_owned()),
-                format!("{word} {id:?}: its text is {n} characters, and FIGJAM_V1 lays out at most {TEXT_CHARS} per text. Split it across several marks."),
+                format!("{word} {id:?}: its text is {n} characters, and {} lays out at most {TEXT_CHARS} per text. Split it across several marks.", board.profile),
             ));
         }
     };
@@ -410,7 +411,7 @@ fn resource_limits(board: &ir::Board) -> Vec<(Option<String>, String)> {
     if objects > OBJECTS {
         out.insert(
             0,
-            (None, format!("The board has {objects} pages, marks, regions and connectors, and FIGJAM_V1 lays out at most {OBJECTS}. Split it into several boards.")),
+            (None, format!("The board has {objects} pages, marks, regions and connectors, and {} lays out at most {OBJECTS}. Split it into several boards.", board.profile)),
         );
     }
     out

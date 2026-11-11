@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: MIT
 
-//! Text measurement under `FIGJAM_V1`: Inter Medium, shaped with rustybuzz (glyph substitution,
-//! ligatures, kerning) over ttf-parser, wrapped greedily at UAX #14 break opportunities, and
-//! broken inside a word only between grapheme clusters.
+//! Text measurement: Inter Medium, shaped with rustybuzz (glyph substitution, ligatures,
+//! kerning) over ttf-parser, wrapped greedily at UAX #14 break opportunities, and broken inside a
+//! word only between grapheme clusters.
 //!
-//! Coverage policy (checked before measuring):
+//! Coverage policy (checked before measuring, per profile):
 //! - a grapheme cluster Inter shapes without `.notdef` is measured normally;
 //! - an emoji cluster Inter has no glyph for takes [`profile::EMOJI_ADVANCE_EMS`] and is
 //!   reported as *modeled* only (FigJam draws it with a fallback font we do not have);
-//! - any other `.notdef` cluster, and any strong right-to-left character, is unsupported text in
-//!   `FIGJAM_V1`: a content limitation naming the character.
+//! - a CJK cluster Inter has no glyph for ([`is_cjk`]) takes [`profile::CJK_ADVANCE_EMS`] under
+//!   `FIGJAM_V2`, and is unsupported text under `FIGJAM_V1`;
+//! - any other `.notdef` cluster, and any strong right-to-left character, is unsupported text: a
+//!   content limitation naming the character.
+//!
+//! [`advance`] and [`wrap`] take no profile: they measure CJK at its V2 advance, which only ever
+//! reaches a V1 board's output through text V1's [`coverage`] has already rejected.
 //!
 //! The compiler emits the lines it measured; the preview draws exactly those, and the validator
 //! re-measures each line with [`advance`].
@@ -21,30 +26,40 @@ use serde::{Deserialize, Serialize};
 use unicode_linebreak::{BreakOpportunity, linebreaks};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::profile;
+use crate::profile::{self, Profile};
 
 static FACE: LazyLock<Face<'static>> =
     LazyLock::new(|| Face::from_slice(profile::FONT, 0).expect("the embedded font parses"));
 
-/// Text `FIGJAM_V1` cannot measure.
+/// Text a profile cannot measure.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Unsupported {
-    /// A character the font has no glyph for, and which is not an emoji.
-    Missing(char),
+    /// A character the font has no glyph for, and which is neither an emoji nor CJK the profile
+    /// measures.
+    Missing(Profile, char),
+    /// A CJK character, under a profile that does not measure CJK (`FIGJAM_V1`).
+    Cjk(Profile, char),
     /// A strong right-to-left character.
-    RightToLeft(char),
+    RightToLeft(Profile, char),
 }
 
 impl Unsupported {
     pub fn describe(&self) -> String {
         match self {
-            Unsupported::Missing(c) => format!(
-                "the character {c:?} (U+{:04X}) has no glyph in FIGJAM_V1's font, so it cannot be measured",
-                *c as u32
+            Unsupported::Missing(p, c) => format!(
+                "the character {c:?} (U+{:04X}) has no glyph in {}'s font, so it cannot be measured",
+                *c as u32,
+                p.name()
             ),
-            Unsupported::RightToLeft(c) => format!(
-                "the character {c:?} (U+{:04X}) is right-to-left text, which FIGJAM_V1 does not lay out",
-                *c as u32
+            Unsupported::Cjk(p, c) => format!(
+                "the character {c:?} (U+{:04X}) is Chinese or Japanese text, which {} does not measure; FIGJAM_V2 does",
+                *c as u32,
+                p.name()
+            ),
+            Unsupported::RightToLeft(p, c) => format!(
+                "the character {c:?} (U+{:04X}) is right-to-left text, which {} does not lay out",
+                *c as u32,
+                p.name()
             ),
         }
     }
@@ -61,6 +76,32 @@ fn is_rtl(c: char) -> bool {
 fn is_emoji(c: char) -> bool {
     matches!(c as u32,
         0x1F000..=0x1FAFF | 0x2600..=0x27BF | 0x2B00..=0x2BFF | 0x2300..=0x23FF | 0xFE0F | 0x20E3 | 0xE0020..=0xE007F)
+}
+
+/// A character FigJam draws one em wide from its CJK fallback font (calibrated 2026-11-11): CJK
+/// punctuation (not the ideographic space), hiragana, katakana, the Han ideographs (unified,
+/// extension A, the supplementary planes and the compatibility block) and the full-width forms.
+/// Hangul (proportional) and half-width katakana (half an em) are not CJK here.
+pub fn is_cjk(c: char) -> bool {
+    matches!(c as u32,
+        0x3001..=0x303F | 0x3040..=0x30FF | 0x31F0..=0x31FF | 0x3400..=0x4DBF | 0x4E00..=0x9FFF
+        | 0xF900..=0xFAFF | 0xFF01..=0xFF60 | 0xFFE0..=0xFFE6 | 0x20000..=0x3FFFF)
+}
+
+/// The first character of a cluster that shows: what a missing cluster is judged by.
+fn visible(cluster: &str) -> Option<char> {
+    cluster.chars().find(|c| !c.is_whitespace() && !c.is_control())
+}
+
+/// The modeled advance, in ems, of a cluster the font has no glyph for: CJK at
+/// [`profile::CJK_ADVANCE_EMS`], anything else that shows at [`profile::EMOJI_ADVANCE_EMS`],
+/// white space and controls at nothing.
+fn modeled_ems(cluster: &str) -> f64 {
+    match visible(cluster) {
+        None => 0.0,
+        Some(c) if is_cjk(c) && !cluster.chars().any(is_emoji) => profile::CJK_ADVANCE_EMS,
+        Some(_) => profile::EMOJI_ADVANCE_EMS,
+    }
 }
 
 struct Shaped {
@@ -100,33 +141,35 @@ fn missing_clusters<'a>(text: &'a str, missing: &[usize]) -> Vec<&'a str> {
         .collect()
 }
 
-/// Whether `text` is measurable under `FIGJAM_V1`, and how many emoji it models.
-pub fn coverage(text: &str) -> Result<usize, Unsupported> {
+/// Whether `text` is measurable under `profile`, and how many emoji it models.
+pub fn coverage(text: &str, profile: Profile) -> Result<usize, Unsupported> {
     if let Some(c) = text.chars().find(|c| is_rtl(*c)) {
-        return Err(Unsupported::RightToLeft(c));
+        return Err(Unsupported::RightToLeft(profile, c));
     }
     let shaped = shape(text, 16.0);
     let mut emoji = 0;
     for cluster in missing_clusters(text, &shaped.missing) {
         if cluster.chars().any(is_emoji) {
             emoji += 1;
-        } else if let Some(c) = cluster.chars().find(|c| !c.is_whitespace() && !c.is_control()) {
-            return Err(Unsupported::Missing(c));
+        } else if let Some(c) = visible(cluster) {
+            if !is_cjk(c) {
+                return Err(Unsupported::Missing(profile, c));
+            }
+            if !profile.measures_cjk() {
+                return Err(Unsupported::Cjk(profile, c));
+            }
         }
     }
     Ok(emoji)
 }
 
-/// The advance of `text` at `size` pixels: its shaped width, with each emoji cluster the font
-/// lacks at the profile's emoji advance. Text that failed [`coverage`] measures its missing
-/// clusters the same way, so this never fails.
+/// The advance of `text` at `size` pixels: its shaped width, with each cluster the font lacks at
+/// its modeled advance (CJK at one em, emoji and anything else at the emoji advance). Text that
+/// failed [`coverage`] measures its missing clusters the same way, so this never fails.
 pub fn advance(text: &str, size: f64) -> f64 {
     let shaped = shape(text, size);
-    let modeled = missing_clusters(text, &shaped.missing)
-        .iter()
-        .filter(|g| g.chars().any(|c| !c.is_whitespace() && !c.is_control()))
-        .count();
-    shaped.width + modeled as f64 * profile::EMOJI_ADVANCE_EMS * size
+    let modeled: f64 = missing_clusters(text, &shaped.missing).iter().map(|g| modeled_ems(g)).sum();
+    shaped.width + modeled * size
 }
 
 /// Running advances over a text shaped once: the width of any slice, to within kerning at its
@@ -154,10 +197,8 @@ impl Prefix {
             }
         }
         for (start, g) in text.grapheme_indices(true) {
-            if g.chars().any(|c| !c.is_whitespace() && !c.is_control())
-                && missing.iter().any(|m| (start..start + g.len()).contains(m))
-            {
-                at[start] += profile::EMOJI_ADVANCE_EMS * size;
+            if missing.iter().any(|m| (start..start + g.len()).contains(m)) {
+                at[start] += modeled_ems(g) * size;
             }
         }
         let mut sums = vec![0.0; text.len() + 1];
@@ -409,13 +450,83 @@ mod tests {
 
     #[test]
     fn coverage_policy() {
-        assert_eq!(coverage("Ship it — naïve café"), Ok(0));
-        assert_eq!(coverage("Launch 🚀 now 👍🏽"), Ok(2));
-        assert_eq!(coverage("שלום"), Err(Unsupported::RightToLeft('ש')));
-        assert!(matches!(coverage("漢字"), Err(Unsupported::Missing('漢'))));
+        for p in [Profile::V1, Profile::V2] {
+            assert_eq!(coverage("Ship it — naïve café", p), Ok(0));
+            assert_eq!(coverage("Launch 🚀 now 👍🏽", p), Ok(2));
+            assert_eq!(coverage("שלום", p), Err(Unsupported::RightToLeft(p, 'ש')));
+            // Hangul and half-width katakana are not one em wide in FigJam: unsupported in both.
+            assert_eq!(coverage("한국어", p), Err(Unsupported::Missing(p, '한')));
+            assert_eq!(coverage("ｱｲｳ", p), Err(Unsupported::Missing(p, 'ｱ')));
+        }
+        // CJK is rejected by V1 (naming V2) and measured by V2.
+        assert_eq!(coverage("漢字", Profile::V1), Err(Unsupported::Cjk(Profile::V1, '漢')));
+        assert!(coverage("漢字", Profile::V1).unwrap_err().describe().contains("FIGJAM_V2"));
+        for text in [
+            "业务读写",
+            "旧业务 API",
+            "，。：？、「」【】《》",
+            "ひらがなカタカナ",
+            "ＡＰＩ１２３",
+            "鑫龘𠀀",
+            "業務資料庫",
+        ] {
+            assert_eq!(coverage(text, Profile::V2), Ok(0), "{text}");
+        }
         // An emoji the font lacks measures at the profile's emoji advance.
         let rocket = advance("🚀", 20.0);
         assert!((rocket - profile::EMOJI_ADVANCE_EMS * 20.0).abs() < 1e-9, "{rocket}");
+    }
+
+    /// FigJam calibration (2026-11-11, `profile::CJK_ADVANCE_EMS`): auto-width Inter Medium text
+    /// nodes, read back once FigJam's CJK fallback font had loaded. Each width is the model's
+    /// advance rounded up, as FigJam rounds a text node.
+    #[test]
+    fn cjk_widths_match_figjam() {
+        let probes = [
+            (16.0, "业", 16.0),
+            (16.0, "业务读写", 64.0),
+            (16.0, "一二三四五六七八九十", 160.0),
+            (24.0, "业务读写", 96.0),
+            (24.0, "一二三四五六七八九十", 240.0),
+            (40.0, "业务读写", 160.0),
+            (64.0, "业", 64.0),
+            (96.0, "业", 96.0),
+            (16.0, "，。：？", 64.0),
+            (16.0, "、「」【】《》", 112.0),
+            (16.0, "ひらがなカタカナ", 128.0),
+            (16.0, "ＡＰＩ１２３", 96.0),
+            (16.0, "鑫龘𠀀", 48.0),
+            (64.0, "かな业", 192.0),
+            (16.0, "镜像迁移头与对应业务库版本一致？", 256.0),
+            (16.0, "旧业务 API", 78.0),
+            (16.0, "前端请求 → 本机 API :7291", 196.0),
+            (16.0, "Nginx · /edu-api/", 129.0),
+        ];
+        for (size, text, figjam) in probes {
+            assert_eq!(advance(text, size).ceil(), figjam, "{text} at {size}");
+        }
+    }
+
+    /// FigJam calibration (2026-11-11): fixed-width text nodes, screenshotted. FigJam breaks
+    /// between ideographs, never puts closing punctuation (`，`) at the start of a line, and holds
+    /// a line exactly as wide as the box.
+    #[test]
+    fn cjk_wraps_where_figjam_does() {
+        let text = "业务数据各自存放，实例资源和故障范围共用";
+        assert_eq!(texts(&wrap(text, 16.0, Some(100.0))), ["业务数据各自", "存放，实例资", "源和故障范围", "共用"]);
+        assert_eq!(texts(&wrap(text, 16.0, Some(130.0))), ["业务数据各自存", "放，实例资源和故", "障范围共用"]);
+        let long = "正常发布只核对迁移版本。结构变更走单独维护流程，先在隔离环境验证，再执行正式迁移。";
+        assert_eq!(
+            texts(&wrap(long, 16.0, Some(200.0))),
+            ["正常发布只核对迁移版本。", "结构变更走单独维护流程，", "先在隔离环境验证，再执行", "正式迁移。"]
+        );
+        assert_eq!(wrap(long, 24.0, Some(200.0)).len(), 6);
+        assert_eq!(
+            texts(&wrap("旧业务 API 与 Worker 共用连接", 16.0, Some(120.0))),
+            ["旧业务 API 与", "Worker 共用连", "接"]
+        );
+        // A wrap between ideographs consumes nothing, so the lines re-join to the text.
+        assert_eq!(rejoin(&wrap(long, 16.0, Some(200.0))), long);
     }
 
     /// FigJam calibration (2026-10-30, `profile::shape::text_width`): at every observed size, a

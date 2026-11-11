@@ -144,3 +144,48 @@ Each native node's bounding box was read back and compared with the compiled boa
 
 With the font calibration and the phase 7 comparison done, `FIGJAM_V1` is **frozen**: any geometry
 change from now on needs a new profile tag.
+
+## `FIGJAM_V2`: Chinese and Japanese text, 2026-11-11
+
+`FIGJAM_V1` rejects text Inter has no glyph for, so an L0187 board in Chinese could not compile
+(the generator then translated it into English to get a board). These probes were run in a
+scratch FigJam file (“L0187 CJK probe (scratch)”, Artcompiler drafts) through the Plugin API,
+with text set in Inter Medium as the plugin sets it. The text node still reports Inter Medium;
+FigJam draws the CJK characters from a fallback font (Noto Sans SC/TC/JP/KR are in the file's
+font list; which one draws them was not read back, and it does not affect the metrics).
+
+- **The fallback loads lazily.** The first nodes created in a fresh file were laid out before
+  the fallback font loaded, at 65/64 em a character. Read again later, the same nodes (and fresh
+  ones) are exactly 1 em. Only the settled values below are used.
+- **Widths: 1 em a character.** Auto-width text nodes, width as FigJam reports it:
+
+| Probe | Size | FigJam | Model (Inter + 1 em per CJK), rounded up |
+| --- | --- | --- | --- |
+| 业 | 16, 24, 40, 64, 96 | 16, 24, 40, 64, 96 | same |
+| 业务读写 | 16, 24, 40 | 64, 96, 160 | same |
+| 一二三四五六七八九十 | 16, 24 | 160, 240 | same |
+| ，。：？ | 16 | 64 | 64 |
+| 、「」【】《》 | 16 | 112 | 112 |
+| ひらがなカタカナ | 16 | 128 | 128 |
+| ＡＰＩ１２３ | 16 | 96 | 96 |
+| 鑫龘𠀀, 業務資料庫 | 16 | 48, 80 | 48, 80 |
+| 镜像迁移头与对应业务库版本一致？ | 16 | 256 | 256 |
+| 旧业务 API | 16 | 78 | 78 (48 + 29.98) |
+| 前端请求 → 本机 API :7291 | 16 | 196 | 196 (96 + 99.30) |
+
+- **Not one em, so still unsupported:** Hangul (한국어데이터: 14.83px a character at 16px,
+  proportional) and half-width katakana (ｱｲｳｴｵ: 8px, half an em).
+- **Line heights are unchanged:** fixed-width nodes of 4 lines at 16px are 76 (4 × 19), of 6 lines
+  at 24px are 174 (6 × 29), as `profile::text_line` gives.
+- **Wrapping is UAX #14, greedy, as for Latin text.** Screenshots of fixed-width nodes: FigJam
+  breaks between any two ideographs, never starts a line with closing punctuation (at width 130,
+  `业务数据各自存放，…` breaks before `放` so that `放，` stay together), and holds a line exactly
+  as wide as the box. Mixed text breaks at spaces and between ideographs
+  (`旧业务 API 与 / Worker 共用连 / 接` at 120).
+- **Whole board.** Every sticky and shape of the `cjk-databases` test program, drawn at its
+  compiled size, held its text with nothing truncated; stickies wrapped exactly at the compiled
+  lines, and shapes (whose modeled text area sits inside FigJam's) never needed more room.
+
+`measure.rs` pins these values (`cjk_widths_match_figjam`, `cjk_wraps_where_figjam_does`).
+Every text `FIGJAM_V1` accepts measures the same under `FIGJAM_V2`, and all 76 earlier test
+boards compile byte-identically; V1 boards are unchanged.

@@ -30,7 +30,7 @@ board [
 ```
 
 - One `board`, ending in `..`. Its list holds `page`s; its settings are `title`,
-  `show-page-tabs`, `show-page-menu`.
+  `show-page-tabs`, `show-page-menu` and `layout-profile` (see "Writing the text").
 - `page [ … ] id "…" name "…" {}`: every page has an `id` and a `name`. Its list holds `sticky`,
   `shape`, `textbox`, `section`, `group` and `connector`. `background "gray"` colours the page.
 - `section [ … ] id "…" name "…" {}`: a visible, titled area, with optional `fill` and `opacity`.
@@ -110,6 +110,22 @@ Use that language's own words, even where the request writes an English term in 
 Portuguese `"Salvaguardas"`, not `"Guardrails"`; `"Alternativa offline"`, not `"Fallback"`;
 `"Painel"`, not `"Dashboard"`. Keep proper names, acronyms and product names as given (`"DHIS2"`,
 `"UNESCO"`, `"FigJam"`).
+
+When the request asks for a language, or quotes the labels to use, that is the board's language,
+even when the rest of the request is in English: copy quoted labels exactly, with their
+punctuation (`·`, `→`, `，`, `？`). For Chinese or Japanese text, write `layout-profile FIGJAM_V2`
+in the board's settings; it measures those characters, and the default profile does not. Never
+translate the text into English or another script to make a board compile.
+
+```gc
+board [
+  page [
+    shape id "api" text "新业务 API" kind ROUNDED_RECTANGLE {}
+    shape id "db" text "新业务库 edu-game-fixed" kind ENG_DATABASE {}
+    connector id "api-db" from "api" to "db" label "业务读写" {}
+  ] id "p1" name "新系统" layout FLOW {}
+] title "两套业务库" layout-profile FIGJAM_V2 {}..
+```
 
 ## Connectors
 

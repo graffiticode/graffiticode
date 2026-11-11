@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-//! Sizing under `FIGJAM_V1`: every mark's box and text lines, every label's box, and the room a
+//! Sizing under the board's profile (`FIGJAM_V1` or `FIGJAM_V2`): every mark's box and text lines, every label's box, and the room a
 //! section's title needs, measured from the full text at the requested font size (design §6).
 //!
 //! - A **sticky** has a fixed width (square, or wide when a square would grow) and grows taller to
@@ -17,8 +17,8 @@ use std::collections::HashMap;
 use serde::Serialize;
 
 use crate::ir::{Board, Child, Connector, Layout, Mark, Region};
-use crate::measure::{Break, Line, Rect, content_box, coverage, wrap};
-use crate::profile::{self, line_height, spacing};
+use crate::measure::{Break, Line, Rect, Unsupported, content_box, coverage, wrap};
+use crate::profile::{self, Profile, line_height, spacing};
 
 /// A measured mark or label: its size, where its text sits inside it, and its lines.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -61,14 +61,14 @@ fn widest(lines: &[Line]) -> f64 {
     lines.iter().map(|l| l.width).fold(0.0, f64::max)
 }
 
-fn unsupported(word: &str, id: &str, text: &str) -> Result<usize, Limit> {
-    coverage(text).map_err(|u| Limit {
-        id: id.to_owned(),
-        code: "unsupported-text",
-        message: format!(
-            "{word} {id:?}: {}. Write the text with characters FIGJAM_V1 supports (Latin, Greek and Cyrillic scripts, common symbols and emoji).",
-            u.describe()
-        ),
+fn unsupported(word: &str, id: &str, text: &str, p: Profile) -> Result<usize, Limit> {
+    coverage(text, p).map_err(|u| {
+        let advice = match u {
+            Unsupported::Cjk(..) => "Add layout-profile FIGJAM_V2 to the board's settings (after its last `]`) to measure Chinese and Japanese text; keep the text in its language.".to_owned(),
+            _ if p.measures_cjk() => format!("Write the text with characters {} supports (Latin, Greek and Cyrillic scripts, Chinese and Japanese, common symbols and emoji).", p.name()),
+            _ => format!("Write the text with characters {} supports (Latin, Greek and Cyrillic scripts, common symbols and emoji).", p.name()),
+        };
+        Limit { id: id.to_owned(), code: "unsupported-text", message: format!("{word} {id:?}: {}. {advice}", u.describe()) }
     })
 }
 
@@ -78,9 +78,9 @@ pub fn sticky_height(lines: usize, font: f64) -> f64 {
     SIZE.max(2.0 * PAD_Y + font * (line_height::NOTE * lines as f64 + TAIL_EMS))
 }
 
-fn sticky(m: &Mark) -> Result<Measured, Limit> {
+fn sticky(m: &Mark, p: Profile) -> Result<Measured, Limit> {
     use profile::sticky::{PAD_X, PAD_Y, SIZE, WIDE};
-    let emoji = unsupported("sticky", &m.id, &m.text)?;
+    let emoji = unsupported("sticky", &m.id, &m.text, p)?;
     let font = profile::font_size(&m.font_size);
     // A square sticky, unless its text would make it grow, or split a word, and a wide one
     // would not (or would grow less).
@@ -105,9 +105,9 @@ fn sticky(m: &Mark) -> Result<Measured, Limit> {
 }
 
 /// A sticky at a given width (square or wide), its height grown to fit.
-fn sticky_at(m: &Mark, width: f64) -> Result<Measured, Limit> {
+fn sticky_at(m: &Mark, width: f64, p: Profile) -> Result<Measured, Limit> {
     use profile::sticky::{PAD_X, PAD_Y};
-    let emoji = unsupported("sticky", &m.id, &m.text)?;
+    let emoji = unsupported("sticky", &m.id, &m.text, p)?;
     let font = profile::font_size(&m.font_size);
     let lines = wrap(&m.text, font, Some(width - 2.0 * PAD_X));
     let height = sticky_height(lines.len(), font);
@@ -115,9 +115,9 @@ fn sticky_at(m: &Mark, width: f64) -> Result<Measured, Limit> {
     Ok(Measured { width, height, content, font_size: font, line_height: line_height::NOTE, lines, emoji })
 }
 
-fn shape(m: &Mark) -> Result<Measured, Limit> {
+fn shape(m: &Mark, p: Profile) -> Result<Measured, Limit> {
     use profile::shape::{MAX, MAX_ASPECT, MIN, STEP};
-    let emoji = unsupported("shape", &m.id, &m.text)?;
+    let emoji = unsupported("shape", &m.id, &m.text, p)?;
     let kind = m.kind.as_deref().unwrap_or("SQUARE");
     let font = profile::font_size(&m.font_size);
     let lh = line_height::NOTE;
@@ -159,14 +159,14 @@ fn shape(m: &Mark) -> Result<Measured, Limit> {
     })
 }
 
-fn textbox(m: &Mark) -> Result<Measured, Limit> {
-    textbox_within(m, None)
+fn textbox(m: &Mark, p: Profile) -> Result<Measured, Limit> {
+    textbox_within(m, None, p)
 }
 
 /// A textbox wrapped at 20 em, or at `within` when that is narrower (a header, wrapped to the
 /// width of what follows it, but never under 10 em).
-fn textbox_within(m: &Mark, within: Option<f64>) -> Result<Measured, Limit> {
-    let emoji = unsupported("textbox", &m.id, &m.text)?;
+fn textbox_within(m: &Mark, within: Option<f64>, p: Profile) -> Result<Measured, Limit> {
+    let emoji = unsupported("textbox", &m.id, &m.text, p)?;
     let font = profile::font_size(&m.font_size);
     let natural = widest(&wrap(&m.text, font, None));
     let measure = (profile::textbox::MAX_EMS * font).min(within.map_or(f64::MAX, |w| w.max(10.0 * font)));
@@ -179,9 +179,9 @@ fn textbox_within(m: &Mark, within: Option<f64>) -> Result<Measured, Limit> {
     Ok(Measured { width, height, content, font_size: font, line_height, lines, emoji })
 }
 
-fn label(c: &Connector) -> Result<Option<Measured>, Limit> {
+fn label(c: &Connector, p: Profile) -> Result<Option<Measured>, Limit> {
     let Some(text) = c.label.as_deref().filter(|t| !t.is_empty()) else { return Ok(None) };
-    let emoji = unsupported("connector", &c.id, text)?;
+    let emoji = unsupported("connector", &c.id, text, p)?;
     let font = profile::font_size(&c.font_size);
     let lines = wrap(text, font, None);
     let (px, py) = profile::label::pad(font, profile::stroke_width(&c.stroke_width));
@@ -199,24 +199,21 @@ fn label(c: &Connector) -> Result<Option<Measured>, Limit> {
     }))
 }
 
-/// Sizes one mark: a sticky, shape or textbox.
-pub fn mark(child: &Child) -> Option<Result<Measured, Limit>> {
+/// Sizes one mark under profile `p`: a sticky, shape or textbox.
+pub fn mark(child: &Child, p: Profile) -> Option<Result<Measured, Limit>> {
     match child {
-        Child::Sticky(m) => Some(sticky(m)),
-        Child::Shape(m) => Some(shape(m)),
-        Child::Textbox(m) => Some(textbox(m)),
+        Child::Sticky(m) => Some(sticky(m, p)),
+        Child::Shape(m) => Some(shape(m, p)),
+        Child::Textbox(m) => Some(textbox(m, p)),
         _ => None,
     }
 }
 
-fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
+fn region(r: &Region, p: Profile, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
     for child in &r.children {
         let measured = match child {
-            Child::Sticky(m) => Some(sticky(m)),
-            Child::Shape(m) => Some(shape(m)),
-            Child::Textbox(m) => Some(textbox(m)),
             Child::Section(s) => {
-                match unsupported("section", &s.id, &s.name) {
+                match unsupported("section", &s.id, &s.name, p) {
                     Ok(_) => {
                         let title = crate::measure::advance(&s.name, profile::section::TITLE_SIZE);
                         sizes.titles.insert(s.id.clone(), (title + profile::section::TITLE_PAD).ceil());
@@ -226,6 +223,7 @@ fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
                 None
             }
             Child::Group(_) => None,
+            _ => mark(child, p),
         };
         match measured {
             Some(Ok(m)) => {
@@ -235,7 +233,7 @@ fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
             None => {}
         }
         if let Some(inner) = child.region() {
-            region(inner, sizes, limits);
+            region(inner, p, sizes, limits);
         }
     }
     // When one of a region's stickies has to be wide, they all are, so its notes line up instead
@@ -246,7 +244,7 @@ fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
     if any_wide {
         for m in stickies {
             if sizes.marks.get(&m.id).is_some_and(|s| s.width != profile::sticky::WIDE)
-                && let Ok(wide) = sticky_at(m, profile::sticky::WIDE)
+                && let Ok(wide) = sticky_at(m, profile::sticky::WIDE, p)
             {
                 sizes.marks.insert(m.id.clone(), wide);
             }
@@ -264,7 +262,7 @@ fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
                 .fold(0.0, f64::max)
         });
         if let Some(w) = within
-            && let Ok(header) = textbox_within(m, Some(w))
+            && let Ok(header) = textbox_within(m, Some(w), p)
         {
             sizes.marks.insert(m.id.clone(), header);
         }
@@ -276,10 +274,11 @@ fn region(r: &Region, sizes: &mut Sizes, limits: &mut Vec<Limit>) {
 pub fn size(board: &Board) -> Result<Sizes, Vec<Limit>> {
     let mut sizes = Sizes::default();
     let mut limits = Vec::new();
+    let p = Profile::from_tag(&board.profile);
     for page in &board.pages {
-        region(&page.region, &mut sizes, &mut limits);
+        region(&page.region, p, &mut sizes, &mut limits);
         for c in &page.connectors {
-            match label(c) {
+            match label(c, p) {
                 Ok(Some(m)) => {
                     sizes.labels.insert(c.id.clone(), m);
                 }
@@ -294,6 +293,7 @@ pub fn size(board: &Board) -> Result<Sizes, Vec<Limit>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::measure;
 
     fn mark(text: &str, kind: Option<&str>, font: &str) -> Mark {
         Mark {
@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn a_sticky_keeps_its_width_and_grows_as_figjam_does() {
-        let short = sticky(&mark("Shipped on time", None, "MEDIUM")).unwrap();
+        let short = sticky(&mark("Shipped on time", None, "MEDIUM"), Profile::V1).unwrap();
         assert_eq!((short.width, short.height), (240.0, 240.0));
         // FigJam's readings: k explicit lines at 16px and 24px on a square sticky.
         for (font, k, expect) in [(16.0, 8, 248.0), (16.0, 14, 392.0), (24.0, 6, 276.0), (24.0, 10, 420.0)] {
@@ -322,40 +322,68 @@ mod tests {
         // overlaps what is placed below it.
         assert!((304.0..=308.0).contains(&sticky_height(4, 40.0)));
         // Text a square would grow for goes on a wide sticky.
-        let long = sticky(&mark(&"word ".repeat(40), None, "MEDIUM")).unwrap();
+        let long = sticky(&mark(&"word ".repeat(40), None, "MEDIUM"), Profile::V1).unwrap();
         assert_eq!(long.width, 416.0);
         assert!(long.lines.iter().all(|l| l.width <= long.content.w + 1e-9));
     }
 
     #[test]
     fn a_shape_grows_on_the_grid_to_fit_its_text() {
-        let small = shape(&mark("A", Some("SQUARE"), "MEDIUM")).unwrap();
+        let small = shape(&mark("A", Some("SQUARE"), "MEDIUM"), Profile::V1).unwrap();
         assert_eq!((small.width, small.height), (176.0, 176.0));
-        let long =
-            shape(&mark("Quarantine flaky tests and assign owners before the release", Some("DIAMOND"), "MEDIUM"))
-                .unwrap();
+        let long = shape(
+            &mark("Quarantine flaky tests and assign owners before the release", Some("DIAMOND"), "MEDIUM"),
+            Profile::V1,
+        )
+        .unwrap();
         assert!(long.width > 176.0 || long.height > 176.0);
         assert_eq!(long.width % 24.0, 176.0 % 24.0);
         let needed = long.lines.len() as f64 * long.font_size * long.line_height;
         assert!(long.content.h >= needed - 1e-9);
         assert!(long.lines.iter().all(|l| l.width <= long.content.w + 1e-9));
         assert!(long.width / long.height <= profile::shape::MAX_ASPECT + 1e-9);
-        let huge = shape(&mark(&"word ".repeat(400), Some("DIAMOND"), "HUGE")).unwrap_err();
+        let huge = shape(&mark(&"word ".repeat(400), Some("DIAMOND"), "HUGE"), Profile::V1).unwrap_err();
         assert_eq!(huge.code, "shape-overflow");
     }
 
     #[test]
     fn a_textbox_wraps_at_its_measure() {
-        let short = textbox(&mark("Workshop agenda", None, "LARGE")).unwrap();
+        let short = textbox(&mark("Workshop agenda", None, "LARGE"), Profile::V1).unwrap();
         assert_eq!(short.lines.len(), 1);
-        let long = textbox(&mark(&"agree on scope ".repeat(20), None, "MEDIUM")).unwrap();
+        let long = textbox(&mark(&"agree on scope ".repeat(20), None, "MEDIUM"), Profile::V1).unwrap();
         assert!(long.lines.len() > 1);
         assert!(long.width <= profile::textbox::MAX_EMS * 24.0);
     }
 
     #[test]
     fn unsupported_text_is_a_content_limit() {
-        let err = sticky(&mark("שלום", None, "MEDIUM")).unwrap_err();
+        let err = sticky(&mark("שלום", None, "MEDIUM"), Profile::V1).unwrap_err();
         assert_eq!(err.code, "unsupported-text");
+    }
+
+    #[test]
+    fn cjk_text_needs_figjam_v2() {
+        let v1 = sticky(&mark("业务读写", None, "MEDIUM"), Profile::V1).unwrap_err();
+        assert_eq!(v1.code, "unsupported-text");
+        assert!(v1.message.contains("layout-profile FIGJAM_V2"), "{}", v1.message);
+        assert!(v1.message.contains("keep the text in its language"), "{}", v1.message);
+        let v2 = sticky(&mark("业务读写", None, "MEDIUM"), Profile::V2).unwrap();
+        assert_eq!(v2.width, profile::sticky::SIZE);
+        let diamond = shape(&mark("镜像迁移头与对应业务库版本一致？", Some("DIAMOND"), "MEDIUM"), Profile::V2).unwrap();
+        assert_eq!(measure::rejoin(&diamond.lines), "镜像迁移头与对应业务库版本一致？");
+        // Text V1 accepts sizes the same under V2.
+        for text in ["Shipped on time", "Launch 🚀 now", &"word ".repeat(40)] {
+            assert_eq!(
+                sticky(&mark(text, None, "MEDIUM"), Profile::V1),
+                sticky(&mark(text, None, "MEDIUM"), Profile::V2)
+            );
+            assert_eq!(
+                textbox(&mark(text, None, "LARGE"), Profile::V1),
+                textbox(&mark(text, None, "LARGE"), Profile::V2)
+            );
+        }
+        // Hangul is unsupported under V2 too, with V2's own advice.
+        let hangul = sticky(&mark("한국어", None, "MEDIUM"), Profile::V2).unwrap_err();
+        assert!(hangul.message.contains("FIGJAM_V2 supports"), "{}", hangul.message);
     }
 }

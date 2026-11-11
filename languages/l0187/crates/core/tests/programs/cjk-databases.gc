@@ -1,0 +1,91 @@
+board [
+  page [
+    group [
+      section [
+        shape id "p1-old-client" text "学员端 / 管理端" kind ROUNDED_RECTANGLE fill "#dbeafe" stroke "blue" {}
+        shape id "p1-old-nginx" text "Nginx · /edu-api/" kind PREDEFINED_PROCESS fill "#dbeafe" stroke "blue" {}
+        shape id "p1-old-api" text "旧业务 API" kind ROUNDED_RECTANGLE fill "#dbeafe" stroke "blue" {}
+        shape id "p1-old-worker" text "旧业务 Worker" kind ROUNDED_RECTANGLE fill "#dbeafe" stroke "blue" {}
+        shape id "p1-old-connection" text "旧库连接 · 容器网络 pg-vector:5432" kind PREDEFINED_PROCESS fill "#dbeafe" stroke "blue" {}
+      ] id "p1-old-lane" name "旧系统 edu-game" layout FLOW direction DOWN fill "#eff6ff" opacity 70 {}
+      section [
+        shape id "p1-new-client" text "学员端 / 管理端" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "green" {}
+        shape id "p1-new-nginx" text "Nginx · /edu-api/" kind PREDEFINED_PROCESS fill "#dcfce7" stroke "green" {}
+        shape id "p1-new-api" text "新业务 API" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "green" {}
+        shape id "p1-new-worker" text "新业务 Worker" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "green" {}
+        shape id "p1-new-connection" text "新库连接 · 主机发布端口 5433" kind PREDEFINED_PROCESS fill "#dcfce7" stroke "green" {}
+      ] id "p1-new-lane" name "新系统 edu-game-fixed" layout FLOW direction DOWN fill "#f0fdf4" opacity 70 {}
+    ] id "p1-lanes" layout ROW {}
+    group [
+      section [
+        shape id "p1-old-database" text "旧业务库 edu-game" kind ENG_DATABASE fill "#dbeafe" stroke "blue" {}
+        shape id "p1-new-database" text "新业务库 edu-game-fixed" kind ENG_DATABASE fill "#dcfce7" stroke "green" {}
+      ] id "p1-shared-postgres" name "同一 PostgreSQL 实例 · edu-pg" layout ROW fill "#e5e7eb" opacity 65 {}
+      sticky id "p1-note" text "业务数据各自存放，实例资源和故障范围共用" fill "#e5e7eb" {}
+    ] id "p1-shared-area" layout COLUMN {}
+    connector id "p1-old-client-nginx" from "p1-old-client" to "p1-old-nginx" stroke "blue" {}
+    connector id "p1-old-nginx-api" from "p1-old-nginx" to "p1-old-api" stroke "blue" {}
+    connector id "p1-old-api-connection" from "p1-old-api" to "p1-old-connection" label "业务读写" stroke "blue" {}
+    connector id "p1-old-worker-connection" from "p1-old-worker" to "p1-old-connection" label "业务读写" stroke "blue" {}
+    connector id "p1-old-connection-database" from "p1-old-connection" to "p1-old-database" stroke "blue" {}
+    connector id "p1-new-client-nginx" from "p1-new-client" to "p1-new-nginx" stroke "green" {}
+    connector id "p1-new-nginx-api" from "p1-new-nginx" to "p1-new-api" stroke "green" {}
+    connector id "p1-new-api-connection" from "p1-new-api" to "p1-new-connection" label "业务读写" stroke "green" {}
+    connector id "p1-new-worker-connection" from "p1-new-worker" to "p1-new-connection" label "业务读写" stroke "green" {}
+    connector id "p1-new-connection-database" from "p1-new-connection" to "p1-new-database" stroke "green" {}
+  ] id "page-read-write" name "两套业务库怎么读写" layout COLUMN background "#f7f7f5" {}
+  page [
+    group [
+      section [
+        shape id "p2-old-repository" text "旧仓库 edu-game.git / main" kind DOCUMENT_SINGLE fill "#dbeafe" stroke "blue" {}
+        shape id "p2-old-jenkins" text "Jenkins · edu-game-api" kind PREDEFINED_PROCESS fill "#dbeafe" stroke "blue" {}
+        shape id "p2-old-sha" text "固定本次提交 SHA" kind ROUNDED_RECTANGLE fill "#dbeafe" stroke "blue" {}
+        shape id "p2-old-decision" text "镜像迁移头与对应业务库版本一致？" kind DIAMOND fill "#fef3c7" stroke "orange" {}
+        textbox id "p2-old-version" text "旧库 edu-game.alembic_version" font-size SMALL color "gray" {}
+        shape id "p2-old-switch" text "切换本系统 API / Worker，再检查健康" kind ROUNDED_RECTANGLE fill "#dbeafe" stroke "blue" {}
+        shape id "p2-old-stop" text "停止本次发布" kind ROUNDED_RECTANGLE fill "#fef3c7" stroke "orange" {}
+      ] id "p2-old-release" name "旧系统发布" layout FLOW direction DOWN fill "#eff6ff" opacity 70 {}
+      section [
+        shape id "p2-new-repository" text "新仓库 edu-game-fixed.git / main" kind DOCUMENT_SINGLE fill "#dcfce7" stroke "green" {}
+        shape id "p2-new-jenkins" text "Jenkins · edu-game-fixed-api" kind PREDEFINED_PROCESS fill "#dcfce7" stroke "green" {}
+        shape id "p2-new-sha" text "固定本次提交 SHA" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "green" {}
+        shape id "p2-new-decision" text "镜像迁移头与对应业务库版本一致？" kind DIAMOND fill "#fef3c7" stroke "orange" {}
+        textbox id "p2-new-version" text "新库 edu-game-fixed.alembic_version" font-size SMALL color "gray" {}
+        shape id "p2-new-switch" text "切换本系统 API / Worker，再检查健康" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "green" {}
+        shape id "p2-new-stop" text "停止本次发布" kind ROUNDED_RECTANGLE fill "#fef3c7" stroke "orange" {}
+      ] id "p2-new-release" name "新系统发布" layout FLOW direction DOWN fill "#f0fdf4" opacity 70 {}
+    ] id "p2-lanes" layout ROW {}
+    group [
+      sticky id "p2-migration-note" text "正常发布只核对迁移版本。结构变更走单独维护流程，先在隔离环境验证，再执行正式迁移。" fill "#e5e7eb" {}
+      sticky id "p2-web-note" text "Web 任务构建和部署前端，业务读写仍由 API 完成。" fill "#e5e7eb" {}
+    ] id "p2-notes" layout ROW {}
+    connector id "p2-old-repository-jenkins" from "p2-old-repository" to "p2-old-jenkins" stroke "blue" {}
+    connector id "p2-old-jenkins-sha" from "p2-old-jenkins" to "p2-old-sha" stroke "blue" {}
+    connector id "p2-old-sha-decision" from "p2-old-sha" to "p2-old-decision" stroke "blue" {}
+    connector id "p2-old-version-decision" from "p2-old-version" to "p2-old-decision" line-style DASHED stroke "gray" {}
+    connector id "p2-old-decision-switch" from "p2-old-decision" to "p2-old-switch" label "一致" stroke "blue" {}
+    connector id "p2-old-decision-stop" from "p2-old-decision" to "p2-old-stop" label "不一致" stroke "orange" {}
+    connector id "p2-new-repository-jenkins" from "p2-new-repository" to "p2-new-jenkins" stroke "green" {}
+    connector id "p2-new-jenkins-sha" from "p2-new-jenkins" to "p2-new-sha" stroke "green" {}
+    connector id "p2-new-sha-decision" from "p2-new-sha" to "p2-new-decision" stroke "green" {}
+    connector id "p2-new-version-decision" from "p2-new-version" to "p2-new-decision" line-style DASHED stroke "gray" {}
+    connector id "p2-new-decision-switch" from "p2-new-decision" to "p2-new-switch" label "一致" stroke "green" {}
+    connector id "p2-new-decision-stop" from "p2-new-decision" to "p2-new-stop" label "不一致" stroke "orange" {}
+  ] id "page-jenkins-check" name "Jenkins 发布怎么核对数据库" layout COLUMN background "#f7f7f5" {}
+  page [
+    shape id "p3-entry" text "统一启动入口 / 个人配置" kind ROUNDED_RECTANGLE fill "#e5e7eb" stroke "gray" {}
+    shape id "p3-preflight" text "只读预检 · 检查连接与迁移版本" kind PREDEFINED_PROCESS fill "#e5e7eb" stroke "gray" {}
+    shape id "p3-decision" text "检查通过？" kind DIAMOND fill "#fef3c7" stroke "orange" {}
+    shape id "p3-start-local" text "本机启动前端和 API" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "green" {}
+    shape id "p3-stop" text "停止启动，核对配置和版本" kind ROUNDED_RECTANGLE fill "#fef3c7" stroke "orange" {}
+    shape id "p3-local-request" text "前端请求 → 本机 API :7291" kind ROUNDED_RECTANGLE fill "#dcfce7" stroke "green" {}
+    shape id "p3-new-database" text "服务器新业务库 edu-game-fixed" kind ENG_DATABASE fill "#dcfce7" stroke "green" {}
+    connector id "p3-entry-preflight" from "p3-entry" to "p3-preflight" stroke "gray" {}
+    connector id "p3-preflight-decision" from "p3-preflight" to "p3-decision" stroke "gray" {}
+    connector id "p3-decision-start" from "p3-decision" to "p3-start-local" label "是" stroke "green" {}
+    connector id "p3-decision-stop" from "p3-decision" to "p3-stop" label "否" stroke "orange" {}
+    connector id "p3-start-request" from "p3-start-local" to "p3-local-request" stroke "green" {}
+    connector id "p3-request-database" from "p3-local-request" to "p3-new-database" label "运行时业务读写" stroke "green" stroke-width THICK {}
+    connector id "p3-preflight-database" from "p3-preflight" to "p3-new-database" label "只读" line-style DASHED stroke "gray" {}
+  ] id "page-local-debug" name "新系统个人联调" layout FLOW direction DOWN background "#f7f7f5" {}
+] title "两套业务库" show-page-tabs true show-page-menu true layout-profile FIGJAM_V2 {}..

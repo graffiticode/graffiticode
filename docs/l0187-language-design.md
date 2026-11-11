@@ -176,7 +176,7 @@ heading is an explicit `textbox` that participates in layout.
 | `stroke-width` | `THIN`, `THICK` |
 | `line-style` | `SOLID`, `DASHED` |
 | `from-cap`, `to-cap` | `NONE`, `ARROW_LINES`, `ARROW_EQUILATERAL`, `TRIANGLE_FILLED`, `CIRCLE_FILLED`, `DIAMOND_FILLED` |
-| `layout-profile` | `FIGJAM_V1` |
+| `layout-profile` | `FIGJAM_V1`, `FIGJAM_V2` |
 
 Tags are bare and uppercase. The initial shape set requires measurement support
 for every listed kind; the remaining L0186 shapes are not automatically included.
@@ -475,6 +475,12 @@ required checks, and bounded refinement policy. The implementation plan must
 assign concrete values and pinned dependencies to this bundle before release.
 
 Omitting the property permanently means `FIGJAM_V1`; it never means latest.
+
+`FIGJAM_V2` (2026-11-11) is `FIGJAM_V1` plus the measurement of Chinese and Japanese text, which
+`FIGJAM_V1` rejects as a content limit: Han ideographs, kana, CJK punctuation and full-width forms
+are each one em wide, as calibrated against FigJam
+(`docs/evidence/l0187-calibration/README.md`). Every text `FIGJAM_V1` accepts measures identically
+under `FIGJAM_V2`, so the two profiles differ only in what they accept.
 Effective inputs and profile determine positioned geometry deterministically.
 Native observations are separate evidence and must not silently mutate the
 pure compile result. Revision-stability support initially uses deterministic

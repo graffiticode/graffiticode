@@ -270,7 +270,7 @@ pub fn lower(
     o.insert("profile".to_owned(), board.profile.clone().into());
     o.insert(
         "revision".to_owned(),
-        json!({ "compiler": env!("CARGO_PKG_VERSION"), "font": profile::FONT_REVISION, "layout": profile::NAME }),
+        json!({ "compiler": env!("CARGO_PKG_VERSION"), "font": profile::FONT_REVISION, "layout": board.profile.clone() }),
     );
     put(&mut o, "title", board.title.clone());
     o.insert("showPageTabs".to_owned(), board.show_page_tabs.into());
