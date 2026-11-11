@@ -14,6 +14,9 @@ use crate::js::{Js, quote};
 pub struct FetchResult {
     pub text: String,
     pub content_type: String,
+    /// When the body was fetched from its source (epoch milliseconds), if known. A copy served
+    /// from a cache keeps the original time, so the result's expiry follows the data's age.
+    pub fetched_at: Option<u64>,
 }
 
 /// Fetches a URL for `fetch`. An error is the compile error, word for word.

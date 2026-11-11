@@ -12,7 +12,7 @@ programs. Built on `@graffiticode/l0000` ^0.8.0 and `@graffiticode/l0000-view` ^
 It lives in the graffiticode monorepo as a **self-contained npm project**: its own lockfile,
 install, build and tests, all run from this directory.
 
-> **Two implementations live here.** `packages/` is the TypeScript L0185 that production runs; `crates/` is L0185 in Rust. Everything down to "The Rust implementation" describes the TypeScript side.
+> **Two implementations live here.** `crates/` is L0185 in Rust, which production runs (Cloud Run service `l0185r`, since interpreter plan Track A2). `packages/` is the TypeScript L0185, whose service was retired (A7); its view and spec are still used. Everything down to "The Rust implementation" describes the TypeScript side.
 
 ## Commands
 
@@ -83,7 +83,7 @@ lexicon and guarded by `docs.test.ts`.
 
 ## The Rust implementation (`crates/`)
 
-This directory holds **two implementations of L0185**. `packages/core` and `packages/api` are the TypeScript compiler and server, which production runs (Cloud Run service `l0185`). `crates/` is the same language in Rust, to be released to its own service `l0185r` so it can be vetted before it replaces the TypeScript. `packages/view` and the spec (with the sample data served at `/data`) are shared by both.
+This directory holds **two implementations of L0185**. `crates/` is L0185 in Rust, which production runs (Cloud Run service `l0185r`; the api routes L0185 to it). `packages/core` and `packages/api` are the TypeScript compiler and server, whose Cloud Run service was retired. `packages/view` and the spec (with the sample data served at `/data`) are shared by both.
 
 - `crates/core` (`graffiticode-l0185`) — `src/lib.rs`: `L0185` implements `Dialect` from `graffiticode-l0000`. A word evaluates its right-hand side, then its parameter (a function of the record is kept as its node and applied per record with `Evaluator::apply`), then its step. A `State` travels through the kernel (a `let`, a list, a `join`'s record) as a small record naming a state kept in the compile's `ExecContext::state`, which also holds the per-compile fetch dedupe. It claims `PROG` (checks and unwraps the state) and `take`/`drop`/`filter`/`map`/`last` (the pointed "not an L0185 step" error); its `check` is the TypeScript Checker's early-`{}` error.
   - `src/vocab.json` is **generated from `attributes.ts`** (`stepFields`, `TAGS`) by `npm run rust:fixtures`; `src/vocab.rs` reads it. `attributes.ts` stays the single source of truth.
@@ -110,7 +110,9 @@ npm run rust:fixtures # build packages/core, then (TZ=UTC) regenerate src/vocab.
 
 ### Fetching (`src/fetch.rs`)
 
-Every `fetch` is a GET at compile time to the URL the program names, so this is an SSRF boundary, ported from `packages/api/src/fetch.ts`: https only, port 443, no userinfo; `localhost`, `*.localhost`, `*.local`, `*.internal`, `metadata.google.internal` refused; a literal IP, and **every** address a host name resolves to, must be public unicast (ipaddr.js 2.5's special ranges, IPv4-mapped IPv6 unwrapped), checked in the client's own DNS resolver so the connection uses exactly the addresses that passed; no proxy, except the egress proxy (ISOLATE-01: with `HTTPS_PROXY` set, `L0185::from_env()` builds the client from the kernel's `egress::client_builder_with`, the proxy enforces addresses, and a refused tunnel reads as "cannot be fetched"; `tests/egress.rs`); redirects by hand, at most 3, each re-checked; 10 s per URL (redirects and body included), 5 s to connect; at most 5 MB decoded body (gzip, deflate, br); fixed headers (`user-agent: Graffiticode-L0185/1`); a 60 s in-process cache of at most 200 URLs, in-flight requests shared, failures not cached. Per compile a URL is fetched once, and at most 10 different URLs. No env and no secrets; `connection-id` is refused as in TypeScript. Output stays cacheable, as the TypeScript's is.
+Every `fetch` is a GET at compile time to the URL the program names, so this is an SSRF boundary, ported from `packages/api/src/fetch.ts`: https only, port 443, no userinfo; `localhost`, `*.localhost`, `*.local`, `*.internal`, `metadata.google.internal` refused; a literal IP, and **every** address a host name resolves to, must be public unicast (ipaddr.js 2.5's special ranges, IPv4-mapped IPv6 unwrapped), checked in the client's own DNS resolver so the connection uses exactly the addresses that passed; no proxy, except the egress proxy (ISOLATE-01: with `HTTPS_PROXY` set, `L0185::from_env()` builds the client from the kernel's `egress::client_builder_with`, the proxy enforces addresses, and a refused tunnel reads as "cannot be fetched"; `tests/egress.rs`); redirects by hand, at most 3, each re-checked; 10 s per URL (redirects and body included), 5 s to connect; at most 5 MB decoded body (gzip, deflate, br); fixed headers (`user-agent: Graffiticode-L0185/1`); a 60 s in-process cache of at most 200 URLs, in-flight requests shared, failures not cached. Per compile a URL is fetched once, and at most 10 different URLs. No env and no secrets; `connection-id` is refused as in TypeScript.
+
+**Caching a fetched result (C3, `docs/c3-l0185-interpreter-plan.md`).** A compile that ran `fetch` restricts its result to `shared`, expiring `FETCHED_TTL_MS` (5 minutes) after its earliest fetch (`ExecContext::restrict`; the envelope carries `cache: "shared"` and `expiresAt`). A body served from the 60 s cache keeps its original `fetched_at`. A result that fetched nothing carries no restriction (immutable). Models never fetch: every L0185 model is a plan, and `tests/interpret.rs` checks, over the whole corpus, that interpreting it in both modes equals compiling it and that the restriction is `shared` exactly when a fetch ran.
 
 ### Conformance
 

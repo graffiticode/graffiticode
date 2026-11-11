@@ -364,7 +364,11 @@ impl GuardedFetcher {
                     Err(_) => return Err(format!("fetch: fetching {} failed: could not connect.", quote(raw))),
                 }
             }
-            return Ok(FetchResult { text: String::from_utf8_lossy(&body).into_owned(), content_type });
+            return Ok(FetchResult {
+                text: String::from_utf8_lossy(&body).into_owned(),
+                content_type,
+                fetched_at: Some(crate::now_ms()),
+            });
         }
     }
 }
@@ -500,7 +504,9 @@ mod tests {
         .replace("localhost", "127.0.0.1");
         let fetcher = GuardedFetcher::new(test_options()).unwrap();
         let got = fetcher.fetch(&format!("{base}/start")).await.unwrap();
-        assert_eq!(got, FetchResult { text: "[1]".into(), content_type: "application/json".into() });
+        assert_eq!(got.text, "[1]");
+        assert_eq!(got.content_type, "application/json");
+        assert!(got.fetched_at.is_some());
         // Cached: the server is gone, the answer is not.
         assert_eq!(fetcher.fetch(&format!("{base}/start")).await.unwrap().text, "[1]");
 
