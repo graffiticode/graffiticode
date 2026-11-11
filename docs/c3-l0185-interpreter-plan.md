@@ -105,31 +105,57 @@
     - resuming still checks authorization: a connection revoked before recovery stops the resumed stage at its session, recorded from receipts. A stale generation is still fenced out;
     - a command with no pinned input yet still runs every stage, as today.
 
-## 6. Activation and rollback
+## 6. Release order, activation and rollback
 
-1. Release `l0185r` with the kernel and dialect changes (§3, §4). Run the canary; legacy compiles are unchanged except for the new envelope fields, which the legacy path ignores.
-2. **The interpreted gate:**
+**The api goes first** (owner, 2026-11-11). Once `l0185r` carries slices 1 and 2, every fetching compile's envelope has `cache: "shared"` and `expiresAt`. Today's api strips a stage's `cache` only when it's `false`, so on the legacy path those fields would reach the next stage's input, the client's response and the stored compile. A compatible api must be live first, and must stay the rollback floor while the new `l0185r` is deployed.
+
+1. **Slice 3a, the api with the flag off:** the legacy path strips `cache` (any value) and `expiresAt` from every stage's envelope, and `cache: false` still means no-store. Release it.
+2. **The floor, in configuration, once 3a's commit is on `main`:**
+   - add `{ "milestone": "c3-legacy-strip", "commit": "<3a's merge commit>" }` to the api's `baselines` in `deploy.json`;
+   - add `requires: [{ "service": "api", "milestone": "c3-legacy-strip" }]` to `l0185r`;
+   - run `npm run deploy -- release-check api`, and retire any reachable api revision below the milestone until it passes.
+
+   The deploy CLI then enforces the floor both ways:
+   - `l0185r` can't be promoted while any reachable api revision is below the milestone;
+   - an api rollback below it is refused, with no override, for as long as the `requires` entry exists.
+3. **`l0185r` with slices 1 and 2, released together.** Run the canary: legacy compiles are unchanged, and the new fields are stripped by the api.
+4. **Slice 3b, the api with the flag off:**
+   - the manifest declaration (v8, caps `immutable`);
+   - the cache class carried to the route, and bounded HTTP caching;
+   - recovery from the furthest pinned boundary;
+   - the soak baseline;
+   - the parity tool's semantic comparison and metadata checks.
+
+   It's inert until the flag is set.
+5. **The interpreted gate:**
    - **Fixtures:** `cargo test` on `tests/interpret.rs` over the 4,002-case corpus.
-   - **Live:** `node scripts/lang-parity.js --lang 0185 --interpreted --rust <l0185r>`. Every answer must equal its compile, ignoring `revision`, `cache` and `expiresAt`.
+   - **Live:** `node scripts/lang-parity.js --lang 0185 --interpreted --rust <l0185r>`.
      - Semantic output must match, and the cache metadata is validated on its own (decision 9).
      - **Caveat:** about 3,000 corpus cases fetch `example.org` paths that answer 404 live, so they only compare errors. Real fetch coverage live is the 16 `l0185.graffiticode.org/data` cases; the fixture test carries the rest.
-3. Release the api with manifest v8 and the HTTP and soak changes, with the flag off. It's inert until the flag is set.
-4. **Stage** an api with `INTERPRETER_L0185=on` and `COMPILE_GENERATION_L0185=interp-1` (the deploy guard requires both). Canary through the tag:
+6. **Stage** an api with `INTERPRETER_L0185=on` and `COMPILE_GENERATION_L0185=interp-1` (the deploy guard requires both). Canary through the tag:
    - L0185 alone, L0184 over L0185, and an L0185 → L0176 save;
-   - stage-cache hit, then miss after expiry;
-   - `max-age` headers;
+   - a stage-cache hit, then a miss after expiry;
+   - `max-age` headers, and an interpreted fetch failure still `no-store`;
    - nothing served from `rust-1` entries.
-5. Promote with that evidence.
+7. Promote with that evidence.
 
-**Rollback:** set `INTERPRETER_L0185="off"` (by value, never by removing it) with a new generation (`rust-2`), as a forward release. Or roll the api back to the release before activation.
+**Rollback:**
+- **Activation:** set `INTERPRETER_L0185="off"` (by value, never by removing it) with a new generation (`rust-2`), as a forward release, or roll the api back to the release before activation. Both stay at or above the floor.
+- **`l0185r`:** `npm run rollback -- l0185r --release <its release>` returns to the binary without the metadata. That's safe with any api, since the stripping is harmless when nothing sends the fields.
+- **The api below `c3-legacy-strip`:** refused while `l0185r`'s `requires` entry exists. It's only possible once no reachable `l0185r` revision sends the metadata:
+  1. roll `l0185r` back to a revision without slices 1 and 2;
+  2. retire the newer `l0185r` revisions and their tags;
+  3. remove the `requires` entry;
+  4. then roll the api back.
 
 ## 7. Slices
 
 | # | Slice | Where | Release |
 |---|---|---|---|
 | 1 | The kernel's per-result class and expiry; the envelope fields; tests | `languages/l0000/crates` | (with slice 2) |
-| 2 | L0185's `fetch` restriction, `tests/interpret.rs`, the CLAUDE.md fix | `languages/l0185` | `l0185r` |
-| 3 | Manifest v8 (caps `immutable`); the cache class carried to the route and bounded HTTP caching; recovery from the pinned boundary; the soak baseline; the parity tool's semantic comparison and metadata checks; api tests | `packages/common`, `packages/api`, `scripts` | api, flag off |
+| 2 | L0185's `fetch` restriction, `tests/interpret.rs`, the CLAUDE.md fix | `languages/l0185` | `l0185r` (with slice 1), **after 3a and its floor** |
+| 3a | The legacy path strips `cache` and `expiresAt` from stage envelopes (`cache: false` still no-store), with flag-off tests: the metadata reaches no downstream input, client response or stored compile; then the `c3-legacy-strip` floor in `deploy.json` (api `baselines`, `l0185r` `requires`) | `packages/api`, `deploy.json` | api, flag off, **before `l0185r`** |
+| 3b | Manifest v8 (caps `immutable`); the cache class carried to the route and bounded HTTP caching (an interpreted fetch failure stays `no-store`); recovery from the furthest pinned boundary; the soak baseline; the parity tool's semantic comparison and metadata checks; api tests | `packages/common`, `packages/api`, `scripts` | api, flag off |
 | 4 | The interpreted gate, then activation: staged api with the flag and `interp-1`, canary, promote; evidence in `docs/evidence/interpreter-c3-l0185/` | `deploy.json`, `docs/evidence` | api |
 
 ## 8. Out of scope

@@ -204,6 +204,60 @@ describe("data", () => {
     });
   });
 
+  // C3: once l0185r marks fetched results `cache: "shared"` with an
+  // `expiresAt`, the legacy path (the flag off) must keep that metadata out
+  // of every stage's input, the client's response and the stored compile, and
+  // the result stays what legacy results are: permanent.
+  describe("a legacy stage's cache metadata (C3, the flag off)", () => {
+    const SHARED = () => ({ cache: "shared", expiresAt: Date.now() + 5 * 60 * 1000 });
+
+    it("never reaches the client's response or the stored compile, and the result stays permanent", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData({ ...DATA1, ...SHARED() });
+      const action = {};
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id, action }))
+        .resolves.toStrictEqual(DATA1);
+
+      expect(action.noStore).toBeUndefined();
+      expect(action.expiresAt).toBeUndefined();
+      // Stored, permanently, without the metadata.
+      const stored = await compileStorer.get({ id });
+      expect(stored.data).toStrictEqual(DATA1);
+      expect(stored).not.toHaveProperty("cache");
+      expect(stored).not.toHaveProperty("expiresAt");
+    });
+
+    it("never reaches the next stage's input", async () => {
+      const id1 = await taskStorer.create({ task: TASK1 });
+      const id2 = await taskStorer.create({ task: TASK2 });
+      const id = taskStorer.appendIds(id1, id2);
+      // TASK2 compiles first (reduceRight) and carries the metadata.
+      mockCompileData({ ...DATA1, ...SHARED() });
+      mockCompileData(DATA2);
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id }))
+        .resolves.toStrictEqual(DATA2);
+
+      expect(compile).toHaveBeenNthCalledWith(2, expect.objectContaining({ lang: TASK1.lang, data: DATA1 }));
+      const input = compile.mock.calls[1][0].data;
+      expect(input).not.toHaveProperty("cache");
+      expect(input).not.toHaveProperty("expiresAt");
+    });
+
+    it("still makes `cache: false` no-store, with or without an expiry, and strips both", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData({ ...DATA1, cache: false, expiresAt: Date.now() + 1000 });
+      const action = {};
+
+      await expect(dataApi.get({ taskStorer, compileStorer, id, action }))
+        .resolves.toStrictEqual(DATA1);
+
+      expect(action.noStore).toBe(true);
+      await expect(compileStorer.get({ id })).resolves.toBeUndefined();
+    });
+  });
+
   describe("refresh", () => {
     // The stale-compile false PASS: a taskId is content-addressed over
     // {lang, code} and carries no compiler version, so a verdict recorded

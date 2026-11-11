@@ -570,11 +570,15 @@ const buildGetData = ({
         if (index > 0 && own.cacheClass === "no-store") {
           console.log(`chain: a no-store stage (L${normalizeLang(lang)}, s${index}) feeds s${index - 1}`);
         }
-        if (out && typeof out === "object" && out.cache === false) {
-          cacheable = false;
-          // Strip the directive: it is for us, and would otherwise ride along
-          // into the next layer's input data and out to the client.
-          const { cache, ...rest } = out;
+        // A stage's cache metadata is for us, never data: it would otherwise
+        // ride along into the next layer's input data, out to the client and
+        // into the stored compile. `cache: false` still means no-store. On the
+        // legacy path a named class (`cache: "shared"`) and an `expiresAt`
+        // (C3: L0185's fetched results) are dropped, and the result is what
+        // legacy results have always been (legacyRestrictions, above).
+        if (out && typeof out === "object" && ("cache" in out || "expiresAt" in out)) {
+          if (out.cache === false) cacheable = false;
+          const { cache, expiresAt, ...rest } = out;
           return checkShape(lang, rest, stageBaseUrl);
         }
         return checkShape(lang, out, stageBaseUrl);
