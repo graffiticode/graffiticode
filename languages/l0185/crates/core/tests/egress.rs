@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use graffiticode_l0000::egress::{EgressEnv, EgressError};
 use graffiticode_l0185::fetch::{GuardOptions, GuardedFetcher};
-use graffiticode_l0185::source::{FetchResult, Fetcher};
+use graffiticode_l0185::source::Fetcher;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::rustls;
@@ -151,7 +151,9 @@ fn blocked(url: &str) -> String {
 async fn fetches_through_the_proxy_trusting_its_ca() {
     let setup = setup().await;
     let got = fetcher(&setup, |_| {}).fetch("https://good.test/data.json").await.unwrap();
-    assert_eq!(got, FetchResult { text: "[1]".into(), content_type: "application/json".into() });
+    assert_eq!(got.text, "[1]");
+    assert_eq!(got.content_type, "application/json");
+    assert!(got.fetched_at.is_some());
     assert_eq!(setup.seen.lock().unwrap().as_slice(), ["CONNECT good.test:443 HTTP/1.1"]);
 }
 

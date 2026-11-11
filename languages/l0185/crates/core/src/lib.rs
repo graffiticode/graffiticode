@@ -33,7 +33,9 @@ pub mod vocab;
 use std::sync::{Arc, LazyLock};
 
 use async_trait::async_trait;
-use graffiticode_l0000::{Ast, Diagnostic, Dialect, Evaluator, Key, Lambda, Lexicon, Node, NodeId, Op, Record, Value};
+use graffiticode_l0000::{
+    Ast, CacheClass, Diagnostic, Dialect, Evaluator, Key, Lambda, Lexicon, Node, NodeId, Op, Record, Value,
+};
 use indexmap::IndexMap;
 
 pub use crate::source::{FetchResult, Fetcher};
@@ -48,6 +50,14 @@ pub const MAX_OUTPUT_ROWS: usize = 10_000;
 pub const MAX_OUTPUT_BYTES: usize = 1_000_000;
 /// The most different URLs one compile may fetch.
 pub const MAX_URLS: usize = 10;
+/// How long a result that fetched may be served from a cache (C3): `shared`, for this long after
+/// its earliest fetch.
+pub const FETCHED_TTL_MS: u64 = 5 * 60 * 1000;
+
+/// Now, in epoch milliseconds.
+pub fn now_ms() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+}
 
 const PROGRAM_EXAMPLE: &str = "where [\"age\" ABOVE 30] fetch \"https://example.org/people.json\" {}..";
 
@@ -412,7 +422,13 @@ impl L0185 {
             }
             ("FETCH", Param::Value(url)) => {
                 let url = steps::fetch_check(&url, &state)?;
-                let body = self.fetch(cx, &url).await?;
+                let fetched = self.fetch(cx, &url).await;
+                // A result that fetched is `shared` until FETCHED_TTL_MS after its earliest
+                // fetch (C3), whether or not the fetch succeeded: a failed one is an error,
+                // which nothing caches.
+                let at = fetched.as_ref().ok().and_then(|body| body.fetched_at).unwrap_or_else(now_ms);
+                cx.exec().restrict(CacheClass::Shared, Some(at + FETCHED_TTL_MS));
+                let body = fetched?;
                 steps::fetch_finish(&url, &body, &state)?
             }
             (_, Param::Value(p)) => match name {
