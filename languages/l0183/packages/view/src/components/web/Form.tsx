@@ -115,15 +115,17 @@ export const Form = ({ state }: FormProps) => {
   };
 
   return (
-    // No width cap: the web spreads to fill whatever it is given. In the /form embed `#root` is a
+    // No width cap: the web's square is as wide as the page. In the /form embed `#root` is a
     // full-viewport column (embed/index.html) holding this Form and the View's CheckBar, so the
-    // Form takes the height the CheckBar leaves, and scrolls as a whole only if even its floor
-    // does not fit.
+    // Form takes the height the CheckBar leaves and scrolls inside it, and Check stays on screen.
     <div
       className={classNames("l0183-web flex min-h-0 flex-col", theme === "dark" && "dark")}
       style={{ flex: "1 1 0", overflow: "auto" }}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-md bg-zinc-50 p-4 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+      <div
+        className="flex flex-col gap-4 rounded-md bg-zinc-50 p-4 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
+        style={{ flex: "1 0 auto" }}
+      >
         <div className="flex shrink-0 items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-1">
             {data.title && (
