@@ -149,6 +149,7 @@ const world = async ({ tweak = {} } = {}) => {
   const commands = new Map();
   const commandKeys = new Set();
   const commandStates = new Map();
+  const commandOutcomes = new Map();
   // The saved read (READ-01): each save's stored result, by task id, and the
   // security-audit records the views leave, as Policy and Broker log them.
   const stored = new Map();
@@ -197,6 +198,11 @@ const world = async ({ tweak = {} } = {}) => {
         // `commands` (C6, COMMANDS_L0176=on): the bridge runs a save as a
         // command. Its key is then the command's: Policy's legacy route
         // refuses it (command-protocol), and the record says what ran.
+        // `bridgeRetired` (D4, BRIDGE_L0176=off): a compile that would save
+        // starts nothing.
+        if (tweak.bridgeRetired && saving) {
+          return withId(ok({ errors: [{ message: "Error: saves through POST /compile are retired for L0176, send them as POST /command", code: "bridge-retired" }] }));
+        }
         const asCommand = tweak.commands && saving;
         const commandId = asCommand ? `c:${body.idempotencyKey}` : null;
         if (asCommand) commandKeys.add(body.idempotencyKey);
@@ -249,9 +255,32 @@ const world = async ({ tweak = {} } = {}) => {
         let cmd = commands.get(body.idempotencyKey);
         if (!cmd || tweak.commandRewrites) {
           const commandId = `cmd-${commands.size + 1}-${body.idempotencyKey.length}${cmd ? "-again" : ""}`;
+          const statusUrl = `/command/${commandId}`;
+          commandKeys.add(body.idempotencyKey);
+          // Under chain admission, Policy admits the command's chain first; a
+          // refusal finishes it failed, with its reason recorded (C6).
+          if (tweak.chain) {
+            const refusal = await admitChain(body);
+            if (refusal) {
+              commandStates.set(commandId, { commandId, invocationId: null, status: "failed", phase: "allocated", admission: null, admissionRefusal: { reason: refusal, at: "2026-11-10T00:00:00Z" } });
+              cmd = { commandId, outcome: "failed", result: "none", statusUrl, reason: refusal };
+              commands.set(body.idempotencyKey, cmd);
+              return ok(cmd);
+            }
+          }
           const writeInvocation = await policy.allocateInvocation({ caller: gateway, user: { uid: CANARY }, connectionId: CONN, taskId: body.id, inputDigest: NO_OPTIONS, idempotencyKey: body.idempotencyKey });
           stored.set(body.id, { itemBank: { saved: true, references: [`gc-${body.id}-${commandId}-i0`] }, writeInvocationId: writeInvocation.invocationId });
-          cmd = { commandId, outcome: "completed", result: "available", statusUrl: `/command/${commandId}` };
+          const { plan } = tweak.chain ? await policy.planLookup({ caller: gateway, user: { uid: CANARY }, invocationToken: writeInvocation.invocationToken }) : { plan: null };
+          const admission = {
+            planDigest: plan?.planDigest ?? "digest-unchained",
+            stages: Object.fromEntries((plan?.stages ?? [{ stage: "s0", lang: "0176", revision: serving["0176"], tagUrl: `https://${serving["0176"]}.test` }])
+              .map(st => [st.stage, { lang: st.lang, revision: st.revision, tagUrl: st.tagUrl, intents: [] }]))
+          };
+          commandStates.set(commandId, { commandId, invocationId: writeInvocation.invocationId, status: "completed", phase: "admitted", admission });
+          // `commandRewrites` stands for an api that writes again for the same key.
+          commandOutcomes.set(commandId, [{ stage: "s0", outcome: "completed", steps: ["questions", "items"] }]);
+          if (cmd && tweak.commandRewrites) commandOutcomes.get(cmd.commandId)?.push({ stage: "s0", outcome: "completed", steps: ["questions", "items"] });
+          cmd = { commandId, outcome: "completed", result: "available", statusUrl };
           commands.set(body.idempotencyKey, cmd);
         }
         return ok(cmd);
@@ -298,10 +327,12 @@ const world = async ({ tweak = {} } = {}) => {
           if (commandKeys.has(body.idempotencyKey)) return refused(403, "command-protocol");
           return ok(await policy.allocateInvocation({ caller, user: user(headers), ...body }));
         }
-        const commandRecord = pathname.match(/^\/v1\/commands\/([^/]+)\/records\/state$/);
+        const commandRecord = pathname.match(/^\/v1\/commands\/([^/]+)\/records\/(state|outcomes)$/);
         if (commandRecord && method === "GET") {
           assert.equal(caller?.role, "gateway", "a command's records are read as the gateway");
-          const state = commandStates.get(decodeURIComponent(commandRecord[1]));
+          const id = decodeURIComponent(commandRecord[1]);
+          if (commandRecord[2] === "outcomes") return commandStates.has(id) ? ok({ outcomes: commandOutcomes.get(id) ?? [] }) : refused(404, "command-not-found");
+          const state = commandStates.get(id);
           return state ? ok(state) : refused(404, "command-not-found");
         }
         if (pathname === "/v1/invocations/plan") return ok(await policy.planLookup({ caller, user: user(headers), ...body }));
@@ -689,6 +720,49 @@ test("C6: a command's save retries across an L0176 deploy under the plan it was 
   w.deploy("l0176-rb");
   const after = await run(w, { chainAdmission: true }, { retryState, runId: "c2" });
   assert.equal(byName(after.results)["retry across a deploy"], true, JSON.stringify(after.results.filter(r => !r.ok)));
+});
+
+// D4 (BRIDGE_L0176=off): the canary's own saves go through POST /command,
+// and a compile that would save must be refused.
+const RETIRED = { ...PRODUCTION, bridgeRetired: true };
+
+test("D4: with the bridge retired, every check runs through POST /command, and a compile that would save is refused", async () => {
+  const w = await world({ tweak: { chain: true, commands: true, bridgeRetired: true } });
+  const { ok, results } = await run(w, RETIRED);
+  assert.equal(ok, true, JSON.stringify(results.filter(r => !r.ok)));
+  const detail = name => results.find(r => r.name === name).detail;
+  assert.match(detail("gateway write: bridge retired"), /bridge-retired/);
+  assert.match(detail("gateway write"), /^command .* completed$/);
+  assert.match(detail("gateway write effects"), /^1 outcome\(s\): completed/);
+  assert.match(detail("gateway write retry effects"), /nothing written again/);
+  assert.match(detail("chain admission: pinned"), /contract 2, plan .* s0=l0176-ra/);
+  assert.match(detail("denied final stage"), /command failed \(not-granted\), never admitted/);
+  assert.match(detail("saved read: audit"), /^bounded evidence/);
+});
+
+test("D4: a command's save retries across an L0176 deploy under the plan it was admitted on", async () => {
+  const w = await world({ tweak: { chain: true, commands: true, bridgeRetired: true } });
+  const retryState = memoryRetryState();
+  const first = await run(w, { chainAdmission: true, bridgeRetired: true }, { retryState, runId: "d1" });
+  assert.equal(first.ok, true, JSON.stringify(first.results.filter(r => !r.ok)));
+  w.deploy("l0176-rb");
+  const after = await run(w, { chainAdmission: true, bridgeRetired: true }, { retryState, runId: "d2" });
+  assert.equal(byName(after.results)["retry across a deploy"], true, JSON.stringify(after.results.filter(r => !r.ok)));
+  assert.equal(retryState.state.value, null);
+});
+
+test("D4: fails when a compile that would save isn't refused", async () => {
+  const w = await world({ tweak: { chain: true, commands: true } });
+  const { ok, results } = await run(w, RETIRED);
+  assert.equal(ok, false);
+  assert.equal(byName(results)["gateway write: bridge retired"], false);
+});
+
+test("D4: fails when a retry with the same key writes again", async () => {
+  const w = await world({ tweak: { commands: true, bridgeRetired: true, commandRewrites: true } });
+  const { ok, results } = await run(w, { bridgeRetired: true });
+  assert.equal(ok, false);
+  assert.ok(byName(results)["gateway write retry"] === false || byName(results)["gateway write retry effects"] === false, JSON.stringify(results));
 });
 
 // Registry v8: every save writes new drafts, so a run archives what it saved.
