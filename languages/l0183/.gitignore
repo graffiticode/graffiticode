@@ -24,3 +24,7 @@ coverage
 # Rust build output
 /static
 /target
+
+# Playwright output
+test-results
+playwright-report

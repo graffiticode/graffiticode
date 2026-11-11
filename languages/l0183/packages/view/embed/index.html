@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>L0183</title>
+    <style>
+      /*
+       * The viewport contract. The shared View renders the Form and its CheckBar as siblings,
+       * straight into #root. #root is the full-viewport column: the Form (flex: 1 1 0) takes the
+       * height the CheckBar leaves, so Check is always on screen and the diagram frame inside the
+       * Form gets a definite height to spread into.
+       */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      #root {
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

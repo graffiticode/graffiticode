@@ -109,14 +109,22 @@ export const Form = ({ state }: FormProps) => {
         onPlace={onPlace}
         scores={scores}
         disabled={!!data.disabled}
+        host={inLearnosity ? "learnosity" : "embed"}
       />
     );
   };
 
   return (
-    <div className={classNames("l0183-web", theme === "dark" && "dark")}>
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 rounded-md bg-zinc-50 p-4 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
-        <div className="flex items-start justify-between gap-4">
+    // No width cap: the web spreads to fill whatever it is given. In the /form embed `#root` is a
+    // full-viewport column (embed/index.html) holding this Form and the View's CheckBar, so the
+    // Form takes the height the CheckBar leaves, and scrolls as a whole only if even its floor
+    // does not fit.
+    <div
+      className={classNames("l0183-web flex min-h-0 flex-col", theme === "dark" && "dark")}
+      style={{ flex: "1 1 0", overflow: "auto" }}
+    >
+      <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-md bg-zinc-50 p-4 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+        <div className="flex shrink-0 items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-1">
             {data.title && (
               <h1 className="text-2xl font-semibold leading-tight">

@@ -1,16 +1,68 @@
 // SPDX-License-Identifier: MIT
 /**
- * Where everything in a web goes. Pure geometry, tested without a DOM.
+ * Where everything in a web goes. Pure geometry, tested without a DOM. Units are CSS pixels.
  *
- * Everything is in one square coordinate space, 0..1000 on each axis. The diagram is a square
- * box, so a node positioned at `left: x/10 %` and sized `width: w/10 %` lands exactly where the
- * SVG, drawn with `viewBox="0 0 1000 1000"`, puts its lines. There is no measurement, no
- * ResizeObserver, and nothing to recompute when the box resizes.
+ * Nodes and text have one fixed size, and the web spreads to fill whatever frame it is given.
+ * That happens in two stages:
+ *
+ * 1. `solve(model)` — the MINIMUM layout. It depends only on the model and the measured label
+ *    sizes, never on the frame: the hub at the origin, nodes on rings (lib/rings.ts), every edge
+ *    routed as a quadratic Bézier from centre to centre (bent around any node in its way), and
+ *    each label anchored at a parameter t on its edge. Ring radii start at their closed-form
+ *    lower bounds and grow, a step at a time, until nothing collides: no two nodes, no edge
+ *    through a node that is not its end, no label on a node or another label. Whatever still
+ *    collides at R_MAX is reported in `residuals`.
+ *
+ * 2. `expand(min, frame)` — a uniform stretch of that geometry about the hub, by one factor
+ *    s ≥ 1 on both axes so rings stay circles, as large as the tighter axis of the frame allows.
+ *    Centres, the full curves and the label anchors move; nothing changes size, and nothing is
+ *    re-routed or re-placed.
+ *
+ * Why stage 2 can never create a collision: stretching every centre and path by s while keeping
+ * sizes fixed is the original geometry with every object SHRUNK by 1/s, then magnified. A shrunk box lies inside the original one, so whatever was disjoint stays disjoint;
+ * an affine image of a quadratic is a quadratic, so routes stay routes; and each centre-to-centre
+ * distance only grows as the frame does. The parts of a curve that become visible as its end
+ * boxes "shrink" lie inside those original end boxes, which every other node and label already
+ * keeps clear of.
+ *
+ * Canvas bounds are symmetric about the hub, so the hub is always centred, and they count every
+ * node box, every label box and every curve's turning points (plus stroke and arrowhead), so
+ * nothing drawn falls outside.
  */
+import {
+  advance,
+  boxesOverlap,
+  BoxGrid,
+  flatten,
+  enterParam,
+  EPS,
+  exitParam,
+  extremumT,
+  halfDiagonal,
+  pointAt,
+  straight,
+  subCurve,
+  type Box,
+  type Pt,
+  type Quad,
+} from "./geom";
+import { assignRings, SINGLE_RING } from "./rings";
 
-export const SPACE = 1000;
-const CENTRE = SPACE / 2;
-const PAD = 16;
+export const GAP = 16;
+export const PAD = 16;
+export const STROKE = 2;
+export const ARROW_LEN = 12;
+/** How far a drawn line stops short of the outlines it joins. */
+export const LINE_GAP = 6;
+/** Clearance kept between a label and anything else. */
+const LABEL_CLEAR = 4;
+/** Clearance kept between an edge and a node it passes. */
+const EDGE_CLEAR = 6;
+
+export interface Size {
+  w: number;
+  h: number;
+}
 
 export interface LayoutNode {
   id: string;
@@ -18,99 +70,401 @@ export interface LayoutNode {
   size?: string;
 }
 
-export interface Box {
+export interface LayoutEdge {
   id: string;
-  /** Centre. */
-  x: number;
-  y: number;
+  from: string;
+  to: string;
+  /** The space reserved for the edge's label, when it has one or is a blank. */
+  label?: Size;
+}
+
+export interface LayoutModel {
+  hub: LayoutNode;
+  nodes: LayoutNode[];
+  edges: LayoutEdge[];
+}
+
+export interface Residual {
+  kind: "node-node" | "edge-node" | "label-node" | "label-label";
+  ids: string[];
+}
+
+export interface MinEdge {
+  id: string;
+  from: string;
+  to: string;
+  /** Centre to centre. */
+  full: Quad;
+}
+
+export interface MinLabel {
+  id: string;
+  t: number;
   w: number;
   h: number;
-  shape: string;
+  residual: boolean;
 }
 
-export interface Segment {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  /** The midpoint of the VISIBLE line — between the clipped ends, where a label belongs. */
-  mx: number;
-  my: number;
+export interface MinLayout {
+  /** Centres relative to the hub at (0, 0). */
+  boxes: Box[];
+  ring: Record<string, number>;
+  edges: MinEdge[];
+  labels: MinLabel[];
+  residuals: Residual[];
+  min: { width: number; height: number };
 }
 
-/** Width by size; the hub defaults larger than the rest. */
-const WIDTH: Record<string, number> = { small: 150, medium: 190, large: 250 };
-
-function dims(node: LayoutNode, fallback: string, cap: number): { w: number; h: number } {
-  const w = Math.min(WIDTH[node.size || fallback] ?? WIDTH.medium, cap);
-  const shape = node.shape || "rounded";
-  return { w, h: shape === "circle" ? w : Math.round(w * 0.56) };
+export interface PlacedEdge {
+  id: string;
+  full: Quad;
+  /** The drawn part: the full curve trimmed to the outlines, less LINE_GAP at each end. */
+  path: Quad;
 }
+
+export interface PlacedLabel extends Box {
+  residual: boolean;
+}
+
+export interface Geometry {
+  width: number;
+  height: number;
+  sx: number;
+  sy: number;
+  boxes: Box[];
+  edges: PlacedEdge[];
+  labels: PlacedLabel[];
+  residuals: Residual[];
+  min: { width: number; height: number };
+}
+
+/** Node width by size. Heights follow the shape. These are what a 640px web drew before. */
+const WIDTH: Record<string, number> = { small: 96, medium: 122, large: 160 };
+
+export function dims(node: LayoutNode, fallback: string): Size {
+  const w = WIDTH[node.size || fallback] ?? WIDTH.medium;
+  return { w, h: (node.shape || "rounded") === "circle" ? w : Math.round(w * 0.56) };
+}
+
+// ---- Stage 1 -------------------------------------------------------------------------------
+
+interface Built {
+  boxes: Box[];
+  edges: MinEdge[];
+  labels: MinLabel[];
+  failures: Residual[];
+}
+
+/** Visible parameter range of a curve between its end boxes, less the line gap. */
+function visibleRange(q: Quad, a: Box, b: Box): [number, number] {
+  const t0 = exitParam(q, a);
+  const t1 = enterParam(q, b);
+  if (t1 <= t0) return [t0, t1];
+  const g0 = advance(q, t0, LINE_GAP);
+  const g1 = advance(q, t1, -LINE_GAP);
+  return g1 > g0 ? [g0, g1] : [t0, t1];
+}
+
+function blocker(q: Quad, a: Box, b: Box, grid: BoxGrid): Box | undefined {
+  const t0 = exitParam(q, a);
+  const t1 = enterParam(q, b);
+  if (t1 <= t0) return undefined;
+  return grid.firstHit(flatten(q, t0, t1), (box) => box.id === a.id || box.id === b.id);
+}
+
+const OFFSETS = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 8, -8];
 
 /**
- * The hub in the centre and the other nodes evenly on a circle, the first at the top and the
- * rest clockwise.
- *
- * Nodes shrink when the ring gets crowded: a node is never wider than 85% of the arc between
- * neighbours, so twelve nodes stay apart where L0169's fixed size had them overlap.
+ * A straight line, or the first bend that clears every node it is not joined to. `hint` is the
+ * bend that worked for this edge on the solver's previous step; it is tried right after the
+ * straight line, since the web has only grown a little since.
  */
-export function layout(hub: LayoutNode, nodes: LayoutNode[]): Box[] {
-  const n = nodes.length;
-  const widest = Math.max(...nodes.map((d) => WIDTH[d.size || "medium"] ?? WIDTH.medium));
-  let radius = CENTRE - widest / 2 - PAD;
-  const arc = n > 1 ? (2 * Math.PI * radius) / n : Infinity;
-  const cap = Math.max(90, Math.floor(arc * 0.85));
-  const outer = nodes.map((d) => dims(d, "medium", cap));
-  const tallest = Math.max(...outer.map((d) => d.h), 0);
-  const widestNow = Math.max(...outer.map((d) => d.w), 0);
-  radius = CENTRE - Math.max(widestNow, tallest) / 2 - PAD;
-  const hubDims = dims(hub, "large", Math.min(WIDTH.large, radius));
-  const boxes: Box[] = [
-    { id: hub.id, x: CENTRE, y: CENTRE, ...hubDims, shape: hub.shape || "rounded" },
-  ];
-  nodes.forEach((d, i) => {
-    const angle = (2 * Math.PI * i) / n - Math.PI / 2;
-    boxes.push({
-      id: d.id,
-      x: Math.round(CENTRE + radius * Math.cos(angle)),
-      y: Math.round(CENTRE + radius * Math.sin(angle)),
-      ...outer[i],
-      shape: d.shape || "rounded",
-    });
-  });
-  return boxes;
-}
-
-/**
- * Where the ray from a box's centre toward (tx, ty) leaves the box. A circle is an ellipse;
- * every other shape is treated as its bounding rectangle, which is exact for `rect` and within
- * a corner radius for `rounded` and `pill`.
- */
-export function exitPoint(box: Box, tx: number, ty: number): { x: number; y: number } {
-  const dx = tx - box.x;
-  const dy = ty - box.y;
-  if (dx === 0 && dy === 0) return { x: box.x, y: box.y };
-  const a = box.w / 2;
-  const b = box.h / 2;
-  let t: number;
-  if (box.shape === "circle") {
-    t = 1 / Math.sqrt((dx * dx) / (a * a) + (dy * dy) / (b * b));
-  } else {
-    t = Math.min(dx === 0 ? Infinity : a / Math.abs(dx), dy === 0 ? Infinity : b / Math.abs(dy));
+export function route(
+  a: Box,
+  b: Box,
+  grid: BoxGrid,
+  hint?: number,
+): { full: Quad; blockedBy?: string; bend: number } {
+  const line = straight({ x: a.x, y: a.y }, { x: b.x, y: b.y });
+  const first = blocker(line, a, b, grid);
+  if (!first) return { full: line, bend: 0 };
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  // The perpendicular pointing away from the hub, so a bend prefers the outside of the web.
+  let nx = -dy / len;
+  let ny = dx / len;
+  if (nx * line.c.x + ny * line.c.y < 0) {
+    nx = -nx;
+    ny = -ny;
   }
-  return { x: box.x + dx * t, y: box.y + dy * t };
+  const tries = hint ? [hint, ...OFFSETS.filter((k) => k !== hint)] : OFFSETS;
+  for (const k of tries) {
+    const d = k * len * 0.12;
+    const q: Quad = { p0: line.p0, c: { x: line.c.x + nx * d, y: line.c.y + ny * d }, p2: line.p2 };
+    if (!blocker(q, a, b, grid)) return { full: q, bend: k };
+  }
+  return { full: line, blockedBy: first.id, bend: 0 };
 }
 
-/** The visible line between two boxes, clipped to both outlines. */
-export function segment(from: Box, to: Box, gap = 6): Segment {
-  const p = exitPoint(from, to.x, to.y);
-  const q = exitPoint(to, from.x, from.y);
-  const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
-  const ux = (q.x - p.x) / len;
-  const uy = (q.y - p.y) / len;
-  const x1 = p.x + ux * gap;
-  const y1 = p.y + uy * gap;
-  const x2 = q.x - ux * gap;
-  const y2 = q.y - uy * gap;
-  return { x1, y1, x2, y2, mx: (x1 + x2) / 2, my: (y1 + y2) / 2 };
+const LABEL_TS = [0.5, 0.35, 0.65];
+
+function build(
+  model: LayoutModel,
+  sizes: Map<string, Size>,
+  slots: Map<string, { ring: number; angle: number }>,
+  radii: number[],
+  bends: Map<string, number>,
+): Built {
+  const hubSize = sizes.get(model.hub.id)!;
+  const boxes: Box[] = [
+    { id: model.hub.id, x: 0, y: 0, ...hubSize, shape: model.hub.shape || "rounded" },
+  ];
+  for (const node of model.nodes) {
+    const s = slots.get(node.id)!;
+    const r = radii[s.ring - 1];
+    boxes.push({
+      id: node.id,
+      x: r * Math.cos(s.angle),
+      y: r * Math.sin(s.angle),
+      ...sizes.get(node.id)!,
+      shape: node.shape || "rounded",
+    });
+  }
+  const byId = new Map(boxes.map((b) => [b.id, b]));
+  const failures: Residual[] = [];
+
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      if (boxesOverlap(boxes[i], boxes[j], GAP / 2)) {
+        failures.push({ kind: "node-node", ids: [boxes[i].id, boxes[j].id] });
+      }
+    }
+  }
+
+  const cell = Math.max(64, ...boxes.map((b) => Math.max(b.w, b.h)));
+  const grid = new BoxGrid(boxes, cell, EDGE_CLEAR);
+  const edges: MinEdge[] = [];
+  for (const e of model.edges) {
+    const a = byId.get(e.from);
+    const b = byId.get(e.to);
+    if (!a || !b || a === b) continue;
+    const r = route(a, b, grid, bends.get(e.id));
+    bends.set(e.id, r.bend);
+    if (r.blockedBy) failures.push({ kind: "edge-node", ids: [e.from, e.to, r.blockedBy] });
+    edges.push({ id: e.id, from: e.from, to: e.to, full: r.full });
+  }
+
+  const labels: MinLabel[] = [];
+  const placed: { box: Box; edge: MinEdge }[] = [];
+  const edgeById = new Map(edges.map((e) => [e.id, e]));
+  for (const e of model.edges) {
+    const edge = edgeById.get(e.id);
+    if (!edge || !e.label) continue;
+    const [v0, v1] = visibleRange(edge.full, byId.get(edge.from)!, byId.get(edge.to)!);
+    let chosen: { t: number; box: Box } | undefined;
+    let firstHit: Residual | undefined;
+    for (const t of LABEL_TS) {
+      const p = pointAt(edge.full, t);
+      const box: Box = { id: e.id, x: p.x, y: p.y, w: e.label.w, h: e.label.h, shape: "rect" };
+      let hit: Residual | undefined;
+      if (t <= v0 || t >= v1) hit = { kind: "label-node", ids: [edge.from, edge.to] };
+      for (const n of boxes) {
+        if (hit) break;
+        if (boxesOverlap(box, n, LABEL_CLEAR)) hit = { kind: "label-node", ids: [edge.from, edge.to, n.id] };
+      }
+      for (const other of placed) {
+        if (hit) break;
+        if (boxesOverlap(box, other.box, LABEL_CLEAR)) {
+          hit = { kind: "label-label", ids: [edge.from, edge.to, other.edge.from, other.edge.to] };
+        }
+      }
+      if (!hit) {
+        chosen = { t, box };
+        break;
+      }
+      firstHit ??= hit;
+    }
+    const residual = !chosen;
+    if (!chosen) {
+      const p = pointAt(edge.full, 0.5);
+      chosen = { t: 0.5, box: { id: e.id, x: p.x, y: p.y, w: e.label.w, h: e.label.h, shape: "rect" } };
+      failures.push(firstHit!);
+    }
+    placed.push({ box: chosen.box, edge });
+    labels.push({ id: e.id, t: chosen.t, w: e.label.w, h: e.label.h, residual });
+  }
+  return { boxes, edges, labels, failures };
 }
+
+/** Everything that must fit on the canvas: its offset from the hub and its fixed half-size. */
+interface Extent {
+  dx: number;
+  dy: number;
+  ex: number;
+  ey: number;
+}
+
+const CURVE_REACH = STROKE / 2 + ARROW_LEN;
+
+function extents(boxes: Box[], edges: { full: Quad }[], labels: Box[]): Extent[] {
+  const out: Extent[] = [];
+  for (const b of [...boxes, ...labels]) out.push({ dx: b.x, dy: b.y, ex: b.w / 2, ey: b.h / 2 });
+  for (const e of edges) {
+    for (const axis of ["x", "y"] as const) {
+      const t = extremumT(e.full, axis);
+      if (t === undefined) continue;
+      const p = pointAt(e.full, t);
+      out.push({ dx: p.x, dy: p.y, ex: CURVE_REACH, ey: CURVE_REACH });
+    }
+  }
+  return out;
+}
+
+function minSize(ext: Extent[]): { width: number; height: number } {
+  let w = 0;
+  let h = 0;
+  for (const o of ext) {
+    w = Math.max(w, Math.abs(o.dx) + o.ex);
+    h = Math.max(h, Math.abs(o.dy) + o.ey);
+  }
+  return { width: Math.ceil(2 * w + 2 * PAD), height: Math.ceil(2 * h + 2 * PAD) };
+}
+
+function labelBoxes(edges: MinEdge[], labels: MinLabel[]): Box[] {
+  const byId = new Map(edges.map((e) => [e.id, e]));
+  return labels.map((l) => {
+    const p = pointAt(byId.get(l.id)!.full, l.t);
+    return { id: l.id, x: p.x, y: p.y, w: l.w, h: l.h, shape: "rect" };
+  });
+}
+
+/**
+ * The ring a failure is resolved by growing. For an edge through a node, the blocker's ring:
+ * growing it widens the gaps the edge must pass through. Otherwise the outermost ring involved,
+ * which pulls the parts apart. Never the hub (0).
+ */
+function ringToGrow(f: Residual, ring: Record<string, number>): number {
+  if (f.kind === "edge-node") return Math.max(1, ring[f.ids[2]] ?? 0);
+  return Math.max(1, ...f.ids.map((id) => ring[id] ?? 0));
+}
+
+/** How many growth steps the last `solve` took (for tests and tuning). */
+export const ITERATIONS = { last: 0 };
+
+/** Stage 1: the minimum collision-free layout. Independent of any frame. */
+export function solve(model: LayoutModel): MinLayout {
+  const sizes = new Map<string, Size>();
+  sizes.set(model.hub.id, dims(model.hub, "large"));
+  for (const n of model.nodes) sizes.set(n.id, dims(n, "medium"));
+  const hubHd = halfDiagonal({ ...sizes.get(model.hub.id)!, shape: model.hub.shape });
+  const hd = Math.max(0, ...model.nodes.map((n) => halfDiagonal({ ...sizes.get(n.id)!, shape: n.shape })));
+
+  const plan = assignRings(
+    model.hub.id,
+    model.nodes.map((n) => n.id),
+    model.edges,
+    hubHd,
+    hd,
+    GAP,
+  );
+  const slots = new Map(plan.slots.map((s) => [s.id, s]));
+  const ring: Record<string, number> = { [model.hub.id]: 0 };
+  for (const s of plan.slots) ring[s.id] = s.ring;
+
+  const radii = [...plan.radii];
+  const outer0 = radii[radii.length - 1] ?? 0;
+  // Growth helps labels and node spacing a lot, and an edge stuck behind a node only a little
+  // (routing does most of that work), so edge-only failures get a smaller budget.
+  const rMax = 3 * outer0 + 400;
+  const rMaxEdges = 1.5 * outer0 + 100;
+
+  ITERATIONS.last = 0;
+  const bends = new Map<string, number>();
+  let built = build(model, sizes, slots, radii, bends);
+  while (radii.length) {
+    const outer = radii[radii.length - 1];
+    const growable = built.failures.filter((f) => (f.kind === "edge-node" ? outer < rMaxEdges : outer < rMax));
+    if (!growable.length) break;
+    const g = Math.min(...growable.map((f) => ringToGrow(f, ring)));
+    // Edge failures alone are coarse to fix by growth, so they take bigger steps.
+    const edgesOnly = growable.every((f) => f.kind === "edge-node");
+    // Steps scale with the whole web: growing ring 1 by a fraction of its own small radius
+    // would take dozens of steps to move a large web's outer rings at all.
+    const step = Math.max(8, Math.round(outer * (edgesOnly ? 0.08 : 0.04)));
+    for (let i = g - 1; i < radii.length; i++) radii[i] += step;
+    built = build(model, sizes, slots, radii, bends);
+    ITERATIONS.last++;
+  }
+
+  return {
+    boxes: built.boxes,
+    ring,
+    edges: built.edges,
+    labels: built.labels,
+    residuals: built.failures,
+    min: minSize(extents(built.boxes, built.edges, labelBoxes(built.edges, built.labels))),
+  };
+}
+
+// ---- Stage 2 -------------------------------------------------------------------------------
+
+/**
+ * How far one axis lets the web stretch: the largest s ≥ 1 that keeps every object inside the
+ * padded canvas on that axis. 1 when the frame is no bigger than the minimum on this axis.
+ * Infinity when nothing is off-centre on this axis (a one-node web, or two nodes stacked on the
+ * other axis), so that axis sets no limit — never a division by zero.
+ */
+function stretchLimit(frame: number, min: number, ext: Extent[], axis: "x" | "y"): number {
+  if (!(frame > min)) return 1;
+  let s = Infinity;
+  for (const o of ext) {
+    const d = Math.abs(axis === "x" ? o.dx : o.dy);
+    if (d < EPS) continue;
+    const e = axis === "x" ? o.ex : o.ey;
+    s = Math.min(s, (frame / 2 - PAD - e) / d);
+  }
+  return Math.max(1, s);
+}
+
+/**
+ * Stage 2: stretch the minimum layout to fill `frame`, by ONE factor on both axes, so rings stay
+ * circles. The tighter axis decides it; the other keeps its spare room, with the web centred in
+ * it. The canvas is never smaller than `min`.
+ */
+export function expand(layout: MinLayout, frame: { width: number; height: number }): Geometry {
+  const width = Math.max(frame.width || 0, layout.min.width);
+  const height = Math.max(frame.height || 0, layout.min.height);
+  const ext = extents(layout.boxes, layout.edges, labelBoxes(layout.edges, layout.labels));
+  const limit = Math.min(
+    stretchLimit(width, layout.min.width, ext, "x"),
+    stretchLimit(height, layout.min.height, ext, "y"),
+  );
+  const s = Number.isFinite(limit) ? limit : 1;
+  const sx = s;
+  const sy = s;
+  const cx = width / 2;
+  const cy = height / 2;
+  const at = (p: Pt): Pt => ({ x: cx + sx * p.x, y: cy + sy * p.y });
+
+  const boxes = layout.boxes.map((b) => ({ ...b, ...at(b) }));
+  const byId = new Map(boxes.map((b) => [b.id, b]));
+  const edges: PlacedEdge[] = layout.edges.map((e) => {
+    const full: Quad = { p0: at(e.full.p0), c: at(e.full.c), p2: at(e.full.p2) };
+    const [t0, t1] = visibleRange(full, byId.get(e.from)!, byId.get(e.to)!);
+    return { id: e.id, full, path: subCurve(full, t0, Math.max(t0, t1)) };
+  });
+  const edgeById = new Map(edges.map((e) => [e.id, e]));
+  const labels: PlacedLabel[] = layout.labels.map((l) => {
+    const p = pointAt(edgeById.get(l.id)!.full, l.t);
+    return { id: l.id, x: p.x, y: p.y, w: l.w, h: l.h, shape: "rect", residual: l.residual };
+  });
+  return { width, height, sx, sy, boxes, edges, labels, residuals: layout.residuals, min: layout.min };
+}
+
+/** Both stages at once, for tests and simple callers. */
+export function layout(model: LayoutModel, frame = { width: 0, height: 0 }): Geometry {
+  return expand(solve(model), frame);
+}
+
+export { SINGLE_RING };

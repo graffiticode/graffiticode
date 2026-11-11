@@ -14,10 +14,9 @@ import { useEffect, useRef } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 
-/** A text that is nothing but a URL is an image. */
-export function isImageUrl(text: string): boolean {
-  return /^https?:\/\/\S+$/.test(text.trim()) || text.trim().startsWith("data:image/");
-}
+import { isImageUrl } from "./text-kind";
+
+export { isImageUrl };
 
 function Math({ latex }: { latex: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -50,7 +49,26 @@ export function segments(text: string): { math: boolean; text: string }[] {
 }
 
 /** An image, or prose with its math spans typeset. */
-export function RichText({ text, alt = "" }: { text: string; alt?: string }) {
+export function RichText({
+  text,
+  alt = "",
+  imageBox,
+}: {
+  text: string;
+  alt?: string;
+  /** A definite box for an image, where the container has none (labels, tray items). */
+  imageBox?: { w: number; h: number };
+}) {
+  if (isImageUrl(text) && imageBox) {
+    return (
+      <img
+        src={text.trim()}
+        alt={alt}
+        className="block object-contain"
+        style={{ width: imageBox.w, height: imageBox.h }}
+      />
+    );
+  }
   if (isImageUrl(text)) {
     // `block` because preflight is off, so an image is otherwise inline and sits on the text
     // baseline with a descender's worth of gap under it. `object-contain` letterboxes rather
