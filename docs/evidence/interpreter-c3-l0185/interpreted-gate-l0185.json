@@ -1,0 +1,36 @@
+{
+  "lang": "0185",
+  "mode": "interpreted",
+  "rust": "https://l0185r-sja7fatcta-uc.a.run.app",
+  "ranAt": "2026-11-11T23:03:21.166Z",
+  "cases": "languages/l0185/crates/core/tests/conformance/cases.json (at 0a073d46)",
+  "endedAt": "2026-11-11T23:15:02.055Z",
+  "checks": {
+    "interpreted": {
+      "ok": true,
+      "identical": 4002,
+      "different": 0,
+      "invalid": 0,
+      "skipped": 0,
+      "values": 0,
+      "plans": 3980,
+      "compared": 4002,
+      "differences": [],
+      "invalidAnswers": []
+    },
+    "metadata": {
+      "ok": true,
+      "ttlMs": 300000,
+      "checked": 11962,
+      "fetched": 9040,
+      "problems": 0,
+      "examples": []
+    }
+  },
+  "corpus": {
+    "ranAt": "2026-11-11T23:03:21.166Z",
+    "tasks": 4002,
+    "failures": 0
+  },
+  "passed": true
+}
