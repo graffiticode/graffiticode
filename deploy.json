@@ -112,6 +112,7 @@
         "PUBLIC_URL_L0176": "https://l0176.graffiticode.org",
         "COMPILE_GENERATION_L0176": "commands-1",
         "COMMANDS_L0176": "on",
+        "BRIDGE_L0176": "off",
         "BASE_URL_L0184": "https://l0184-sja7fatcta-uc.a.run.app",
         "PUBLIC_URL_L0184": "https://l0184.graffiticode.org",
         "COMPILE_GENERATION_L0184": "interp-1",
