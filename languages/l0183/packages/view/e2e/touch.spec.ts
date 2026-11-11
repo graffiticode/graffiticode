@@ -233,23 +233,21 @@ test("placing answers, including those that empty a wrapped tray row, moves noth
   expect(after.nodes).toEqual(start.nodes);
 });
 
-test("the square is its best fit at most, fitted to the room in both directions, and nothing scrolls", async ({ page }) => {
+test("nodes keep their size; spacing fits the room up to best fit; only the frame scrolls, and only at the floor", async ({ page }) => {
   for (const [fixture, host] of [
     ["web40", ""],
     ["web40", "&host=learnosity"],
     ["assessed40", ""],
+    ["cell", ""],
   ]) {
-    let best = 0;
+    let bestW = 0;
     for (const [w, h] of [
-      [5120, 1440],
-      [2560, 1440],
+      [5120, 2880],
       [3440, 1000],
       [1280, 800],
       [1280, 500],
-      [375, 667],
       [667, 375],
-      // 320 is the narrowest phone; below it the shared View's CheckBar (l0000-view) is wider
-      // than the screen, which is not this layout's to fix.
+      [375, 667],
       [320, 480],
     ]) {
       await page.setViewportSize({ width: w, height: h });
@@ -260,34 +258,39 @@ test("the square is its best fit at most, fitted to the room in both directions,
         const f = document.querySelector<HTMLElement>("[data-l0183-frame]")!;
         const c = document.querySelector<HTMLElement>("[data-l0183-canvas]")!;
         const form = document.querySelector<HTMLElement>(".l0183-web")!;
-        const r = c.getBoundingClientRect();
         const doc = document.scrollingElement!;
+        const nodes = [...c.querySelectorAll<HTMLElement>(".z-10")].map((n) => n.getBoundingClientRect());
+        let closest = Infinity; // the smallest gap between two node boxes, on their clear axis
+        for (let i = 0; i < nodes.length; i++)
+          for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i];
+            const b = nodes[j];
+            const gx = Math.max(a.left, b.left) - Math.min(a.right, b.right);
+            const gy = Math.max(a.top, b.top) - Math.min(a.bottom, b.bottom);
+            closest = Math.min(closest, Math.max(gx, gy));
+          }
         return {
-          fw: f.clientWidth,
-          fh: f.clientHeight,
-          vh: innerHeight,
-          shown: [r.width, r.height],
-          best: c.offsetWidth,
+          nodeW: nodes.map((n) => Math.round(n.width)),
+          canvas: [c.offsetWidth, c.offsetHeight],
           frameScrolls: f.scrollWidth > f.clientWidth + 1 || f.scrollHeight > f.clientHeight + 1,
           formScrolls: form.scrollHeight > form.clientHeight + 1,
           pageScrolls: doc.scrollHeight > doc.clientHeight + 1,
+          closest,
         };
       });
       const at = `${fixture} ${w}x${h}${host}`;
-      best ||= s.best; // the best fit does not depend on the page
-      expect(s.best, at).toBe(best);
-      const room = host ? Math.min(s.fw, 0.85 * s.vh) : Math.min(s.fw, s.fh);
-      const side = Math.min(best, room);
-      expect(Math.abs(s.shown[0] - side), at).toBeLessThan(1.5);
-      expect(Math.abs(s.shown[1] - side), at).toBeLessThan(1.5);
-      expect(s.frameScrolls, at).toBe(false);
+      // Nodes are never scaled: every one is one of the fixed widths.
+      for (const nw of s.nodeW) expect([96, 122, 160], at).toContain(nw);
+      // With the most room, the web sits at its best fit; it never spreads past it.
+      if (w === 5120) bestW = s.canvas[0];
+      expect(s.canvas[0], at).toBeLessThanOrEqual(bestW);
+      // The frame scrolls only once the spacing is at its floor: nodes nearly touching.
+      if (s.frameScrolls) expect(s.closest, at).toBeLessThan(10);
       if (!host) {
-        // The /form embed: the square fits the column, so nothing scrolls vertically.
         expect(s.formScrolls, at).toBe(false);
         expect(s.pageScrolls, at).toBe(false);
       }
     }
-    expect(best).toBeGreaterThan(375);
   }
 });
 
@@ -312,4 +315,34 @@ test("in page flow, a drag held at the window's top edge scrolls the page, so a 
   const during = await page.evaluate(() => scrollY);
   await touch(cdp, "touchEnd");
   expect(during).toBeLessThan(before);
+});
+
+test("a drag resting at the frame's edge scrolls the frame; passing through does not", async ({ page }) => {
+  // At phone size the 40-blank web is at its compression floor, so its frame scrolls.
+  const cdp = await page.context().newCDPSession(page);
+  await reveal(page, "n11");
+  const [blank] = await visibleEmptyBlanks(page);
+  expect(blank).toBeTruthy();
+  await page.locator(`${answersTray} button`).first().tap();
+  await page.locator(`[data-l0183-blank="${blank}"]`).tap();
+  await expect(page.locator(`[data-l0183-blank="${blank}"]`)).toHaveAttribute("aria-label", /holding/);
+  const frame = page.locator("[data-l0183-frame]");
+  const box = (await frame.boundingBox())!;
+  const from = await centre(page, `[data-l0183-blank="${blank}"]`);
+  const edge = { x: box.x + box.width / 2, y: box.y + 3 };
+  const scroll = () => frame.evaluate((el) => el.scrollTop);
+
+  // Passing through the edge zone briefly: no scroll.
+  await touch(cdp, "touchStart", from);
+  const start = await scroll();
+  for (let i = 1; i <= 6; i++) {
+    await touch(cdp, "touchMove", { x: from.x + ((edge.x - from.x) * i) / 6, y: from.y + ((edge.y - from.y) * i) / 6 });
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(100);
+  expect(await scroll()).toBe(start);
+  // Resting there: it scrolls.
+  await page.waitForTimeout(600);
+  expect(await scroll()).toBeLessThan(start);
+  await touch(cdp, "touchEnd");
 });

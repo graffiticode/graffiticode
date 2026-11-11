@@ -177,9 +177,8 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
     - Ring radii grow a step at a time until nothing collides. Whatever still collides is
       reported in `residuals`.
   - `expand(min, frame)` stretches that layout about the hub by one factor `s ≥ 1` on both axes,
-    so rings stay circles. It never re-routes, so it cannot create a collision. The view
-    currently calls it with the best-fit square, which gives `s = 1` and centres the hub (see
-    "Host layout").
+    so rings stay circles. It never re-routes, so it cannot create a collision. The view doesn't
+    use it; it uses `place(min, s)` with `s` in `[compressionFloor, 1]` (see "Host layout").
 
   Room is **reserved** so placing an answer moves nothing:
   - A label reserves for every candidate. A blank reserves for every edges-tray item, measured
@@ -187,23 +186,27 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   - A tray reserves for all its items (`ReservedTray`), capped at 25dvh, and scrolls inside.
 
   The arrow marker id is per instance (`useId`).
-- **Host layout.** The diagram is a square at the web's **best fit**: the larger side of
-  `solve`'s minimum, the smallest size at which nothing collides. It is computed from the
-  content, and `Web.tsx` lays the canvas out at it.
-  - The square is shown at best fit when there is room, and never bigger. With less room in
-    either direction, the whole square scales down (a CSS transform) to fit, with no lower
-    limit, so it never scrolls. Nodes and text shrink with it.
+- **Host layout.** Nodes and text never change size; only the **spacing** between them does, by
+  one factor about the hub (`spacingFor`, `place` in `lib/layout.ts`).
+  - The minimum layout is the **best fit**, the closest spacing at which nothing collides. The
+    web is never spread past it.
+  - With less room, in either direction, the spacing compresses to fit, down to
+    `compressionFloor`, where two nodes would start to touch. Below best fit, labels may overlap
+    nodes and lines; nodes never do.
+  - Past the floor, the diagram scrolls inside its frame, opening centred on the hub.
   - **In a full-viewport column** (the /form embed marks its `#root` `data-l0183-viewport`), the
     room is the frame's share of the column: the height left after the title, the trays (each
     capped at 25dvh and scrolling inside) and the View's CheckBar, which therefore stays on
     screen.
   - **In page flow** (Learnosity, or a page of several webs), the height is capped at 85% of the
-    window. A drag held near the window's top or bottom edge scrolls the page, so a tray below
-    the fold can reach the web.
+    window.
+  - A drag scrolls the frame, or the page, only after resting in an edge zone for 250ms. A
+    finger crossing the frame's edge on its way from a tray to a blank must not scroll the blank
+    away.
   - A tray's hidden full-height copy (`ReservedTray`) is clipped. Unclipped, it hung below the
     capped tray and made the page scroll into empty space.
   - Below 320px wide, the shared View's CheckBar is wider than the screen. That is
-    `l0000-view`'s to fix, not this layout's.
+    `l0000-view`'s to fix.
 - **Touch** (`lib/gesture.ts`): who owns a touch is decided by where it starts, never by a
   timer.
   - A tray item drags from its grip (`touch-action: none`, shown on coarse pointers). Its body
