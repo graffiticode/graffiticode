@@ -8,8 +8,8 @@
       /*
        * The viewport contract. The shared View renders the Form and its CheckBar as siblings,
        * straight into #root. #root is the full-viewport column: the Form (flex: 1 1 0) takes the
-       * height the CheckBar leaves, so Check is always on screen and the diagram frame inside the
-       * Form gets a definite height to spread into.
+       * height the CheckBar leaves, so Check is always on screen, and the diagram's square is
+       * fitted to the height left in it (data-l0183-viewport tells the Form it is in a column).
        */
       html,
       body {
@@ -24,7 +24,7 @@
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root" data-l0183-viewport></div>
     <script type="module" src="/main.tsx"></script>
   </body>
 </html>

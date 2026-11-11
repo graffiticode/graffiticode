@@ -96,6 +96,8 @@ function nodeFont(box: { w: number }, text: string | undefined): number {
   return Math.round(box.w * 0.12 * shrink * 10) / 10;
 }
 
+/** In page flow, the square is never taller than this share of the window. */
+const FLOW_VH = 0.85;
 /** Top and bottom trays take at most this share of the viewport, scrolling inside. */
 const TRAY_SHARE = 0.25;
 /** Below this width, side trays stack above and below the diagram. */
@@ -118,6 +120,16 @@ function useMedia(query: string): boolean {
     return () => m.removeEventListener?.("change", on);
   }, [query]);
   return matches;
+}
+
+function useWindowHeight(): number {
+  const [h, setH] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800));
+  useEffect(() => {
+    const on = () => setH(window.innerHeight);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return h;
 }
 
 /** An element's inner size, tracked with a ResizeObserver and coalesced to animation frames. */
@@ -223,7 +235,10 @@ function ReservedTray({
 }) {
   const [copyRef, copy] = useSize<HTMLDivElement>();
   return (
-    <div className={`relative w-full shrink-0 ${chrome}`}>
+    // overflow-hidden clips the hidden copy, which is as tall as ALL the items: unclipped, it hangs
+    // below the capped tray and makes the page (or the Form) scroll into empty space. Clipping does
+    // not change its layout, so it still measures the full height.
+    <div className={`relative w-full shrink-0 overflow-hidden ${chrome}`}>
       <div ref={copyRef} aria-hidden="true" className="pointer-events-none invisible absolute inset-x-0 top-0">
         {all}
       </div>
@@ -293,24 +308,35 @@ export function Web({
   const minLayout = useMemo(() => solve(model), [modelKey]);
 
   // The diagram is a square at the web's BEST FIT: the smallest size at which nothing collides,
-  // computed from the content (stage 1). It is shown at that size when the page is wide enough,
-  // and never bigger; on a narrower page the whole square scales down to the page width, with no
-  // lower limit, so it never scrolls.
+  // computed from the content (stage 1). It is shown at that size when there is room, and never
+  // bigger. With less room, in EITHER direction, the whole square scales down to fit, with no lower
+  // limit, so it never scrolls:
+  // - In a full-viewport column (the /form embed marks its #root `data-l0183-viewport`), the
+  //   frame takes the height the title, trays and Check bar leave, and the square fits in it.
+  // - In page flow (Learnosity, or a page of several webs), the height is capped at a share of the
+  //   window, so the square never makes the page scroll on its own.
   const [frameRef, frame] = useSize<HTMLDivElement>();
+  const [column, setColumn] = useState(false);
+  useLayoutEffect(() => {
+    setColumn(!!frameRef.current?.closest("[data-l0183-viewport]"));
+  }, []);
+  const windowH = useWindowHeight();
   const best = Math.max(minLayout.min.width, minLayout.min.height);
   const target = useMemo(() => ({ width: best, height: best }), [best]);
   const geo = useMemo(() => expand(minLayout, target), [minLayout, target]);
-  const shown = frame.width ? Math.min(frame.width, best) : best;
-  const scale = shown / best;
+  const roomW = frame.width || best;
+  const roomH = column ? frame.height || best : FLOW_VH * windowH;
+  const shown = Math.max(0, Math.min(best, roomW, roomH));
+  const scale = best > 0 ? shown / best : 1;
   const byId = useMemo(() => new Map(geo.boxes.map((b) => [b.id, b])), [geo]);
   const labelById = useMemo(() => new Map(geo.labels.map((l) => [l.id, l])), [geo]);
   const pathById = useMemo(() => new Map(geo.edges.map((e) => [e.id, e.path])), [geo]);
 
   const wide = useMedia(WIDE);
-  // The frame is as tall as the square is shown, whatever the host. `host` is kept for callers and
-  // for future host-specific rules.
+  // In a column the frame's height comes from the layout (flex: 1); in page flow it is the square's.
+  // `host` is kept for callers and for future host-specific rules.
   void host;
-  const frameStyle: CSSProperties = { height: shown };
+  const frameStyle: CSSProperties = column ? {} : { height: shown };
 
   // One marker id per instance: a fixed id collides when two webs share a page, and the second
   // web's arrows then point with the first web's arrowheads.
@@ -674,14 +700,17 @@ export function Web({
     <div
       ref={frameRef}
       data-l0183-frame=""
-      className="relative min-w-0 flex-1 shrink-0 overflow-hidden"
+      className={classNames(
+        "relative flex min-w-0 flex-1 items-center justify-center overflow-hidden",
+        column ? "min-h-0" : "shrink-0",
+      )}
       style={frameStyle}
       onKeyDown={(e) => {
         if (e.key === "Escape") setSelected(null);
       }}
     >
       {/* The shown square, centred; the canvas inside is laid out at best fit and scaled to it. */}
-      <div className="relative mx-auto overflow-hidden" style={{ width: shown, height: shown }}>
+      <div className="relative shrink-0 overflow-hidden" style={{ width: shown, height: shown }}>
       <div
         data-l0183-canvas=""
         className="absolute left-0 top-0 select-none"
@@ -741,11 +770,11 @@ export function Web({
   const sides = (align: "left" | "right") => (wide ? [] : at(align));
 
   return (
-    <div className="relative flex flex-col gap-3">
+    <div className="relative flex min-h-0 flex-1 flex-col gap-3">
       <MeasureLabels candidates={candidates} onMeasure={onMeasure} />
       {at("top")}
       {sides("left")}
-      <div className="flex flex-row items-stretch gap-3">
+      <div className="flex min-h-0 flex-1 flex-row items-stretch gap-3">
         {wide && at("left")}
         {diagram}
         {wide && at("right")}

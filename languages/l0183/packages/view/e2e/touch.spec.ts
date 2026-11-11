@@ -168,8 +168,11 @@ test("an ordinary swipe on a tray item's body scrolls the tray, placing and sele
 });
 
 test("a tap selects and a tap places; a filled blank drags; a swipe on empty canvas moves no answer", async ({ page }) => {
+  // A small web: a 40-node web fitted to a phone has blanks a few pixels wide.
+  await page.goto("/dev.html?fixture=cell");
+  await page.locator("[data-l0183-canvas]").waitFor();
+  await page.waitForTimeout(300);
   const cdp = await page.context().newCDPSession(page);
-  await reveal(page, "n1", "n2");
   const [first, second] = await visibleEmptyBlanks(page);
   expect(first && second).toBeTruthy();
 
@@ -230,54 +233,74 @@ test("placing answers, including those that empty a wrapped tray row, moves noth
   expect(after.nodes).toEqual(start.nodes);
 });
 
-test("the square grows with the page up to its best fit, and scales down with no lower limit", async ({ page }) => {
-  for (const host of ["", "&host=learnosity"]) {
+test("the square is its best fit at most, fitted to the room in both directions, and nothing scrolls", async ({ page }) => {
+  for (const [fixture, host] of [
+    ["web40", ""],
+    ["web40", "&host=learnosity"],
+    ["assessed40", ""],
+  ]) {
     let best = 0;
     for (const [w, h] of [
       [5120, 1440],
       [2560, 1440],
+      [3440, 1000],
       [1280, 800],
+      [1280, 500],
       [375, 667],
-      [240, 400],
+      [667, 375],
+      // 320 is the narrowest phone; below it the shared View's CheckBar (l0000-view) is wider
+      // than the screen, which is not this layout's to fix.
+      [320, 480],
     ]) {
       await page.setViewportSize({ width: w, height: h });
-      await page.goto(`/dev.html?fixture=web40${host}`);
+      await page.goto(`/dev.html?fixture=${fixture}${host}`);
       await page.locator("[data-l0183-canvas]").waitFor();
       await page.waitForTimeout(300);
       const s = await page.evaluate(() => {
         const f = document.querySelector<HTMLElement>("[data-l0183-frame]")!;
         const c = document.querySelector<HTMLElement>("[data-l0183-canvas]")!;
+        const form = document.querySelector<HTMLElement>(".l0183-web")!;
         const r = c.getBoundingClientRect();
+        const doc = document.scrollingElement!;
         return {
           fw: f.clientWidth,
-          fh: f.getBoundingClientRect().height,
+          fh: f.clientHeight,
+          vh: innerHeight,
           shown: [r.width, r.height],
           best: c.offsetWidth,
-          scrolls: f.scrollWidth > f.clientWidth || f.scrollHeight > f.clientHeight,
+          frameScrolls: f.scrollWidth > f.clientWidth + 1 || f.scrollHeight > f.clientHeight + 1,
+          formScrolls: form.scrollHeight > form.clientHeight + 1,
+          pageScrolls: doc.scrollHeight > doc.clientHeight + 1,
         };
       });
+      const at = `${fixture} ${w}x${h}${host}`;
       best ||= s.best; // the best fit does not depend on the page
-      expect(s.best, `${w}${host}`).toBe(best);
-      const side = Math.min(s.fw, best);
-      expect(Math.round(s.shown[0]), `${w}${host}`).toBe(Math.round(side));
-      expect(Math.round(s.shown[1]), `${w}${host}`).toBe(Math.round(side));
-      expect(Math.round(s.fh), `${w}${host}`).toBe(Math.round(side));
-      expect(s.scrolls, `${w}${host}`).toBe(false);
+      expect(s.best, at).toBe(best);
+      const room = host ? Math.min(s.fw, 0.85 * s.vh) : Math.min(s.fw, s.fh);
+      const side = Math.min(best, room);
+      expect(Math.abs(s.shown[0] - side), at).toBeLessThan(1.5);
+      expect(Math.abs(s.shown[1] - side), at).toBeLessThan(1.5);
+      expect(s.frameScrolls, at).toBe(false);
+      if (!host) {
+        // The /form embed: the square fits the column, so nothing scrolls vertically.
+        expect(s.formScrolls, at).toBe(false);
+        expect(s.pageScrolls, at).toBe(false);
+      }
     }
-    // The widest page shows it at best fit (capped), the narrow ones scaled down.
-    expect(best).toBeLessThan(5120 - 64);
     expect(best).toBeGreaterThan(375);
   }
 });
 
-test("a drag held at the window's top edge scrolls the Form, so a tray below the square reaches blanks above", async ({ page }) => {
-  // A short window, so the Form scrolls.
+test("in page flow, a drag held at the window's top edge scrolls the page, so a tray below the square reaches blanks above", async ({ page }) => {
+  // Learnosity renders in its page's flow; on a short window the trays sit below the fold.
   await page.setViewportSize({ width: 375, height: 420 });
+  await page.goto("/dev.html?fixture=assessed40&host=learnosity");
+  await page.locator("[data-l0183-canvas]").waitFor();
   await page.waitForTimeout(300);
   const cdp = await page.context().newCDPSession(page);
-  await showTray(page);
-  const form = page.locator(".l0183-web");
-  const before = await form.evaluate((el) => el.scrollTop);
+  await page.locator(`${answersTray} [data-l0183-grip]`).first().evaluate((el) => el.scrollIntoView({ block: "end" }));
+  await page.waitForTimeout(100);
+  const before = await page.evaluate(() => scrollY);
   expect(before).toBeGreaterThan(0);
   const grip = await centre(page, `${answersTray} [data-l0183-grip]`);
   await touch(cdp, "touchStart", grip);
@@ -286,7 +309,7 @@ test("a drag held at the window's top edge scrolls the Form, so a tray below the
     await page.waitForTimeout(16);
   }
   await page.waitForTimeout(500); // held at the edge
-  const during = await form.evaluate((el) => el.scrollTop);
+  const during = await page.evaluate(() => scrollY);
   await touch(cdp, "touchEnd");
   expect(during).toBeLessThan(before);
 });

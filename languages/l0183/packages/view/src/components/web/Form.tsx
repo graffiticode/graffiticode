@@ -125,7 +125,7 @@ export const Form = ({ state }: FormProps) => {
     >
       <div
         className="flex flex-col gap-4 rounded-md bg-zinc-50 p-4 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100"
-        style={{ flex: "1 0 auto" }}
+        style={{ flex: "1 1 auto", minHeight: 0 }}
       >
         <div className="flex shrink-0 items-start justify-between gap-4">
           <div className="flex min-w-0 flex-col gap-1">
