@@ -440,12 +440,14 @@ export function expand(layout: MinLayout, frame: { width: number; height: number
     stretchLimit(width, layout.min.width, ext, "x"),
     stretchLimit(height, layout.min.height, ext, "y"),
   );
-  const s = Number.isFinite(limit) ? limit : 1;
-  const sx = s;
-  const sy = s;
+  return placeAt(layout, Number.isFinite(limit) ? limit : 1, width, height);
+}
+
+/** The geometry with every centre and path scaled by `s` about the hub, centred in width × height. */
+function placeAt(layout: MinLayout, s: number, width: number, height: number): Geometry {
   const cx = width / 2;
   const cy = height / 2;
-  const at = (p: Pt): Pt => ({ x: cx + sx * p.x, y: cy + sy * p.y });
+  const at = (p: Pt): Pt => ({ x: cx + s * p.x, y: cy + s * p.y });
 
   const boxes = layout.boxes.map((b) => ({ ...b, ...at(b) }));
   const byId = new Map(boxes.map((b) => [b.id, b]));
@@ -459,7 +461,70 @@ export function expand(layout: MinLayout, frame: { width: number; height: number
     const p = pointAt(edgeById.get(l.id)!.full, l.t);
     return { id: l.id, x: p.x, y: p.y, w: l.w, h: l.h, shape: "rect", residual: l.residual };
   });
-  return { width, height, sx, sy, boxes, edges, labels, residuals: layout.residuals, min: layout.min };
+  return { width, height, sx: s, sy: s, boxes, edges, labels, residuals: layout.residuals, min: layout.min };
+}
+
+// ---- Spacing: the view's rule ----------------------------------------------------------------
+//
+// Nodes and text never change size; only the SPACING does, by one factor s about the hub. The
+// minimum layout (s = 1) is the best fit: the closest spacing at which nothing collides. The view
+// never spreads past it, and with less room compresses the spacing down to `compressionFloor`,
+// where nodes would start to touch (labels may overlap below best fit). Past that it scrolls.
+
+/** Clearance kept between nodes at the tightest compression. */
+const TOUCH_GAP = 4;
+
+/**
+ * The smallest spacing factor at which no two node boxes come within TOUCH_GAP of each other.
+ * Two boxes are clear when they are apart on either axis, so each pair needs
+ * min(gap-on-x, gap-on-y) and the floor is the largest such need. At most 1: the best fit is
+ * already clear.
+ */
+export function compressionFloor(layout: MinLayout): number {
+  let floor = 0;
+  const b = layout.boxes;
+  for (let i = 0; i < b.length; i++) {
+    for (let j = i + 1; j < b.length; j++) {
+      const dx = Math.abs(b[i].x - b[j].x);
+      const dy = Math.abs(b[i].y - b[j].y);
+      const needX = dx > EPS ? ((b[i].w + b[j].w) / 2 + TOUCH_GAP) / dx : Infinity;
+      const needY = dy > EPS ? ((b[i].h + b[j].h) / 2 + TOUCH_GAP) / dy : Infinity;
+      floor = Math.max(floor, Math.min(needX, needY));
+    }
+  }
+  return Math.min(1, floor);
+}
+
+/** The canvas the geometry needs at spacing s: symmetric about the hub, everything inside it. */
+export function canvasAt(layout: MinLayout, s: number): { width: number; height: number } {
+  const ext = extents(layout.boxes, layout.edges, labelBoxes(layout.edges, layout.labels));
+  let w = 0;
+  let h = 0;
+  for (const o of ext) {
+    w = Math.max(w, Math.abs(o.dx) * s + o.ex);
+    h = Math.max(h, Math.abs(o.dy) * s + o.ey);
+  }
+  return { width: Math.ceil(2 * w + 2 * PAD), height: Math.ceil(2 * h + 2 * PAD) };
+}
+
+/**
+ * The spacing for a room: the largest s at which the canvas fits the room, but never above 1 (the
+ * best fit) and never below the compression floor. An axis with nothing off-centre sets no limit.
+ */
+export function spacingFor(layout: MinLayout, room: { width: number; height: number }): number {
+  const ext = extents(layout.boxes, layout.edges, labelBoxes(layout.edges, layout.labels));
+  let fit = Infinity;
+  for (const o of ext) {
+    if (Math.abs(o.dx) > EPS) fit = Math.min(fit, (room.width / 2 - PAD - o.ex) / Math.abs(o.dx));
+    if (Math.abs(o.dy) > EPS) fit = Math.min(fit, (room.height / 2 - PAD - o.ey) / Math.abs(o.dy));
+  }
+  return Math.min(1, Math.max(compressionFloor(layout), fit));
+}
+
+/** The geometry at spacing s, on the canvas it needs. Node, label and text sizes are fixed. */
+export function place(layout: MinLayout, s: number): Geometry {
+  const c = canvasAt(layout, s);
+  return placeAt(layout, s, c.width, c.height);
 }
 
 /** Both stages at once, for tests and simple callers. */

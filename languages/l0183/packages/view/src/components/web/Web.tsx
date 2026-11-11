@@ -27,7 +27,7 @@
  */
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
-import { ARROW_LEN, expand, solve, STROKE, type LayoutModel } from "../../lib/layout";
+import { ARROW_LEN, place, solve, spacingFor, STROKE, type LayoutModel } from "../../lib/layout";
 import type { Quad } from "../../lib/geom";
 import { candidateKey, edgeCandidates, reserve, type Candidate, type Size } from "../../lib/metrics";
 import { startsDrag, type DragRole } from "../../lib/gesture";
@@ -102,8 +102,13 @@ const FLOW_VH = 0.85;
 const TRAY_SHARE = 0.25;
 /** Below this width, side trays stack above and below the diagram. */
 const WIDE = "(min-width: 640px)";
-/** How close to the frame's edge a drag must be to scroll it, and how fast. */
+/**
+ * How close to an edge a drag must be to scroll, how long it must rest there first, and how fast.
+ * The rest matters: a finger coming up from a tray crosses the frame's bottom edge on its way to a
+ * blank, and scrolling at once would move the blank out from under it.
+ */
 const EDGE_ZONE = 40;
+const EDGE_DWELL_MS = 250;
 const EDGE_SPEED = 14;
 
 const pathD = (q: Quad) => `M ${q.p0.x} ${q.p0.y} Q ${q.c.x} ${q.c.y} ${q.p2.x} ${q.p2.y}`;
@@ -307,36 +312,49 @@ export function Web({
   const modelKey = JSON.stringify(model);
   const minLayout = useMemo(() => solve(model), [modelKey]);
 
-  // The diagram is a square at the web's BEST FIT: the smallest size at which nothing collides,
-  // computed from the content (stage 1). It is shown at that size when there is room, and never
-  // bigger. With less room, in EITHER direction, the whole square scales down to fit, with no lower
-  // limit, so it never scrolls:
-  // - In a full-viewport column (the /form embed marks its #root `data-l0183-viewport`), the
-  //   frame takes the height the title, trays and Check bar leave, and the square fits in it.
+  // Nodes and text never change size; only the SPACING between them does (lib/layout.ts,
+  // `spacingFor`). The minimum layout is the best fit, the closest spacing at which nothing
+  // collides, and the web is never spread past it. With less room, in either direction, the
+  // spacing compresses to fit, down to the point where nodes would start to touch; past that, the
+  // diagram scrolls inside its frame, opening centred on the hub.
+  // - In a full-viewport column (the /form embed marks its #root `data-l0183-viewport`), the room
+  //   is the frame's share of the column, after the title, trays and Check bar.
   // - In page flow (Learnosity, or a page of several webs), the height is capped at a share of the
-  //   window, so the square never makes the page scroll on its own.
+  //   window.
   const [frameRef, frame] = useSize<HTMLDivElement>();
   const [column, setColumn] = useState(false);
   useLayoutEffect(() => {
     setColumn(!!frameRef.current?.closest("[data-l0183-viewport]"));
   }, []);
   const windowH = useWindowHeight();
-  const best = Math.max(minLayout.min.width, minLayout.min.height);
-  const target = useMemo(() => ({ width: best, height: best }), [best]);
-  const geo = useMemo(() => expand(minLayout, target), [minLayout, target]);
-  const roomW = frame.width || best;
-  const roomH = column ? frame.height || best : FLOW_VH * windowH;
-  const shown = Math.max(0, Math.min(best, roomW, roomH));
-  const scale = best > 0 ? shown / best : 1;
+  const room = useMemo(
+    () => ({
+      width: frame.width || minLayout.min.width,
+      height: column ? frame.height || minLayout.min.height : FLOW_VH * windowH,
+    }),
+    [frame.width, frame.height, column, windowH, minLayout],
+  );
+  const spacing = useMemo(() => spacingFor(minLayout, room), [minLayout, room]);
+  const geo = useMemo(() => place(minLayout, spacing), [minLayout, spacing]);
+  // At the floor the canvas can be bigger than the frame: open on the hub, not on a corner. Once
+  // per minimum layout, so a resize or a placement never scrolls the web under the learner.
+  const centredFor = useRef<unknown>(null);
+  useLayoutEffect(() => {
+    const el = frameRef.current;
+    if (!el || !frame.width || centredFor.current === minLayout) return;
+    centredFor.current = minLayout;
+    el.scrollLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
+    el.scrollTop = Math.max(0, (el.scrollHeight - el.clientHeight) / 2);
+  }, [minLayout, geo, frame.width]);
   const byId = useMemo(() => new Map(geo.boxes.map((b) => [b.id, b])), [geo]);
   const labelById = useMemo(() => new Map(geo.labels.map((l) => [l.id, l])), [geo]);
   const pathById = useMemo(() => new Map(geo.edges.map((e) => [e.id, e.path])), [geo]);
 
   const wide = useMedia(WIDE);
-  // In a column the frame's height comes from the layout (flex: 1); in page flow it is the square's.
-  // `host` is kept for callers and for future host-specific rules.
+  // In a column the frame's height comes from the layout (flex: 1); in page flow it is the
+  // canvas's, up to the room. `host` is kept for callers and for future host-specific rules.
   void host;
-  const frameStyle: CSSProperties = column ? {} : { height: shown };
+  const frameStyle: CSSProperties = column ? {} : { height: Math.min(geo.height, room.height) };
 
   // One marker id per instance: a fixed id collides when two webs share a page, and the second
   // web's arrows then point with the first web's arrowheads.
@@ -433,23 +451,38 @@ export function Web({
   useEffect(() => {
     if (!drag) return;
     let raf = 0;
-    const tick = () => {
+    // When the pointer entered each edge zone (0: not in it), so a pass through does not scroll.
+    let frameSince = 0;
+    let pageSince = 0;
+    const tick = (now: number) => {
       const el = frameRef.current;
       const p = pointer.current;
       if (el && p && dragStart.current?.moved) {
         const r = el.getBoundingClientRect();
-        const dx = p.x < r.left + EDGE_ZONE ? -EDGE_SPEED : p.x > r.right - EDGE_ZONE ? EDGE_SPEED : 0;
-        const dy = p.y < r.top + EDGE_ZONE ? -EDGE_SPEED : p.y > r.bottom - EDGE_ZONE ? EDGE_SPEED : 0;
+        // A small frame gets a smaller zone, so most of it is not an edge.
+        const zone = Math.min(EDGE_ZONE, r.width / 6, r.height / 6);
+        const dx = p.x < r.left + zone ? -EDGE_SPEED : p.x > r.right - zone ? EDGE_SPEED : 0;
+        const dy = p.y < r.top + zone ? -EDGE_SPEED : p.y > r.bottom - zone ? EDGE_SPEED : 0;
         const inside = p.x >= r.left && p.x <= r.right && p.y >= r.top && p.y <= r.bottom;
-        if (inside && (dx || dy)) el.scrollBy(dx, dy);
+        if (inside && (dx || dy)) {
+          frameSince ||= now;
+          if (now - frameSince >= EDGE_DWELL_MS) el.scrollBy(dx, dy);
+        } else {
+          frameSince = 0;
+        }
         // The square can be taller than the window, with the trays below it: near the window's
         // top or bottom edge, scroll whatever holds the Form (the Form itself in the /form
         // embed, else the page), so a blank above the fold can be reached from a tray below it.
         const vy = p.y < EDGE_ZONE ? -EDGE_SPEED : p.y > window.innerHeight - EDGE_ZONE ? EDGE_SPEED : 0;
         if (vy) {
-          const form = el.closest<HTMLElement>(".l0183-web");
-          if (form && form.scrollHeight > form.clientHeight) form.scrollBy(0, vy);
-          else window.scrollBy(0, vy);
+          pageSince ||= now;
+          if (now - pageSince >= EDGE_DWELL_MS) {
+            const form = el.closest<HTMLElement>(".l0183-web");
+            if (form && form.scrollHeight > form.clientHeight) form.scrollBy(0, vy);
+            else window.scrollBy(0, vy);
+          }
+        } else {
+          pageSince = 0;
         }
       }
       raf = requestAnimationFrame(tick);
@@ -701,7 +734,7 @@ export function Web({
       ref={frameRef}
       data-l0183-frame=""
       className={classNames(
-        "relative flex min-w-0 flex-1 items-center justify-center overflow-hidden",
+        "relative min-w-0 flex-1 overflow-auto",
         column ? "min-h-0" : "shrink-0",
       )}
       style={frameStyle}
@@ -709,18 +742,10 @@ export function Web({
         if (e.key === "Escape") setSelected(null);
       }}
     >
-      {/* The shown square, centred; the canvas inside is laid out at best fit and scaled to it. */}
-      <div className="relative shrink-0 overflow-hidden" style={{ width: shown, height: shown }}>
-      <div
-        data-l0183-canvas=""
-        className="absolute left-0 top-0 select-none"
-        style={{
-          width: geo.width,
-          height: geo.height,
-          transform: scale < 1 ? `scale(${scale})` : undefined,
-          transformOrigin: "top left",
-        }}
-      >
+      {/* Centres the canvas when it is smaller than the frame, and still scrolls when it is bigger
+          (centring with flex on the scroller itself would cut off its top and left). */}
+      <div className="flex min-h-full min-w-full items-center justify-center">
+      <div data-l0183-canvas="" className="relative shrink-0 select-none" style={{ width: geo.width, height: geo.height }}>
         <svg
           className="absolute inset-0 text-zinc-400 dark:text-zinc-500"
           width={geo.width}

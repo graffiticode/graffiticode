@@ -3,7 +3,11 @@ import { describe, expect, test } from "vitest";
 import { boxesOverlap, curveHitsBox, enterParam, exitParam, extremumT, pointAt } from "./geom";
 import {
   ARROW_LEN,
+  canvasAt,
+  compressionFloor,
   expand,
+  place,
+  spacingFor,
   layout,
   PAD,
   solve,
@@ -281,6 +285,71 @@ describe("expansion", () => {
       }
       expect(layout(model, { width: 5120, height: 1440 }).sy).toBeGreaterThan(1);
     }
+  });
+});
+
+describe("spacing (the view's rule: nodes fixed, spacing in [floor, best fit])", () => {
+  const webs = { star12: star(12, { w: 90, h: 24 }), web20: web(20, 3), web40: web(40, 7), chords: star(4) };
+
+  test("at the compression floor no two nodes touch, and any tighter some would", () => {
+    for (const [name, model] of Object.entries(webs)) {
+      const min = solve(model);
+      const floor = compressionFloor(min);
+      expect(floor, name).toBeGreaterThan(0);
+      expect(floor, name).toBeLessThanOrEqual(1);
+      const overlaps = (s: number) => {
+        const b = place(min, s).boxes;
+        for (let i = 0; i < b.length; i++) for (let j = i + 1; j < b.length; j++) if (boxesOverlap(b[i], b[j])) return true;
+        return false;
+      };
+      expect(overlaps(floor), name).toBe(false);
+      if (floor < 1) expect(overlaps(floor * 0.9), name).toBe(true);
+    }
+  });
+
+  test("the spacing never exceeds the best fit, however much room", () => {
+    for (const model of Object.values(webs)) {
+      const min = solve(model);
+      expect(spacingFor(min, { width: 10000, height: 10000 })).toBe(1);
+      expect(place(min, 1).width).toBe(min.min.width);
+    }
+  });
+
+  test("with less room the spacing compresses to fit, down to the floor", () => {
+    for (const [name, model] of Object.entries(webs)) {
+      const min = solve(model);
+      const floor = compressionFloor(min);
+      for (const k of [0.95, 0.8, 0.6, 0.4, 0.2, 0.05]) {
+        const room = { width: min.min.width * k, height: min.min.height * k };
+        const s = spacingFor(min, room);
+        expect(s, name).toBeGreaterThanOrEqual(floor - 1e-9);
+        expect(s, name).toBeLessThanOrEqual(1);
+        const c = canvasAt(min, s);
+        // Above the floor the canvas fits the room; at the floor it is what scrolls.
+        if (s > floor + 1e-9) {
+          expect(c.width, name).toBeLessThanOrEqual(Math.ceil(room.width) + 1);
+          expect(c.height, name).toBeLessThanOrEqual(Math.ceil(room.height) + 1);
+        }
+      }
+    }
+  });
+
+  test("nodes keep their size at every spacing, and the hub stays centred", () => {
+    const min = solve(webs.web20);
+    for (const s of [compressionFloor(min), 0.7, 1]) {
+      const g = place(min, s);
+      g.boxes.forEach((b, i) => expect([b.w, b.h]).toEqual([min.boxes[i].w, min.boxes[i].h]));
+      expect(g.boxes[0].x).toBeCloseTo(g.width / 2);
+      expect(g.boxes[0].y).toBeCloseTo(g.height / 2);
+      expect(outside(g)).toEqual([]);
+    }
+  });
+
+  test("a one-node web has spacing 1 and no NaN", () => {
+    const min = solve({ hub, nodes: [{ id: "n1" }], edges: [] });
+    const s = spacingFor(min, { width: 50, height: 50 });
+    expect(Number.isFinite(s)).toBe(true);
+    for (const b of place(min, s).boxes) expect(Number.isFinite(b.x) && Number.isFinite(b.y)).toBe(true);
   });
 });
 
