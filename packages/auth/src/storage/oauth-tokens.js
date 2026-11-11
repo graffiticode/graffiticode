@@ -2,6 +2,10 @@
 import { NotFoundError } from "@graffiticode/common/errors";
 import { v4 } from "uuid";
 import { getFirestore } from "../firebase.js";
+import { deleteTokenIndex, readTokenIndex, tokenIndexRef } from "./token-index.js";
+
+const ACCESS = "oauth-links/-indexes-/access-token";
+const REFRESH = "oauth-links/-indexes-/refresh-token";
 
 /**
  * Storage module for OAuth tokens stored in oauth-links/{linkId}/tokens/{tokenId}
@@ -44,13 +48,9 @@ const buildCreate = () => async (linkId, tokenData) => {
     created_at: createdAt,
   });
 
-  // Index for looking up by access_token
-  const accessTokenIndexRef = db.doc(`oauth-links/-indexes-/access-token/${access_token}`);
-  batchWriter.create(accessTokenIndexRef, { link_id: linkId, token_id: tokenId });
-
-  // Index for looking up by refresh_token
-  const refreshTokenIndexRef = db.doc(`oauth-links/-indexes-/refresh-token/${refresh_token}`);
-  batchWriter.create(refreshTokenIndexRef, { link_id: linkId, token_id: tokenId });
+  // Indexes for looking up by access_token and refresh_token (token-index.js)
+  batchWriter.create(tokenIndexRef(db, ACCESS, access_token), { link_id: linkId, token_id: tokenId });
+  batchWriter.create(tokenIndexRef(db, REFRESH, refresh_token), { link_id: linkId, token_id: tokenId });
 
   await batchWriter.commit();
 
@@ -74,14 +74,13 @@ const buildFindByAccessToken = () => async (accessToken) => {
   const db = getFirestore();
 
   // Use index to find the token
-  const indexRef = db.doc(`oauth-links/-indexes-/access-token/${accessToken}`);
-  const indexDoc = await indexRef.get();
+  const index = await readTokenIndex(db, ACCESS, accessToken);
 
-  if (!indexDoc.exists) {
+  if (!index) {
     return null;
   }
 
-  const { link_id, token_id } = indexDoc.data();
+  const { link_id, token_id } = index;
   const tokenRef = db.doc(`oauth-links/${link_id}/tokens/${token_id}`);
   const tokenDoc = await tokenRef.get();
 
@@ -101,14 +100,13 @@ const buildFindByRefreshToken = () => async (refreshToken) => {
   const db = getFirestore();
 
   // Use index to find the token
-  const indexRef = db.doc(`oauth-links/-indexes-/refresh-token/${refreshToken}`);
-  const indexDoc = await indexRef.get();
+  const index = await readTokenIndex(db, REFRESH, refreshToken);
 
-  if (!indexDoc.exists) {
+  if (!index) {
     return null;
   }
 
-  const { link_id, token_id } = indexDoc.data();
+  const { link_id, token_id } = index;
   const tokenRef = db.doc(`oauth-links/${link_id}/tokens/${token_id}`);
   const tokenDoc = await tokenRef.get();
 
@@ -161,13 +159,9 @@ const buildRemove = () => async (linkId, tokenId) => {
   // Delete main token document
   batchWriter.delete(tokenRef);
 
-  // Delete access_token index
-  const accessTokenIndexRef = db.doc(`oauth-links/-indexes-/access-token/${access_token}`);
-  batchWriter.delete(accessTokenIndexRef);
-
-  // Delete refresh_token index
-  const refreshTokenIndexRef = db.doc(`oauth-links/-indexes-/refresh-token/${refresh_token}`);
-  batchWriter.delete(refreshTokenIndexRef);
+  // Delete both indexes, under both names (token-index.js)
+  if (access_token) deleteTokenIndex(batchWriter, db, ACCESS, access_token);
+  if (refresh_token) deleteTokenIndex(batchWriter, db, REFRESH, refresh_token);
 
   await batchWriter.commit();
 };
@@ -191,13 +185,9 @@ const buildRemoveByClientId = () => async (linkId, clientId) => {
   // Delete main token document
   batchWriter.delete(doc.ref);
 
-  // Delete access_token index
-  const accessTokenIndexRef = db.doc(`oauth-links/-indexes-/access-token/${access_token}`);
-  batchWriter.delete(accessTokenIndexRef);
-
-  // Delete refresh_token index
-  const refreshTokenIndexRef = db.doc(`oauth-links/-indexes-/refresh-token/${refresh_token}`);
-  batchWriter.delete(refreshTokenIndexRef);
+  // Delete both indexes, under both names (token-index.js)
+  if (access_token) deleteTokenIndex(batchWriter, db, ACCESS, access_token);
+  if (refresh_token) deleteTokenIndex(batchWriter, db, REFRESH, refresh_token);
 
   await batchWriter.commit();
 };
