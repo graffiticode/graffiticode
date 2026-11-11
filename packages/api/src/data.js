@@ -2,7 +2,7 @@ import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/pr
 import { InvocationRefused } from "./invocations.js";
 import { buildReadArtifact, buildReadPublished } from "./read.js";
 import { ArtifactConflict } from "./storage/artifacts.js";
-import { bindingFor } from "./storage/lang-override.js";
+import { bindingFor, hasBindings } from "./storage/lang-override.js";
 import { randomUUID } from "node:crypto";
 import { classify } from "@graffiticode/common/failures";
 import { canonicalDigest } from "@graffiticode/common/canonical";
@@ -258,6 +258,9 @@ const buildGetData = ({
       ? await langOverrideStorer.get({ uid })
       : undefined;
     const routeFor = lang => bindingFor(override?.bindings, lang);
+    // Whether the user binds any language: a doc whose bindings were all
+    // cleared is no override, so it neither bypasses nor skips any cache.
+    const overriding = hasBindings(override);
     // `refresh` is the caller saying "compile this now", not "tell me what it
     // once compiled to". It exists because a taskId is content-addressed over
     // {lang, code} and says NOTHING about the compiler version: when a language
@@ -285,7 +288,7 @@ const buildGetData = ({
     const isInterpreted = task => !connectionId && interpreterLangs.has(normalizeLang(task.lang));
     const interpretedChain = tasks.some(isInterpreted);
     const bypassCache =
-      Boolean(override) || Boolean(refresh) || Boolean(connectionId) || requiresProtected || interpretedChain;
+      overriding || Boolean(refresh) || Boolean(connectionId) || requiresProtected || interpretedChain;
     // There exists a task that we are authorized to see.
     if (!bypassCache) {
       const cached = await compileStorer.get({ id: cacheKey, auth });
@@ -412,7 +415,7 @@ const buildGetData = ({
         ({ out: { data: null, errors: [failedWith(message, code)] }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: code } });
       // The model, from the model cache when it may be shared (model-cache.js): never for a
       // user testing an override, never for a protected task.
-      const modelKey = modelCache && !override && !taskRequiresProtected(task)
+      const modelKey = modelCache && !overriding && !taskRequiresProtected(task)
         ? modelCacheKey({ lang, code: task.code, options, baseUrl: modelBaseUrl, generation: generations[lang] ?? null })
         : null;
       const cachedModel = modelKey ? modelCache.get(modelKey) : null;
@@ -433,7 +436,7 @@ const buildGetData = ({
       // for a protected task, never without the revision that keys it, and
       // only for input that may itself be shared (not private or no-store,
       // and not expired).
-      const key = stageResults && !override && !taskRequiresProtected(task) && revision
+      const key = stageResults && !overriding && !taskRequiresProtected(task) && revision
         ? stageCacheKey({
           lang,
           interpreterLang,
@@ -649,7 +652,7 @@ const buildGetData = ({
     // A refresh writes its fresh result back; an override must not, even with
     // a refresh, since its result is specific to that user's language-server
     // revision and would pollute the shared cache for everyone else.
-    if (!override && (!bypassCache || refresh) && cacheable && !interpretedChain) {
+    if (!overriding && (!bypassCache || refresh) && cacheable && !interpretedChain) {
       await compileStorer.create({
         id: cacheKey,
         compile: {

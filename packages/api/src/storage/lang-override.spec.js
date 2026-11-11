@@ -1,5 +1,5 @@
 import { admin } from "./firebase.js";
-import { bindingFor, buildLangOverrideStorer } from "./lang-override.js";
+import { bindingFor, buildLangOverrideStorer, hasBindings } from "./lang-override.js";
 import { clearFirestore } from "../testing/firestore.js";
 
 describe("storage/lang-override", () => {
@@ -70,6 +70,17 @@ describe("storage/lang-override", () => {
       expect(bindingFor({ L0137: url }, "L0175")).toBeNull();
       expect(bindingFor(undefined, "L0175")).toBeNull();
       expect(bindingFor("https://not-a-map", "L0175")).toBeNull();
+    });
+
+    it("counts a doc as an override unless it has no bindings at all (hasBindings)", () => {
+      expect(hasBindings({ bindings: { L0175: url } })).toBe(true);
+      // A user whose overrides were all cleared keeps an empty doc: no override.
+      expect(hasBindings({ bindings: {} })).toBe(false);
+      expect(hasBindings({})).toBe(false);
+      expect(hasBindings(undefined)).toBe(false);
+      // Invalid bindings still count, so the user's results stay unshared.
+      expect(hasBindings({ bindings: { L0175: "", L0137: 42 } })).toBe(true);
+      expect(hasBindings({ bindings: "https://not-a-map" })).toBe(true);
     });
 
     it("leaves getBaseUrl answering undefined for those, so the resolver falls back", async () => {
