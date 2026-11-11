@@ -211,6 +211,10 @@
           "milestone": "B5",
           "commit": "032b953e7f7ec18b7439a46e3372e9b12be976f7",
           "floor": true
+        },
+        {
+          "milestone": "c3-legacy-strip",
+          "commit": "8de6641f929856dcfc01b3cf21f68ab752dc42d0"
         }
       ],
       "secrets": {
@@ -1790,6 +1794,9 @@
       "port": 8080,
       "access": "public",
       "retireTags": true,
+      "requires": [
+        { "service": "api", "milestone": "c3-legacy-strip" }
+      ],
       "runtimeServiceAccount": "l0185r-run@graffiticode.iam.gserviceaccount.com",
       "network": {
         "network": "compilers",
