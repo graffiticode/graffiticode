@@ -107,6 +107,12 @@ export const setImmutableCacheHeaders = (res, { isPublic }) =>
 export const setNoStoreCacheHeaders = res =>
   res.set("Cache-Control", "no-store");
 
+// A result that may be held until it expires (C3: a `shared` interpreted
+// result, such as L0185's fetched data): for that many seconds, and never
+// `immutable`. Public only for an anonymous request.
+export const setBoundedCacheHeaders = (res, { isPublic, maxAge }) =>
+  res.set("Cache-Control", `${isPublic ? "public" : "private"}, max-age=${maxAge}`);
+
 export const getStorageTypeForRequest = req => {
   return (
     req.get("x-graffiticode-storage-type") || "ephemeral"

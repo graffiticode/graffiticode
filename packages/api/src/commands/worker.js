@@ -164,7 +164,25 @@ export const buildCommandWorker = ({
     const modelOf = new Map(models.map(m => [m.stage, JSON.parse(m.text)]));
     const stages = Object.keys(state.admission.stages).sort((a, b) => Number(b.slice(1)) - Number(a.slice(1)));
     let input = { data: {}, errors: [] };
+    // Recovery starts at the furthest pinned boundary (C3, plan decision 5):
+    // the last stage in execution order whose input is pinned, with that
+    // input. The stages to its right ran before it was pinned, so their work
+    // is in it; running them again could only fail it (a source that is now
+    // unavailable) or re-run earlier effects' stages. Only where the run
+    // starts changes: the resumed stage still opens its session through
+    // Policy, every write is fenced by the generation, and the Broker replays
+    // recorded operations from receipts. With nothing pinned (every first
+    // run), every stage runs, as before.
+    const resumeAt = stages.findLastIndex(stage => state.stages?.[stage]?.pinnedInput);
+    if (resumeAt >= 0) {
+      const stage = stages[resumeAt];
+      const { input: pinned } = await step(() => policy.read({ commandId: id, what: "input", stage }));
+      if (!pinned || sha256(pinned.text) !== state.stages[stage].pinnedInput) throw new Error(`command ${id}: ${stage}'s pinned input can't be read`);
+      input = JSON.parse(pinned.text);
+      log(`command ${id}: resuming at ${stage}, its pinned input`);
+    }
     for (const [position, stage] of stages.entries()) {
+      if (position < resumeAt) continue;
       const admitted = state.admission.stages[stage];
       const model = modelOf.get(stage);
       const notReached = stages.slice(position + 1);

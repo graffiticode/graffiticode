@@ -40,7 +40,14 @@ describe("interpreter-manifest", () => {
     }
     expect(capCacheClass("immutable", "0184", "present")).toBe("immutable");
     expect(capCacheClass("shared", "0184", "evaluate")).toBe("shared");
-    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0003", "0010", "0014", "0174", "0175", "0177", "0178", "0179", "0180", "0181", "0183", "0184", "0186", "0187"]);
+    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0003", "0010", "0014", "0174", "0175", "0177", "0178", "0179", "0180", "0181", "0183", "0184", "0185", "0186", "0187"]);
+  });
+
+  it("declares L0185 (C3) with immutable caps, so its own claim decides: shared with an expiry when it fetched, immutable otherwise", () => {
+    expect(interpreterDeclarationFor("0185")).toEqual({ interpreter: "interpreter", cacheCaps: { evaluate: "immutable", present: "immutable" } });
+    expect(capCacheClass("shared", "0185", "present")).toBe("shared");
+    expect(capCacheClass("immutable", "0185", "evaluate")).toBe("immutable");
+    expect(INTERPRETER_MANIFEST_VERSION).toBe(8);
   });
 
   it("finds a declaration by any spelling of the language", () => {

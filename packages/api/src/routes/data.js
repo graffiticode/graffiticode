@@ -9,6 +9,7 @@ import {
   parseAuthTokenFromRequest,
   parseConnectionId,
   parsePublicationId,
+  setBoundedCacheHeaders,
   setImmutableCacheHeaders,
   setNoStoreCacheHeaders
 } from "./utils.js";
@@ -120,6 +121,15 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
     if (action.noStore || connectionId || publicationId) {
       // At least one of these ids compiles to output that expires.
       setNoStoreCacheHeaders(res);
+    } else if (action.cacheClass === "shared") {
+      // Every id may be held, at least one only until it expires (C3): for the
+      // seconds left until the earliest expiry, or not at all once it's past.
+      const maxAge = Math.floor(((action.expiresAt ?? 0) - Date.now()) / 1000);
+      if (maxAge > 0) {
+        setBoundedCacheHeaders(res, { isPublic: auth === null, maxAge });
+      } else {
+        setNoStoreCacheHeaders(res);
+      }
     } else {
       // No auth context means the request was anonymous; a 200 can only have
       // returned public tasks (private ones throw NotFound), so it's shareable.

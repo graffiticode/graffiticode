@@ -537,11 +537,11 @@ describe("getData with interpreted stages", () => {
 });
 
 describe("the routes with interpreted stages", () => {
-  const appFor = t => {
+  const appFor = (t, { auth = null } = {}) => {
     const app = express();
     app.use(express.json());
     app.use((/** @type {any} */ req, _res, next) => {
-      req.auth = { context: null, token: null };
+      req.auth = { context: auth, token: auth ? "token" : null };
       next();
     });
     app.use("/data", buildDataRoute({ taskStorer: t.taskStorer, compileStorer: t.compileStorer, dataApi: t.dataApi }));
@@ -576,6 +576,94 @@ describe("the routes with interpreted stages", () => {
     // A URL from before a switch or a rollback, or none.
     expect(await cacheControl({ generations: "@L0900=g0" })).toBe("no-store");
     expect(await cacheControl({})).toBe("no-store");
+  });
+
+  // C3, bounded caching: an interpreted result that is `shared` until a
+  // future expiry is held until then (max-age, never immutable), public only
+  // for an anonymous request. A result with errors, a URL that doesn't name
+  // the current generations and a past expiry are no-store; across ids the
+  // stricter class and the earliest expiry win.
+  describe("bounded caching for shared results (C3)", () => {
+    const SHARED = minutes => ({ cache: "shared", expiresAt: Date.now() + minutes * 60 * 1000 });
+    /** @type {(terms?: (stage: { lang: string, model: any }) => object) => any} */
+    const sharedSetup = (terms = () => SHARED(5)) => setup({
+      generations: { "0900": "g1" },
+      interpretReply: ({ lang, model, input, mode }) => ({
+        data: { by: lang, name: model.program[1].elts[0], mode, from: input }, errors: [], revision: "r1", ...terms({ lang, model }),
+      }),
+    });
+    const headers = async (app, query) => (await request(app).get("/data").query(query).expect(200)).headers["cache-control"];
+    const maxAge = header => Number(/max-age=(\d+)/.exec(header)?.[1]);
+
+    it("holds a shared result until it expires: public for an anonymous request", async () => {
+      const t = sharedSetup();
+      const id = await t.chain([task("0900")]);
+      const header = await headers(appFor(t), { id, generations: "@L0900=g1" });
+      expect(header).toMatch(/^public, max-age=\d+$/);
+      expect(maxAge(header)).toBeGreaterThan(290);
+      expect(maxAge(header)).toBeLessThanOrEqual(300);
+    });
+
+    it("a shared stage under an immutable one: the chain is shared until the stage's expiry", async () => {
+      const t = setup({
+        generations: { "0900": "g1", "0902": "g1" },
+        interpretReply: ({ lang, input }) => (lang === "0902"
+          ? { data: { rows: [1] }, errors: [], revision: "r1", ...SHARED(3) }
+          : { data: { chart: input }, errors: [], revision: "r1" }),
+      });
+      const id = await t.chain([task("0900"), task("0902")]);
+      const header = await headers(appFor(t), { id, generations: "@L0900=g1@L0902=g1" });
+      expect(header).toMatch(/^public, max-age=\d+$/);
+      expect(maxAge(header)).toBeGreaterThan(170);
+      expect(maxAge(header)).toBeLessThanOrEqual(180);
+    });
+
+    it("is private for an authenticated request", async () => {
+      const t = sharedSetup();
+      const id = await t.chain([task("0900")]);
+      const header = await headers(appFor(t, { auth: { uid: "u1" } }), { id, generations: "@L0900=g1" });
+      expect(header).toMatch(/^private, max-age=\d+$/);
+    });
+
+    it("never holds an interpreted fetch failure", async () => {
+      const t = setup({
+        generations: { "0900": "g1" },
+        interpretReply: () => ({ data: null, errors: [{ message: "fetch: the server answered 503." }], revision: "r1", ...SHARED(5) }),
+      });
+      const id = await t.chain([task("0900")]);
+      expect(await headers(appFor(t), { id, generations: "@L0900=g1" })).toBe("no-store");
+    });
+
+    it("is no-store without the current generations in the URL, or once expired", async () => {
+      const t = sharedSetup();
+      const id = await t.chain([task("0900")]);
+      expect(await headers(appFor(t), { id })).toBe("no-store");
+      // Past by the route's clock, though not by the data api's (NOW is earlier).
+      const expired = sharedSetup(() => ({ cache: "shared", expiresAt: NOW + HOUR }));
+      const id2 = await expired.chain([task("0900", "expired")]);
+      expect(await headers(appFor(expired), { id: id2, generations: "@L0900=g1" })).toBe("no-store");
+    });
+
+    it("combines a request's ids: shared and immutable is shared until the earliest expiry; any no-store wins", async () => {
+      const name = model => model.program[1].elts[0];
+      const t = sharedSetup(({ model }) => (name(model) === "fixed" ? {} : SHARED(name(model) === "soon" ? 2 : 5)));
+      const fixed = await t.chain([task("0900", "fixed")]);
+      const soon = await t.chain([task("0900", "soon")]);
+      const later = await t.chain([task("0900", "later")]);
+      const header = await headers(appFor(t), { id: [fixed, later, soon].join(","), generations: "@L0900=g1" });
+      expect(header).toMatch(/^public, max-age=\d+$/);
+      expect(maxAge(header)).toBeLessThanOrEqual(120);
+      expect(await headers(appFor(t), { id: fixed, generations: "@L0900=g1" })).toBe("public, max-age=31536000, immutable");
+      const failing = setup({
+        generations: { "0900": "g1" },
+        interpretReply: ({ model }) => (name(model) === "bad"
+          ? { data: null, errors: [{ message: "fetch failed" }], revision: "r1", ...SHARED(5) }
+          : { data: { ok: true }, errors: [], revision: "r1", ...SHARED(5) }),
+      });
+      const ok = await failing.chain([task("0900", "ok")]);
+      const bad = await failing.chain([task("0900", "bad")]);
+      expect(await headers(appFor(failing), { id: [ok, bad].join(","), generations: "@L0900=g1" })).toBe("no-store");
+    });
   });
 
   it("GET /data never holds a url naming other generations, even for a legacy chain or a cache hit", async () => {
