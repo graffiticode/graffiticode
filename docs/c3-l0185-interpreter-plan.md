@@ -1,6 +1,6 @@
 # C3: L0185 on the interpreter
 
-**Status:** draft for review (2026-11-11). Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 3 ("fetching moves into `interpret`, results are `shared`, and fetched reads are recorded for commands"). Design: `docs/graffiticode-interpreter-design.md` §5 (pipelines, observations), the cache-class table, and the L0185 line.
+**Status:** revised after review (2026-11-11); the owner's choices are recorded in §2. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 3 ("fetching moves into `interpret`, results are `shared`, and fetched reads are recorded for commands"). Design: `docs/graffiticode-interpreter-design.md` §5 (pipelines, observations), the cache-class table, and the L0185 line.
 
 ## 1. Where we start
 
@@ -27,35 +27,38 @@
 - **HTTP doesn't express `shared` either.** A chain whose result isn't permanent is `no-store` (`routes/data.js`). The design's "`shared` → `max-age` until `expiresAt`" isn't implemented.
 - **Commands.** `ExecContext::observe` records reads only under `start` with a command session. An L0185 stage has no intents and runs through `interpret` without a session, so its fetches can't be recorded today. The L0176 stage after it *does* pin its input, install-once (`commands/worker.js`).
 
-## 2. Decisions (owner to confirm)
+## 2. Decisions (owner's choices, 2026-11-11)
 
-1. **Results are `shared`, with an expiry.**
-   - An L0185 result that fetched anything is `shared`, expiring a fixed **5 minutes** after its earliest fetch.
+1. **Results that fetched are `shared` for a fixed 5 minutes.**
+   - An L0185 result that fetched anything is `shared`, expiring 5 minutes after its earliest fetch.
    - A result that fetched nothing (only `rows`/`from` and input) is `immutable`, as today.
-   - The manifest caps are `shared` in both modes.
-   - **Proposed: a fixed 5 minutes.** The alternative, honoring each source's `Cache-Control: max-age` clamped to [60 s, 1 h], adds header parsing and per-source variance, and could come later.
+   - Honoring sources' `Cache-Control` headers is out of scope.
 2. **The kernel gains a per-result cache class and expiry.**
-   - A dialect sets them on the `ExecContext` during evaluation; for example, `fetch` marks the result `shared` and records its expiry.
-   - The server writes `cache` and `expiresAt` into the envelope.
-   - Languages that set nothing are unchanged: their envelope is the same as today.
-3. **Fetching stays in `interpret`; models never fetch.**
-   - `input_independent` stays false for any program that fetches.
-   - Optionally, a program that neither fetches nor reads `data` becomes a value model, as in C1. It's a small win, so decide whether to include it.
-   - Today's fallback from `interpret` to `compile` already runs the fetch at interpretation time. "Moving fetching into `interpret`" then means: model-making never fetches, `interpret` fetches, and the new cache class rides on the result.
-4. **Commands: rely on the pinned input; defer per-read observations.**
-   - The motivating case is an L0185 → L0176 save whose fetched source changes between a command's attempts.
-   - B5 already handles it: the worker pins the L0176 stage's input install-once, so a retry or recovery gets the first fetched data and never hits `operation-id-reused`, even though recovery re-runs the L0185 stage live.
-   - Recording each fetch as an observation would need a command session for read-only stages: a change across the kernel, the worker and Policy (Policy's claims bind a stage).
-   - That only matters for B6 materialization and repair, and for Track E. **C3 adds a test proving the pinned-input path, and leaves observations to B6.**
-   - Policy's payloads are capped at 512 KiB, against 1 MB for an L0185 result. A larger L0185 output feeding an L0176 save is refused `input-too-large`, which is clear and safe. Raising the cap is separate.
-5. **HTTP caching for `shared`.** Implement the design's rule in `routes/data.js`:
-   - a chain whose result is `shared` and unexpired is served `Cache-Control: max-age=<seconds until expiresAt>`, not `immutable`, and not `public`;
-   - `immutable` chains are unchanged;
-   - anything stricter is `no-store`, as today.
-
-   Without this, an interpreted L0185 chain would be `no-store` at HTTP and refetch on every view (within the stage cache's 5 minutes). That's acceptable, but wasteful.
-6. **A new generation: `COMPILE_GENERATION_L0185=interp-1`.** Legacy `compiles/` entries hold fetched output under `rust-1`, so the new generation is what makes interpreted chains stop serving permanent copies. The old entries are never served again under `interp-1`.
-7. **The B5 soak's latency baseline moves off L0185.** `scripts/interpret-soak.js` defaults `--baseline-lang 0185` as its compile-only language. Once L0185 is interpreted, use `0000` (compile-only until C7), and record the change in the plan's B5 budget rule.
+   - A dialect sets them on the `ExecContext` during evaluation, and the server writes `cache` and `expiresAt` into the envelope.
+   - Languages that set nothing are unchanged.
+3. **No value models.** Every L0185 model stays a plan, so model-making never fetches. Fetching runs only at `interpret`, through today's fallback from `interpret` to `compile`.
+4. **The manifest caps for `0185` are `immutable` in both modes** (review finding 3).
+   - A cap is the *loosest* class a language may claim, and the api takes the stricter of claim and cap. A `shared` cap would therefore downgrade a fetch-free `immutable` result to `shared` with no expiry, kept for 30 days.
+   - With an `immutable` cap, the result's own claim decides:
+     - `shared` with its 5-minute expiry when it fetched;
+     - `immutable` when it didn't.
+   - The guarantee that a fetching result claims `shared` comes from the dialect, and the fixture test (§4) asserts it for every corpus case.
+5. **Commands: recover from the pinned boundary; defer per-read observations to B6** (review finding 1).
+   - **The gap today.** The worker runs a chain right to left, so in an L0185 → L0176 command the L0185 stage runs *before* the L0176 stage's pinned input is read (`commands/worker.js` `runStages`). If a save's answer is lost and the source then fails, recovery re-runs L0185, the stage fails, and the command stops before replaying the save, though its input was pinned.
+   - **The fix: recovery starts at the pinned boundary.** Before running any stage, the worker reads the pinned inputs (`records/input?stage=`). It finds the first stage in run order that already has one, resumes there with that input, and skips every stage to its right. A later effectful stage left of it still pins its own input install-once.
+   - **With that, re-fetching is never needed once a save's input is pinned,** and per-fetch observations matter only for B6 materialization and repair, and for Track E. They stay deferred.
+   - **Payload size.** Policy's payloads are capped at 512 KiB, against 1 MB for an L0185 result. A larger L0185 output feeding an L0176 save is refused `input-too-large`, which is clear and safe; raising the cap is separate.
+6. **HTTP caching is bounded, and carries the final class and visibility** (review finding 2).
+   - **Carry the class to the route.** Today `data.js` reduces a chain's restrictions to `action.noStore` and `action.expiresAt`. It will also carry the combined cache class, `immutable` or `shared`, to the route. A multi-id request (`getData` over several ids) combines its ids' classes: the stricter class and the earliest expiry.
+   - **The route decides the headers:**
+     - **`immutable`:** unchanged.
+     - **`shared` and unexpired:** `max-age=<seconds until expiresAt>`, never `immutable`. Visibility is kept as today: `private` for an authenticated request, `public` for an anonymous one.
+     - **Anything else, and every existing forced `no-store`:** `no-store`. The forced cases are a connection, a publication, a stale `generations=` URL and an expired result.
+7. **A new generation: `COMPILE_GENERATION_L0185=interp-1`.** Legacy `compiles/` entries hold fetched output under `rust-1` and are never served under `interp-1`.
+8. **The B5 soak's latency baseline moves to L0000.** `scripts/interpret-soak.js` defaults `--baseline-lang 0000`, which stays compile-only until C7. The plan's B5 budget rule records the change.
+9. **Live parity compares meaning, and checks cache metadata separately** (review finding 4).
+   - `scripts/lang-parity.js --interpreted` compares each answer's semantic output with `revision`, `cache` and `expiresAt` removed. Today it strips only `revision`, so identical data fails when only the expiry differs.
+   - It then validates the metadata on its own: `cache: "shared"` with an `expiresAt` within [now, now + 5 min + skew] exactly when the case fetched, and no class or `immutable` otherwise.
 
 ## 3. The kernel (`languages/l0000/crates`)
 
@@ -73,22 +76,27 @@
 
 - **`fetch` restricts the result** to `shared`, expiring at the fetch time plus 5 minutes. The earliest fetch in a compile wins.
 - **A fetch served from the in-process cache** keeps the original fetch's time, so its expiry is no later than the data's age allows. The 60 s in-process cache is shorter than the 5-minute expiry, so this needs a stored timestamp, not a new one.
-- **(Optional, decision 3) `input_independent`:** true when the program neither fetches nor reads `data`.
 - **`crates/core/tests/interpret.rs`, the main correctness gate, as L0184 has:** for every conformance case, with the fixture fetcher:
-  - the plan or value model, interpreted in both modes, equals the compile;
-  - the restriction is `shared` exactly when a fetch ran.
+  - every model is a plan;
+  - the plan, interpreted in both modes, equals the compile;
+  - the restriction is `shared` with a 5-minute expiry exactly when a fetch ran, and `immutable` (none) otherwise.
 - **Fix `languages/l0185/CLAUDE.md`,** which still says TypeScript is what production runs.
 
 ## 5. The api
 
-- **The manifest (v8):** declare `0185` as an interpreter with caps `{ evaluate: "shared", present: "shared" }`.
-- **`routes/data.js`:** `max-age` for unexpired `shared` chains (decision 5).
-- **`scripts/interpret-soak.js`:** default `--baseline-lang 0000` (decision 7).
+- **The manifest (v8):** declare `0185` as an interpreter with caps `{ evaluate: "immutable", present: "immutable" }` (decision 4).
+- **`data.js` and `routes/data.js`:** carry the combined cache class to the route, including across multi-id requests, and set the headers by decision 6.
+- **`commands/worker.js`:** recovery resumes from the pinned boundary (decision 5).
+- **`scripts/interpret-soak.js`:** default `--baseline-lang 0000` (decision 8).
+- **`scripts/lang-parity.js`:** semantic comparison plus explicit metadata checks (decision 9).
 - **Tests:**
   - **chains:** a `shared` L0185 stage under an `immutable` L0184 stage gives a `shared` chain with the earliest expiry;
-  - **HTTP:** the headers are `max-age` while unexpired;
+  - **HTTP:** a `shared` chain is `max-age` while unexpired, `private` when authenticated and `public` when anonymous. A multi-id request takes its ids' stricter class and earliest expiry. Every forced `no-store` case is still `no-store`;
   - **the stage cache:** a hit before `expiresAt`, a miss after;
-  - **a command:** an L0185 → L0176 command whose fetched source changes between a lost answer and recovery still saves the first data (the pinned input) with no `operation-id-reused`. This is the plan's promotion test 3, run in the worker spec against a fake fetcher.
+  - **commands, in the worker spec against a fake source:**
+    - an L0185 → L0176 command whose save's answer is lost, and whose source then **fails**, recovers: it resumes at the pinned boundary, replays the save from its receipts with the original data, and completes with no fetch and no `operation-id-reused`;
+    - the same when the source **changes** instead (the plan's promotion test 3);
+    - a command with no pinned input yet still runs every stage, as today.
 
 ## 6. Activation and rollback
 
@@ -96,6 +104,7 @@
 2. **The interpreted gate:**
    - **Fixtures:** `cargo test` on `tests/interpret.rs` over the 4,002-case corpus.
    - **Live:** `node scripts/lang-parity.js --lang 0185 --interpreted --rust <l0185r>`. Every answer must equal its compile, ignoring `revision`, `cache` and `expiresAt`.
+     - Semantic output must match, and the cache metadata is validated on its own (decision 9).
      - **Caveat:** about 3,000 corpus cases fetch `example.org` paths that answer 404 live, so they only compare errors. Real fetch coverage live is the 16 `l0185.graffiticode.org/data` cases; the fixture test carries the rest.
 3. Release the api with manifest v8 and the HTTP and soak changes, with the flag off. It's inert until the flag is set.
 4. **Stage** an api with `INTERPRETER_L0185=on` and `COMPILE_GENERATION_L0185=interp-1` (the deploy guard requires both). Canary through the tag:
@@ -112,8 +121,8 @@
 | # | Slice | Where | Release |
 |---|---|---|---|
 | 1 | The kernel's per-result class and expiry; the envelope fields; tests | `languages/l0000/crates` | (with slice 2) |
-| 2 | L0185's `fetch` restriction, `tests/interpret.rs`, the CLAUDE.md fix (and optionally value models) | `languages/l0185` | `l0185r` |
-| 3 | Manifest v8; HTTP `max-age` for `shared`; the soak baseline; api tests including the pinned-input command test | `packages/common`, `packages/api`, `scripts` | api, flag off |
+| 2 | L0185's `fetch` restriction, `tests/interpret.rs`, the CLAUDE.md fix | `languages/l0185` | `l0185r` |
+| 3 | Manifest v8 (caps `immutable`); the cache class carried to the route and bounded HTTP caching; recovery from the pinned boundary; the soak baseline; the parity tool's semantic comparison and metadata checks; api tests | `packages/common`, `packages/api`, `scripts` | api, flag off |
 | 4 | The interpreted gate, then activation: staged api with the flag and `interp-1`, canary, promote; evidence in `docs/evidence/interpreter-c3-l0185/` | `deploy.json`, `docs/evidence` | api |
 
 ## 8. Out of scope
@@ -128,4 +137,5 @@
 - **Freshness becomes visible.** A chain's L0185 data now refreshes every 5 minutes instead of never. Anyone relying on a frozen copy for a task id would see changes. That's the intended behavior, but it's a change, and the release notes should say so.
 - **Load on sources.** Every 5 minutes per distinct `(program, input)`, against today's once per task id, ever. The stage cache, the 60 s in-process cache and the 10-URL limit bound it.
 - **Live parity is network-dependent.** A remote that changes between the three calls for a case makes a spurious mismatch. Re-run before reading it as a difference; the fixture test is authoritative.
-- **Model-time fetching, if value models are added.** A program misclassified as input-independent and fetch-free would be evaluated at model time. The `interpret.rs` test must assert that no value model came from a fetching program.
+- **A fetching result that fails to claim `shared`** would be stored as `immutable`, since the cap no longer bounds it (decision 4). The fixture test checks the claim for every corpus case, and the canary checks it live.
+- **Resuming from the pinned boundary changes recovery for every command chain,** not just L0185's. The worker spec covers chains with no pinned input (unchanged) as well as pinned ones.
