@@ -364,6 +364,12 @@ B5 now also gates Track E (durable execution). These criteria don't change for t
 
   This is a separate operation from repair, and B5 alone supports it.
 
+**The B6 entry gate is met by C6** (L0176), from its activation drive of 2026-11-09 (`docs/evidence/c6-l0176-drive/`).
+- **Volume:** 200 commands, 188 clean and 12 faulted, across one save, two saves and a save inside `map`. Same-key retries returned their recorded commands.
+- **Faults:** each faulted write's response or outcome was lost after the provider write. The live phases also killed a worker, revoked the connection mid-command, and lost a head answer.
+- **Outcomes:** every faulted command was reported `uncertain`, or `partial` for the revocation, and nothing re-executed.
+- **Reconciliation:** 17 uncertain operations were reconciled through Policy, all `applied` and `final`, with no repeated write. Every one had already succeeded.
+
 **B6 completion gate.** This decides when B6 is done and repair can be offered to callers. Replay repair retries eligible failed occurrences through the repair ledger (design §5, "Repair"). A drive on the same language shows each of these:
 - **Failed-only selection.** A repair that selects a `completed`, `partial` or `uncertain` occurrence is refused at admission. Only occurrences recorded `failed`, or reconciled to `failed`, are eligible.
 - **Ledger exclusion.** When two repairs with different keys select the same occurrence, one claims it in the ledger and the other is refused. A later repair can't re-run an occurrence that an earlier repair completed.
@@ -496,6 +502,14 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
    - `save-to-itembank` becomes a `start` command (needs B5 and Track D; repair needs B6). No `REGISTRY_VERSION` bump: intents live in the model, and the registry's functions, operations and steps don't change (C6 plan, decision 4). A bump would follow P1b if they ever did.
    - The content-digest dynamic-content reference.
    - Check the consumers that read `data.request`: MCP `item-content.ts:714`, the widget iframe, and the console.
+   - **C6 part 1 as built: complete 2026-11-11.** L0176 saves run as B5 commands, and only through `POST /command`.
+     - **Activated 2026-11-09:** `COMMANDS_L0176=on` with `COMPILE_GENERATION_L0176=commands-1` (api `rmw9vxu3p-a8f1a6`). The activation drive's evidence is in `docs/evidence/c6-l0176-drive/`.
+     - **Fixed after activation:**
+       - #337: a command's artifact holds the head's output, so the read path now serves it as an envelope (`form: "result"`), and views and publications are signed again. The artifacts stored before the fix were marked by `scripts/c6-mark-command-artifacts.js`.
+       - #342: a refused admission records its reason on the command (`admissionRefusal`), and callers see `permission denied (<reason>)`.
+     - **D3, the callers (2026-11-10):** the console and the REST server save through `POST /command` (graffiticode-app #111 and #112). The canary has a `--command` mode, and its scheduled job runs with it.
+     - **D4 (2026-11-11):** `BRIDGE_L0176=off` (api `rmwcg1nkb-9870c7`, #349). The canary runs its gateway-path checks as commands and checks that a compile that would save is refused `bridge-retired` (#348).
+     - **Part 2,** interpreting L0176's reads, has not started.
 7. **C7 L0000** last, because it is the kernel the others depend on.
 
 ## Track E — Durable execution, driven by L0188
@@ -655,6 +669,11 @@ Today an effect runs as a side effect of `/compile`. An L0176 save runs on any c
   - Only once telemetry shows no legacy-triggered effects for an agreed period.
   - Announced as a compatibility change. Rollback is re-enabling the flag.
   - For L0013, D4 is also when both runtime accounts lose direct write (C5c). From then on `COMMANDS_L0013` stays on (see "Rollback procedures").
+  - **L0176, as done (2026-11-11).**
+    - **Telemetry:** the bridge logs one `bridge {lang, outcome, keyKind, client}` line per save it handles (#343).
+    - **The window was shortened by the owner,** from the planned 7 days to about 18 hours. L0176 has a single internal user, its clients (console, REST) already used `POST /command`, and the telemetry showed only the canary's own writes. For the same reason no compatibility notice was needed.
+    - **Switched off:** `BRIDGE_L0176=off` (#349, api `rmwcg1nkb-9870c7`).
+    - **Rollback:** set it `"on"` and release the api, or roll back to the previous api release.
 
 ## Decisions this plan records
 
