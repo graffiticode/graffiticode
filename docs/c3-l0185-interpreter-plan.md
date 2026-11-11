@@ -45,7 +45,12 @@
    - The guarantee that a fetching result claims `shared` comes from the dialect, and the fixture test (§4) asserts it for every corpus case.
 5. **Commands: recover from the pinned boundary; defer per-read observations to B6** (review finding 1).
    - **The gap today.** The worker runs a chain right to left, so in an L0185 → L0176 command the L0185 stage runs *before* the L0176 stage's pinned input is read (`commands/worker.js` `runStages`). If a save's answer is lost and the source then fails, recovery re-runs L0185, the stage fails, and the command stops before replaying the save, though its input was pinned.
-   - **The fix: recovery starts at the pinned boundary.** Before running any stage, the worker reads the pinned inputs (`records/input?stage=`). It finds the first stage in run order that already has one, resumes there with that input, and skips every stage to its right. A later effectful stage left of it still pins its own input install-once.
+   - **The fix: recovery starts at the furthest pinned boundary.**
+     - Before running any stage, the worker reads the pinned inputs (`records/input?stage=`).
+     - It resumes at the **last** stage in execution order that has one, the furthest progressed, with that input. It skips every stage to that stage's right: they ran before its input was pinned, so their work is already in that input.
+     - Restarting at an earlier pinned stage would re-run the fetches after it. In `fetch A → save A → fetch B → save B`, with both saves pinned and save B's answer lost, restarting at save A runs fetch B again, and a source outage would block recovery before save B.
+     - A later effectful stage left of the resume point still pins its own input install-once.
+     - **Resuming changes where the run starts, not what guards it.** The resumed stage still opens its session through Policy (live permission), every write is still owner-fenced by the command's generation, and the Broker still replays recorded operations from their receipts with no provider call.
    - **With that, re-fetching is never needed once a save's input is pinned,** and per-fetch observations matter only for B6 materialization and repair, and for Track E. They stay deferred.
    - **Payload size.** Policy's payloads are capped at 512 KiB, against 1 MB for an L0185 result. A larger L0185 output feeding an L0176 save is refused `input-too-large`, which is clear and safe; raising the cap is separate.
 6. **HTTP caching is bounded, and carries the final class and visibility** (review finding 2).
@@ -96,6 +101,8 @@
   - **commands, in the worker spec against a fake source:**
     - an L0185 → L0176 command whose save's answer is lost, and whose source then **fails**, recovers: it resumes at the pinned boundary, replays the save from its receipts with the original data, and completes with no fetch and no `operation-id-reused`;
     - the same when the source **changes** instead (the plan's promotion test 3);
+    - **multiple saves:** in `fetch A → save A → fetch B → save B`, with both saves' inputs pinned and save B's answer lost, recovery resumes at save B, with fetch B's source unavailable. Neither fetch runs, save A isn't repeated, and save B replays from its receipts with its original data;
+    - resuming still checks authorization: a connection revoked before recovery stops the resumed stage at its session, recorded from receipts. A stale generation is still fenced out;
     - a command with no pinned input yet still runs every stage, as today.
 
 ## 6. Activation and rollback
