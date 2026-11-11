@@ -35,11 +35,17 @@
 // instead, before its language's interpreter is turned on in the API: for
 // every case, the compile answer must equal what the API's interpreted stage
 // would get, POST /compile with "form": "model" then POST /interpret of that
-// model against the case's data, in both modes, apart from `revision`. No rule
-// applies: interpretation must not change a single answer. A program that
-// doesn't compile has no model, and its errors must be the compile's.
+// model against the case's data, in both modes, apart from `revision` and the
+// cache metadata (a `cache` class and `expiresAt`, C3), which differ by when
+// each answer was made. No rule applies: interpretation must not change a
+// single answer. A program that doesn't compile has no model, and its errors
+// must be the compile's. The metadata is then checked on its own, on every
+// answer: `cache: "shared"` with an `expiresAt` within [sent, received +
+// --fetch-ttl + skew] for a case that fetched (its source names `fetch`) and
+// has no errors, the same or nothing for one that fetched and failed, and no
+// restriction at all otherwise.
 //
-//   node scripts/lang-parity.js --lang 0184 --interpreted --rust <Rust URL> [--limit N] [--out file]
+//   node scripts/lang-parity.js --lang 0184 --interpreted --rust <Rust URL> [--limit N] [--out file] [--fetch-ttl seconds]
 //
 // With the operator's gcloud credentials (the verify account's key is read
 // from Secret Manager). Prints one JSON report; its `corpus` block has the
@@ -116,6 +122,35 @@ export const comparable = ({ status, text }) => {
   return { status, body: body === undefined ? { text } : body };
 };
 
+// What --interpreted compares: as `comparable`, and without the cache metadata
+// (a class and `expiresAt`), which `metadataProblem` checks on its own.
+// `cache: false` (no-store) is compared: it isn't a class.
+export const semantic = answer => {
+  const { status, body } = comparable(answer);
+  if (!body || typeof body !== "object" || Array.isArray(body)) return { status, body };
+  const { expiresAt: _expiresAt, ...rest } = body;
+  if (typeof rest.cache === "string") delete rest.cache;
+  return { status, body: rest };
+};
+
+export const FETCHED_TTL_MS = 5 * 60 * 1000;
+export const METADATA_SKEW_MS = 5000;
+
+// One answer's cache metadata (C3), or null when it's right. `fetches`: the
+// case's source names `fetch`. Sent and received bound when it was answered.
+export const metadataProblem = (answer, { fetches, sentAt, receivedAt, ttlMs = FETCHED_TTL_MS, skewMs = METADATA_SKEW_MS }) => {
+  const body = parse(answer.text);
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const { cache, expiresAt } = body;
+  const restricted = (typeof cache === "string" && cache !== "immutable") || expiresAt !== undefined;
+  const withinTtl = () => cache === "shared" && Number.isFinite(expiresAt) &&
+    expiresAt >= sentAt - skewMs && expiresAt <= receivedAt + ttlMs + skewMs;
+  if (!fetches) return restricted ? `restricted (${JSON.stringify({ cache, expiresAt })}) with no fetch` : null;
+  const failed = Array.isArray(body.errors) && body.errors.length > 0;
+  if (failed && !restricted) return null;
+  return withinTtl() ? null : `fetched, but ${JSON.stringify({ cache, expiresAt })} isn't shared within the TTL`;
+};
+
 const withoutErrorText = body => {
   if (!body || typeof body !== "object" || !Array.isArray(body.errors)) return body;
   return { ...body, errors: body.errors.map(e => (e && typeof e === "object" ? { ...e, message: "" } : "")) };
@@ -186,7 +221,7 @@ export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
 export const compareInterpreted = (compiled, modelled, interpreted) => {
   const problems = { compiled: answerProblem(compiled), model: answerProblem(modelled) };
   if (problems.compiled || problems.model) return { invalid: problems };
-  const compile = comparable(compiled);
+  const compile = semantic(compiled);
   const model = comparable(modelled).body;
   if (!model.model) {
     // No model: the program doesn't compile, and fails exactly as it compiles.
@@ -197,7 +232,7 @@ export const compareInterpreted = (compiled, modelled, interpreted) => {
   for (const [mode, answer] of Object.entries(interpreted ?? {})) {
     const problem = answerProblem(answer);
     if (problem) return { invalid: { [mode]: problem } };
-    if (!isDeepStrictEqual(comparable(answer), compile)) return "different";
+    if (!isDeepStrictEqual(semantic(answer), compile)) return "different";
   }
   return interpreted && Object.keys(interpreted).length ? "identical" : "different";
 };
@@ -329,22 +364,41 @@ const main = async () => {
     const counts = { identical: 0, different: 0, invalid: 0, skipped: 0, values: 0, plans: 0 };
     const differences = [];
     const invalid = [];
+    const ttlMs = Number(arg("--fetch-ttl", String(FETCHED_TTL_MS / 1000))) * 1000;
+    const metadata = { checked: 0, fetched: 0, problems: 0, examples: [] };
+    const checkMetadata = (i, c, label, answer, sentAt, receivedAt) => {
+      if (answerProblem(answer)) return;
+      const fetches = /\bfetch\b/i.test(c.src ?? "");
+      metadata.checked++;
+      if (fetches) metadata.fetched++;
+      const problem = metadataProblem(answer, { fetches, sentAt, receivedAt, ttlMs });
+      if (problem) {
+        metadata.problems++;
+        if (metadata.examples.length < 20) metadata.examples.push({ case: i, src: c.src, answer: label, problem });
+      }
+    };
     for (const [i, c] of cases.entries()) {
       if (!sendable(c)) { counts.skipped++; continue; }
       if (Date.now() - mintedAt > 180000) { token = await exchange(); mintedAt = Date.now(); }
       const headers = token ? { Authorization: token } : {};
       const data = c.data ?? {};
+      const sentAt = Date.now();
       const [compiled, modelled] = await Promise.all([
         request(rustUrl, "POST", "/compile", { headers, body: { code: c.ast, data } }),
         request(rustUrl, "POST", "/compile", { headers, body: { code: c.ast, data: {}, form: "model" } }),
       ]);
+      checkMetadata(i, c, "compile", compiled, sentAt, Date.now());
       const model = parse(modelled.text)?.model;
       let interpreted = null;
       if (model) {
         if (model.kind === "value") counts.values++;
         else counts.plans++;
+        const interpretAt = Date.now();
         const [evaluate, present] = await Promise.all(["evaluate", "present"].map(mode =>
           request(rustUrl, "POST", "/interpret", { headers, body: { model, input: data, mode } })));
+        const answeredAt = Date.now();
+        checkMetadata(i, c, "evaluate", evaluate, interpretAt, answeredAt);
+        checkMetadata(i, c, "present", present, interpretAt, answeredAt);
         interpreted = { evaluate, present };
       }
       const result = compareInterpreted(compiled, modelled, interpreted);
@@ -361,9 +415,12 @@ const main = async () => {
     }
     const compared = cases.length - counts.skipped;
     const report = { lang, mode: "interpreted", rust: rustUrl, ranAt, cases: casesFile, endedAt: new Date().toISOString() };
-    report.checks = { interpreted: { ok: counts.different === 0 && counts.invalid === 0 && compared > 0, ...counts, compared, differences, invalidAnswers: invalid } };
-    report.corpus = corpusBlock({ ranAt, tasks: compared, failures: counts.different + counts.invalid });
-    report.passed = report.checks.interpreted.ok;
+    report.checks = {
+      interpreted: { ok: counts.different === 0 && counts.invalid === 0 && compared > 0, ...counts, compared, differences, invalidAnswers: invalid },
+      metadata: { ok: metadata.problems === 0, ttlMs, ...metadata },
+    };
+    report.corpus = corpusBlock({ ranAt, tasks: compared, failures: counts.different + counts.invalid + metadata.problems });
+    report.passed = report.checks.interpreted.ok && report.checks.metadata.ok;
     const text = JSON.stringify(report, null, 2);
     if (out) await writeFile(out, `${text}\n`);
     console.log(text);

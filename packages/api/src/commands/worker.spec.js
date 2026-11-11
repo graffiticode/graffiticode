@@ -4,7 +4,7 @@
 // kernel-like language that binds each occurrence before it mints. The
 // provider counts its writes: no test may see a write repeated.
 import { generateKeyPair, exportJWK } from "jose";
-import { encodeChainId } from "@graffiticode/common/chain";
+import { decodeChainId, encodeChainId } from "@graffiticode/common/chain";
 import { canonicalDigest } from "@graffiticode/common/canonical";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
@@ -143,7 +143,7 @@ const language = {
   },
 };
 
-const taskStorer = { get: async ({ id }) => id.split("+").length && [TASKS["task-save"], TASKS["task-data"]] };
+const taskStorer = { get: async ({ id }) => decodeChainId(id).map(key => TASKS[key]) };
 
 beforeEach(async () => {
   const pair = await generateKeyPair("ES256", { extractable: true });
@@ -259,6 +259,168 @@ describe("recovery", () => {
 
 // The activation drive's faults (faults.js), as api-drive sets them: they act
 // only for their principals, and recovery is the ordinary path.
+// C3, plan decision 5: recovery starts at the furthest pinned boundary. A
+// fetching stage (like L0185, no effects) feeds a save (like L0176 under
+// start: a runtime expansion, so a lost answer leaves the command pending for
+// recovery). Recovery must not fetch again once a save's input is pinned.
+describe("recovery from the furthest pinned boundary (C3)", () => {
+  let sources;
+  let fetches;
+  let lose;
+  const fetchTask = name => ({ lang: "0000", code: { root: `fetch-${name}` } });
+  const saveTask = name => ({ lang: "0176", code: { root: `save-${name}` } });
+  const chainOf = (...tasks) => {
+    const ids = tasks.map((task, i) => {
+      const key = `c3-${i}-${task.code.root}`;
+      TASKS[key] = task;
+      return key;
+    });
+    return encodeChainId(ids);
+  };
+  // Stages are named by position: in `[save B, fetch B, save A, fetch A]`,
+  // s0 is save B and s3 is fetch A, which runs first.
+  const fetching = {
+    ...language,
+    model: async ({ lang, code }) => ({
+      model: lang === "0176"
+        ? { lang, kind: "plan", digest: hex("a"), program: code, intents: [{ id: "save:1", fn: "save-to-itembank", op: WRITE, runtime: true, bounds: { maxOccurrences: 4 } }] }
+        : { lang, kind: "plan", digest: hex("b"), program: code },
+      errors: [],
+      revision: REVISIONS[lang],
+    }),
+    interpret: async ({ model }) => {
+      const name = model.program.root.slice("fetch-".length);
+      fetches.push(name);
+      if (lose.fetch === name) {
+        lose.fetch = null;
+        return { errors: [{ message: "lost" }], responseLost: true };
+      }
+      return name in sources
+        ? { data: sources[name], errors: [] }
+        : { errors: [{ message: `fetch ${name}: the source is unavailable` }] };
+    },
+    start: async ({ input, commandSession, stage }) => {
+      const key = `1#${stage}`;
+      const occurrenceId = runtimeOccurrenceId("save:1", key);
+      const payload = input.data;
+      await policy.commandBind({ caller: L0176, sessionToken: commandSession, occurrenceId, intentId: "save:1", expansionKey: key, args: JSON.stringify(payload), argd: argsDigest(payload) });
+      const { executionToken } = await policy.mint({ caller: L0176, sessionToken: commandSession, fn: "save-to-itembank", op: WRITE, occurrenceId, argsDigest: argsDigest(payload) });
+      const outcome = await execute({ executionToken, payload });
+      if (lose.save === stage) {
+        lose.save = null;
+        return { errors: [{ message: "lost" }], responseLost: true };
+      }
+      return { data: { saved: outcome.result.saved }, errors: [], occurrences: { "save:1": [occurrenceId] } };
+    },
+  };
+  const allocateChain = (taskId, key = "c3") => policy.allocateCommand({
+    caller: GATEWAY,
+    user: { uid: OWNER },
+    connectionId: "conn-1",
+    taskId,
+    inputDigest: hex("9"),
+    idempotencyKey: key,
+    lang: "0176",
+    request: JSON.stringify({ id: taskId, connectionId: "conn-1", options: {} }),
+    worker: "w1",
+  });
+  const head = taskId => current({ taskId });
+
+  beforeEach(() => {
+    sources = { A: { items: ["a1"] }, B: { items: ["b1"] } };
+    fetches = [];
+    lose = {};
+  });
+
+  it("a save's lost answer, then its source unavailable: resumes at the save with its pinned input, no fetch, no repeated write", async () => {
+    const taskId = chainOf(saveTask("A"), fetchTask("A"));
+    const { commandId, generation } = await allocateChain(taskId);
+    lose.save = "s0";
+    expect(await workerAs("w1", fetching)({ commandId, generation })).toMatchObject({ status: "pending", resume: true });
+    expect(fetches).toEqual(["A"]);
+    expect(provider).toEqual([{ items: ["a1"] }]);
+    delete sources.A;
+    fetches.length = 0;
+    const taken = await takeOver(commandId, generation, "w2");
+    const state = await workerAs("w2", fetching)({ commandId, generation: taken.generation });
+    expect(state).toMatchObject({ status: "completed", result: { state: "available" }, publication: { state: "published" } });
+    expect(fetches).toEqual([]);
+    expect(provider).toHaveLength(1);
+    expect((await head(taskId)).artifact.content).toEqual({ saved: { items: ["a1"] } });
+  });
+
+  it("a source that changed since the pin: the save replays with its original data", async () => {
+    const taskId = chainOf(saveTask("A"), fetchTask("A"));
+    const { commandId, generation } = await allocateChain(taskId);
+    lose.save = "s0";
+    await workerAs("w1", fetching)({ commandId, generation });
+    sources.A = { items: ["changed"] };
+    const taken = await takeOver(commandId, generation, "w2");
+    expect((await workerAs("w2", fetching)({ commandId, generation: taken.generation })).status).toBe("completed");
+    expect(provider).toEqual([{ items: ["a1"] }]);
+    expect((await head(taskId)).artifact.content).toEqual({ saved: { items: ["a1"] } });
+  });
+
+  it("multiple saves: fetch A → save A → fetch B → save B, save B lost and fetch B down, resumes at save B", async () => {
+    const taskId = chainOf(saveTask("B"), fetchTask("B"), saveTask("A"), fetchTask("A"));
+    const { commandId, generation } = await allocateChain(taskId);
+    lose.save = "s0";
+    expect(await workerAs("w1", fetching)({ commandId, generation })).toMatchObject({ status: "pending", resume: true });
+    expect(fetches).toEqual(["A", "B"]);
+    expect(provider).toEqual([{ items: ["a1"] }, { items: ["b1"] }]);
+    delete sources.A;
+    delete sources.B;
+    fetches.length = 0;
+    const taken = await takeOver(commandId, generation, "w2");
+    const state = await workerAs("w2", fetching)({ commandId, generation: taken.generation });
+    expect(state).toMatchObject({ status: "completed", result: { state: "available" } });
+    // Neither fetch ran, save A wasn't repeated, and save B replayed its receipt.
+    expect(fetches).toEqual([]);
+    expect(provider).toHaveLength(2);
+    expect((await head(taskId)).artifact.content).toEqual({ saved: { items: ["b1"] } });
+  });
+
+  it("still checks authorization: a connection revoked before recovery stops the resumed stage at its session", async () => {
+    const taskId = chainOf(saveTask("A"), fetchTask("A"));
+    const { commandId, generation } = await allocateChain(taskId);
+    lose.save = "s0";
+    await workerAs("w1", fetching)({ commandId, generation });
+    await connections.put({ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "disabled" });
+    fetches.length = 0;
+    const taken = await takeOver(commandId, generation, "w2");
+    const state = await workerAs("w2", fetching)({ commandId, generation: taken.generation });
+    // Recorded from the receipt; no new write, no fetch, no result.
+    expect(state.status).not.toBe("pending");
+    expect(state.result).toMatchObject({ state: "unavailable" });
+    expect(fetches).toEqual([]);
+    expect(provider).toHaveLength(1);
+  });
+
+  it("still fences: the old worker, resuming with a stale generation, writes nothing", async () => {
+    const taskId = chainOf(saveTask("A"), fetchTask("A"));
+    const { commandId, generation } = await allocateChain(taskId);
+    lose.save = "s0";
+    await workerAs("w1", fetching)({ commandId, generation });
+    await takeOver(commandId, generation, "w2");
+    fetches.length = 0;
+    expect(await workerAs("w1", fetching)({ commandId, generation })).toMatchObject({ status: "pending", lost: "stale-generation" });
+    expect(fetches).toEqual([]);
+    expect(provider).toHaveLength(1);
+  });
+
+  it("with no pinned input yet, recovery runs every stage, as before", async () => {
+    const taskId = chainOf(saveTask("A"), fetchTask("A"));
+    const { commandId, generation } = await allocateChain(taskId);
+    lose.fetch = "A";
+    expect(await workerAs("w1", fetching)({ commandId, generation })).toMatchObject({ status: "pending", resume: true });
+    expect(provider).toHaveLength(0);
+    const taken = await takeOver(commandId, generation, "w2");
+    expect((await workerAs("w2", fetching)({ commandId, generation: taken.generation })).status).toBe("completed");
+    expect(fetches).toEqual(["A", "A"]);
+    expect(provider).toEqual([{ items: ["a1"] }]);
+  });
+});
+
 describe("the drive's worker faults", () => {
   const exited = () => { throw new Error("the process exited"); };
   const withFaults = (name, env) => buildCommandWorker({

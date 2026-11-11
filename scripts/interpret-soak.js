@@ -6,7 +6,7 @@
 //   set -a; source ../graffiticode-app/.env.local; set +a   # EVAL_API_KEY
 //   node scripts/interpret-soak.js --langs 0184,0186,0175,0179,0181 \
 //     [--api https://api.graffiticode.org] [--misses 2000] [--hits 2000] [--concurrency 16] \
-//     [--out docs/evidence/b5-gate/<date>] [--no-logs] [--rehearsal <file>] [--baseline-lang 0185] [--warmup 300]
+//     [--out docs/evidence/b5-gate/<date>] [--no-logs] [--rehearsal <file>] [--baseline-lang 0000] [--warmup 300]
 //
 // For each language:
 //   - corpus: every corpus case that compiles is read through GET /data three times. Its oracle
@@ -18,7 +18,8 @@
 //     answers must be identical;
 //   - latency: each request's elapsed time. The budget's baseline is the api's legacy path:
 //     after each language's misses, as many POST /compile requests over fresh form state for a
-//     compile-only language (--baseline-lang), at the same concurrency. The direct compile's
+//     compile-only language (--baseline-lang, L0000 by default: it stays compile-only until C7,
+//     while L0185 is interpreted from C3), at the same concurrency. The direct compile's
 //     time is reported beside it.
 // Then the chain shapes: an interpreted stage over a legacy L0000 stage, L0000 over an
 // interpreted one, two interpreted stages, and the View's loop with generation URLs.
@@ -43,7 +44,7 @@ const CONCURRENCY = Number(flag("--concurrency", THRESHOLDS.concurrency));
 const OUT = flag("--out", path.join("docs/evidence/b5-gate", new Date().toISOString().slice(0, 10)));
 const READ_LOGS = !args.includes("--no-logs");
 const REHEARSAL = flag("--rehearsal");
-const BASELINE_LANG = String(flag("--baseline-lang", "0185")).replace(/^L/i, "").padStart(4, "0");
+const BASELINE_LANG = String(flag("--baseline-lang", "0000")).replace(/^L/i, "").padStart(4, "0");
 const INPUT_READERS = ["0003", "0010", "0014", "0174", "0177", "0178", "0179", "0180", "0181", "0183"];
 const ROOT = new URL("..", import.meta.url).pathname;
 const RUN = Math.random().toString(36).slice(2, 10);

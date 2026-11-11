@@ -33,7 +33,7 @@
 //   getOrCreate  the one declared exception to a read-only get: an atomic,
 //                idempotent create of per-viewer state (L0182's assignment).
 
-export const INTERPRETER_MANIFEST_VERSION = 7;
+export const INTERPRETER_MANIFEST_VERSION = 8;
 
 // From loosest to strictest.
 export const CACHE_CLASSES = Object.freeze(["immutable", "shared", "private", "no-store"] as const);
@@ -78,6 +78,13 @@ export type InterpreterDeclaration = Readonly<{
 //         L0014 translates through its TransLaTeX worker when interpreted, as it
 //         does when compiled; the translation is deterministic for the rule set
 //         and source.
+//   0185  C3: fetch & shape data (docs/c3-l0185-interpreter-plan.md). Every
+//         model is a plan, and fetching runs only at interpret. The cap is
+//         immutable on purpose: the language claims `shared` itself, expiring
+//         5 minutes after its earliest fetch, for every result that fetched
+//         (checked over its whole corpus), and a fetch-free result stays
+//         immutable. A `shared` cap would downgrade fetch-free results to
+//         shared with no expiry.
 export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclaration>> = Object.freeze({
   "0003": Object.freeze({
     interpreter: "interpreter",
@@ -124,6 +131,10 @@ export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclar
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
   }),
   "0184": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0185": Object.freeze({
     interpreter: "interpreter",
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
   }),

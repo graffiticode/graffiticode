@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { answerProblem, asDelivered, compareCase, compareInterpreted, compareLexicon, compareProbe, comparable, corpusBlock, formAssets, formProblems, isEnvelope, ruleProblems, sendable } from "../lang-parity.js";
+import { FETCHED_TTL_MS, answerProblem, asDelivered, compareCase, compareInterpreted, compareLexicon, compareProbe, comparable, corpusBlock, formAssets, formProblems, isEnvelope, metadataProblem, ruleProblems, semantic, sendable } from "../lang-parity.js";
 
 const answer = (status, body) => ({ status, text: JSON.stringify(body) });
 
@@ -157,6 +157,43 @@ test("--interpreted: the model interpreted in both modes must answer exactly as 
   assert.equal(compareInterpreted(compiled, modelled, { evaluate: same, present: extra }), "different");
   assert.equal(compareInterpreted(compiled, modelled, null), "different");
   assert.deepEqual(compareInterpreted(compiled, modelled, { evaluate: { status: 500, text: "" }, present: same }), { invalid: { evaluate: "HTTP 500" } });
+});
+
+test("--interpreted compares semantically: a cache class and expiresAt aside, as revision (C3)", () => {
+  const answer = body => ({ status: 200, text: JSON.stringify(body) });
+  const compiled = answer({ data: [1], errors: [], cache: "shared", expiresAt: 1000 });
+  const modelled = answer({ model: { lang: "0185", kind: "plan", digest: "d", program: {} }, errors: [], revision: "r" });
+  const later = answer({ data: [1], errors: [], cache: "shared", expiresAt: 2000, revision: "r" });
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate: later, present: later }), "identical");
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate: later, present: answer({ data: [2], errors: [], cache: "shared", expiresAt: 2000 }) }), "different");
+  // `cache: false` is no-store, not a class: still compared.
+  assert.deepEqual(semantic(answer({ data: 1, errors: [], cache: false })).body, { data: 1, errors: [], cache: false });
+  assert.deepEqual(semantic(answer({ data: 1, errors: [], cache: "immutable", expiresAt: null })).body, { data: 1, errors: [] });
+});
+
+test("--interpreted validates the cache metadata on its own (C3)", () => {
+  const answer = body => ({ status: 200, text: JSON.stringify(body) });
+  const sentAt = 1_000_000;
+  const receivedAt = sentAt + 200;
+  const at = { sentAt, receivedAt };
+  const shared = expiresAt => answer({ data: [1], errors: [], cache: "shared", expiresAt });
+  // A case that fetched: shared, expiring within [sent, received + TTL + skew].
+  assert.equal(metadataProblem(shared(sentAt + FETCHED_TTL_MS), { fetches: true, ...at }), null);
+  assert.equal(metadataProblem(shared(sentAt + 1000), { fetches: true, ...at }), null);
+  assert.match(metadataProblem(shared(receivedAt + FETCHED_TTL_MS + 60_000), { fetches: true, ...at }), /isn't shared within the TTL/);
+  assert.match(metadataProblem(shared(sentAt - 60_000), { fetches: true, ...at }), /isn't shared within the TTL/);
+  assert.match(metadataProblem(answer({ data: [1], errors: [] }), { fetches: true, ...at }), /isn't shared/);
+  assert.match(metadataProblem(answer({ data: [1], errors: [], cache: "private", expiresAt: sentAt + 1000 }), { fetches: true, ...at }), /isn't shared/);
+  // A fetch that failed: unrestricted, or validly shared.
+  const failed = { data: null, errors: [{ message: "404" }] };
+  assert.equal(metadataProblem(answer(failed), { fetches: true, ...at }), null);
+  assert.equal(metadataProblem(answer({ ...failed, cache: "shared", expiresAt: sentAt + FETCHED_TTL_MS }), { fetches: true, ...at }), null);
+  assert.match(metadataProblem(answer({ ...failed, cache: "shared" }), { fetches: true, ...at }), /isn't shared within/);
+  // No fetch: no restriction at all.
+  assert.equal(metadataProblem(answer({ data: 1, errors: [] }), { fetches: false, ...at }), null);
+  assert.equal(metadataProblem(answer({ data: 1, errors: [], cache: "immutable" }), { fetches: false, ...at }), null);
+  assert.match(metadataProblem(shared(sentAt + FETCHED_TTL_MS), { fetches: false, ...at }), /with no fetch/);
+  assert.match(metadataProblem(answer({ data: 1, errors: [], expiresAt: sentAt }), { fetches: false, ...at }), /with no fetch/);
 });
 
 test("--interpreted: a program with no model must fail exactly as it compiles", () => {

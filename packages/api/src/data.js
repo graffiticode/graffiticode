@@ -648,10 +648,23 @@ const buildGetData = ({
     if (upstream.expiresAt !== null && typeof action === "object") {
       action.expiresAt = Math.min(action.expiresAt ?? Infinity, upstream.expiresAt);
     }
-    if ((!cacheable || (interpretedChain && !urlNamesGenerations) || !permanent(upstream)) && typeof action === "object") {
-      // Let the route drop the immutable cache headers — an expiring compile
-      // must not be held by the browser or the CDN either.
-      action.noStore = true;
+    if (typeof action === "object") {
+      // Held as immutable only when cacheable, permanent, and (for a chain with
+      // an interpreted stage) under a URL naming the current generations.
+      const mayHold = cacheable && !(interpretedChain && !urlNamesGenerations);
+      // C3, bounded caching: a result that is `shared` until a future
+      // expiresAt, which would otherwise be held, is held until then. One with
+      // errors (a failed fetch) is never held. The route sets the headers;
+      // across a request's ids the stricter class and the earliest expiry win.
+      const bounded = mayHold && !permanent(upstream) && sharable(upstream, now()) &&
+        upstream.expiresAt !== null && !obj.errors?.length;
+      if (bounded) {
+        action.cacheClass = "shared";
+      } else if (!mayHold || !permanent(upstream)) {
+        // Let the route drop the immutable cache headers — an expiring compile
+        // must not be held by the browser or the CDN either.
+        action.noStore = true;
+      }
     }
     // A refresh writes its fresh result back; an override must not, even with
     // a refresh, since its result is specific to that user's language-server
