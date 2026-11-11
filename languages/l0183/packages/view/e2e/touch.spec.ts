@@ -131,7 +131,9 @@ test("the phone layout keeps a usable diagram, bounded scrolling trays, and Chec
       vh: innerHeight,
     };
   });
-  expect(s.frameH).toBeGreaterThanOrEqual(640 - 1);
+  // The square scales down to the page width; nothing scrolls it.
+  expect(s.frameH).toBeGreaterThan(0);
+  expect(s.frameH).toBeLessThanOrEqual(await page.evaluate(() => document.querySelector<HTMLElement>("[data-l0183-frame]")!.clientWidth));
   expect(s.trayH).toBeLessThanOrEqual(s.vh * 0.25 + 1);
   expect(s.trayScrolls).toBe(true);
   expect(s.checkBottom).toBeLessThanOrEqual(s.vh);
@@ -165,7 +167,7 @@ test("an ordinary swipe on a tray item's body scrolls the tray, placing and sele
   expect(await page.locator(`${answersTray} button[aria-pressed=true]`).count()).toBe(0);
 });
 
-test("a tap selects and a tap places; a swipe on empty canvas scrolls the frame; a filled blank drags", async ({ page }) => {
+test("a tap selects and a tap places; a filled blank drags; a swipe on empty canvas moves no answer", async ({ page }) => {
   const cdp = await page.context().newCDPSession(page);
   await reveal(page, "n1", "n2");
   const [first, second] = await visibleEmptyBlanks(page);
@@ -183,7 +185,8 @@ test("a tap selects and a tap places; a swipe on empty canvas scrolls the frame;
   await expect(page.locator(`[data-l0183-blank="${second}"]`)).toHaveAttribute("aria-label", /holding/);
   await expect(page.locator(`[data-l0183-blank="${first}"]`)).toHaveAttribute("aria-label", "Blank, empty");
 
-  // Empty canvas: a point in the frame where nothing but the canvas or its lines is hit.
+  // Empty canvas: a point in the frame where nothing but the canvas or its lines is hit. A swipe
+  // there belongs to the browser: it places and lifts nothing.
   const empty = await page.evaluate(() => {
     const r = document.querySelector("[data-l0183-frame]")!.getBoundingClientRect();
     for (let y = r.top + 8; y < r.bottom - 8; y += 12)
@@ -194,10 +197,9 @@ test("a tap selects and a tap places; a swipe on empty canvas scrolls the frame;
     return null;
   });
   expect(empty).not.toBeNull();
-  const frame = page.locator("[data-l0183-frame]");
-  const scrollBefore = await frame.evaluate((el) => el.scrollTop + el.scrollLeft);
-  await swipe(cdp, page, empty!, { x: empty!.x - 100, y: empty!.y - 100 });
-  expect(await frame.evaluate((el) => el.scrollTop + el.scrollLeft)).not.toBe(scrollBefore);
+  const holding = await page.locator("[data-l0183-blank][aria-label*=holding]").count();
+  await swipe(cdp, page, empty!, { x: empty!.x - 60, y: empty!.y - 60 });
+  expect(await page.locator("[data-l0183-blank][aria-label*=holding]").count()).toBe(holding);
 });
 
 test("placing answers, including those that empty a wrapped tray row, moves nothing", async ({ page }) => {
@@ -228,31 +230,50 @@ test("placing answers, including those that empty a wrapped tray row, moves noth
   expect(after.nodes).toEqual(start.nodes);
 });
 
-test("the diagram is a square as wide as the page, never under 640, with no upper limit", async ({ page }) => {
+test("the square grows with the page up to its best fit, and scales down with no lower limit", async ({ page }) => {
   for (const host of ["", "&host=learnosity"]) {
+    let best = 0;
     for (const [w, h] of [
-      [375, 667],
-      [1280, 800],
-      [2560, 1440],
       [5120, 1440],
+      [2560, 1440],
+      [1280, 800],
+      [375, 667],
+      [240, 400],
     ]) {
       await page.setViewportSize({ width: w, height: h });
-      await page.goto(`/dev.html?fixture=sparse${host}`);
+      await page.goto(`/dev.html?fixture=web40${host}`);
       await page.locator("[data-l0183-canvas]").waitFor();
       await page.waitForTimeout(300);
       const s = await page.evaluate(() => {
         const f = document.querySelector<HTMLElement>("[data-l0183-frame]")!;
         const c = document.querySelector<HTMLElement>("[data-l0183-canvas]")!;
-        return { fw: f.clientWidth, fh: f.getBoundingClientRect().height, cw: c.offsetWidth, ch: c.offsetHeight };
+        const r = c.getBoundingClientRect();
+        return {
+          fw: f.clientWidth,
+          fh: f.getBoundingClientRect().height,
+          shown: [r.width, r.height],
+          best: c.offsetWidth,
+          scrolls: f.scrollWidth > f.clientWidth || f.scrollHeight > f.clientHeight,
+        };
       });
-      const side = Math.max(640, s.fw);
-      expect(Math.round(s.fh), `${w}x${h}${host}`).toBe(Math.round(side));
-      expect([s.cw, s.ch], `${w}x${h}${host}`).toEqual([side, side]);
+      best ||= s.best; // the best fit does not depend on the page
+      expect(s.best, `${w}${host}`).toBe(best);
+      const side = Math.min(s.fw, best);
+      expect(Math.round(s.shown[0]), `${w}${host}`).toBe(Math.round(side));
+      expect(Math.round(s.shown[1]), `${w}${host}`).toBe(Math.round(side));
+      expect(Math.round(s.fh), `${w}${host}`).toBe(Math.round(side));
+      expect(s.scrolls, `${w}${host}`).toBe(false);
     }
+    // The widest page shows it at best fit (capped), the narrow ones scaled down.
+    expect(best).toBeLessThan(5120 - 64);
+    expect(best).toBeGreaterThan(375);
   }
 });
 
 test("a drag held at the window's top edge scrolls the Form, so a tray below the square reaches blanks above", async ({ page }) => {
+  // A short window, so the Form scrolls.
+  await page.setViewportSize({ width: 375, height: 420 });
+  await page.waitForTimeout(300);
   const cdp = await page.context().newCDPSession(page);
   await showTray(page);
   const form = page.locator(".l0183-web");

@@ -177,11 +177,9 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
     - Ring radii grow a step at a time until nothing collides. Whatever still collides is
       reported in `residuals`.
   - `expand(min, frame)` stretches that layout about the hub by one factor `s ≥ 1` on both axes,
-    so rings stay circles. The tighter axis of the frame decides `s`, and the other keeps its
-    spare room, with the web centred in it. It never re-routes, so it cannot create a collision.
-
-  When the frame is smaller than the minimum, the canvas scrolls inside it, and opens centred on
-  the hub.
+    so rings stay circles. It never re-routes, so it cannot create a collision. The view
+    currently calls it with the best-fit square, which gives `s = 1` and centres the hub (see
+    "Host layout").
 
   Room is **reserved** so placing an answer moves nothing:
   - A label reserves for every candidate. A blank reserves for every edges-tray item, measured
@@ -189,11 +187,12 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   - A tray reserves for all its items (`ReservedTray`), capped at 25dvh, and scrolls inside.
 
   The arrow marker id is per instance (`useId`).
-- **Host layout.** The diagram is a square as wide as the page, with no upper limit and never
-  smaller than 640×640 (`MIN_SIDE` in `Web.tsx`). The web spreads to fill it at a fixed node
-  size. Below 640px wide, the square scrolls sideways inside its frame. In both hosts the page
-  scrolls to the square's height, and a drag held near the window's top or bottom edge scrolls
-  it.
+- **Host layout.** The diagram is a square at the web's **best fit**: the larger side of
+  `solve`'s minimum, the smallest size at which nothing collides. It is computed from the
+  content, and `Web.tsx` lays the canvas out at it.
+  - When the page is at least that wide, the square is shown at best fit and grows no further.
+  - On a narrower page the whole square scales down (a CSS transform) to the page width, with no
+    lower limit, so it never scrolls. Nodes and text shrink with it.
   - In the /form embed, `#root` is a full-viewport flex column (`embed/index.html`) holding the
     Form and the View's CheckBar. The Form scrolls inside the height left over, so Check stays on
     screen.
