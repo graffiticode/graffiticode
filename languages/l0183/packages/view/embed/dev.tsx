@@ -229,7 +229,40 @@ function assessed(n: number) {
   };
 }
 
+/** The rain-formation web from a learner-facing item: eight long-text nodes in a cycle, every edge labelled. */
+const rain = {
+  title: "Rain formation",
+  interaction: {
+    type: "concept-web",
+    hub: { id: "hub", text: "RAIN FORMATION", shape: "circle", size: "large", color: "blue" },
+    nodes: [
+      { id: "n1", text: "Sun heats surface water", color: "yellow" },
+      { id: "n2", text: "Evaporation adds invisible water vapour", color: "blue" },
+      { id: "n3", text: "Plants add vapour (transpiration)", color: "green" },
+      { id: "n4", text: "Moist air rises and expands", color: "blue" },
+      { id: "n5", text: "Rising air cools", color: "teal" },
+      { id: "n6", text: "Vapour condenses on tiny particles into cloud droplets; very cold clouds can form ice crystals", color: "gray" },
+      { id: "n7", text: "Cloud drops or ice crystals grow by collisions, coalescence, and ice processes", color: "gray" },
+      { id: "n8", text: "Large drops overcome upward air motion and fall as rain; water collects, flows, or soaks in", color: "blue" },
+    ],
+    edges: [
+      { id: "e1", from: "n1", to: "n2", style: "solid-arrow", label: "solar heat causes" },
+      { id: "e2", from: "n8", to: "n2", style: "solid-arrow", label: "water can evaporate again" },
+      { id: "e3", from: "n2", to: "n4", style: "solid-arrow", label: "makes air moist" },
+      { id: "e4", from: "n3", to: "n4", style: "solid-arrow", label: "adds moisture" },
+      { id: "e5", from: "n4", to: "n5", style: "solid-arrow", label: "higher air is cooler" },
+      { id: "e6", from: "n5", to: "n6", style: "solid-arrow", label: "cooling causes condensation" },
+      { id: "e7", from: "n6", to: "n7", style: "solid-arrow", label: "particles combine and grow" },
+      { id: "e8", from: "n7", to: "n8", style: "solid-arrow", label: "large enough to fall" },
+    ],
+    trays: {},
+    cells: {},
+  },
+  validation: { points: 0, cells: {} },
+};
+
 const FIXTURES: Record<string, any> = {
+  rain,
   cell,
   crowded,
   sparse,

@@ -745,7 +745,12 @@ export function Web({
       {/* Centres the canvas when it is smaller than the frame, and still scrolls when it is bigger
           (centring with flex on the scroller itself would cut off its top and left). */}
       <div className="flex min-h-full min-w-full items-center justify-center">
-      <div data-l0183-canvas="" className="relative shrink-0 select-none" style={{ width: geo.width, height: geo.height }}>
+      <div
+        data-l0183-canvas=""
+        data-l0183-spacing={spacing.toFixed(3)}
+        className="relative shrink-0 select-none"
+        style={{ width: geo.width, height: geo.height }}
+      >
         <svg
           className="absolute inset-0 text-zinc-400 dark:text-zinc-500"
           width={geo.width}
