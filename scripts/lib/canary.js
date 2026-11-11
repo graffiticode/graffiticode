@@ -87,6 +87,17 @@
 //                  (409 no-effects); the console compiles it instead
 //   reconcile: command  (with `reconcile`) the command's key reconciles as
 //                  the bridge write's does
+// With the bridge retired (`bridgeRetired`, D4: the api under test has
+// BRIDGE_L0176=off; scripts/canary.js reads it from the deployed revision):
+//   gateway write: bridge retired  a compile that would save is refused
+//                  `bridge-retired`, with nothing saved
+//   gateway write  and its effects, retry and retry effects run as POST
+//                  /command: completed, one recorded outcome with its steps,
+//                  the same command for the same key, and no new outcome
+//   chain admission, the saved read and its audit, the retry across a deploy
+//                  and reconcile use that command's record
+//   denied final stage  sent as a command: failed, reason not-granted, never
+//                  admitted
 // After the cutover (`afterCutover`, Policy's MIN_CONTRACT_VERSION=2):
 //   v1 refused      every new invocation is marked, and a snapshot without
 //                   an admitted plan (the v1 shape) is refused, plan-required
@@ -261,7 +272,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
   const {
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
     chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false, provider = null,
-    savedRead = false, auditCheck = true, command = false
+    savedRead = false, auditCheck = true, command = false, bridgeRetired = false
   } = config;
   const results = [];
   // Every response passes through here, so the run knows each draft it saved.
@@ -302,6 +313,15 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
   const compile = (id, idempotencyKey) =>
     http({ method: "POST", url: `${apiUrl}/compile`, headers: asUser, body: { id, data: {}, connectionId, idempotencyKey } });
   const errorsOf = res => [...(res.json?.data?.errors ?? []), ...(res.json?.errors ?? [])];
+  // POST /command (C6, D1), its answer, and a view of a task through the
+  // connection (GET /data, the stored result).
+  const postCommand = (id, idempotencyKey) =>
+    http({ method: "POST", url: `${apiUrl}/command`, headers: asUser, body: { id, data: {}, connectionId, idempotencyKey } });
+  const answerOf = res => (res.status === 200 && res.json?.status === "success" ? res.json.data : null);
+  const describeRes = res => `${res.status} ${JSON.stringify(res.json?.data ?? res.json?.error ?? null)}`;
+  const viewOf = id => http({ method: "GET", url: `${apiUrl}/data?id=${encodeURIComponent(id)}&connection=${encodeURIComponent(connectionId)}`, headers: asUser });
+  // A command's answer in the shape a bridged compile names it, for planOf.
+  const asCompiled = commandId => ({ json: { data: { command: { commandId } } } });
   const policy = path => `${policyUrl}${path}`;
   const broker = path => `${brokerUrl}${path}`;
 
@@ -322,15 +342,16 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
   // ran instead: its invocation, its admission (the plan's stages, pinned at
   // admission) and its outcome. The compile response names the command.
   const commandOf = res => res?.json?.data?.command?.commandId ?? null;
-  const commandState = async commandId => {
+  const commandRecords = async (commandId, what) => {
     const res = await http({
       method: "GET",
-      url: policy(`/v1/commands/${encodeURIComponent(commandId)}/records/state`),
+      url: policy(`/v1/commands/${encodeURIComponent(commandId)}/records/${what}`),
       headers: await asService(gatewayAccount, policyUrl, "urn:graffiticode:policy")
     });
-    if (res.status !== 200 || !res.json?.data) throw new Error(`GET /v1/commands/${commandId}/records/state: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+    if (res.status !== 200 || !res.json?.data) throw new Error(`GET /v1/commands/${commandId}/records/${what}: ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
     return res.json.data;
   };
+  const commandState = commandId => commandRecords(commandId, "state");
   const commandPlan = admission => (admission
     ? {
         planDigest: admission.planDigest,
@@ -374,6 +395,20 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       const now = servingRevision ? await servingRevision("0176") : null;
       if (!record("retry across a deploy: deployed", Boolean(now) && now !== pending.revision,
         now === pending.revision ? `L0176 still serves ${now}, the revision the write was pinned to; deploy L0176, then run the canary again` : `pinned ${pending.revision}, serving ${now}`)) return;
+      if (bridgeRetired) {
+        // D4: the retry is a command; its record answers, and nothing runs again.
+        const res = await postCommand(pending.taskId, pending.key);
+        const answer = answerOf(res);
+        const { plan } = answer ? await planOf(pending.taskId, pending.key, asCompiled(answer.commandId)) : { plan: null };
+        const { outcomes } = answer ? await commandRecords(answer.commandId, "outcomes") : { outcomes: [] };
+        const samePlan = plan?.planDigest === pending.planDigest && plan.stages.every(s => s.revision === pending.revision);
+        const ok = answer?.outcome === "completed" && outcomes.length === 1 && samePlan;
+        record("retry across a deploy", ok, ok
+          ? `the same command, completed on ${pending.revision} under the same plan, one write`
+          : `${describeRes(res)}; ${outcomes.length} outcome(s); ${describePlan(plan)}`);
+        if (ok) await retryState.clear();
+        return;
+      }
       const again = await compile(pending.taskId, pending.key);
       const { plan } = await planOf(pending.taskId, pending.key, again);
       const samePlan = plan?.planDigest === pending.planDigest && plan.stages.every(s => s.revision === pending.revision);
@@ -405,22 +440,51 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
     saveTaskId = await postTask(SAVE_PROGRAM);
     const key = `canary:${runId}:save`;
     saveKey = key;
-    const first = await compile(saveTaskId, key);
-    const ok = first.status === 200 && errorsOf(first).length === 0 && hasSavedItem(first.json?.data);
-    if (!record("gateway write", ok, ok ? "draft saved through the connection" : `${first.status} ${JSON.stringify(errorsOf(first))}`)) return;
-    savedWrite = { references: savedItemReferences(first.json?.data), signature: signedPreviewRequest(first.json?.data)?.security?.signature ?? null, response: first };
-    const wrote = saveEffects(first);
-    record("gateway write effects", wrote.length === 1 && wrote[0].status === "succeeded" && !wrote[0].replayed && Array.isArray(wrote[0].steps) && wrote[0].steps.length > 0,
-      describeEffects(wrote));
-    const again = await compile(saveTaskId, key);
-    const same = again.status === 200 && errorsOf(again).length === 0 && hasSavedItem(again.json?.data);
-    record("gateway write retry", same, same ? "same outcome for the same idempotency key" : `${again.status} ${JSON.stringify(errorsOf(again))}`);
-    const replayed = saveEffects(again);
-    record("gateway write retry effects", replayed.length === 1 && replayed[0].status === "succeeded" && replayed[0].replayed === true,
-      describeEffects(replayed));
+    // What the write ran as, for the plan: the bridged compile's response, or
+    // the command's answer in that shape.
+    let ran;
+    if (bridgeRetired) {
+      // D4: a compile that would save is refused, and starts nothing.
+      const refused = await compile(saveTaskId, `${key}:compile`);
+      const codes = errorsOf(refused).map(e => e?.code ?? e?.message);
+      record("gateway write: bridge retired", refused.status === 200 && codes.includes("bridge-retired") && !hasSavedItem(refused.json?.data) && saveEffects(refused).length === 0,
+        `${refused.status} ${JSON.stringify(codes)}, ${saveEffects(refused).length} effects`);
+      // The save itself, as a command.
+      const first = await postCommand(saveTaskId, key);
+      const answer = answerOf(first);
+      const done = Boolean(answer) && typeof answer.commandId === "string" && answer.outcome === "completed" && answer.result === "available";
+      if (!record("gateway write", done, done ? `command ${answer.commandId} completed` : describeRes(first))) return;
+      ran = asCompiled(answer.commandId);
+      const shown = await viewOf(saveTaskId);
+      savedWrite = { references: savedItemReferences(shown.json?.data), signature: null, response: ran };
+      const { outcomes } = await commandRecords(answer.commandId, "outcomes");
+      record("gateway write effects", outcomes.length === 1 && outcomes[0].outcome === "completed" && Array.isArray(outcomes[0].steps) && outcomes[0].steps.length > 0,
+        `${outcomes.length} outcome(s): ${outcomes.map(o => `${o.outcome} steps=${JSON.stringify(o.steps ?? [])}`).join("; ")}`);
+      const again = answerOf(await postCommand(saveTaskId, key));
+      record("gateway write retry", Boolean(again) && again.commandId === answer.commandId && again.outcome === "completed",
+        again ? `command ${again.commandId} ${again.outcome} for the same idempotency key` : "no answer");
+      const { outcomes: after } = await commandRecords(answer.commandId, "outcomes");
+      record("gateway write retry effects", after.length === outcomes.length,
+        `${after.length} outcome(s) after the retry, ${outcomes.length} before: nothing written again`);
+    } else {
+      const first = await compile(saveTaskId, key);
+      const ok = first.status === 200 && errorsOf(first).length === 0 && hasSavedItem(first.json?.data);
+      if (!record("gateway write", ok, ok ? "draft saved through the connection" : `${first.status} ${JSON.stringify(errorsOf(first))}`)) return;
+      ran = first;
+      savedWrite = { references: savedItemReferences(first.json?.data), signature: signedPreviewRequest(first.json?.data)?.security?.signature ?? null, response: first };
+      const wrote = saveEffects(first);
+      record("gateway write effects", wrote.length === 1 && wrote[0].status === "succeeded" && !wrote[0].replayed && Array.isArray(wrote[0].steps) && wrote[0].steps.length > 0,
+        describeEffects(wrote));
+      const again = await compile(saveTaskId, key);
+      const same = again.status === 200 && errorsOf(again).length === 0 && hasSavedItem(again.json?.data);
+      record("gateway write retry", same, same ? "same outcome for the same idempotency key" : `${again.status} ${JSON.stringify(errorsOf(again))}`);
+      const replayed = saveEffects(again);
+      record("gateway write retry effects", replayed.length === 1 && replayed[0].status === "succeeded" && replayed[0].replayed === true,
+        describeEffects(replayed));
+    }
     if (!chainAdmission) return;
     // W4: that write ran under a plan, pinned to approved revisions.
-    const { invocation, plan } = await planOf(saveTaskId, key, first);
+    const { invocation, plan } = await planOf(saveTaskId, key, ran);
     // Evidence, not assumption: without the serving revision the check fails.
     const serving = servingRevision ? await servingRevision("0176") : null;
     const l0176 = plan ? plan.stages.filter(s => s.lang === "0176") : [];
@@ -438,11 +502,8 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
   // C6 slice 5 (`command`): the save as a command, as the console sends it.
   let commandKey = null;
   if (command) {
-    const postCommand = (id, idempotencyKey) =>
-      http({ method: "POST", url: `${apiUrl}/command`, headers: asUser, body: { id, data: {}, connectionId, idempotencyKey } });
-    const view = id => http({ method: "GET", url: `${apiUrl}/data?id=${encodeURIComponent(id)}&connection=${encodeURIComponent(connectionId)}`, headers: asUser });
-    const answerOf = res => (res.status === 200 && res.json?.status === "success" ? res.json.data : null);
-    const describe = res => `${res.status} ${JSON.stringify(res.json?.data ?? res.json?.error ?? null)}`;
+    const view = viewOf;
+    const describe = describeRes;
     await attempt("command write", async () => {
       const taskId = await postTask(COMMAND_PROGRAM);
       const key = `canary:${runId}:command`;
@@ -620,6 +681,19 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
         const chainId = `${saveTaskId ?? await postTask(SAVE_PROGRAM)}+${await postTask(PREVIEW_PROGRAM)}`;
         const key = `canary:${runId}:denied`;
         await owner.narrow();
+        if (bridgeRetired) {
+          // D4: the chain is sent as a command; Policy refuses its admission,
+          // records why, and the answer names the reason. Nothing ran.
+          const res = await postCommand(chainId, key);
+          const answer = answerOf(res);
+          const state = answer ? await commandState(answer.commandId) : null;
+          const ok = answer?.outcome === "failed" && answer.reason === "not-granted" &&
+            state?.admission === null && state?.admissionRefusal?.reason === "not-granted";
+          record("denied final stage", ok, answer
+            ? `command ${answer.outcome} (${answer.reason ?? "no reason"}), ${state?.admission === null ? "never admitted" : "admitted"}`
+            : describeRes(res));
+          return;
+        }
         const res = await compile(chainId, key);
         const errors = errorsOf(res);
         const effects = Array.isArray(res.json?.data?.effects) ? res.json.data.effects : [];

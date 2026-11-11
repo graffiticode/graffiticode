@@ -131,6 +131,9 @@ const config = {
   afterCutover: args.includes("--after-cutover"),
   reconcile: args.includes("--reconcile"),
   command: args.includes("--command"),
+  // D4: the api under test has retired L0176's compile-to-command bridge, so
+  // saves go through POST /command and a compile that would save is refused.
+  bridgeRetired: apiEnv?.BRIDGE_L0176 === "off",
   provider: args.includes("--provider") ? await providerConfig() : null,
   languageUrl: args.includes("--chain-admission") || args.includes("--after-cutover") ? await serviceUrl(l0176Service) : null,
   savedRead: !args.includes("--no-saved-read"),
