@@ -115,7 +115,8 @@ export const Form = ({ state }: FormProps) => {
   };
 
   return (
-    // No width cap: the web's square is as wide as the page. In the /form embed `#root` is a
+    // No width cap here: the web's square is its best-fit size, scaled down on a narrower page
+    // (Web.tsx). In the /form embed `#root` is a
     // full-viewport column (embed/index.html) holding this Form and the View's CheckBar, so the
     // Form takes the height the CheckBar leaves and scrolls inside it, and Check stays on screen.
     <div

@@ -96,11 +96,6 @@ function nodeFont(box: { w: number }, text: string | undefined): number {
   return Math.round(box.w * 0.12 * shrink * 10) / 10;
 }
 
-/**
- * The diagram is a square as wide as the page, with no upper limit and never smaller than this.
- * Below it, the square scrolls sideways inside its frame.
- */
-const MIN_SIDE = 640;
 /** Top and bottom trays take at most this share of the viewport, scrolling inside. */
 const TRAY_SHARE = 0.25;
 /** Below this width, side trays stack above and below the diagram. */
@@ -297,32 +292,25 @@ export function Web({
   const modelKey = JSON.stringify(model);
   const minLayout = useMemo(() => solve(model), [modelKey]);
 
-  // The diagram's square follows the page width: no upper limit, MIN_SIDE at least. The web
-  // spreads (nodes keep their size) to fill it, and the canvas is never smaller than the web's
-  // minimum, scrolling inside the frame when it is bigger.
+  // The diagram is a square at the web's BEST FIT: the smallest size at which nothing collides,
+  // computed from the content (stage 1). It is shown at that size when the page is wide enough,
+  // and never bigger; on a narrower page the whole square scales down to the page width, with no
+  // lower limit, so it never scrolls.
   const [frameRef, frame] = useSize<HTMLDivElement>();
-  const side = Math.max(MIN_SIDE, frame.width);
-  const target = useMemo(() => ({ width: side, height: side }), [side]);
+  const best = Math.max(minLayout.min.width, minLayout.min.height);
+  const target = useMemo(() => ({ width: best, height: best }), [best]);
   const geo = useMemo(() => expand(minLayout, target), [minLayout, target]);
-  // When the canvas is bigger than the frame, open on the hub, not on an empty corner. Done once
-  // per minimum layout, so a resize or a placement never scrolls the web under the learner.
-  const centredFor = useRef<unknown>(null);
-  useLayoutEffect(() => {
-    const el = frameRef.current;
-    if (!el || !frame.width || centredFor.current === minLayout) return;
-    centredFor.current = minLayout;
-    el.scrollLeft = Math.max(0, (geo.width - el.clientWidth) / 2);
-    el.scrollTop = Math.max(0, (geo.height - el.clientHeight) / 2);
-  }, [minLayout, geo, frame.width]);
+  const shown = frame.width ? Math.min(frame.width, best) : best;
+  const scale = shown / best;
   const byId = useMemo(() => new Map(geo.boxes.map((b) => [b.id, b])), [geo]);
   const labelById = useMemo(() => new Map(geo.labels.map((l) => [l.id, l])), [geo]);
   const pathById = useMemo(() => new Map(geo.edges.map((e) => [e.id, e.path])), [geo]);
 
   const wide = useMedia(WIDE);
-  // The frame is as tall as the square is wide, whatever the host; the page (or the Form, in the
-  // /form embed) scrolls to it. `host` is kept for callers and for future host-specific rules.
+  // The frame is as tall as the square is shown, whatever the host. `host` is kept for callers and
+  // for future host-specific rules.
   void host;
-  const frameStyle: CSSProperties = { height: side };
+  const frameStyle: CSSProperties = { height: shown };
 
   // One marker id per instance: a fixed id collides when two webs share a page, and the second
   // web's arrows then point with the first web's arrowheads.
@@ -686,13 +674,24 @@ export function Web({
     <div
       ref={frameRef}
       data-l0183-frame=""
-      className="relative min-w-0 flex-1 shrink-0 overflow-auto"
+      className="relative min-w-0 flex-1 shrink-0 overflow-hidden"
       style={frameStyle}
       onKeyDown={(e) => {
         if (e.key === "Escape") setSelected(null);
       }}
     >
-      <div data-l0183-canvas="" className="relative select-none" style={{ width: geo.width, height: geo.height }}>
+      {/* The shown square, centred; the canvas inside is laid out at best fit and scaled to it. */}
+      <div className="relative mx-auto overflow-hidden" style={{ width: shown, height: shown }}>
+      <div
+        data-l0183-canvas=""
+        className="absolute left-0 top-0 select-none"
+        style={{
+          width: geo.width,
+          height: geo.height,
+          transform: scale < 1 ? `scale(${scale})` : undefined,
+          transformOrigin: "top left",
+        }}
+      >
         <svg
           className="absolute inset-0 text-zinc-400 dark:text-zinc-500"
           width={geo.width}
@@ -731,6 +730,7 @@ export function Web({
         </svg>
         {edges.map(renderLabel)}
         {all.map(renderNode)}
+      </div>
       </div>
     </div>
   );
