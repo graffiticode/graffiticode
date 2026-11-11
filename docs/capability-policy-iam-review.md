@@ -1614,7 +1614,16 @@ Recovery of abandoned commands (`docs/b5-commands-plan.md` §7), set up 2026-11-
   - The composite indexes are `READY` (Firestore Admin API, `databases/policy/collectionGroups/commands/indexes`).
   - A `POST` to the sweep URL without that token answers 401.
 
-### Step 21: the C6 activation drive's services and the fault Broker's proxy host [LIVE, drive only]
+### Step 21: the C6 activation drive's services and the fault Broker's proxy host [RETIRED 2026-11-11, except `l0176r-drive`]
+
+**Retired 2026-11-11.**
+- **Deleted:** the `broker-faults` and `api-drive` Cloud Run services. Their last authenticated use was the drive itself (11-09). Since then they received only refused unauthenticated `GET /` requests.
+- **Removed from configuration:** their `deploy.json` entries, and the `broker-faults` host from `l0176r-drive`'s `network.allow`, the production network model and the step 1 checklist.
+- **Still to do:** the proxy VMs keep listing the host until the next `egress-proxy` rolling update. The generated config without it has `config_sha256` `1aa650b05c2bb744c0a1fa4afe7ff16ae5b1ec6a6aca44e08cc14ba3b2f76d36`. The host now points at no service.
+- **Kept until that rollout:** the secret `egress-proxy-cert-broker-faults-sja7fatcta-uc-a-run-app`, because the current template loads it at boot. Delete it after the rollout.
+- **Kept, deliberately:** `l0176r-drive` and its approved, tagged revision `l0176r-drive-rmw9qbqjr-751fe1`. The drive's receipts are tied to it, and its retirement report counts them as unfinished. It serves no traffic, and its `BROKER_URL` still names the deleted `broker-faults`.
+
+The original setup, as it was:
 
 L0176's activation drive (`docs/c6-l0176-commands-plan.md` §6), set up 2026-11-09. Three non-production services, each on its production twin's runtime account, so no new identity or role exists. Production never routes to any of them.
 

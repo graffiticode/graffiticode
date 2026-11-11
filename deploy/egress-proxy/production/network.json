@@ -199,7 +199,6 @@
         "allow": [
           "api.graffiticode.org",
           "auth.graffiticode.org",
-          "broker-faults-sja7fatcta-uc.a.run.app",
           "broker-sja7fatcta-uc.a.run.app",
           "policy-sja7fatcta-uc.a.run.app",
           "www.googleapis.com"
