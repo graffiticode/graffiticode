@@ -49,8 +49,9 @@
 //
 // A language that signs only in `present` (L0176, C6 part 2) has an
 // interpreted profile (INTERPRETED_PROFILES), compared field by field, never
-// by masking: `present` must equal the compile with only the signed request's
-// own fields masked (its signature, time, expiry and Broker's session id);
+// by masking: `present` must equal the compile with only each signature's
+// fresh fields masked (maskSigned: Broker's user_id and session_id, the
+// expiry, time and signature, in the SDK's questions and items shapes);
 // `evaluate` must equal the compile without `request`, `signing` and
 // `cache: false`, with a save it skips reported as skipped for `evaluate`.
 // Every compile and present answer must be `cache: false`, and no evaluate
@@ -228,15 +229,47 @@ export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
 // Languages compared field by field under --interpreted (see the header).
 export const INTERPRETED_PROFILES = Object.freeze({ "0176": Object.freeze({ signs: true }) });
 
-// What a signature makes afresh, in the signed request `data.request`: masked,
-// field by field, on both sides.
-export const SIGNED_FIELDS = Object.freeze(["signature", "timestamp", "expires", "session_id"]);
+// What each signature makes afresh, masked field by field on both sides, and
+// nothing else (C6 part 2). Broker signs through the Learnosity SDK
+// (packages/broker/src/operations.ts), which answers in two shapes:
+//   questions  one flat packet: the security fields (consumer_key, user_id,
+//              expires, timestamp, signature) beside the request's own,
+//              with Broker's session_id among them
+//   items      { security: { consumer_key, domain, user_id, expires,
+//              timestamp, signature }, request: { ..., session_id } }
+// Broker gives every signature a fresh user_id and session_id; timestamp,
+// expires and signature follow from the time and the packet. consumer_key,
+// domain, the SDK's meta and the request's content are compared. A signed
+// packet is found at `data.request` (PROG's answer) or as `data` itself (a
+// bare `init`'s answer).
+export const SIGNED_FIELDS = Object.freeze(["user_id", "expires", "timestamp", "signature"]);
+export const SESSION_FIELD = "session_id";
+const isRecord = v => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+const masking = (record, fields) => {
+  const out = { ...record };
+  for (const field of fields) if (field in out) out[field] = "<signed>";
+  return out;
+};
+// A signed packet with its fresh fields masked, or the value as it was when it
+// isn't one.
+export const maskSignedPacket = value => {
+  if (!isRecord(value)) return value;
+  if (isRecord(value.security) && typeof value.security.signature === "string") {
+    const masked = { ...value, security: masking(value.security, SIGNED_FIELDS) };
+    if (isRecord(value.request)) masked.request = masking(value.request, [SESSION_FIELD]);
+    return masked;
+  }
+  if (typeof value.signature === "string" && typeof value.consumer_key === "string") {
+    return masking(value, [...SIGNED_FIELDS, SESSION_FIELD]);
+  }
+  return value;
+};
 export const maskSigned = body => {
-  const request = body?.data?.request;
-  if (!request || typeof request !== "object" || Array.isArray(request)) return body;
-  const masked = { ...request };
-  for (const field of SIGNED_FIELDS) if (field in masked) masked[field] = "<signed>";
-  return { ...body, data: { ...body.data, request: masked } };
+  if (!isRecord(body) || !isRecord(body.data)) return body;
+  const data = maskSignedPacket(body.data);
+  if (data !== body.data) return { ...body, data };
+  if (!isRecord(body.data.request)) return body;
+  return { ...body, data: { ...body.data, request: maskSignedPacket(body.data.request) } };
 };
 
 // What an `evaluate` answer must be, given the compile's: the same without
