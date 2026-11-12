@@ -134,7 +134,7 @@
      - **Caveat:** about 3,000 corpus cases fetch `example.org` paths that answer 404 live, so they only compare errors. Real fetch coverage live is the 16 `l0185.graffiticode.org/data` cases; the fixture test carries the rest.
 6. **Stage** an api with `INTERPRETER_L0185=on` and `COMPILE_GENERATION_L0185=interp-1` (the deploy guard requires both). Canary through the tag (`docs/evidence/interpreter-c3-l0185/canary.mjs`):
    - L0185 alone and L0184 over L0185;
-   - **the L0185 → L0176 save is deferred** (owner, 2026-11-11). `l0185r` isn't pinnable, so Policy refuses any command chain with an L0185 stage at admission (`stage-not-pinnable`), flag on or off. It's canaried once `l0185r` is pinnable: a `pinnable` entry in `deploy.json`, an approved revision, and the api's caller access to its `/preflight`. Until then the recovery from the pinned boundary (decision 5) is exercised only by the worker spec;
+   - **the L0185 → L0176 save was deferred** (owner, 2026-11-11), **then canaried on 2026-11-12** after `l0185r` became pinnable (#366; `docs/evidence/interpreter-c3-l0185/canary-l0185-save.txt`). At activation, `l0185r` wasn't pinnable, so Policy refuses any command chain with an L0185 stage at admission (`stage-not-pinnable`), flag on or off. It's canaried once `l0185r` is pinnable: a `pinnable` entry in `deploy.json`, an approved revision, and the api's caller access to its `/preflight`. Until then the recovery from the pinned boundary (decision 5) is exercised only by the worker spec;
    - a stage-cache hit, then a miss after expiry;
    - `max-age` headers, and an interpreted fetch failure still `no-store`;
    - nothing served from `rust-1` entries.

@@ -18,7 +18,7 @@ Plan: `docs/c3-l0185-interpreter-plan.md`. L0185's models are all plans; fetchin
 
 `node docs/evidence/interpreter-c3-l0185/canary.mjs <tag URL> <staged revision>` against the staged api, compared with production. About 7 minutes: it waits out one fetch's expiry.
 
-**Deferred:** the L0185 → L0176 save (owner, 2026-11-11). `l0185r` isn't pinnable, so Policy refuses a command chain with an L0185 stage at admission (`stage-not-pinnable`), flag on or off. It's canaried once `l0185r` is pinnable.
+**The L0185 → L0176 save** was deferred at activation (owner, 2026-11-11), because `l0185r` wasn't pinnable and Policy refused the chain (`stage-not-pinnable`). Once `l0185r` was pinnable (#366, `l0185r-rmwczv08x-e43ac0`), the canary's `--l0185-tail` ran it on 2026-11-12 (`canary-l0185-save.txt`, execution `canary-nq62q`, 36/36). The save over `fetch "https://l0185.graffiticode.org/data/orders.json"` completed as a command (`c:223baadf…`). The view shows `gc-1df2f98e12be598e-graffiticode-canary-c3-0`, and the same key again returned the same command with no second write.
 
 ## Promotion (2026-11-12)
 
