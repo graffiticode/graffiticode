@@ -316,7 +316,7 @@ export function Web({
   // `spacingFor`). The minimum layout is the best fit, the closest spacing at which nothing
   // collides, and the web is never spread past it. With less room, in either direction, the
   // spacing compresses to fit, down to the point where nodes would start to touch; past that, the
-  // diagram scrolls inside its frame, opening centred on the hub.
+  // whole picture zooms down to fit.
   // - In a full-viewport column (the /form embed marks its #root `data-l0183-viewport`), the room
   //   is the frame's share of the column, after the title, trays and Check bar.
   // - In page flow (Learnosity, or a page of several webs), the height is capped at a share of the
@@ -336,6 +336,9 @@ export function Web({
   );
   const spacing = useMemo(() => spacingFor(minLayout, room), [minLayout, room]);
   const geo = useMemo(() => place(minLayout, spacing), [minLayout, spacing]);
+  // Past the floor the spacing can shrink no further without a collision, so the whole picture
+  // zooms down to fit the room instead: nothing overlaps and nothing scrolls.
+  const zoom = Math.min(1, room.width / geo.width, room.height / geo.height);
   // At the floor the canvas can be bigger than the frame: open on the hub, not on a corner. Once
   // per minimum layout, so a resize or a placement never scrolls the web under the learner.
   const centredFor = useRef<unknown>(null);
@@ -354,7 +357,7 @@ export function Web({
   // In a column the frame's height comes from the layout (flex: 1); in page flow it is the
   // canvas's, up to the room. `host` is kept for callers and for future host-specific rules.
   void host;
-  const frameStyle: CSSProperties = column ? {} : { height: Math.min(geo.height, room.height) };
+  const frameStyle: CSSProperties = column ? {} : { height: geo.height * zoom };
 
   // One marker id per instance: a fixed id collides when two webs share a page, and the second
   // web's arrows then point with the first web's arrowheads.
@@ -745,11 +748,18 @@ export function Web({
       {/* Centres the canvas when it is smaller than the frame, and still scrolls when it is bigger
           (centring with flex on the scroller itself would cut off its top and left). */}
       <div className="flex min-h-full min-w-full items-center justify-center">
+      <div className="shrink-0" style={{ width: geo.width * zoom, height: geo.height * zoom }}>
       <div
         data-l0183-canvas=""
         data-l0183-spacing={spacing.toFixed(3)}
+        data-l0183-zoom={zoom.toFixed(3)}
         className="relative shrink-0 select-none"
-        style={{ width: geo.width, height: geo.height }}
+        style={{
+          width: geo.width,
+          height: geo.height,
+          transform: zoom < 1 ? `scale(${zoom})` : undefined,
+          transformOrigin: "0 0",
+        }}
       >
         <svg
           className="absolute inset-0 text-zinc-400 dark:text-zinc-500"
@@ -789,6 +799,7 @@ export function Web({
         </svg>
         {edges.map(renderLabel)}
         {all.map(renderNode)}
+      </div>
       </div>
       </div>
     </div>

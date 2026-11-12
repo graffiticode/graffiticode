@@ -178,7 +178,7 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
       reported in `residuals`.
   - `expand(min, frame)` stretches that layout about the hub by one factor `s ≥ 1` on both axes,
     so rings stay circles. It never re-routes, so it cannot create a collision. The view doesn't
-    use it; it uses `place(min, s)` with `s` in `[compressionFloor, 1]` (see "Host layout").
+    use it; it uses `place(min, s)` with `s` in `[compressionFloor, 1]`, then a zoom (see "Host layout").
 
   Room is **reserved** so placing an answer moves nothing:
   - A label reserves for every candidate. A blank reserves for every edges-tray item, measured
@@ -190,11 +190,13 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   one factor about the hub (`spacingFor`, `place` in `lib/layout.ts`).
   - The minimum layout is the **best fit**, the closest spacing at which nothing collides. The
     web is never spread past it.
-  - With less room, in either direction, the spacing compresses to fit, but only as far as
-    nothing collides (`compressionFloor`, `clearAt`). That means no two nodes touch, no label sits
-    on a node or another label, and no line runs through a node. To stay clear, each label may
-    slide along its own line. A best fit has little slack, so the floor is often 0.85–0.99.
-  - Past the floor, the diagram scrolls inside its frame, opening centred on the hub.
+  - With less room, in either direction, the spacing compresses to fit, down to
+    `compressionFloor`, where nodes would touch. Below best fit each label slides along its own
+    line to the first clear spot, or else the one covering least of any node, then of other
+    labels; deep compression can still leave labels overlapping (owner decision, 2026-11-11:
+    #363 stopped at the first label clash, and the web barely scaled).
+  - Past the floor, the whole picture zooms down to fit (`data-l0183-zoom` on the canvas), so the
+    frame never scrolls.
   - **In a full-viewport column** (the /form embed marks its `#root` `data-l0183-viewport`), the
     room is the frame's share of the column: the height left after the title, the trays (each
     capped at 25dvh and scrolling inside) and the View's CheckBar, which therefore stays on

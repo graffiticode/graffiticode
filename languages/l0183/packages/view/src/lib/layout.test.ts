@@ -4,7 +4,6 @@ import { boxesOverlap, curveHitsBox, enterParam, exitParam, extremumT, pointAt }
 import {
   ARROW_LEN,
   canvasAt,
-  clearAt,
   compressionFloor,
   expand,
   place,
@@ -292,30 +291,49 @@ describe("expansion", () => {
 describe("spacing (the view's rule: nodes fixed, spacing in [floor, best fit])", () => {
   const webs = { star12: star(12, { w: 90, h: 24 }), web20: web(20, 3), web40: web(40, 7), chords: star(4) };
 
-  test("at the compression floor nothing collides — nodes, labels or lines — and one step tighter something does", () => {
+  test("the floor is where nodes would touch: clear at the floor, touching one step tighter", () => {
     for (const [name, model] of Object.entries(webs)) {
       const min = solve(model);
       const floor = compressionFloor(min);
       expect(floor, name).toBeGreaterThan(0);
       expect(floor, name).toBeLessThanOrEqual(1);
-      expect(clearAt(min, floor), name).toBe(true);
-      // The checker the rest of this file trusts agrees: nothing collides at the floor.
-      expect(collisions(place(min, floor)), name).toEqual([]);
+      const touching = (s: number) => {
+        const b = place(min, s).boxes;
+        return b.some((x, i) => b.slice(i + 1).some((y) => boxesOverlap(x, y, 3.9)));
+      };
+      expect(touching(floor), name).toBe(false);
+      if (floor < 1) expect(touching(floor - 0.02), name).toBe(true);
       expect(outside(place(min, floor)), name).toEqual([]);
-      if (floor < 1 && floor > 0.06) expect(clearAt(min, floor - 0.01), name).toBe(false);
     }
   });
 
-  test("labels stay clear of nodes at every spacing between the floor and best fit", () => {
+  test("below best fit, sliding labels along their lines never leaves them more on nodes than staying put", () => {
+    const onNodes = (g: ReturnType<typeof place>) =>
+      g.labels.reduce(
+        (sum, l) =>
+          sum +
+          g.boxes.reduce((t, n) => {
+            const ox = (l.w + n.w) / 2 - Math.abs(l.x - n.x);
+            const oy = (l.h + n.h) / 2 - Math.abs(l.y - n.y);
+            return t + (ox > 0 && oy > 0 ? ox * oy : 0);
+          }, 0),
+        0,
+      );
     for (const [name, model] of Object.entries(webs)) {
       const min = solve(model);
       const floor = compressionFloor(min);
       for (let s = 1; s >= floor - 1e-9; s -= (1 - floor) / 6 || 1) {
         const g = place(min, s);
-        const hits = g.labels
-          .filter((l) => !l.residual)
-          .flatMap((l) => g.boxes.filter((n) => boxesOverlap(l, n)).map((n) => `${l.id}/${n.id}`));
-        expect(hits, `${name} s=${s.toFixed(3)}`).toEqual([]);
+        // The same spacing with every label left at its best-fit t.
+        const fixed = {
+          ...g,
+          labels: g.labels.map((l) => {
+            const t = min.labels.find((m) => m.id === l.id)!.t;
+            const p = pointAt(g.edges.find((e) => e.id === l.id)!.full, t);
+            return { ...l, x: p.x, y: p.y };
+          }),
+        };
+        expect(onNodes(g), `${name} s=${s.toFixed(3)}`).toBeLessThanOrEqual(onNodes(fixed) + 1e-6);
         if (floor >= 1) break;
       }
     }
