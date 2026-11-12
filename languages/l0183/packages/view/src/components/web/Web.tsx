@@ -366,7 +366,8 @@ export function Web({
   // ---- Placement -------------------------------------------------------------------------
 
   const [selected, setSelected] = useState<Held | null>(null);
-  const [drag, setDrag] = useState<(Held & { x: number; y: number }) | null>(null);
+  // `over`: the blank under the pointer, if any, for drop feedback.
+  const [drag, setDrag] = useState<(Held & { x: number; y: number; over?: string }) | null>(null);
   const dragStart = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const [announce, setAnnounce] = useState("");
@@ -429,7 +430,28 @@ export function Web({
       dragStart.current.moved = true;
     }
     pointer.current = { x: e.clientX, y: e.clientY };
-    setDrag({ ...drag, x: e.clientX, y: e.clientY });
+    setDrag({ ...drag, x: e.clientX, y: e.clientY, over: blankAt(e.clientX, e.clientY) });
+  };
+
+  /** The blank under a point (the drag preview never takes pointer events). */
+  const blankAt = (x: number, y: number): string | undefined =>
+    (document.elementFromPoint(x, y)?.closest("[data-l0183-blank]") as HTMLElement | null)?.dataset.l0183Blank;
+
+  // Drop feedback. While a drag is under way, every blank that can take it is ringed, and the one
+  // under the pointer is highlighted; a select-then-place selection rings the same blanks.
+  const dragging = !!drag && !!dragStart.current?.moved;
+  const target = (id: string, kind: Kind): "over" | "can" | undefined => {
+    if (dragging) {
+      if (drag!.kind !== kind || drag!.from === id) return undefined;
+      return drag!.over === id ? "over" : "can";
+    }
+    return selected?.kind === kind ? "can" : undefined;
+  };
+  /** What a drop here would do, for the preview: place, nothing (wrong kind), or return to tray. */
+  const dropMeaning = (): "place" | "wrong" | "return" | "none" => {
+    if (!drag?.over) return drag?.from ? "return" : "none";
+    if (drag.over === drag.from) return "none";
+    return blankKind(drag.over) === drag.kind ? "place" : "wrong";
   };
 
   /** Returns true when the gesture was a drag, so the click that follows is ignored. */
@@ -440,10 +462,7 @@ export function Web({
     pointer.current = null;
     setDrag(null);
     if (!held || !moved) return false;
-    const target = document
-      .elementFromPoint(e.clientX, e.clientY)
-      ?.closest("[data-l0183-blank]") as HTMLElement | null;
-    const blank = target?.dataset.l0183Blank;
+    const blank = blankAt(e.clientX, e.clientY);
     if (blank) put(held, blank);
     else if (held.from) clear(held.from); // dropped off the web: back to the tray
     setSelected(null);
@@ -561,7 +580,7 @@ export function Web({
         </div>
       );
     }
-    const selectable = !!selected && selected.kind === "nodes";
+    const drop = target(node.id, "nodes");
     return (
       <button
         key={node.id}
@@ -572,8 +591,10 @@ export function Web({
         className={classNames(
           face,
           !value && !scores && "border-dashed",
-          !value && !feedback(node.id) && "bg-zinc-50 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-500",
-          selectable && "ring-4 ring-blue-400/60",
+          !value && !feedback(node.id) && drop !== "over" && "bg-zinc-50 text-zinc-400 dark:bg-zinc-900 dark:text-zinc-500",
+          drop === "can" && "ring-4 ring-blue-400/60",
+          drop === "over" && "scale-105 border-blue-500 bg-blue-50 text-blue-700 ring-4 ring-blue-500 dark:bg-blue-950 dark:text-blue-200",
+          "transition-transform duration-100",
           value && !disabled && "touch-none",
           "cursor-pointer focus-visible:outline focus-visible:outline-4 focus-visible:outline-blue-500 disabled:cursor-default",
         )}
@@ -609,7 +630,7 @@ export function Web({
         </div>
       );
     }
-    const selectable = !!selected && selected.kind === "edges";
+    const drop = target(edge.id, "edges");
     return (
       <button
         key={edge.id}
@@ -620,7 +641,8 @@ export function Web({
         className={classNames(
           base,
           "cursor-pointer rounded-2xl focus-visible:outline focus-visible:outline-4 focus-visible:outline-blue-500 disabled:cursor-default",
-          selectable && "ring-4 ring-blue-400/60",
+          drop === "can" && "ring-4 ring-blue-400/60",
+          drop === "over" && "ring-4 ring-blue-500",
           value && !disabled && "touch-none",
         )}
         style={style}
@@ -634,6 +656,9 @@ export function Web({
           kind="blank"
           text={value ?? null}
           className={
+            (drop === "over"
+              ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200"
+              : undefined) ??
             feedback(edge.id) ??
             (value
               ? "border-zinc-400 bg-white text-zinc-900 dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-100"
@@ -657,6 +682,8 @@ export function Web({
             ? "border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100"
             : "border-zinc-300 bg-zinc-50 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100",
           disabled && "opacity-60",
+          // The item being dragged stays in its tray, dimmed, until it is dropped.
+          interactive && dragging && !drag!.from && drag!.kind === kind && drag!.text === item.text && "opacity-40",
         )}
       >
         {/* The grip: on a touch screen, the only place a drag starts. Never scrolls. */}
@@ -830,10 +857,15 @@ export function Web({
       <div className="sr-only" aria-live="polite">
         {announce}
       </div>
-      {drag && dragStart.current?.moved && (
+      {dragging && (
         <div
-          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-blue-500 bg-white px-3 py-1 text-sm shadow-lg dark:bg-zinc-800 dark:text-zinc-100"
-          style={{ left: drag.x, top: drag.y }}
+          data-l0183-drop={dropMeaning()}
+          className={classNames(
+            "pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border-2 bg-white px-3 py-1 text-sm shadow-lg dark:bg-zinc-800 dark:text-zinc-100",
+            { place: "border-blue-500", none: "border-blue-500", wrong: "border-dashed border-red-400 opacity-70", return: "border-dashed border-zinc-400 opacity-70" }[dropMeaning()],
+          )}
+          // Above the pointer, so neither it nor a finger hides the blank it is over.
+          style={{ left: drag!.x, top: drag!.y - 20 }}
         >
           <RichText text={drag.text} imageBox={{ w: 64, h: 40 }} />
         </div>
