@@ -237,7 +237,7 @@ test("placing answers, including those that empty a wrapped tray row, moves noth
   expect(after.nodes).toEqual(start.nodes);
 });
 
-test("nodes keep their size; spacing fits the room up to best fit; no label on a node; only the frame scrolls", async ({ page }) => {
+test("spacing fits the room up to best fit, then the picture zooms; nothing scrolls", async ({ page }) => {
   for (const [fixture, host] of [
     ["web40", ""],
     ["web40", "&host=learnosity"],
@@ -280,6 +280,7 @@ test("nodes keep their size; spacing fits the room up to best fit; no label on a
           }
         return {
           nodeW: nodes.map((n) => Math.round(n.width)),
+          zoom: Number(c.dataset.l0183Zoom),
           canvas: [c.offsetWidth, c.offsetHeight],
           frameScrolls: f.scrollWidth > f.clientWidth + 1 || f.scrollHeight > f.clientHeight + 1,
           formScrolls: form.scrollHeight > form.clientHeight + 1,
@@ -289,13 +290,15 @@ test("nodes keep their size; spacing fits the room up to best fit; no label on a
         };
       });
       const at = `${fixture} ${w}x${h}${host}`;
-      // Nodes are never scaled: every one is one of the fixed widths.
-      for (const nw of s.nodeW) expect([96, 122, 160], at).toContain(nw);
+      // Nodes keep their fixed widths, scaled only by the zoom once spacing reaches its floor.
+      for (const nw of s.nodeW) expect([96, 122, 160].some((x) => Math.abs(x * s.zoom - nw) <= 1), at).toBe(true);
+      // The picture fits its frame: it zooms rather than scrolls.
+      expect(s.frameScrolls, at).toBe(false);
       // With the most room, the web sits at its best fit; it never spreads past it.
       if (w === 5120) bestW = s.canvas[0];
       expect(s.canvas[0], at).toBeLessThanOrEqual(bestW);
-      // No label ever sits on a node, at any spacing.
-      expect(s.labelsOnNodes, at).toBe(0);
+      // At best fit no label sits on a node (below it, labels slide to the clearest spot).
+      if (s.canvas[0] === bestW) expect(s.labelsOnNodes, at).toBe(0);
       if (!host) {
         expect(s.formScrolls, at).toBe(false);
         expect(s.pageScrolls, at).toBe(false);
@@ -325,34 +328,4 @@ test("in page flow, a drag held at the window's top edge scrolls the page, so a 
   const during = await page.evaluate(() => scrollY);
   await touch(cdp, "touchEnd");
   expect(during).toBeLessThan(before);
-});
-
-test("a drag resting at the frame's edge scrolls the frame; passing through does not", async ({ page }) => {
-  // At phone size the 40-blank web is at its compression floor, so its frame scrolls.
-  const cdp = await page.context().newCDPSession(page);
-  await reveal(page, "n11");
-  const [blank] = await visibleEmptyBlanks(page);
-  expect(blank).toBeTruthy();
-  await page.locator(`${answersTray} button`).first().tap();
-  await page.locator(`[data-l0183-blank="${blank}"]`).tap();
-  await expect(page.locator(`[data-l0183-blank="${blank}"]`)).toHaveAttribute("aria-label", /holding/);
-  const frame = page.locator("[data-l0183-frame]");
-  const box = (await frame.boundingBox())!;
-  const from = await centre(page, `[data-l0183-blank="${blank}"]`);
-  const edge = { x: box.x + box.width / 2, y: box.y + 3 };
-  const scroll = () => frame.evaluate((el) => el.scrollTop);
-
-  // Passing through the edge zone briefly: no scroll.
-  await touch(cdp, "touchStart", from);
-  const start = await scroll();
-  for (let i = 1; i <= 6; i++) {
-    await touch(cdp, "touchMove", { x: from.x + ((edge.x - from.x) * i) / 6, y: from.y + ((edge.y - from.y) * i) / 6 });
-    await page.waitForTimeout(16);
-  }
-  await page.waitForTimeout(100);
-  expect(await scroll()).toBe(start);
-  // Resting there: it scrolls.
-  await page.waitForTimeout(600);
-  expect(await scroll()).toBeLessThan(start);
-  await touch(cdp, "touchEnd");
 });

@@ -484,17 +484,27 @@ function placeRelative(layout: MinLayout, s: number): { geometry: Geometry; clas
     const me = minEdgeById.get(l.id)!;
     const [v0, v1] = visibleRange(edge.full, byId.get(me.from)!, byId.get(me.to)!);
     const tries = [l.t, ...ANCHOR_TS.filter((t) => t !== l.t)];
+    // The first clear spot; failing that, the spot that covers the least of any node (a label on
+    // a node hides it), then the least of other labels.
     let chosen: PlacedLabel | undefined;
+    let least: { b: PlacedLabel; onNodes: number; onLabels: number } | undefined;
     for (const t of tries) {
       if (t <= v0 || t >= v1) continue;
       const b = box(t);
-      if (boxes.some((n) => boxesOverlap(b, n, LABEL_CLEAR))) continue;
-      if (labels.some((o) => boxesOverlap(b, o, LABEL_CLEAR))) continue;
-      chosen = b;
-      break;
+      let onNodes = 0;
+      let onLabels = 0;
+      for (const n of boxes) onNodes += overlapArea(b, n, LABEL_CLEAR);
+      for (const o of labels) onLabels += overlapArea(b, o, LABEL_CLEAR);
+      if (onNodes === 0 && onLabels === 0) {
+        chosen = b;
+        break;
+      }
+      if (!least || onNodes < least.onNodes || (onNodes === least.onNodes && onLabels < least.onLabels)) {
+        least = { b, onNodes, onLabels };
+      }
     }
     if (!chosen) clashes++;
-    labels.push(chosen ?? box(l.t));
+    labels.push(chosen ?? least?.b ?? box(l.t));
   }
   const geometry: Geometry = {
     width: 0,
@@ -508,6 +518,13 @@ function placeRelative(layout: MinLayout, s: number): { geometry: Geometry; clas
     min: layout.min,
   };
   return { geometry, clashes };
+}
+
+/** How much two boxes, each grown by gap/2, overlap (their bounding rectangles). */
+function overlapArea(a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }, gap: number): number {
+  const ox = (a.w + b.w) / 2 + gap - Math.abs(a.x - b.x);
+  const oy = (a.h + b.h) / 2 + gap - Math.abs(a.y - b.y);
+  return ox > 0 && oy > 0 ? ox * oy : 0;
 }
 
 function translate(g: Geometry, dx: number, dy: number, width: number, height: number): Geometry {
@@ -539,71 +556,36 @@ function canvasOf(g: Geometry): { width: number; height: number } {
 //
 // Nodes and text never change size; only the SPACING does, by one factor s about the hub. The
 // minimum layout (s = 1) is the best fit: the closest spacing at which nothing collides. The view
-// never spreads past it, and with less room compresses the spacing only as far as nothing collides
-// still — no two nodes touching, no label on a node or another label (labels may slide along their
-// own lines to stay clear), no line through a node. That is `compressionFloor`. Past it, the view
-// scrolls.
+// never spreads past it, and with less room compresses the spacing down to `compressionFloor`,
+// where nodes would start to touch. Below best fit each label slides along its own line to the
+// first clear spot, or the spot that overlaps least. Past the floor the view zooms the whole
+// picture to fit.
 
 /** Clearance kept between nodes at the tightest compression. */
 const TOUCH_GAP = 4;
 /** Compression is never searched below this, so a web with nothing to collide stays sane. */
 const LOWEST = 0.05;
 
-/** Whether nothing collides at spacing s (best-fit residuals excepted). */
-export function clearAt(layout: MinLayout, s: number): boolean {
-  const { geometry: g, clashes } = placeRelative(layout, s);
-  if (clashes > 0) return false;
-  const b = g.boxes;
-  for (let i = 0; i < b.length; i++) {
-    for (let j = i + 1; j < b.length; j++) if (boxesOverlap(b[i], b[j], TOUCH_GAP)) return false;
-  }
-  const residualEdges = new Set(
-    layout.residuals.filter((r) => r.kind === "edge-node").map((r) => `${r.ids[0]}|${r.ids[1]}`),
-  );
-  const byId = new Map(b.map((x) => [x.id, x]));
-  const cell = Math.max(64, ...b.map((x) => Math.max(x.w, x.h)));
-  const grid = new BoxGrid(b, cell, 0);
-  for (let k = 0; k < layout.edges.length; k++) {
-    const e = layout.edges[k];
-    if (residualEdges.has(`${e.from}|${e.to}`)) continue;
-    const from = byId.get(e.from)!;
-    const to = byId.get(e.to)!;
-    const full = g.edges[k].full;
-    const t0 = exitParam(full, from);
-    const t1 = enterParam(full, to);
-    if (t1 <= t0) return false; // the ends overlap
-    if (grid.firstHit(flatten(full, t0, t1), (x) => x.id === from.id || x.id === to.id)) return false;
-  }
-  return true;
-}
-
-const floors = new WeakMap<MinLayout, number>();
-
 /**
- * The tightest spacing at which nothing collides: scanning down from the best fit in coarse
- * steps, then refining between the last clear step and the first that is not. At most 1.
+ * The smallest spacing factor at which no two node boxes come within TOUCH_GAP of each other.
+ * Two boxes are clear when they are apart on either axis, so each pair needs
+ * min(gap-on-x, gap-on-y) and the floor is the largest such need. At most 1: the best fit is
+ * already clear. Labels do not set the floor: below best fit each slides along its own line to
+ * the clearest spot (`placeRelative`).
  */
 export function compressionFloor(layout: MinLayout): number {
-  const cached = floors.get(layout);
-  if (cached !== undefined) return cached;
-  let good = 1;
-  let bad = LOWEST;
-  for (let s = 0.95; s >= LOWEST - 1e-9; s -= 0.05) {
-    if (clearAt(layout, s)) good = s;
-    else {
-      bad = s;
-      break;
+  let floor = LOWEST;
+  const b = layout.boxes;
+  for (let i = 0; i < b.length; i++) {
+    for (let j = i + 1; j < b.length; j++) {
+      const dx = Math.abs(b[i].x - b[j].x);
+      const dy = Math.abs(b[i].y - b[j].y);
+      const needX = dx > EPS ? ((b[i].w + b[j].w) / 2 + TOUCH_GAP) / dx : Infinity;
+      const needY = dy > EPS ? ((b[i].h + b[j].h) / 2 + TOUCH_GAP) / dy : Infinity;
+      floor = Math.max(floor, Math.min(needX, needY));
     }
   }
-  if (bad < good) {
-    for (let s = good - 0.01; s > bad + 1e-9; s -= 0.01) {
-      if (clearAt(layout, s)) good = s;
-      else break;
-    }
-  }
-  const floor = Math.min(1, Math.round(good * 1000) / 1000);
-  floors.set(layout, floor);
-  return floor;
+  return Math.min(1, floor);
 }
 
 /** The canvas the geometry needs at spacing s. */
