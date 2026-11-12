@@ -99,7 +99,7 @@ The kernel change ships in every Rust language's next release; it changes nothin
 1. Kernel: mode on `ExecContext`, `cacheable_in(mode)`, the envelope in the kernel; tests.
 2. L0176: present-only signing, `cacheable_in`, `session_id`/`data.id`, `tests/interpret.rs`, the corpus envelope test, fixtures. Released with slice 1 as `l0176r`, the flag off.
 3. Api: manifest v9, protected-stage caching, `/preview/sign`, parity volatility in interpreted mode; tests. Released flag off. *Done (2026-11-12):* `lang-parity --interpreted --lang 0176` against production `l0176r-rmwduyn6c-c054b7` passed: 202/202 identical, 566 metadata checks, 202 deterministic.
-4. Gate, staged activation, canary, promotion, evidence.
+4. Gate, staged activation, canary, promotion, evidence. *In progress (2026-11-12):* activation PR with deploy.json flags, the staged canary and the gate report (`docs/evidence/interpreter-c6-l0176/`).
 
 ## 9. Out of scope
 

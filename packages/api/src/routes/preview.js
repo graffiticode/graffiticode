@@ -117,8 +117,12 @@ export const buildInterpretedSign = ({ interpreter, modelCache = null, getLangua
     return withoutStageMetadata(reply);
   };
 
+// The routing record (C6 part 2): which path signed, in this revision's log, so
+// a staged revision's evidence is its own. No activity, user or signature.
+const logPreviewSign = record => console.log("preview-sign", JSON.stringify(record));
+
 const buildPostSignHandler = ({
-  compile, signingLimiter = null, interpretedSign = null, getInterpreterLanguages = readInterpreterLanguages,
+  compile, signingLimiter = null, interpretedSign = null, getInterpreterLanguages = readInterpreterLanguages, log = logPreviewSign,
 }) => buildHttpHandler(async (req, res) => {
   setNoStoreCacheHeaders(res);
   res.set("Access-Control-Allow-Origin", "*");
@@ -126,9 +130,11 @@ const buildPostSignHandler = ({
   if (signingLimiter) await signingLimiter.charge(req, 1);
   // No user, no token, no connection: the system path, with the api's identity.
   // Interpreted while INTERPRETER_L0176 is on, read per request as data.js does.
-  const obj = interpretedSign && getInterpreterLanguages().has(SIGNING_LANG)
+  const run = interpretedSign && getInterpreterLanguages().has(SIGNING_LANG) ? "interpret" : "compile";
+  const obj = run === "interpret"
     ? await interpretedSign(activity)
     : await compile({ lang: SIGNING_LANG, code: INIT_DATA_CODE, data: activity, auth: null, options: {}, uid: null });
+  log({ run, type: activity.type, outcome: obj?.responseLost ? "lost" : obj?.errors?.length ? "errors" : signResult(obj)?.request ? "signed" : "unsigned" });
   if (obj?.responseLost) {
     res.status(502).json(createErrorResponse({ ...createError(502, "the preview signer didn't answer"), category: "unavailable" }));
     return;
@@ -146,9 +152,9 @@ const buildPostSignHandler = ({
   res.status(200).json(result);
 });
 
-export default ({ compile, signingLimiter = null, interpreter = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages, getLanguageGenerations = readLanguageGenerations }) => {
+export default ({ compile, signingLimiter = null, interpreter = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages, getLanguageGenerations = readLanguageGenerations, log = logPreviewSign }) => {
   const router = Router();
   const interpretedSign = interpreter ? buildInterpretedSign({ interpreter, modelCache, getLanguageGenerations }) : null;
-  router.post("/sign", buildPostSignHandler({ compile, signingLimiter, interpretedSign, getInterpreterLanguages }));
+  router.post("/sign", buildPostSignHandler({ compile, signingLimiter, interpretedSign, getInterpreterLanguages, log }));
   return router;
 };
