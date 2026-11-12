@@ -33,7 +33,7 @@
 //   getOrCreate  the one declared exception to a read-only get: an atomic,
 //                idempotent create of per-viewer state (L0182's assignment).
 
-export const INTERPRETER_MANIFEST_VERSION = 8;
+export const INTERPRETER_MANIFEST_VERSION = 9;
 
 // From loosest to strictest.
 export const CACHE_CLASSES = Object.freeze(["immutable", "shared", "private", "no-store"] as const);
@@ -85,6 +85,16 @@ export type InterpreterDeclaration = Readonly<{
 //         (checked over its whole corpus), and a fetch-free result stays
 //         immutable. A `shared` cap would downgrade fetch-free results to
 //         shared with no expiry.
+//   0176  C6 part 2: Learnosity (docs/c6-l0176-reads-plan.md). Every model is a
+//         plan (`init` is implicit). Only `present` signs (the system preview
+//         session, gateway-only): its result carries an expiring signature and
+//         is never stored, so present is no-store, and the server answers it
+//         `cache: false` too, errors included, for the legacy path. An
+//         `evaluate` result is the activity unsigned, a function of the program
+//         and its input (deterministic ids, no session id), and acts on nothing
+//         (the kernel refuses every protected call in it): immutable, within its
+//         input's own expiry. No `interprets` (L0158 stays on its /form
+//         redirect; a follow-up).
 export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclaration>> = Object.freeze({
   "0003": Object.freeze({
     interpreter: "interpreter",
@@ -105,6 +115,10 @@ export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclar
   "0175": Object.freeze({
     interpreter: "interpreter",
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0176": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "immutable", present: "no-store" }),
   }),
   "0177": Object.freeze({
     interpreter: "interpreter",

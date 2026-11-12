@@ -4,6 +4,8 @@ import { jest } from "@jest/globals";
 import express from "express";
 import request from "supertest";
 import { canonicalDigest } from "@graffiticode/common/canonical";
+import { INTERPRETER_DECLARATIONS } from "@graffiticode/common/interpreter-manifest";
+import { taskRequiresProtected } from "@graffiticode/common/protected-registry";
 import { buildModelCache } from "./model-cache.js";
 import { buildDataApi } from "./data.js";
 import {
@@ -533,6 +535,122 @@ describe("getData with interpreted stages", () => {
     expect(t.interpreter.model).not.toHaveBeenCalled();
     expect(t.interpreter.interpret).not.toHaveBeenCalled();
     expect(t.compile).not.toHaveBeenCalled();
+  });
+});
+
+// C6 part 2 (docs/c6-l0176-reads-plan.md): L0176 as the manifest declares it, a protected
+// language (`init` is implicit), interpreted with no connection.
+describe("L0176 interpreted (C6 part 2)", () => {
+  const L0176 = INTERPRETER_DECLARATIONS["0176"];
+  const declarations = { ...DECLARATIONS, "0176": L0176 };
+  const env = { ...ON, INTERPRETER_L0176: "on" };
+  let signatures = 0;
+  // l0176r as slices 1 and 2 left it: present signs, afresh each time, and is `cache: false`;
+  // evaluate is the activity unsigned, with no cache field.
+  const l0176 = ({ lang, model, input, mode }) => {
+    if (lang !== "0176") return undefined;
+    const activity = { type: "questions", data: { id: `graffiticode-${model.program[1].elts[0]}`, questions: [], from: input?.data ?? null } };
+    return mode === "present"
+      ? { data: { ...activity, request: { signature: `sig-${++signatures}` } }, errors: [], cache: false, revision: "r1" }
+      : { data: activity, errors: [], revision: "r1" };
+  };
+  const setup176 = (opts = {}) => setup({
+    env,
+    declarations,
+    getInterpreterLanguages: () => getInterpreterLanguages(env, declarations),
+    interpretReply: l0176,
+    modelCache: buildModelCache(),
+    ...opts,
+  });
+
+  it("is a protected language, declared evaluate immutable and present no-store", () => {
+    expect(taskRequiresProtected(task("0176"))).toBe(true);
+    expect(L0176).toEqual({ interpreter: "interpreter", cacheCaps: { evaluate: "immutable", present: "no-store" } });
+  });
+
+  it("caches an L0176 stage below the head unsigned, and signs the head afresh on every read, never storing it", async () => {
+    const t = setup176();
+    const id = await t.chain([task("0176", "head"), task("0176", "tail")]);
+    const first = await t.get(id);
+    expect(first.errors).toEqual([]);
+    // The head is signed; what it received from the stage below was not.
+    expect(first.data.request).toEqual({ signature: expect.stringMatching(/^sig-/) });
+    expect(first.data.data.from).toEqual({ type: "questions", data: { id: "graffiticode-tail", questions: [], from: null } });
+    expect(JSON.stringify(first.data.data.from)).not.toContain("signature");
+    expect(t.interpreter.interpret.mock.calls.map(([c]) => [c.model.program[1].elts[0], c.mode])).toEqual([["tail", "evaluate"], ["head", "present"]]);
+    // Only the evaluate result is stored, as immutable.
+    expect([...t.stageResults.entries.values()].map(e => [e.lang, e.mode, e.cacheClass, e.expiresAt])).toEqual([["0176", "evaluate", "immutable", null]]);
+    t.stages.length = 0;
+    const second = await t.get(id);
+    // The tail from the stage cache, the head interpreted and signed again.
+    expect(t.stages.map(s => [s.stage, s.mode, s.cache])).toEqual([["s1", "evaluate", "hit"], ["s0", "present", "miss"]]);
+    expect(second.data.request.signature).not.toEqual(first.data.request.signature);
+    expect(t.stageResults.entries.size).toBe(1);
+    // The models were compiled once each and then read from the model cache.
+    expect(t.interpreter.model).toHaveBeenCalledTimes(2);
+  });
+
+  it("never trips no-store-intermediate for an L0176 stage below the head; a chain with L0176 is still never held over HTTP", async () => {
+    const t = setup176();
+    const action = {};
+    const result = await t.get(await t.chain([task("0900"), task("0176")]), { action });
+    expect(result.errors).toEqual([]);
+    expect(result.data.from.data.data.id).toBe("graffiticode-p-0176");
+    // The L0176 stage was cached, but the response isn't held: a chain with a protected
+    // task is never cacheable as a whole (data.js `cacheable`), unchanged by this slice.
+    expect([...t.stageResults.entries.values()].some(e => e.lang === "0176" && e.mode === "evaluate")).toBe(true);
+    expect(action.noStore).toBe(true);
+    // The same L0176 program at the head: signed and no-store.
+    const head = {};
+    const presented = await t.get(await t.chain([task("0176")]), { action: head });
+    expect(presented.data.request).toBeDefined();
+    expect(head.noStore).toBe(true);
+  });
+
+  it("caps a present result at no-store whatever it claims, and never stores it", async () => {
+    // A server that forgot `cache: false` on present: the manifest still caps it.
+    const t = setup176({
+      interpretReply: args => {
+        const reply = l0176(args);
+        if (!reply) return undefined;
+        const { cache, ...rest } = reply;
+        return rest;
+      }
+    });
+    const action = {};
+    await t.get(await t.chain([task("0176")]), { action });
+    expect(action.noStore).toBe(true);
+    expect(t.stageResults.put).not.toHaveBeenCalled();
+    expect(t.stages[0].own).toEqual(NO_STORE);
+  });
+
+  it("keeps a cached L0176 evaluate result within its input's expiry (C3)", async () => {
+    const t = setup176({
+      interpretReply: args => (args.lang === "0902"
+        ? { data: { rows: [1] }, errors: [], cache: "shared", expiresAt: NOW + 60 * 1000, revision: "r1" }
+        : l0176(args))
+    });
+    await t.get(await t.chain([task("0900"), task("0176"), task("0902")]));
+    const entry = [...t.stageResults.entries.values()].find(e => e.lang === "0176");
+    expect(entry).toMatchObject({ mode: "evaluate", cacheClass: "shared", expiresAt: NOW + 60 * 1000 });
+  });
+
+  it("stays on the legacy compile with the flag off: no model, no interpretation, nothing stored", async () => {
+    const t = setup176({ getInterpreterLanguages: () => getInterpreterLanguages(ON, declarations) });
+    await t.get(await t.chain([task("0176", "head"), task("0176", "tail")]));
+    expect(t.interpreter.model).not.toHaveBeenCalled();
+    expect(t.compile.mock.calls.map(([c]) => c.lang)).toEqual(["0176", "0176"]);
+    expect(t.stageResults.put).not.toHaveBeenCalled();
+  });
+
+  it("never interprets through a connection", async () => {
+    const t = setup176({
+      allocateInvocation: /** @type {any} */ (jest.fn()).mockResolvedValue({ invocationToken: "inv.tok.en", invocationId: "inv-1", seq: 1, ownerUid: "owner" }),
+      artifactStorer: buildMemoryArtifactStorer(),
+    });
+    await t.get(await t.chain([task("0176")]), { auth: { uid: "u1" }, connectionId: "conn-1" });
+    expect(t.interpreter.model).not.toHaveBeenCalled();
+    expect(t.compile.mock.calls.map(([c]) => [c.lang, c.connectionId])).toEqual([["0176", "conn-1"]]);
   });
 });
 

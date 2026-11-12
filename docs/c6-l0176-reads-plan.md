@@ -64,6 +64,7 @@ The kernel change ships in every Rust language's next release; it changes nothin
 
 - **Manifest v9:** `0176: { interpreter: "interpreter", cacheCaps: { evaluate: "immutable", present: "no-store" } }` (no `interprets`, decision 6). `INTERPRETER_MANIFEST_VERSION = 9`.
 - **Caching protected stages.** `interpretStage` skips the caches for protected tasks today. For a declared interpreter language it uses the stage's own restrictions instead: the model cache always (a model is unsigned and compile-time), the stage cache when the result's class allows it (an L0176 `evaluate` result), with its upstream's expiry inherited as C3 enforces. A `present` result is `no-store` and is never cached, as now. The chain-level `bypassCache` for `requiresProtected` stays (the whole-chain `compiles/` store is legacy-only).
+- **The response stays `no-store`.** A chain with a protected task is never cacheable as a whole (`data.js` `cacheable = !requiresProtected`), so an HTTP response containing an L0176 stage is never held, even when that stage is a cached `evaluate` result. Only the stages are cached. Unchanged, and pinned by a test (slice 3).
 - **`no-store-intermediate` stays.** With decision 1, an L0176 stage below the head is `evaluate` and immutable, so it never trips it; a test pins that.
 - **`/preview/sign`** (decision 4): with `INTERPRETER_L0176` on, the model of `init data {}` (cached) is interpreted in `present` with the activity as input and the gateway identity; the answer mapping (`signResult`) is unchanged.
 - **`read.js` unchanged** (decision 5); `isInterpreted` keeps excluding connection compiles.
@@ -97,7 +98,7 @@ The kernel change ships in every Rust language's next release; it changes nothin
 
 1. Kernel: mode on `ExecContext`, `cacheable_in(mode)`, the envelope in the kernel; tests.
 2. L0176: present-only signing, `cacheable_in`, `session_id`/`data.id`, `tests/interpret.rs`, the corpus envelope test, fixtures. Released with slice 1 as `l0176r`, the flag off.
-3. Api: manifest v9, protected-stage caching, `/preview/sign`, parity volatility in interpreted mode; tests. Released flag off.
+3. Api: manifest v9, protected-stage caching, `/preview/sign`, parity volatility in interpreted mode; tests. Released flag off. *Done (2026-11-12):* `lang-parity --interpreted --lang 0176` against production `l0176r-rmwduyn6c-c054b7` passed: 202/202 identical, 566 metadata checks, 202 deterministic.
 4. Gate, staged activation, canary, promotion, evidence.
 
 ## 9. Out of scope

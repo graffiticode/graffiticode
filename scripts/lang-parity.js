@@ -47,6 +47,18 @@
 //
 //   node scripts/lang-parity.js --lang 0184 --interpreted --rust <Rust URL> [--limit N] [--out file] [--fetch-ttl seconds]
 //
+// A language that signs only in `present` (L0176, C6 part 2) has an
+// interpreted profile (INTERPRETED_PROFILES), compared field by field, never
+// by masking: `present` must equal the compile with only each signature's
+// fresh fields masked (maskSigned: Broker's user_id and session_id, the
+// expiry, time and signature, in the SDK's questions and items shapes);
+// `evaluate` must equal the compile without `request`, `signing` and
+// `cache: false`, with a save it skips reported as skipped for `evaluate`.
+// Every compile and present answer must be `cache: false`, and no evaluate
+// answer may carry `cache`. Each case is compiled twice, and the two answers
+// must be identical apart from the signed fields: nothing else in an answer
+// may change from one compile to the next.
+//
 // With the operator's gcloud credentials (the verify account's key is read
 // from Secret Manager). Prints one JSON report; its `corpus` block has the
 // shape a promote evidence file's `corpus` takes ({ ranAt, tasks, failures }),
@@ -214,24 +226,109 @@ export const compareCase = (ts, rust, { src, data, rules = [] } = {}) => {
   return "different";
 };
 
+// Languages compared field by field under --interpreted (see the header).
+export const INTERPRETED_PROFILES = Object.freeze({ "0176": Object.freeze({ signs: true }) });
+
+// What each signature makes afresh, masked field by field on both sides, and
+// nothing else (C6 part 2). Broker signs through the Learnosity SDK
+// (packages/broker/src/operations.ts), which answers in two shapes:
+//   questions  one flat packet: the security fields (consumer_key, user_id,
+//              expires, timestamp, signature) beside the request's own,
+//              with Broker's session_id among them
+//   items      { security: { consumer_key, domain, user_id, expires,
+//              timestamp, signature }, request: { ..., session_id } }
+// Broker gives every signature a fresh user_id and session_id; timestamp,
+// expires and signature follow from the time and the packet. consumer_key,
+// domain, the SDK's meta and the request's content are compared. A signed
+// packet is found at `data.request` (PROG's answer) or as `data` itself (a
+// bare `init`'s answer).
+export const SIGNED_FIELDS = Object.freeze(["user_id", "expires", "timestamp", "signature"]);
+export const SESSION_FIELD = "session_id";
+const isRecord = v => Boolean(v) && typeof v === "object" && !Array.isArray(v);
+const masking = (record, fields) => {
+  const out = { ...record };
+  for (const field of fields) if (field in out) out[field] = "<signed>";
+  return out;
+};
+// A signed packet with its fresh fields masked, or the value as it was when it
+// isn't one.
+export const maskSignedPacket = value => {
+  if (!isRecord(value)) return value;
+  if (isRecord(value.security) && typeof value.security.signature === "string") {
+    const masked = { ...value, security: masking(value.security, SIGNED_FIELDS) };
+    if (isRecord(value.request)) masked.request = masking(value.request, [SESSION_FIELD]);
+    return masked;
+  }
+  if (typeof value.signature === "string" && typeof value.consumer_key === "string") {
+    return masking(value, [...SIGNED_FIELDS, SESSION_FIELD]);
+  }
+  return value;
+};
+export const maskSigned = body => {
+  if (!isRecord(body) || !isRecord(body.data)) return body;
+  const data = maskSignedPacket(body.data);
+  if (data !== body.data) return { ...body, data };
+  if (!isRecord(body.data.request)) return body;
+  return { ...body, data: { ...body.data, request: maskSignedPacket(body.data.request) } };
+};
+
+// What an `evaluate` answer must be, given the compile's: the same without
+// the signing, without `cache: false`, and with a save skipped for having no
+// connection skipped for being `evaluate` instead.
+export const evaluated = body => {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const { cache, ...rest } = body;
+  const out = cache === false ? rest : body;
+  const data = out.data && typeof out.data === "object" && !Array.isArray(out.data)
+    ? (({ request: _request, signing: _signing, ...activity }) => activity)(out.data)
+    : out.data;
+  const walk = v => {
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === "skipped" && x === "no-connection" ? "evaluate" : walk(x)]));
+    }
+    return v;
+  };
+  return walk(out.data === undefined ? out : { ...out, data });
+};
+
+// A signing language's cache metadata (C6 part 2), or null when it's right:
+// every compile and present answer `cache: false`, errors included; no
+// evaluate answer with `cache`.
+export const signingMetadataProblem = (answer, label) => {
+  const body = parse(answer.text);
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  if (label === "evaluate") return "cache" in body ? `evaluate carries cache ${JSON.stringify(body.cache)}` : null;
+  return body.cache === false ? null : `${label} isn't cache: false (${JSON.stringify(body.cache)})`;
+};
+
 // One case under --interpreted: "identical", "different", or { invalid }.
 // `compiled` is the /compile answer, `modelled` the model-form answer, and
 // `interpreted` the /interpret answers ({ evaluate, present }), or null when
 // there was no model to interpret.
-export const compareInterpreted = (compiled, modelled, interpreted) => {
+export const compareInterpreted = (compiled, modelled, interpreted, { signs = false } = {}) => {
   const problems = { compiled: answerProblem(compiled), model: answerProblem(modelled) };
   if (problems.compiled || problems.model) return { invalid: problems };
   const compile = semantic(compiled);
   const model = comparable(modelled).body;
   if (!model.model) {
     // No model: the program doesn't compile, and fails exactly as it compiles.
+    // A signing language's compile is `cache: false` even when it fails (its own check).
     const failed = compile.body.data === null && failedWithErrors(model) && isDeepStrictEqual(compile.body.errors, model.errors) &&
-      Object.keys(compile.body).every(k => k === "data" || k === "errors");
+      Object.entries(compile.body).every(([k, v]) => k === "data" || k === "errors" || (signs && k === "cache" && v === false));
     return failed ? "identical" : "different";
   }
   for (const [mode, answer] of Object.entries(interpreted ?? {})) {
     const problem = answerProblem(answer);
     if (problem) return { invalid: { [mode]: problem } };
+    if (signs) {
+      const got = semantic(answer);
+      const want = mode === "evaluate"
+        ? { status: compile.status, body: evaluated(compile.body) }
+        : { status: compile.status, body: maskSigned(compile.body) };
+      if (!isDeepStrictEqual(mode === "evaluate" ? got : { ...got, body: maskSigned(got.body) }, want)) return "different";
+      continue;
+    }
     if (!isDeepStrictEqual(semantic(answer), compile)) return "different";
   }
   return interpreted && Object.keys(interpreted).length ? "identical" : "different";
@@ -366,12 +463,16 @@ const main = async () => {
     const invalid = [];
     const ttlMs = Number(arg("--fetch-ttl", String(FETCHED_TTL_MS / 1000))) * 1000;
     const metadata = { checked: 0, fetched: 0, problems: 0, examples: [] };
+    const profile = INTERPRETED_PROFILES[lang] ?? {};
+    const determinism = { checked: 0, problems: 0, examples: [] };
     const checkMetadata = (i, c, label, answer, sentAt, receivedAt) => {
       if (answerProblem(answer)) return;
       const fetches = /\bfetch\b/i.test(c.src ?? "");
       metadata.checked++;
       if (fetches) metadata.fetched++;
-      const problem = metadataProblem(answer, { fetches, sentAt, receivedAt, ttlMs });
+      const problem = profile.signs
+        ? signingMetadataProblem(answer, label)
+        : metadataProblem(answer, { fetches, sentAt, receivedAt, ttlMs });
       if (problem) {
         metadata.problems++;
         if (metadata.examples.length < 20) metadata.examples.push({ case: i, src: c.src, answer: label, problem });
@@ -388,6 +489,15 @@ const main = async () => {
         request(rustUrl, "POST", "/compile", { headers, body: { code: c.ast, data: {}, form: "model" } }),
       ]);
       checkMetadata(i, c, "compile", compiled, sentAt, Date.now());
+      if (profile.signs && !answerProblem(compiled)) {
+        const again = await request(rustUrl, "POST", "/compile", { headers, body: { code: c.ast, data } });
+        determinism.checked++;
+        const [a, b] = [compiled, again].map(x => (({ status, body }) => ({ status, body: maskSigned(body) }))(comparable(x)));
+        if (!isDeepStrictEqual(a, b)) {
+          determinism.problems++;
+          if (determinism.examples.length < 20) determinism.examples.push({ case: i, src: c.src, first: a, second: b });
+        }
+      }
       const model = parse(modelled.text)?.model;
       let interpreted = null;
       if (model) {
@@ -401,7 +511,7 @@ const main = async () => {
         checkMetadata(i, c, "present", present, interpretAt, answeredAt);
         interpreted = { evaluate, present };
       }
-      const result = compareInterpreted(compiled, modelled, interpreted);
+      const result = compareInterpreted(compiled, modelled, interpreted, profile);
       if (result === "identical") counts.identical++;
       else if (result === "different") {
         counts.different++;
@@ -418,9 +528,10 @@ const main = async () => {
     report.checks = {
       interpreted: { ok: counts.different === 0 && counts.invalid === 0 && compared > 0, ...counts, compared, differences, invalidAnswers: invalid },
       metadata: { ok: metadata.problems === 0, ttlMs, ...metadata },
+      ...(profile.signs ? { determinism: { ok: determinism.problems === 0 && determinism.checked > 0, ...determinism } } : {}),
     };
-    report.corpus = corpusBlock({ ranAt, tasks: compared, failures: counts.different + counts.invalid + metadata.problems });
-    report.passed = report.checks.interpreted.ok && report.checks.metadata.ok;
+    report.corpus = corpusBlock({ ranAt, tasks: compared, failures: counts.different + counts.invalid + metadata.problems + determinism.problems });
+    report.passed = report.checks.interpreted.ok && report.checks.metadata.ok && (report.checks.determinism?.ok ?? true);
     const text = JSON.stringify(report, null, 2);
     if (out) await writeFile(out, `${text}\n`);
     console.log(text);
