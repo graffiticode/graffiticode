@@ -267,12 +267,7 @@
     {
       "kind": "volatile",
       "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
-      "note": "Every L0176 activity gets a fresh session_id (and, with no lrn-id, a fresh id): a UUID per compile, so two compiles of the same service differ too. languages/l0176/CLAUDE.md, \"Conformance\": the conformance test masks the same UUIDs."
-    },
-    {
-      "kind": "volatile",
-      "pattern": "graffiticode-\\d{4}-\\d{2}-\\d{2}T\\d{9}Z-row-\\d+",
-      "note": "items params rows are keyed by the compile's timestamp (graffiticode-<ISO time>-row-N), different on every compile; the conformance test masks the timestamped data."
+      "note": "TypeScript-vs-Rust only: the TypeScript L0176 gives every activity a fresh UUID session_id and questions id. Since C6 part 2 the Rust gives none that change (a digest id, no session_id), so this masks only the TypeScript side; --interpreted applies no rule and compares L0176 field by field (INTERPRETED_PROFILES)."
     },
     {
       "kind": "error-presentation",

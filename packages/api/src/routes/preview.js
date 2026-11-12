@@ -13,11 +13,19 @@
 // request is ignored and never forwarded. Each call is one signing stage on
 // the per-client limit (signing-limit.js).
 //
+// With INTERPRETER_L0176 on (C6 part 2, decision 4), the same program is
+// interpreted instead: its model (from the model cache) evaluated in `present`
+// with the activity as its input, with the same identity and no connection.
+// The answer is mapped exactly as a compile's.
+//
 // Response: { request } (signed), { signing: { unsigned, message } }
 // (L0176 answered unsigned), or an error: 400 a malformed activity, 413 too
 // large, 422 L0176's compile errors, 429 the limit, 502 no answer from L0176.
 import { Router, json } from "express";
 import { HttpError, InvalidArgumentError } from "../errors/http.js";
+import { getInterpreterLanguages as readInterpreterLanguages, withoutStageMetadata } from "../interpret.js";
+import { getLanguageGenerations as readLanguageGenerations } from "../generation.js";
+import { modelCacheKey } from "../model-cache.js";
 import { SIGNING_LANG } from "../signing-limit.js";
 import {
   buildHttpHandler, createError, createErrorResponse, setNoStoreCacheHeaders
@@ -85,13 +93,42 @@ export const signResult = obj => {
   return { request: data };
 };
 
-const buildPostSignHandler = ({ compile, signingLimiter = null }) => buildHttpHandler(async (req, res) => {
+// The interpreted signer (C6 part 2): `init data {}`'s model, from the model
+// cache when there is one, interpreted in `present` with the activity as its
+// input. No user, no token, no connection. Answers as a compile does: the
+// envelope without the api's stage metadata, `{ responseLost }`, or errors.
+export const buildInterpretedSign = ({ interpreter, modelCache = null, getLanguageGenerations = readLanguageGenerations }) =>
+  async activity => {
+    const lang = SIGNING_LANG;
+    const key = modelCache
+      ? modelCacheKey({ lang, code: INIT_DATA_CODE, options: {}, baseUrl: null, generation: getLanguageGenerations()[lang] ?? null })
+      : null;
+    const cached = key ? modelCache.get(key) : null;
+    const compiled = cached ?? await interpreter.model({ lang, code: INIT_DATA_CODE, auth: null, options: {}, uid: null });
+    if (compiled?.responseLost) return { responseLost: true };
+    if (Array.isArray(compiled?.errors) && compiled.errors.length) return { data: null, errors: compiled.errors };
+    const model = compiled?.model;
+    if (!model || typeof model.digest !== "string") return { data: null };
+    if (key && !cached && typeof compiled.revision === "string") modelCache.put(key, { model, revision: compiled.revision });
+    const reply = await interpreter.interpret({ lang, model, input: activity, mode: "present", auth: null, options: {}, uid: null });
+    if (reply?.responseLost) return { responseLost: true };
+    // A cached model from before a deploy: the next call compiles it afresh.
+    if (cached && typeof reply?.revision === "string" && reply.revision !== cached.revision) modelCache.drop(key);
+    return withoutStageMetadata(reply);
+  };
+
+const buildPostSignHandler = ({
+  compile, signingLimiter = null, interpretedSign = null, getInterpreterLanguages = readInterpreterLanguages,
+}) => buildHttpHandler(async (req, res) => {
   setNoStoreCacheHeaders(res);
   res.set("Access-Control-Allow-Origin", "*");
   const activity = parseActivity(req.body);
   if (signingLimiter) await signingLimiter.charge(req, 1);
   // No user, no token, no connection: the system path, with the api's identity.
-  const obj = await compile({ lang: SIGNING_LANG, code: INIT_DATA_CODE, data: activity, auth: null, options: {}, uid: null });
+  // Interpreted while INTERPRETER_L0176 is on, read per request as data.js does.
+  const obj = interpretedSign && getInterpreterLanguages().has(SIGNING_LANG)
+    ? await interpretedSign(activity)
+    : await compile({ lang: SIGNING_LANG, code: INIT_DATA_CODE, data: activity, auth: null, options: {}, uid: null });
   if (obj?.responseLost) {
     res.status(502).json(createErrorResponse({ ...createError(502, "the preview signer didn't answer"), category: "unavailable" }));
     return;
@@ -109,8 +146,9 @@ const buildPostSignHandler = ({ compile, signingLimiter = null }) => buildHttpHa
   res.status(200).json(result);
 });
 
-export default ({ compile, signingLimiter = null }) => {
+export default ({ compile, signingLimiter = null, interpreter = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages, getLanguageGenerations = readLanguageGenerations }) => {
   const router = Router();
-  router.post("/sign", buildPostSignHandler({ compile, signingLimiter }));
+  const interpretedSign = interpreter ? buildInterpretedSign({ interpreter, modelCache, getLanguageGenerations }) : null;
+  router.post("/sign", buildPostSignHandler({ compile, signingLimiter, interpretedSign, getInterpreterLanguages }));
   return router;
 };

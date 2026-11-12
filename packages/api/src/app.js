@@ -214,7 +214,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   }
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));
-  app.use("/preview", routes.preview({ compile, signingLimiter }));
+  app.use("/preview", routes.preview({ compile, signingLimiter, interpreter, modelCache }));
   app.use("/lang-overrides", routes.langOverrides({ langOverrideStorer }));
   const langRouter = routes.buildLangRouter({ pingLang, getLangAsset });
   app.use("/lang", langRouter);

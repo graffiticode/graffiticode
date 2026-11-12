@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { FETCHED_TTL_MS, answerProblem, asDelivered, compareCase, compareInterpreted, compareLexicon, compareProbe, comparable, corpusBlock, formAssets, formProblems, isEnvelope, metadataProblem, ruleProblems, semantic, sendable } from "../lang-parity.js";
+import { FETCHED_TTL_MS, INTERPRETED_PROFILES, answerProblem, asDelivered, compareCase, compareInterpreted, compareLexicon, compareProbe, comparable, corpusBlock, evaluated, formAssets, formProblems, isEnvelope, maskSigned, metadataProblem, ruleProblems, semantic, sendable, signingMetadataProblem } from "../lang-parity.js";
 
 const answer = (status, body) => ({ status, text: JSON.stringify(body) });
 
@@ -229,4 +229,75 @@ test("volatile masks only values and keys that wholly match its pattern, then ne
   assert.equal(compareCase(a, b), "different");
   assert.deepEqual(ruleProblems({ "0176": [{ kind: "volatile", note: "x" }] }), ["0176[0]: a volatile rule names its pattern"]);
   assert.deepEqual(ruleProblems({ "0176": [{ kind: "volatile", pattern: "(", note: "x" }] }), ["0176[0]: the pattern is not a regular expression"]);
+});
+
+// C6 part 2: L0176 under --interpreted, field by field.
+test("L0176 is compared field by field: present as the compile with only the signed fields masked", () => {
+  assert.deepEqual(INTERPRETED_PROFILES["0176"], { signs: true });
+  const activity = { type: "questions", data: { id: "graffiticode-0123456789abcdef", name: "Test", questions: [] } };
+  const signed = n => ({ ...activity, request: { consumer_key: "k", signature: `$02$${n}`, timestamp: `t${n}`, expires: `e${n}`, session_id: `s${n}`, questions: [] } });
+  const env = (data, extra = {}) => answer(200, { data, errors: [], ...extra });
+  const compiled = env(signed(1), { cache: false });
+  const modelled = answer(200, { model: { lang: "0176", kind: "plan" }, errors: [] });
+  const present = env(signed(2), { cache: false, revision: "r" });
+  const evaluate = env(activity, { revision: "r" });
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate, present }, { signs: true }), "identical");
+  // Anything but the signed fields is compared: another id, a kept session id, a changed question.
+  for (const changed of [
+    { ...signed(2), data: { ...activity.data, id: "graffiticode-ffffffffffffffff" } },
+    { ...signed(2), data: { ...activity.data, session_id: "old" } },
+    { ...signed(2), request: { ...signed(2).request, questions: [{ type: "mcq" }] } },
+  ]) {
+    assert.equal(compareInterpreted(compiled, modelled, { evaluate, present: env(changed, { cache: false }) }, { signs: true }), "different");
+  }
+  // Present without cache: false differs from the compile.
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate, present: env(signed(2)) }, { signs: true }), "different");
+  // Without the profile, the same answers differ (the signatures).
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate, present }), "different");
+});
+
+test("L0176's evaluate is the compile unsigned, without cache: false, with a save skipped for evaluate", () => {
+  const save = { skipped: "no-connection", fn: "save-to-itembank", occurrence: "SAVE_TO_ITEMBANK:21" };
+  const activity = { type: "questions", data: { id: "t", questions: [], itemBank: save } };
+  const compileBody = { data: { ...activity, signing: { unsigned: "gateway-only", message: "m" } }, errors: [], cache: false };
+  assert.deepEqual(evaluated(compileBody), { data: { ...activity, data: { ...activity.data, itemBank: { ...save, skipped: "evaluate" } } }, errors: [] });
+  const compiled = answer(200, compileBody);
+  const modelled = answer(200, { model: { lang: "0176", kind: "plan" }, errors: [] });
+  const evaluate = answer(200, { data: { ...activity, data: { ...activity.data, itemBank: { ...save, skipped: "evaluate" } } }, errors: [] });
+  assert.equal(compareInterpreted(compiled, modelled, { evaluate, present: compiled }, { signs: true }), "identical");
+  // An evaluate answer that signs, or says cache: false, or still says no-connection, differs.
+  for (const body of [
+    { ...JSON.parse(evaluate.text), data: { ...JSON.parse(evaluate.text).data, request: {} } },
+    { ...JSON.parse(evaluate.text), cache: false },
+    { data: activity, errors: [] },
+  ]) {
+    assert.equal(compareInterpreted(compiled, modelled, { evaluate: answer(200, body), present: compiled }, { signs: true }), "different");
+  }
+  // A program with no model fails as it compiles; a signing language's failed compile is
+  // cache: false, which only its profile accepts.
+  const noModel = answer(200, { model: null, errors: [{ message: "bad" }] });
+  const failedCompile = answer(200, { data: null, errors: [{ message: "bad" }], cache: false });
+  assert.equal(compareInterpreted(failedCompile, noModel, null, { signs: true }), "identical");
+  assert.equal(compareInterpreted(failedCompile, noModel, null), "different");
+  // A class instead of cache: false is metadata, which the metadata check refuses.
+  assert.match(signingMetadataProblem(answer(200, { data: null, errors: [{ message: "bad" }], cache: "immutable" }), "compile"), /isn't cache: false/);
+  // Errors: the same errors, cache: false only where it belongs.
+  const failed = answer(200, { data: null, errors: [{ message: "bad" }], cache: false });
+  assert.equal(compareInterpreted(failed, modelled, { evaluate: answer(200, { data: null, errors: [{ message: "bad" }] }), present: failed }, { signs: true }), "identical");
+});
+
+test("L0176's metadata: compile and present always cache: false, evaluate never cache", () => {
+  assert.equal(signingMetadataProblem(answer(200, { data: 1, errors: [], cache: false }), "compile"), null);
+  assert.equal(signingMetadataProblem(answer(200, { data: null, errors: [{ message: "x" }], cache: false }), "present"), null);
+  assert.match(signingMetadataProblem(answer(200, { data: null, errors: [{ message: "x" }] }), "compile"), /isn't cache: false/);
+  assert.match(signingMetadataProblem(answer(200, { data: 1, errors: [], cache: "immutable" }), "present"), /isn't cache: false/);
+  assert.equal(signingMetadataProblem(answer(200, { data: 1, errors: [] }), "evaluate"), null);
+  assert.match(signingMetadataProblem(answer(200, { data: 1, errors: [], cache: false }), "evaluate"), /evaluate carries cache/);
+});
+
+test("maskSigned masks only the signed request's own fields", () => {
+  const body = { data: { type: "questions", data: { id: "x" }, request: { signature: "a", timestamp: "b", expires: "c", session_id: "d", questions: [1] } }, errors: [] };
+  assert.deepEqual(maskSigned(body).data.request, { signature: "<signed>", timestamp: "<signed>", expires: "<signed>", session_id: "<signed>", questions: [1] });
+  assert.deepEqual(maskSigned(body).data.data, { id: "x" });
+  assert.deepEqual(maskSigned({ data: 1 }), { data: 1 });
 });

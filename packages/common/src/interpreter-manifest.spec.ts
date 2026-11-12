@@ -27,7 +27,7 @@ describe("interpreter-manifest", () => {
   });
 
   it("treats an undeclared language as compile-only, with no cap beyond its own", () => {
-    for (const lang of ["0176", "L0176", "176", "0000"]) {
+    for (const lang of ["0158", "L0158", "158", "0000"]) {
       expect(interpreterDeclarationFor(lang)).toBe(COMPILE_ONLY);
     }
     expect(capCacheClass("immutable", "0000", "present")).toBe("immutable");
@@ -40,14 +40,24 @@ describe("interpreter-manifest", () => {
     }
     expect(capCacheClass("immutable", "0184", "present")).toBe("immutable");
     expect(capCacheClass("shared", "0184", "evaluate")).toBe("shared");
-    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0003", "0010", "0014", "0174", "0175", "0177", "0178", "0179", "0180", "0181", "0183", "0184", "0185", "0186", "0187"]);
+    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0003", "0010", "0014", "0174", "0175", "0176", "0177", "0178", "0179", "0180", "0181", "0183", "0184", "0185", "0186", "0187"]);
   });
 
   it("declares L0185 (C3) with immutable caps, so its own claim decides: shared with an expiry when it fetched, immutable otherwise", () => {
     expect(interpreterDeclarationFor("0185")).toEqual({ interpreter: "interpreter", cacheCaps: { evaluate: "immutable", present: "immutable" } });
     expect(capCacheClass("shared", "0185", "present")).toBe("shared");
     expect(capCacheClass("immutable", "0185", "evaluate")).toBe("immutable");
-    expect(INTERPRETER_MANIFEST_VERSION).toBe(8);
+  });
+
+  it("declares L0176 (C6 part 2): evaluate immutable, present no-store, whatever the result claims, and interprets nothing else", () => {
+    expect(interpreterDeclarationFor("0176")).toEqual({ interpreter: "interpreter", cacheCaps: { evaluate: "immutable", present: "no-store" } });
+    for (const claim of ["immutable", "shared", "private", undefined]) {
+      expect(capCacheClass(claim, "0176", "present")).toBe("no-store");
+    }
+    expect(capCacheClass("immutable", "0176", "evaluate")).toBe("immutable");
+    expect(capCacheClass("shared", "0176", "evaluate")).toBe("shared");
+    expect(interpreterLangFor("0158")).toBe("0158");
+    expect(INTERPRETER_MANIFEST_VERSION).toBe(9);
   });
 
   it("finds a declaration by any spelling of the language", () => {

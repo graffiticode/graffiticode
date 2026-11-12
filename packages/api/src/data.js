@@ -414,8 +414,10 @@ const buildGetData = ({
       const failure = (message, code) =>
         ({ out: { data: null, errors: [failedWith(message, code)] }, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: code } });
       // The model, from the model cache when it may be shared (model-cache.js): never for a
-      // user testing an override, never for a protected task.
-      const modelKey = modelCache && !overriding && !taskRequiresProtected(task)
+      // user testing an override. A protected task's model may be (C6 part 2): a model is
+      // the program, compiled without running anything, so it carries no signature, and
+      // an interpreted stage is never through a connection, so no admission is skipped.
+      const modelKey = modelCache && !overriding
         ? modelCacheKey({ lang, code: task.code, options, baseUrl: modelBaseUrl, generation: generations[lang] ?? null })
         : null;
       const cachedModel = modelKey ? modelCache.get(modelKey) : null;
@@ -433,10 +435,15 @@ const buildGetData = ({
       // Only a model that names the revision that compiled it is kept.
       if (modelKey && !cachedModel && revision) modelCache.put(modelKey, { model, revision });
       // The stage cache is shared: never for a user testing an override, never
-      // for a protected task, never without the revision that keys it, and
-      // only for input that may itself be shared (not private or no-store,
-      // and not expired).
-      const key = stageResults && !overriding && !taskRequiresProtected(task) && revision
+      // without the revision that keys it, and only for input that may itself
+      // be shared (not private or no-store, and not expired). A protected task's
+      // result may be (C6 part 2), as its own class allows: an interpreted stage
+      // is never through a connection, so no admission is skipped, and the
+      // manifest caps a result that signs (L0176's present) at no-store, so it
+      // is never stored or read; one that can't act (L0176's evaluate: the
+      // kernel refuses every protected call in it) is stored as its class and
+      // its input's expiry allow.
+      const key = stageResults && !overriding && revision
         ? stageCacheKey({
           lang,
           interpreterLang,
