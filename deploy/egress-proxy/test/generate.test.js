@@ -496,3 +496,51 @@ test("a terminated host's route retries once, on a reset only where its requests
   JSON.stringify(envoy, (k, v) => { if (v && typeof v === "object" && typeof v.cluster === "string" && v.cluster.startsWith("upstream-")) routes.push(v); return v; });
   assert.ok(routes.length > 0 && routes.every(r => r.retry_policy?.num_retries === 1), "every terminated route has its retry policy");
 });
+
+// C3 (2026-11-12): the open class may list a refused name only through a reviewed
+// exception in classes.json, and then only for its exact requests.
+const innerHcm = (envoy, className, host) => envoy.static_resources.listeners.find(l => l.name === `terminate-${className}`)
+  .filter_chains.find(c => c.name === `${className}-${host.replace(/\./g, "-")}`).filters[1].typed_config;
+const withCertsException = async () => {
+  const classes = await json("classes.json");
+  classes.open.exceptions = { $comment: "test", "www.googleapis.com": { methods: ["GET"], paths: ["/oauth2/v3/certs"] } };
+  return classes;
+};
+const svc = (subnet, allow) => ({ runtimeServiceAccount: "a-run@graffiticode.iam.gserviceaccount.com", network: { network: "compilers", subnet, tags: ["c"], proxy: "http://10.8.0.2:3128", ca: {}, allow } });
+
+test("an open-class exception lists its host for its exact requests only", async () => {
+  const classes = await withCertsException();
+  const model = buildModel({ services: { open: svc("compilers-l0185", ["api.graffiticode.org", "www.googleapis.com"]), strict: svc("compilers-l0013", ["www.googleapis.com"]) } }, classes);
+  assert.deepEqual(model.classes["compilers-l0185"].hosts, ["api.graffiticode.org", "www.googleapis.com"]);
+  const envoy = envoyConfig(model);
+  const outer = outerHcm(envoy, "compilers-l0185");
+  const connect = authority => outcome(routeRequest(outer, { method: "CONNECT", authority }));
+  // The exact listed name wins over *.googleapis.com; every other Google name is still refused.
+  assert.deepEqual(connect("www.googleapis.com:443"), { cluster: "terminate-compilers-l0185-www-googleapis-com" });
+  for (const name of ["storage.googleapis.com:443", "googleapis.com:443", "oauth2.googleapis.com:443"]) assert.deepEqual(connect(name), { refused: "name" }, name);
+  assert.deepEqual(outcome(routeRequest(outer, { method: "GET", authority: "www.googleapis.com", path: "/oauth2/v3/certs" })), { refused: "name" }, "plain http is refused");
+  // Terminated: GET of the certificates, and nothing else.
+  const inner = innerHcm(envoy, "compilers-l0185", "www.googleapis.com");
+  const req = (method, path) => outcome(routeRequest(inner, { method, authority: "www.googleapis.com", path, headers: { ":method": method } }));
+  assert.deepEqual(req("GET", "/oauth2/v3/certs"), { cluster: "upstream-www-googleapis-com" });
+  for (const [method, path] of [["POST", "/oauth2/v3/certs"], ["HEAD", "/oauth2/v3/certs"], ["GET", "/oauth2/v3/certs/x"], ["GET", "/oauth2/v3/"], ["GET", "/storage/v1/b/x/o"], ["GET", "/upload/storage/v1/b/x/o"], ["PUT", "/"]]) {
+    assert.deepEqual(req(method, path), { refused: "request" }, `${method} ${path}`);
+  }
+  // The open class's other listed hosts, and a strict class listing the same host, are unrestricted.
+  const api = innerHcm(envoy, "compilers-l0185", "api.graffiticode.org");
+  assert.deepEqual(outcome(routeRequest(api, { method: "POST", authority: "api.graffiticode.org", path: "/compile", headers: { ":method": "POST" } })), { cluster: "upstream-api-graffiticode-org" });
+  const strict = innerHcm(envoy, "compilers-l0013", "www.googleapis.com");
+  assert.deepEqual(outcome(routeRequest(strict, { method: "POST", authority: "www.googleapis.com", path: "/storage/v1/b", headers: { ":method": "POST" } })), { cluster: "upstream-www-googleapis-com" });
+});
+
+test("open-class exceptions are validated, and a refused name without one still can't be listed", async () => {
+  const base = await json("classes.json");
+  const build = exceptions => buildModel({ services: {} }, { ...base, open: { ...base.open, exceptions } });
+  assert.throws(() => build({ "example.com": { methods: ["GET"], paths: ["/x"] } }), /doesn't refuse/);
+  assert.throws(() => build({ "www.googleapis.com": { methods: ["POST"], paths: ["/oauth2/v3/certs"] } }), /GET or HEAD/);
+  assert.throws(() => build({ "www.googleapis.com": { methods: [], paths: ["/oauth2/v3/certs"] } }), /GET or HEAD/);
+  for (const p of ["oauth2/v3/certs", "/oauth2/*", "/a?b", ""]) assert.throws(() => build({ "www.googleapis.com": { methods: ["GET"], paths: [p] } }), /exact paths/, p);
+  assert.throws(() => build({ "www.googleapis.com": { methods: ["GET"], paths: [] } }), /exact paths/);
+  const classes = await withCertsException();
+  assert.throws(() => buildModel({ services: { a: svc("compilers-l0185", ["storage.googleapis.com"]) } }, classes), /open class refuses/);
+});

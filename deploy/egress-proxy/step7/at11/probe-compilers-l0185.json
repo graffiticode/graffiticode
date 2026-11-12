@@ -56,6 +56,17 @@
     "api.graffiticode.org",
     "auth.graffiticode.org"
   ],
+  "exceptions": [
+    {
+      "host": "www.googleapis.com",
+      "method": "GET",
+      "path": "/oauth2/v3/certs",
+      "other": [
+        "/",
+        "/storage/v1/b"
+      ]
+    }
+  ],
   "canary": "l0186.graffiticode.org",
   "frontingOpen": {
     "connect": "www.google.com",

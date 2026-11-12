@@ -53,6 +53,14 @@ item 7.
    hosts that take reads (`*.graffiticode.org`, `www.googleapis.com`), and only on
    `connect-failure,reset-before-request` for Policy, Broker and Cloud Storage, so a write is
    never sent twice.
+   - **An open-class exception** (`classes.json` `open.exceptions`) is the one way the open class
+     lists a name it otherwise refuses, and then only for exact requests: its routes match each
+     listed path (exact; the query isn't part of it) and method, and anything else on that host
+     gets 403 `request`. The one exception is `www.googleapis.com`, `GET /oauth2/v3/certs`
+     (C3, owner 2026-11-12): `l0185r`'s `/preflight` verifies the api's Google ID token
+     (`PREFLIGHT_GATEWAYS`). `generate.js` refuses an exception for a name the class doesn't
+     refuse, any method but `GET` or `HEAD`, and any path that isn't exact. A strict class
+     listing the same host is unaffected.
 4. **Unlisted host:**
    - Strict classes: 403 `unlisted`.
    - The open class (L0185 and `l0185r`, and the legacy l0137 and l0170; D2): names under

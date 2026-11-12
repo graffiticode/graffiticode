@@ -1659,6 +1659,16 @@ After the 2026-11-10 incident: at 16:55Z a test cleanup (`clearFirestore`, run w
   - An owner `DELETE` of a non-existent document (`deny-check/probe-does-not-exist`) answers 403.
   - The services' delete requests appear in the data-access log with status OK.
 
+### Step 23: `l0185r` is pinnable (C3 follow-up) [PLANNED]
+
+An L0185 stage can be admitted in a chain (the L0185 → L0176 save as a command) only once `l0185r` is pinnable: Policy refuses a language with no approved revision (`stage-not-pinnable`). L0185 has no protected functions, so its manifests carry registry version 0 and no required functions; it needs no Policy or Broker caller entry and no invoker grant.
+
+- **Preflight's key fetch.** `/preflight` verifies the api's Google ID token (`PREFLIGHT_GATEWAYS=api-run`), which needs Google's certificates from `www.googleapis.com`. L0185's open class refuses every `googleapis.com` name (D2). The owner chose (2026-11-12) a single open-class exception: `GET /oauth2/v3/certs` on `www.googleapis.com`, and 403 `request` for anything else on that host (`deploy/egress-proxy/classes.json` `open.exceptions`). L0185 programs can reach that one public document too; it's public.
+- **Proxy first.** The exception is in the proxy's static config, so the proxy is rolled out (README, "Change a compiler's hosts") **before** the `l0185r` candidate. This rollout also drops the retired fault Broker's host (Step 21), which the 2026-11-11 config already did but which wasn't rolled out.
+- **`deploy.json`:** `l0185r` gets `pinnable` for `0185` with contract versions 1 and 2, `PREFLIGHT_GATEWAYS=api-run@graffiticode.iam.gserviceaccount.com`, and `www.googleapis.com` in `network.allow` (matching `production/network.json`).
+- **Release.** Its first pinnable release records its revision as approved before promotion. The serving revision `l0185r-rmwcjrz90-673abb` was never approved; its tag is retired by the release (`retireTags`), as for `l0000r` and `l0176r`.
+- **Check:** `release-check l0185r` ok; a staged `/preflight` from the api answers a manifest for `0185`, and from anyone else 401/403; a probe in `compilers-l0185` gets the certificates and a 403 `request` for any other `www.googleapis.com` path.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
@@ -1771,7 +1781,8 @@ After the 2026-11-10 incident: at 16:55Z a test cleanup (`clearFirestore`, run w
      language hosts (Chrome renders an item's form on its language's host). Each is an exact
      host, not a wildcard.
    - `compilers-l0185` (L0185, `l0185r`): `api` and `auth` terminated, and public hosts through
-     the open route (D2).
+     the open route (D2). Since Step 23, also `GET https://www.googleapis.com/oauth2/v3/certs`
+     and nothing else on that host (the open class's one exception).
 
    Each compiler's evidence is in `.gc-deploy/inventory/<service>-<release>.json`.
 

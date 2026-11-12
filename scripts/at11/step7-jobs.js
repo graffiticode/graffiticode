@@ -64,10 +64,11 @@ export function classesOf(services) {
 
 // One class's net probe config, from step 3's production L0176 config (which passed) with the
 // class's own targets.
-export function probeConfig(cls, base, { admin }) {
+export function probeConfig(cls, base, { admin, openExceptions = undefined }) {
   const kind = KIND[cls.subnet] ?? "lang";
   const listed = cls.hosts.filter(h => !EXTERNAL.has(h) && !/^broker-/.test(h));
-  const external = cls.hosts.filter(h => EXTERNAL.has(h));
+  // An open class reaches an external host only through an exception (its own rows).
+  const external = kind === "open" ? [] : cls.hosts.filter(h => EXTERNAL.has(h));
   const listsPolicy = cls.hosts.includes(POLICY_HOST);
   const runApp = listsPolicy ? OTHER_RUN_APP : POLICY_HOST;
   const config = {
@@ -87,6 +88,11 @@ export function probeConfig(cls, base, { admin }) {
   // answered in under a second minutes later).
   if (cls.subnet === "compilers-l0013") config.timeoutMs = 30000;
   if (kind === "open") {
+    // Its exceptions (classes.json open.exceptions, C3): each exact request must succeed, and
+    // the host's other paths and methods must be refused.
+    const exceptions = Object.entries(openExceptions ?? {}).filter(([host]) => !host.startsWith("$") && cls.hosts.includes(host))
+      .flatMap(([host, e]) => e.paths.flatMap(p => e.methods.map(method => ({ host, method, path: p, other: ["/", "/storage/v1/b"] }))));
+    if (exceptions.length) config.exceptions = exceptions; else delete config.exceptions;
     // A public name we run that this class doesn't list, so it goes through the open route.
     config.canary = "l0186.graffiticode.org";
     config.frontingOpen = { connect: "www.google.com", host: "example.com" };
@@ -155,7 +161,8 @@ async function main() {
   const classes = classesOf(services);
   if (write) {
     const base = JSON.parse(await readFile(path.join(ROOT, "deploy/egress-proxy/step3/at11/probe-l0176.json"), "utf8"));
-    for (const c of classes) await writeFile(path.join(ROOT, DIR, `probe-${c.subnet}.json`), `${JSON.stringify(probeConfig(c, base, { admin: args["--admin"] }), null, 2)}\n`);
+    const openExceptions = JSON.parse(await readFile(path.join(ROOT, "deploy/egress-proxy/classes.json"), "utf8")).open?.exceptions;
+    for (const c of classes) await writeFile(path.join(ROOT, DIR, `probe-${c.subnet}.json`), `${JSON.stringify(probeConfig(c, base, { admin: args["--admin"], openExceptions }), null, 2)}\n`);
     const iamPath = path.join(ROOT, DIR, "iam.json");
     const iam = JSON.parse(await readFile(iamPath, "utf8"));
     iam.canary = CANARY;

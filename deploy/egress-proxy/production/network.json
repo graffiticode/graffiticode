@@ -472,7 +472,8 @@
         },
         "allow": [
           "api.graffiticode.org",
-          "auth.graffiticode.org"
+          "auth.graffiticode.org",
+          "www.googleapis.com"
         ]
       }
     },
