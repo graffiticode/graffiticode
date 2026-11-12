@@ -329,3 +329,33 @@ test("in page flow, a drag held at the window's top edge scrolls the page, so a 
   await touch(cdp, "touchEnd");
   expect(during).toBeLessThan(before);
 });
+
+test("the preview's outline tells the truth: blue only where a drop places, and a drop there always lands", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto("/dev.html?fixture=waterCycle");
+  await page.locator("[data-l0183-canvas]").waitFor();
+  await page.waitForTimeout(300);
+  const cdp = await page.context().newCDPSession(page);
+  const grip = await centre(page, `div:has(> button:has-text("Condensation")) > [data-l0183-grip] >> visible=true`);
+  const wrong = await centre(page, '[data-l0183-blank="e1"]');
+  const empty = await centre(page, "[data-l0183-canvas]"); // the hub: not a blank
+  const right = await centre(page, '[data-l0183-blank="n2"]');
+  const meaning = () => page.locator("[data-l0183-drop]").getAttribute("data-l0183-drop");
+  const glide = async (from: Pt, to: Pt) => {
+    for (let i = 1; i <= 8; i++) {
+      await touch(cdp, "touchMove", { x: from.x + ((to.x - from.x) * i) / 8, y: from.y + ((to.y - from.y) * i) / 8 });
+      await page.waitForTimeout(16);
+    }
+  };
+  await touch(cdp, "touchStart", grip);
+  await glide(grip, wrong);
+  expect(await meaning()).toBe("wrong");
+  await glide(wrong, empty);
+  expect(await meaning()).toBe("none");
+  await expect(page.locator("[data-l0183-drop]")).not.toHaveClass(/border-blue/);
+  await glide(empty, right);
+  expect(await meaning()).toBe("place");
+  await expect(page.locator("[data-l0183-drop]")).toHaveClass(/border-blue-500/);
+  await touch(cdp, "touchEnd", right);
+  await expect(page.locator('[data-l0183-blank="n2"]')).toHaveAttribute("aria-label", /holding Condensation/);
+});
