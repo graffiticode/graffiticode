@@ -16,3 +16,19 @@
   - `/preview/sign` for questions and items: each a 200, signed and `no-store`, and the whole answer equal to production's apart from each signature's fresh fields (`maskSigned`: the flat questions packet; the items packet's `security` and request session). The staged revision's own routing records (`preview-sign {"run":"interpret",…}`, from `routes/preview.js`, read from that revision's log) show both went through the interpreter. l0176r's request log isn't used: production's commands call `/interpret` too (`operation: start`).
 - The canary job against the tag URL (`--api-url`) covers connection reads, publication reads and the command save, which are unchanged.
 - `promote-evidence.json`: for `npm run deploy -- promote api --release <id> --evidence …`.
+
+## Activation, 2026-11-12
+
+- **Staged** `api-rmwe179az-dc8f27` from `f7e19428`. A first `--stage` attempt failed locally (a DNS failure reaching Cloud Build) after its build had succeeded. It deployed nothing, and the second attempt built afresh.
+- **Staged canary: 26/26** (`canary-output.txt`, run `d146e2e6`). It confirmed:
+  - **The lower stage's cache:** a miss stored as immutable, then a hit. Its content (through an L0000 `data {}` head) had no signing or session metadata.
+  - **L0176 over L0176:** the lower stage was a hit every read. The head was presented, `no-store`, never a hit, and signed with a fresh signature, `user_id` and Broker session each read.
+  - **`/form`** names `@L0176=interp-1`.
+  - **`/preview/sign`:** questions and items equal production's answers under `maskSigned`, and the staged revision's routing records show both interpreted.
+- **Canary job via the tag: 36/36** (`canary-mxz6t`).
+- **Promoted** with `promote-evidence.json`; the stale tag `rmwdyh9de-00edf4` was retired.
+- **After promotion:**
+  - `npm run rollback -- api --env production --release rmwe179az-dc8f27 --plan` → `restoreTraffic {"api-rmwdyh9de-00edf4": 100}`;
+  - `release-check api`: ok;
+  - production canary 36/36 (`canary-wfpd2`);
+  - live `api.graffiticode.org`: `/form` names `@L0176=interp-1`, and `/data` under it is `no-store` and signed, with a fresh Broker session each read and no activity `session_id`.

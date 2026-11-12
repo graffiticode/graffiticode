@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmwe179az-dc8f27",
+  "revision": "api-rmwe179az-dc8f27",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (C6 part 2 L0176 activation; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-12T21:14:40.000Z",
+  "corpus": {
+    "ranAt": "2026-11-12T21:08:55.422Z",
+    "tasks": 26,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "stagedAt": "2026-11-12T21:08:44.642Z",
+    "commit": "f7e194288f317f7d6c3c572537735ce17bc24a30",
+    "flags": {
+      "INTERPRETER_L0176": "on",
+      "COMPILE_GENERATION_L0176": "interp-1"
+    },
+    "canary": {
+      "ranAt": "2026-11-12T21:08:55.422Z",
+      "staged": "https://rmwe179az-dc8f27---api-sja7fatcta-uc.a.run.app",
+      "revision": "api-rmwe179az-dc8f27",
+      "run": "d146e2e6",
+      "ids": {
+        "item": "eyJ0YXNrSWRzIjpbIk9KNE4wUEtIZHBURGJiRzl0QmVFIl19",
+        "lower": "eyJ0YXNrSWRzIjpbIkYxZkV4c2ZQbmNJTzZRTFM2dXc4Il19+eyJ0YXNrSWRzIjpbIk9KNE4wUEtIZHBURGJiRzl0QmVFIl19",
+        "pair": "eyJ0YXNrSWRzIjpbInRrRnphWWhHRjJoWmZNUkZ6VUJBIl19+eyJ0YXNrSWRzIjpbIk9KNE4wUEtIZHBURGJiRzl0QmVFIl19"
+      },
+      "checks": 26,
+      "failed": 0,
+      "output": "canary-output.txt"
+    },
+    "canaryJob": {
+      "execution": "canary-mxz6t",
+      "apiUrl": "https://rmwe179az-dc8f27---api-sja7fatcta-uc.a.run.app",
+      "checks": 36,
+      "failed": 0
+    },
+    "interpretedGate": {
+      "report": "interpreted-gate-l0176.json",
+      "ranAt": "2026-11-12T19:23:30.165Z",
+      "identical": 202,
+      "different": 0,
+      "invalid": 0,
+      "metadataChecked": 566,
+      "metadataProblems": 0,
+      "deterministic": 202
+    },
+    "rollback": {
+      "immediate": "npm run rollback -- api --env production --release rmwe179az-dc8f27 (restores api-rmwdyh9de-00edf4; verified with --plan after promotion)",
+      "forward": "branch c6-part2-rollback: INTERPRETER_L0176=off, COMPILE_GENERATION_L0176=commands-2"
+    }
+  }
+}

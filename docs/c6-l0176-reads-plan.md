@@ -1,6 +1,6 @@
 # C6 part 2: L0176 reads on the interpreter
 
-**Status:** decisions approved by the owner 2026-11-12, decision 3 amended, with four implementation amendments (below). Slices 1 and 2 in progress. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 6 ("interpretation of reads is part 2"); `docs/c6-l0176-commands-plan.md` "Out of scope". Design: `docs/graffiticode-interpreter-design.md` §5 (`get`: a narrowly scoped, repeatable signing action; compile emits unsigned models and the head's `get` signs) and the cache-class table. Template: `docs/c3-l0185-interpreter-plan.md`.
+**Status:** ACTIVE in production since 2026-11-12 (`api-rmwe179az-dc8f27`, `INTERPRETER_L0176=on`, `interp-1`). Decisions approved by the owner 2026-11-12, decision 3 amended, with four implementation amendments (below). Follow-ups: connection and publication reads through `/interpret` (decision 5); the L0158 → L0176 pair (decision 6). Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 6 ("interpretation of reads is part 2"); `docs/c6-l0176-commands-plan.md` "Out of scope". Design: `docs/graffiticode-interpreter-design.md` §5 (`get`: a narrowly scoped, repeatable signing action; compile emits unsigned models and the head's `get` signs) and the cache-class table. Template: `docs/c3-l0185-interpreter-plan.md`.
 
 ## 1. Where we start
 
@@ -99,7 +99,10 @@ The kernel change ships in every Rust language's next release; it changes nothin
 1. Kernel: mode on `ExecContext`, `cacheable_in(mode)`, the envelope in the kernel; tests.
 2. L0176: present-only signing, `cacheable_in`, `session_id`/`data.id`, `tests/interpret.rs`, the corpus envelope test, fixtures. Released with slice 1 as `l0176r`, the flag off.
 3. Api: manifest v9, protected-stage caching, `/preview/sign`, parity volatility in interpreted mode; tests. Released flag off. *Done (2026-11-12):* `lang-parity --interpreted --lang 0176` against production `l0176r-rmwduyn6c-c054b7` passed: 202/202 identical, 566 metadata checks, 202 deterministic.
-4. Gate, staged activation, canary, promotion, evidence. *In progress (2026-11-12):* activation PR with deploy.json flags, the staged canary and the gate report (`docs/evidence/interpreter-c6-l0176/`).
+4. Gate, staged activation, canary, promotion, evidence. *Done (2026-11-12):* #378 (f7e19428) staged as `api-rmwe179az-dc8f27`: staged canary 26/26, canary job via the tag 36/36 (`canary-mxz6t`); promoted with `docs/evidence/interpreter-c6-l0176/promote-evidence.json`. After promotion:
+   - production canary 36/36 (`canary-wfpd2`) and `release-check api` ok;
+   - `/form` names `@L0176=interp-1`, and live reads are signed, `no-store`, and fresh each read;
+   - the rollback (`--release rmwe179az-dc8f27`) restores `api-rmwdyh9de-00edf4`; the forward rollback is branch `c6-part2-rollback`.
 
 ## 9. Out of scope
 
