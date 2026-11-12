@@ -1,7 +1,7 @@
 // C6 part 2 canary: a staged api (tag URL) interpreting L0176, against production (legacy path).
 // node docs/evidence/interpreter-c6-l0176/canary.mjs <stagedBase> <stagedRevision>
-// docs/c6-l0176-reads-plan.md §7 step 4. Reads the staged revision's stage records and
-// l0176r's request log from Cloud Logging (the operator's gcloud). Anonymous throughout: no
+// docs/c6-l0176-reads-plan.md §7 step 4. Reads the staged revision's own stage records and
+// /preview/sign routing records from Cloud Logging (the operator's gcloud). Anonymous throughout: no
 // connection, so every read is the system preview path. Each run builds its own content (a
 // stimulus naming the run), so the lower stage's first read is a real miss.
 import { execFileSync } from "node:child_process";
@@ -48,10 +48,13 @@ const stageRecords = (since, until) => JSON.parse(logs([
   "resource.type=\"cloud_run_revision\"", "resource.labels.service_name=\"api\"", `resource.labels.revision_name="${revision}"`,
   "textPayload:\"stage {\"", ...window(since, until),
 ].join(" AND "))).map(e => JSON.parse(e.textPayload.slice(e.textPayload.indexOf("{")))).filter(r => r.lang === "0176");
-// POST /interpret requests l0176r answered within [since, until].
-const interprets = (since, until) => JSON.parse(logs([
-  "resource.type=\"cloud_run_revision\"", "resource.labels.service_name=\"l0176r\"", "httpRequest.requestUrl:\"/interpret\"", ...window(since, until),
-].join(" AND "))).length;
+// The staged revision's /preview/sign routing records within [since, until]: which path
+// signed (routes/preview.js), from that revision's own log, so production's traffic (its
+// commands' `start` calls to /interpret included) can't be counted.
+const previewRecords = (since, until) => JSON.parse(logs([
+  "resource.type=\"cloud_run_revision\"", "resource.labels.service_name=\"api\"", `resource.labels.revision_name="${revision}"`,
+  "textPayload:\"preview-sign {\"", ...window(since, until),
+].join(" AND "))).map(e => JSON.parse(e.textPayload.slice(e.textPayload.indexOf("{"))));
 const outcome = r => `${r.stage}:${r.run}:${r.mode}:${r.cache}:${r.own?.cacheClass}`;
 
 // The content: an items activity with a stimulus naming this run.
@@ -141,18 +144,22 @@ check("L0176 over L0176: the head's activity is the lower stage's", same(without
 //    /interpret on the staged api (l0176r sees no /interpret from production, whose flag is off).
 const questionsActivity = { type: "questions", data: withoutRequest(a1).data };
 const itemsActivity = { type: "items", data: withoutRequest(a1).data };
-const shape = b => (b?.request ? { request: Object.keys(b.request).sort() } : b);
-const prodPreviewStart = Date.now();
+// The whole answer, with only each signature's fresh fields masked (lang-parity's maskSigned:
+// the flat questions packet, or the items packet's security and request session).
+const maskedAnswer = b => (b?.request ? { ...b, request: maskSigned({ data: b.request }).data } : b);
+const signedItems = packet => typeof packet?.security?.signature === "string" && typeof packet?.request?.session_id === "string";
 const pq = await post(prod, "/preview/sign", { activity: questionsActivity });
 const pi = await post(prod, "/preview/sign", { activity: itemsActivity });
-const prodPreviewEnd = Date.now();
-await sleep(3000);
 const stagedPreviewStart = Date.now();
 const sq = await post(staged, "/preview/sign", { activity: questionsActivity });
 const si = await post(staged, "/preview/sign", { activity: itemsActivity });
 const stagedPreviewEnd = Date.now();
-check("/preview/sign questions: signed, no-store, as production", sq.status === 200 && signed(sq.body?.request) && cc(sq) === "no-store" && same(maskSigned({ data: sq.body.request }), maskSigned({ data: pq.body?.request })), `${sq.status} ${JSON.stringify(shape(sq.body)).slice(0, 120)}`);
-check("/preview/sign items: as production", sq.status === 200 && si.status === pi.status && same(shape(si.body), shape(pi.body)), `${si.status} ${JSON.stringify(shape(si.body)).slice(0, 160)} vs ${pi.status} ${JSON.stringify(shape(pi.body)).slice(0, 160)}`);
+check("/preview/sign questions: 200, signed, no-store, the whole answer as production's",
+  sq.status === 200 && pq.status === 200 && signed(sq.body?.request) && cc(sq) === "no-store" && same(maskedAnswer(sq.body), maskedAnswer(pq.body)),
+  `${sq.status}/${pq.status} ${JSON.stringify(maskedAnswer(sq.body)).slice(0, 160)}`);
+check("/preview/sign items: 200, signed, no-store, the whole answer as production's",
+  si.status === 200 && pi.status === 200 && signedItems(si.body?.request) && signedItems(pi.body?.request) && cc(si) === "no-store" && same(maskedAnswer(si.body), maskedAnswer(pi.body)),
+  `${si.status}/${pi.status} ${JSON.stringify(maskedAnswer(si.body)).slice(0, 200)}`);
 
 // Logs arrive with a delay.
 await sleep(60_000);
@@ -165,9 +172,10 @@ check("L0176 over L0176: the lower stage a hit every read; the head presented, n
   same(pairRecords, ["s1:interpret:evaluate:hit:immutable", "s0:interpret:present:miss:no-store", "s1:interpret:evaluate:hit:immutable", "s0:interpret:present:miss:no-store"]), JSON.stringify(pairRecords));
 const all = stageRecords(started, Date.now());
 check("every L0176 stage on the staged api was interpreted", all.length > 0 && all.every(r => r.run === "interpret"), `${all.length} records`);
-const stagedInterprets = interprets(stagedPreviewStart, stagedPreviewEnd + 2000);
-const prodInterprets = interprets(prodPreviewStart, prodPreviewEnd);
-check("/preview/sign on the staged api interprets; production's doesn't", stagedInterprets >= 2 && prodInterprets === 0, `staged ${stagedInterprets}, production ${prodInterprets}`);
+const routed = previewRecords(stagedPreviewStart, stagedPreviewEnd + 2000);
+check("/preview/sign on the staged revision interpreted both, and signed them", same(routed, [
+  { run: "interpret", type: "questions", outcome: "signed" }, { run: "interpret", type: "items", outcome: "signed" },
+]), JSON.stringify(routed));
 
 const failed = results.filter(r => !r.pass).length;
 console.log(JSON.stringify({ ranAt: new Date(started).toISOString(), staged, revision, run, ids: { item: itemId, lower, pair }, stimulus, results, failed }));

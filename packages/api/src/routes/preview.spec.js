@@ -20,17 +20,19 @@ const setup = ({ on = true, interpretReply = undefined, modelReply = undefined, 
     })),
     interpret: jest.fn(async () => interpretReply ?? { data: SIGNED, errors: [], cache: false, revision: "r1" }),
   };
+  const records = [];
   const app = express();
   app.use("/preview/sign", previewSignBodyParser);
   app.use("/preview", buildPreviewRoute({
     compile,
     interpreter,
     modelCache,
+    log: record => records.push(record),
     getInterpreterLanguages: () => new Set(on ? ["0176"] : []),
     getLanguageGenerations: () => ({ "0176": "interp-1" }),
   }));
   const sign = (activity = ACTIVITY) => request(app).post("/preview/sign").send({ activity });
-  return { app, compile, interpreter, sign };
+  return { app, compile, interpreter, sign, records };
 };
 
 describe("POST /preview/sign", () => {
@@ -42,6 +44,7 @@ describe("POST /preview/sign", () => {
     expect(res.headers["cache-control"]).toMatch(/no-store/);
     expect(t.compile.mock.calls[0][0]).toMatchObject({ lang: "0176", code: INIT_DATA_CODE, data: ACTIVITY, auth: null, uid: null });
     expect(t.interpreter.model).not.toHaveBeenCalled();
+    expect(t.records).toEqual([{ run: "compile", type: "questions", outcome: "signed" }]);
   });
 
   it("interprets init data {}'s model in present, with the activity as its input and no user, with the flag on", async () => {
@@ -56,6 +59,11 @@ describe("POST /preview/sign", () => {
     // A request or signing note the activity arrived with never reaches the signer.
     await t.sign({ ...ACTIVITY, request: { stale: true }, signing: { unsigned: "x" } });
     expect(t.interpreter.interpret.mock.calls[1][0].input).toEqual(ACTIVITY);
+    // The routing record names the path, and nothing of the activity or the signature.
+    expect(t.records).toEqual([
+      { run: "interpret", type: "questions", outcome: "signed" },
+      { run: "interpret", type: "questions", outcome: "signed" },
+    ]);
   });
 
   it("compiles the model once, from the model cache after that, and drops it when another revision answers", async () => {
@@ -78,8 +86,12 @@ describe("POST /preview/sign", () => {
     const errors = setup({ interpretReply: { data: null, errors: [{ message: "Error: init: bad" }], cache: false, revision: "r1" } });
     expect((await errors.sign()).status).toBe(422);
 
+    expect(unsigned.records).toEqual([{ run: "interpret", type: "questions", outcome: "unsigned" }]);
+    expect(errors.records).toEqual([{ run: "interpret", type: "questions", outcome: "errors" }]);
+
     const lost = setup({ interpretReply: { responseLost: true } });
     expect((await lost.sign()).status).toBe(502);
+    expect(lost.records).toEqual([{ run: "interpret", type: "questions", outcome: "lost" }]);
     const lostModel = setup({ modelReply: { responseLost: true } });
     expect((await lostModel.sign()).status).toBe(502);
     expect(lostModel.interpreter.interpret).not.toHaveBeenCalled();
