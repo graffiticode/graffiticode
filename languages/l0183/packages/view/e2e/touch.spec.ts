@@ -31,6 +31,10 @@ async function swipe(cdp: CDPSession, page: Page, from: Pt, to: Pt, opts: { hold
   await page.waitForTimeout(150);
 }
 
+/** On touch the dragged item rides this far above the finger (Web.tsx TOUCH_LIFT): to drop on a point, the finger goes this far below it. */
+const TOUCH_LIFT = 44;
+const lift = (p: Pt): Pt => ({ x: p.x, y: p.y + TOUCH_LIFT });
+
 async function centre(page: Page, selector: string): Promise<Pt> {
   const box = await page.locator(selector).first().boundingBox();
   if (!box) throw new Error(`no box for ${selector}`);
@@ -149,7 +153,7 @@ test("a small drift, a hold, then a drag from the grip places the answer and nev
   const tray = page.locator(answersTray);
   const before = await tray.evaluate((el) => el.scrollTop);
   const grip = await centre(page, `${answersTray} [data-l0183-grip]`);
-  const to = await centre(page, `[data-l0183-blank="${target}"]`);
+  const to = lift(await centre(page, `[data-l0183-blank="${target}"]`));
   await swipe(cdp, page, grip, to, { drift: 2, holdMs: 500 });
   await expect(page.locator(`[data-l0183-blank="${target}"]`)).toHaveAttribute("aria-label", /holding/);
   expect(await tray.evaluate((el) => el.scrollTop)).toBe(before);
@@ -187,7 +191,7 @@ test("a tap selects and a tap places; a filled blank drags; a swipe on empty can
   // view, which can push the other blank out of the frame; bring both back first.)
   await reveal(page, first, second);
   const from = await centre(page, `[data-l0183-blank="${first}"]`);
-  const to = await centre(page, `[data-l0183-blank="${second}"]`);
+  const to = lift(await centre(page, `[data-l0183-blank="${second}"]`));
   await swipe(cdp, page, from, to);
   await expect(page.locator(`[data-l0183-blank="${second}"]`)).toHaveAttribute("aria-label", /holding/);
   await expect(page.locator(`[data-l0183-blank="${first}"]`)).toHaveAttribute("aria-label", "Blank, empty");
@@ -330,16 +334,16 @@ test("in page flow, a drag held at the window's top edge scrolls the page, so a 
   expect(during).toBeLessThan(before);
 });
 
-test("the preview's outline tells the truth: blue only where a drop places, and a drop there always lands", async ({ page }) => {
+test("the item, not the finger, targets: blue only where the item is over a blank that takes it, and a drop there lands", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 1000 });
   await page.goto("/dev.html?fixture=waterCycle");
   await page.locator("[data-l0183-canvas]").waitFor();
   await page.waitForTimeout(300);
   const cdp = await page.context().newCDPSession(page);
   const grip = await centre(page, `div:has(> button:has-text("Condensation")) > [data-l0183-grip] >> visible=true`);
-  const wrong = await centre(page, '[data-l0183-blank="e1"]');
-  const empty = await centre(page, "[data-l0183-canvas]"); // the hub: not a blank
-  const right = await centre(page, '[data-l0183-blank="n2"]');
+  const wrong = lift(await centre(page, '[data-l0183-blank="e1"]'));
+  const empty = lift(await centre(page, "[data-l0183-canvas]")); // the hub: not a blank
+  const right = lift(await centre(page, '[data-l0183-blank="n2"]'));
   const meaning = () => page.locator("[data-l0183-drop]").getAttribute("data-l0183-drop");
   const glide = async (from: Pt, to: Pt) => {
     for (let i = 1; i <= 8; i++) {
@@ -358,4 +362,23 @@ test("the preview's outline tells the truth: blue only where a drop places, and 
   await expect(page.locator("[data-l0183-drop]")).toHaveClass(/border-blue-500/);
   await touch(cdp, "touchEnd", right);
   await expect(page.locator('[data-l0183-blank="n2"]')).toHaveAttribute("aria-label", /holding Condensation/);
+});
+
+test("with a mouse the dragged item sits on the cursor, so the cursor and the item target the same blank", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto("/dev.html?fixture=waterCycle");
+  await page.locator("[data-l0183-canvas]").waitFor();
+  await page.waitForTimeout(300);
+  const src = await centre(page, 'button:has-text("Groundwater") >> visible=true');
+  const right = await centre(page, '[data-l0183-blank="n6"]');
+  await page.mouse.move(src.x, src.y);
+  await page.mouse.down();
+  await page.mouse.move(src.x + 30, src.y, { steps: 4 });
+  await page.mouse.move(right.x, right.y, { steps: 12 });
+  const ghost = (await page.locator("[data-l0183-drop]").boundingBox())!;
+  expect(Math.abs(ghost.x + ghost.width / 2 - right.x)).toBeLessThan(2);
+  expect(Math.abs(ghost.y + ghost.height / 2 - right.y)).toBeLessThan(2);
+  expect(await page.locator("[data-l0183-drop]").getAttribute("data-l0183-drop")).toBe("place");
+  await page.mouse.up();
+  await expect(page.locator('[data-l0183-blank="n6"]')).toHaveAttribute("aria-label", /holding Groundwater/);
 });

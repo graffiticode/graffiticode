@@ -102,6 +102,9 @@ const FLOW_VH = 0.85;
 const TRAY_SHARE = 0.25;
 /** Below this width, side trays stack above and below the diagram. */
 const WIDE = "(min-width: 640px)";
+/** How far above a finger a touch-dragged item rides, so the finger never hides it. */
+const TOUCH_LIFT = 44;
+
 /**
  * How close to an edge a drag must be to scroll, how long it must rest there first, and how fast.
  * The rest matters: a finger coming up from a tray crosses the frame's bottom edge on its way to a
@@ -372,6 +375,8 @@ export function Web({
   const pointer = useRef<{ x: number; y: number } | null>(null);
   /** The blank the preview last showed as the target. */
   const overRef = useRef<string | undefined>(undefined);
+  /** How the drag is held: a finger would hide the item, so on touch it rides above it. */
+  const touchDrag = useRef(false);
   const [announce, setAnnounce] = useState("");
 
   useEffect(() => {
@@ -423,6 +428,7 @@ export function Web({
     dragStart.current = { x: e.clientX, y: e.clientY, moved: false };
     pointer.current = { x: e.clientX, y: e.clientY };
     overRef.current = undefined;
+    touchDrag.current = e.pointerType === "touch";
     (e.target as Element).setPointerCapture?.(e.pointerId);
     setDrag({ ...held, x: e.clientX, y: e.clientY });
   };
@@ -433,13 +439,19 @@ export function Web({
       dragStart.current.moved = true;
     }
     pointer.current = { x: e.clientX, y: e.clientY };
-    overRef.current = blankAt(e.clientX, e.clientY);
+    overRef.current = blankUnder(e.clientX, e.clientY);
     setDrag({ ...drag, x: e.clientX, y: e.clientY, over: overRef.current });
   };
 
   /** The blank under a point (the drag preview never takes pointer events). */
   const blankAt = (x: number, y: number): string | undefined =>
     (document.elementFromPoint(x, y)?.closest("[data-l0183-blank]") as HTMLElement | null)?.dataset.l0183Blank;
+  /**
+   * The blank under the dragged item, for a pointer at (x, y): what is targeted is where the
+   * item is, not where the pointer is. With a mouse or pen the item is centred on the pointer;
+   * on touch it rides TOUCH_LIFT above the finger, and its centre is what counts.
+   */
+  const blankUnder = (x: number, y: number) => blankAt(x, touchDrag.current ? y - TOUCH_LIFT : y);
 
   // Drop feedback. While a drag is under way, every blank that can take it is ringed, and the one
   // under the pointer is highlighted; a select-then-place selection rings the same blanks.
@@ -468,7 +480,7 @@ export function Web({
     if (!held || !moved) return false;
     // Where the preview said it would land: the release point can be a pixel past the blank the
     // last move highlighted.
-    const blank = blankAt(e.clientX, e.clientY) ?? overRef.current;
+    const blank = blankUnder(e.clientX, e.clientY) ?? overRef.current;
     overRef.current = undefined;
     if (blank) put(held, blank);
     else if (held.from) clear(held.from); // dropped off the web: back to the tray
@@ -488,7 +500,7 @@ export function Web({
       const p = pointer.current;
       if (el && p && dragStart.current?.moved) {
         // Scrolling moves the web under a resting pointer: keep the drop target current.
-        const over = blankAt(p.x, p.y);
+        const over = blankUnder(p.x, p.y);
         if (over !== overRef.current) {
           overRef.current = over;
           setDrag((d) => (d ? { ...d, over } : d));
@@ -874,12 +886,12 @@ export function Web({
         <div
           data-l0183-drop={dropMeaning()}
           className={classNames(
-            "pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border-2 bg-white px-3 py-1 text-sm shadow-lg dark:bg-zinc-800 dark:text-zinc-100",
+            "pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 bg-white px-3 py-1 text-sm shadow-lg dark:bg-zinc-800 dark:text-zinc-100",
             // Solid blue only where a drop will place it; over nothing it stays neutral.
             { place: "border-blue-500 bg-blue-50 dark:bg-blue-950", none: "border-zinc-300 dark:border-zinc-600", wrong: "border-dashed border-red-400 opacity-70", return: "border-dashed border-zinc-400 opacity-70" }[dropMeaning()],
           )}
-          // Above the pointer, so neither it nor a finger hides the blank it is over.
-          style={{ left: drag!.x, top: drag!.y - 20 }}
+          // Centred on the pointer (on touch, lifted above the finger): the item is what targets.
+          style={{ left: drag!.x, top: drag!.y - (touchDrag.current ? TOUCH_LIFT : 0) }}
         >
           <RichText text={drag.text} imageBox={{ w: 64, h: 40 }} />
         </div>
