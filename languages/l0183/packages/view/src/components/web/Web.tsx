@@ -370,6 +370,8 @@ export function Web({
   const [drag, setDrag] = useState<(Held & { x: number; y: number; over?: string }) | null>(null);
   const dragStart = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
+  /** The blank the preview last showed as the target. */
+  const overRef = useRef<string | undefined>(undefined);
   const [announce, setAnnounce] = useState("");
 
   useEffect(() => {
@@ -420,6 +422,7 @@ export function Web({
     if (disabled || e.button !== 0) return;
     dragStart.current = { x: e.clientX, y: e.clientY, moved: false };
     pointer.current = { x: e.clientX, y: e.clientY };
+    overRef.current = undefined;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     setDrag({ ...held, x: e.clientX, y: e.clientY });
   };
@@ -430,7 +433,8 @@ export function Web({
       dragStart.current.moved = true;
     }
     pointer.current = { x: e.clientX, y: e.clientY };
-    setDrag({ ...drag, x: e.clientX, y: e.clientY, over: blankAt(e.clientX, e.clientY) });
+    overRef.current = blankAt(e.clientX, e.clientY);
+    setDrag({ ...drag, x: e.clientX, y: e.clientY, over: overRef.current });
   };
 
   /** The blank under a point (the drag preview never takes pointer events). */
@@ -462,7 +466,10 @@ export function Web({
     pointer.current = null;
     setDrag(null);
     if (!held || !moved) return false;
-    const blank = blankAt(e.clientX, e.clientY);
+    // Where the preview said it would land: the release point can be a pixel past the blank the
+    // last move highlighted.
+    const blank = blankAt(e.clientX, e.clientY) ?? overRef.current;
+    overRef.current = undefined;
     if (blank) put(held, blank);
     else if (held.from) clear(held.from); // dropped off the web: back to the tray
     setSelected(null);
@@ -480,6 +487,12 @@ export function Web({
       const el = frameRef.current;
       const p = pointer.current;
       if (el && p && dragStart.current?.moved) {
+        // Scrolling moves the web under a resting pointer: keep the drop target current.
+        const over = blankAt(p.x, p.y);
+        if (over !== overRef.current) {
+          overRef.current = over;
+          setDrag((d) => (d ? { ...d, over } : d));
+        }
         const r = el.getBoundingClientRect();
         // A small frame gets a smaller zone, so most of it is not an edge.
         const zone = Math.min(EDGE_ZONE, r.width / 6, r.height / 6);
@@ -862,7 +875,8 @@ export function Web({
           data-l0183-drop={dropMeaning()}
           className={classNames(
             "pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border-2 bg-white px-3 py-1 text-sm shadow-lg dark:bg-zinc-800 dark:text-zinc-100",
-            { place: "border-blue-500", none: "border-blue-500", wrong: "border-dashed border-red-400 opacity-70", return: "border-dashed border-zinc-400 opacity-70" }[dropMeaning()],
+            // Solid blue only where a drop will place it; over nothing it stays neutral.
+            { place: "border-blue-500 bg-blue-50 dark:bg-blue-950", none: "border-zinc-300 dark:border-zinc-600", wrong: "border-dashed border-red-400 opacity-70", return: "border-dashed border-zinc-400 opacity-70" }[dropMeaning()],
           )}
           // Above the pointer, so neither it nor a finger hides the blank it is over.
           style={{ left: drag!.x, top: drag!.y - 20 }}
