@@ -211,9 +211,11 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   - Below 320px wide, the shared View's CheckBar is wider than the screen. That is
     `l0000-view`'s to fix.
 - **Drop feedback.** While a drag is under way, every blank that can take it is ringed and the
-  one under the pointer is highlighted; the dragged tray item dims, and the preview floats above
-  the pointer (so a finger never hides the target), dashed red over a blank of the wrong kind and
-  dashed grey where a drop would return the answer to its tray (`data-l0183-drop`).
+  one under the dragged item is highlighted; the dragged tray item dims. **The item targets, not
+  the pointer**: with a mouse or pen the item is centred on the cursor, and on touch it rides
+  `TOUCH_LIFT` (44px) above the finger, its centre being what is hit-tested. Its outline is solid
+  blue only where a drop places it, dashed red over a blank of the wrong kind, dashed grey where a
+  drop would return the answer to its tray, and neutral over nothing (`data-l0183-drop`).
 - **Touch** (`lib/gesture.ts`): who owns a touch is decided by where it starts, never by a
   timer.
   - A tray item drags from its grip (`touch-action: none`, shown on coarse pointers). Its body
