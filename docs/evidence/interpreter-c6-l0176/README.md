@@ -1,0 +1,14 @@
+# C6 part 2: L0176 on the interpreter, activation evidence
+
+`docs/c6-l0176-reads-plan.md` §7 step 4. The api turns on `INTERPRETER_L0176` with `COMPILE_GENERATION_L0176=interp-1` together (deploy.json). Forward rollback: `INTERPRETER_L0176` off with a fresh generation, `COMPILE_GENERATION_L0176=commands-2`, in an api release.
+
+- `interpreted-gate-l0176.json`: `node scripts/lang-parity.js --lang 0176 --interpreted --rust https://l0176r-sja7fatcta-uc.a.run.app` against production `l0176r-rmwduyn6c-c054b7` (slices 1 and 2). It compares L0176 field by field: 202/202 identical, 566 metadata checks (every compile and present answer `cache: false`, no evaluate answer with `cache`), and 202 deterministic. Direct calls carry no gateway identity, so they are unsigned. The SDK's signed shapes are covered by `scripts/test/lang-parity.test.js`, and the staged canary signs for real.
+- `canary.mjs`: the staged canary, run against the staged api's tag URL with production as the reference. Anonymous, with no connection. Each run builds content naming the run, so the lower stage's first read is a real miss. It checks:
+  - `/form` names `@L0176=interp-1`, while production still names `commands-1`;
+  - a read is signed and `no-store`, with a fresh signature, `user_id` and Broker `session_id` each read, and equals production apart from those fields;
+  - MCP's summary (`data.request.questions`) matches production;
+  - the lower stage's cache: L0000 `data {}` over L0176 answers exactly the L0176 stage's cached `evaluate` result, which has no `request`, `signing`, `session_id`, `signature`, `user_id` or `security` anywhere. Its first read is a miss stored as immutable, its second a hit (stage records);
+  - L0176 over L0176: the lower stage is a hit every read, and the head is presented, `no-store`, signed afresh each read, and never a hit;
+  - `/preview/sign` for questions and items answers as production does, through `/interpret` on l0176r, while production's doesn't touch it.
+- The canary job against the tag URL (`--api-url`) covers connection reads, publication reads and the command save, which are unchanged.
+- `promote-evidence.json`: for `npm run deploy -- promote api --release <id> --evidence …`.
