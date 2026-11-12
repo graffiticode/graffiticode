@@ -40,6 +40,10 @@
 //                           same key, its status URL, and a preview refused
 //                           no-effects. With --reconcile, its key reconciles too.
 //                           One more sandbox draft per run.
+//   --l0185-tail            C3, with --command: also save through POST /command
+//                           over an L0185 stage that fetches, so the save's
+//                           pinned input comes from a fetch: completed, and the
+//                           saved item in its view. One more sandbox draft per run.
 //   --after-cutover        Policy runs MIN_CONTRACT_VERSION=2: v1-shaped
 //                           sessions must be refused
 //   --provider              AT-10 release-verify, on the gateway preview: signed by
@@ -131,6 +135,7 @@ const config = {
   afterCutover: args.includes("--after-cutover"),
   reconcile: args.includes("--reconcile"),
   command: args.includes("--command"),
+  l0185Tail: args.includes("--l0185-tail"),
   // D4: the api under test has retired L0176's compile-to-command bridge, so
   // saves go through POST /command and a compile that would save is refused.
   bridgeRetired: apiEnv?.BRIDGE_L0176 === "off",
