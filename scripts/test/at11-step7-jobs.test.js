@@ -11,13 +11,14 @@ const setup = async () => {
   const services = (await json("deploy.json")).services;
   const collect = await json("deploy/egress-proxy/step7/at11/collect.json");
   const base = await json("deploy/egress-proxy/step3/at11/probe-l0176.json");
-  return { services, collect, base, classes: classesOf(services) };
+  const openExceptions = (await json("deploy/egress-proxy/classes.json")).open.exceptions;
+  return { services, collect, base, openExceptions, classes: classesOf(services) };
 };
 const IMAGE = "us-central1-docker.pkg.dev/graffiticode/services/at11-probe@sha256:abc";
 
 test("each class gets its own kind, Broker relationship and run.app target", async () => {
-  const { classes, base } = await setup();
-  const by = Object.fromEntries(classes.map(c => [c.subnet, probeConfig(c, base, { admin: "10.8.0.10" })]));
+  const { classes, base, openExceptions } = await setup();
+  const by = Object.fromEntries(classes.map(c => [c.subnet, probeConfig(c, base, { admin: "10.8.0.10", openExceptions })]));
   assert.deepEqual(Object.keys(by).sort(), ["compilers-default", "compilers-l0000", "compilers-l0013", "compilers-l0176", "compilers-l0185"]);
   assert.equal(by["compilers-default"].kind, "default");
   assert.equal(by["compilers-l0185"].kind, "open");
@@ -35,15 +36,22 @@ test("each class gets its own kind, Broker relationship and run.app target", asy
   assert.deepEqual(by["compilers-l0013"].external, ["storage.googleapis.com"]);
   assert.ok(by["compilers-l0013"].listed.includes("app.graffiticode.org"));
   assert.equal(by["compilers-default"].external, undefined);
+  // The open class reaches Google only through its exception (C3): the exact request, and the
+  // host's other paths and methods, each its own row; never the `external` row.
+  assert.equal(by["compilers-l0185"].external, undefined);
+  assert.ok(!by["compilers-l0185"].listed.includes("www.googleapis.com"));
+  assert.deepEqual(by["compilers-l0185"].exceptions, [{ host: "www.googleapis.com", method: "GET", path: "/oauth2/v3/certs", other: ["/", "/storage/v1/b"] }]);
+  for (const c of ["compilers-l0000", "compilers-l0176"]) assert.deepEqual(by[c].external, ["www.googleapis.com"], c);
+  for (const c of ["compilers-default", "compilers-l0000", "compilers-l0013", "compilers-l0176"]) assert.equal(by[c].exceptions, undefined, c);
   // The open class's canary goes through the open route, so it isn't listed there.
   assert.ok(by["compilers-l0185"].canary && !by["compilers-l0185"].listed.includes(by["compilers-l0185"].canary));
 });
 
 test("the committed probe configs and iam.json canary are what the generator writes", async () => {
-  const { classes, base } = await setup();
+  const { classes, base, openExceptions } = await setup();
   for (const c of classes) {
     const committed = await json(`deploy/egress-proxy/step7/at11/probe-${c.subnet}.json`);
-    assert.deepEqual(committed, probeConfig(c, base, { admin: committed.admin.address }), c.subnet);
+    assert.deepEqual(committed, probeConfig(c, base, { admin: committed.admin.address, openExceptions }), c.subnet);
   }
   assert.deepEqual((await json("deploy/egress-proxy/step7/at11/iam.json")).canary, CANARY);
 });

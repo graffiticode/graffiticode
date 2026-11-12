@@ -173,6 +173,8 @@ test("a tap selects and a tap places; a filled blank drags; a swipe on empty can
   await page.locator("[data-l0183-canvas]").waitFor();
   await page.waitForTimeout(300);
   const cdp = await page.context().newCDPSession(page);
+  // At phone size the frame scrolls; bring the two lower blanks into view together.
+  await reveal(page, "n3", "n4");
   const [first, second] = await visibleEmptyBlanks(page);
   expect(first && second).toBeTruthy();
 
@@ -181,7 +183,9 @@ test("a tap selects and a tap places; a filled blank drags; a swipe on empty can
   await page.locator(`[data-l0183-blank="${first}"]`).tap();
   await expect(page.locator(`[data-l0183-blank="${first}"]`)).toHaveAttribute("aria-label", /holding/);
 
-  // A drag from the filled blank to another moves its answer.
+  // A drag from the filled blank to another moves its answer. (tap() scrolls its target into
+  // view, which can push the other blank out of the frame; bring both back first.)
+  await reveal(page, first, second);
   const from = await centre(page, `[data-l0183-blank="${first}"]`);
   const to = await centre(page, `[data-l0183-blank="${second}"]`);
   await swipe(cdp, page, from, to);
@@ -233,12 +237,13 @@ test("placing answers, including those that empty a wrapped tray row, moves noth
   expect(after.nodes).toEqual(start.nodes);
 });
 
-test("nodes keep their size; spacing fits the room up to best fit; only the frame scrolls, and only at the floor", async ({ page }) => {
+test("spacing fits the room up to best fit, then the picture zooms; nothing scrolls", async ({ page }) => {
   for (const [fixture, host] of [
     ["web40", ""],
     ["web40", "&host=learnosity"],
     ["assessed40", ""],
     ["cell", ""],
+    ["rain", ""],
   ]) {
     let bestW = 0;
     for (const [w, h] of [
@@ -260,6 +265,10 @@ test("nodes keep their size; spacing fits the room up to best fit; only the fram
         const form = document.querySelector<HTMLElement>(".l0183-web")!;
         const doc = document.scrollingElement!;
         const nodes = [...c.querySelectorAll<HTMLElement>(".z-10")].map((n) => n.getBoundingClientRect());
+        const hit = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+        const labelsOnNodes = [...c.querySelectorAll<HTMLElement>(".z-20")]
+          .map((l) => (l.firstElementChild as HTMLElement).getBoundingClientRect())
+          .filter((l) => nodes.some((n) => hit(l, n))).length;
         let closest = Infinity; // the smallest gap between two node boxes, on their clear axis
         for (let i = 0; i < nodes.length; i++)
           for (let j = i + 1; j < nodes.length; j++) {
@@ -271,21 +280,25 @@ test("nodes keep their size; spacing fits the room up to best fit; only the fram
           }
         return {
           nodeW: nodes.map((n) => Math.round(n.width)),
+          zoom: Number(c.dataset.l0183Zoom),
           canvas: [c.offsetWidth, c.offsetHeight],
           frameScrolls: f.scrollWidth > f.clientWidth + 1 || f.scrollHeight > f.clientHeight + 1,
           formScrolls: form.scrollHeight > form.clientHeight + 1,
           pageScrolls: doc.scrollHeight > doc.clientHeight + 1,
           closest,
+          labelsOnNodes,
         };
       });
       const at = `${fixture} ${w}x${h}${host}`;
-      // Nodes are never scaled: every one is one of the fixed widths.
-      for (const nw of s.nodeW) expect([96, 122, 160], at).toContain(nw);
+      // Nodes keep their fixed widths, scaled only by the zoom once spacing reaches its floor.
+      for (const nw of s.nodeW) expect([96, 122, 160].some((x) => Math.abs(x * s.zoom - nw) <= 1), at).toBe(true);
+      // The picture fits its frame: it zooms rather than scrolls.
+      expect(s.frameScrolls, at).toBe(false);
       // With the most room, the web sits at its best fit; it never spreads past it.
       if (w === 5120) bestW = s.canvas[0];
       expect(s.canvas[0], at).toBeLessThanOrEqual(bestW);
-      // The frame scrolls only once the spacing is at its floor: nodes nearly touching.
-      if (s.frameScrolls) expect(s.closest, at).toBeLessThan(10);
+      // At best fit no label sits on a node (below it, labels slide to the clearest spot).
+      if (s.canvas[0] === bestW) expect(s.labelsOnNodes, at).toBe(0);
       if (!host) {
         expect(s.formScrolls, at).toBe(false);
         expect(s.pageScrolls, at).toBe(false);
@@ -315,34 +328,4 @@ test("in page flow, a drag held at the window's top edge scrolls the page, so a 
   const during = await page.evaluate(() => scrollY);
   await touch(cdp, "touchEnd");
   expect(during).toBeLessThan(before);
-});
-
-test("a drag resting at the frame's edge scrolls the frame; passing through does not", async ({ page }) => {
-  // At phone size the 40-blank web is at its compression floor, so its frame scrolls.
-  const cdp = await page.context().newCDPSession(page);
-  await reveal(page, "n11");
-  const [blank] = await visibleEmptyBlanks(page);
-  expect(blank).toBeTruthy();
-  await page.locator(`${answersTray} button`).first().tap();
-  await page.locator(`[data-l0183-blank="${blank}"]`).tap();
-  await expect(page.locator(`[data-l0183-blank="${blank}"]`)).toHaveAttribute("aria-label", /holding/);
-  const frame = page.locator("[data-l0183-frame]");
-  const box = (await frame.boundingBox())!;
-  const from = await centre(page, `[data-l0183-blank="${blank}"]`);
-  const edge = { x: box.x + box.width / 2, y: box.y + 3 };
-  const scroll = () => frame.evaluate((el) => el.scrollTop);
-
-  // Passing through the edge zone briefly: no scroll.
-  await touch(cdp, "touchStart", from);
-  const start = await scroll();
-  for (let i = 1; i <= 6; i++) {
-    await touch(cdp, "touchMove", { x: from.x + ((edge.x - from.x) * i) / 6, y: from.y + ((edge.y - from.y) * i) / 6 });
-    await page.waitForTimeout(16);
-  }
-  await page.waitForTimeout(100);
-  expect(await scroll()).toBe(start);
-  // Resting there: it scrolls.
-  await page.waitForTimeout(600);
-  expect(await scroll()).toBeLessThan(start);
-  await touch(cdp, "touchEnd");
 });

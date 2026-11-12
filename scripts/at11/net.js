@@ -41,7 +41,7 @@ import { writeEvidence, parseArgs, evidenceLines } from "./lib.js";
 export const OUTCOMES = ["succeeds", "refused:proxy", "pending:network", "refused:network", "refused:firewall", "refused:cloudrun-iam", "refused:broker", "refused:auth", "nxdomain", "error"];
 
 // The proxy's refusal reasons: the x-isolate01-refused header, and `reason` on its log lines.
-export const PROXY_REASONS = ["unlisted", "name", "ip-literal", "port", "host-mismatch", "trailing-dot"];
+export const PROXY_REASONS = ["unlisted", "name", "ip-literal", "port", "host-mismatch", "trailing-dot", "request"];
 
 // The acceptance matrix, one row per check: its expected outcome per class kind. `default` is
 // compilers-default; `lang` a compilers-<lang> class with reviewed external hosts; `open` is
@@ -53,6 +53,8 @@ export const MATRIX = [
   { id: "direct", title: "a direct connection, bypassing the proxy", default: "refused:firewall", lang: "refused:firewall", open: "refused:firewall" },
   { id: "listed", title: "a listed Graffiticode host, through the proxy", default: "succeeds", lang: "succeeds", open: "succeeds" },
   { id: "external", title: "a listed external host", default: "n/a", lang: "succeeds", open: "n/a" },
+  { id: "exception", title: "an open-class exception's exact request (C3: Google's certificates)", default: "n/a", lang: "n/a", open: "succeeds" },
+  { id: "exception-other", title: "any other request to an open-class exception's host", default: "n/a", lang: "n/a", open: "refused:proxy/request" },
   { id: "unlisted", title: "an unlisted public host", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "succeeds" },
   { id: "learnosity", title: "Learnosity by host and alternate hosts", default: "refused:proxy/unlisted", lang: "refused:proxy/unlisted", open: "refused:proxy/name" },
   { id: "trailing-dot", title: "Learnosity and run.app names with a trailing dot", default: "refused:proxy", lang: "refused:proxy", open: "refused:proxy" },
@@ -81,6 +83,8 @@ export const BROKER_RELATIONSHIPS = ["unlisted", "no-invoker", "invoker"];
 //   kind:         "default" | "lang" | "open"
 //   listed:       ["policy-....a.run.app"]           hosts this class lists
 //   external:     ["storage.googleapis.com"]          (lang) its reviewed external hosts
+//   exceptions:   [{ host, method, path, other: [path] }] (open) classes.json open.exceptions:
+//                 the exact request, and other paths on that host
 //   unlisted:     ["example.com"]
 //   learnosity:   ["items.learnosity.com", "data.learnosity.com", "eu.learnosity.com"]
 //   trailingDot:  ["learnosity.com.", "items.learnosity.com.", "hello-xyz-uc.a.run.app."]
@@ -329,6 +333,13 @@ export const CHECKS = {
   direct: async c => c.publicIp ? [await one(`${c.publicIp}:443`, directConnect(c.publicIp, 443, c.timeoutMs), asDirect)] : null,
   listed: async c => c.listed?.length ? Promise.all(c.listed.map(h => one(h, through(c, `${h}:443`)))) : null,
   external: async c => c.external?.length ? Promise.all(c.external.map(h => one(h, through(c, `${h}:443`)))) : null,
+  exception: async c => c.exceptions?.length ? Promise.all(c.exceptions.map(e => one(`${e.method} ${e.host}${e.path}`, through(c, `${e.host}:443`, { path: e.path, method: e.method })))) : null,
+  "exception-other": async c => c.exceptions?.length
+    ? Promise.all(c.exceptions.flatMap(e => [
+      ...e.other.map(p => one(`GET ${e.host}${p}`, through(c, `${e.host}:443`, { path: p }))),
+      one(`POST ${e.host}${e.path}`, through(c, `${e.host}:443`, { path: e.path, method: "POST", body: "" })),
+    ]))
+    : null,
   unlisted: async c => c.unlisted?.length ? Promise.all(c.unlisted.map(h => one(h, through(c, `${h}:443`)))) : null,
   learnosity: async c => c.learnosity?.length ? Promise.all(c.learnosity.map(h => one(h, through(c, `${h}:443`)))) : null,
   "trailing-dot": async c => c.trailingDot?.length ? Promise.all(c.trailingDot.map(h => one(h, through(c, `${h}:443`)))) : null,
