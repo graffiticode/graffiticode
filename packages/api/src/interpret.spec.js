@@ -609,12 +609,14 @@ describe("L0176 interpreted (C6 part 2)", () => {
 
   it("caps a present result at no-store whatever it claims, and never stores it", async () => {
     // A server that forgot `cache: false` on present: the manifest still caps it.
-    const t = setup176({ interpretReply: args => {
-      const reply = l0176(args);
-      if (!reply) return undefined;
-      const { cache, ...rest } = reply;
-      return rest;
-    } });
+    const t = setup176({
+      interpretReply: args => {
+        const reply = l0176(args);
+        if (!reply) return undefined;
+        const { cache, ...rest } = reply;
+        return rest;
+      }
+    });
     const action = {};
     await t.get(await t.chain([task("0176")]), { action });
     expect(action.noStore).toBe(true);
@@ -623,9 +625,11 @@ describe("L0176 interpreted (C6 part 2)", () => {
   });
 
   it("keeps a cached L0176 evaluate result within its input's expiry (C3)", async () => {
-    const t = setup176({ interpretReply: args => (args.lang === "0902"
-      ? { data: { rows: [1] }, errors: [], cache: "shared", expiresAt: NOW + 60 * 1000, revision: "r1" }
-      : l0176(args)) });
+    const t = setup176({
+      interpretReply: args => (args.lang === "0902"
+        ? { data: { rows: [1] }, errors: [], cache: "shared", expiresAt: NOW + 60 * 1000, revision: "r1" }
+        : l0176(args))
+    });
     await t.get(await t.chain([task("0900"), task("0176"), task("0902")]));
     const entry = [...t.stageResults.entries.values()].find(e => e.lang === "0176");
     expect(entry).toMatchObject({ mode: "evaluate", cacheClass: "shared", expiresAt: NOW + 60 * 1000 });

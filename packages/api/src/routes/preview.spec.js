@@ -1,3 +1,4 @@
+/* eslint-disable camelcase -- Learnosity protocol field names (response_id, consumer_key) */
 // POST /preview/sign through the interpreter (C6 part 2, decision 4), with a fake
 // compile and a fake interpreter: no emulator, no language server.
 import { jest } from "@jest/globals";
