@@ -113,6 +113,23 @@ export const PREVIEW_PROGRAM = `set-var "lrn-id" "canary" items [${ITEM}] {}..`;
 export const SAVE_PROGRAM = `set-var "lrn-id" "canary" save-to-itembank items [${ITEM}] {}..`;
 // The command write's own program, so its task and stored result are its own.
 export const COMMAND_PROGRAM = `set-var "lrn-id" "canary-command" save-to-itembank items [${ITEM}] {}..`;
+// C3 (`l0185Tail`): the command write again, over an L0185 stage that fetches
+// (interpreted once INTERPRETER_L0185 is on), so a save's pinned input comes
+// from a fetch. Its own program, so its task and stored result are its own.
+export const COMMAND_OVER_FETCH_PROGRAM = `set-var "lrn-id" "canary-c3" save-to-itembank items [${ITEM}] {}..`;
+export const L0185_FETCH_URL = "https://l0185.graffiticode.org/data/orders.json";
+// `fetch "<L0185_FETCH_URL>" {}..`, as L0185's parser writes it.
+export const L0185_FETCH_TASK = Object.freeze({
+  lang: "0185",
+  code: {
+    1: { tag: "STR", elts: [L0185_FETCH_URL] },
+    2: { tag: "RECORD", elts: [] },
+    3: { tag: "FETCH", elts: [1, 2] },
+    4: { tag: "EXPRS", elts: [3] },
+    5: { tag: "PROG", elts: [4] },
+    root: 5,
+  },
+});
 
 const sha256 = s => createHash("sha256").update(s).digest("hex");
 // The gateway's input digest for a compile without options (api's
@@ -272,7 +289,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
   const {
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
     chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false, provider = null,
-    savedRead = false, auditCheck = true, command = false, bridgeRetired = false
+    savedRead = false, auditCheck = true, command = false, bridgeRetired = false, l0185Tail = false
   } = config;
   const results = [];
   // Every response passes through here, so the run knows each draft it saved.
@@ -528,6 +545,32 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       record("command status", Boolean(read) && read.commandId === answer.commandId && read.outcome === "completed",
         read ? `${answer.statusUrl}: ${read.outcome}` : describe(status));
     });
+    if (l0185Tail) {
+      await attempt("command over L0185", async () => {
+        const saveId = await postTask(COMMAND_OVER_FETCH_PROGRAM);
+        const res = await http({ method: "POST", url: `${apiUrl}/task`, headers: asUser, body: { task: L0185_FETCH_TASK } });
+        const fetchId = res.json?.data?.id;
+        if (res.status !== 200 || typeof fetchId !== "string") throw new Error(`POST /task (L0185): ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+        const id = `${saveId}+${fetchId}`;
+        const key = `canary:${runId}:command-l0185`;
+        const first = await postCommand(id, key);
+        const answer = answerOf(first);
+        const done = Boolean(answer) && typeof answer.commandId === "string" && answer.outcome === "completed" && answer.result === "available";
+        if (!record("command over L0185", done, done ? `command ${answer.commandId} completed over ${L0185_FETCH_URL}` : describeRes(first))) return;
+        const shown = await viewOf(id);
+        const references = savedItemReferences(shown.json?.data);
+        const ok = shown.status === 200 && errorsOf(shown).length === 0 && hasSavedItem(shown.json?.data) && references.length > 0;
+        record("command over L0185: saved", ok, ok ? `the view shows ${JSON.stringify(references)}` : `${shown.status} ${JSON.stringify(errorsOf(shown))}`);
+        // The same key again: the same command and outcome, and no second write.
+        const again = answerOf(await postCommand(id, key));
+        const after = await viewOf(id);
+        const same = Boolean(again) && again.commandId === answer.commandId && again.outcome === "completed" &&
+          JSON.stringify(savedItemReferences(after.json?.data).sort()) === JSON.stringify([...references].sort());
+        record("command over L0185 retry", same, same
+          ? "the same command and outcome for the same key; the view's references are unchanged"
+          : `${JSON.stringify(again)}; the view shows ${JSON.stringify(savedItemReferences(after.json?.data))}`);
+      });
+    }
     await attempt("command preview refused", async () => {
       const id = await postTask(PREVIEW_PROGRAM);
       const res = await postCommand(id, `canary:${runId}:command-preview`);

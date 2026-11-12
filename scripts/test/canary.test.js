@@ -194,7 +194,7 @@ const world = async ({ tweak = {} } = {}) => {
           body = { ...body, id: `${body.id}+${encodeChainId([dataTask])}` };
         }
         const withId = res => ({ ...res, json: { ...res.json, id: body.id } });
-        const saving = decodeChainId(body.id).some(t => tasks.get(t).code.src.includes("save-to-itembank"));
+        const saving = decodeChainId(body.id).some(t => (tasks.get(t).code.src ?? "").includes("save-to-itembank"));
         // `commands` (C6, COMMANDS_L0176=on): the bridge runs a save as a
         // command. Its key is then the command's: Policy's legacy route
         // refuses it (command-protocol), and the record says what ran.
@@ -250,8 +250,12 @@ const world = async ({ tweak = {} } = {}) => {
       // that runs the save again for the same key, `commandPreviewAccepted`
       // for one that takes a preview as a command.
       if (origin === config.apiUrl && pathname === "/command" && method === "POST") {
-        const saving = decodeChainId(body.id).some(t => tasks.get(t).code.src.includes("save-to-itembank"));
+        const saving = decodeChainId(body.id).some(t => (tasks.get(t).code.src ?? "").includes("save-to-itembank"));
         if (!saving && !tweak.commandPreviewAccepted) return refused(409, "no-effects");
+        // `l0185TailFails` stands for an api whose L0185 stage fails a command over it.
+        if (tweak.l0185TailFails && decodeChainId(body.id).some(t => tasks.get(t).lang === "0185")) {
+          return ok({ commandId: "cmd-l0185", outcome: "failed", result: "none", statusUrl: "/command/cmd-l0185" });
+        }
         let cmd = commands.get(body.idempotencyKey);
         if (!cmd || tweak.commandRewrites) {
           const commandId = `cmd-${commands.size + 1}-${body.idempotencyKey.length}${cmd ? "-again" : ""}`;
@@ -643,6 +647,25 @@ test("--command: saves through POST /command once per key, shows it in the view,
     assert.ok(names.includes(name), name);
   }
   assert.ok(names.indexOf("gateway write") < names.indexOf("command write"), "the bridge path still runs, first");
+});
+
+test("--l0185-tail: saves through POST /command over an L0185 fetch stage, and shows it in the view", async () => {
+  const w = await world();
+  const { ok, results } = await run(w, { command: true, l0185Tail: true, savedRead: false });
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.equal(byName(results)["command over L0185"], true);
+  assert.equal(byName(results)["command over L0185: saved"], true);
+  assert.equal(byName(results)["command over L0185 retry"], true);
+  const { results: without } = await run(await world(), { command: true, savedRead: false });
+  assert.ok(!without.some(r => r.name.startsWith("command over L0185")));
+});
+
+test("--l0185-tail: fails when the command over L0185 doesn't complete", async () => {
+  const w = await world({ tweak: { l0185TailFails: true } });
+  const { ok, results } = await run(w, { command: true, l0185Tail: true, savedRead: false });
+  assert.equal(ok, false);
+  assert.equal(byName(results)["command over L0185"], false);
+  assert.equal(byName(results)["command write"], true);
 });
 
 test("--command off: the canary never posts a command", async () => {
