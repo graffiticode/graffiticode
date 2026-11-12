@@ -23,7 +23,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::canonical::args_digest;
-use crate::model::Intent;
+use crate::model::{Intent, Mode};
 use crate::protected::{OccurrenceBinding, PolicyClient, ProtectedCall, ProtectedCallError};
 
 /// A runtime occurrence's id (B5 §4): `x:` and the hex SHA-256 of `{"intentId":…,"expansionKey":…}`
@@ -238,6 +238,9 @@ pub struct ExecContext {
     command: Option<CommandState>,
     /// How this compile's result may be cached, when a dialect restricted it (C3).
     restriction: Option<Restriction>,
+    /// What the result is for (design §5): `present` for `/compile` and a command's `start`,
+    /// the request's mode for `/interpret`.
+    mode: Mode,
 }
 
 impl ExecContext {
@@ -263,6 +266,7 @@ impl ExecContext {
             state: HashMap::new(),
             command: None,
             restriction: None,
+            mode: Mode::Present,
         }
     }
 
@@ -276,6 +280,16 @@ impl ExecContext {
             Some(current) => current.and(next),
             None => next,
         });
+    }
+
+    /// What this result is for: `evaluate` (data for the next stage, never signed) or `present`
+    /// (what the final consumer gets). The API decides it, never the language.
+    pub fn mode(&self) -> Mode {
+        self.mode
+    }
+
+    pub(crate) fn set_mode(&mut self, mode: Mode) {
+        self.mode = mode;
     }
 
     /// This compile's cache restriction, if any dialect set one.

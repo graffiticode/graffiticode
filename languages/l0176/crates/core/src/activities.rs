@@ -8,6 +8,7 @@
 //! by `response_id`. The item bank takes a different shape, `{type, reference, data}` records,
 //! which is what a save plan holds.
 
+use graffiticode_l0000::canonical::args_digest;
 use serde_json::{Value as Json, json};
 
 use crate::plain::{Object, js_string};
@@ -41,10 +42,6 @@ fn fix_variable_refs(json: &mut Json) {
         Json::Object(object) => object.values_mut().for_each(fix_variable_refs),
         _ => {}
     }
-}
-
-fn uuid() -> String {
-    uuid::Uuid::new_v4().to_string()
 }
 
 /// `questions [...] {}`: the questions as one activity.
@@ -85,11 +82,21 @@ pub fn create_questions(questions: Vec<Json>, id: &str) -> Built {
         .collect();
     let mut activity = Object::new();
     activity.insert("type".into(), json!("questions"));
-    activity.insert("data".into(), json!({ "id": uuid(), "name": "Test", "questions": inline, "session_id": uuid() }));
+    activity.insert("data".into(), json!({ "name": "Test", "questions": &inline }));
     if let Some(records) = template_variables {
         activity.insert("templateVariablesRecords".into(), records);
     }
     activity.insert("questionRefs".into(), Json::Array(refs));
+    // The activity's id is generated from its own unsigned content (C6 part 2, decision 3):
+    // the same program gives the same id on every compile, so a cached result and its parity
+    // are stable, and any change to the content changes it. It carries no `session_id`: Broker
+    // sets the signed request's own, fresh for every signature.
+    let id = format!("graffiticode-{}", &args_digest(&Json::Object(activity.clone()))[..16]);
+    let mut data = Object::new();
+    data.insert("id".into(), json!(id));
+    data.insert("name".into(), json!("Test"));
+    data.insert("questions".into(), json!(inline));
+    activity.insert("data".into(), Json::Object(data));
     Built { activity, save_plan: json!({ "questionRecords": records, "itemRecords": [] }) }
 }
 
@@ -116,8 +123,7 @@ fn dynamic_content(rows: Option<&Json>) -> Result<Option<Json>, String> {
     // The table's own digest, not the time: the same rows give the same references on every
     // run, so a retried or resumed save sends the same payload (C6 plan, decision 2). Rows keep
     // their order and their duplicates (`-row-<i>`): the View samples over row ids.
-    let reference =
-        format!("graffiticode-{}", &graffiticode_l0000::canonical::args_digest(&Json::Array(rows.clone()))[..16]);
+    let reference = format!("graffiticode-{}", &args_digest(&Json::Array(rows.clone()))[..16]);
     let mut cols = None;
     let mut table = Object::new();
     for (i, row) in rows.iter().enumerate() {
@@ -237,7 +243,6 @@ pub fn create_items(items: &[Json], params: Option<&Json>, id: &str) -> Result<B
     data.insert("id".into(), json!(id));
     data.insert("name".into(), json!("Test"));
     data.insert("questions".into(), Json::Array(inline));
-    data.insert("session_id".into(), json!(uuid()));
     if let Some(dynamic) = dynamic {
         data.insert("dynamic_content_data".into(), dynamic);
     }

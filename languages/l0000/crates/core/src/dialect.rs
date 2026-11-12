@@ -132,6 +132,14 @@ pub trait Dialect: Send + Sync {
         true
     }
 
+    /// Whether a result in `mode` may be cached; by default [`cacheable`](Self::cacheable).
+    /// L0176 signs only in `present`, so only its `present` results (and `/compile`'s, which are
+    /// `present`) expire. When false, the answer is `cache: false` whatever it holds: a value, a
+    /// compile error, anything.
+    fn cacheable_in(&self, _mode: Mode) -> bool {
+        self.cacheable()
+    }
+
     /// Whether this program's value is the same for every input, so it compiles to a value
     /// model that is interpreted by identity (docs/graffiticode-interpreter-plan.md, C1). Decided
     /// per program, never per language: a program that reads `data`, or goes through a word that

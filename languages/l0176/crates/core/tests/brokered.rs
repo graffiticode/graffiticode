@@ -9,8 +9,8 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use async_trait::async_trait;
 use graffiticode_l0000::{
-    Compilation, Compiler, Identity, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError,
-    SnapshotRequest,
+    Compilation, Compiler, Identity, Mode, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall,
+    ProtectedCallError, SnapshotRequest,
 };
 use graffiticode_l0176::L0176;
 use serde_json::{Value as Json, json};
@@ -170,6 +170,46 @@ mod without_a_connection {
         Identity { system_session_permitted: true, ..Identity::default() }
     }
 
+    /// C6 part 2, decision 1: only the head's `present` signs. In `evaluate`, data for the next
+    /// stage, the activity comes back unsigned (an incoming `request` dropped, no `signing`)
+    /// and nothing asks policy or Broker; in `present` it is signed exactly as a compile is.
+    #[tokio::test]
+    async fn only_present_signs_and_evaluate_never_asks_policy() {
+        let stale = json!({
+            "type": "questions",
+            "data": { "questions": [{ "type": "mcq", "response_id": "r1" }] },
+            "request": "signed-elsewhere",
+        });
+        let lrn_init = r#"set-var "lrn-id" "t" init questions [mcq []] {}.."#;
+        for (src, input) in
+            [(items(), json!({})), (lrn_init.to_owned(), json!({})), ("init data {}..".to_owned(), stale)]
+        {
+            let fake = Fake::default();
+            let compiler = Compiler::new(L0176::new()).with_policy(fake.clone());
+            let model = compiler.model(program(&src), &json!({})).await.unwrap();
+            let evaluated = value(compiler.interpret(&model, &input, &json!({}), Mode::Evaluate, gateway()).await);
+            assert_eq!((evaluated.get("request"), evaluated.get("signing")), (None, None), "{src}");
+            assert_eq!(evaluated["type"], "questions", "{src}");
+            assert!(fake.calls.lock().unwrap().is_empty() && fake.previews.lock().unwrap().is_empty(), "{src}");
+            let presented = value(compiler.interpret(&model, &input, &json!({}), Mode::Present, gateway()).await);
+            let compiled = value(compile_with(&fake, program(&src), gateway(), input.clone()).await);
+            assert_eq!(presented, compiled, "{src}");
+            assert_eq!(*fake.previews.lock().unwrap(), ["0176", "0176"], "{src}");
+            // Without the signature, the presented activity is the evaluated one.
+            if let Json::Object(mut presented) = presented {
+                presented.remove("request");
+                assert_eq!(Json::Object(presented), evaluated, "{src}");
+            }
+        }
+        // With a connection, too: nothing is signed or written in `evaluate`.
+        let fake = Fake::default();
+        let compiler = Compiler::new(L0176::new()).with_policy(fake.clone());
+        let model = compiler.model(program(&items()), &json!({})).await.unwrap();
+        let evaluated = value(compiler.interpret(&model, &json!({}), &json!({}), Mode::Evaluate, connection()).await);
+        assert_eq!((evaluated.get("request"), evaluated.get("signing")), (None, None));
+        assert!(fake.calls.lock().unwrap().is_empty() && fake.previews.lock().unwrap().is_empty());
+    }
+
     #[tokio::test]
     async fn a_direct_caller_s_preview_is_unsigned_gateway_only_and_policy_is_never_asked() {
         let fake = Fake::default();
@@ -251,7 +291,8 @@ mod without_a_connection {
         assert_eq!(call.occurrence_id, "prog.0");
         let mut fields: Vec<&String> = call.payload.as_object().unwrap().keys().collect();
         fields.sort();
-        assert_eq!(fields, ["id", "name", "questions", "session_id"]);
+        // No `session_id`: Broker sets the signed request's own (C6 part 2, decision 3).
+        assert_eq!(fields, ["id", "name", "questions"]);
         assert_eq!(fake.sessions(), ["system-session"]);
         assert_eq!(out["request"], "signed:learnosity.sign-questions-preview");
         assert_eq!(out.get("signing"), None);
@@ -455,7 +496,8 @@ mod with_a_connection {
         assert_eq!(fake.sessions(), ["session-1"]);
         let mut fields: Vec<String> = fake.call(0).payload.as_object().unwrap().keys().cloned().collect();
         fields.sort();
-        assert_eq!(fields, ["id", "name", "questions", "session_id"]);
+        // No `session_id`: Broker sets the signed request's own (C6 part 2, decision 3).
+        assert_eq!(fields, ["id", "name", "questions"]);
         assert_eq!(out["request"], "signed:learnosity.sign-questions-preview");
     }
 

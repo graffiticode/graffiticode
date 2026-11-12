@@ -44,13 +44,16 @@ pub struct Compilation {
     /// closes the stage with (B5 §4).
     pub occurrences: Option<BTreeMap<String, Vec<String>>>,
     /// How the result may be cached, when the dialect restricted it (C3). None is today's
-    /// default: the language's own [`Dialect::cacheable`].
+    /// default: the language's own [`Dialect::cacheable_in`] its mode.
     pub restriction: Option<crate::exec::Restriction>,
+    /// What the result is for: `present` for a compile and a command's `start`, the request's
+    /// mode for an interpretation.
+    pub mode: Mode,
 }
 
 impl Compilation {
-    fn of(result: Result<Value, Vec<Diagnostic>>) -> Self {
-        Self { result, effects: Vec::new(), occurrences: None, restriction: None }
+    fn of(result: Result<Value, Vec<Diagnostic>>, mode: Mode) -> Self {
+        Self { result, effects: Vec::new(), occurrences: None, restriction: None, mode }
     }
 }
 
@@ -105,6 +108,52 @@ impl Compiler {
         self.dialect.cacheable()
     }
 
+    /// Whether a result in `mode` may be cached (see [`Dialect::cacheable_in`]).
+    pub fn cacheable_in(&self, mode: Mode) -> bool {
+        self.dialect.cacheable_in(mode)
+    }
+
+    /// The answer `/compile` and `/interpret` give for `compiled`, in the envelope the
+    /// TypeScript servers use, without the `revision` the server adds. Built here so a
+    /// language's tests check exactly what its server answers.
+    pub fn envelope(&self, compiled: &Compilation) -> Json {
+        // Compiled output goes in `data` and compile errors in `errors`, which is always
+        // present; consumers branch on whether it is empty.
+        let mut envelope = match &compiled.result {
+            Ok(value) => match value.to_json() {
+                Some(data) => json!({ "data": data, "errors": [] }),
+                None => json!({ "errors": [] }),
+            },
+            Err(errors) => json!({ "data": null, "errors": errors }),
+        };
+        // Output that carries something that expires (a signature) must not be stored or served
+        // again; the API reads this, strips it, and neither caches the compile nor lets the
+        // response be cached. Decided by the mode alone, whatever the result holds: the legacy
+        // API treats anything but `cache: false` as permanent.
+        if !self.cacheable_in(compiled.mode) {
+            envelope["cache"] = json!(false);
+        } else if let Some(restriction) = compiled.restriction {
+            // How this result may be cached, when the dialect restricted it (C3): its class,
+            // and its expiry in epoch milliseconds. Nothing is added for an unrestricted
+            // result, so its envelope is unchanged.
+            envelope["cache"] = json!(restriction.class.as_str());
+            if let Some(expires_at) = restriction.expires_at {
+                envelope["expiresAt"] = json!(expires_at);
+            }
+        }
+        // What the compile's protected writes did. The gateway collects it per stage and keeps
+        // it out of the next stage's input.
+        if !compiled.effects.is_empty() {
+            envelope["effects"] = json!(compiled.effects);
+        }
+        // A command stage's occurrences, by intent: the gateway closes the stage with exactly
+        // these.
+        if let Some(occurrences) = &compiled.occurrences {
+            envelope["occurrences"] = json!(occurrences);
+        }
+        envelope
+    }
+
     /// Whether only a verified gateway's compile may open a system session (see
     /// [`Dialect::system_sessions_gateway_only`]).
     pub fn system_sessions_gateway_only(&self) -> bool {
@@ -119,12 +168,19 @@ impl Compiler {
     /// either. `identity` is the caller's verified identity and becomes this invocation's
     /// [`ExecContext`].
     pub async fn compile(&self, code: &Json, data: &Json, config: &Json, identity: Identity) -> Compilation {
+        self.compile_in(code, data, config, identity, Mode::Present).await
+    }
+
+    /// [`compile`](Self::compile) for a result in `mode`: a compile is `present`; an
+    /// interpretation the dialect declines evaluates its plan in the request's mode.
+    async fn compile_in(&self, code: &Json, data: &Json, config: &Json, identity: Identity, mode: Mode) -> Compilation {
         let mut exec = ExecContext::new(identity);
         exec.set_policy(self.policy.clone());
+        exec.set_mode(mode);
         let result = self.run(code, data, config, &mut exec, None).await;
         let occurrences = exec.command_occurrences().cloned();
         let restriction = exec.restriction();
-        Compilation { result, effects: exec.into_effects(), occurrences, restriction }
+        Compilation { result, effects: exec.into_effects(), occurrences, restriction, mode }
     }
 
     async fn run(
@@ -223,15 +279,15 @@ impl Compiler {
                 self.dialect.lang_id()
             ))
             .with_code("model-language-mismatch");
-            return Compilation::of(Err(vec![refused]));
+            return Compilation::of(Err(vec![refused]), mode);
         }
         // A read never runs as a command, whatever it carries.
         let identity = Identity { command_session: None, ..identity };
         match &model.kind {
-            ModelKind::Value(value) => Compilation::of(Ok(Value::from_json(value))),
+            ModelKind::Value(value) => Compilation::of(Ok(Value::from_json(value)), mode),
             ModelKind::Plan(program) => match self.dialect.interpret(model, input, mode).await {
-                Some(result) => Compilation::of(result.map(|json| Value::from_json(&json))),
-                None => self.compile(program, input, config, identity).await,
+                Some(result) => Compilation::of(result.map(|json| Value::from_json(&json)), mode),
+                None => self.compile_in(program, input, config, identity, mode).await,
             },
         }
     }
@@ -241,7 +297,9 @@ impl Compiler {
     /// intents. Refused, before anything runs, for a model of another language, a model with no
     /// intents, and an identity without a command session.
     pub async fn start(&self, model: &Model, input: &Json, config: &Json, identity: Identity) -> Compilation {
-        let refuse = |message: String, code: &str| Compilation::of(Err(vec![Diagnostic::new(message).with_code(code)]));
+        let refuse = |message: String, code: &str| {
+            Compilation::of(Err(vec![Diagnostic::new(message).with_code(code)]), Mode::Present)
+        };
         if model.lang != self.dialect.lang_id() {
             return refuse(
                 format!("Error: a model from L{} can't be started by L{}", model.lang, self.dialect.lang_id()),
@@ -264,7 +322,7 @@ impl Compiler {
         // stage's to close.
         let occurrences = Some(exec.command_occurrences().cloned().unwrap_or_default());
         let restriction = exec.restriction();
-        Compilation { result, effects: exec.into_effects(), occurrences, restriction }
+        Compilation { result, effects: exec.into_effects(), occurrences, restriction, mode: Mode::Present }
     }
 
     /// Preflight: this stage's manifest, or the errors that would stop it compiling.

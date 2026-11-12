@@ -72,6 +72,9 @@ async fn a_plan_model_interprets_exactly_as_its_program_compiles() {
                 }
                 let interpreted =
                     compiler.interpret(&model, &case.data, &json!({}), Mode::Evaluate, Identity::default()).await;
+                // The same compilation in its own mode: a compile is `present`.
+                assert_eq!((compiled.mode, interpreted.mode), (Mode::Present, Mode::Evaluate));
+                let interpreted = graffiticode_l0000::Compilation { mode: Mode::Present, ..interpreted };
                 // Compared as printed: NaN (`div 0 0`) is never equal to itself.
                 if format!("{interpreted:?}") != format!("{compiled:?}") {
                     failures.push(format!(
