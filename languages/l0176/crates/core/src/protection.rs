@@ -108,11 +108,18 @@ pub fn activity_refusal(json: Option<&Json>) -> Option<String> {
 }
 
 /// Removes any signing the activity arrived with: an incoming `request` (signed elsewhere,
-/// perhaps for another domain) is never passed through, and a stale `signing` never outlives a
-/// new signature. Whether anything was removed.
+/// perhaps for another domain) is never passed through, a stale `signing` never outlives a new
+/// signature, and a `data.session_id` (a legacy activity's, or a literal's) is dropped: no
+/// activity carries one (C6 part 2, decision 3), so a cached result never hands two viewers one
+/// Learnosity session. Broker sets the signed request's own. Whether anything was removed.
 pub fn without_signing(activity: &mut Object) -> bool {
     let request = activity.remove("request").is_some();
-    activity.remove("signing").is_some() || request
+    let signing = activity.remove("signing").is_some();
+    let session = match activity.get_mut("data") {
+        Some(Json::Object(data)) => data.remove("session_id").is_some(),
+        _ => false,
+    };
+    request || signing || session
 }
 
 /// Whether this compile signs and saves through a connection: it selected one and admission

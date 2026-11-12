@@ -206,6 +206,11 @@ impl Compiler {
             let stage = exec.stage().map(str::to_owned);
             let manifest = self.stage_manifest(code, &program, &ast, stage, config)?;
             admit_planned(dialect, self.policy.as_ref(), exec, &manifest).await
+        } else if exec.mode() == Mode::Evaluate {
+            // `evaluate` acts on nothing (C6 part 2), so there is nothing to admit, and policy
+            // isn't asked for a snapshot. A protected call in it is refused
+            // (`ExecContext::invoke`), as is a system session.
+            Vec::new()
         } else {
             admit(&ast, dialect, self.policy.as_ref(), exec).await
         };

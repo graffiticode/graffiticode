@@ -774,3 +774,107 @@ mod structured_failures_and_effects {
         assert!(compiled.effects.is_empty());
     }
 }
+
+/// C6 part 2: `evaluate` acts on nothing. A program that saves, with a connection Policy would
+/// grant, or with a system session the server permits, neither writes, signs nor asks Policy
+/// for anything in `evaluate`; the save is reported skipped. The same program in `present` with
+/// the connection does write, so the fake would have seen it.
+#[tokio::test]
+async fn evaluate_never_writes_signs_or_asks_policy() {
+    let saves = [
+        r#"set-var "lrn-id" "t" save-to-itembank items [item [questions [mcq []] {}]] {}.."#,
+        r#"set-var "lrn-id" "t" init save-to-itembank items [item [questions [mcq []] {}]] {}.."#,
+        r#"set-var "lrn-id" "t" items [save-to-itembank true, item [questions [mcq []] {}]] {}.."#,
+        r#"set-var "lrn-id" "t" [save-to-itembank items [item [questions [mcq []] {}]] {} save-to-itembank items [item [questions [mcq []] {}]] {}].."#,
+        r#"set-var "lrn-id" "t" map (<x: save-to-itembank items [item [questions [mcq []] {}]] {}>) [1 2 3].."#,
+    ];
+    let system = Identity { system_session_permitted: true, ..Identity::default() };
+    for src in saves {
+        for identity in [connection(), system.clone()] {
+            let fake = Fake::default();
+            let compiler = Compiler::new(L0176::new()).with_policy(fake.clone());
+            let model = compiler.model(program(src), &json!({})).await.unwrap();
+            let evaluated = compiler.interpret(&model, &json!({}), &json!({}), Mode::Evaluate, identity.clone()).await;
+            let envelope = compiler.envelope(&evaluated);
+            assert!(fake.ops().is_empty(), "{src}: evaluate performed {:?}", fake.ops());
+            assert!(fake.snapshots.lock().unwrap().is_empty(), "{src}: evaluate asked Policy for a snapshot");
+            assert!(fake.previews.lock().unwrap().is_empty(), "{src}: evaluate asked for a system session");
+            assert_eq!(envelope.get("cache"), None, "{src}");
+            assert!(envelope.get("effects").is_none(), "{src}: {envelope}");
+            let text = envelope.to_string();
+            assert!(!text.contains("\"request\"") && !text.contains("\"signing\""), "{src}: {text}");
+            if src.starts_with(r#"set-var "lrn-id" "t" save-to-itembank"#) {
+                assert_eq!(envelope["data"]["data"]["itemBank"]["skipped"], "evaluate", "{src}: {envelope}");
+            }
+        }
+    }
+    // The fake would have seen a write: the same save in `present`, with the connection.
+    let fake = Fake::default();
+    let compiler = Compiler::new(L0176::new()).with_policy(fake.clone());
+    let model = compiler.model(program(saves[0]), &json!({})).await.unwrap();
+    compiler.interpret(&model, &json!({}), &json!({}), Mode::Present, connection()).await;
+    assert!(fake.ops().iter().any(|op| op == "learnosity.write-items"), "{:?}", fake.ops());
+    assert_eq!(fake.snapshots.lock().unwrap().len(), 1);
+}
+
+/// `{type: "questions" data: {session_id: "old-session" questions: [mcq-ish]}}`, as the parser
+/// writes a record literal, under `init` when `init` is given.
+fn literal_with_session(init: bool) -> Json {
+    let mut ast = json!({
+        "1": { "tag": "TAG", "elts": ["type"] }, "2": { "tag": "STR", "elts": ["questions"] },
+        "5": { "tag": "TAG", "elts": ["data"] },
+        "6": { "tag": "TAG", "elts": ["questions"] }, "7": { "tag": "LIST", "elts": [] },
+        "8": { "tag": "TAG", "elts": ["session_id"] }, "9": { "tag": "STR", "elts": ["old-session"] },
+        "16": { "tag": "BINDING", "elts": [8, 9] },
+        "17": { "tag": "BINDING", "elts": [6, 7] }, "18": { "tag": "RECORD", "elts": [16, 17] },
+        "19": { "tag": "BINDING", "elts": [5, 18] }, "20": { "tag": "BINDING", "elts": [1, 2] },
+        "21": { "tag": "RECORD", "elts": [20, 19] },
+        "22": { "tag": "EXPRS", "elts": [21] }, "23": { "tag": "PROG", "elts": [22] }, "root": 23,
+    });
+    if init {
+        ast["24"] = json!({ "tag": "INIT", "elts": [21] });
+        ast["22"] = json!({ "tag": "EXPRS", "elts": [24] });
+    }
+    ast
+}
+
+/// C6 part 2, decision 3: no activity carries a `session_id`, whatever it arrived with: a legacy
+/// activity as upstream data, or a record literal, bare or under `init`, in either mode. Broker
+/// is never sent one either; it sets the signed request's own.
+#[tokio::test]
+async fn an_incoming_session_id_is_dropped_in_every_mode() {
+    let legacy = json!({
+        "type": "questions",
+        "data": { "id": "explicit", "session_id": "old-session", "questions": [{ "type": "mcq", "response_id": "r1" }] },
+        "request": "signed-elsewhere",
+    });
+    let system = Identity { system_session_permitted: true, ..Identity::default() };
+    let programs = [
+        (program("init data {}..").clone(), legacy.clone()),
+        (program("data {}..").clone(), legacy),
+        (literal_with_session(false), json!({})),
+        (literal_with_session(true), json!({})),
+    ];
+    for (code, input) in programs {
+        for mode in [Mode::Evaluate, Mode::Present] {
+            let fake = Fake::default();
+            let compiler = Compiler::new(L0176::new()).with_policy(fake.clone());
+            let model = compiler.model(&code, &json!({})).await.unwrap();
+            let out = value(compiler.interpret(&model, &input, &json!({}), mode, system.clone()).await);
+            assert!(!out.to_string().contains("old-session"), "{mode:?} {code}: {out}");
+            for (_, call) in fake.calls.lock().unwrap().iter() {
+                assert!(call.payload.get("session_id").is_none(), "{mode:?}: sent {}", call.payload);
+            }
+            if mode == Mode::Evaluate {
+                assert_eq!(out["data"].get("session_id"), None, "{code}");
+                assert!(fake.calls.lock().unwrap().is_empty());
+            } else {
+                assert!(!fake.calls.lock().unwrap().is_empty(), "present signs: {code}");
+            }
+        }
+        // `/compile` is `present`: the same.
+        let fake = Fake::default();
+        let out = value(compile_with(&fake, &code, system.clone(), input.clone()).await);
+        assert!(!out.to_string().contains("old-session"), "/compile {code}: {out}");
+    }
+}
