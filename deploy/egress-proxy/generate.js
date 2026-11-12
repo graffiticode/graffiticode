@@ -67,6 +67,7 @@ export function buildModel(deployConfig, classes) {
     loadBalancerAddress: classes.loadBalancerAddress,
     proxy: classes.proxy,
     denySuffixes: classes.open?.denySuffixes ?? [],
+    exceptions: openExceptions(classes.open),
     classes: {},
   };
   if (!ip.test(model.loadBalancerAddress)) throw new Error("classes.json: loadBalancerAddress must be an IPv4 address");
@@ -74,7 +75,7 @@ export function buildModel(deployConfig, classes) {
   for (const [name, c] of Object.entries(classes.classes ?? {})) {
     if (!/^compilers-[a-z0-9-]+$/.test(name)) throw new Error(`classes.json: class ${name} must be named compilers-<name>`);
     if (!cidr.test(c.cidr ?? "")) throw new Error(`classes.json: class ${name} needs an IPv4 cidr`);
-    model.classes[name] = { name, cidr: c.cidr, open: c.open === true, hosts: new Set(), services: [], accounts: [] };
+    model.classes[name] = { name, cidr: c.cidr, open: c.open === true, hosts: new Set(), services: [], accounts: [], only: {} };
   }
   for (const [service, config] of Object.entries(deployConfig.services ?? {})) {
     const n = config.network;
@@ -95,8 +96,14 @@ export function buildModel(deployConfig, classes) {
       // An exact listed route would win over the open class's wildcard
       // refusals, so a refused name can never be listed for it (D2: no
       // run.app at all; L0185 reaches Graffiticode by *.graffiticode.org).
+      // The one way past that: a reviewed exception in classes.json, which
+      // the open class may list for its exact requests and nothing else.
       if (cls.open && denied(host, model.denySuffixes)) {
-        throw new Error(`deploy.json: ${service} lists ${host}, which the open class refuses (${model.denySuffixes.find(s => host === s || host.endsWith(`.${s}`))})`);
+        const exception = model.exceptions[host];
+        if (!exception) {
+          throw new Error(`deploy.json: ${service} lists ${host}, which the open class refuses (${model.denySuffixes.find(s => host === s || host.endsWith(`.${s}`))})`);
+        }
+        cls.only[host] = exception;
       }
       cls.hosts.add(host);
     }
@@ -109,6 +116,28 @@ export function buildModel(deployConfig, classes) {
 }
 
 const denied = (host, suffixes) => suffixes.some(s => host === s || host.endsWith(`.${s}`));
+
+// classes.json `open.exceptions`: a refused name the open class may still
+// list, for exact requests only (C3, 2026-11-12: l0185r's /preflight verifies
+// the api's Google ID token, so it reads Google's certificates, and nothing
+// else on that host). Each is { methods: ["GET"|"HEAD"], paths: ["/exact"] }:
+// exact paths (the query is not part of the match), no prefix or wildcard.
+const EXCEPTION_METHODS = new Set(["GET", "HEAD"]);
+function openExceptions(open) {
+  const exceptions = {};
+  for (const [host, e] of Object.entries(open?.exceptions ?? {})) {
+    if (host.startsWith("$")) continue;
+    if (!denied(host, open.denySuffixes ?? [])) throw new Error(`classes.json: open.exceptions names ${host}, which the open class doesn't refuse`);
+    if (!Array.isArray(e?.methods) || !e.methods.length || !e.methods.every(m => EXCEPTION_METHODS.has(m))) {
+      throw new Error(`classes.json: open.exceptions.${host}.methods must be GET or HEAD`);
+    }
+    if (!Array.isArray(e?.paths) || !e.paths.length || !e.paths.every(p => typeof p === "string" && /^\/[A-Za-z0-9._~/-]*$/.test(p))) {
+      throw new Error(`classes.json: open.exceptions.${host}.paths must be exact paths`);
+    }
+    exceptions[host] = { methods: [...e.methods].sort(), paths: [...e.paths].sort() };
+  }
+  return exceptions;
+}
 
 // Every compiler runtime account behind the proxy: each reads the CA bundle.
 export const compilerAccounts = model =>
@@ -416,7 +445,7 @@ function innerListener(cls) {
       hcm(`terminate_${slug(host).replace(/-/g, "_")}`, {
         name: `terminate-${cls.name}-${slug(host)}`,
         virtual_hosts: [
-          { name: slug(host), domains: [host, `${host}:443`], routes: [{ match: { prefix: "/" }, ...allow("listed", { cluster: `upstream-${slug(host)}`, timeout: "300s", retry_policy: retryPolicy(host) }) }] },
+          { name: slug(host), domains: [host, `${host}:443`], routes: listedRoutes(cls, host) },
           { name: "fronted", domains: ["*"], routes: [{ match: { prefix: "" }, ...refuse("host-mismatch") }] },
         ],
       }, [], innerLogFields(cls.name, host)),
@@ -433,6 +462,18 @@ function innerListener(cls) {
     // No default chain: no SNI, or an SNI not listed for this class, is closed.
     filter_chains,
   };
+}
+
+// A listed host's routes in one class: everything on it, or, for an open
+// class's exception, its exact requests and a refusal (`request`) for any other.
+function listedRoutes(cls, host) {
+  const upstream = allow("listed", { cluster: `upstream-${slug(host)}`, timeout: "300s", retry_policy: retryPolicy(host) });
+  const only = cls.only?.[host];
+  if (!only) return [{ match: { prefix: "/" }, ...upstream }];
+  return [
+    ...only.paths.flatMap(p => only.methods.map(m => ({ match: { path: p, headers: [{ name: ":method", string_match: { exact: m } }] }, ...upstream }))),
+    { match: { prefix: "" }, ...refuse("request") },
+  ];
 }
 
 // One retry, decided host by host (2026-10-20). A pooled connection the upstream has closed

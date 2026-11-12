@@ -64,3 +64,10 @@ test("production's user-data fits a metadata value with room to grow (256 KB cap
   const bytes = Buffer.byteLength(cloudInit(model, envoyConfig(model)));
   assert.ok(bytes < 96 * 1024, `user-data is ${bytes} bytes`);
 });
+
+test("L0185's open class reads Google's certificates, and nothing else from Google (C3)", async () => {
+  const model = await production();
+  assert.deepEqual(model.classes["compilers-l0185"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "www.googleapis.com"]);
+  assert.deepEqual(model.classes["compilers-l0185"].only, { "www.googleapis.com": { methods: ["GET"], paths: ["/oauth2/v3/certs"] } });
+  assert.deepEqual(Object.keys(model.exceptions), ["www.googleapis.com"]);
+});

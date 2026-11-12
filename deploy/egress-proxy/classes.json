@@ -34,7 +34,14 @@
       "run.app",
       "internal",
       "googleapis.com"
-    ]
+    ],
+    "exceptions": {
+      "$comment": "C3 (owner, 2026-11-12): l0185r's /preflight verifies the api's Google ID token (PREFLIGHT_GATEWAYS), so the open class may read Google's certificates, GET at that exact path, and nothing else on www.googleapis.com (403 request).",
+      "www.googleapis.com": {
+        "methods": ["GET"],
+        "paths": ["/oauth2/v3/certs"]
+      }
+    }
   },
   "proxy": {
     "listenPort": 3128,

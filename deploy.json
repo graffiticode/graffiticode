@@ -1799,6 +1799,13 @@
         { "service": "api", "milestone": "c3-legacy-strip" }
       ],
       "runtimeServiceAccount": "l0185r-run@graffiticode.iam.gserviceaccount.com",
+      "pinnable": {
+        "lang": "0185",
+        "contractVersions": [
+          1,
+          2
+        ]
+      },
       "network": {
         "network": "compilers",
         "subnet": "compilers-l0185",
@@ -1812,7 +1819,8 @@
         },
         "allow": [
           "api.graffiticode.org",
-          "auth.graffiticode.org"
+          "auth.graffiticode.org",
+          "www.googleapis.com"
         ]
       },
       "exclude": [],
@@ -1828,7 +1836,8 @@
         }
       ],
       "env": {
-        "AUTH_URL": "https://auth.graffiticode.org"
+        "AUTH_URL": "https://auth.graffiticode.org",
+        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
       },
       "smoke": [
         {
