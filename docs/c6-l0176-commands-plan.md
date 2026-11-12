@@ -223,7 +223,7 @@ The order:
 
 ## 8. Out of scope
 
-- C6 part 2: interpreting L0176 reads, signing only in `present`, read-stage signing as `get`, the consumer checks for `data.request`, and the retirement of `generation.ts`.
+- C6 part 2: interpreting L0176 reads, signing only in `present`, read-stage signing as `get`, the consumer checks for `data.request`, and the retirement of `generation.ts`. Planned in [c6-l0176-reads-plan.md](c6-l0176-reads-plan.md); `generation.ts` was already retired (2026-10-30, `f2cf608c`).
 - B6 repair.
 - D4, until telemetry allows it.
 - C5 (L0013).
