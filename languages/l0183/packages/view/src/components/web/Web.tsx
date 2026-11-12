@@ -377,6 +377,8 @@ export function Web({
   const overRef = useRef<string | undefined>(undefined);
   /** How the drag is held: a finger would hide the item, so on touch it rides above it. */
   const touchDrag = useRef(false);
+  /** What is being dragged, and by which pointer: read by the window listeners below. */
+  const heldRef = useRef<(Held & { pointerId: number }) | null>(null);
   const [announce, setAnnounce] = useState("");
 
   useEffect(() => {
@@ -429,18 +431,36 @@ export function Web({
     pointer.current = { x: e.clientX, y: e.clientY };
     overRef.current = undefined;
     touchDrag.current = e.pointerType === "touch";
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    heldRef.current = { ...held, pointerId: e.pointerId };
+    // Capture on the element that owns the handlers, never on whatever inner span was hit: that
+    // span can be re-rendered away mid-drag. The drag itself is followed on the window (below), so
+    // it ends however its source element changes.
+    try {
+      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    } catch {
+      // Capture is a nicety; the window listeners carry the drag.
+    }
     setDrag({ ...held, x: e.clientX, y: e.clientY });
   };
 
-  const moveDrag = (e: ReactPointerEvent) => {
-    if (!drag || !dragStart.current) return;
+  const moveDrag = (e: PointerEvent) => {
+    if (!heldRef.current || !dragStart.current) return;
     if (Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y) > 4) {
       dragStart.current.moved = true;
     }
     pointer.current = { x: e.clientX, y: e.clientY };
-    overRef.current = blankUnder(e.clientX, e.clientY);
-    setDrag({ ...drag, x: e.clientX, y: e.clientY, over: overRef.current });
+    const over = blankUnder(e.clientX, e.clientY);
+    overRef.current = over;
+    setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, over } : d));
+  };
+
+  /** Forget the drag, whatever state it was in. */
+  const resetDrag = () => {
+    heldRef.current = null;
+    dragStart.current = null;
+    pointer.current = null;
+    overRef.current = undefined;
+    setDrag(null);
   };
 
   /** The blank under a point (the drag preview never takes pointer events). */
@@ -471,17 +491,14 @@ export function Web({
   };
 
   /** Returns true when the gesture was a drag, so the click that follows is ignored. */
-  const endDrag = (e: ReactPointerEvent): boolean => {
+  const endDrag = (e: PointerEvent): boolean => {
     const moved = !!dragStart.current?.moved;
-    const held = drag;
-    dragStart.current = null;
-    pointer.current = null;
-    setDrag(null);
-    if (!held || !moved) return false;
+    const held = heldRef.current;
     // Where the preview said it would land: the release point can be a pixel past the blank the
     // last move highlighted.
-    const blank = blankUnder(e.clientX, e.clientY) ?? overRef.current;
-    overRef.current = undefined;
+    const blank = held && moved ? (blankUnder(e.clientX, e.clientY) ?? overRef.current) : undefined;
+    resetDrag();
+    if (!held || !moved) return false;
     if (blank) put(held, blank);
     else if (held.from) clear(held.from); // dropped off the web: back to the tray
     setSelected(null);
@@ -539,18 +556,49 @@ export function Web({
   }, [!!drag]);
 
   const suppressClick = useRef(false);
+  // The drag is followed on the window, by pointer id, not on its source element: a recompile or
+  // a re-render can replace or strip that element mid-drag, and a drag whose release went
+  // unheard never ended (a "zombie" that stuck to the pointer). The latest handlers are read
+  // through a ref, so the listeners never call a stale closure.
+  const live = useRef({ moveDrag, endDrag, resetDrag });
+  live.current = { moveDrag, endDrag, resetDrag };
+  const dragActive = !!drag;
+  useEffect(() => {
+    if (!dragActive) return;
+    const mine = (e: PointerEvent) => e.pointerId === heldRef.current?.pointerId;
+    const move = (e: PointerEvent) => {
+      if (mine(e)) live.current.moveDrag(e);
+    };
+    const up = (e: PointerEvent) => {
+      if (!mine(e)) return;
+      if (live.current.endDrag(e)) {
+        // Swallow only the click this release produces, if any; never a later one.
+        suppressClick.current = true;
+        setTimeout(() => {
+          suppressClick.current = false;
+        }, 0);
+      }
+    };
+    const cancel = (e: PointerEvent) => {
+      if (mine(e)) live.current.resetDrag();
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") live.current.resetDrag();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("keydown", escape);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("keydown", escape);
+    };
+  }, [dragActive]);
   const dragHandlers = (held: Held, role: DragRole) => ({
     onPointerDown: (e: ReactPointerEvent) => {
       if (startsDrag(e.pointerType, role)) beginDrag(e, held);
-    },
-    onPointerMove: moveDrag,
-    onPointerUp: (e: ReactPointerEvent) => {
-      suppressClick.current = endDrag(e);
-    },
-    onPointerCancel: () => {
-      dragStart.current = null;
-      pointer.current = null;
-      setDrag(null);
     },
     onContextMenu: (e: ReactMouseEvent) => e.preventDefault(),
   });

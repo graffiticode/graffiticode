@@ -382,3 +382,30 @@ test("with a mouse the dragged item sits on the cursor, so the cursor and the it
   await page.mouse.up();
   await expect(page.locator('[data-l0183-blank="n6"]')).toHaveAttribute("aria-label", /holding Groundwater/);
 });
+
+test("a drag ends on release even when the element it started from is replaced mid-drag (no zombie drag)", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto("/dev.html?fixture=waterCycle");
+  await page.locator("[data-l0183-canvas]").waitFor();
+  await page.waitForTimeout(300);
+  // Fill a line-label blank with a tap-then-tap, then drag it from its text to another one.
+  await page.locator('button:has-text("heats") >> visible=true').click();
+  await page.locator('[data-l0183-blank="e1"]').click();
+  await expect(page.locator('[data-l0183-blank="e1"]')).toHaveAttribute("aria-label", /holding heats/);
+  const from = await centre(page, '[data-l0183-blank="e1"]');
+  const to = await centre(page, '[data-l0183-blank="e4"]');
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 30, from.y + 10, { steps: 4 });
+  await expect(page.locator("[data-l0183-drop]")).toHaveCount(1);
+  // A re-render replaces what was under the pointer (here, by hand: the label's face).
+  await page.locator('[data-l0183-blank="e1"] > span').evaluate((el) => el.replaceWith(el.cloneNode(true)));
+  await page.mouse.move(to.x, to.y, { steps: 10 });
+  await page.mouse.up();
+  // The drag ended: no preview stuck to the pointer, and the label moved.
+  await expect(page.locator("[data-l0183-drop]")).toHaveCount(0);
+  await expect(page.locator('[data-l0183-blank="e4"]')).toHaveAttribute("aria-label", /holding heats/);
+  // And the next click is not swallowed: a tap on the filled blank returns its answer.
+  await page.locator('[data-l0183-blank="e4"]').click();
+  await expect(page.locator('[data-l0183-blank="e4"]')).not.toHaveAttribute("aria-label", /holding/);
+});
