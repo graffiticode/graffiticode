@@ -311,7 +311,7 @@ Retirement is its own milestone for each language, after its Track A switch. It 
     - **Immediate commands are unchanged.** An intent that expands to exactly one occurrence keeps today's static id, so L0176's save and L0013's snapshot are unaffected.
   - **Who uses it.** Languages that declare commands, and Track E.
   - **When it starts.** When its entry gate below passes.
-- **B6 Commands, part 2.** The repair ledger keyed by `(command, stage, occurrence)`, `materialize` replay, and resuming stages the original never reached. Before B6 ships, a partial command is reported, and repairing it is manual reconciliation.
+- **B6 Commands, part 2.** The repair ledger keyed by `(command, stage, occurrence)`, `materialize` replay, and resuming stages the original never reached. Before B6 ships, a partial command is reported, and repairing it is manual reconciliation. Planned in [b6-command-repair-plan.md](b6-command-repair-plan.md) (draft, 2026-11-12).
 
 ### Gates for B5 and B6: usage, driven synthetically
 B5 used to wait until the read path had "more production experience", which named no amount. It now waits on a **usage gate** instead. The gate counts what the read path has done, not how long it has been live, and a driver can produce that usage on demand.
@@ -509,7 +509,12 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
        - #342: a refused admission records its reason on the command (`admissionRefusal`), and callers see `permission denied (<reason>)`.
      - **D3, the callers (2026-11-10):** the console and the REST server save through `POST /command` (graffiticode-app #111 and #112). The canary has a `--command` mode, and its scheduled job runs with it.
      - **D4 (2026-11-11):** `BRIDGE_L0176=off` (api `rmwcg1nkb-9870c7`, #349). The canary runs its gateway-path checks as commands and checks that a compile that would save is refused `bridge-retired` (#348).
-     - **Part 2,** interpreting L0176's reads, is planned in [c6-l0176-reads-plan.md](c6-l0176-reads-plan.md) (draft, 2026-11-12). Its `generation.ts` item was already done (2026-10-30), and the content-digest dynamic-content reference shipped with part 1.
+     - **Part 2, interpreting L0176's reads: complete 2026-11-12** ([c6-l0176-reads-plan.md](c6-l0176-reads-plan.md)). The api serves `api-rmwe179az-dc8f27` with `INTERPRETER_L0176=on` and `COMPILE_GENERATION_L0176=interp-1`, and `l0176r` serves `l0176r-rmwduyn6c-c054b7`. Evidence is in `docs/evidence/interpreter-c6-l0176/`.
+       - Only the head's `present` signs; an `evaluate` stage is cached unsigned and acts on nothing (the kernel refuses every protected call in it).
+       - Activity ids are deterministic, and no activity carries a `session_id`.
+       - `/preview/sign` interprets.
+       - Rollback: `npm run rollback -- api --env production --release rmwe179az-dc8f27`, or forward with `INTERPRETER_L0176=off` and `COMPILE_GENERATION_L0176=commands-2`.
+       - Follow-ups: connection and publication reads through `/interpret`; the L0158 → L0176 pair.
 7. **C7 L0000** last, because it is the kernel the others depend on.
 
 ## Track E — Durable execution, driven by L0188
