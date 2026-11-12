@@ -311,7 +311,7 @@ Retirement is its own milestone for each language, after its Track A switch. It 
     - **Immediate commands are unchanged.** An intent that expands to exactly one occurrence keeps today's static id, so L0176's save and L0013's snapshot are unaffected.
   - **Who uses it.** Languages that declare commands, and Track E.
   - **When it starts.** When its entry gate below passes.
-- **B6 Commands, part 2.** The repair ledger keyed by `(command, stage, occurrence)`, `materialize` replay, and resuming stages the original never reached. Before B6 ships, a partial command is reported, and repairing it is manual reconciliation. Planned in [b6-command-repair-plan.md](b6-command-repair-plan.md) (draft, 2026-11-12).
+- **B6 Commands, part 2.** The repair ledger keyed by `(command, stage, occurrence)`, `materialize` replay, and resuming stages the original never reached. Before B6 ships, a partial command is reported, and repairing it is manual reconciliation. Planned in [b6-command-repair-plan.md](b6-command-repair-plan.md) (draft, revised after the owner's review, 2026-11-12).
 
 ### Gates for B5 and B6: usage, driven synthetically
 B5 used to wait until the read path had "more production experience", which named no amount. It now waits on a **usage gate** instead. The gate counts what the read path has done, not how long it has been live, and a driver can produce that usage on demand.
@@ -371,10 +371,12 @@ B5 now also gates Track E (durable execution). These criteria don't change for t
 - **Reconciliation:** 17 uncertain operations were reconciled through Policy, all `applied` and `final`, with no repeated write. Every one had already succeeded.
 
 **B6 completion gate.** This decides when B6 is done and repair can be offered to callers. Replay repair retries eligible failed occurrences through the repair ledger (design §5, "Repair"). A drive on the same language shows each of these:
-- **Failed-only selection.** A repair that selects a `completed`, `partial` or `uncertain` occurrence is refused at admission. Only occurrences recorded `failed`, or reconciled to `failed`, are eligible.
+- **Failed-only selection.** A repair that selects a `completed`, `partial` or `uncertain` occurrence is refused at admission. Only occurrences recorded `failed` are eligible. An `uncertain` occurrence reconciled to `completed` stops being a candidate; one that stays unresolved stays blocked. (Amended 2026-11-12, B6 plan decision 2: no provider read can prove a write never landed, so nothing is reconciled to `failed`.)
+- **Partly completed stages.** In a stage where one occurrence completed and another failed, a repair executes only the failed one: the completed one answers from its record with no provider call and keeps its references, with occurrence ids, argument bindings and the original admission's bounds preserved.
 - **Ledger exclusion.** When two repairs with different keys select the same occurrence, one claims it in the ledger and the other is refused. A later repair can't re-run an occurrence that an earlier repair completed.
 - **Resumption.** A repair that completes a stage's last failed occurrence resumes the `not-reached` stages to its left.
-- **Materialization.** The repaired artifact is materialized from the recorded observations and outputs, with no live reads or new effects. It is published under the latest repair's fencing generation.
+- **Materialization.** The repaired artifact is materialized from the recorded observations and outputs, with no live reads or new effects. It is published under the latest repair's fencing generation. A dropped outcome, once reconciled, is materialized from the output reconstructed from its claim evidence, with no further write; where no output can be established, materialization is refused, not guessed.
+- **Recovery from recorded outputs.** A worker that crashes after a stage's output is recorded and before the next stage pins its input recovers from the recorded output, never by fetching or computing it again.
 - **Volume.** At least 10 repairs that succeed.
 
 ## Track C — Upgrade each switched language to the interpreter (Rust only)
