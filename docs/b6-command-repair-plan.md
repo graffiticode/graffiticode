@@ -1,6 +1,6 @@
 # B6: command repair
 
-**Status:** draft, revised after the owner's first review (2026-11-12). Plan item: `docs/graffiticode-interpreter-plan.md` Track B, "B6 Commands, part 2", whose entry gate C6 met (2026-11-09). Design: `docs/graffiticode-interpreter-design.md` §5 ("Repair", "Stages the original never reached", "Artifact publication after a repair") and acceptance test 13. Builds on B5 (`docs/b5-commands-plan.md`) and C6 (`docs/c6-l0176-commands-plan.md`).
+**Status:** draft, revised after the owner's second review (2026-11-12). Plan item: `docs/graffiticode-interpreter-plan.md` Track B, "B6 Commands, part 2", whose entry gate C6 met (2026-11-09). Design: `docs/graffiticode-interpreter-design.md` §5 ("Repair", "Stages the original never reached", "Artifact publication after a repair") and acceptance test 13. Builds on B5 (`docs/b5-commands-plan.md`) and C6 (`docs/c6-l0176-commands-plan.md`).
 
 **Owner's requirements (2026-11-12).** The plan makes each one explicit:
 1. **Retry only failed occurrences.** Only an occurrence established `failed` is retried; a `partial` or `uncertain` one is reconciled first.
@@ -63,8 +63,10 @@ Each has a recommendation; the plan below assumes it.
      - For L0176's save it exists. The save's result is `{ saved: true, references, questionReferences }` (`operations.ts:330-334`): `questionReferences` are the evidence's `question` records in dispatch order, and `references` its `item` records, or the question records when there are no items. Every reference was fixed by B1's mapping before the claim, so the evidence names exactly what was written.
      - When Broker creates an `applied` final resolution, it computes the result in the same create, as `result` with `resultSource: "evidence"`. A receipt whose outcome was recorded keeps that outcome's `result` as the source of truth; Broker checks the two agree and records a conflict if they don't (a bug, which blocks materialization of that occurrence).
      - `/v1/reconcile` and `/v1/receipts` return the result. Policy writes it to the ledger entry as the occurrence's output.
-     - **An operation without `resultFromEvidence`, or evidence in an unknown format,** reconciles to `completed` with output `unavailable`. The occurrence stops being a repair candidate, but its stage can't be materialized, so nothing resumes above it and nothing is published. `/materialize` answers `output-unavailable`, naming it.
-     - Tests: in slice 1, the property test below and Broker's persistence of the result with the resolution; in slice 4 and the drive, a dropped outcome (fault: Broker exits after the write, before `putOutcome`) → reconciliation `applied` with the reconstructed result → materialization equal to a clean run's answer, with the provider's write count unchanged. A property test checks `resultFromEvidence(writeEvidence(p)) = run(p).result` over the corpus payloads.
+     - **Evidence Broker can't interpret establishes nothing.** A receipt with no evidence, or evidence in an unknown format, stays `unresolved`, exactly as Broker rules today (`reconcile.ts`, `no-evidence` / `evidence-format-unknown`). It never becomes `completed`, so it stays blocked: not a repair candidate, not counted toward its stage's completion, and nothing resumes above it.
+     - **Completed with output `unavailable`** applies only when completion is independently established by an `applied`, `final` verdict, and the output still can't be (an operation that declares no `resultFromEvidence`). The occurrence stops being a repair candidate, but its stage can't be materialized, so nothing resumes above it and nothing is published. `/materialize` answers `output-unavailable`, naming it.
+     - Test (slice 4): a receipt with unknown-format evidence reconciles `unresolved`; the ledger is unchanged, a repair selecting it is refused `not-eligible`, its stage isn't counted complete, and no stage above it resumes.
+     - Tests: in slice 2, the property test below and Broker's persistence of the result with the resolution; in slice 4 and the drive, a dropped outcome (fault: Broker exits after the write, before `putOutcome`) → reconciliation `applied` with the reconstructed result → materialization equal to a clean run's answer, with the provider's write count unchanged. A property test checks `resultFromEvidence(writeEvidence(p)) = run(p).result` over the corpus payloads.
    - **This amends the completion gate, here and in the master plan.** Its "or reconciled to `failed`" has no path, because no provider read can prove a write never landed. The gate becomes "recorded `failed`; `uncertain` reconciled to `completed` stops being a candidate". *Recommended:* inventing a "proved absent" verdict would contradict W5's evidence rule.
 3. **A repair is its own command**, of kind `repair`, with a lease, fencing generation, idempotency key, invocation and outcome, referencing its original. It reuses B5's ownership, takeover and sweep unchanged.
    - It is started by `POST /command/{id}/repair { idempotencyKey, occurrences? }`, by the original command's owner, through the original's connection. With no `occurrences` it selects every eligible one.
@@ -79,11 +81,11 @@ Each has a recommendation; the plan below assumes it.
    - **Recovery consumes recorded outputs.** Today recovery restarts at the furthest pinned input (`worker.js:167-183`). If L0185's output were recorded and the worker crashed before L0176 pinned its input, recovery would fetch again: changed data could conflict with the installed output, and an unavailable source could block recovery. So recording changes recovery:
      - The order at every boundary is: install `outputs/{k}`, then pin the input of stage k+1 from it. Policy refuses a pinned input whose digest differs from the recorded output of the stage below (`input-not-output`), so the two can't diverge.
      - Recovery starts at the first stage, in execution order, with no recorded output. Its input is the recorded output of the stage below (or its own pinned input, which must then equal that output). A stage with a recorded output is never run again, whether or not it has intents.
-     - The furthest-pinned-input rule stays for commands recorded before this slice.
+     - The furthest-pinned-input rule stays for commands recorded before slice 2.
      - Test: a fault `exit-after-output` (in `faults.js`, never on production) exits after L0185's output is installed and before L0176 pins its input. The source is then changed, and in a second case made unavailable. Recovery pins exactly the recorded output, makes no L0185 call, and completes; the save's args digest equals what a run without the crash produced.
    - **Materialization replays these records.** A stage that ran is never re-evaluated, apart from replaying its effect intents (decision 6). An L0185 stage's recorded output is what it fetched then, whatever the source says now.
    - **Per-read observations stay deferred**, now as an optimization: they'd shrink records but aren't needed for correctness.
-   - **A command recorded before this slice can't be materialized**, and its repairs complete the ledger only (decision 9).
+   - **A command recorded before slice 2 can't be repaired or materialized** (decision 11).
    - *Recommended:* the design allows either form, whole outputs need no change in any language, and they cover every stage, effect-free or not.
 6. **Materialization is a kernel `replay` mode, opted into per language.** Ordinary `evaluate` can't be used unchanged: L0176's save returns `{ skipped: "evaluate" }` before it reaches `invoke` (`lib.rs:386-390`), the kernel's `invoke` refuses every call in `evaluate` (`exec.rs:511-513`), and without a session `is_brokered` is false (`protection.rs:130-132`), so the command branch that expands occurrences is unreachable.
    - **The mode.** `Mode::Replay`, a third mode beside `present` and `evaluate`, set only by the operation below, never by a request's own `mode`.
@@ -99,7 +101,7 @@ Each has a recommendation; the plan below assumes it.
 7. **Repair execution.**
 
    **7a. A repaired stage, partly completed.** In a stage with two saves where A completed and B failed, running the original model again meets A first. The ledger would refuse A's write, but the stage needs A's result to continue, and the plan must execute only B. The same mechanism as decision 6 does it, inside a live command start:
-   - **What runs.** The repaired stage runs under the repair's session, on the original's admitted model at its pinned revision (the original's `tagUrl`), with the original's pinned input. A retired revision refuses the repair (`revision-retired`) before anything is claimed.
+   - **What runs.** The repaired stage runs under the repair's session, on the original's admitted model at its pinned revision (the original's `tagUrl`), with the original's pinned input. A retired revision refuses the repair (`revision-retired`) before anything is claimed. An admission is never retargeted to another revision (decision 11).
    - **Recorded occurrences answer from the record.** The worker gives the start the stage's recorded occurrences that the repair didn't select: every `completed` one, from the original or an earlier repair, with its args digest and output. When the program reaches one, `invoke` answers from the record, as in `replay`: no bind, no token, no Broker call, no provider call.
    - **Selected occurrences execute once.** A selected occurrence (B) is bound under the repair's session and executed through Policy and Broker as any command occurrence, minted only while the repair holds its pending ledger entry (decision 4).
    - **Anything else stops the stage.** An occurrence recorded `failed` that the repair didn't select, or a `partial` or `uncertain` one, fails the stage with `not-selected` before any call, so a repair can't spill into what it didn't claim. An occurrence the original never bound (the original stage stopped before reaching it) is new: it is claimed at bind, as in 7b.
@@ -121,11 +123,26 @@ Each has a recommendation; the plan below assumes it.
    - **A command that started later but hasn't finished** still wins when it publishes.
    - *Recommended:* it reuses a guard that's already tested, and needs no new "version found" field.
 9. **Also materialize `completed` commands with no result** (a lost head answer). The same assembly, with no repair, runs on the owner's request: `POST /command/{id}/materialize`. *Recommended:* it is the design's "only `materialize` (B6) can rebuild it" and costs nothing once decision 6 exists. A command recorded before decision 5 can't be.
-10. **Activation:** `REPAIR_L0176=on` turns on `/repair` and `/materialize` for L0176. Off, both routes answer `repair-unavailable`. The recording in decision 5 ships unconditionally first, so that commands become repairable before repair exists. *Recommended*, as the C-track flags.
+10. **Activation:** `REPAIR_L0176=on` turns on `/repair` and `/materialize` for L0176. Off, both routes answer `repair-unavailable`. The kernel support (slice 1) and the recording (slice 2) ship before it, so that commands become repairable before repair exists. *Recommended*, as the C-track flags.
+11. **Two eligibility gates per command, both checked before any ledger claim.** Recording alone doesn't make a command repairable: a command keeps the L0176 revision it was admitted on, and a revision without replay can't answer completed occurrences from their records (7a) or materialize (decision 6). So a repair or `/materialize` is admitted only when both hold, and is otherwise refused before claiming anything:
+    - **Compiler support, from the original's pinned revision.** The preflight manifest gains `replay: 1` when the dialect `materializes()`. Admission records each stage's manifest as today, so the original's admission says whether the revision it pinned supports replay. That is read from the record, never by asking a current revision. Any intent-bearing stage, or any stage materialization must replay, whose admitted manifest lacks it is refused `revision-unsupported`.
+    - **Recording support, from the original's record.** Admission records `recording: 1` once slice 2 is live; every stage the repair or assembly needs must have its recorded output, or for the repaired stage its recorded occurrences. Otherwise `not-recorded`.
+    - **Order of release.** The kernel replay ships first (slice 1), unreachable until repair is on: `replay` is set only by the `materialize` operation and recorded occurrences only by the repair path, neither of which anything calls yet. Recording follows (slice 2). So every command recorded is already on a revision that supports replay, and the window this review identified doesn't open.
+    - **Unsupported commands, documented.** A command admitted before slice 1's `l0176r` release (no `replay` in its manifest), or before slice 2 (no `recording`), can't be repaired or materialized. Its failed occurrences stay reported, with manual reconciliation as before B6. `/repair` names the gate it fails. The evidence README lists the cutover revision and date.
+    - Tests (slice 3, store level; slice 4, end to end): a command admitted on a revision without `replay` is refused `revision-unsupported` with no ledger entry written; the same program admitted on a supporting revision is repaired; the repair runs at the original's `tagUrl`, never the current one; a command without `recording` is refused `not-recorded`.
+    - *Recommended:* releasing the kernel first closes the window, and the recorded gates make the rule enforceable rather than a matter of timing.
 
 ## 3. Slices
 
-1. **Record outputs, and recover from them** (Broker, Policy, api). No change to a run that doesn't crash. `/v1/receipts` returns `result`. Policy's `settle` stores it on the outcome. The worker installs `outputs/{stage}` for every stage it runs, before pinning the next stage's input, and Policy refuses a pinned input that differs from the output below it. Recovery starts at the first stage without a recorded output (decision 5). Broker's save declares `resultFromEvidence`, and an `applied` final resolution carries the result (decision 2). Tests:
+1. **Kernel replay** (`languages/l0000`, L0176 opt-in), released first and unreachable until repair is on (decision 11). The preflight manifest's `replay: 1`. `Mode::Replay`; recorded occurrences on the `ExecContext`, answered by `invoke` in `replay` and, for unselected occurrences, inside a live start (7a); the `/interpret` `materialize` operation; `materializes()`; L0176's save branch for `replay`. Tests:
+   - L0176's corpus saves are materialized from recorded outputs, equal to the original answers with signing removed, with the original occurrence ids;
+   - a missing, unreached or args-mismatched occurrence fails;
+   - no policy, broker or network call is made in `replay`, even with a client present;
+   - in a live start with recorded occurrences, a recorded one makes no Policy call, a selected one binds and invokes once, and an unselected failed one stops the stage (`not-selected`);
+   - `evaluate` still answers `skipped: "evaluate"`.
+
+   Released as `l0176r` (and the kernel, with every language's next release). Its revision and date are the cutover for decision 11.
+2. **Record outputs, and recover from them** (Broker, Policy, api). Admission records `recording: 1` (decision 11). No change to a run that doesn't crash. `/v1/receipts` returns `result`. Policy's `settle` stores it on the outcome. The worker installs `outputs/{stage}` for every stage it runs, before pinning the next stage's input, and Policy refuses a pinned input that differs from the output below it. Recovery starts at the first stage without a recorded output (decision 5). Broker's save declares `resultFromEvidence`, and an `applied` final resolution carries the result (decision 2). Tests:
    - settle round-trips `result`;
    - an output is installed once, and a second write with another digest is refused;
    - L0185 below L0176 records both stages' outputs;
@@ -133,19 +150,12 @@ Each has a recommendation; the plan below assumes it.
    - the crash at the output/pin boundary (fault `exit-after-output`), with the source changed and with it unavailable: recovery uses the recorded output and makes no L0185 call;
    - `resultFromEvidence(writeEvidence(p)) = run(p).result` over the corpus payloads, and an `applied` resolution of a receipt with no outcome carries the reconstructed result.
 
-   Released first, then soaked, so that commands run from then on can be materialized.
-2. **Kernel replay** (`languages/l0000`, L0176 opt-in). `Mode::Replay`; recorded occurrences on the `ExecContext`, answered by `invoke` in `replay` and, for unselected occurrences, inside a live start (7a); the `/interpret` `materialize` operation; `materializes()`; L0176's save branch for `replay`. Tests:
-   - L0176's corpus saves are materialized from recorded outputs, equal to the original answers with signing removed, with the original occurrence ids;
-   - a missing, unreached or args-mismatched occurrence fails;
-   - no policy, broker or network call is made in `replay`, even with a client present;
-   - in a live start with recorded occurrences, a recorded one makes no Policy call, a selected one binds and invokes once, and an unselected failed one stops the stage (`not-selected`);
-   - `evaluate` still answers `skipped: "evaluate"`.
-
-   Released as `l0176r` (and the kernel, with every language's next release).
+   Released after slice 1's `l0176r` is live, then soaked, so that commands run from then on can be materialized.
 3. **Policy: repairs and the ledger.**
    - the repair command kind;
    - the ledger;
    - the one-transaction claim, with its refusals;
+   - the two eligibility gates, before any claim (decision 11);
    - claim-at-bind for resumed stages and for occurrences new to a repaired stage;
    - the repair bind's identity and binding checks (`binding-mismatch`), and bounds counted across the original and its repairs (7a);
    - a mint only while the pending entry is held;
@@ -156,6 +166,8 @@ Each has a recommendation; the plan below assumes it.
    - A completed and B failed in one stage: one provider write (B's), A's receipt and references unchanged in the output (7a);
    - a dropped outcome → reconciliation → materialization equal to a clean run, with no further write (decision 2);
    - an operation with no reconstructable output leaves the command unmaterializable, `output-unavailable`;
+   - unknown-format evidence permits neither completion nor resumption (decision 2);
+   - an old-revision command is refused `revision-unsupported`, a new-revision one is repaired at its own `tagUrl` (decision 11);
    - a newer published command is never overwritten;
    - a newer pending one wins when it publishes;
    - the materialized artifact equals what a clean run of the same program and inputs produced.
@@ -191,5 +203,5 @@ The master plan's gate (`docs/graffiticode-interpreter-plan.md`, "B6 completion 
 
   The drive's concurrent repairs test the first layer directly.
 - **Materialization differs from the original.** It replays recorded outputs only, and the kernel refuses anything else. A reconstructed save result is checked against the recorded outcome wherever both exist. A test compares materialized answers with the originals over the corpus.
-- **Record size.** Stage outputs are stored like pinned inputs (as text, by digest), within the same document limits. An output over the limit is recorded as too large, and that command can't be materialized; it is reported, never truncated. Recovery at that boundary falls back to the pinned-input rule, as for a command recorded before slice 1.
+- **Record size.** Stage outputs are stored like pinned inputs (as text, by digest), within the same document limits. An output over the limit is recorded as too large, and that command can't be materialized; it is reported, never truncated. Recovery at that boundary falls back to the pinned-input rule, as for a command recorded before slice 2.
 - **Overwriting newer work.** Decision 8 relies on the artifact head's compare-and-set, which is already tested; slice 4 adds the newer-command cases.
