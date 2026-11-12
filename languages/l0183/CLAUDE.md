@@ -216,6 +216,11 @@ tests do, hides that — a missing unwrap made every drop snap back to the tray 
   `TOUCH_LIFT` (44px) above the finger, its centre being what is hit-tested. Its outline is solid
   blue only where a drop places it, dashed red over a blank of the wrong kind, dashed grey where a
   drop would return the answer to its tray, and neutral over nothing (`data-l0183-drop`).
+- **A drag is followed on the window**, by pointer id: only `pointerdown` is on the source
+  element, and capture goes to that element (`currentTarget`), never the inner span hit. A
+  recompile or re-render can replace or strip the source mid-drag; with its handlers on the
+  element, the release went unheard and the drag stuck to the pointer. Escape cancels a drag, and
+  the click after a drag is swallowed only in the same task.
 - **Touch** (`lib/gesture.ts`): who owns a touch is decided by where it starts, never by a
   timer.
   - A tray item drags from its grip (`touch-action: none`, shown on coarse pointers). Its body
