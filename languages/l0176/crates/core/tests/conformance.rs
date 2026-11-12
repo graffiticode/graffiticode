@@ -27,8 +27,10 @@ struct Expect {
     errors: Option<Vec<String>>,
 }
 
-/// What differs on every compile: session and activity ids (UUIDs), and a dynamic-content
-/// table's timestamped references. The generator masks the TypeScript output the same way.
+/// What differs on every compile of the TypeScript: UUIDs, and a dynamic-content table's
+/// timestamped references. The generator masks the TypeScript output the same way. An
+/// activity's own `data.id` and `data.session_id` are compared field by field instead
+/// ([`activity_fields`]).
 fn mask(text: &str) -> String {
     let bytes = text.as_bytes();
     let hex = |at: usize, len: usize| {
@@ -84,6 +86,73 @@ fn mask(text: &str) -> String {
         }
     }
     out
+}
+
+/// A generated activity id here: `graffiticode-<16 hex>` of the activity's unsigned content.
+fn is_generated_id(json: &Json) -> bool {
+    json.as_str()
+        .and_then(|id| id.strip_prefix("graffiticode-"))
+        .is_some_and(|hex| hex.len() == 16 && hex.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')))
+}
+
+/// The two activity fields this implementation deliberately changed (C6 part 2, decision 3),
+/// compared field by field rather than masked. Where the TypeScript activity's `data.id` is a
+/// random UUID, the one here must be generated from the content, and both become `<generated>`;
+/// an explicit id must be equal. The TypeScript activity has a random `data.session_id`; the one
+/// here must have none (Broker sets the signed request's own), so the TypeScript's is dropped.
+/// What the expected side must lose is checked, not assumed: a mismatch is left in place.
+fn activity_fields(expected: &mut Json, actual: &mut Json) {
+    let is_activity = |json: &Json| {
+        json.get("type").is_some_and(|kind| kind == "questions" || kind == "items") && json["data"].is_object()
+    };
+    if is_activity(expected) && is_activity(actual) {
+        let (want, got) = (expected["data"].as_object_mut().unwrap(), actual["data"].as_object_mut().unwrap());
+        if want.get("session_id").is_some_and(|id| id == "<uuid>") && !got.contains_key("session_id") {
+            want.remove("session_id");
+        }
+        if want.get("id").is_some_and(|id| id == "<uuid>") {
+            want.insert("id".into(), json!("<generated>"));
+            if got.get("id").is_some_and(is_generated_id) {
+                got.insert("id".into(), json!("<generated>"));
+            }
+        }
+    }
+    match (expected, actual) {
+        (Json::Object(want), Json::Object(got)) => {
+            for (key, want) in want.iter_mut() {
+                if let Some(got) = got.get_mut(key) {
+                    activity_fields(want, got);
+                }
+            }
+        }
+        (Json::Array(want), Json::Array(got)) => {
+            want.iter_mut().zip(got.iter_mut()).for_each(|(want, got)| activity_fields(want, got))
+        }
+        _ => {}
+    }
+}
+
+#[test]
+fn activity_ids_and_sessions_are_compared_field_by_field() {
+    let compare = |expected: Json, actual: Json| {
+        let (mut expected, mut actual) = (expected, actual);
+        activity_fields(&mut expected, &mut actual);
+        expected == actual
+    };
+    let ts = json!({ "type": "questions", "data": { "id": "<uuid>", "name": "Test", "session_id": "<uuid>" } });
+    let rust = json!({ "type": "questions", "data": { "id": "graffiticode-0123456789abcdef", "name": "Test" } });
+    assert!(compare(ts.clone(), rust));
+    // A random id here, a session id kept, or an id that isn't the digest form all disagree.
+    assert!(!compare(ts.clone(), json!({ "type": "questions", "data": { "id": "<uuid>", "name": "Test" } })));
+    assert!(!compare(
+        ts.clone(),
+        json!({ "type": "questions", "data": { "id": "graffiticode-0123456789abcdef", "name": "Test", "session_id": "s" } })
+    ));
+    assert!(!compare(ts, json!({ "type": "questions", "data": { "id": "graffiticode-xyz", "name": "Test" } })));
+    // An explicit id must be equal.
+    let ts = json!({ "type": "questions", "data": { "id": "t", "session_id": "<uuid>" } });
+    assert!(compare(ts.clone(), json!({ "type": "questions", "data": { "id": "t" } })));
+    assert!(!compare(ts, json!({ "type": "questions", "data": { "id": "graffiticode-0123456789abcdef" } })));
 }
 
 /// The TypeScript L0176 is built on a published `@graffiticode/l0000` whose unresolved
@@ -149,8 +218,15 @@ async fn agrees_with_the_typescript_implementation() {
         let label: String = case.src.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(240).collect();
         match (&case.expect.errors, &actual) {
             (None, Ok(value)) => {
-                let text = value.to_json().map(|json| mask(&json.to_string()));
-                if text != case.expect.text {
+                let mut actual: Option<Json> =
+                    value.to_json().map(|json| serde_json::from_str(&mask(&json.to_string())).unwrap());
+                let mut expected: Option<Json> =
+                    case.expect.text.as_deref().map(|text| serde_json::from_str(text).unwrap());
+                if let (Some(expected), Some(actual)) = (&mut expected, &mut actual) {
+                    activity_fields(expected, actual);
+                }
+                let text = actual.map(|json| json.to_string());
+                if text != expected.map(|json| json.to_string()) {
                     failures.push(format!(
                         "{label}\n  expected {}\n  got      {}",
                         case.expect.text.as_deref().unwrap_or("nothing"),

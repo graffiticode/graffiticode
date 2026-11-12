@@ -710,6 +710,63 @@ async fn a_restricted_result_carries_its_cache_class_and_expiry() {
     assert_eq!(never.text(), r#"{"data":3,"errors":[],"cache":false}"#);
 }
 
+/// The mode reaches the dialect (C6 part 2): `present` for `/compile`, the request's for
+/// `/interpret`, through the kernel's evaluation of a plan the dialect doesn't interpret itself.
+/// A dialect cacheable in `evaluate` only answers `cache: false` to every `/compile` and
+/// `present`, a compile error included, and nothing to `evaluate`.
+#[tokio::test]
+async fn the_mode_reaches_the_dialect_and_decides_the_cache() {
+    use graffiticode_l0000::{Evaluator, Mode, NodeId, Op, Value as GcValue};
+    struct SignsInPresent;
+    #[async_trait]
+    impl graffiticode_l0000::Dialect for SignsInPresent {
+        fn lang_id(&self) -> &str {
+            "0000"
+        }
+        fn overrides(&self, op: &Op) -> bool {
+            *op == Op::Add
+        }
+        async fn eval(&self, cx: &mut Evaluator<'_>, _: NodeId, _: &Op, _: &[NodeId]) -> Option<GcValue> {
+            let mode = match cx.exec().mode() {
+                Mode::Evaluate => "evaluate",
+                Mode::Present => "present",
+            };
+            Some(GcValue::from_json(&json!(mode)))
+        }
+        fn cacheable(&self) -> bool {
+            false
+        }
+        fn cacheable_in(&self, mode: Mode) -> bool {
+            mode == Mode::Evaluate
+        }
+    }
+    let server = server_for(Compiler::new(SignsInPresent));
+    let compiled = compile(&server.app, json!({ "code": add_1_2(), "data": {} })).await;
+    assert_eq!(compiled.text(), r#"{"data":"present","errors":[],"cache":false}"#);
+    let model =
+        compile(&server.app, json!({ "code": add_1_2(), "data": {}, "form": "model" })).await.json()["model"].clone();
+    assert_eq!(model["kind"], "plan");
+    for (mode, expected) in [
+        (json!(null), json!({ "data": "evaluate", "errors": [], "revision": REVISION })),
+        (json!("evaluate"), json!({ "data": "evaluate", "errors": [], "revision": REVISION })),
+        (json!("present"), json!({ "data": "present", "errors": [], "cache": false, "revision": REVISION })),
+    ] {
+        let reply = interpret(&server.app, json!({ "model": model, "input": {}, "mode": mode })).await;
+        assert_eq!(reply.json(), expected, "{mode}");
+    }
+    // An error is decided by its mode too: the legacy API reads anything but `cache: false` as
+    // permanent.
+    let error = compile(&server.app, json!({ "code": { "root": 9 }, "data": {} })).await.json();
+    assert_eq!((error["data"].clone(), error["cache"].clone()), (Value::Null, json!(false)));
+    let other =
+        graffiticode_l0000::Model::new("0158", graffiticode_l0000::ModelKind::Plan(model["program"].clone())).to_json();
+    for (mode, cache) in [("present", Some(json!(false))), ("evaluate", None)] {
+        let reply = interpret(&server.app, json!({ "model": other, "input": {}, "mode": mode })).await.json();
+        assert_eq!(reply["errors"][0]["code"], "model-language-mismatch");
+        assert_eq!(reply.get("cache").cloned(), cache, "{mode}");
+    }
+}
+
 /// The response writes numbers as the TypeScript servers do.
 #[tokio::test]
 async fn a_large_number_is_written_as_javascript_writes_it() {

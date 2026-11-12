@@ -16,8 +16,10 @@
 //! - [`lowering`] — the legacy save member rewritten to the explicit save.
 //! - [`plain`] — values as the JSON the rest works on.
 //!
-//! The language holds no Learnosity credential. A compile signs through the broker every time,
-//! so its output expires and is never cached ([`Dialect::cacheable`]).
+//! The language holds no Learnosity credential. A result for the final consumer (`present`, and
+//! every `/compile`) is signed through the broker, so it expires and is never cached; a result
+//! for the next stage of a chain (`evaluate`) is never signed, and is a function of the program
+//! and its input ([`Dialect::cacheable_in`], C6 part 2).
 
 pub mod activities;
 pub mod lowering;
@@ -31,7 +33,7 @@ use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use graffiticode_l0000::{
-    Ast, Diagnostic, Dialect, Evaluator, Intent, Lexicon, Node, NodeId, Op, ProtectedFunction, Value,
+    Ast, Diagnostic, Dialect, Evaluator, Intent, Lexicon, Mode, Node, NodeId, Op, ProtectedFunction, Value,
 };
 use serde_json::{Value as Json, json};
 
@@ -155,9 +157,16 @@ impl Dialect for L0176 {
         true
     }
 
-    /// Every compile carries a fresh, expiring signature.
+    /// A compile carries a fresh, expiring signature.
     fn cacheable(&self) -> bool {
         false
+    }
+
+    /// Only `present` signs (C6 part 2, decision 1), so only `present` results (and every
+    /// `/compile`'s, which is `present`) are `cache: false`, whatever they hold: an error or an
+    /// unsigned result included, as the legacy API needs. An `evaluate` result is unsigned.
+    fn cacheable_in(&self, mode: Mode) -> bool {
+        mode == Mode::Evaluate
     }
 
     /// One runtime-expanding intent per save call site (C6 plan, decision 1): a site may run any
@@ -441,6 +450,10 @@ async fn init(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
         activity.insert("signing".into(), json!({ "unsigned": "command" }));
         return value(activity);
     }
+    // Data for the next stage is never signed (C6 part 2, decision 1): the activity, validated.
+    if cx.exec().mode() == Mode::Evaluate {
+        return value(activity);
+    }
     let key = occurrence_key(cx, id, "INIT");
     if is_brokered(cx.exec()) {
         return match protection::sign(cx.exec(), &activity, &key).await {
@@ -485,6 +498,11 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId) -> Value {
     if cx.exec().is_command() {
         activity.insert("signing".into(), json!({ "unsigned": "command" }));
         return value(activity);
+    }
+    // Data for the next stage is never signed (C6 part 2, decision 1): only the head's
+    // `present` signs, so an `evaluate` result carries no `request` or `signing`.
+    if cx.exec().mode() == Mode::Evaluate {
+        return top;
     }
     if is_brokered(cx.exec()) {
         return match protection::sign(cx.exec(), &activity, "prog").await {

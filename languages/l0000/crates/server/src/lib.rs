@@ -372,38 +372,8 @@ async fn interpret(
 
 /// A compile's or an interpretation's answer, in the envelope the TypeScript servers use.
 fn envelope_response(state: &AppState, compiled: graffiticode_l0000::Compilation, planned: bool) -> Response {
-    // Compiled output goes in `data` and compile errors in `errors`, which is always present;
-    // consumers branch on whether it is empty.
-    let mut envelope = match compiled.result {
-        Ok(value) => match value.to_json() {
-            Some(data) => json!({ "data": data, "errors": [] }),
-            None => json!({ "errors": [] }),
-        },
-        Err(errors) => json!({ "data": null, "errors": errors }),
-    };
-    // Output that carries something that expires (a signature) must not be stored or served
-    // again; the API reads this, strips it, and neither caches the compile nor lets the
-    // response be cached.
-    if !state.compiler.cacheable() {
-        envelope["cache"] = json!(false);
-    } else if let Some(restriction) = compiled.restriction {
-        // How this result may be cached, when the dialect restricted it (C3): its class, and
-        // its expiry in epoch milliseconds. Nothing is added for an unrestricted result, so
-        // its envelope is unchanged.
-        envelope["cache"] = json!(restriction.class.as_str());
-        if let Some(expires_at) = restriction.expires_at {
-            envelope["expiresAt"] = json!(expires_at);
-        }
-    }
-    // What the compile's protected writes did. The gateway collects it per stage and keeps it
-    // out of the next stage's input.
-    if !compiled.effects.is_empty() {
-        envelope["effects"] = json!(compiled.effects);
-    }
-    // A command stage's occurrences, by intent: the gateway closes the stage with exactly these.
-    if let Some(occurrences) = &compiled.occurrences {
-        envelope["occurrences"] = json!(occurrences);
-    }
+    // The data, errors, cache class and effects (the kernel's `Compiler::envelope`).
+    let mut envelope = state.compiler.envelope(&compiled);
     // Under an admitted plan the gateway checks the revision that answered against the one
     // the plan pins.
     if planned {
