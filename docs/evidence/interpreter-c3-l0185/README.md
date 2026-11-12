@@ -19,3 +19,10 @@ Plan: `docs/c3-l0185-interpreter-plan.md`. L0185's models are all plans; fetchin
 `node docs/evidence/interpreter-c3-l0185/canary.mjs <tag URL> <staged revision>` against the staged api, compared with production. About 7 minutes: it waits out one fetch's expiry.
 
 **Deferred:** the L0185 → L0176 save (owner, 2026-11-11). `l0185r` isn't pinnable, so Policy refuses a command chain with an L0185 stage at admission (`stage-not-pinnable`), flag on or off. It's canaried once `l0185r` is pinnable.
+
+## Promotion (2026-11-12)
+
+- Staged `api-rmwcqsbwn-8d1a9b` (0% traffic): `canary.mjs` 23/23 (`canary-output.txt`; the first two runs' failures were in the script and are fixed: `canary-output-1.txt`); the production canary job through the tag, 33/33.
+- Promoted with `promote-evidence.json`; production canary job `canary-wq4wn` 33/33; `release-check api` ok.
+- Live through api.graffiticode.org: a fetching L0185 program under `@L0185=interp-1` is `public, max-age=299` with `refreshAt`; a program that fetches nothing is immutable; either without generations is `no-store`.
+- Rollback: `npm run rollback -- api --env production --release rmwcqsbwn-8d1a9b` (to `rmwcov5os-ec3eb6`, flag off).

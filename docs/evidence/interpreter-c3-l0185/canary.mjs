@@ -85,8 +85,10 @@ const sn = await get(staged, `/data?id=${nid}&${generations("@L0185=interp-1")}`
 check("no fetch: equals production", same(sn.body.data, pn.body.data));
 check("no fetch: immutable", cc(sn)?.includes("immutable"), cc(sn));
 
-// 4. L0184 over L0185: production's chart; the chain is shared until the fetch expires.
-const cid = await task({ lang: "0184", code: chart.ast });
+// 4. L0184 over L0185: production's chart; the chain is shared until the fetch expires. The
+//    corpus chart plots `region` and `revenue`; pointed at the fetched columns, it renders.
+const retarget = ast => JSON.parse(JSON.stringify(ast).replaceAll("\"region\"", "\"items.sku\"").replaceAll("\"revenue\"", "\"items.qty\""));
+const cid = await task({ lang: "0184", code: retarget(chart.ast) });
 const chain = `${cid}+${fid}`;
 const chainForm = await fetch(`${staged}/form?id=${chain}`, { headers: UA, redirect: "manual" });
 const chainSuffix = new URL(new URL(chainForm.headers.get("location")).searchParams.get("url")).searchParams.get("generations");
@@ -94,7 +96,13 @@ check("chain /form names both generations", chainSuffix === "@L0184=interp-1@L01
 const pc = await get(prod, `/data?id=${chain}`);
 const sc = await get(staged, `/data?id=${chain}&${generations(chainSuffix)}`);
 check("L0184 over L0185 equals production", sc.status === 200 && same(sc.body.data, pc.body.data), JSON.stringify(sc.body.data).slice(0, 100));
+check("L0184 over L0185 renders, no errors", Array.isArray(sc.body.data?.errors) && sc.body.data.errors.length === 0, JSON.stringify(sc.body.data?.errors ?? null).slice(0, 100));
 check("L0184 over L0185: bounded public max-age", bounded(cc(sc)), cc(sc));
+// The corpus chart as is fails over this data, as in production: a chain with errors isn't held.
+const badChain = `${await task({ lang: "0184", code: chart.ast })}+${fid}`;
+const pbc = await get(prod, `/data?id=${badChain}`);
+const sbc = await get(staged, `/data?id=${badChain}&${generations(chainSuffix)}`);
+check("a chain that fails equals production, and is no-store", same(sbc.body.data, pbc.body.data) && cc(sbc) === "no-store", cc(sbc));
 
 // 5. The stage cache: the fetch's repeat was a hit; after the expiry, a miss that fetches again.
 const wait = started + (TTL_S + 15) * 1000 - Date.now();
@@ -109,8 +117,11 @@ check("after expiry: a fresh max-age", bounded(cc(s3)), cc(s3));
 await sleep(45_000);
 // The first two requests for the fetch (both under the current generations; the no-store reads
 // between them run it too): a miss, then hits, every one shared and interpreted.
+// The first request is a miss, or a hit on an entry still within its TTL (an earlier run's,
+// whose max-age is then below the full TTL); every repeat is a hit.
 const early = outcomesIn(started, repeatedAt);
-check("stage cache: the first fetch a miss, then hits", early[0] === "s0:interpret:miss:shared" && early.slice(1).some(o => o === "s0:interpret:hit:shared"), JSON.stringify(early));
+const firstOk = early[0] === "s0:interpret:miss:shared" || (early[0] === "s0:interpret:hit:shared" && maxAge(cc(s1)) < TTL_S - 1);
+check("stage cache: the first fetch a miss (or a live entry), then hits", early.length > 1 && firstOk && early.slice(1).every(o => o === "s0:interpret:hit:shared"), `${JSON.stringify(early)}, first max-age ${maxAge(cc(s1))}`);
 const late = outcomesIn(expiredAt, refetchedAt);
 check("stage cache: a miss after the expiry", same(late, ["s0:interpret:miss:shared"]), JSON.stringify(late));
 const all = stageRecords(started, Date.now());
@@ -118,5 +129,5 @@ check("every L0185 stage was interpreted, none from rust-1", all.length > 0 && a
 check("shared stages carry an expiry", all.filter(r => r.result?.cacheClass === "shared").every(r => Number.isFinite(r.result?.expiresAt)));
 
 const failed = results.filter(r => !r.pass).length;
-console.log(JSON.stringify({ ranAt: new Date(started).toISOString(), staged, revision, ids: { fetch: fid, failing: xid, pure: nid, chain }, cases: { fetch: fetching.src, failing: failing.src, pure: pure.src, chart: chart.src }, results, failed }));
+console.log(JSON.stringify({ ranAt: new Date(started).toISOString(), staged, revision, ids: { fetch: fid, failing: xid, pure: nid, chain, badChain }, cases: { fetch: fetching.src, failing: failing.src, pure: pure.src, chart: chart.src }, results, failed }));
 process.exitCode = failed ? 1 : 0;
