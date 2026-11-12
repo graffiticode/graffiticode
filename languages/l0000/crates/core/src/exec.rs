@@ -334,6 +334,10 @@ impl ExecContext {
     }
 
     async fn request_system_session(&mut self, lang_id: &str, function: &str) -> Result<(), SystemSessionRefusal> {
+        // `evaluate` acts on nothing (C6 part 2): data for the next stage is never signed.
+        if self.mode == Mode::Evaluate {
+            return Err(SystemSessionRefusal::NotPermitted);
+        }
         if self.identity.connection_id.is_some() || self.grant.is_some() {
             return Err(SystemSessionRefusal::NotConfigured);
         }
@@ -502,6 +506,11 @@ impl ExecContext {
     /// not allow, before any network call. The outcome of a write is recorded as an effect,
     /// whether it succeeds or not.
     pub async fn invoke(&mut self, call: &ProtectedCall) -> Result<Json, ProtectedCallError> {
+        // `evaluate` acts on nothing (C6 part 2): no protected call runs in it, whatever was
+        // granted, so a dialect that forgets to check the mode still can't sign or write.
+        if self.mode == Mode::Evaluate {
+            return Err(ProtectedCallError::NotAdmitted(call.function.clone()));
+        }
         let grant = self
             .grant
             .as_ref()

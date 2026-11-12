@@ -1196,3 +1196,52 @@ mod restriction {
         assert_eq!(compiled.restriction, None);
     }
 }
+
+/// C6 part 2: `evaluate` acts on nothing, whatever the dialect does. The toy ignores the mode
+/// and calls its protected words anyway: in `evaluate` nothing is admitted (no snapshot), no
+/// call reaches policy or the broker, and no system session is opened. In `present` the same
+/// model acts, so the fake would have seen it.
+mod evaluate_acts_on_nothing {
+    use super::*;
+    use graffiticode_l0000::{Compilation, Mode};
+
+    async fn interpret(src: &str, policy: &Policy, identity: Identity, mode: Mode, degrades: bool) -> Compilation {
+        let log = Arc::new(Log::default());
+        let mut toy = Toy::new(&log);
+        toy.brokered = true;
+        toy.degrades = degrades;
+        let compiler = Compiler::new(toy).with_policy(policy.clone());
+        let model = compiler.model(program(src), &json!({})).await.unwrap();
+        compiler.interpret(&model, &json!({}), &json!({}), mode, identity).await
+    }
+
+    #[tokio::test]
+    async fn a_write_through_a_connection_is_neither_admitted_nor_called() {
+        let policy = Policy::allowing(&["save-it"]);
+        let evaluated = interpret("save-it 1..", &policy, user(), Mode::Evaluate, false).await;
+        assert!(policy.asked().is_empty(), "no snapshot in evaluate");
+        assert!(policy.minted.lock().unwrap().is_empty(), "no call in evaluate");
+        assert!(evaluated.effects.is_empty());
+        let refused = format!("{:?}", evaluated.result.unwrap_err());
+        assert!(refused.contains("save-it was not admitted"), "{refused}");
+
+        let presented = interpret("save-it 1..", &policy, user(), Mode::Present, false).await;
+        assert!(presented.result.is_ok());
+        assert_eq!((policy.asked().len(), policy.minted.lock().unwrap().len()), (1, 1));
+    }
+
+    #[tokio::test]
+    async fn no_system_session_is_opened() {
+        let policy = Policy { preview: Some(vec!["edit-it".to_owned()]), ..Policy::allowing(&[]) };
+        let anonymous = Identity { uid: Some("u1".into()), system_session_permitted: true, ..Identity::default() };
+        let evaluated = interpret("edit-it 1..", &policy, anonymous.clone(), Mode::Evaluate, true).await;
+        assert_eq!(
+            evaluated.result.unwrap(),
+            Value::from(format!("unsigned: {:?}", SystemSessionRefusal::NotPermitted))
+        );
+        assert_eq!(policy.previews.load(Ordering::Relaxed), 0, "policy is never asked");
+        let presented = interpret("edit-it 1..", &policy, anonymous, Mode::Present, true).await;
+        assert!(presented.result.unwrap().to_json().unwrap()["receipt"].is_string());
+        assert_eq!(policy.previews.load(Ordering::Relaxed), 1);
+    }
+}

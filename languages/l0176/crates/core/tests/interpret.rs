@@ -41,13 +41,15 @@ fn answer(compiler: &Compiler, compiled: &Compilation) -> Json {
     envelope
 }
 
-/// What `evaluate` leaves out: the signing of the head's activity.
+/// What `evaluate` leaves out: the signing of the head's activity. And where `/compile`, with
+/// no connection, reports a save skipped for that, `evaluate` reports it skipped for itself.
 fn unsigned(mut answer: Json) -> Json {
     if let Some(Json::Object(data)) = answer.get_mut("data") {
         data.remove("request");
         data.remove("signing");
     }
-    answer
+    let text = answer.to_string().replace(r#""skipped":"no-connection""#, r#""skipped":"evaluate""#);
+    serde_json::from_str(&text).unwrap()
 }
 
 /// Two programs that aren't in the corpus: a compile error and a value that isn't an activity.

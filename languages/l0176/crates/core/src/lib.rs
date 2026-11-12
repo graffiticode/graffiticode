@@ -383,7 +383,12 @@ async fn save_to_itembank(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -
         return Value::Undefined;
     };
     let key = occurrence_key(cx, id, "SAVE_TO_ITEMBANK");
-    let item_bank = if is_brokered(cx.exec()) {
+    let item_bank = if cx.exec().mode() == Mode::Evaluate {
+        // `evaluate` writes nothing (C6 part 2), with a connection or without: the save is
+        // validated and reported beside the activity, and policy is never asked. (The kernel
+        // refuses any protected call in `evaluate` too.)
+        json!({ "skipped": "evaluate", "fn": protection::SAVE, "occurrence": key })
+    } else if is_brokered(cx.exec()) {
         // A command's save is an expansion of its site's intent, keyed by the call's ordinal at
         // that site; a compile's is `<key>.<N>`, as always.
         let occurrence = if cx.exec().is_command() {
