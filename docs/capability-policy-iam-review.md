@@ -1659,7 +1659,7 @@ After the 2026-11-10 incident: at 16:55Z a test cleanup (`clearFirestore`, run w
   - An owner `DELETE` of a non-existent document (`deny-check/probe-does-not-exist`) answers 403.
   - The services' delete requests appear in the data-access log with status OK.
 
-### Step 23: `l0185r` is pinnable (C3 follow-up) [PLANNED]
+### Step 23: `l0185r` is pinnable (C3 follow-up) [LIVE]
 
 An L0185 stage can be admitted in a chain (the L0185 → L0176 save as a command) only once `l0185r` is pinnable: Policy refuses a language with no approved revision (`stage-not-pinnable`). L0185 has no protected functions, so its manifests carry registry version 0 and no required functions; it needs no Policy or Broker caller entry and no invoker grant.
 
@@ -1667,6 +1667,7 @@ An L0185 stage can be admitted in a chain (the L0185 → L0176 save as a command
 - **Proxy first.** The exception is in the proxy's static config, so the proxy is rolled out (README, "Change a compiler's hosts") **before** the `l0185r` candidate. This rollout also drops the retired fault Broker's host (Step 21), which the 2026-11-11 config already did but which wasn't rolled out.
 - **`deploy.json`:** `l0185r` gets `pinnable` for `0185` with contract versions 1 and 2, `PREFLIGHT_GATEWAYS=api-run@graffiticode.iam.gserviceaccount.com`, and `www.googleapis.com` in `network.allow` (matching `production/network.json`).
 - **Release.** Its first pinnable release records its revision as approved before promotion. The serving revision `l0185r-rmwcjrz90-673abb` was never approved; its tag is retired by the release (`retireTags`), as for `l0000r` and `l0176r`.
+- **Applied 2026-11-12.** #366 (`7d6a74cf`). The proxy was rolled out at about 03:30Z: template `egress-proxy-6cfd69d74ba1`, config `56007b0e…`, `verify-rollout` ok on both VMs; the previous template `egress-proxy-226124a1cda1` is kept. `l0185r-rmwczv08x-e43ac0` was approved before promotion, the `rmwcjrz90-673abb` tag was retired, and `release-check l0185r` is ok. An anonymous `/preflight` answers 401. The canary's `--l0185-tail` (#367, execution `canary-nq62q`) completed an L0185 → L0176 save as a command, and the same key wrote nothing again. During that run the proxy logged one `GET /oauth2/v3/certs` from `compilers-l0185` (200, allowed), and `compilers-l0185` logged no refusals between the rollout and the run.
 - **Check:** `release-check l0185r` ok; a staged `/preflight` from the api answers a manifest for `0185`, and from anyone else 401/403; a probe in `compilers-l0185` gets the certificates and a 403 `request` for any other `www.googleapis.com` path.
 
 ## 4. Verification (read-only)

@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmwcqsbwn-8d1a9b",
+  "revision": "api-rmwcqsbwn-8d1a9b",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (C3 L0185 activation; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-11T23:57:39.000Z",
+  "corpus": {
+    "ranAt": "2026-11-11T23:45:49.581Z",
+    "tasks": 56,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "stagedAt": "2026-11-11T23:32:50.288Z",
+    "canary": {
+      "ranAt": "2026-11-11T23:45:49.581Z",
+      "staged": "https://rmwcqsbwn-8d1a9b---api-sja7fatcta-uc.a.run.app",
+      "revision": "api-rmwcqsbwn-8d1a9b",
+      "ids": {
+        "fetch": "eyJ0YXNrSWRzIjpbIkYzME10dFhMcmVSRDVjN3JveTZYIl19",
+        "failing": "eyJ0YXNrSWRzIjpbIlpUTEFIak9ubzZyMTJ3T3diMWRDIl19",
+        "pure": "eyJ0YXNrSWRzIjpbIjh2akRNN0swMW5VZmlwcFA0S3ppIl19",
+        "chain": "eyJ0YXNrSWRzIjpbInRpQ3h4dUxROGtLNjVSNlNVUW1OIl19+eyJ0YXNrSWRzIjpbIkYzME10dFhMcmVSRDVjN3JveTZYIl19",
+        "badChain": "eyJ0YXNrSWRzIjpbIkM3QnRFZDRSRDkzaWp3NEx0M2FTIl19+eyJ0YXNrSWRzIjpbIkYzME10dFhMcmVSRDVjN3JveTZYIl19"
+      },
+      "cases": {
+        "fetch": "pick [\"order-id\" \"items.sku\" \"items.qty\"]\nunnest \"items\"\nfetch \"https://l0185.graffiticode.org/data/orders.json\"\n{}..",
+        "failing": "sort-by [\"revenue\" DESC] summarize {orders: COUNT revenue: [SUM \"amount\"]} group-by [\"region\"] where [\"status\" EQUALS \"paid\"] fetch \"https://example.org/sales.csv\" {}..",
+        "pure": "rows [{a: 1} {a: 2}] {}..",
+        "chart": "charts [ datasets [ dataset id \"sales\"  rows data {} {} ] {} chart [ axes [ axis direction X categories \"region\" {} axis direction Y {} ] {} plots [ plot kind BAR values \"revenue\" {} ] {} ]  {} ]  {}.."
+      },
+      "checks": 23,
+      "failed": 0,
+      "output": "canary-output.txt (an earlier run, canary-output-1.txt, failed only its own chart case and cold-cache assumption; both checks were corrected)"
+    },
+    "canaryJob": {
+      "execution": "canary-rcmtb",
+      "apiUrl": "https://rmwcqsbwn-8d1a9b---api-sja7fatcta-uc.a.run.app",
+      "checks": 33,
+      "failed": 0
+    },
+    "interpretedGate": {
+      "report": "interpreted-gate-l0185.json",
+      "ranAt": "2026-11-11T23:03:21.166Z",
+      "identical": 4002,
+      "different": 0,
+      "invalid": 0,
+      "metadataProblems": 0,
+      "metadataChecked": 11962
+    },
+    "flags": {
+      "INTERPRETER_L0185": "on",
+      "COMPILE_GENERATION_L0185": "interp-1"
+    },
+    "deferred": "the L0185 -> L0176 save: l0185r isn't pinnable (stage-not-pinnable); owner decision 2026-11-11"
+  }
+}
