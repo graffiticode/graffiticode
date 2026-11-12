@@ -532,6 +532,24 @@ mod replay {
     }
 
     #[tokio::test]
+    async fn a_record_of_other_arguments_stops_every_later_live_call() {
+        // Item 1 is recorded completed, but with other arguments; item 2 has no record. The
+        // dialect carries on after the refusal, and item 2 must still not run live.
+        let (compiler, policy, model) = setup(SRC, true).await;
+        let recorded = Recorded {
+            completed: [(occurrence(1), RecordedOccurrence { argd: args_digest(&json!(9)), ..record(json!(1)) })]
+                .into_iter()
+                .collect(),
+            ..Recorded::default()
+        };
+        let repaired = compiler.start_with(&model, &json!({}), &Json::Null, command("s0"), Some(recorded)).await;
+        let errors = repaired.result.unwrap_err();
+        assert_eq!(errors[0].code.as_deref(), Some("args-mismatch"), "{errors:?}");
+        assert!(policy.binds.lock().unwrap().is_empty(), "nothing is bound after the refusal");
+        assert!(policy.minted.lock().unwrap().is_empty(), "nothing executes after the refusal");
+    }
+
+    #[tokio::test]
     async fn the_replay_mode_acts_on_nothing_live() {
         let (compiler, policy, model) = setup(SRC, true).await;
         // A request can't ask for it; `evaluate` still refuses every protected call.

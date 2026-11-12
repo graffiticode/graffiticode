@@ -172,7 +172,8 @@ pub trait Dialect: Send + Sync {
     /// occurrences the same way (decision 7a). A language opts in only when every effect it
     /// performs goes through [`crate::ExecContext::invoke`] (so the kernel answers or refuses
     /// it), its command branch runs in `Replay`, and it makes no network call of its own in
-    /// `Replay` (the kernel can refuse only what goes through the context). The preflight
+    /// `Replay` (the kernel can refuse only what goes through the context, and refuses every
+    /// `use` itself: a replay loads no schema). The preflight
     /// manifest says so (`replay: 1`), and admission records it per stage (decision 11). The
     /// default is `false`: nothing is materialized or repaired.
     fn materializes(&self) -> bool {

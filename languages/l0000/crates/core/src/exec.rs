@@ -46,8 +46,9 @@ struct CommandState {
     /// B6: the stage's recorded occurrences, and those answered from them, by intent.
     recorded: Option<Recorded>,
     replayed: BTreeMap<String, Vec<String>>,
-    /// Set when a blocked occurrence was reached: the stage stops, and no later call in it runs
-    /// live, so a repair never acts past what it was given.
+    /// Set when the records refused a call (a blocked occurrence, other arguments, a missing
+    /// record): the stage stops, and no later call in it runs live, so a repair never acts past
+    /// a refusal.
     halted: bool,
     /// Every call the records refused, as (reason, message). Any one fails the stage, however
     /// the dialect reported it.
@@ -508,6 +509,9 @@ impl ExecContext {
     fn answer_from_record(&mut self, call: &ProtectedCall) -> Option<Result<Json, ProtectedCallError>> {
         let answer = self.lookup_record(call);
         if let (Some(Err(error)), Some(command)) = (&answer, self.command.as_mut()) {
+            // Any refusal halts the stage: the dialect may carry on to its next call, but
+            // nothing after this runs live (failing the answer later would be too late).
+            command.halted = true;
             command.record_refusals.push((error.reason().unwrap_or("refused").to_owned(), error.to_string()));
         }
         answer
@@ -526,7 +530,6 @@ impl ExecContext {
             return replay.then(|| Err(ProtectedCallError::NotRecorded(call.occurrence_id.clone())));
         };
         if recorded.blocked.contains(&call.occurrence_id) {
-            command.halted = true;
             return Some(Err(ProtectedCallError::NotSelected(call.occurrence_id.clone())));
         }
         let Some(entry) = recorded.completed.get(&call.occurrence_id) else {

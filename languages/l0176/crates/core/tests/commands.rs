@@ -223,6 +223,7 @@ async fn an_ordinary_compile_saves_and_signs_as_before() {
 
 mod replay {
     use super::*;
+    use graffiticode_l0000::schema::{LanguageSchema, SchemaError, SchemaSource};
     use graffiticode_l0000::{Mode, Recorded, RecordedOccurrence};
 
     /// What the original start recorded: each bound occurrence, with its args digest and the
@@ -316,6 +317,61 @@ mod replay {
             compiler.start_with(&model, &json!({}), &json!({}), command(), Some(recorded)).await.result.unwrap_err();
         assert_eq!(errors[0].code.as_deref(), Some("not-selected"), "{errors:?}");
         untouched(&repair);
+    }
+
+    #[tokio::test]
+    async fn a_record_of_other_arguments_stops_the_repair_before_the_next_save() {
+        // The owner's review of #381: A recorded with another args digest, B unrecorded. A is
+        // refused `args-mismatch`, and B must not be bound or written after it.
+        let (compiler, fake, model) = setup(&two_saves(), Fake::default()).await;
+        compiler.start(&model, &json!({}), &json!({}), command()).await.result.unwrap();
+        let first = fake.binds.lock().unwrap()[0].occurrence_id.clone();
+        let mut recorded = recorded_from(&fake);
+        recorded.completed.retain(|id, _| id == &first);
+        recorded.completed.get_mut(&first).unwrap().argd = "0".repeat(64);
+        let (compiler, repair, _) = setup(&two_saves(), Fake::default()).await;
+        let errors =
+            compiler.start_with(&model, &json!({}), &json!({}), command(), Some(recorded)).await.result.unwrap_err();
+        assert_eq!(errors[0].code.as_deref(), Some("args-mismatch"), "{errors:?}");
+        untouched(&repair);
+    }
+
+    /// A schema source that counts what it is asked.
+    struct CountingSchemas(Arc<Mutex<usize>>);
+
+    #[async_trait]
+    impl SchemaSource for CountingSchemas {
+        async fn schema(&self, _lang: &str) -> Result<Arc<LanguageSchema>, SchemaError> {
+            *self.0.lock().unwrap() += 1;
+            Ok(Arc::new(LanguageSchema::new(&json!({ "type": "object" }))?))
+        }
+    }
+
+    #[tokio::test]
+    async fn a_replay_loads_no_schema() {
+        // The owner's review of #381: a save program with `use "0166"` in front of its save.
+        // The original start loads the schema; its replay must fail before asking the source.
+        let mut ast = program(&one_save()).clone();
+        let root = ast["root"].as_u64().unwrap().to_string();
+        let expr = ast[&root]["elts"][0].as_u64().unwrap().to_string();
+        ast["9001"] = json!({ "tag": "STR", "elts": ["0166"] });
+        ast["9002"] = json!({ "tag": "USE", "elts": [9001] });
+        ast[&expr]["elts"].as_array_mut().unwrap().insert(0, json!(9002));
+        let asked = Arc::new(Mutex::new(0));
+        let compiler =
+            Compiler::new(L0176::new()).with_revision(revision()).with_schemas(CountingSchemas(Arc::clone(&asked)));
+        let manifest = compiler.preflight(&ast, "s0", &json!({})).unwrap();
+        let fake = Fake { bind: Some(json!(manifest)), ..Fake::default() };
+        let compiler = compiler.with_policy(fake.clone());
+        let model = compiler.model(&ast, &json!({})).await.unwrap();
+        compiler.start(&model, &json!({}), &json!({}), command()).await.result.expect("the original ran");
+        assert_eq!(*asked.lock().unwrap(), 1, "the original loaded its schema");
+        let recorded = recorded_from(&fake);
+        *asked.lock().unwrap() = 0;
+        let replayed = compiler.materialize(&model, &json!({}), &json!({}), recorded).await;
+        let errors = replayed.result.expect_err("a replay can't load a schema");
+        assert!(errors.iter().any(|e| e.message.contains("a replay loads no schema")), "{errors:?}");
+        assert_eq!(*asked.lock().unwrap(), 0, "the schema source was never asked");
     }
 
     #[tokio::test]

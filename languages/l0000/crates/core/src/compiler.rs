@@ -14,7 +14,7 @@ use crate::exec::{ExecContext, Identity, ProtectedEffect, Recorded};
 use crate::model::{Intent, Mode, Model, ModelKind};
 use crate::preflight::{RevisionIdentity, StageManifest, digest_of, required_protected_functions};
 use crate::protected::{PolicyClient, admit, admit_command, admit_planned};
-use crate::schema::{NoSchemas, SchemaSource};
+use crate::schema::{NoSchemas, ReplaySchemas, SchemaSource};
 use crate::secret::Keyring;
 use crate::value::Value;
 
@@ -235,10 +235,13 @@ impl Compiler {
         self.check(&ast)?;
         let data = upstream(data);
         let config = Value::from_json(config);
+        // A replay reads nothing live (B6): its schema source refuses every `use`, so the
+        // compiler's own (HTTP in production) is never consulted.
+        let schemas: &dyn SchemaSource = if exec.mode() == Mode::Replay { &ReplaySchemas } else { &*self.schemas };
         Evaluator::new(Context {
             ast: &ast,
             dialect,
-            schemas: &*self.schemas,
+            schemas,
             keyring: &self.keyring,
             data: &data,
             config: &config,

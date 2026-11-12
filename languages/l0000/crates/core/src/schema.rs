@@ -67,6 +67,18 @@ impl SchemaSource for NoSchemas {
     }
 }
 
+/// The source a replay (B6) uses: it refuses every `use` before anything live is asked, so a
+/// materialization never depends on a schema's current content or availability.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ReplaySchemas;
+
+#[async_trait]
+impl SchemaSource for ReplaySchemas {
+    async fn schema(&self, _lang: &str) -> Result<Arc<LanguageSchema>, SchemaError> {
+        Err(SchemaError("a replay loads no schema (B6: materialization reads nothing live)".to_owned()))
+    }
+}
+
 #[cfg(feature = "http")]
 pub use http::HttpSchemas;
 
