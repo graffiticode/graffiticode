@@ -242,6 +242,36 @@ async fn interpreting_a_model_answers_as_compiling_its_program_does() {
     }
 }
 
+// B6 (docs/b6-command-repair-plan.md decision 6): `materialize` takes the stage's records, and
+// only a language that materializes runs it. No request can ask for the replay mode itself.
+#[tokio::test]
+async fn materialize_needs_records_and_a_language_that_replays() {
+    let server = server();
+    let model =
+        compile(&server.app, json!({ "code": add_1_2(), "data": {}, "form": "model" })).await.json()["model"].clone();
+    let recorded = json!({ "completed": { "x:1": { "argd": "d", "result": {} } }, "blocked": [] });
+    for body in [
+        json!({ "model": model, "input": {}, "operation": "materialize" }),
+        json!({ "model": model, "input": {}, "recorded": recorded }),
+        json!({ "model": model, "input": {}, "operation": "materialize", "recorded": { "completed": { "x:1": {} } } }),
+        json!({ "model": model, "input": {}, "operation": "materialize", "recorded": { "other": [] } }),
+        json!({ "model": model, "input": {}, "mode": "replay" }),
+        json!({ "model": model, "input": {}, "operation": "replay" }),
+    ] {
+        assert_eq!(interpret(&server.app, body.clone()).await.status, StatusCode::BAD_REQUEST, "{body}");
+    }
+    let reply = interpret(
+        &server.app,
+        json!({ "model": model, "input": {}, "operation": "materialize", "recorded": recorded }),
+    )
+    .await;
+    assert_eq!(reply.status, StatusCode::OK);
+    let body = reply.json();
+    assert_eq!(body["errors"][0]["code"], "materialize-unsupported");
+    // A replay's answer is never cached.
+    assert_eq!(body["cache"], json!(false));
+}
+
 #[tokio::test]
 async fn interpret_refuses_what_isn_t_a_model_or_a_mode() {
     let server = server();
@@ -730,6 +760,7 @@ async fn the_mode_reaches_the_dialect_and_decides_the_cache() {
             let mode = match cx.exec().mode() {
                 Mode::Evaluate => "evaluate",
                 Mode::Present => "present",
+                Mode::Replay => "replay",
             };
             Some(GcValue::from_json(&json!(mode)))
         }

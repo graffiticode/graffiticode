@@ -18,7 +18,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use serde::Serialize;
-use serde_json::Value as Json;
+use serde_json::{Value as Json, json};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -43,6 +43,68 @@ struct CommandState {
     intents: Vec<Intent>,
     expansions: HashMap<String, (String, String)>,
     performed: BTreeMap<String, Vec<String>>,
+    /// B6: the stage's recorded occurrences, and those answered from them, by intent.
+    recorded: Option<Recorded>,
+    replayed: BTreeMap<String, Vec<String>>,
+    /// Set when a blocked occurrence was reached: the stage stops, and no later call in it runs
+    /// live, so a repair never acts past what it was given.
+    halted: bool,
+    /// Every call the records refused, as (reason, message). Any one fails the stage, however
+    /// the dialect reported it.
+    record_refusals: Vec<(String, String)>,
+}
+
+/// One occurrence's recorded result (B6): the args digest it ran with and Broker's `result`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecordedOccurrence {
+    pub argd: String,
+    pub result: Json,
+}
+
+/// A command stage's recorded occurrences (B6, docs/b6-command-repair-plan.md decisions 6 and
+/// 7a), by occurrence id. `completed` ones answer from their record, with no bind, no token and
+/// no call. `blocked` ones (recorded, but neither completed nor selected by a repair) stop the
+/// stage before any call. Any other occurrence runs live in a `start`, and fails in `Replay`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Recorded {
+    pub completed: BTreeMap<String, RecordedOccurrence>,
+    pub blocked: HashSet<String>,
+}
+
+impl Recorded {
+    /// Reads `{ completed: { <occurrence>: { argd, result } }, blocked: [<occurrence>] }`,
+    /// exactly: anything malformed is refused rather than partly honored.
+    pub fn from_json(json: &Json) -> Result<Self, String> {
+        let bad =
+            || "recorded must be { completed: { <occurrence>: { argd, result } }, blocked: [<occurrence>] }".to_owned();
+        let object = json.as_object().ok_or_else(bad)?;
+        if object.keys().any(|k| k != "completed" && k != "blocked") {
+            return Err(bad());
+        }
+        let mut recorded = Recorded::default();
+        if let Some(completed) = object.get("completed") {
+            for (occurrence, entry) in completed.as_object().ok_or_else(bad)? {
+                let entry = entry.as_object().ok_or_else(bad)?;
+                let argd = entry.get("argd").and_then(Json::as_str).filter(|a| !a.is_empty()).ok_or_else(bad)?;
+                let result = entry.get("result").ok_or_else(bad)?;
+                if entry.len() != 2 {
+                    return Err(bad());
+                }
+                recorded
+                    .completed
+                    .insert(occurrence.clone(), RecordedOccurrence { argd: argd.to_owned(), result: result.clone() });
+            }
+        }
+        if let Some(blocked) = object.get("blocked") {
+            for occurrence in blocked.as_array().ok_or_else(bad)? {
+                recorded.blocked.insert(occurrence.as_str().ok_or_else(bad)?.to_owned());
+            }
+        }
+        if recorded.blocked.iter().any(|o| recorded.completed.contains_key(o)) {
+            return Err("an occurrence can't be both completed and blocked".to_owned());
+        }
+        Ok(recorded)
+    }
 }
 
 /// The caller's VERIFIED identity and invocation, supplied by the language server from its
@@ -234,8 +296,10 @@ pub struct ExecContext {
     system_session: Option<Result<(), SystemSessionRefusal>>,
     /// What a dialect keeps for this invocation alone.
     state: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-    /// Set when this compile is a command's `start` (B5).
+    /// Set when this compile is a command's `start` (B5), or a replay (B6).
     command: Option<CommandState>,
+    /// B6: recorded occurrences waiting for the command state.
+    pending_recorded: Option<Recorded>,
     /// How this compile's result may be cached, when a dialect restricted it (C3).
     restriction: Option<Restriction>,
     /// What the result is for (design §5): `present` for `/compile` and a command's `start`,
@@ -265,6 +329,7 @@ impl ExecContext {
             system_session: None,
             state: HashMap::new(),
             command: None,
+            pending_recorded: None,
             restriction: None,
             mode: Mode::Present,
         }
@@ -334,8 +399,9 @@ impl ExecContext {
     }
 
     async fn request_system_session(&mut self, lang_id: &str, function: &str) -> Result<(), SystemSessionRefusal> {
-        // `evaluate` acts on nothing (C6 part 2): data for the next stage is never signed.
-        if self.mode == Mode::Evaluate {
+        // Only `present` signs: data for the next stage (`evaluate`, C6 part 2) and a replay
+        // (B6) act on nothing, and neither would a mode added later.
+        if self.mode != Mode::Present {
             return Err(SystemSessionRefusal::NotPermitted);
         }
         if self.identity.connection_id.is_some() || self.grant.is_some() {
@@ -407,7 +473,78 @@ impl ExecContext {
     }
 
     pub(crate) fn set_command(&mut self, intents: Vec<Intent>) {
-        self.command = Some(CommandState { intents, ..CommandState::default() });
+        let recorded = self.pending_recorded.take();
+        self.command = Some(CommandState { intents, recorded, ..CommandState::default() });
+    }
+
+    /// The stage's recorded occurrences (B6), for a `start` that repairs it or a replay. They
+    /// join the command state when it is set, so only a command stage has them.
+    pub(crate) fn set_pending_recorded(&mut self, recorded: Recorded) {
+        self.pending_recorded = Some(recorded);
+    }
+
+    /// Whether this is a replay (B6): a command stage rebuilt from its records, acting on nothing.
+    pub fn is_replay(&self) -> bool {
+        self.mode == Mode::Replay && self.command.is_some()
+    }
+
+    /// The occurrences answered from their records (B6), by intent.
+    pub fn replayed_occurrences(&self) -> Option<&BTreeMap<String, Vec<String>>> {
+        self.command.as_ref().map(|c| &c.replayed)
+    }
+
+    /// Recorded `completed` occurrences this stage never reached: a replay or repair that
+    /// doesn't follow the original's path.
+    pub(crate) fn unreached_recorded(&self) -> Vec<String> {
+        let Some(command) = self.command.as_ref() else { return Vec::new() };
+        let Some(recorded) = command.recorded.as_ref() else { return Vec::new() };
+        let reached: HashSet<&String> = command.replayed.values().flatten().collect();
+        recorded.completed.keys().filter(|o| !reached.contains(o)).cloned().collect()
+    }
+
+    /// B6: answers `call` from the stage's records, when it has one. `None` lets the call run
+    /// live (a `start` with nothing recorded for it). In `Replay` every call is answered here:
+    /// one without a record fails, and nothing reaches policy.
+    fn answer_from_record(&mut self, call: &ProtectedCall) -> Option<Result<Json, ProtectedCallError>> {
+        let answer = self.lookup_record(call);
+        if let (Some(Err(error)), Some(command)) = (&answer, self.command.as_mut()) {
+            command.record_refusals.push((error.reason().unwrap_or("refused").to_owned(), error.to_string()));
+        }
+        answer
+    }
+
+    /// The calls the records refused (B6), as (reason, message).
+    pub(crate) fn record_refusals(&self) -> &[(String, String)] {
+        self.command.as_ref().map_or(&[], |c| &c.record_refusals)
+    }
+
+    fn lookup_record(&mut self, call: &ProtectedCall) -> Option<Result<Json, ProtectedCallError>> {
+        let replay = self.mode == Mode::Replay;
+        let intent = self.intent_of(call);
+        let command = self.command.as_mut()?;
+        let Some(recorded) = command.recorded.as_ref() else {
+            return replay.then(|| Err(ProtectedCallError::NotRecorded(call.occurrence_id.clone())));
+        };
+        if recorded.blocked.contains(&call.occurrence_id) {
+            command.halted = true;
+            return Some(Err(ProtectedCallError::NotSelected(call.occurrence_id.clone())));
+        }
+        let Some(entry) = recorded.completed.get(&call.occurrence_id) else {
+            if command.halted {
+                return Some(Err(ProtectedCallError::NotSelected(call.occurrence_id.clone())));
+            }
+            return replay.then(|| Err(ProtectedCallError::NotRecorded(call.occurrence_id.clone())));
+        };
+        // Only the model's intents are answered, as only they are performed.
+        let Some((intent_id, _)) = intent else {
+            return Some(Err(ProtectedCallError::NotAdmitted(call.function.clone())));
+        };
+        if entry.argd != args_digest(&call.payload) {
+            return Some(Err(ProtectedCallError::ArgsMismatch(call.occurrence_id.clone())));
+        }
+        let result = entry.result.clone();
+        command.replayed.entry(intent_id).or_default().push(call.occurrence_id.clone());
+        Some(Ok(json!({ "status": "succeeded", "steps": [], "result": result })))
     }
 
     /// A runtime occurrence of `intent_id` (B5 §4): its id, for the dialect to invoke with. The
@@ -431,6 +568,10 @@ impl ExecContext {
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = Result<Json, ProtectedCallError>>,
     {
+        // A replay reads nothing (B6): its result comes from records alone.
+        if self.mode == Mode::Replay {
+            return Err(ProtectedCallError::NotAdmitted(format!("observe {key}")));
+        }
         let (Some(_), Some(session), Some(policy)) = (
             self.command.as_ref(),
             self.identity.command_session.clone(),
@@ -506,9 +647,15 @@ impl ExecContext {
     /// not allow, before any network call. The outcome of a write is recorded as an effect,
     /// whether it succeeds or not.
     pub async fn invoke(&mut self, call: &ProtectedCall) -> Result<Json, ProtectedCallError> {
-        // `evaluate` acts on nothing (C6 part 2): no protected call runs in it, whatever was
-        // granted, so a dialect that forgets to check the mode still can't sign or write.
-        if self.mode == Mode::Evaluate {
+        // A recorded occurrence (B6) answers from its record, with no bind, token or call; in a
+        // replay every call does, or fails. Nothing below runs for it.
+        if let Some(answer) = self.answer_from_record(call) {
+            return answer;
+        }
+        // Only `present` acts: no protected call runs in `evaluate` (C6 part 2), or in any other
+        // mode, whatever was granted, so a dialect that forgets to check the mode still can't
+        // sign or write.
+        if self.mode != Mode::Present {
             return Err(ProtectedCallError::NotAdmitted(call.function.clone()));
         }
         let grant = self

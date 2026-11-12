@@ -285,6 +285,10 @@ fn modes_are_evaluate_by_default_or_present() {
 #[tokio::test]
 async fn by_default_a_language_can_t_materialize() {
     let case = constant_case();
-    let model = Compiler::new(L0000).model(&case.ast, &json!({})).await.unwrap();
-    assert!(L0000.materialize(&model, &json!({}), &json!({})).is_none());
+    let compiler = Compiler::new(L0000);
+    let model = compiler.model(&case.ast, &json!({})).await.unwrap();
+    assert!(!L0000.materializes());
+    let refused = compiler.materialize(&model, &json!({}), &json!({}), graffiticode_l0000::Recorded::default()).await;
+    assert_eq!(refused.result.unwrap_err()[0].code.as_deref(), Some("materialize-unsupported"));
+    assert_eq!(refused.mode, Mode::Replay);
 }

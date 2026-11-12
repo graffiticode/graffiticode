@@ -165,17 +165,18 @@ pub trait Dialect: Send + Sync {
         None
     }
 
-    /// Rebuilds a command's result from its model, the inputs pinned before its first effect,
-    /// and the recorded outputs of its effect intents, by occurrence id, without performing any
-    /// effect (design §5, "Immediate commands"). `None` means this language can't, and a repaired
-    /// command's artifact is then replaced only by a new, fully completed command.
-    fn materialize(
-        &self,
-        _model: &Model,
-        _pinned_input: &Json,
-        _occurrence_outputs: &Json,
-    ) -> Option<Result<Json, Vec<Diagnostic>>> {
-        None
+    /// Whether a command stage of this language can be rebuilt from its records (B6,
+    /// docs/b6-command-repair-plan.md decision 6): its model replayed on its pinned input in
+    /// [`Mode::Replay`], each effect answered from its recorded result
+    /// ([`crate::Compiler::materialize`]), and a repair's `start` answering completed
+    /// occurrences the same way (decision 7a). A language opts in only when every effect it
+    /// performs goes through [`crate::ExecContext::invoke`] (so the kernel answers or refuses
+    /// it), its command branch runs in `Replay`, and it makes no network call of its own in
+    /// `Replay` (the kernel can refuse only what goes through the context). The preflight
+    /// manifest says so (`replay: 1`), and admission records it per stage (decision 11). The
+    /// default is `false`: nothing is materialized or repaired.
+    fn materializes(&self) -> bool {
+        false
     }
 }
 

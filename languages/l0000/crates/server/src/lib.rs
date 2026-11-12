@@ -34,7 +34,7 @@ use axum::{Json, Router};
 pub use graffiticode_l0000::egress;
 use graffiticode_l0000::policy_client::{HttpPolicyClient, MetadataIdTokens};
 use graffiticode_l0000::schema::HttpSchemas;
-use graffiticode_l0000::{Compiler, Dialect, Identity, Keyring, Lexicon, Mode, Model, RevisionIdentity};
+use graffiticode_l0000::{Compiler, Dialect, Identity, Keyring, Lexicon, Mode, Model, Recorded, RevisionIdentity};
 use serde_json::{Value, json};
 use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
@@ -353,18 +353,38 @@ async fn interpret(
         Ok(mode) => mode,
         Err(message) => return bad_request(&message),
     };
+    // B6: a stage's recorded occurrences, for a repair's `start` or a `materialize`.
+    let recorded = match body.get("recorded") {
+        None | Some(Value::Null) => None,
+        Some(json) => match Recorded::from_json(json) {
+            Ok(recorded) => Some(recorded),
+            Err(message) => return bad_request(&message),
+        },
+    };
     // `get` (the default) reads; `start` runs the model as a command's stage, under the command
-    // session the gateway obtained from policy for it (B5 §6 step 3).
+    // session the gateway obtained from policy for it (B5 §6 step 3), answering the recorded
+    // occurrences a repair gives it from their records (B6, decision 7a); `materialize`
+    // rebuilds a stage from its records alone, acting on nothing (B6, decision 6). A
+    // materialization runs with no identity: no user, connection or session reaches it.
     let interpreted = match body.get("operation").and_then(Value::as_str).unwrap_or("get") {
-        "get" => state.compiler.interpret(&model, &body["input"], &body["config"], mode, identity).await,
+        "get" if recorded.is_none() => {
+            state.compiler.interpret(&model, &body["input"], &body["config"], mode, identity).await
+        }
         "start" => {
             let command_session = body.get("commandSession").and_then(Value::as_str).map(str::to_owned);
             state
                 .compiler
-                .start(&model, &body["input"], &body["config"], Identity { command_session, ..identity })
+                .start_with(&model, &body["input"], &body["config"], Identity { command_session, ..identity }, recorded)
                 .await
         }
-        _ => return bad_request("operation must be \"get\" or \"start\""),
+        "materialize" => {
+            let Some(recorded) = recorded else {
+                return bad_request("materialize needs the stage's recorded occurrences");
+            };
+            state.compiler.materialize(&model, &body["input"], &body["config"], recorded).await
+        }
+        "get" => return bad_request("a read takes no recorded occurrences"),
+        _ => return bad_request("operation must be \"get\", \"start\" or \"materialize\""),
     };
     // Always reports the revision that answered: the API keys its stage cache by it (B3).
     envelope_response(&state, interpreted, true)

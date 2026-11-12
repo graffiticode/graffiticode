@@ -79,6 +79,16 @@ pub enum ProtectedCallError {
     BadSession,
     #[error("{0}")]
     Unavailable(String),
+    /// Replay (B6): this occurrence has no recorded result, so nothing can answer it.
+    #[error("occurrence {0} has no recorded result")]
+    NotRecorded(String),
+    /// Replay (B6): the call's arguments aren't the ones the occurrence was recorded with.
+    #[error("occurrence {0} was recorded with other arguments")]
+    ArgsMismatch(String),
+    /// A repair (B6): this occurrence is recorded but neither completed nor selected, so the
+    /// stage stops before it.
+    #[error("occurrence {0} is not selected by this repair")]
+    NotSelected(String),
 }
 
 impl ProtectedCallError {
@@ -88,6 +98,9 @@ impl ProtectedCallError {
             Self::NoSession => Some("no-session"),
             Self::BadSession => Some("bad-session"),
             Self::Unavailable(_) => Some("unavailable"),
+            Self::NotRecorded(_) => Some("not-recorded"),
+            Self::ArgsMismatch(_) => Some("args-mismatch"),
+            Self::NotSelected(_) => Some("not-selected"),
             Self::NotAdmitted(_) | Self::NoClient | Self::Unreachable { .. } => None,
         }
     }

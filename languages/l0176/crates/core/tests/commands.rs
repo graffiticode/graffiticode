@@ -216,3 +216,113 @@ async fn an_ordinary_compile_saves_and_signs_as_before() {
     assert!(fake.binds.lock().unwrap().is_empty());
     let _ = save_intent_id("0");
 }
+
+// B6 (docs/b6-command-repair-plan.md decisions 6, 7a and 11): a save stage rebuilt from its
+// recorded results, a repair that writes only what it was given, and the manifest that says
+// this revision can do both.
+
+mod replay {
+    use super::*;
+    use graffiticode_l0000::{Mode, Recorded, RecordedOccurrence};
+
+    /// What the original start recorded: each bound occurrence, with its args digest and the
+    /// result the broker answered it with.
+    fn recorded_from(fake: &Fake) -> Recorded {
+        let binds = fake.binds.lock().unwrap().clone();
+        let calls = fake.calls.lock().unwrap().clone();
+        let completed = binds
+            .iter()
+            .map(|b| {
+                assert!(calls.iter().any(|c| c.occurrence_id == b.occurrence_id));
+                let result = json!({ "saved": true, "references": [b.occurrence_id] });
+                (b.occurrence_id.clone(), RecordedOccurrence { argd: b.argd.clone(), result })
+            })
+            .collect();
+        Recorded { completed, ..Recorded::default() }
+    }
+
+    fn untouched(fake: &Fake) {
+        assert!(fake.binds.lock().unwrap().is_empty(), "nothing is bound");
+        assert!(fake.calls.lock().unwrap().is_empty(), "nothing is signed, written or sent");
+    }
+
+    #[tokio::test]
+    async fn every_save_program_materializes_to_its_original_answer() {
+        for src in [one_save(), two_saves(), mapped_by_lambda(), mapped_by_callback()] {
+            let (compiler, fake, model) = setup(&src, Fake::default()).await;
+            let original = compiler.start(&model, &json!({}), &json!({}), command()).await;
+            let original_value = original.result.expect("the saves ran").to_json();
+            let recorded = recorded_from(&fake);
+            let bound: Vec<String> = fake.binds.lock().unwrap().iter().map(|b| b.occurrence_id.clone()).collect();
+
+            // A fresh policy and broker: a replay must reach neither.
+            let (compiler, fresh, _) = setup(&src, Fake::default()).await;
+            let replayed = compiler.materialize(&model, &json!({}), &json!({}), recorded).await;
+            assert_eq!(replayed.mode, Mode::Replay);
+            assert_eq!(replayed.result.as_ref().map(|v| v.to_json()).ok(), Some(original_value), "{src}");
+            // The same occurrence ids, expanded with no session.
+            let mut ids: Vec<String> = replayed.replayed.unwrap().into_values().flatten().collect();
+            let mut expected = bound.clone();
+            ids.sort();
+            expected.sort();
+            assert_eq!(ids, expected, "{src}");
+            assert!(replayed.effects.is_empty());
+            untouched(&fresh);
+        }
+    }
+
+    #[tokio::test]
+    async fn a_save_without_its_record_fails_the_replay() {
+        let (compiler, fake, model) = setup(&two_saves(), Fake::default()).await;
+        compiler.start(&model, &json!({}), &json!({}), command()).await.result.expect("the saves ran");
+        let mut recorded = recorded_from(&fake);
+        let first = fake.binds.lock().unwrap()[0].occurrence_id.clone();
+        recorded.completed.remove(&first);
+        let (compiler, fresh, _) = setup(&two_saves(), Fake::default()).await;
+        let errors = compiler.materialize(&model, &json!({}), &json!({}), recorded).await.result.unwrap_err();
+        assert_eq!(errors[0].code.as_deref(), Some("not-recorded"), "{errors:?}");
+        untouched(&fresh);
+    }
+
+    #[tokio::test]
+    async fn a_repair_writes_only_the_save_it_was_given() {
+        // A completed, B failed: the repair answers A from its record and writes B once.
+        let (compiler, fake, model) = setup(&two_saves(), Fake::default()).await;
+        let original = compiler.start(&model, &json!({}), &json!({}), command()).await.result.unwrap().to_json();
+        let binds = fake.binds.lock().unwrap().clone();
+        let (a, b) = (binds[0].clone(), binds[1].clone());
+        let mut recorded = recorded_from(&fake);
+        recorded.completed.remove(&b.occurrence_id);
+
+        let (compiler, repair, _) = setup(&two_saves(), Fake::default()).await;
+        let repaired = compiler.start_with(&model, &json!({}), &json!({}), command(), Some(recorded)).await;
+        assert_eq!(repaired.result.as_ref().unwrap().to_json(), original, "A keeps its original references");
+        let bound = repair.binds.lock().unwrap().clone();
+        assert_eq!(bound.len(), 1);
+        assert_eq!((&bound[0].occurrence_id, &bound[0].argd), (&b.occurrence_id, &b.argd), "the same id and arguments");
+        let calls = repair.calls.lock().unwrap().clone();
+        assert_eq!(calls.iter().map(|c| c.occurrence_id.clone()).collect::<Vec<_>>(), vec![b.occurrence_id.clone()]);
+        assert_eq!(repaired.replayed.unwrap().into_values().flatten().collect::<Vec<_>>(), vec![a.occurrence_id]);
+    }
+
+    #[tokio::test]
+    async fn a_blocked_save_stops_the_repair_with_nothing_written() {
+        let (compiler, fake, model) = setup(&two_saves(), Fake::default()).await;
+        compiler.start(&model, &json!({}), &json!({}), command()).await.result.unwrap();
+        let first = fake.binds.lock().unwrap()[0].occurrence_id.clone();
+        let recorded = Recorded { blocked: [first].into_iter().collect(), ..Recorded::default() };
+        let (compiler, repair, _) = setup(&two_saves(), Fake::default()).await;
+        let errors =
+            compiler.start_with(&model, &json!({}), &json!({}), command(), Some(recorded)).await.result.unwrap_err();
+        assert_eq!(errors[0].code.as_deref(), Some("not-selected"), "{errors:?}");
+        untouched(&repair);
+    }
+
+    #[tokio::test]
+    async fn this_revision_says_it_replays() {
+        let manifest =
+            Compiler::new(L0176::new()).with_revision(revision()).preflight(program(&one_save()), "s0", &json!({}));
+        assert_eq!(serde_json::to_value(manifest.unwrap()).unwrap()["replay"], json!(1));
+        assert!(Compiler::new(L0176::new()).materializes());
+    }
+}
