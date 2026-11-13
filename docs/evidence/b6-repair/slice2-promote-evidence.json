@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmwfbfpg3-a8a20e",
+  "revision": "api-rmwfbfpg3-a8a20e",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (B6 slice 2 release; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-13T18:50:40.000Z",
+  "corpus": {
+    "ranAt": "2026-11-13T18:46:03.445Z",
+    "tasks": 36,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "stagedAt": "2026-11-13T18:45:46.839Z",
+    "source": "main at d5b0e8ab (#384)",
+    "image": "us-central1-docker.pkg.dev/graffiticode/services/api@sha256:5123187f6ddfc70fefb949145aa334c6ff62804b6f1f0dcc7d9dcc068a779f21",
+    "releasedBefore": {
+      "broker": "broker-rmwfao7du-d30ef1",
+      "policy": "policy-rmwfb0a6i-b1deb2 (meets its B6-recording floor; release-check ok)"
+    },
+    "canaryJob": {
+      "execution": "canary-hrqqx",
+      "apiUrl": "https://rmwfbfpg3-a8a20e---api-sja7fatcta-uc.a.run.app",
+      "args": "--chain-admission --after-cutover --command --l0185-tail",
+      "checks": 36,
+      "failed": 0
+    },
+    "recording": "Policy's request log for the L0185 -> L0176 command c:c096b395... through the tag: admit, PUT outputs/s1 (the fetch) before PUT inputs/s0, then settle, PUT outputs/s0, finish, published. Policy answered no worker-unsupported after its release; its only 4xx were the canary's own refusal probes.",
+    "repair": "disabled: no REPAIR_L0176 flag exists until slice 4"
+  }
+}

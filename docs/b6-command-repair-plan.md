@@ -151,7 +151,7 @@ Each has a recommendation; the plan below assumes it.
    - the crash at the output/pin boundary (fault `exit-after-output`), with the source changed and with it unavailable: recovery uses the recorded output and makes no L0185 call;
    - `resultFromEvidence(writeEvidence(p)) = run(p).result` over the corpus payloads, and an `applied` resolution of a receipt with no outcome carries the reconstructed result.
 
-   Released after slice 1's `l0176r` is live, then soaked, so that commands run from then on can be materialized.
+   Released after slice 1's `l0176r` is live, then soaked, so that commands run from then on can be materialized. **Released 2026-11-13: `broker-rmwfao7du-d30ef1`, `policy-rmwfb0a6i-b1deb2`, `api-rmwfbfpg3-a8a20e`** (from `d5b0e8ab`; [evidence](evidence/b6-repair/README.md)).
 
    **Who may own a recording command.** A worker states `recording: 1` on every lease (renewal and takeover), and Policy gives a command admitted as recording only to such a worker (`worker-unsupported` otherwise), in the same update as the lease. A worker from before slice 2 would fetch again what was recorded, and could fail a command whose output survives (the owner's review of #384). A command admitted without recording can be owned by any worker, as before. The sweep's due list applies the same rule before its limit: a worker without `recording: 1` is never listed a recording command, so commands it can't own never fill its sweeps and hide legacy ones it can (the owner's review of 9c61320f).
 
