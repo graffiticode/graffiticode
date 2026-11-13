@@ -281,6 +281,79 @@ Each has a recommendation; the plan below assumes it.
 
    Then a staged activation of `REPAIR_L0176=on`, with evidence.
 
+   **The drive, in detail** (proposed 2026-11-13, for the owner's review before anything is built or deployed). It reuses the C6 drive's shape (`docs/evidence/c6-l0176-drive/README.md`, `scripts/c6-drive.js`). The canary account (`995cc0bc…`) writes through its Learnosity sandbox connection (`conn-686c62bc…`) only, to non-production services that run beside production and never replace it.
+
+   *Services.* Recreated from the C6 drive's entries (`4e31be61`, retired in `f769e910`), at `main`, on their production twins' runtime accounts:
+
+   | Service | At | Configuration |
+   |---|---|---|
+   | `broker-faults` | Broker at `main` | `BROKER_FAULT_PRINCIPALS` = the canary uid; `BROKER_FAULTS` set per phase, unset otherwise |
+   | `l0176r-drive` | l0176r at `main` (replay-capable, `replay: 1`), redeployed over its C6 revision | `BROKER_URL` = broker-faults; pinnable and approved as its release does |
+   | `api-drive` | the api at `main` (slice 4) | `COMMANDS_L0176=on`, `REPAIR_L0176=on`, `COMPILE_GENERATION_L0176=b6-drive-1`, `BASE_URL_L0176` = l0176r-drive; `API_COMMAND_FAULTS` per phase; no sweeper of its own |
+
+   - **Proxy.** `compilers-l0176` gains exactly the broker-faults host again, rolled and verified as before (`verify-rollout.js`).
+   - **Production's role.** Production is touched only through what is already live: the production api's sweeper, which since slice 4 owns repairs, recovers the drive's orphaned commands and repairs, as it recovered C6's. L0185 stages run on production `l0185r`.
+   - **Retirement.** All three services are retired afterwards, as C6's were.
+
+   *One new fault.* Broker's `BROKER_FAULTS` gains `fail-write`: for the fault's principals, a write's receipt is claimed and its outcome recorded `failed` (`provider-rejected`) before any provider request, so nothing is written. It is refused on the production Broker, like `drop-outcome`. It gives a deterministic recorded `failed` that is eligible (decision 1). The other source, Policy's refusal after a mid-command narrowing, is used too, as C6's revoke phase did.
+
+   *A drive-owned source* for the L0185 cases: one public-read object in a bucket the drive owns, fetched as `https://www.googleapis.com/storage/v1/b/<bucket>/o/<object>?alt=media`. `www.googleapis.com` is already in `l0185r`'s egress allow list, so no proxy change is needed for it. The drive overwrites the object between a command and its recovery or materialization, using the operator's credentials, and checks that the source changed before going on.
+
+   *Owner actions,* run with `!` (the classifier refuses them to the agent):
+   1. **The canary window:** `roles/iam.serviceAccountOpenIdTokenCreator` on `api-run` and `console-run@graffiticode-app`, time-limited, as in C6.
+   2. **The bucket and object:** create the bucket, grant public read on the one object, and give the operator write access.
+   3. **Approve the proxy rollout** (`deploy/egress-proxy`).
+
+   *Phases* (`scripts/b6-drive.js`, state in `.gc-deploy/b6-drive/state.json`). Each phase's checks are mechanical, and any miss stops the drive.
+   1. **checks** (read-only):
+      - api-drive routes L0176 to l0176r-drive, with `REPAIR_L0176=on`;
+      - l0176r-drive's `BROKER_URL` is broker-faults, and its serving revision is approved and reports `replay: 1` at preflight;
+      - broker-faults faults the canary only;
+      - the source object is readable through `l0185r`.
+   2. **Failed-only selection.**
+      - Originals are made with `fail-write`: one save, two saves, and a save in a 3-element `map`. Each ends `failed`, with no provider write.
+      - A repair with no selection selects exactly the failed occurrences.
+      - Selecting a completed occurrence is refused `not-eligible`.
+      - Once `fail-write` is unset, each repair completes with one write per failed occurrence, and publishes as the original's artifact.
+   3. **A partly completed stage (7a).**
+      - A save in a 2-element `map`, with the connection narrowed to `init` once the first write has its final outcome: A `completed`, B `failed` by Policy refusal.
+      - Access is restored, and the repair makes exactly one write, B's.
+      - A's receipt count and reference are unchanged, and the artifact holds both references.
+   4. **Ledger exclusion.** For one original with a failed occurrence, 8 repairs with distinct keys are started at once.
+      - Exactly one claims; the others are refused `occurrence-claimed`, naming it, or `nothing-to-repair`.
+      - There is one provider write.
+      - A second request with the winner's key returns the same repair.
+   5. **Resumption (7b).**
+      - An L0176 → L0176 chain whose lower save fails (`fail-write`), so its head is `not-reached`.
+      - The repair writes the lower save, then runs the head, which claims its occurrence at bind.
+      - The original's artifact holds the head's reference.
+   6. **A dropped outcome (decision 2).**
+      - `drop-outcome` originals end `uncertain`.
+      - They are reconciled through Policy's `/v1/receipts/reconcile` as the console. The verdict is `applied`, and the ledger records it `completed` with its evidence result.
+      - `POST /command/:id/materialize` stores the artifact with no further provider write, and it equals the reference a clean run reports.
+      - Both cases are covered: one original whose lost answer was the head's, and one L0176 → L0176 original whose lower write was dropped, so the repair rebuilds the lower stage and resumes the head.
+   7. **Recovery across the output/pin boundary after the source changed.**
+      - L0176 over L0185 (the drive-owned source), with api-drive's `exit-after-output`: the worker exits after L0185's output is recorded, before L0176 pins its input.
+      - The drive changes the object.
+      - The production sweeper finishes the command. Its save's args are what was fetched before the change, and there is no second fetch-dependent difference.
+   8. **Materialization after the source changed.**
+      - L0176 over L0185, with api-drive's `lose-head-answer`: `completed`, with no result.
+      - The drive changes the object, then calls `/materialize`. The artifact is built from the recorded L0185 output (the old content), with no provider write.
+   9. **Revision gate (decision 11), if one is still reachable.** A command admitted on l0176r-drive's C6 revision (`rmw9qbqjr`, which predates replay) is refused `revision-unsupported` by `/repair`. If that revision can no longer be admitted (it isn't approved), this is reported as covered by the slice 4 tests, not driven.
+   10. **Same-key retries.** Every repair is requested again with its key, and answers its own record, with no new receipt.
+
+   The gate needs at least 10 successful repairs across phases 2–6; the drive makes about 16. Throughout, every provider reference is unique to its operation, so no write was repeated, and every artifact is the original invocation's, under the original's sequence.
+
+   *Evidence:* `docs/evidence/b6-repair-drive/`, with a README, the state file and per-run outputs, as C6's.
+
+   *Activation, after the drive passes:*
+   - a `deploy.json` change setting `REPAIR_L0176=on` with a fresh compile generation, if the read path needs one (it doesn't: repair adds routes and no read changes);
+   - `npm run deploy -- api --stage`;
+   - the canary job against the tag, plus one repair round-trip on the canary account against the tag (a `fail-write` original isn't possible on production's broker, so a narrowing-made `failed` occurrence is repaired);
+   - then promotion with evidence.
+
+   **Rollback:** a forward release with `REPAIR_L0176=off`. Deleting a live flag is refused. Repairs already pending still finish under any repairs-capable api, since the worker doesn't consult the flag.
+
 ## 4. Completion gate (as amended by decision 2)
 
 The master plan's gate (`docs/graffiticode-interpreter-plan.md`, "B6 completion gate"), amended in this PR: "reconciled to `failed`" is replaced by the reconciliation rule (an `uncertain` occurrence reconciled to `completed` stops being a candidate, and one that stays unresolved stays blocked). It also names the review's cases: a partly completed stage repaired with only its failed occurrence executed, a dropped outcome reconciled and materialized with no further write, and recovery that consumes recorded outputs. Every other item stands: ledger exclusion, resumption, materialization from recorded data under the latest repair's generation, and at least 10 successful repairs.
