@@ -73,6 +73,12 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ...cat("conflict", ["command-admitted", "not-admitted", "stage-closed", "close-mismatch", "occurrences-unsettled", "nothing-to-publish", "observation-not-recorded", "occurrence-not-bound"]),
   ...cat("permission", ["intent-not-admitted", "occurrence-mismatch", "bounds-exceeded"]),
   ...cat("malformed", ["not-supported"]),
+  // B6 slice 2 (docs/b6-command-repair-plan.md decision 5 and 2): a pinned
+  // input that isn't the output recorded below it, a stage output that
+  // differs from the one installed, a lease asked by a worker that doesn't
+  // record outputs for a command that does, and a reconciled write whose
+  // recorded outcome and evidence disagree about its result.
+  ...cat("conflict", ["input-not-output", "output-conflict", "worker-unsupported", "result-conflict"]),
   // The C6 bridge: a compile that ran as a command, answered with an outcome
   // other than completed (its status URL names it).
   ...cat("conflict", ["command-not-completed"]),

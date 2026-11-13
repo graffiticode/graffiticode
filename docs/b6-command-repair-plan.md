@@ -152,6 +152,17 @@ Each has a recommendation; the plan below assumes it.
    - `resultFromEvidence(writeEvidence(p)) = run(p).result` over the corpus payloads, and an `applied` resolution of a receipt with no outcome carries the reconstructed result.
 
    Released after slice 1's `l0176r` is live, then soaked, so that commands run from then on can be materialized.
+
+   **Who may own a recording command.** A worker states `recording: 1` on every lease (renewal and takeover), and Policy gives a command admitted as recording only to such a worker (`worker-unsupported` otherwise), in the same update as the lease. A worker from before slice 2 would fetch again what was recorded, and could fail a command whose output survives (the owner's review of #384). A command admitted without recording can be owned by any worker, as before.
+
+   **Release, staging and rollback.**
+   - **Order: Broker, then Policy, then the api.** Each is safe beside the older version of the next.
+     - A Broker without this slice returns no results, and Policy records outcomes without output.
+     - Policy before the api: no command is admitted as recording until the api's worker says it records, so the capability check has nothing to refuse yet.
+   - **Staging the api.** A command started through the staged tag is admitted as recording. If its worker dies, the live (older) api's sweeper is refused its takeover, so the command stays `pending`, never failed or fetched again, until a recording api is live. Promote, and the new sweeper recovers it. If the staged release is abandoned, such commands (the canary account's) stay pending until the next recording api ships. They are listed as pending commands with `admission.recording: 1`.
+   - **Rolling back the api** to a revision before this slice has the same effect on recording commands: they wait, pending, for a recording api, and rolling forward recovers them. Commands admitted without recording run as before.
+   - **Rolling back Policy** must follow an api rollback, never precede it. A recording api needs Policy's `outputs` route, and an older Policy would also hand recording commands to any worker. If Policy is rolled back alone, the recording worker's `installOutput` fails, its commands stay pending (nothing is failed or repeated), and they continue once Policy is restored.
+   - **Rolling back Broker** is harmless: receipts stop carrying results, and outputs recorded meanwhile are absent. Those occurrences simply can't be materialized later.
 3. **Policy: repairs and the ledger.**
    - the repair command kind;
    - the ledger;

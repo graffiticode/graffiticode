@@ -7,7 +7,7 @@
 //                                 -> { invocationToken, invocationId, seq, reused, ownerUid, contract, planDigest }
 //   POST /v1/commands  gateway + user  { connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker }
 //                                 -> { protocol: "legacy", invocationId, seq } | { protocol: "command", commandId, …, owned }
-//   POST /v1/commands/:id/lease gateway  { worker, generation, takeOver? }  renew, or take over once expired
+//   POST /v1/commands/:id/lease gateway  { worker, generation, takeOver?, recording? }  renew, or take over once expired
 //   GET  /v1/commands/:id gateway (+ user, who must own it)  the command's summary
 //   Owner writes and bookkeeping, gateway only, each with { generation, … } (fenced):
 //   PUT  /v1/commands/:id/models/:stage   { text, revision?, tagUrl? }   installed once
@@ -210,9 +210,9 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   }));
   router.post("/commands/:id/lease", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
-    const { worker, generation, takeOver = false } = req.body ?? {};
+    const { worker, generation, takeOver = false, recording = 0 } = req.body ?? {};
     res.set("Cache-Control", "no-store");
-    await decide(res, () => policy.leaseCommand({ caller, commandId: req.params.id, worker, generation, takeOver }));
+    await decide(res, () => policy.leaseCommand({ caller, commandId: req.params.id, worker, generation, takeOver, recording }));
   }));
   router.get("/commands/:id", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);

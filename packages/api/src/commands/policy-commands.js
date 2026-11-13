@@ -22,7 +22,9 @@ export const buildPolicyCommands = ({ policyUrl, idToken, fetch: doFetch = fetch
       call("POST", "/v1/commands", { authToken, body: { connectionId, taskId, inputDigest, idempotencyKey, lang, request: text, worker, create } }),
     get: ({ commandId, authToken = null }) => call("GET", at(commandId), { authToken }),
     due: ({ limit = 20 } = {}) => call("GET", `/v1/commands-due?limit=${limit}`),
-    lease: ({ commandId, worker, generation, takeOver = false }) => call("POST", `${at(commandId)}/lease`, { body: { worker, generation, takeOver } }),
+    // This worker records stage outputs (B6, decision 5), and says so on every
+    // lease: Policy gives a recording command only to a worker that does.
+    lease: ({ commandId, worker, generation, takeOver = false }) => call("POST", `${at(commandId)}/lease`, { body: { worker, generation, takeOver, recording: 1 } }),
     read: ({ commandId, what, stage = null }) => call("GET", `${at(commandId)}/records/${what}${stage ? `?stage=${encodeURIComponent(stage)}` : ""}`),
     installModel: ({ commandId, generation, stage, text, revision = null, tagUrl = null }) =>
       call("PUT", `${at(commandId)}/models/${stage}`, { body: { generation, text, revision, tagUrl } }),

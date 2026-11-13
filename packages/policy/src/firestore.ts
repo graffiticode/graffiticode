@@ -159,11 +159,11 @@ export const createFirestoreCommandStore = db => {
       const snap = await requestRef(commandId).get();
       return snap.exists ? snap.data().text : null;
     },
-    async renewLease({ commandId, worker, generation, now, leaseMs = COMMAND_LEASE_MS }) {
-      return change(commandId, c => renewedLease(c, { worker, generation, now, leaseMs }));
+    async renewLease({ commandId, worker, generation, now, leaseMs = COMMAND_LEASE_MS, recording = 0 }) {
+      return change(commandId, c => renewedLease(c, { worker, generation, now, leaseMs, recording }));
     },
-    async takeOver({ commandId, worker, expectedGeneration, now, leaseMs = COMMAND_LEASE_MS }) {
-      return change(commandId, c => takenOverLease(c, { worker, expectedGeneration, now, leaseMs }));
+    async takeOver({ commandId, worker, expectedGeneration, now, leaseMs = COMMAND_LEASE_MS, recording = 0 }) {
+      return change(commandId, c => takenOverLease(c, { worker, expectedGeneration, now, leaseMs, recording }));
     },
     // Two queries, each on its composite index in the policy database
     // (configs/firestore-policy-indexes.json): pending, and publication due,

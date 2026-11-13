@@ -299,7 +299,7 @@ export const createPolicy = ({
 
   // The lease, renewed by its owner or taken over once expired. Service only:
   // no user token, so recovery never depends on one (decision 3).
-  const leaseCommand = async ({ caller, commandId, worker, generation, takeOver = false }) => {
+  const leaseCommand = async ({ caller, commandId, worker, generation, takeOver = false, recording = 0 }) => {
     const record = { event: "command-lease", callerRole: caller?.role };
     if (!commands) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
@@ -309,8 +309,8 @@ export const createPolicy = ({
     }
     try {
       const command = takeOver
-        ? await commands.takeOver({ commandId, worker, expectedGeneration: generation, now: now() })
-        : await commands.renewLease({ commandId, worker, generation, now: now() });
+        ? await commands.takeOver({ commandId, worker, expectedGeneration: generation, now: now(), recording })
+        : await commands.renewLease({ commandId, worker, generation, now: now(), recording });
       if (takeOver) await audit({ ...record, commandId, invocationId: command.invocationId, outcome: "allowed", reason: "takeover" });
       return commandSummary(command);
     } catch (e) {

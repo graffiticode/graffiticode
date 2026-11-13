@@ -176,20 +176,21 @@ export const buildCommandWorker = ({
     // run), every stage runs, as before.
     const pinnedAt = stages.findLastIndex(stage => state.stages?.[stage]?.pinnedInput);
     // B6 (docs/b6-command-repair-plan.md decision 5): a command that records
-    // outputs starts at the first stage, in execution order, with no recorded
-    // output. A stage whose output is recorded never runs again, with or
-    // without intents: its output is what it produced, whatever its source
-    // says now or whether it still answers. The output below is installed
-    // before the next stage pins its input, and Policy refuses a pin that
-    // differs from it, so where both exist they agree. An output too large to
-    // record falls back to the pinned input above it, as before B6.
+    // outputs starts just above the furthest stage, in execution order, whose
+    // output is recorded. Everything below it is in that output, so no stage
+    // at or below it runs again, with or without intents: its output is what
+    // it produced, whatever its source says now or whether it still answers.
+    // An output too large to record is no boundary, but one recorded later is
+    // (an earlier gap never sends recovery back). A later pinned input is a
+    // boundary too, and the furthest of the two wins. The output below is
+    // installed before the next stage pins its input, and Policy refuses a
+    // pin that differs from it, so where both exist they agree.
     const recording = state.admission?.recording === 1;
     const outputDigest = stage => {
       const output = state.stages?.[stage]?.output;
       return typeof output === "string" && output !== "too-large" ? output : null;
     };
-    const firstUnrecorded = recording ? stages.findIndex(stage => !outputDigest(stage)) : -1;
-    const fromOutputs = recording ? (firstUnrecorded < 0 ? stages.length : firstUnrecorded) : 0;
+    const fromOutputs = recording ? stages.findLastIndex(stage => outputDigest(stage)) + 1 : 0;
     const resumeAt = Math.max(pinnedAt, fromOutputs);
     if (resumeAt > 0 && resumeAt === fromOutputs && outputDigest(stages[resumeAt - 1])) {
       const below = stages[resumeAt - 1];
